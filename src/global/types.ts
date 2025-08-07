@@ -72,7 +72,7 @@ export type DialogType = {
   footerButtons?: TeactNode[];
 };
 
-export type LangCode = 'en' | 'es' | 'ru' | 'zh-Hant' | 'zh-Hans' | 'tr' | 'de' | 'th' | 'uk' | 'pl';
+export type LangCode = 'en' | 'es' | 'ru' | 'zh-Hant' | 'zh-Hans' | 'tr' | 'de' | 'th' | 'uk' | 'pl' | 'it';
 
 export interface LangItem {
   langCode: LangCode;
