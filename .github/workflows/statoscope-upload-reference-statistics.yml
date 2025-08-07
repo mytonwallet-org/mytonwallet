@@ -1,3 +1,4 @@
+[![Statoscope upload reference statistics](https://github.com/mytonwalletorg/mytonwallet/actions/workflows/statoscope-upload-reference-statistics.yml/badge.svg?branch=master&event=workflow_run)](https://github.com/mytonwalletorg/mytonwallet/actions/workflows/statoscope-upload-reference-statistics.yml)
 name: Statoscope upload reference statistics
 
 on:
