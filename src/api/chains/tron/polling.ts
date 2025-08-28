@@ -22,7 +22,7 @@ import { buildTokenSlug } from '../../common/tokens';
 import { txCallbacks } from '../../common/txCallbacks';
 import { FIRST_TRANSACTIONS_LIMIT } from '../../constants';
 import { getTokenTransactionSlice, mergeActivities } from './transactions';
-import { getTrc20Balance, getWalletBalance } from './wallet';
+import { getTrc20Balance, getWalletBalance, isTronAccountMultisig } from './wallet';
 
 type OnUpdatingStatusChange = (kind: ApiUpdatingStatus['kind'], isUpdating: boolean) => void;
 
@@ -53,6 +53,11 @@ export function setupActivePolling(
     onUpdate,
     onUpdatingStatusChange.bind(undefined, 'activities'),
   );
+  const multisigPolling = setupMultisigPolling(
+    accountId,
+    address,
+    onUpdate,
+  );
 
   let isFirstUpdate = true;
 
@@ -61,13 +66,17 @@ export function setupActivePolling(
       await Promise.all([
         balancePolling.update(),
         activityPolling.update(),
+        multisigPolling.update(),
       ]);
     } else {
       // Legacy (timer) polling mode.
       // The balance is checked before the activities, because the backend throttling for balance is much looser.
       const hasBalanceChanged = await balancePolling.update();
       if (hasBalanceChanged) {
-        await activityPolling.update();
+        await Promise.all([
+          activityPolling.update(),
+          multisigPolling.update(),
+        ]);
       }
     }
 
@@ -132,6 +141,39 @@ function setupBalancePolling(
     }
 
     return false;
+  }
+
+  return { update };
+}
+
+function setupMultisigPolling(
+  accountId: string,
+  address: string,
+  onUpdate: OnApiUpdate,
+) {
+  const { network } = parseAccountId(accountId);
+  let isMultisig: boolean | undefined;
+
+  async function update() {
+    try {
+      const multisigStatus = await isTronAccountMultisig(network, address);
+      const hasChanged = isMultisig !== multisigStatus;
+      isMultisig = multisigStatus;
+
+      if (hasChanged) {
+        onUpdate({
+          type: 'updateAccount',
+          accountId,
+          chain: 'tron',
+          isMultisig: multisigStatus,
+        });
+      }
+
+      return hasChanged;
+    } catch (err) {
+      logDebugError('setupMultisigPolling update', err);
+      return false;
+    }
   }
 
   return { update };

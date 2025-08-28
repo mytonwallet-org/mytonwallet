@@ -257,17 +257,14 @@ $signSizeDiff: 0.375rem;
 }
 
 .currencySwitcherMenu {
-  --offset-x-value: 25%;
+  --offset-y-value: -0.75rem;
 }
 
 .addressContainer {
   margin: auto auto 0.75rem;
 
-  .icon {
-    position: relative;
-    top: -0.0625rem;
-    left: -0.125rem;
-    font-size: 0.8125rem;
+  .iconCaretSmall {
+    vertical-align: -0.1875rem;
   }
 }
 

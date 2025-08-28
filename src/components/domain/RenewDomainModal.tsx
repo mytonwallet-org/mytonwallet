@@ -68,7 +68,6 @@ function RenewDomainModal({
     cancelDomainsRenewal,
     clearDomainsRenewalError,
     submitDomainsRenewal,
-    submitDomainsRenewalHardware,
     checkDomainsRenewalDraft,
     showActivityInfo,
   } = getActions();
@@ -101,7 +100,7 @@ function RenewDomainModal({
   });
 
   const handleHardwareSubmit = useLastCallback(() => {
-    submitDomainsRenewalHardware();
+    submitDomainsRenewal();
   });
 
   const handleInfoClick = useLastCallback(() => {

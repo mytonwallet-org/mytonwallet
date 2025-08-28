@@ -3,6 +3,7 @@ export enum ApiCommonError {
   ServerError = 'ServerError',
   DebugError = 'DebugError',
   UnsupportedVersion = 'UnsupportedVersion',
+  InvalidPassword = 'InvalidPassword',
 }
 
 export enum ApiAuthError {
@@ -16,7 +17,6 @@ export enum ApiTransactionDraftError {
   InvalidToAddress = 'InvalidToAddress',
   InsufficientBalance = 'InsufficientBalance',
   InvalidStateInit = 'InvalidStateInit',
-  StateInitWithoutBin = 'StateInitWithoutBin',
   DomainNotResolved = 'DomainNotResolved',
   WalletNotInitialized = 'WalletNotInitialized',
   InvalidAddressFormat = 'InvalidAddressFormat',
@@ -28,10 +28,22 @@ export enum ApiTransactionError {
   IncorrectDeviceTime = 'IncorrectDeviceTime',
   InsufficientBalance = 'InsufficientBalance',
   UnsuccesfulTransfer = 'UnsuccesfulTransfer',
-  NotSupportedHardwareOperation = 'NotSupportedHardwareOperation',
-  HardwareBlindSigningNotEnabled = 'HardwareBlindSigningNotEnabled',
   WrongAddress = 'WrongAddress',
   WrongNetwork = 'WrongNetwork',
+  ConcurrentTransaction = 'ConcurrentTransaction',
 }
 
-export type ApiAnyDisplayError = ApiCommonError | ApiAuthError | ApiTransactionDraftError | ApiTransactionError;
+export enum ApiHardwareError {
+  /** Used when the Ledger TON app needs to be updated to support this transaction */
+  HardwareOutdated = 'HardwareOutdated',
+  BlindSigningNotEnabled = 'BlindSigningNotEnabled',
+  RejectedByUser = 'RejectedByUser',
+  ProofTooLarge = 'ProofTooLarge',
+}
+
+export type ApiAnyDisplayError =
+  | ApiCommonError
+  | ApiAuthError
+  | ApiTransactionDraftError
+  | ApiTransactionError
+  | ApiHardwareError;

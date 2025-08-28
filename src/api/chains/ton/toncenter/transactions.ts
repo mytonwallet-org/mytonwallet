@@ -3,7 +3,6 @@ import type { ApiTransactionExtended } from '../types';
 import type { AddressBook, Transaction, TransactionMessage } from './types';
 
 import { TONCOIN } from '../../../../config';
-import { buildTxId } from '../../../../util/activities';
 import { toSeconds } from '../../../../util/datetime';
 import { omitUndefined } from '../../../../util/iteratees';
 import { toBase64Address } from '../util/tonCore';
@@ -102,7 +101,6 @@ export function parseRawTransaction(
     const fee = oneMsgFee + BigInt(fwdFee ?? 0);
 
     const tx: ApiTransactionExtended = omitUndefined({
-      txId: msgs.length > 1 ? buildTxId(hash, i) : buildTxId(hash),
       timestamp,
       isIncoming,
       fromAddress,

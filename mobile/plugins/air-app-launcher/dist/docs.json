@@ -1,0 +1,25 @@
+{
+  "api": {
+    "name": "AirAppLauncherPlugin",
+    "slug": "airapplauncherplugin",
+    "docs": "",
+    "tags": [],
+    "methods": [
+      {
+        "name": "switchToAir",
+        "signature": "() => void",
+        "parameters": [],
+        "returns": "void",
+        "tags": [],
+        "docs": "",
+        "complexTypes": [],
+        "slug": "switchtoair"
+      }
+    ],
+    "properties": []
+  },
+  "interfaces": [],
+  "enums": [],
+  "typeAliases": [],
+  "pluginConfigs": []
+}

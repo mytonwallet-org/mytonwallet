@@ -51,6 +51,7 @@ import useInfiniteScroll from '../../../../hooks/useInfiniteScroll';
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
 import useLayoutEffectWithPrevDeps from '../../../../hooks/useLayoutEffectWithPrevDeps';
+import usePrevious from '../../../../hooks/usePrevious';
 import useSyncEffectWithPrevDeps from '../../../../hooks/useSyncEffectWithPrevDeps';
 import useUpdateIndicator from '../../../../hooks/useUpdateIndicator';
 
@@ -178,7 +179,11 @@ function Activities({
 
   const getListItemKey = useListItemKeys(viewportIds ?? EMPTY_ARRAY, byId ?? EMPTY_DICTIONARY);
 
-  const shouldUseAnimations = Boolean(isActive && !hasUserScrolledRef.current);
+  // The move animation should remain only for the case when new transactions appear in the feed.
+  // At the same time, the smooth feed appearance animation should be kept when the loading is completed.
+  const prevSlug = usePrevious(slug);
+  const prevIsLoading = usePrevious(listItemIds === undefined);
+  const shouldUseAnimations = Boolean(isActive && !hasUserScrolledRef.current && (prevIsLoading || prevSlug === slug));
 
   const itemPositionById = useMemo(() => {
     const itemPositionById: Record<string, ItemPosition> = {};

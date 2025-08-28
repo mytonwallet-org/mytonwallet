@@ -247,6 +247,7 @@ Confirm Unstaking: Entstaken bestätigen
 Request for unstaking is sent!: Die Anfrage zum unstaken wurde gesendet!
 $unstaking_when_receive: Sie erhalten Ihre unstaked Einzahlung in %time%.
 $unstaking_when_receive_with_amount: Du wirst deine abgezogenen %amount% in %time% erhalten.
+$unstaking_when_receive_with_amount_ethena: "%amount% werden in %time% zur Auszahlung verfügbar sein."
 $unstake_insufficient_balance: Sie müssen %balance% auf Ihrem Hauptguthaben haben, um mit dem unstaken fortzufahren.
 at %annual_yield%: bei %annual_yield%
 Est. %annual_yield%: Geschätzte %annual_yield%
@@ -257,8 +258,6 @@ Unstaking: Entstaken
 $unstake_action: Entstaken
 The network fee has slightly changed, try sending again.: Die Netzwerkgebühr hat sich geringfügig geändert, versuchen Sie es erneut zu senden.
 Transfer was unsuccessful. Try again later.: Die Überweisung war nicht erfolgreich. Versuchen Sie es später erneut.
-Unstaking was unsuccessful. Try again later.: Das unstaken war nicht erfolgreich. Versuchen Sie es später erneut.
-Staking was unsuccessful. Try again later.: Das Staken war nicht erfolgreich. Versuchen Sie es später erneut.
 Invalid amount: Ungültiger Betrag
 Invalid address: Ungültige Adresse
 Domain is not connected to a wallet: Die Domain ist nicht mit einer Wallet verbunden.
@@ -552,7 +551,7 @@ To use this feature, first enable biometrics in your phone settings.: Um diese F
 Open Settings: Einstellungen öffnen
 $service_token_transfer_warning: Sie sind dabei, ein wichtiges Service-Token zu übertragen, das erforderlich ist, um Ihre Einzahlung abzuheben oder Servicevorgänge abzuschließen. Bitte stellen Sie sicher, dass dies die beabsichtigte Aktion ist.
 No Price: Kein preis
-$ledger_not_supported_operation: Diese Operation wird von Ihrer Version der Ledger TON App nicht unterstützt. Bitte aktualisieren Sie sie mit Ledger Live.
+$ledger_outdated: Diese Operation wird von Ihrer Version der Ledger TON App nicht unterstützt. Bitte aktualisieren Sie sie mit Ledger Live.
 $ledger_unsupported_ton_connect: TonConnect wird nicht durch die Version Ihrer Ledger Ton App unterstützt. Bitte aktualisieren Sie es mit Ledger Live.
 $dapp_transfer_tokens_burn: Brennen von %amount%
 $dapp_dns_set_wallet_payload: Ändern der verknüpften Brieftasche der Domäne %domain% in %address%
@@ -763,13 +762,13 @@ Hide Sensitive Data: Sensible Daten ausblenden
 Copy Address: Adresse kopieren
 Copy Transaction ID: Transaktions-ID kopieren
 Requesting Unstake: Unstake wird angefordert
-Unstake Requested: Unstake angefordert
+Requested Unstake: Unstake beantragt
 $request_unstake_action: Unstake anfordern
 Calling Contract: Vertrag wird aufgerufen
-Contract Called: Vertrag aufgerufen
+Called Contract: Vertrag aufgerufen
 $call_contract_action: Vertrag aufrufen
 Deploying Contract: Vertrag wird bereitgestellt
-Contract Deployed: Vertrag bereitgestellt
+Deployed Contract: Vertrag bereitgestellt
 $deploy_contract_action: Vertrag bereitstellen
 Minting: Minting
 Minted: Gemintet
@@ -777,39 +776,39 @@ $mint_action: Minten
 Burning: Verbrennen
 Burned: Verbrannt
 $burn_action: Verbrennen
-Address Updated: Adresse aktualisiert
 Updating Address: Adresse wird aktualisiert
+Updated Address: Adresse aktualisiert
 $update_address_action: Adresse aktualisieren
-Site Updated: Webseite aktualisiert
 Updating Site: Webseite wird aktualisiert
+Updated Site: Website aktualisiert
 $update_site_action: Website aktualisieren
-Subdomains Updated: Subdomains aktualisiert
 Updating Subdomains: Subdomains werden aktualisiert
+Updated Subdomains: Subdomains aktualisiert
 $update_subdomains_action: Subdomains aktualisieren
-Storage Updated: Speicher aktualisiert
 Updating Storage: Speicher wird aktualisiert
+Updated Storage: Speicher aktualisiert
 $update_storage_action: Speicher aktualisieren
-Domain Record Deleted: Domain-Eintrag gelöscht
 Deleting Domain Record: Domain-Eintrag wird gelöscht
+Deleted Domain Record: Domain-Eintrag gelöscht
 $delete_domain_record_action: Domain-Eintrag gelöschen
 Renewing Domain: Domain wird erneuert
-Domain Renewed: Domain erneuert
+Renewed Domain: Domain verlängert
 $renew_domain_action: Domain erneuern
 Providing Liquidity: Liquidität wird bereitgestellt
-Liquidity Provided: Liquidität bereitgestellt
+Provided Liquidity: Liquidität bereitgestellt
 $provide_liquidity_action: Liquidität bereitstellen
 Withdrawing Liquidity: Liquidität wird abgezogen
-Liquidity Withdrawn: Liquidität abgezogen
+Withdrawn Liquidity: Liquidität entnommen
 $withdraw_liquidity_action: Liquidität abziehen
 Bounced: Zurückgesendet
 Bouncing: Zurückspringen
 $bounce_action: Zurücksenden
 NFT Auction Bid: NFT-Auktionsgebot
 Bidding at NFT Auction: Bieten bei NFT-Auktion
-NFT Bought: NFT gekauft
 Buying NFT: NFT wird gekauft
+Bought NFT: NFT gekauft
 $buy_nft_action: NFT kaufen
-NFT Sold: NFT verkauft
+Sold NFT: NFT verkauft
 Selling NFT: NFT wird verkauft
 $sell_nft_action: NFT verkaufen
 Receiving: Empfangen
@@ -868,12 +867,11 @@ Renew Domain: Domain erneuern
 Renew Domains: Domains erneuern
 Some domains are about to expire: Einige Domains laufen bald ab
 $domain_expire: "**%domain%** läuft %days% ab"
-'%token% Staking': '%token% Staking'
+"%token% Staking": "%token% Staking"
 Add Tab: Tab hinzufügen
 Remove Tab: Tab entfernen
 Link Domain: Domain verknüpfen
 Domain Linked!: Domain verknüpft!
-Failed to process domain operation. Please try again.: Fehler bei der Domain-Operation. Bitte versuchen Sie es erneut.
 $domains_amount %1$d:
   zeroValue: Keine Domains
   oneValue: "%1$d Domain"
@@ -893,16 +891,16 @@ Link: Verknüpfen
 Confirm Renewing: Erneuerung bestätigen
 Confirm Linking: Verknüpfung bestätigen
 $domains_expire:
-  zeroValue: "Keine Domains laufen %days% ab"
+  zeroValue: Keine Domains laufen %days% ab
   oneValue: "**%domain% Domain** läuft %days% ab"
   otherValue: "**%domain% Domains** laufen %days% ab"
 $in_days:
   zeroValue: heute
   oneValue: morgen
-  otherValue: "in %1$d Tagen"
+  otherValue: in %1$d Tagen
 $domain_was_expired: "**%domain%** ist abgelaufen"
 $domains_was_expired:
-  zeroValue: "Keine Domains sind abgelaufen"
+  zeroValue: Keine Domains sind abgelaufen
   oneValue: "**%domain% Domain** ist abgelaufen"
   otherValue: "**%domain% Domains** sind abgelaufen"
 Reload: Neu laden
@@ -943,6 +941,9 @@ Telegram Gifts: Telegram-Geschenke
 Collectibles: Sammlerstücke
 Bluetooth unavailable: Bluetooth nicht verfügbar
 $bluetooth_enable_guide: Aktivieren Sie Bluetooth in den Geräteeinstellungen und erlauben Sie der App den Zugriff auf Bluetooth.
+Another transaction was sent from this wallet simultaneously. Please try again.: Eine weitere Transaktion wurde gleichzeitig von dieser Wallet gesendet. Bitte versuchen Sie es erneut.
+Canceled by the user: Vom Benutzer abgebrochen
+The proof for signing provided by the Dapp is too large: Der vom Dapp bereitgestellte Signaturnachweis ist zu groß
 $domain_like_scam_warning: |
   Die eingegebene Adresse ist wahrscheinlich ein **BETRUG**. Dies ist **KEINE** Adresse einer Börse oder Ihres Token-Wallets.
 
@@ -951,3 +952,8 @@ $domain_like_scam_warning: |
   **Brechen Sie** diese Überweisung ab und **vertrauen Sie niemals** Fremden. Erfahren Sie mehr über diesen und andere Betrugsmethoden in unserem %help_center_link%.
 Allow Suspicious Actions: Verdächtige Aktionen erlauben
 $allow_suspicious_actions_description: Erlaubt das Senden an verdächtige Adressen und die Interaktion mit potenziell unsicheren Verträgen.
+Multisig Wallet Detected: Multisig-Wallet erkannt
+$multisig_warning_text: "**Geld abheben** aus dieser Wallet über MyTonWallet ist **nicht möglich**. Stellen Sie sicher, dass es wirklich Ihre ist — andernfalls könnte es ein Betrug sein. %multisig_warning_link%"
+$multisig_warning_link: Klicken Sie, um mehr zu erfahren.
+Multisig sending disabled: Kein Senden von Multisig
+$try_new_air_version: Probieren Sie die native App-Erfahrung — leichter, schneller und für Ihr Gerät entwickelt. Sie können jederzeit zurückwechseln.

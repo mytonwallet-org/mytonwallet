@@ -12,7 +12,6 @@ import type {
   SignDataPayload,
   SignDataRpcRequest,
   SignDataRpcResponse,
-  SignDataRpcResponseSuccess,
   TonProofItem,
   TonProofItemReplySuccess,
   WalletResponseTemplateError,
@@ -24,7 +23,11 @@ import type {
   TonTransferParams,
 } from '../chains/ton/types';
 import type {
-  ApiAccountWithMnemonic,
+  confirmDappRequestConnect,
+  confirmDappRequestSendTransaction,
+  confirmDappRequestSignData,
+} from '../methods';
+import type {
   ApiAnyDisplayError,
   ApiDapp,
   ApiDappConnectionType,
@@ -33,7 +36,6 @@ import type {
   ApiDappTransfer,
   ApiNetwork,
   ApiParsedPayload,
-  ApiSignedTransfer,
   ApiTonWallet,
   OnApiUpdate,
 } from '../types';
@@ -53,13 +55,12 @@ import safeExec from '../../util/safeExec';
 import { getTonConnectMaxMessages, tonConnectGetDeviceInfo } from '../../util/tonConnectEnvironment';
 import chains from '../chains';
 import { getContractInfo, parsePayloadBase64 } from '../chains/ton';
-import { fetchKeyPair } from '../chains/ton/auth';
 import { getIsRawAddress, getWalletPublicKey, toBase64Address, toRawAddress } from '../chains/ton/util/tonCore';
 import { fetchStoredTonAccount, getCurrentAccountId, getCurrentAccountIdOrFail } from '../common/accounts';
 import { getKnownAddressInfo } from '../common/addresses';
 import { createDappPromise } from '../common/dappPromises';
 import { isUpdaterAlive } from '../common/helpers';
-import { bytesToBase64, hexToBytes } from '../common/utils';
+import { hexToBytes } from '../common/utils';
 import * as apiErrors from '../errors';
 import { ApiServerError } from '../errors';
 import { callHook } from '../hooks';
@@ -73,7 +74,6 @@ import {
 import { createLocalActivitiesFromEmulation, createLocalTransactions } from '../methods/transactions';
 import * as errors from './errors';
 import { UnknownAppError } from './errors';
-import { signDataWithPrivateKey, signTonProofWithPrivateKey } from './signing';
 import { getTransferActualToAddress, isTransferPayloadDangerous, isValidString, isValidUrl } from './utils';
 
 const BLANK_GIF_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
@@ -149,35 +149,21 @@ export async function connect(request: ApiDappRequest, message: ConnectRequest, 
       proof,
     });
 
-    const promiseResult: {
-      accountId?: string;
-      password?: string;
-      signature?: string;
-    } | undefined = await promise;
+    const promiseResult: Parameters<typeof confirmDappRequestConnect>[1] = await promise;
 
-    accountId = promiseResult!.accountId!;
+    accountId = promiseResult.accountId;
     request.accountId = accountId;
     await addDapp(accountId, dapp, uniqueId);
 
     const account = await fetchStoredTonAccount(accountId);
-    const { address } = account.ton;
 
     const deviceInfo = tonConnectGetDeviceInfo(account);
     const items: ConnectItemReply[] = [
-      await buildTonAddressReplyItem(accountId, account.ton),
+      buildTonAddressReplyItem(accountId, account.ton),
     ];
 
     if (proof) {
-      const { password, signature } = promiseResult!;
-
-      let proofReplyItem: TonProofItemReplySuccess;
-      if (password) {
-        proofReplyItem = await signTonProof(accountId, account as ApiAccountWithMnemonic, password, address, proof);
-      } else {
-        proofReplyItem = buildTonProofReplyItem(proof, signature!);
-      }
-
-      items.push(proofReplyItem);
+      items.push(buildTonProofReplyItem(proof, promiseResult.proofSignature!));
     }
 
     onUpdate({ type: 'updateDapps' });
@@ -221,7 +207,7 @@ export async function reconnect(request: ApiDappRequest, id: number): Promise<Co
 
     const deviceInfo = tonConnectGetDeviceInfo(account);
     const items: ConnectItemReply[] = [
-      await buildTonAddressReplyItem(accountId, account.ton),
+      buildTonAddressReplyItem(accountId, account.ton),
     ];
 
     return {
@@ -317,10 +303,7 @@ export async function sendTransaction(
       isSse: Boolean('sseOptions' in request && request.sseOptions),
     });
 
-    const {
-      preparedMessages,
-      checkResult,
-    } = await checkTransactionMessages(accountId, messages, network);
+    const checkResult = await checkTransactionMessages(accountId, messages, network);
 
     if ('error' in checkResult) {
       throw new errors.BadRequestError(checkResult.error, checkResult.error);
@@ -344,57 +327,41 @@ export async function sendTransaction(
       dapp,
       transactions: transactionsForRequest,
       emulation: checkResult.emulation.isFallback ? undefined : pick(checkResult.emulation, ['activities', 'realFee']),
+      validUntil,
       vestingAddress,
     });
 
-    const response: string | ApiSignedTransfer[] = await promise;
+    const signedTransactions: Parameters<typeof confirmDappRequestSendTransaction>[1] = await promise;
 
     if (validUntil && validUntil < (Date.now() / 1000)) {
       throw new errors.BadRequestError('The confirmation timeout has expired');
     }
 
-    let boc: string | undefined;
-    let error: string | undefined;
-    let msgHashNormalized: string | undefined;
+    const sentTransactions = await ton.sendSignedTransactions(accountId, signedTransactions);
 
-    if (isLedger) {
-      const signedTransfers = response as ApiSignedTransfer[];
-      const submitResult = await ton.sendSignedMessages(accountId, signedTransfers);
-      boc = submitResult.firstBoc;
-      msgHashNormalized = submitResult.msgHashesNormalized[0];
+    if ('error' in sentTransactions) {
+      throw new errors.UnknownError(sentTransactions.error, sentTransactions.error);
+    }
 
-      if (submitResult.successNumber > 0) {
-        if (submitResult.successNumber < messages.length) {
-          onUpdate({
-            type: 'showError',
-            error: ApiTransactionError.PartialTransactionFailure,
-          });
-        }
-      } else {
-        error = 'Failed transfers';
-      }
-    } else {
-      const password = response as string;
-      const submitResult = await ton.submitMultiTransfer({
-        accountId, password, messages: preparedMessages, expireAt: validUntil,
+    if (sentTransactions.length === 0) {
+      throw new errors.UnknownError('Failed transfers');
+    }
+
+    if (sentTransactions.length < signedTransactions.length) {
+      onUpdate({
+        type: 'showError',
+        error: ApiTransactionError.PartialTransactionFailure,
       });
-      if ('error' in submitResult) {
-        error = submitResult.error;
-      } else {
-        ({ boc, msgHashNormalized } = submitResult);
-      }
     }
 
-    if (error) {
-      throw new errors.UnknownError(error);
-    }
+    const externalMsgHashNorm = sentTransactions[0].msgHashNormalized;
 
     if (!checkResult.emulation.isFallback && checkResult.emulation.activities?.length > 0) {
       // Use rich emulation activities for optimistic UI
       createLocalActivitiesFromEmulation(
         accountId,
         'ton',
-        msgHashNormalized!,
+        externalMsgHashNorm, // This is not always correct for Ledger, because in that case the messages are split into individual transactions which have different message hashes. Though, this appears not to cause problems.
         checkResult.emulation.activities,
       );
     } else {
@@ -403,14 +370,14 @@ export async function sendTransaction(
         const { amount, normalizedAddress, payload, networkFee } = transaction;
         const comment = payload?.type === 'comment' ? payload.comment : undefined;
         return {
-          txId: msgHashNormalized!,
+          id: externalMsgHashNorm,
           amount,
           fromAddress: address,
           toAddress: normalizedAddress,
           comment,
           fee: networkFee,
           slug: TONCOIN.slug,
-          externalMsgHashNorm: msgHashNormalized,
+          externalMsgHashNorm, // This is not always correct for Ledger, because in that case the messages are split into individual transactions which have different message hashes. Though, this appears not to cause problems.
         };
       }));
     }
@@ -422,7 +389,7 @@ export async function sendTransaction(
     });
 
     return {
-      result: boc!,
+      result: sentTransactions[0].boc,
       id: message.id,
     };
   } catch (err) {
@@ -493,10 +460,6 @@ export async function signData(
 ): Promise<SignDataRpcResponse> {
   try {
     const { url, accountId } = await ensureRequestParams(request);
-    const account = await fetchStoredTonAccount(accountId);
-
-    if (account.type === 'view') throw new errors.MethodNotSupportedError('Not supported by view-only accounts');
-    if (account.type === 'ledger') throw new errors.MethodNotSupportedError('Not supported by Ledger');
 
     await openExtensionPopup(true);
 
@@ -520,15 +483,7 @@ export async function signData(
       payloadToSign,
     });
 
-    const password: string = await promise;
-
-    const result = await performSignData(
-      accountId,
-      account,
-      dapp,
-      payloadToSign,
-      password,
-    );
+    const result: Parameters<typeof confirmDappRequestSignData>[1] = await promise;
 
     onUpdate({
       type: 'dappSignDataComplete',
@@ -568,7 +523,7 @@ async function checkTransactionMessages(
     };
   });
 
-  const checkResult = await ton.checkMultiTransactionDraft(accountId, preparedMessages);
+  const checkResult = await ton.checkMultiTransactionDraft(accountId, preparedMessages, false, true);
 
   // Handle insufficient balance error specifically for TON Connect by converting to fallback emulation
   if ('error' in checkResult
@@ -581,16 +536,10 @@ async function checkTransactionMessages(
       },
       parsedPayloads: checkResult.parsedPayloads,
     };
-    return {
-      preparedMessages,
-      checkResult: fallbackCheckResult,
-    };
+    return fallbackCheckResult;
   }
 
-  return {
-    preparedMessages,
-    checkResult,
-  };
+  return checkResult;
 }
 
 function prepareTransactionForRequest(
@@ -654,11 +603,11 @@ function formatConnectError(id: number, error: Error): ConnectEventError {
   };
 }
 
-async function buildTonAddressReplyItem(accountId: string, wallet: ApiTonWallet): Promise<ConnectItemReply> {
+function buildTonAddressReplyItem(accountId: string, wallet: ApiTonWallet): ConnectItemReply {
   const { network } = parseAccountId(accountId);
   const { publicKey, address } = wallet;
 
-  const stateInit = await ton.getWalletStateInit(accountId, wallet);
+  const stateInit = ton.getWalletStateInit(wallet);
 
   return {
     name: 'ton_addr',
@@ -669,18 +618,6 @@ async function buildTonAddressReplyItem(accountId: string, wallet: ApiTonWallet)
       .toBoc({ idx: true, crc32: true })
       .toString('base64'),
   };
-}
-
-async function signTonProof(
-  accountId: string,
-  account: ApiAccountWithMnemonic,
-  password: string,
-  walletAddress: string,
-  proof: ApiTonConnectProof,
-): Promise<TonProofItemReplySuccess> {
-  const keyPair = await fetchKeyPair(accountId, password, account);
-  const signature = await signTonProofWithPrivateKey(walletAddress, keyPair!.secretKey, proof);
-  return buildTonProofReplyItem(proof, bytesToBase64(signature));
 }
 
 function buildTonProofReplyItem(proof: ApiTonConnectProof, signature: string): TonProofItemReplySuccess {
@@ -698,34 +635,6 @@ function buildTonProofReplyItem(proof: ApiTonConnectProof, signature: string): T
       signature,
       payload,
     },
-  };
-}
-
-async function performSignData(
-  accountId: string,
-  account: ApiAccountWithMnemonic,
-  dapp: ApiDapp,
-  payloadToSign: SignDataPayload,
-  password: string,
-): Promise<SignDataRpcResponseSuccess['result']> {
-  const { address } = account.ton;
-  const timestamp = Math.floor(Date.now() / 1000);
-  const domain = new URL(dapp.url).host;
-  const keyPair = (await fetchKeyPair(accountId, password, account))!;
-  const signature = await signDataWithPrivateKey(
-    address,
-    timestamp,
-    domain,
-    payloadToSign,
-    keyPair.secretKey,
-  );
-
-  return {
-    signature: bytesToBase64(signature),
-    address,
-    timestamp,
-    domain,
-    payload: payloadToSign,
   };
 }
 

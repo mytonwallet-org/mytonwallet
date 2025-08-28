@@ -4,3 +4,5 @@
   X-Content-Type-Options: nosniff
   X-Frame-Options: Deny
   X-XSS-Protection: 1; mode=block
+/*.*.*
+  Cache-Control: public, max-age=31536000, immutable

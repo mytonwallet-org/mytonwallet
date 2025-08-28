@@ -8,6 +8,7 @@ import {
   DEFAULT_CEX_SWAP_SECOND_TOKEN_SLUG,
   DEFAULT_SWAP_SECOND_TOKEN_SLUG,
   GIVEAWAY_CHECKIN_URL,
+  IS_CAPACITOR,
   TONCOIN,
 } from '../../config';
 import {
@@ -17,6 +18,7 @@ import {
   selectTokenByMinterAddress,
 } from '../../global/selectors';
 import { callApi } from '../../api';
+import { switchToAir } from '../capacitor';
 import { isValidAddressOrDomain } from '../isValidAddressOrDomain';
 import { omitUndefined } from '../iteratees';
 import { logDebug, logDebugError } from '../logs';
@@ -36,6 +38,7 @@ import {
 import { getIsLandscape, getIsPortrait } from '../../hooks/useDeviceScreen';
 
 enum DeeplinkCommand {
+  Air = 'air',
   CheckinWithR = 'r',
   Swap = 'swap',
   BuyWithCrypto = 'buy-with-crypto',
@@ -289,6 +292,12 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
     logDebug('Processing deeplink', deeplink);
 
     switch (command) {
+      case DeeplinkCommand.Air: {
+        if (!IS_CAPACITOR) return false;
+        switchToAir();
+        return true;
+      }
+
       case DeeplinkCommand.CheckinWithR: {
         const r = pathname.match(/r\/(.*)$/)?.[1];
         const url = `${CHECKIN_URL}${r ? `?r=${r}` : ''}`;

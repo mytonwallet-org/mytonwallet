@@ -107,7 +107,7 @@ function Transaction({
   const lang = useLang();
 
   const {
-    txId,
+    id,
     amount,
     fromAddress,
     toAddress,
@@ -163,6 +163,10 @@ function Transaction({
     pendingIndicatorColor = 'Blue';
   }
 
+  if (status === 'pending') {
+    pendingIndicatorColor = 'Orange';
+  }
+
   const handleNftClick = useLastCallback((event: React.MouseEvent) => {
     event.stopPropagation();
 
@@ -181,7 +185,7 @@ function Transaction({
         )}
         onClick={doesNftExist ? handleNftClick : undefined}
         data-nft-address={nft?.address}
-        data-tx-id={txId}
+        data-tx-id={id}
       >
         <img src={nft!.thumbnail} alt={nft!.name} className={styles.nftImage} />
         <div className={styles.nftData}>
@@ -242,7 +246,7 @@ function Transaction({
           </span>
         )}
         <ActivityStatusIcon
-          isPending={status === 'pending'}
+          isPending={status === 'pending' || status === 'pendingTrusted'}
           isError={status === 'failed'}
           color={pendingIndicatorColor}
           appTheme={appTheme}
@@ -360,7 +364,7 @@ function Transaction({
         attachmentsTakeSubheader === 'full' ? styles.attachmentsInFullSubheader
           : attachmentsTakeSubheader === 'left' ? styles.attachmentsInLeftSubheader : undefined,
       )}
-      onClick={onClick && (() => onClick(txId))}
+      onClick={onClick && (() => onClick(id))}
       isSimple
     >
       {renderIcon()}

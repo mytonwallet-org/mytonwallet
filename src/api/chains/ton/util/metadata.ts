@@ -8,6 +8,7 @@ import { Slice } from '@ton/core/dist/boc/Slice';
 import { Dictionary } from '@ton/core/dist/dict/Dictionary';
 
 import type {
+  ApiActivity,
   ApiMtwCardBorderShineType,
   ApiMtwCardTextType,
   ApiMtwCardType,
@@ -17,7 +18,6 @@ import type {
   ApiNftMetadata,
   ApiNftSuperCollection,
   ApiParsedPayload,
-  ApiTransaction,
 } from '../../../types';
 import type { JettonMetadata } from '../types';
 
@@ -181,7 +181,7 @@ export async function parsePayloadSlice(
   address: string,
   slice: Slice,
   shouldLoadItems?: boolean,
-  transactionDebug?: ApiTransaction,
+  transactionDebug?: ApiActivity,
 ): Promise<ApiParsedPayload | undefined> {
   let opCode: OpCodes | undefined;
   try {
@@ -490,7 +490,7 @@ export async function parsePayloadSlice(
   } catch (err) {
     if (DEBUG) {
       const debugTxString = transactionDebug
-        && `${transactionDebug.txId} ${new Date(transactionDebug.timestamp).toISOString()}`;
+        && `${transactionDebug.id} ${new Date(transactionDebug.timestamp).toISOString()}`;
       const opCodeHex = `0x${opCode?.toString(16).padStart(8, '0')}`;
       logDebugError('parsePayload', opCodeHex, debugTxString, '\n', err);
     }
@@ -664,7 +664,7 @@ export function parseTonapiioNft(
     const isFragmentGift = getIsFragmentGift(nftSuperCollectionsByCollectionAddress, collectionAddress);
 
     const metadata = {
-      attributes,
+      ...(Array.isArray(attributes) && { attributes }),
       ...(isWhitelisted && lottie && { lottie: getProxiedLottieUrl(lottie) }),
       ...(collectionAddress === MTW_CARDS_COLLECTION && buildMtwCardsNftMetadata(rawMetadata)),
       ...(isFragmentGift && { fragmentUrl: image!.replace(NFT_FRAGMENT_GIFT_IMAGE_TO_URL_REGEX, 'https://$1') }),

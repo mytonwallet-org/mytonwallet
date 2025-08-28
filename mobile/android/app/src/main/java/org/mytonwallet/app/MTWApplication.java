@@ -6,12 +6,13 @@ import com.capacitorjs.plugins.statusbar.StatusBarPluginDelegate;
 
 public class MTWApplication extends Application implements StatusBarPluginDelegate {
 
+  private String currentStatusBar;
+
   @Override
   public void onCreate() {
     super.onCreate();
+    System.loadLibrary("native-utils");
   }
-
-  private String currentStatusBar;
 
   @Override
   public void didUpdateStatusBar(String newStatusBar) {

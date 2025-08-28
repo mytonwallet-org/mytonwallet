@@ -146,7 +146,9 @@ export async function getMnemonic(accountId: string, password: string, account: 
 function removeSensitiveDataFromError(error: unknown, sensitiveData: string[]) {
   const removeFromString = (text: string) => {
     for (const toRemove of sensitiveData) {
-      text = text.replaceAll(toRemove, '(hidden)');
+      if (toRemove) {
+        text = text.replaceAll(toRemove, '(hidden)');
+      }
     }
     return text;
   };

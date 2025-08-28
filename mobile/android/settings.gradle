@@ -3,3 +3,37 @@ include ':capacitor-cordova-android-plugins'
 project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins/')
 
 apply from: 'capacitor.settings.gradle'
+
+def airSubModulePath = settings.ext.find('airSubModulePath')
+
+def subModules = [
+  "WalletNative",
+  "Icons",
+  "UIComponents",
+  "UICreateWallet",
+  "UISwap",
+  "WalletContext",
+  "WalletCore",
+  "UISettings",
+  "UIPasscode",
+  "UIHome",
+  "UIAssets",
+  "UIBrowser",
+  "UITransaction",
+  "OverScroll",
+  "UISend",
+  "UIInAppBrowser",
+  "AirAsFramework",
+  "UIStake",
+  "QRScan",
+  "UIReceive",
+  "UITonConnect",
+  "Ledger"
+]
+include("$airSubModulePath:vkryl:core")
+include("$airSubModulePath:vkryl:android")
+
+subModules.each { moduleName ->
+  include "${airSubModulePath}:${moduleName}"
+  project("${airSubModulePath}:${moduleName}").name = moduleName
+}

@@ -87,6 +87,8 @@ export const DEFAULT_MAX_MESSAGES = 4;
 export const LEDGER_MAX_MESSAGES = 1;
 export const W5_MAX_MESSAGES = 255;
 
+export const LEDGER_VESTING_SUBWALLET_ID = 0x10C;
+
 export enum OpCode {
   Comment = 0,
   Encrypted = 0x2167da4b,

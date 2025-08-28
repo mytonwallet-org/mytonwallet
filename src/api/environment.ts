@@ -22,13 +22,23 @@ let environment: ApiInitArgs & {
   toncenterTestnetKey?: string;
 };
 
+function getAppOrigin(args: ApiInitArgs): string | undefined {
+  if (args.isElectron) {
+    return ELECTRON_ORIGIN;
+  } else if (IS_CAPACITOR) {
+    return self?.origin;
+  } else {
+    return undefined;
+  }
+}
+
 export function setEnvironment(args: ApiInitArgs) {
+  const appOrigin = getAppOrigin(args);
   environment = {
     ...args,
     isDappSupported: true,
     isSseSupported: args.isElectron || (IS_CAPACITOR && !args.isNativeBottomSheet),
-
-    apiHeaders: { 'X-App-Origin': args.isElectron ? ELECTRON_ORIGIN : self?.origin },
+    apiHeaders: appOrigin ? { 'X-App-Origin': appOrigin } : {},
     toncenterMainnetKey: args.isElectron ? ELECTRON_TONCENTER_MAINNET_KEY : TONCENTER_MAINNET_KEY,
     toncenterTestnetKey: args.isElectron ? ELECTRON_TONCENTER_TESTNET_KEY : TONCENTER_TESTNET_KEY,
   };

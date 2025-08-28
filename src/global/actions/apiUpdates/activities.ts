@@ -1,6 +1,5 @@
 import type { ApiActivity, ApiChain, ApiTransactionActivity } from '../../../api/types';
 import type { GlobalState } from '../../types';
-import { TransferState } from '../../types';
 
 import {
   IS_CORE_WALLET,
@@ -8,13 +7,12 @@ import {
   MINT_CARD_REFUND_COMMENT,
   MTW_CARDS_COLLECTION,
 } from '../../../config';
-import { doesLocalActivityMatch, getActivityIdReplacements } from '../../../util/activities';
-import { getDoesUsePinPad } from '../../../util/biometrics';
+import { getActivityIdReplacements } from '../../../util/activities';
 import { callActionInMain, callActionInNative } from '../../../util/multitab';
 import { playIncomingTransactionSound } from '../../../util/notificationSound';
 import { getIsTransactionWithPoisoning } from '../../../util/poisoningHash';
 import { waitFor } from '../../../util/schedulers';
-import { getChainBySlug, getIsTonToken } from '../../../util/tokens';
+import { getChainBySlug } from '../../../util/tokens';
 import {
   IS_DELEGATED_BOTTOM_SHEET,
   IS_DELEGATING_BOTTOM_SHEET,
@@ -26,16 +24,15 @@ import {
   addInitialActivities,
   addNewActivities,
   addNft,
-  clearIsPinAccepted,
   removeActivities,
   replaceCurrentActivityId,
   replaceCurrentDomainLinkingId,
   replaceCurrentDomainRenewalId,
   replaceCurrentSwapId,
   replaceCurrentTransferId,
-  replacePendingActivities,
   updateAccountState,
-  updateCurrentTransfer,
+  updatePendingActivitiesToTrustedByReplacements,
+  updatePendingActivitiesWithTrustedStatus,
 } from '../../reducers';
 import {
   selectAccountState,
@@ -66,29 +63,16 @@ addActionHandler('apiUpdate', (global, actions, update) => {
         activities,
       } = update;
 
-      hideOutdatedLocalActivities(global, accountId, activities);
+      // Find matches between local and chain activities
+      const replacedIds = findLocalToChainActivityMatches(global, accountId, activities);
+
+      hideOutdatedLocalActivities(activities, replacedIds);
+
+      // Update pending chain activities to trusted status where applicable
+      global = updatePendingActivitiesToTrustedByReplacements(global, accountId, activities, replacedIds);
       global = addNewActivities(global, accountId, activities);
 
-      for (const activity of activities) {
-        if (activity.kind === 'transaction' && -activity.amount === global.currentTransfer.amount) {
-          global = updateCurrentTransfer(global, {
-            txId: activity.txId,
-            state: TransferState.Complete,
-            isLoading: false,
-          });
-
-          if (getDoesUsePinPad()) {
-            global = clearIsPinAccepted(global);
-          }
-
-          if (getIsTonToken(activity.slug)) {
-            actions.fetchTransferDieselState({ tokenSlug: activity.slug });
-          }
-        }
-      }
-
       setGlobal(global);
-
       break;
     }
 
@@ -103,22 +87,26 @@ addActionHandler('apiUpdate', (global, actions, update) => {
       }
       const { accountId, activities: newConfirmedActivities, pendingActivities, chain } = update;
 
-      const replacedIds = getActivityIdReplacements(
-        [
-          ...selectLocalActivitiesSlow(global, accountId),
-          ...(chain ? selectPendingActivitiesSlow(global, accountId, chain) : []),
-        ],
-        [
-          ...(pendingActivities ?? []),
-          ...newConfirmedActivities,
-        ],
-      );
+      const prevActivitiesForReplacement = [
+        ...selectLocalActivitiesSlow(global, accountId),
+        ...(chain ? selectPendingActivitiesSlow(global, accountId, chain) : []),
+      ];
+      const incomingActivities = [
+        ...(pendingActivities ?? []),
+        ...newConfirmedActivities,
+      ];
+      const replacedIds = getActivityIdReplacements(prevActivitiesForReplacement, incomingActivities);
 
       // A good TON address for testing: UQD5mxRgCuRNLxKxeOjG6r14iSroLF5FtomPnet-sgP5xI-e
       global = removeActivities(global, accountId, Object.keys(replacedIds));
-      if (chain && pendingActivities !== undefined) {
-        global = replacePendingActivities(global, accountId, chain, pendingActivities);
-      }
+      global = updatePendingActivitiesWithTrustedStatus(
+        global,
+        accountId,
+        chain,
+        pendingActivities,
+        replacedIds,
+        prevActivitiesForReplacement,
+      );
       global = addNewActivities(global, accountId, newConfirmedActivities);
 
       global = replaceCurrentTransferId(global, replacedIds);
@@ -197,22 +185,31 @@ function processCardMintingActivity(global: GlobalState, accountId: string, acti
   return global;
 }
 
+function findLocalToChainActivityMatches(
+  global: GlobalState,
+  accountId: string,
+  localActivities: ApiActivity[],
+) {
+  const maxCheckDepth = localActivities.length + 20;
+  const chainActivities = selectRecentNonLocalActivitiesSlow(global, accountId, maxCheckDepth);
+
+  return getActivityIdReplacements(localActivities, chainActivities);
+}
+
 /**
  * Thanks to the socket, there is a possibility that a pending activity will arrive before the corresponding local
  * activity. Such local activities duplicate the pending activities, which is unwanted. They shouldn't be removed,
  * because other parts of the global state may point to their ids, so they get hidden instead.
  */
-function hideOutdatedLocalActivities(global: GlobalState, accountId: string, localActivities: ApiActivity[]) {
-  const maxCheckDepth = localActivities.length + 20;
-  const chainActivities = selectRecentNonLocalActivitiesSlow(global, accountId, maxCheckDepth);
-
+function hideOutdatedLocalActivities(
+  localActivities: ApiActivity[],
+  replacements: Record<string, string>,
+) {
   for (const localActivity of localActivities) {
-    localActivity.shouldHide ||= chainActivities.some((chainActivity) => {
-      return doesLocalActivityMatch(localActivity, chainActivity);
-    });
+    if (localActivity.id in replacements) {
+      localActivity.shouldHide = true;
+    }
   }
-
-  return localActivities;
 }
 
 async function preloadTopTokenHistory(accountId: string, chain: ApiChain) {

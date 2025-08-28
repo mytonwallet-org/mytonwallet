@@ -19,6 +19,7 @@ import { parseAccountId } from '../../util/account';
 import isMnemonicPrivateKey from '../../util/isMnemonicPrivateKey';
 import { createTaskQueue } from '../../util/schedulers';
 import chains from '../chains';
+import { getWalletFromKeys } from '../chains/ton/auth';
 import { toBase64Address } from '../chains/ton/util/tonCore';
 import {
   fetchStoredAccounts,
@@ -172,6 +173,14 @@ export async function createAccountWithSecondNetwork(options: {
     addressByChain: { ton: tonWallet.address },
     network: secondNetwork,
   };
+}
+
+export function addressFromPublicKey(
+  publicKey: Uint8Array,
+  network: ApiNetwork,
+  version?: ApiTonWalletVersion,
+): Promise<ApiTonWallet & { lastTxId?: string }> {
+  return getWalletFromKeys(publicKey, network, version);
 }
 
 export async function importLedgerWallet(network: ApiNetwork, walletInfo: LedgerWalletInfo) {

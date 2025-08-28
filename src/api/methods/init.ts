@@ -2,7 +2,7 @@ import type { ApiInitArgs, OnApiUpdate } from '../types';
 
 import { initWindowConnector } from '../../util/windowProvider/connector';
 import chains from '../chains';
-import { callBackendGet } from '../common/backend';
+import { fetchBackendReferrer } from '../common/backend';
 import { connectUpdater, disconnectUpdater, startStorageMigration } from '../common/helpers';
 import { setEnvironment } from '../environment';
 import { addHooks } from '../hooks';
@@ -56,14 +56,13 @@ export function destroy() {
 async function saveReferrer(args: ApiInitArgs) {
   let referrer = await storage.getItem('referrer');
 
-  if (referrer !== undefined) return;
-
-  if (args.referrer) {
-    referrer = args.referrer;
-  } else {
-    ({ referrer } = await callBackendGet<{ referrer?: string }>('/referrer/get'));
+  if (referrer) {
+    return;
   }
 
-  // An empty string means no referrer
-  await storage.setItem('referrer', referrer ?? '');
+  referrer = args.referrer ?? await fetchBackendReferrer();
+
+  if (referrer) {
+    await storage.setItem('referrer', referrer);
+  }
 }

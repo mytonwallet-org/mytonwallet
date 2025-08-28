@@ -48,3 +48,9 @@ export enum CHAIN {
   MAINNET = '-239',
   TESTNET = '-3',
 }
+
+export interface ApiDappRequestConfirmation {
+  accountId: string;
+  /** Base64. Shall miss when no proof is required. */
+  proofSignature?: string;
+}

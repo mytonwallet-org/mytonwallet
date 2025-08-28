@@ -2,7 +2,6 @@ import type { ApiChain } from '../api/types';
 import type { Account, UserToken } from '../global/types';
 
 import { TRC20_USDT_MAINNET_SLUG, TRX } from '../config';
-import { HOUR } from './dateFormat';
 
 const SCAM_DOMAIN_ADDRESS_REGEX = /^\w{26,}\./;
 
@@ -11,9 +10,9 @@ export function shouldShowSeedPhraseScamWarning(
   accountTokens: UserToken[],
   transferTokenChain: ApiChain,
 ): boolean {
-  // Only check for recently imported accounts (within 1 hour)
-  if (!account.importedAt || Date.now() - account.importedAt > HOUR) {
-    return false;
+  // For multisig accounts a warning should always be shown
+  if (account?.isMultisigByChain?.[transferTokenChain]) {
+    return true;
   }
 
   // Only show when trying to transfer TRON tokens
@@ -22,12 +21,10 @@ export function shouldShowSeedPhraseScamWarning(
   }
 
   // Check if account has TRON tokens (like USDT)
-  const hasTronTokens = accountTokens.some((token) =>
+  return accountTokens.some((token) =>
     token.slug === TRC20_USDT_MAINNET_SLUG
     || (token.chain === 'tron' && token.amount > 0n && token.slug !== TRX.slug),
   );
-
-  return hasTronTokens;
 }
 
 export function shouldShowDomainScamWarning(address: string) {

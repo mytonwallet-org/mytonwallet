@@ -1,10 +1,10 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">MyTonWallet</string>
-    <string name="title_activity_main">MyTonWallet</string>
-    <string name="package_name">org.mytonwallet.app</string>
-    <string name="custom_url_scheme_0">ton</string>
-    <string name="custom_url_scheme_1">tc</string>
-    <string name="custom_url_scheme_2">mytonwallet-tc</string>
-    <string name="custom_url_scheme_3">mtw</string>
+  <string name="app_name">MyTonWallet</string>
+  <string name="title_activity_main">MyTonWallet</string>
+  <string name="package_name">org.mytonwallet.app</string>
+  <string name="custom_url_scheme_0">ton</string>
+  <string name="custom_url_scheme_1">tc</string>
+  <string name="custom_url_scheme_2">mytonwallet-tc</string>
+  <string name="custom_url_scheme_3">mtw</string>
 </resources>

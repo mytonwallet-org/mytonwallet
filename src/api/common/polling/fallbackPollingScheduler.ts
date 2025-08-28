@@ -8,10 +8,18 @@ import { periodToMs } from './utils';
 export type PollCallback = () => MaybePromise<void>;
 
 export interface FallbackPollingOptions {
+  /** Whether `poll` should be called when the polling object is created */
   pollOnStart?: boolean;
+  /** The minimum delay between `poll` calls */
   minPollDelay: Period;
+  /**
+   * How much time the polling will start after the socket disconnects.
+   * Also applies at the very beginning (until the socket is connected).
+   */
   pollingStartDelay: number;
+  /** Update periods when the socket is disconnected */
   pollingPeriod: Period;
+  /** Update periods when the socket is connected but there are no messages */
   forcedPollingPeriod: Period;
   /** Never executed in parallel */
   poll: PollCallback;

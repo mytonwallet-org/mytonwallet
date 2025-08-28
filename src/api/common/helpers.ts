@@ -42,19 +42,18 @@ export function buildLocalTransaction(
   normalizedAddress: string,
   subId?: number,
 ): ApiTransactionActivity {
-  const { amount, ...restParams } = params;
-  const txId = buildLocalTxId(params.txId ?? params.externalMsgHashNorm!, subId);
+  const id = buildLocalTxId(params.id, subId);
 
   return updateActivityMetadata({
-    id: txId,
-    status: 'pending',
+    // Local transactions are trusted pending
+    status: 'pendingTrusted',
     kind: 'transaction',
     timestamp: Date.now(),
     isIncoming: false,
-    amount: -amount,
     normalizedAddress,
-    ...restParams,
-    txId,
+    ...params,
+    amount: -params.amount,
+    id,
   });
 }
 

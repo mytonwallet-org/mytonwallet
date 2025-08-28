@@ -1,0 +1,44 @@
+{
+  "images" : [
+    {
+      "filename" : "selection_frame_light.pdf",
+      "idiom" : "universal",
+      "resizing" : {
+        "cap-insets" : {
+          "left" : 11,
+          "right" : 11
+        },
+        "center" : {
+          "mode" : "stretch",
+          "width" : 1
+        },
+        "mode" : "3-part-horizontal"
+      }
+    },
+    {
+      "appearances" : [
+        {
+          "appearance" : "luminosity",
+          "value" : "dark"
+        }
+      ],
+      "filename" : "selection_frame_dark.pdf",
+      "idiom" : "universal",
+      "resizing" : {
+        "cap-insets" : {
+          "left" : 11,
+          "right" : 11
+        },
+        "center" : {
+          "mode" : "stretch",
+          "width" : 1
+        },
+        "mode" : "3-part-horizontal"
+      }
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

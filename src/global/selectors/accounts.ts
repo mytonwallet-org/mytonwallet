@@ -74,8 +74,10 @@ function isHardwareAccount(account: Account) {
   return account.type === 'hardware';
 }
 
-export function selectIsHardwareAccount(global: GlobalState) {
-  const account = selectCurrentAccount(global);
+export function selectIsHardwareAccount(global: GlobalState): boolean; // To prevent passing accountId=undefined by accident
+export function selectIsHardwareAccount(global: GlobalState, accountId: string): boolean;
+export function selectIsHardwareAccount(global: GlobalState, accountId?: string) {
+  const account = selectAccount(global, accountId ?? global.currentAccountId!);
   return Boolean(account) && isHardwareAccount(account);
 }
 
@@ -181,6 +183,11 @@ export function selectAccountNftByAddress(global: GlobalState, accountId: string
 export function selectIsMultichainAccount(global: GlobalState, accountId: string) {
   const addressByChain = selectAccount(global, accountId)?.addressByChain;
   return Boolean(addressByChain) && isKeyCountGreater(addressByChain, 1);
+}
+
+export function selectIsMultisigAccount(global: GlobalState, accountId: string, chain: ApiChain) {
+  const account = selectAccount(global, accountId);
+  return Boolean(account?.isMultisigByChain?.[chain]);
 }
 
 export function selectHasSession(global: GlobalState) {

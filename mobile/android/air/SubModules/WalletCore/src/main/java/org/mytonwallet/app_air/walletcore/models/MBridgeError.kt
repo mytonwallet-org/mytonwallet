@@ -1,0 +1,67 @@
+package org.mytonwallet.app_air.walletcore.models
+
+import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
+import org.mytonwallet.app_air.walletcontext.utils.toProcessedSpannableStringBuilder
+
+class MBridgeException(val error: MBridgeError) : Throwable()
+
+enum class MBridgeError(val errorName: String? = null, var customMessage: String? = null) {
+    AXIOS_ERROR("AxiosError"),
+    SERVER_ERROR("ServerError"),
+    INVALID_MNEMONIC("Invalid mnemonic"),
+
+    // transaction errors
+    PARTIAL_TRANSACTION_FAILURE("PartialTransactionFailure"),
+    INCORRECT_DEVICE_TIME("IncorrectDeviceTime"),
+    INSUFFICIENT_BALANCE("InsufficientBalance"),
+    PAIR_NOT_FOUND("Pair not found"),
+    TOO_SMALL_AMOUNT("Too small amount"),
+    INSUFFICIENT_LIQUIDITY("Insufficient liquidity"),
+    UNSUCCESSFUL_TRANSFER("UnsuccesfulTransfer"),
+    CANCELED_BY_THE_USER("Canceled by the user"),
+    HARDWARE_OUTDATED("HardwareOutdated"),
+    HARDWARE_BLIND_SIGNING_NOT_ENABLED("BlindSigningNotEnabled"),
+    REJECTED_BY_USER("RejectedByUser"),
+    PROOF_TOO_LARGE("ProofTooLarge"),
+    WRONG_ADDRESS("WrongAddress"),
+    WRONG_NETWORK("WrongNetwork"),
+
+    PARSE_ERROR("JSON Parse Error"),
+    UNKNOWN("Unknown");
+
+    val toLocalized: CharSequence
+        get() {
+            return customMessage ?: when (this) {
+                INVALID_MNEMONIC -> LocaleController.getString("InvalidMnemonic")
+                PARTIAL_TRANSACTION_FAILURE -> LocaleController.getString("Not all transactions were sent successfully")
+                INCORRECT_DEVICE_TIME -> LocaleController.getString("The time on your device is incorrect, sync it and try again")
+                INSUFFICIENT_BALANCE -> LocaleController.getString("Insufficient balance")
+                PAIR_NOT_FOUND -> LocaleController.getString("Invalid Pair")
+                TOO_SMALL_AMOUNT -> LocaleController.getString("\$swap_too_small_amount")
+                CANCELED_BY_THE_USER, REJECTED_BY_USER -> LocaleController.getString("Canceled by the user")
+                SERVER_ERROR, PARSE_ERROR, AXIOS_ERROR, UNKNOWN -> LocaleController.getString("No internet connection. Please check your connection and try again.")
+                INSUFFICIENT_LIQUIDITY -> LocaleController.getString("Insufficient liquidity")
+                UNSUCCESSFUL_TRANSFER -> LocaleController.getString("Transfer was unsuccessful. Try again later.")
+                HARDWARE_OUTDATED -> LocaleController.getString("\$ledger_not_supported_operation")
+                HARDWARE_BLIND_SIGNING_NOT_ENABLED ->
+                    LocaleController.getString("\$hardware_blind_sign_not_enabled")
+                        .toProcessedSpannableStringBuilder()
+
+                PROOF_TOO_LARGE -> LocaleController.getString("The proof for signing provided by the Dapp is too large")
+
+                WRONG_ADDRESS -> LocaleController.getString("WrongAddress")
+                WRONG_NETWORK -> LocaleController.getString("WrongNetwork")
+            }
+        }
+
+    val toShortLocalized: String?
+        get() {
+            return customMessage ?: when (this) {
+                SERVER_ERROR, PARSE_ERROR, UNKNOWN -> LocaleController.getString("Network Error")
+                PAIR_NOT_FOUND -> LocaleController.getString("Invalid Pair")
+                TOO_SMALL_AMOUNT -> LocaleController.getString("\$swap_too_small_amount")
+                CANCELED_BY_THE_USER, REJECTED_BY_USER -> LocaleController.getString("Canceled by the user")
+                else -> null
+            }
+        }
+}

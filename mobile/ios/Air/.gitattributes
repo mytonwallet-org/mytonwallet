@@ -1,0 +1,5 @@
+SubModules/WalletContext/Resources/JS/mytonwallet-sdk.js linguist-generated
+
+SubModules/GZip/** linguist-vendored
+SubModules/SwiftSignalKit/** linguist-vendored
+SubModules/RLottieBinding/** linguist-vendored

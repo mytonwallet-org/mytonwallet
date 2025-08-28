@@ -20,6 +20,7 @@ const {
 const { APP_ENV = 'production' } = process.env;
 const IS_TELEGRAM_APP = process.env.IS_TELEGRAM_APP === '1';
 
+const destinationDir = path.resolve(__dirname, 'dist-push');
 const defaultI18nFilename = path.resolve(__dirname, './src/push/i18n/en.json');
 
 const cspConnectSrcHosts = [
@@ -94,7 +95,7 @@ export default function createConfig(
 
     output: {
       filename: '[name].[contenthash].js',
-      path: path.resolve(__dirname, 'dist-push'),
+      path: destinationDir,
       clean: true,
     },
 
@@ -235,8 +236,8 @@ export default function createConfig(
         statsOptions: {
           context: __dirname,
         },
-        saveReportTo: path.resolve('./public/statoscope-report.html'),
-        saveStatsTo: path.resolve('./public/statoscope-build-statistics.json'),
+        saveReportTo: path.join(destinationDir, 'statoscope-report.html'),
+        saveStatsTo: path.join(destinationDir, 'statoscope-build-statistics.json'),
         normalizeStats: true,
         open: 'file',
         extensions: [new WebpackContextExtension()],

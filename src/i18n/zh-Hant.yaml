@@ -245,6 +245,7 @@ Confirm Unstaking: 確認解除質押
 Request for unstaking is sent!: 解除質押申請已送出!
 $unstaking_when_receive: 你將會在 %time% 後收到解除的質押數量。
 $unstaking_when_receive_with_amount: 您將於 %time% 後收到未質押的 %amount%。
+$unstaking_when_receive_with_amount_ethena: "%amount% 將在 %time% 後可供提款。"
 $unstake_insufficient_balance: 您的主帳戶餘額需要有 %balance% 才能繼續取消質押。
 at %annual_yield%: 在%annual_yield%
 Est. %annual_yield%: 預估 %annual_yield%
@@ -255,8 +256,6 @@ Unstaking: 解除質押
 $unstake_action: 解押
 The network fee has slightly changed, try sending again.: 網路費略有變化，請重新發送交易。
 Transfer was unsuccessful. Try again later.: 轉帳未成功，請稍後再試。
-Unstaking was unsuccessful. Try again later.: 解除質押未成功，請稍後再試。
-Staking was unsuccessful. Try again later.: 質押未成功，請稍後再試。
 Invalid amount: 無效金額
 Invalid address: 無效地址
 Domain is not connected to a wallet: 域名未與錢包連結
@@ -543,7 +542,7 @@ To use this feature, first enable biometrics in your phone settings.: 若要使�
 Open Settings: 開啟設定
 $service_token_transfer_warning: 您即將轉移一個重要的服務代幣，此代幣是提款或完成服務操作所必需的。請確保這是您計劃執行的操作。
 No Price: 無價格
-$ledger_not_supported_operation: 此操作不支持您當前版本的 Ledger TON 應用程序。請使用 Ledger Live 進行更新。
+$ledger_outdated: 此操作不支持您當前版本的 Ledger TON 應用程序。請使用 Ledger Live 進行更新。
 $ledger_unsupported_ton_connect: TonConnect不受您的Ledger Ton應用程序的支持。請使用Ledger Live更新它。
 $dapp_transfer_tokens_burn: 燃燒%amount%
 $dapp_dns_set_wallet_payload: 將網域 %domain% 的連結錢包更改為 %address%
@@ -753,13 +752,13 @@ Hide Sensitive Data: 隱藏敏感數據
 Copy Address: 複製地址
 Copy Transaction ID: 複製交易ID
 Requesting Unstake: 請求解除質押
-Unstake Requested: 已請求解除質押
+Requested Unstake: 已申請解除質押
 $request_unstake_action: 請求解押
 Calling Contract: 呼叫合約
-Contract Called: 已呼叫合約
+Called Contract: 已調用合約
 $call_contract_action: 呼叫合約
 Deploying Contract: 部署合約
-Contract Deployed: 已部署合約
+Deployed Contract: 已部署合約
 $deploy_contract_action: 部署合約
 Minting: 鑄造
 Minted: 已鑄造
@@ -767,39 +766,39 @@ $mint_action: 鑄造
 Burning: 銷毀
 Burned: 已銷毀
 $burn_action: 銷毀
-Address Updated: 地址已更新
 Updating Address: 更新地址中
+Updated Address: 已更新地址
 $update_address_action: 更新地址
-Site Updated: 網站已更新
 Updating Site: 更新網站中
+Updated Site: 已更新網站
 $update_site_action: 更新網站
-Subdomains Updated: 子域名已更新
 Updating Subdomains: 更新子域名中
+Updated Subdomains: 已更新子網域
 $update_subdomains_action: 更新子域名
-Storage Updated: 存儲已更新
 Updating Storage: 更新存儲中
+Updated Storage: 已更新儲存
 $update_storage_action: 更新存儲
-Domain Record Deleted: 域名記錄已刪除
 Deleting Domain Record: 刪除域名記錄中
+Deleted Domain Record: 已刪除網域記錄
 $delete_domain_record_action: 刪除域名記錄
 Renewing Domain: 續訂域名中
-Domain Renewed: 域名已續訂
+Renewed Domain: 已續約網域
 $renew_domain_action: 續訂域名
 Providing Liquidity: 提供流動性
-Liquidity Provided: 已提供流動性
+Provided Liquidity: 已提供流動性
 $provide_liquidity_action: 提供流動性
 Withdrawing Liquidity: 正在提取流動性
-Liquidity Withdrawn: 已提取流動性
+Withdrawn Liquidity: 已提取流動性
 $withdraw_liquidity_action: 提取流動性
 Bounced: 被退回
 Bouncing: 反彈中
 $bounce_action: 反彈
 NFT Auction Bid: NFT 拍賣出價
 Bidding at NFT Auction: NFT 拍賣中出價
-NFT Bought: 已購買 NFT
 Buying NFT: 正在購買 NFT
+Bought NFT: 已購買NFT
 $buy_nft_action: 購買 NFT
-NFT Sold: 已售出 NFT
+Sold NFT: 已出售NFT
 Selling NFT: 正在出售 NFT
 $sell_nft_action: 出售 NFT
 Receiving: 接收中
@@ -858,12 +857,11 @@ Renew Domain: 續費域名
 Renew Domains: 續費域名
 Some domains are about to expire: 部分域名即將到期
 $domain_expire: "**%domain%** 將於%days%到期"
-'%token% Staking': '%token% 質押'
+"%token% Staking": "%token% 質押"
 Add Tab: 新增分頁
 Remove Tab: 移除分頁
 Link Domain: 連結網域
 Domain Linked!: 網域已連結!
-Failed to process domain operation. Please try again.: 網域操作處理失敗，請重試。
 $domains_amount %1$d:
   zeroValue: 無網域
   otherValue: "%1$d個網域"
@@ -882,16 +880,16 @@ Link: 連結
 Confirm Renewing: 確認續約
 Confirm Linking: 確認連結
 $domains_expire:
-  zeroValue: "沒有網域將於%days%到期"
+  zeroValue: 沒有網域將於%days%到期
   oneValue: "**%domain%個網域** 將於%days%到期"
   otherValue: "**%domain%個網域** 將於%days%到期"
 $in_days:
-  zeroValue: "今天"
-  oneValue: "明天"
+  zeroValue: 今天
+  oneValue: 明天
   otherValue: "%1$d天後"
 $domain_was_expired: "**%domain%** 已過期"
 $domains_was_expired:
-  zeroValue: "沒有網域過期"
+  zeroValue: 沒有網域過期
   oneValue: "**%domain%個網域** 已過期"
   otherValue: "**%domain%個網域** 已過期"
 Reload: 重新載入
@@ -900,9 +898,9 @@ Check eligibility for max APY: 檢查最大 APY 資格
 Check eligibility: 檢查資格
 $expired_many: 已過期
 $expires_in %days%:
-  zeroValue: "將於%days%到期"
-  oneValue: "將於%days%到期"
-  otherValue: "將於%days%到期"
+  zeroValue: 將於%days%到期
+  oneValue: 將於%days%到期
+  otherValue: 將於%days%到期
 Message: 訊息
 Binary Data: 二進位資料
 The binary data content is unclear. Sign it only if you trust the service.: 二進位資料內容不明確。請僅在信任該服務的情況下簽署。
@@ -932,6 +930,9 @@ Telegram Gifts: Telegram 禮物
 Collectibles: 收藏品
 Bluetooth unavailable: 藍牙不可用
 $bluetooth_enable_guide: 請在設備設定中開啟藍牙並允許應用程式存取藍牙。
+Another transaction was sent from this wallet simultaneously. Please try again.: 此錢包同時發送了另一筆交易。請重試。
+Canceled by the user: 用戶已取消
+The proof for signing provided by the Dapp is too large: Dapp 提供的簽名證明過大
 $domain_like_scam_warning: |
   輸入的地址很可能是一個**騙局**。這**不是**任何交易所或您的代幣錢包地址。
 
@@ -940,3 +941,8 @@ $domain_like_scam_warning: |
   **取消**此轉賬並且**永遠不要**信任陌生人。在我們的%help_center_link%中了解有關此騙局和其他騙局的更多信息。
 Allow Suspicious Actions: 允許可疑操作
 $allow_suspicious_actions_description: 允許傳送至可疑地址並與潛在不安全的合約交互。
+Multisig Wallet Detected: 檢測到多重簽名錢包
+$multisig_warning_text: "透過 MyTonWallet **提取資金**是**不可能的**。請確認這真的是您的錢包——否則可能是詐騙。%multisig_warning_link%"
+$multisig_warning_link: 點擊了解更多。
+Multisig sending disabled: 無法從多重簽名發送
+$try_new_air_version: 嘗試原生應用體驗 — 更輕量、更快速，專為您的設備打造。您可以隨時切換回來。

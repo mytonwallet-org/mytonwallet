@@ -10,11 +10,12 @@ import buildClassName from '../../util/buildClassName';
 import { vibrateOnError } from '../../util/haptics';
 import { disableSwipeToClose, enableSwipeToClose } from '../../util/modalSwipeManager';
 import { SWIPE_DISABLED_CLASS_NAME } from '../../util/swipeController';
-import { IS_DELEGATED_BOTTOM_SHEET } from '../../util/windowEnvironment';
+import { IS_DELEGATED_BOTTOM_SHEET, IS_IOS } from '../../util/windowEnvironment';
 
 import useEffectWithPrevDeps from '../../hooks/useEffectWithPrevDeps';
 import useLastCallback from '../../hooks/useLastCallback';
 import { useMatchCount } from '../../hooks/useMatchCount';
+import { usePrevDuringAnimationSimple } from '../../hooks/usePrevDuringAnimationSimple';
 import usePrevious from '../../hooks/usePrevious';
 
 import PinPadButton from './PinPadButton';
@@ -45,6 +46,8 @@ type StateProps = Pick<GlobalState['settings'], 'authConfig'> & {
 
 const DEFAULT_PIN_LENGTH = 4;
 const RESET_STATE_DELAY_MS = 1500;
+// Should match duration from `--layer-transition` CSS variable
+const STATE_ANIMATION_DURATION_MS = IS_IOS ? 650 : 300;
 
 function PinPad({
   isActive,
@@ -68,6 +71,7 @@ function PinPad({
   const isFaceId = getIsFaceIdAvailable();
   const canRenderBackspace = value.length > 0;
   const isSuccess = type === 'success' || isPinAccepted;
+  const isSuccessDuringAnimation = usePrevDuringAnimationSimple(isSuccess, STATE_ANIMATION_DURATION_MS);
   const prevIsPinAccepted = usePrevious(isPinAccepted);
   const arePinButtonsDisabled = isSuccess
     || (value.length === length && type !== 'error'); // Allow pincode entry in case of an error
@@ -75,7 +79,7 @@ function PinPad({
   const titleClassName = buildClassName(
     styles.title,
     type === 'error' && styles.error,
-    isSuccess && styles.success,
+    (isSuccess || isSuccessDuringAnimation) && styles.success,
   );
 
   const shouldSuggestLogout = useMatchCount(type === 'error', WRONG_ATTEMPTS_BEFORE_LOG_OUT_SUGGESTION);
@@ -154,7 +158,7 @@ function PinPad({
     const dotsClassName = buildClassName(
       styles.dots,
       type === 'error' && styles.dotsError,
-      isSuccess && styles.dotsLoading,
+      (isSuccess || isSuccessDuringAnimation) && styles.dotsLoading,
     );
 
     return (
@@ -166,7 +170,7 @@ function PinPad({
               styles.dot,
               i < value.length && styles.dotFilled,
               type === 'error' && styles.error,
-              isSuccess && styles.success,
+              (isSuccess || isSuccessDuringAnimation) && styles.success,
             )}
           />
         ))}
@@ -228,10 +232,5 @@ export default memo(withGlobal<OwnProps>(
     return {
       isPinAccepted,
     };
-  },
-  (global, _, stickToFirst) => {
-    const { isPinAccepted } = global;
-
-    return stickToFirst(isPinAccepted);
   },
 )(PinPad));

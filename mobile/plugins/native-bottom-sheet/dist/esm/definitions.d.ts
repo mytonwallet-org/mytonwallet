@@ -29,6 +29,7 @@ export interface BottomSheetPlugin {
     openInMain(options: {
         key: BottomSheetKeys;
     }): Promise<void>;
+    switchToAir(): Promise<void>;
     isShown(): Promise<{
         value: boolean;
     }>;

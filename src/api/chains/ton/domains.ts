@@ -34,7 +34,7 @@ export async function checkDnsRenewalDraft(accountId: string, nftAddresses: stri
   return { realFee };
 }
 
-export async function* submitDnsRenewal(accountId: string, password: string, nftAddresses: string[]) {
+export async function* submitDnsRenewal(accountId: string, password: string | undefined, nftAddresses: string[]) {
   const account = await fetchStoredTonAccount(accountId);
   const maxMessages = getMaxMessagesInTransaction(account);
   const nftBatches = split(nftAddresses, maxMessages);
@@ -59,7 +59,12 @@ export async function checkDnsChangeWalletDraft(accountId: string, nftAddress: s
   return { realFee: result.emulation.networkFee + TON_GAS.changeDns };
 }
 
-export function submitDnsChangeWallet(accountId: string, password: string, nftAddress: string, address: string) {
+export function submitDnsChangeWallet(
+  accountId: string,
+  password: string | undefined,
+  nftAddress: string,
+  address: string,
+) {
   return submitMultiTransfer({
     accountId,
     password,

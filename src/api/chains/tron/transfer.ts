@@ -97,7 +97,7 @@ export async function checkTransactionDraft(
 
 export async function submitTransfer(options: ApiSubmitTransferOptions): Promise<ApiSubmitTransferTronResult> {
   const {
-    accountId, password, toAddress, amount, fee = 0n, tokenAddress,
+    accountId, password = '', toAddress, amount, fee = 0n, tokenAddress,
   } = options;
 
   const { network } = parseAccountId(accountId);

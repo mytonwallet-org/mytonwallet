@@ -23,7 +23,8 @@ import buildClassName from '../../../../util/buildClassName';
 import { captureEvents, SwipeDirection } from '../../../../util/captureEvents';
 import { compact } from '../../../../util/iteratees';
 import { getIsActiveStakingState } from '../../../../util/staking';
-import { IS_TOUCH_ENV, STICKY_CARD_INTERSECTION_THRESHOLD } from '../../../../util/windowEnvironment';
+import { IS_TOUCH_ENV, REM, STICKY_CARD_INTERSECTION_THRESHOLD } from '../../../../util/windowEnvironment';
+import windowSize from '../../../../util/windowSize';
 import { calcSafeAreaTop } from '../../helpers/calcSafeAreaTop';
 import { getScrollableContainer } from '../../helpers/scrollableContainer';
 
@@ -76,6 +77,7 @@ interface StateProps {
 }
 
 const MAIN_CONTENT_TABS_LENGTH = Object.values(ContentTab).length / 2;
+const INTERSECTION_APPROXIMATION_VALUE_PX = 3 * REM;
 
 let activeNftKey = 0;
 
@@ -296,7 +298,13 @@ function Content({
   const intersectionRootMarginTop = STICKY_CARD_INTERSECTION_THRESHOLD - safeAreaTop - 1;
 
   const handleTabIntersection = useLastCallback((e: IntersectionObserverEntry) => {
-    const isStuck = e.intersectionRatio < 1;
+    const { intersectionRect: { bottom }, intersectionRatio } = e;
+    const isStuck = intersectionRatio < 1
+      // During fast scrolling with rubber effect, the values in `intersectionRect` are `0`
+      && bottom > 0
+      // Due to the overscroll effect in iOS, it is necessary to check the bottom position of the element.
+      // If the `bottom` value and `height` of the screen are approximately equal, this is overscroll, not sticking.
+      && Math.abs(bottom - windowSize.get().height) > INTERSECTION_APPROXIMATION_VALUE_PX;
 
     onTabsStuck?.(isStuck);
     requestMutation(() => {
@@ -399,7 +407,7 @@ function Content({
   function renderCurrentTab(isActive: boolean) {
     // When assets are shown separately, there is effectively no tab with index 0,
     // so we fall back to next tab to not break parent's component logic.
-    if (activeTabIndex === 0 && shouldShowSeparateAssetsPanel) {
+    if (activeTabIndex === 0 && shouldShowSeparateAssetsPanel && !currentCollectionAddress) {
       return (
         <Activity
           isActive={isActive}

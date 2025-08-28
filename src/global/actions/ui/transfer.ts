@@ -94,7 +94,7 @@ addActionHandler('submitTransferConfirm', async (global, actions) => {
   } else if (inMemoryPassword) {
     global = updateCurrentTransfer(global, { isLoading: true });
     setGlobal(global);
-    actions.submitTransferPassword({ password: inMemoryPassword });
+    actions.submitTransfer({ password: inMemoryPassword });
   } else {
     global = updateCurrentTransfer(global, { state: TransferState.Password });
     setGlobal(global);

@@ -21,7 +21,7 @@ import {
   fetchAccountEvents, fetchAccountNfts, fetchNftByAddress, fetchNftItems,
 } from './util/tonapiio';
 import { commentToBytes, packBytesAsSnake, toBase64Address } from './util/tonCore';
-import { fetchStoredTonWallet } from '../../common/accounts';
+import { fetchStoredTonAccount, fetchStoredTonWallet } from '../../common/accounts';
 import { getNftSuperCollectionsByCollectionAddress } from '../../common/addresses';
 import {
   NFT_PAYLOAD_SAFE_MARGIN,
@@ -138,7 +138,8 @@ export async function checkNftTransferDraft(options: {
   let { toAddress } = options;
 
   const { network } = parseAccountId(accountId);
-  const { address: fromAddress } = await fetchStoredTonWallet(accountId);
+  const account = await fetchStoredTonAccount(accountId);
+  const { address: fromAddress } = account.ton;
 
   const result: ApiCheckTransactionDraftResult = await checkToAddress(network, toAddress);
   if ('error' in result) {
@@ -148,7 +149,7 @@ export async function checkNftTransferDraft(options: {
   toAddress = result.resolvedAddress!;
 
   const messages = nfts
-    .slice(0, NFT_BATCH_SIZE) // We only need to check the first batch of a multi-transaction
+    .slice(0, account.type === 'ledger' ? 1 : NFT_BATCH_SIZE) // We only need to check the first batch of a multi-transaction
     .map((nft) => buildNftTransferMessage(nft, fromAddress, toAddress, comment));
 
   const checkResult = await checkMultiTransactionDraft(accountId, messages);
@@ -169,7 +170,7 @@ export async function checkNftTransferDraft(options: {
 
 export async function submitNftTransfers(options: {
   accountId: string;
-  password: string;
+  password: string | undefined;
   nfts: ApiNft[];
   toAddress: string;
   comment?: string;
@@ -208,7 +209,7 @@ function buildNotcoinVoucherExchange(fromAddress: string, nftAddress: string, nf
   return buildNftTransferPayload(fromAddress, toAddress, payload, NOTCOIN_FORWARD_TON_AMOUNT);
 }
 
-function buildNftTransferPayload(
+export function buildNftTransferPayload(
   fromAddress: string,
   toAddress: string,
   payload?: string | Cell,

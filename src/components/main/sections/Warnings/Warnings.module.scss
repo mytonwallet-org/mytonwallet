@@ -192,3 +192,18 @@
 
   transform: translate(calc(var(--index) * 0.4375rem), calc(var(--index) * -0.4375rem));
 }
+
+.linkContainer {
+  display: flex;
+  gap: 0.125rem;
+  align-items: center;
+  padding-top: 0.25rem;
+}
+
+.link {
+  color: var(--color-white);
+
+  &:hover {
+    color: var(--color-white);
+  }
+}

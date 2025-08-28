@@ -3,13 +3,14 @@ import type { ApiActivity, ApiSwapActivity, ApiSwapHistoryItem } from '../types'
 import { SWAP_API_VERSION, SWAP_CROSSCHAIN_SLUGS, TONCOIN } from '../../config';
 import { parseAccountId } from '../../util/account';
 import { buildBackendSwapId, getActivityTokenSlugs, parseTxId } from '../../util/activities';
-import { compareActivities } from '../../util/compareActivities';
+import { mergeSortedActivities } from '../../util/activities/order';
 import { logDebugError } from '../../util/logs';
 import { fetchStoredAccount } from './accounts';
 import { callBackendGet, callBackendPost } from './backend';
+import { getBackendConfigCache } from './cache';
 import { buildTokenSlug, getTokenByAddress, getTokenBySlug } from './tokens';
 
-export function swapGetHistory(address: string, params: {
+export async function swapGetHistory(address: string, params: {
   fromTimestamp?: number;
   toTimestamp?: number;
   status?: ApiSwapHistoryItem['status'];
@@ -17,16 +18,24 @@ export function swapGetHistory(address: string, params: {
   asset?: string;
   hashes?: string[];
 }): Promise<ApiSwapHistoryItem[]> {
-  return callBackendPost(`/swap/history/${address}`, {
+  const { swapVersion } = await getBackendConfigCache();
+
+  const items = await callBackendPost<ApiSwapHistoryItem[]>(`/swap/history/${address}`, {
     ...params,
-    swapVersion: SWAP_API_VERSION,
+    swapVersion: swapVersion ?? SWAP_API_VERSION,
   });
+
+  return items.map(convertSwapItemToTrusted);
 }
 
-export function swapGetHistoryItem(address: string, id: string): Promise<ApiSwapHistoryItem> {
-  return callBackendGet(`/swap/history/${address}/${id}`, {
-    swapVersion: SWAP_API_VERSION,
+export async function swapGetHistoryItem(address: string, id: string): Promise<ApiSwapHistoryItem> {
+  const { swapVersion } = await getBackendConfigCache();
+
+  const item = await callBackendGet<ApiSwapHistoryItem>(`/swap/history/${address}/${id}`, {
+    swapVersion: swapVersion ?? SWAP_API_VERSION,
   });
+
+  return convertSwapItemToTrusted(item);
 }
 
 export function swapItemToActivity(swap: ApiSwapHistoryItem): ApiSwapActivity {
@@ -60,8 +69,11 @@ export async function patchSwapItem(options: {
   const {
     address, swapId, authToken, msgHash, error,
   } = options;
+
+  const { swapVersion } = await getBackendConfigCache();
+
   await callBackendPost(`/swap/history/${address}/${swapId}/update`, {
-    swapVersion: SWAP_API_VERSION,
+    swapVersion: swapVersion ?? SWAP_API_VERSION,
     msgHash,
     error,
   }, {
@@ -107,7 +119,7 @@ export async function swapReplaceCexActivities(
       return activities;
     }
 
-    const result: ApiActivity[] = [];
+    const swapActivities: ApiActivity[] = [];
     const allSwapHashes = new Set<string>();
 
     for (const swap of swaps) {
@@ -115,21 +127,19 @@ export async function swapReplaceCexActivities(
 
       const isSwapHere = swap.timestamp > fromTime && swap.timestamp < toTime;
       if (isSwapHere) {
-        result.push(swapItemToActivity(swap));
+        swapActivities.push(swapItemToActivity(swap));
       }
     }
 
-    for (const activity of activities) {
+    const otherActivities = activities.map((activity) => {
       if (activity.kind === 'transaction' && allSwapHashes.has(parseTxId(activity.id).hash)) {
-        result.push({ ...activity, shouldHide: true });
+        return { ...activity, shouldHide: true };
       } else {
-        result.push(activity);
+        return activity;
       }
-    }
+    });
 
-    result.sort(compareActivities);
-
-    return result;
+    return mergeSortedActivities(swapActivities, otherActivities);
   } catch (err) {
     logDebugError('swapReplaceCexActivities', err);
     return activities;
@@ -146,4 +156,11 @@ function canHaveCexSwap(slug: string | undefined, activities: ApiActivity[]): bo
       return SWAP_CROSSCHAIN_SLUGS.has(slug);
     });
   });
+}
+
+export function convertSwapItemToTrusted(swap: ApiSwapHistoryItem): ApiSwapHistoryItem {
+  return {
+    ...swap,
+    status: swap.status === 'pending' ? 'pendingTrusted' : swap.status,
+  };
 }

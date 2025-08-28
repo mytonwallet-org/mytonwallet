@@ -5,7 +5,6 @@ import type {
   ApiTokenWithPrice,
 } from '../../../api/types';
 
-import { compareActivities } from '../../../util/compareActivities';
 import { unique } from '../../../util/iteratees';
 import { getIsTransactionWithPoisoning } from '../../../util/poisoningHash';
 import { pause, throttle, waitFor } from '../../../util/schedulers';
@@ -102,8 +101,6 @@ async function fetchPastActivities(accountId: string, slug?: string) {
     shouldFetchMore = filteredResult.length < PAST_ACTIVITY_BATCH && fetchedActivities.length < PAST_ACTIVITY_BATCH;
     toTimestamp = result[result.length - 1].timestamp;
   }
-
-  fetchedActivities.sort(compareActivities);
 
   global = addPastActivities(global, accountId, slug, fetchedActivities, isEndReached);
   setGlobal(global);

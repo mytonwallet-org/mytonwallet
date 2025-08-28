@@ -5,7 +5,7 @@ import React, {
 import { withGlobal } from '../../../../global';
 
 import type { ApiBaseCurrency, ApiNft, ApiStakingState } from '../../../../api/types';
-import type { UserToken } from '../../../../global/types';
+import type { IAnchorPosition, UserToken } from '../../../../global/types';
 
 import { IS_CORE_WALLET } from '../../../../config';
 import {
@@ -24,7 +24,6 @@ import getSensitiveDataMaskSkinFromCardNft from './helpers/getSensitiveDataMaskS
 
 import useCurrentOrPrev from '../../../../hooks/useCurrentOrPrev';
 import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
-import useFlag from '../../../../hooks/useFlag';
 import useFontScale from '../../../../hooks/useFontScale';
 import useHistoryBack from '../../../../hooks/useHistoryBack';
 import useLastCallback from '../../../../hooks/useLastCallback';
@@ -87,7 +86,7 @@ function Card({
   // Screen width affects font size only in portrait orientation
   const screenWidthDep = isPortrait ? screenWidth : 0;
 
-  const [isCurrencyMenuOpen, openCurrencyMenu, closeCurrencyMenu] = useFlag(false);
+  const [currencyMenuAnchor, setCurrencyMenuAnchor] = useState<IAnchorPosition>();
   const currentToken = useMemo(() => {
     return tokens ? tokens.find((token) => token.slug === currentTokenSlug) : undefined;
   }, [currentTokenSlug, tokens]);
@@ -101,6 +100,15 @@ function Card({
     withShouldRender: true,
   });
   const sensitiveDataMaskSkin = getSensitiveDataMaskSkinFromCardNft(cardNft);
+
+  const openCurrencyMenu = () => {
+    const { left, width, bottom: y } = amountRef.current!.getBoundingClientRect();
+    setCurrencyMenuAnchor({ x: left + width / 2, y });
+  };
+
+  const closeCurrencyMenu = useLastCallback(() => {
+    setCurrencyMenuAnchor(undefined);
+  });
 
   const handleCardChange = useLastCallback((hasGradient: boolean, className?: string) => {
     setCustomCardClassName(className);
@@ -191,7 +199,13 @@ function Card({
             </div>
           </SensitiveData>
         </Transition>
-        <CurrencySwitcherMenu isOpen={isCurrencyMenuOpen} menuPositionX="right" onClose={closeCurrencyMenu} />
+        <CurrencySwitcherMenu
+          isOpen={Boolean(currencyMenuAnchor)}
+          triggerRef={amountRef}
+          anchor={currencyMenuAnchor}
+          className={styles.currencySwitcherMenu}
+          onClose={closeCurrencyMenu}
+        />
         {primaryValue !== '0' && (
           <SensitiveData
             isActive={isSensitiveDataHidden}

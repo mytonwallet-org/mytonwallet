@@ -61,12 +61,7 @@ function VestingPasswordModal({
   isHardwareAccount,
   isMultichainAccount,
 }: StateProps) {
-  const {
-    submitClaimingVesting,
-    submitClaimingVestingHardware,
-    cancelClaimingVesting,
-    clearVestingError,
-  } = getActions();
+  const { submitClaimingVesting, cancelClaimingVesting, clearVestingError } = getActions();
 
   const lang = useLang();
   const {
@@ -90,7 +85,7 @@ function VestingPasswordModal({
 
   const handleHardwareSubmit = useLastCallback(() => {
     if (hasAmountError) return;
-    submitClaimingVestingHardware();
+    submitClaimingVesting();
   });
 
   if (!mycoin) {

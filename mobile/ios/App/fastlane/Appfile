@@ -1,8 +1,9 @@
-app_identifier("org.mytonwallet.app") # The bundle identifier of your app
-apple_id("troman.dev@icloud.com") # Your Apple Developer Portal username
+app_identifier("org.mytonwallet.app")
+apple_id("troman.dev@icloud.com")
 
-itc_team_id("126235213") # App Store Connect Team ID
-team_id("Y54Z4K69Z9") # Developer Portal Team ID
+itc_team_id("126235213")
+team_id("Y54Z4K69Z9")
 
-# For more information about the Appfile, see:
-#     https://docs.fastlane.tools/advanced/#appfile
+if ENV['IS_AIR_APP'] == '1'
+  app_identifier("org.mytonwallet.app-air")
+end

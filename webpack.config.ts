@@ -49,8 +49,11 @@ const IS_PACKAGED_ELECTRON = process.env.IS_PACKAGED_ELECTRON === '1';
 const IS_FIREFOX_EXTENSION = process.env.IS_FIREFOX_EXTENSION === '1';
 const IS_OPERA_EXTENSION = process.env.IS_OPERA_EXTENSION === '1';
 
+const destinationDir = path.resolve(__dirname, 'dist');
 const appCommitHash = new GitRevisionPlugin().commithash();
-const canUseStatoscope = !IS_EXTENSION && !IS_PACKAGED_ELECTRON && !IS_CAPACITOR;
+const isStatoscopeBuild = process.env.IS_STATOSCOPE === '1'; // "Statoscope build" is a special mode where all the entries are used. It is used for comprehensive code size comparison in PRs.
+const isWebApp = !(IS_EXTENSION || IS_PACKAGED_ELECTRON || IS_CAPACITOR);
+const canUseStatoscope = isStatoscopeBuild || isWebApp;
 const cspConnectSrcExtra = APP_ENV === 'development'
   ? `http://localhost:3000 ${process.env.CSP_CONNECT_SRC_EXTRA_URL}`
   : '';
@@ -113,11 +116,11 @@ const appVersion = require('./package.json').version;
 
 const defaultI18nFilename = path.resolve(__dirname, './src/i18n/en.json');
 
-const statoscopeStatsFile = './public/statoscope-build-statistics.json';
+const statoscopeStatsFilename = 'statoscope-build-statistics.json';
 const statoscopeStatsFileToCompare = process.env.STATOSCOPE_STATS_TO_COMPARE;
 // If a compared stat file name is the same as the main stats file name, the Statoscope UI doesn't show it.
-if (path.basename(statoscopeStatsFileToCompare || '') === path.basename(statoscopeStatsFile)) {
-  throw new Error(`The STATOSCOPE_STATS_TO_COMPARE file name mustn't be ${path.basename(statoscopeStatsFile)}`);
+if (path.basename(statoscopeStatsFileToCompare || '') === statoscopeStatsFilename) {
+  throw new Error(`The STATOSCOPE_STATS_TO_COMPARE file name mustn't be ${statoscopeStatsFilename}`);
 }
 
 export default function createConfig(
@@ -129,13 +132,10 @@ export default function createConfig(
     target: 'web',
 
     optimization: {
-      minimize: APP_ENV === 'production',
+      minimize: APP_ENV === 'production' && !IS_EXTENSION,
       usedExports: true,
       ...(APP_ENV === 'staging' && {
         chunkIds: 'named',
-      }),
-      ...(IS_EXTENSION && {
-        minimize: false,
       }),
       ...(IS_CAPACITOR && {
         splitChunks: false,
@@ -144,13 +144,15 @@ export default function createConfig(
 
     entry: {
       main: './src/index.tsx',
-      extensionServiceWorker: {
-        import: './src/extension/serviceWorker.ts',
-        // Extension service worker isn't allowed to load code dynamically. This option inlines all dynamic imports.
-        chunkLoading: false,
-      },
-      extensionContentScript: './src/extension/contentScript.ts',
-      extensionPageScript: './src/extension/pageScript/index.ts',
+      ...((IS_EXTENSION || isStatoscopeBuild) && {
+        extensionServiceWorker: {
+          import: './src/extension/serviceWorker.ts',
+          // Extension service worker isn't allowed to load code dynamically. This option inlines all dynamic imports.
+          chunkLoading: false,
+        },
+        extensionContentScript: './src/extension/contentScript.ts',
+        extensionPageScript: './src/extension/pageScript/index.ts',
+      }),
     },
 
     devServer: {
@@ -180,7 +182,7 @@ export default function createConfig(
       filename: (pathData) => (pathData.chunk?.name?.startsWith('extension') ? '[name].js' : '[name].[contenthash].js'),
       chunkFilename: '[id].[chunkhash].js',
       assetModuleFilename: '[name].[contenthash][ext]',
-      path: path.resolve(__dirname, 'dist'),
+      path: destinationDir,
       clean: true,
     },
 
@@ -268,10 +270,8 @@ export default function createConfig(
       ...(IS_OPERA_EXTENSION ? [{
         apply: (compiler: Compiler) => {
           compiler.hooks.afterDone.tap('After Compilation', async () => {
-            const dir = './dist/';
-
-            for (const filename of await fs.promises.readdir(dir)) {
-              const file = path.join(dir, filename);
+            for (const filename of await fs.promises.readdir(destinationDir)) {
+              const file = path.join(destinationDir, filename);
 
               if (file.endsWith('.tgs')) {
                 await fs.promises.rename(file, file.replace('.tgs', '.json'));
@@ -444,8 +444,8 @@ export default function createConfig(
         statsOptions: {
           context: __dirname,
         },
-        saveReportTo: path.resolve('./public/statoscope-report.html'),
-        saveStatsTo: path.resolve(statoscopeStatsFile),
+        saveReportTo: path.join(destinationDir, 'statoscope-report.html'),
+        saveStatsTo: path.join(destinationDir, statoscopeStatsFilename),
         normalizeStats: true,
         open: false,
         extensions: [new WebpackContextExtension()],
@@ -453,8 +453,7 @@ export default function createConfig(
       })] : []),
     ],
 
-    devtool:
-      IS_EXTENSION ? 'cheap-source-map' : APP_ENV === 'production' && IS_PACKAGED_ELECTRON ? undefined : 'source-map',
+    devtool: IS_EXTENSION ? 'cheap-source-map' : APP_ENV === 'production' && !isWebApp ? undefined : 'source-map',
   };
 }
 

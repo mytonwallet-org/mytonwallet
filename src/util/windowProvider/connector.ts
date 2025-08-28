@@ -1,7 +1,8 @@
 import type { Connector } from '../PostMessageConnector';
 import type { WindowMethodArgs, WindowMethodResponse, WindowMethods } from './types';
 
-import { WINDOW_PROVIDER_CHANNEL, WINDOW_PROVIDER_PORT } from '../../config';
+import { IS_AIR_APP, WINDOW_PROVIDER_CHANNEL, WINDOW_PROVIDER_PORT } from '../../config';
+import { airAppCallWindow } from '../../api/air/airAppCallWindow';
 
 import { createReverseExtensionConnector } from '../PostMessageConnector';
 import { createConnector } from '../PostMessageConnector';
@@ -22,6 +23,8 @@ export function initWindowConnector() {
 }
 
 export function callWindow<T extends keyof WindowMethods>(methodName: T, ...args: WindowMethodArgs<T>) {
+  if (IS_AIR_APP) return airAppCallWindow(methodName, ...args) as EnsurePromise<WindowMethodResponse<T>>;
+
   if (!connector) {
     throw new Error('API is not initialized');
   }

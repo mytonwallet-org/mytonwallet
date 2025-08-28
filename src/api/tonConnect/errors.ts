@@ -22,8 +22,8 @@ export class ManifestContentError extends TonConnectError {
 }
 
 export class UnknownError extends TonConnectError {
-  constructor(message = 'Unknown error.') {
-    super(message, SEND_TRANSACTION_ERROR_CODES.UNKNOWN_ERROR);
+  constructor(message = 'Unknown error.', displayError?: ApiAnyDisplayError) {
+    super(message, SEND_TRANSACTION_ERROR_CODES.UNKNOWN_ERROR, displayError);
   }
 }
 

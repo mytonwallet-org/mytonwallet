@@ -58,6 +58,7 @@ export interface ActivitiesUpdate {
   messageHashNormalized: string;
   /** Pending actions are not confirmed by the blockchain yet */
   arePending: boolean;
+  /** The activities may be unsorted */
   activities: ApiActivity[];
 }
 

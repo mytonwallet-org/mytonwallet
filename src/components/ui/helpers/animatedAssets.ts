@@ -6,6 +6,7 @@ import iconClockDark from '../../../assets/lottie/clock_dark.tgs';
 import iconClockDarkBlue from '../../../assets/lottie/clock_dark_blue.tgs';
 import iconClockDarkGray from '../../../assets/lottie/clock_dark_gray.tgs';
 import iconClockDarkGreen from '../../../assets/lottie/clock_dark_green.tgs';
+import iconClockDarkOrange from '../../../assets/lottie/clock_dark_orange.tgs';
 import iconClockDarkPurple from '../../../assets/lottie/clock_dark_purple.tgs';
 import iconClockDarkPurpleWhite from '../../../assets/lottie/clock_dark_purple_white.tgs';
 import iconClockDarkRed from '../../../assets/lottie/clock_dark_red.tgs';
@@ -13,6 +14,7 @@ import iconClockLight from '../../../assets/lottie/clock_light.tgs';
 import iconClockLightBlue from '../../../assets/lottie/clock_light_blue.tgs';
 import iconClockLightGray from '../../../assets/lottie/clock_light_gray.tgs';
 import iconClockLightGreen from '../../../assets/lottie/clock_light_green.tgs';
+import iconClockLightOrange from '../../../assets/lottie/clock_light_orange.tgs';
 import iconClockLightPurple from '../../../assets/lottie/clock_light_purple.tgs';
 import iconClockLightPurpleWhite from '../../../assets/lottie/clock_light_purple_white.tgs';
 import iconClockLightRed from '../../../assets/lottie/clock_light_red.tgs';
@@ -41,6 +43,7 @@ import iconClockPreviewDark from '../../../assets/lottiePreview/clock_dark.svg';
 import iconClockPreviewDarkBlue from '../../../assets/lottiePreview/clock_dark_blue.svg';
 import iconClockPreviewDarkGray from '../../../assets/lottiePreview/clock_dark_gray.svg';
 import iconClockPreviewDarkGreen from '../../../assets/lottiePreview/clock_dark_green.svg';
+import iconClockPreviewDarkOrange from '../../../assets/lottiePreview/clock_dark_orange.svg';
 import iconClockPreviewDarkPurple from '../../../assets/lottiePreview/clock_dark_purple.svg';
 import iconClockPreviewDarkPurpleWhite from '../../../assets/lottiePreview/clock_dark_purple_white.svg';
 import iconClockPreviewDarkRed from '../../../assets/lottiePreview/clock_dark_red.svg';
@@ -48,6 +51,7 @@ import iconClockPreviewLight from '../../../assets/lottiePreview/clock_light.svg
 import iconClockPreviewLightBlue from '../../../assets/lottiePreview/clock_light_blue.svg';
 import iconClockPreviewLightGray from '../../../assets/lottiePreview/clock_light_gray.svg';
 import iconClockPreviewLightGreen from '../../../assets/lottiePreview/clock_light_green.svg';
+import iconClockPreviewLightOrange from '../../../assets/lottiePreview/clock_light_orange.svg';
 import iconClockPreviewLightPurple from '../../../assets/lottiePreview/clock_light_purple.svg';
 import iconClockPreviewLightPurpleWhite from '../../../assets/lottiePreview/clock_light_purple_white.svg';
 import iconClockPreviewLightRed from '../../../assets/lottiePreview/clock_light_red.svg';
@@ -100,6 +104,7 @@ export const ANIMATED_STICKERS_PATHS = {
     iconClockBlue: iconClockLightBlue,
     iconClockGray: iconClockLightGray,
     iconClockGreen: iconClockLightGreen,
+    iconClockOrange: iconClockLightOrange,
     iconClockPurple: iconClockLightPurple,
     iconClockPurpleWhite: iconClockLightPurpleWhite,
     iconClockRed: iconClockLightRed,
@@ -112,6 +117,7 @@ export const ANIMATED_STICKERS_PATHS = {
       iconClockBlue: iconClockPreviewLightBlue,
       iconClockGray: iconClockPreviewLightGray,
       iconClockGreen: iconClockPreviewLightGreen,
+      iconClockOrange: iconClockPreviewLightOrange,
       iconClockPurple: iconClockPreviewLightPurple,
       iconClockPurpleWhite: iconClockPreviewLightPurpleWhite,
       iconClockRed: iconClockPreviewLightRed,
@@ -123,6 +129,7 @@ export const ANIMATED_STICKERS_PATHS = {
     iconClockBlue: iconClockDarkBlue,
     iconClockGray: iconClockDarkGray,
     iconClockGreen: iconClockDarkGreen,
+    iconClockOrange: iconClockDarkOrange,
     iconClockPurple: iconClockDarkPurple,
     iconClockPurpleWhite: iconClockDarkPurpleWhite,
     iconClockRed: iconClockDarkRed,
@@ -135,6 +142,7 @@ export const ANIMATED_STICKERS_PATHS = {
       iconClockBlue: iconClockPreviewDarkBlue,
       iconClockGray: iconClockPreviewDarkGray,
       iconClockGreen: iconClockPreviewDarkGreen,
+      iconClockOrange: iconClockPreviewDarkOrange,
       iconClockPurple: iconClockPreviewDarkPurple,
       iconClockPurpleWhite: iconClockPreviewDarkPurpleWhite,
       iconClockRed: iconClockPreviewDarkRed,

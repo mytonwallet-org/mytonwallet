@@ -1,9 +1,15 @@
 import type { Table, UpdateSpec } from 'dexie';
 
+import { IS_AIR_APP } from '../../config';
+
 const IGNORED_DEXIE_ERRORS = new Set(['AbortError', 'BulkError', 'UnknownError']);
 
 async function tryDbQuery<T>(cb: () => Promise<T>) {
   try {
+    if (IS_AIR_APP) {
+      void cb();
+      return undefined;
+    }
     return await cb();
   } catch (error: any) {
     if (IGNORED_DEXIE_ERRORS.has(error?.name)) return undefined;

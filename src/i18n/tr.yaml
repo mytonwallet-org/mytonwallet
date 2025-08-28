@@ -248,6 +248,7 @@ Confirm Unstaking: Unstaking işlemini onayla
 Request for unstaking is sent!: Unstake işlemi için talep gönderildi!
 $unstaking_when_receive: Stake'e yatırılmamış bakiyenizi %time% içinde alacaksınız.
 $unstaking_when_receive_with_amount: Stake'i kaldırılan %amount%, %time% içinde hesabınıza geçecektir.
+$unstaking_when_receive_with_amount_ethena: "%amount% %time% sonra çekim için kullanılabilir olacak."
 $unstake_insufficient_balance: Unstaking işlemine devam etmek için ana bakiyenizde %balance% bulunması gerekir.
 at %annual_yield%: "%annual_yield% ile"
 Staked: Stake edildi
@@ -257,8 +258,6 @@ Unstaking: Unstaking gerçekleşiyor
 $unstake_action: Unstake işlemi
 The network fee has slightly changed, try sending again.: Ağ ücreti bir miktar değişti, tekrar göndermeyi deneyin.
 Transfer was unsuccessful. Try again later.: Transfer başarısız oldu. Daha sonra tekrar deneyin.
-Unstaking was unsuccessful. Try again later.: Unstake işlemi başarısız oldu. Daha sonra tekrar deneyin.
-Staking was unsuccessful. Try again later.: Staking işlemi başarısız oldu. Daha sonra tekrar deneyin.
 Invalid amount: Geçersiz tutar
 Invalid address: Geçersiz adres
 Domain is not connected to a wallet: Alan adı bir cüzdana bağlı değil
@@ -548,7 +547,7 @@ To use this feature, first enable biometrics in your phone settings.: Bu özelli
 Open Settings: Ayarları aç
 $service_token_transfer_warning: Mevduatınızı çekmek veya hizmet işlemlerini tamamlamak için gerekli olan önemli bir hizmet tokenini transfer etmek üzeresiniz. Bu işlemi yapmayı gerçekten istediğinizden emin olun.
 No Price: Fiyat yok
-$ledger_not_supported_operation: Bu işlem, kullandığınız Ledger TON App sürümü tarafından desteklenmiyor. Lütfen Ledger Live kullanarak güncelleyin.
+$ledger_outdated: Bu işlem, kullandığınız Ledger TON App sürümü tarafından desteklenmiyor. Lütfen Ledger Live kullanarak güncelleyin.
 $ledger_unsupported_ton_connect: TonConnect, Ledger Ton uygulamanızın sürümü tarafından desteklenmez. Lütfen Ledger Live kullanarak güncelleyin.
 $dapp_transfer_tokens_burn: "%amount% yakılıyor"
 $dapp_dns_set_wallet_payload: "%domain% alanının bağlı cüzdanını %address% olarak değiştirme"
@@ -759,13 +758,13 @@ Hide Sensitive Data: Hassas Verileri Gizle
 Copy Address: Adresi Kopyala
 Copy Transaction ID: İşlem Kimliğini Kopyala
 Requesting Unstake: Unstake talep ediliyor
-Unstake Requested: Unstake talep edildi
+Requested Unstake: Unstake talep edildi
 $request_unstake_action: Unstake talebi
 Calling Contract: Sözleşme çağrılıyor
-Contract Called: Sözleşme çağrıldı
+Called Contract: Kontrat çağrıldı
 $call_contract_action: Sözleşme çağrısı
 Deploying Contract: Sözleşme dağıtılıyor
-Contract Deployed: Sözleşme dağıtıldı
+Deployed Contract: Kontrat dağıtıldı
 $deploy_contract_action: Sözleşme dağıtımı
 Minting: Mintleme
 Minted: Mintlendi
@@ -773,39 +772,39 @@ $mint_action: Mint
 Burning: Yakma
 Burned: Yakıldı
 $burn_action: Yakma
-Address Updated: Adres güncellendi
 Updating Address: Adres güncelleniyor
+Updated Address: Adres güncellendi
 $update_address_action: Adres güncelleme
-Site Updated: Site güncellendi
 Updating Site: Site güncelleniyor
+Updated Site: Site güncellendi
 $update_site_action: Site güncelleme
-Subdomains Updated: Alt alan adları güncellendi
 Updating Subdomains: Alt alan adları güncelleniyor
+Updated Subdomains: Alt alan adları güncellendi
 $update_subdomains_action: Alt alan adı güncelleme
-Storage Updated: Depolama alanı güncellendi
 Updating Storage: Depolama alanı güncelleniyor
+Updated Storage: Depolama güncellendi
 $update_storage_action: Depolama güncelleme
-Domain Record Deleted: Alan adı kaydı silindi
 Deleting Domain Record: Alan adı kaydı siliniyor
+Deleted Domain Record: Alan adı kaydı silindi
 $delete_domain_record_action: Alan adı kaydını silme
 Renewing Domain: Alan adı yenileniyor
-Domain Renewed: Alan adı yenilendi
+Renewed Domain: Alan adı yenilendi
 $renew_domain_action: Alan adı yenileme
 Providing Liquidity: Likidite sağlanıyor
-Liquidity Provided: Likidite sağlandı
+Provided Liquidity: Likidite sağlandı
 $provide_liquidity_action: Likidite sağlama
 Withdrawing Liquidity: Likidite çekiliyor
-Liquidity Withdrawn: Likidite çekildi
+Withdrawn Liquidity: Likidite çekildi
 $withdraw_liquidity_action: Likidite çekme
 Bounced: Geri döndü
 Bouncing: Geri dönüyor
 $bounce_action: Geri dönüş
 NFT Auction Bid: NFT müzayede teklifi
 Bidding at NFT Auction: NFT müzayedesinde teklif verme
-NFT Bought: NFT satın alındı
 Buying NFT: NFT satın alınıyor
+Bought NFT: NFT satın alındı
 $buy_nft_action: NFT satın alma
-NFT Sold: NFT satıldı
+Sold NFT: NFT satıldı
 Selling NFT: NFT satılıyor
 $sell_nft_action: NFT sat
 Receiving: Alınıyor
@@ -864,12 +863,11 @@ Renew Domain: Alan adını yenile
 Renew Domains: Alan adlarını yenile
 Some domains are about to expire: Bazı alan adlarının süresi dolmak üzere
 $domain_expire: "**%domain%** %days% sona eriyor"
-'%token% Staking': '%token% Stake Etme'
+"%token% Staking": "%token% Stake Etme"
 Add Tab: Sekme Ekle
 Remove Tab: Sekmeyi Kaldır
 Link Domain: Alan adını bağla
 Domain Linked!: Alan adı bağlandı!
-Failed to process domain operation. Please try again.: Domain işlemi işlenemedi. Lütfen tekrar deneyin.
 $domains_amount %1$d:
   zeroValue: Alan adı yok
   oneValue: "%1$d alan adı"
@@ -889,7 +887,7 @@ Link: Bağla
 Confirm Renewing: Yenilemeyi Onayla
 Confirm Linking: Bağlamayı Onayla
 $domains_expire:
-  zeroValue: "Hiçbir alan adı %days% sona ermiyor"
+  zeroValue: Hiçbir alan adı %days% sona ermiyor
   oneValue: "**%domain% alan adı** %days% sona eriyor"
   otherValue: "**%domain% alan adı** %days% sona eriyor"
 $in_days:
@@ -898,7 +896,7 @@ $in_days:
   otherValue: "%1$d gün içinde"
 $domain_was_expired: "**%domain%** süresi doldu"
 $domains_was_expired:
-  zeroValue: "Süresi dolan alan adı yok"
+  zeroValue: Süresi dolan alan adı yok
   oneValue: "**%domain% alan adının** süresi doldu"
   otherValue: "**%domain% alan adının** süresi doldu"
 Reload: Yeniden yükle
@@ -939,6 +937,9 @@ Telegram Gifts: Telegram Hediyeleri
 Collectibles: Koleksiyonlar
 Bluetooth unavailable: Bluetooth kullanılamıyor
 $bluetooth_enable_guide: Cihaz ayarlarında Bluetooth'u açın ve uygulamanın Bluetooth'a erişmesine izin verin.
+Another transaction was sent from this wallet simultaneously. Please try again.: Bu cüzdandan aynı anda başka bir işlem gönderildi. Lütfen tekrar deneyin.
+Canceled by the user: Kullanıcı tarafından iptal edildi
+The proof for signing provided by the Dapp is too large: Dapp tarafından sağlanan imzalama kanıtı çok büyük
 $domain_like_scam_warning: |
   Girilen adres büyük olasılıkla bir **DOLANDIRICILIKTIR**. Bu, herhangi bir borsanın veya token cüzdanınızın adresi **DEĞİLDİR**.
 
@@ -947,3 +948,8 @@ $domain_like_scam_warning: |
   Bu transferi **İptal edin** ve yabancılara asla **güvenmeyin**. Bu ve diğer dolandırıcılık yöntemleri hakkında daha fazla bilgi için %help_center_link%'mizi ziyaret edin.
 Allow Suspicious Actions: Şüpheli Eylemlere İzin Ver
 $allow_suspicious_actions_description: Şüpheli adreslere göndermeye ve potansiyel olarak güvenli olmayan kontratlarla etkileşime izin verir.
+Multisig Wallet Detected: Multisig Cüzdan Tespit Edildi
+$multisig_warning_text: "Bu cüzdandan MyTonWallet üzerinden **para çekmek** **imkansızdır**. Gerçekten sizin olduğundan emin olun — aksi takdirde bir dolandırıcılık olabilir. %multisig_warning_link%"
+$multisig_warning_link: Daha fazla öğrenmek için tıklayın.
+Multisig sending disabled: Multisig'den olmaz
+$try_new_air_version: Yerel uygulama deneyimini deneyin — daha hafif, daha hızlı ve cihazınız için oluşturuldu. İstediğiniz zaman geri dönebilirsiniz.

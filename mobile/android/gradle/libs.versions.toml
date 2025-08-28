@@ -1,0 +1,69 @@
+[versions]
+googleServices = "4.4.2"
+gradle = "8.11.1"
+kotlin = "2.2.0"
+coreKtx = "1.13.1"
+junit = "4.13.2"
+junitVersion = "1.2.1"
+espressoCore = "3.6.1"
+appcompat = "1.7.0"
+leakcanaryAndroid = "2.14"
+material = "1.12.0"
+activity = "1.9.2"
+constraintlayout = "2.2.1"
+biometric = "1.1.0"
+lottie = "6.6.7"
+fresco = "3.6.0"
+zxing = "3.5.3"
+moshi = "1.15.2"
+cameraCore = "1.4.1"
+cameraView = "1.4.1"
+cameraLifecycle = "1.4.1"
+lifecycle = "2.8.7"
+mlkitBarcodeScanning = "17.3.0"
+mpcharts = "3.1.0"
+paletteKtx = "1.0.0"
+webkit = "1.14.0"
+blurview = "version-2.0.6"
+timber = "5.0.1"
+firebaseMessaging = "24.1.0" # Sync with capacitor app
+
+[libraries]
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+google-services = { module = "com.google.gms:google-services", version.ref = "googleServices" }
+gradle = { module = "com.android.tools.build:gradle", version.ref = "gradle" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
+androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+leakcanary-android = { module = "com.squareup.leakcanary:leakcanary-android", version.ref = "leakcanaryAndroid" }
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+androidx-activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
+androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
+androidx-biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
+androidx-lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version.ref = "lifecycle" }
+androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycle" }
+
+lottie = { group = "com.airbnb.android", name = "lottie", version.ref = "lottie" }
+fresco = { group = "com.facebook.fresco", name = "fresco", version.ref = "fresco" }
+fresco-middleware = { group = "com.facebook.fresco", name = "middleware", version.ref = "fresco" }
+zxing = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
+camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "cameraCore" }
+camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "cameraView" }
+camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "cameraLifecycle" }
+mlkit-barcode-scanning = { group = "com.google.mlkit", name = "barcode-scanning", version.ref = "mlkitBarcodeScanning" }
+blurview = { group = "com.github.Dimezis", name = "BlurView", version.ref = "blurview" }
+
+charts = { group = "com.github.PhilJay", name = "MPAndroidChart", version.ref = "mpcharts" }
+
+moshi-core = { group = "com.squareup.moshi", name = "moshi", version.ref = "moshi" }
+moshi-kotlin = { group = "com.squareup.moshi", name = "moshi-kotlin", version.ref = "moshi" }
+moshi-adapters = { group = "com.squareup.moshi", name = "moshi-adapters", version.ref = "moshi" }
+moshi-codegen = { group = "com.squareup.moshi", name = "moshi-kotlin-codegen", version.ref = "moshi" }
+androidx-palette-ktx = { group = "androidx.palette", name = "palette-ktx", version.ref = "paletteKtx" }
+androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "webkit" }
+timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }
+firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging", version.ref = "firebaseMessaging" }
+
+[plugins]
+jetbrains-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }

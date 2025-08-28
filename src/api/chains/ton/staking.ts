@@ -196,7 +196,7 @@ export async function checkUnstakeDraft(accountId: string, amount: bigint, state
 
 export async function submitStake(
   accountId: string,
-  password: string,
+  password: string | undefined,
   amount: bigint,
   state: ApiStakingState,
 ) {
@@ -266,7 +266,7 @@ export async function submitStake(
 
 export async function submitUnstake(
   accountId: string,
-  password: string,
+  password: string | undefined,
   amount: bigint,
   state: ApiStakingState,
 ) {
@@ -656,7 +656,7 @@ export async function fetchBackendStakingState(address: string, isViewOnly: bool
 
 export function submitTokenStakingClaim(
   accountId: string,
-  password: string,
+  password: string | undefined,
   state: ApiJettonStakingState,
 ) {
   return submitTransfer({
@@ -670,7 +670,7 @@ export function submitTokenStakingClaim(
 
 export async function submitUnstakeEthenaLocked(
   accountId: string,
-  password: string,
+  password: string | undefined,
   state: ApiEthenaStakingState,
 ) {
   const { address } = await fetchStoredTonWallet(accountId);

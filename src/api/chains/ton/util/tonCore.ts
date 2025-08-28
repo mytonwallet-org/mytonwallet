@@ -1,6 +1,6 @@
-import type { OpenedContract } from '@ton/core';
+import type { OpenedContract, StateInit } from '@ton/core';
 import {
-  Address, beginCell, Builder, Cell, Dictionary,
+  Address, beginCell, Builder, Cell, Dictionary, loadStateInit,
 } from '@ton/core';
 import { WalletContractV1R1 } from '@ton/ton/dist/wallets/WalletContractV1R1';
 import { WalletContractV1R2 } from '@ton/ton/dist/wallets/WalletContractV1R2';
@@ -248,7 +248,7 @@ export function packBytesAsSnakeCell(bytes: Uint8Array): Cell {
   return headCell ?? Cell.EMPTY;
 }
 
-export function packBytesAsSnakeForEncryptedData(data: Uint8Array): Uint8Array | Cell {
+export function packBytesAsSnakeForEncryptedData(data: Uint8Array): Cell {
   const ROOT_BUILDER_BYTES = 39;
   const MAX_CELLS_AMOUNT = 16;
 
@@ -405,4 +405,16 @@ export function getOurFeePayload() {
   return new Builder()
     .storeUint(OpCode.OurFee, 32)
     .endCell();
+}
+
+export function parseStateInitCell(stateInit: Cell | undefined): StateInit | undefined {
+  return stateInit && loadStateInit(stateInit.asSlice());
+}
+
+export function isSeqnoMismatchError(error: string) {
+  return error.match(/exitcode=(33|133)\D/);
+}
+
+export function isExpiredTransactionError(error: string) {
+  return error.match(/exitcode=(35|136)\D/);
 }

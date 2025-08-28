@@ -12,6 +12,3 @@ export const DEVICE_DETECT_ATTEMPTS = 3;
 export const PAUSE = 125;
 export const ATTEMPTS = 10;
 export const IS_BOUNCEABLE = false;
-export const VERSION_WITH_UNSAFE = '2.1.0';
-export const VERSION_WITH_JETTON_ID = '2.2.0';
-export const VESTING_SUBWALLET_ID = 0x10C;

@@ -11,6 +11,7 @@ import useLang from '../../../../hooks/useLang';
 import BackupWarning from './BackupWarning';
 import RenewDomainWarning from './RenewDomainWarning';
 import SecurityWarning from './SecurityWarning';
+import TronScamWarning from './TronScamWarning';
 
 import styles from './Warnings.module.scss';
 
@@ -47,6 +48,7 @@ function Warnings({
         <>
           <BackupWarning isRequired={isBackupRequired} onOpenBackupWallet={onOpenBackupWallet} />
           <RenewDomainWarning />
+          <TronScamWarning />
         </>
       )}
       {IS_UNSAFE_WEB && <SecurityWarning />}

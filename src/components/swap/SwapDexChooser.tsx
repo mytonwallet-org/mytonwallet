@@ -43,6 +43,7 @@ interface OwnProps {
 
 interface StateProps {
   currentSwap: GlobalState['currentSwap'];
+  swapVersion: GlobalState['swapVersion'];
 }
 
 const IS_WHOLE_PART_BIG_REGEX = /^\d{5,}([.,]|$)/;
@@ -60,6 +61,7 @@ function SwapDexChooser({
     inputSource,
     ourFeePercent = DEFAULT_OUR_SWAP_FEE,
   },
+  swapVersion,
 }: OwnProps & StateProps) {
   const { setSwapDex } = getActions();
 
@@ -77,8 +79,10 @@ function SwapDexChooser({
       dex_name: selectedDexLabel ? SWAP_DEX_LABELS[selectedDexLabel] : '',
     });
 
+  const shouldRenderForSwapV2 = !!estimates?.length && !!tokenOut && !!amountOut && !!amountIn;
+
   const { shouldRender, ref: rootRef } = useShowTransition({
-    isOpen: !!estimates?.length && !!tokenOut && !!amountOut && !!amountIn,
+    isOpen: swapVersion === 2 && shouldRenderForSwapV2,
     withShouldRender: true,
   });
 
@@ -260,6 +264,7 @@ function SwapDexChooser({
 export default memo(withGlobal((global): StateProps => {
   return {
     currentSwap: global.currentSwap,
+    swapVersion: global.swapVersion,
   };
 })(SwapDexChooser));
 

@@ -22,9 +22,7 @@ import type {
   ApiNetwork,
   ApiNft,
   ApiNotificationsAccountValue,
-  ApiParsedPayload,
   ApiPriceHistoryPeriod,
-  ApiSignedTransfer,
   ApiSite,
   ApiSiteCategory,
   ApiStakingHistory,
@@ -32,6 +30,7 @@ import type {
   ApiSwapAsset,
   ApiSwapDexLabel,
   ApiSwapEstimateVariant,
+  ApiSwapVersion,
   ApiTokenType,
   ApiTokenWithPrice,
   ApiUpdate,
@@ -361,7 +360,7 @@ export interface Account {
   type: AccountType;
   addressByChain: Partial<Record<ApiChain, string>>;
   domainByChain?: Partial<Record<ApiChain, string>>;
-  importedAt?: number;
+  isMultisigByChain?: Partial<Record<ApiChain, boolean>>;
   ledger?: {
     index: number;
     driver: ApiLedgerDriver;
@@ -475,6 +474,7 @@ export interface AccountSettings {
   accentColorNft?: ApiNft;
   accentColorIndex?: number;
   isAllowSuspiciousActions?: boolean;
+  isTronScamWarningHidden?: boolean;
 }
 
 export interface SavedAddress {
@@ -544,10 +544,13 @@ export type GlobalState = {
     realFee?: bigint;
     comment?: string;
     binPayload?: string;
+    /**
+     * This is the legacy dapp transaction sending mechanism. The transaction originates in the `sendTransaction`
+     * function of the `src/api/extensionMethods/legacy.ts` file.
+     */
     promiseId?: string;
     txId?: string;
     rawPayload?: string;
-    parsedPayload?: ApiParsedPayload;
     stateInit?: string;
     shouldEncrypt?: boolean;
     isToNewAddress?: boolean;
@@ -609,6 +612,7 @@ export type GlobalState = {
     ourFee?: string;
     ourFeePercent?: number;
     dieselFee?: string;
+    shouldShowAllPairs?: boolean;
   };
 
   currentSignature?: {
@@ -631,6 +635,8 @@ export type GlobalState = {
     transactions?: ApiDappTransfer[];
     /** What else should happen after submitting the transactions (in addition to the transactions) */
     emulation?: Pick<ApiEmulationResult, 'activities' | 'realFee'>;
+    /** Unix seconds */
+    validUntil?: number;
     vestingAddress?: string;
     viewTransactionOnIdx?: number;
     dapp?: ApiDapp;
@@ -707,6 +713,8 @@ export type GlobalState = {
     /** Whether the API has loaded and provided the tokens */
     isLoaded?: true;
   };
+
+  swapVersion: ApiSwapVersion;
 
   swapPairs?: {
     bySlug: Record<string, AssetPairs>;
@@ -932,8 +940,7 @@ export interface ActionPayloads {
     stateInit?: string;
   };
   submitTransferConfirm: undefined;
-  submitTransferPassword: { password: string };
-  submitTransferHardware: undefined;
+  submitTransfer: { password?: string } | undefined;
   clearTransferError: undefined;
   cancelTransfer: { shouldReset?: boolean } | undefined;
   showTransferScamWarning: { type: ScamWarningType };
@@ -1030,8 +1037,7 @@ export interface ActionPayloads {
   startUnstaking: { stakingId: string } | undefined;
   setStakingScreen: { state: StakingState };
   submitStakingInitial: { amount?: bigint; isUnstaking?: boolean } | undefined;
-  submitStakingPassword: { password: string; isUnstaking?: boolean };
-  submitStakingHardware: { isUnstaking?: boolean } | undefined;
+  submitStaking: { password?: string; isUnstaking?: boolean } | undefined;
   clearStakingError: undefined;
   cancelStaking: undefined;
   fetchStakingHistory: undefined;
@@ -1041,8 +1047,7 @@ export interface ActionPayloads {
   closeStakingInfo: undefined;
   changeCurrentStaking: { stakingId: string; shouldReopenModal?: boolean };
   startStakingClaim: { stakingId: string } | undefined;
-  submitStakingClaim: { password: string };
-  submitStakingClaimHardware: undefined;
+  submitStakingClaim: { password?: string } | undefined;
   cancelStakingClaim: undefined;
   openStakingInfoOrStart: undefined;
 
@@ -1063,6 +1068,7 @@ export interface ActionPayloads {
   changeNetwork: { network: ApiNetwork };
   changeLanguage: { langCode: LangCode };
   closeSecurityWarning: undefined;
+  closeTronScamWarning: undefined;
   toggleTokensWithNoCost: { isEnabled: boolean };
   toggleSortByValue: { isEnabled: boolean };
   updateOrderedSlugs: { orderedSlugs: string[] };
@@ -1104,8 +1110,6 @@ export interface ActionPayloads {
 
   // TON Connect connection
   submitDappConnectRequestConfirm: { accountId: string; password?: string };
-  submitDappConnectRequestConfirmHardware: { accountId: string };
-  submitDappConnectHardware: { accountId: string; signature: string };
   clearDappConnectRequestError: undefined;
   cancelDappConnectRequestConfirm: undefined;
   setDappConnectRequestState: { state: DappConnectState };
@@ -1115,9 +1119,7 @@ export interface ActionPayloads {
   setDappTransferScreen: { state: TransferState };
   showDappTransferTransaction: { transactionIdx: number };
   submitDappTransferConfirm: undefined;
-  submitDappTransferPassword: { password: string };
-  submitDappTransferHardware: undefined;
-  submitDappTransferHardware2: { signedMessages: ApiSignedTransfer[] };
+  submitDappTransfer: { password?: string } | undefined;
   clearDappTransferError: undefined;
   cancelDappTransfer: undefined;
   closeDappTransfer: undefined;
@@ -1126,7 +1128,7 @@ export interface ActionPayloads {
   // TON Connect SignData
   setDappSignDataScreen: { state: SignDataState };
   submitDappSignDataConfirm: undefined;
-  submitDappSignDataPassword: { password: string };
+  submitDappSignData: { password?: string } | undefined;
   clearDappSignDataError: undefined;
   cancelDappSignData: undefined;
   closeDappSignData: undefined;
@@ -1211,16 +1213,14 @@ export interface ActionPayloads {
   openVestingModal: undefined;
   closeVestingModal: undefined;
   startClaimingVesting: undefined;
-  submitClaimingVesting: { password: string };
-  submitClaimingVestingHardware: undefined;
+  submitClaimingVesting: { password?: string } | undefined;
   clearVestingError: undefined;
   cancelClaimingVesting: undefined;
 
   openMintCardModal: undefined;
   closeMintCardModal: undefined;
   startCardMinting: { type: ApiMtwCardType };
-  submitMintCard: { password: string };
-  submitMintCardHardware: undefined;
+  submitMintCard: { password?: string } | undefined;
   clearMintCardError: undefined;
 
   submitAppLockActivityEvent: undefined;
@@ -1243,16 +1243,14 @@ export interface ActionPayloads {
   openDomainRenewalModal: { accountId?: string; network?: ApiNetwork; addresses: string[] };
   startDomainsRenewal: undefined;
   checkDomainsRenewalDraft: { nfts: ApiNft[] };
-  submitDomainsRenewal: { password: string };
-  submitDomainsRenewalHardware: undefined;
+  submitDomainsRenewal: { password?: string } | undefined;
   clearDomainsRenewalError: undefined;
   cancelDomainsRenewal: undefined;
 
   openDomainLinkingModal: { address: string };
   startDomainLinking: undefined;
   checkDomainLinkingDraft: { nft: ApiNft };
-  submitDomainLinking: { password: string };
-  submitDomainLinkingHardware: undefined;
+  submitDomainLinking: { password?: string } | undefined;
   clearDomainLinkingError: undefined;
   cancelDomainLinking: undefined;
 

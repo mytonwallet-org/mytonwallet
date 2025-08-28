@@ -1,0 +1,350 @@
+/* 
+  Localizable.strings
+  MyTonWallet
+
+  Created by Sina on 3/16/24.
+  
+*/
+
+// Alert
+"Alert.OK" = "تایید";
+"Alert.NetworkErrorTitle" = "خطا در اتصال به اینترنت";
+"Alert.NetworkErrorText" = "لطفا اتصال دستگاه به اینترنت را بررسی و مجددا تلاش نمایید.";
+
+// Intro
+"Intro.Title" = "MyTonWallet";
+"Intro.Text" = "رمز ارز خود را امن نگهداری و ارسال کنید!";
+"Intro.CreateWallet" = "ایجاد کیف پول";
+"Intro.ImportExisting" = "افزودن کیف پول موجود";
+"Intro.CreateErrorTitle" = "خطایی رخ داد";
+"Intro.CreateErrorText" = "لطفا مجددا تلاش کنید.";
+
+// Wallet Created
+"Created.Title" = "تبریک!";
+"Created.Text" = "کیف پول تون شما ایجاد شد. تنها شما به آن دسترسی دارید.\n\برای آنکه همیشه بتوانید به آن دسترسی داشته باشید، لطفا کلمات امنیتی را یادداشت کرده و از آن پشتیبان تهیه کنید.";
+"Created.Proceed" = "ادامه";
+
+// Words List
+"Words.Title" = "عبارت بازیابی شما";
+"Words.Text" = "این ۲۴ کلمه را به ترتیب دقیق نوشته و در جای امنی نگهداری کنید. این فهرست را با کسی به اشتراک نگذارید. اگر آن را از دست بدهید، دسترسی به حساب TON خود را به طور غیرقابل بازگشت از دست خواهید داد.";
+"Words.Done" = "انجام شد";
+"Words.NotDoneTitle" = "مطمئنید انجام شد؟";
+"Words.NotDoneText" = "وقت کافی برای نوشتن این کلمات نداشتید.";
+"Words.NotDoneOk" = "باشه، متاسفم";
+"Words.NotDoneResponse" = "عذرخواهی پذیرفته شد";
+"Words.NotDoneSkip" = "رد کردن";
+
+// WordCheck
+"WordCheck.Title" = "وقت آزمونه!";
+"WordCheck.Text" = "اجازه بدید مطمئن بشیم کلمات رو درست یادداشت کردید. لطفا کلمات\n%1$@، %2$@ و %3$@ را بنویسید.";
+"WordCheck.Continue" = "ادامه";
+"WordCheck.IncorrectHeader" = "کلمات اشتباه هستند!";
+"WordCheck.IncorrectText" = "کلماتی که نوشته اید صحیح نیستند.";
+"WordCheck.TryAgain" = "تلاش مجدد";
+"WordCheck.ViewWords" = "مشاهده ی کلمات";
+
+// WordImport
+"WordImport.Title" = "۲۴ کلمه‌ی محرمانه";
+"WordImport.Text" = "شما می‌توانید با وارد کردن ۲۴ کلمه‌ای که هنگام ایجاد کیف پول نوشتید، به کیف پول خود دسترسی مجدد پیدا کنید.";
+"WordImport.Continue" = "ادامه";
+"WordImport.CanNotRemember" = "این کلمات را ندارم";
+"WordImport.IncorrectTitle" = "عبارت اشتباه است";
+"WordImport.IncorrectText" = "به نظر می‌رسد یک عبارت یادمانی نامعتبر وارد کرده‌اید.";
+"WordImport.UnknownErrorTitle" = "وارد کردن ناموفق بود";
+"WordImport.UnknownErrorText" = "لطفاً دوباره تلاش کنید.";
+"WordImport.Importing" = "لطفاً صبر کنید...";
+// Import Successful
+"ImportSuccessful.Title" = "کیف پول شما به تازگی وارد شد!";
+
+// SetPasscode
+"SetPasscode.Title" = "تنظیم رمز عبور";
+"SetPasscode.Text" = "رمز عبور %1$@ رقمی را وارد کنید.";
+"SetPasscode.FourDigitCode" = "استفاده از رمز عبور ۴ رقمی";
+"SetPasscode.SixDigitCode" = "استفاده از رمز عبور ۶ رقمی";
+"SetPasscode.PasscodesDoNotMatch" = "رمزهای عبور مطابقت ندارند. لطفاً دوباره تلاش کنید.";
+
+// ConfirmPasscode
+"ConfirmPasscode.Title" = "تأیید رمز عبور";
+"ConfirmPasscode.Text" = "رمز عبور %1$@ رقمی را وارد کنید.";
+
+// Change Passcode
+"ChangePasscode.Title" = "رمز عبور فعلی خود را وارد کنید";
+"ChangePasscode.NewPassTitle" = "تنظیم رمز عبور جدید";
+"ChangePasscode.NewPassVerifyTitle" = "تأیید رمز عبور جدید";
+
+// Biometric
+"Biometric.Reason" = "کیف پول TON از احراز هویت بیومتریک برای تأیید تراکنش‌ها استفاده می‌کند.";
+"Biometric.NotAvailableTitle" = "احراز هویت بیومتریک در دسترس نیست.";
+"Biometric.NotAvailableText" = "لطفاً یک رمز عبور روی دستگاه خود تنظیم کنید، سپس تلاش کنید از احراز هویت بیومتریک استفاده کنید.";
+
+// FaceID
+"Biometric.FaceID.Title" = "فعال کردن Face ID";
+"Biometric.FaceID.Text" = "Face ID به شما امکان می‌دهد که کیف پول خود را سریع‌تر و بدون وارد کردن رمز عبور باز کنید.";
+"Biometric.FaceID.Enable" = "فعال کردن Face ID";
+"Biometric.FaceID.Skip" = "رد کردن";
+
+// Touch ID
+"Biometric.TouchID.Title" = "فعال کردن Touch ID";
+"Biometric.TouchID.Text" = "Touch ID به شما امکان می‌دهد که کیف پول خود را سریع‌تر و بدون وارد کردن رمز عبور باز کنید.";
+"Biometric.TouchID.Enable" = "فعال کردن Touch ID";
+"Biometric.TouchID.Skip" = "رد کردن";
+
+// Completed
+"Completed.Title" = "آماده‌اید!";
+"Completed.Text" = "همه چیز آماده است. اکنون شما یک کیف پول دارید که فقط خودتان کنترل می‌کنید - مستقیم، بدون واسطه یا بانکدار.";
+"Completed.ViewWallet" = "مشاهده کیف پول من";
+
+// RestoreFailed
+"RestoreFailed.Title" = "چه بد!";
+"RestoreFailed.Text" = "بدون کلمات محرمانه، شما قادر به بازیابی کیف پول خود نیستید.";
+"RestoreFailed.EnterWords" = "۲۴ کلمه را وارد نمایید.";
+"RestoreFailed.CreateWallet" = "ایجاد یک کیف پول جدید";
+
+// Navigation
+"Navigation.Cancel" = "لغو";
+"Navigation.Done" = "تایید";
+
+// Unlock
+"Unlock.Title" = "رمز کیف پول را وارد نمایید.";
+
+// Tabs
+"Tabs.Home" = "خانه";
+"Tabs.Assets" = "رمز ارز ها";
+"Tabs.Browser" = "مرورگر";
+"Tabs.Settings" = "تنظیمات";
+
+// Home
+"Home.WaitingForNetwork" = "در انتظار اینترنت";
+"Home.Updating" = "به روز رسانی";
+"Home.MainWallet" = "کیف پول من";
+"Home.Add" = "افزودن";
+"Home.Send" = "ارسال";
+"Home.Earn" = "درآمد";
+"Home.Earn.Unstaking" = "خروج از سهام";
+"Home.Earn.Earning" = "در حال کسب درآمد";
+"Home.Swap" = "مبادله";
+"Home.WalletCreated" = "هنوز\nهیچ تراکنشی ندارید.";
+"Home.Address" = "آدرس کیف پول شما";
+"Home.Sent" = "ارسال شد";
+"Home.Received" = "دریافت شد";
+"Home_Swap_Completed" = "مبادله انجام شد";
+"Home_Swap_Pending" = "در انتظار پرداخت";
+"Home_Swap_InProgress" = "در حال انجام";
+"Home_Swap_Failed" = "مبادله ناموفق";
+"Home_Swap_Expired" = "مبادله منقضی شده";
+"Home.SentNFT" = "NFT ارسال شد";
+"Home.ReceivedNFT" = "NFT دریافت شد";
+"Home.NFT" = "NFT";
+"Home.Staked" = "سهام‌گذاری شده";
+"Home.Unstaked" = "خارج شده از سهام";
+"Home.UnstakeRequest" = "درخواست خروج از سهام";
+"Home.BuyWithCard" = "خرید با کارت";
+"Home.BuyWithCrypto" = "خرید با ارز دیجیتال";
+"Home.ReceiveQR" = "دریافت با QR یا فاکتور";
+"Home.Cancel" = "لغو";
+"Home.EnterWalletName" = "نام کیف پول";
+
+// Receive
+"Receive.Title" = "افزودن";
+"Receive.YourAddress" = "آدرس تون شما";
+"Receive.CopyAddress" = "کپی آدرس";
+"Receive.ShareQRCode" = "به اشتراک گذاری QR";
+"Receive.BuyCrypto" = "خرید رمزارز";
+"Receive.BuyWithCard" = "خرید با کارت";
+"Receive.BuyWithCrypto" = "خرید با رمزارز";
+
+// Settings
+"Settings.Title" = "تنظیمات کیف پول";
+"Settings.General" = "عمومی";
+"Settings.Notifications" = "اعلانات";
+"Settings.ActiveAddress" = "آدرس فعال";
+"Settings.PrimaryCurrency" = "ارز اصلی";
+"Settings.Security" = "امنیت";
+"Settings.ShowRecoveryPhrase" = "نمایش عبارت بازیابی";
+"Settings.ChangePasscode" = "تغییر رمز عبور";
+"Settings.AppLock" = "قفل برنامه در شروع";
+"Settings.TouchID" = "Touch ID";
+"Settings.FaceID" = "Face ID";
+"Settings.DeleteWallet" = "حذف کیف پول";
+"Settings.DeleteWalletInfo" = "این کار کیف پول را از این برنامه جدا می‌کند. شما می‌توانید با استفاده از ۲۴ کلمه محرمانه کیف پول خود را بازیابی کنید - یا کیف پول دیگری را وارد کنید.\n\nکیف پول‌های TON در بلاکچین غیرمتمرکز TON قرار دارند. اگر می‌خواهید کیف پولی حذف شود، به سادگی تمام TON را از آن انتقال داده و آن را خالی بگذارید.";
+"Settings.CurrencyUSD" = "دلار آمریکا";
+"Settings.CurrencyEUR" = "یورو";
+"Settings.CurrencyRUB" = "روبل";
+"Settings.CurrencyCNY" = "یوآن";
+"Settings.CurrencyBTC" = "بیتکوین";
+"Settings.CurrencyTON" = "تون";
+"Settings.Language" = "زبان";
+
+// Time
+"Time.Today" = "Today";
+// Transaction
+"TransactionInfo.SentTitle" = "ارسال شده";
+"TransactionInfo.ReceivedTitle" = "دریافت شده";
+"TransactionInfo.SwapTitle.Completed" = "مبادله شده";
+"TransactionInfo.SwapTitle.Pending" = "مبادله در حال انجام";
+"TransactionInfo.SwapTitle.Failed" = "مبادله ناموفق";
+"TransactionInfo.SwapTitle.Expired" = "مبادله منقضی شده";
+"TransactionInfo.ExchangeRate" = "نرخ تبدیل";
+"TransactionInfo.ChangellyPaymentAddress" = "آدرس پرداخت Changelly";
+"TransactionInfo.Comment" = "نظر";
+"TransactionInfo.Details" = "جزئیات تراکنش";
+"TransactionInfo.SenderAddress" = "فرستنده";
+"TransactionInfo.Recipient" = "گیرنده";
+"TransactionInfo.Amount" = "مقدار";
+"TransactionInfo.Fee" = "کارمزد";
+"TransactionInfo.ViewInExplorer" = "مشاهده در مرورگر";
+"TransactionInfo.ReceivedNFT" = "NFT دریافت شد";
+"TransactionInfo.EncryptedComment" = "پیام رمزنگاری شده";
+"TransactionInfo.Decrypt" = "بازگشایی";
+
+// SendCurrency
+"SendCurrency.ChooseCurrency" = "انتخاب ارز";
+
+// SendTo
+"SendTo.Title" = "ارسال";
+"SendTo.To" = "به:";
+"SendTo.AddressOrDomain" = "آدرس یا دامنه";
+"SendTo.Recent" = "اخیر";
+"SendTo.Wallet" = "کیف پول";
+
+// SendAmount
+"SendAmount.Title" = "ارسال";
+"SendAmount.UseAll" = "استفاده از همه";
+"SendAmount.Continue" = "ادامه";
+"SendAmount.InsufficientBalance" = "موجودی %1$@ کافی نیست";
+"SendAmount.Warning" = "هشدار!";
+"SendAmount.SendingImportantToken" = "شما در حال انتقال یک توکن خدماتی مهم هستید که برای برداشت سپرده خود از استیکینگ لازم است.";
+
+// SendConfirm
+"SendConfirm.Title" = "ارسال";
+"SendConfirm.Message" = "پیام";
+"SendConfirm.AddComment" = "اضافه کردن نظر در صورت نیاز";
+"SendConfirm.EncryptComment" = "رمزگذاری نظر";
+"SendConfirm.Details" = "جزئیات تراکنش";
+"SendConfirm.Recipient" = "گیرنده";
+"SendConfirm.RecipientAddress" = "آدرس گیرنده";
+"SendConfirm.Amount" = "مقدار";
+"SendConfirm.Fee" = "کارمزد";
+"SendConfirm.Confirm" = "ارسال";
+"SendConfirm.ConfirmAmountAndAddress" = "%1$@ به %2$@";
+"SendConfirm.ConfirmSend" = "تأیید ارسال";
+
+// Sent
+"Sent.CoinsSent" = "سکه‌ها ارسال شدند!";
+"Sent.Details" = "جزئیات تراکنش";
+"Sent.Close" = "بستن";
+
+// SwitchAccount
+"SwitchAccount.Add" = "اضافه کردن حساب";
+"SwitchAccount.CreateNewWallet" = "ایجاد کیف پول جدید";
+"SwitchAccount.ImportWallet" = "وارد کردن کیف پول";
+"SwitchAccount.Cancel" = "لغو";
+
+// Swap
+"Swap.Title" = "مبادله";
+"Swap.YouSell" = "شما می‌فروشید";
+"Swap.YouBuy" = "شما می‌خرید";
+"Swap.Max" = "حداکثر";
+"Swap.Details" = "جزئیات مبادله";
+"Swap.PricePer" = "قیمت هر 1 %1$@";
+"Swap.BlockchainFee" = "کارمزد بلاکچین";
+"Swap.RoutingFees" = "کارمزدهای مسیریابی";
+"Swap.Included" = "شامل شده";
+"Swap.PriceImpact" = "تأثیر قیمت";
+"Swap.PriceImpactInfo" = "این نشان می‌دهد که تجارت شما چقدر ممکن است قیمت توکن را تغییر دهد.\nتجارت‌های بزرگ می‌توانند باعث افزایش یا کاهش قیمت بیشتر شوند. معمولاً مقدار کمتر بهتر است.";
+"Swap.MinimumReceived" = "حداقل دریافت";
+"Swap.EnterAmounts" = "وارد کردن مقادیر";
+"Swap.Submit" = "مبادله %1$@ به %2$@";
+"Swap.Unavailable" = "در دسترس نیست";
+"Swap.Minimum" = "حداقل";
+"Swap.Maximum" = "حداکثر";
+"Swap.InsufficientBalance" = "موجودی %1$@ کافی نیست";
+"Swap.Confirm" = "تأیید مبادله";
+"Swap.ConfirmSubtitle" = "%1$@ به %2$@";
+"Swap.InvalidPair" = "جفت نامعتبر";
+"Swap.Continue" = "ادامه";
+"Swap.CrossChainDetails" = "مبادله زنجیره‌ای توسط Changelly\nبا ادامه، شما با شرایط استفاده و سیاست حفظ حریم خصوصی موافقت می‌کنید و می‌فهمید که تراکنش ممکن است بر اساس Changelly AML/KYC تأیید شود.";
+"Swap.CrossChainHighlights" = "شرایط استفاده|سیاست حفظ حریم خصوصی|Changelly AML/KYC";
+"Swap.CrossChainHighlightLinks" = "https://changelly.com/terms-of-use|https://changelly.com/privacy-policy|https://changelly.com/aml-kyc";
+
+// Swap token selection
+"SwapToken.MyAssets" = "دارایی‌های من";
+"SwapToken.Popular" = "محبوب";
+"SwapToken.YouSell" = "شما می‌فروشید";
+"SwapToken.YouBuy" = "شما می‌خرید";
+"SwapToken.All" = "همه";
+
+// CrossChainSwap
+"CrossChainSwap.ReceiveTo" = "دریافت به";
+"CrossChainSwap.EnterChainAddress" = "وارد کردن آدرس %1$@";
+"CrossChainSwap.Paste" = "چسباندن";
+"CrossChainSwap.FromTonDescription" = "لطفاً آدرس کیف پول خود را در بلاکچین دیگری برای دریافت توکن‌های خریداری شده ارائه دهید.";
+"CrossChainSwap.EnterReceivingAddress" = "وارد کردن آدرس دریافت";
+"CrossChainSwap.SendToThisAddress" = "ارسال %1$@ به این آدرس";
+"CrossChainSwap.ShowQR" = "نمایش QR";
+"CrossChainSwap.HideQR" = "مخفی کردن QR";
+"CrossChainSwap.ToTonDescription" = "ارسال %1$@ به این آدرس در بلاکچین %2$@ ظرف %3$@.\n\nلطفاً توجه داشته باشید که ممکن است چند ساعت طول بکشد تا توکن‌ها در کیف پول شما ظاهر شوند.\n\nدر صورت بروز هرگونه مشکل، لطفاً با پشتیبانی از طریق گفتگوی زنده Changelly یا support@changelly.org تماس بگیرید و شناسه تراکنش خود را ارائه دهید:\n\n%4$@";
+"CrossChainSwap.ToTonDescriptionHighlights" = "گفتگوی زنده Changelly|support@changelly.org";
+"CrossChainSwap.ToTonDescriptionHighlightLinks" = "https://support.changelly.com|mailto:support@changelly.org";
+
+// Earn
+"Earn.Title" = "کسب درآمد";
+"Earn.YourStakingBalance" = "موجودی استیکینگ شما";
+"Earn.UnstakeRequestInfo" = "سپرده خارج شده را طی %1$@ دریافت خواهید کرد.";
+"Earn.AddStake" = "افزودن به استیک";
+"Earn.Unstake" = "خارج کردن از استیک";
+"Earn.History" = "تاریخچه";
+"Earn.Earned" = "کسب شده";
+"Earn.Unstaked" = "خارج شده از استیک";
+"Earn.Staked" = "استیک شده";
+"Earn.EarnWhileHolding" = "از توکن‌های خود\nدر حالی که آنها را نگه داشته‌اید کسب درآمد کنید";
+"Earn.EstimatedAPY" = "APY تخمینی";
+"Earn.UnstakeRequest" = "درخواست برداشت داده شده";
+"Earn.WhyThisIsSafe" = "چرا این امن است";
+"Earn.WhyStakingIsSafe" = "چرا استیکینگ امن است";
+"Earn.WhyStakingIsSafeDesc" = "1. استیکینگ کاملاً غیرمتمرکز است و توسط قراردادهای هوشمند استیکینگ رسمی TON مدیریت می‌شود.\n2. سپرده استیک شده برای اعتبارسنجی شبکه TON به عنوان بخشی از ماهیت اثبات سهام آن استفاده خواهد شد.\n3. شما می‌توانید هر زمان که خواستید استیک خود را برداشت کنید و آن در عرض دو روز به حساب شما واریز خواهد شد.";
+
+// Staking
+"Staking.AddStake" = "افزودن به استیک";
+"Staking.Unstake" = "خارج کردن از استیک";
+"Staking.StakingBalance" = "موجودی در استیک";
+"Staking.EstimatedBalanceInAYear" = "موجودی تخمینی در یک سال ≈ ";
+"Staking.UseAll" = "استفاده از همه";
+"Staking.StakeTON" = "استیک TON";
+"Staking.UnstakeTON" = "خارج کردن TON از استیک";
+"Staking.ConfirmAddStake" = "تأیید افزودن به استیک";
+"Staking.ConfirmUnstake" = "تأیید خارج کردن از استیک";
+"Staking.InsufficientBalance" = "موجودی TON کافی نیست";
+"Staking.InsufficientMinAmount" = "حداقل %1$@ TON";
+"Staking.InsufficientFeeAmount" = "کارمزد ناکافی: %1$@ TON";
+
+// QRScan
+"QRScan.Title" = "اسکن کد QR";
+"QRScan.Back" = "بازگشت";
+"QRScan.NoAccessTitle" = "دسترسی به دوربین وجود ندارد";
+"QRScan.NoAccessCamera" = "MyTonWallet به دوربین دسترسی ندارد. لطفاً برای اسکن کدهای QR دسترسی دوربین را فعال کنید.";
+"QRScan.NoAccessOpenSettings" = "باز کردن تنظیمات";
+"QRScan.NoValidQRDetected" = "هیچ کد QR معتبری شناسایی نشد.";
+
+// Errors
+"Error.Title" = "خطا";
+"Error.InvalidAmount" = "مقدار نامعتبر";
+"Error.InvalidAddress" = "آدرس نامعتبر";
+"Error.InsufficientBalance" = "موجودی ناکافی";
+"Error.DomainNotResolved" = "دامنه به یک کیف پول متصل نیست.";
+"Error.WalletNotInitialized" = "رمزگذاری ممکن نیست. گیرنده یک کیف پول نیست یا تراکنش خروجی ندارد.";
+"Error.InvalidAddressFormat" = "قالب آدرس نامعتبر است. فقط قالب URL Safe Base64 مجاز است.";
+"Error.PartialTransactionFailure" = "همه تراکنش‌ها با موفقیت ارسال نشدند.";
+"Error.IncorrectDeviceTime" = "زمان دستگاه شما نادرست است، آن را همگام‌سازی کرده و دوباره تلاش کنید.";
+"Error.UnsuccesfulTransfer" = "انتقال ناموفق بود. بعداً دوباره تلاش کنید.";
+"Error.UnsupportedHardwareOperation" = "متاسفانه، این عملیات هنوز توسط کیف پول Ledger پشتیبانی نمی‌شود.";
+"Error.EncryptedDataNotSupported" = "نظرات رمزگذاری شده هنوز توسط Ledger پشتیبانی نمی‌شوند.";
+"Error.UnsupportedHardwareNftOperation" = "انتقال NFT هنوز توسط Ledger پشتیبانی نمی‌شود.";
+"Error.UnsupportedHardwareContract" = "تراکنش به این قرارداد هوشمند هنوز توسط Ledger پشتیبانی نمی‌شود.";
+"Error.NonAsciiCommentForHardwareOperation" = "نسخه فعلی Ledger فقط از نظرات به زبان انگلیسی بدون کاراکترهای خاص پشتیبانی می‌کند.";
+"Error.TooLongCommentForHardwareOperation" = "نظر خیلی طولانی است.";
+"Error.UnsupportedHardwarePayload" = "این نوع تراکنش هنوز توسط Ledger پشتیبانی نمی‌شود.";
+"Error.ServerError" = "لطفاً مطمئن شوید که اتصال اینترنت شما برقرار است و دوباره تلاش کنید.";
+"Error.NetworkError" = "اتصال اینترنتی وجود ندارد. لطفاً اتصال خود را بررسی کرده و دوباره تلاش کنید.";
+"Error.DebugError" = "خطای غیرمنتظره. لطفاً به پشتیبانی اطلاع دهید.";
+"Error.Unexpected" = "خطای غیرمنتظره";

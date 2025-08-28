@@ -38,7 +38,7 @@ export function checkUnstakeDraft(accountId: string, amount: bigint, state: ApiS
 
 export async function submitStake(
   accountId: string,
-  password: string,
+  password: string | undefined,
   amount: bigint,
   state: ApiStakingState,
   realFee?: bigint,
@@ -50,14 +50,14 @@ export async function submitStake(
   );
 
   if ('error' in result) {
-    return false;
+    return result;
   }
 
   let localActivity: ApiTransactionActivity;
 
   if (state.tokenSlug === TONCOIN.slug) {
     [localActivity] = createLocalTransactions(accountId, 'ton', [{
-      txId: result.msgHashNormalized,
+      id: result.msgHashNormalized,
       amount,
       fromAddress,
       toAddress: result.toAddress,
@@ -68,7 +68,7 @@ export async function submitStake(
     }]);
   } else {
     [localActivity] = createLocalTransactions(accountId, 'ton', [{
-      txId: result.msgHashNormalized,
+      id: result.msgHashNormalized,
       amount,
       fromAddress,
       toAddress: result.toAddress,
@@ -81,13 +81,13 @@ export async function submitStake(
 
   return {
     ...result,
-    txId: localActivity.txId,
+    txId: localActivity.id,
   };
 }
 
 export async function submitUnstake(
   accountId: string,
-  password: string,
+  password: string | undefined,
   amount: bigint,
   state: ApiStakingState,
   realFee?: bigint,
@@ -96,11 +96,11 @@ export async function submitUnstake(
 
   const result = await ton.submitUnstake(accountId, password, amount, state);
   if ('error' in result) {
-    return false;
+    return result;
   }
 
   const [localActivity] = createLocalTransactions(accountId, 'ton', [{
-    txId: result.msgHashNormalized,
+    id: result.msgHashNormalized,
     amount: result.toncoinAmount,
     fromAddress,
     toAddress: result.toAddress,
@@ -113,7 +113,7 @@ export async function submitUnstake(
 
   return {
     ...result,
-    txId: localActivity.txId,
+    txId: localActivity.id,
   };
 }
 
@@ -158,7 +158,7 @@ export async function tryUpdateStakingCommonData() {
 
 export async function submitStakingClaimOrUnlock(
   accountId: string,
-  password: string,
+  password: string | undefined,
   state: ApiJettonStakingState | ApiEthenaStakingState,
   realFee?: bigint,
 ) {
@@ -182,7 +182,7 @@ export async function submitStakingClaimOrUnlock(
   }
 
   const [localActivity] = createLocalTransactions(accountId, 'ton', [{
-    txId: result.msgHashNormalized,
+    id: result.msgHashNormalized,
     amount: result.amount,
     fromAddress: walletAddress,
     toAddress: result.toAddress,
@@ -194,6 +194,6 @@ export async function submitStakingClaimOrUnlock(
 
   return {
     ...result,
-    txId: localActivity.txId,
+    txId: localActivity.id,
   };
 }

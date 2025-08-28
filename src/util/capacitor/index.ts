@@ -3,6 +3,7 @@ import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { BiometryType, NativeBiometric } from '@capgo/capacitor-native-biometric';
+import { AirAppLauncher } from '@mytonwallet/air-app-launcher';
 import type { SafeAreaInsets } from 'capacitor-plugin-safe-area';
 import { SafeArea } from 'capacitor-plugin-safe-area';
 import { getGlobal } from '../../global';
@@ -11,6 +12,7 @@ import type { AuthConfig } from '../authApi/types';
 import type { CapacitorPlatform } from './platform';
 
 import { GLOBAL_STATE_CACHE_KEY } from '../../config';
+import { callApi } from '../../api';
 import { processDeeplink } from '../deeplink';
 import { logDebug } from '../logs';
 import { IS_DELEGATED_BOTTOM_SHEET, IS_IOS } from '../windowEnvironment';
@@ -162,4 +164,9 @@ export async function fixIosAppStorage() {
   if (!isLocalStorageDataExists && isApiStorageDataExists) {
     await storageMethods.capacitorStorageClear();
   }
+}
+
+export function switchToAir() {
+  void callApi('destroy');
+  AirAppLauncher.switchToAir();
 }

@@ -1,6 +1,4 @@
-import type { TeactNode } from '../../lib/teact/teact';
-import React from '../../lib/teact/teact';
-import { getActions } from '../../global';
+import React, { type TeactNode, useEffect, useState } from '../../lib/teact/teact';
 
 import type { SensitiveDataMaskSkin } from '../common/SensitiveDataMask';
 
@@ -42,13 +40,21 @@ function SensitiveData({
   contentClassName,
   children,
 }: OwnProps) {
-  const { setIsSensitiveDataHidden } = getActions();
+  const [isShown, setIsShown] = useState(false);
+
+  const isMaskActive = isActive && !isShown;
+
+  useEffect(() => {
+    if (!isActive && isShown) {
+      setIsShown(false);
+    }
+  }, [isActive, isShown]);
 
   const {
     ref: contentRef,
   } = useShowTransition<HTMLDivElement>({
-    isOpen: !isActive,
-    noMountTransition: !isActive,
+    isOpen: !isMaskActive,
+    noMountTransition: !isMaskActive,
     className: 'slow',
   });
 
@@ -56,15 +62,16 @@ function SensitiveData({
     shouldRender: shouldRenderSpoiler,
     ref: spoilerRef,
   } = useShowTransition<HTMLCanvasElement>({
-    isOpen: isActive,
+    isOpen: isMaskActive,
     withShouldRender: true,
     className: 'slow',
   });
 
   function handleClick(e: React.UIEvent) {
     stopEvent(e);
+    if (!isActive) return;
 
-    setIsSensitiveDataHidden({ isHidden: false });
+    setIsShown(!isShown);
     void vibrate();
   }
 
@@ -82,12 +89,12 @@ function SensitiveData({
   const wrapperStyle = buildStyle(
     `--spoiler-width: calc(${cellSize * cols}px + var(--sensitive-data-extra-width, 0px))`,
     `min-height: ${cellSize * rows}px`,
-    (isActive || shouldHoldSize) && 'min-width: var(--spoiler-width);',
+    (isMaskActive || shouldHoldSize) && 'min-width: var(--spoiler-width);',
   );
   const contentFullClassName = buildClassName(
     styles.content,
     contentClassName,
-    isActive && styles.fixedWidth,
+    isMaskActive && styles.fixedWidth,
   );
 
   return (

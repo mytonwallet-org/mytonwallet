@@ -77,7 +77,6 @@ export type ApiTransactionType = 'stake' | 'unstake' | 'unstakeRequest'
   | undefined;
 
 export interface ApiTransaction {
-  txId: string;
   timestamp: number;
   /** The amount to show in the UI (may mismatch the actual attached TON amount) */
   amount: bigint;
@@ -99,8 +98,13 @@ export interface ApiTransaction {
   type?: ApiTransactionType;
   metadata?: ApiTransactionMetadata;
   nft?: ApiNft;
-  /** 'pending' if awaiting confirmation by the blockchain */
-  status: 'pending' | 'completed' | 'failed';
+  /**
+   * Transaction confirmation status
+   * Both 'pendingTrusted' and 'pending' mean the transaction is awaiting confirmation by the blockchain.
+   * - 'pendingTrusted' — awaiting confirmation and trusted (initiated by our app)
+   * - 'pending' — awaiting confirmation from an external/unauthenticated source, like TonConnect emulation
+   */
+  status: 'pending' | 'pendingTrusted' | 'completed' | 'failed';
 }
 
 export type ApiTransactionMetadata = ApiAddressInfo;
@@ -276,8 +280,6 @@ export interface ApiDappTransfer extends ApiTransferToSign {
 export interface ApiSignedTransfer {
   base64: string;
   seqno: number;
-  /** Will be used to create a local activity in the global state after the transfer is sent */
-  localActivity: Omit<ApiLocalTransactionParams, 'externalMsgHashNorm' | 'txId'>;
 }
 
 /**
@@ -285,7 +287,7 @@ export interface ApiSignedTransfer {
  */
 export type ApiLocalTransactionParams = Omit<
   ApiTransactionActivity,
-  'id' | 'timestamp' | 'isIncoming' | 'normalizedAddress' | 'kind' | 'shouldLoadDetails' | 'status'
+  'timestamp' | 'isIncoming' | 'normalizedAddress' | 'kind' | 'shouldLoadDetails' | 'status'
 > & {
   normalizedAddress?: string;
   isIncoming?: boolean;

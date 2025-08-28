@@ -24,6 +24,7 @@ dependencies {
     implementation project(':capgo-capacitor-native-biometric')
     implementation project(':capgo-native-audio')
     implementation project(':mauricewegner-capacitor-navigation-bar')
+    implementation project(':mytonwallet-air-app-launcher')
     implementation project(':mytonwallet-capacitor-usb-hid')
     implementation project(':mytonwallet-native-bottom-sheet')
     implementation project(':capacitor-native-settings')

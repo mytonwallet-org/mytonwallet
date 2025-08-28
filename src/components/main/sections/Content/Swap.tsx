@@ -95,12 +95,17 @@ function Swap({
   function renderIcon() {
     let statusClass: string | undefined = styles.colorSwap;
     let pendingIndicatorColor: PendingIndicatorColor = 'Green';
+
     if (isError) {
       statusClass = styles.colorNegative;
       pendingIndicatorColor = 'Red';
     } else if (isHold) {
       statusClass = undefined;
       pendingIndicatorColor = 'Gray';
+    }
+
+    if (status === 'pending') {
+      pendingIndicatorColor = 'Orange';
     }
 
     return (

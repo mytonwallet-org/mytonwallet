@@ -82,7 +82,6 @@ function LinkingDomainModal({
     cancelDomainLinking,
     clearDomainLinkingError,
     submitDomainLinking,
-    submitDomainLinkingHardware,
     checkDomainLinkingDraft,
     checkLinkingAddress,
     setDomainLinkingWalletAddress,
@@ -127,7 +126,7 @@ function LinkingDomainModal({
 
   const handleHardwareSubmit = useLastCallback(() => {
     if (canSubmit) {
-      submitDomainLinkingHardware();
+      submitDomainLinking();
     }
   });
 
