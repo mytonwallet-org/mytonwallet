@@ -1,22 +1,16 @@
 import type { ApiNft } from '../../../api/types';
+import type { ErrorTransferResult } from '../../helpers/transfer';
 import type { GlobalState } from '../../types';
 import { DomainLinkingState, DomainRenewalState } from '../../types';
 
-import { getDoesUsePinPad } from '../../../util/biometrics';
-import { vibrateOnError, vibrateOnSuccess } from '../../../util/haptics';
 import { callApi } from '../../../api';
-import { addActionHandler, getActions, getGlobal, setGlobal } from '../../index';
-import {
-  clearIsPinAccepted,
-  setIsPinAccepted,
-  updateCurrentDomainLinking,
-  updateCurrentDomainRenewal,
-} from '../../reducers';
+import { handleTransferResults, prepareTransfer } from '../../helpers/transfer';
+import { addActionHandler, getGlobal, setGlobal } from '../../index';
+import { updateCurrentDomainLinking, updateCurrentDomainRenewal } from '../../reducers';
 import { selectCurrentAccount, selectCurrentAccountState, selectCurrentNetwork } from '../../selectors';
 
-type DomainOperationResultError = { error: string } | undefined;
 type DomainOperationResultSuccess = string;
-type DomainOperationResult = Array<DomainOperationResultSuccess | DomainOperationResultError>;
+type DomainOperationResult = Array<DomainOperationResultSuccess | ErrorTransferResult>;
 type DomainOperationType = 'renewal' | 'linking';
 
 type DomainStateUpdate<T extends DomainOperationType> = {
@@ -28,76 +22,22 @@ type DomainStateUpdate<T extends DomainOperationType> = {
 
 type DomainStateReducer<T extends DomainOperationType> = (
   global: GlobalState,
-  update: DomainStateUpdate<T>,
+  update: Partial<DomainStateUpdate<T>>,
 ) => GlobalState;
 
 function handleDomainOperationResult<T extends DomainOperationType>(
-  global: GlobalState,
-  result: DomainOperationResult,
+  results: DomainOperationResult,
   updateState: DomainStateReducer<T>,
   state: T extends 'renewal' ? DomainRenewalState : DomainLinkingState,
 ) {
-  global = updateState(global, {
-    isLoading: false,
-    state,
-    ...(result.length === 1 && typeof result[0] === 'string' ? { txId: result[0] } : undefined),
-  });
-  setGlobal(global);
-
-  if (result.some((value) => (typeof value !== 'string'))) {
-    if (getDoesUsePinPad()) {
-      global = getGlobal();
-      global = clearIsPinAccepted(global);
-      setGlobal(global);
-    }
-    void vibrateOnError();
-    getActions().showError({ error: 'Failed to process domain operation. Please try again.' });
+  if (!handleTransferResults(results, updateState)) {
     return;
   }
 
-  void vibrateOnSuccess();
-}
-
-function prepareHardwareOperation<T extends DomainOperationType>(
-  global: GlobalState,
-  updateState: DomainStateReducer<T>,
-  state: T extends 'renewal' ? DomainRenewalState : DomainLinkingState,
-) {
-  global = updateState(global, {
-    isLoading: true,
-    error: undefined,
+  setGlobal(updateState(getGlobal(), {
     state,
-  });
-  setGlobal(global);
-
-  return getGlobal();
-}
-
-async function verifyPasswordAndUpdateState(
-  global: GlobalState,
-  password: string,
-  operationType: DomainOperationType,
-) {
-  if (!(await callApi('verifyPassword', password))) {
-    const updateState = operationType === 'renewal' ? updateCurrentDomainRenewal : updateCurrentDomainLinking;
-    setGlobal(updateState(getGlobal(), { error: 'Wrong password, please try again.' }));
-    return false;
-  }
-
-  global = getGlobal();
-  if (getDoesUsePinPad()) {
-    global = setIsPinAccepted(global);
-  }
-
-  const updateState = operationType === 'renewal' ? updateCurrentDomainRenewal : updateCurrentDomainLinking;
-  global = updateState(global, {
-    isLoading: true,
-    error: undefined,
-  });
-  setGlobal(global);
-  await vibrateOnSuccess(true);
-
-  return true;
+    ...(results.length === 1 ? { txId: results[0] } : undefined),
+  }));
 }
 
 addActionHandler('checkDomainsRenewalDraft', async (global, actions, { nfts }) => {
@@ -114,16 +54,10 @@ addActionHandler('checkDomainsRenewalDraft', async (global, actions, { nfts }) =
   setGlobal(global);
 });
 
-addActionHandler('submitDomainsRenewal', async (global, actions, { password }) => {
+addActionHandler('submitDomainsRenewal', async (global, actions, { password } = {}) => {
   const accountId = global.currentAccountId!;
   const nftsByAddress = selectCurrentAccountState(global)?.nfts?.byAddress;
   if (!nftsByAddress) return;
-
-  if (!(await verifyPasswordAndUpdateState(global, password, 'renewal'))) {
-    return;
-  }
-
-  global = getGlobal();
 
   const nftAddresses = global.currentDomainRenewal.addresses!;
   const realFee = global.currentDomainRenewal.realFee!;
@@ -132,48 +66,17 @@ addActionHandler('submitDomainsRenewal', async (global, actions, { password }) =
     .filter<ApiNft>(Boolean);
 
   if (!nfts.length) return;
+
+  if (!await prepareTransfer(DomainRenewalState.ConfirmHardware, updateCurrentDomainRenewal, password)) {
+    return;
+  }
+
   const result = await callApi('submitDnsRenewal', accountId, password, nfts, realFee) ?? [undefined];
 
   handleDomainOperationResult<'renewal'>(
-    getGlobal(),
     result.map((subResult) => (
       subResult && 'activityIds' in subResult ? subResult.activityIds[0] : subResult
     )),
-    updateCurrentDomainRenewal,
-    DomainRenewalState.Complete,
-  );
-});
-
-addActionHandler('submitDomainsRenewalHardware', async (global) => {
-  const accountId = global.currentAccountId!;
-  const nftsByAddress = selectCurrentAccountState(global)?.nfts?.byAddress;
-  if (!nftsByAddress) return;
-
-  global = prepareHardwareOperation<'renewal'>(
-    global,
-    updateCurrentDomainRenewal,
-    DomainRenewalState.ConfirmHardware,
-  );
-
-  const { realFee, addresses } = global.currentDomainRenewal;
-  const nfts = addresses!
-    .map((address) => nftsByAddress[address])
-    .filter<ApiNft>(Boolean);
-  const ledgerApi = await import('../../../util/ledger');
-  const result: DomainOperationResult = [];
-
-  for (const nft of nfts) {
-    const renewResult = await ledgerApi.submitLedgerDnsRenewal(
-      accountId,
-      nft,
-      realFee! / BigInt(nfts.length),
-    );
-    result.push(renewResult);
-  }
-
-  handleDomainOperationResult<'renewal'>(
-    getGlobal(),
-    result,
     updateCurrentDomainRenewal,
     DomainRenewalState.Complete,
   );
@@ -194,7 +97,7 @@ addActionHandler('checkDomainLinkingDraft', async (global, actions, { nft }) => 
   setGlobal(global);
 });
 
-addActionHandler('submitDomainLinking', async (global, actions, { password }) => {
+addActionHandler('submitDomainLinking', async (global, actions, { password } = {}) => {
   const accountId = global.currentAccountId!;
   const network = selectCurrentNetwork(global);
   const nftsByAddress = selectCurrentAccountState(global)?.nfts?.byAddress;
@@ -214,7 +117,7 @@ addActionHandler('submitDomainLinking', async (global, actions, { password }) =>
     || ('resolvedAddress' in checkAddressResult && !checkAddressResult.resolvedAddress)
   ) return;
 
-  if (!(await verifyPasswordAndUpdateState(global, password, 'linking'))) {
+  if (!await prepareTransfer(DomainLinkingState.ConfirmHardware, updateCurrentDomainLinking, password)) {
     return;
   }
 
@@ -228,51 +131,7 @@ addActionHandler('submitDomainLinking', async (global, actions, { password }) =>
   );
 
   handleDomainOperationResult<'linking'>(
-    getGlobal(),
     [result && 'activityId' in result ? result.activityId : result],
-    updateCurrentDomainLinking,
-    DomainLinkingState.Complete,
-  );
-});
-
-addActionHandler('submitDomainLinkingHardware', async (global, actions) => {
-  const accountId = global.currentAccountId!;
-  const network = selectCurrentNetwork(global);
-  const nftsByAddress = selectCurrentAccountState(global)?.nfts?.byAddress;
-  const nft = nftsByAddress?.[global.currentDomainLinking.address!];
-  const currentAddress = global.currentDomainLinking.walletAddress!;
-  const checkAddressResult = await callApi('getAddressInfo', network, currentAddress);
-  global = getGlobal();
-
-  if (checkAddressResult && 'error' in checkAddressResult) {
-    actions.showError({ error: checkAddressResult.error });
-    return;
-  }
-
-  if (!nft
-    || !checkAddressResult
-    || ('resolvedAddress' in checkAddressResult && !checkAddressResult.resolvedAddress)
-  ) return;
-
-  global = prepareHardwareOperation<'linking'>(
-    global,
-    updateCurrentDomainLinking,
-    DomainLinkingState.ConfirmHardware,
-  );
-
-  const { realFee } = global.currentDomainLinking;
-  const ledgerApi = await import('../../../util/ledger');
-
-  const result = await ledgerApi.submitLedgerDnsChangeWallet(
-    accountId,
-    nft,
-    checkAddressResult.resolvedAddress!,
-    realFee!,
-  );
-
-  handleDomainOperationResult<'linking'>(
-    getGlobal(),
-    [result],
     updateCurrentDomainLinking,
     DomainLinkingState.Complete,
   );

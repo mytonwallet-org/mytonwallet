@@ -1,10 +1,12 @@
 import { addCallback as onGlobalChange } from '../lib/teact/teactn';
 import { getActions, getGlobal, setGlobal } from '../global';
 
+import type { AllMethodArgs, AllMethodResponse, AllMethods } from '../api/types/methods';
 import type { ActionPayloads, GlobalState } from '../global/types';
 import type { Log } from './logs';
 
 import { MULTITAB_DATA_CHANNEL_NAME } from '../config';
+import { callApi } from '../api';
 import { deepDiff } from './deepDiff';
 import { deepMerge } from './deepMerge';
 import { omit } from './iteratees';
@@ -13,21 +15,32 @@ import { IS_DELEGATED_BOTTOM_SHEET, IS_DELEGATING_BOTTOM_SHEET, IS_MULTITAB_SUPP
 
 import { isBackgroundModeActive } from '../hooks/useBackgroundMode';
 
+type Recipient = 'main' | 'native';
+
 interface BroadcastChannelGlobalDiff {
   type: 'globalDiffUpdate';
   diff: any;
 }
 
-interface BroadcastChannelCallActionInMain<K extends keyof ActionPayloads> {
-  type: 'callActionInMain';
+interface BroadcastChannelCallAction<K extends keyof ActionPayloads> {
+  type: 'callAction';
+  recipient: Recipient;
   name: K;
   options?: ActionPayloads[K];
 }
 
-interface BroadcastChannelCallActionInNative<K extends keyof ActionPayloads> {
-  type: 'callActionInNative';
+interface BroadcastChannelCallApiRequest<K extends keyof AllMethods> {
+  type: 'callApiRequest';
+  messageId: number;
+  recipient: Recipient;
   name: K;
-  options?: ActionPayloads[K];
+  args: AllMethodArgs<K>;
+}
+
+interface BroadcastChannelCallApiResponse<K extends keyof AllMethods> {
+  type: 'callApiResponse';
+  messageId: number;
+  result: PromiseSettledResult<AllMethodResponse<K>>;
 }
 
 interface BroadcastChannelNativeLogsRequest {
@@ -40,8 +53,9 @@ interface BroadcastChannelNativeLogsResponse {
 }
 
 type BroadcastChannelMessage = BroadcastChannelGlobalDiff
-  | BroadcastChannelCallActionInMain<keyof ActionPayloads>
-  | BroadcastChannelCallActionInNative<keyof ActionPayloads>
+  | BroadcastChannelCallAction<keyof ActionPayloads>
+  | BroadcastChannelCallApiRequest<keyof AllMethods>
+  | BroadcastChannelCallApiResponse<keyof AllMethods>
   | BroadcastChannelNativeLogsRequest
   | BroadcastChannelNativeLogsResponse;
 type EventListener = (type: 'message', listener: (event: { data: BroadcastChannelMessage }) => void) => void;
@@ -57,6 +71,7 @@ const channel = IS_MULTITAB_SUPPORTED
   : undefined;
 
 let currentGlobal = getGlobal();
+let messageIndex = 0;
 
 export function initMultitab({ noPubGlobal }: { noPubGlobal?: boolean } = {}) {
   if (!channel) return;
@@ -98,7 +113,7 @@ function omitLocalOnlyKeys(global: GlobalState) {
   return omit(global, ['DEBUG_randomId']);
 }
 
-function handleMultitabMessage({ data }: { data: BroadcastChannelMessage }) {
+async function handleMultitabMessage({ data }: { data: BroadcastChannelMessage }) {
   switch (data.type) {
     case 'globalDiffUpdate': {
       if (IS_DELEGATED_BOTTOM_SHEET) return;
@@ -110,21 +125,22 @@ function handleMultitabMessage({ data }: { data: BroadcastChannelMessage }) {
       break;
     }
 
-    case 'callActionInMain': {
-      if (!IS_DELEGATING_BOTTOM_SHEET) return;
+    case 'callAction': {
+      const { recipient, name, options } = data;
 
-      const { name, options } = data;
+      if (!doesMessageRecipientMatch(recipient)) return;
 
       getActions()[name](options as never);
       break;
     }
 
-    case 'callActionInNative': {
-      if (!IS_DELEGATED_BOTTOM_SHEET) return;
+    case 'callApiRequest': {
+      const { recipient, messageId, name, args } = data;
 
-      const { name, options } = data;
+      if (!doesMessageRecipientMatch(recipient)) return;
 
-      getActions()[name](options as never);
+      const [result] = await Promise.allSettled([callApi(name, ...args)]);
+      channel!.postMessage({ type: 'callApiResponse', messageId, result });
       break;
     }
 
@@ -137,9 +153,15 @@ function handleMultitabMessage({ data }: { data: BroadcastChannelMessage }) {
   }
 }
 
+function doesMessageRecipientMatch(recipient: Recipient) {
+  return (IS_DELEGATING_BOTTOM_SHEET && recipient === 'main')
+    || (IS_DELEGATED_BOTTOM_SHEET && recipient === 'native');
+}
+
 export function callActionInMain<K extends keyof ActionPayloads>(name: K, options?: ActionPayloads[K]) {
   channel!.postMessage({
-    type: 'callActionInMain',
+    type: 'callAction',
+    recipient: 'main',
     name,
     options,
   });
@@ -147,9 +169,34 @@ export function callActionInMain<K extends keyof ActionPayloads>(name: K, option
 
 export function callActionInNative<K extends keyof ActionPayloads>(name: K, options?: ActionPayloads[K]) {
   channel!.postMessage({
-    type: 'callActionInNative',
+    type: 'callAction',
+    recipient: 'native',
     name,
     options,
+  });
+}
+
+export function callApiInMain<T extends keyof AllMethods>(name: T, ...args: AllMethodArgs<T>) {
+  if (!IS_DELEGATED_BOTTOM_SHEET) {
+    return callApi(name, ...args);
+  }
+
+  const messageId = ++messageIndex;
+
+  return new Promise<AllMethodResponse<T>>((resolve, reject) => {
+    const handleMessage = ({ data }: { data: BroadcastChannelMessage }) => {
+      if (data.type === 'callApiResponse' && data.messageId === messageId) {
+        channel!.removeEventListener('message', handleMessage);
+        if (data.result.status === 'fulfilled') {
+          resolve(data.result.value);
+        } else {
+          reject(data.result.reason);
+        }
+      }
+    };
+
+    channel!.addEventListener('message', handleMessage);
+    channel!.postMessage({ type: 'callApiRequest', recipient: 'main', messageId, name, args });
   });
 }
 

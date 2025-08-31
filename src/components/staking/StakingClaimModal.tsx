@@ -71,12 +71,7 @@ function StakingClaimModal({
   isMultichainAccount,
   isSensitiveDataHidden,
 }: StateProps) {
-  const {
-    submitStakingClaim,
-    submitStakingClaimHardware,
-    cancelStakingClaim,
-    clearStakingError,
-  } = getActions();
+  const { submitStakingClaim, cancelStakingClaim, clearStakingError } = getActions();
 
   const {
     tokenSlug,
@@ -111,7 +106,7 @@ function StakingClaimModal({
 
   const handleHardwareSubmit = useLastCallback(() => {
     if (!isNativeEnough) return;
-    submitStakingClaimHardware();
+    submitStakingClaim();
   });
 
   function renderInfo() {

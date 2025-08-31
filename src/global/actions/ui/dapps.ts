@@ -47,7 +47,7 @@ addActionHandler('submitDappTransferConfirm', async (global, actions) => {
   } else if (inMemoryPassword) {
     global = updateCurrentDappTransfer(global, { isLoading: true });
     setGlobal(global);
-    actions.submitDappTransferPassword({ password: inMemoryPassword });
+    actions.submitDappTransfer({ password: inMemoryPassword });
   } else {
     global = updateCurrentDappTransfer(global, { state: TransferState.Password });
     setGlobal(global);
@@ -142,7 +142,7 @@ addActionHandler('submitDappSignDataConfirm', async (global, actions) => {
   if (inMemoryPassword) {
     global = updateCurrentDappSignData(global, { isLoading: true });
     setGlobal(global);
-    actions.submitDappSignDataPassword({ password: inMemoryPassword });
+    actions.submitDappSignData({ password: inMemoryPassword });
   } else {
     global = updateCurrentDappSignData(global, { state: SignDataState.Password });
     setGlobal(global);

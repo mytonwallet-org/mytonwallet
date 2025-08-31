@@ -79,7 +79,6 @@ export function createAccount({
     ...partial,
     type,
     addressByChain,
-    ...(isMnemonicImported && { importedAt: Date.now() }),
   };
   let shouldForceAccountEdit = true;
 
@@ -187,7 +186,8 @@ export function updateBalances(
 
   // Force balance value for USDT-TON and manually imported tokens
   const importedSlugs = selectAccountSettings(global, accountId)?.importedSlugs ?? [];
-  const hasTonWallet = Boolean(selectAccount(global, accountId)?.addressByChain?.ton);
+  // Balance updates may arrive before authentication is complete
+  const hasTonWallet = Boolean(selectAccountOrAuthAccount(global, accountId)?.addressByChain?.ton);
 
   let forcedSlugs = importedSlugs;
   if (hasTonWallet) forcedSlugs = [...forcedSlugs, TON_USDT_SLUG];

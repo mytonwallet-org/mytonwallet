@@ -105,7 +105,7 @@ export function getWalletFromPrivateKey(
   return getWalletFromKeys(publicKey, network, version);
 }
 
-async function getWalletFromKeys(
+export async function getWalletFromKeys(
   publicKey: Uint8Array,
   network: ApiNetwork,
   version?: ApiTonWalletVersion,

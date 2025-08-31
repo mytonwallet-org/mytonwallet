@@ -13,13 +13,11 @@ const slugs = [
 ];
 
 export function makeMockTransactionActivity(partial: Partial<ApiTransactionActivity> = {}): ApiTransactionActivity {
-  const id = partial.id ?? partial.txId ?? buildTxId(randomBase64(32));
   const isIncoming = Math.random() < 0.5;
 
   return {
     kind: 'transaction',
-    id,
-    txId: id,
+    id: buildTxId(randomBase64(32)),
     timestamp: Date.now(),
     externalMsgHashNorm: randomBase64(32),
     fee: BigInt(random(1e3, 1e6)),

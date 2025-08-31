@@ -2,8 +2,7 @@ import type { ApiActivity, ApiTransaction, ApiTransactionActivity, ApiTransactio
 import type { LangFn } from '../langProvider';
 
 import { ALL_STAKING_POOLS, BURN_ADDRESS } from '../../config';
-import { compareActivities } from '../compareActivities';
-import { extractKey, groupBy, unique } from '../iteratees';
+import { extractKey, groupBy } from '../iteratees';
 import { getIsTransactionWithPoisoning } from '../poisoningHash';
 
 type UnusualTxType = 'backend-swap' | 'local' | 'additional';
@@ -13,22 +12,22 @@ type TranslationTenses = [past: string, present: string, future: string];
 const TRANSACTION_TYPE_TITLES: Partial<Record<ApiTransactionType & keyof any, TranslationTenses>> = {
   stake: ['Staked', 'Staking', '$stake_action'],
   unstake: ['Unstaked', 'Unstaking', '$unstake_action'],
-  unstakeRequest: ['Unstake Requested', 'Requesting Unstake', '$request_unstake_action'],
-  callContract: ['Contract Called', 'Calling Contract', '$call_contract_action'],
+  unstakeRequest: ['Requested Unstake', 'Requesting Unstake', '$request_unstake_action'],
+  callContract: ['Called Contract', 'Calling Contract', '$call_contract_action'],
   excess: ['Excess', 'Excess', 'Excess'],
-  contractDeploy: ['Contract Deployed', 'Deploying Contract', '$deploy_contract_action'],
+  contractDeploy: ['Deployed Contract', 'Deploying Contract', '$deploy_contract_action'],
   bounced: ['Bounced', 'Bouncing', '$bounce_action'],
   mint: ['Minted', 'Minting', '$mint_action'],
   burn: ['Burned', 'Burning', '$burn_action'],
-  auctionBid: ['NFT Auction Bid', 'Bidding at NFT Auction', 'NFT Auction Bid'],
-  dnsChangeAddress: ['Address Updated', 'Updating Address', '$update_address_action'],
-  dnsChangeSite: ['Site Updated', 'Updating Site', '$update_site_action'],
-  dnsChangeSubdomains: ['Subdomains Updated', 'Updating Subdomains', '$update_subdomains_action'],
-  dnsChangeStorage: ['Storage Updated', 'Updating Storage', '$update_storage_action'],
-  dnsDelete: ['Domain Record Deleted', 'Deleting Domain Record', '$delete_domain_record_action'],
-  dnsRenew: ['Domain Renewed', 'Renewing Domain', '$renew_domain_action'],
-  liquidityDeposit: ['Liquidity Provided', 'Providing Liquidity', '$provide_liquidity_action'],
-  liquidityWithdraw: ['Liquidity Withdrawn', 'Withdrawing Liquidity', '$withdraw_liquidity_action'],
+  auctionBid: ['NFT Auction Bid', 'Bidding at NFT Auction', 'NFT Auction Bid '],
+  dnsChangeAddress: ['Updated Address', 'Updating Address', '$update_address_action'],
+  dnsChangeSite: ['Updated Site', 'Updating Site', '$update_site_action'],
+  dnsChangeSubdomains: ['Updated Subdomains', 'Updating Subdomains', '$update_subdomains_action'],
+  dnsChangeStorage: ['Updated Storage', 'Updating Storage', '$update_storage_action'],
+  dnsDelete: ['Deleted Domain Record', 'Deleting Domain Record', '$delete_domain_record_action'],
+  dnsRenew: ['Renewed Domain', 'Renewing Domain', '$renew_domain_action'],
+  liquidityDeposit: ['Provided Liquidity', 'Providing Liquidity', '$provide_liquidity_action'],
+  liquidityWithdraw: ['Withdrawn Liquidity', 'Withdrawing Liquidity', '$withdraw_liquidity_action'],
 };
 
 export const STAKING_TRANSACTION_TYPES = new Set<ApiTransactionType | undefined>([
@@ -99,8 +98,8 @@ export function getTransactionTitle(
 
   if (type === 'nftTrade') {
     titles = isIncoming
-      ? ['NFT Sold', 'Selling NFT', '$sell_nft_action']
-      : ['NFT Bought', 'Buying NFT', '$buy_nft_action'];
+      ? ['Sold NFT', 'Selling NFT', '$sell_nft_action']
+      : ['Bought NFT', 'Buying NFT', '$buy_nft_action'];
   } else if (type && TRANSACTION_TYPE_TITLES[type]) {
     titles = TRANSACTION_TYPE_TITLES[type];
   } else {
@@ -164,51 +163,13 @@ export function shouldShowTransactionAnnualYield(transaction: ApiTransaction) {
   return transaction.type === 'stake' && isOurStakingTransaction(transaction);
 }
 
-export function mergeActivitiesToMaxTime(array1: ApiActivity[], array2: ApiActivity[]) {
-  if (!array1.length && !array2.length) {
-    return [];
-  } else if (!array1.length && array2.length) {
-    return array2;
-  } else if (!array2.length && array1.length) {
-    return array1;
-  }
-
-  const fromTimestamp = Math.max(
-    array1[array1.length - 1].timestamp,
-    array2[array2.length - 1].timestamp,
-  );
-
-  return [...array1, ...array2]
-    .filter(({ timestamp }) => timestamp >= fromTimestamp)
-    .sort(compareActivities);
-}
-
-export function mergeActivityIdsToMaxTime(array1: string[], array2: string[], byId: Record<string, ApiActivity>) {
-  if (!array1.length && !array2.length) {
-    return [];
-  } else if (!array1.length && array2.length) {
-    return array2;
-  } else if (!array2.length && array1.length) {
-    return array1;
-  }
-
-  const fromTimestamp = Math.max(
-    byId[array1[array1.length - 1]].timestamp,
-    byId[array2[array2.length - 1]].timestamp,
-  );
-
-  return unique([...array1, ...array2])
-    .filter((id) => byId[id].timestamp >= fromTimestamp)
-    .sort((a, b) => compareActivities(byId[a], byId[b]));
-}
-
 export function getIsActivityWithHash(activity: ApiTransactionActivity) {
   return !getIsTxIdLocal(activity.id) || !activity.extra?.withW5Gasless;
 }
 
 export function getIsActivityPending(activity: ApiActivity) {
   // "Pending" is a blockchain term. The activities originated by our backend are never considered pending in this sense.
-  return activity.status === 'pending' && !getIsBackendSwapId(activity.id);
+  return (activity.status === 'pending' || activity.status === 'pendingTrusted') && !getIsBackendSwapId(activity.id);
 }
 
 /**

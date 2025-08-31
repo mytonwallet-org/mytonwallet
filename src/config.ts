@@ -163,7 +163,7 @@ export const PROXY_HOSTS = process.env.PROXY_HOSTS;
 export const TINY_TRANSFER_MAX_COST = 0.01;
 
 export const IMAGE_CACHE_NAME = 'mtw-image';
-export const LANG_CACHE_NAME = 'mtw-lang-226';
+export const LANG_CACHE_NAME = 'mtw-lang-231';
 
 export const LANG_LIST: LangItem[] = [{
   langCode: 'en',
@@ -641,7 +641,7 @@ export const DEFAULT_NOMINATORS_STAKING_STATE: ApiNominatorsStakingState = {
   pendingDepositAmount: 0n,
 };
 
-export const SWAP_API_VERSION = 2;
+export const SWAP_API_VERSION = 3;
 export const TONCENTER_ACTIONS_VERSION = 'v1';
 
 export const JVAULT_URL = 'https://jvault.xyz';

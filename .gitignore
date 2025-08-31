@@ -2,7 +2,9 @@ node_modules
 dist
 dist-electron
 dist-multisend
+dist-push
 dist-giveaways
+dist-air
 MyTonWallet-chrome.zip
 MyTonWallet-firefox.zip
 MyTonWallet-firefox-sources.tgz
@@ -19,12 +21,10 @@ dev/locales/output.yaml
 .DS_store
 .DS_Store
 test-results
-public/statoscope-build-statistics.json
-public/statoscope-reference.json
-public/statoscope-report.html
-public/statoscope-master-reference.json
+mobile/ios/buildServer.json
 trash/
 coverage/
 src/i18n/en.json
 notarization-error.log
 .patch-version
+

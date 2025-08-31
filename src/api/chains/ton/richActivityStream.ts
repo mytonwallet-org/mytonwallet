@@ -1,8 +1,8 @@
 import type { ApiActivity } from '../../types';
 import type { ActivityStream, OnActivityUpdate, OnLoadingChange } from './toncenter';
 
+import { mergeSortedActivities } from '../../../util/activities/order';
 import { createCallbackManager } from '../../../util/callbacks';
-import { compareActivities } from '../../../util/compareActivities';
 import { areSortedArraysEqual, extractKey } from '../../../util/iteratees';
 import { OrGate } from '../../../util/orGate';
 import { throttle } from '../../../util/schedulers';
@@ -113,13 +113,13 @@ function managePendingActivities() {
   /** Pending activities that no longer exist but their corresponding confirmed activities are being enriched */
   let zombiePendingActivities: ApiActivity[] = [];
 
-  const updateAfterRawUpdate = (confirmedActivities: ApiActivity[], newPendingActivities: readonly ApiActivity[]) => {
+  const updateAfterRawUpdate: OnActivityUpdate = (confirmedActivities, newPendingActivities) => {
     const confirmedHashes = new Set(extractKey(confirmedActivities, 'externalMsgHashNorm'));
 
-    zombiePendingActivities = [
-      ...zombiePendingActivities,
-      ...pendingActivities.filter((activity) => confirmedHashes.has(activity.externalMsgHashNorm)),
-    ].sort(compareActivities);
+    zombiePendingActivities = mergeSortedActivities(
+      zombiePendingActivities,
+      pendingActivities.filter((activity) => confirmedHashes.has(activity.externalMsgHashNorm)),
+    );
 
     pendingActivities = newPendingActivities;
   };
@@ -134,7 +134,7 @@ function managePendingActivities() {
   return {
     /** Sorted by timestamp descending */
     get all() {
-      return [...pendingActivities, ...zombiePendingActivities].sort(compareActivities);
+      return mergeSortedActivities(pendingActivities, zombiePendingActivities);
     },
     updateAfterRawUpdate,
     updateAfterEnrichment,

@@ -51,9 +51,7 @@ function MintCardModal({
   theme,
   selectedCardType,
 }: StateProps) {
-  const {
-    closeMintCardModal, clearMintCardError, submitMintCard, submitMintCardHardware,
-  } = getActions();
+  const { closeMintCardModal, clearMintCardError, submitMintCard } = getActions();
 
   const lang = useLang();
   const appTheme = useAppTheme(theme);
@@ -66,7 +64,7 @@ function MintCardModal({
   });
 
   const handleHardwareSubmit = useLastCallback(() => {
-    submitMintCardHardware();
+    submitMintCard();
   });
 
   function renderPasswordForm(isActive: boolean) {

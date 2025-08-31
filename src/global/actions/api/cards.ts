@@ -1,72 +1,37 @@
 import type { ApiSubmitTransferOptions } from '../../../api/methods/types';
 import type { GlobalState } from '../../types';
-import { ApiCommonError } from '../../../api/types';
 import { MintCardState } from '../../types';
 
 import { IS_CORE_WALLET, MINT_CARD_ADDRESS, MINT_CARD_COMMENT, TONCOIN } from '../../../config';
-import { getDoesUsePinPad } from '../../../util/biometrics';
 import { fromDecimal } from '../../../util/decimals';
-import { vibrateOnError, vibrateOnSuccess } from '../../../util/haptics';
 import { IS_DELEGATED_BOTTOM_SHEET } from '../../../util/windowEnvironment';
 import { callApi } from '../../../api';
-import { addActionHandler, getActions, getGlobal, setGlobal } from '../../index';
-import {
-  clearIsPinAccepted,
-  setIsPinAccepted,
-  updateAccountSettings,
-  updateAccountState,
-  updateMintCards,
-} from '../../reducers';
+import { handleTransferResult, prepareTransfer } from '../../helpers/transfer';
+import { addActionHandler, getGlobal, setGlobal } from '../../index';
+import { updateAccountSettings, updateAccountState, updateMintCards } from '../../reducers';
 import { selectAccountState } from '../../selectors';
 
-addActionHandler('submitMintCard', async (global, actions, { password }) => {
+addActionHandler('submitMintCard', async (global, actions, { password } = {}) => {
   const accountId = global.currentAccountId!;
-  if (!(await callApi('verifyPassword', password))) {
-    setGlobal(updateMintCards(getGlobal(), { error: 'Wrong password, please try again.' }));
 
+  if (!await prepareTransfer(MintCardState.ConfirmHardware, updateMintCards, password)) {
     return;
   }
-  global = getGlobal();
-
-  if (getDoesUsePinPad()) {
-    global = setIsPinAccepted(global);
-  }
-
-  global = updateMintCards(global, {
-    isLoading: true,
-    error: undefined,
-  });
-  setGlobal(global);
-  await vibrateOnSuccess(true);
 
   const options = createTransferOptions(getGlobal(), password);
   const result = await callApi('submitTransfer', 'ton', options);
-  const transferError = !result || 'error' in result
-    ? result?.error ?? ApiCommonError.Unexpected
-    : undefined;
 
-  handleTransferResult(getGlobal(), accountId, transferError);
-});
+  if (!handleTransferResult(result, updateMintCards)) {
+    return;
+  }
 
-addActionHandler('submitMintCardHardware', async (global) => {
-  const accountId = global.currentAccountId!;
-
-  global = updateMintCards(global, {
-    isLoading: true,
-    error: undefined,
-    state: MintCardState.ConfirmHardware,
-  });
+  global = getGlobal();
+  global = updateMintCards(global, { state: MintCardState.Done });
+  global = updateAccountState(global, accountId, { isCardMinting: true });
   setGlobal(global);
-
-  const ledgerApi = await import('../../../util/ledger');
-  const options = createTransferOptions(getGlobal(), '');
-  const result = await ledgerApi.submitLedgerTransfer(options, TONCOIN.slug);
-  const transferError = !result ? ApiCommonError.Unexpected : undefined;
-
-  handleTransferResult(getGlobal(), accountId, transferError);
 });
 
-function createTransferOptions(globalState: GlobalState, password: string): ApiSubmitTransferOptions {
+function createTransferOptions(globalState: GlobalState, password?: string): ApiSubmitTransferOptions {
   const { currentAccountId, currentMintCard } = globalState;
   const { config } = selectAccountState(globalState, currentAccountId!)!;
   const { cardsInfo } = config!;
@@ -80,28 +45,6 @@ function createTransferOptions(globalState: GlobalState, password: string): ApiS
     amount: fromDecimal(cardInfo.price, TONCOIN.decimals),
     comment: MINT_CARD_COMMENT,
   };
-}
-
-function handleTransferResult(global: GlobalState, accountId: string, error?: string) {
-  global = updateMintCards(global, { isLoading: false });
-  setGlobal(global);
-
-  if (error) {
-    if (getDoesUsePinPad()) {
-      global = getGlobal();
-      global = clearIsPinAccepted(global);
-      setGlobal(global);
-    }
-    void vibrateOnError();
-    getActions().showError({ error });
-    return;
-  }
-
-  void vibrateOnSuccess();
-  global = getGlobal();
-  global = updateMintCards(global, { state: MintCardState.Done });
-  global = updateAccountState(global, accountId, { isCardMinting: true });
-  setGlobal(global);
 }
 
 addActionHandler('checkCardNftOwnership', (global) => {

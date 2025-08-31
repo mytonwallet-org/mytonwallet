@@ -1,11 +1,9 @@
-import { Cell, internal, loadStateInit, SendMode } from '@ton/core';
-import { WalletContractV5R1 } from '@ton/ton/dist/wallets/WalletContractV5R1';
+import { Cell, internal, SendMode } from '@ton/core';
 
 import type { DieselStatus } from '../../../global/types';
-import type Deferred from '../../../util/Deferred';
 import type { CheckTransactionDraftOptions } from '../../methods/types';
 import type {
-  ApiAccountWithMnemonic,
+  ApiAccountWithTon,
   ApiAnyDisplayError,
   ApiNetwork,
   ApiParsedPayload,
@@ -22,23 +20,26 @@ import type {
   ApiSubmitTransferOptions,
   ApiSubmitTransferTonResult,
   ApiSubmitTransferWithDieselResult,
-  ApiTonWalletVersion,
+  PreparedTransactionToSign,
   TonTransferParams,
 } from './types';
+import type { Signer } from './util/signer';
 import type { TonWallet } from './util/tonCore';
 import { ApiTransactionDraftError, ApiTransactionError } from '../../types';
 
-import { DEFAULT_FEE, DIESEL_ADDRESS } from '../../../config';
+import { DEFAULT_FEE, DIESEL_ADDRESS, STON_PTON_ADDRESS } from '../../../config';
 import { parseAccountId } from '../../../util/account';
 import { bigintMultiplyToNumber } from '../../../util/bigint';
 import { fromDecimal, toDecimal } from '../../../util/decimals';
 import { getDieselTokenAmount, isDieselAvailable } from '../../../util/fee/transferFee';
-import { omit, pick } from '../../../util/iteratees';
+import { omit, pick, split } from '../../../util/iteratees';
 import { logDebug, logDebugError } from '../../../util/logs';
 import { pause } from '../../../util/schedulers';
-import { decryptMessageComment, encryptMessageComment } from './util/encryption';
+import { getMaxMessagesInTransaction } from '../../../util/ton/transfer';
 import { parsePayloadBase64 } from './util/metadata';
 import { sendExternal } from './util/sendExternal';
+import { getSigner } from './util/signer';
+import { isExpiredTransactionError, isSeqnoMismatchError } from './util/tonCore';
 import {
   commentToBytes,
   getOurFeePayload,
@@ -49,18 +50,24 @@ import {
   packBytesAsSnakeForEncryptedData,
   parseAddress,
   parseBase64,
+  parseStateInitCell,
 } from './util/tonCore';
-import { fetchStoredAccount, fetchStoredTonWallet } from '../../common/accounts';
+import { fetchStoredTonAccount, fetchStoredTonWallet } from '../../common/accounts';
 import { callBackendGet } from '../../common/backend';
-import { getPendingTransfer, waitAndCreatePendingTransfer } from '../../common/pendingTransfers';
+import { withoutTransferConcurrency } from '../../common/preventTransferConcurrency';
 import { getTokenByAddress } from '../../common/tokens';
 import { base64ToBytes } from '../../common/utils';
 import { MINUTE, SEC } from '../../constants';
 import { ApiServerError, handleServerError } from '../../errors';
-import { checkHasTransaction, fetchNewestActionId } from './activities';
+import { checkHasTransaction } from './activities';
 import { resolveAddress } from './address';
-import { fetchKeyPair, fetchPrivateKey } from './auth';
-import { ATTEMPTS, FEE_FACTOR, TRANSFER_TIMEOUT_SEC } from './constants';
+import {
+  ATTEMPTS,
+  FEE_FACTOR,
+  LEDGER_VESTING_SUBWALLET_ID,
+  TOKEN_TRANSFER_FORWARD_AMOUNT,
+  TRANSFER_TIMEOUT_SEC,
+} from './constants';
 import { emulateTransaction } from './emulation';
 import {
   buildTokenTransfer,
@@ -68,7 +75,7 @@ import {
   getTokenBalanceWithMintless,
   getToncoinAmountForTransfer,
 } from './tokens';
-import { buildWallet, getContractInfo, getTonWallet, getWalletBalance, getWalletInfo } from './wallet';
+import { buildWallet, getContractInfo, getTonWallet, getWalletBalance, getWalletInfo, getWalletSeqno } from './wallet';
 
 const WAIT_TRANSFER_TIMEOUT = MINUTE;
 const WAIT_PAUSE = SEC;
@@ -142,7 +149,8 @@ export async function checkTransactionDraft(
       };
     }
 
-    const wallet = await getTonWallet(accountId);
+    const account = await fetchStoredTonAccount(accountId);
+    const wallet = getTonWallet(account.ton);
 
     if (typeof data === 'string' && isBase64Data) {
       data = base64ToBytes(data);
@@ -158,7 +166,7 @@ export async function checkTransactionDraft(
       }
     }
 
-    const { address, isInitialized: isWalletInitialized } = await fetchStoredTonWallet(accountId);
+    const { address, isInitialized: isWalletInitialized } = account.ton;
 
     if (data && typeof data === 'string' && !isBase64Data) {
       data = commentToBytes(data);
@@ -204,20 +212,33 @@ export async function checkTransactionDraft(
     }
 
     const isFullTonTransfer = !tokenAddress && toncoinBalance === amount;
-    const { transaction } = await signTransaction({
-      network,
-      wallet,
-      toAddress,
-      amount: toncoinAmount,
-      payload: data,
-      stateInit,
-      isFullBalance: isFullTonTransfer,
-      shouldEncrypt,
+
+    const signer = getSigner(accountId, account, undefined, true);
+    const signingResult = await signTransaction({
+      account,
+      messages: [{
+        toAddress,
+        amount: toncoinAmount,
+        payload: data,
+        stateInit,
+        hints: {
+          tokenAddress,
+        },
+      }],
       seqno,
+      signer,
+      doPayFeeFromAmount: isFullTonTransfer,
     });
+    if ('error' in signingResult) {
+      return {
+        ...result,
+        error: signingResult.error,
+      };
+    }
+
     // todo: Use `received` from the emulation to calculate the real fee. Check what happens when the receiver is the same wallet.
     const { networkFee } = applyFeeFactorToEmulationResult(
-      await emulateTransactionWithFallback(network, wallet, transaction, isWalletInitialized),
+      await emulateTransactionWithFallback(network, wallet, signingResult.transaction, isWalletInitialized),
     );
     fee += networkFee;
     realFee += networkFee;
@@ -322,7 +343,7 @@ export async function submitTransfer(options: ApiSubmitTransferOptions): Promise
     tokenAddress,
     shouldEncrypt,
     isBase64Data,
-    forwardAmount,
+    forwardAmount = TOKEN_TRANSFER_FORWARD_AMOUNT,
     noFeeCheck,
   } = options;
   let { stateInit } = options;
@@ -332,17 +353,19 @@ export async function submitTransfer(options: ApiSubmitTransferOptions): Promise
   const { network } = parseAccountId(accountId);
 
   try {
-    const account = await fetchStoredAccount<ApiAccountWithMnemonic>(accountId);
+    const account = await fetchStoredTonAccount(accountId);
     const { address: fromAddress, isInitialized } = account.ton;
-    const wallet = await getTonWallet(accountId, account.ton);
-    const { publicKey, secretKey } = (await fetchKeyPair(accountId, password, account))!;
+    const wallet = getTonWallet(account.ton);
+    const signer = getSigner(accountId, account, password);
 
     let encryptedComment: string | undefined;
 
     if (typeof data === 'string') {
-      ({ payload: data, encryptedComment } = await stringToPayload({
-        network, toAddress, fromAddress, data, secretKey, publicKey, shouldEncrypt, isBase64Data,
-      }));
+      const result = await stringToPayload({
+        network, toAddress, data, signer, shouldEncrypt, isBase64Data,
+      });
+      if ('error' in result) return result;
+      ({ payload: data, encryptedComment } = result);
     }
 
     let toncoinAmount: bigint;
@@ -370,49 +393,55 @@ export async function submitTransfer(options: ApiSubmitTransferOptions): Promise
       }));
     }
 
-    const { pendingTransfer } = await waitAndCreatePendingTransfer(network, fromAddress);
-    const { seqno, balance: toncoinBalance } = await getWalletInfo(network, wallet);
-    const isFullTonTransfer = !tokenAddress && toncoinBalance === amount;
+    return await withoutTransferConcurrency(network, fromAddress, async (finalizeInBackground) => {
+      const { seqno, balance: toncoinBalance } = await getWalletInfo(network, wallet);
+      const isFullTonTransfer = !tokenAddress && toncoinBalance === amount;
 
-    const { transaction } = await signTransaction({
-      network,
-      wallet,
-      toAddress,
-      amount: toncoinAmount,
-      payload: data,
-      stateInit,
-      privateKey: secretKey,
-      isFullBalance: isFullTonTransfer,
-      shouldEncrypt,
-      seqno,
-    });
+      const signingResult = await signTransaction({
+        account,
+        messages: [{
+          toAddress,
+          amount: toncoinAmount,
+          payload: data,
+          stateInit,
+          hints: {
+            tokenAddress,
+          },
+        }],
+        seqno,
+        signer,
+        doPayFeeFromAmount: isFullTonTransfer,
+      });
+      if ('error' in signingResult) return signingResult;
+      const { transaction } = signingResult;
 
-    if (!noFeeCheck) {
-      const { networkFee } = await emulateTransactionWithFallback(network, wallet, transaction, isInitialized);
+      if (!noFeeCheck) {
+        const { networkFee } = await emulateTransactionWithFallback(network, wallet, transaction, isInitialized);
 
-      const isEnoughBalance = isFullTonTransfer
-        ? toncoinBalance > networkFee
-        : toncoinBalance >= toncoinAmount + networkFee;
+        const isEnoughBalance = isFullTonTransfer
+          ? toncoinBalance > networkFee
+          : toncoinBalance >= toncoinAmount + networkFee;
 
-      if (!isEnoughBalance) {
-        return { error: ApiTransactionError.InsufficientBalance };
+        if (!isEnoughBalance) {
+          return { error: ApiTransactionError.InsufficientBalance };
+        }
       }
-    }
 
-    const client = getTonClient(network);
-    const { msgHash, boc, msgHashNormalized } = await sendExternal(client, wallet, transaction);
+      const client = getTonClient(network);
+      const { msgHash, boc, msgHashNormalized } = await sendExternal(client, wallet, transaction);
 
-    void retrySendBoc(network, fromAddress, boc, seqno, pendingTransfer);
+      finalizeInBackground(() => retrySendBoc(network, fromAddress, boc, seqno));
 
-    return {
-      amount,
-      seqno,
-      encryptedComment,
-      toAddress,
-      msgHash,
-      msgHashNormalized,
-      toncoinAmount,
-    };
+      return {
+        amount,
+        seqno,
+        encryptedComment,
+        toAddress,
+        msgHash,
+        msgHashNormalized,
+        toncoinAmount,
+      };
+    });
   } catch (err: any) {
     logDebugError('submitTransfer', err);
 
@@ -422,7 +451,7 @@ export async function submitTransfer(options: ApiSubmitTransferOptions): Promise
 
 export async function submitTransferWithDiesel(options: {
   accountId: string;
-  password: string;
+  password?: string;
   toAddress: string;
   amount: bigint;
   data?: AnyPayload;
@@ -447,19 +476,18 @@ export async function submitTransferWithDiesel(options: {
 
     const { network } = parseAccountId(accountId);
 
-    const [{ address: fromAddress, version }, keyPair] = await Promise.all([
-      fetchStoredTonWallet(accountId),
-      fetchKeyPair(accountId, password),
-    ]);
-
-    const { publicKey, secretKey } = keyPair!;
+    const account = await fetchStoredTonAccount(accountId);
+    const { address: fromAddress, version } = account.ton;
 
     let encryptedComment: string | undefined;
 
     if (typeof data === 'string') {
-      ({ payload: data, encryptedComment } = await stringToPayload({
-        network, toAddress, fromAddress, data, secretKey, publicKey, shouldEncrypt,
-      }));
+      const signer = getSigner(accountId, account, password);
+      const result = await stringToPayload({
+        network, toAddress, data, signer, shouldEncrypt,
+      });
+      if ('error' in result) return result;
+      ({ payload: data, encryptedComment } = result);
     }
 
     const messages: TonTransferParams[] = [
@@ -507,20 +535,18 @@ export async function submitTransferWithDiesel(options: {
 }
 
 async function stringToPayload({
-  network, toAddress, data, shouldEncrypt, publicKey, secretKey, fromAddress, isBase64Data,
+  network, toAddress, data, shouldEncrypt, signer, isBase64Data,
 }: {
   network: ApiNetwork;
   data: string;
   shouldEncrypt?: boolean;
   toAddress: string;
-  publicKey: Uint8Array;
-  secretKey: Uint8Array;
-  fromAddress: string;
+  signer: Signer;
   isBase64Data?: boolean;
 }): Promise<{
-    payload?: Uint8Array | Cell;
-    encryptedComment?: string;
-  }> {
+  payload?: Uint8Array | Cell;
+  encryptedComment?: string;
+} | { error: ApiAnyDisplayError }> {
   let payload: Uint8Array | Cell | undefined;
   let encryptedComment: string | undefined;
 
@@ -530,8 +556,10 @@ async function stringToPayload({
     payload = parseBase64(data);
   } else if (shouldEncrypt) {
     const toPublicKey = (await getWalletPublicKey(network, toAddress))!;
-    payload = await encryptMessageComment(data, publicKey, toPublicKey, secretKey, fromAddress);
-    encryptedComment = Buffer.from(payload.slice(4)).toString('base64');
+    const result = await signer.encryptComment(data, toPublicKey);
+    if ('error' in result) return result;
+    payload = result;
+    encryptedComment = result.subarray(4).toString('base64');
   } else {
     payload = commentToBytes(data);
   }
@@ -541,8 +569,10 @@ async function stringToPayload({
 
 export function resolveTransactionError(error: any): ApiAnyDisplayError | string {
   if (error instanceof ApiServerError) {
-    if (error.message.includes('exitcode=35,')) {
+    if (isExpiredTransactionError(error.message)) {
       return ApiTransactionError.IncorrectDeviceTime;
+    } else if (isSeqnoMismatchError(error.message)) {
+      return ApiTransactionError.ConcurrentTransaction;
     } else if (error.statusCode === 400) {
       return error.message;
     } else if (error.displayError) {
@@ -552,94 +582,20 @@ export function resolveTransactionError(error: any): ApiAnyDisplayError | string
   return ApiTransactionError.UnsuccesfulTransfer;
 }
 
-async function signTransaction({
-  network,
-  wallet,
-  toAddress,
-  amount,
-  payload,
-  stateInit,
-  privateKey,
-  isFullBalance,
-  expireAt,
-  shouldEncrypt,
-  seqno,
-}: {
-  network: ApiNetwork;
-  wallet: TonWallet;
-  toAddress: string;
-  amount: bigint;
-  payload?: AnyPayload;
-  stateInit?: Cell;
-  privateKey?: Uint8Array;
-  isFullBalance?: boolean;
-  expireAt?: number;
-  shouldEncrypt?: boolean;
-  seqno?: number;
-}) {
-  seqno ??= (await getWalletInfo(network, wallet)).seqno;
-
-  if (!privateKey) {
-    privateKey = new Uint8Array(64);
-  } else {
-    logDebug('Signing transactions', { seqno, toAddress, amount });
-  }
-
-  if (!expireAt) {
-    expireAt = Math.round(Date.now() / 1000) + TRANSFER_TIMEOUT_SEC;
-  }
-
-  if (payload instanceof Uint8Array) {
-    payload = shouldEncrypt
-      ? packBytesAsSnakeForEncryptedData(payload) as Cell
-      : packBytesAsSnake(payload, 0) as Cell;
-  }
-
-  const init = stateInit ? loadStateInit(
-    stateInit.asSlice(),
-  ) : undefined;
-
-  const sendMode = (isFullBalance
-    ? SendMode.CARRY_ALL_REMAINING_BALANCE
-    : SendMode.PAY_GAS_SEPARATELY) + SendMode.IGNORE_ERRORS;
-
-  const transferParams = {
-    seqno,
-    secretKey: Buffer.from(privateKey),
-    messages: [internal({
-      value: amount,
-      to: toAddress,
-      body: payload,
-      init,
-      bounce: parseAddress(toAddress).isBounceable,
-    })],
-    sendMode,
-    timeout: expireAt,
-  };
-  const transaction = wallet instanceof WalletContractV5R1 // Otherwise, TypeScript emits an error
-    ? wallet.createTransfer(transferParams)
-    : wallet.createTransfer(transferParams);
-
-  return { seqno, transaction };
-}
-
-export async function getAccountNewestActionId(accountId: string) {
-  const { network } = parseAccountId(accountId);
-  const { address } = await fetchStoredTonWallet(accountId);
-
-  return fetchNewestActionId(network, address);
-}
-
 export async function checkMultiTransactionDraft(
   accountId: string,
   messages: TonTransferParams[],
   withDiesel?: boolean,
+  /**
+   * If `true`, the Ledger's limitation of 1 message per transaction will be overridden. This is to be used for
+   * estimating Ton Connect transactions (where each message is sent in a separate transaction).
+   */
+  doOverrideLedgerLimit?: boolean,
 ): Promise<ApiCheckMultiTransactionDraftResult> {
   let totalAmount: bigint = 0n;
 
   const { network } = parseAccountId(accountId);
-  const tonWallet = await fetchStoredTonWallet(accountId);
-  const { isInitialized, version } = tonWallet;
+  const account = await fetchStoredTonAccount(accountId);
 
   try {
     for (const { toAddress, amount } of messages) {
@@ -660,16 +616,19 @@ export async function checkMultiTransactionDraft(
     // Check individual token balances
     const { hasInsufficientTokenBalance, parsedPayloads } = await isTokenBalanceInsufficient(
       network,
-      tonWallet.address,
+      account.ton.address,
       messages,
     );
 
-    const wallet = await getTonWallet(accountId, tonWallet);
-    const { balance } = await getWalletInfo(network, wallet);
+    const wallet = getTonWallet(account.ton);
+    const { seqno, balance } = await getWalletInfo(network, wallet);
 
-    const { transaction } = await signMultiTransaction({ network, wallet, messages, version });
+    const signer = getSigner(accountId, account, undefined, true);
+    const signingResult = await signTransaction({ account, messages, seqno, signer, doOverrideLedgerLimit });
+    if ('error' in signingResult) return signingResult;
+
     const emulation = applyFeeFactorToEmulationResult(
-      await emulateTransactionWithFallback(network, wallet, transaction, isInitialized),
+      await emulateTransactionWithFallback(network, wallet, signingResult.transaction, account.ton.isInitialized),
     );
     const result = { emulation, parsedPayloads };
 
@@ -757,7 +716,9 @@ async function isTokenBalanceInsufficient(
 
   const tokenBalances = await Promise.all(
     tokenAddresses.map((tokenAddress) =>
-      getTokenBalanceWithMintless(network, walletAddress, tokenAddress),
+      tokenAddress !== STON_PTON_ADDRESS
+        ? getTokenBalanceWithMintless(network, walletAddress, tokenAddress)
+        : 0n,
     ),
   );
 
@@ -766,6 +727,10 @@ async function isTokenBalanceInsufficient(
     const tokenAddress = tokenAddresses[i];
     const requiredAmount = tokenAmountsByAddress[tokenAddress];
     const availableBalance = tokenBalances[i];
+
+    if (tokenAddress === STON_PTON_ADDRESS) {
+      continue; // PTON can be here from the built-in swaps
+    }
 
     if (availableBalance < requiredAmount) {
       return { hasInsufficientTokenBalance: true, parsedPayloads };
@@ -779,162 +744,207 @@ export type GaslessType = 'diesel' | 'w5';
 
 interface SubmitMultiTransferOptions {
   accountId: string;
-  password: string;
+  /** Required only for mnemonic accounts */
+  password?: string;
   messages: TonTransferParams[];
   expireAt?: number;
   isGasless?: boolean;
 }
 
+// todo: Support submitting multiple transactions (not only multiple messages). The signing already supports that. It will allow to: 1) send multiple NFTs with a single API call, 2) renew multiple domains in a single function call, 3) simplify the implementation of swapping with Ledger
 export async function submitMultiTransfer({
   accountId, password, messages, expireAt, isGasless,
 }: SubmitMultiTransferOptions): Promise<ApiSubmitMultiTransferResult> {
   const { network } = parseAccountId(accountId);
 
-  const account = await fetchStoredAccount<ApiAccountWithMnemonic>(accountId);
+  const account = await fetchStoredTonAccount(accountId);
   const { address: fromAddress, isInitialized, version } = account.ton;
-  const { pendingTransfer } = await waitAndCreatePendingTransfer(network, fromAddress);
 
   try {
-    const wallet = await getTonWallet(accountId, account.ton);
-    const privateKey = await fetchPrivateKey(accountId, password, account);
+    const wallet = getTonWallet(account.ton);
 
     let totalAmount = 0n;
     messages.forEach((message) => {
       totalAmount += BigInt(message.amount);
     });
 
-    const { balance } = await getWalletInfo(network, wallet);
+    return await withoutTransferConcurrency(network, fromAddress, async (finalizeInBackground) => {
+      const { seqno, balance } = await getWalletInfo(network, wallet);
 
-    const gaslessType = isGasless ? version === 'W5' ? 'w5' : 'diesel' : undefined;
-    const withW5Gasless = gaslessType === 'w5';
+      const gaslessType = isGasless ? version === 'W5' ? 'w5' : 'diesel' : undefined;
+      const withW5Gasless = gaslessType === 'w5';
 
-    const { seqno, transaction } = await signMultiTransaction({
-      network, wallet, messages, version, privateKey, expireAt, withW5Gasless,
-    });
+      const signer = getSigner(accountId, account, password);
+      const signingResult = await signTransaction({
+        account,
+        messages,
+        expireAt: withW5Gasless
+          ? Math.round(Date.now() / 1000) + PENDING_DIESEL_TIMEOUT_SEC
+          : expireAt,
+        seqno,
+        signer,
+        shouldBeInternal: withW5Gasless,
+      });
+      if ('error' in signingResult) return signingResult;
+      const { transaction } = signingResult;
 
-    if (!isGasless) {
-      const { networkFee } = await emulateTransactionWithFallback(network, wallet, transaction, isInitialized);
-      if (balance < totalAmount + networkFee) {
-        return { error: ApiTransactionError.InsufficientBalance };
+      if (!isGasless) {
+        const { networkFee } = await emulateTransactionWithFallback(network, wallet, transaction, isInitialized);
+        if (balance < totalAmount + networkFee) {
+          return { error: ApiTransactionError.InsufficientBalance };
+        }
       }
-    }
 
-    const client = getTonClient(network);
-    const { msgHash, boc, paymentLink, msgHashNormalized } = await sendExternal(
-      client, wallet, transaction, gaslessType,
-    );
+      const client = getTonClient(network);
+      const { msgHash, boc, paymentLink, msgHashNormalized } = await sendExternal(
+        client, wallet, transaction, gaslessType,
+      );
 
-    if (!isGasless) {
-      void retrySendBoc(network, fromAddress, boc, seqno, pendingTransfer);
-    } else {
-      // TODO: Wait for gasless transfer
-      pendingTransfer.resolve();
-    }
-
-    const clearedMessages = messages.map((message) => {
-      if (typeof message.payload !== 'string' && typeof message.payload !== 'undefined') {
-        return omit(message, ['payload']);
+      if (!isGasless) {
+        finalizeInBackground(() => retrySendBoc(network, fromAddress, boc, seqno));
+      } else {
+        // TODO: Wait for gasless transfer
       }
-      return message;
-    });
 
-    return {
-      seqno,
-      amount: totalAmount.toString(),
-      messages: clearedMessages,
-      boc,
-      msgHash,
-      msgHashNormalized,
-      paymentLink,
-      withW5Gasless,
-    };
+      const clearedMessages = messages.map((message) => {
+        if (typeof message.payload !== 'string' && typeof message.payload !== 'undefined') {
+          return omit(message, ['payload']);
+        }
+        return message;
+      });
+
+      return {
+        seqno,
+        amount: totalAmount.toString(),
+        messages: clearedMessages,
+        boc,
+        msgHash,
+        msgHashNormalized,
+        paymentLink,
+        withW5Gasless,
+      };
+    });
   } catch (err) {
-    pendingTransfer.resolve();
-
     logDebugError('submitMultiTransfer', err);
     return { error: resolveTransactionError(err) };
   }
 }
 
-async function signMultiTransaction({
-  network,
-  wallet,
-  messages,
-  version,
-  privateKey,
-  expireAt,
-  withW5Gasless,
-}: {
-  network: ApiNetwork;
-  wallet: TonWallet;
+export async function signTransfers(
+  accountId: string,
+  messages: TonTransferParams[],
+  password?: string,
+  expireAt?: number,
+  /** Used for specific transactions on vesting.ton.org */
+  ledgerVestingAddress?: string,
+): Promise<ApiSignedTransfer[] | { error: ApiAnyDisplayError }> {
+  const account = await fetchStoredTonAccount(accountId);
+
+  // If there is an outgoing transfer in progress, this expression waits for it to finish. This helps to avoid seqno
+  // mismatches. This is not fully reliable, because the signed transactions are sent by a separate API method, but it
+  // works in most cases.
+  await withoutTransferConcurrency(parseAccountId(accountId).network, account.ton.address, () => {});
+
+  const seqno = await getWalletSeqno(parseAccountId(accountId).network, ledgerVestingAddress ?? account.ton.address);
+  const signer = getSigner(
+    accountId,
+    account,
+    password,
+    false,
+    ledgerVestingAddress ? LEDGER_VESTING_SUBWALLET_ID : undefined,
+  );
+  const signedTransactions = await signTransactions({ account, expireAt, messages, seqno, signer });
+  if ('error' in signedTransactions) return signedTransactions;
+
+  return signedTransactions.map(({ seqno, transaction }) => ({
+    seqno,
+    base64: transaction.toBoc().toString('base64'),
+  }));
+}
+
+interface SignTransactionOptions {
+  account: ApiAccountWithTon;
+  doPayFeeFromAmount?: boolean;
   messages: TonTransferParams[];
-  version: ApiTonWalletVersion;
-  privateKey?: Uint8Array;
+  seqno: number;
+  signer: Signer;
   /** Unix seconds */
   expireAt?: number;
-  withW5Gasless?: boolean;
-}) {
-  const { seqno } = await getWalletInfo(network, wallet);
+  /** If true, will sign the transaction as an internal message instead of external. Not supported by Ledger. */
+  shouldBeInternal?: boolean;
+  /**
+   * If `true`, the Ledger's limitation of 1 message per transaction will be overridden. This is to be used for
+   * estimating Ton Connect transactions (where each message is sent in a separate transaction).
+   * @todo Remove after DEXs support the 1 message limit
+   */
+  doOverrideLedgerLimit?: boolean;
+}
 
-  if (!privateKey) {
-    privateKey = new Uint8Array(64);
-  } else {
-    logDebug('Signing transaction', {
-      seqno,
-      messages: messages.map((msg) => pick(msg, ['toAddress', 'amount'])),
-    });
+async function signTransaction(options: SignTransactionOptions) {
+  const result = await signTransactions({ ...options, allowOnlyOneTransaction: true });
+  if ('error' in result) return result;
+  return result[0];
+}
+
+/**
+ * A universal function for signing any number of transactions in any account type.
+ *
+ * If the account doesn't support signing all the given messages in a single transaction, will produce multiple signed
+ * transactions. If you need exactly 1 signed transaction, use `allowOnlyOneTransaction` or `signTransaction` (the
+ * function will throw an error in case of multiple transactions).
+ *
+ * The reason for signing multiple transactions (not messages) in a single function call is improving the UX. Each
+ * transaction requires a manual user action to sign with Ledger. So, all the transactions should be checked before
+ * actually signing any of them.
+ */
+async function signTransactions({
+  account,
+  messages,
+  doPayFeeFromAmount,
+  seqno,
+  signer,
+  expireAt = Math.round(Date.now() / 1000) + TRANSFER_TIMEOUT_SEC,
+  shouldBeInternal,
+  allowOnlyOneTransaction,
+  doOverrideLedgerLimit,
+}: SignTransactionOptions & { allowOnlyOneTransaction?: boolean }) {
+  const messagesPerTransaction = getMaxMessagesInTransaction(account, doOverrideLedgerLimit);
+  const messagesByTransaction = split(messages, messagesPerTransaction);
+
+  if (allowOnlyOneTransaction && messagesByTransaction.length !== 1) {
+    throw new Error(
+      messagesByTransaction.length === 0
+        ? 'No messages to sign'
+        : `Too many messages for 1 transaction (${messages.length} messages given)`,
+    );
   }
 
-  if (!expireAt) {
-    expireAt = Math.round(Date.now() / 1000) + (withW5Gasless ? PENDING_DIESEL_TIMEOUT_SEC : TRANSFER_TIMEOUT_SEC);
-  }
-
-  let hasPayload = false;
-
-  const preparedMessages = messages.map((message) => {
-    const {
-      amount, toAddress, stateInit, isBase64Payload,
-    } = message;
-    let { payload } = message;
-
-    payload = getPayloadFromTransfer({ payload, isBase64Payload });
-
-    const init = stateInit ? loadStateInit(
-      stateInit.asSlice(),
-    ) : undefined;
-
-    if (!hasPayload && payload) {
-      hasPayload = true;
+  const transactionsToSign = messagesByTransaction.map((transactionMessages, index) => {
+    if (!signer.isMock) {
+      logDebug('Signing transaction', {
+        seqno,
+        messages: transactionMessages.map((msg) => pick(msg, ['toAddress', 'amount'])),
+      });
     }
 
-    return internal({
-      value: amount,
-      to: toAddress,
-      body: payload,
-      bounce: parseAddress(toAddress).isBounceable,
-      init,
+    return makePreparedTransactionToSign({
+      messages: transactionMessages,
+      seqno: seqno + index,
+      doPayFeeFromAmount,
+      expireAt,
+      shouldBeInternal,
     });
   });
 
-  if (version === 'W5') {
-    // TODO Remove it. There is bug in @ton/ton library that causes transactions to be executed in reverse order.
-    preparedMessages.reverse();
-  }
+  // All the transactions are passed to a single `signer.signTransactions` call, because it checks the transactions
+  // before signing. See the `signTransactions` description for more details.
+  const signedTransactions = await signer.signTransactions(transactionsToSign);
+  if ('error' in signedTransactions) return signedTransactions;
 
-  const transferParams = {
-    authType: withW5Gasless ? 'internal' as const : undefined,
-    seqno,
-    secretKey: Buffer.from(privateKey),
-    messages: preparedMessages,
-    sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
-    timeout: expireAt,
-  };
-
-  const transaction = wallet instanceof WalletContractV5R1 // Otherwise, TypeScript emits an error
-    ? wallet.createTransfer(transferParams)
-    : wallet.createTransfer(transferParams);
-
-  return { seqno, transaction };
+  return signedTransactions.map((transaction, index) => ({
+    seqno: transactionsToSign[index].seqno,
+    transaction,
+  }));
 }
 
 async function retrySendBoc(
@@ -942,7 +952,6 @@ async function retrySendBoc(
   address: string,
   boc: string,
   seqno: number,
-  pendingTransfer?: Deferred,
 ) {
   const tonClient = getTonClient(network);
   const waitUntil = Date.now() + WAIT_TRANSFER_TIMEOUT;
@@ -965,8 +974,6 @@ async function retrySendBoc(
 
     await pause(WAIT_PAUSE);
   }
-
-  pendingTransfer?.resolve();
 }
 
 async function emulateTransactionWithFallback(
@@ -983,7 +990,7 @@ async function emulateTransactionWithFallback(
   }
 
   // Falling back to the legacy fee estimation method just in case.
-  // It doesn't support estimating more than 20 transactions (inside `transaction`) at once.
+  // It doesn't support estimating more than 20 messages (inside the transaction) at once.
   // eslint-disable-next-line no-null/no-null
   const { code = null, data = null } = !isInitialized ? wallet.init : {};
   const { source_fees: fees } = await getTonClient(network).estimateExternalMessageFee(wallet.address, {
@@ -996,79 +1003,52 @@ async function emulateTransactionWithFallback(
   return { isFallback: true, networkFee };
 }
 
-export async function sendSignedMessage(accountId: string, message: ApiSignedTransfer, pendingTransferId?: string) {
-  const { network } = parseAccountId(accountId);
-  const { address: fromAddress, publicKey, version } = await fetchStoredTonWallet(accountId);
-  const client = getTonClient(network);
-  const wallet = buildWallet(publicKey!, version);
-  const { base64, seqno } = message;
-  const pendingTransfer = pendingTransferId ? getPendingTransfer(pendingTransferId) : undefined;
-
-  try {
-    const { boc, msgHashNormalized } = await sendExternal(client, wallet, Cell.fromBase64(base64));
-
-    void retrySendBoc(network, fromAddress, boc, seqno, pendingTransfer);
-
-    return { boc, msgHashNormalized };
-  } catch (err) {
-    pendingTransfer?.resolve();
-    throw err;
-  }
-}
-
-export async function sendSignedMessages(accountId: string, messages: ApiSignedTransfer[]) {
+export async function sendSignedTransactions(accountId: string, transactions: ApiSignedTransfer[]) {
   const { network } = parseAccountId(accountId);
   const { address: fromAddress, publicKey, version } = await fetchStoredTonWallet(accountId);
   const client = getTonClient(network);
   const wallet = buildWallet(publicKey!, version);
 
-  const attempts = ATTEMPTS + messages.length;
+  const attempts = ATTEMPTS + transactions.length;
   let index = 0;
   let attempt = 0;
 
-  let firstBoc: string | undefined;
+  const sentTransactions: { boc: string; msgHashNormalized: string }[] = [];
 
-  const msgHashesNormalized: string[] = [];
-  let pendingTransfer: Deferred | undefined;
+  return withoutTransferConcurrency(network, fromAddress, async (finalizeInBackground) => {
+    while (index < transactions.length && attempt < attempts) {
+      const { base64, seqno } = transactions[index];
+      try {
+        const { boc, msgHashNormalized } = await sendExternal(client, wallet, Cell.fromBase64(base64));
+        sentTransactions.push({ boc, msgHashNormalized });
 
-  while (index < messages.length && attempt < attempts) {
-    const { base64, seqno } = messages[index];
-    try {
-      ({ pendingTransfer } = await waitAndCreatePendingTransfer(network, fromAddress));
+        const ensureSent = () => retrySendBoc(network, fromAddress, boc, seqno);
+        if (index === transactions.length - 1) {
+          finalizeInBackground(ensureSent);
+        } else {
+          await ensureSent();
+        }
 
-      const { boc, msgHashNormalized } = await sendExternal(client, wallet, Cell.fromBase64(base64));
-      msgHashesNormalized.push(msgHashNormalized);
-
-      if (index === 0) {
-        firstBoc = boc;
+        index++;
+      } catch (err) {
+        if (err instanceof ApiServerError && isSeqnoMismatchError(err.message)) {
+          return { error: ApiTransactionError.ConcurrentTransaction };
+        }
+        logDebugError('sendSignedMessages', err);
       }
-
-      void retrySendBoc(network, fromAddress, boc, seqno, pendingTransfer);
-
-      index++;
-    } catch (err) {
-      pendingTransfer?.resolve();
-      logDebugError('sendSignedMessages', err);
+      attempt++;
     }
-    attempt++;
-  }
 
-  return { successNumber: index, firstBoc, msgHashesNormalized };
+    return sentTransactions;
+  });
 }
 
 export async function decryptComment(
   accountId: string, encryptedComment: string, fromAddress: string, password: string,
 ) {
-  const keyPair = await fetchKeyPair(accountId, password);
-  if (!keyPair) {
-    return undefined;
-  }
-
-  const { secretKey, publicKey } = keyPair;
-
-  const buffer = Buffer.from(encryptedComment, 'base64');
-
-  return decryptMessageComment(buffer, publicKey, secretKey, fromAddress);
+  const account = await fetchStoredTonAccount(accountId);
+  const signer = getSigner(accountId, account, password);
+  return signer.decryptComment(Buffer.from(encryptedComment, 'base64'), fromAddress);
 }
 
 /**
@@ -1106,7 +1086,7 @@ async function getDiesel({
   if (network !== 'mainnet') return DIESEL_NOT_AVAILABLE;
 
   const storedTonWallet = await fetchStoredTonWallet(accountId);
-  const wallet = await getTonWallet(accountId, storedTonWallet);
+  const wallet = getTonWallet(storedTonWallet);
 
   const token = getTokenByAddress(tokenAddress);
   if (!token.isGaslessEnabled && !token.isStarsEnabled) return DIESEL_NOT_AVAILABLE;
@@ -1191,6 +1171,33 @@ function applyFeeFactorToEmulationResult(estimation: ApiEmulationWithFallbackRes
   }
 
   return estimation;
+}
+
+function makePreparedTransactionToSign(
+  options: Pick<SignTransactionOptions, 'messages' | 'doPayFeeFromAmount' | 'expireAt' | 'shouldBeInternal' | 'seqno'>,
+): PreparedTransactionToSign {
+  const { messages, seqno, doPayFeeFromAmount, expireAt, shouldBeInternal } = options;
+
+  return {
+    authType: shouldBeInternal ? 'internal' : undefined,
+    seqno,
+    messages: messages.map((message) => {
+      const { amount, toAddress, stateInit } = message;
+      return internal({
+        value: amount,
+        to: toAddress,
+        body: getPayloadFromTransfer(message),
+        bounce: parseAddress(toAddress).isBounceable,
+        init: parseStateInitCell(stateInit),
+      });
+    }),
+    sendMode: (doPayFeeFromAmount ? SendMode.CARRY_ALL_REMAINING_BALANCE : SendMode.PAY_GAS_SEPARATELY)
+      // It's important to add IGNORE_ERRORS to every transaction. Otherwise, failed transactions may repeat and drain
+      // the wallet balance: https://docs.ton.org/v3/documentation/smart-contracts/message-management/sending-messages#behavior-without-2-flag
+      + SendMode.IGNORE_ERRORS,
+    timeout: expireAt,
+    hints: messages[0].hints, // Currently hints are used only by Ledger, which has only 1 message per transaction
+  };
 }
 
 function getPayloadFromTransfer(

@@ -110,6 +110,8 @@
 }
 
 .tabsInModal {
+  z-index: 0 !important;
+
   @include mixins.separatorBottom();
 }
 

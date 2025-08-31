@@ -26,6 +26,10 @@ public class BottomSheetPlugin: CAPPlugin, FloatingPanelControllerDelegate {
     public var wasFullScreenBeforeHiding = false
     public var halfSizeAddedTemporarily = false
 
+    public var capWebView: WKWebView? {
+        return capVc?.webView
+    }
+
     @objc func prepare(_ call: CAPPluginCall) {
         ensureLocalOrigin()
 
@@ -115,7 +119,7 @@ public class BottomSheetPlugin: CAPPlugin, FloatingPanelControllerDelegate {
             call.resolve()
         }
     }
-    
+
     @objc func show(_ call: CAPPluginCall) {
         DispatchQueue.main.async { [self] in
             self.fpc.view.alpha = 1
@@ -221,7 +225,7 @@ public class BottomSheetPlugin: CAPPlugin, FloatingPanelControllerDelegate {
 
     private func set(halfSize: Bool, animated: Bool) {
         let layout = fpc.layout as! MyPanelLayout
-        
+
         if halfSize {
             if layout.anchors[.half] == nil {
                 layout.anchors[.half] = FloatingPanelLayoutAnchor(fractionalInset: 0.5, edge: .bottom, referenceGuide: .superview)
@@ -238,7 +242,7 @@ public class BottomSheetPlugin: CAPPlugin, FloatingPanelControllerDelegate {
         } else if halfSize && layout.anchors[.full] != nil {
             layout.anchors[.full] = nil
         }
-        
+
         animateTo(to: halfSize ? .half : .full, duration: animated ? nil : 0)
     }
 

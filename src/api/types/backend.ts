@@ -21,12 +21,36 @@ export type ApiSwapEstimateRequest = {
   isFromAmountMax?: boolean;
 };
 
+export type ApiSwapMinter = 'native' | `jetton:${string}`; // jetton:<raw_address>
+
+export type ApiSwapProtocol = ([
+  'dedust',
+  'stonfi_v1',
+  'stonfi_v2',
+  'tonco',
+  'memeslab',
+  'tonfun',
+])[number];
+
+export type ApiSwapRoute = {
+  pool_address: string;
+  is_stable: boolean;
+  in_minter: ApiSwapMinter;
+  out_minter: ApiSwapMinter;
+  in_amount: string;
+  out_amount: string;
+  network_fee: string;
+  protocol_slug: ApiSwapProtocol;
+};
+
 export type ApiSwapEstimateVariant = {
   fromAmount: string;
   toAmount: string;
   toMinAmount: string;
   impact: number;
   dexLabel: ApiSwapDexLabel;
+  other?: ApiSwapEstimateVariant[];
+  routes?: ApiSwapRoute[][];
   // Fees
   networkFee: string;
   realNetworkFee: string;
@@ -43,7 +67,8 @@ export type ApiSwapEstimateResponse = ApiSwapEstimateRequest & {
   impact: number;
   dexLabel: ApiSwapDexLabel;
   dieselStatus: DieselStatus;
-  other?: ApiSwapEstimateVariant[];
+  other?: ApiSwapEstimateVariant[]; // Only in V2
+  routes?: ApiSwapRoute[][]; // Only in V3
   // Fees
   networkFee: string;
   realNetworkFee: string;
@@ -69,6 +94,7 @@ export type ApiSwapBuildRequest = Pick<ApiSwapEstimateResponse,
   | 'swapFee'
   | 'ourFee'
   | 'dieselFee'
+  | 'routes'
 > & {
   walletVersion?: ApiTonWalletVersion;
 };
@@ -119,7 +145,20 @@ export type ApiSwapHistoryItem = {
   networkFee: string;
   swapFee: string;
   ourFee?: string;
-  status: 'pending' | 'completed' | 'failed' | 'expired';
+  /**
+   * Swap confirmation status
+   * Both 'pendingTrusted' and 'pending' mean the swap is awaiting confirmation by the blockchain.
+   * - 'pendingTrusted' — awaiting confirmation and trusted (initiated by our app).
+   * - 'pending' — awaiting confirmation from an external/unauthenticated source.
+   *
+   * There are two backends: ToncenterApi and our backend.
+   * Swaps returned by ToncenterApi have the status 'pending'.
+   * Swaps returned by our backend also have the status 'pending', but they are meant to be 'pendingTrusted'.
+   * When an activity reaches the `GlobalState`, it already has the correct status set.
+   *
+   * TODO: Replace the status 'pending' with 'pendingTrusted' on our backend once all clients are updated.
+   */
+  status: 'pending' | 'pendingTrusted' | 'completed' | 'failed' | 'expired';
   hashes: string[];
   isCanceled?: boolean;
   cex?: {
@@ -271,6 +310,8 @@ export type ApiAccountConfig = {
   cardsInfo?: ApiCardsInfo;
 };
 
+export type ApiSwapVersion = 2 | 3;
+
 export type ApiBackendConfig = {
   isLimited: boolean;
   isCopyStorageEnabled?: boolean;
@@ -280,4 +321,5 @@ export type ApiBackendConfig = {
   isUpdateRequired: boolean;
   isVestingEnabled?: boolean;
   isWebSocketEnabled?: boolean;
+  swapVersion?: ApiSwapVersion;
 };

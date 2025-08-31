@@ -62,8 +62,7 @@ function StakeModal({
     setStakingScreen,
     cancelStaking,
     clearStakingError,
-    submitStakingPassword,
-    submitStakingHardware,
+    submitStaking,
     openStakingInfo,
   } = getActions();
 
@@ -86,12 +85,12 @@ function StakeModal({
 
   const handleLedgerConnect = useLastCallback(() => {
     setRenderedStakingAmount(amount);
-    submitStakingHardware();
+    submitStaking();
   });
 
   const handleTransferSubmit = useLastCallback((password: string) => {
     setRenderedStakingAmount(amount);
-    submitStakingPassword({ password });
+    submitStaking({ password });
   });
 
   const handleViewStakingInfoClick = useLastCallback(() => {

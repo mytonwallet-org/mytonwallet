@@ -1,12 +1,13 @@
 import type { SignDataPayload } from '@tonconnect/protocol';
 
 import type { GlobalState } from '../../global/types';
-import type { ApiTonWalletVersion } from '../chains/ton/types';
+import type { ApiCheckTransactionDraftResult, ApiTonWalletVersion } from '../chains/ton/types';
 import type { ApiTonConnectProof } from '../tonConnect/types';
 import type { ApiActivity } from './activity';
 import type {
   ApiAccountConfig,
   ApiSwapAsset,
+  ApiSwapVersion,
   ApiVestingInfo,
 } from './backend';
 import type { ApiEmulationResult } from './emulation';
@@ -23,7 +24,6 @@ import type {
   ApiTokenWithPrice,
   ApiWalletWithVersionInfo,
 } from './misc';
-import type { ApiParsedPayload } from './payload';
 import type { ApiDapp } from './storage';
 
 export type ApiUpdateBalances = {
@@ -84,12 +84,15 @@ export type ApiUpdateCreateTransaction = {
   promiseId: string;
   toAddress: string;
   amount: bigint;
-  fee?: bigint;
-  realFee?: bigint;
   comment?: string;
   rawPayload?: string;
-  parsedPayload?: ApiParsedPayload;
   stateInit?: string;
+  checkResult: ApiCheckTransactionDraftResult;
+};
+
+export type ApiUpdateCompleteTransaction = {
+  type: 'completeTransaction';
+  activityId: string;
 };
 
 export type ApiUpdateCreateSignature = {
@@ -126,6 +129,8 @@ export type ApiUpdateDappSendTransactions = {
   dapp: ApiDapp;
   transactions: ApiDappTransfer[];
   emulation?: Pick<ApiEmulationResult, 'activities' | 'realFee'>;
+  /** Unix seconds */
+  validUntil?: number;
   vestingAddress?: string;
 };
 
@@ -226,8 +231,9 @@ export type ApiUpdateAccount = {
   accountId: string;
   chain: ApiChain;
   address?: string;
-  /** false means that the account has no domain; undefined means that the domain has not changed */
+  /** `false` means that the account has no domain; `undefined` means that the domain has not changed */
   domain?: string | false;
+  isMultisig?: boolean;
 };
 
 export type ApiUpdateConfig = {
@@ -237,6 +243,7 @@ export type ApiUpdateConfig = {
   supportAccountsCount?: number;
   countryCode?: ApiCountryCode;
   isAppUpdateRequired: boolean;
+  swapVersion?: ApiSwapVersion;
 };
 
 export type ApiUpdateWalletVersions = {
@@ -313,6 +320,7 @@ export type ApiUpdate =
   | ApiUpdateTokens
   | ApiUpdateSwapTokens
   | ApiUpdateCreateTransaction
+  | ApiUpdateCompleteTransaction
   | ApiUpdateCreateSignature
   | ApiUpdateStaking
   | ApiUpdateDappSendTransactions

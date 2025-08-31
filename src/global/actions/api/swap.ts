@@ -1,4 +1,4 @@
-import type { ApiCheckTransactionDraftResult, ApiSubmitTransferWithDieselResult } from '../../../api/chains/ton/types';
+import type { ApiCheckTransactionDraftResult } from '../../../api/chains/ton/types';
 import type { ApiSubmitTransferOptions, ApiSubmitTransferResult } from '../../../api/methods/types';
 import type {
   ApiChain,
@@ -14,7 +14,6 @@ import type {
   AssetPairs,
   GlobalState,
 } from '../../types';
-import { ApiCommonError } from '../../../api/types';
 import {
   ActiveTab,
   SwapErrorType,
@@ -36,7 +35,6 @@ import { findChainConfig, getChainConfig } from '../../../util/chain';
 import { fromDecimal, roundDecimal, toDecimal } from '../../../util/decimals';
 import { canAffordSwapEstimateVariant, shouldSwapBeGasless } from '../../../util/fee/swapFee';
 import generateUniqueId from '../../../util/generateUniqueId';
-import { vibrateOnError, vibrateOnSuccess } from '../../../util/haptics';
 import { buildCollectionByKey, pick } from '../../../util/iteratees';
 import { callActionInMain, callActionInNative } from '../../../util/multitab';
 import { pause, waitFor } from '../../../util/schedulers';
@@ -52,12 +50,12 @@ import {
   shouldAvoidSwapEstimation,
 } from '../../helpers/swap';
 import {
-  clearCurrentSwap,
-  clearIsPinAccepted,
-  setIsPinAccepted,
-  updateAccountState,
-  updateCurrentSwap,
-} from '../../reducers';
+  handleTransferResult,
+  isErrorTransferResult,
+  prepareTransfer,
+  reportErrorTransferResult,
+} from '../../helpers/transfer';
+import { clearCurrentSwap, clearIsPinAccepted, updateAccountState, updateCurrentSwap } from '../../reducers';
 import {
   selectAccount,
   selectAccountState,
@@ -98,6 +96,7 @@ function buildSwapBuildRequest(global: GlobalState): ApiSwapBuildRequest {
     ourFee,
     dieselFee,
     realNetworkFee,
+    estimates,
   } = global.currentSwap;
 
   const tokenIn = selectCurrentSwapTokenIn(global)!;
@@ -125,6 +124,7 @@ function buildSwapBuildRequest(global: GlobalState): ApiSwapBuildRequest {
     swapFee: swapFee!,
     ourFee: ourFee!,
     dieselFee,
+    routes: estimates![0].routes,
   };
 }
 
@@ -143,6 +143,7 @@ function buildSwapEstimates(estimate: ApiSwapEstimateResponse): ApiSwapEstimateV
       'ourFee',
       'dieselFee',
       'networkFee',
+      'routes',
     ]),
   };
 
@@ -258,53 +259,30 @@ addActionHandler('cancelSwap', (global, actions, { shouldReset } = {}) => {
 });
 
 addActionHandler('submitSwap', async (global, actions, { password }) => {
-  if (!(await callApi('verifyPassword', password))) {
-    setGlobal(updateCurrentSwap(
-      getGlobal(),
-      { error: 'Wrong password, please try again.' },
-    ));
-
+  if (!await prepareTransfer(
+    0 as never, // Swap isn't available for hardware accounts yet, so this argument value doesn't matter
+    updateCurrentSwap,
+    password,
+  )) {
     return;
   }
 
-  global = getGlobal();
-  if (getDoesUsePinPad()) {
-    global = setIsPinAccepted(global);
-  }
-  global = updateCurrentSwap(global, {
-    isLoading: true,
-    shouldResetOnClose: undefined,
-    error: undefined,
-  });
-  setGlobal(global);
-  await vibrateOnSuccess(true);
+  setGlobal(updateCurrentSwap(getGlobal(), { shouldResetOnClose: undefined }));
 
   const swapBuildRequest = buildSwapBuildRequest(global);
   const buildResult = await callApi(
     'swapBuildTransfer', global.currentAccountId!, password, swapBuildRequest,
   );
-  global = getGlobal();
 
-  if (!buildResult || 'error' in buildResult) {
-    if (getDoesUsePinPad()) {
-      global = clearIsPinAccepted(global);
-    }
-    void vibrateOnError();
-    global = updateCurrentSwap(global, {
-      shouldResetOnClose: true,
-      isLoading: false,
-    });
-    setGlobal(global);
-
-    actions.showError({ error: buildResult?.error });
-
+  if (!handleTransferResult(buildResult, updateCurrentSwap)) {
+    setGlobal(updateCurrentSwap(getGlobal(), { shouldResetOnClose: true }));
     return;
   }
 
   const swapHistoryItem: ApiSwapHistoryItem = {
     id: buildResult.id,
     timestamp: Date.now(),
-    status: 'pending',
+    status: 'pendingTrusted',
     from: swapBuildRequest.from,
     fromAmount: swapBuildRequest.fromAmount,
     to: swapBuildRequest.to,
@@ -315,17 +293,14 @@ addActionHandler('submitSwap', async (global, actions, { password }) => {
     hashes: [],
   };
 
-  global = updateCurrentSwap(global, {
+  setGlobal(updateCurrentSwap(getGlobal(), {
     tokenInSlug: undefined,
     tokenOutSlug: undefined,
     amountIn: undefined,
     amountOut: undefined,
-    isLoading: false,
     state: SwapState.Complete,
     shouldResetOnClose: true,
-  });
-  setGlobal(global);
-  void vibrateOnSuccess();
+  }));
 
   const result = await callApi(
     'swapSubmit',
@@ -336,49 +311,26 @@ addActionHandler('submitSwap', async (global, actions, { password }) => {
     swapBuildRequest.shouldTryDiesel,
   );
 
-  if (!result || 'error' in result) {
-    global = getGlobal();
-    global = updateCurrentSwap(global, { shouldResetOnClose: true });
-    if (getDoesUsePinPad()) {
-      global = clearIsPinAccepted(global);
-    }
-
-    setGlobal(global);
-    void vibrateOnError();
-
-    actions.showError({ error: result?.error });
-  } else {
-    global = getGlobal();
-    global = updateCurrentSwap(global, {
-      activityId: result.activityId,
-    });
-    setGlobal(global);
+  if (isErrorTransferResult(result)) {
+    reportErrorTransferResult(result, updateCurrentSwap);
+    setGlobal(updateCurrentSwap(getGlobal(), { shouldResetOnClose: true }));
+    return;
   }
+
+  setGlobal(updateCurrentSwap(getGlobal(), { activityId: result.activityId }));
 });
 
 addActionHandler('submitSwapCex', async (global, actions, { password }) => {
-  if (!(await callApi('verifyPassword', password))) {
-    setGlobal(updateCurrentSwap(
-      getGlobal(),
-      { error: 'Wrong password, please try again.' },
-    ));
-
+  if (!await prepareTransfer(
+    0 as never, // Swap isn't available for hardware accounts yet, so this argument value doesn't matter
+    updateCurrentSwap,
+    password,
+  )) {
     return;
   }
 
   global = getGlobal();
-  global = updateCurrentSwap(global, {
-    isLoading: true,
-    error: undefined,
-    shouldResetOnClose: undefined,
-  });
-  if (getDoesUsePinPad()) {
-    global = setIsPinAccepted(global);
-  }
-  setGlobal(global);
-
-  await vibrateOnSuccess(true);
-  global = getGlobal();
+  setGlobal(updateCurrentSwap(global, { shouldResetOnClose: undefined }));
 
   const isMutlichainAccount = selectIsMultichainAccount(global, global.currentAccountId!);
   const account = selectCurrentAccount(global);
@@ -409,26 +361,13 @@ addActionHandler('submitSwapCex', async (global, actions, { password }) => {
     swapTransactionRequest,
   );
 
-  global = getGlobal();
-
-  if (!swapItem) {
-    global = updateCurrentSwap(global, {
-      isLoading: false,
-      shouldResetOnClose: true,
-    });
-    if (getDoesUsePinPad()) {
-      global = clearIsPinAccepted(global);
-    }
-    void vibrateOnError();
-    setGlobal(global);
-
-    actions.showError({ error: ApiCommonError.Unexpected });
-
+  if (!handleTransferResult(swapItem, updateCurrentSwap)) {
+    setGlobal(updateCurrentSwap(getGlobal(), { shouldResetOnClose: true }));
     return;
   }
 
+  global = getGlobal();
   global = updateCurrentSwap(global, {
-    isLoading: false,
     state: shouldSendTokenToExternalWallet ? SwapState.Complete : SwapState.WaitTokens,
     activityId: swapItem.activity.id,
     payinAddress: swapItem.swap.cex!.payinAddress,
@@ -437,10 +376,8 @@ addActionHandler('submitSwapCex', async (global, actions, { password }) => {
     shouldResetOnClose: true,
   });
   setGlobal(global);
-  void vibrateOnSuccess();
 
   if (shouldSendTransaction) {
-    global = getGlobal();
     const transferOptions: ApiSubmitTransferOptions = {
       password,
       accountId: global.currentAccountId!,
@@ -452,7 +389,7 @@ addActionHandler('submitSwapCex', async (global, actions, { password }) => {
 
     await pause(WAIT_FOR_CHANGELLY);
 
-    let transferResult: ((ApiSubmitTransferResult | ApiSubmitTransferWithDieselResult) & { txId?: string }) | undefined;
+    let transferResult: ApiSubmitTransferResult | undefined;
 
     if (shouldSendTonTransaction) {
       transferResult = await callApi('swapCexSubmit', 'ton', transferOptions, swapItem.swap.id);
@@ -460,16 +397,10 @@ addActionHandler('submitSwapCex', async (global, actions, { password }) => {
       transferResult = await callApi('swapCexSubmit', 'tron', transferOptions, swapItem.swap.id);
     }
 
-    if (!transferResult || 'error' in transferResult) {
-      global = getGlobal();
-      global = updateCurrentSwap(global, { shouldResetOnClose: true });
-      if (getDoesUsePinPad()) {
-        global = clearIsPinAccepted(global);
-      }
-
-      setGlobal(global);
-      void vibrateOnError();
-      actions.showError({ error: transferResult?.error });
+    if (isErrorTransferResult(transferResult)) {
+      reportErrorTransferResult(transferResult, updateCurrentSwap);
+      setGlobal(updateCurrentSwap(getGlobal(), { shouldResetOnClose: true }));
+      return;
     }
   }
 });
@@ -564,7 +495,21 @@ addActionHandler('estimateSwap', async () => {
   await estimateSwapConcurrently(async (global, shouldStop) => {
     const { tokenInSlug, tokenOutSlug } = global.currentSwap;
 
-    if (tokenInSlug) {
+    const isTonOnlySwap = (
+      (tokenInSlug ? getIsTonToken(tokenInSlug, true) : true)
+      && (tokenOutSlug ? getIsTonToken(tokenOutSlug, true) : true)
+      && !!(tokenInSlug || tokenOutSlug)
+    );
+
+    const shouldShowAllPairs = global.swapVersion === 3 && isTonOnlySwap;
+
+    // Set shouldShowAllPairs for TON-only swaps
+    if (shouldShowAllPairs !== Boolean(global.currentSwap.shouldShowAllPairs)) {
+      global = updateCurrentSwap(global, { shouldShowAllPairs: shouldShowAllPairs || undefined });
+      setGlobal(global);
+    }
+
+    if (tokenInSlug && !shouldShowAllPairs) {
       await loadSwapPairs(tokenInSlug);
 
       if (shouldStop()) return;
@@ -572,7 +517,7 @@ addActionHandler('estimateSwap', async () => {
     }
 
     if (tokenInSlug && tokenOutSlug) {
-      const isPairValid = global.swapPairs?.bySlug?.[tokenInSlug]?.[tokenOutSlug];
+      const isPairValid = global.swapPairs?.bySlug?.[tokenInSlug]?.[tokenOutSlug] || shouldShowAllPairs;
       if (!isPairValid) {
         return {
           ...getSwapEstimateResetParams(global),
@@ -726,9 +671,19 @@ async function estimateCexSwap(global: GlobalState, shouldStop: () => boolean): 
     }
   }
 
+  let amountIn = estimate.fromAmount;
+
+  // Auto-adjust amountIn for crosschain swaps when fee becomes known
+  if (global.currentSwap.isMaxAmount && networkFee) {
+    const tokenBalance = selectCurrentAccountTokenBalance(global, tokenIn.slug);
+    const amountInBigint = tokenBalance - fromDecimal(networkFee, tokenIn.decimals);
+    amountIn = toDecimal(amountInBigint, tokenIn.decimals);
+  }
+
   return {
     ...getSwapEstimateResetParams(global),
     amountOut: estimate.toAmount === '0' ? undefined : estimate.toAmount,
+    amountIn,
     limits: {
       fromMin: estimate.fromMin,
       fromMax: estimate.fromMax,
@@ -839,7 +794,7 @@ addActionHandler('updatePendingSwaps', async (global) => {
   const ids = Object.values(activities.byId)
     .filter((activity) => Boolean(
       activity.kind === 'swap'
-      && activity.status === 'pending'
+      && (activity.status === 'pending' || activity.status === 'pendingTrusted')
       && activity.cex,
     ))
     .map(({ id }) => parseTxId(id).hash);

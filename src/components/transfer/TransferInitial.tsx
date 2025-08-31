@@ -19,6 +19,7 @@ import {
   selectIsAllowSuspiciousActions,
   selectIsHardwareAccount,
   selectIsMultichainAccount,
+  selectIsMultisigAccount,
   selectNetworkAccounts,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
@@ -88,6 +89,7 @@ interface StateProps {
   diesel?: ApiFetchEstimateDieselResult;
   isDieselAuthorizationStarted?: boolean;
   isMultichainAccount: boolean;
+  isMultisig: boolean;
   isSensitiveDataHidden?: true;
   scamWarningType?: ScamWarningType;
   isAllowSuspiciousActions: boolean;
@@ -127,6 +129,7 @@ function TransferInitial({
   diesel,
   isDieselAuthorizationStarted,
   isMultichainAccount,
+  isMultisig,
   isSensitiveDataHidden,
   scamWarningType,
   isAllowSuspiciousActions,
@@ -347,6 +350,7 @@ function TransferInitial({
     && !isAmountMissing && !hasAmountError
     && isEnoughBalance
     && !hasCommentError
+    && !isMultisig
     && (!explainedFee.isGasless || diesel?.status === 'available' || diesel?.status === 'stars-fee')
     && !(isNftTransfer && !nfts?.length),
   );
@@ -401,12 +405,15 @@ function TransferInitial({
     let transitionKey = 0;
     let content: TeactNode = ' ';
 
-    if (amount) {
+    if (isMultisig) {
+      transitionKey = 1;
+      content = <span className={styles.balanceError}>{lang('Multisig sending disabled')}</span>;
+    } else if (amount) {
       if (isAmountGreaterThanBalance) {
-        transitionKey = 1;
+        transitionKey = 2;
         content = <span className={styles.balanceError}>{lang('Insufficient balance')}</span>;
       } else if (hasInsufficientFeeError) {
-        transitionKey = 2;
+        transitionKey = 3;
         content = <span className={styles.balanceError}>{lang('Insufficient fee')}</span>;
       }
     }
@@ -420,7 +427,7 @@ function TransferInitial({
         {content}
       </Transition>
     );
-  }, [amount, hasInsufficientFeeError, isAmountGreaterThanBalance, lang]);
+  }, [amount, hasInsufficientFeeError, isAmountGreaterThanBalance, isMultisig, lang]);
 
   function renderButtonText() {
     if (diesel?.status === 'not-authorized') {
@@ -558,7 +565,7 @@ function TransferInitial({
         isCompact
         title={lang('Warning!')}
         noBackdropClose
-        onClose={dismissTransferScamWarning}
+        onClose={handleScamWarningModalClose}
       >
         <div>
           {getScamWarning(lang, renderedScamWarningType)}
@@ -566,7 +573,12 @@ function TransferInitial({
         <div className={modalStyles.footerButtons}>
           {isAllowSuspiciousActions ? (
             <>
-              <Button className={modalStyles.fluidButton} onClick={handleScamWarningModalClose}>{lang('Exit')}</Button>
+              <Button
+                className={modalStyles.button}
+                onClick={handleScamWarningModalClose}
+              >
+                {lang('Close')}
+              </Button>
               <Button
                 isPrimary
                 isDestructive
@@ -577,7 +589,7 @@ function TransferInitial({
               </Button>
             </>
           ) : (
-            <Button onClick={handleScamWarningModalClose}>{lang('Exit')}</Button>
+            <Button onClick={handleScamWarningModalClose}>{lang('Close')}</Button>
           )}
         </div>
       </Modal>
@@ -613,6 +625,7 @@ export default memo(
       const { baseCurrency = DEFAULT_PRICE_CURRENCY, isSensitiveDataHidden } = global.settings;
       const isActive = ACTIVE_STATES.has(state);
 
+      const chain = getChainBySlug(tokenSlug);
       return {
         toAddress,
         resolvedAddress,
@@ -635,10 +648,11 @@ export default memo(
         baseCurrency,
         currentAccountId: global.currentAccountId!,
         accounts: selectNetworkAccounts(global),
-        nativeTokenBalance: selectCurrentAccountTokenBalance(global, getNativeToken(getChainBySlug(tokenSlug)).slug),
+        nativeTokenBalance: selectCurrentAccountTokenBalance(global, getNativeToken(chain).slug),
         diesel,
         isDieselAuthorizationStarted: accountState?.isDieselAuthorizationStarted,
         isMultichainAccount: selectIsMultichainAccount(global, global.currentAccountId!),
+        isMultisig: selectIsMultisigAccount(global, global.currentAccountId!, chain),
         isSensitiveDataHidden,
         scamWarningType,
         isAllowSuspiciousActions: selectIsAllowSuspiciousActions(global, global.currentAccountId!),

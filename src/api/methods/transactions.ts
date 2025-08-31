@@ -1,26 +1,20 @@
 import { Cell } from '@ton/core';
 
-import type { ApiSubmitTransferWithDieselResult } from '../chains/ton/types';
-import type {
-  ApiActivity,
-  ApiChain,
-  ApiLocalTransactionParams,
-  ApiSignedTransfer,
-  ApiTransactionActivity,
-  OnApiUpdate,
-} from '../types';
+import type { ApiSubmitTransferTonResult, ApiSubmitTransferWithDieselResult } from '../chains/ton/types';
+import type { ApiSubmitTransferTronResult } from '../chains/tron/types';
+import type { ApiActivity, ApiChain, ApiLocalTransactionParams, ApiTransactionActivity, OnApiUpdate } from '../types';
 import type { ApiSubmitTransferOptions, ApiSubmitTransferResult, CheckTransactionDraftOptions } from './types';
 
 import { parseAccountId } from '../../util/account';
-import { buildLocalTxId, mergeActivitiesToMaxTime } from '../../util/activities';
+import { buildLocalTxId } from '../../util/activities';
+import { mergeSortedActivitiesToMaxTime } from '../../util/activities/order';
 import { getChainConfig } from '../../util/chain';
 import { logDebugError } from '../../util/logs';
 import { getChainBySlug } from '../../util/tokens';
 import chains from '../chains';
-import { fetchStoredAccount, fetchStoredAddress, fetchStoredTonWallet } from '../common/accounts';
+import { fetchStoredAccount, fetchStoredAddress } from '../common/accounts';
 import { enrichActivities } from '../common/activities';
 import { buildLocalTransaction } from '../common/helpers';
-import { getPendingTransfer, waitAndCreatePendingTransfer } from '../common/pendingTransfers';
 import { FAKE_TX_ID } from '../constants';
 import { buildTokenSlug } from './tokens';
 
@@ -75,7 +69,7 @@ async function fetchAllActivitySlice(
     'tron' in account ? tron.getAllTransactionSlice(accountId, toTimestamp, limit) : [],
   ]);
 
-  return mergeActivitiesToMaxTime(tonActivities, tronActivities);
+  return mergeSortedActivitiesToMaxTime(tonActivities, tronActivities);
 }
 
 export function checkTransactionDraft(chain: ApiChain, options: CheckTransactionDraftOptions) {
@@ -86,7 +80,7 @@ export async function submitTransfer(
   chain: ApiChain,
   options: ApiSubmitTransferOptions,
   shouldCreateLocalActivity = true,
-): Promise<(ApiSubmitTransferResult | ApiSubmitTransferWithDieselResult) & { txId?: string }> {
+): Promise<ApiSubmitTransferResult> {
   const {
     accountId,
     password,
@@ -107,7 +101,7 @@ export async function submitTransfer(
 
   const fromAddress = await fetchStoredAddress(accountId, chain);
 
-  let result: ApiSubmitTransferResult | ApiSubmitTransferWithDieselResult;
+  let result: ApiSubmitTransferTonResult | ApiSubmitTransferTronResult | ApiSubmitTransferWithDieselResult;
 
   if (withDiesel && chain === 'ton') {
     result = await ton.submitTransferWithDiesel({
@@ -154,7 +148,7 @@ export async function submitTransfer(
   if ('msgHash' in result) {
     const { encryptedComment, msgHashNormalized } = result;
     [localActivity] = createLocalTransactions(accountId, chain, [{
-      txId: msgHashNormalized,
+      id: msgHashNormalized,
       amount,
       fromAddress,
       toAddress,
@@ -173,7 +167,7 @@ export async function submitTransfer(
   } else {
     const { txId } = result;
     [localActivity] = createLocalTransactions(accountId, chain, [{
-      txId,
+      id: txId,
       amount,
       fromAddress,
       toAddress,
@@ -185,35 +179,8 @@ export async function submitTransfer(
 
   return {
     ...result,
-    txId: localActivity.txId,
+    activityId: localActivity.id,
   };
-}
-
-export async function waitAndCreateTonPendingTransfer(accountId: string) {
-  const { network } = parseAccountId(accountId);
-  const { address } = await fetchStoredTonWallet(accountId);
-
-  return (await waitAndCreatePendingTransfer(network, address)).id;
-}
-
-export async function sendSignedTransferMessage(
-  accountId: string,
-  message: ApiSignedTransfer,
-  pendingTransferId: string,
-) {
-  const { msgHashNormalized } = await ton.sendSignedMessage(accountId, message, pendingTransferId);
-
-  const [localActivity] = createLocalTransactions(accountId, 'ton', [{
-    ...message.localActivity,
-    txId: msgHashNormalized,
-    externalMsgHashNorm: msgHashNormalized,
-  }]);
-
-  return localActivity.txId;
-}
-
-export function cancelPendingTransfer(id: string) {
-  getPendingTransfer(id)?.resolve();
 }
 
 export function decryptComment(accountId: string, encryptedComment: string, fromAddress: string, password: string) {
@@ -323,6 +290,7 @@ function convertEmulationActivityToLocal(
     id: localTxId,
     timestamp: Date.now(),
     externalMsgHashNorm: msgHashNormalized,
+    // Emulation activities are not trusted
     status: 'pending',
   } satisfies Partial<ApiActivity>;
 
@@ -336,7 +304,6 @@ function convertEmulationActivityToLocal(
     return {
       ...activity,
       ...commonFields,
-      txId: localTxId,
       normalizedAddress: normalizedAddress || activity.normalizedAddress,
     };
   } else {

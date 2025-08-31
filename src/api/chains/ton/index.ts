@@ -25,12 +25,11 @@ export {
 export { oneCellFromBoc } from './util/tonCore';
 export {
   checkTransactionDraft,
-  getAccountNewestActionId,
   submitTransfer,
   checkMultiTransactionDraft,
   submitMultiTransfer,
-  sendSignedMessage,
-  sendSignedMessages,
+  signTransfers,
+  sendSignedTransactions,
   decryptComment,
   submitTransferWithDiesel,
   fetchEstimateDiesel,

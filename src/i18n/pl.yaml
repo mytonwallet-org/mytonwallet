@@ -249,6 +249,7 @@ Confirm Unstaking: Potwierdź odzastawienie
 Request for unstaking is sent!: Wysłano prośbę o odzastawienie!
 $unstaking_when_receive: Otrzymasz swoją odzastawioną wpłatę w ciągu %time%.
 $unstaking_when_receive_with_amount: Otrzymasz swoje wycofane %amount% za %time%.
+$unstaking_when_receive_with_amount_ethena: "%amount% będą dostępne do wypłaty za %time%."
 $unstake_insufficient_balance: Aby przejść do odzastawienia, musisz mieć na swoim głównym saldzie %balance%.
 at %annual_yield%: przy %annual_yield%
 Est. %annual_yield%: Szacowany %annual_yield%
@@ -259,8 +260,6 @@ Unstaking: Odzastawianie
 $unstake_action: Odzastawianie
 The network fee has slightly changed, try sending again.: Opłata sieciowa nieznacznie się zmieniła, spróbuj wysłać ponownie.
 Transfer was unsuccessful. Try again later.: Przelew nie powiódł się. Spróbuj ponownie później.
-Unstaking was unsuccessful. Try again later.: Odzastawienie nie powiodło się. Spróbuj ponownie później.
-Staking was unsuccessful. Try again later.: Staking nie powiódł się. Spróbuj ponownie później.
 Invalid amount: Nieprawidłowa kwota
 Invalid address: Nieprawidłowy adres
 Domain is not connected to a wallet: Domena nie jest połączona z portfelem
@@ -555,7 +554,7 @@ To use this feature, first enable biometrics in your phone settings.: Aby skorzy
 Open Settings: Otwórz ustawienia
 $service_token_transfer_warning: Zamierzasz przenieść ważny token usługi wymagany do wypłaty depozytu lub ukończenia operacji serwisowych. Upewnij się, że jest to działanie, które chcesz wykonać.
 No Price: Brak ceny
-$ledger_not_supported_operation: Ta operacja nie jest obsługiwana przez twoją wersję Ledger TON App. Zaktualizuj ją za pomocą Ledger Live.
+$ledger_outdated: Ta operacja nie jest obsługiwana przez twoją wersję Ledger TON App. Zaktualizuj ją za pomocą Ledger Live.
 $ledger_unsupported_ton_connect: TonConnect nie jest obsługiwany przez wersję aplikacji Ledger TON. Zaktualizuj go za pomocą Ledger Live.
 $dapp_transfer_tokens_burn: Spalanie %amount%
 $dapp_dns_set_wallet_payload: Zmiana połączonego portfela domeny %domain% na %address%
@@ -768,13 +767,13 @@ Hide Sensitive Data: Ukryj dane wrażliwe
 Copy Address: Skopiuj adres
 Copy Transaction ID: Skopiuj ID transakcji
 Requesting Unstake: Żądanie odzastaw
-Unstake Requested: Odzastaw zażądane
+Requested Unstake: Wypłata zażądana
 $request_unstake_action: Żądanie odzastaw
 Calling Contract: Wywoływanie kontraktu
-Contract Called: Kontrakt wywołany
+Called Contract: Wywołany kontrakt
 $call_contract_action: Wywołanie kontraktu
 Deploying Contract: Wdrażanie kontraktu
-Contract Deployed: Kontrakt wdrożony
+Deployed Contract: Wdrożony kontrakt
 $deploy_contract_action: Wdrażanie kontraktu
 Minting: Minting
 Minted: Zmintowane
@@ -782,39 +781,39 @@ $mint_action: Minting
 Burning: Palenie
 Burned: Spalone
 $burn_action: Palenie
-Address Updated: Adres zaktualizowany
 Updating Address: Aktualizowanie adresu
+Updated Address: Adres zaktualizowany
 $update_address_action: Aktualizacja adresu
-Site Updated: Strona zaktualizowana
 Updating Site: Aktualizowanie strony
+Updated Site: Strona zaktualizowana
 $update_site_action: Aktualizacja strony
-Subdomains Updated: Subdomeny zaktualizowane
 Updating Subdomains: Aktualizowanie subdomen
+Updated Subdomains: Subdomeny zaktualizowane
 $update_subdomains_action: Aktualizacja subdomen
-Storage Updated: Magazyn zaktualizowany
 Updating Storage: Aktualizowanie magazynu
+Updated Storage: Przechowywanie zaktualizowane
 $update_storage_action: Aktualizacja magazynu
-Domain Record Deleted: Rekord domeny usunięty
 Deleting Domain Record: Usuwanie rekordu domeny
+Deleted Domain Record: Rekord domeny usunięty
 $delete_domain_record_action: Usunięcie rekordu domeny
 Renewing Domain: Odnawianie domeny
-Domain Renewed: Domena odnowiona
+Renewed Domain: Domena odnowiona
 $renew_domain_action: Odnowienie domeny
 Providing Liquidity: Zapewnianie płynności
-Liquidity Provided: Płynność zapewniona
+Provided Liquidity: Płynność zapewniona
 $provide_liquidity_action: Zapewnianie płynności
 Withdrawing Liquidity: Wycofywanie płynności
-Liquidity Withdrawn: Płynność wycofana
+Withdrawn Liquidity: Płynność wycofana
 $withdraw_liquidity_action: Wycofanie płynności
 Bounced: Odbity
 Bouncing: Odbijanie
 $bounce_action: Odbicie
 NFT Auction Bid: Oferta w aukcji NFT
 Bidding at NFT Auction: Licytacja w aukcji NFT
-NFT Bought: NFT kupiony
 Buying NFT: Kupowanie NFT
+Bought NFT: NFT kupione
 $buy_nft_action: Zakup NFT
-NFT Sold: NFT sprzedane
+Sold NFT: NFT sprzedane
 Selling NFT: Sprzedaż NFT
 $sell_nft_action: Sprzedaż NFT
 Receiving: Otrzymywanie
@@ -873,12 +872,11 @@ Renew Domain: Odnów domenę
 Renew Domains: Odnów domeny
 Some domains are about to expire: Niektóre domeny wkrótce wygasną
 $domain_expire: "**%domain%** wygasa %days%"
-'%token% Staking': Stakowanie %token%
+"%token% Staking": Stakowanie %token%
 Add Tab: Dodaj kartę
 Remove Tab: Usuń kartę
 Link Domain: Połącz domenę
 Domain Linked!: Domenę połączono!
-Failed to process domain operation. Please try again.: Nie udało się przetworzyć operacji domeny. Proszę spróbować ponownie.
 $domains_amount %1$d:
   zeroValue: Brak domen
   oneValue: "%1$d domena"
@@ -899,18 +897,18 @@ Link: Połącz
 Confirm Renewing: Potwierdź odnowienie
 Confirm Linking: Potwierdź łączenie
 $domains_expire:
-  zeroValue: "Żadne domeny nie wygasają %days%"
+  zeroValue: Żadne domeny nie wygasają %days%
   oneValue: "**%domain% domena** wygasa %days%"
   fewValue: "**%domain% domeny** wygasną %days%"
   manyValue: "**%domain% domeny** wygasną %days%"
 $in_days:
   zeroValue: dziś
   oneValue: jutro
-  fewValue: "za %1$d dni"
-  manyValue: "za %1$d dni"
+  fewValue: za %1$d dni
+  manyValue: za %1$d dni
 $domain_was_expired: "**%domain%** wygasł"
 $domains_was_expired:
-  zeroValue: "Żadne domeny nie wygasły"
+  zeroValue: Żadne domeny nie wygasły
   oneValue: "**%domain% domena** wygasła"
   fewValue: "**%domain% domeny** wygasły"
   manyValue: "**%domain% domeny** wygasły"
@@ -953,6 +951,9 @@ Telegram Gifts: Prezenty Telegram
 Collectibles: Kolekcjonerskie
 Bluetooth unavailable: Bluetooth niedostępne
 $bluetooth_enable_guide: Włącz Bluetooth w ustawieniach urządzenia i zezwól aplikacji na dostęp do Bluetooth.
+Another transaction was sent from this wallet simultaneously. Please try again.: Jednocześnie wysłano inną transakcję z tego portfela. Spróbuj ponownie.
+Canceled by the user: Anulowano przez użytkownika
+The proof for signing provided by the Dapp is too large: Dowód do podpisu dostarczony przez Dapp jest zbyt duży
 $domain_like_scam_warning: |
   Wprowadzony adres to prawdopodobnie **OSZUSTWO**. To **NIE** jest adres żadnej giełdy ani Twojego portfela tokenów.
 
@@ -961,3 +962,8 @@ $domain_like_scam_warning: |
   **Anuluj** ten transfer i **nigdy** nie ufaj nieznajomym. Dowiedz się więcej o tym i innych oszustwach w naszym %help_center_link%.
 Allow Suspicious Actions: Zezwalaj na podejrzane działania
 $allow_suspicious_actions_description: Zezwalaj na wysyłanie do podejrzanych adresów i interakcję z potencjalnie niebezpiecznymi kontraktami.
+Multisig Wallet Detected: Wykryto portfel Multisig
+$multisig_warning_text: "**Wypłacenie środków** z tego portfela przez MyTonWallet jest **niemożliwe**. Upewnij się, że naprawdę jest Twój — inaczej może to być oszustwo. %multisig_warning_link%"
+$multisig_warning_link: Kliknij, aby dowiedzieć się więcej.
+Multisig sending disabled: Nie można z multisig
+$try_new_air_version: Wypróbuj natywne aplikacje — lżejsze, szybsze i stworzone dla Twojego urządzenia. W każdej chwili możesz wrócić.

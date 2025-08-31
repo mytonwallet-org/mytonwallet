@@ -1,6 +1,10 @@
 import type { Cell } from '@ton/core';
 
-import type { ApiSubmitTransferTonResult } from '../chains/ton/types';
+import type {
+  ApiSubmitMultiTransferResult,
+  ApiSubmitTransferTonResult,
+  ApiSubmitTransferWithDieselResult,
+} from '../chains/ton/types';
 import type { ApiSubmitTransferTronResult } from '../chains/tron/types';
 import type * as methods from './index';
 
@@ -30,7 +34,8 @@ export type CheckTransactionDraftOptions = {
 
 export interface ApiSubmitTransferOptions {
   accountId: string;
-  password: string;
+  /** Required only for mnemonic accounts */
+  password?: string;
   toAddress: string;
   amount: bigint;
   comment?: string;
@@ -49,4 +54,20 @@ export interface ApiSubmitTransferOptions {
   noFeeCheck?: boolean;
 }
 
-export type ApiSubmitTransferResult = ApiSubmitTransferTonResult | ApiSubmitTransferTronResult;
+type ExtendSuccess<T, U> = T extends { error: unknown } ? T : T & U;
+
+export type ApiSubmitTransferResult = ExtendSuccess<
+  | ApiSubmitTransferTonResult
+  | ApiSubmitTransferTronResult
+  | ApiSubmitTransferWithDieselResult,
+  {
+    activityId?: string;
+  }
+>;
+
+export type ApiSubmitNftTransferResult = ExtendSuccess<
+  ApiSubmitMultiTransferResult,
+  {
+    activityIds: string[];
+  }
+>;

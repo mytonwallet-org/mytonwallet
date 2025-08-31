@@ -9,7 +9,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>org.mytonwallet.app</string>
+	<string>org.mytonwallet.app-air</string>
 	<key>PROJECT_ID</key>
 	<string>mytonwallet-19cac</string>
 	<key>STORAGE_BUCKET</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:155616896352:ios:a8aae5d72c1b30ec7eaa05</string>
+	<string>1:155616896352:ios:e88ab09f6c3fe6b37eaa05</string>
 </dict>
 </plist>

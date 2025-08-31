@@ -13,7 +13,7 @@ export function checkDnsRenewalDraft(accountId: string, nfts: ApiNft[]) {
   return ton.checkDnsRenewalDraft(accountId, nftAddresses);
 }
 
-export async function submitDnsRenewal(accountId: string, password: string, nfts: ApiNft[], realFee = 0n) {
+export async function submitDnsRenewal(accountId: string, password: string | undefined, nfts: ApiNft[], realFee = 0n) {
   const { address: fromAddress } = await fetchStoredTonWallet(accountId);
 
   const nftByAddress = buildCollectionByKey(nfts, 'address');
@@ -28,7 +28,7 @@ export async function submitDnsRenewal(accountId: string, password: string, nfts
     const localActivities = createLocalTransactions(accountId, 'ton', addresses.map((address) => {
       const nft = nftByAddress[address];
       return {
-        txId: result.msgHashNormalized,
+        id: result.msgHashNormalized,
         amount: 0n,
         fromAddress,
         toAddress: nft.address,
@@ -55,7 +55,7 @@ export function checkDnsChangeWalletDraft(accountId: string, nft: ApiNft, addres
 
 export async function submitDnsChangeWallet(
   accountId: string,
-  password: string,
+  password: string | undefined,
   nft: ApiNft,
   address: string,
   realFee = 0n,
@@ -68,7 +68,7 @@ export async function submitDnsChangeWallet(
   }
 
   const [activity] = createLocalTransactions(accountId, 'ton', [{
-    txId: result.msgHashNormalized,
+    id: result.msgHashNormalized,
     amount: 0n,
     fromAddress: walletAddress,
     toAddress: nft.address,

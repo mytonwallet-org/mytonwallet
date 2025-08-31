@@ -24,6 +24,8 @@ import {
   TONCOIN,
   VALIDATION_PERIOD_MS,
 } from '../../../config';
+import { errorCodeToMessage } from '../../../global/helpers/errors';
+import { isErrorTransferResult } from '../../../global/helpers/transfer';
 import {
   selectAccounts,
   selectAccountStakingStates,
@@ -168,6 +170,8 @@ function TransactionModal({
 
   const nativeToken = token ? getNativeToken(token.chain) : undefined;
   const address = isIncoming ? fromAddress : toAddress;
+  const isAnyPending = status === 'pending' || status === 'pendingTrusted';
+  const iconClock = status === 'pendingTrusted' ? 'iconClockGreen' : 'iconClock';
   const localAddressName = useMemo(() => {
     if (!chain) return undefined;
 
@@ -293,8 +297,8 @@ function TransactionModal({
       password,
     );
 
-    if (!result) {
-      setPasswordError('Wrong password, please try again.');
+    if (isErrorTransferResult(result)) {
+      setPasswordError(errorCodeToMessage(result?.error));
       return;
     }
 
@@ -332,7 +336,7 @@ function TransactionModal({
   });
 
   function renderHeader() {
-    const titleTense = status === 'pending' ? 'present' : status === 'failed' ? 'future' : 'past';
+    const titleTense = isAnyPending ? 'present' : status === 'failed' ? 'future' : 'past';
 
     return (
       <div
@@ -344,14 +348,14 @@ function TransactionModal({
         <div className={buildClassName(modalStyles.title, styles.modalTitle)}>
           <div className={styles.headerTitle}>
             {transaction && getTransactionTitle(transaction, titleTense, lang)}
-            {status === 'pending' && (
+            {isAnyPending && (
               <AnimatedIconWithPreview
                 play={isModalOpen}
                 size={ANIMATED_STICKER_TINY_ICON_PX}
                 nonInteractive
                 noLoop={false}
-                tgsUrl={ANIMATED_STICKERS_PATHS[appTheme].iconClock}
-                previewUrl={ANIMATED_STICKERS_PATHS[appTheme].preview.iconClock}
+                tgsUrl={ANIMATED_STICKERS_PATHS[appTheme][iconClock]}
+                previewUrl={ANIMATED_STICKERS_PATHS[appTheme].preview[iconClock]}
               />
             )}
             {status === 'failed' && (
@@ -396,7 +400,7 @@ function TransactionModal({
       <TransactionFee
         terms={{ native: fee }}
         token={nativeToken}
-        precision={status === 'pending' ? 'approximate' : 'exact'}
+        precision={isAnyPending ? 'approximate' : 'exact'}
         isLoading={shouldLoadDetails}
         className={styles.feeField}
       />

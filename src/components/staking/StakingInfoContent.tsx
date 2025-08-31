@@ -187,7 +187,15 @@ function StakingInfoContent({
     let text: string | TeactNode[] | undefined;
 
     if (unstakeTime) {
-      text = lang(stakingType === 'nominators' ? '$unstaking_when_receive' : '$unstaking_when_receive_with_amount', {
+      let textKey = '$unstaking_when_receive_with_amount';
+
+      if (stakingType === 'ethena') {
+        textKey = '$unstaking_when_receive_with_amount_ethena';
+      } else if (stakingType === 'nominators') {
+        textKey = '$unstaking_when_receive';
+      }
+
+      text = lang(textKey, {
         time: (
           <strong>
             {formatRelativeHumanDateTime(lang.code, unstakeTime)}

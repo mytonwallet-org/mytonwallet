@@ -73,8 +73,7 @@ function TransferModal({
 }: StateProps) {
   const {
     submitTransferConfirm,
-    submitTransferPassword,
-    submitTransferHardware,
+    submitTransfer,
     setTransferScreen,
     cancelTransfer,
     showActivityInfo,
@@ -101,7 +100,7 @@ function TransferModal({
   ), [state, submitTransferConfirm]);
 
   const handleTransferSubmit = useLastCallback((password: string) => {
-    submitTransferPassword({ password });
+    submitTransfer({ password });
   });
 
   const handleBackClick = useLastCallback(() => {
@@ -128,7 +127,7 @@ function TransferModal({
   });
 
   const handleLedgerConnect = useLastCallback(() => {
-    submitTransferHardware();
+    submitTransfer();
   });
 
   function renderContent(isActive: boolean, isFrom: boolean, currentKey: TransferState) {
@@ -187,7 +186,7 @@ function TransferModal({
             text={lang('Please confirm transaction on your Ledger')}
             error={error}
             onClose={handleModalCloseWithReset}
-            onTryAgain={submitTransferHardware}
+            onTryAgain={handleLedgerConnect}
           />
         );
       case TransferState.Complete:

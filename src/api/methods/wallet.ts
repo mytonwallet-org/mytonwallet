@@ -1,6 +1,8 @@
 import * as tonWebMnemonic from 'tonweb-mnemonic';
+import type { SignDataRpcResponseSuccess } from '@tonconnect/protocol';
 
-import type { ApiAccountWithMnemonic, ApiChain, ApiNetwork } from '../types';
+import type { ApiDappRequestConfirmation } from '../tonConnect/types';
+import type { ApiAccountWithMnemonic, ApiChain, ApiNetwork, ApiSignedTransfer } from '../types';
 
 import { parseAccountId } from '../../util/account';
 import chains from '../chains';
@@ -63,16 +65,20 @@ export async function verifyPassword(password: string): Promise<boolean> {
   }
 }
 
-export function confirmDappRequest(promiseId: string, data: any) {
+export function confirmDappRequest(promiseId: string, password?: string) {
+  dappPromises.resolveDappPromise(promiseId, password);
+}
+
+export function confirmDappRequestConnect(promiseId: string, data: ApiDappRequestConfirmation) {
   dappPromises.resolveDappPromise(promiseId, data);
 }
 
-export function confirmDappRequestConnect(promiseId: string, data: {
-  password?: string;
-  accountId?: string;
-  signature?: string;
-}) {
+export function confirmDappRequestSendTransaction(promiseId: string, data: ApiSignedTransfer[]) {
   dappPromises.resolveDappPromise(promiseId, data);
+}
+
+export function confirmDappRequestSignData(promiseId: string, signedData: SignDataRpcResponseSuccess['result']) {
+  dappPromises.resolveDappPromise(promiseId, signedData);
 }
 
 export function cancelDappRequest(promiseId: string, reason?: string) {
@@ -126,4 +132,11 @@ export async function getAddressInfo(network: ApiNetwork, toAddress: string): Pr
   } catch (err: any) {
     return handleServerError(err);
   }
+}
+
+export async function getWalletStateInit(accountId: string) {
+  const wallet = await fetchStoredTonWallet(accountId);
+  return ton.getWalletStateInit(wallet)
+    .toBoc({ idx: true, crc32: true })
+    .toString('base64');
 }

@@ -6,17 +6,16 @@ import {
   getIsActivityPending,
   getIsActivitySuitableForFetchingTimestamp,
   getIsTxIdLocal,
-  mergeActivityIdsToMaxTime,
 } from '../../util/activities';
-import { compareActivities } from '../../util/compareActivities';
-import { buildCollectionByKey, extractKey, mapValues, unique } from '../../util/iteratees';
+import { mergeSortedActivityIds, mergeSortedActivityIdsToMaxTime } from '../../util/activities/order';
+import { buildCollectionByKey, extractKey, mapValues, swapKeysAndValues, unique } from '../../util/iteratees';
 import { replaceActivityId } from '../helpers/misc';
 import { selectAccountOrAuthAccount, selectAccountState } from '../selectors';
 import { updateAccountState } from './misc';
 
 /**
  * Handles the `initialActivities` update, which delivers the latest activity history after the account is added.
- * The given activities must be neither pending nor local.
+ * The given activity lists must be sorted and contain no pending or local activities.
  */
 export function addInitialActivities(
   global: GlobalState,
@@ -36,7 +35,7 @@ export function addInitialActivities(
   };
 
   // Activities from different blockchains arrive separately, which causes the order to be disrupted
-  idsMain = mergeActivityIdsToMaxTime(extractKey(mainActivities, 'id'), idsMain ?? [], byId);
+  idsMain = mergeSortedActivityIdsToMaxTime(extractKey(mainActivities, 'id'), idsMain ?? [], byId);
 
   // Enforcing the requirement to have the id list undefined if it hasn't loaded yet
   if (idsMain.length === 0 && !areAllInitialActivitiesLoaded(global, accountId, areInitialActivitiesLoaded)) {
@@ -66,9 +65,8 @@ export function addInitialActivities(
 export function addNewActivities(
   global: GlobalState,
   accountId: string,
-  newActivities: readonly ApiActivity[],
-  // Necessary when adding pending activities
-  chain?: ApiChain,
+  newActivities: readonly ApiActivity[], // Must be sorted
+  chain?: ApiChain, // Necessary when adding pending activities
 ) {
   if (newActivities.length === 0) {
     return global;
@@ -125,7 +123,7 @@ export function addPastActivities(
   global: GlobalState,
   accountId: string,
   tokenSlug: string | undefined, // undefined for main activities
-  pastActivities: ApiActivity[], // Assuming all the activities are neither pending nor local
+  pastActivities: ApiActivity[], // Must be sorted and contain no pending or local activities
   isEndReached?: boolean,
 ) {
   const { activities } = selectAccountState(global, accountId) || {};
@@ -267,13 +265,6 @@ export function replacePendingActivities(
   return global;
 }
 
-function mergeSortedActivityIds(ids0: string[], ids1: string[], byId: Record<string, ApiActivity>) {
-  if (!ids0.length) return ids1;
-  if (!ids1.length) return ids0;
-  // Not the best performance, but ok for now
-  return unique([...ids0, ...ids1]).sort((id0, id1) => compareActivities(byId[id0], byId[id1]));
-}
-
 function getNewestActivitiesBySlug(
   {
     byId, idsBySlug, newestActivitiesBySlug,
@@ -341,4 +332,63 @@ function areAllInitialActivitiesLoaded(
   const { addressByChain } = selectAccountOrAuthAccount(global, accountId) ?? { addressByChain: {} };
 
   return Object.keys(addressByChain).every((chain) => newAreInitialActivitiesLoaded[chain as ApiChain]);
+}
+
+export function updatePendingActivitiesToTrustedByReplacements(
+  global: GlobalState,
+  accountId: string,
+  localActivities: ApiActivity[],
+  replacedIds: Record<string, string>,
+): GlobalState {
+  const accountState = selectAccountState(global, accountId);
+  const activitiesState = accountState?.activities;
+
+  if (!activitiesState?.byId) return global;
+
+  const newById = { ...activitiesState.byId } as Record<string, ApiActivity>;
+
+  for (const localActivity of localActivities) {
+    const chainActivityId = replacedIds[localActivity.id];
+
+    if (chainActivityId && localActivity.status === 'pendingTrusted') {
+      const chainActivity = activitiesState.byId[chainActivityId];
+
+      if (chainActivity?.status === 'pending') {
+        newById[chainActivityId] = { ...chainActivity, status: 'pendingTrusted' };
+      }
+    }
+  }
+
+  return updateAccountState(global, accountId, {
+    activities: { ...activitiesState, byId: newById },
+  });
+}
+
+export function updatePendingActivitiesWithTrustedStatus(
+  global: GlobalState,
+  accountId: string,
+  chain: ApiChain | undefined,
+  pendingActivities: readonly ApiActivity[] | undefined,
+  replacedIds: Record<string, string>,
+  prevActivitiesForReplacement: ApiActivity[],
+): GlobalState {
+  if (!chain || pendingActivities === undefined) return global;
+
+  const reversedReplacedIds: Record<string, string> = swapKeysAndValues(replacedIds);
+  const prevById = buildCollectionByKey(prevActivitiesForReplacement, 'id');
+
+  // For pending activities, we need to check the status of the corresponding local activity
+  const adjustedPendingActivities = pendingActivities.map((a) => {
+    const oldId = reversedReplacedIds[a.id];
+    const oldActivity = oldId ? prevById[oldId] : undefined;
+    if (oldActivity && oldActivity.status === 'pendingTrusted') {
+      return { ...a, status: 'pendingTrusted' } as ApiActivity;
+    }
+
+    return a;
+  });
+
+  global = replacePendingActivities(global, accountId, chain, adjustedPendingActivities);
+
+  return global;
 }

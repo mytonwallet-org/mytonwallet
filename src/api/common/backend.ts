@@ -68,3 +68,7 @@ export function addBackendHeadersToSocketUrl(url: URL) {
     }
   }
 }
+
+export async function fetchBackendReferrer() {
+  return (await callBackendGet<{ referrer?: string }>('/referrer/get')).referrer;
+}

@@ -1,7 +1,9 @@
 require_relative '../../../node_modules/@capacitor/ios/scripts/pods_helpers'
 
-platform :ios, '15.5'
+platform :ios, '16.0'
+
 use_frameworks!
+inhibit_all_warnings!
 
 # workaround to avoid Xcode caching of Pods that requires
 # Product -> Clean Build Folder after new Cordova plugins installed
@@ -26,6 +28,7 @@ def capacitor_pods
   pod 'CapgoCapacitorNativeBiometric', :path => '../../../node_modules/@capgo/capacitor-native-biometric'
   pod 'CapgoNativeAudio', :path => '../../../node_modules/@capgo/native-audio'
   pod 'MauricewegnerCapacitorNavigationBar', :path => '../../../node_modules/@mauricewegner/capacitor-navigation-bar'
+  pod 'MytonwalletAirAppLauncher', :path => '../../plugins/air-app-launcher'
   pod 'MytonwalletCapacitorUsbHid', :path => '../../../node_modules/@mytonwallet/capacitor-usb-hid'
   pod 'MytonwalletNativeBottomSheet', :path => '../../plugins/native-bottom-sheet'
   pod 'CapacitorNativeSettings', :path => '../../../node_modules/capacitor-native-settings'
@@ -42,9 +45,38 @@ target 'MyTonWallet' do
   pod 'FirebaseMessaging'
 end
 
+target 'MyTonWalletAir' do
+  capacitor_pods
+  # Add your Pods here
+  pod 'FloatingPanel', :git => 'https://github.com/mytonwalletorg/FloatingPanel', :commit => '477fd70521abbb12eb7f069f0220660c172dc936'
+  pod 'FirebaseMessaging'
+end
+
+# Fix Xcode 14 warnings like:
+# warning: Run script build phase '[CP] Copy XCFrameworks' will be run during every build because it does not specify any outputs. To address this warning, either add output dependencies to the script phase, or configure it to run in every build by unchecking "Based on dependency analysis" in the script phase. (in target 'ATargetNameHere' from project 'YourProjectName')
+# Ref.: https://github.com/CocoaPods/CocoaPods/issues/11444
+def set_run_script_to_always_run_when_no_input_or_output_files_exist(project:)
+  project.targets.each do |target|
+    run_script_build_phases = target.build_phases.filter { |phase| phase.is_a?(Xcodeproj::Project::Object::PBXShellScriptBuildPhase) }
+    cocoapods_run_script_build_phases = run_script_build_phases.filter { |phase| phase.name.start_with?("[CP]") }
+    cocoapods_run_script_build_phases.each do |run_script|
+      next unless (run_script.input_paths || []).empty? && (run_script.output_paths || []).empty?
+      run_script.always_out_of_date = "1"
+    end
+  end
+  project.save
+end
+
+post_integrate do |installer|
+  main_project = installer.aggregate_targets[0].user_project
+  set_run_script_to_always_run_when_no_input_or_output_files_exist(project: main_project)
+end
+
 post_install do |installer|
   assertDeploymentTarget(installer)
   installer.pods_project.build_configurations.each do |config|
+    # required by CapacitorMlkitBarcodeScanning dependency
     config.build_settings["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
   end
+  set_run_script_to_always_run_when_no_input_or_output_files_exist(project: installer.pods_project)
 end

@@ -188,8 +188,8 @@ export function getWalletVersions(
   });
 }
 
-export async function getWalletStateInit(accountId: string, storedWallet: ApiTonWallet) {
-  const wallet = await getTonWallet(accountId, storedWallet);
+export function getWalletStateInit(storedWallet: ApiTonWallet) {
+  const wallet = getTonWallet(storedWallet);
 
   return beginCell()
     .storeWritable(storeStateInit(wallet.init))
@@ -204,8 +204,8 @@ export function pickWalletByAddress(network: ApiNetwork, publicKey: Uint8Array, 
   return allWallets.find((w) => w.address === address)!;
 }
 
-export async function getTonWallet(accountId: string, tonWallet?: ApiTonWallet) {
-  const { publicKey, version } = tonWallet ?? await fetchStoredTonWallet(accountId);
+export function getTonWallet(tonWallet: ApiTonWallet) {
+  const { publicKey, version } = tonWallet;
   if (!publicKey) {
     throw new Error('Public key is missing');
   }

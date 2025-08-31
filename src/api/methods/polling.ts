@@ -172,6 +172,7 @@ export async function tryUpdateConfig() {
       supportAccountsCount = 1,
       now: serverUtc,
       country: countryCode,
+      swapVersion,
       isUpdateRequired: isAppUpdateRequired,
     } = config;
 
@@ -182,6 +183,7 @@ export async function tryUpdateConfig() {
       supportAccountsCount,
       countryCode,
       isAppUpdateRequired,
+      swapVersion,
     });
 
     const localUtc = (new Date()).getTime();
@@ -191,7 +193,7 @@ export async function tryUpdateConfig() {
       });
     }
   } catch (err) {
-    logDebugError('tryUpdateRegion', err);
+    logDebugError('tryUpdateConfig', err);
   }
 }
 

@@ -59,7 +59,7 @@ describe('packBytesAsSnakeForEncryptedData', () => {
   it('packs a short payload into a cell with an empty tail', () => {
     const payload = 'Hello, world';
     const result = packBytesAsSnakeForEncryptedData(Buffer.from(payload));
-    expectCellsToEqual(result as Cell, createCell(payload, createCell('')));
+    expectCellsToEqual(result, createCell(payload, createCell('')));
   });
 
   it('packs a long payload into a snake cell', () => {
@@ -69,7 +69,7 @@ describe('packBytesAsSnakeForEncryptedData', () => {
     const result = packBytesAsSnakeForEncryptedData(Buffer.from(payload));
     const firstCellCapacity = 39;
     expectCellsToEqual(
-      result as Cell,
+      result,
       createCell(payload.slice(0, firstCellCapacity),
         createCell(payload.slice(firstCellCapacity, firstCellCapacity + CELL_CAPACITY),
           createCell(payload.slice(firstCellCapacity + CELL_CAPACITY)))),

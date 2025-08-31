@@ -1,9 +1,10 @@
 import type { ElementRef } from '../../../../lib/teact/teact';
+import { useRef } from '../../../../lib/teact/teact';
 import React, { memo, useMemo, useState } from '../../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../../global';
 
 import type { ApiBaseCurrency, ApiStakingState } from '../../../../api/types';
-import type { PriceHistoryPeriods, TokenPeriod, UserToken } from '../../../../global/types';
+import type { IAnchorPosition, PriceHistoryPeriods, TokenPeriod, UserToken } from '../../../../global/types';
 
 import { DEFAULT_PRICE_CURRENCY, HISTORY_PERIODS, IS_CORE_WALLET } from '../../../../config';
 import { selectAccountStakingStates, selectCurrentAccountState } from '../../../../global/selectors';
@@ -80,9 +81,11 @@ function TokenCard({
   onClose,
 }: OwnProps & StateProps) {
   const { loadPriceHistory } = getActions();
+
   const lang = useLang();
   const forceUpdate = useForceUpdate();
-  const [isCurrencyMenuOpen, openCurrencyMenu, closeCurrencyMenu] = useFlag(false);
+  const amountRef = useRef<HTMLDivElement>();
+  const [currencyMenuAnchor, setCurrencyMenuAnchor] = useState<IAnchorPosition>();
   const [isHistoryMenuOpen, openHistoryMenu, closeHistoryMenu] = useFlag(false);
 
   const shouldUseDefaultCurrency = baseCurrency === undefined || baseCurrency === token.symbol;
@@ -121,6 +124,15 @@ function TokenCard({
 
   const handleCurrencyChange = useLastCallback((currency: ApiBaseCurrency) => {
     loadPriceHistory({ slug, period, currency });
+  });
+
+  const openCurrencyMenu = () => {
+    const { left, width, bottom: y } = amountRef.current!.getBoundingClientRect();
+    setCurrencyMenuAnchor({ x: left + width, y });
+  };
+
+  const closeCurrencyMenu = useLastCallback(() => {
+    setCurrencyMenuAnchor(undefined);
   });
 
   useInterval(refreshHistory, INTERVAL);
@@ -201,7 +213,7 @@ function TokenCard({
           size="x-large"
           className={styles.tokenLogo}
         />
-        <div className={styles.tokenInfoHeader}>
+        <div className={styles.tokenInfoHeader} ref={amountRef}>
           <b className={styles.tokenAmount}>
             <SensitiveData
               isActive={isSensitiveDataHidden}
@@ -228,7 +240,9 @@ function TokenCard({
                   <i className={buildClassName('icon', 'icon-caret-down', styles.iconCaretSmall)} aria-hidden />
                 </div>
                 <CurrencySwitcherMenu
-                  isOpen={isCurrencyMenuOpen}
+                  isOpen={Boolean(currencyMenuAnchor)}
+                  triggerRef={amountRef}
+                  anchor={currencyMenuAnchor}
                   menuPositionX="right"
                   excludedCurrency={token.symbol}
                   onClose={closeCurrencyMenu}

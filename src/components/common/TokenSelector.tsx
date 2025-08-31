@@ -78,6 +78,7 @@ interface StateProps {
   swapTokens?: UserSwapToken[];
   tokenInSlug?: string;
   pairsBySlug?: Record<string, AssetPairs>;
+  shouldShowAllPairs?: boolean;
   baseCurrency?: ApiBaseCurrency;
   isLoading?: boolean;
   isMultichain: boolean;
@@ -107,6 +108,7 @@ function TokenSelector({
   baseCurrency,
   tokenInSlug,
   pairsBySlug,
+  shouldShowAllPairs,
   isActive,
   isLoading,
   shouldHideMyTokens,
@@ -152,8 +154,8 @@ function TokenSelector({
 
   // It is necessary to use useCallback instead of useLastCallback here
   const filterTokens = useCallback((tokens: TokenType[]) => {
-    return filterAndSortTokens(tokens, isMultichain, tokenInSlug, pairsBySlug);
-  }, [pairsBySlug, tokenInSlug, isMultichain]);
+    return filterAndSortTokens(tokens, isMultichain, tokenInSlug, pairsBySlug, shouldShowAllPairs);
+  }, [pairsBySlug, tokenInSlug, isMultichain, shouldShowAllPairs]);
 
   const userTokens = useMemo(
     () => filterSupportedTokens(userTokensProp, shouldHideNotSupportedTokens, availableChains, selectedChain),
@@ -505,7 +507,7 @@ function TokenSelector({
 export default memo(withGlobal<OwnProps>((global): StateProps => {
   const { baseCurrency, isSensitiveDataHidden } = global.settings;
   const { isLoading, token } = global.settings.importToken ?? {};
-  const { tokenInSlug } = global.currentSwap ?? {};
+  const { tokenInSlug, shouldShowAllPairs } = global.currentSwap ?? {};
   const pairsBySlug = global.swapPairs?.bySlug;
   const userTokens = selectAvailableUserForSwapTokens(global);
   const popularTokens = selectPopularTokens(global);
@@ -518,6 +520,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     isLoading,
     token,
     pairsBySlug,
+    shouldShowAllPairs,
     tokenInSlug,
     userTokens,
     popularTokens,
@@ -609,12 +612,19 @@ function filterAndSortTokens(
   isMultichain: boolean,
   tokenInSlug?: string,
   pairsBySlug?: Record<string, AssetPairs>,
+  shouldShowAllPairs?: boolean,
 ) {
   if (!tokens.length || !tokenInSlug) return [];
 
   return tokens.map((token) => {
-    const pair = pairsBySlug?.[tokenInSlug]?.[token.slug];
-    const canSwap = Boolean(isMultichain ? pair : (pair && !pair.isMultichain));
+    let canSwap: boolean;
+
+    if (shouldShowAllPairs) {
+      canSwap = true;
+    } else {
+      const pair = pairsBySlug?.[tokenInSlug]?.[token.slug];
+      canSwap = Boolean(isMultichain ? pair : (pair && !pair.isMultichain));
+    }
     return { ...token, canSwap };
   }).sort((a, b) => Number(b.canSwap) - Number(a.canSwap));
 }

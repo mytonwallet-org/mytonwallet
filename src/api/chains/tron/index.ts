@@ -4,7 +4,7 @@ import { getTronClient } from './util/tronweb';
 
 export { setupActivePolling, setupInactivePolling } from './polling';
 export { checkTransactionDraft, submitTransfer } from './transfer';
-export { getWalletBalance } from './wallet';
+export { getWalletBalance, isTronAccountMultisig } from './wallet';
 export { getAllTransactionSlice, getTokenTransactionSlice } from './transactions';
 
 export function getWalletFromBip39Mnemonic(network: ApiNetwork, mnemonic: string[]): ApiTronWallet {

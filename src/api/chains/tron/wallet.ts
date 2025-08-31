@@ -2,6 +2,7 @@ import type { TronWeb } from 'tronweb';
 
 import type { ApiNetwork } from '../../types';
 
+import isEmptyObject from '../../../util/isEmptyObject';
 import { logDebugError } from '../../../util/logs';
 import { getTronClient } from './util/tronweb';
 
@@ -47,5 +48,45 @@ export async function callContract(
   } catch (err: any) {
     logDebugError('callContract', err);
     return [];
+  }
+}
+
+export async function isTronAccountMultisig(network: ApiNetwork, address: string) {
+  try {
+    const tronWeb = getTronClient(network);
+    const account = await tronWeb.trx.getAccount(address);
+    if (!account || isEmptyObject(account)) {
+      return false;
+    }
+    const managerAddresses = new Set<string>();
+    if (account.owner_permission.threshold > 1) {
+      return true;
+    }
+    for (const permKey of account.owner_permission.keys) {
+      managerAddresses.add(tronWeb.address.fromHex(permKey.address));
+    }
+    for (const perm of account.active_permission) {
+      if (perm.threshold > 1) {
+        return true;
+      }
+      for (const permKey of perm.keys) {
+        managerAddresses.add(tronWeb.address.fromHex(permKey.address));
+      }
+    }
+
+    if (managerAddresses.size > 1) {
+      return true;
+    }
+
+    for (const managerAddress of managerAddresses) {
+      if (managerAddress !== address) {
+        return true;
+      }
+    }
+
+    return false;
+  } catch (e) {
+    logDebugError('isTronAccountMultisig', e);
+    return false;
   }
 }

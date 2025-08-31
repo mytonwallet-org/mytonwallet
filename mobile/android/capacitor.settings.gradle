@@ -47,6 +47,9 @@ project(':capgo-native-audio').projectDir = new File('../../node_modules/@capgo/
 include ':mauricewegner-capacitor-navigation-bar'
 project(':mauricewegner-capacitor-navigation-bar').projectDir = new File('../../node_modules/@mauricewegner/capacitor-navigation-bar/android')
 
+include ':mytonwallet-air-app-launcher'
+project(':mytonwallet-air-app-launcher').projectDir = new File('../plugins/air-app-launcher/android')
+
 include ':mytonwallet-capacitor-usb-hid'
 project(':mytonwallet-capacitor-usb-hid').projectDir = new File('../../node_modules/@mytonwallet/capacitor-usb-hid/android')
 

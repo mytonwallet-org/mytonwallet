@@ -1,0 +1,300 @@
+package org.mytonwallet.app_air.uicreatewallet.viewControllers.addAccountOptions
+
+import WNavigationController
+import android.content.Context
+import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.widget.FrameLayout
+import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.widget.NestedScrollView
+import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
+import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.commonViews.LinedCenteredTitleView
+import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.widgets.WLabel
+import org.mytonwallet.app_air.uicomponents.widgets.WView
+import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uicreatewallet.viewControllers.importWallet.ImportWalletVC
+import org.mytonwallet.app_air.uicreatewallet.viewControllers.walletCreated.WalletCreatedVC
+import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
+import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
+import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.SettingsItemCell
+import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsItem
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
+import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletcontext.theme.WColor
+import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
+
+class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
+    WViewController(context) {
+
+    private val showCreateButton = !isOnIntro
+
+    override val shouldDisplayTopBar = false
+
+    private val createWalletRow: SettingsItemCell by lazy {
+        SettingsItemCell(context).apply {
+            configure(
+                item = SettingsItem(
+                    SettingsItem.Identifier.NONE,
+                    org.mytonwallet.app_air.uicreatewallet.R.drawable.ic_add_create,
+                    LocaleController.getString("Create New Wallet"),
+                    value = null,
+                    hasTintColor = false
+                ),
+                value = null,
+                isFirst = true,
+                isLast = true,
+                onTap = {
+                    view.lockView()
+                    WalletCore.doOnBridgeReady {
+                        WalletCore.call(
+                            ApiMethod.Auth.GenerateMnemonic(),
+                            callback = { words, err ->
+                                if (words != null) {
+                                    mnemonicGenerated(words)
+                                } else {
+                                    view.unlockView()
+                                    showError(err?.parsed)
+                                }
+                            })
+                    }
+                }
+            )
+            setSeparator(toEnd = 0f)
+        }
+    }
+
+    private val orImportTitleView: LinedCenteredTitleView by lazy {
+        LinedCenteredTitleView(context).apply {
+            configure(LocaleController.getString("or Import from"), 24.dp, 24.dp)
+            configureText(WFont.Regular, WColor.SecondaryText)
+            lineColor = WColor.SecondaryText
+        }
+    }
+
+    private val createNewWalletView: WView by lazy {
+        WView(context).apply {
+            addView(createWalletRow, FrameLayout.LayoutParams(0, WRAP_CONTENT))
+            addView(orImportTitleView, FrameLayout.LayoutParams(0, WRAP_CONTENT))
+            setConstraints {
+                toTop(createWalletRow)
+                toCenterX(createWalletRow, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
+                topToBottom(orImportTitleView, createWalletRow)
+                toCenterX(orImportTitleView)
+                toBottom(orImportTitleView)
+            }
+        }
+    }
+
+    private val importTitleLabel: WLabel by lazy {
+        WLabel(context).apply {
+            text = LocaleController.getString("\$import_hint")
+            gravity = Gravity.CENTER
+            setStyle(16f)
+            setTextColor(WColor.PrimaryText)
+        }
+    }
+
+    private val secretWordsRow = SettingsItemCell(context).apply {
+        configure(
+            item = SettingsItem(
+                SettingsItem.Identifier.NONE,
+                org.mytonwallet.app_air.uicreatewallet.R.drawable.ic_add_secret,
+                LocaleController.getString("12/24 Secret Words"),
+                value = null,
+                hasTintColor = false
+            ),
+            value = null,
+            isFirst = true,
+            isLast = false,
+            onTap = {
+                if (!WGlobalStorage.isPasscodeSet()) {
+                    handlePush(
+                        ImportWalletVC(
+                            context,
+                            passedPasscode = null
+                        )
+                    )
+                } else {
+                    val passcodeConfirmVC = PasscodeConfirmVC(
+                        context,
+                        PasscodeViewState.Default(
+                            LocaleController.getString("Enter Passcode"),
+                            "",
+                            LocaleController.getString("Import Existing Wallet"),
+                            showNavigationSeparator = false,
+                            startWithBiometrics = true
+                        ),
+                        task = { passcode ->
+                            val vc = ImportWalletVC(context, passcode)
+                            handlePush(
+                                vc,
+                                onCompletion = {
+                                    vc.navigationController?.removePrevViewControllerOnly()
+                                })
+                        }
+                    )
+                    handlePush(passcodeConfirmVC)
+                }
+            }
+        )
+        setSeparator(toEnd = 0f)
+    }
+
+    private val ledgerRow = SettingsItemCell(context).apply {
+        configure(
+            item = SettingsItem(
+                SettingsItem.Identifier.NONE,
+                org.mytonwallet.app_air.uicreatewallet.R.drawable.ic_add_ledger,
+                LocaleController.getString("Ledger"),
+                value = null,
+                hasTintColor = false
+            ),
+            value = null,
+            isFirst = false,
+            isLast = true,
+            onTap = {
+                handlePush(LedgerConnectVC(context, LedgerConnectVC.Mode.AddAccount))
+            }
+        )
+    }
+
+    /*private val viewRow = SettingsItemCell(context).apply {
+        configure(
+            item = SettingsItem(
+                SettingsItem.Identifier.NONE,
+                org.mytonwallet.app_air.uicreatewallet.R.drawable.ic_add_view,
+                LocaleController.getString("View Any Address"),
+                value = null,
+                hasTintColor = false
+            ),
+            value = null,
+            isFirst = true,
+            isLast = true,
+            onTap = {
+                window?.dismissLastNav {
+                    window?.navigationControllers?.lastOrNull()?.let { activeNav ->
+                        // TODO::
+                    }
+                }
+            }
+        )
+    }*/
+
+    private val scrollingContentView: WView by lazy {
+        WView(context).apply {
+            if (showCreateButton) {
+                addView(createNewWalletView, FrameLayout.LayoutParams(0, WRAP_CONTENT))
+            } else {
+                addView(importTitleLabel, FrameLayout.LayoutParams(0, WRAP_CONTENT))
+            }
+            addView(secretWordsRow, FrameLayout.LayoutParams(0, WRAP_CONTENT))
+            addView(ledgerRow, FrameLayout.LayoutParams(0, WRAP_CONTENT))
+            //addView(viewRow, FrameLayout.LayoutParams(0, WRAP_CONTENT))
+
+            setConstraints {
+                if (showCreateButton) {
+                    toTop(createNewWalletView, 84f)
+                    toCenterX(createNewWalletView)
+                    topToBottom(secretWordsRow, createNewWalletView)
+                } else {
+                    toTop(importTitleLabel, 84f)
+                    toCenterX(importTitleLabel, 32f)
+                    topToBottom(secretWordsRow, importTitleLabel, 32f)
+                }
+                toCenterX(secretWordsRow, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
+                topToBottom(ledgerRow, secretWordsRow)
+                toCenterX(ledgerRow, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
+                //topToBottom(viewRow, ledgerRow, 16f)
+                //toCenterX(viewRow, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
+                toBottomPx(
+                    ledgerRow, //viewRow,
+                    32.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
+                )
+            }
+        }
+    }
+
+    private val scrollView: NestedScrollView by lazy {
+        NestedScrollView(context).apply {
+            id = View.generateViewId()
+            addView(scrollingContentView, ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        }
+    }
+
+    override fun setupViews() {
+        super.setupViews()
+
+        setNavTitle(LocaleController.getString(if (showCreateButton) "Add Wallet" else "Import Wallet"))
+        setupNavBar(true)
+
+        navigationBar?.addCloseButton()
+
+        view.addView(
+            scrollView,
+            ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+        )
+        view.setConstraints {
+            allEdges(scrollView)
+        }
+
+        updateTheme()
+    }
+
+    override fun updateTheme() {
+        super.updateTheme()
+
+        view.setBackgroundColor(
+            WColor.SecondaryBackground.color,
+            ViewConstants.BIG_RADIUS.dp,
+            0f
+        )
+    }
+
+    private fun mnemonicGenerated(words: Array<String>) {
+        view.unlockView()
+        if (!WGlobalStorage.isPasscodeSet()) {
+            handlePush(WalletCreatedVC(context, words = words, true, null))
+        } else {
+            val passcodeConfirmVC = PasscodeConfirmVC(
+                context,
+                PasscodeViewState.Default(
+                    LocaleController.getString("Enter Passcode"),
+                    "",
+                    LocaleController.getString("Create New Wallet"),
+                    showNavigationSeparator = false,
+                    startWithBiometrics = true
+                ),
+                task = { passcode ->
+                    val vc = WalletCreatedVC(context, words = words, false, passcode)
+                    handlePush(
+                        vc,
+                        onCompletion = {
+                            vc.navigationController?.removePrevViewControllerOnly()
+                        })
+                }
+            )
+            handlePush(passcodeConfirmVC)
+        }
+    }
+
+    private fun handlePush(viewController: WViewController, onCompletion: (() -> Unit)? = null) {
+        window?.dismissLastNav {
+            if (isOnIntro) {
+                window?.navigationControllers?.lastOrNull()
+                    ?.push(viewController, onCompletion = onCompletion)
+            } else {
+                val nav = WNavigationController(window!!)
+                nav.setRoot(viewController)
+                window?.present(nav, onCompletion = onCompletion)
+            }
+        }
+    }
+}

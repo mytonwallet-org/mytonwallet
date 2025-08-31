@@ -4,7 +4,11 @@ import type { ApiNetwork } from '../../types';
 
 import { getTonClient } from './util/tonCore';
 
-export function packPayloadToBoc(payload: string | Uint8Array) {
+export function packPayloadToBoc(payload: Cell | string | Uint8Array) {
+  return packPayloadToBuffer(payload).toString('base64');
+}
+
+export function packPayloadToBuffer(payload: Cell | string | Uint8Array) {
   let cell = new Cell();
   if (payload) {
     if (payload instanceof Cell) {
@@ -22,7 +26,7 @@ export function packPayloadToBoc(payload: string | Uint8Array) {
         .asCell();
     }
   }
-  return cell.toBoc().toString('base64');
+  return cell.toBoc();
 }
 
 export async function checkApiAvailability(network: ApiNetwork) {

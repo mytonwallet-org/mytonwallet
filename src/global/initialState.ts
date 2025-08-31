@@ -22,6 +22,7 @@ import {
   INIT_SWAP_ASSETS,
   IS_CORE_WALLET,
   SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY,
+  SWAP_API_VERSION,
   THEME_DEFAULT,
   TOKEN_INFO,
 } from '../config';
@@ -83,6 +84,8 @@ export const INITIAL_STATE: GlobalState = {
   swapTokenInfo: {
     bySlug: INIT_SWAP_ASSETS,
   },
+
+  swapVersion: SWAP_API_VERSION,
 
   tokenPriceHistory: {
     bySlug: {},

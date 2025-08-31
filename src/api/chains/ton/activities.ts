@@ -81,20 +81,6 @@ export async function fetchActivitySlice(
   }
 }
 
-export async function fetchNewestActionId(network: ApiNetwork, address: string) {
-  const transactions = await fetchTransactions({
-    network,
-    address,
-    limit: 1,
-  });
-
-  if (!transactions.length) {
-    return undefined;
-  }
-
-  return transactions[0].txId;
-}
-
 export async function fetchActivityDetails(
   accountId: string,
   activity: ApiActivity,

@@ -53,8 +53,7 @@ function DappTransferModal({
   const {
     setDappTransferScreen,
     clearDappTransferError,
-    submitDappTransferPassword,
-    submitDappTransferHardware,
+    submitDappTransfer,
     closeDappTransfer,
     cancelDappTransfer,
   } = getActions();
@@ -76,11 +75,11 @@ function DappTransferModal({
   });
 
   const handleTransferPasswordSubmit = useLastCallback((password: string) => {
-    submitDappTransferPassword({ password });
+    submitDappTransfer({ password });
   });
 
   const handleLedgerConnect = useLastCallback(() => {
-    submitDappTransferHardware();
+    submitDappTransfer();
   });
 
   const handleResetTransfer = useLastCallback(() => {
@@ -150,7 +149,7 @@ function DappTransferModal({
           <LedgerConfirmOperation
             text={lang('Please confirm transaction on your Ledger')}
             error={error}
-            onTryAgain={submitDappTransferHardware}
+            onTryAgain={handleLedgerConnect}
             onClose={closeDappTransfer}
           />
         );

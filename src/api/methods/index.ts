@@ -1,5 +1,6 @@
 import '../../util/bigintPatch';
 
+export { destroy } from './init';
 export * from './auth';
 export * from './wallet';
 export * from './transactions';
@@ -21,9 +22,7 @@ export {
   deleteAllDapps,
   loadExploreSites,
 } from './dapps';
-export {
-  startSseConnection,
-} from '../tonConnect/sse';
+export * from './tonConnect';
 export * from './swap';
 export * from './other';
 export * from './prices';

@@ -120,6 +120,8 @@ PODS:
     - GTMSessionFetcher/Core (< 4.0, >= 3.3.2)
     - MLImage (= 1.0.0-beta6)
     - MLKitCommon (~> 12.0)
+  - MytonwalletAirAppLauncher (0.0.1):
+    - Capacitor
   - MytonwalletCapacitorUsbHid (0.0.1):
     - Capacitor
   - MytonwalletNativeBottomSheet (0.0.2):
@@ -158,6 +160,7 @@ DEPENDENCIES:
   - FirebaseMessaging
   - FloatingPanel (from `https://github.com/mytonwalletorg/FloatingPanel`, commit `477fd70521abbb12eb7f069f0220660c172dc936`)
   - "MauricewegnerCapacitorNavigationBar (from `../../../node_modules/@mauricewegner/capacitor-navigation-bar`)"
+  - MytonwalletAirAppLauncher (from `../../plugins/air-app-launcher`)
   - "MytonwalletCapacitorUsbHid (from `../../../node_modules/@mytonwallet/capacitor-usb-hid`)"
   - MytonwalletNativeBottomSheet (from `../../plugins/native-bottom-sheet`)
 
@@ -228,6 +231,8 @@ EXTERNAL SOURCES:
     :git: https://github.com/mytonwalletorg/FloatingPanel
   MauricewegnerCapacitorNavigationBar:
     :path: "../../../node_modules/@mauricewegner/capacitor-navigation-bar"
+  MytonwalletAirAppLauncher:
+    :path: "../../plugins/air-app-launcher"
   MytonwalletCapacitorUsbHid:
     :path: "../../../node_modules/@mytonwallet/capacitor-usb-hid"
   MytonwalletNativeBottomSheet:
@@ -275,12 +280,13 @@ SPEC CHECKSUMS:
   MLKitBarcodeScanning: 0a3064da0a7f49ac24ceb3cb46a5bc67496facd2
   MLKitCommon: 07c2c33ae5640e5380beaaa6e4b9c249a205542d
   MLKitVision: 45e79d68845a2de77e2dd4d7f07947f0ed157b0e
+  MytonwalletAirAppLauncher: 2c1fa32c7af426d414d1dfcae4eb070e1ac98d34
   MytonwalletCapacitorUsbHid: d37d8e638a45d54b9c08c90be9478cdad33603ef
   MytonwalletNativeBottomSheet: 72009d621d5f73e950499f1d5efafa12636396de
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   SwiftKeychainWrapper: 807ba1d63c33a7d0613288512399cd1eda1e470c
 
-PODFILE CHECKSUM: 7b67cd7764bd3900dc8d22bbee374d113645c998
+PODFILE CHECKSUM: 0a3caec2eb3f27ddcfb10b51f255f8ba4cdd0da1
 
 COCOAPODS: 1.16.2

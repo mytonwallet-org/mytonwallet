@@ -1,0 +1,352 @@
+/*
+  Localizable.strings
+  MyTonWallet
+
+  Created by Sina on 3/16/24.
+  
+*/
+
+// Alert
+"Alert.OK" = "ОК";
+"Alert.NetworkErrorTitle" = "Ошибка сети";
+"Alert.NetworkErrorText" = "Пожалуйста, убедитесь, что ваше интернет-соединение работает, и попробуйте еще раз.";
+
+// Intro
+"Intro.Title" = "MyTonWallet";
+"Intro.Text" = "Безопасно храните и отправляйте криптовалюту.";
+"Intro.CreateWallet" = "Создать кошелек";
+"Intro.ImportExisting" = "Импортировать существующий кошелек";
+"Intro.CreateErrorTitle" = "Произошла ошибка";
+"Intro.CreateErrorText" = "Извините. Пожалуйста, попробуйте еще раз.";
+
+// Wallet Created
+"Created.Title" = "Поздравляем";
+"Created.Text" = "Ваш TON кошелек создан. Только вы контролируете его.\n\nЧтобы всегда иметь доступ к нему, запишите свои секретные слова и\nустановите надежный пароль.";
+"Created.Proceed" = "Продолжить";
+
+// Words List
+"Words.Title" = "Ваша фраза восстановления";
+"Words.Text" = "Запишите эти 24 слова в точном порядке и храните их в надежном месте. Не делитесь этим списком ни с кем. Если вы потеряете его, вы навсегда потеряете доступ к своему TON аккаунту.";
+"Words.Done" = "Готово";
+"Words.NotDoneTitle" = "Уверены, что закончили?";
+"Words.NotDoneText" = "У вас не было достаточно времени, чтобы записать эти слова.";
+"Words.NotDoneOk" = "ОК, извините";
+"Words.NotDoneResponse" = "Извинения приняты";
+"Words.NotDoneSkip" = "Пропустить";
+
+// WordCheck
+"WordCheck.Title" = "Время проверки!";
+"WordCheck.Text" = "Давайте проверим, правильно ли вы записали слова. Пожалуйста, введите слова\n%1$@, %2$@ и %3$@.";
+"WordCheck.Continue" = "Продолжить";
+"WordCheck.IncorrectHeader" = "Неправильные слова";
+"WordCheck.IncorrectText" = "Введенные вами секретные слова не совпадают с указанными в списке.";
+"WordCheck.TryAgain" = "Попробовать снова";
+"WordCheck.ViewWords" = "Посмотреть слова";
+
+// WordImport
+"WordImport.Title" = "24 секретных слова";
+"WordImport.Text" = "Вы можете восстановить доступ к своему кошельку, введя 24 слова, которые вы записали при создании кошелька.";
+"WordImport.Continue" = "Продолжить";
+"WordImport.CanNotRemember" = "Я не помню их";
+"WordImport.IncorrectTitle" = "Неправильная фраза";
+"WordImport.IncorrectText" = "Похоже, вы ввели неверную мнемоническую фразу.";
+"WordImport.UnknownErrorTitle" = "Не удалось импортировать";
+"WordImport.UnknownErrorText" = "Пожалуйста, попробуйте еще раз.";
+"WordImport.Importing" = "Пожалуйста, подождите...";
+
+// Import Successful
+"ImportSuccessful.Title" = "Ваш кошелек был успешно импортирован!";
+
+// SetPasscode
+"SetPasscode.Title" = "Установите пароль";
+"SetPasscode.Text" = "Введите %1$@ цифры пароля.";
+"SetPasscode.FourDigitCode" = "Использовать 4-значный пароль";
+"SetPasscode.SixDigitCode" = "Использовать 6-значный пароль";
+"SetPasscode.PasscodesDoNotMatch" = "Пароли не совпадают. Пожалуйста, попробуйте еще раз.";
+
+// ConfirmPasscode
+"ConfirmPasscode.Title" = "Подтвердите пароль";
+"ConfirmPasscode.Text" = "Введите %1$@ цифры пароля.";
+
+// Change Passcode
+"ChangePasscode.Title" = "Введите текущий пароль";
+"ChangePasscode.NewPassTitle" = "Установите пароль";
+"ChangePasscode.NewPassVerifyTitle" = "Подтвердите пароль";
+
+// Biometric
+"Biometric.Reason" = "TON Wallet использует биометрическую аутентификацию для авторизации транзакций";
+"Biometric.NotAvailableTitle" = "Биометрическая аутентификация недоступна.";
+"Biometric.NotAvailableText" = "Пожалуйста, установите пароль на вашем устройстве, а затем попробуйте использовать биометрическую аутентификацию.";
+
+// FaceID
+"Biometric.FaceID.Title" = "Включить Face ID";
+"Biometric.FaceID.Text" = "Face ID позволяет вам быстрее открывать свой кошелек, не вводя пароль.";
+"Biometric.FaceID.Enable" = "Включить Face ID";
+"Biometric.FaceID.Skip" = "Пропустить";
+
+// Touch ID
+"Biometric.TouchID.Title" = "Включить Touch ID";
+"Biometric.TouchID.Text" = "Touch ID позволяет вам быстрее открывать свой кошелек, не вводя пароль.";
+"Biometric.TouchID.Enable" = "Включить Touch ID";
+"Biometric.TouchID.Skip" = "Пропустить";
+
+// Completed
+"Completed.Title" = "Все готово!";
+"Completed.Text" = "Теперь у вас есть кошелек, который контролируете только вы - напрямую, без посредников и банкиров.";
+"Completed.ViewWallet" = "Просмотреть мой кошелек";
+
+// RestoreFailed
+"RestoreFailed.Title" = "Очень жаль!";
+"RestoreFailed.Text" = "Без секретных слов вы не сможете восстановить доступ к своему кошельку.";
+"RestoreFailed.EnterWords" = "Введите 24 слова";
+"RestoreFailed.CreateWallet" = "Создать новый пустой кошелек вместо этого";
+
+// Navigation
+"Navigation.Cancel" = "Отмена";
+"Navigation.Done" = "Готово";
+
+// Unlock
+"Unlock.Title" = "Введите пароль от вашего кошелька";
+
+// Tabs
+"Tabs.Home" = "Главная";
+"Tabs.Assets" = "Активы";
+"Tabs.Browser" = "Браузер";
+"Tabs.Settings" = "Настройки";
+
+// Home
+"Home.WaitingForNetwork" = "Ожидание сети";
+"Home.Updating" = "Обновление";
+"Home.MainWallet" = "Мой кошелек";
+"Home.Add" = "добавить";
+"Home.Send" = "отправить";
+"Home.Earn" = "заработать";
+"Home.Earn.Unstaking" = "вывод";
+"Home.Earn.Earning" = "заработок";
+"Home.Swap" = "обмен";
+"Home.WalletCreated" = "У вас пока нет\nтранзакций.";
+"Home.Address" = "Адрес вашего кошелька";
+"Home.Sent" = "Отправлено";
+"Home.Received" = "Получено";
+"Home_Swap_Completed" = "Обмен завершен";
+"Home_Swap_Pending" = "Ожидание оплаты";
+"Home_Swap_InProgress" = "В процессе";
+"Home_Swap_Failed" = "Неудачный обмен";
+"Home_Swap_Expired" = "Обмен истек";
+"Home.SentNFT" = "Отправлено NFT";
+"Home.ReceivedNFT" = "Получено NFT";
+"Home.NFT" = "NFT";
+"Home.Staked" = "Ставка";
+"Home.Unstaked" = "Вывод ставки";
+"Home.UnstakeRequest" = "Запрос на вывод ставки";
+"Home.BuyWithCard" = "Купить с карты";
+"Home.BuyWithCrypto" = "Купить за криптовалюту";
+"Home.ReceiveQR" = "Получить по QR или инвойсу";
+"Home.Cancel" = "Отмена";
+"Home.EnterWalletName" = "введите имя кошелька";
+
+// Receive
+"Receive.Title" = "Добавить криптовалюту";
+"Receive.YourAddress" = "ВАШ АДРЕС TON";
+"Receive.CopyAddress" = "Скопировать адрес";
+"Receive.ShareQRCode" = "Поделиться QR-кодом";
+"Receive.BuyCrypto" = "КУПИТЬ КРИПТО";
+"Receive.BuyWithCard" = "Купить с карты";
+"Receive.BuyWithCrypto" = "Купить за криптовалюту";
+
+// Settings
+"Settings.Title" = "Настройки кошелька";
+"Settings.General" = "ОБЩИЕ";
+"Settings.Notifications" = "Уведомления";
+"Settings.ActiveAddress" = "Активный адрес";
+"Settings.PrimaryCurrency" = "Основная валюта";
+"Settings.Security" = "БЕЗОПАСНОСТЬ";
+"Settings.ShowRecoveryPhrase" = "Показать фразу восстановления";
+"Settings.ChangePasscode" = "Изменить код доступа";
+"Settings.AppLock" = "Блокировка приложения при запуске";
+"Settings.TouchID" = "Touch ID";
+"Settings.FaceID" = "Face ID";
+"Settings.DeleteWallet" = "Удалить кошелек";
+"Settings.DeleteWalletInfo" = "Это отключит кошелек от этого приложения. Вы сможете восстановить ваш кошелек, используя 24 секретных слова, или импортировать другой кошелек.\n\nКошельки TON находятся в децентрализованной сети TON Blockchain. Если вы хотите удалить кошелек, просто переведите все TON и оставьте его пустым.";
+"Settings.CurrencyUSD" = "USD";
+"Settings.CurrencyEUR" = "EUR";
+"Settings.CurrencyRUB" = "RUB";
+"Settings.CurrencyCNY" = "CNY";
+"Settings.CurrencyBTC" = "BTC";
+"Settings.CurrencyTON" = "TON";
+"Settings.Language" = "Язык";
+
+// Time
+"Time.Today" = "Сегодня";
+
+// Transaction
+"TransactionInfo.SentTitle" = "Отправлено";
+"TransactionInfo.ReceivedTitle" = "Получено";
+"TransactionInfo.SwapTitle.Completed" = "Обмен завершен";
+"TransactionInfo.SwapTitle.Pending" = "Обмен в процессе";
+"TransactionInfo.SwapTitle.Failed" = "Неудачный обмен";
+"TransactionInfo.SwapTitle.Expired" = "Срок действия обмена истек";
+"TransactionInfo.ExchangeRate" = "Курс обмена";
+"TransactionInfo.ChangellyPaymentAddress" = "Адрес для оплаты Changelly";
+"TransactionInfo.Comment" = "КОММЕНТАРИЙ";
+"TransactionInfo.Details" = "ДЕТАЛИ ТРАНЗАКЦИИ";
+"TransactionInfo.SenderAddress" = "Отправитель";
+"TransactionInfo.Recipient" = "Получатель";
+"TransactionInfo.Amount" = "Сумма";
+"TransactionInfo.Fee" = "Комиссия";
+"TransactionInfo.ViewInExplorer" = "Просмотреть в проводнике";
+"TransactionInfo.ReceivedNFT" = "Получено NFT";
+"TransactionInfo.EncryptedComment" = "зашифрованное сообщение";
+"TransactionInfo.Decrypt" = "расшифровать";
+
+// SendCurrency
+"SendCurrency.ChooseCurrency" = "Выберите валюту";
+
+// SendTo
+"SendTo.Title" = "Отправить";
+"SendTo.To" = "Кому:";
+"SendTo.AddressOrDomain" = "Адрес или домен";
+"SendTo.Recent" = "Недавние";
+"SendTo.Wallet" = "Кошелек";
+
+// SendAmount
+"SendAmount.Title" = "Отправить";
+"SendAmount.UseAll" = "Использовать все";
+"SendAmount.Continue" = "Продолжить";
+"SendAmount.InsufficientBalance" = "Недостаточный баланс %1$@";
+"SendAmount.Warning" = "Предупреждение!";
+"SendAmount.SendingImportantToken" = "Вы собираетесь перевести важный служебный токен, который нужен для вывода вашего депозита из стекинга.";
+
+// SendConfirm
+"SendConfirm.Title" = "Отправить";
+"SendConfirm.Message" = "СООБЩЕНИЕ";
+"SendConfirm.AddComment" = "Добавить комментарий, если нужно";
+"SendConfirm.EncryptComment" = "Зашифровать комментарий";
+"SendConfirm.Details" = "ДЕТАЛИ ТРАНЗАКЦИИ";
+"SendConfirm.Recipient" = "Получатель";
+"SendConfirm.RecipientAddress" = "Адрес получателя";
+"SendConfirm.Amount" = "Сумма";
+"SendConfirm.Fee" = "Комиссия";
+"SendConfirm.Confirm" = "Отправить";
+"SendConfirm.ConfirmAmountAndAddress" = "%1$@ для %2$@";
+"SendConfirm.ConfirmSend" = "Подтвердить отправку";
+
+// Sent
+"Sent.CoinsSent" = "Монеты отправлены!";
+"Sent.Details" = "Детали транзакции";
+"Sent.Close" = "Закрыть";
+
+// SwitchAccount
+"SwitchAccount.Add" = "Добавить аккаунт";
+"SwitchAccount.CreateNewWallet" = "Создать новый кошелек";
+"SwitchAccount.ImportWallet" = "Импортировать кошелек";
+"SwitchAccount.Cancel" = "Отмена";
+
+// Swap
+"Swap.Title" = "Обмен";
+"Swap.YouSell" = "Вы продаете";
+"Swap.YouBuy" = "Вы покупаете";
+"Swap.Max" = "Макс";
+"Swap.Details" = "Детали обмена";
+"Swap.PricePer" = "Цена за 1 %1$@";
+"Swap.BlockchainFee" = "Комиссия блокчейна";
+"Swap.RoutingFees" = "Комиссии за маршрутизацию";
+"Swap.Included" = "Включено";
+"Swap.PriceImpact" = "Влияние на цену";
+"Swap.PriceImpactInfo" = "Показывает, насколько ваша сделка может изменить цену токена.\nКрупные сделки могут сильнее повлиять на изменение цены. Обычно, чем ниже, тем лучше.";
+"Swap.MinimumReceived" = "Минимум получено";
+"Swap.EnterAmounts" = "Введите суммы";
+"Swap.Submit" = "Обменять %1$@ на %2$@";
+"Swap.Unavailable" = "Недоступно";
+"Swap.Minimum" = "Минимум";
+"Swap.Maximum" = "Максимум";
+"Swap.InsufficientBalance" = "Недостаточный баланс %1$@";
+"Swap.Confirm" = "Подтвердить обмен";
+"Swap.ConfirmSubtitle" = "%1$@ на %2$@";
+"Swap.InvalidPair" = "Недопустимая пара";
+"Swap.Continue" = "Продолжить";
+"Swap.CrossChainDetails" = "Межцепочечный обмен от Changelly\nПродолжая, вы соглашаетесь с условиями использования и политикой конфиденциальности и понимаете, что транзакция может вызвать проверку в соответствии с AML/KYC Changelly.";
+"Swap.CrossChainHighlights" = "условия использования|политика конфиденциальности|AML/KYC Changelly";
+"Swap.CrossChainHighlightLinks" = "https://changelly.com/terms-of-use|https://changelly.com/privacy-policy|https://changelly.com/aml-kyc";
+
+// Swap token selection
+"SwapToken.MyAssets" = "Мои активы";
+"SwapToken.Popular" = "Популярное";
+"SwapToken.YouSell" = "Вы продаете";
+"SwapToken.YouBuy" = "Вы покупаете";
+"SwapToken.All" = "все";
+
+// CrossChainSwap
+"CrossChainSwap.ReceiveTo" = "ПОЛУЧИТЬ НА";
+"CrossChainSwap.EnterChainAddress" = "Введите адрес %1$@";
+"CrossChainSwap.Paste" = "Вставить";
+"CrossChainSwap.FromTonDescription" = "Пожалуйста, укажите адрес вашего кошелька в другой блокчейн, чтобы получить купленные токены.";
+"CrossChainSwap.EnterReceivingAddress" = "Введите адрес получения";
+"CrossChainSwap.SendToThisAddress" = "ОТПРАВЬТЕ %1$@ НА ЭТОТ АДРЕС";
+"CrossChainSwap.ShowQR" = "ПОКАЗАТЬ QR";
+"CrossChainSwap.HideQR" = "СКРЫТЬ QR";
+"CrossChainSwap.ToTonDescription" = "Отправьте %1$@ на этот адрес в блокчейне %2$@ в течение %3$@.\n\nОбратите внимание, что может потребоваться несколько часов, чтобы токены появились в вашем кошельке.\n\nЕсли возникнут проблемы, свяжитесь с поддержкой в Changelly Live Chat или по адресу support@changelly.org и предоставьте свой идентификатор транзакции:\n\n%4$@";
+"CrossChainSwap.ToTonDescriptionHighlights" = "Changelly Live Chat|support@changelly.org";
+"CrossChainSwap.ToTonDescriptionHighlightLinks" = "https://support.changelly.com|mailto:support@changelly.org";
+
+// Earn
+"Earn.Title" = "Заработок";
+"Earn.YourStakingBalance" = "Ваш баланс стейкинга";
+"Earn.UnstakeRequestInfo" = "Вы получите свой unstaked депозит через %1$@.";
+"Earn.AddStake" = "Добавить стейк";
+"Earn.Unstake" = "Unstake";
+"Earn.History" = "История";
+"Earn.Earned" = "Заработано";
+"Earn.Unstaked" = "Нестационарный";
+"Earn.Staked" = "Ставка";
+"Earn.UnstakeRequest" = "Запрос на разстейк";
+"Earn.EarnWhileHolding" = "Зарабатывайте на своих токенах\nпока держите их";
+"Earn.EstimatedAPY" = "Ожидаемый APY";
+"Earn.WhyThisIsSafe" = "Почему это безопасно";
+"Earn.WhyStakingIsSafe" = "Почему стейкинг безопасен";
+"Earn.WhyStakingIsSafeDesc" = "1. Стейкинг полностью децентрализован и управляется официальными смарт-контрактами TON Liquid Staking. \n2. Внесенный стейк будет использоваться для валидации сети TON в рамках ее сущности proof-of-stake. \n3. Вы можете вывести свой стейк в любое время, и он будет возвращен на ваш счет в течение двух дней.";
+
+// Staking
+"Staking.AddStake" = "Добавить стейк";
+"Staking.Unstake" = "Unstake";
+"Staking.StakingBalance" = "Ставка баланса";
+"Staking.EstimatedBalanceInAYear" = "Ожидаемый баланс через год ≈ ";
+"Staking.UseAll" = "Использовать все";
+"Staking.StakeTON" = "Stake TON";
+"Staking.UnstakeTON" = "Unstake TON";
+"Staking.ConfirmAddStake" = "Подтвердить добавление стейка";
+"Staking.ConfirmUnstake" = "Подтвердить unstake";
+"Staking.InsufficientBalance" = "Недостаточный баланс TON";
+"Staking.InsufficientMinAmount" = "Минимум %1$@ TON";
+"Staking.InsufficientFeeAmount" = "Недостаточная комиссия: %1$@ TON";
+
+// QRScan
+"QRScan.Title" = "Сканировать QR-код";
+"QRScan.Back" = "Назад";
+"QRScan.NoAccessTitle" = "Нет доступа к камере";
+"QRScan.NoAccessCamera" = "MyTonWallet не имеет доступа к камере. Пожалуйста, включите доступ к камере для сканирования QR-кодов.";
+"QRScan.NoAccessOpenSettings" = "Открыть настройки";
+"QRScan.NoValidQRDetected" = "Не обнаружен допустимый QR-код.";
+
+// Errors
+"Error.Title" = "Ошибка";
+"Error.InvalidAmount" = "Недопустимая сумма";
+"Error.InvalidAddress" = "Недопустимый адрес";
+"Error.InsufficientBalance" = "Недостаточный баланс";
+"Error.DomainNotResolved" = "Домен не подключен к кошельку";
+"Error.WalletNotInitialized" = "Шифрование невозможно. Получатель не является кошельком или не имеет исходящих транзакций.";
+"Error.InvalidAddressFormat" = "Недопустимый формат адреса. Допустим только формат URL Safe Base64.";
+"Error.PartialTransactionFailure" = "Не все транзакции были успешно отправлены.";
+"Error.IncorrectDeviceTime" = "Неправильное время на вашем устройстве, синхронизируйте его и попробуйте снова.";
+"Error.UnsuccesfulTransfer" = "Перевод не удался. Попробуйте позже.";
+"Error.UnsupportedHardwareOperation" = "К сожалению, эта операция пока не поддерживается кошельком Ledger.";
+"Error.EncryptedDataNotSupported" = "Зашифрованные комментарии пока не поддерживаются Ledger.";
+"Error.UnsupportedHardwareNftOperation" = "Передача NFT пока не поддерживается Ledger.";
+"Error.UnsupportedHardwareContract" = "Транзакция с этим смарт-контрактом пока не поддерживается Ledger.";
+"Error.NonAsciiCommentForHardwareOperation" = "Текущая версия Ledger поддерживает только комментарии на английском языке без специальных символов.";
+"Error.TooLongCommentForHardwareOperation" = "Комментарий слишком длинный.";
+"Error.UnsupportedHardwarePayload" = "Этот тип транзакции пока не поддерживается Ledger.";
+"Error.ServerError" = "Пожалуйста, убедитесь, что ваше интернет-соединение работает, и попробуйте снова.";
+"Error.NetworkError" = "Нет интернет-соединения. Проверьте соединение и попробуйте снова.";
+"Error.DebugError" = "Неожиданная ошибка. Пожалуйста, сообщите об этом в поддержку.";
+"Error.Unexpected" = "Неожиданная ошибка";

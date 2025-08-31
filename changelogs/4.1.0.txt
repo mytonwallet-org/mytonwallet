@@ -1,0 +1,13 @@
+What's New in v4.1
+
+· MyTonWallet Air · Faster native app with smoother UI.
+
+· Collectibles Upgrade · Carousel view, re-ordering for tabs and items.
+
+· Charts & Browser · Precise chart controls, minimizable dapp browser.
+
+· Quick Wallet Switch · Instantly swap wallets (iOS only).
+
+· Smarter Swaps · 42 new tokens, better rates via DeDust v2.
+
+· Stronger Security · Alerts for scam wallets and suspicious .ton addresses.

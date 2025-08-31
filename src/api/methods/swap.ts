@@ -25,8 +25,13 @@ import { omitUndefined } from '../../util/iteratees';
 import chains from '../chains';
 import { fetchStoredTonWallet } from '../common/accounts';
 import { callBackendGet, callBackendPost } from '../common/backend';
+import { getBackendConfigCache } from '../common/cache';
 import {
-  getSwapItemSlug, patchSwapItem, swapGetHistoryItem, swapItemToActivity,
+  convertSwapItemToTrusted,
+  getSwapItemSlug,
+  patchSwapItem,
+  swapGetHistoryItem,
+  swapItemToActivity,
 } from '../common/swap';
 import { ApiServerError } from '../errors';
 import { callHook } from '../hooks';
@@ -190,20 +195,23 @@ export async function swapEstimate(
   request: ApiSwapEstimateRequest,
 ): Promise<ApiSwapEstimateResponse | { error: string }> {
   const walletVersion = (await fetchStoredTonWallet(accountId)).version;
+  const { swapVersion } = await getBackendConfigCache();
 
   return callBackendPost('/swap/ton/estimate', {
     ...request,
-    swapVersion: SWAP_API_VERSION,
+    swapVersion: swapVersion ?? SWAP_API_VERSION,
     walletVersion,
   }, {
     isAllowBadRequest: true,
   });
 }
 
-export function swapBuild(authToken: string, request: ApiSwapBuildRequest): Promise<ApiSwapBuildResponse> {
+export async function swapBuild(authToken: string, request: ApiSwapBuildRequest): Promise<ApiSwapBuildResponse> {
+  const { swapVersion } = await getBackendConfigCache();
+
   return callBackendPost('/swap/ton/build', {
     ...request,
-    swapVersion: SWAP_API_VERSION,
+    swapVersion: swapVersion ?? SWAP_API_VERSION,
     isMsgHashMode: true,
   }, {
     authToken,
@@ -244,14 +252,16 @@ export async function swapCexCreateTransaction(
     activity: ApiSwapActivity;
   }> {
   const authToken = await getBackendAuthToken(accountId, password);
+  const { swapVersion } = await getBackendConfigCache();
 
-  const { swap } = await callBackendPost<ApiSwapCexCreateTransactionResponse>('/swap/cex/createTransaction', {
+  const { swap: rawSwap } = await callBackendPost<ApiSwapCexCreateTransactionResponse>('/swap/cex/createTransaction', {
     ...request,
-    swapVersion: SWAP_API_VERSION,
+    swapVersion: swapVersion ?? SWAP_API_VERSION,
   }, {
     authToken,
   });
 
+  const swap = convertSwapItemToTrusted(rawSwap);
   const activity = swapItemToActivity(swap);
 
   onUpdate({
@@ -271,7 +281,7 @@ export async function swapCexSubmit(chain: ApiChain, transferOptions: ApiSubmitT
   if (chain === 'ton' && 'msgHash' in result) {
     const { accountId, password } = transferOptions;
     const { address } = await fetchStoredTonWallet(accountId);
-    const authToken = await getBackendAuthToken(accountId, password);
+    const authToken = await getBackendAuthToken(accountId, password ?? '');
     await patchSwapItem({ address, authToken, msgHash: result.msgHash, swapId });
   }
 

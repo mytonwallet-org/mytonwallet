@@ -4,8 +4,8 @@ import type { ApiActivity, ApiNetwork, ApiTransactionActivity } from '../../type
 
 import { TRX } from '../../../config';
 import { parseAccountId } from '../../../util/account';
+import { mergeSortedActivities } from '../../../util/activities/order';
 import { getChainConfig } from '../../../util/chain';
-import { compareActivities } from '../../../util/compareActivities';
 import { fetchJson } from '../../../util/fetch';
 import { buildCollectionByKey } from '../../../util/iteratees';
 import { getTokenSlugs } from './util/tokens';
@@ -124,7 +124,6 @@ function parseRawTrxTransaction(address: string, rawTx: any): ApiTransactionActi
   return {
     id: txId,
     kind: 'transaction',
-    txId,
     timestamp,
     fromAddress,
     toAddress,
@@ -182,7 +181,6 @@ function parseRawTrc20Transaction(address: string, rawTx: any): ApiTransactionAc
   return {
     id: txId,
     kind: 'transaction',
-    txId,
     timestamp,
     fromAddress,
     toAddress,
@@ -196,38 +194,35 @@ function parseRawTrc20Transaction(address: string, rawTx: any): ApiTransactionAc
 }
 
 export function mergeActivities(trxTxs: ApiActivity[], ...tokenTxs: ApiActivity[][]): ApiActivity[] {
-  const result: ApiActivity[] = [];
-  const uniqueTxIds = new Set<string>();
+  const seenTxIds = new Set<string>();
+  const isSeenTxId = (id: string) => {
+    if (seenTxIds.has(id)) return true;
+    seenTxIds.add(id);
+    return false;
+  };
+
   const trxTxById = buildCollectionByKey(trxTxs, 'id');
+  let result: ApiActivity[] = [];
 
   for (const tokenTxList of tokenTxs) {
-    for (const tokenTx of tokenTxList) {
-      // Different tokens have the same transaction id if they share the same backend swap.
-      // The duplicates need to removed.
-      if (uniqueTxIds.has(tokenTx.id)) {
-        continue;
-      }
-
-      uniqueTxIds.add(tokenTx.id);
-      result.push(tokenTx);
-
-      const trxTx = trxTxById[tokenTx.id];
-      if (tokenTx.kind === 'transaction' && trxTx?.kind === 'transaction') {
-        tokenTx.fee = trxTx.fee;
-      }
-    }
+    result = mergeSortedActivities(
+      result,
+      tokenTxList
+        // Different tokens have the same transaction id if they share the same backend swap.
+        // The duplicates need to removed.
+        .filter((tokenTx) => !isSeenTxId(tokenTx.id))
+        .map((tokenTx) => {
+          const trxTx = trxTxById[tokenTx.id];
+          if (tokenTx.kind === 'transaction' && trxTx?.kind === 'transaction') {
+            tokenTx.fee = trxTx.fee;
+          }
+          return tokenTx;
+        }),
+    );
   }
 
-  for (const trxTx of trxTxs) {
-    if (uniqueTxIds.has(trxTx.id)) {
-      continue;
-    }
-
-    if (trxTx.kind !== 'transaction' || trxTx.toAddress) {
-      uniqueTxIds.add(trxTx.id);
-      result.push(trxTx);
-    }
-  }
-
-  return result.sort(compareActivities);
+  return mergeSortedActivities(
+    result,
+    trxTxs.filter((trxTx) => !isSeenTxId(trxTx.id) && (trxTx.kind !== 'transaction' || trxTx.toAddress)),
+  );
 }

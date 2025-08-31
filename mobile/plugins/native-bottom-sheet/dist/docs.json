@@ -182,6 +182,16 @@
         "slug": "openinmain"
       },
       {
+        "name": "switchToAir",
+        "signature": "() => Promise<void>",
+        "parameters": [],
+        "returns": "Promise<void>",
+        "tags": [],
+        "docs": "",
+        "complexTypes": [],
+        "slug": "switchtoair"
+      },
+      {
         "name": "isShown",
         "signature": "() => Promise<{ value: boolean; }>",
         "parameters": [],

@@ -1,8 +1,46 @@
 default_platform(:ios)
 
+$package_json_path = '../../../../package.json'
+$workspace_path = 'App.xcworkspace'
+$project_path = '../App.xcodeproj/project.pbxproj'
+$plist_path = '../../App/App/Info.plist'
+
+$is_air = ENV['IS_AIR_APP'] == '1'
+$team_id = CredentialsManager::AppfileConfig.try_fetch_value(:team_id)
+$app_identifier = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
+$profile_name = 'MyTonWallet Production profile'
+$scheme = 'MyTonWallet'
+
+if $is_air
+  $profile_name = 'MyTonWallet Air 4'
+  $scheme = 'MyTonWalletAir'
+end
+
+puts "$is_air: #{$is_air}"
+puts "$app_identifier: #{$app_identifier}"
+puts "$profile_name: #{$profile_name}"
+puts "$scheme: #{$scheme}"
+
+$project_data = nil
+$plist_data = nil
+
+def read_files
+  $project_data = File.read($project_path)
+  $plist_data = File.read($plist_path)
+end
+
+def restore_files
+  File.write($project_path, $project_data)
+  File.write($plist_path, $plist_data)
+end
+
 def update_version_and_build_number
-  version = JSON.parse(File.read("../../../../package.json"))["version"]
-  production_build_number = app_store_build_number(version: version, initial_build_number: 0, live: true).to_i
+  version = JSON.parse(File.read($package_json_path))["version"]
+  production_build_number = 0
+  begin
+    production_build_number = app_store_build_number(version: version, initial_build_number: 0, live: true).to_i
+  rescue
+  end
   beta_build_number = latest_testflight_build_number(version: version, initial_build_number: 0)
   build_number = [production_build_number, beta_build_number].max() + 1
 
@@ -15,12 +53,8 @@ end
 platform :ios do
   desc "Push a new beta build to TestFlight"
 
-  $project_data = nil
-  $plist_data = nil
-
   before_all do |lane|
-    $project_data = File.read("../App.xcodeproj/project.pbxproj")
-    $plist_data = File.read("../App/Info.plist")
+    read_files
 
     app_store_connect_api_key(
       key_id: "TL49GJ73DP",
@@ -33,10 +67,9 @@ platform :ios do
     update_code_signing_settings(
       path: "App.xcodeproj",
       use_automatic_signing: false,
-      profile_name: "MyTonWallet Production profile",
-      build_configurations: ["Debug"],
+      profile_name: $profile_name,
       sdk: "iphoneos*",
-      team_id: "Y54Z4K69Z9",
+      team_id: $team_id,
       code_sign_identity: "iPhone Distribution"
     )
   end
@@ -45,12 +78,12 @@ platform :ios do
     update_version_and_build_number
 
     build_app(
-      workspace: "App.xcworkspace",
-      scheme: "MyTonWallet",
+      workspace: $workspace_path,
+      scheme: $scheme,
       export_method: "app-store",
       export_options: {
         provisioningProfiles: {
-          "org.mytonwallet.app" => "MyTonWallet Production profile",
+          $app_identifier => $profile_name,
         }
       }
     )
@@ -74,12 +107,12 @@ platform :ios do
     changelog = File.read(changelog_path)
 
     build_app(
-      workspace: "App.xcworkspace",
-      scheme: "MyTonWallet",
+      workspace: $workspace_path,
+      scheme: $scheme,
       export_method: "app-store",
       export_options: {
         provisioningProfiles: {
-          "org.mytonwallet.app" => "MyTonWallet Production profile",
+          $app_identifier => $profile_name,
         }
       }
     )
@@ -101,13 +134,11 @@ platform :ios do
   end
 
   after_all do |lane|
-    File.write("../App.xcodeproj/project.pbxproj", $project_data)
-    File.write("../App/Info.plist", $plist_data)
+    restore_files
   end
 
   error do |lane, exception|
-    File.write("../App.xcodeproj/project.pbxproj", $project_data)
-    File.write("../App/Info.plist", $plist_data)
+    restore_files
   end
 
 end

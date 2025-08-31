@@ -247,3 +247,46 @@ export function swapKeysAndValues<
   }
   return result;
 }
+
+/**
+ * `arr1` and `arr2` must be sorted according to `compareFn`, otherwise the result is not guaranteed.
+ * `deduplicateEqual` doesn't remove duplicates if the input arrays contain duplicates.
+ */
+export function mergeSortedArrays<T>(
+  arr1: readonly T[],
+  arr2: readonly T[],
+  compareFn: (item1: T, item2: T) => number,
+  deduplicateEqual?: boolean,
+): T[] {
+  let index1 = 0;
+  let index2 = 0;
+  const result: T[] = [];
+
+  while (index1 < arr1.length && index2 < arr2.length) {
+    const compareResult = compareFn(arr1[index1], arr2[index2]);
+
+    if (compareResult === 0) {
+      result.push(arr1[index1]);
+      if (!deduplicateEqual) {
+        result.push(arr2[index2]);
+      }
+      index1++;
+      index2++;
+    } else if (compareResult < 0) {
+      result.push(arr1[index1]);
+      index1++;
+    } else {
+      result.push(arr2[index2]);
+      index2++;
+    }
+  }
+
+  for (; index1 < arr1.length; index1++) {
+    result.push(arr1[index1]);
+  }
+  for (; index2 < arr2.length; index2++) {
+    result.push(arr2[index2]);
+  }
+
+  return result;
+}

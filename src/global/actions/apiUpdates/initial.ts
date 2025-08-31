@@ -5,6 +5,7 @@ import {
   DEFAULT_STAKING_STATE,
   IS_CORE_WALLET,
   MTW_CARDS_COLLECTION,
+  SWAP_API_VERSION,
   TELEGRAM_GIFTS_SUPER_COLLECTION,
 } from '../../../config';
 import { areDeepEqual } from '../../../util/areDeepEqual';
@@ -189,7 +190,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
     }
 
     case 'updateAccount': {
-      const { accountId, chain, domain, address } = update;
+      const { accountId, chain, domain, address, isMultisig } = update;
       const account = selectAccount(global, accountId);
       if (!account) {
         break;
@@ -208,6 +209,12 @@ addActionHandler('apiUpdate', (global, actions, update) => {
           [chain]: domain || undefined,
         };
       }
+      if (isMultisig !== undefined) {
+        accountUpdate.isMultisigByChain = {
+          ...account.isMultisigByChain,
+          [chain]: isMultisig,
+        };
+      }
       global = updateAccount(global, accountId, accountUpdate);
       setGlobal(global);
       break;
@@ -220,6 +227,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
         supportAccountsCount,
         countryCode,
         isAppUpdateRequired,
+        swapVersion,
       } = update;
 
       const shouldRestrictSwapsAndOnRamp = (IS_IOS_APP && isLimitedRegion) || IS_CORE_WALLET;
@@ -232,7 +240,11 @@ addActionHandler('apiUpdate', (global, actions, update) => {
         supportAccountsCount,
         countryCode,
       });
-      global = { ...global, isAppUpdateRequired: IS_CORE_WALLET ? undefined : isAppUpdateRequired };
+      global = {
+        ...global,
+        isAppUpdateRequired: IS_CORE_WALLET ? undefined : isAppUpdateRequired,
+        swapVersion: swapVersion ?? SWAP_API_VERSION,
+      };
       setGlobal(global);
       break;
     }

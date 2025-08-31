@@ -14,6 +14,7 @@ import {
   updateCurrentDappTransfer,
   updateCurrentSignature,
   updateCurrentTransfer,
+  updateCurrentTransferByCheckResult,
 } from '../../reducers';
 
 addActionHandler('apiUpdate', (global, actions, update) => {
@@ -23,29 +24,37 @@ addActionHandler('apiUpdate', (global, actions, update) => {
         promiseId,
         amount,
         toAddress,
-        fee,
-        realFee,
         comment,
         rawPayload,
-        parsedPayload,
         stateInit,
+        checkResult,
       } = update;
 
       global = clearCurrentTransfer(global);
       global = updateCurrentTransfer(global, {
         state: TransferState.Confirm,
         toAddress,
+        resolvedAddress: checkResult.resolvedAddress,
+        isToNewAddress: checkResult.isToAddressNew,
         amount,
-        fee,
-        realFee,
         comment,
         promiseId,
         tokenSlug: TONCOIN.slug,
         rawPayload,
-        parsedPayload,
         stateInit,
       });
+      global = updateCurrentTransferByCheckResult(global, checkResult);
       setGlobal(global);
+
+      break;
+    }
+
+    case 'completeTransaction': {
+      const { activityId } = update;
+      setGlobal(updateCurrentTransfer(global, {
+        state: TransferState.Complete,
+        txId: activityId,
+      }));
 
       break;
     }

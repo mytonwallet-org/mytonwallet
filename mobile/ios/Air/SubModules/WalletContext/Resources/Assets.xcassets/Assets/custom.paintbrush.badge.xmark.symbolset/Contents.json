@@ -1,0 +1,12 @@
+{
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  },
+  "symbols" : [
+    {
+      "filename" : "custom.paintbrush.badge.xmark.svg",
+      "idiom" : "universal"
+    }
+  ]
+}

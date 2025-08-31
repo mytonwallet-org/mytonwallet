@@ -4,35 +4,92 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
+import android.app.Activity;
+import android.content.Intent;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
-import android.view.KeyEvent;
-import android.view.MotionEvent;
+import android.util.Log;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
-import android.webkit.WebSettings;
 
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.splashscreen.SplashScreen;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
 
-import com.getcapacitor.Bridge;
-import com.getcapacitor.BridgeActivity;
+import org.mytonwallet.plugins.air_app_launcher.airLauncher.AirLauncher;
+import org.mytonwallet.plugins.air_app_launcher.airLauncher.LaunchConfig;
 
-import java.util.Date;
-
-public class MainActivity extends BridgeActivity {
+/*
+  Application entry point.
+    - Decides to open LegacyActivity or trigger AirLauncher.
+    - Only passes deeplink data into active activity and finishes itself if any activities are already open.
+    - Plays splash-screen for MTW Air (This flow may be enhanced later)
+ */
+public class MainActivity extends AppCompatActivity {
+  private final int DELAY = 300;
   private boolean keep = true;
-  private final int DELAY = 1000;
-  private long lastTouchEventTimestamp = 0;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
+    Log.i("MTWAirApplication", "Main Activity Created");
     super.onCreate(savedInstanceState);
+    getApplication().setTheme(R.style.AppTheme_NoActionBar);
+    setTheme(R.style.AppTheme_NoActionBar);
+
+    int backgroundColor;
+    int currentNightMode = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
+    if (currentNightMode == Configuration.UI_MODE_NIGHT_YES) {
+      backgroundColor = 0xFF242426;
+    } else {
+      backgroundColor = 0xFFFFFFFF;
+    }
+    getWindow().getDecorView().setBackgroundColor(backgroundColor);
+
+    Activity activity = this;
+    boolean shouldStartOnAir = LaunchConfig.shouldStartOnAir(activity);
+
+    if (!shouldStartOnAir) {
+      // Open LegacyActivity and pass all the data there
+      Intent intent = new Intent(activity, LegacyActivity.class);
+      intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+      intent.setAction(getIntent().getAction());
+      intent.setData(getIntent().getData());
+      if (getIntent().getExtras() != null)
+        intent.putExtras(getIntent().getExtras());
+      activity.startActivity(intent);
+      overridePendingTransition(0, 0);
+      activity.finish();
+      return;
+    }
+
+    // Do not let MainActivity open again if MTW Air is already on, just pass deeplink to handle, if required.
+    AirLauncher airLauncher = AirLauncher.getInstance();
+    if (airLauncher != null && airLauncher.getIsOnTheAir()) {
+      airLauncher.handle(getIntent());
+      finish();
+      return;
+    }
+
+    makeStatusBarTransparent();
+    makeNavigationBarTransparent();
+    updateStatusBarStyle();
+
+    airLauncher = new AirLauncher(this);
+    AirLauncher.setInstance(airLauncher);
+    airLauncher.handle(getIntent());
+
+    // Splash-Screen doesn't work as expected on Android 12
+    if (Build.VERSION.SDK_INT == Build.VERSION_CODES.S) {
+      splashScreenAnimatedEnded();
+      return;
+    }
 
     SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
     splashScreen.setKeepOnScreenCondition(() -> keep);
@@ -52,18 +109,21 @@ public class MainActivity extends BridgeActivity {
         @Override
         public void onAnimationEnd(Animator animation) {
           splashScreenView.remove();
-          updateStatusBarStyle();
+          splashScreenAnimatedEnded();
         }
       });
 
       animationSet.start();
-      makeStatusBarTransparent();
-      makeNavigationBarTransparent();
-      updateStatusBarStyle();
     });
 
     Handler handler = new Handler();
     handler.postDelayed(() -> keep = false, DELAY);
+  }
+
+  private void splashScreenAnimatedEnded() {
+    Log.i("MTWAirApplication", "Splash animation ended");
+    updateStatusBarStyle();
+    AirLauncher.getInstance().soarIntoAir(false);
   }
 
   private void makeStatusBarTransparent() {
@@ -98,34 +158,8 @@ public class MainActivity extends BridgeActivity {
     windowInsetsControllerCompat.setAppearanceLightNavigationBars(!style.equals("DARK"));
   }
 
-  public void onResume() {
-    super.onResume();
-    // Don't respect system font-size settings
-    WebSettings settings = bridge.getWebView().getSettings();
-    settings.setTextZoom(100);
-    settings.setSupportZoom(false);
-  }
-
   @Override
-  public boolean dispatchTouchEvent(MotionEvent event) {
-    triggerTouchEvent();
-    return super.dispatchTouchEvent(event);
-  }
-
-  @Override
-  public boolean dispatchKeyEvent(KeyEvent event) {
-    triggerTouchEvent();
-    return super.dispatchKeyEvent(event);
-  }
-
-  private void triggerTouchEvent() {
-    Bridge bridge = getBridge();
-    if (bridge == null)
-      return;
-    long now = new Date().getTime();
-    if (now < lastTouchEventTimestamp + 5000)
-      return;
-    lastTouchEventTimestamp = now;
-    bridge.triggerWindowJSEvent("touch");
+  protected void onNewIntent(@NonNull Intent intent) {
+    super.onNewIntent(intent);
   }
 }

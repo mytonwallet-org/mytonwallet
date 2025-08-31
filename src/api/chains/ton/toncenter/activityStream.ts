@@ -1,8 +1,8 @@
 import type { ApiActivity, ApiNetwork } from '../../../types';
 import type { ActivitiesUpdate, WalletWatcher } from './socket';
 
+import { mergeSortedActivities, sortActivities } from '../../../../util/activities/order';
 import { createCallbackManager } from '../../../../util/callbacks';
-import { compareActivities } from '../../../../util/compareActivities';
 import { focusAwareDelay } from '../../../../util/focusAwareDelay';
 import { extractKey } from '../../../../util/iteratees';
 import { logDebugError } from '../../../../util/logs';
@@ -130,10 +130,11 @@ export class ActivityStream {
     if (this.#isDestroyed) return;
 
     const pendingUpdates = updates.filter((update) => update.arePending);
-    const confirmedActivities = updates
-      .filter((update) => !update.arePending)
-      .flatMap((update) => update.activities)
-      .sort(compareActivities);
+    const confirmedActivities = sortActivities(
+      updates
+        .filter((update) => !update.arePending)
+        .flatMap((update) => update.activities),
+    );
 
     const instantConfirmedActivities = this.#doesNeedToRestoreHistory ? [] : confirmedActivities;
     const stashedConfirmedActivities = this.#doesNeedToRestoreHistory ? confirmedActivities : [];
@@ -157,7 +158,7 @@ export class ActivityStream {
       if (this.#isDestroyed) return;
 
       this.#handleNewActivities(
-        margeConfirmedActivitiesOnSocketConnect(
+        mergeSortedActivities(
           newConfirmedActivities,
           this.#socketConfirmedActionsStash.splice(0),
         ),
@@ -251,7 +252,7 @@ function managePendingActivities() {
     }
 
     if (allPendingActivities) {
-      pendingActivities = allPendingActivities;
+      pendingActivities = sortActivities([...allPendingActivities]);
     } else if (pendingUpdates) {
       pendingActivities = mergePendingActivities(pendingActivities, pendingUpdates);
     }
@@ -293,35 +294,8 @@ function managePendingActivities() {
   };
 }
 
-/**
- * Merges the activities when the socket gets connected. At this moment of connection the socket starts receiving
- * activities, and activities are requested via the HTTP endpoint. These lists can contain duplicates, this function
- * eliminates them.
- *
- * Both the activity lists must be sorted by timestamp descending.
- */
-function margeConfirmedActivitiesOnSocketConnect(
-  polledActivities: ApiActivity[],
-  socketActivities: ApiActivity[],
-) {
-  const newestPolledActivityTimestamp = polledActivities[0]?.timestamp ?? -Infinity;
-  const mergedActivities: ApiActivity[] = [];
-
-  for (const activity of socketActivities) {
-    if (activity.timestamp <= newestPolledActivityTimestamp) {
-      break;
-    }
-
-    mergedActivities.push(activity);
-  }
-
-  mergedActivities.push(...polledActivities);
-
-  return mergedActivities;
-}
-
 function mergePendingActivities(
-  currentPendingActivities: readonly ApiActivity[],
+  currentPendingActivities: readonly ApiActivity[], // Must be sorted by timestamp descending
   socketUpdates: ActivitiesUpdate[],
 ) {
   if (!socketUpdates.length) {
@@ -332,10 +306,12 @@ function mergePendingActivities(
     extractKey(socketUpdates, 'messageHashNormalized'),
   );
 
-  return [
-    ...currentPendingActivities.filter(
+  return mergeSortedActivities(
+    currentPendingActivities.filter(
       (activity) => !hashesToRemove.has(activity.externalMsgHashNorm),
     ),
-    ...socketUpdates.flatMap((update) => update.arePending ? update.activities : []),
-  ].sort(compareActivities);
+    sortActivities(
+      socketUpdates.flatMap((update) => update.arePending ? update.activities : []),
+    ),
+  );
 }

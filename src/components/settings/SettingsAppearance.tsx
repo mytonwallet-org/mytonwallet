@@ -9,6 +9,7 @@ import type { AnimationLevel, Theme } from '../../global/types';
 import {
   ANIMATION_LEVEL_MAX,
   ANIMATION_LEVEL_MIN,
+  IS_CAPACITOR,
   IS_CORE_WALLET,
   MTW_CARDS_WEBSITE,
 } from '../../config';
@@ -19,9 +20,11 @@ import {
 } from '../../global/selectors';
 import { ACCENT_COLORS } from '../../util/accentColor/constants';
 import buildClassName from '../../util/buildClassName';
+import { switchToAir } from '../../util/capacitor';
 import getAccentColorsFromNfts from '../../util/getAccentColorsFromNfts';
 import { MEMO_EMPTY_ARRAY } from '../../util/memo';
 import { openUrl } from '../../util/openUrl';
+import { pause } from '../../util/schedulers';
 import switchAnimationLevel from '../../util/switchAnimationLevel';
 import switchTheme from '../../util/switchTheme';
 import { IS_ELECTRON, IS_WINDOWS } from '../../util/windowEnvironment';
@@ -39,6 +42,7 @@ import Switcher from '../ui/Switcher';
 
 import styles from './Settings.module.scss';
 
+import airImg from '../../assets/settings/settings_air.svg';
 import darkThemeImg from '../../assets/theme/theme_dark.png';
 import lightThemeImg from '../../assets/theme/theme_light.png';
 import systemThemeImg from '../../assets/theme/theme_system.png';
@@ -63,6 +67,7 @@ interface StateProps {
 }
 
 const SWITCH_THEME_DURATION_MS = 300;
+const SWITCH_APPLICATION_DURATION_MS = 300;
 const THEME_OPTIONS = [{
   value: 'light',
   name: 'Light',
@@ -105,6 +110,7 @@ function SettingsAppearance({
   const [isAvailableAccentLoading, setIsAvailableAccentLoading] = useState(false);
   const [availableAccentColorIds, setAvailableAccentColorIds] = useState<number[]>(MEMO_EMPTY_ARRAY);
   const [nftByColorIndexes, setNftsByColorIndex] = useState<Record<number, ApiNft>>({});
+  const [isAirVersionEnabled, setIsAirVersionEnabled] = useState(false);
 
   useHistoryBack({
     isActive,
@@ -143,6 +149,14 @@ function SettingsAppearance({
       });
   }, [appTheme, availableAccentColorIds]);
 
+  const handleAirVersionSwitch = useLastCallback(async () => {
+    setIsAirVersionEnabled(true);
+
+    await pause(SWITCH_APPLICATION_DURATION_MS);
+
+    switchToAir();
+  });
+
   const handleThemeChange = useLastCallback((newTheme: string) => {
     document.documentElement.classList.add('no-transitions');
     setTheme({ theme: newTheme as Theme });
@@ -177,6 +191,28 @@ function SettingsAppearance({
       void openUrl(MTW_CARDS_WEBSITE);
     }
   });
+
+  function renderAirSwitcher() {
+    return (
+      <>
+        <div className={buildClassName(styles.block, styles.settingsBlockWithDescription)}>
+          <div className={styles.item} onClick={handleAirVersionSwitch}>
+            <img className={styles.menuIcon} src={airImg} alt="" aria-hidden />
+            MyTonWallet Air
+
+            <Switcher
+              className={styles.menuSwitcher}
+              label="MyTonWallet Air"
+              checked={isAirVersionEnabled}
+            />
+          </div>
+        </div>
+        <p className={styles.blockDescription}>
+          {lang('$try_new_air_version')}
+        </p>
+      </>
+    );
+  }
 
   function renderThemes() {
     return THEME_OPTIONS.map(({ name, value, icon }) => {
@@ -243,6 +279,8 @@ function SettingsAppearance({
         className={buildClassName(styles.content, 'custom-scroll')}
         onScroll={handleContentScroll}
       >
+        {IS_CAPACITOR && renderAirSwitcher()}
+
         <p className={styles.blockTitle}>{lang('Theme')}</p>
         <div className={styles.settingsBlock}>
           <div className={styles.themeWrapper}>

@@ -247,6 +247,7 @@ Confirm Unstaking: Confirm Unstaking
 Request for unstaking is sent!: Request for unstaking is sent!
 $unstaking_when_receive: You will receive your unstaked deposit in %time%.
 $unstaking_when_receive_with_amount: You will receive your unstaked %amount% in %time%.
+$unstaking_when_receive_with_amount_ethena: You will be able to receive your unstaked %amount% in %time%.
 $unstake_insufficient_balance: You need to have %balance% on your main balance to proceed with unstaking.
 at %annual_yield%: at %annual_yield%
 Est. %annual_yield%: Est. %annual_yield%
@@ -257,8 +258,6 @@ Unstaking: Unstaking
 $unstake_action: Unstake
 The network fee has slightly changed, try sending again.: The network fee has slightly changed, try sending again.
 Transfer was unsuccessful. Try again later.: Transfer was unsuccessful. Try again later.
-Unstaking was unsuccessful. Try again later.: Unstaking was unsuccessful. Try again later.
-Staking was unsuccessful. Try again later.: Staking was unsuccessful. Try again later.
 Invalid amount: Invalid amount
 Invalid address: Invalid address
 Domain is not connected to a wallet: Domain is not connected to a wallet
@@ -549,7 +548,7 @@ To use this feature, first enable biometrics in your phone settings.: To use thi
 Open Settings: Open Settings
 $service_token_transfer_warning: You are about to transfer an important service token required to withdraw your deposit or complete service operations. Please ensure this is the action you intend to take.
 No Price: No Price
-$ledger_not_supported_operation: This operation is not supported by your version of the Ledger TON App. Please update it using Ledger Live.
+$ledger_outdated: This operation is not supported by your version of the Ledger TON App. Please update it using Ledger Live.
 $ledger_unsupported_ton_connect: TonConnect is not supported by version of your Ledger TON App. Please update it using Ledger Live.
 $dapp_transfer_tokens_burn: Burning %amount%
 $dapp_dns_set_wallet_payload: Changing linked wallet of domain %domain% to %address%
@@ -762,13 +761,13 @@ Hide Sensitive Data: Hide Sensitive Data
 Copy Address: Copy Address
 Copy Transaction ID: Copy Transaction ID
 Requesting Unstake: Requesting Unstake
-Unstake Requested: Unstake Requested
+Requested Unstake: Requested Unstake
 $request_unstake_action: Request Unstake
 Calling Contract: Calling Contract
-Contract Called: Contract Called
+Called Contract: Called Contract
 $call_contract_action: Call Contract
 Deploying Contract: Deploying Contract
-Contract Deployed: Contract Deployed
+Deployed Contract: Deployed Contract
 $deploy_contract_action: Deploy Contract
 Minting: Minting
 Minted: Minted
@@ -776,39 +775,39 @@ $mint_action: Mint
 Burning: Burning
 Burned: Burned
 $burn_action: Burn
-Address Updated: Address Updated
 Updating Address: Updating Address
+Updated Address: Updated Address
 $update_address_action: Update Address
-Site Updated: Site Updated
 Updating Site: Updating Site
+Updated Site: Updated Site
 $update_site_action: Update Site
-Subdomains Updated: Subdomains Updated
 Updating Subdomains: Updating Subdomains
+Updated Subdomains: Updated Subdomains
 $update_subdomains_action: Update Subdomains
-Storage Updated: Storage Updated
 Updating Storage: Updating Storage
+Updated Storage: Updated Storage
 $update_storage_action: Update Storage
-Domain Record Deleted: Domain Record Deleted
 Deleting Domain Record: Deleting Domain Record
+Deleted Domain Record: Deleted Domain Record
 $delete_domain_record_action: Delete Domain Record
 Renewing Domain: Renewing Domain
-Domain Renewed: Domain Renewed
+Renewed Domain: Renewed Domain
 $renew_domain_action: Renew Domain
 Providing Liquidity: Providing Liquidity
-Liquidity Provided: Liquidity Provided
+Provided Liquidity: Provided Liquidity
 $provide_liquidity_action: Provide Liquidity
 Withdrawing Liquidity: Withdrawing Liquidity
-Liquidity Withdrawn: Liquidity Withdrawn
+Withdrawn Liquidity: Withdrawn Liquidity
 $withdraw_liquidity_action: Withdraw Liquidity
 Bounced: Bounced
 Bouncing: Bouncing
 $bounce_action: Bounce
 NFT Auction Bid: NFT Auction Bid
 Bidding at NFT Auction: Bidding at NFT Auction
-NFT Bought: NFT Bought
 Buying NFT: Buying NFT
+Bought NFT: Bought NFT
 $buy_nft_action: Buy NFT
-NFT Sold: NFT Sold
+Sold NFT: Sold NFT
 Selling NFT: Selling NFT
 $sell_nft_action: Sell NFT
 Receiving: Receiving
@@ -867,10 +866,9 @@ Renew Domain: Renew Domain
 Renew Domains: Renew Domains
 Some domains are about to expire: Some domains are about to expire
 $domain_expire: "**%domain%** expires %days%"
-'%token% Staking': '%token% Staking'
+"%token% Staking": "%token% Staking"
 Add Tab: Add Tab
 Remove Tab: Remove Tab
-Failed to process domain operation. Please try again.: Failed to process domain operation. Please try again.
 $domains_amount %1$d:
   zeroValue: No domains
   oneValue: "%1$d domain"
@@ -890,7 +888,7 @@ Link: Link
 Confirm Renewing: Confirm Renewing
 Confirm Linking: Confirm Linking
 $domains_expire:
-  zeroValue: "No domains expires %days%"
+  zeroValue: No domains expires %days%
   oneValue: "**%domain% domain** expires %days%"
   otherValue: "**%domain% domains** expire %days%"
 $in_days:
@@ -899,7 +897,7 @@ $in_days:
   otherValue: in %1$d days
 $domain_was_expired: "**%domain%** is expired"
 $domains_was_expired:
-  zeroValue: "No domains is expired"
+  zeroValue: No domains is expired
   oneValue: "**%domain% domain** is expired"
   otherValue: "**%domain% domains** are expired"
 Reload: Reload
@@ -937,6 +935,9 @@ Telegram Gifts: Telegram Gifts
 Collectibles: Collectibles
 Bluetooth unavailable: Bluetooth unavailable
 $bluetooth_enable_guide: Turn on Bluetooth in the device settings and allow the app to access Bluetooth.
+Another transaction was sent from this wallet simultaneously. Please try again.: Another transaction was sent from this wallet simultaneously. Please try again.
+Canceled by the user: Canceled by the user
+The proof for signing provided by the Dapp is too large: The proof for signing provided by the Dapp is too large
 $domain_like_scam_warning: |
   The entered address is likely a **SCAM**. This is **NOT** an address of any exchange or your token wallet.
 
@@ -945,3 +946,8 @@ $domain_like_scam_warning: |
   **Cancel** this transfer and **never** trust strangers. Learn more about this and other scams in our %help_center_link%.
 Allow Suspicious Actions: Allow Suspicious Actions
 $allow_suspicious_actions_description: Allow sending to suspicious addresses and interacting with potentially unsafe contracts.
+Multisig Wallet Detected: Multisig Wallet Detected
+$multisig_warning_text: "This wallet requires multiple signatures to make transfers. You **cannot withdraw** any funds here using MyTonWallet. Make sure it’s yours — otherwise, it may be part of a scam. %multisig_warning_link%"
+$multisig_warning_link: Tap to learn more.
+Multisig sending disabled: Multisig sending disabled
+$try_new_air_version: Try the native app experience — lighter, faster, and built for your device. You can switch back anytime.

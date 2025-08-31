@@ -113,7 +113,6 @@ function addExcessActivity(walletAddress: string, activities: ApiActivity[], exc
   } else {
     activities.push({
       id: FAKE_TX_ID,
-      txId: FAKE_TX_ID,
       timestamp: activities[activities.length - 1].timestamp,
       kind: 'transaction',
       amount: excess,

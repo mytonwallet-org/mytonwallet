@@ -67,9 +67,11 @@ jobs:
       - name: Build
         env:
           STATOSCOPE_STATS_TO_COMPARE: statoscope-reference.json
-        run: npm run build:production
+        run: npm run statoscope:build
       - name: Prepare statoscope input
-        run: mv public/statoscope-build-statistics.json input.json; mv statoscope-reference.json reference.json
+        run: |
+          mv dist/statoscope-build-statistics.json input.json
+          mv statoscope-reference.json reference.json
       - name: Validate
         run: npm run statoscope:validate-diff
       - name: Upload statoscope report
@@ -77,7 +79,7 @@ jobs:
         id: upload-report
         with:
           name: Statoscope report
-          path: ./public/statoscope-report.html
+          path: ./dist/statoscope-report.html
           if-no-files-found: error
       - name: Query stats
         if: ${{ github.event_name == 'pull_request' }}

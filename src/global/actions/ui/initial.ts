@@ -1,7 +1,6 @@
 import type {
   Account, AccountSettings, AccountState, NotificationType,
 } from '../../types';
-import { ApiAuthError, ApiCommonError, ApiTransactionDraftError, ApiTransactionError } from '../../../api/types';
 import { AppState } from '../../types';
 
 import {
@@ -41,6 +40,7 @@ import {
   setScrollbarWidthProperty,
 } from '../../../util/windowEnvironment';
 import { callApi } from '../../../api';
+import { errorCodeToMessage } from '../../helpers/errors';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import { updateCurrentAccountId, updateCurrentAccountState } from '../../reducers';
 import {
@@ -224,86 +224,9 @@ addActionHandler('showError', (global, actions, { error } = {}) => {
     return;
   }
 
-  switch (error) {
-    case ApiTransactionDraftError.InvalidAmount:
-      actions.showDialog({ message: 'Invalid amount' });
-      break;
-
-    case ApiAuthError.InvalidAddress:
-    case ApiTransactionDraftError.InvalidToAddress:
-      actions.showDialog({ message: 'Invalid address' });
-      break;
-
-    case ApiTransactionDraftError.InvalidStateInit:
-      actions.showDialog({ message: '$state_init_invalid' });
-      break;
-
-    case ApiTransactionDraftError.InsufficientBalance:
-      actions.showDialog({ message: 'Insufficient balance' });
-      break;
-
-    case ApiAuthError.DomainNotResolved:
-    case ApiTransactionDraftError.DomainNotResolved:
-      actions.showDialog({ message: 'Domain is not connected to a wallet' });
-      break;
-
-    case ApiTransactionDraftError.WalletNotInitialized:
-      actions.showDialog({
-        message: 'Encryption is not possible. The recipient is not a wallet or has no outgoing transactions.',
-      });
-      break;
-
-    case ApiTransactionDraftError.InvalidAddressFormat:
-      actions.showDialog({
-        message: 'Invalid address format. Only URL Safe Base64 format is allowed.',
-      });
-      break;
-
-    case ApiTransactionError.PartialTransactionFailure:
-      actions.showDialog({ message: 'Not all transactions were sent successfully' });
-      break;
-
-    case ApiTransactionError.IncorrectDeviceTime:
-      actions.showDialog({ message: 'The time on your device is incorrect, sync it and try again' });
-      break;
-
-    case ApiTransactionError.UnsuccesfulTransfer:
-      actions.showDialog({ message: 'Transfer was unsuccessful. Try again later.' });
-      break;
-
-    case ApiTransactionDraftError.InactiveContract:
-      actions.showDialog({
-        message: '$transfer_inactive_contract_error',
-      });
-      break;
-
-    case ApiTransactionError.NotSupportedHardwareOperation:
-      actions.showDialog({
-        message: '$ledger_not_supported_operation',
-      });
-      break;
-
-    case ApiCommonError.ServerError:
-      actions.showDialog({
-        message: window.navigator.onLine
-          ? 'An error on the server side. Please try again.'
-          : 'No internet connection. Please check your connection and try again.',
-      });
-      break;
-
-    case ApiCommonError.DebugError:
-      actions.showDialog({ message: 'Unexpected error. Please let the support know.' });
-      break;
-
-    case ApiCommonError.Unexpected:
-    case undefined:
-      actions.showDialog({ message: 'Unexpected' });
-      break;
-
-    default:
-      actions.showDialog({ message: error });
-      break;
-  }
+  actions.showDialog({
+    message: errorCodeToMessage(error),
+  });
 });
 
 addActionHandler('showNotification', (global, actions, payload) => {

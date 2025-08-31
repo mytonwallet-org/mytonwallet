@@ -61,7 +61,6 @@ function DappConnectModal({
 }: StateProps) {
   const {
     submitDappConnectRequestConfirm,
-    submitDappConnectRequestConfirmHardware,
     cancelDappConnectRequestConfirm,
     setDappConnectRequestState,
     resetHardwareWalletConnect,
@@ -99,7 +98,10 @@ function DappConnectModal({
         accountId: selectedAccount,
       });
 
-      cancelDappConnectRequestConfirm();
+      // Closing the modal is delayed in order to `submitDappConnectRequestConfirm` cause the "confirmed" effect first
+      requestAnimationFrame(() => {
+        cancelDappConnectRequestConfirm();
+      });
     } else if (isHardware) {
       resetHardwareWalletConnect();
       setDappConnectRequestState({ state: DappConnectState.ConnectHardware });
@@ -121,7 +123,7 @@ function DappConnectModal({
   });
 
   const submitDappConnectRequestHardware = useLastCallback(() => {
-    submitDappConnectRequestConfirmHardware({
+    submitDappConnectRequestConfirm({
       accountId: selectedAccount,
     });
   });

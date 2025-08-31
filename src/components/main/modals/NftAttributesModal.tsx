@@ -152,14 +152,26 @@ function NftAttributesModal({ nft, dnsExpiration }: StateProps) {
             onClick={handleNftClick}
           />
         ) : (
-          <img
-            src={renderedNft.image || renderedNft.thumbnail}
-            alt={renderedNft.name}
-            role="button"
-            tabIndex={0}
-            className={styles.thumbnail}
-            onClick={handleNftClick}
-          />
+          <>
+            <img
+              src={renderedNft.thumbnail}
+              alt={lang('Preview')}
+              role="button"
+              tabIndex={0}
+              className={styles.thumbnail}
+              onClick={handleNftClick}
+            />
+            {Boolean(renderedNft.image) && (
+              <img
+                src={renderedNft.image}
+                alt={renderedNft.name}
+                role="button"
+                tabIndex={0}
+                className={styles.fullImage}
+                onClick={handleNftClick}
+              />
+            )}
+          </>
         )}
         <div className={styles.info}>
           <div className={styles.nftName}>{renderedNft.name}</div>

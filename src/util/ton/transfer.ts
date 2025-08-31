@@ -19,10 +19,10 @@ export function isTokenTransferPayload(
 }
 
 /** How many messages can be sent in a single transaction */
-export function getMaxMessagesInTransaction(account: ApiAccountWithTon) {
+export function getMaxMessagesInTransaction(account: ApiAccountWithTon, ignoreLedger?: boolean) {
   const { type, ton: { version } } = account;
 
-  if (type === 'ledger') {
+  if (type === 'ledger' && !ignoreLedger) {
     return LEDGER_MAX_MESSAGES;
   } else if (version === 'W5') {
     return W5_MAX_MESSAGES;

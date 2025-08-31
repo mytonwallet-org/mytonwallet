@@ -742,7 +742,6 @@ export function parseLiquidityDeposit(
     activities.push({
       ...partialExtended,
       id,
-      txId: id,
       amount: -BigInt(details.amount_2),
       slug: getAssetSlug(addressBook, details.asset_2),
     });
@@ -777,7 +776,6 @@ function parseLiquidityWithdraw(action: DexWithdrawLiquidityAction, options: Par
     {
       ...partialExtended,
       id: additionalId,
-      txId: additionalId,
       amount: BigInt(details.amount_2),
       slug: getAssetSlug(addressBook, details.asset_2),
     },
@@ -805,7 +803,6 @@ function parseCommonFields(
   return {
     kind: 'transaction',
     id,
-    txId: id,
     timestamp: toMilliseconds(action.end_utime),
     externalMsgHashNorm: action.trace_external_hash_norm ?? action.trace_external_hash,
     fee: 0n, // Calculated when TransactionModal opens
@@ -814,6 +811,7 @@ function parseCommonFields(
     isIncoming,
     normalizedAddress,
     amount,
+    // Pending actions from Toncenter are not trusted
     status: isPending ? 'pending' : action.success ? 'completed' : 'failed',
   } satisfies Partial<ApiTransactionActivity>;
 }
