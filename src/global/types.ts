@@ -474,7 +474,6 @@ export interface AccountSettings {
   accentColorNft?: ApiNft;
   accentColorIndex?: number;
   isAllowSuspiciousActions?: boolean;
-  isTronScamWarningHidden?: boolean;
 }
 
 export interface SavedAddress {
@@ -1068,7 +1067,6 @@ export interface ActionPayloads {
   changeNetwork: { network: ApiNetwork };
   changeLanguage: { langCode: LangCode };
   closeSecurityWarning: undefined;
-  closeTronScamWarning: undefined;
   toggleTokensWithNoCost: { isEnabled: boolean };
   toggleSortByValue: { isEnabled: boolean };
   updateOrderedSlugs: { orderedSlugs: string[] };

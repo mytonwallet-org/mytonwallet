@@ -951,6 +951,6 @@ Allow Suspicious Actions: Permitir acciones sospechosas
 $allow_suspicious_actions_description: Permitir el envío a direcciones sospechosas y la interacción con contratos potencialmente inseguros.
 Multisig Wallet Detected: Cartera Multisig Detectada
 $multisig_warning_text: "**Retirar fondos** de esta cartera a través de MyTonWallet es **imposible**. Asegúrate de que realmente sea tuya — de lo contrario podría ser una estafa. %multisig_warning_link%"
-$multisig_warning_link: Haz clic para saber más.
+$multisig_warning_link: Haz clic para saber más
 Multisig sending disabled: No se puede enviar multisig
 $try_new_air_version: Prueba la experiencia de la aplicación nativa — más ligera, más rápida y diseñada para tu dispositivo. Puedes volver en cualquier momento.

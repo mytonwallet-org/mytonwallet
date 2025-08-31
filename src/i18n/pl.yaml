@@ -964,6 +964,6 @@ Allow Suspicious Actions: Zezwalaj na podejrzane działania
 $allow_suspicious_actions_description: Zezwalaj na wysyłanie do podejrzanych adresów i interakcję z potencjalnie niebezpiecznymi kontraktami.
 Multisig Wallet Detected: Wykryto portfel Multisig
 $multisig_warning_text: "**Wypłacenie środków** z tego portfela przez MyTonWallet jest **niemożliwe**. Upewnij się, że naprawdę jest Twój — inaczej może to być oszustwo. %multisig_warning_link%"
-$multisig_warning_link: Kliknij, aby dowiedzieć się więcej.
+$multisig_warning_link: Kliknij, aby dowiedzieć się więcej
 Multisig sending disabled: Nie można z multisig
 $try_new_air_version: Wypróbuj natywne aplikacje — lżejsze, szybsze i stworzone dla Twojego urządzenia. W każdej chwili możesz wrócić.

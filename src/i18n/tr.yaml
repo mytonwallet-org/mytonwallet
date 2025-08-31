@@ -950,6 +950,6 @@ Allow Suspicious Actions: Şüpheli Eylemlere İzin Ver
 $allow_suspicious_actions_description: Şüpheli adreslere göndermeye ve potansiyel olarak güvenli olmayan kontratlarla etkileşime izin verir.
 Multisig Wallet Detected: Multisig Cüzdan Tespit Edildi
 $multisig_warning_text: "Bu cüzdandan MyTonWallet üzerinden **para çekmek** **imkansızdır**. Gerçekten sizin olduğundan emin olun — aksi takdirde bir dolandırıcılık olabilir. %multisig_warning_link%"
-$multisig_warning_link: Daha fazla öğrenmek için tıklayın.
+$multisig_warning_link: Daha fazla öğrenmek için tıklayın
 Multisig sending disabled: Multisig'den olmaz
 $try_new_air_version: Yerel uygulama deneyimini deneyin — daha hafif, daha hızlı ve cihazınız için oluşturuldu. İstediğiniz zaman geri dönebilirsiniz.

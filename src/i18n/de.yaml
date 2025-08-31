@@ -954,6 +954,6 @@ Allow Suspicious Actions: Verdächtige Aktionen erlauben
 $allow_suspicious_actions_description: Erlaubt das Senden an verdächtige Adressen und die Interaktion mit potenziell unsicheren Verträgen.
 Multisig Wallet Detected: Multisig-Wallet erkannt
 $multisig_warning_text: "**Geld abheben** aus dieser Wallet über MyTonWallet ist **nicht möglich**. Stellen Sie sicher, dass es wirklich Ihre ist — andernfalls könnte es ein Betrug sein. %multisig_warning_link%"
-$multisig_warning_link: Klicken Sie, um mehr zu erfahren.
+$multisig_warning_link: Klicken Sie, um mehr zu erfahren
 Multisig sending disabled: Kein Senden von Multisig
 $try_new_air_version: Probieren Sie die native App-Erfahrung — leichter, schneller und für Ihr Gerät entwickelt. Sie können jederzeit zurückwechseln.

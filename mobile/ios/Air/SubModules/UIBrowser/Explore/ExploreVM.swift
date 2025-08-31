@@ -94,8 +94,8 @@ private let log = Log("ExploreVM")
     }
     
     func updateExploreSites(_ result: Api.ExploreSitesResult) {
-        exploreSites = OrderedDictionary(uniqueKeysWithValues: result.sites.map { ($0.url, $0) })
-        exploreCategories = OrderedDictionary(uniqueKeysWithValues: result.categories.map { ($0.id, $0) })
+        exploreSites = OrderedDictionary(result.sites.map { ($0.url, $0) }, uniquingKeysWith: { $1 })
+        exploreCategories = OrderedDictionary(result.categories.map { ($0.id, $0) }, uniquingKeysWith: { $1 })
         DispatchQueue.main.async {
             self.delegate?.exploreSitsUpdated()
         }
@@ -116,7 +116,7 @@ private let log = Log("ExploreVM")
     }
     
     func updateDapps(dapps: [ApiDapp]) {
-        self.connectedDapps = OrderedDictionary(uniqueKeysWithValues: dapps.map { ($0.url, $0) })
+        self.connectedDapps = OrderedDictionary(dapps.map { ($0.url, $0) }, uniquingKeysWith: { $1 })
         self.delegate?.exploreSitsUpdated()
     }
 }

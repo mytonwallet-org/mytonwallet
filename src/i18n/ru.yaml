@@ -961,6 +961,6 @@ Allow Suspicious Actions: Разрешить подозрительные дей
 $allow_suspicious_actions_description: Разрешить отправку на подозрительные адреса и взаимодействие с потенциально небезопасными контрактами.
 Multisig Wallet Detected: Обнаружен мультисиг-кошелёк
 $multisig_warning_text: "**Вывести средства** из этого кошелька через MyTonWallet **невозможно**. Убедитесь, что он действительно ваш — иначе это может быть скам. %multisig_warning_link%"
-$multisig_warning_link: Нажмите, чтобы узнать больше.
+$multisig_warning_link: Нажмите, чтобы узнать больше
 Multisig sending disabled: Нельзя с мультисига
 $try_new_air_version: Попробуйте нативное приложение — легче, быстрее и создано для вашего устройства. Вы можете вернуться в любое время.

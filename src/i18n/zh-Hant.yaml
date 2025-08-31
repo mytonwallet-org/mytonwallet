@@ -943,6 +943,6 @@ Allow Suspicious Actions: 允許可疑操作
 $allow_suspicious_actions_description: 允許傳送至可疑地址並與潛在不安全的合約交互。
 Multisig Wallet Detected: 檢測到多重簽名錢包
 $multisig_warning_text: "透過 MyTonWallet **提取資金**是**不可能的**。請確認這真的是您的錢包——否則可能是詐騙。%multisig_warning_link%"
-$multisig_warning_link: 點擊了解更多。
+$multisig_warning_link: 點擊了解更多
 Multisig sending disabled: 無法從多重簽名發送
 $try_new_air_version: 嘗試原生應用體驗 — 更輕量、更快速，專為您的設備打造。您可以隨時切換回來。

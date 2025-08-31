@@ -88,7 +88,7 @@ data class ApiNftMetadata(
     @Json(name = "attributes") val attributes: List<Attribute>? = null,
 ) {
     data class Attribute(
-        @Json(name = "trait_type") val traitType: String,
+        @Json(name = "trait_type") val traitType: String?,
         @Json(name = "value") val value: String?
     )
 

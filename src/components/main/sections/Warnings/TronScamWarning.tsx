@@ -1,8 +1,8 @@
 import React, { memo } from '../../../../lib/teact/teact';
-import { getActions, withGlobal } from '../../../../global';
+import { withGlobal } from '../../../../global';
 
 import { getHelpCenterUrl } from '../../../../global/helpers/getHelpCenterUrl';
-import { selectCurrentAccount, selectCurrentAccountSettings } from '../../../../global/selectors';
+import { selectCurrentAccount } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
 
 import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
@@ -15,21 +15,13 @@ import styles from './Warnings.module.scss';
 type StateProps = {
   isMultisig?: boolean;
   isViewMode?: boolean;
-  isHidden?: boolean;
 };
 
-function TronScamWarning({ isMultisig, isViewMode, isHidden }: StateProps) {
-  const { closeTronScamWarning } = getActions();
-
+function TronScamWarning({ isMultisig, isViewMode }: StateProps) {
   const { isLandscape } = useDeviceScreen();
   const lang = useLang();
 
-  const isShown = Boolean(isMultisig && !isViewMode && !isHidden);
-
-  function handleClose(e: React.MouseEvent<HTMLButtonElement>) {
-    e.stopPropagation();
-    closeTronScamWarning();
-  }
+  const isShown = !!isMultisig && !isViewMode;
 
   const helpCenterLink = getHelpCenterUrl(lang.code, 'seedScam');
 
@@ -49,10 +41,6 @@ function TronScamWarning({ isMultisig, isViewMode, isHidden }: StateProps) {
             ),
           })}
         </p>
-
-        <button type="button" className={styles.closeButton} aria-label={lang('Close')} onClick={handleClose}>
-          <i className="icon-close" aria-hidden />
-        </button>
       </div>
     </Collapsible>
   );
@@ -60,11 +48,9 @@ function TronScamWarning({ isMultisig, isViewMode, isHidden }: StateProps) {
 
 export default memo(withGlobal((global): StateProps => {
   const account = selectCurrentAccount(global);
-  const accountSettings = selectCurrentAccountSettings(global);
 
   return {
     isMultisig: account?.isMultisigByChain?.tron,
     isViewMode: account?.type === 'view',
-    isHidden: accountSettings?.isTronScamWarningHidden,
   };
 })(TronScamWarning));

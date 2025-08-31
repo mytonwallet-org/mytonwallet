@@ -72,15 +72,6 @@ struct DebugView: View {
                     }
                 }
                 
-                Section {
-                    Toggle("Language Switcher", isOn: $languageSwitcher)
-                } header: {
-                    Text("Experimental Features")
-                } footer: {
-                    Text("These features are not finished. Enable at your own risk.")
-                }
-                
-                
 #if DEBUG
                 Section {
                     Button("Download database") {

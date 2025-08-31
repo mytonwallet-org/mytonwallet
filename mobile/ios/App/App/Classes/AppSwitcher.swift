@@ -44,7 +44,9 @@ class AppSwitcher: NSObject {
     func addLongTapGesture(vc: CAPBridgeViewController) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
             if let webView = vc.webView {
-                webView.addGestureRecognizer(UILongPressGestureRecognizer(target: self, action: #selector(self.onLongTap(_:))))
+                let longTap = UILongPressGestureRecognizer(target: self, action: #selector(self.onLongTap(_:)))
+                longTap.minimumPressDuration = 5
+                webView.addGestureRecognizer(longTap)
                 
                 #if DEBUG
                 if #available(iOS 16.4, *) {

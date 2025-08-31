@@ -967,6 +967,6 @@ Allow Suspicious Actions: Дозволити підозрілі дії
 $allow_suspicious_actions_description: Дозволити надсилання на підозрілі адреси та взаємодію з потенційно небезпечними контрактами.
 Multisig Wallet Detected: Виявлено мультисиг-гаманець
 $multisig_warning_text: "**Вивести кошти** з цього гаманця через MyTonWallet **неможливо**. Переконайтеся, що він справді ваш — інакше це може бути шахрайство. %multisig_warning_link%"
-$multisig_warning_link: Натисніть, щоб дізнатися більше.
+$multisig_warning_link: Натисніть, щоб дізнатися більше
 Multisig sending disabled: Неможливо з мультисигу
 $try_new_air_version: Спробуйте нативний додаток — легший, швидший і створений для вашого пристрою. Ви можете повернутися будь-коли.

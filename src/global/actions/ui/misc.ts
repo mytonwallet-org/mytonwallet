@@ -369,14 +369,6 @@ addActionHandler('closeSecurityWarning', (global) => {
   };
 });
 
-addActionHandler('closeTronScamWarning', (global: GlobalState) => {
-  const accountSettings = selectCurrentAccountSettings(global) ?? {};
-  return updateCurrentAccountSettings(global, {
-    ...accountSettings,
-    isTronScamWarningHidden: true,
-  });
-});
-
 addActionHandler('toggleTokensWithNoCost', (global, actions, { isEnabled }) => {
   return updateSettings(global, { areTokensWithNoCostHidden: isEnabled });
 });

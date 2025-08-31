@@ -496,7 +496,7 @@ public class ExploreVC: WViewController {
             let connectedDapps = exploreVM.connectedDapps
             if !connectedDapps.isEmpty {
                 snapshot.appendSections([.connected])
-                snapshot.appendItems(connectedDapps.values.map { Item.connected($0.url) })
+                snapshot.appendItems(connectedDapps.map { (key, value) in Item.connected(key) })
                 snapshot.appendItems([.connectedSettings])
                 
                 snapshot.reconfigureItems(snapshot.itemIdentifiers(inSection: .connected))

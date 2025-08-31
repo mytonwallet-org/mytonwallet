@@ -180,7 +180,7 @@ Paste: Paste
 Insufficient balance: Insufficient balance
 Insufficient Balance: Insufficient Balance
 $seed_phrase_scam_warning: |
-  This wallet that does not have enough funds to cover the fees for token withdrawal.
+  This wallet does not have enough funds to cover the fees for token withdrawal.
 
   This seems to be a common **SCAM** where you're encouraged to deposit your own funds to cover fees.
 
@@ -948,6 +948,6 @@ Allow Suspicious Actions: Allow Suspicious Actions
 $allow_suspicious_actions_description: Allow sending to suspicious addresses and interacting with potentially unsafe contracts.
 Multisig Wallet Detected: Multisig Wallet Detected
 $multisig_warning_text: "This wallet requires multiple signatures to make transfers. You **cannot withdraw** any funds here using MyTonWallet. Make sure it’s yours — otherwise, it may be part of a scam. %multisig_warning_link%"
-$multisig_warning_link: Tap to learn more.
+$multisig_warning_link: Tap to learn more
 Multisig sending disabled: Multisig sending disabled
 $try_new_air_version: Try the native app experience — lighter, faster, and built for your device. You can switch back anytime.
