@@ -45,7 +45,7 @@ function SwapPassword({
         withCloseButton={IS_CAPACITOR}
         error={error}
         operationType="swap"
-        submitLabel={lang('Send')}
+        submitLabel={lang('Swap')}
         cancelLabel={lang('Back')}
         onSubmit={onSubmit}
         onCancel={onBack}

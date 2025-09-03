@@ -80,7 +80,8 @@ export type ContractName = ApiTonWalletVersion
   | 'nominatorPool' | 'vesting'
   | 'dedustPool' | 'dedustVaultNative' | 'dedustVaultJetton'
   | 'stonPtonWallet' | 'stonRouter' | 'stonRouterV2_1' | 'stonPoolV2_1'
-  | 'stonRouterV2_2' | 'stonRouterV2_2_alt' | 'stonPoolV2_2' | 'stonPtonWalletV2';
+  | 'stonRouterV2_2' | 'stonRouterV2_2_alt' | 'stonPoolV2_2' | 'stonPtonWalletV2'
+  | 'toncoRouter';
 
 export type ContractInfo = {
   name: ContractName;

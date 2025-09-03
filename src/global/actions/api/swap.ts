@@ -124,7 +124,7 @@ function buildSwapBuildRequest(global: GlobalState): ApiSwapBuildRequest {
     swapFee: swapFee!,
     ourFee: ourFee!,
     dieselFee,
-    routes: estimates![0].routes,
+    routes: estimates?.[0]?.routes,
   };
 }
 

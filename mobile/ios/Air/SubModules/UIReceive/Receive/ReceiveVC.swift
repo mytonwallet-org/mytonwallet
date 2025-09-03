@@ -328,7 +328,7 @@ extension ReceiveTableVC: UITableViewDelegate, UITableViewDataSource {
             if shouldShowDepositLink {
                 count += 1
             }
-            if ConfigStore.shared.shouldRestrictSwapsAndOnRamp || true {
+            if ConfigStore.shared.shouldRestrictSwapsAndOnRamp {
                 count -= 1
             }
             return count
@@ -404,7 +404,7 @@ extension ReceiveTableVC: UITableViewDelegate, UITableViewDataSource {
             // buy crypto items
             let cell = tableView.dequeueReusableCell(withIdentifier: "BuyCrypto", for: indexPath) as! BuyCryptoCell
             var row = indexPath.row
-            if ConfigStore.shared.shouldRestrictSwapsAndOnRamp || true {
+            if ConfigStore.shared.shouldRestrictSwapsAndOnRamp {
                 row += 1
             }
             switch row {

@@ -341,7 +341,14 @@ extension InAppBrowserPageVC: WKScriptMessageHandler {
                         try? await self?.injectTonConnectResult(invocationId: invocationId, result: nil, error: "Bad request")
                     }
                 }
+            case "window:open":
+                if let args = dict["args"] as? [String: Any], let urlString = args["url"] as? String, let url = URL(string: urlString) {
+                    AppActions.openInBrowser(url, title: nil, injectTonConnect: self.config.injectTonConnectBridge)
+                }
+            case "window:close":
+                break
             default:
+                assertionFailure("Unexpected invokeFunc: name=\(dict["name"] as Any)")
                 break
             }
             break

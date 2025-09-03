@@ -17,6 +17,7 @@ public struct ApiNft: Equatable, Hashable, Codable, Sendable {
     public var isOnSale: Bool
     public var isHidden: Bool?
     public var isOnFragment: Bool?
+    public var isTelegramGift: Bool?
     public var isScam: Bool?
     public var metadata: ApiNftMetadata?
 }
@@ -36,6 +37,7 @@ extension ApiNft {
         self.isOnSale = (try? container.decodeIfPresent(Bool.self, forKey: .isOnSale)) ?? false
         self.isHidden = try? container.decodeIfPresent(Bool.self, forKey: .isHidden)
         self.isOnFragment = try? container.decodeIfPresent(Bool.self, forKey: .isOnFragment)
+        self.isTelegramGift = try? container.decodeIfPresent(Bool.self, forKey: .isTelegramGift)
         self.isScam = try? container.decodeIfPresent(Bool.self, forKey: .isScam)
         self.metadata = try? container.decodeIfPresent(ApiNftMetadata.self, forKey: .metadata)
     }

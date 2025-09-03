@@ -74,10 +74,20 @@ addActionHandler('submitDappConnectRequestConfirm', async (global, actions, { pa
 });
 
 addActionHandler('cancelDappConnectRequestConfirm', (global) => {
+  if (IS_DELEGATED_BOTTOM_SHEET) {
+    callActionInMain('clearDappConnectRequestConfirm');
+  }
+
   cancelDappOperation(
     (global) => global.dappConnectRequest,
     clearDappConnectRequest,
   );
+});
+
+// Clear state after closing the NBS modal.
+// TODO: Remove after fully migrating to Air app.
+addActionHandler('clearDappConnectRequestConfirm', (global) => {
+  return clearDappConnectRequest(global);
 });
 
 addActionHandler('setDappConnectRequestState', (global, actions, { state }) => {
@@ -85,10 +95,20 @@ addActionHandler('setDappConnectRequestState', (global, actions, { state }) => {
 });
 
 addActionHandler('cancelDappTransfer', (global) => {
+  if (IS_DELEGATED_BOTTOM_SHEET) {
+    callActionInMain('clearDappTransfer');
+  }
+
   cancelDappOperation(
     (global) => global.currentDappTransfer,
     clearCurrentDappTransfer,
   );
+});
+
+// Clear state after closing the NBS modal.
+// TODO: Remove after fully migrating to Air app.
+addActionHandler('clearDappTransfer', (global) => {
+  return clearCurrentDappTransfer(global);
 });
 
 function cancelDappOperation(
@@ -215,10 +235,20 @@ addActionHandler('deleteDapp', (global, actions, { url, uniqueId }) => {
 });
 
 addActionHandler('cancelDappSignData', (global) => {
+  if (IS_DELEGATED_BOTTOM_SHEET) {
+    callActionInMain('clearDappSignData');
+  }
+
   cancelDappOperation(
     (global) => global.currentDappSignData,
     clearCurrentDappSignData,
   );
+});
+
+// Clear state after closing the NBS modal.
+// TODO: Remove after fully migrating to Air app.
+addActionHandler('clearDappSignData', (global) => {
+  return clearCurrentDappSignData(global);
 });
 
 addActionHandler('apiUpdateDappConnect', async (global, actions, {

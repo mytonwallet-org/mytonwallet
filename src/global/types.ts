@@ -1110,6 +1110,7 @@ export interface ActionPayloads {
   submitDappConnectRequestConfirm: { accountId: string; password?: string };
   clearDappConnectRequestError: undefined;
   cancelDappConnectRequestConfirm: undefined;
+  clearDappConnectRequestConfirm: undefined;
   setDappConnectRequestState: { state: DappConnectState };
   apiUpdateDappConnect: ApiUpdateDappConnect;
 
@@ -1121,6 +1122,7 @@ export interface ActionPayloads {
   clearDappTransferError: undefined;
   cancelDappTransfer: undefined;
   closeDappTransfer: undefined;
+  clearDappTransfer: undefined;
   apiUpdateDappSendTransaction: ApiUpdateDappSendTransactions;
 
   // TON Connect SignData
@@ -1130,6 +1132,7 @@ export interface ActionPayloads {
   clearDappSignDataError: undefined;
   cancelDappSignData: undefined;
   closeDappSignData: undefined;
+  clearDappSignData: undefined;
   apiUpdateDappSignData: ApiUpdateDappSignData;
 
   getDapps: undefined;

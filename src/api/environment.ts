@@ -8,6 +8,7 @@ import {
   ELECTRON_TONCENTER_MAINNET_KEY,
   ELECTRON_TONCENTER_TESTNET_KEY,
   IS_CAPACITOR,
+  IS_EXTENSION,
   TONCENTER_MAINNET_KEY,
   TONCENTER_TESTNET_KEY,
 } from '../config';
@@ -25,7 +26,7 @@ let environment: ApiInitArgs & {
 function getAppOrigin(args: ApiInitArgs): string | undefined {
   if (args.isElectron) {
     return ELECTRON_ORIGIN;
-  } else if (IS_CAPACITOR) {
+  } else if (IS_CAPACITOR || IS_EXTENSION) {
     return self?.origin;
   } else {
     return undefined;

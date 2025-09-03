@@ -11,7 +11,7 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-public class BuyWithCardVC: WViewController {
+public class BuyWithCardVC: WViewController, UIScrollViewDelegate {
     
     private let chain: ApiChain
     public init(chain: ApiChain) {
@@ -26,13 +26,24 @@ public class BuyWithCardVC: WViewController {
     public override func viewDidLoad() {
         super.viewDidLoad()
         setupViews()
+        loadOnramp()
     }
 
     private let webView = WKWebView()
     private func setupViews() {
         title = lang("Buy with Card")
-        addCloseToNavBar()
+        
+        addNavigationBar(
+            title: self.title,
+            closeIcon: true,
+            addBackButton: { [weak self] in self?.navigationController?.popViewController(animated: true) }
+        )
+        
+        webView.isOpaque = false
         webView.translatesAutoresizingMaskIntoConstraints = false
+        webView.scrollView.contentInset.top = navigationBarHeight
+        webView.scrollView.delegate = self
+        
         view.addSubview(webView)
         NSLayoutConstraint.activate([
             webView.topAnchor.constraint(equalTo: view.topAnchor),
@@ -40,6 +51,11 @@ public class BuyWithCardVC: WViewController {
             webView.rightAnchor.constraint(equalTo: view.rightAnchor),
             webView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
+        
+        bringNavigationBarToFront()
+    }
+    
+    private func loadOnramp() {
         if ConfigStore.shared.config?.countryCode == "RU" {
             open(url: "https://dreamwalkers.io/ru/mytonwallet/?wallet=\(AccountStore.account?.tonAddress ?? "")&give=CARDRUB&take=TON&type=buy")
             return
@@ -47,7 +63,7 @@ public class BuyWithCardVC: WViewController {
         
         guard let address = AccountStore.account?.addressByChain[chain.rawValue] else { return }
         Task {
-            let activeTheme = AppStorageHelper.activeNightMode
+            let activeTheme = ResolvedTheme(traitCollection: traitCollection)
             print(chain, address, activeTheme)
             do {
                 let url = try await Api.getMoonpayOnrampUrl(chain: chain, address: address, activeTheme: activeTheme).url
@@ -63,5 +79,9 @@ public class BuyWithCardVC: WViewController {
         if let url = URL(string: url) {
             webView.load(URLRequest(url: url))
         }
+    }
+    
+    public func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        updateNavigationBarProgressiveBlur(scrollView.contentOffset.y + scrollView.adjustedContentInset.top)
     }
 }

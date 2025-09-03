@@ -45,7 +45,7 @@ extension NftCollectionFilter {
         case .collection(let nftCollection):
             collection.filter { $1.nft.collectionAddress == nftCollection.address }
         case .telegramGifts:
-            collection.filter { $1.nft.collection?.isTelegramGiftsCollection == true }
+            collection.filter { $1.nft.isTelegramGift == true }
         }
     }
 }

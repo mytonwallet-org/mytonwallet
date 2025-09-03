@@ -57,3 +57,14 @@ public enum NightMode: String, Equatable, Hashable, Codable, Sendable {
         }
     }
 }
+
+public enum ResolvedTheme: String, Codable {
+    case light = "light"
+    case dark = "dark"
+}
+
+public extension ResolvedTheme {
+    init(traitCollection: UITraitCollection) {
+        self = traitCollection.userInterfaceStyle == .dark ? .dark : .light
+    }
+}

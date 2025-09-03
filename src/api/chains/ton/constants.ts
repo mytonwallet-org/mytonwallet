@@ -318,4 +318,10 @@ export const KnownContracts: Record<ContractName, ContractInfo> = {
     hash: '2761042202032258de9eb1b672e1ec2e4f13b2af00700195801ada33f7ced1b6',
     isSwapAllowed: true,
   },
+  // Example: https://tonscan.org/address/EQC_-t0nCnOFMdp7E7qPxAOCbCWGFz-e3pwxb6tTvFmshjt5
+  toncoRouter: {
+    name: 'toncoRouter',
+    hash: '9b9891eaa7db7becc6ccdda1bd9a8d25dc3df2817d57e4b27ec003daf81a4439',
+    isSwapAllowed: true,
+  },
 };

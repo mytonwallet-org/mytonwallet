@@ -8,15 +8,16 @@ private let globalStateKey = "mytonwallet-global-state"
 
 
 @MainActor
-final class WebViewGlobalStorageProvider: NSObject, WKNavigationDelegate, WKURLSchemeHandler {
+final class WebViewGlobalStorageProvider: NSObject, WKNavigationDelegate {
     
     @MainActor internal var webView: WKWebView?
     private var loadNavigation: WKNavigation?
     private var loadContinuation: CheckedContinuation<(), any Error>?
+    private let capacitorSchemeHander = CapacitorSchemeHandler()
     
     func prepareWebView() async throws(GlobalStorageError) {
         let configuration = WKWebViewConfiguration()
-        configuration.setURLSchemeHandler(self, forURLScheme: "capacitor")
+        configuration.setURLSchemeHandler(capacitorSchemeHander, forURLScheme: "capacitor")
         
         let webView = WKWebView(frame: .zero, configuration: configuration)
         self.webView = webView
@@ -170,9 +171,9 @@ final class WebViewGlobalStorageProvider: NSObject, WKNavigationDelegate, WKURLS
             }
         }
     }
-    
-    // MARK: - WKURLSchemeHandler
-    
+}
+
+private final class CapacitorSchemeHandler: NSObject, WKURLSchemeHandler {
     func webView(_ webView: WKWebView, start urlSchemeTask: WKURLSchemeTask) {
         let emptyHTML = "<html><head><title>GlobalStorage</title></head><body></body></html>"
         let data = emptyHTML.data(using: .utf8)!
@@ -188,4 +189,3 @@ final class WebViewGlobalStorageProvider: NSObject, WKNavigationDelegate, WKURLS
     func webView(_ webView: WKWebView, stop urlSchemeTask: WKURLSchemeTask) {
     }
 }
-

@@ -28,10 +28,3 @@ extension ApiNft {
     }
 }
 
-
-extension NftCollection {
-    
-    public var isTelegramGiftsCollection: Bool {
-        TELEGRAM_GIFTS_COLLECTIONS.contains(address)
-    }
-}

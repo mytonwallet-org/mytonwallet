@@ -204,7 +204,7 @@ public final class _NftStore: Sendable {
     // MARK: - Collections
     
     public func getCollections(accountId: String) -> UserCollectionsInfo {
-        let uniqueCollections = OrderedSet(
+        let uniqueCollections = Array(OrderedSet(
             self.nfts[accountId, default: [:]]
                 .filter { (_, displayNft) in
                     !displayNft.shouldHide
@@ -212,9 +212,31 @@ public final class _NftStore: Sendable {
                 .compactMap { (_, dislayNft) in
                     dislayNft.nft.collection
                 }
+        )).sorted()
+        let telegramGiftsCollections = Array(OrderedSet(
+            self.nfts[accountId, default: [:]]
+                .filter { (_, displayNft) in
+                    !displayNft.shouldHide && displayNft.nft.isTelegramGift == true
+                }
+                .compactMap { (_, dislayNft) in
+                    dislayNft.nft.collection
+                }
+        )).sorted()
+        let notTelegramGiftsCollections = Array(OrderedSet(
+            self.nfts[accountId, default: [:]]
+                .filter { (_, displayNft) in
+                    !displayNft.shouldHide && displayNft.nft.isTelegramGift != true
+                }
+                .compactMap { (_, dislayNft) in
+                    dislayNft.nft.collection
+                }
+        )).sorted()
+        return UserCollectionsInfo(
+            accountId: accountId,
+            collections: uniqueCollections,
+            telegramGiftsCollections: telegramGiftsCollections,
+            notTelegramGiftsCollections: notTelegramGiftsCollections
         )
-        let collections = Array(uniqueCollections).sorted()
-        return UserCollectionsInfo(accountId: accountId, collections: collections)
     }
     
     public func accountOwnsCollection(accountId: String, address: String?) -> Bool {
@@ -293,7 +315,7 @@ extension _NftStore: WalletCoreData.EventsObserver {
             
         case .updateNfts(let update):
             Task {
-                await self.received(accountId: update.accountId, newNfts: update.nfts, removedNftIds: [], replaceExisting: true)
+                await self.received(accountId: update.accountId, newNfts: update.nfts, removedNftIds: [], replaceExisting: update.shouldAppend != true)
             }
         case .nftReceived(let update):
             Task {
@@ -396,8 +418,8 @@ public struct DisplayNft: Equatable, Hashable, Codable, Identifiable, Sendable {
 public struct UserCollectionsInfo {
     public var accountId: String
     public var collections: [NftCollection]
-    public var telegramGiftsCollections: [NftCollection] { Array(collections.filter(\.isTelegramGiftsCollection)) }
-    public var notTelegramGiftsCollections: [NftCollection] { Array(collections.filter { !$0.isTelegramGiftsCollection }) }
+    public var telegramGiftsCollections: [NftCollection]
+    public var notTelegramGiftsCollections: [NftCollection]
 }
 
 #if DEBUG

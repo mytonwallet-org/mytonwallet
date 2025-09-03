@@ -28,7 +28,7 @@ extension Api {
         public var url: String
     }
     
-    public static func getMoonpayOnrampUrl(chain: ApiChain, address: String, activeTheme: NightMode) async throws -> MoonpayOnrampResult {
+    public static func getMoonpayOnrampUrl(chain: ApiChain, address: String, activeTheme: ResolvedTheme) async throws -> MoonpayOnrampResult {
         try await bridge.callApi("getMoonpayOnrampUrl", chain, address, activeTheme, decoding: MoonpayOnrampResult.self)
     }
 }
