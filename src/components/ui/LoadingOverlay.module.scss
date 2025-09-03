@@ -1,3 +1,5 @@
+@use "../../styles/mixins";
+
 .root {
   position: absolute;
   z-index: var(--z-loading-overlay);
@@ -7,10 +9,28 @@
   left: 0;
 
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+
+  padding: calc(1rem + max(1rem, var(--safe-area-bottom))) 0;
 
   background: rgba(26, 33, 41, 0.75);
 
   transition-delay: 1s !important;
+}
+
+.button,
+.spinner {
+  margin-top: auto;
+}
+
+.button {
+  opacity: 0;
+
+  @include mixins.transition(opacity 200ms);
+
+  &.shown {
+    opacity: 1;
+  }
 }

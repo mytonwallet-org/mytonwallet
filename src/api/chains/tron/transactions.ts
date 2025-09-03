@@ -4,7 +4,7 @@ import type { ApiActivity, ApiNetwork, ApiTransactionActivity } from '../../type
 
 import { TRX } from '../../../config';
 import { parseAccountId } from '../../../util/account';
-import { mergeSortedActivities } from '../../../util/activities/order';
+import { mergeSortedActivities, sortActivities } from '../../../util/activities/order';
 import { getChainConfig } from '../../../util/chain';
 import { fetchJson } from '../../../util/fetch';
 import { buildCollectionByKey } from '../../../util/iteratees';
@@ -21,6 +21,7 @@ export async function getTokenTransactionSlice(
 ) {
   const { network } = parseAccountId(accountId);
   const { address } = await fetchStoredTronWallet(accountId);
+  let activities: ApiActivity[];
 
   if (slug === TRX.slug) {
     const rawTransactions = await getTrxTransactions(network, address, {
@@ -29,7 +30,7 @@ export async function getTokenTransactionSlice(
       limit,
       search_internal: false, // The parsing is not supported and not needed currently
     });
-    return rawTransactions.map((rawTx) => parseRawTrxTransaction(address, rawTx)).filter(Boolean);
+    activities = rawTransactions.map((rawTx) => parseRawTrxTransaction(address, rawTx)).filter(Boolean);
   } else {
     const { tokenAddress } = getTokenBySlug(slug);
     const rawTransactions = await getTrc20Transactions(network, address, {
@@ -38,8 +39,12 @@ export async function getTokenTransactionSlice(
       max_timestamp: toTimestamp ? toTimestamp - 1000 : undefined,
       limit,
     });
-    return rawTransactions.map((rawTx) => parseRawTrc20Transaction(address, rawTx));
+    activities = rawTransactions.map((rawTx) => parseRawTrc20Transaction(address, rawTx));
   }
+
+  // Even though the activities returned by the API are sorted by timestamp, our sorting may differ.
+  // It's important to ensuring our sorting, because otherwise `mergeSortedActivities` may leave duplicates.
+  return sortActivities(activities);
 }
 
 export async function getAllTransactionSlice(accountId: string, toTimestamp: number | undefined, limit: number) {

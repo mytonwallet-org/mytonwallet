@@ -64,8 +64,23 @@ function DappTransferModal({
 
   const { renderingKey, nextKey, updateNextKey } = useModalTransitionKeys(state, isOpen);
   const needsExtraHeight = useMemo(
-    () => shouldForceFullScreen(transactions, emulation?.activities, isDangerous),
-    [transactions, emulation, isDangerous],
+    () => {
+      // Apply the extra height only on mobile apps.
+      // On the web, the height is controlled by the CSS.
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
+      if (IS_CAPACITOR && renderingKey === TransferState.Password) {
+        return true;
+      }
+
+      // Do not apply the extra height if the transfer is complete, otherwise the Close button will be hidden on the iOS device
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
+      if (renderingKey === TransferState.Complete) {
+        return false;
+      }
+
+      return shouldForceFullScreen(transactions, emulation?.activities, isDangerous);
+    },
+    [transactions, emulation, isDangerous, renderingKey],
   );
 
   const handleBackClick = useLastCallback(() => {
@@ -171,10 +186,7 @@ function DappTransferModal({
       noBackdropClose
       dialogClassName={buildClassName(styles.modalDialog, needsExtraHeight && styles.modalDialogExtraHeight)}
       nativeBottomSheetKey="dapp-transfer"
-      forceFullNative={
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-        (needsExtraHeight || renderingKey === TransferState.Password) && renderingKey !== TransferState.Complete
-      }
+      forceFullNative={needsExtraHeight}
       onClose={closeDappTransfer}
       onCloseAnimationEnd={handleResetTransfer}
     >
@@ -203,7 +215,11 @@ export default memo(withGlobal((global): StateProps => {
   };
 })(DappTransferModal));
 
-function shouldForceFullScreen(transactions?: ApiDappTransfer[], activities?: ApiActivity[], isDangerous?: boolean) {
+function shouldForceFullScreen(
+  transactions?: ApiDappTransfer[],
+  activities?: ApiActivity[],
+  isDangerous?: boolean,
+) {
   let height = 0; // rem
 
   if (transactions) {

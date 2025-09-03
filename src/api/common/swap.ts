@@ -3,7 +3,7 @@ import type { ApiActivity, ApiSwapActivity, ApiSwapHistoryItem } from '../types'
 import { SWAP_API_VERSION, SWAP_CROSSCHAIN_SLUGS, TONCOIN } from '../../config';
 import { parseAccountId } from '../../util/account';
 import { buildBackendSwapId, getActivityTokenSlugs, parseTxId } from '../../util/activities';
-import { mergeSortedActivities } from '../../util/activities/order';
+import { mergeSortedActivities, sortActivities } from '../../util/activities/order';
 import { logDebugError } from '../../util/logs';
 import { fetchStoredAccount } from './accounts';
 import { callBackendGet, callBackendPost } from './backend';
@@ -84,6 +84,7 @@ export async function patchSwapItem(options: {
 
 export async function swapReplaceCexActivities(
   accountId: string,
+  /** Must be sorted */
   activities: ApiActivity[],
   slug?: string,
   isToNow?: boolean,
@@ -139,7 +140,9 @@ export async function swapReplaceCexActivities(
       }
     });
 
-    return mergeSortedActivities(swapActivities, otherActivities);
+    // Even though the swap activities returned by the API are sorted by timestamp, the client-side sorting may differ.
+    // It's important to ensuring our sorting, because otherwise `mergeSortedActivities` may leave duplicates.
+    return mergeSortedActivities(sortActivities(swapActivities), otherActivities);
   } catch (err) {
     logDebugError('swapReplaceCexActivities', err);
     return activities;

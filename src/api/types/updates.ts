@@ -134,6 +134,10 @@ export type ApiUpdateDappSendTransactions = {
   vestingAddress?: string;
 };
 
+export type ApiUpdateTonConnectOnline = {
+  type: 'tonConnectOnline';
+};
+
 export type ApiUpdateDappConnect = {
   type: 'dappConnect';
   identifier?: string;
@@ -324,6 +328,7 @@ export type ApiUpdate =
   | ApiUpdateCreateSignature
   | ApiUpdateStaking
   | ApiUpdateDappSendTransactions
+  | ApiUpdateTonConnectOnline
   | ApiUpdateDappConnect
   | ApiUpdateDappConnectComplete
   | ApiUpdateDappDisconnect

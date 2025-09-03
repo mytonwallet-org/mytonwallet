@@ -19,6 +19,11 @@ import {
 
 addActionHandler('apiUpdate', (global, actions, update) => {
   switch (update.type) {
+    case 'tonConnectOnline': {
+      actions.closeLoadingOverlay();
+      break;
+    }
+
     case 'createTransaction': {
       const {
         promiseId,

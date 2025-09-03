@@ -5,6 +5,7 @@ import type { ParsedTrace, ParsedTracePart } from './types';
 import { TONCOIN } from '../../../config';
 import { parseAccountId } from '../../../util/account';
 import { getActivityTokenSlugs, getIsActivityPending } from '../../../util/activities';
+import { sortActivities } from '../../../util/activities/order';
 import { fromDecimal, toDecimal } from '../../../util/decimals';
 import { intersection } from '../../../util/iteratees';
 import { logDebug, logDebugError } from '../../../util/logs';
@@ -48,9 +49,10 @@ export async function fetchActivitySlice(
 ): Promise<ApiActivity[]> {
   const { network } = parseAccountId(accountId);
   const { address } = await fetchStoredTonWallet(accountId);
+  let activities: ApiActivity[];
 
   if (!tokenSlug) {
-    return fetchActions({
+    activities = await fetchActions({
       network,
       filter: { address },
       walletAddress: address,
@@ -67,7 +69,7 @@ export async function fetchActivitySlice(
       tokenWalletAddress = await resolveTokenWalletAddress(network, address, getTokenBySlug(tokenSlug).tokenAddress!);
     }
 
-    const activities = await fetchActions({
+    activities = await fetchActions({
       network,
       filter: { address: tokenWalletAddress },
       walletAddress: address,
@@ -77,8 +79,12 @@ export async function fetchActivitySlice(
       shouldIncludeFrom,
     });
 
-    return activities.filter((activity) => getActivityTokenSlugs(activity).includes(tokenSlug));
+    activities = activities.filter((activity) => getActivityTokenSlugs(activity).includes(tokenSlug));
   }
+
+  // Even though the activities returned by the API are sorted by timestamp, our sorting may differ.
+  // It's important to ensuring our sorting, because otherwise `mergeSortedActivities` may leave duplicates.
+  return sortActivities(activities);
 }
 
 export async function fetchActivityDetails(

@@ -1,6 +1,7 @@
 import type { ApiActivity } from '../../api/types';
 
 import { mergeSortedArrays } from '../iteratees';
+import { logDebugError } from '../logs';
 import { getIsActivityPending } from './index';
 
 function compareActivities(a: ApiActivity, b: ApiActivity, isAsc = false) {
@@ -24,7 +25,24 @@ export function sortActivities(activities: ApiActivity[], isAsc?: boolean) {
   return activities.sort((a1, a2) => compareActivities(a1, a2, isAsc));
 }
 
+/**
+ * Use the `mergeSortedActivityIds` function instead when possible.
+ */
+export function sortActivityIds(activityById: Record<string, ApiActivity>, ids: string[], isAsc?: boolean) {
+  return ids.sort((id1, id2) => compareActivities(activityById[id1], activityById[id2], isAsc));
+}
+
 export function mergeSortedActivities(array1: readonly ApiActivity[], array2: readonly ApiActivity[], isAsc?: boolean) {
+  // It's hard to make sure the input is sorted, so we check and sort just in case.
+  // Otherwise, there may be unwanted duplicates in the returned array.
+  const lists = [array1, array2];
+  for (let i = 0; i < lists.length; i++) {
+    if (!areActivitiesSorted(lists[i], isAsc)) {
+      logDebugError(`Activity list ${i} is not sorted`, { stack: new Error().stack });
+      lists[i] = sortActivities([...lists[i]], isAsc);
+    }
+  }
+
   return mergeSortedArrays(array1, array2, (a1, a2) => compareActivities(a1, a2, isAsc), true);
 }
 
@@ -34,6 +52,16 @@ export function mergeSortedActivityIds(
   activityById: Record<string, ApiActivity>,
   isAsc?: boolean,
 ) {
+  // It's hard to make sure the input is sorted, so we check and sort just in case.
+  // Otherwise, there may be unwanted duplicates in the returned array.
+  const lists = [ids1, ids2];
+  for (let i = 0; i < lists.length; i++) {
+    if (!areActivityIdsSorted(activityById, lists[i], isAsc)) {
+      logDebugError(`Activity id list ${i} is not sorted`, { stack: new Error().stack });
+      lists[i] = sortActivityIds(activityById, [...lists[i]], isAsc);
+    }
+  }
+
   return mergeSortedArrays(
     ids1,
     ids2,
@@ -79,4 +107,28 @@ export function mergeSortedActivityIdsToMaxTime<T extends readonly string[]>(
     ids2.filter(filterPredicate),
     activityById,
   );
+}
+
+export function areActivitiesSorted(activities: readonly ApiActivity[], isAsc?: boolean) {
+  for (let i = 1; i < activities.length; i++) {
+    if (compareActivities(activities[i - 1], activities[i], isAsc) > 0) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+export function areActivityIdsSorted(
+  activityById: Record<string, ApiActivity>,
+  ids: readonly string[],
+  isAsc?: boolean,
+) {
+  for (let i = 1; i < ids.length; i++) {
+    if (compareActivities(activityById[ids[i - 1]], activityById[ids[i]], isAsc) > 0) {
+      return false;
+    }
+  }
+
+  return true;
 }

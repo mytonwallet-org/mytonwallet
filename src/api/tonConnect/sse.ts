@@ -9,7 +9,7 @@ import nacl, { randomBytes } from 'tweetnacl';
 import type { ApiDappRequest, ApiSseOptions, OnApiUpdate } from '../types';
 import { CONNECT_EVENT_ERROR_CODES } from './types';
 
-import { SSE_BRIDGE_URL } from '../../config';
+import { IS_CAPACITOR, SSE_BRIDGE_URL } from '../../config';
 import { parseAccountId } from '../../util/account';
 import { handleFetchErrors } from '../../util/fetch';
 import { extractKey } from '../../util/iteratees';
@@ -25,11 +25,16 @@ type SseDapp = {
   url: string;
 } & ApiSseOptions;
 
-type ReturnStrategy = 'back' | 'none' | (string & {});
+// The `empty` strategy - a trick to solve the problem of long network connection initialization
+// in the Capacitor version of the app when it resumes from the background.
+// In this case, the client should show a loader, and once the real SSE connection starts,
+// the loader will be hidden.
+type ReturnStrategy = 'back' | 'none' | 'empty' | (string & {});
 
 const TTL_SEC = 300;
 const NONCE_SIZE = 24;
 const MAX_CONFIRM_DURATION = 60 * 1000;
+const SHOULD_SHOW_LOADER_ON_SSE_START = IS_CAPACITOR;
 
 let sseEventSource: EventSource | undefined;
 let sseDapps: SseDapp[] = [];
@@ -69,7 +74,8 @@ export async function startSseConnection({
         isFromInAppBrowser,
       };
     }
-    return undefined;
+
+    return SHOULD_SHOW_LOADER_ON_SSE_START ? 'empty' : undefined;
   }
 
   const connectRequest: ConnectRequest | null = safeExec(() => JSON.parse(r)) || JSON.parse(decodeURIComponent(r));
@@ -177,6 +183,11 @@ export async function resetupSseConnection() {
   sseEventSource = openEventSource(clientIds, lastEventId);
 
   sseEventSource.onopen = () => {
+    if (SHOULD_SHOW_LOADER_ON_SSE_START) {
+      onUpdate({
+        type: 'tonConnectOnline',
+      });
+    }
     logDebug('EventSource opened');
   };
 

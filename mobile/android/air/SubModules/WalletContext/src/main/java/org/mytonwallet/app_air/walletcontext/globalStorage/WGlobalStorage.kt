@@ -682,7 +682,7 @@ object WGlobalStorage {
         return globalStorageProvider.getBool("byAccountId.$accountId.isCardMinting") == true
     }
 
-    private const val LAST_STATE: Int = 44
+    private const val LAST_STATE: Int = 45
     fun migrate() {
         // Lock the storage
         incDoNotSynchronize()
@@ -696,7 +696,7 @@ object WGlobalStorage {
             return
         }
 
-        if (currentState == LAST_STATE) {
+        if (currentState >= LAST_STATE) {
             decDoNotSynchronize()
             return
         }
@@ -753,7 +753,7 @@ object WGlobalStorage {
             )
         }
 
-        if (currentState <= 44) {
+        if (currentState <= 45) {
             clearActivities()
         }
 

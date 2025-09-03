@@ -261,6 +261,11 @@ async function processTonConnectDeeplink(url: string, isFromInAppBrowser = false
     isFromInAppBrowser,
   });
 
+  // Workaround for long network connection initialization in the Capacitor version
+  if (returnUrl === 'empty') {
+    return true;
+  }
+
   closeLoadingOverlay();
 
   if (returnUrl) {
