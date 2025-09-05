@@ -1,3 +1,15 @@
+# ⚠️ Notice
+
+This repository is **no longer maintained**.  
+The latest source code of **MyTonWallet applications** is available here:  
+👉 [https://github.com/mytonwallet-org/mytonwallet](https://github.com/mytonwallet-org/mytonwallet)
+
+**MyTonWallet Air** has been fully **integrated into the main MyTonWallet application.**
+
+📢 Learn more: [💎 Meet MyTonWallet Air — The Next-Generation Mobile Experience](https://t.me/MyTonWalletEn/298)
+
+---
+
 <h1>
   <img src="public/icon-128x128.png" alt="Logo" width="32" style="vertical-align: middle; margin-right: 8px;"/>
   MyTonWallet Air (Public Beta)
