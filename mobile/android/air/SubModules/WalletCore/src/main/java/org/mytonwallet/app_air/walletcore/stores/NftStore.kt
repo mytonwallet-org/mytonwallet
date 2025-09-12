@@ -9,7 +9,6 @@ import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.constants.TelegramGiftAddresses
 import org.mytonwallet.app_air.walletcore.models.NftCollection
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
@@ -25,7 +24,15 @@ object NftStore {
         var blacklistedNftAddresses: MutableList<String> = mutableListOf(),
         var expirationByAddress: HashMap<String, Long>? = null,
         var linkedAddressByAddress: HashMap<String, String>? = null,
-    )
+    ) {
+        val telegramGiftCollectionAddresses: Set<String>
+            get() {
+                return cachedNfts
+                    ?.filter { it.isTelegramGift == true }
+                    ?.mapNotNull { it.collectionAddress }
+                    ?.toSet() ?: emptySet()
+            }
+    }
 
     @Volatile
     var nftData: NftData? = null
@@ -156,7 +163,7 @@ object NftStore {
             WalletCore.notifyEvent(if (isReorder) WalletEvent.NftsReordered else WalletEvent.NftsUpdated)
         if (!WGlobalStorage.getWasTelegramGiftsAutoAdded(accountId) &&
             nftData.cachedNfts?.any {
-                TelegramGiftAddresses.all.contains(it.collectionAddress)
+                it.isTelegramGift == true
             } == true
         ) {
             val homeNftCollections =

@@ -42,8 +42,7 @@ struct SwapChangellyView: View {
     var text: some View {
         let paragraphStyle = NSMutableParagraphStyle()
         paragraphStyle.lineSpacing = 2
-        let disclaimer = lang(
-            "$swap_changelly_agreement_message",
+        let disclaimer = lang("$swap_changelly_agreement_message",
             arg1: "[\(lang("$swap_changelly_terms_of_use"))](https://changelly.com/terms-of-use)",
             arg2: "[\(lang("$swap_changelly_privacy_policy"))](https://changelly.com/privacy-policy)",
             arg3: "[\(lang("Changelly AML/KYC"))](https://changelly.com/aml-kyc)"

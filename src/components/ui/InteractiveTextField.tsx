@@ -45,6 +45,7 @@ interface OwnProps {
   address?: string;
   addressName?: string;
   addressUrl?: string;
+  forceFullAddress?: boolean;
   isScam?: boolean;
   isTransaction?: boolean;
   text?: string;
@@ -78,6 +79,7 @@ function InteractiveTextField({
   address,
   addressName,
   addressUrl,
+  forceFullAddress = false,
   isScam,
   isTransaction,
   text = '',
@@ -252,7 +254,9 @@ function InteractiveTextField({
         )}
         {renderedContent}
         {Boolean(addressName) && (
-          <span className={buildClassName(styles.shortAddress, isScam && styles.scam)}>{shortenAddress(address!)}</span>
+          <span className={buildClassName(styles.shortAddress, isScam && styles.scam)}>
+            {forceFullAddress ? address : shortenAddress(address!)}
+          </span>
         )}
         {Boolean(copyNotification) && !shouldUseMenu && (
           <i className={buildClassName(styles.icon, 'icon-copy')} aria-hidden />

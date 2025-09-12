@@ -35,7 +35,7 @@ export function addInitialActivities(
   };
 
   // Activities from different blockchains arrive separately, which causes the order to be disrupted
-  idsMain = mergeSortedActivityIdsToMaxTime(extractKey(mainActivities, 'id'), idsMain ?? [], byId);
+  idsMain = mergeSortedActivityIdsToMaxTime(byId, extractKey(mainActivities, 'id'), idsMain ?? []);
 
   // Enforcing the requirement to have the id list undefined if it hasn't loaded yet
   if (idsMain.length === 0 && !areAllInitialActivitiesLoaded(global, accountId, areInitialActivitiesLoaded)) {
@@ -78,7 +78,7 @@ export function addNewActivities(
   byId = { ...byId, ...buildCollectionByKey(newActivities, 'id') };
 
   // Activities from different blockchains arrive separately, which causes the order to be disrupted
-  idsMain = mergeSortedActivityIds(idsMain ?? [], extractKey(newActivities, 'id'), byId);
+  idsMain = mergeSortedActivityIds(byId, idsMain ?? [], extractKey(newActivities, 'id'));
 
   const newIdsBySlug = buildActivityIdsBySlug(newActivities);
   idsBySlug = mergeIdsBySlug(idsBySlug, newIdsBySlug, byId);
@@ -144,7 +144,7 @@ export function addPastActivities(
       };
     }
   } else {
-    idsMain = mergeSortedActivityIds(idsMain ?? [], extractKey(pastActivities, 'id'), byId);
+    idsMain = mergeSortedActivityIds(byId, idsMain ?? [], extractKey(pastActivities, 'id'));
 
     if (isEndReached) {
       isMainHistoryEndReached = true;
@@ -318,7 +318,7 @@ function mergeIdsBySlug(
     ...oldIdsBySlug,
     ...mapValues(newIdsBySlug, (newIds, slug) => {
       // There may be newer local transactions in `idsBySlug`, so a sorting is needed
-      return mergeSortedActivityIds(newIds, oldIdsBySlug?.[slug] ?? [], activityById);
+      return mergeSortedActivityIds(activityById, newIds, oldIdsBySlug?.[slug] ?? []);
     }),
   };
 }
@@ -329,9 +329,10 @@ function areAllInitialActivitiesLoaded(
   newAreInitialActivitiesLoaded: Partial<Record<ApiChain, boolean>>,
 ) {
   // The initial activities may be loaded and added before the authentication completes
-  const { addressByChain } = selectAccountOrAuthAccount(global, accountId) ?? { addressByChain: {} };
+  const byChain = selectAccountOrAuthAccount(global, accountId)?.byChain ?? {};
+  const chains = Object.keys(byChain) as (keyof typeof byChain)[];
 
-  return Object.keys(addressByChain).every((chain) => newAreInitialActivitiesLoaded[chain as ApiChain]);
+  return chains.every((chain) => newAreInitialActivitiesLoaded[chain]);
 }
 
 export function updatePendingActivitiesToTrustedByReplacements(

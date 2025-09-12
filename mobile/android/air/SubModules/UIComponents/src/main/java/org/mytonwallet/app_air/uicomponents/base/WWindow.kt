@@ -6,6 +6,7 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
 import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Build
@@ -44,7 +45,9 @@ import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletcontext.theme.WColor
 import org.mytonwallet.app_air.walletcontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
+import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import java.util.function.Consumer
 import kotlin.math.min
@@ -57,6 +60,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
 
     private val touchBlockerView: View by lazy {
         View(this).apply {
+            id = View.generateViewId()
             isClickable = true
             isFocusable = true
             setOnTouchListener { _, _ -> true }
@@ -89,6 +93,10 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         private set
     var imeInsets: Insets? = null
     var isPaused = false
+        set(value) {
+            field = value
+            setAppFocusedState()
+        }
 
     private var activeAnimator: ValueAnimator? = null
 
@@ -230,6 +238,12 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
     fun updateLayoutDirection() {
         windowView.layoutDirection =
             if (LocaleController.isRTL) View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
+    }
+
+    protected fun setAppFocusedState() {
+        if (WalletCore.isBridgeReady) {
+            WalletCore.call(ApiMethod.Other.SetIsAppFocused(!isPaused), callback = { _, _ -> })
+        }
     }
 
     // Navigation Methods //////////////////////////////////////////////////////////////////////////
@@ -654,9 +668,14 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         permissions: Array<String>,
         listener: ((Array<String>, IntArray) -> Unit)
     ) {
-        val code = this.code++
-        listeners[code] = listener
-        requestPermissions(permissions, code)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val code = this.code++
+            listeners[code] = listener
+            requestPermissions(permissions, code)
+        } else {
+            val granted = intArrayOf(PackageManager.PERMISSION_GRANTED)
+            listener(permissions, granted)
+        }
     }
 
     override fun onRequestPermissionsResult(

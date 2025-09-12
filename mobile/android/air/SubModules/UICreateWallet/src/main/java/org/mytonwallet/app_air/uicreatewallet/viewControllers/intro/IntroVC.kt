@@ -23,7 +23,9 @@ import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.drawable.CheckboxDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -34,15 +36,15 @@ import org.mytonwallet.app_air.uicomponents.widgets.particles.ParticleConfig
 import org.mytonwallet.app_air.uicomponents.widgets.particles.ParticleView
 import org.mytonwallet.app_air.uicomponents.widgets.pulseView
 import org.mytonwallet.app_air.uicomponents.widgets.shakeView
-import org.mytonwallet.app_air.uicreatewallet.drawables.CheckboxDrawable
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.addAccountOptions.AddAccountOptionsVC
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.appInfo.AppInfoVC
+import org.mytonwallet.app_air.uicreatewallet.viewControllers.backup.BackupVC
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.userResponsibility.UserResponsibilityVC
-import org.mytonwallet.app_air.uicreatewallet.viewControllers.walletCreated.WalletCreatedVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
+import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletcontext.theme.WColor
 import org.mytonwallet.app_air.walletcontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
@@ -82,7 +84,11 @@ class IntroVC(
         )
         setOnClickListener {
             pulseView(0.98f, AnimationConstants.VERY_VERY_QUICK_ANIMATION)
-            tonParticlesView.addParticleSystem(ParticleConfig.particleBurstParams)
+            tonParticlesView.addParticleSystem(
+                ParticleConfig.particleBurstParams(
+                    ParticleConfig.Companion.PARTICLE_COLORS.TON
+                )
+            )
         }
     }
 
@@ -93,7 +99,8 @@ class IntroVC(
     }
 
     val subtitleLabel = WLabel(view.context).apply {
-        text = LocaleController.getString("\$securely_store_crypto")
+        text = LocaleController.getString("\$auth_intro")
+            .replace("\n", "")
             .toProcessedSpannableStringBuilder()
         gravity = Gravity.CENTER
         setStyle(17f, WFont.SemiBold)
@@ -109,7 +116,7 @@ class IntroVC(
         val btn = WLabel(context)
         btn.textAlignment = TEXT_ALIGNMENT_CENTER
         btn.setStyle(16f)
-        btn.setPadding(16.dp, 0, 16.dp, 0)
+        btn.setPaddingDp(16, 8, 16, 8)
         btn.setOnClickListener {
             push(AppInfoVC(context))
         }
@@ -120,13 +127,13 @@ class IntroVC(
         val btn = WLabel(context)
         btn.textAlignment = TEXT_ALIGNMENT_CENTER
         btn.setStyle(14f)
-        btn.setPadding(16.dp, 0, 16.dp, 8.dp)
+        btn.setPaddingDp(16, 1, 16, 8)
         btn
     }
 
     val createNewWalletButton: WButton by lazy {
         val btn = WButton(context, WButton.Type.PRIMARY)
-        btn.text = "Create New Wallet"
+        btn.text = LocaleController.getString("Create New Wallet")
         btn.setOnClickListener {
             view.lockView()
             createNewWalletButton.isLoading = true
@@ -138,7 +145,7 @@ class IntroVC(
 
     val importExistingWalletButton: WButton by lazy {
         val btn = WButton(context, WButton.Type.SECONDARY)
-        btn.text = "Import Existing Wallet"
+        btn.text = LocaleController.getString("Import Existing Wallet")
         btn.setOnClickListener {
             if (!termsAccepted) {
                 termsView.shakeView(AnimationConstants.INSTANT_ANIMATION)
@@ -178,17 +185,24 @@ class IntroVC(
                 (navigationController?.height ?: 0) -
                     (navigationController?.getSystemBars()?.top ?: 0) -
                     (navigationController?.getSystemBars()?.bottom ?: 0)
-            val minRequiredHeight = 640.dp
+            val minRequiredHeight = 657.dp
 
-            val logoTopMargin = if (screenHeight < minRequiredHeight) 40f else 63f
+            val logoTopMargin = if (screenHeight < minRequiredHeight) 40 else 80
             val titleTopMargin = if (screenHeight < minRequiredHeight) 20f else 30f
             val subtitleTopMargin = if (screenHeight < minRequiredHeight) 12f else 18f
-            val moreInfoTopMargin = if (screenHeight < minRequiredHeight) 30f else 51f
+            val moreInfoTopMargin = if (screenHeight < minRequiredHeight) 22f else 43f
 
             view.setConstraints {
-                toTop(tonParticlesView, if (screenHeight < minRequiredHeight) -23f else 0f)
+                toTopPx(
+                    tonParticlesView,
+                    (navigationController?.getSystemBars()?.top
+                        ?: 0) + (if (screenHeight < minRequiredHeight) -23 else 17).dp
+                )
                 toCenterX(tonParticlesView)
-                toTop(logoImageView, logoTopMargin)
+                toTopPx(
+                    logoImageView,
+                    (navigationController?.getSystemBars()?.top ?: 0) + logoTopMargin.dp
+                )
                 toCenterX(logoImageView)
                 topToBottom(titleLabel, logoImageView, titleTopMargin)
                 toCenterX(titleLabel, 32f)
@@ -205,7 +219,7 @@ class IntroVC(
                 bottomToTop(createNewWalletButton, importExistingWalletButton, 16f)
                 toCenterX(createNewWalletButton, 32f)
                 bottomToTop(termsView, createNewWalletButton, 20f)
-                toCenterX(termsView)
+                toCenterX(termsView, 32f)
             }
         }
 
@@ -217,7 +231,7 @@ class IntroVC(
         val backgroundColor = WColor.Background.color
         view.setBackgroundColor(backgroundColor)
         tonParticlesView.setParticleBackgroundColor(backgroundColor)
-        moreInfoButton.addRippleEffect(WColor.BackgroundRipple.color, 16f.dp)
+        moreInfoButton.addRippleEffect(WColor.BackgroundRipple.color, ViewConstants.BIG_RADIUS.dp)
         checkboxDrawable.checkedColor = WColor.Tint.color
         checkboxDrawable.uncheckedColor = WColor.SecondaryText.color
         checkboxDrawable.checkmarkColor = Color.WHITE
@@ -279,12 +293,12 @@ class IntroVC(
     @SuppressLint("ClickableViewAccessibility")
     private fun updateTermsLabel() {
         val attr = SpannableStringBuilder()
-        val termsString = "use the wallet responsibly"
+        val termsString = LocaleController.getString("use the wallet responsibly")
         checkboxDrawable.setBounds(
-            0,
-            0,
-            checkboxDrawable.intrinsicWidth,
-            checkboxDrawable.intrinsicHeight
+            (-2).dp,
+            1,
+            checkboxDrawable.intrinsicWidth + 2.dp,
+            checkboxDrawable.intrinsicHeight + 1
         )
         val imageSpan = ImageSpan(checkboxDrawable, ImageSpan.ALIGN_BOTTOM)
         attr.append(" ")
@@ -368,10 +382,11 @@ class IntroVC(
     override fun mnemonicGenerated(words: Array<String>) {
         createNewWalletButton.isLoading = false
         if (!WGlobalStorage.isPasscodeSet()) {
-            push(WalletCreatedVC(context, words = words, true, null), onCompletion = {
+            push(BackupVC(context, words = words, true, null), onCompletion = {
                 view.unlockView()
             })
         } else {
+            // Won't happen unless we present IntroVC somewhere in the app, when some passcode protected accounts already exist.
             val passcodeConfirmVC = PasscodeConfirmVC(
                 context,
                 PasscodeViewState.Default(
@@ -383,7 +398,7 @@ class IntroVC(
                 ),
                 task = { passcode ->
                     navigationController?.push(
-                        WalletCreatedVC(context, words = words, false, passcode),
+                        BackupVC(context, words = words, false, passcode),
                         onCompletion = {
                             navigationController?.removePrevViewControllerOnly()
                         })

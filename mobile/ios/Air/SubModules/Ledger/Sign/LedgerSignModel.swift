@@ -95,9 +95,9 @@ public final class LedgerSignModel: LedgerBaseModel, @unchecked Sendable {
                 let network = AccountStore.activeNetwork
                 let index = ledger.index
                 let path = APDUHelpers.getLedgerAccountPath(isTestnet: network == .testnet, workChain: 0, index: Int32(index))
-                var result: Api.SignTonProofResult?
+                var result: ApiSignTonProofResult?
                 if let proof {
-                    result = try await Api.signTonProof(accountId: accountId, proof: proof, password: "")
+                    result = try await Api.signTonProof(accountId: accountId, proof: proof, password: nil)
                 }
                 try await Api.confirmDappRequestConnect(
                     promiseId: promiseId,
@@ -115,7 +115,7 @@ public final class LedgerSignModel: LedgerBaseModel, @unchecked Sendable {
             do {
                 let txId = try await Api.submitNftTransfers(
                     accountId: accountId,
-                    password: "",
+                    password: nil,
                     nfts: [nft],
                     toAddress: toAddress,
                     comment: comment,
@@ -129,9 +129,9 @@ public final class LedgerSignModel: LedgerBaseModel, @unchecked Sendable {
         case .staking(isStaking: let isStaking, accountId: let accountId, amount: let amount, stakingState: let stakingState, realFee: let realFee):
             do {
                 let txId = if isStaking {
-                    try await Api.submitStake(accountId: accountId, password: "", amount: amount, state: stakingState, realFee: realFee)
+                    try await Api.submitStake(accountId: accountId, password: nil, amount: amount, state: stakingState, realFee: realFee)
                 } else {
-                    try await Api.submitUnstake(accountId: accountId, password: "", amount: amount, state: stakingState, realFee: realFee)
+                    try await Api.submitUnstake(accountId: accountId, password: nil, amount: amount, state: stakingState, realFee: realFee)
                 }
                 log.info("\(txId)")
             } catch {
@@ -140,7 +140,7 @@ public final class LedgerSignModel: LedgerBaseModel, @unchecked Sendable {
         
         case let .submitStakingClaimOrUnlock(accountId, state, realFee):
             do {
-                _ = try await Api.submitStakingClaimOrUnlock(accountId: accountId, password: "", state: state, realFee: realFee)
+                _ = try await Api.submitStakingClaimOrUnlock(accountId: accountId, password: nil, state: state, realFee: realFee)
             } catch {
                 log.error("\(error, .public)")
                 throw error

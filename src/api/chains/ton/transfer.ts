@@ -3,7 +3,7 @@ import { Cell, internal, SendMode } from '@ton/core';
 import type { DieselStatus } from '../../../global/types';
 import type { CheckTransactionDraftOptions } from '../../methods/types';
 import type {
-  ApiAccountWithTon,
+  ApiAccountWithChain,
   ApiAnyDisplayError,
   ApiNetwork,
   ApiParsedPayload,
@@ -52,7 +52,7 @@ import {
   parseBase64,
   parseStateInitCell,
 } from './util/tonCore';
-import { fetchStoredTonAccount, fetchStoredTonWallet } from '../../common/accounts';
+import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/accounts';
 import { callBackendGet } from '../../common/backend';
 import { withoutTransferConcurrency } from '../../common/preventTransferConcurrency';
 import { getTokenByAddress } from '../../common/tokens';
@@ -149,8 +149,8 @@ export async function checkTransactionDraft(
       };
     }
 
-    const account = await fetchStoredTonAccount(accountId);
-    const wallet = getTonWallet(account.ton);
+    const account = await fetchStoredChainAccount(accountId, 'ton');
+    const wallet = getTonWallet(account.byChain.ton);
 
     if (typeof data === 'string' && isBase64Data) {
       data = base64ToBytes(data);
@@ -166,7 +166,7 @@ export async function checkTransactionDraft(
       }
     }
 
-    const { address, isInitialized: isWalletInitialized } = account.ton;
+    const { address, isInitialized: isWalletInitialized } = account.byChain.ton;
 
     if (data && typeof data === 'string' && !isBase64Data) {
       data = commentToBytes(data);
@@ -353,9 +353,9 @@ export async function submitTransfer(options: ApiSubmitTransferOptions): Promise
   const { network } = parseAccountId(accountId);
 
   try {
-    const account = await fetchStoredTonAccount(accountId);
-    const { address: fromAddress, isInitialized } = account.ton;
-    const wallet = getTonWallet(account.ton);
+    const account = await fetchStoredChainAccount(accountId, 'ton');
+    const { address: fromAddress, isInitialized } = account.byChain.ton;
+    const wallet = getTonWallet(account.byChain.ton);
     const signer = getSigner(accountId, account, password);
 
     let encryptedComment: string | undefined;
@@ -476,8 +476,8 @@ export async function submitTransferWithDiesel(options: {
 
     const { network } = parseAccountId(accountId);
 
-    const account = await fetchStoredTonAccount(accountId);
-    const { address: fromAddress, version } = account.ton;
+    const account = await fetchStoredChainAccount(accountId, 'ton');
+    const { address: fromAddress, version } = account.byChain.ton;
 
     let encryptedComment: string | undefined;
 
@@ -595,7 +595,7 @@ export async function checkMultiTransactionDraft(
   let totalAmount: bigint = 0n;
 
   const { network } = parseAccountId(accountId);
-  const account = await fetchStoredTonAccount(accountId);
+  const account = await fetchStoredChainAccount(accountId, 'ton');
 
   try {
     for (const { toAddress, amount } of messages) {
@@ -616,11 +616,11 @@ export async function checkMultiTransactionDraft(
     // Check individual token balances
     const { hasInsufficientTokenBalance, parsedPayloads } = await isTokenBalanceInsufficient(
       network,
-      account.ton.address,
+      account.byChain.ton.address,
       messages,
     );
 
-    const wallet = getTonWallet(account.ton);
+    const wallet = getTonWallet(account.byChain.ton);
     const { seqno, balance } = await getWalletInfo(network, wallet);
 
     const signer = getSigner(accountId, account, undefined, true);
@@ -628,7 +628,12 @@ export async function checkMultiTransactionDraft(
     if ('error' in signingResult) return signingResult;
 
     const emulation = applyFeeFactorToEmulationResult(
-      await emulateTransactionWithFallback(network, wallet, signingResult.transaction, account.ton.isInitialized),
+      await emulateTransactionWithFallback(
+        network,
+        wallet,
+        signingResult.transaction,
+        account.byChain.ton.isInitialized,
+      ),
     );
     const result = { emulation, parsedPayloads };
 
@@ -757,11 +762,11 @@ export async function submitMultiTransfer({
 }: SubmitMultiTransferOptions): Promise<ApiSubmitMultiTransferResult> {
   const { network } = parseAccountId(accountId);
 
-  const account = await fetchStoredTonAccount(accountId);
-  const { address: fromAddress, isInitialized, version } = account.ton;
+  const account = await fetchStoredChainAccount(accountId, 'ton');
+  const { address: fromAddress, isInitialized, version } = account.byChain.ton;
 
   try {
-    const wallet = getTonWallet(account.ton);
+    const wallet = getTonWallet(account.byChain.ton);
 
     let totalAmount = 0n;
     messages.forEach((message) => {
@@ -838,14 +843,17 @@ export async function signTransfers(
   /** Used for specific transactions on vesting.ton.org */
   ledgerVestingAddress?: string,
 ): Promise<ApiSignedTransfer[] | { error: ApiAnyDisplayError }> {
-  const account = await fetchStoredTonAccount(accountId);
+  const account = await fetchStoredChainAccount(accountId, 'ton');
 
   // If there is an outgoing transfer in progress, this expression waits for it to finish. This helps to avoid seqno
   // mismatches. This is not fully reliable, because the signed transactions are sent by a separate API method, but it
   // works in most cases.
-  await withoutTransferConcurrency(parseAccountId(accountId).network, account.ton.address, () => {});
+  await withoutTransferConcurrency(parseAccountId(accountId).network, account.byChain.ton.address, () => {});
 
-  const seqno = await getWalletSeqno(parseAccountId(accountId).network, ledgerVestingAddress ?? account.ton.address);
+  const seqno = await getWalletSeqno(
+    parseAccountId(accountId).network,
+    ledgerVestingAddress ?? account.byChain.ton.address,
+  );
   const signer = getSigner(
     accountId,
     account,
@@ -863,7 +871,7 @@ export async function signTransfers(
 }
 
 interface SignTransactionOptions {
-  account: ApiAccountWithTon;
+  account: ApiAccountWithChain<'ton'>;
   doPayFeeFromAmount?: boolean;
   messages: TonTransferParams[];
   seqno: number;
@@ -1005,7 +1013,7 @@ async function emulateTransactionWithFallback(
 
 export async function sendSignedTransactions(accountId: string, transactions: ApiSignedTransfer[]) {
   const { network } = parseAccountId(accountId);
-  const { address: fromAddress, publicKey, version } = await fetchStoredTonWallet(accountId);
+  const { address: fromAddress, publicKey, version } = await fetchStoredWallet(accountId, 'ton');
   const client = getTonClient(network);
   const wallet = buildWallet(publicKey!, version);
 
@@ -1043,14 +1051,6 @@ export async function sendSignedTransactions(accountId: string, transactions: Ap
   });
 }
 
-export async function decryptComment(
-  accountId: string, encryptedComment: string, fromAddress: string, password: string,
-) {
-  const account = await fetchStoredTonAccount(accountId);
-  const signer = getSigner(accountId, account, password);
-  return signer.decryptComment(Buffer.from(encryptedComment, 'base64'), fromAddress);
-}
-
 /**
  * The goal of the function is acting like `checkTransactionDraft` but return only the diesel information
  */
@@ -1085,7 +1085,7 @@ async function getDiesel({
   const { network } = parseAccountId(accountId);
   if (network !== 'mainnet') return DIESEL_NOT_AVAILABLE;
 
-  const storedTonWallet = await fetchStoredTonWallet(accountId);
+  const storedTonWallet = await fetchStoredWallet(accountId, 'ton');
   const wallet = getTonWallet(storedTonWallet);
 
   const token = getTokenByAddress(tokenAddress);

@@ -214,7 +214,7 @@ $tiny_transfers_help: "Hide transfers worth less than $%value%. Keep in mind: sm
 Today: Today
 Yesterday: Yesterday
 Now: Now
-$receive_ton_description: Scan this QR or share your address to top up your wallet balance.
+$receive_description: Scan this QR or share your address to top up your wallet balance.
 Wrong password, please try again.: Wrong password, please try again.
 Appearance: Appearance
 Light: Light
@@ -680,7 +680,6 @@ Untitled: Untitled
 Multichain: Multichain
 $swap_too_small_amount: Too small amount
 Not enough %symbol%: Not enough %symbol%
-$receive_tron_description: Scan this QR or share your address to top up your wallet balance.
 You have just created a new multichain wallet: You have just created a new multichain wallet
 Now you can transfer tokens from your TON and TRON wallets.: Now you can transfer tokens from your TON and TRON wallets.
 Enter Secret Words: Enter Secret Words
@@ -844,7 +843,7 @@ Not available with biometrics.: Not available with biometrics.
 App will not ask for signature for %1$d minutes after last entry.: The app will not ask for a signature for %1$d minutes after the last entry.
 Remember for %1$d minutes: Remember for %1$d minutes
 Preview: Preview
-$preview_not_guaranteed: Preview result **is not guaranteed **and **can be forged **by the service.
+$preview_not_guaranteed: Preview result **is not guaranteed** and **can be forged** by the service.
 Unverified Source: Unverified Source
 $reopen_in_iab: For your safety, please re-open this dapp in %browserButton%.
 MyTonWallet Browser: MyTonWallet Browser

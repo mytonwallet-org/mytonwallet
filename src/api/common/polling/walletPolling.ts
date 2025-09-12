@@ -2,6 +2,7 @@ import type { ApiChain, ApiNetwork } from '../../types';
 import type { WalletWatcher } from '../backendSocket';
 import type { Period } from './utils';
 
+import { getChainConfig } from '../../../util/chain';
 import { focusAwareDelay } from '../../../util/focusAwareDelay';
 import { pause, throttle } from '../../../util/schedulers';
 import { getBackendSocket } from '../backendSocket';
@@ -22,7 +23,7 @@ export interface WalletPollingOptions {
    * How much time the fallback polling will start after the socket disconnects.
    * Also applies at the very beginning (until the socket is connected).
    */
-  fallbackUpdateStartDelay: number;
+  fallbackUpdateStartDelay: Period;
   /** Update periods when the socket is disconnected */
   fallbackUpdatePeriod: Period;
   /** Update periods when the socket is connected but there is no new activity coming */
@@ -46,7 +47,7 @@ export interface WalletPollingOptions {
 export class WalletPolling {
   #options: WalletPollingOptions;
 
-  #walletWatcher: WalletWatcher;
+  #walletWatcher?: WalletWatcher;
 
   #fallbackPollingScheduler: FallbackPollingScheduler;
 
@@ -57,24 +58,27 @@ export class WalletPolling {
 
   constructor(options: WalletPollingOptions) {
     this.#options = options;
+    const doesSupportSocket = getChainConfig(options.chain).doesBackendSocketSupport;
 
-    this.#walletWatcher = getBackendSocket(options.network).watchWallets(
-      [{
-        chain: options.chain,
-        events: ['activity'],
-        address: options.address,
-      }],
-      {
-        onNewActivity: this.#handleSocketNewActivity,
-        onConnect: this.#handleSocketConnect,
-        onDisconnect: this.#handleSocketDisconnect,
-      },
-    );
+    if (doesSupportSocket) {
+      this.#walletWatcher = getBackendSocket(options.network).watchWallets(
+        [{
+          chain: options.chain,
+          events: ['activity'],
+          address: options.address,
+        }],
+        {
+          onNewActivity: this.#handleSocketNewActivity,
+          onConnect: this.#handleSocketConnect,
+          onDisconnect: this.#handleSocketDisconnect,
+        },
+      );
+    }
 
-    this.#fallbackPollingScheduler = new FallbackPollingScheduler(this.#walletWatcher.isConnected, {
+    this.#fallbackPollingScheduler = new FallbackPollingScheduler(this.#walletWatcher?.isConnected ?? false, {
       pollOnStart: options.updateOnStart,
       minPollDelay: options.minUpdateDelay,
-      pollingStartDelay: options.fallbackUpdateStartDelay,
+      pollingStartDelay: doesSupportSocket ? options.fallbackUpdateStartDelay : undefined, // If the backend socket doesn't support this chain, the polling should start sooner
       pollingPeriod: options.fallbackUpdatePeriod,
       forcedPollingPeriod: options.forceUpdatePeriod,
       poll: this.#triggerBackupNotifications,
@@ -83,7 +87,7 @@ export class WalletPolling {
 
   public destroy() {
     this.#isDestroyed = true;
-    this.#walletWatcher.destroy();
+    this.#walletWatcher?.destroy();
     this.#fallbackPollingScheduler.destroy();
   }
 

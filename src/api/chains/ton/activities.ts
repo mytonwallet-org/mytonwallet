@@ -1,4 +1,11 @@
-import type { ApiActivity, ApiNetwork, ApiSwapActivity, ApiTransactionActivity } from '../../types';
+import type {
+  ApiActivity,
+  ApiDecryptCommentOptions,
+  ApiFetchActivitySliceOptions,
+  ApiNetwork,
+  ApiSwapActivity,
+  ApiTransactionActivity,
+} from '../../types';
 import type { AnyAction, CallContractAction, JettonTransferAction, SwapAction } from './toncenter/types';
 import type { ParsedTrace, ParsedTracePart } from './types';
 
@@ -7,12 +14,13 @@ import { parseAccountId } from '../../../util/account';
 import { getActivityTokenSlugs, getIsActivityPending } from '../../../util/activities';
 import { sortActivities } from '../../../util/activities/order';
 import { fromDecimal, toDecimal } from '../../../util/decimals';
-import { intersection } from '../../../util/iteratees';
+import { buildCollectionByKey, findDifference, intersection, split } from '../../../util/iteratees';
 import { logDebug, logDebugError } from '../../../util/logs';
 import { pause } from '../../../util/schedulers';
 import withCacheAsync from '../../../util/withCacheAsync';
+import { getSigner } from './util/signer';
 import { resolveTokenWalletAddress } from './util/tonCore';
-import { fetchStoredTonWallet } from '../../common/accounts';
+import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/accounts';
 import { getTokenBySlug, tokensPreload } from '../../common/tokens';
 import { SEC } from '../../constants';
 import { OpCode, OUR_FEE_PAYLOAD_BOC } from './constants';
@@ -27,6 +35,9 @@ type ActivityDetailsResult = {
 
 const GET_TRANSACTIONS_LIMIT = 128;
 
+const RELOAD_ACTIVITIES_ATTEMPTS = 4;
+const RELOAD_ACTIVITIES_PAUSE = SEC;
+
 const TRACE_ATTEMPT_COUNT = 5;
 const TRACE_RETRY_DELAY = SEC;
 
@@ -39,16 +50,15 @@ export const checkHasTransaction = withCacheAsync(async (network: ApiNetwork, ad
   return Boolean(transactions.length);
 });
 
-export async function fetchActivitySlice(
-  accountId: string,
-  tokenSlug?: string,
-  toTimestamp?: number,
-  fromTimestamp?: number,
-  limit?: number,
-  shouldIncludeFrom?: boolean,
-): Promise<ApiActivity[]> {
+export async function fetchActivitySlice({
+  accountId,
+  tokenSlug,
+  toTimestamp,
+  fromTimestamp,
+  limit,
+}: ApiFetchActivitySliceOptions): Promise<ApiActivity[]> {
   const { network } = parseAccountId(accountId);
-  const { address } = await fetchStoredTonWallet(accountId);
+  const { address } = await fetchStoredWallet(accountId, 'ton');
   let activities: ApiActivity[];
 
   if (!tokenSlug) {
@@ -59,7 +69,6 @@ export async function fetchActivitySlice(
       limit: limit ?? GET_TRANSACTIONS_LIMIT,
       fromTimestamp,
       toTimestamp,
-      shouldIncludeFrom,
     });
   } else {
     let tokenWalletAddress = address;
@@ -76,7 +85,6 @@ export async function fetchActivitySlice(
       limit: limit ?? GET_TRANSACTIONS_LIMIT,
       fromTimestamp,
       toTimestamp,
-      shouldIncludeFrom,
     });
 
     activities = activities.filter((activity) => getActivityTokenSlugs(activity).includes(tokenSlug));
@@ -84,15 +92,78 @@ export async function fetchActivitySlice(
 
   // Even though the activities returned by the API are sorted by timestamp, our sorting may differ.
   // It's important to ensuring our sorting, because otherwise `mergeSortedActivities` may leave duplicates.
-  return sortActivities(activities);
+  activities = sortActivities(activities);
+
+  return reloadIncompleteActivities(network, address, activities);
+}
+
+export async function reloadIncompleteActivities(network: ApiNetwork, address: string, activities: ApiActivity[]) {
+  try {
+    let actionIdsToReload = activities
+      .filter((activity) => activity.shouldReload)
+      .map((activity) => parseActionActivityId(activity.id).actionId);
+
+    for (let attempt = 0; attempt < RELOAD_ACTIVITIES_ATTEMPTS && actionIdsToReload.length; attempt++) {
+      logDebug(`Reload incomplete activities #${attempt + 1}`, actionIdsToReload);
+      await pause(RELOAD_ACTIVITIES_PAUSE);
+
+      ({ activities, actionIdsToReload } = await tryReloadIncompleteActivities(
+        network,
+        address,
+        activities,
+        actionIdsToReload,
+      ));
+    }
+  } catch (err) {
+    logDebugError('reloadIncompleteActivities', err);
+  }
+
+  return activities;
+}
+
+async function tryReloadIncompleteActivities(
+  network: ApiNetwork,
+  address: string,
+  activities: ApiActivity[],
+  actionIdsToReload: string[],
+) {
+  const actionIdBatches = split(actionIdsToReload, GET_TRANSACTIONS_LIMIT);
+
+  const batchResults = await Promise.all(actionIdBatches.map(async (actionIds) => {
+    const reloadedActivities = await fetchActions({
+      network,
+      filter: { actionId: actionIds },
+      walletAddress: address,
+      limit: GET_TRANSACTIONS_LIMIT,
+    });
+    return reloadedActivities.filter((activity) => !activity.shouldReload);
+  }));
+
+  const reloadedActivities = batchResults.flat();
+
+  if (reloadedActivities.length) {
+    const replaceById = buildCollectionByKey(reloadedActivities, 'id');
+    const reloadedActionIds = reloadedActivities.map((activity) => parseActionActivityId(activity.id).actionId);
+
+    activities = activities.map((activity) => replaceById[activity.id] ?? activity);
+    actionIdsToReload = findDifference(actionIdsToReload, reloadedActionIds);
+  }
+
+  return { activities, actionIdsToReload };
+}
+
+export async function decryptComment({ accountId, activity, password }: ApiDecryptCommentOptions) {
+  const account = await fetchStoredChainAccount(accountId, 'ton');
+  const signer = getSigner(accountId, account, password);
+  return signer.decryptComment(Buffer.from(activity.encryptedComment, 'base64'), activity.fromAddress);
 }
 
 export async function fetchActivityDetails(
   accountId: string,
   activity: ApiActivity,
-): Promise<ActivityDetailsResult | undefined> {
+): Promise<ApiActivity | undefined> {
   const { network } = parseAccountId(accountId);
-  const { address: walletAddress } = await fetchStoredTonWallet(accountId);
+  const { address: walletAddress } = await fetchStoredWallet(accountId, 'ton');
   let result: ActivityDetailsResult | undefined;
 
   // The trace can be unavailable immediately after the action is received, so a couple of delayed retries are made
@@ -118,7 +189,7 @@ export async function fetchActivityDetails(
     logDebugError('Trace unavailable for activity', activity.id);
   }
 
-  return result;
+  return result?.activity;
 }
 
 export function calculateActivityDetails(

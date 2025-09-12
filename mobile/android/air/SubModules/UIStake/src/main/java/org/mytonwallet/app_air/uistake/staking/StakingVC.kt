@@ -125,7 +125,7 @@ class StakingVC(
         super.setupViews()
 
         setNavTitle(
-            if (stakingViewModel.isStake()) LocaleController.getString("Add stake")
+            if (stakingViewModel.isStake()) LocaleController.getString("Add Stake")
             else LocaleController.getString("\$unstake_action")
         )
         setupNavBar(true)

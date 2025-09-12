@@ -29,7 +29,7 @@ import {
   TRX_SWAP_COUNT_FEE_ADDRESS,
 } from '../../../config';
 import { Big } from '../../../lib/big.js';
-import { parseTxId } from '../../../util/activities';
+import { getIsActivityPendingForUser, parseTxId } from '../../../util/activities';
 import { getDoesUsePinPad } from '../../../util/biometrics';
 import { findChainConfig, getChainConfig } from '../../../util/chain';
 import { fromDecimal, roundDecimal, toDecimal } from '../../../util/decimals';
@@ -117,7 +117,7 @@ function buildSwapBuildRequest(global: GlobalState): ApiSwapBuildRequest {
     toAmount,
     toMinAmount: amountOutMin!,
     slippage,
-    fromAddress: (account?.addressByChain[tokenIn.chain as ApiChain] || account?.addressByChain.ton)!,
+    fromAddress: (account?.byChain[tokenIn.chain as ApiChain] || account?.byChain.ton)!.address,
     shouldTryDiesel: shouldSwapBeGasless({ ...global.currentSwap, swapType, nativeTokenInBalance }),
     dexLabel: currentDexLabel!,
     networkFee: realNetworkFee ?? networkFee!,
@@ -174,7 +174,7 @@ function processNativeMaxSwap(global: GlobalState) {
 }
 
 function getSupportedChains(global: GlobalState) {
-  return Object.keys(selectAccount(global, global.currentAccountId!)?.addressByChain || { ton: true }) as ApiChain[];
+  return Object.keys(selectAccount(global, global.currentAccountId!)?.byChain || { ton: true }) as ApiChain[];
 }
 
 addActionHandler('startSwap', async (global, actions, payload) => {
@@ -344,8 +344,8 @@ addActionHandler('submitSwapCex', async (global, actions, { password }) => {
     ? supportedChains.includes(tokenIn.chain as ApiChain)
     : tokenIn.chain === 'ton';
 
-  const tonAddress = account!.addressByChain.ton!;
-  const toAddress = account?.addressByChain[tokenOut.chain as ApiChain] ?? global.currentSwap.toAddress!;
+  const tonAddress = account!.byChain.ton!.address;
+  const toAddress = account?.byChain[tokenOut.chain as ApiChain]?.address ?? global.currentSwap.toAddress!;
 
   const swapBuildRequest = buildSwapBuildRequest(global);
   const swapTransactionRequest: ApiSwapCexCreateTransactionRequest = {
@@ -547,7 +547,7 @@ async function estimateDexSwap(global: GlobalState): Promise<SwapEstimateResult>
   const to = tokenOut.slug === TONCOIN.slug ? tokenOut.symbol : tokenOut.tokenAddress!;
   const { fromAmount, isFromAmountMax } = processNativeMaxSwap(global);
   const toAmount = global.currentSwap.amountOut ?? '0';
-  const fromAddress = selectCurrentAccount(global)!.addressByChain.ton!;
+  const fromAddress = selectCurrentAccount(global)!.byChain.ton!.address;
 
   const estimateAmount = global.currentSwap.inputSource === SwapInputSource.In ? { fromAmount } : { toAmount };
 
@@ -657,7 +657,7 @@ async function estimateCexSwap(global: GlobalState, shouldStop: () => boolean): 
     }
 
     const toAddress = {
-      ton: account!.addressByChain.ton!,
+      ton: account!.byChain.ton!.address,
       tron: TRX_SWAP_COUNT_FEE_ADDRESS,
     }[tokenIn.chain];
 
@@ -794,7 +794,7 @@ addActionHandler('updatePendingSwaps', async (global) => {
   const ids = Object.values(activities.byId)
     .filter((activity) => Boolean(
       activity.kind === 'swap'
-      && (activity.status === 'pending' || activity.status === 'pendingTrusted')
+      && getIsActivityPendingForUser(activity)
       && activity.cex,
     ))
     .map(({ id }) => parseTxId(id).hash);

@@ -7,13 +7,13 @@ import type { ApiTransferToSign } from '../types';
 
 import chains from '../chains';
 import { getSigner } from '../chains/ton/util/signer';
-import { fetchStoredTonAccount } from '../common/accounts';
+import { fetchStoredChainAccount } from '../common/accounts';
 import { getTokenBySlug } from '../common/tokens';
 
 export { startSseConnection } from '../tonConnect/sse';
 
 export async function signTonProof(accountId: string, proof: ApiTonConnectProof, password?: string) {
-  const account = await fetchStoredTonAccount(accountId);
+  const account = await fetchStoredChainAccount(accountId, 'ton');
   const signer = getSigner(accountId, account, password);
   const signature = await signer.signTonProof(proof);
   if ('error' in signature) return signature;
@@ -64,14 +64,14 @@ export async function signData(accountId: string, dappUrl: string, payloadToSign
   const timestamp = Math.floor(Date.now() / 1000);
   const domain = new URL(dappUrl).host;
 
-  const account = await fetchStoredTonAccount(accountId);
+  const account = await fetchStoredChainAccount(accountId, 'ton');
   const signer = getSigner(accountId, account, password);
   const signature = await signer.signData(timestamp, domain, payloadToSign);
   if ('error' in signature) return signature;
 
   const result: SignDataRpcResponseSuccess['result'] = {
     signature: signature.toString('base64'),
-    address: account.ton.address,
+    address: account.byChain.ton.address,
     timestamp,
     domain,
     payload: payloadToSign,

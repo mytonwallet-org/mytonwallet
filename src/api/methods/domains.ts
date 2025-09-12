@@ -3,8 +3,8 @@ import type { ApiNft } from '../types';
 import { TONCOIN } from '../../config';
 import { buildCollectionByKey, extractKey } from '../../util/iteratees';
 import chains from '../chains';
-import { fetchStoredTonWallet } from '../common/accounts';
-import { createLocalTransactions } from './transactions';
+import { fetchStoredWallet } from '../common/accounts';
+import { createLocalTransactions } from './transfer';
 
 const { ton } = chains;
 
@@ -14,7 +14,7 @@ export function checkDnsRenewalDraft(accountId: string, nfts: ApiNft[]) {
 }
 
 export async function submitDnsRenewal(accountId: string, password: string | undefined, nfts: ApiNft[], realFee = 0n) {
-  const { address: fromAddress } = await fetchStoredTonWallet(accountId);
+  const { address: fromAddress } = await fetchStoredWallet(accountId, 'ton');
 
   const nftByAddress = buildCollectionByKey(nfts, 'address');
   const results: ({ activityIds: string[] } | { error: string })[] = [];
@@ -60,7 +60,7 @@ export async function submitDnsChangeWallet(
   address: string,
   realFee = 0n,
 ) {
-  const { address: walletAddress } = await fetchStoredTonWallet(accountId);
+  const { address: walletAddress } = await fetchStoredWallet(accountId, 'ton');
   const result = await ton.submitDnsChangeWallet(accountId, password, nft.address, address);
 
   if ('error' in result) {

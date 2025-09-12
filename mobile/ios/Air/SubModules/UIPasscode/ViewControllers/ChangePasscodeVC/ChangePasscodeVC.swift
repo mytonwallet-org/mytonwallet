@@ -52,7 +52,7 @@ public class ChangePasscodeVC: WViewController {
             title = lang("Set a passcode")
             break
         case .verifyPasscode(_, _):
-            title = lang("Confirm a passcode")
+            title = lang("Confirm Password")
         }
         passcodeScreenView = PasscodeScreenView(title: title,
                                                 biometricPassAllowed: false,

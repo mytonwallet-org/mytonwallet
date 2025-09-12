@@ -5,6 +5,7 @@ export * from './errors';
 export * from './backend';
 export * from './backendSocket';
 export * from './storage';
-export * from './activity';
+export * from './activities';
 export * from './notifications';
 export * from './emulation';
+export * from './ledger';

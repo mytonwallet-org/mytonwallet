@@ -51,7 +51,7 @@ class AppearanceVC(context: Context) : WViewController(context) {
                 hasTintColor = false
             ),
             value = null,
-            isFirst = true,
+            isFirst = false,
             isLast = true,
             onTap = {
                 WalletCore.switchingToLegacy()
@@ -111,7 +111,7 @@ class AppearanceVC(context: Context) : WViewController(context) {
                             }
                         }
                     },
-                    popupWidth = 130.dp,
+                    popupWidth = WRAP_CONTENT,
                     aboveView = false
                 )
             }
@@ -161,7 +161,7 @@ class AppearanceVC(context: Context) : WViewController(context) {
 
                     addUpdateListener { animator ->
                         val radius = animator.animatedValue as Float
-                        appThemeView.setBackgroundColor(
+                        switchToLegacyCell.setBackgroundColor(
                             WColor.Background.color,
                             radius,
                             ViewConstants.BIG_RADIUS.dp,

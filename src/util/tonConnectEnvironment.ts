@@ -1,6 +1,6 @@
 import type { DeviceInfo, Feature } from '@tonconnect/protocol';
 
-import type { ApiAccountWithTon } from '../api/types';
+import type { ApiAccountWithChain } from '../api/types';
 
 import {
   APP_NAME, IS_EXTENSION, IS_TELEGRAM_APP, TONCONNECT_PROTOCOL_VERSION,
@@ -15,7 +15,7 @@ type DevicePlatform = DeviceInfo['platform'];
  This function is called in TonConnect `connect` method (where we know the wallet version)
  and in JS Bridge (where no account is selected, so we show maximum number of messages).
 */
-export function tonConnectGetDeviceInfo(account?: ApiAccountWithTon): DeviceInfo {
+export function tonConnectGetDeviceInfo(account?: ApiAccountWithChain<'ton'>): DeviceInfo {
   const features: Feature[] = [
     'SendTransaction', // TODO DEPRECATED
     {
@@ -41,7 +41,7 @@ export function tonConnectGetDeviceInfo(account?: ApiAccountWithTon): DeviceInfo
 }
 
 /** How many messages can be sent in a single TON Connect transaction sending */
-export function getTonConnectMaxMessages(account: ApiAccountWithTon) {
+export function getTonConnectMaxMessages(account: ApiAccountWithChain<'ton'>) {
   const { type } = account;
 
   if (type === 'ledger') {

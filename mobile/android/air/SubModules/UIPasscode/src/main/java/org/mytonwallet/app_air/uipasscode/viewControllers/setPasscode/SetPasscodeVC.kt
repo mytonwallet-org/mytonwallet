@@ -31,8 +31,7 @@ class SetPasscodeVC(
     private val askToActivateBiometrics: Boolean,
     private val confirmingPasscode: String?,
     private val onCompletion: (passcode: String, isBiometricRequested: Boolean) -> Unit
-) :
-    WViewController(context), PasscodeInputView.Delegate {
+) : WViewController(context), PasscodeInputView.Delegate {
 
     override val shouldDisplayTopBar = false
 
@@ -42,30 +41,23 @@ class SetPasscodeVC(
     private val headerView: HeaderAndActionsView by lazy {
         val v = HeaderAndActionsView(
             context,
-            R.raw.animation_lock,
-            null,
-            false,
-            if (confirmingPasscode == null) LocaleController.getString("Set a Passcode") else LocaleController.getString(
-                "Confirm Passcode"
+            HeaderAndActionsView.Media.Animation(
+                animation = R.raw.animation_guard,
+                repeat = true
             ),
-            if (confirmingPasscode == null) LocaleController.getFormattedString(
-                "Enter the %1$@ digits in the passcode.",
-                listOf("4")
-            ) else LocaleController.getFormattedString(
-                "Enter the %1$@ digits in the passcode.",
-                listOf(confirmingPasscode.length.toString())
-            ),
+            title = LocaleController.getString("The wallet is ready"),
+            subtitle = LocaleController.getString(if (confirmingPasscode == null) "Create a code to protect it" else "Enter your code again"),
             onStarted = {
                 passcodeInputView.fadeIn()
                 switchLengthButton.fadeIn()
-            }
+            },
+            textsGap = 13f
         )
-        v.toggle(false)
         v
     }
 
     private val passcodeInputView: PasscodeInputView by lazy {
-        val v = PasscodeInputView(context, WeakReference(this))
+        val v = PasscodeInputView(context, WeakReference(this), showKeyboardOnFocus = true)
         if (confirmingPasscode != null)
             v.passLength = confirmingPasscode.length
         v.alpha = 0f
@@ -106,11 +98,11 @@ class SetPasscodeVC(
         view.setConstraints {
             toTopPx(
                 headerView,
-                WNavigationBar.DEFAULT_HEIGHT.dp + (navigationController?.getSystemBars()?.top
-                    ?: 0)
+                WNavigationBar.DEFAULT_HEIGHT.dp +
+                    (navigationController?.getSystemBars()?.top ?: 0)
             )
             toCenterX(headerView)
-            topToBottom(passcodeInputView, headerView, 40f)
+            topToBottom(passcodeInputView, headerView, 38f)
             toCenterX(passcodeInputView)
             if (is6DigitPassSupported && confirmingPasscode == null) {
                 toBottomPx(
@@ -137,12 +129,25 @@ class SetPasscodeVC(
         view.setBackgroundColor(WColor.Background.color)
     }
 
+    override fun viewWillAppear() {
+        super.viewWillAppear()
+        passcodeInputView.post {
+            passcodeInputView.requestFocus()
+            // Workaround to make sure `passcodeInputView` appears when resume from background
+            passcodeInputView.postDelayed({
+                passcodeInputView.requestFocus()
+            }, 500)
+        }
+    }
+
     override fun viewDidAppear() {
         super.viewDidAppear()
-        passcodeInputView.requestFocus()
+        // Workaround to make sure variables are updated after pop
+        insetsUpdated()
     }
 
     private var insetsUpdatedBefore = false
+    private var wasShowingKeyboard = false
     override fun insetsUpdated() {
         super.insetsUpdated()
         view.constraintSet().apply {
@@ -154,19 +159,23 @@ class SetPasscodeVC(
                 )
             )
         }.layoutAnimated(AnimationConstants.VERY_QUICK_ANIMATION)
-        // If user closed keyboard on confirmation, just pop to set passcode
+        // Handle keyboard close event
         if (
+            navigationController?.viewControllers?.lastOrNull() == this &&
             insetsUpdatedBefore &&
-            !confirmedPasscode &&
-            confirmingPasscode != null &&
             (window?.imeInsets?.bottom ?: 0) == 0
-        )
-            pop()
+        ) {
+            if (!confirmedPasscode && wasShowingKeyboard)
+                pop()
+            else
+                passcodeInputView.requestFocus()
+        }
+        wasShowingKeyboard = isKeyboardOpen
         insetsUpdatedBefore = true
     }
 
     override fun didChangePasscode(passcode: String) {
-        headerView.toggle(passcode.isNotEmpty())
+        //headerView.toggle(passcode.isNotEmpty())
     }
 
     override fun didEnterPasscode(passcode: String) {
@@ -178,6 +187,7 @@ class SetPasscodeVC(
         } else {
             if (passcode == confirmingPasscode) {
                 confirmedPasscode = true
+                passcodeInputView.showIndicator(true)
                 fun finalize(isBiometricsActivated: Boolean) {
                     view.lockView()
                     view.hideKeyboard()

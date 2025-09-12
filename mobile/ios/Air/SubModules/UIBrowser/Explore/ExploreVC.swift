@@ -769,7 +769,7 @@ fileprivate struct AppFolderHeader: View {
     var cat: ApiSiteCategory
     
     var body: some View {
-        Text(lang(cat.name))
+        Text(cat.displayName)
             .font(.system(size: 13, weight: .medium))
             .offset(x: 8, y: 8)
     }

@@ -1004,7 +1004,7 @@ class NftVC(
                         })
             },
             offset = (-147).dp,
-            popupWidth = 187.dp,
+            popupWidth = WRAP_CONTENT,
             aboveView = true
         )
     }
@@ -1071,7 +1071,7 @@ class NftVC(
             ),
             offset = (-120).dp,
             verticalOffset = 2.dp,
-            popupWidth = 187.dp,
+            popupWidth = WRAP_CONTENT,
             aboveView = false
         )
     }
@@ -1120,7 +1120,8 @@ class NftVC(
         val nav = WNavigationController(
             window!!, WNavigationController.PresentationConfig(
                 overFullScreen = false,
-                isBottomSheet = true
+                isBottomSheet = true,
+                aboveKeyboard = true
             )
         )
         nav.setRoot(LinkToWalletVC(context, nft))

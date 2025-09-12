@@ -26,16 +26,16 @@ struct ActionsRow: View {
     
     var body: some View {
         HStack {
-            ActionButton("Details", "ActivityDetails22") {
+            ActionButton(lang("Details"), "ActivityDetails22") {
                 onDetailsExpanded()
             }
             if shouldShowRepeat {
-                ActionButton("Repeat", "ActivityRepeat22") {
+                ActionButton(lang("Repeat"), "ActivityRepeat22") {
                     AppActions.repeatActivity(activity)
                 }
             }
             if !activity.isBackendSwapId {
-                ActionButton("Share", "ActivityShare22") {
+                ActionButton(lang("Share"), "ActivityShare22") {
                     let chain = ApiChain(rawValue: TokenStore.tokens[activity.slug]?.chain ?? "")
                     if let chain {
                         let txHash = activity.parsedTxId.hash
@@ -68,7 +68,7 @@ struct ActionButton: View {
             VStack(spacing: 4) {
                 Image.airBundle(icon)
                     .padding(2)
-                Text(lang(title).lowercased())
+                Text(title.lowercased())
                     .font(.system(size: 12))
             }
         }
@@ -76,7 +76,7 @@ struct ActionButton: View {
     }
 }
 
-struct ActionButtonStyle: ButtonStyle {
+struct ActionButtonStyle: PrimitiveButtonStyle {
 
     @State private var isHighlighted: Bool = false
 
@@ -88,6 +88,9 @@ struct ActionButtonStyle: ButtonStyle {
             .foregroundStyle(Color(WTheme.tint))
             .background(Color(WTheme.groupedItem), in: .rect(cornerRadius: 12))
             .contentShape(.rect(cornerRadius: 12))
+            .onTapGesture {
+                configuration.trigger()
+            }
             .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in
                 withAnimation(.spring(duration: 0.1)) {
                     isHighlighted = true

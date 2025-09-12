@@ -279,7 +279,7 @@ public class AssetsAndActivityVC: WViewController {
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
         lbl.font = .systemFont(ofSize: 13)
-        lbl.text = lang("YOUR TOKENS")
+        lbl.text = lang("My Tokens")
         return lbl
     }()
     

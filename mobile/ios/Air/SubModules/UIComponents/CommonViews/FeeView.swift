@@ -34,8 +34,8 @@ public struct FeeView: View {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     let value = Text(fee.toString(token: token, nativeToken: nativeToken))
                     if includeLabel {
-                        let label = Text(lang("Fee:"))
-                        Text("\(label) \(value)")
+                        let label = Text(lang("$fee_value_with_colon", arg1: ""))
+                        Text("\(label)\(value)")
                     } else {
                         value
                     }

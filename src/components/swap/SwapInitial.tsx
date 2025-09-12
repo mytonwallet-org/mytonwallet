@@ -60,7 +60,7 @@ interface OwnProps {
 }
 
 interface StateProps {
-  addressByChain?: Account['addressByChain'];
+  accountChains?: Account['byChain'];
   currentSwap: GlobalState['currentSwap'];
   tokens?: UserSwapToken[];
   isMultichainAccount?: boolean;
@@ -91,7 +91,7 @@ function SwapInitial({
     ourFeePercent,
     dieselFee,
   },
-  addressByChain,
+  accountChains,
   tokens,
   isActive,
   isStatic,
@@ -292,10 +292,10 @@ function SwapInitial({
         setSwapScreen({ state: SwapState.Password });
       } else if (
         isMultichainAccount
-        && addressByChain![tokenIn!.chain as ApiChain]
-        && addressByChain![tokenOut!.chain as ApiChain]
+        && accountChains![tokenIn!.chain as ApiChain]
+        && accountChains![tokenOut!.chain as ApiChain]
       ) {
-        setSwapCexAddress({ toAddress: addressByChain![tokenOut!.chain as ApiChain]! });
+        setSwapCexAddress({ toAddress: accountChains![tokenOut!.chain as ApiChain]!.address });
         setSwapScreen({ state: SwapState.Password });
       } else {
         setSwapScreen({ state: SwapState.Blockchain });
@@ -516,7 +516,7 @@ export default memo(
       return {
         currentSwap: global.currentSwap,
         tokens: selectSwapTokens(global),
-        addressByChain: account?.addressByChain,
+        accountChains: account?.byChain,
         isMultichainAccount: selectIsMultichainAccount(global, global.currentAccountId!),
         swapType: selectSwapType(global),
         isSensitiveDataHidden: global.settings.isSensitiveDataHidden,

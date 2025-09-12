@@ -15,8 +15,15 @@ const serializationFormat = IS_AIR_APP ? 'hex' : 'base64';
  * (src/util/ledger/index.ts) via postMessage (because actual Ledger transports don't work in worker threads).
  */
 export class WindowTransport extends Transport {
+  /** Use `getDeviceModel()` instead */
+  declare deviceModel: never;
+
   async exchange(apdu: Buffer) {
     const response = await callWindow('exchangeWithLedger', apdu.toString(serializationFormat));
     return Buffer.from(response, serializationFormat);
+  }
+
+  getDeviceModel() {
+    return callWindow('getLedgerDeviceModel');
   }
 }

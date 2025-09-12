@@ -380,11 +380,15 @@ function getLedgerWalletAddress(index: number, isTestnet: boolean) {
 
 export async function verifyAddress(accountId: string) {
   const account = await callApi('fetchLedgerAccount', accountId);
-  const path = getLedgerAccountPathByWallet(parseAccountId(accountId).network, account!.ton);
+  if (!account!.byChain.ton) {
+    throw new Error(`Ton wallet missing in account ${accountId}`);
+  }
+
+  const path = getLedgerAccountPathByWallet(parseAccountId(accountId).network, account!.byChain.ton);
 
   await tonTransport!.validateAddress(path, {
     bounceable: IS_BOUNCEABLE,
-    walletVersion: getInternalWalletVersion(account!.ton.version as PossibleWalletVersion),
+    walletVersion: getInternalWalletVersion(account!.byChain.ton.version as PossibleWalletVersion),
   });
 }
 

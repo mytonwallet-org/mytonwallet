@@ -11,6 +11,7 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.commonViews.HeaderActionsView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
+import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
@@ -23,7 +24,7 @@ import org.mytonwallet.uihome.home.views.UpdateStatusView
 class StickyHeaderView(
     context: Context,
     private val onActionClick: (HeaderActionsView.Identifier) -> Unit
-) : FrameLayout(context), WThemedView {
+) : FrameLayout(context), WThemedView, WProtectedView {
 
     init {
         id = generateViewId()
@@ -114,6 +115,10 @@ class StickyHeaderView(
     }
 
     override fun updateTheme() {
+        updateEyeIcon()
+    }
+
+    override fun updateProtectedView() {
         updateEyeIcon()
     }
 

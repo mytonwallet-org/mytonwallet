@@ -14,7 +14,7 @@ import WalletContext
 struct SentView: View {
     
     var model: SendModel
-    var transferOptions: Api.SubmitTransferOptions?
+    var transferOptions: ApiSubmitTransferOptions?
 
     var body: some View {
         InsetList {
@@ -138,7 +138,7 @@ struct SentView: View {
             .buttonStyle(.borderless)
             
         } header: {
-            Text(lang("Transaction details"))
+            Text(lang("Transaction Details"))
         } footer: {}
     }
 }

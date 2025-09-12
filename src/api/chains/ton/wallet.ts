@@ -12,7 +12,7 @@ import { fetchJettonBalances } from './util/tonapiio';
 import {
   getTonClient, toBase64Address, walletClassMap,
 } from './util/tonCore';
-import { fetchStoredTonWallet } from '../../common/accounts';
+import { fetchStoredWallet } from '../../common/accounts';
 import { base64ToBytes, hexToBytes, sha256 } from '../../common/utils';
 import { ALL_WALLET_VERSIONS, ContractType, KnownContracts, WORKCHAIN } from './constants';
 import { getWalletInfos } from './toncenter';
@@ -92,7 +92,7 @@ export async function getContractInfo(network: ApiNetwork, address: string): Pro
 
 export async function getAccountBalance(accountId: string) {
   const { network } = parseAccountId(accountId);
-  const { address } = await fetchStoredTonWallet(accountId);
+  const { address } = await fetchStoredWallet(accountId, 'ton');
 
   return getWalletBalance(network, address);
 }

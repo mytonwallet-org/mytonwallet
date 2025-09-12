@@ -49,7 +49,7 @@ public class IntroVC: WViewController {
 
         // bottom create wallet action
         let createWalletButton = BottomAction(
-            title: lang("Create My Wallet"),
+            title: lang("Create Wallet"),
             onPress: {
                 self.createWalletPressed()
             }

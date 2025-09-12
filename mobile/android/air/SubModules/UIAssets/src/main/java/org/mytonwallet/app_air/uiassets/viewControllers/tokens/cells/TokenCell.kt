@@ -24,11 +24,11 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
 import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletcontext.theme.WColor
 import org.mytonwallet.app_air.walletcontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.toString
-import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.STAKE_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TON_USDT_SLUG
@@ -194,12 +194,16 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
             showPercentBadge = (tokenBalance.isVirtualStakingRow && tokenBalance.amountValue > BigInteger.ZERO)
         )
         val tokenName = if (tokenBalance.isVirtualStakingRow) {
-            when (tokenBalance.token) {
-                TONCOIN_SLUG -> "Toncoin Staking"
-                MYCOIN_SLUG -> "MyTonWallet Staking"
-                USDE_SLUG -> "Ethena Staking"
-                else -> ""
-            }
+            LocaleController.getStringWithKeyValues(
+                "%token% Staking", listOf(
+                    Pair(
+                        "%token%", when (tokenBalance.token) {
+                            USDE_SLUG -> "Ethena"
+                            else -> token?.name ?: ""
+                        }
+                    )
+                )
+            )
         } else token?.name
         if (topLeftLabel.text != tokenName)
             topLeftLabel.text = tokenName

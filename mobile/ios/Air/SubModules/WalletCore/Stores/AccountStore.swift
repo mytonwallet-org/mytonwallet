@@ -146,7 +146,7 @@ public final class _AccountStore: @unchecked Sendable {
     // MARK: - Current account
 
     public func activateAccount(accountId: String, isNew: Bool = false) async throws -> MAccount {
-        let timestamps = await ActivityStore.getNewestActivitiesBySlug(accountId: accountId)?.mapValues(\.timestamp)
+        let timestamps = await ActivityStore.getNewestActivityTimestamps(accountId: accountId)
         if timestamps?.nilIfEmpty == nil {
             Log.api.info("No newestTransactionsBySlug for \(accountId, .public), loading will be slow")
         }
@@ -171,7 +171,7 @@ public final class _AccountStore: @unchecked Sendable {
     
     public func reactivateCurrentAccount() async throws {
         if let accountId = self.accountId {
-            let timestamps = await ActivityStore.getNewestActivitiesBySlug(accountId: accountId)?.mapValues(\.timestamp)
+            let timestamps = await ActivityStore.getNewestActivityTimestamps(accountId: accountId)
             log.info("reactivateCurrentAccount: \(accountId, .public) timestamps#=\(timestamps?.count as Any, .public)")
             try await Api.activateAccount(accountId: accountId, newestActivityTimestamps: timestamps)
         }
@@ -185,7 +185,7 @@ public final class _AccountStore: @unchecked Sendable {
             id: result.accountId,
             title: _defaultTitle(),
             type: .mnemonic,
-            addressByChain: result.addressByChain,
+            byChain: result.byChain,
             ledger: nil
         )
         try await _storeAccount(account: account)
@@ -200,7 +200,7 @@ public final class _AccountStore: @unchecked Sendable {
             id: result.accountId,
             title: _defaultTitle(),
             type: .mnemonic,
-            addressByChain: result.addressByChain,
+            byChain: result.byChain,
             ledger: nil
         )
         try await _storeAccount(account: account)
@@ -216,8 +216,8 @@ public final class _AccountStore: @unchecked Sendable {
             id: result.accountId,
             title: title,
             type: .hardware,
-            addressByChain: [
-                ApiChain.ton.rawValue: result.address
+            byChain: [
+                ApiChain.ton.rawValue: AccountChain(address: result.address)
             ],
             ledger: MAccount.Ledger(
                 index: walletInfo.index,
@@ -236,28 +236,31 @@ public final class _AccountStore: @unchecked Sendable {
 
         let result = try await Api.importNewWalletVersion(accountId: accountId, version: version)
 
-        if let existingAccount = AccountStore.allAccounts.first(where: { $0.tonAddress == result.address }) {
-            let account = try await self.activateAccount(accountId: existingAccount.id)
+        if result.isNew {
+            
+            var title = originalAccount.title?.nilIfEmpty ?? _defaultTitle()
+            title += " \(version.rawValue)"
+            
+            let account = try MAccount(
+                id: result.accountId,
+                title: title,
+                type: originalAccount.type,
+                byChain: [
+                    ApiChain.ton.rawValue: AccountChain(address: result.address.orThrow("Address missing for new wallet version")),
+                ],
+                ledger: originalAccount.ledger
+            )
+            
+            try await _storeAccount(account: account)
+            _ = try await self.activateAccount(accountId: result.accountId, isNew: true)
+            await _subscribeNotifications(account: account)
+            return account
+            
+        } else {
+            
+            let account = try await self.activateAccount(accountId: result.accountId)
             return account
         }
-
-        var title = originalAccount.title?.nilIfEmpty ?? _defaultTitle()
-        title += " \(version.rawValue)"
-
-        let account = MAccount(
-            id: result.accountId,
-            title: title,
-            type: originalAccount.type,
-            addressByChain: [
-                ApiChain.ton.rawValue: result.address
-            ],
-            ledger: originalAccount.ledger
-        )
-
-        try await _storeAccount(account: account)
-        _ = try await self.activateAccount(accountId: result.accountId)
-        await _subscribeNotifications(account: account)
-        return account
     }
 
     public func importViewWallet(network: ApiNetwork, tonAddress: String?, tronAddress: String?) async throws -> MAccount {
@@ -271,7 +274,7 @@ public final class _AccountStore: @unchecked Sendable {
             id: result.accountId,
             title: result.title ?? "View Wallet \(AccountStore.accountsById.count + 1)",
             type: .view,
-            addressByChain: result.resolvedAddresses,
+            byChain: result.byChain,
             ledger: nil
         )
 
@@ -336,7 +339,8 @@ public final class _AccountStore: @unchecked Sendable {
         if let account = accountsById[accountId] {
             await _unsubscribeNotifications(account: account)
         }
-        try await Api.removeAccount(accountId: accountId, nextAccountId: nextAccountId)
+        let timestamps = await ActivityStore.getNewestActivityTimestamps(accountId: nextAccountId)
+        try await Api.removeAccount(accountId: accountId, nextAccountId: nextAccountId, newestActivityTimestamps: timestamps)
         AppStorageHelper.remove(accountId: accountId)
         try await db.write { db in
             _ = try MAccount.deleteOne(db, key: accountId)

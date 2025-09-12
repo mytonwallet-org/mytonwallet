@@ -369,9 +369,7 @@ $listHorizontalPadding: 1rem;
 .searchWrapper {
   width: 100%;
   margin-bottom: 0.5rem;
-  padding-top: 0.5rem;
   padding-bottom: 1rem;
-
   background-color: var(--color-background-first);
 
   @include mixins.respond-below(xs) {

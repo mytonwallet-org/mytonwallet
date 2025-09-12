@@ -16,7 +16,6 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.ViewTreeObserver
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
 import androidx.constraintlayout.widget.ConstraintLayout.generateViewId
 import androidx.core.view.isGone
@@ -39,9 +38,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegment
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.uiswap.screens.swap.SwapVC
-import org.mytonwallet.app_air.walletcontext.helpers.AddressHelpers
 import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.helpers.ShareHelpers
 import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletcontext.theme.WColor
 import org.mytonwallet.app_air.walletcontext.theme.color
@@ -212,23 +209,6 @@ class ReceiveVC(
         lbl.text =
             LocaleController.getString("Share QR Code")
         lbl
-    }
-    private val shareQRCodeView: WView by lazy {
-        val v = WView(context)
-        v.addView(shareQRCodeLabel)
-        v.setConstraints {
-            toStart(shareQRCodeLabel, 20f)
-            toCenterY(shareQRCodeLabel)
-        }
-        v.setOnClickListener {
-
-            ShareHelpers.shareQRImage(
-                window ?: (context as AppCompatActivity),
-                currentQRCode.qrCodeView,
-                AddressHelpers.walletInvoiceUrl(currentQRCode.walletAddress)
-            )
-        }
-        v
     }
 
     private val optionsSeparatorView: WBaseView by lazy {
@@ -452,8 +432,6 @@ class ReceiveVC(
         copyAddressView.addRippleEffect(WColor.SecondaryBackground.color)
         copyAddressLabel.setTextColor(WColor.Tint.color)
         copyAddressSeparator.setBackgroundColor(WColor.Separator.color)
-        shareQRCodeView.setBackgroundColor(WColor.Background.color, 0f, ViewConstants.BIG_RADIUS.dp)
-        shareQRCodeView.addRippleEffect(WColor.SecondaryBackground.color)
         shareQRCodeLabel.setTextColor(WColor.Tint.color)
         optionsSeparatorView.setBackgroundColor(WColor.SecondaryBackground.color)
         buyWithCardView.setBackgroundColor(
@@ -640,7 +618,6 @@ class ReceiveVC(
         super.onDestroy()
         qrSegmentView.onDestroy()
         copyAddressView.setOnClickListener(null)
-        shareQRCodeView.setOnClickListener(null)
         buyWithCardView.setOnClickListener(null)
         buyWithCryptoView.setOnClickListener(null)
         qrCodeVcTon.addressView.viewTreeObserver.removeOnPreDrawListener(viewTreeObserver)

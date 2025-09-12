@@ -1,39 +1,36 @@
 package org.mytonwallet.app_air.uicreatewallet.viewControllers.wordCheck
 
-import WNavigationController
 import android.annotation.SuppressLint
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.view.View
-import android.view.View.OnFocusChangeListener
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import android.view.inputmethod.EditorInfo
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
-import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.commonViews.HeaderAndActionsView
+import org.mytonwallet.app_air.uicomponents.commonViews.WordCheckerView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.widgets.WButton
-import org.mytonwallet.app_air.uicomponents.widgets.WEditText
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
-import org.mytonwallet.app_air.uicomponents.widgets.WWordInput
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
-import org.mytonwallet.app_air.uicomponents.widgets.suggestion.WSuggestionView
+import org.mytonwallet.app_air.uicreatewallet.WalletCreationVM
+import org.mytonwallet.app_air.uicreatewallet.viewControllers.walletAdded.WalletAddedVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.setPasscode.SetPasscodeVC
+import org.mytonwallet.app_air.walletcontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
+import org.mytonwallet.app_air.walletcontext.helpers.WordCheckMode
 import org.mytonwallet.app_air.walletcontext.theme.WColor
 import org.mytonwallet.app_air.walletcontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
-import org.mytonwallet.uihome.tabs.TabsVC
 import java.lang.ref.WeakReference
 import kotlin.math.max
 
@@ -41,20 +38,17 @@ import kotlin.math.max
 class WordCheckVC(
     context: Context,
     val words: Array<String>,
-    private val wordIndices: List<Int>,
-    private val isFirstWallet: Boolean,
-    // Used when adding new account (not first account!)
-    private var passedPasscode: String?
-) :
-    WViewController(context), WordCheckVM.Delegate, WEditText.Delegate {
+    private val initialWordIndices: List<Int>,
+    private val mode: WordCheckMode
+) : WViewController(context), WalletCreationVM.Delegate {
 
-    private val wordCheckVM by lazy {
-        WordCheckVM(this)
+    private val walletCreationVM by lazy {
+        WalletCreationVM(this)
     }
 
     override val isSwipeBackAllowed: Boolean
         get() {
-            return !isKeyboardOpen
+            return !isKeyboardOpen && DEBUG_MODE
         }
 
     override val shouldDisplayTopBar = false
@@ -64,14 +58,15 @@ class WordCheckVC(
     private val headerView: HeaderAndActionsView by lazy {
         val v = HeaderAndActionsView(
             context,
-            R.raw.animation_test,
-            null,
-            false,
-            LocaleController.getString("Let's Check!"),
-            (LocaleController.getString("\$check_words_description") +
+            HeaderAndActionsView.Media.Animation(
+                animation = R.raw.animation_bill,
+                repeat = true
+            ),
+            title = LocaleController.getString("Let's Check!"),
+            subtitle = (LocaleController.getString("\$check_words_description") + "\n" +
                 LocaleController.getFormattedString(
                     "\$mnemonic_check_words_list",
-                    listOf(wordIndices.joinToString(", ") { it.toString() })
+                    listOf(initialWordIndices.joinToString(", ") { it.toString() })
                 )).toProcessedSpannableStringBuilder(),
             onStarted = {
                 scrollView.fadeIn()
@@ -80,88 +75,43 @@ class WordCheckVC(
         v
     }
 
-    private val continueButton: WButton by lazy {
-        val btn = WButton(context, WButton.Type.PRIMARY)
-        btn.text =
-            LocaleController.getString("Continue")
-        btn.setOnClickListener {
-            checkPressed()
-        }
-        btn
-    }
-
-    private val suggestionView: WSuggestionView by lazy {
-        val v = WSuggestionView(context) {
-            activeField?.textField?.setText(it)
-            val nextFocusView = activeField?.focusSearch(View.FOCUS_DOWN)
-            if (nextFocusView != null) {
-                nextFocusView.requestFocus()
-            } else {
-                activeField?.clearFocus()
-                suggestionView.attachToWordInput(null)
-            }
-        }
-        v
-    }
-
-    private var wordInputViews = ArrayList<WWordInput>()
+    private var wordCheckerViews = ArrayList<WordCheckerView>()
+    private var currentWordIndices = initialWordIndices.toMutableList()
 
     private val scrollingContentView: WView by lazy {
         val v = WView(context)
         v.layoutDirection = View.LAYOUT_DIRECTION_LTR
         v.addView(headerView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        for (wordNumber in wordIndices) {
-            val wordInputView = WWordInput(context, wordNumber, this)
-            v.addView(wordInputView)
-            wordInputViews.add(wordInputView)
-            wordInputView.textField.setOnEditorActionListener { _, _, _ ->
-                scrollToBottom()
-                false
-            }
-            wordInputView.textField.onFocusChangeListener = OnFocusChangeListener { _, hasFocus ->
-                if (hasFocus) {
-                    makeFieldVisible(wordInputView)
-                } else {
-                    wordInputView.checkValue()
-                }
-            }
+        initialWordIndices.forEachIndexed { viewIndex, wordNumber ->
+            val wordCheckerView = WordCheckerView(context, this::onWordSelected)
+            wordCheckerView.config(
+                index = wordNumber,
+                word = words[wordNumber - 1],
+                animated = false
+            )
+            v.addView(wordCheckerView)
+            wordCheckerViews.add(wordCheckerView)
         }
-        wordInputViews.last().textField.apply {
-            setImeOptions(EditorInfo.IME_ACTION_DONE)
-            setOnEditorActionListener { _, actionId, _ ->
-                scrollToBottom()
-                if (actionId == EditorInfo.IME_ACTION_DONE) {
-                    clearFocus()
-                    checkPressed()
-                    return@setOnEditorActionListener true
-                }
-                false
-            }
-        }
-        v.addView(continueButton, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        v.addView(suggestionView, ViewGroup.LayoutParams(0, 48.dp))
         v.setConstraints {
             toTopPx(
                 headerView,
-                WNavigationBar.DEFAULT_HEIGHT.dp + (navigationController?.getSystemBars()?.top
-                    ?: 0)
+                (WNavigationBar.DEFAULT_HEIGHT - 6).dp +
+                    (navigationController?.getSystemBars()?.top ?: 0)
             )
             toCenterX(headerView)
-            var prevWordInput: WWordInput? = null
-            for (wordInput in wordInputViews) {
+            var prevWordCheckerView: WordCheckerView? = null
+            for (wordCheckerView in wordCheckerViews) {
                 topToBottom(
-                    wordInput,
-                    prevWordInput ?: headerView,
-                    if (prevWordInput == null) 40F else 10F
+                    wordCheckerView,
+                    prevWordCheckerView ?: headerView,
+                    if (prevWordCheckerView == null) 40f else 24f
                 )
-                toCenterX(wordInput, 48F)
-                prevWordInput = wordInput
+                toCenterX(wordCheckerView, 32f)
+                prevWordCheckerView = wordCheckerView
             }
-            topToBottom(continueButton, prevWordInput!!, 16F)
-            toCenterX(continueButton, 48F)
             toBottomPx(
-                continueButton,
-                48.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
+                prevWordCheckerView!!,
+                32.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
             )
         }
         v
@@ -178,12 +128,14 @@ class WordCheckVC(
 
         setNavTitle("")
         setupNavBar(true)
+        if ((mode as? WordCheckMode.CheckAndImport)?.isFirstWalletToAdd == false)
+            navigationBar?.addCloseButton()
 
         scrollView.alpha = 0f
         view.addView(scrollView, ViewGroup.LayoutParams(0, 0))
-        view.setConstraints({
+        view.setConstraints {
             allEdges(scrollView)
-        })
+        }
 
         val scrollOffsetToShowNav = (WNavigationBar.DEFAULT_HEIGHT + 135).dp
         scrollView.onScrollChange = { y ->
@@ -206,84 +158,103 @@ class WordCheckVC(
 
     override fun updateTheme() {
         super.updateTheme()
-        view.setBackgroundColor(WColor.Background.color)
+        view.setBackgroundColor(WColor.SecondaryBackground.color)
     }
 
     override fun insetsUpdated() {
         super.insetsUpdated()
         scrollingContentView.setConstraints {
-            toBottomPx(
-                continueButton,
-                48.dp + max(
-                    (navigationController?.getSystemBars()?.bottom
-                        ?: 0), (window?.imeInsets?.bottom
-                        ?: 0)
+            wordCheckerViews.lastOrNull()?.let {
+                toBottomPx(
+                    it,
+                    48.dp + max(
+                        (navigationController?.getSystemBars()?.bottom
+                            ?: 0), (window?.imeInsets?.bottom
+                            ?: 0)
+                    )
                 )
-            )
+            }
         }
-        if (activeField != null && (window?.imeInsets?.bottom ?: 0) > 0)
-            makeFieldVisible(activeField!!)
-    }
-
-    private var activeField: WWordInput? = null
-    private fun makeFieldVisible(view: WWordInput) {
-        if (activeField != view)
-            activeField = view
-        scrollView.makeViewVisible(activeField!!)
-        suggestionView.attachToWordInput(activeField!!)
     }
 
     private fun checkPressed() {
-        // check if words are correct
-        wordInputViews.forEachIndexed { index, wordInput ->
-            if ((wordInput.textField.text ?: "").toString().trim()
-                    .lowercase() != words[wordIndices[index] - 1].trim().lowercase()
-            ) {
-                showAlert(
-                    LocaleController.getString("Incorrect words"),
-                    LocaleController.getString("\$mnemonic_check_error"),
-                    LocaleController.getString("See Words"),
-                    {
-                        pop()
-                    },
-                    LocaleController.getString("Try Again"),
-                    {
-                    }, preferPrimary = true
-                )
-                return
+        var allValid = true
+        val validIndices = mutableListOf<Int>()
+        wordCheckerViews.forEachIndexed { index, wordChecker ->
+            if (!wordChecker.validate()) {
+                allValid = false
+            } else {
+                validIndices.add(index)
             }
         }
-        if (isFirstWallet) {
-            push(SetPasscodeVC(context, true, null) { passcode, biometricsActivated ->
-                wordCheckVM.finalizeAccount(window!!, words, passcode, biometricsActivated, 0)
-            }, onCompletion = {
-                navigationController?.removePrevViewControllers()
-            })
-        } else {
-            continueButton.isLoading = true
-            view.lockView()
-            wordCheckVM.finalizeAccount(window!!, words, passedPasscode ?: "", null, 0)
+        view.lockView()
+        if (!allValid) {
+            Handler(Looper.getMainLooper()).postDelayed({
+                view.unlockView()
+                val usedIndices = currentWordIndices.toMutableSet()
+                validIndices.forEach { validIndex ->
+                    val availableIndices = (1..words.size).filter { it !in usedIndices }
+                    val newWordIndex = availableIndices.random()
+                    usedIndices.remove(currentWordIndices[validIndex])
+                    usedIndices.add(newWordIndex)
+                    currentWordIndices[validIndex] = newWordIndex
+                }
+                currentWordIndices.sort()
+                wordCheckerViews.forEachIndexed { index, wordCheckerView ->
+                    val wordNumber = currentWordIndices[index]
+                    wordCheckerView.config(
+                        index = wordNumber,
+                        word = words[wordNumber - 1],
+                        animated = true
+                    )
+                }
+                updateHeaderDescription()
+            }, 1000)
+            return
         }
-    }
+        Handler(Looper.getMainLooper()).postDelayed({
+            when (mode) {
+                WordCheckMode.Check -> {
+                    pop()
+                }
 
-    private fun scrollToBottom() {
-        scrollView.scrollToBottom()
+                is WordCheckMode.CheckAndImport -> {
+                    view.unlockView()
+                    if (mode.isFirstPasscodeProtectedWallet) {
+                        push(SetPasscodeVC(context, true, null) { passcode, biometricsActivated ->
+                            walletCreationVM.finalizeAccount(
+                                window!!,
+                                words,
+                                passcode,
+                                biometricsActivated,
+                                0
+                            )
+                        }, onCompletion = {
+                            navigationController?.removePrevViewControllers()
+                        })
+                    } else {
+                        view.lockView()
+                        walletCreationVM.finalizeAccount(
+                            window!!,
+                            words,
+                            mode.passedPasscode ?: "",
+                            null,
+                            0
+                        )
+                    }
+                }
+            }
+        }, 1000)
     }
 
     override fun finalizedCreation(createdAccount: MAccount) {
-        WalletCore.activateAccount(createdAccount.accountId, notifySDK = false) { res, err ->
-            if (res == null || err != null) {
-                // Should not happen!
-            } else {
-                if (WGlobalStorage.accountIds().size < 2) {
-                    val navigationController = WNavigationController(window!!)
-                    navigationController.setRoot(TabsVC(context))
-                    window!!.replace(navigationController, true)
-                } else {
-                    WalletCore.notifyEvent(WalletEvent.AddNewWalletCompletion)
-                    window!!.dismissLastNav()
-                }
-            }
+        if (WGlobalStorage.accountIds().size < 2) {
+            push(WalletAddedVC(context, true), {
+                navigationController?.removePrevViewControllers()
+            })
+        } else {
+            WalletCore.notifyEvent(WalletEvent.AddNewWalletCompletion)
+            window!!.dismissLastNav()
         }
     }
 
@@ -293,16 +264,24 @@ class WordCheckVC(
             return
         }
         super.showError(error)
-        continueButton.isLoading = false
         view.unlockView()
     }
 
-    override fun pastedMultipleLines() {
-        wordInputViews.forEach {
-            it.checkValue()
+    private fun onWordSelected() {
+        val allSelected = wordCheckerViews.all {
+            it.isWordSelected && !it.isValidatedAndWrong
         }
-        if (wordInputViews.none { it.textField.text.toString().trim().isEmpty() })
+        if (allSelected)
             checkPressed()
+    }
+
+    private fun updateHeaderDescription() {
+        val newDescription = (LocaleController.getString("\$check_words_description") + "\n" +
+            LocaleController.getFormattedString(
+                "\$mnemonic_check_words_list",
+                listOf(currentWordIndices.joinToString(", ") { it.toString() })
+            )).toProcessedSpannableStringBuilder()
+        headerView.setSubtitleText(newDescription)
     }
 
 }

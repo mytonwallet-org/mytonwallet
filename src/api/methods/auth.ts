@@ -3,14 +3,17 @@ import type { LedgerWalletInfo } from '../../util/ledger/types';
 import type { ApiTonWalletVersion } from '../chains/ton/types';
 import type {
   ApiAccountAny,
+  ApiAccountWithChain,
   ApiAccountWithMnemonic,
   ApiActivityTimestamps,
+  ApiChain,
   ApiImportAddressByChain,
   ApiLedgerDriver,
   ApiNetwork,
   ApiTonAccount,
   ApiTonWallet,
   ApiViewAccount,
+  ApiWalletByChain,
 } from '../types';
 import { ApiCommonError } from '../types';
 
@@ -19,12 +22,11 @@ import { parseAccountId } from '../../util/account';
 import isMnemonicPrivateKey from '../../util/isMnemonicPrivateKey';
 import { createTaskQueue } from '../../util/schedulers';
 import chains from '../chains';
-import { getWalletFromKeys } from '../chains/ton/auth';
 import { toBase64Address } from '../chains/ton/util/tonCore';
 import {
   fetchStoredAccounts,
-  fetchStoredTonAccount,
-  getAddressesFromAccount,
+  fetchStoredChainAccount,
+  getAccountChains,
   getNewAccountId,
   removeAccountValue,
   removeNetworkAccountsValue,
@@ -50,7 +52,7 @@ import {
   removePollingAccount,
 } from './polling';
 
-const { ton, tron } = chains;
+const { ton } = chains;
 
 export function generateMnemonic(isBip39: boolean) {
   if (isBip39) return generateBip39Mnemonic();
@@ -108,15 +110,16 @@ export async function importMnemonic(
     }
 
     if (isBip39Mnemonic) {
-      const tronWallet = tron.getWalletFromBip39Mnemonic(network, mnemonic);
-      tonWallet = await ton.getWalletFromBip39Mnemonic(network, mnemonic);
-
       account = {
         type: 'bip39',
         mnemonicEncrypted,
-        tron: tronWallet,
-        ton: tonWallet,
+        byChain: {},
       };
+
+      await Promise.all((Object.keys(chains) as (keyof typeof chains)[]).map(async (chain) => {
+        const wallet = await chains[chain].getWalletFromBip39Mnemonic(network, mnemonic);
+        account.byChain[chain as 'ton'] = wallet as ApiWalletByChain['ton'];
+      }));
     } else {
       if (!tonWallet) {
         tonWallet = isPrivateKey
@@ -126,7 +129,9 @@ export async function importMnemonic(
       account = {
         type: 'ton',
         mnemonicEncrypted,
-        ton: tonWallet,
+        byChain: {
+          ton: tonWallet,
+        },
       };
     }
 
@@ -138,7 +143,7 @@ export async function importMnemonic(
 
     return {
       accountId,
-      addressByChain: getAddressesFromAccount(account),
+      byChain: getAccountChains(account),
       secondNetworkAccount,
     };
   } catch (err) {
@@ -164,13 +169,15 @@ export async function createAccountWithSecondNetwork(options: {
   const account: ApiTonAccount = {
     type: 'ton',
     mnemonicEncrypted,
-    ton: tonWallet,
+    byChain: {
+      ton: tonWallet,
+    },
   };
   const secondAccountId = await addAccount(secondNetwork, account, parseAccountId(accountId).id);
 
   return {
     accountId: secondAccountId,
-    addressByChain: { ton: tonWallet.address },
+    byChain: getAccountChains(account),
     network: secondNetwork,
   };
 }
@@ -180,7 +187,7 @@ export function addressFromPublicKey(
   network: ApiNetwork,
   version?: ApiTonWalletVersion,
 ): Promise<ApiTonWallet & { lastTxId?: string }> {
-  return getWalletFromKeys(publicKey, network, version);
+  return ton.getWalletFromKeys(publicKey, network, version);
 }
 
 export async function importLedgerWallet(network: ApiNetwork, walletInfo: LedgerWalletInfo) {
@@ -190,12 +197,13 @@ export async function importLedgerWallet(network: ApiNetwork, walletInfo: Ledger
 
   const accountId = await addAccount(network, {
     type: 'ledger',
-    ton: {
-      type: 'ton',
-      address,
-      publicKey,
-      version,
-      index,
+    byChain: {
+      ton: {
+        address,
+        publicKey,
+        version,
+        index,
+      },
     },
     driver,
     deviceId,
@@ -274,23 +282,24 @@ export async function importViewAccount(network: ApiNetwork, addressByChain: Api
   try {
     const account: ApiViewAccount = {
       type: 'view',
+      byChain: {},
     };
     let title: string | undefined;
+    let error: { error: string; chain: ApiChain } | undefined;
 
-    if (addressByChain.ton) {
-      const wallet = await ton.getWalletFromAddress(network, addressByChain.ton);
-      if ('error' in wallet) return { ...wallet, chain: 'ton' };
-      account.ton = wallet.wallet;
-      title = wallet.title;
-    }
+    await Promise.all(Object.entries(addressByChain).map(async ([_chain, address]) => {
+      const chain = _chain as ApiChain;
+      const wallet = await chains[chain].getWalletFromAddress(network, address);
+      if ('error' in wallet) {
+        error = { ...wallet, chain };
+        return;
+      }
 
-    if (addressByChain.tron) {
-      account.tron = {
-        type: 'tron',
-        address: addressByChain.tron,
-        index: 0,
-      };
-    }
+      account.byChain[chain as 'ton'] = wallet.wallet as ApiWalletByChain['ton'];
+      if (wallet.title) title = wallet.title;
+    }));
+
+    if (error) return error;
 
     const accountId = await addAccount(network, account);
     void activateAccount(accountId);
@@ -298,7 +307,7 @@ export async function importViewAccount(network: ApiNetwork, addressByChain: Api
     return {
       accountId,
       title,
-      resolvedAddresses: getAddressesFromAccount(account),
+      byChain: getAccountChains(account),
     };
   } catch (err) {
     return handleServerError(err);
@@ -315,15 +324,17 @@ export async function importNewWalletVersion(accountId: string, version: ApiTonW
   accountId: string;
 }> {
   const { network } = parseAccountId(accountId);
-  const account = await fetchStoredTonAccount(accountId);
-  const newAccount = {
+  const account = await fetchStoredChainAccount(accountId, 'ton');
+  const newAccount: ApiAccountWithChain<'ton'> = {
     ...account,
-    ton: ton.getOtherVersionWallet(network, account.ton, version),
+    byChain: {
+      ton: ton.getOtherVersionWallet(network, account.byChain.ton, version),
+    },
   };
 
   const accounts = await fetchStoredAccounts();
   const existingAccount = Object.entries(accounts).find(([, account]) => {
-    return account.ton?.address === newAccount.ton.address && account.type === newAccount.type;
+    return account.byChain.ton?.address === newAccount.byChain.ton.address && account.type === newAccount.type;
   });
 
   if (existingAccount) {
@@ -334,7 +345,7 @@ export async function importNewWalletVersion(accountId: string, version: ApiTonW
   }
 
   const ledger = account.type === 'ledger'
-    ? { index: account.ton.index, driver: account.driver }
+    ? { index: account.byChain.ton.index, driver: account.driver }
     : undefined;
 
   const newAccountId = await addAccount(network, newAccount);
@@ -342,7 +353,7 @@ export async function importNewWalletVersion(accountId: string, version: ApiTonW
   return {
     isNew: true,
     accountId: newAccountId,
-    address: newAccount.ton.address,
+    address: newAccount.byChain.ton.address,
     ledger,
   };
 }

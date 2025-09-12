@@ -145,7 +145,13 @@ private let UPDATING_DELAY = 2
         // init requests
         initWalletInfo()
         // update token prices
-        Api.tryUpdateTokenPrices()
+        Task {
+            do {
+                try await Api.tryUpdateTokens()
+            } catch {
+                log.error("tryUpdateTokens: \(error, .public)")
+            }
+        }
     }
 
     func dataUpdated(transactions: Bool = true) {

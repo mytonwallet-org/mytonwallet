@@ -99,6 +99,10 @@
   align-items: center;
   height: 1.625rem;
   margin: 0.75rem auto 0.25rem;
+
+  @include mixins.respond-above(xs) {
+    margin-top: 0;
+  }
 }
 
 .dateSlide {

@@ -18,11 +18,22 @@ buildscript {
 
 apply from: "variables.gradle"
 
+// Enable strict dependency locking at root level
+dependencyLocking {
+  lockAllConfigurations()
+  lockMode = LockMode.STRICT
+}
+
 allprojects {
   repositories {
     google()
     mavenCentral()
     maven { url 'https://jitpack.io' }
+  }
+
+  // Enable dependency locking for all configurations
+  configurations.configureEach {
+    resolutionStrategy.activateDependencyLocking()
   }
 }
 

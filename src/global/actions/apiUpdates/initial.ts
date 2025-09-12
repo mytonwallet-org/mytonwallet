@@ -1,5 +1,5 @@
 import type { ApiLiquidStakingState } from '../../../api/types';
-import type { Account } from '../../types';
+import type { AccountChain } from '../../types';
 
 import {
   DEFAULT_STAKING_STATE,
@@ -19,7 +19,7 @@ import {
   addUnorderedNfts,
   createAccount,
   removeNft,
-  updateAccount,
+  updateAccountChain,
   updateAccountSettingsBackgroundNft,
   updateAccountStaking,
   updateAccountState,
@@ -192,30 +192,21 @@ addActionHandler('apiUpdate', (global, actions, update) => {
     case 'updateAccount': {
       const { accountId, chain, domain, address, isMultisig } = update;
       const account = selectAccount(global, accountId);
-      if (!account) {
+      if (!account?.byChain[chain]) {
         break;
       }
 
-      const accountUpdate: Partial<Account> = {};
+      const chainUpdate: Partial<AccountChain> = {};
       if (address) {
-        accountUpdate.addressByChain = {
-          ...account.addressByChain,
-          [chain]: address,
-        };
+        chainUpdate.address = address;
       }
       if (domain !== undefined) {
-        accountUpdate.domainByChain = {
-          ...account.domainByChain,
-          [chain]: domain || undefined,
-        };
+        chainUpdate.domain = domain || undefined;
       }
       if (isMultisig !== undefined) {
-        accountUpdate.isMultisigByChain = {
-          ...account.isMultisigByChain,
-          [chain]: isMultisig,
-        };
+        chainUpdate.isMultisig = isMultisig || undefined;
       }
-      global = updateAccount(global, accountId, accountUpdate);
+      global = updateAccountChain(global, accountId, chain, chainUpdate);
       setGlobal(global);
       break;
     }
@@ -316,13 +307,13 @@ addActionHandler('apiUpdate', (global, actions, update) => {
         global,
         accountId,
         type: 'mnemonic',
-        addressByChain: { ton: address },
+        byChain: { ton: { address } },
       });
       global = createAccount({
         global,
         accountId: secondAccountId,
         type: 'mnemonic',
-        addressByChain: { ton: secondAddress },
+        byChain: { ton: { address: secondAddress } },
         network: isTestnet ? 'mainnet' : 'testnet', // Second account should be created on opposite network
       });
       setGlobal(global);

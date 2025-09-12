@@ -36,3 +36,6 @@ google-services.json
 
 # SDK
 SubModules/AirAsFramework/src/main/assets/js/mytonwallet-sdk.js
+
+# Localization
+SubModules/AirAsFramework/src/main/assets/i18n/*

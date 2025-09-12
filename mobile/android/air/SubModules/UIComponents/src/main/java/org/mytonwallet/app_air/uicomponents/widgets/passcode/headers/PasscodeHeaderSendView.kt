@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uicomponents.widgets.passcode.headers
 
 import android.annotation.SuppressLint
-import android.content.Context
 import android.graphics.Color
 import android.text.Spannable
 import android.text.SpannableStringBuilder
@@ -10,6 +9,7 @@ import android.text.style.RelativeSizeSpan
 import android.util.TypedValue
 import android.view.Gravity
 import android.widget.LinearLayout
+import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
 import org.mytonwallet.app_air.uicomponents.helpers.AddressPopupHelpers
@@ -24,13 +24,14 @@ import org.mytonwallet.app_air.walletcontext.theme.WColor
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
+import java.lang.ref.WeakReference
 import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class PasscodeHeaderSendView(
-    context: Context,
+    val viewController: WeakReference<WViewController>,
     val availableHeight: Int
-) : LinearLayout(context) {
+) : LinearLayout(viewController.get()!!.context) {
 
     private val tokenToSendIconView = WCustomImageView(context)
 
@@ -158,7 +159,7 @@ class PasscodeHeaderSendView(
         val address = SpannableStringBuilder(sendingToText).apply {
             append(" $a")
             AddressPopupHelpers.configSpannableAddress(
-                context,
+                viewController,
                 this,
                 length - a.length,
                 a.length,

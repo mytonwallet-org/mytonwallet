@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.ledger.screens.ledgerConnect
 
-import WNavigationController
 import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
@@ -59,7 +58,6 @@ import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.MAIN_NETWORK
 import org.mytonwallet.app_air.walletcore.WalletCore
-import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.api.submitStake
 import org.mytonwallet.app_air.walletcore.api.submitUnstake
@@ -306,7 +304,7 @@ class LedgerConnectVC(
                     }
                 ),
                 offset = connectionTypeView.width - 116.dp,
-                popupWidth = 100.dp,
+                popupWidth = WRAP_CONTENT,
                 aboveView = true
             )
         }
@@ -397,7 +395,7 @@ class LedgerConnectVC(
                             onUpdate(
                                 LedgerManager.ConnectionState.Error(
                                     step = LedgerManager.ConnectionState.Error.Step.CONNECT,
-                                    message = null
+                                    shortMessage = null
                                 )
                             )
                         }
@@ -460,7 +458,7 @@ class LedgerConnectVC(
                                 onUpdate(
                                     LedgerManager.ConnectionState.Error(
                                         step = LedgerManager.ConnectionState.Error.Step.CONNECT,
-                                        message = LocaleController.getString("Permission Denied")
+                                        shortMessage = LocaleController.getString("Permission Denied")
                                     )
                                 )
                                 if (!ActivityCompat.shouldShowRequestPermissionRationale(
@@ -607,16 +605,23 @@ class LedgerConnectVC(
                         ) { _, err ->
                             if (err != null) {
                                 // Should not happen
+                                Logger.e(
+                                    Logger.LogTag.ACCOUNT,
+                                    LogMessage.Builder()
+                                        .append(
+                                            "Activation failed on ledger connect: $err",
+                                            LogMessage.MessagePartPrivacy.PUBLIC
+                                        ).build()
+                                )
                                 finalizeFailed()
                                 return@activateAccount
                             }
-                            if (prevAccountsCount == 0) {
-                                val navigationController = WNavigationController(window!!)
-                                navigationController.setRoot(WalletContextManager.delegate?.getTabsVC() as WViewController)
-                                window!!.replace(navigationController, true)
-                            } else {
-                                WalletCore.notifyEvent(WalletEvent.AddNewWalletCompletion)
-                                window!!.dismissLastNav()
+                            Handler(Looper.getMainLooper()).post {
+                                push(
+                                    WalletContextManager.delegate?.getWalletAddedVC(false) as WViewController,
+                                    {
+                                        navigationController?.removePrevViewControllers()
+                                    })
                             }
                         }
                     }
@@ -881,7 +886,7 @@ class LedgerConnectVC(
                 when (state.step) {
                     LedgerManager.ConnectionState.Error.Step.CONNECT -> {
                         connectLedgerStep.state = LedgerConnectStepStatusView.State.ERROR
-                        connectLedgerStep.setError(state.message)
+                        connectLedgerStep.setError(state.shortMessage)
                         openTonAppStep.state = LedgerConnectStepStatusView.State.WAITING
                         signOnDeviceStep.state = LedgerConnectStepStatusView.State.WAITING
                     }
@@ -889,7 +894,7 @@ class LedgerConnectVC(
                     LedgerManager.ConnectionState.Error.Step.TON_APP -> {
                         connectLedgerStep.state = LedgerConnectStepStatusView.State.DONE
                         openTonAppStep.state = LedgerConnectStepStatusView.State.ERROR
-                        openTonAppStep.setError(state.message)
+                        openTonAppStep.setError(state.shortMessage)
                         signOnDeviceStep.state = LedgerConnectStepStatusView.State.WAITING
                     }
 
@@ -897,9 +902,13 @@ class LedgerConnectVC(
                         connectLedgerStep.state = LedgerConnectStepStatusView.State.DONE
                         openTonAppStep.state = LedgerConnectStepStatusView.State.DONE
                         signOnDeviceStep.state = LedgerConnectStepStatusView.State.ERROR
-                        signOnDeviceStep.setError(state.message)
+                        signOnDeviceStep.setError(state.shortMessage)
                     }
                 }
+                if (state.shortMessage == null)
+                    state.bridgeError?.let {
+                        showError(it)
+                    }
             }
 
             LedgerManager.ConnectionState.None -> {
@@ -916,7 +925,7 @@ class LedgerConnectVC(
             onUpdate(
                 LedgerManager.ConnectionState.Error(
                     step = LedgerManager.ConnectionState.Error.Step.TON_APP,
-                    message = null
+                    shortMessage = null
                 )
             )
         }
@@ -927,7 +936,8 @@ class LedgerConnectVC(
         onUpdate(
             LedgerManager.ConnectionState.Error(
                 step = LedgerManager.ConnectionState.Error.Step.SIGN,
-                message = error?.parsed?.toShortLocalized
+                shortMessage = error?.parsed?.toShortLocalized,
+                bridgeError = error?.parsed
             )
         )
     }

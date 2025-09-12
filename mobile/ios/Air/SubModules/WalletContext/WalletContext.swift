@@ -24,8 +24,8 @@ public protocol WalletContextDelegate: NSObject {
     func walletIsReady(isReady: Bool)
     func switchToCapacitor()
     func restartApp()
-    func addAnotherAccount(wordList: [String], passedPasscode: String) -> UIViewController
-    func importAnotherAccount(passedPasscode: String, isLedger: Bool) async -> UIViewController
+    func addAnotherAccount(wordList: [String], passedPasscode: String?) -> UIViewController
+    func importAnotherAccount(passedPasscode: String?, isLedger: Bool) async -> UIViewController
     func viewAnyAddress() -> UIViewController
     func handleDeeplink(url: URL) -> Bool
     var isWalletReady: Bool { get }

@@ -30,6 +30,7 @@ import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ActivityStore
+import org.mytonwallet.app_air.walletcore.stores.AddressStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
@@ -74,6 +75,7 @@ val ALWAYS_SHOWN_TOKENS = setOf(
     TONCOIN_SLUG,
     TON_USDT_SLUG,
     TRON_SLUG,
+    TRON_USDT_TESTNET_SLUG,
 )
 
 val DEFAULT_SHOWN_TOKENS = setOf(
@@ -130,6 +132,7 @@ object WalletCore {
         AccountStore.updateActiveAccount(accountId)
         WGlobalStorage.setActiveAccountId(accountId)
         PoisoningCacheHelper.clearPoisoningCache()
+        AddressStore.loadFromCache(accountId)
         NftStore.loadCachedNfts(accountId)
         AccountStore.walletVersionsData = null
         AccountStore.updateAssetsAndActivityData(MAssetsAndActivityData(accountId), notify = false)
@@ -188,7 +191,7 @@ object WalletCore {
             }
         } else {
             if (bridge!!.parent != bridgeHostView) {
-                (bridge!!.parent as ViewGroup).removeView(bridge)
+                (bridge!!.parent as? ViewGroup)?.removeView(bridge)
                 bridgeHostView.addView(bridge)
             }
             doOnBridgeReady {

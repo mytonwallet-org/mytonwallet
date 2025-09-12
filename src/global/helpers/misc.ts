@@ -13,7 +13,7 @@ import { getInAppBrowser } from '../../components/ui/InAppBrowser';
  * Returns `undefined` if this is not a valid address or the account doesn't have the corresponding wallet.
  */
 export function parsePlainAddressQr(global: GlobalState, qrData: string) {
-  const availableChains = selectCurrentAccount(global)?.addressByChain ?? {};
+  const availableChains = selectCurrentAccount(global)?.byChain ?? {};
   const newChain = getChainFromAddress(qrData, availableChains);
   if (!newChain) {
     return undefined;

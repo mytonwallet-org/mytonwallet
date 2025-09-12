@@ -43,7 +43,7 @@ struct NftDetailsDetailsView: View {
             InsetSection {
                 InsetCell {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(lang("description"))
+                        Text(lang("Description").lowercased())
                             .font(.system(size: 14))
                         
                         Text(description)
@@ -138,7 +138,7 @@ struct NftDetailsDetailsView: View {
         Button {
             isDebugMenuPresented = true
         } label: {
-            Text(lang("Debug Settings"))
+            Text(lang("Developer Options"))
                 .font13()
                 .textCase(.uppercase)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -194,7 +194,7 @@ private struct DebugSettingsView: View {
                     Button("Done") { dismiss() }
                 }
             }
-            .navigationBarTitle(Text(lang("Debug Settings")), displayMode: .inline)
+            .navigationBarTitle(Text(lang("Developer Options")), displayMode: .inline)
         }
     }
 

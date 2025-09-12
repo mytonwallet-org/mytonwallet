@@ -10,7 +10,7 @@ import {
 import { getActivityIdReplacements } from '../../../util/activities';
 import { callActionInMain, callActionInNative } from '../../../util/multitab';
 import { playIncomingTransactionSound } from '../../../util/notificationSound';
-import { getIsTransactionWithPoisoning } from '../../../util/poisoningHash';
+import { getIsTransactionWithPoisoning, updatePoisoningCacheFromActivities } from '../../../util/poisoningHash';
 import { waitFor } from '../../../util/schedulers';
 import { getChainBySlug } from '../../../util/tokens';
 import {
@@ -49,6 +49,8 @@ addActionHandler('apiUpdate', (global, actions, update) => {
   switch (update.type) {
     case 'initialActivities': {
       const { accountId, mainActivities, bySlug, chain } = update;
+
+      updatePoisoningCacheFromActivities(mainActivities);
 
       global = addInitialActivities(global, accountId, mainActivities, bySlug, chain);
       setGlobal(global);
@@ -114,7 +116,9 @@ addActionHandler('apiUpdate', (global, actions, update) => {
       global = replaceCurrentDomainRenewalId(global, replacedIds);
       global = replaceCurrentSwapId(global, replacedIds);
       global = replaceCurrentActivityId(global, accountId, replacedIds);
+
       notifyAboutNewActivities(global, newConfirmedActivities);
+      updatePoisoningCacheFromActivities(newConfirmedActivities);
 
       if (!IS_CORE_WALLET) {
         // NFT polling is executed at long intervals, so it is more likely that a user will see a new transaction

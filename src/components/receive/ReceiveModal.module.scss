@@ -1,3 +1,5 @@
+@use "sass:map";
+
 @use "../../styles/mixins";
 
 .modalDialog {
@@ -104,8 +106,8 @@
 
   @include mixins.transition('background-color 200ms, clip-path var(--slide-transition)', !important);
 
-  &.tronActive {
-    background-color: var(--color-activity-red-background) !important;
+  @include mixins.byChainClass() using ($variables) {
+    background-color: map.get($variables, tabBackground) !important;
   }
 }
 
@@ -117,14 +119,12 @@
 
 .tab {
   flex-grow: 0 !important;
-}
 
-.tabTon:global(.current-tab) {
-  color: var(--color-activity-blue);
-}
-
-.tabTron:global(.current-tab) {
-  color: var(--color-activity-red-text);
+  @include mixins.byChainClass() using ($variables) {
+    &:global(.current-tab) {
+      color: map.get($variables, tabColor);
+    }
+  }
 }
 
 .qrCode {

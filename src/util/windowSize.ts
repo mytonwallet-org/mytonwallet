@@ -1,5 +1,5 @@
 import { IS_CAPACITOR, IS_TELEGRAM_APP } from '../config';
-import { requestMeasure, requestMutation } from '../lib/fasterdom/fasterdom';
+import { requestMutation } from '../lib/fasterdom/fasterdom';
 import { applyStyles } from './animation';
 import { SECOND } from './dateFormat';
 import safeExec from './safeExec';
@@ -9,7 +9,6 @@ import { IS_ANDROID, IS_IOS } from './windowEnvironment';
 const WINDOW_RESIZE_THROTTLE_MS = IS_TELEGRAM_APP ? 25 : 250;
 const WINDOW_ORIENTATION_CHANGE_THROTTLE_MS = IS_IOS ? 350 : 250;
 const SAFE_AREA_INITIALIZATION_DELAY = SECOND;
-const SAFE_AREA_TOLERANCE_HEIGHT_PX = 40;
 
 const initialHeight = window.innerHeight;
 const virtualKeyboardOpenListeners: NoneToVoidFunction[] = [];
@@ -30,16 +29,22 @@ if (IS_CAPACITOR) {
   void import('@capacitor/keyboard')
     .then(({ Keyboard }) => {
       void Keyboard.addListener('keyboardDidShow', async (info) => {
-        await adjustBodyPaddingForKeyboard(info.keyboardHeight);
+        // Due to a bug in Android, extra space is added to the bottom of the screen when the keyboard is opened only on iOS
+        // https://capacitorjs.com/docs/apis/keyboard#configuration (resizeOnFullScreen)
+        if (IS_IOS) {
+          await adjustBodyPaddingForKeyboard(info.keyboardHeight);
+        }
 
         for (const cb of virtualKeyboardOpenListeners) {
           safeExec(cb);
         }
       });
 
-      void Keyboard.addListener('keyboardWillHide', () => {
-        void adjustBodyPaddingForKeyboard(0);
-      });
+      if (IS_IOS) {
+        void Keyboard.addListener('keyboardWillHide', () => {
+          void adjustBodyPaddingForKeyboard(0);
+        });
+      }
     });
 }
 
@@ -47,26 +52,11 @@ if ('visualViewport' in window && (IS_IOS || IS_ANDROID)) {
   window.visualViewport!.addEventListener('resize', throttle((e: Event) => {
     const target = e.target as VisualViewport;
 
-    // In the TMA application on iOS, the VisualViewport behaves incorrectly,
-    // not taking into account the height of the virtual keyboard.
-    if (IS_IOS && IS_TELEGRAM_APP) {
-      const keyboardHeight = initialHeight - target.height;
-      void adjustBodyPaddingForKeyboard(keyboardHeight > SAFE_AREA_TOLERANCE_HEIGHT_PX ? keyboardHeight : 0)
-        .finally(() => {
-          requestMeasure(() => {
-            currentWindowSize = {
-              ...getWindowSize(),
-              height: target.height,
-            };
-          });
-        });
-    } else {
-      patchVh();
-      currentWindowSize = {
-        ...getWindowSize(),
-        height: target.height,
-      };
-    }
+    patchVh();
+    currentWindowSize = {
+      ...getWindowSize(),
+      height: target.height,
+    };
   }, WINDOW_RESIZE_THROTTLE_MS, true));
 }
 

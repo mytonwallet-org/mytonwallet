@@ -26,7 +26,7 @@ class WPopupWindow(
     private val popupWidth: Int,
 ) : PopupWindow(
     FrameLayout(initialPopupView.context),
-    popupWidth + 8.dp,
+    if (popupWidth == WRAP_CONTENT) WRAP_CONTENT else popupWidth + 8.dp,
     WRAP_CONTENT,
     true
 ) {
@@ -41,16 +41,18 @@ class WPopupWindow(
         }
     }.apply {
         elevation = 2f.dp
-        addView(initialPopupView, FrameLayout.LayoutParams(popupWidth, WRAP_CONTENT))
+        val layoutWidth = if (popupWidth == WRAP_CONTENT) WRAP_CONTENT else popupWidth
+        addView(initialPopupView, FrameLayout.LayoutParams(layoutWidth, WRAP_CONTENT))
     }
 
     private val popupViews = mutableListOf(initialPopupView)
 
     init {
         (contentView as FrameLayout).apply {
+            val containerWidth = if (popupWidth == WRAP_CONTENT) WRAP_CONTENT else MATCH_PARENT
             addView(
                 containerLayout,
-                FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT).apply {
+                FrameLayout.LayoutParams(containerWidth, MATCH_PARENT).apply {
                     topMargin = 12.dp
                     leftMargin = 4.dp
                     rightMargin = 4.dp
@@ -74,9 +76,10 @@ class WPopupWindow(
         nextPopupView.alpha = 0f
         nextPopupView.lockView()
 
+        val layoutWidth = if (popupWidth == WRAP_CONTENT) WRAP_CONTENT else popupWidth
         containerLayout.addView(
             nextPopupView,
-            FrameLayout.LayoutParams(popupWidth, WRAP_CONTENT)
+            FrameLayout.LayoutParams(layoutWidth, WRAP_CONTENT)
         )
         popupViews.add(nextPopupView)
 
@@ -126,8 +129,10 @@ class WPopupWindow(
         fun onEnd() {
             containerLayout.removeView(currentView)
             popupViews.removeAt(popupViews.size - 1)
-            width = popupWidth + 8.dp
-            update()
+            if (popupWidth != WRAP_CONTENT) {
+                width = popupWidth + 8.dp
+                update()
+            }
             onCompletion?.invoke()
         }
 

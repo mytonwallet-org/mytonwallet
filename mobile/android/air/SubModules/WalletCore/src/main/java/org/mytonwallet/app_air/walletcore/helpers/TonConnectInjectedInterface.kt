@@ -81,7 +81,7 @@ class TonConnectInjectedInterface(
                     )
                 ) { res, _ ->
                     if (res?.getString("event") == "connect") {
-                        sendInvokeResult(invoke.invocationId, putDeviceInfo(res))
+                        sendInvokeResult(invoke.invocationId, res)
                     } else {
                         sendInvokeError(invoke.invocationId)
                     }
@@ -106,7 +106,7 @@ class TonConnectInjectedInterface(
                 ) { res, _ ->
                     webView.unlockTouch()
                     if (res?.getString("event") == "connect") {
-                        sendInvokeResult(invoke.invocationId, putDeviceInfo(res))
+                        sendInvokeResult(invoke.invocationId, res)
                     } else {
                         sendInvokeError(invoke.invocationId)
                     }
@@ -165,12 +165,6 @@ class TonConnectInjectedInterface(
     }
 
     private fun getRequestId() = SecureRandom().nextInt()
-
-    private fun putDeviceInfo(json: JSONObject): JSONObject {
-        val payload = json.getJSONObject("payload")
-        payload.put("device", JSONObject(TonConnectHelper.deviceInfoJson))
-        return json
-    }
 }
 
 fun WebView.lockTouch() {

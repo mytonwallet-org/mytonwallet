@@ -12,7 +12,6 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.constants.TelegramGiftAddresses
 import org.mytonwallet.app_air.walletcore.models.NftCollection
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
@@ -66,8 +65,9 @@ object CollectionsMenuHelpers {
         val collections = NftStore.getCollections()
         // Extract telegram gifts
         val telegramGifts = NftStore.nftData?.cachedNfts?.filter {
-            TelegramGiftAddresses.all.contains(it.collectionAddress)
+            it.isTelegramGift == true
         }
+        val telegramGiftCollectionAddresses = NftStore.nftData?.telegramGiftCollectionAddresses
         val telegramGiftItem = if ((telegramGifts?.size ?: 0) < 2)
             null
         else
@@ -116,7 +116,7 @@ object CollectionsMenuHelpers {
                     },
                 ),
                 hasSeparator = collections.any {
-                    !TelegramGiftAddresses.all.contains(it.address)
+                    telegramGiftCollectionAddresses?.contains(it.address) != true
                 } || hiddenNFTsExist,
             )
         val hiddenNFTsItem = WMenuPopup.Item(
@@ -132,7 +132,7 @@ object CollectionsMenuHelpers {
         val menuItems =
             ArrayList(collections.filter {
                 telegramGiftItem == null ||
-                    !TelegramGiftAddresses.all.contains(it.address)
+                    telegramGiftCollectionAddresses?.contains(it.address) != true
             }
                 .mapIndexed { i, nftCollection ->
                     WMenuPopup.Item(
@@ -145,7 +145,7 @@ object CollectionsMenuHelpers {
                             AssetsVC(
                                 view.context,
                                 AssetsVC.Mode.COMPLETE,
-                                collectionMode = AssetsVC.CollectionMode.SingleCollection(
+                                collectionMode = CollectionMode.SingleCollection(
                                     nftCollection
                                 )
                             )
@@ -163,7 +163,7 @@ object CollectionsMenuHelpers {
             view,
             menuItems,
             popupWidth = 240.dp,
-            offset = (-location[0] + (navigationController.width / 2) - 120.dp).toInt(),
+            offset = (-location[0] + (navigationController.width / 2) - 120.dp),
             aboveView = false
         )
     }

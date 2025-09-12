@@ -312,7 +312,7 @@ export default memo(
       accounts: selectNetworkAccounts(global),
       savedAddresses: accountState?.savedAddresses,
       currentLinkedWalletAddress,
-      currentTonAddress: currentAccount?.addressByChain.ton,
+      currentTonAddress: currentAccount?.byChain.ton?.address,
     };
   })(LinkingDomainModal),
 );

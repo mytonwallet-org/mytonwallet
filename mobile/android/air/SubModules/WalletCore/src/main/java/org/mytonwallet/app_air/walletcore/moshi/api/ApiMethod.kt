@@ -1,10 +1,12 @@
 package org.mytonwallet.app_air.walletcore.moshi.api
 
+import android.accounts.Account
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Types
 import org.json.JSONArray
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcore.api.ArgumentsBuilder
+import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
@@ -23,6 +25,7 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiSwapEstimateResponse
 import org.mytonwallet.app_air.walletcore.moshi.MApiTonWallet
 import org.mytonwallet.app_air.walletcore.moshi.MApiTonWalletVersion
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
+import org.mytonwallet.app_air.walletcore.moshi.MImportedViewWalletResponse
 import org.mytonwallet.app_air.walletcore.moshi.MImportedWalletResponse
 import org.mytonwallet.app_air.walletcore.moshi.MLedgerWalletInfo
 import org.mytonwallet.app_air.walletcore.moshi.ReturnStrategy
@@ -34,6 +37,19 @@ sealed class ApiMethod<T> {
     abstract val name: String
     abstract val type: Type
     abstract val arguments: String
+
+    /* Other */
+    object Other {
+        class SetIsAppFocused(
+            isFocused: Boolean
+        ) : ApiMethod<Array<String>>() {
+            override val name: String = "setIsAppFocused"
+            override val type: Type = Any::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .boolean(isFocused)
+                .build()
+        }
+    }
 
     /* Auth */
     object Auth {
@@ -72,6 +88,22 @@ sealed class ApiMethod<T> {
                 .string(null)
                 .build()
         }
+
+        class ImportViewAccount(
+            network: String,
+            addressByChain: Map<MBlockchain, String>
+        ) : ApiMethod<MImportedViewWalletResponse>() {
+            override val name: String = "importViewAccount"
+            override val type: Type = MImportedViewWalletResponse::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(network)
+                .jsonObject(JSONObject().apply {
+                    addressByChain.forEach { (chain, address) ->
+                        put(chain.name, address)
+                    }
+                })
+                .build()
+        }
     }
 
     /* Wallet Data */
@@ -92,16 +124,14 @@ sealed class ApiMethod<T> {
 
         class DecryptComment(
             accountId: String,
-            encryptedComment: String,
-            fromAddress: String,
+            activity: MApiTransaction,
             passcode: String
         ) : ApiMethod<String>() {
             override val name: String = "decryptComment"
             override val type: Type = String::class.java
             override val arguments: String = ArgumentsBuilder()
                 .string(accountId)
-                .string(encryptedComment)
-                .string(fromAddress)
+                .jsObject(activity, MApiTransaction::class.java)
                 .string(passcode)
                 .build()
         }
@@ -110,7 +140,7 @@ sealed class ApiMethod<T> {
             accountId: String,
             activity: MApiTransaction,
         ) : ApiMethod<MApiTransaction>() {
-            override val name: String = "fetchTonActivityDetails"
+            override val name: String = "fetchActivityDetails"
             override val type: Type = MApiTransaction::class.java
             override val arguments: String = ArgumentsBuilder()
                 .string(accountId)

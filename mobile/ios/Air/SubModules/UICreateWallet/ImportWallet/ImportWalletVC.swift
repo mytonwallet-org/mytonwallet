@@ -212,7 +212,7 @@ public class ImportWalletVC: WViewController {
 
     private func showUnknownErrorAlert(customText: String? = nil) {
         showAlert(title: lang("Import failed"),
-                  text: customText ?? lang("Please try again."),
+                  text: customText ?? lang("Please try again"),
                   button: lang("OK"))
     }
 

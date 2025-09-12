@@ -6,7 +6,6 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.Rect
 import android.util.TypedValue
-import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputConnectionWrapper
@@ -29,6 +28,8 @@ open class WEditText(
         id = generateViewId()
         background = null
     }
+
+    var nextFocusView: WeakReference<WEditText>? = null
 
     override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection? {
         val ic = super.onCreateInputConnection(outAttrs)
@@ -82,16 +83,15 @@ open class WEditText(
         return super.onTextContextMenuItem(id)
     }
 
-    private fun handlePaste(pasteData: String) {
+    fun handlePaste(pasteData: String) {
         val lines = pasteData.split("[\n ]".toRegex()).filter { it.isNotEmpty() }
             .toTypedArray()
         var currentEditText: WEditText = this
         for (line in lines) {
             currentEditText.setText(line)
             try {
-                val nextFocus: View = currentEditText.focusSearch(FOCUS_DOWN)
-                if (nextFocus is WEditText) {
-                    currentEditText = nextFocus
+                if (currentEditText.nextFocusView?.get() != null) {
+                    currentEditText = currentEditText.nextFocusView?.get()!!
 
                 } else {
                     break

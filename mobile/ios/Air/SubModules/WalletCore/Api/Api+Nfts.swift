@@ -6,19 +6,19 @@ import WalletContext
 extension Api {
     
     public static func fetchNftsFromCollection(accountId: String, collectionAddress: String) async throws {
-        try await bridge.callApiVoid("fetchNfts", accountId, collectionAddress)
+        try await bridge.callApiVoid("fetchNftsFromCollection", accountId, collectionAddress)
     }
     
     public static func checkNftTransferDraft(options: ApiCheckNftTransferDraftOptions) async throws -> MTransactionDraft {
         try await bridge.callApi("checkNftTransferDraft", options, decoding: MTransactionDraft.self)
     }
 
-    public static func submitNftTransfers(accountId: String, password: String, nfts: [ApiNft], toAddress: String, comment: String?, totalRealFee: BigInt?) async throws -> ApiSubmitNftTransfersResult {
+    public static func submitNftTransfers(accountId: String, password: String?, nfts: [ApiNft], toAddress: String, comment: String?, totalRealFee: BigInt?) async throws -> ApiSubmitNftTransfersResult {
         try await bridge.callApi("submitNftTransfers", accountId, password, nfts, toAddress, comment, totalRealFee, decoding: ApiSubmitNftTransfersResult.self)
     }
     
-    public static func checkNftOwnership(accountId: String, nftAddress: String) async throws -> Bool {
-        try await bridge.callApi("checkNftOwnership", accountId, nftAddress, decoding: Bool.self)
+    public static func checkNftOwnership(accountId: String, nftAddress: String) async throws -> Bool? {
+        try await bridge.callApiOptional("checkNftOwnership", accountId, nftAddress, decodingOptional: Bool.self)
     }
 }
 
@@ -40,20 +40,25 @@ public struct ApiCheckNftTransferDraftOptions: Encodable {
 }
 
 public struct ApiSubmitNftTransfersResult: Decodable, Sendable {
+    // ApiSubmitMultiTransferResult
     public let messages: [TonTransferParams]
     public let amount: String
     public let seqno: Int
     public let boc: String
     public let msgHash: String
+    public let msgHashNormalized: String
     public let paymentLink: String?
     public let withW5Gasless: Bool?
+
+    public let activityIds: [String]
 }
 
 public struct TonTransferParams: Equatable, Hashable, Codable, Sendable {
     public var toAddress: String
     public var amount: BigInt
-    // TODO: Not implemented because of Cell
-//    public var payload: AnyPayload?
-//    public var stateInit: Cell?
     public var isBase64Payload: Bool?
+    // Not implemented:
+    //    public var payload: AnyPayload?
+    //    public var stateInit: Cell?
+    //    public var hints: TonTransferHints?
 }

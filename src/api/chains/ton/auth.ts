@@ -122,7 +122,6 @@ export async function getWalletFromKeys(
   const publicKeyHex = bytesToHex(publicKey);
 
   return {
-    type: 'ton',
     publicKey: publicKeyHex,
     address,
     version,
@@ -149,7 +148,6 @@ export function getOtherVersionWallet(
   const publicKey = hexToBytes(wallet.publicKey);
   const newAddress = publicKeyToAddress(network, publicKey, otherVersion);
   return {
-    type: 'ton',
     address: newAddress,
     publicKey: wallet.publicKey,
     version: otherVersion,
@@ -174,7 +172,6 @@ export async function getWalletFromAddress(
   return {
     title: resolvedAddress.name,
     wallet: omitUndefined<ApiTonWallet>({
-      type: 'ton',
       publicKey: publicKey ? bytesToHex(publicKey) : undefined,
       address: walletInfo.address,
       // The wallet has no version until it's initialized as a wallet. Using the default version just for the type

@@ -7,7 +7,6 @@
 
 import Foundation
 
-let DEFAULT_TO_LOCALE = false
 
 public final class LocalizationSupport {
     
@@ -30,7 +29,7 @@ public final class LocalizationSupport {
                 return "en"
             }
         }
-        return DEFAULT_TO_LOCALE ? Locale.current.language.languageCode?.identifier ?? "en" : "en"
+        return "en"
     }
     
     public var locale: Locale!

@@ -12,6 +12,10 @@ fun WalletCore.setBaseCurrency(
     newBaseCurrency: String,
     callback: (Boolean, MBridgeError?) -> Unit
 ) {
+    if (baseCurrency?.currencyCode == newBaseCurrency) {
+        callback(true, null)
+        return
+    }
     TokenStore.clearQuotes()
     WGlobalStorage.clearPriceHistory()
     bridge?.callApi(

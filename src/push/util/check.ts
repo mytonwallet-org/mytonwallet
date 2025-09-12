@@ -7,17 +7,20 @@ import { fromDecimal } from '../../util/decimals';
 import { fetchJson } from '../../util/fetch';
 import { getTelegramApp } from '../../util/telegram';
 import { getWalletBalance, resolveTokenWalletAddress } from '../../api/chains/ton';
+import { buildNftTransferPayload } from '../../api/chains/ton/nfts';
 import { buildTokenTransferBody, getTokenBalance } from '../../api/chains/ton/util/tonCore';
 import { calcAddressHashBase64, calcAddressHead, calcAddressSha256HeadBase64, cashCheck } from './push';
 import { tonConnectUi } from './tonConnect';
 
 import { CANCEL_FEE, Fees, PushEscrow as PushEscrowV3 } from '../../api/chains/ton/contracts/PushEscrowV3';
+import { Fees as NftFees, PushNftEscrow } from '../../api/chains/ton/contracts/PushNftEscrow';
 
 const TINY_JETTONS = ['EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs']; // USDT
 const TON_FULL_FEE = Fees.TON_CREATE_GAS + Fees.TON_CASH_GAS + Fees.TON_TRANSFER;
 const JETTON_FULL_FEE = Fees.JETTON_CREATE_GAS + Fees.JETTON_CASH_GAS + Fees.JETTON_TRANSFER + Fees.TON_TRANSFER;
 // eslint-disable-next-line @stylistic/max-len
 const TINY_JETTON_FULL_FEE = Fees.JETTON_CREATE_GAS + Fees.JETTON_CASH_GAS + Fees.TINY_JETTON_TRANSFER + Fees.TON_TRANSFER;
+const NFT_FULL_FEE = NftFees.NFT_CREATE_GAS + NftFees.NFT_CASH_GAS + NftFees.NFT_TRANSFER + Fees.TON_TRANSFER;
 
 export async function fetchAccountBalance(ownerAddress: string, tokenAddress?: string) {
   if (!tokenAddress) {
@@ -39,24 +42,29 @@ export async function fetchCheck(checkKey: string) {
 export async function processCreateCheck(check: ApiCheck, onSend: NoneToVoidFunction) {
   try {
     const userAddress = tonConnectUi.wallet!.account.address;
-    const { id: checkId, contractAddress, minterAddress, decimals, username, comment } = check;
-    const isJettonTransfer = Boolean(minterAddress);
-    const amount = fromDecimal(check.amount, decimals);
+    const { id: checkId, type, contractAddress, username, comment } = check;
+
+    const isJettonTransfer = type === 'coin' && Boolean(check.minterAddress);
+    const isNftTransfer = type === 'nft';
+
+    const amount = check.type === 'coin' ? fromDecimal(check.amount, check.decimals) : 0n;
     const chatInstance = !username ? getTelegramApp()!.initDataUnsafe.chat_instance! : undefined;
     const params = { checkId, amount, username, chatInstance, comment };
     const payload = isJettonTransfer
       ? PushEscrowV3.prepareCreateJettonCheckForwardPayload(params)
-      : PushEscrowV3.prepareCreateCheck(params);
+      : isNftTransfer
+        ? PushNftEscrow.prepareCreateCheck(params)
+        : PushEscrowV3.prepareCreateCheck(params);
 
     let message;
 
     if (isJettonTransfer) {
-      const jettonWalletAddress = await resolveTokenWalletAddress('mainnet', userAddress, minterAddress);
+      const jettonWalletAddress = await resolveTokenWalletAddress('mainnet', userAddress, check.minterAddress!);
       if (!jettonWalletAddress) {
         throw new Error('Could not resolve jetton wallet address');
       }
 
-      const isTinyJetton = TINY_JETTONS.includes(minterAddress);
+      const isTinyJetton = TINY_JETTONS.includes(check.minterAddress!);
       const messageAmount = String(
         isTinyJetton
           ? Fees.TINY_JETTON_TRANSFER + TINY_JETTON_FULL_FEE
@@ -73,6 +81,20 @@ export async function processCreateCheck(check: ApiCheck, onSend: NoneToVoidFunc
           forwardAmount: isTinyJetton ? TINY_JETTON_FULL_FEE : JETTON_FULL_FEE,
           forwardPayload: payload,
         }).toBoc().toString('base64'),
+      };
+    } else if (isNftTransfer) {
+      const { nftInfo } = check;
+      const messageAmount = String(NFT_FULL_FEE + NftFees.NFT_TRANSFER);
+
+      message = {
+        address: nftInfo.address,
+        amount: messageAmount,
+        payload: buildNftTransferPayload(
+          userAddress,
+          contractAddress,
+          payload,
+          NFT_FULL_FEE,
+        ).toBoc().toString('base64'),
       };
     } else {
       const messageAmount = String(amount + TON_FULL_FEE);
@@ -124,6 +146,7 @@ export async function processCashCheck(
     isV1: PUSH_SC_VERSIONS.v1.includes(contractAddress),
     isV2: PUSH_SC_VERSIONS.v2 === contractAddress,
     isV3: PUSH_SC_VERSIONS.v3.includes(contractAddress),
+    isNft: PUSH_SC_VERSIONS.NFT === contractAddress,
   };
 
   let payload: string;
@@ -138,7 +161,7 @@ export async function processCashCheck(
   const { resultUnsafe } = (await signCustomData(
     username ? { user: { username: true } } : { chat_instance: true },
     payload,
-    scVersion.isV3 ? {
+    (scVersion.isV3 || scVersion.isNft) ? {
       shouldSignHash: true,
       isPayloadBinary: true,
     } : undefined,
@@ -151,7 +174,7 @@ export async function processCashCheck(
     throw new Error('Access to transfer denied');
   }
 
-  await cashCheck(contractAddress, scVersion.isV3, checkId, {
+  await cashCheck(contractAddress, scVersion, checkId, {
     authDate: resultUnsafe.auth_date,
     ...(username ? {
       username: resultUnsafe.init_data.user!.username,

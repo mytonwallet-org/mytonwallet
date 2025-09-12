@@ -144,6 +144,12 @@ class HIDDevice(manager: UsbManager, device: UsbDevice) {
     val deviceName: String
         get() = connectedDevice.deviceName
 
+    val manufacturerName: String?
+        get() = connectedDevice.manufacturerName
+
+    val productName: String?
+        get() = connectedDevice.productName
+
     companion object {
         private const val HID_BUFFER_SIZE = 64
         private const val LEDGER_DEFAULT_CHANNEL = 1

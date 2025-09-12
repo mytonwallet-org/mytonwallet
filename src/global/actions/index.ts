@@ -10,7 +10,7 @@ import './api/nfts';
 import './api/vesting';
 import './api/cards';
 import './api/notifications';
-import './api/activity';
+import './api/activities';
 import './api/domains';
 import './apiUpdates/initial';
 import './apiUpdates/activities';

@@ -214,7 +214,7 @@ $tiny_transfers_help: Tutarı $%value%'den az olan işlemleri görüntülemek i�
 Today: Bugün
 Yesterday: Dün
 Now: Şimdi
-$receive_ton_description: Cüzdan bakiyenizi artırmak için bu QR'yi tarayın veya adresinizi paylaşın.
+$receive_description: Cüzdan bakiyenizi artırmak için bu QR'yi tarayın veya adresinizi paylaşın.
 Wrong password, please try again.: Yanlış parola, lütfen tekrar deneyin.
 Appearance: Görünüm
 Light: Açık
@@ -677,7 +677,6 @@ Untitled: Başlıksız
 Multichain: Multichain
 $swap_too_small_amount: Çok küçük miktar
 Not enough %symbol%: Yeterli %symbol% yok
-$receive_tron_description: Cüzdan bakiyenizi artırmak için bu QR'yi tarayın veya adresinizi paylaşın.
 You have just created a new multichain wallet: Yeni bir çok zincirli cüzdan oluşturdunuz
 Now you can transfer tokens from your TON and TRON wallets.: Artık TON ve TRON cüzdanlarınızdan token transferi yapabilirsiniz.
 Enter Secret Words: Gizli Kelimeleri Girin
@@ -841,7 +840,7 @@ Not available with biometrics.: Biyometrik ile kullanılamaz.
 App will not ask for signature for %1$d minutes after last entry.: Uygulama, son girişten sonra %1$d dakika boyunca imza istemeyecek.
 Remember for %1$d minutes: "%1$d dakika boyunca hatırla"
 Preview: Önizleme
-$preview_not_guaranteed: Önizleme sonucu **garanti edilmez **ve hizmet tarafından **sahte olabilir**.
+$preview_not_guaranteed: Önizleme sonucu **garanti edilmez** ve hizmet tarafından **sahte olabilir**.
 Unverified Source: Doğrulanmamış Kaynak
 $reopen_in_iab: Güvenliğiniz için lütfen bu DApp'i %browserButton% içinde yeniden açın.
 MyTonWallet Browser: MyTonWallet Tarayıcısı

@@ -144,6 +144,8 @@
 		58151D682DA49FB1005DE3CD /* Ledger.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58151D662DA49FB1005DE3CD /* Ledger.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		584B0F0D2DD395FB00BDF9E7 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 584B0F0C2DD395FB00BDF9E7 /* Lottie */; };
 		584B0F0F2DD3960200BDF9E7 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 584B0F0E2DD3960200BDF9E7 /* Lottie */; };
+		585CF17B2E6E1CE100A5804F /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 585CF17A2E6E1CE100A5804F /* AppIcon.icon */; };
+		585CF17C2E6E1CE100A5804F /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 585CF17A2E6E1CE100A5804F /* AppIcon.icon */; };
 		585EF5292DBC771000ED6D2E /* SharedSplashVC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 585EF5282DBC771000ED6D2E /* SharedSplashVC.swift */; };
 		585EF52A2DBC771000ED6D2E /* SharedSplashVC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 585EF5282DBC771000ED6D2E /* SharedSplashVC.swift */; };
 		58ADCD1A2D3D7DF600198370 /* DebugView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58ADCD192D3D7DF600198370 /* DebugView.swift */; };
@@ -312,6 +314,7 @@
 		56C400091D0DD69BE5E6514D /* Pods_MyTonWallet.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_MyTonWallet.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		58151D632DA49FA7005DE3CD /* Ledger.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = Ledger.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		58151D662DA49FB1005DE3CD /* Ledger.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = Ledger.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		585CF17A2E6E1CE100A5804F /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		585EF5282DBC771000ED6D2E /* SharedSplashVC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedSplashVC.swift; sourceTree = "<group>"; };
 		586D1CF82E453D0500A284A4 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		586D1CF92E453D0500A284A4 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
@@ -436,6 +439,7 @@
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
+				585CF17A2E6E1CE100A5804F /* AppIcon.icon */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -690,6 +694,7 @@
 				273751942D15F492006D07D1 /* Assets.xcassets in Resources */,
 				273751952D15F492006D07D1 /* capacitor.config.json in Resources */,
 				273751962D15F492006D07D1 /* Main.storyboard in Resources */,
+				585CF17C2E6E1CE100A5804F /* AppIcon.icon in Resources */,
 				273751972D15F492006D07D1 /* config.xml in Resources */,
 				273751982D15F492006D07D1 /* GoogleService-Info.plist in Resources */,
 			);
@@ -704,6 +709,7 @@
 				504EC30F1FED79650016851F /* Assets.xcassets in Resources */,
 				50379B232058CBB4000EE86E /* capacitor.config.json in Resources */,
 				504EC30D1FED79650016851F /* Main.storyboard in Resources */,
+				585CF17B2E6E1CE100A5804F /* AppIcon.icon in Resources */,
 				2FAD9763203C412B000D30F8 /* config.xml in Resources */,
 				CEE7F3F02CE1FBCE009D2B34 /* GoogleService-Info.plist in Resources */,
 			);
@@ -872,7 +878,7 @@
 				CODE_SIGN_ENTITLEMENTS = MyTonWallet.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 215;
+				CURRENT_PROJECT_VERSION = 942;
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
 				INFOPLIST_FILE = App/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "MyTonWallet Air";
@@ -882,7 +888,7 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 3.7.4;
+				MARKETING_VERSION = 4.1.4;
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
 				PRODUCT_BUNDLE_IDENTIFIER = "org.mytonwallet.app-air";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -906,7 +912,7 @@
 				CODE_SIGN_ENTITLEMENTS = MyTonWallet.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 215;
+				CURRENT_PROJECT_VERSION = 942;
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
 				INFOPLIST_FILE = App/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "MyTonWallet Air";
@@ -916,7 +922,7 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 3.7.4;
+				MARKETING_VERSION = 4.1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = "org.mytonwallet.app-air";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1054,7 +1060,7 @@
 				CODE_SIGN_ENTITLEMENTS = MyTonWallet.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 215;
+				CURRENT_PROJECT_VERSION = 942;
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -1063,7 +1069,7 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 3.7.4;
+				MARKETING_VERSION = 4.1.4;
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
 				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1083,7 +1089,7 @@
 				CODE_SIGN_ENTITLEMENTS = MyTonWallet.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 215;
+				CURRENT_PROJECT_VERSION = 942;
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -1092,7 +1098,7 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 3.7.4;
+				MARKETING_VERSION = 4.1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

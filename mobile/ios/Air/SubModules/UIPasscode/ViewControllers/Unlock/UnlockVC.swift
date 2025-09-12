@@ -48,11 +48,16 @@ public class UnlockVC: WViewController {
         subtitle: String? = nil,
         customHeaderVC: UIViewController? = nil,
         onAuthTask: ((_ passcode: String, _ onTaskDone: @escaping () -> Void) -> Void)? = nil,
-        onDone: @escaping (_ passcode: String) -> Void,
+        onDone: @escaping (_ passcode: String?) -> Void,
         cancellable: Bool,
         onCancel: (() -> Void)? = nil
     ) {
 
+        guard AuthSupport.accountsSupportAppLock else {
+            onDone(nil)
+            return
+        }
+        
         func _makeUnlockVC(useBioOnPresent: Bool = false) -> UIViewController {
             let unlockVC =  UnlockVC(
                 title: title,
@@ -108,6 +113,10 @@ public class UnlockVC: WViewController {
         customHeaderVC: UIViewController? = nil,
         authTask: (@MainActor (_ passcode: String) async -> Void)? = nil
     ) async -> String? {
+        
+        guard AuthSupport.accountsSupportAppLock else {
+            return nil
+        }
         
         var onAuthTask: ((_ passcode: String, _ onTaskDone: @escaping () -> Void) -> Void)? = nil
         if let authTask {

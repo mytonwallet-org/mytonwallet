@@ -72,7 +72,9 @@ function ForwardConfirm({ isActive, check, address, domain, markJustSentRequest,
       <div className={commonStyles.field}>
         <div className={commonStyles.fieldContent}>
           {domain ? (
-            <><span className={commonStyles.strong}>{domain}</span> · {shortenAddress(address)}</>
+            <>
+              <span className={commonStyles.strong}>{domain}</span> · {shortenAddress(address)}
+            </>
           ) : (
             renderFullAddress()
           )}
@@ -81,7 +83,8 @@ function ForwardConfirm({ isActive, check, address, domain, markJustSentRequest,
 
       <div className={commonStyles.content}>
         <p className={commonStyles.description}>
-          <b>{formatCurrency(check.amount, check.symbol)}</b> {lang('will be forwarded to this address.')}.
+          <b>{check.type === 'coin' ? formatCurrency(check.amount, check.symbol) : check.nftInfo.name}</b>{' '}
+          {lang('will be forwarded to this address.')}
         </p>
       </div>
 

@@ -83,7 +83,7 @@ addActionHandler('registerNotifications', async (global, actions, { userToken, p
   }
 
   const newEnabledAccounts = enabledAccounts.reduce((acc, accountId) => {
-    const tonAddress = accounts[accountId].addressByChain.ton;
+    const tonAddress = accounts[accountId].byChain.ton?.address;
     if (tonAddress) {
       acc[accountId] = createResult.addressKeys[tonAddress];
     }

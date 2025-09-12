@@ -68,5 +68,59 @@ func makeMigrator() -> DatabaseMigrator {
             t.add(column: "pendingActivityIds", .jsonText)
         }
     }
+    migrator.registerMigration("v6") { db in
+        
+        struct Old_MAccount: Codable, FetchableRecord, PersistableRecord {
+            let id: String
+            var type: String
+            var title: String?
+            var addressByChain: [String: String]
+            var ledger: _Ledger?
+            static var databaseTableName: String = "accounts"
+        }
+        struct New_MAccount: Codable, FetchableRecord, PersistableRecord {
+            public let id: String
+            public var title: String?
+            public var type: String
+            public var byChain: [String: _AccountChain]
+            public var ledger: _Ledger?
+            static var databaseTableName: String = "accounts"
+        }
+        struct _Ledger: Codable {
+            var index: Int
+            var driver: String
+            var deviceId: String?
+            var deviceName: String?
+        }
+        struct _AccountChain: Codable {
+            var address: String
+            var domain: String?
+            var isMultisig: Bool?
+        }
+        
+        let oldAccounts = try Old_MAccount.fetchAll(db)
+        let newAccounts = oldAccounts.map { oldAccount in
+            New_MAccount(
+                id: oldAccount.id,
+                title: oldAccount.title,
+                type: oldAccount.type,
+                byChain: Dictionary(uniqueKeysWithValues: oldAccount.addressByChain.map { chain, address in
+                    (chain, _AccountChain(address: address))
+                }),
+                ledger: oldAccount.ledger
+            )
+        }
+        try db.alter(table: "accounts") { t in
+            t.drop(column: "addressByChain")
+            t.add(column: "byChain", .jsonText).defaults(to: "{}").notNull()
+        }
+        for newAccount in newAccounts {
+            try newAccount.update(db)
+        }
+        #if DEBUG
+//        let accounts = try! MAccount.fetchAll(db)
+//        print(accounts)
+        #endif
+    }
     return migrator
 }

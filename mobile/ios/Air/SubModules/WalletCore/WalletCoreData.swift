@@ -61,6 +61,7 @@ public struct WalletCoreData {
         case exchangeWithLedger(apdu: String, callback: @Sendable (String?) async -> ())
         case isLedgerJettonIdSupported(callback: @Sendable (Bool?) async -> ())
         case isLedgerUnsafeSupported(callback: @Sendable (Bool?) async -> ())
+        case getLedgerDeviceModel(callback: @Sendable (ApiLedgerDeviceModel?) async -> ())
         
         case minimizedSheetChanged(_ state: MinimizedSheetState)
         case sheetDismissed(UIViewController)

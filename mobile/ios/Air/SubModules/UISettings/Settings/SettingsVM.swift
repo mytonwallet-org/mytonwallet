@@ -34,10 +34,12 @@ class SettingsVM {
         if let count = DappsStore.dappsCount, count > 0 {
             snapshot.appendItems([.connectedApps])
         }
-//        snapshot.appendItems([.language])
+        snapshot.appendItems([.language])
 
         snapshot.appendSections([.walletData])
-        snapshot.appendItems([.security])
+        if AuthSupport.accountsSupportAppLock {
+            snapshot.appendItems([.security])
+        }
         if let count = AccountStore.walletVersionsData?.versions.count, count > 0 {
             snapshot.appendItems([.walletVersions])
         }
@@ -45,11 +47,6 @@ class SettingsVM {
         snapshot.appendSections([.questionAndAnswers])
         snapshot.appendItems([.questionAndAnswers])
         snapshot.appendItems([.terms])
-        
-//        if !DEFAULT_TO_AIR {
-//            snapshot.appendSections([.switchToCapacitor])
-//            snapshot.appendItems([.switchToCapacitor])
-//        }
         
         snapshot.appendSections([.signout])
         snapshot.appendItems([.signout])
@@ -64,7 +61,7 @@ class SettingsVM {
         }
         switch item.id {
         case .language:
-            return lang("English")
+            return Language.current.nativeName
         case .walletVersions:
             return AccountStore.walletVersionsData?.currentVersion
         case .connectedApps:

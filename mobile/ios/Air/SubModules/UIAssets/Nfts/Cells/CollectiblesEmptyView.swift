@@ -30,7 +30,7 @@ class CollectiblesEmptyView: UICollectionViewCell, WThemedView {
         
         emptyView = HeaderView(animationName: "NoResults",
                                      animationPlaybackMode: .loop,
-                                     title: lang("You have no NFT in this wallet yet."),
+                                     title: lang("No NFTs yet"),
                                      description: nil,
                                      compactMode: true)
         emptyView.lblTitle.font = .systemFont(ofSize: 17, weight: .medium)

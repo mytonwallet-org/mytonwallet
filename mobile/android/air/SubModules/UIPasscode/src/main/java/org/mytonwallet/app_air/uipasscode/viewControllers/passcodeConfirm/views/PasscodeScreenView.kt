@@ -32,6 +32,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uipasscode.commonViews.PasscodeInputView
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
@@ -101,7 +102,8 @@ class PasscodeScreenView(
         context,
         null,
         forceLightScreen = if (passcodeViewState is PasscodeViewState.Default) passcodeViewState.light == true else false,
-        margins = 8
+        margins = 8,
+        showKeyboardOnFocus = false
     ).apply {
         passLength = passcodeLength
     }

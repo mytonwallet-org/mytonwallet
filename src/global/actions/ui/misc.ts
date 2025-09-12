@@ -706,7 +706,7 @@ addActionHandler('setIsAccountLoading', (global, actions, { isLoading }) => {
 });
 
 addActionHandler('authorizeDiesel', (global) => {
-  const address = selectCurrentAccount(global)!.addressByChain.ton;
+  const address = selectCurrentAccount(global)!.byChain.ton?.address;
   if (!address) throw new Error('TON address missing');
   setGlobal(updateCurrentAccountState(global, { isDieselAuthorizationStarted: true }));
   void openUrl(`https://t.me/${BOT_USERNAME}?start=auth-${address}`);

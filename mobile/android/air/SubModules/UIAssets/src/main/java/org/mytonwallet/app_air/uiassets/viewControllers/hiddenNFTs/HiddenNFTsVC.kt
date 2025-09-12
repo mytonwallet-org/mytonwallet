@@ -153,7 +153,7 @@ class HiddenNFTsVC(context: Context) : WViewController(context),
     ): WCell {
         return when (cellType) {
             HEADER_CELL -> {
-                HeaderCell(context)
+                HeaderCell(context, startMargin = 16f)
             }
 
             else -> {
@@ -178,7 +178,8 @@ class HiddenNFTsVC(context: Context) : WViewController(context),
                 val list = if (indexPath.section == 0) blacklistedNFTs else hiddenNFTs
                 (cellHolder.cell as HiddenNFTsItemCell).configure(
                     list[indexPath.row - 1],
-                    indexPath.row == list.size
+                    indexPath.row == list.size && (hiddenNFTs.isEmpty() || indexPath.section == 1),
+                    showSeparator = indexPath.row < list.size
                 )
             }
         }

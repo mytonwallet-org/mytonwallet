@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uitransaction.viewControllers
 
 import android.annotation.SuppressLint
-import android.content.Context
 import android.graphics.Color
 import android.graphics.Paint
 import android.text.Spannable
@@ -14,6 +13,7 @@ import android.text.style.ForegroundColorSpan
 import android.text.style.RelativeSizeSpan
 import android.util.TypedValue
 import android.view.Gravity
+import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
@@ -39,13 +39,17 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
+import java.lang.ref.WeakReference
 import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class TransactionHeaderView(
-    context: Context,
+    val viewController: WeakReference<WViewController>,
     val transaction: MApiTransaction
-) : WView(context, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)),
+) : WView(
+    viewController.get()!!.context,
+    LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
+),
     WThemedView {
     private val sizeSpan = RelativeSizeSpan(28f / 36f)
     private val colorSpan = WForegroundColorSpan()
@@ -72,7 +76,7 @@ class TransactionHeaderView(
 
     override fun setupViews() {
         super.setupViews()
-        config()
+        reloadData()
 
         addView(tokenIconView, LayoutParams(80.dp, 80.dp))
         addView(amountContainerView)
@@ -93,7 +97,7 @@ class TransactionHeaderView(
         updateTheme()
     }
 
-    fun config() {
+    fun reloadData() {
         if (transaction !is MApiTransaction.Transaction)
             throw Exception()
         val token = TokenStore.getToken(transaction.slug)
@@ -144,7 +148,7 @@ class TransactionHeaderView(
                 spannedString = SpannableStringBuilder()
                 spannedString.append(text)
                 AddressPopupHelpers.configSpannableAddress(
-                    context,
+                    viewController,
                     spannedString,
                     text.length - addressText.length,
                     addressText.length,
@@ -167,7 +171,7 @@ class TransactionHeaderView(
                 spannedString = SpannableStringBuilder()
                 spannedString.append(text)
                 AddressPopupHelpers.configSpannableAddress(
-                    context,
+                    viewController,
                     spannedString,
                     text.length - addressText.length,
                     addressText.length,
@@ -232,7 +236,7 @@ class TransactionHeaderView(
         colorSpan.color = WColor.SecondaryText.color
         amountView.lbl.setTextColor(WColor.PrimaryText.color)
         addressLabel.setTextColor(WColor.PrimaryText.color)
-        config()
+        reloadData()
     }
 
 }

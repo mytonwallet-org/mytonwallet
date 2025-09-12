@@ -4,7 +4,7 @@ import { Address, Cell } from '@ton/core';
 import type { ApiBalanceBySlug, ApiNetwork, ApiToken, ApiTokenWithPrice, OnApiUpdate } from '../../types';
 import type { AnyPayload, JettonMetadata, TonTransferParams } from './types';
 
-import { TON_USDT_SLUG } from '../../../config';
+import { TON_USDT_MAINNET_SLUG, TON_USDT_TESTNET_SLUG } from '../../../config';
 import { fetchJsonWithProxy, fixIpfsUrl } from '../../../util/fetch';
 import { logDebugError } from '../../../util/logs';
 import { fetchJettonMetadata, fixBase64ImageData, parsePayloadBase64 } from './util/metadata';
@@ -325,7 +325,7 @@ export function getToncoinAmountForTransfer(token: ApiToken, willClaimMintless: 
   let amount = 0n;
   let realAmount = 0n;
 
-  if (token.slug === TON_USDT_SLUG) {
+  if (token.slug === TON_USDT_MAINNET_SLUG || token.slug === TON_USDT_TESTNET_SLUG) {
     amount += TINY_TOKEN_TRANSFER_AMOUNT;
     realAmount += TINIEST_TOKEN_TRANSFER_REAL_AMOUNT;
   } else if (token.isTiny) {

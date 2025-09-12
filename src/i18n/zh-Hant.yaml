@@ -212,7 +212,7 @@ Understood: 了解
 Today: 今天
 Yesterday: 昨天
 Now: 現在
-$receive_ton_description: 掃描此二維碼或分享您的地址以充值錢包餘額。
+$receive_description: 掃描此二維碼或分享您的地址以充值錢包餘額。
 Wrong password, please try again.: 密碼錯誤，請再嘗試一次。
 Appearance: 外觀
 Light: 亮色模式
@@ -671,7 +671,6 @@ Untitled: 未命名
 Multichain: 多鏈
 $swap_too_small_amount: 金額太小
 Not enough %symbol%: "%symbol% 不足"
-$receive_tron_description: 掃描此二維碼或分享您的地址以充值錢包餘額。
 You have just created a new multichain wallet: 您剛剛創建了一個新的多鏈錢包
 Now you can transfer tokens from your TON and TRON wallets.: 現在您可以從您的 TON 和 TRON 錢包中轉移代幣。
 Enter Secret Words: 輸入密語

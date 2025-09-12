@@ -57,13 +57,13 @@ public class WalletCreatedView: WTouchPassView {
     }
 
     func updateTheme() {
-        titleLabel.attributedText = NSAttributedString(string: lang("No activity"),
+        titleLabel.attributedText = NSAttributedString(string: lang("No Activity"),
                                                        attributes: [
                                                         .kern: -0.26,
                                                         .font: titleLabel.font!,
                                                         .foregroundColor: WTheme.primaryLabel
                                                        ])
-        subtitleLabel.attributedText = NSAttributedString(string: lang("There is no activity history\nfor this wallet yet."),
+        subtitleLabel.attributedText = NSAttributedString(string: lang("There is no activity history for this wallet yet."),
                                                           attributes: [
                                                             .kern: -0.09,
                                                             .font: subtitleLabel.font!,

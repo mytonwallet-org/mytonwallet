@@ -21,7 +21,7 @@ import {
   selectCurrentAccountState,
   selectIsCurrentAccountViewMode,
 } from '../../../global/selectors';
-import { parseTxId } from '../../../util/activities';
+import { getIsActivityPendingForUser, parseTxId } from '../../../util/activities';
 import buildClassName from '../../../util/buildClassName';
 import { formatFullDay, formatTime } from '../../../util/dateFormat';
 import { formatCurrencyExtended } from '../../../util/formatNumber';
@@ -48,7 +48,7 @@ import modalStyles from '../../ui/Modal.module.scss';
 import styles from './TransactionModal.module.scss';
 
 type StateProps = {
-  addressByChain?: Account['addressByChain'];
+  accountChains?: Account['byChain'];
   activity?: ApiSwapActivity;
   tokensBySlug?: Record<string, ApiSwapAsset>;
   theme: Theme;
@@ -62,7 +62,7 @@ const CHANGELLY_ERROR_STATUSES = new Set(['failed', 'expired', 'refunded', 'over
 const ONCHAIN_ERROR_STATUSES = new Set(['failed', 'expired']);
 
 function SwapActivityModal({
-  activity, tokensBySlug, theme, addressByChain, isSwapDisabled, isSensitiveDataHidden,
+  activity, tokensBySlug, theme, accountChains, isSwapDisabled, isSensitiveDataHidden,
 }: StateProps) {
   const {
     fetchActivityDetails,
@@ -121,7 +121,7 @@ function SwapActivityModal({
     return resolveSwapAsset(tokensBySlug, renderedActivity.to);
   }, [renderedActivity?.to, tokensBySlug]);
   const isInternalSwap = getIsInternalSwap({
-    from: fromToken, to: toToken, toAddress: payoutAddress, addressByChain,
+    from: fromToken, to: toToken, toAddress: payoutAddress, accountChains,
   });
 
   if (renderedActivity) {
@@ -148,7 +148,7 @@ function SwapActivityModal({
       isCexWaiting = cex.status === 'waiting' && !isExpired && !isInternalSwap && !isFromToncoin;
       cexTransactionId = cex.transactionId;
     } else {
-      isPending = status === 'pending';
+      isPending = getIsActivityPendingForUser(renderedActivity);
       isError = ONCHAIN_ERROR_STATUSES.has(status);
     }
 
@@ -391,7 +391,7 @@ function SwapActivityModal({
       <TransactionFee
         terms={terms}
         token={fromToken}
-        precision={activity?.status === 'pending' ? 'approximate' : 'exact'}
+        precision={isPending ? 'approximate' : 'exact'}
         isLoading={shouldLoadDetails}
       />
     );
@@ -521,7 +521,7 @@ export default memo(
       activity: activity?.kind === 'swap' ? activity : undefined,
       tokensBySlug: global.swapTokenInfo?.bySlug,
       theme,
-      addressByChain: account?.addressByChain,
+      accountChains: account?.byChain,
       isSwapDisabled: isSwapDisabled || global.settings.isTestnet || selectIsCurrentAccountViewMode(global),
       isSensitiveDataHidden,
     };

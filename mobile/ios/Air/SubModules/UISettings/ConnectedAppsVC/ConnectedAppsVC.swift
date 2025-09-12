@@ -195,7 +195,7 @@ extension ConnectedAppsVC: UITableViewDelegate, UITableViewDataSource {
     }
     
     public func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-        return lang("LOGGED IN WITH MYTONWALLET")
+        return lang("Logged in with MyTonWallet").uppercased()
         
     }
     

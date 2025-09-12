@@ -317,7 +317,7 @@ class ExploreVC(context: Context) : WViewController(context),
 
     val showLargeConnectedApps: Boolean
         get() {
-            return (exploreVM.connectedSites?.size ?: 0) > 2
+            return (exploreVM.connectedSites?.size ?: 0) > 3
         }
 
     override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {

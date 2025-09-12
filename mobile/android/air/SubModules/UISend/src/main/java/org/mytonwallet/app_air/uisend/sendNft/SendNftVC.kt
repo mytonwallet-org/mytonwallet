@@ -12,13 +12,12 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.appcompat.widget.AppCompatEditText
 import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.core.net.toUri
 import androidx.core.widget.doOnTextChanged
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
-import org.mytonwallet.app_air.sqscan.screen.QrScannerDialog
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListIconDualLineCell
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListTitleCell
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.commonViews.AddressInputLayout
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
@@ -37,7 +36,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views.PasscodeScreenView
-import org.mytonwallet.app_air.uisend.send.lauouts.AddressInputLayout
 import org.mytonwallet.app_air.uisend.sent.SentVC
 import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
 import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
@@ -46,8 +44,6 @@ import org.mytonwallet.app_air.walletcontext.theme.WColor
 import org.mytonwallet.app_air.walletcontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
-import org.mytonwallet.app_air.walletcore.deeplink.Deeplink
-import org.mytonwallet.app_air.walletcore.deeplink.DeeplinkParser
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftResult
@@ -74,9 +70,11 @@ class SendNftVC(
     }
 
     private val addressInputView by lazy {
-        AddressInputLayout(context, onPaste = {
-            view.hideKeyboard()
-        }).apply {
+        AddressInputLayout(
+            WeakReference(this),
+            onTextEntered = {
+                view.hideKeyboard()
+            }).apply {
             id = View.generateViewId()
         }
     }
@@ -198,7 +196,7 @@ class SendNftVC(
                 SpannableStringBuilder(sendingToString).apply {
                     append(" $address")
                     AddressPopupHelpers.configSpannableAddress(
-                        context,
+                        WeakReference(this@SendNftVC),
                         this,
                         length - address.length,
                         address.length,
@@ -215,7 +213,7 @@ class SendNftVC(
                     )
                 }
             val headerView = PasscodeHeaderSendView(
-                context,
+                WeakReference(this),
                 (view.height * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO).roundToInt()
             ).apply {
                 config(
@@ -289,16 +287,8 @@ class SendNftVC(
             }
         }
 
-        addressInputView.editTextView.doOnTextChanged { text, _, _, _ ->
+        addressInputView.doOnTextChanged { text, _, _, _ ->
             viewModel.inputChanged(address = text.toString())
-        }
-        addressInputView.qrScanImageView.setOnClickListener {
-            QrScannerDialog.build(context) {
-                val deeplink = DeeplinkParser.parse(it.toUri())
-                addressInputView.editTextView.setText(
-                    if (deeplink is Deeplink.Invoice) deeplink.address else it
-                )
-            }.show()
         }
 
         commentInputView.doOnTextChanged { text, _, _, _ ->
@@ -358,6 +348,7 @@ class SendNftVC(
                 )
             )
         }
+        addressInputView.insetsUpdated()
     }
 
     override fun feeUpdated(result: MApiCheckTransactionDraftResult?, err: MBridgeError?) {

@@ -1,6 +1,6 @@
 import type { GlobalState } from '../../global/types';
 
-import { TON_USDT, TON_USDT_SLUG, TONCOIN } from '../../config';
+import { TON_USDT, TON_USDT_MAINNET_SLUG, TONCOIN } from '../../config';
 import { INITIAL_STATE } from '../../global/initialState';
 import { parseTonDeeplink } from './index';
 
@@ -29,7 +29,7 @@ const createMockGlobalState = (): GlobalState => {
           priceUsd: 1,
           percentChange24h: 1,
         },
-        [TON_USDT_SLUG]: {
+        [TON_USDT_MAINNET_SLUG]: {
           ...TON_USDT,
           price: 1,
           priceUsd: 1,
@@ -42,7 +42,7 @@ const createMockGlobalState = (): GlobalState => {
         balances: {
           bySlug: {
             [TONCOIN.slug]: 1000000000n, // 1 TON
-            [TON_USDT_SLUG]: 1000000n, // 1 USDT
+            [TON_USDT_MAINNET_SLUG]: 1000000n, // 1 USDT
           },
         },
         nfts: {
@@ -98,7 +98,7 @@ describe('parseTonDeeplink', () => {
       url: `ton://transfer/${TEST_TON_ADDRESS}?amount=1&jetton=${TON_USDT.tokenAddress}`,
       expected: {
         toAddress: TEST_TON_ADDRESS,
-        tokenSlug: TON_USDT_SLUG,
+        tokenSlug: TON_USDT_MAINNET_SLUG,
         amount: TEST_AMOUNT,
       },
     },
@@ -107,7 +107,7 @@ describe('parseTonDeeplink', () => {
       url: `ton://transfer/${TEST_TON_ADDRESS}?amount=1&jetton=${TON_USDT.tokenAddress}&bin=${TEST_BIN_PAYLOAD}`,
       expected: {
         toAddress: TEST_TON_ADDRESS,
-        tokenSlug: TON_USDT_SLUG,
+        tokenSlug: TON_USDT_MAINNET_SLUG,
         amount: TEST_AMOUNT,
         binPayload: TEST_BIN_PAYLOAD,
       },
@@ -136,7 +136,7 @@ describe('parseTonDeeplink', () => {
       url: `ton://transfer/${TEST_TON_ADDRESS}?amount=1&jetton=${TON_USDT.tokenAddress}&text=${TEST_COMMENT}`,
       expected: {
         toAddress: TEST_TON_ADDRESS,
-        tokenSlug: TON_USDT_SLUG,
+        tokenSlug: TON_USDT_MAINNET_SLUG,
         amount: TEST_AMOUNT,
         comment: TEST_COMMENT,
       },

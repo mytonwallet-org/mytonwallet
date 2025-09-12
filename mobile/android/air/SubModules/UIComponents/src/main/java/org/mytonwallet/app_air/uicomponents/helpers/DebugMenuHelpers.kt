@@ -2,7 +2,7 @@ package org.mytonwallet.app_air.uicomponents.helpers
 
 import android.content.Context
 import android.view.View
-import org.mytonwallet.app_air.uicomponents.extensions.dp
+import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.walletcontext.helpers.logger.Logger
 
@@ -21,7 +21,7 @@ class DebugMenuHelpers {
                         Logger.shareLogFile(context)
                     }
                 ),
-                popupWidth = 196.dp,
+                popupWidth = WRAP_CONTENT,
                 aboveView = false
             )
         }

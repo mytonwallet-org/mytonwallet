@@ -1,3 +1,4 @@
+import { DeviceModelId } from '@ledgerhq/devices';
 import { Address, beginCell, Cell, internal, SendMode } from '@ton/core';
 import type { TonPayloadFormat } from '@ton-community/ton-ledger';
 import nacl from 'tweetnacl';
@@ -49,7 +50,8 @@ describe('tonTransactionToLedgerTransaction', () => {
     // Input:
     walletVersion?: ApiTonWalletVersion;
     tonTransaction: PreparedTransactionToSign;
-    ledgerVersion?: string;
+    ledgerModel?: DeviceModelId;
+    ledgerTonVersion?: string;
     isBlindSigningEnabled?: boolean;
     subwalletId?: number;
 
@@ -105,7 +107,7 @@ describe('tonTransactionToLedgerTransaction', () => {
             toAddress,
           }),
         }),
-        ledgerVersion: '2.2.0',
+        ledgerTonVersion: '2.2.0',
         ledgerTransaction: expect.objectContaining({
           payload: expect.objectContaining({
             type: 'jetton-transfer',
@@ -118,7 +120,7 @@ describe('tonTransactionToLedgerTransaction', () => {
       };
     },
 
-    'token transfer with hint and without known jetton Ledger support': {
+    'token transfer with hint and without known jetton support (old TON App)': {
       tonTransaction: makeMockTonTransaction({
         hints: {
           tokenAddress: sampleTokenAddress,
@@ -126,7 +128,7 @@ describe('tonTransactionToLedgerTransaction', () => {
       }, {
         body: makeMockTokenTransferPayload(),
       }),
-      ledgerVersion: '2.1.0',
+      ledgerTonVersion: '2.1.0',
       ledgerTransaction: expect.objectContaining({
         payload: expect.objectContaining({
           knownJetton: null, // eslint-disable-line no-null/no-null
@@ -142,7 +144,7 @@ describe('tonTransactionToLedgerTransaction', () => {
           to: tokenWalletAddress,
           body: makeMockTokenTransferPayload(),
         }),
-        ledgerVersion: '2.2.0',
+        ledgerTonVersion: '2.2.0',
         ledgerTransaction: expect.objectContaining({
           payload: expect.objectContaining({
             knownJetton: sampleTokenKnownJetton,
@@ -152,11 +154,24 @@ describe('tonTransactionToLedgerTransaction', () => {
       };
     },
 
-    'token transfer without hint and without known jetton Ledger support': {
+    'token transfer without hint and without known jetton support (old TON App)': {
       tonTransaction: makeMockTonTransaction({}, {
         body: makeMockTokenTransferPayload(),
       }),
-      ledgerVersion: '2.1.0',
+      ledgerTonVersion: '2.1.0',
+      ledgerTransaction: expect.objectContaining({
+        payload: expect.objectContaining({
+          knownJetton: null, // eslint-disable-line no-null/no-null
+        }),
+      }),
+      expectResolvedTokenWallet: undefined,
+    },
+
+    'token transfer without hint and without known jetton support (Ledger Nano S)': {
+      tonTransaction: makeMockTonTransaction({}, {
+        body: makeMockTokenTransferPayload(),
+      }),
+      ledgerModel: DeviceModelId.nanoS,
       ledgerTransaction: expect.objectContaining({
         payload: expect.objectContaining({
           knownJetton: null, // eslint-disable-line no-null/no-null
@@ -173,7 +188,7 @@ describe('tonTransactionToLedgerTransaction', () => {
       }, {
         body: makeMockTokenTransferPayload(),
       }),
-      ledgerVersion: '2.2.0',
+      ledgerTonVersion: '2.2.0',
       ledgerTransaction: expect.objectContaining({
         payload: expect.objectContaining({
           knownJetton: null, // eslint-disable-line no-null/no-null
@@ -210,7 +225,7 @@ describe('tonTransactionToLedgerTransaction', () => {
       tonTransaction: makeMockTonTransaction({}, {
         body: buildLiquidStakingDepositBody(),
       }),
-      ledgerVersion: '2.0.0',
+      ledgerTonVersion: '2.0.0',
       ledgerTransaction: unsupportedError,
     },
 
@@ -226,7 +241,7 @@ describe('tonTransactionToLedgerTransaction', () => {
       tonTransaction: makeMockTonTransaction({}, {
         body: makeMockTonPayload(),
       }),
-      ledgerVersion: '2.1.0',
+      ledgerTonVersion: '2.1.0',
       ledgerTransaction: lacksBlindSigningError,
     },
 
@@ -237,7 +252,7 @@ describe('tonTransactionToLedgerTransaction', () => {
           body: tonPayload,
         }),
         isBlindSigningEnabled: true,
-        ledgerVersion: '2.1.0',
+        ledgerTonVersion: '2.1.0',
         ledgerTransaction: expect.objectContaining({
           payload: {
             type: 'unsafe',
@@ -253,7 +268,8 @@ describe('tonTransactionToLedgerTransaction', () => {
     const {
       walletVersion = DEFAULT_WALLET_VERSION,
       tonTransaction,
-      ledgerVersion = '2.2.0',
+      ledgerModel = DeviceModelId.nanoX,
+      ledgerTonVersion = '2.2.0',
       isBlindSigningEnabled = false,
       subwalletId,
       ledgerTransaction,
@@ -265,7 +281,8 @@ describe('tonTransactionToLedgerTransaction', () => {
       network,
       walletVersion,
       tonTransaction,
-      ledgerVersion,
+      ledgerModel,
+      ledgerTonVersion,
       isBlindSigningEnabled,
       subwalletId,
     ))[ledgerTransaction instanceof Error ? 'rejects' : 'resolves'].toEqual(ledgerTransaction);
@@ -286,7 +303,7 @@ describe('tonPayloadToLedgerPayload', () => {
   type TestCase = {
     // Input:
     tonPayload: Cell | undefined;
-    ledgerVersion?: string;
+    ledgerTonVersion?: string;
 
     // Expectation:
     ledgerPayload: TonPayloadFormat | 'unsafe' | 'unsupported' | undefined;
@@ -481,20 +498,20 @@ describe('tonPayloadToLedgerPayload', () => {
 
     'payload not supported by the Ledger version': {
       tonPayload: buildLiquidStakingDepositBody(),
-      ledgerVersion: '2.0.0',
+      ledgerTonVersion: '2.0.0',
       ledgerPayload: 'unsupported',
     },
   };
 
   test.each(Object.entries(testCases))('%s', async (_, testCase) => {
     const resolvedTestCase = typeof testCase === 'function' ? await testCase() : testCase;
-    const { tonPayload, ledgerVersion = '2.1.0', ledgerPayload } = resolvedTestCase;
-    const runFunction = tonPayloadToLedgerPayload.bind(undefined, tonPayload, ledgerVersion);
+    const { tonPayload, ledgerTonVersion = '2.1.0', ledgerPayload } = resolvedTestCase;
+    const runFunction = tonPayloadToLedgerPayload.bind(undefined, tonPayload, ledgerTonVersion);
 
     if (ledgerPayload === 'unsupported') {
       expect(runFunction).toThrow(unsupportedError);
       expect(logDebug).toHaveBeenCalledWith(
-        expect.stringContaining(`payload type is not supported by Ledger TON v${ledgerVersion}`),
+        expect.stringContaining(`payload type is not supported by Ledger TON v${ledgerTonVersion}`),
       );
       return;
     }

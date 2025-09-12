@@ -1,7 +1,7 @@
 
 import Foundation
 
-public let STATE_VERSION: Int = 45
+public let STATE_VERSION: Int = 46
 
 private let log = Log("GlobalStorage+Migration")
 
@@ -74,11 +74,17 @@ extension _GlobalStorage {
             self.stateVersion = 38
         }
 
-        if let v = self.stateVersion, v < 45 {
+        if let v = self.stateVersion, v < 44 {
             _clearActivities()
-            self.stateVersion = 45
+            self.stateVersion = 44
         }
 
+        if let v = self.stateVersion, v < 46 {
+            _clearActivities()
+            // accounts are migrated in switchStorageToCapacitor
+            self.stateVersion = 46
+        }
+        
         assert(self.stateVersion == STATE_VERSION)
         
         try await syncronize()

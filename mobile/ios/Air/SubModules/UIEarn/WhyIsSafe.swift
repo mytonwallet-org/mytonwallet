@@ -14,7 +14,7 @@ import UIComponents
 func showWhyIsSafe(config: StakingConfig) {
     
     if let vc = topWViewController() {
-        let lines = config.explainContent.split(separator: "|").map { String($0) }
+        let lines = config.explainContent
         
         vc.showTip(title: config.explainTitle) {            
             Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 4, verticalSpacing: 12) {

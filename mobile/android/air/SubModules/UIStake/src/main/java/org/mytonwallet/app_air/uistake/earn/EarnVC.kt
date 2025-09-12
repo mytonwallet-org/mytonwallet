@@ -13,7 +13,6 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.animation.DecelerateInterpolator
-import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.view.contains
@@ -92,11 +91,12 @@ class EarnVC(
     }
 
     private val viewModelFactory = EarnViewModelFactory(tokenSlug)
-    private var earnViewModel =
+    private val earnViewModel by lazy {
         ViewModelProvider(
-            context as AppCompatActivity,
+            window!!,
             viewModelFactory
         )[EarnViewModel.alias(tokenSlug), EarnViewModel::class.java]
+    }
 
     override var title: String?
         get() = when (tokenSlug) {
@@ -509,7 +509,10 @@ class EarnVC(
                 if (viewState.stakingBalance == null) {
                     headerView.hideInnerViews()
                 } else {
-                    headerView.showInnerViews(viewState.showUnstakeButton)
+                    headerView.showInnerViews(
+                        viewState.showAddStakeButton,
+                        viewState.showUnstakeButton
+                    )
                 }
                 recyclerView.overScrollMode = RecyclerView.OVER_SCROLL_NEVER
                 noItemView.visibility = View.GONE
@@ -519,7 +522,7 @@ class EarnVC(
             }
 
             is HistoryListState.NoItem -> {
-                headerView.showInnerViews(viewState.showUnstakeButton)
+                headerView.showInnerViews(viewState.showAddStakeButton, viewState.showUnstakeButton)
                 recyclerView.overScrollMode = RecyclerView.OVER_SCROLL_NEVER
                 noItemView.visibility = View.VISIBLE
                 updateSkeletonState()
@@ -540,7 +543,7 @@ class EarnVC(
             }
 
             is HistoryListState.HasItem -> {
-                headerView.showInnerViews(viewState.showUnstakeButton)
+                headerView.showInnerViews(viewState.showAddStakeButton, viewState.showUnstakeButton)
                 recyclerView.overScrollMode = RecyclerView.OVER_SCROLL_ALWAYS
                 noItemView.visibility = View.GONE
                 updateSkeletonState()

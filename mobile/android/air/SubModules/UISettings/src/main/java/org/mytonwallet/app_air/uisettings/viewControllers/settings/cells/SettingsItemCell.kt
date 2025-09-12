@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.settings.cells
 
 import android.content.Context
+import android.text.TextUtils
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.content.ContextCompat
@@ -41,9 +42,13 @@ class SettingsItemCell(context: Context) : WCell(context), ISettingsItemCell, WT
     }
 
     private val titleLabel: WLabel by lazy {
-        val lbl = WLabel(context)
-        lbl.setStyle(16f)
-        lbl
+        WLabel(context).apply {
+            setStyle(16f)
+            setSingleLine()
+            ellipsize = TextUtils.TruncateAt.END
+            isHorizontalFadingEdgeEnabled = true
+            isSelected = true
+        }
     }
 
     private val valueLabel: WLabel by lazy {
@@ -63,8 +68,11 @@ class SettingsItemCell(context: Context) : WCell(context), ISettingsItemCell, WT
         setConstraints {
             toStart(iconView, 16f)
             toCenterY(iconView)
+            setHorizontalBias(titleLabel.id, 0f)
+            constrainedWidth(titleLabel.id, true)
             toStart(titleLabel, 72f)
             toTop(titleLabel, 16f)
+            endToStart(titleLabel, valueLabel, 8f)
             toEnd(valueLabel, 16f)
             toTop(valueLabel, 16f)
             toBottom(separatorView)

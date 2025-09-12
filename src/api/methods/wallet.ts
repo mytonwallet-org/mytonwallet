@@ -12,7 +12,7 @@ import {
   fetchStoredAccount,
   fetchStoredAccounts,
   fetchStoredAddress,
-  fetchStoredTonWallet,
+  fetchStoredWallet,
   getAccountWithMnemonic,
 } from '../common/accounts';
 import * as dappPromises from '../common/dappPromises';
@@ -88,7 +88,7 @@ export function cancelDappRequest(promiseId: string, reason?: string) {
 export async function getWalletSeqno(accountId: string, address?: string) {
   const { network } = parseAccountId(accountId);
   if (!address) {
-    ({ address } = await fetchStoredTonWallet(accountId));
+    ({ address } = await fetchStoredWallet(accountId, 'ton'));
   }
   return ton.getWalletSeqno(network, address);
 }
@@ -135,7 +135,7 @@ export async function getAddressInfo(network: ApiNetwork, toAddress: string): Pr
 }
 
 export async function getWalletStateInit(accountId: string) {
-  const wallet = await fetchStoredTonWallet(accountId);
+  const wallet = await fetchStoredWallet(accountId, 'ton');
   return ton.getWalletStateInit(wallet)
     .toBoc({ idx: true, crc32: true })
     .toString('base64');

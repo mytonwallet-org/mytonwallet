@@ -282,18 +282,28 @@ export const MYCOIN_TESTNET = {
 
 export const CHAIN_CONFIG = {
   ton: {
+    title: 'TON',
     isMemoSupported: true,
     isDnsSupported: true,
+    isDepositLinkSupported: true,
+    canBuyWithCardInRussia: true,
+    isTransferCommentSupported: true,
     addressRegex: /^([-\w_]{48}|0:[\da-h]{64})$/i,
     addressPrefixRegex: /^([-\w_]{1,48}|0:[\da-h]{0,64})$/i,
     nativeToken: TONCOIN,
+    doesBackendSocketSupport: true,
   },
   tron: {
+    title: 'TRON',
     isMemoSupported: false,
     isDnsSupported: false,
+    isDepositLinkSupported: false,
+    canBuyWithCardInRussia: false,
+    isTransferCommentSupported: false,
     addressRegex: /^T[1-9A-HJ-NP-Za-km-z]{33}$/,
     addressPrefixRegex: /^T[1-9A-HJ-NP-Za-km-z]{0,33}$/,
     nativeToken: TRX,
+    doesBackendSocketSupport: true,
     mainnet: {
       apiUrl: TRON_MAINNET_API_URL,
       usdtAddress: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
@@ -307,7 +317,8 @@ export const CHAIN_CONFIG = {
 
 export const TRC20_USDT_MAINNET_SLUG = 'tron-tr7nhqjekq';
 export const TRC20_USDT_TESTNET_SLUG = 'tron-tg3xxyexbk';
-export const TON_USDT_SLUG = 'ton-eqcxe6mutq';
+export const TON_USDT_MAINNET_SLUG = 'ton-eqcxe6mutq';
+export const TON_USDT_TESTNET_SLUG = 'ton-kqd0gkbm8z'; // Where to get this token: https://t.me/testgiver_ton_usdt_bot
 export const STAKED_TON_SLUG = 'ton-eqcqc6ehrj';
 export const STAKED_MYCOIN_SLUG = 'ton-eqcbzvsfwq';
 export const TRX_SWAP_COUNT_FEE_ADDRESS = 'TW2LXSebZ7Br1zHaiA2W1zRojDkDwjGmpw';
@@ -322,7 +333,7 @@ export const ETHENA_ELIGIBILITY_CHECK_URL = 'https://t.me/id_app/start?startapp=
 // It’s not optimal to request swap history for all the others.
 export const SWAP_CROSSCHAIN_SLUGS = new Set([
   TONCOIN.slug,
-  TON_USDT_SLUG,
+  TON_USDT_MAINNET_SLUG,
   TRX.slug,
   TRC20_USDT_MAINNET_SLUG,
 ]);
@@ -343,7 +354,7 @@ export const TON_USDT = {
   name: 'Tether USD',
   symbol: 'USD₮',
   chain: 'ton',
-  slug: TON_USDT_SLUG,
+  slug: TON_USDT_MAINNET_SLUG,
   decimals: 6,
   tokenAddress: 'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs',
 } as const;
@@ -377,15 +388,16 @@ export const ALL_STAKING_POOLS = [
   TON_TSUSDE.tokenAddress,
 ];
 
-export const DEFAULT_ENABLED_TOKEN_SLUGS = [
-  TONCOIN.slug, TON_USDT_SLUG, TRX.slug, TRC20_USDT_TESTNET_SLUG, TRC20_USDT_MAINNET_SLUG,
-] as string[];
+export const DEFAULT_ENABLED_TOKEN_SLUGS = {
+  mainnet: [TONCOIN.slug, TON_USDT_MAINNET_SLUG, TRX.slug, TRC20_USDT_MAINNET_SLUG],
+  testnet: [TONCOIN.slug, TON_USDT_TESTNET_SLUG, TRX.slug, TRC20_USDT_TESTNET_SLUG],
+};
 
 // Toncoin, USDT TON, TRX, USDT TRC20
-export const DEFAULT_ENABLED_TOKEN_COUNT = 4;
+export const DEFAULT_ENABLED_TOKEN_COUNT = DEFAULT_ENABLED_TOKEN_SLUGS.mainnet.length;
 
 export const PRIORITY_TOKEN_SLUGS = [
-  TONCOIN.slug, TON_USDT_SLUG, TRX.slug,
+  TONCOIN.slug, TON_USDT_MAINNET_SLUG, TRX.slug,
 ] as string[];
 
 const COMMON_TOKEN = {
@@ -419,11 +431,11 @@ export const TOKEN_INFO: Record<string, ApiTokenWithPrice> = {
     tokenAddress: 'TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs',
     ...COMMON_TOKEN,
   },
-  [TON_USDT_SLUG]: {
+  [TON_USDT_MAINNET_SLUG]: {
     ...TON_USDT,
     // eslint-disable-next-line @stylistic/max-len
     image: 'https://cache.tonapi.io/imgproxy/T3PB4s7oprNVaJkwqbGg54nexKE0zzKhcrPv8jcWYzU/rs:fill:200:200:1/g:no/aHR0cHM6Ly90ZXRoZXIudG8vaW1hZ2VzL2xvZ29DaXJjbGUucG5n.webp',
-    slug: TON_USDT_SLUG,
+    slug: TON_USDT_MAINNET_SLUG,
     ...COMMON_TOKEN,
   },
   [MYCOIN.slug]: {
@@ -445,7 +457,7 @@ export const TOKEN_INFO: Record<string, ApiTokenWithPrice> = {
 export const TOKEN_WITH_LABEL: Record<string, string> = {
   [TRC20_USDT_MAINNET_SLUG]: 'TRC-20',
   [TRC20_USDT_TESTNET_SLUG]: 'TRC-20',
-  [TON_USDT_SLUG]: 'TON',
+  [TON_USDT_MAINNET_SLUG]: 'TON',
 };
 
 export const INIT_SWAP_ASSETS: Record<string, ApiSwapAsset> = {
@@ -459,11 +471,11 @@ export const INIT_SWAP_ASSETS: Record<string, ApiSwapAsset> = {
     priceUsd: 0,
     isPopular: true,
   },
-  [TON_USDT_SLUG]: {
+  [TON_USDT_MAINNET_SLUG]: {
     name: 'Tether USD',
     symbol: 'USD₮',
     chain: 'ton',
-    slug: TON_USDT_SLUG,
+    slug: TON_USDT_MAINNET_SLUG,
     decimals: 9,
     // eslint-disable-next-line @stylistic/max-len
     image: 'https://cache.tonapi.io/imgproxy/T3PB4s7oprNVaJkwqbGg54nexKE0zzKhcrPv8jcWYzU/rs:fill:200:200:1/g:no/aHR0cHM6Ly90ZXRoZXIudG8vaW1hZ2VzL2xvZ29DaXJjbGUucG5n.webp',
@@ -476,7 +488,7 @@ export const INIT_SWAP_ASSETS: Record<string, ApiSwapAsset> = {
 
 export const DEFAULT_TRX_SWAP_FIRST_TOKEN_SLUG = TONCOIN.slug;
 export const DEFAULT_SWAP_FIRST_TOKEN_SLUG = TONCOIN.slug;
-export const DEFAULT_SWAP_SECOND_TOKEN_SLUG = TON_USDT_SLUG;
+export const DEFAULT_SWAP_SECOND_TOKEN_SLUG = TON_USDT_MAINNET_SLUG;
 export const DEFAULT_TRANSFER_TOKEN_SLUG = TONCOIN.slug;
 export const DEFAULT_CEX_SWAP_SECOND_TOKEN_SLUG = TRC20_USDT_MAINNET_SLUG;
 export const SWAP_DEX_LABELS: Record<ApiSwapDexLabel, string> = {

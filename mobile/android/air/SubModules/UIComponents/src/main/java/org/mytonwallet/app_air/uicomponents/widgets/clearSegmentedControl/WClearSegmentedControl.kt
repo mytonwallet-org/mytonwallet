@@ -25,6 +25,7 @@ import androidx.recyclerview.widget.RecyclerView
 import me.vkryl.core.fromTo
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.CenteringLinearLayoutManager
 import org.mytonwallet.app_air.uicomponents.helpers.SpacesItemDecoration
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -259,13 +260,16 @@ class WClearSegmentedControl(
         setItemAnimator(null)
         addItemDecoration(SpacesItemDecoration(ITEM_SPACING.dp, 0))
         addOnItemTouchListener(recyclerViewTouchListener)
+        setPaddingDp(11, 0, 11, 0)
 
         itemTouchHelper.attachToRecyclerView(this)
-        setOnScrollChangeListener { _, _, _, _, _ ->
-            if (scrollState == RecyclerView.SCROLL_STATE_IDLE && !isDraggingItem)
-                return@setOnScrollChangeListener
-            updateThumbPositionInternal(position = currentPosition, ensureVisibleThumb = false)
-        }
+        addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                if (scrollState == RecyclerView.SCROLL_STATE_IDLE && !isDraggingItem)
+                    return
+                updateThumbPositionInternal(position = currentPosition, ensureVisibleThumb = false)
+            }
+        })
     }
 
     fun setItems(items: List<WClearSegmentedControlItem>, selectedItem: Int, delegate: Delegate) {

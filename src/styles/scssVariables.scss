@@ -2,3 +2,14 @@ $portraitContentMaxWidth: 27rem;
 $portraitHeaderHeight: 3rem;
 $cardAspectRatio: 58.203%;
 $defaultCardGradient: #479DE2 0, #367CCC 100%;
+
+$byChain: (
+  ton: (
+    tabColor: var(--color-activity-blue),
+    tabBackground: var(--color-activity-blue-background),
+  ),
+  tron: (
+    tabColor: var(--color-activity-red-text),
+    tabBackground: var(--color-activity-red-background),
+  ),
+);

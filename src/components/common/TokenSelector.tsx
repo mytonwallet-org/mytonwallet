@@ -16,7 +16,11 @@ import {
 } from '../../global/types';
 
 import {
-  ANIMATED_STICKER_MIDDLE_SIZE_PX, TON_USDT_SLUG, TRC20_USDT_MAINNET_SLUG, TRC20_USDT_TESTNET_SLUG,
+  ANIMATED_STICKER_MIDDLE_SIZE_PX,
+  TON_USDT_MAINNET_SLUG,
+  TON_USDT_TESTNET_SLUG,
+  TRC20_USDT_MAINNET_SLUG,
+  TRC20_USDT_TESTNET_SLUG,
 } from '../../config';
 import {
   selectAvailableUserForSwapTokens,
@@ -234,7 +238,7 @@ function TokenSelector({
         factors.nameMatchLength = lowerCaseSearchValue.length;
       }
 
-      if (searchResultToken.slug === TON_USDT_SLUG) {
+      if (searchResultToken.slug === TON_USDT_MAINNET_SLUG || searchResultToken.slug === TON_USDT_TESTNET_SLUG) {
         factors.specialOrder = 2;
       }
 
@@ -513,7 +517,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
   const popularTokens = selectPopularTokens(global);
   const swapTokens = selectSwapTokens(global);
   const isMultichain = selectIsMultichainAccount(global, global.currentAccountId!);
-  const availableChains = selectCurrentAccount(global)?.addressByChain;
+  const availableChains = selectCurrentAccount(global)?.byChain;
 
   return {
     baseCurrency,

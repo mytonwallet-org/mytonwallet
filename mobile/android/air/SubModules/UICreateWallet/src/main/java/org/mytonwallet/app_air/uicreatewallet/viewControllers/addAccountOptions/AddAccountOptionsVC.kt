@@ -17,8 +17,9 @@ import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uicreatewallet.viewControllers.importViewWallet.ImportViewWalletVC
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.importWallet.ImportWalletVC
-import org.mytonwallet.app_air.uicreatewallet.viewControllers.walletCreated.WalletCreatedVC
+import org.mytonwallet.app_air.uicreatewallet.viewControllers.wordDisplay.WordDisplayVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.SettingsItemCell
@@ -73,7 +74,7 @@ class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
 
     private val orImportTitleView: LinedCenteredTitleView by lazy {
         LinedCenteredTitleView(context).apply {
-            configure(LocaleController.getString("or Import from"), 24.dp, 24.dp)
+            configure(LocaleController.getString("or import from"), 24.dp, 24.dp)
             configureText(WFont.Regular, WColor.SecondaryText)
             lineColor = WColor.SecondaryText
         }
@@ -123,7 +124,8 @@ class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
                         )
                     )
                 } else {
-                    val passcodeConfirmVC = PasscodeConfirmVC(
+                    lateinit var passcodeConfirmVC: PasscodeConfirmVC
+                    passcodeConfirmVC = PasscodeConfirmVC(
                         context,
                         PasscodeViewState.Default(
                             LocaleController.getString("Enter Passcode"),
@@ -134,10 +136,10 @@ class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
                         ),
                         task = { passcode ->
                             val vc = ImportWalletVC(context, passcode)
-                            handlePush(
+                            passcodeConfirmVC.push(
                                 vc,
                                 onCompletion = {
-                                    vc.navigationController?.removePrevViewControllerOnly()
+                                    vc.navigationController?.removePrevViewControllers()
                                 })
                         }
                     )
@@ -166,7 +168,7 @@ class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
         )
     }
 
-    /*private val viewRow = SettingsItemCell(context).apply {
+    private val viewRow = SettingsItemCell(context).apply {
         configure(
             item = SettingsItem(
                 SettingsItem.Identifier.NONE,
@@ -179,14 +181,10 @@ class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
             isFirst = true,
             isLast = true,
             onTap = {
-                window?.dismissLastNav {
-                    window?.navigationControllers?.lastOrNull()?.let { activeNav ->
-                        // TODO::
-                    }
-                }
+                push(ImportViewWalletVC(context, isOnIntro))
             }
         )
-    }*/
+    }
 
     private val scrollingContentView: WView by lazy {
         WView(context).apply {
@@ -197,7 +195,7 @@ class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
             }
             addView(secretWordsRow, FrameLayout.LayoutParams(0, WRAP_CONTENT))
             addView(ledgerRow, FrameLayout.LayoutParams(0, WRAP_CONTENT))
-            //addView(viewRow, FrameLayout.LayoutParams(0, WRAP_CONTENT))
+            addView(viewRow, FrameLayout.LayoutParams(0, WRAP_CONTENT))
 
             setConstraints {
                 if (showCreateButton) {
@@ -212,10 +210,10 @@ class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
                 toCenterX(secretWordsRow, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
                 topToBottom(ledgerRow, secretWordsRow)
                 toCenterX(ledgerRow, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
-                //topToBottom(viewRow, ledgerRow, 16f)
-                //toCenterX(viewRow, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
+                topToBottom(viewRow, ledgerRow, 16f)
+                toCenterX(viewRow, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
                 toBottomPx(
-                    ledgerRow, //viewRow,
+                    viewRow,
                     32.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
                 )
             }
@@ -244,6 +242,9 @@ class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
         view.setConstraints {
             allEdges(scrollView)
         }
+        view.post {
+            calculatedHeight = view.measuredHeight
+        }
 
         updateTheme()
     }
@@ -258,12 +259,28 @@ class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
         )
     }
 
+    private var calculatedHeight: Int? = null
+    override val isExpandable = false
+    override fun getModalHalfExpandedHeight(): Int? {
+        return calculatedHeight ?: super.getModalHalfExpandedHeight()
+    }
+
     private fun mnemonicGenerated(words: Array<String>) {
         view.unlockView()
-        if (!WGlobalStorage.isPasscodeSet()) {
-            handlePush(WalletCreatedVC(context, words = words, true, null))
+        val isFirstPasscodeProtectedWallet = !WGlobalStorage.isPasscodeSet()
+        if (isFirstPasscodeProtectedWallet) {
+            handlePush(
+                WordDisplayVC(
+                    context,
+                    words = words,
+                    isFirstWalletToAdd = false,
+                    isFirstPasscodeProtectedWallet = true,
+                    passedPasscode = null
+                )
+            )
         } else {
-            val passcodeConfirmVC = PasscodeConfirmVC(
+            lateinit var passcodeConfirmVC: PasscodeConfirmVC
+            passcodeConfirmVC = PasscodeConfirmVC(
                 context,
                 PasscodeViewState.Default(
                     LocaleController.getString("Enter Passcode"),
@@ -273,11 +290,17 @@ class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
                     startWithBiometrics = true
                 ),
                 task = { passcode ->
-                    val vc = WalletCreatedVC(context, words = words, false, passcode)
-                    handlePush(
+                    val vc = WordDisplayVC(
+                        context,
+                        words = words,
+                        isFirstWalletToAdd = false,
+                        isFirstPasscodeProtectedWallet = false,
+                        passcode
+                    )
+                    passcodeConfirmVC.push(
                         vc,
                         onCompletion = {
-                            vc.navigationController?.removePrevViewControllerOnly()
+                            vc.navigationController?.removePrevViewControllers()
                         })
                 }
             )

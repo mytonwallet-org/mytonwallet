@@ -8,7 +8,7 @@ struct SwapView: View {
     @ObservedObject var selectorsVM: SwapSelectorsVM
     @ObservedObject var detailsVM: SwapDetailsVM
     var swapType: SwapType { swapVM.swapType }
-    var swapEstimate: Api.SwapEstimateResponse? { detailsVM.swapEstimate }
+    var swapEstimate: ApiSwapEstimateResponse? { detailsVM.swapEstimate }
     var isSensitiveDataHidden: Bool
     
     var body: some View {

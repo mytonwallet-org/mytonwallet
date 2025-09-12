@@ -1,9 +1,10 @@
 import '../../util/bigintPatch';
 
 export { destroy } from './init';
+export * from './activities';
 export * from './auth';
 export * from './wallet';
-export * from './transactions';
+export * from './transfer';
 export * from './nfts';
 export * from './domains';
 export {

@@ -145,7 +145,17 @@ def main():
     json_files = glob(os.path.join(args.input_dir, "*.json"))
     yaml_files = glob(os.path.join(args.input_dir, "*.yaml"))
     yml_files = glob(os.path.join(args.input_dir, "*.yml"))
-    
+
+    # Also look in the air subdirectory
+    air_dir = os.path.join(args.input_dir, "air")
+    if os.path.exists(air_dir):
+        air_json_files = glob(os.path.join(air_dir, "*.json"))
+        air_yaml_files = glob(os.path.join(air_dir, "*.yaml"))
+        air_yml_files = glob(os.path.join(air_dir, "*.yml"))
+        json_files.extend(air_json_files)
+        yaml_files.extend(air_yaml_files)
+        yml_files.extend(air_yml_files)
+
     all_files = json_files + yaml_files + yml_files
     
     if not all_files:
@@ -202,7 +212,7 @@ def main():
     for key, src_val in (src_map or {}).items():
         bucket = {}
         # Ensure source locale is first, then other language entries in deterministic alphabetical order for stable diffs
-        for loc in [args.source_locale.lower()] + sorted([l for l in locales if l != args.source_locale.lower()], key=str.lower):
+        for loc in [args.source_locale.lower()] + sorted([l for l in locales if l != args.source_locale.lower()], key=lambda x: str(x).lower()):
             loc_map = per_locale.get(loc, {})
             if key not in loc_map:
                 continue
@@ -216,7 +226,7 @@ def main():
     catalog = {
         "sourceLanguage": args.source_locale,
         "version": "1.0",
-        "strings": dict(sorted(strings.items())),
+        "strings": dict(sorted(strings.items(), key=lambda x: str(x[0]))),
     }
 
     with open(args.output, "w", encoding="utf-8") as f:

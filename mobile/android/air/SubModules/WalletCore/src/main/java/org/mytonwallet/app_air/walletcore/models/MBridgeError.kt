@@ -25,6 +25,7 @@ enum class MBridgeError(val errorName: String? = null, var customMessage: String
     PROOF_TOO_LARGE("ProofTooLarge"),
     WRONG_ADDRESS("WrongAddress"),
     WRONG_NETWORK("WrongNetwork"),
+    INVALID_ADDRESS("InvalidAddress"),
 
     PARSE_ERROR("JSON Parse Error"),
     UNKNOWN("Unknown");
@@ -51,6 +52,7 @@ enum class MBridgeError(val errorName: String? = null, var customMessage: String
 
                 WRONG_ADDRESS -> LocaleController.getString("WrongAddress")
                 WRONG_NETWORK -> LocaleController.getString("WrongNetwork")
+                INVALID_ADDRESS -> LocaleController.getString("Invalid Address")
             }
         }
 
@@ -61,6 +63,7 @@ enum class MBridgeError(val errorName: String? = null, var customMessage: String
                 PAIR_NOT_FOUND -> LocaleController.getString("Invalid Pair")
                 TOO_SMALL_AMOUNT -> LocaleController.getString("\$swap_too_small_amount")
                 CANCELED_BY_THE_USER, REJECTED_BY_USER -> LocaleController.getString("Canceled by the user")
+                INVALID_ADDRESS -> LocaleController.getString("Invalid Address")
                 else -> null
             }
         }

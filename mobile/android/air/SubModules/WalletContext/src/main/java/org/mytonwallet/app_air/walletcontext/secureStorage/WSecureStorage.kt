@@ -9,7 +9,7 @@ import java.util.concurrent.ConcurrentHashMap
 object WSecureStorage {
     private var secureStorage: WSecureStorageProvider? = null
     private const val STATE_VERSION_KEY = "stateVersion"
-    private const val STATE_VERSION_VAL = 17
+    private const val STATE_VERSION_VAL = 20
 
     fun init(context: Context) {
         secureStorage =
@@ -17,8 +17,6 @@ object WSecureStorage {
                 context
             )
         clearCache()
-        if ((getSecValue(STATE_VERSION_KEY).toIntOrNull() ?: 0) < STATE_VERSION_VAL)
-            setSecValue(STATE_VERSION_KEY, STATE_VERSION_VAL.toString())
         // Cache necessary values to reduce app start-up time after splash screen
         getLastFailedAttempt()
         getFailedLoginAttempts()

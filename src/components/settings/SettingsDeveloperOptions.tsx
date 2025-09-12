@@ -11,6 +11,7 @@ import buildClassName from '../../util/buildClassName';
 import { copyTextToClipboard } from '../../util/clipboard';
 import { getBuildPlatform, getFlagsValue } from '../../util/getBuildPlatform';
 import { getPlatform } from '../../util/getPlatform';
+import { mapValues } from '../../util/iteratees';
 import { getLogs } from '../../util/logs';
 import { getLogsFromNative } from '../../util/multitab';
 import { shareFile } from '../../util/share';
@@ -196,14 +197,10 @@ async function getLogsString({
   currentAccountId,
   accountsById,
 }: Partial<StateProps>) {
-  const accountsInfo = accountsById && Object.keys(accountsById).reduce((acc, accountId) => {
-    const { addressByChain, type } = accountsById[accountId];
-    acc[accountId] = {
-      type,
-      addressByChain,
-    };
-    return acc;
-  }, {} as any);
+  const accountsInfo = accountsById && mapValues(accountsById, (account) => ({
+    type: account.type,
+    addressByChain: mapValues(account.byChain, (accountChain) => accountChain.address),
+  }));
 
   const [mainLogs, bottomSheetLogs, apiLogs = []] = await Promise.all([
     getLogs(),

@@ -1,7 +1,7 @@
 import type { NftItem } from 'tonapi-sdk-js';
 
 import type { ApiTonWalletVersion } from '../chains/ton/types';
-import type { ApiTransactionActivity } from './activity';
+import type { ApiTransactionActivity } from './activities';
 import type { ApiParsedPayload } from './payload';
 import type { ApiSseOptions } from './storage';
 

@@ -244,6 +244,7 @@ function AddAccountModal({
         return (
           <LedgerConnect
             isActive={isActive}
+            doLoadWallets
             onConnected={handleHardwareWalletConnected}
             onCancel={handleBackClick}
             onClose={closeAddAccountModal}

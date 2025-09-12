@@ -92,8 +92,8 @@ function AccountSelector({
 
   // The API doesn't check the TON wallet version for BIP39 and Tron-only accounts,
   // therefore `currentWalletVersion !== 'W5'` can be incorrectly true in that cases.
-  const isBip39Account = currentAccount?.type === 'mnemonic' && Boolean(currentAccount?.addressByChain.tron);
-  const hasTonWallet = Boolean(currentAccount?.addressByChain.ton);
+  const isBip39Account = currentAccount?.type === 'mnemonic' && Boolean(currentAccount?.byChain.tron);
+  const hasTonWallet = Boolean(currentAccount?.byChain.ton);
   const withAddW5Button = currentWalletVersion !== 'W5' && currentAccount?.type !== 'hardware'
     && hasTonWallet && !isBip39Account;
 
@@ -142,7 +142,7 @@ function AccountSelector({
 
   function renderButton(
     accountId: string,
-    addressByChain: Account['addressByChain'],
+    byChain: Account['byChain'],
     accountType: AccountType,
     title?: string,
   ) {
@@ -153,7 +153,7 @@ function AccountSelector({
       <AccountButton
         key={accountId}
         accountId={accountId}
-        addressByChain={addressByChain}
+        byChain={byChain}
         accountType={accountType}
         isActive={isActive}
         title={title}
@@ -239,8 +239,8 @@ function AccountSelector({
         <div className={styles.backdrop} onClick={() => closeAccountSelector()} />
         <div className={dialogFullClassName}>
           {accounts && Object.entries(accounts).map(
-            ([accountId, { title, addressByChain, type }]) => {
-              return renderButton(accountId, addressByChain, type, title);
+            ([accountId, { title, byChain, type }]) => {
+              return renderButton(accountId, byChain, type, title);
             },
           )}
           {withAddW5Button && (

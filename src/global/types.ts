@@ -102,7 +102,7 @@ export type AuthMethod = 'createAccount' | 'importMnemonic' | 'importHardwareWal
 
 interface AuthAccount {
   accountId: string;
-  addressByChain: Partial<Record<ApiChain, string>>;
+  byChain: Partial<Record<ApiChain, AccountChain>>;
   network?: ApiNetwork;
 }
 
@@ -243,8 +243,7 @@ export enum HardwareConnectState {
   Connect,
   Connecting,
   Failed,
-  ConnectedWithSeveralWallets,
-  ConnectedWithSingleWallet,
+  Connected,
   WaitingForRemoteTab,
 }
 
@@ -355,12 +354,16 @@ export type DieselStatus = 'not-available' | 'not-authorized' | 'pending-previou
 
 export type AccountType = 'mnemonic' | 'hardware' | 'view';
 
+export interface AccountChain {
+  address: string;
+  domain?: string;
+  isMultisig?: true;
+}
+
 export interface Account {
   title?: string;
   type: AccountType;
-  addressByChain: Partial<Record<ApiChain, string>>;
-  domainByChain?: Partial<Record<ApiChain, string>>;
-  isMultisigByChain?: Partial<Record<ApiChain, boolean>>;
+  byChain: Partial<Record<ApiChain, AccountChain>>;
   ledger?: {
     index: number;
     driver: ApiLedgerDriver;
@@ -875,8 +878,8 @@ export interface ActionPayloads {
   openCreateBackUpPage: undefined;
   openCheckWordsPage: undefined;
   closeCheckWordsPage: { isBackupCreated?: boolean } | undefined;
-  initializeHardwareWalletModal: undefined;
-  initializeHardwareWalletConnection: { transport: LedgerTransport };
+  initializeHardwareWalletModal: { doLoadWallets?: boolean } | undefined;
+  initializeHardwareWalletConnection: { transport: LedgerTransport; doLoadWallets?: boolean };
   createHardwareAccounts: undefined;
   addHardwareAccounts: {
     wallets: ({ accountId: string; address: string; walletInfo: LedgerWalletInfo } | undefined)[];

@@ -18,7 +18,7 @@ export function selectNotificationTonAddressesSlow(
     }
 
     const account = selectAccount(global, accountId);
-    const address = account?.addressByChain.ton;
+    const address = account?.byChain.ton?.address;
 
     if (address) {
       result[accountId] = {

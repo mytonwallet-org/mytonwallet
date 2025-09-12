@@ -856,6 +856,7 @@ function Settings({
             <LedgerConnect
               isActive={isActive && isSlideActive}
               isStatic={!isInsideModal}
+              doLoadWallets
               className={styles.nestedTransition}
               onBackButtonClick={handleBackClick}
               onConnected={handleLedgerConnected}

@@ -65,7 +65,8 @@ class EmptyCollectionsView(window: WWindow) : WView(window), WThemedView {
             toTop(titleLabel)
             toCenterX(titleLabel)
             topToBottom(exploreButton, titleLabel, 8f)
-            toCenterX(exploreButton)
+            constrainedWidth(exploreButton.id, true)
+            toCenterX(exploreButton, 16f)
             toBottom(exploreButton)
         }
 
@@ -81,14 +82,15 @@ class EmptyCollectionsView(window: WWindow) : WView(window), WThemedView {
 
     private fun setExploreText() {
         val attr = SpannableStringBuilder()
-        attr.append(SpannableString("${LocaleController.getString("\$nft_explore_offer")} ").apply {
-            setSpan(
-                WFont.Regular,
-                0,
-                length,
-                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-        })
+        attr.append(
+            SpannableString("${LocaleController.getString("\$nft_explore_offer")} ").apply {
+                setSpan(
+                    WFont.Regular,
+                    0,
+                    length,
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            })
         val drawable = ContextCompat.getDrawable(
             context,
             org.mytonwallet.app_air.icons.R.drawable.ic_arrow_right_thin_24

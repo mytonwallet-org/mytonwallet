@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
@@ -25,9 +26,8 @@ import kotlin.math.roundToInt
 @SuppressLint("ViewConstructor")
 class HeaderAndActionsView(
     context: Context,
-    animation: Int?,
-    val image: Int? = null,
-    repeat: Boolean,
+    val media: Media,
+    mediaSize: Int = 132.dp,
     title: String,
     subtitle: CharSequence,
     primaryActionTitle: String? = null,
@@ -37,12 +37,32 @@ class HeaderAndActionsView(
     private val secondaryActionPressed: (() -> Unit)? = null,
     private val trinaryActionPressed: (() -> Unit)? = null,
     val headerPadding: Float = 0f,
-    var onStarted: (() -> Unit)? = null
+    var onStarted: (() -> Unit)? = null,
+    val textsGap: Float = 21f,
 ) :
     WView(context, LayoutParams(0, WRAP_CONTENT)), WThemedView {
 
+    sealed class Media {
+        open val onClick: ((v: View) -> Unit)? = null
+
+        data class Animation(
+            val animation: Int,
+            val repeat: Boolean,
+            override val onClick: ((v: View) -> Unit)? = null
+        ) : Media()
+
+        data class Image(
+            val image: Int,
+            val tintedImage: Boolean,
+            override val onClick: ((v: View) -> Unit)?
+        ) : Media()
+    }
+
     private val headerView: View by lazy {
-        val v = if (animation != null) WAnimationView(context) else WImageView(context)
+        val v = if (media is Media.Animation) WAnimationView(context) else WImageView(context)
+        v.setOnClickListener {
+            media.onClick?.invoke(v)
+        }
         v.setPadding(headerPadding.dp.roundToInt())
         v
     }
@@ -85,7 +105,7 @@ class HeaderAndActionsView(
     }
 
     init {
-        addView(headerView, LayoutParams(124.dp, 124.dp))
+        addView(headerView, LayoutParams(mediaSize, mediaSize))
         addView(titleLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(subTitleLabel, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         if (primaryActionTitle != null) {
@@ -101,9 +121,9 @@ class HeaderAndActionsView(
         setConstraints {
             toTop(headerView, 12F)
             toCenterX(headerView)
-            topToBottom(titleLabel, headerView, 24F)
+            topToBottom(titleLabel, headerView, 25f)
             toCenterX(titleLabel)
-            topToBottom(subTitleLabel, titleLabel, 12F)
+            topToBottom(subTitleLabel, titleLabel, textsGap)
             toCenterX(subTitleLabel, 32F)
             if (primaryActionTitle != null) {
                 topToBottom(primaryActionButton, subTitleLabel, 32F)
@@ -120,19 +140,21 @@ class HeaderAndActionsView(
         }
 
         titleLabel.text = title
-        titleLabel.setStyle(28F, WFont.Medium)
+        titleLabel.setStyle(28f, WFont.Medium)
+        titleLabel.setLineHeight(TypedValue.COMPLEX_UNIT_SP, 36f)
         subTitleLabel.text = subtitle
         subTitleLabel.setStyle(17f)
         subTitleLabel.textAlignment = TEXT_ALIGNMENT_CENTER
-        subTitleLabel.setLineHeight(24f)
+        subTitleLabel.setLineHeight(TypedValue.COMPLEX_UNIT_SP, 26f)
 
         alpha = 0f
-        if (animation != null)
-            (headerView as WAnimationView).play(animation, repeat, onStart = {
+        (media as? Media.Animation)?.let { media ->
+            (headerView as WAnimationView).play(media.animation, media.repeat, onStart = {
                 startedNow()
             })
-        else
+        } ?: run {
             startedNow()
+        }
         // If animation did not start in a few seconds, fade in anyway!
         Handler(Looper.getMainLooper()).postDelayed({
             startedNow()
@@ -183,11 +205,17 @@ class HeaderAndActionsView(
     override fun updateTheme() {
         titleLabel.setTextColor(WColor.PrimaryText.color)
         subTitleLabel.setTextColor(WColor.PrimaryText.color)
-        if (image != null) {
-            val drawable = ContextCompat.getDrawable(context, image)!!
-            drawable.mutate()
-            drawable.setTint(WColor.Tint.color)
+        (media as? Media.Image)?.let { media ->
+            val drawable = ContextCompat.getDrawable(context, media.image)!!
+            if (media.tintedImage) {
+                drawable.mutate()
+                drawable.setTint(WColor.Tint.color)
+            }
             (headerView as WImageView).setImageDrawable(drawable)
         }
+    }
+
+    fun setSubtitleText(text: CharSequence) {
+        subTitleLabel.text = text
     }
 }

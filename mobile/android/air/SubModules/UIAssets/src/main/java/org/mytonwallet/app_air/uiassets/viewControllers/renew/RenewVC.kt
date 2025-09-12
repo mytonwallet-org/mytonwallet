@@ -40,6 +40,7 @@ import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
+import java.lang.ref.WeakReference
 import java.math.BigInteger
 import java.util.Date
 import kotlin.math.roundToInt
@@ -166,7 +167,7 @@ class RenewVC(context: Context, val nft: ApiNft) : WViewController(context) {
     private val headerView: View
         get() {
             return PasscodeHeaderSendView(
-                context,
+                WeakReference(this),
                 (window!!.windowView.height * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO).roundToInt()
             ).apply {
                 config(

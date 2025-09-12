@@ -158,7 +158,9 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
         if (titleLabel.text != item.title) {
             titleLabel.text = item.title
             subtitleLabel.text =
-                SpannableStringBuilder(item.account.firstAddress?.formatStartEndAddress()).apply {
+                SpannableStringBuilder(
+                    item.account.firstAddress?.formatStartEndAddress() ?: ""
+                ).apply {
                     updateDotsTypeface()
                 }
             badgeLabel.text = item.account.accountType.badge

@@ -84,7 +84,7 @@ addActionHandler('submitDomainsRenewal', async (global, actions, { password } = 
 
 addActionHandler('checkDomainLinkingDraft', async (global, actions, { nft }) => {
   const accountId = global.currentAccountId!;
-  const currentAddress = selectCurrentAccount(global)!.addressByChain.ton!;
+  const currentAddress = selectCurrentAccount(global)!.byChain.ton!.address;
 
   const result = await callApi('checkDnsChangeWalletDraft', accountId, nft, currentAddress);
   if (!result || 'error' in result) {

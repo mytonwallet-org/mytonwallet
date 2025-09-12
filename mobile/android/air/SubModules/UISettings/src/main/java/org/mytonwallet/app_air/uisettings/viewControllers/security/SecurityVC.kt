@@ -166,7 +166,7 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
             context,
             org.mytonwallet.app_air.icons.R.drawable.ic_arrows_18
         )
-        setText(WGlobalStorage.getAppLock().displayName.toString())
+        setText(WGlobalStorage.getAppLock().displayName)
     }
 
     private val autoLockRow =
@@ -197,7 +197,7 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
                             AutoLockHelper.start(it.period)
                         }
                     },
-                    popupWidth = 130.dp,
+                    popupWidth = WRAP_CONTENT,
                     aboveView = false
                 )
             }

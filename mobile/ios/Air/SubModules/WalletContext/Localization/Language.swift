@@ -115,6 +115,6 @@ public struct Language: Equatable, Identifiable {
     
     public static let supportedLanguages: [Language] = [
         .en,
-//        .ru,
+        .ru,
     ]
 }

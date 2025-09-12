@@ -36,6 +36,27 @@ public extension Encodable {
     }
 }
 
+#if DEBUG
+public extension Encodable {
+    func jsonString() -> String {
+        let data = try! JSONEncoder().encode(self)
+        return String(data: data, encoding: .utf8)!
+    }
+    func jsonStringPretty() -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted]
+        let data = try! encoder.encode(self)
+        return String(data: data, encoding: .utf8)!
+    }
+    func printJsonString() {
+        print(jsonString())
+    }
+    func printJsonStringPretty() {
+        print(jsonStringPretty())
+    }
+}
+#endif
+
 //public extension Decodable {
 //    init(json: Any) throws {
 //        self = try JSONSerialization.decode(Self.self, from: json)

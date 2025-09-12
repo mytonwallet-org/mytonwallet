@@ -37,7 +37,7 @@ struct LedgerAddAccountView: View {
         HStack {
             if viewModel.showRetry {
                 Button(action: { viewModel.restart() }) {
-                    Text(lang("Try again"))
+                    Text(lang("Try Again"))
                 }
                 .buttonStyle(WUIButtonStyle(style: .secondary))
                 .environment(\.isEnabled, viewModel.retryEnabled)

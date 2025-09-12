@@ -12,7 +12,6 @@ import type {
 } from './teact';
 
 import { DEBUG } from '../../config';
-import { unique } from '../../util/iteratees';
 import { addEventListener, removeAllDelegatedListeners, removeEventListener } from './dom-events';
 import {
   captureImmediateEffects,
@@ -58,6 +57,8 @@ const SELECTION_STATE_ATTRIBUTE = '__teactSelectionState';
 const headsByElement = new WeakMap<Element, VirtualDomHead>();
 const extraClasses = new WeakMap<Element, Set<string>>();
 const extraStyles = new WeakMap<Element, Record<string, string>>();
+
+const uniqueChildKeysCache = new WeakMap<VirtualElementChildren, any[]>();
 
 let DEBUG_virtualTreeSize = 1;
 
@@ -459,10 +460,6 @@ function renderChildren(
   forceMoveToEnd = false,
   namespace?: string,
 ) {
-  if (DEBUG) {
-    DEBUG_checkKeyUniqueness($new.children);
-  }
-
   if (('props' in $new) && $new.props.teactFastList) {
     renderFastListChildren($current, $new, currentContext, currentEl);
     return;
@@ -532,13 +529,17 @@ function renderFastListChildren(
   const currentChildren = $current.children;
   const newChildren = $new.children;
 
+  // Clear out duplicated keys to avoid incorrect elements matching
+  const currentKeysByIndex = getUniqueChildKeysByIndex(currentChildren);
+  const newKeysByIndex = getUniqueChildKeysByIndex(newChildren);
+
   const newKeys = new Set();
-  for (const $newChild of newChildren) {
-    const key = 'props' in $newChild ? $newChild.props.key : undefined;
+  for (let i = 0, l = newChildren.length; i < l; i++) {
+    const $newChild = newChildren[i];
+    const key = newKeysByIndex[i];
 
     if (DEBUG && isParentElement($newChild)) {
-      // eslint-disable-next-line no-null/no-null
-      if (key === undefined || key === null) {
+      if (isNullable(key)) {
         // eslint-disable-next-line no-console
         console.warn('Missing `key` in `teactFastList`');
       }
@@ -557,9 +558,8 @@ function renderFastListChildren(
   for (let i = 0, l = currentChildren.length; i < l; i++) {
     const $currentChild = currentChildren[i];
 
-    let key = 'props' in $currentChild ? $currentChild.props.key : undefined;
-    // eslint-disable-next-line no-null/no-null
-    const isKeyPresent = key !== undefined && key !== null;
+    let key = currentKeysByIndex[i];
+    const isKeyPresent = !isNullable(key);
 
     // First we process removed children
     if (isKeyPresent && !newKeys.has(key)) {
@@ -568,7 +568,7 @@ function renderFastListChildren(
       continue;
     } else if (!isKeyPresent) {
       const $newChild = newChildren[i];
-      const newChildKey = ($newChild && 'props' in $newChild) ? $newChild.props.key : undefined;
+      const newChildKey = $newChild && newKeysByIndex[i];
       // If a non-key element remains at the same index we preserve it with a virtual `key`
       if ($newChild && !newChildKey) {
         key = `${INDEX_KEY_PREFIX}${i}`;
@@ -595,7 +595,7 @@ function renderFastListChildren(
 
   for (let i = 0, l = newChildren.length; i < l; i++) {
     const $newChild = newChildren[i];
-    const key = 'props' in $newChild ? $newChild.props.key : `${INDEX_KEY_PREFIX}${i}`;
+    const key = newKeysByIndex[i] ?? `${INDEX_KEY_PREFIX}${i}`;
     const currentChildInfo = remainingByKey[key];
 
     if (!currentChildInfo) {
@@ -927,23 +927,47 @@ function DEBUG_addToVirtualTreeSize($current: VirtualElementParent | VirtualDomH
   });
 }
 
-function DEBUG_checkKeyUniqueness(children: VirtualElementChildren) {
-  const firstChild = children[0];
-  if (firstChild && 'props' in firstChild && firstChild.props.key !== undefined) {
-    const keys = children.reduce((acc: any[], child) => {
-      if ('props' in child && child.props.key) {
-        acc.push(child.props.key);
-      }
+function getUniqueChildKeysByIndex(children: VirtualElementChildren) {
+  // The caching makes sense, because each children list is handled at least twice (as the new and the current children)
+  let uniqueKeysByIndex = uniqueChildKeysCache.get(children);
+  if (uniqueKeysByIndex) return uniqueKeysByIndex;
 
-      return acc;
-    }, []);
+  const seenKeys = new Set<any>();
+  const DEBUG_duplicatedKeys = new Set<any>();
 
-    if (keys.length !== unique(keys).length) {
-      // eslint-disable-next-line no-console
-      console.warn('[Teact] Duplicated keys:', keys.filter((e, i, a) => a.indexOf(e) !== i), children);
-      throw new Error('[Teact] Children keys are not unique');
+  uniqueKeysByIndex = children.map(($child) => {
+    const key = getElementKey($child);
+    if (isNullable(key)) return key;
+
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key);
+      return key;
     }
+
+    if (DEBUG) {
+      DEBUG_duplicatedKeys.add(key);
+    }
+
+    return undefined;
+  });
+
+  if (DEBUG && DEBUG_duplicatedKeys.size) {
+    // eslint-disable-next-line no-console
+    console.warn('[Teact] Duplicated keys:', [...DEBUG_duplicatedKeys], children);
+    throw new Error('[Teact] Children keys are not unique');
   }
+
+  uniqueChildKeysCache.set(children, uniqueKeysByIndex);
+  return uniqueKeysByIndex;
+}
+
+function getElementKey($element: VirtualElement) {
+  return 'props' in $element ? $element.props.key : undefined;
+}
+
+function isNullable(value: unknown): value is undefined | null {
+  // eslint-disable-next-line no-null/no-null
+  return value === undefined || value === null;
 }
 
 const TeactDOM = { render };

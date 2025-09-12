@@ -224,7 +224,7 @@ public class WButton: WBaseButton, WThemedView {
 }
 
 
-public struct WUIButtonStyle: ButtonStyle {
+public struct WUIButtonStyle: PrimitiveButtonStyle {
     
     public var style: WButtonStyle
     
@@ -269,8 +269,11 @@ public struct WUIButtonStyle: ButtonStyle {
             .frame(height: 50)
             .frame(maxWidth: .infinity)
             .background(Color(backgroundColor), in: .rect(cornerRadius: _borderRadius))
-            .contentShape(.rect)
             .opacity(isEnabled ? 1 : 0.5)
+            .contentShape(.rect)
+            .onTapGesture {
+                configuration.trigger()
+            }
             .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in
                 withAnimation(.spring(duration: 0.1)) {
                     isTouching = true
@@ -281,6 +284,12 @@ public struct WUIButtonStyle: ButtonStyle {
                 }
             })
     }
+}
+
+public extension PrimitiveButtonStyle where Self == WUIButtonStyle {
+    static var airPrimary: WUIButtonStyle { WUIButtonStyle(style: .primary) }
+    static var airSecondary: WUIButtonStyle { WUIButtonStyle(style: .secondary) }
+    static var airClearBackground: WUIButtonStyle { WUIButtonStyle(style: .clearBackground) }
 }
 
 

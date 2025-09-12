@@ -1,8 +1,9 @@
 import { getIsHeavyAnimating, onFullyIdle } from '../lib/teact/teact';
 import { addCallback, removeCallback } from '../lib/teact/teactn';
 
-import type { ApiActivity } from '../api/types';
+import type { ApiActivity, ApiChain } from '../api/types';
 import type {
+  Account,
   AccountState,
   GlobalState,
   SavedAddress,
@@ -28,7 +29,10 @@ import isEmptyObject from '../util/isEmptyObject';
 import {
   cloneDeep, extractKey, filterValues, mapValues, pick, pickTruthy,
 } from '../util/iteratees';
-import { clearPoisoningCache, updatePoisoningCache } from '../util/poisoningHash';
+import {
+  clearPoisoningCache,
+  updatePoisoningCacheFromGlobalState,
+} from '../util/poisoningHash';
 import { onBeforeUnload, throttle } from '../util/schedulers';
 import { getIsActiveStakingState } from '../util/staking';
 import { IS_ELECTRON } from '../util/windowEnvironment';
@@ -383,7 +387,7 @@ function migrateCache(cached: GlobalState, initialState: GlobalState) {
     if (cached.accounts) {
       clearActivities();
       for (const account of Object.values(cached.accounts.byId)) {
-        account.addressByChain = { ton: (account as any).address } as any;
+        (account as any).addressByChain = { ton: (account as any).address };
         delete (account as any).address;
       }
     }
@@ -491,29 +495,37 @@ function migrateCache(cached: GlobalState, initialState: GlobalState) {
     cached.stateVersion = 45;
   }
 
+  if (cached.stateVersion === 45) {
+    if (cached.accounts) {
+      for (const _account of Object.values(cached.accounts.byId)) {
+        const account = _account as Account & {
+          addressByChain?: Partial<Record<ApiChain, string>>;
+          domainByChain?: Partial<Record<ApiChain, string>>;
+          isMultisigByChain?: Partial<Record<ApiChain, boolean>>;
+        };
+
+        if (account.byChain) continue; // The migration has passed already
+
+        account.byChain = mapValues(account.addressByChain ?? {}, (address, chain) => ({
+          address,
+          domain: account.domainByChain?.[chain as ApiChain],
+          isMultisig: account.isMultisigByChain?.[chain as ApiChain] || undefined,
+        }));
+
+        delete account.addressByChain;
+        delete account.domainByChain;
+        delete account.isMultisigByChain;
+      }
+    }
+    clearActivities();
+    cached.stateVersion = 46;
+  }
+
   // When adding migration here, increase `STATE_VERSION`
 }
 
 function loadMemoryCache(cached: GlobalState) {
-  if (!cached.currentAccountId) return;
-
-  const { byId, newestActivitiesBySlug } = cached.byAccountId[cached.currentAccountId].activities || {};
-
-  if (byId) {
-    Object.values(byId).forEach((tx) => {
-      if (tx.kind === 'transaction' && tx.isIncoming) {
-        updatePoisoningCache(tx);
-      }
-    });
-  }
-
-  if (newestActivitiesBySlug) {
-    Object.values(newestActivitiesBySlug).forEach((activity) => {
-      if (activity.kind === 'transaction' && activity.isIncoming) {
-        updatePoisoningCache(activity);
-      }
-    });
-  }
+  updatePoisoningCacheFromGlobalState(cached);
 }
 
 const getUsedTokenSlugs = (reducedGlobal: GlobalState): string[] => {

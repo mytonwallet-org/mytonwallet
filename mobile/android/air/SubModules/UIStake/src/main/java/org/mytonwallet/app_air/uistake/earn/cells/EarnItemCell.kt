@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.uistake.earn.cells
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.text.TextUtils
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.widget.ConstraintSet
@@ -77,9 +78,13 @@ class EarnItemCell(context: Context) : WCell(context), WThemedView {
     }
 
     private val titleLabel: WLabel by lazy {
-        val label = WLabel(context)
-        label.setStyle(16f, WFont.Medium)
-        label
+        WLabel(context).apply {
+            setStyle(16f, WFont.Medium)
+            setSingleLine()
+            ellipsize = TextUtils.TruncateAt.MARQUEE
+            isHorizontalFadingEdgeEnabled = true
+            isSelected = true
+        }
     }
 
     private val itemDateLabel: WLabel by lazy {
@@ -147,9 +152,12 @@ class EarnItemCell(context: Context) : WCell(context), WThemedView {
             centerXToCenterX(groupIconShadow2, groupIcon)
             topToTop(groupIconShadow2, groupIconShadow1, 7f)
 
+            setHorizontalBias(titleLabel.id, 0f)
+            constrainedWidth(titleLabel.id, true)
             topToTop(titleLabel, iconView)
             startToEnd(titleLabel, iconView, 12f)
             bottomToTop(titleLabel, itemDateLabel)
+            endToStart(titleLabel, amountLabel, 8f)
 
             topToBottom(itemDateLabel, titleLabel, -1f)
             startToStart(itemDateLabel, titleLabel)
@@ -204,7 +212,7 @@ class EarnItemCell(context: Context) : WCell(context), WThemedView {
         this.isLast = isLast
         updateTheme()
 
-        titleLabel.text = item.getTitle()
+        titleLabel.setTextIfChanged(item.getTitle())
         if (item is EarnItem.Profit || item is EarnItem.ProfitGroup) {
             amountLabel.contentView.text = "+${item.formattedAmount} $tokenSymbol"
             amountLabel.contentView.setTextColor(WColor.Green.color)

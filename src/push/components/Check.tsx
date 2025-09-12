@@ -4,7 +4,7 @@ import React, { memo, useLayoutEffect, useMemo, useRef, useState } from '../../l
 import type { ApiCheck } from '../types';
 import type { ParticleConfig } from '../util/particles';
 
-import { PUSH_SC_VERSIONS, PUSH_START_PARAM_DELIMITER } from '../config';
+import { PUSH_CHAIN, PUSH_SC_VERSIONS, PUSH_START_PARAM_DELIMITER } from '../config';
 import { areDeepEqual } from '../../util/areDeepEqual';
 import buildClassName from '../../util/buildClassName';
 import { toDecimal } from '../../util/decimals';
@@ -28,10 +28,10 @@ import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useSyncEffect from '../../hooks/useSyncEffect';
 
-import AnimatedCounter from '../../components/ui/AnimatedCounter';
 import AnimatedIconWithPreview from '../../components/ui/AnimatedIconWithPreview';
 import Image from '../../components/ui/Image';
 import Transition from '../../components/ui/Transition';
+import Header from './Header';
 import UniversalButton from './UniversalButton';
 
 import commonStyles from './_common.module.scss';
@@ -79,8 +79,6 @@ const PARTICLE_BURST_PARAMS: Partial<ParticleConfig> = {
   maxSpawnRadius: 50,
 };
 
-const CHAIN = 'ton';
-
 let activeKey = 0;
 
 function Check({
@@ -108,6 +106,8 @@ function Check({
   const [checkError, setCheckError] = useState<Error>();
   const [accountBalance, setAccountBalance] = useState<string>();
   const [isJustSentCancelRequest, markIsJustSentCancelRequest] = useFlag(false);
+
+  const checkSymbol = check?.type === 'coin' ? check.symbol : undefined;
 
   useInterval(async () => {
     if (!checkKey) return;
@@ -145,17 +145,19 @@ function Check({
   }, [status, isJustSentRequest, isJustSentCancelRequest, hasError]);
 
   useLayoutEffect(() => {
-    if (!check?.symbol) return;
+    if (!checkSymbol) return;
 
     return setupParticles(canvasRef.current!, {
-      color: PARTICLE_COLORS[check.symbol],
+      color: PARTICLE_COLORS[checkSymbol],
       ...PARTICLE_PARAMS,
     });
-  }, [check?.symbol]);
+  }, [checkSymbol]);
 
   const handleTokenClick = useLastCallback(() => {
+    if (check?.type !== 'coin') return;
+
     setupParticles(canvasRef.current!, {
-      color: PARTICLE_COLORS[check!.symbol],
+      color: PARTICLE_COLORS[check.symbol],
       ...PARTICLE_PARAMS,
       ...PARTICLE_BURST_PARAMS,
     });
@@ -205,7 +207,8 @@ function Check({
     markLoading();
 
     try {
-      const isV3 = PUSH_SC_VERSIONS.v3.includes(check!.contractAddress);
+      const isV3 = PUSH_SC_VERSIONS.v3.includes(check!.contractAddress)
+        || PUSH_SC_VERSIONS.NFT === check!.contractAddress;
       if (isV3) {
         await processCancelCheck(check!, markIsJustSentCancelRequest);
       } else {
@@ -229,17 +232,19 @@ function Check({
     ? logoPushPath
     : !check
       ? undefined
-      : check.symbol === 'USDT'
-        ? logoUsdtPath
-        : check.symbol === 'MY'
-          ? logoMyPath
-          : logoTonPath;
+      : check.type === 'nft'
+        ? check.nftInfo.imageUrl
+        : check.symbol === 'USDT'
+          ? logoUsdtPath
+          : check.symbol === 'MY'
+            ? logoMyPath
+            : logoTonPath;
 
   const walletUrl = useMemo(() => (
-    wallet ? getExplorerAddressUrl(CHAIN, getWalletAddress(wallet)) : undefined
+    wallet ? getExplorerAddressUrl(PUSH_CHAIN, getWalletAddress(wallet)) : undefined
   ), [wallet]);
   const txUrl = useMemo(() => (
-    check?.txId ? getExplorerTransactionUrl(CHAIN, check.txId.split(':')[1]) : undefined
+    check?.txId ? getExplorerTransactionUrl(PUSH_CHAIN, check.txId.split(':')[1]) : undefined
   ), [check?.txId]);
 
   function renderBadge() {
@@ -405,7 +410,7 @@ function Check({
       primaryOnClick = handleCloseClick;
     }
 
-    if (isCurrentUserSender && status === 'pending_signature' && !isJustSentRequest) {
+    if (isCurrentUserSender && status === 'pending_signature' && !isJustSentRequest && check?.type === 'coin') {
       secondaryText = isCurrentUserPayer ? lang('Request Payment') : lang('Pay Myself');
       secondaryOnClick = handleToggleInvoiceClick;
     } else if (isCurrentUserPayer && wallet && status === 'pending_receive' && !isJustSentCancelRequest) {
@@ -446,35 +451,26 @@ function Check({
 
   return (
     <div className={buildClassName(commonStyles.container, commonStyles.container_centered)}>
-      <div className={styles.header}>
-        <div className={buildClassName(styles.wallet, !wallet && styles.wallet_empty)}>
-          <a href={walletUrl} target="_blank" rel="noreferrer" className={styles.walletAvatar}>
-            <i />
-          </a>
-          <div className={styles.walletInfo}>
-            <Transition name="fade" activeKey={accountBalance ? 1 : 0} className={styles.walletBalance}>
-              {accountBalance ? (
-                <a href={walletUrl} target="_blank" rel="noreferrer" className={styles.walletBalanceLink}>
-                  <AnimatedCounter text={formatCurrency(accountBalance, check!.symbol)} />
-                </a>
-              ) : (
-                PLACEHOLDER
-              )}
-            </Transition>
-            <a href="" className={styles.walletDisconnectLink} onClick={handleDisconnectClick}>
-              {lang('Disconnect')}
-            </a>
-          </div>
-        </div>
-        <a href="https://t.me/push?start=1" className={styles.helpButton}><i /></a>
-      </div>
+      <Header
+        accountBalance={accountBalance}
+        symbol={(check?.type === 'coin' && check.symbol) || 'TON'}
+        walletUrl={walletUrl}
+        onDisconnectClick={handleDisconnectClick}
+      />
 
       <div className={styles.tokenContainer}>
         <canvas ref={canvasRef} className={styles.particles} />
         <div className={styles.tokenLogo}>
           <div className={styles.tokenImgContainer} onClick={check ? handleTokenClick : undefined}>
             {imgPath && (
-              <Image url={imgPath} isSlow alt={check?.symbol || 't.me/push'} imageClassName={styles.tokenImg} />
+              <Image
+                url={imgPath}
+                isSlow
+                alt={(check?.type === 'coin'
+                  ? check.symbol
+                  : check?.nftInfo.name) || 't.me/push'}
+                imageClassName={styles.tokenImg}
+              />
             )}
           </div>
           {renderBadge()}
@@ -490,14 +486,24 @@ function Check({
         {(isMainActive) => (
           <>
             <div
-              className={buildClassName(commonStyles.roundedFont, styles.amount, check && styles[`amount_${action}`])}
+              className={
+                buildClassName(
+                  commonStyles.roundedFont,
+                  styles.amount,
+                  check?.type === 'coin' && styles[`amount_${action}`],
+                )
+              }
             >
               {!checkKey ? (
                 <a href="https://t.me/push?start=1">t.me/push</a>
-              ) : check?.amount ? (
-                formatCurrency(check.amount, check.symbol)
+              ) : check?.type === 'coin' ? (
+                check.amount ? (
+                  formatCurrency(check.amount, check.symbol)
+                ) : (
+                  PLACEHOLDER
+                )
               ) : (
-                PLACEHOLDER
+                check?.nftInfo!.name || PLACEHOLDER
               )}
             </div>
 
@@ -530,7 +536,9 @@ export default memo(Check);
 async function fetchAccountBalanceFromWalletAndCheck(wallet: Wallet, check: ApiCheck) {
   if (!wallet || !check) return;
 
-  const balanceBig = await fetchAccountBalance(getWalletAddress(wallet), check.minterAddress);
+  const minterAddress = check.type === 'coin' ? check.minterAddress : undefined;
+  const balanceBig = await fetchAccountBalance(getWalletAddress(wallet), minterAddress);
 
-  return toDecimal(balanceBig, check.decimals);
+  const decimals = check.type === 'coin' ? check.decimals : 9;
+  return toDecimal(balanceBig, decimals);
 }

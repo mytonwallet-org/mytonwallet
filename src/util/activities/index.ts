@@ -1,9 +1,16 @@
-import type { ApiActivity, ApiTransaction, ApiTransactionActivity, ApiTransactionType } from '../../api/types';
+import type {
+  ApiActivity,
+  ApiChain,
+  ApiTransaction,
+  ApiTransactionActivity,
+  ApiTransactionType,
+} from '../../api/types';
 import type { LangFn } from '../langProvider';
 
 import { ALL_STAKING_POOLS, BURN_ADDRESS } from '../../config';
-import { extractKey, groupBy } from '../iteratees';
+import { extractKey, groupBy, unique } from '../iteratees';
 import { getIsTransactionWithPoisoning } from '../poisoningHash';
+import { getChainBySlug } from '../tokens';
 
 type UnusualTxType = 'backend-swap' | 'local' | 'additional';
 
@@ -38,6 +45,13 @@ export const DNS_TRANSACTION_TYPES = new Set<ApiTransactionType | undefined>([
   'dnsChangeAddress', 'dnsChangeSite', 'dnsChangeStorage', 'dnsChangeSubdomains', 'dnsDelete', 'dnsRenew',
 ]);
 
+/**
+ * Both 'pendingTrusted' and 'pending' mean the activity is awaiting confirmation by the blockchain.
+ * - 'pendingTrusted' — awaiting confirmation and trusted (initiated by our app).
+ * - 'pending' — awaiting confirmation from an external/unauthenticated source.
+ */
+const PENDING_STATUSES = new Set(['pending', 'pendingTrusted']);
+
 export function parseTxId(txId: string): {
   hash: string;
   subId?: string;
@@ -69,6 +83,7 @@ export function buildTxId(hash: string, subId?: number | string, type?: UnusualT
   return `${hash}:${subId ?? ''}:${type}`;
 }
 
+/** Returns the token slugs that the activity is a part of the history of */
 export function getActivityTokenSlugs(activity: ApiActivity): string[] {
   switch (activity.kind) {
     case 'transaction': {
@@ -77,6 +92,20 @@ export function getActivityTokenSlugs(activity: ApiActivity): string[] {
     }
     case 'swap': {
       return [activity.from, activity.to];
+    }
+  }
+}
+
+export function getActivityChains(activity: ApiActivity): ApiChain[] {
+  switch (activity.kind) {
+    case 'transaction': {
+      return [getChainBySlug(activity.slug)];
+    }
+    case 'swap': {
+      return unique([
+        getChainBySlug(activity.from),
+        getChainBySlug(activity.to),
+      ]);
     }
   }
 }
@@ -169,7 +198,11 @@ export function getIsActivityWithHash(activity: ApiTransactionActivity) {
 
 export function getIsActivityPending(activity: ApiActivity) {
   // "Pending" is a blockchain term. The activities originated by our backend are never considered pending in this sense.
-  return (activity.status === 'pending' || activity.status === 'pendingTrusted') && !getIsBackendSwapId(activity.id);
+  return getIsActivityPendingForUser(activity) && !getIsBackendSwapId(activity.id);
+}
+
+export function getIsActivityPendingForUser(activity: ApiActivity) {
+  return PENDING_STATUSES.has(activity.status);
 }
 
 /**

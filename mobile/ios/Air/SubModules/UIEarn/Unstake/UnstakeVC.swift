@@ -96,15 +96,7 @@ public class UnstakeVC: WViewController, WalletCoreData.EventsObserver {
         hostingController.view.backgroundColor = WTheme.sheetBackground
         
         _ = addBottomButton()
-        let title: String = switch model.baseToken.slug {
-        case TONCOIN_SLUG:
-            lang("Unstake TON")
-        case MYCOIN_SLUG:
-            lang("Unstake MY")
-        case TON_USDE_SLUG:
-            "Unstake USDe"
-        default: ""
-        }
+        let title: String = lang("$unstake_asset", arg1: model.baseToken.slug)
         continueButton.setTitle(title, for: .normal)
         continueButton.addTarget(self, action: #selector(continuePressed), for: .touchUpInside)
         continueButton.isEnabled = false

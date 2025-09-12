@@ -166,10 +166,14 @@ public class _TokenStore {
         try await Api.setBaseCurrency(currency: currency)
         await MainActor.run {
             AppStorageHelper.save(selectedCurrency: currency.rawValue)
-            Api.tryUpdateTokenPrices()
         }
         self.baseCurrency = currency
         resetQuotes()
+        do {
+            try await Api.tryUpdateTokens()
+        } catch {
+            log.error("tryUpdateTokens: \(error, .public)")
+        }
         AppStorageHelper.save(baseCurrency: currency, tokens: tokens)
         WalletCoreData.notify(event: .baseCurrencyChanged(to: currency), for: nil)
     }

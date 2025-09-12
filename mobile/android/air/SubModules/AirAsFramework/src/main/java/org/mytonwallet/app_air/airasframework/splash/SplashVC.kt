@@ -4,10 +4,13 @@ import WNavigationController
 import android.content.Context
 import android.graphics.Color
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import androidx.core.net.toUri
 import org.mytonwallet.app_air.airasframework.AirAsFrameworkApplication
 import org.mytonwallet.app_air.airasframework.MainWindow
+import org.mytonwallet.app_air.sqscan.screen.QrScannerDialog
 import org.mytonwallet.app_air.uiassets.viewControllers.token.TokenVC
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
@@ -17,6 +20,8 @@ import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.addAccountOptions.AddAccountOptionsVC
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.intro.IntroVC
+import org.mytonwallet.app_air.uicreatewallet.viewControllers.walletAdded.WalletAddedVC
+import org.mytonwallet.app_air.uicreatewallet.viewControllers.wordCheck.WordCheckVC
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
@@ -33,8 +38,9 @@ import org.mytonwallet.app_air.walletcontext.helpers.AutoLockHelper
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
 import org.mytonwallet.app_air.walletcontext.helpers.LaunchConfig
 import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
+import org.mytonwallet.app_air.walletcontext.helpers.WordCheckMode
+import org.mytonwallet.app_air.walletcontext.helpers.logger.LogMessage
 import org.mytonwallet.app_air.walletcontext.helpers.logger.Logger
-import org.mytonwallet.app_air.walletcontext.models.MRecentAddress
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcontext.theme.WColor
 import org.mytonwallet.app_air.walletcontext.theme.color
@@ -67,7 +73,6 @@ import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.uihome.tabs.TabsVC
 import java.io.UnsupportedEncodingException
 import java.net.URLEncoder
-import java.util.Date
 
 class SplashVC(context: Context) : WViewController(context),
     WalletContextManagerDelegate,
@@ -97,6 +102,8 @@ class SplashVC(context: Context) : WViewController(context),
 
     override fun setupViews() {
         super.setupViews()
+        // Handle possible deep-links right after screen load (like switch to classic on first app launch)
+        handleDeeplinkIfRequired()
         updateTheme()
     }
 
@@ -138,7 +145,7 @@ class SplashVC(context: Context) : WViewController(context),
 
     fun bridgeIsReady() {
         Logger.i(Logger.LogTag.AIR_APPLICATION, "Bridge Ready, Activating account")
-        var accountIds = WGlobalStorage.accountIds()
+        val accountIds = WGlobalStorage.accountIds()
         if (accountIds.isEmpty()) {
             // Reset and make sure nothing is cached (to handle corrupted global storage conditions)
             resetToIntro()
@@ -267,6 +274,18 @@ class SplashVC(context: Context) : WViewController(context),
         return AddAccountOptionsVC(context, isOnIntro = false)
     }
 
+    override fun getWalletAddedVC(isNew: Boolean): Any {
+        return WalletAddedVC(context, isNew)
+    }
+
+    override fun getWordCheckVC(
+        words: Array<String>,
+        initialWordIndices: List<Int>,
+        mode: WordCheckMode
+    ): Any {
+        return WordCheckVC(context, words, initialWordIndices, mode)
+    }
+
     override fun getTabsVC(): WViewController {
         return TabsVC(context)
     }
@@ -354,11 +373,35 @@ class SplashVC(context: Context) : WViewController(context),
     }
 
     override fun switchToLegacy() {
-        LaunchConfig.setShouldStartOnAir(context, false)
-        window?.startActivity(WalletContextManager.getMainActivityIntent(context))
-        AutoLockHelper.stop()
-        window?.finish()
-        sharedInstance = null
+        Handler(Looper.getMainLooper()).post {
+            LaunchConfig.setShouldStartOnAir(context, false)
+            window?.startActivity(WalletContextManager.getMainActivityIntent(context))
+            AutoLockHelper.stop()
+            window?.finish()
+            sharedInstance = null
+            WalletContextManager.setDelegate(null)
+        }
+    }
+
+    override fun bindQrCodeButton(
+        context: Context,
+        button: View,
+        onResult: (String) -> Unit,
+        parseDeepLinks: Boolean
+    ) {
+        button.setOnClickListener {
+            QrScannerDialog.build(context) {
+                val text = it.trim()
+                var address = text
+                if (parseDeepLinks) {
+                    val deeplink = runCatching { DeeplinkParser.parse(text.toUri()) }.getOrNull()
+                    if (deeplink is Deeplink.Invoice) {
+                        address = deeplink.address
+                    }
+                }
+                onResult(address)
+            }.show()
+        }
     }
 
     private fun showAlertOverTopVC(title: String?, text: CharSequence) {
@@ -412,6 +455,14 @@ class SplashVC(context: Context) : WViewController(context),
                             ) { res, err ->
                                 if (res == null || err != null) {
                                     // Should not happen!
+                                    Logger.e(
+                                        Logger.LogTag.ACCOUNT,
+                                        LogMessage.Builder()
+                                            .append(
+                                                "Switch to deeplink account failed",
+                                                LogMessage.MessagePartPrivacy.PUBLIC
+                                            ).build()
+                                    )
                                     throw Exception("Switch-Back Account Failure")
                                 }
                                 WalletCore.notifyEvent(WalletEvent.AccountChangedInApp)
@@ -463,12 +514,6 @@ class SplashVC(context: Context) : WViewController(context),
                     return
                 }
 
-                val addressObj = MRecentAddress(
-                    address = deeplink.address,
-                    addressAlias = "",
-                    dt = Date()
-                )
-
                 val token =
                     deeplink.jetton?.let {
                         TokenStore.getToken(deeplink.jetton, true)
@@ -482,7 +527,7 @@ class SplashVC(context: Context) : WViewController(context),
                 navVC.setRoot(
                     SendVC(
                         context, token?.slug, InitialValues(
-                            address = addressObj.address,
+                            address = deeplink.address,
                             amount = amountString,
                             binary = deeplink.binary,
                             comment = deeplink.comment,

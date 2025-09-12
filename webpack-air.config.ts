@@ -1,12 +1,11 @@
-// todo: When the mobile apps become fully air (with no legacy Capacitor mode), this configuration should be merged into
-// webpack.config.ts (src/api/air/index.ts should become an entry). It is not possible yet, because a different
-// IS_AIR_APP value need to be injected into different entries, which is not possible with Webpack. When the Capacitor
-// mode is removed, IS_AIR_APP will be `1` in all the entries.
-
+import WatchFilePlugin from '@mytonwallet/webpack-watch-file-plugin';
 import dotenv from 'dotenv';
+import fs from 'fs';
 import path from 'path';
 import type { Configuration } from 'webpack';
 import { BannerPlugin, EnvironmentPlugin, ProvidePlugin } from 'webpack';
+
+import { convertI18nYamlToJson } from './dev/locales/convertI18nYamlToJson';
 
 dotenv.config();
 
@@ -94,6 +93,35 @@ export default function createConfig(
         TRON_TESTNET_API_URL: '',
         PROXY_HOSTS: '',
         STAKING_POOLS: '',
+      }),
+      new WatchFilePlugin({
+        rules: [
+          {
+            name: 'Air i18n to JSON conversion',
+            files: 'src/i18n/air/*.yaml',
+            action: (filePath) => {
+              const i18nYaml = fs.readFileSync(filePath, 'utf8');
+              const i18nJson = convertI18nYamlToJson(i18nYaml, mode === 'production');
+
+              if (!i18nJson) {
+                return;
+              }
+
+              const fileName = path.basename(filePath, '.yaml');
+              const outputDir = path.resolve(
+                __dirname,
+                'mobile/android/air/SubModules/AirAsFramework/src/main/assets/i18n',
+              );
+              if (!fs.existsSync(outputDir)) {
+                fs.mkdirSync(outputDir, { recursive: true });
+              }
+
+              const outputPath = path.join(outputDir, `air_${fileName}.json`);
+              fs.writeFileSync(outputPath, i18nJson, 'utf-8');
+            },
+            firstCompilation: true,
+          },
+        ],
       }),
     ],
 

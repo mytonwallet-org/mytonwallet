@@ -98,7 +98,7 @@ class WMenuPopupViewItem(context: Context, val item: WMenuPopup.Item) : FrameLay
             })
         }
         if (item.hasSeparator) {
-            addView(separatorView, LayoutParams(500.dp, 7.dp).apply {
+            addView(separatorView, LayoutParams(LayoutParams.MATCH_PARENT, 7.dp).apply {
                 gravity = Gravity.BOTTOM
             })
         }
@@ -131,9 +131,9 @@ class WMenuPopupViewItem(context: Context, val item: WMenuPopup.Item) : FrameLay
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        label.maxWidth = w - textMargin - 8.dp
+        label.maxWidth = w - textMargin - 16.dp
         label.measure(
-            MeasureSpec.makeMeasureSpec(w - textMargin - 8.dp, MeasureSpec.AT_MOST),
+            MeasureSpec.makeMeasureSpec(w - textMargin - 16.dp, MeasureSpec.AT_MOST),
             MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
         )
     }

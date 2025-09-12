@@ -13,7 +13,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uisettings.viewControllers.walletVersions.cells.WalletVersionCell
 import org.mytonwallet.app_air.uisettings.viewControllers.walletVersions.cells.WalletVersionsHeaderCell
-import org.mytonwallet.app_air.walletcontext.R
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
 import org.mytonwallet.app_air.walletcontext.helpers.logger.LogMessage
@@ -240,6 +239,14 @@ class WalletVersionsVC(context: Context) : WViewController(context),
             ) { _, err ->
                 if (err != null) {
                     // Should not happen
+                    Logger.e(
+                        Logger.LogTag.ACCOUNT,
+                        LogMessage.Builder()
+                            .append(
+                                "Activation failed in wallet-versions: $err",
+                                LogMessage.MessagePartPrivacy.PUBLIC
+                            ).build()
+                    )
                     return@activateAccount
                 }
                 navigationController?.pop(false)

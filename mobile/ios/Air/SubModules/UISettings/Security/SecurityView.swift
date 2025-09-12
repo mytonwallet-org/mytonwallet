@@ -104,7 +104,9 @@ struct SecurityView: View {
     func onChangePasscode() {
         guard let vc = topWViewController() else { return }
         UnlockVC.presentAuth(on: vc, onDone: { passcode in
-            vc.navigationController?.pushViewController(ChangePasscodeVC(step: .newPasscode(prevPasscode: passcode)), animated: true)
+            if let passcode {
+                vc.navigationController?.pushViewController(ChangePasscodeVC(step: .newPasscode(prevPasscode: passcode)), animated: true)
+            }
         }, cancellable: true)
     }
     
@@ -142,7 +144,7 @@ struct AutolockPicker: View {
         Menu {
             ForEach(MAutolockOption.allCases) { option in
                 Button(action: { autolockOption = option }) {
-                    Text(lang(option.displayName))
+                    Text(option.displayName)
                         .lineLimit(1)
                         .frame(width: 200, alignment: .trailing)
                         .tag(option)
@@ -151,7 +153,7 @@ struct AutolockPicker: View {
         } label: {
             let arrow: Text = Text(Image(systemName: "arrow.up.and.down"))
                 .font(.system(size: 13))
-            Text("\(lang(autolockOption.displayName)) \(arrow)")
+            Text("\(autolockOption.displayName) \(arrow)")
                 .imageScale(.small)
                 .padding(5)
                 .contentShape(.rect)

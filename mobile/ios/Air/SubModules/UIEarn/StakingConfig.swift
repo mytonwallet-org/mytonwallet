@@ -16,9 +16,9 @@ public struct StakingConfig: Identifiable, Equatable, Hashable {
     let _stakedToken: ApiToken
     public let displayTitle: String
     public let explainTitle: String
-    public let explainContent: String
+    public let explainContent: [String]
     
-    init(id: String, baseToken: ApiToken, stakedToken: ApiToken, displayTitle: String, explainTitle: String, explainContent: String) {
+    init(id: String, baseToken: ApiToken, stakedToken: ApiToken, displayTitle: String, explainTitle: String, explainContent: [String]) {
         self.id = id
         self._baseToken = baseToken
         self._stakedToken = stakedToken
@@ -35,8 +35,12 @@ public extension StakingConfig {
         baseToken: .TONCOIN,
         stakedToken: .STAKED_TON,
         displayTitle: "TON",
-        explainTitle: lang("Why Staking is Safe"),
-        explainContent: lang("Staking is **fully decentralized** and operated by the **official TON Liquid Staking** smart contracts.|The deposited stake will be used for the TON network validation as part of its **proof-of-stake** essence.|You can withdraw your stake at **any time** and it will be deposited back to your account within **two days**."),
+        explainTitle: lang("Why is staking safe?"),
+        explainContent: [
+            lang("$safe_staking_description1"),
+            lang("$safe_staking_description2"),
+            lang("$safe_staking_description3"),
+        ],
     )
     
     static let tonNominators = StakingConfig(
@@ -44,8 +48,12 @@ public extension StakingConfig {
         baseToken: .TONCOIN,
         stakedToken: .STAKED_TON,
         displayTitle: "TON",
-        explainTitle: lang("Why Staking is Safe"),
-        explainContent: lang("Staking is **fully decentralized** and operated by the **official TON Liquid Staking** smart contracts.|The deposited stake will be used for the TON network validation as part of its **proof-of-stake** essence.|You can withdraw your stake at **any time** and it will be deposited back to your account within **two days**."),
+        explainTitle: lang("Why is staking safe?"),
+        explainContent: [
+            lang("$safe_staking_description1"),
+            lang("$safe_staking_description2"),
+            lang("$safe_staking_description3"),
+        ],
     )
     
     static var ton: StakingConfig {
@@ -57,9 +65,11 @@ public extension StakingConfig {
         baseToken: .MYCOIN,
         stakedToken: .STAKED_MYCOIN,
         displayTitle: "MY",
-        explainTitle: lang("Why Staking is Safe"),
-        explainContent: "Token staking is **fully decentralized** and operated by the **open-source** smart contracts developed by [**JVault**](https://jvault.xyz) and passed **security audits**.|You can withdraw your stake at **any time** and it will be deposited back to your account **instantly**.",
-
+        explainTitle: lang("Why is staking safe?"),
+        explainContent: [
+            lang("$safe_staking_description_jetton1", arg1: "[JVault](\(JVAULT_URL))"),
+            lang("$safe_staking_description_jetton2")
+        ],
     )
 
     static let ethena = StakingConfig(
@@ -67,8 +77,12 @@ public extension StakingConfig {
         baseToken: .TON_USDE,
         stakedToken: .TON_TSUSDE,
         displayTitle: "USDe",
-        explainTitle: "How does it work?",
-        explainContent: "Staking is fully decentralized and operated by **Ethena’s official** audited liquid staking **smart contracts**.|The deposited USDe stake is used in Ethena’s **trading and investment strategies** to yield rewards automatically and transparently.|You can **withdraw** your stake with rewards at any time, and it will be returned to your account **in 7 days**, according to Ethena’s standard withdrawal period.",
+        explainTitle: lang("How does it work?"),
+        explainContent: [
+            lang("$safe_staking_ethena_description1"),
+            lang("$safe_staking_ethena_description2"),
+            lang("$safe_staking_ethena_description3"),
+        ],
     )
 }
 

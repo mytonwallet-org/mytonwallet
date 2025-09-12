@@ -149,7 +149,7 @@ export function selectAccountIdByAddress(
   if (!accounts) return undefined;
 
   const requiredAccount = Object.entries(accounts)
-    .find(([accountId, account]) => (account.addressByChain[chain] === address ? accountId : undefined));
+    .find(([, account]) => account.byChain[chain]?.address === address);
 
   return requiredAccount?.[0];
 }
@@ -181,13 +181,13 @@ export function selectAccountNftByAddress(global: GlobalState, accountId: string
 }
 
 export function selectIsMultichainAccount(global: GlobalState, accountId: string) {
-  const addressByChain = selectAccount(global, accountId)?.addressByChain;
-  return Boolean(addressByChain) && isKeyCountGreater(addressByChain, 1);
+  const byChain = selectAccount(global, accountId)?.byChain;
+  return Boolean(byChain) && isKeyCountGreater(byChain, 1);
 }
 
 export function selectIsMultisigAccount(global: GlobalState, accountId: string, chain: ApiChain) {
   const account = selectAccount(global, accountId);
-  return Boolean(account?.isMultisigByChain?.[chain]);
+  return Boolean(account?.byChain[chain]?.isMultisig);
 }
 
 export function selectHasSession(global: GlobalState) {
@@ -220,5 +220,5 @@ export function selectIsCurrentAccountViewMode(global: GlobalState) {
 
 export function selectDoesAccountSupportNft(global: GlobalState) {
   const account = selectCurrentAccount(global);
-  return Boolean(account?.addressByChain.ton);
+  return Boolean(account?.byChain.ton);
 }

@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Canvas
+import android.text.InputType
+import android.text.method.DigitsKeyListener
 import android.view.Gravity
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -15,12 +17,14 @@ import me.vkryl.core.parseFloat
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.ViewHelpers
+import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WAmountEditText
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WEditableItemView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
+import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
 import org.mytonwallet.app_air.uicomponents.widgets.animateHeight
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
@@ -63,17 +67,22 @@ class SwapSlippageRowView(
         setText("${currentVal.toInt()}%")
     }
 
-    private val doneButton = WButton(context, WButton.Type.SECONDARY).apply {
-        buttonHeight = 36.dp
+    private val doneButton = WLabel(context).apply {
         text = LocaleController.getString("Save")
         alpha = 0f
         isClickable = false
+        setTextColor(WColor.Tint)
+        setStyle(16f, WFont.Medium)
+        setPadding(8.dp, 0, 8.dp, 0)
+        gravity = Gravity.CENTER_VERTICAL
     }
 
     private val slippageEditText = WAmountEditText(context, isLeadingSymbol = false).apply {
         setBaseCurrencySymbol("%")
         setPadding(12.dp, 0, 0, 0)
         setText("${currentVal.toInt()}")
+        inputType = InputType.TYPE_NUMBER_FLAG_DECIMAL
+        keyListener = DigitsKeyListener.getInstance("0123456789.,")
         doOnTextChanged { text, _, _, _ ->
             val num = parseFloat(text.toString())
             setTextColor(if (num > 0 && num <= 50) WColor.PrimaryText.color else WColor.Red.color)
@@ -117,7 +126,7 @@ class SwapSlippageRowView(
         background = rippleDrawable
 
         addView(titleLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
-        addView(doneButton, LayoutParams(50.dp, WRAP_CONTENT))
+        addView(doneButton, LayoutParams(WRAP_CONTENT, 36.dp))
         addView(valueView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(editorView, LayoutParams(MATCH_PARENT, 50.dp))
         setConstraints {
@@ -150,6 +159,7 @@ class SwapSlippageRowView(
         rippleDrawable.setColor(ColorStateList.valueOf(WColor.backgroundRippleColor))
         infoDrawable.setTint(WColor.SecondaryText.color)
         titleLabel.setTextColor(WColor.SecondaryText.color)
+        doneButton.addRippleEffect(WColor.TintRipple.color, 18f.dp)
     }
 
     private var isExpanded = false

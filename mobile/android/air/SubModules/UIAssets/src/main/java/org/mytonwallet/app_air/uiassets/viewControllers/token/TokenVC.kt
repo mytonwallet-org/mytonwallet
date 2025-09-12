@@ -856,5 +856,6 @@ class TokenVC(context: Context, var token: MToken) : WViewController(context),
         skeletonRecyclerView.removeAllViews()
         tokenChartCell?.onDestroy()
         actionsView?.onDestroy()
+        tokenVM.onDestroy()
     }
 }

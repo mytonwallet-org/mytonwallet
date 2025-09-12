@@ -107,7 +107,6 @@ class TokenHeaderView(
                         open("https://dexscreener.com/search?q=${token.name.lowercase()}")
                     }),
                 offset = (-10).dp,
-                popupWidth = 200.dp,
                 aboveView = true
             )
         }

@@ -33,15 +33,33 @@ import kotlin.math.roundToInt
 @SuppressLint("ViewConstructor")
 class HeaderActionsView(
     context: Context,
-    tabs: List<Item>,
+    var tabs: List<Item>,
     var onClick: ((Identifier) -> Unit)?,
 ) : WCell(context), WThemedView {
 
     private var actionViews = HashMap<Identifier, View>()
-    val tabsLocalized = if (LocaleController.isRTL) tabs.asReversed() else tabs
+    var tabsLocalized = if (LocaleController.isRTL) tabs.asReversed() else tabs
 
-    // view for all items
-    private val itemViews: ArrayList<WView> by lazy {
+    private var itemViews = ArrayList<WView>()
+
+    init {
+        layoutParams = LayoutParams(MATCH_PARENT, 86.dp).apply {
+            insetsUpdated()
+        }
+        layoutDirection = LAYOUT_DIRECTION_LTR
+
+        configureViews()
+    }
+
+    fun resetTabs(tabs: List<Item>) {
+        this.tabs = tabs
+        tabsLocalized = if (LocaleController.isRTL) tabs.asReversed() else tabs
+        configureViews()
+    }
+
+    private fun generateItems() {
+        actionViews.clear()
+        itemViews.clear()
         fun itemGenerator(item: Item): WView {
             val tabView = WView(context)
             tabView.setPadding(0, 4.dp, 4, 4.dp)
@@ -71,15 +89,12 @@ class HeaderActionsView(
             actionViews[tab.identifier] = tabView
             arr.add(tabView)
         }
-        arr
+        itemViews = arr
     }
 
-    init {
-        layoutParams = LayoutParams(MATCH_PARENT, 86.dp).apply {
-            insetsUpdated()
-        }
-        layoutDirection = LAYOUT_DIRECTION_LTR
-
+    private fun configureViews() {
+        removeAllViews()
+        generateItems()
         itemViews.forEachIndexed { index, itemView ->
             addView(
                 itemView,

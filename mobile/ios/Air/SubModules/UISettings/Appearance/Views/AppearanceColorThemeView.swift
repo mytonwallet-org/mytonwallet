@@ -25,7 +25,7 @@ class AppearanceColorThemeView: UIStackView, WThemedView {
         lbl.translatesAutoresizingMaskIntoConstraints = false
         lbl.font = .systemFont(ofSize: 13)
         lbl.textColor = WTheme.secondaryLabel
-        lbl.text = lang("ACCENT COLOR")
+        lbl.text = lang("Palette")
         return lbl
     }()
     

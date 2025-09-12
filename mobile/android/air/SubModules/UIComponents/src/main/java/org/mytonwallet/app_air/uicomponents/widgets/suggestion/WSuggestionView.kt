@@ -2,11 +2,17 @@ package org.mytonwallet.app_air.uicomponents.widgets.suggestion
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.text.TextWatcher
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import androidx.core.widget.doOnTextChanged
+import androidx.core.widget.addTextChangedListener
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -34,6 +40,10 @@ class WSuggestionView(
     }
 
     private val rvAdapter = WRecyclerViewAdapter(WeakReference(this), arrayOf(SUGGEST_CELL))
+    private val coroutineScope = CoroutineScope(Dispatchers.Main)
+    private var textWatcher: TextWatcher? = null
+    private var attachedInput: WeakReference<WWordInput>? = null
+    private var currentFilterJob: Job? = null
 
     private val recyclerView: WRecyclerView by lazy {
         val rv = WRecyclerView(context)
@@ -67,24 +77,48 @@ class WSuggestionView(
 
     fun attachToWordInput(input: WWordInput?) {
         if (input != null) {
-            x = input.x + 36.dp
+            x = input.x + 8.dp
             y = input.y - 56.dp
             (layoutParams as LayoutParams).matchConstraintMaxWidth =
-                input.width - 72.dp
+                input.width - 16.dp
             updateSuggestions(input.textField.text.toString())
-            input.textField.doOnTextChanged { _, _, _, _ ->
-                updateSuggestions(input.textField.text.toString())
+            attachedInput?.get()?.textField?.removeTextChangedListener(textWatcher)
+            attachedInput = WeakReference(input)
+            textWatcher = input.textField.addTextChangedListener(onTextChanged = { text, _, _, _ ->
+                updateSuggestions(text?.toString().orEmpty())
+            })
+            recyclerView.post {
+                if (rvAdapter.itemCount > 0) recyclerView.scrollToPosition(0)
             }
         } else {
             visibility = INVISIBLE
+            currentFilterJob?.cancel()
+            suggestions = emptyList()
+            rvAdapter.reloadData()
         }
     }
 
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        currentFilterJob?.cancel()
+        currentFilterJob = null
+        attachedInput?.get()?.textField?.removeTextChangedListener(textWatcher)
+        textWatcher = null
+    }
+
     private fun updateSuggestions(keyword: String) {
-        suggestions = PossibleWords.All.filter { it.startsWith(keyword) }
-        rvAdapter.reloadData()
-        visibility =
-            if (keyword.isNotEmpty() && suggestions.isNotEmpty() && (suggestions.size > 1 || keyword != suggestions[0])) VISIBLE else INVISIBLE
+        currentFilterJob?.cancel()
+
+        currentFilterJob = coroutineScope.launch {
+            val filteredSuggestions = withContext(Dispatchers.IO) {
+                PossibleWords.All.filter { it.startsWith(keyword) }
+            }
+
+            suggestions = filteredSuggestions
+            rvAdapter.reloadData()
+            visibility =
+                if (keyword.isNotEmpty() && suggestions.isNotEmpty() && (suggestions.size > 1 || keyword != suggestions[0])) VISIBLE else INVISIBLE
+        }
     }
 
     private var suggestions = emptyList<String>()

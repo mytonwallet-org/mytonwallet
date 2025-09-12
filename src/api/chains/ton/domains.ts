@@ -7,14 +7,14 @@ import { split } from '../../../util/iteratees';
 import { getMaxMessagesInTransaction } from '../../../util/ton/transfer';
 import { parseTonapiioNft } from './util/metadata';
 import { DnsItem } from './contracts/DnsItem';
-import { fetchStoredTonAccount, fetchStoredTonWallet } from '../../common/accounts';
+import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/accounts';
 import { getNftSuperCollectionsByCollectionAddress } from '../../common/addresses';
 import { callBackendGet } from '../../common/backend';
 import { TON_GAS } from './constants';
 import { checkMultiTransactionDraft, submitMultiTransfer } from './transfer';
 
 export async function checkDnsRenewalDraft(accountId: string, nftAddresses: string[]) {
-  const account = await fetchStoredTonAccount(accountId);
+  const account = await fetchStoredChainAccount(accountId, 'ton');
   const maxMessages = getMaxMessagesInTransaction(account);
   const transactionCount = Math.ceil(nftAddresses.length / maxMessages);
 
@@ -35,7 +35,7 @@ export async function checkDnsRenewalDraft(accountId: string, nftAddresses: stri
 }
 
 export async function* submitDnsRenewal(accountId: string, password: string | undefined, nftAddresses: string[]) {
-  const account = await fetchStoredTonAccount(accountId);
+  const account = await fetchStoredChainAccount(accountId, 'ton');
   const maxMessages = getMaxMessagesInTransaction(account);
   const nftBatches = split(nftAddresses, maxMessages);
 
@@ -90,7 +90,7 @@ function makeChangeMessage(nftAddress: string, linkedAddress: string) {
 
 export async function fetchDomains(accountId: string) {
   const { network } = parseAccountId(accountId);
-  const { address } = await fetchStoredTonWallet(accountId);
+  const { address } = await fetchStoredWallet(accountId, 'ton');
   const data = await callBackendGet<Record<string, ApiDomainData>>('/dns/getDomains', { address });
   const nftSuperCollectionsByCollectionAddress = await getNftSuperCollectionsByCollectionAddress();
 

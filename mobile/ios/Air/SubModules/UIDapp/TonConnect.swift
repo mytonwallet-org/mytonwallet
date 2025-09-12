@@ -36,7 +36,12 @@ public final class TonConnect {
         Task { @MainActor in
             do {
                 let identifier = "\(Date().timeIntervalSince1970)"
-                let returnStrategy = try await Api.startSseConnection(url: url, identifier: identifier)
+                let returnStrategy = try await Api.startSseConnection(params: ApiSseConnectionParams(
+                        url: url,
+                        isFromInAppBrowser: false,
+                        identifier: identifier
+                    )
+                )
                 if let returnStrategy, case .url(var str) = returnStrategy {
                     if !str.contains("://") {
                         str = "https://" + str
@@ -71,7 +76,7 @@ public final class TonConnect {
     func confirmConnect(request: ApiUpdate.DappConnect, accountId: String, passcode: String) {
         Task {
             do {
-                var result: Api.SignTonProofResult?
+                var result: ApiSignTonProofResult?
                 if let proof = request.proof {
                     result = try await Api.signTonProof(
                         accountId: accountId,

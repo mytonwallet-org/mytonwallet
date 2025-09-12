@@ -335,7 +335,7 @@ extension InAppBrowserPageVC: WKScriptMessageHandler {
                             "result": response.result
                         ], error: nil)
                         
-                    } catch let error as Api.SendTransactionRpcResponseError {
+                    } catch let error as ApiSendTransactionRpcResponseError {
                         try? await self?.injectTonConnectResult(invocationId: invocationId, result: nil, error: TonConnectErrorCodes[error.error.code] ?? "Bad request")
                     } catch {
                         try? await self?.injectTonConnectResult(invocationId: invocationId, result: nil, error: "Bad request")

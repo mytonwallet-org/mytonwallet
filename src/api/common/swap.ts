@@ -94,7 +94,7 @@ export async function swapReplaceCexActivities(
   }
 
   try {
-    const { ton: { address } = {} } = await fetchStoredAccount(accountId);
+    const { byChain: { ton: { address } = {} } } = await fetchStoredAccount(accountId);
     if (!address) {
       return activities;
     }

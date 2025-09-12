@@ -14,10 +14,10 @@ export function buildAccountId(account: AccountIdParsed) {
   return `${id}-${network}`;
 }
 
-export function getMainAccountAddress(addressByChain: Account['addressByChain']) {
-  return addressByChain.ton ?? Object.values(addressByChain).find(Boolean);
+export function getMainAccountAddress(byChain: Account['byChain']) {
+  return (byChain.ton ?? Object.values(byChain).find(Boolean))?.address;
 }
 
 export function getAccountTitle(account: Account) {
-  return account.title || shortenAddress(getMainAccountAddress(account.addressByChain) ?? '');
+  return account.title || shortenAddress(getMainAccountAddress(account.byChain) ?? '');
 }

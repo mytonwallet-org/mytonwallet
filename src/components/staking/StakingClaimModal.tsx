@@ -232,7 +232,7 @@ function StakingClaimModal({
 
 export default memo(withGlobal((global): StateProps => {
   const accountId = global.currentAccountId;
-  const { addressByChain } = selectAccount(global, accountId!) || {};
+  const { byChain } = selectAccount(global, accountId!) || {};
   const isHardwareAccount = selectIsHardwareAccount(global);
 
   const {
@@ -252,7 +252,7 @@ export default memo(withGlobal((global): StateProps => {
     tokens,
     isLoading,
     error,
-    address: addressByChain?.ton,
+    address: byChain?.ton?.address,
     isHardwareAccount,
     isMultichainAccount: selectIsMultichainAccount(global, accountId!),
     isSensitiveDataHidden: global.settings.isSensitiveDataHidden,

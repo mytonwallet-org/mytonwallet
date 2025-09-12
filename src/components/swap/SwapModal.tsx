@@ -42,7 +42,7 @@ interface StateProps {
   swapType: SwapType;
   swapTokens?: UserSwapToken[];
   activityById?: Record<string, ApiActivity>;
-  addressByChain?: Account['addressByChain'];
+  accountChains?: Account['byChain'];
 }
 
 const FULL_SIZE_NBS_STATES = [SwapState.Password, SwapState.SelectTokenFrom, SwapState.SelectTokenTo];
@@ -66,7 +66,7 @@ function SwapModal({
   swapType,
   swapTokens,
   activityById,
-  addressByChain,
+  accountChains,
 }: StateProps) {
   const {
     startSwap,
@@ -232,7 +232,7 @@ function SwapModal({
             payinAddress={payinAddress}
             payoutAddress={payoutAddress}
             payinExtraId={payinExtraId}
-            addressByChain={addressByChain}
+            accountChains={accountChains}
             activity={renderedActivity}
             onClose={handleModalCloseWithReset}
           />
@@ -321,6 +321,6 @@ export default memo(withGlobal((global): StateProps => {
     swapType: selectSwapType(global),
     swapTokens: selectSwapTokens(global),
     activityById,
-    addressByChain: account?.addressByChain,
+    accountChains: account?.byChain,
   };
 })(SwapModal));

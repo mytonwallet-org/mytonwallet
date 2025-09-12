@@ -12,7 +12,6 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
 import androidx.core.content.ContextCompat
-import androidx.core.view.isVisible
 import androidx.core.view.setPadding
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.ItemTouchHelper
@@ -36,6 +35,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.SpacesItemDecoration
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
+import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
@@ -379,7 +379,7 @@ class AssetsVC(
                         WalletCore.notifyEvent(WalletEvent.HomeNftCollectionsUpdated)
                     }),
                 offset = (-140).dp,
-                popupWidth = 180.dp,
+                popupWidth = WRAP_CONTENT,
                 aboveView = true
             )
         }
@@ -440,6 +440,7 @@ class AssetsVC(
             moreButton.setImageDrawable(moreDrawable)
             moreButton.addRippleEffect(WColor.BackgroundRipple.color, 20f.dp)
         }
+        updateEmptyView()
     }
 
     override fun insetsUpdated() {
@@ -531,13 +532,16 @@ class AssetsVC(
         cell.configure(assetsVM.nfts!![indexPath.row])
     }
 
+    var isShowingEmptyView = false
     override fun updateEmptyView() {
         if (assetsVM.nfts == null) {
-            if ((emptyView?.alpha ?: 0f) > 0)
+            if ((emptyView?.alpha ?: 0f) > 0) {
+                isShowingEmptyView = false
                 emptyView?.fadeOut(onCompletion = {
                     if (assetsVM.nfts == null)
                         emptyView?.visibility == View.GONE
                 })
+            }
         } else if (assetsVM.nfts!!.isEmpty()) {
             if (emptyView == null) {
                 emptyView =
@@ -562,19 +566,24 @@ class AssetsVC(
                     else
                         toTop(emptyView!!, 85f)
                 }.layout()
-            } else if (emptyView?.isVisible != true) {
+                isShowingEmptyView = true
+            } else if (!isShowingEmptyView) {
                 if ((emptyView as? WEmptyIconView)?.startedAnimation != false) {
+                    isShowingEmptyView = true
                     emptyView?.visibility = View.VISIBLE
                     emptyView?.alpha = 1f
                     emptyView?.fadeIn()
                 }
+                (emptyView as? WThemedView)?.updateTheme()
             }
         } else {
-            if (emptyView?.isVisible == true)
+            if (isShowingEmptyView) {
+                isShowingEmptyView = false
                 emptyView?.fadeOut(onCompletion = {
                     if (assetsVM.nfts?.isNotEmpty() != false)
                         emptyView?.visibility = View.GONE
                 })
+            }
         }
     }
 

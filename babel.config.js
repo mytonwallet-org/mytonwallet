@@ -1,6 +1,8 @@
 module.exports = {
   presets: [
-    '@babel/typescript',
+    ['@babel/typescript', {
+      allowDeclareFields: true,
+    }],
     '@babel/preset-env',
     '@babel/preset-react',
   ],

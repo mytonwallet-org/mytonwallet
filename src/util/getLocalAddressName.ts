@@ -18,7 +18,7 @@ export function getLocalAddressName({
 
   const otherAccount = accounts
     ? Object.keys(accounts).find((accountId) => {
-      return accountId !== currentAccountId && accounts[accountId].addressByChain?.[chain] === address;
+      return accountId !== currentAccountId && accounts[accountId].byChain[chain]?.address === address;
     })
     : undefined;
 

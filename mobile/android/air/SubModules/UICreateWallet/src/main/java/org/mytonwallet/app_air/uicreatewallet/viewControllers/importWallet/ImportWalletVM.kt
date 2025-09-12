@@ -82,7 +82,7 @@ class ImportWalletVM(delegate: Delegate) {
                     accountId = importedAccountId,
                     accountType = MAccount.AccountType.MNEMONIC.value,
                     importedAccount.tonAddress,
-                    importedAccount.addressByChain["tron"],
+                    importedAccount.tronAddress,
                     importedAt = importedAccount.importedAt
                 )
                 if (biometricsActivated != null) {

@@ -1,5 +1,6 @@
 package org.mytonwallet.app_air.uicomponents.commonViews.cells
 
+import android.annotation.SuppressLint
 import android.content.Context
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -9,8 +10,10 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletcontext.theme.WColor
 import org.mytonwallet.app_air.walletcontext.theme.color
 
+@SuppressLint("ViewConstructor")
 class HeaderCell(
     context: Context,
+    startMargin: Float = 20f,
 ) : WCell(context), WThemedView {
 
     private var titleColor: Int = WColor.PrimaryText.color
@@ -27,7 +30,7 @@ class HeaderCell(
         }
         addView(titleLabel)
         setConstraints {
-            toStart(titleLabel, 20f)
+            toStart(titleLabel, startMargin)
             toTop(titleLabel, 16f)
         }
 

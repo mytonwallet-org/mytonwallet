@@ -22,7 +22,8 @@ sealed class PasscodeViewState {
     data class CustomHeader(
         val headerView: View,
         override val navbarTitle: String? = null,
-        val showNavbarTitle: Boolean = true
+        val showNavbarTitle: Boolean = true,
+        val startWithBiometrics: Boolean = true
     ) : PasscodeViewState()
 
 }

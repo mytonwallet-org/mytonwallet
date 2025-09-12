@@ -1,3 +1,5 @@
+@use "../scssVariables" as v;
+
 @mixin _separator-base($position-offset, $inset: null) {
   content: '';
 
@@ -38,5 +40,21 @@
     height: 0.0625rem;
 
     box-shadow: inset 0 -0.03rem 0 0 var(--color-separator);
+  }
+}
+
+// See $byChain for the available $variables map keys
+
+@mixin byChain() {
+  @each $chain, $variables in v.$byChain {
+    @content($chain, $variables);
+  }
+}
+
+@mixin byChainClass() {
+  @include byChain() using ($chain, $variables) {
+    &.#{$chain} {
+      @content($variables);
+    }
   }
 }

@@ -22,7 +22,12 @@ import { logDebugError } from '../../util/logs';
 import { OrGate } from '../../util/orGate';
 import { forbidConcurrency } from '../../util/schedulers';
 import chains from '../chains';
-import { fetchMaybeStoredAccount, fetchStoredAccount, fetchStoredAccounts } from '../common/accounts';
+import {
+  doesAccountHaveChain,
+  fetchMaybeStoredAccount,
+  fetchStoredAccount,
+  fetchStoredAccounts,
+} from '../common/accounts';
 import { tryUpdateKnownAddresses } from '../common/addresses';
 import { callBackendGet, callBackendPost } from '../common/backend';
 import { setBackendConfigCache } from '../common/cache';
@@ -213,15 +218,17 @@ export async function setActivePollingAccount(
     const stopPollingFns = [
       !IS_CORE_WALLET && setupAccountConfigPolling(accountId, account).stop,
 
-      ...(Object.keys(chains) as (keyof typeof chains)[]).map((chain) => (
-        chains[chain].setupActivePolling(
-          accountId,
-          account,
-          onUpdate,
-          setUpdatingStatus.bind(undefined, accountId, chain),
-          pickChainTimestamps(newestActivityTimestamps, chain),
-        )
-      )),
+      ...(Object.keys(chains) as (keyof typeof chains)[]).map((chain) => {
+        if (doesAccountHaveChain(account, chain)) {
+          return chains[chain].setupActivePolling(
+            accountId,
+            account,
+            onUpdate,
+            setUpdatingStatus.bind(undefined, accountId, chain),
+            pickChainTimestamps(newestActivityTimestamps, chain),
+          );
+        }
+      }),
     ];
 
     stopActiveAccountPolling = () => {
@@ -381,10 +388,15 @@ function createInactiveAccountsPollingManager() {
   function startAccountPolling(accountId: string, account: ApiAccountAny) {
     if (stopByAccount[accountId]) return;
 
-    const stopFns = Object.values(chains).map((chain) => chain.setupInactivePolling(accountId, account, onUpdate));
+    const stopFns = (Object.keys(chains) as (keyof typeof chains)[]).map((chain) => {
+      if (doesAccountHaveChain(account, chain)) {
+        return chains[chain].setupInactivePolling(accountId, account, onUpdate);
+      }
+    });
+
     stopByAccount[accountId] = () => {
       for (const stopChain of stopFns) {
-        stopChain();
+        stopChain?.();
       }
     };
   }

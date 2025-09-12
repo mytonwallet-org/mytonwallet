@@ -79,11 +79,13 @@ object WGlobalStorage {
     }
 
     fun getAccountTonAddress(accountId: String): String? {
-        if (cachedAccountTonAddresses[accountId] == null) {
-            globalStorageProvider.getString("accounts.byId.$accountId.addressByChain.ton")?.let {
-                cachedAccountTonAddresses[accountId] = it
+        globalStorageProvider.getDict("accounts.byId.$accountId.byChain.ton")
+            ?.optString("address")?.let {
+                if (it.isNotEmpty()) {
+                    cachedAccountTonAddresses[accountId] = it
+                    return it
+                }
             }
-        }
         return cachedAccountTonAddresses[accountId]
     }
 
@@ -121,18 +123,26 @@ object WGlobalStorage {
                     )
                 } ${accountIds.size}")
         save(accountId = accountId, accountName = suggestedName, persist = false)
-        if (address != null)
+
+        val byChain = JSONObject()
+        if (address != null) {
+            val tonChainData = JSONObject()
+            tonChainData.put("address", address)
+            byChain.put("ton", tonChainData)
+        }
+        if (!tronAddress.isNullOrEmpty()) {
+            val tronChainData = JSONObject()
+            tronChainData.put("address", tronAddress)
+            byChain.put("tron", tronChainData)
+        }
+        if (byChain.length() > 0) {
             globalStorageProvider.set(
-                "accounts.byId.$accountId.addressByChain.ton",
-                address,
+                "accounts.byId.$accountId.byChain",
+                byChain,
                 IGlobalStorageProvider.PERSIST_NO
             )
-        if (!tronAddress.isNullOrEmpty())
-            globalStorageProvider.set(
-                "accounts.byId.$accountId.addressByChain.tron",
-                tronAddress,
-                IGlobalStorageProvider.PERSIST_NO
-            )
+        }
+
         globalStorageProvider.set(
             "accounts.byId.$accountId.type",
             accountType,
@@ -662,6 +672,18 @@ object WGlobalStorage {
         )
     }
 
+    fun setAccountAddresses(accountId: String, addressArray: JSONArray) {
+        globalStorageProvider.set(
+            "byAccountId.$accountId.savedAddresses",
+            addressArray,
+            IGlobalStorageProvider.PERSIST_NORMAL
+        )
+    }
+
+    fun getAccountAddresses(accountId: String): JSONArray? {
+        return globalStorageProvider.getArray("byAccountId.$accountId.savedAddresses")
+    }
+
     fun setLangCode(langCode: String) {
         globalStorageProvider.set(
             LANG_CODE,
@@ -682,7 +704,7 @@ object WGlobalStorage {
         return globalStorageProvider.getBool("byAccountId.$accountId.isCardMinting") == true
     }
 
-    private const val LAST_STATE: Int = 45
+    private const val LAST_STATE: Int = 46
     fun migrate() {
         // Lock the storage
         incDoNotSynchronize()
@@ -755,6 +777,42 @@ object WGlobalStorage {
 
         if (currentState <= 45) {
             clearActivities()
+
+            val accountIds = accountIds()
+            for (accountId in accountIds) {
+                val account = getAccount(accountId)
+                if (account != null) {
+                    if (account.optJSONObject("byChain") != null)
+                        continue // Already migrated
+                    val addressByChain = account.optJSONObject("addressByChain")
+                    val domainByChain = account.optJSONObject("domainByChain")
+                    val isMultisigByChain = account.optJSONObject("isMultisigByChain")
+
+                    if (addressByChain != null) {
+                        val byChain = JSONObject()
+                        addressByChain.keys().forEach { chain ->
+                            val chainData = JSONObject()
+                            chainData.put("address", addressByChain.getString(chain))
+                            domainByChain?.optString(chain)?.let { domain ->
+                                if (domain.isNotEmpty()) {
+                                    chainData.put("domain", domain)
+                                }
+                            }
+                            isMultisigByChain?.optBoolean(chain)?.let { isMultisig ->
+                                if (isMultisig) {
+                                    chainData.put("isMultisig", true)
+                                }
+                            }
+                            byChain.put(chain, chainData)
+                        }
+                        account.put("byChain", byChain)
+                        account.remove("addressByChain")
+                        account.remove("domainByChain")
+                        account.remove("isMultisigByChain")
+                        saveAccount(accountId, account)
+                    }
+                }
+            }
         }
 
         // Update and unlock the storage

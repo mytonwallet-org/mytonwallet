@@ -28,7 +28,7 @@ class CrossChainFromTonView: UIStackView, WThemedView {
     
     private let titleLabel = {
         let lbl = UILabel()
-        lbl.text = lang("RECEIVE TO")
+        lbl.text = lang("Receive to")
         lbl.font = .systemFont(ofSize: 13)
         return lbl
     }()

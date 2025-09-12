@@ -74,16 +74,16 @@ function SettingsPushNotifications({
 
   function renderAccount(
     accountId: string,
-    addressByChain: Account['addressByChain'],
+    byChain: Account['byChain'],
     accountType: AccountType,
     title?: string,
   ) {
-    const onClick = !addressByChain.ton ? undefined : () => {
+    const onClick = !byChain.ton ? undefined : () => {
       toggleNotificationAccount({ accountId });
     };
 
     const { cardBackgroundNft } = settingsByAccountId?.[accountId] || {};
-    const address = getMainAccountAddress(addressByChain) ?? '';
+    const address = getMainAccountAddress(byChain) ?? '';
 
     const isDisabled = enabledAccounts
       && !enabledAccounts[accountId]
@@ -118,8 +118,8 @@ function SettingsPushNotifications({
         className={styles.settingsBlock}
       >
         {iterableAccounts.map(
-          ([accountId, { title, addressByChain, type }]) => {
-            return renderAccount(accountId, addressByChain, type, title);
+          ([accountId, { title, byChain, type }]) => {
+            return renderAccount(accountId, byChain, type, title);
           },
         )}
       </AccountButtonWrapper>

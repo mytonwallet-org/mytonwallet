@@ -23,6 +23,7 @@ import {
   selectNetworkAccounts,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
+import { getChainConfig } from '../../util/chain';
 import { SECOND } from '../../util/dateFormat';
 import { stopEvent } from '../../util/domEvents';
 import {
@@ -167,7 +168,7 @@ function TransferInitial({
   const isDisabledDebounce = useRef<boolean>(false);
   const isToncoin = tokenSlug === TONCOIN.slug;
   const isAddressValid = chain ? isValidAddressOrDomain(toAddress, chain) : undefined;
-  const doesSupportComment = chain === 'ton';
+  const doesSupportComment = chain && getChainConfig(chain).isTransferCommentSupported;
   const transitionKey = useTransitionActiveKey(nfts?.length ? nfts : [tokenSlug]);
 
   const handleAddressInput = useLastCallback((newToAddress?: string, isValueReplaced?: boolean) => {

@@ -19,6 +19,7 @@ const EXPLORER_CONFIGURATIONS = {
     address: '{base}address/{address}',
     explorer: '{base}jetton/{address}',
     transaction: '{base}tx/{hash}',
+    doConvertHashFromBase64: true,
   },
   tron: {
     name: 'Tronscan',
@@ -29,6 +30,7 @@ const EXPLORER_CONFIGURATIONS = {
     address: '{base}address/{address}',
     explorer: '{base}token20/{address}',
     transaction: '{base}transaction/{hash}',
+    doConvertHashFromBase64: false,
   },
 };
 
@@ -76,9 +78,11 @@ export function getExplorerTransactionUrl(
 ) {
   if (!transactionHash || transactionHash === EMPTY_HASH_VALUE) return undefined;
 
-  return EXPLORER_CONFIGURATIONS[chain].transaction
+  const config = EXPLORER_CONFIGURATIONS[chain];
+
+  return config.transaction
     .replace('{base}', getExplorerBaseUrl(chain, isTestnet))
-    .replace('{hash}', chain === 'ton' ? base64ToHex(transactionHash) : transactionHash);
+    .replace('{hash}', config.doConvertHashFromBase64 ? base64ToHex(transactionHash) : transactionHash);
 }
 
 export function getExplorerAddressUrl(chain: ApiChain, address?: string, isTestnet?: boolean) {

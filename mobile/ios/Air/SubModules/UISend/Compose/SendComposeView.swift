@@ -254,7 +254,7 @@ private struct CommentOrMemoSection: View {
         InsetSection {
             InsetCell {
                 TextField(
-                    model.isCommentRequired ? lang("Send_MemoReqired") : lang("Add a message, if needed"),
+                    model.isCommentRequired ? lang("Add comment or memo") : lang("Add a message, if needed"),
                     text: $commentOrMemo,
                     axis: .vertical
                 )

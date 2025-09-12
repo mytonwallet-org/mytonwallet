@@ -13,7 +13,6 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.webkit.URLUtil
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.ViewModelProvider
@@ -117,16 +116,18 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
 
     private var rvMode = HomeHeaderView.DEFAULT_MODE
 
-    private val earnToncoinViewModel =
+    private val earnToncoinViewModel by lazy {
         ViewModelProvider(
-            context as AppCompatActivity,
+            window!!,
             EarnViewModelFactory(TONCOIN_SLUG)
         )[EarnViewModel.alias(TONCOIN_SLUG), EarnViewModel::class.java]
-    private val earnMycoinViewModel =
+    }
+    private val earnMycoinViewModel by lazy {
         ViewModelProvider(
-            context as AppCompatActivity,
+            window!!,
             EarnViewModelFactory(MYCOIN_SLUG)
         )[EarnViewModel.alias(MYCOIN_SLUG), EarnViewModel::class.java]
+    }
 
     @Volatile
     private var showingTransactions: List<MApiTransaction>? = null

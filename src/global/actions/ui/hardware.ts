@@ -15,6 +15,13 @@ import { selectAllHardwareAccounts, selectCurrentNetwork, selectLedgerAccountInd
 // a Ledger device, it ensures the device is connected using the <LedgerConnect> component, and communicates with the
 // device immediately after that.
 
+interface ConnectLedgerOptions {
+  transport: LedgerTransport;
+  doLoadWallets?: boolean;
+  noRetry?: boolean;
+  noRemoteTab?: boolean;
+}
+
 const OPEN_LEDGER_TAB_DELAY = 500;
 
 addActionHandler('initLedgerPage', (global) => {
@@ -31,7 +38,7 @@ addActionHandler('closeHardwareWalletModal', (global) => {
   return { ...global, isHardwareModalOpen: false };
 });
 
-addActionHandler('initializeHardwareWalletModal', async (global, actions) => {
+addActionHandler('initializeHardwareWalletModal', async (global, actions, { doLoadWallets } = {}) => {
   const ledgerApi = await import('../../../util/ledger');
   const {
     isBluetoothAvailable,
@@ -70,7 +77,7 @@ addActionHandler('initializeHardwareWalletModal', async (global, actions) => {
 
     // Chrome requires a user gesture before showing the WebHID permission dialog in extension tabs.
     if (!IS_LEDGER_EXTENSION_TAB) {
-      actions.initializeHardwareWalletConnection({ transport: availableTransports[0] });
+      actions.initializeHardwareWalletConnection({ transport: availableTransports[0], doLoadWallets });
     }
   } else {
     if (!hasUsbDevice) {
@@ -80,11 +87,12 @@ addActionHandler('initializeHardwareWalletModal', async (global, actions) => {
   }
 });
 
-addActionHandler('initializeHardwareWalletConnection', async (global, actions, params) => {
-  await connectLedger(params.transport);
+addActionHandler('initializeHardwareWalletConnection', async (global, actions, options) => {
+  await connectLedger(options);
 });
 
-async function connectLedger(transport: LedgerTransport, noRetry?: boolean, noRemoteTab?: boolean) {
+async function connectLedger(options: ConnectLedgerOptions) {
+  const { transport, doLoadWallets, noRetry, noRemoteTab } = options;
   let global = getGlobal();
 
   setGlobal(updateHardware(global, {
@@ -100,7 +108,7 @@ async function connectLedger(transport: LedgerTransport, noRetry?: boolean, noRe
 
   if (!isLedgerConnected) {
     if (IS_EXTENSION && !IS_LEDGER_EXTENSION_TAB && !noRemoteTab) {
-      return connectLedgerViaRemoteTab(transport);
+      return connectLedgerViaRemoteTab(options);
     }
 
     global = updateHardware(global, {
@@ -142,22 +150,18 @@ async function connectLedger(transport: LedgerTransport, noRetry?: boolean, noRe
       isTonAppConnected: true,
     }));
 
-    // todo: Load the wallets only during authentication
-    const hardwareWallets = await getLedgerWallets(ledgerApi);
-    const nextHardwareState = hardwareWallets.length === 1
-      ? HardwareConnectState.ConnectedWithSingleWallet
-      : HardwareConnectState.ConnectedWithSeveralWallets;
+    const hardwareWallets = doLoadWallets ? await getLedgerWallets(ledgerApi) : [];
 
     setGlobal(updateHardware(getGlobal(), {
       hardwareWallets,
-      hardwareState: nextHardwareState,
+      hardwareState: HardwareConnectState.Connected,
       lastUsedTransport: transport,
     }));
   } catch (err: any) {
     const isLedgerDisconnected = isLedgerConnectionBroken(err.name);
 
     if (isLedgerDisconnected && !noRetry) {
-      return connectLedger(transport, true, noRemoteTab);
+      return connectLedger({ ...options, noRetry: true });
     }
 
     global = getGlobal();
@@ -171,7 +175,7 @@ async function connectLedger(transport: LedgerTransport, noRetry?: boolean, noRe
   }
 }
 
-async function connectLedgerViaRemoteTab(transport: LedgerTransport) {
+async function connectLedgerViaRemoteTab(options: ConnectLedgerOptions) {
   setGlobal(updateHardware(getGlobal(), {
     hardwareState: HardwareConnectState.WaitingForRemoteTab,
   }));
@@ -182,7 +186,7 @@ async function connectLedgerViaRemoteTab(transport: LedgerTransport) {
 
   await new Promise<void>((resolve) => onLedgerTabClose(id, resolve));
   await chrome.windows.update(popup.id!, { focused: true });
-  await connectLedger(transport, false, true);
+  await connectLedger({ ...options, noRetry: false, noRemoteTab: true });
 }
 
 async function getLedgerWallets(ledgerApi: typeof import('../../../util/ledger')) {
@@ -190,7 +194,7 @@ async function getLedgerWallets(ledgerApi: typeof import('../../../util/ledger')
   const network = selectCurrentNetwork(global);
   const lastIndex = selectLedgerAccountIndexToImport(global, network);
   const currentHardwareAddresses = selectAllHardwareAccounts(global, network)
-    .map((account) => account.addressByChain.ton)
+    .map((account) => account.byChain.ton?.address)
     .filter(Boolean);
   const hardwareWallets = await ledgerApi.getNextLedgerWallets(
     network,

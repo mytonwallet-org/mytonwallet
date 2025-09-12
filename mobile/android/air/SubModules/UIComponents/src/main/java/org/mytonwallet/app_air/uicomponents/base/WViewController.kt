@@ -93,7 +93,11 @@ open class WViewController(val context: Context) : WThemedView, WProtectedView {
             topReversedCornerView?.setHorizontalPadding(padding)
             bottomReversedCornerView?.setHorizontalPadding(padding)
         }
+        activeDialog?.insetsUpdated()
     }
+
+    // Called from NavigationController, whenever the vc layout changes during keyboard animation.
+    open fun keyboardAnimationFrameRendered() {}
 
     private var isViewConfigured = false
     private var isViewAppearanceAnimationInProgress = false
@@ -387,7 +391,7 @@ open class WViewController(val context: Context) : WThemedView, WProtectedView {
         }
     }
 
-    private fun presentScreenRecordProtectionView() {
+    open fun presentScreenRecordProtectionView() {
         if (screenRecordProtectionView == null) {
             screenRecordProtectionView = ScreenRecordProtectionView(this, {
                 dismissScreenRecordProtectionView(proceed = true)
@@ -404,6 +408,7 @@ open class WViewController(val context: Context) : WThemedView, WProtectedView {
                 // Double check if it's not recording yet
                 if (proceed || window?.isScreenRecordInProgress != true)
                     view.removeView(screenRecordProtectionView)
+                screenRecordProtectionView = null
             }
     }
     //////////////////////////////////////////////////
@@ -577,7 +582,7 @@ open class WViewController(val context: Context) : WThemedView, WProtectedView {
     }
 
     // Modal methods
-    val isExpandable: Boolean
+    open val isExpandable: Boolean
         get() {
             return getModalHalfExpandedHeight() != null
         }

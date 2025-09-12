@@ -210,7 +210,7 @@ public class SwapVC: WViewController, WSensitiveDataProtocol {
                 swapVM.swapNow(sellingToken: sellingToken,
                                buyingToken: buyingToken,
                                passcode: passcode, onTaskDone: { _, error in
-                    failureError = error
+                    failureError = error as? BridgeCallError
                     onTaskDone()
                 })
             },
@@ -233,8 +233,8 @@ public class SwapVC: WViewController, WSensitiveDataProtocol {
                 sellingToken: (tokensSelectorVM.sellingToken, tokensSelectorVM.sellingAmount ?? 0),
                 buyingToken: (tokensSelectorVM.buyingToken, tokensSelectorVM.buyingAmount ?? 0),
                 swapType: swapVM.swapType,
-                swapFee: String(cexEstimate.swapFee),
-                networkFee: String(0),
+                swapFee: cexEstimate.swapFee,
+                networkFee: 0,
                 payinAddress: "",
                 exchangerTxId: "",
                 dt: Date()
@@ -286,7 +286,7 @@ public class SwapVC: WViewController, WSensitiveDataProtocol {
                                buyingToken: buyingToken,
                                passcode: passcode, onTaskDone: { cexTransactionToTon, error in
                     toTonTransaction = cexTransactionToTon
-                    failureError = error
+                    failureError = error as? BridgeCallError
                     onTaskDone()
                 })
             },
@@ -350,7 +350,7 @@ public class SwapVC: WViewController, WSensitiveDataProtocol {
                                buyingToken: buyingToken,
                                passcode: passcode, onTaskDone: { cexTransactionToTon, error in
                     toTonTransaction = cexTransactionToTon
-                    failureError = error
+                    failureError = error as? BridgeCallError
                     onTaskDone()
                 })
             },
@@ -508,7 +508,7 @@ extension SwapVC: SwapVMDelegate {
     
     // called on estimate data received!
     @MainActor
-    func receivedEstimateData(swapEstimate: Api.SwapEstimateResponse?, selectedDex: ApiSwapDexLabel?, lateInit: MSwapEstimate.LateInitProperties?) {
+    func receivedEstimateData(swapEstimate: ApiSwapEstimateResponse?, selectedDex: ApiSwapDexLabel?, lateInit: ApiSwapCexEstimateResponse.LateInitProperties?) {
         
         guard swapVM.isValidPair else {
             continueButton.setTitle(lang("Invalid Pair"), for: .normal)
@@ -558,7 +558,7 @@ extension SwapVC: SwapVMDelegate {
     }
     
     @MainActor
-    func receivedCexEstimate(swapEstimate: MSwapEstimate) {
+    func receivedCexEstimate(swapEstimate: ApiSwapCexEstimateResponse) {
         
         if !swapVM.isValidPair {
             continueButton.setTitle(lang("Invalid Pair"), for: .normal)
@@ -567,7 +567,7 @@ extension SwapVC: SwapVMDelegate {
         }
 
         // update token selector data
-        tokensSelectorVM.updateWithEstimate(.init(fromAmount: swapEstimate.fromAmount, toAmount: swapEstimate.toAmount))
+        tokensSelectorVM.updateWithEstimate(.init(fromAmount: swapEstimate.fromAmount.value, toAmount: swapEstimate.toAmount.value))
                 
         // check if swap is possible
         if swapVM.isValidPair {

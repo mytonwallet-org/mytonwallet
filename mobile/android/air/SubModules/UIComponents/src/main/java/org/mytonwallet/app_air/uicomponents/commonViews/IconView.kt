@@ -15,7 +15,6 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WActivityImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
-import org.mytonwallet.app_air.walletcontext.models.MRecentAddress
 import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletcontext.utils.gradientColors
 import org.mytonwallet.app_air.walletcore.STAKE_SLUG
@@ -165,20 +164,6 @@ class IconView(
             activityImageView.set(Content.of(token, alwaysShowChain))
         } else {
             activityImageView.clear()
-        }
-    }
-
-    fun config(address: MRecentAddress) {
-        activityImageView.imageView.background =
-            getCachedGradientDrawable(address.address.gradientColors)
-
-        if (address.addressAlias.isNotEmpty()) {
-            activityImageView.imageView.setImageDrawable(null)
-        } else {
-            activityImageView.imageView.setPadding(12.dp)
-            activityImageView.imageView.setImageDrawable(
-                ContextCompat.getDrawable(context, R.drawable.ic_address)
-            )
         }
     }
 

@@ -516,7 +516,7 @@ public class WalletCardView: WTouchPassView {
             showAddressesMenu()
         } else {
             UIPasteboard.general.string = AccountStore.account?.firstAddress
-            topWViewController()?.showToast(animationName: "Copy", message: lang("Address was copied to clipboard."))
+            topWViewController()?.showToast(animationName: "Copy", message: lang("Address was copied!"))
             UIImpactFeedbackGenerator(style: .soft).impactOccurred()
         }
     }

@@ -2,40 +2,78 @@ package org.mytonwallet.app_air.uicreatewallet.viewControllers.wordDisplay
 
 import android.annotation.SuppressLint
 import android.content.Context
-import org.mytonwallet.app_air.uicreatewallet.viewControllers.wordCheck.WordCheckVC
+import org.mytonwallet.app_air.uicreatewallet.WalletCreationVM
+import org.mytonwallet.app_air.uicreatewallet.viewControllers.walletAdded.WalletAddedVC
+import org.mytonwallet.app_air.uipasscode.viewControllers.setPasscode.SetPasscodeVC
 import org.mytonwallet.app_air.uisettings.viewControllers.RecoveryPhraseVC
-import kotlin.random.Random
+import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
+import org.mytonwallet.app_air.walletcontext.helpers.WordCheckMode
+import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.models.MAccount
+import org.mytonwallet.app_air.walletcore.models.MBridgeError
 
 @SuppressLint("ViewConstructor")
 class WordDisplayVC(
     context: Context,
     private val words: Array<String>,
-    private val isFirstWallet: Boolean,
+    private val isFirstWalletToAdd: Boolean,
+    private val isFirstPasscodeProtectedWallet: Boolean,
     // Used when adding new account (not first account!)
     private val passedPasscode: String?
-) :
-    RecoveryPhraseVC(context, words) {
+) : RecoveryPhraseVC(context, words), WalletCreationVM.Delegate {
 
     override val shouldDisplayTopBar = false
+    override val isBackAllowed = isFirstWalletToAdd
 
-    override fun donePressed() {
-        gotoWordCheck()
+    override val skipTitle = LocaleController.getString("Open wallet without checking")
+    override val checkMode =
+        WordCheckMode.CheckAndImport(
+            isFirstWalletToAdd = isFirstWalletToAdd,
+            isFirstPasscodeProtectedWallet = isFirstPasscodeProtectedWallet,
+            passedPasscode = passedPasscode
+        )
+
+    private val walletCreationVM by lazy {
+        WalletCreationVM(this)
     }
 
-    private fun gotoWordCheck() {
-        // Get 3 random indices
-        val numbers = (1..words.size).toList()
-        val shuffledNumbers = numbers.shuffled(Random)
-        val randomNumbers = shuffledNumbers.take(3)
+    override fun setupViews() {
+        super.setupViews()
 
-        push(
-            WordCheckVC(
-                context,
-                words,
-                randomNumbers.sorted(),
-                isFirstWallet,
-                passedPasscode
-            )
-        )
+        if (!isFirstWalletToAdd)
+            navigationBar?.addCloseButton()
+    }
+
+    override fun skipPressed() {
+        if (isFirstPasscodeProtectedWallet) {
+            push(SetPasscodeVC(context, true, null) { passcode, biometricsActivated ->
+                walletCreationVM.finalizeAccount(window!!, words, passcode, biometricsActivated, 0)
+            }, onCompletion = {
+                navigationController?.removePrevViewControllers()
+            })
+        } else {
+            skipButton.isLoading = true
+            view.lockView()
+            walletCreationVM.finalizeAccount(window!!, words, passedPasscode ?: "", null, 0)
+        }
+    }
+
+    override fun showError(error: MBridgeError?) {
+        super.showError(error)
+
+        skipButton.isLoading = false
+        view.unlockView()
+    }
+
+    override fun finalizedCreation(createdAccount: MAccount) {
+        if (isFirstWalletToAdd) {
+            push(WalletAddedVC(context, true), {
+                navigationController?.removePrevViewControllers()
+            })
+        } else {
+            WalletCore.notifyEvent(WalletEvent.AddNewWalletCompletion)
+            window!!.dismissLastNav()
+        }
     }
 }

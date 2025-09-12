@@ -78,6 +78,7 @@ function LedgerModal({
         return (
           <LedgerConnect
             isActive={isActive}
+            doLoadWallets
             onConnected={handleConnected}
             onClose={onClose}
           />

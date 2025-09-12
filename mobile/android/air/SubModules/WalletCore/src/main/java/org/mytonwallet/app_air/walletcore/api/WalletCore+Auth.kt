@@ -13,6 +13,7 @@ import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ActivityStore
+import org.mytonwallet.app_air.walletcore.stores.AddressStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
@@ -37,11 +38,7 @@ fun WalletCore.createWallet(
             callback(
                 MAccount(
                     account.optString("accountId", ""),
-                    mapOf(
-                        "ton" to (account.optJSONObject("addressByChain")?.optString("ton") ?: ""),
-                        "tron" to (account.optJSONObject("addressByChain")?.optString("tron")
-                            ?: ""),
-                    ),
+                    MAccount.parseByChain(account.optJSONObject("byChain")),
                     "",
                     MAccount.AccountType.MNEMONIC,
                     ledger = null,
@@ -72,11 +69,7 @@ fun WalletCore.importWallet(
             callback(
                 MAccount(
                     account.optString("accountId", ""),
-                    mapOf(
-                        "ton" to (account.optJSONObject("addressByChain")?.optString("ton") ?: ""),
-                        "tron" to (account.optJSONObject("addressByChain")?.optString("tron")
-                            ?: ""),
-                    ),
+                    MAccount.parseByChain(account.optJSONObject("byChain")),
                     name = "",
                     accountType = MAccount.AccountType.MNEMONIC,
                     ledger = null,
@@ -116,7 +109,9 @@ fun WalletCore.importNewWalletVersion(
                 MAccount(
                     accountId,
                     mapOf(
-                        "ton" to accountObj.getString("address"),
+                        "ton" to MAccount.AccountChain(
+                            address = accountObj.getString("address")
+                        )
                     ),
                     name = "$prevName $version",
                     accountType = prevAccount.accountType,
@@ -230,6 +225,7 @@ fun WalletCore.resetAccounts(
             AirPushNotifications.unsubscribeAll()
             AccountStore.clean()
             ActivityStore.clean()
+            AddressStore.clean()
             BalanceStore.clean()
             NftStore.clean()
             StakingStore.clean()

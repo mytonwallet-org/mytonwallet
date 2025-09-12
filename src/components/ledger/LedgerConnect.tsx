@@ -44,6 +44,11 @@ import ledgerMobileUsbDarkSrc from '../../assets/ledger/mobile-usb-dark.png';
 interface OwnProps {
   isActive: boolean;
   isStatic?: boolean;
+  /**
+   * If true, `global.hardware.hardwareWallets` will be populated before calling `onConnected`.
+   * This is slow, so use it only when necessary.
+   */
+  doLoadWallets?: boolean;
   className?: string;
   onConnected: (isSingleWallet: boolean) => void;
   onBackButtonClick?: NoneToVoidFunction;
@@ -57,6 +62,7 @@ interface StateProps {
   isTonAppConnected?: boolean;
   availableTransports?: LedgerTransport[];
   lastUsedTransport?: LedgerTransport;
+  loadedWalletCount: number;
   currentTheme: Theme;
 }
 
@@ -69,11 +75,13 @@ const TRANSPORT_NAMES: Record<LedgerTransport, string> = {
 function LedgerConnect({
   isActive,
   isStatic,
+  doLoadWallets = false,
   state,
   isLedgerConnected,
   isTonAppConnected,
   availableTransports,
   lastUsedTransport,
+  loadedWalletCount,
   currentTheme,
   className,
   onConnected,
@@ -90,8 +98,7 @@ function LedgerConnect({
 
   const isLedgerFailed = isLedgerConnected === false;
   const isTonAppFailed = isTonAppConnected === false;
-  const isConnected = state === HardwareConnectState.ConnectedWithSingleWallet
-    || state === HardwareConnectState.ConnectedWithSeveralWallets;
+  const isConnected = state === HardwareConnectState.Connected;
   const isConnecting = state === HardwareConnectState.Connecting;
   const isWaitingForRemoteTab = state === HardwareConnectState.WaitingForRemoteTab;
   const title = isConnected ? lang('Ledger Connected!') : lang('Connect Ledger');
@@ -128,7 +135,10 @@ function LedgerConnect({
   useEffect(() => {
     if (!isActive) return;
 
-    initializeHardwareWalletModal();
+    initializeHardwareWalletModal({ doLoadWallets });
+    // We don't want changes in `doLoadWallets` to trigger the effect, because the `doLoadWallets` prop should affect
+    // only the component initialization.
+    // eslint-disable-next-line react-hooks-static-deps/exhaustive-deps
   }, [isActive]);
 
   useEffectWithPrevDeps(([prevLastUsedTransport]) => {
@@ -149,9 +159,9 @@ function LedgerConnect({
 
   useEffect(() => {
     if (isConnected && isActive) {
-      handleConnected(state === HardwareConnectState.ConnectedWithSingleWallet);
+      handleConnected(loadedWalletCount === 1);
     }
-  }, [isConnected, isActive, state, handleConnected]);
+  }, [isConnected, isActive, loadedWalletCount, handleConnected]);
 
   const handleCloseWithRemoteTab = useLastCallback(() => {
     const closeAction = shouldCloseOnCancel ? onClose : onCancel;
@@ -161,7 +171,7 @@ function LedgerConnect({
 
   const handleSubmit = useLastCallback(() => {
     if (selectedTransport) {
-      initializeHardwareWalletConnection({ transport: selectedTransport });
+      initializeHardwareWalletConnection({ transport: selectedTransport, doLoadWallets });
     }
   });
 
@@ -379,6 +389,7 @@ function LedgerConnect({
 export default memo(withGlobal<OwnProps>((global): StateProps => {
   const {
     hardwareState,
+    hardwareWallets,
     isLedgerConnected,
     isTonAppConnected,
     availableTransports,
@@ -391,6 +402,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     isTonAppConnected,
     availableTransports,
     lastUsedTransport,
+    loadedWalletCount: hardwareWallets?.length ?? 0,
     currentTheme: global.settings.theme,
   };
 })(LedgerConnect));

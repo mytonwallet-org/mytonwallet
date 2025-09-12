@@ -130,6 +130,7 @@ public class HomeTabBarController: UITabBarController, WThemedView {
     
     public func _showLock(animated: Bool) {
         log.info("_showLock animated=\(animated)")
+        guard AuthSupport.accountsSupportAppLock else { return }
         if unlockVC == nil {
             let unlockVC = UnlockVC(title: lang("Wallet is Locked"),
                                     replacedTitle: lang("Enter your Wallet Passcode"),

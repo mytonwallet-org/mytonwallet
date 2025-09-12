@@ -8,6 +8,7 @@ import type { Color as PendingIndicatorColor } from './ActivityStatusIcon';
 
 import { TONCOIN, WHOLE_PART_DELIMITER } from '../../../../config';
 import { getIsInternalSwap, resolveSwapAsset } from '../../../../global/helpers';
+import { getIsActivityPendingForUser } from '../../../../util/activities';
 import buildClassName from '../../../../util/buildClassName';
 import { formatTime } from '../../../../util/dateFormat';
 import { formatCurrencyExtended } from '../../../../util/formatNumber';
@@ -30,7 +31,7 @@ type OwnProps = {
   activity: ApiSwapActivity;
   isActive?: boolean;
   appTheme: AppTheme;
-  addressByChain: Account['addressByChain'] | undefined;
+  accountChains: Account['byChain'] | undefined;
   isSensitiveDataHidden?: boolean;
   isFuture?: boolean;
   onClick?: (id: string) => void;
@@ -48,7 +49,7 @@ function Swap({
   isLast,
   isActive,
   appTheme,
-  addressByChain,
+  accountChains,
   isSensitiveDataHidden,
   isFuture,
   onClick,
@@ -77,7 +78,7 @@ function Swap({
 
   const fromAmount = Number(activity.fromAmount);
   const toAmount = Number(activity.toAmount);
-  const isPending = status === 'pending'
+  const isPending = getIsActivityPendingForUser(activity)
     || CHANGELLY_PENDING_STATUSES.has(cex?.status ?? '');
   const isError = ONCHAIN_ERROR_STATUSES.has(status)
     || CHANGELLY_EXPIRED_STATUSES.has(cex?.status ?? '');
@@ -89,7 +90,7 @@ function Swap({
     from: fromToken,
     to: toToken,
     toAddress: cex?.payoutAddress,
-    addressByChain,
+    accountChains,
   });
 
   function renderIcon() {

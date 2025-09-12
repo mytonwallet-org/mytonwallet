@@ -14,9 +14,9 @@ import WalletContext
 class SentVC: WViewController {
     
     var model: SendModel
-    var transferOptions: Api.SubmitTransferOptions?
+    var transferOptions: ApiSubmitTransferOptions?
     
-    init(model: SendModel, transferOptions: Api.SubmitTransferOptions?) {
+    init(model: SendModel, transferOptions: ApiSubmitTransferOptions?) {
         self.model = model
         self.transferOptions = transferOptions
         super.init(nibName: nil, bundle: nil)

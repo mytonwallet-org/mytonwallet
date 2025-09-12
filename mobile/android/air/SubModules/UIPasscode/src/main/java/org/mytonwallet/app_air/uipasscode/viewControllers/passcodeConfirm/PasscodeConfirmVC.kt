@@ -139,18 +139,20 @@ class PasscodeConfirmVC(
     override fun viewWillAppear() {
         super.viewWillAppear()
 
-        if (passcodeViewState is PasscodeViewState.Default) {
-            if (window?.isPaused == true ||
-                !passcodeViewState.startWithBiometrics ||
-                !passcodeScreenView.allowBiometry ||
-                ignoreBiometry ||
-                AuthStore.getCooldownDate() > System.currentTimeMillis()
-            ) {
-                passcodeScreenView.inBiometry.animatedValue = false
-            } else {
-                passcodeScreenView.tryBiometrics()
-            }
+        val startWithBiometrics = (passcodeViewState as? PasscodeViewState.Default)?.startWithBiometrics
+            ?: (passcodeViewState as? PasscodeViewState.CustomHeader)?.startWithBiometrics ?: false;
+
+        if (window?.isPaused == true ||
+            !startWithBiometrics ||
+            !passcodeScreenView.allowBiometry ||
+            ignoreBiometry ||
+            AuthStore.getCooldownDate() > System.currentTimeMillis()
+        ) {
+            passcodeScreenView.inBiometry.animatedValue = false
+        } else {
+            passcodeScreenView.tryBiometrics()
         }
+
         passcodeScreenView.setupCooldown(AuthStore.getCooldownDate())
     }
 

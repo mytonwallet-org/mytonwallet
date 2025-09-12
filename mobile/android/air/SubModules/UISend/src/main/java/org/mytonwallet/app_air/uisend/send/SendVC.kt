@@ -2,8 +2,6 @@ package org.mytonwallet.app_air.uisend.send
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.Canvas
-import android.graphics.Paint
 import android.os.Build
 import android.text.Editable
 import android.text.SpannableStringBuilder
@@ -19,17 +17,16 @@ import android.widget.ScrollView
 import androidx.appcompat.widget.AppCompatEditText
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
-import androidx.core.net.toUri
 import androidx.core.view.isGone
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
-import org.mytonwallet.app_air.sqscan.screen.QrScannerDialog
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListGapCell
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListTitleCell
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
 import org.mytonwallet.app_air.uicomponents.base.showAlert
+import org.mytonwallet.app_air.uicomponents.commonViews.AddressInputLayout
 import org.mytonwallet.app_air.uicomponents.commonViews.TokenAmountInputView
 import org.mytonwallet.app_air.uicomponents.commonViews.feeDetailsDialog.FeeDetailsDialog
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
@@ -44,14 +41,12 @@ import org.mytonwallet.app_air.uicomponents.viewControllers.SendTokenVC
 import org.mytonwallet.app_air.uicomponents.widgets.CopyTextView
 import org.mytonwallet.app_air.uicomponents.widgets.WAlertLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
-import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.dialog.WDialog
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uicomponents.widgets.showKeyboard
 import org.mytonwallet.app_air.uisend.send.helpers.ScamDetectionHelpers
-import org.mytonwallet.app_air.uisend.send.lauouts.AddressInputLayout
 import org.mytonwallet.app_air.uisend.sent.SentVC
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
@@ -61,20 +56,17 @@ import org.mytonwallet.app_air.walletcontext.theme.WColor
 import org.mytonwallet.app_air.walletcontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
-import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcontext.utils.formatStartEndAddress
-import org.mytonwallet.app_air.walletcontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.PRICELESS_TOKEN_HASHES
 import org.mytonwallet.app_air.walletcore.STAKED_MYCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.STAKED_USDE_SLUG
 import org.mytonwallet.app_air.walletcore.STAKE_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
-import org.mytonwallet.app_air.walletcore.deeplink.Deeplink
-import org.mytonwallet.app_air.walletcore.deeplink.DeeplinkParser
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
+import java.lang.ref.WeakReference
 import java.math.BigInteger
 import kotlin.math.max
 
@@ -111,10 +103,12 @@ class SendVC(
         }
     }
     private val addressInputView by lazy {
-        AddressInputLayout(context, onPaste = {
-            amountInputView.amountEditText.requestFocus()
-            amountInputView.amountEditText.showKeyboard()
-        }).apply {
+        AddressInputLayout(
+            WeakReference(this),
+            onTextEntered = {
+                amountInputView.amountEditText.requestFocus()
+                amountInputView.amountEditText.showKeyboard()
+            }).apply {
             id = View.generateViewId()
         }
     }
@@ -146,7 +140,7 @@ class SendVC(
                         updateCommentTitleLabel()
                     }),
                 offset = if (LocaleController.isRTL) width - 190.dp else 20.dp,
-                popupWidth = 180.dp,
+                popupWidth = WRAP_CONTENT,
                 aboveView = false
             )
         }
@@ -438,14 +432,9 @@ class SendVC(
             }
         }
 
-        addressInputView.editTextView.addTextChangedListener(onInputDestinationTextWatcher)
-        addressInputView.qrScanImageView.setOnClickListener {
-            QrScannerDialog.build(context) {
-                val deeplink = DeeplinkParser.parse(it.toUri())
-                val address = if (deeplink is Deeplink.Invoice) deeplink.address else it
-                addressInputView.editTextView.setText(address)
-                switchTokenBasedOnChain(address)
-            }.show()
+        addressInputView.addTextChangedListener(onInputDestinationTextWatcher)
+        addressInputView.doAfterQrCodeScanned { address ->
+            switchTokenBasedOnChain(address)
         }
 
         commentInputView.addTextChangedListener(onInputCommentTextWatcher)
@@ -514,7 +503,7 @@ class SendVC(
         view.setBackgroundColor(WColor.SecondaryBackground.color)
         title1.setBackgroundColor(WColor.Background.color, ViewConstants.TOP_RADIUS.dp, 0f)
         listOf(title2, binaryMessageTitle, initDataTitle).forEach {
-           it.setBackgroundColor(
+            it.setBackgroundColor(
                 WColor.Background.color,
                 ViewConstants.BIG_RADIUS.dp,
                 0f,
@@ -570,7 +559,7 @@ class SendVC(
     private fun setInitialValues() {
         initialValues?.let {
             it.address?.let { address ->
-                addressInputView.editTextView.setText(address)
+                addressInputView.setText(address)
             }
             it.amount?.let { amountBigDecimalString ->
                 val token = TokenStore.getToken(initialTokenSlug ?: TONCOIN_SLUG)
@@ -615,6 +604,7 @@ class SendVC(
                 )
             )
         }
+        addressInputView.insetsUpdated()
     }
 
     private fun updateCommentViews() {
@@ -667,7 +657,7 @@ class SendVC(
             scrollView.setOnScrollChangeListener(null)
         }
         addressInputView.qrScanImageView.setOnClickListener(null)
-        addressInputView.editTextView.removeTextChangedListener(onInputDestinationTextWatcher)
+        addressInputView.removeTextChangedListener(onInputDestinationTextWatcher)
         amountInputView.tokenSelectorView.setOnClickListener(null)
         amountInputView.doOnEquivalentButtonClick(null)
         amountInputView.doOnFeeButtonClick(null)

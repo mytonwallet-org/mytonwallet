@@ -156,7 +156,7 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
         let accountId = account.id
         var transferSuccessful = false
         var transferError: (any Error)? = nil
-        var transferOptions: Api.SubmitTransferOptions? = nil
+        var transferOptions: ApiSubmitTransferOptions? = nil
         
         let onAuthTask: (_ passcode: String, _ onTaskDone: @escaping () -> Void) -> Void = {
             [weak self] passcode,

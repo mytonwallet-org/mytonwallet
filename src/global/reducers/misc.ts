@@ -4,11 +4,9 @@ import type {
   ApiSwapAsset,
   ApiTokenWithPrice,
 } from '../../api/types';
-import type { Account, AccountState, AccountType, GlobalState } from '../types';
+import type { Account, AccountChain, AccountState, AccountType, GlobalState } from '../types';
 
-import {
-  APP_NAME, IS_CORE_WALLET, POPULAR_WALLET_VERSIONS, TON_USDT_SLUG, TONCOIN,
-} from '../../config';
+import { APP_NAME, DEFAULT_ENABLED_TOKEN_SLUGS, IS_CORE_WALLET, POPULAR_WALLET_VERSIONS, TONCOIN } from '../../config';
 import isPartialDeepEqual from '../../util/isPartialDeepEqual';
 import { getChainBySlug } from '../../util/tokens';
 import {
@@ -60,7 +58,7 @@ export function createAccount({
   global,
   accountId,
   type,
-  addressByChain,
+  byChain,
   partial,
   titlePostfix,
   network,
@@ -69,7 +67,7 @@ export function createAccount({
   global: GlobalState;
   accountId: string;
   type: AccountType;
-  addressByChain: Account['addressByChain'];
+  byChain: Account['byChain'];
   partial?: Partial<Account>;
   titlePostfix?: string;
   network?: ApiNetwork;
@@ -78,7 +76,7 @@ export function createAccount({
   const account: Account = {
     ...partial,
     type,
-    addressByChain,
+    byChain,
   };
   let shouldForceAccountEdit = true;
 
@@ -154,6 +152,45 @@ export function updateAccount(
   };
 }
 
+export function updateAccountChain(
+  global: GlobalState,
+  accountId: string,
+  chain: ApiChain,
+  partial: Partial<AccountChain>,
+) {
+  const account = selectAccount(global, accountId);
+  if (!account) {
+    throw new Error(`Account ${accountId} doesn't exist`);
+  }
+
+  const chainData = account.byChain[chain];
+  if (!chainData) {
+    throw new Error(`Account ${accountId} doesn't have the ${chain} chain`);
+  }
+
+  const updatedAccount = {
+    ...account,
+    byChain: {
+      ...account.byChain,
+      [chain]: {
+        ...chainData,
+        ...partial,
+      },
+    },
+  };
+
+  return {
+    ...global,
+    accounts: {
+      ...global.accounts,
+      byId: {
+        ...global.accounts?.byId,
+        [accountId]: updatedAccount,
+      },
+    },
+  };
+}
+
 export function renameAccount(global: GlobalState, accountId: string, title: string) {
   return updateAccount(global, accountId, { title });
 }
@@ -184,16 +221,12 @@ export function updateBalances(
     }
   }
 
-  // Force balance value for USDT-TON and manually imported tokens
   const importedSlugs = selectAccountSettings(global, accountId)?.importedSlugs ?? [];
-  // Balance updates may arrive before authentication is complete
-  const hasTonWallet = Boolean(selectAccountOrAuthAccount(global, accountId)?.addressByChain?.ton);
+  const network = selectCurrentNetwork(global);
 
-  let forcedSlugs = importedSlugs;
-  if (hasTonWallet) forcedSlugs = [...forcedSlugs, TON_USDT_SLUG];
-
-  for (const slug of forcedSlugs) {
-    if (!(slug in newBalances)) {
+  // Force balance values for the default enabled tokens and manually imported tokens
+  for (const slug of [...DEFAULT_ENABLED_TOKEN_SLUGS[network], ...importedSlugs]) {
+    if (getChainBySlug(slug) === chain && !(slug in newBalances)) {
       newBalances[slug] = 0n;
     }
   }

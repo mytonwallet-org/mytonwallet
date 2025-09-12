@@ -96,7 +96,8 @@ function Forward({ isActive, check, address, setAddress, setDomain, onForward, o
 
       <div className={commonStyles.content}>
         <p className={commonStyles.description}>
-          {lang('Enter TON wallet address or domain to forward')} <b>{formatCurrency(check.amount, check.symbol)}</b>.
+          {lang('Enter TON wallet address or domain to forward')}{' '}
+          <b>{check.type === 'coin' ? formatCurrency(check.amount, check.symbol) : check.nftInfo?.name}</b>
         </p>
       </div>
 

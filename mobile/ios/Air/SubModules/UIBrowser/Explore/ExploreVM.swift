@@ -93,7 +93,7 @@ private let log = Log("ExploreVM")
         }
     }
     
-    func updateExploreSites(_ result: Api.ExploreSitesResult) {
+    func updateExploreSites(_ result: ApiExploreSitesResult) {
         exploreSites = OrderedDictionary(result.sites.map { ($0.url, $0) }, uniquingKeysWith: { $1 })
         exploreCategories = OrderedDictionary(result.categories.map { ($0.id, $0) }, uniquingKeysWith: { $1 })
         DispatchQueue.main.async {

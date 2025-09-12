@@ -29,7 +29,7 @@ class SwapDetailsVM: ObservableObject {
 
     var fromToken: ApiToken { tokensSelectorVM.sellingToken }
     var toToken: ApiToken { tokensSelectorVM.buyingToken }
-    var swapEstimate: Api.SwapEstimateResponse? { swapVM.swapEstimate }
+    var swapEstimate: ApiSwapEstimateResponse? { swapVM.swapEstimate }
     var selectedDex: ApiSwapDexLabel? { swapVM.dex }
     
     private var swapVM: SwapVM
@@ -47,7 +47,7 @@ class SwapDetailsVM: ObservableObject {
         }
     }
     
-    var displayEstimate: Api.SwapEstimateResponse? {
+    var displayEstimate: ApiSwapEstimateResponse? {
         swapEstimate?.displayEstimate(selectedDex: selectedDex)
     }
     var displayExchangeRate: SwapRate? {
@@ -63,8 +63,8 @@ class SwapDetailsVM: ObservableObject {
     }
 }
 
-extension Api.SwapEstimateResponse {
-    func displayEstimate(selectedDex: ApiSwapDexLabel?) -> Api.SwapEstimateResponse {
+extension ApiSwapEstimateResponse {
+    func displayEstimate(selectedDex: ApiSwapDexLabel?) -> ApiSwapEstimateResponse {
         if let selectedDex, let other = other?.first(where: { $0.dexLabel == selectedDex }) {
             var est = self
             est.updateFromVariant(other)
@@ -84,8 +84,8 @@ struct SwapDetailsView: View {
     var sellingToken: ApiToken { model.fromToken }
     var buyingToken: ApiToken { model.toToken }
     var exchangeRate: SwapRate? { model.displayExchangeRate }
-    var swapEstimate: Api.SwapEstimateResponse? { model.swapEstimate }
-    var displayEstimate: Api.SwapEstimateResponse? { model.displayEstimate }
+    var swapEstimate: ApiSwapEstimateResponse? { model.swapEstimate }
+    var displayEstimate: ApiSwapEstimateResponse? { model.displayEstimate }
     var hasAlternative: Bool { swapEstimate?.other?.nilIfEmpty != nil }
     
     @State private var slippageFocused: Bool = false
@@ -222,7 +222,10 @@ struct SwapDetailsView: View {
                 Text(lang("Slippage"))
                     .foregroundStyle(Color(WTheme.secondaryLabel))
                     .overlay(alignment: .trailingFirstTextBaseline) {
-                        InfoButton(title: "Slippage", message: "This sets how much the price is allowed to change before your swap is processed.\n\nIf during the processing of your swap, the price changes more than this value, your order will be canceled.")
+                        InfoButton(
+                            title: lang("Slippage"),
+                            message: lang("$swap_slippage_tooltip1") + "\n\n" + lang("$swap_slippage_tooltip2")
+                        )
                     }
                 
             } value: {
@@ -329,7 +332,7 @@ struct SwapDetailsView: View {
                 Text(lang("Price Impact"))
                     .foregroundStyle(Color(WTheme.secondaryLabel))
                     .overlay(alignment: .trailingFirstTextBaseline) {
-                        InfoButton(title: lang("Price Impact"), message: lang("This shows how much your trade might change the token price.\nBig trades can make the price go up or down more. Lower is usually better."))
+                        InfoButton(title: lang("Price Impact"), message: lang("$swap_price_impact_tooltip1"))
                     }
             } value: {
                 Text("\(formatAmountText(amount: displayEstimate.impact, decimalsCount: 2))%")
@@ -344,7 +347,7 @@ struct SwapDetailsView: View {
                 Text(lang("Minimum Received"))
                     .foregroundStyle(Color(WTheme.secondaryLabel))
                     .overlay(alignment: .trailingFirstTextBaseline) {
-                        InfoButton(title: lang("Minimum Received"), message: lang("This is the least amount of new tokens you'll get from this swap, considering current market conditions, slippage tolerance, and potential price impact."))
+                        InfoButton(title: lang("Minimum Received"), message: lang("$swap_minimum_received_tooltip2"))
                     }
             } value: {
                 Text(formatAmountText(amount: displayEstimate.toMinAmount.value,

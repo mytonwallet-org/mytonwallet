@@ -23,7 +23,7 @@ import { parseAccountId } from '../../util/account';
 import { buildLocalTxId } from '../../util/activities';
 import { omitUndefined } from '../../util/iteratees';
 import chains from '../chains';
-import { fetchStoredTonWallet } from '../common/accounts';
+import { fetchStoredWallet } from '../common/accounts';
 import { callBackendGet, callBackendPost } from '../common/backend';
 import { getBackendConfigCache } from '../common/cache';
 import {
@@ -36,7 +36,7 @@ import {
 import { ApiServerError } from '../errors';
 import { callHook } from '../hooks';
 import { getBackendAuthToken } from './other';
-import { submitTransfer } from './transactions';
+import { submitTransfer } from './transfer';
 
 const ton = chains.ton;
 
@@ -54,7 +54,7 @@ export async function swapBuildTransfer(
   const { network } = parseAccountId(accountId);
   const authToken = await getBackendAuthToken(accountId, password);
 
-  const { address, version } = await fetchStoredTonWallet(accountId);
+  const { address, version } = await fetchStoredWallet(accountId, 'ton');
   request.walletVersion = version;
 
   const { id, transfers } = await swapBuild(authToken, request);
@@ -94,7 +94,7 @@ export async function swapSubmit(
   isGasless?: boolean,
 ) {
   const swapId = historyItem.id;
-  const tonWallet = await fetchStoredTonWallet(accountId);
+  const tonWallet = await fetchStoredWallet(accountId, 'ton');
 
   const { address } = tonWallet;
   const authToken = tonWallet.authToken ?? await getBackendAuthToken(accountId, password);
@@ -167,7 +167,7 @@ function errorToString(err: Error | string) {
 }
 
 export async function fetchSwaps(accountId: string, ids: string[]) {
-  const { address } = await fetchStoredTonWallet(accountId);
+  const { address } = await fetchStoredWallet(accountId, 'ton');
   const results = await Promise.allSettled(
     ids.map((id) => swapGetHistoryItem(address, id.replace('swap:', ''))),
   );
@@ -194,7 +194,7 @@ export async function swapEstimate(
   accountId: string,
   request: ApiSwapEstimateRequest,
 ): Promise<ApiSwapEstimateResponse | { error: string }> {
-  const walletVersion = (await fetchStoredTonWallet(accountId)).version;
+  const walletVersion = (await fetchStoredWallet(accountId, 'ton')).version;
   const { swapVersion } = await getBackendConfigCache();
 
   return callBackendPost('/swap/ton/estimate', {
@@ -280,7 +280,7 @@ export async function swapCexSubmit(chain: ApiChain, transferOptions: ApiSubmitT
 
   if (chain === 'ton' && 'msgHash' in result) {
     const { accountId, password } = transferOptions;
-    const { address } = await fetchStoredTonWallet(accountId);
+    const { address } = await fetchStoredWallet(accountId, 'ton');
     const authToken = await getBackendAuthToken(accountId, password ?? '');
     await patchSwapItem({ address, authToken, msgHash: result.msgHash, swapId });
   }

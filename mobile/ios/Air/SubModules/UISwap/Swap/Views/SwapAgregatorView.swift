@@ -9,7 +9,7 @@ struct SwapAgregatorView: View {
     
     var fromToken: ApiToken
     var toToken: ApiToken
-    var estimate: Api.SwapEstimateResponse
+    var estimate: ApiSwapEstimateResponse
     var selectedState: ApiSwapDexLabel?
     var onSelect: (ApiSwapDexLabel?) -> ()
     
@@ -21,7 +21,7 @@ struct SwapAgregatorView: View {
     var worseToAmount: TokenAmount { TokenAmount.fromDouble(estimate.other?.first?.toAmount.value ?? 99, toToken) }
     var difference: TokenAmount { TokenAmount(bestToAmount.amount - worseToAmount.amount, toToken) }
     
-    private var alternativeOption: Api.SwapEstimateVariant? {
+    private var alternativeOption: ApiSwapEstimateVariant? {
         let otherDexLabel: ApiSwapDexLabel = estimate.dexLabel == .dedust ? .ston : .dedust
         return estimate.other?.first { $0.dexLabel == otherDexLabel }
     }

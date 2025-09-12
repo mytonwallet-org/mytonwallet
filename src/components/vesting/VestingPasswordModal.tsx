@@ -179,7 +179,7 @@ function VestingPasswordModal({
 }
 
 export default memo(withGlobal((global): StateProps => {
-  const { addressByChain } = selectAccount(global, global.currentAccountId!) || {};
+  const { byChain } = selectAccount(global, global.currentAccountId!) || {};
   const accountState = selectCurrentAccountState(global);
   const isHardwareAccount = selectIsHardwareAccount(global);
 
@@ -198,7 +198,7 @@ export default memo(withGlobal((global): StateProps => {
     tokens,
     isLoading,
     error,
-    address: addressByChain?.ton,
+    address: byChain?.ton?.address,
     state: unfreezeState,
     mycoin: selectMycoin(global),
     isHardwareAccount,

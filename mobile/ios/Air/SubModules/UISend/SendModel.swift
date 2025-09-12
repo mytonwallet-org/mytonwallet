@@ -377,7 +377,7 @@ private let log = Log("SendModel")
     }
     
     @MainActor func onAddressCopy() {
-        AppActions.copyString(resolvedAddress, toastMessage: lang("Address was copied to clipboard."))
+        AppActions.copyString(resolvedAddress, toastMessage: lang("Address was copied!"))
     }
     
     func onOpenAddressInExplorer() {
@@ -450,12 +450,12 @@ private let log = Log("SendModel")
         return (isBase64Data: isBase64Data, comment: comment, shouldEncrypt: shouldEncrypt)
     }
     
-    func makeCheckTransactionOptions(addressOrDomain: String, amount: BigInt?, comment: String?) -> Api.CheckTransactionDraftOptions? {
+    func makeCheckTransactionOptions(addressOrDomain: String, amount: BigInt?, comment: String?) -> ApiCheckTransactionDraftOptions? {
         guard let token = token else {
             return nil
         }
         let (isBase64Data, comment, shouldEncrypt) = _prepareCommentOptions()
-        return Api.CheckTransactionDraftOptions(
+        return ApiCheckTransactionDraftOptions(
             accountId: AccountStore.accountId!,
             toAddress: addressOrDomain,
             amount: amount ?? 0,
@@ -469,7 +469,7 @@ private let log = Log("SendModel")
         )
     }
     
-    func makeSubmitTransferOptions(passcode: String?, addressOrDomain: String, amount: BigInt?, comment: String?) async throws -> Api.SubmitTransferOptions? {
+    func makeSubmitTransferOptions(passcode: String?, addressOrDomain: String, amount: BigInt?, comment: String?) async throws -> ApiSubmitTransferOptions? {
         guard let token = token else {
             return nil
         }
@@ -481,7 +481,7 @@ private let log = Log("SendModel")
             stateInit = try await Api.getWalletStateInit(accountId: account.id)
         }
         let draft = draftData.transactionDraft
-        return Api.SubmitTransferOptions(
+        return ApiSubmitTransferOptions(
             accountId: account.id,
             password: passcode,
             toAddress: addressOrDomain,
@@ -495,6 +495,7 @@ private let log = Log("SendModel")
             withDiesel: explainedFee?.isGasless,
             dieselAmount: draftData.transactionDraft?.diesel?.tokenAmount,
             stateInit: stateInit,
+            isGaslessWithStars: nil,
             forwardAmount: nil,
             noFeeCheck: nil,
         )
@@ -525,7 +526,7 @@ private let log = Log("SendModel")
             let keepTransactionDraftWhenLoading = addressOrDomain == draftData.address && tokenSlug == draftData.tokenSlug
             self.draftData = .init(status: .loading, address: addressOrDomain, tokenSlug: tokenSlug, transactionDraft: keepTransactionDraftWhenLoading ? draftData.transactionDraft : nil)
             
-            guard let chain = token?.chain,
+            guard let chain = token?.chainValue,
                   let draftOptions = makeCheckTransactionOptions(addressOrDomain: addressOrDomain, amount: amount, comment: comment) else {
                 self.draftData = .init(status: .none, transactionDraft: nil)
                 return

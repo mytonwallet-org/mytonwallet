@@ -1,17 +1,48 @@
-export interface ApiCheck {
-  id: number;
-  contractAddress: string;
-  status: 'pending_signature' | 'sending' | 'pending_receive' | 'receiving' | 'received' | 'failed';
-  isInvoice?: boolean;
-  isCurrentUserSender?: boolean;
-  amount: number;
-  symbol: 'TON' | 'USDT' | 'MY';
-  minterAddress: string;
-  decimals: number;
-  chatInstance?: string;
-  username?: string;
-  comment?: string;
-  txId?: string;
-  receiverAddress?: string;
-  failureReason?: string;
+interface NftInfo {
+  address: string;
+  name: string;
+  collectionName: string;
+  imageUrl?: string;
+}
+
+export type TokenSymbol = 'TON' | 'USDT' | 'MY';
+type CheckStatus = 'pending_signature' | 'sending' | 'pending_receive' | 'receiving' | 'received' | 'failed';
+
+export type ApiCheck =
+  | {
+    id: number;
+    type: 'coin';
+    contractAddress: string;
+    status: CheckStatus;
+    isInvoice?: boolean;
+    isCurrentUserSender?: boolean;
+    amount: number;
+    symbol: TokenSymbol;
+    minterAddress?: string;
+    decimals: number;
+    chatInstance?: string;
+    username?: string;
+    comment?: string;
+    txId?: string;
+    receiverAddress?: string;
+    failureReason?: string;
+  }
+  | {
+    id: number;
+    type: 'nft';
+    contractAddress: string;
+    status: CheckStatus;
+    isInvoice?: boolean;
+    isCurrentUserSender?: boolean;
+    nftInfo: NftInfo;
+    chatInstance?: string;
+    username?: string;
+    comment?: string;
+    txId?: string;
+    receiverAddress?: string;
+    failureReason?: string;
+  };
+
+export interface ApiWallet {
+  connectedAddress?: string;
 }

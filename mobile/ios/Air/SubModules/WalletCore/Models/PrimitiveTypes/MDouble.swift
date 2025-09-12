@@ -3,7 +3,7 @@ import Foundation
 import WalletContext
 
 /// Double represented as number or string
-public struct MDouble: Equatable, Hashable, Codable, Sendable {
+public struct MDouble: Equatable, Hashable, Codable, Sendable, Comparable, ExpressibleByFloatLiteral, ExpressibleByIntegerLiteral {
     
     public var value: Double
     
@@ -11,6 +11,14 @@ public struct MDouble: Equatable, Hashable, Codable, Sendable {
     
     public init(_ value: Double) {
         self.value = value
+    }
+    
+    public init(floatLiteral value: Double) {
+        self.value = value
+    }
+    
+    public init(integerLiteral value: Int) {
+        self.value = Double(value)
     }
     
     public init?(_ stringValue: String) {
@@ -40,5 +48,9 @@ public struct MDouble: Equatable, Hashable, Codable, Sendable {
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(self.stringValue)
+    }
+    
+    public static func < (lhs: MDouble, rhs: MDouble) -> Bool {
+        lhs.value < rhs.value
     }
 }

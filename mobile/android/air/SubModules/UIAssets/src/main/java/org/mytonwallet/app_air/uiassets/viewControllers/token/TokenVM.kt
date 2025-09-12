@@ -55,6 +55,10 @@ class TokenVM(
         WalletCore.registerObserver(this)
     }
 
+    fun onDestroy() {
+        WalletCore.unregisterObserver(this)
+    }
+
     fun refreshTransactions() {
         activityLoader?.clean()
         activityLoader = ActivityLoader(
@@ -136,6 +140,10 @@ class TokenVM(
 
             is WalletEvent.AccountChanged -> {
                 delegate.get()?.accountChanged()
+            }
+
+            is WalletEvent.AccountSavedAddressesChanged -> {
+                delegate.get()?.dataUpdated(false)
             }
 
             WalletEvent.NetworkDisconnected -> {

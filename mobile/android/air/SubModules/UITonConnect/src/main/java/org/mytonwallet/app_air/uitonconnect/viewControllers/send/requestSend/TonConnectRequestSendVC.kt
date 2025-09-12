@@ -35,6 +35,7 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import java.lang.ref.WeakReference
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -222,7 +223,7 @@ class TonConnectRequestSendVC(
     private val confirmHeaderView: View
         get() {
             return PasscodeHeaderSendView(
-                context,
+                WeakReference(this),
                 (window!!.windowView.height * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO).roundToInt()
             ).apply {
                 config(

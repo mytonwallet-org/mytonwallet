@@ -1,19 +1,15 @@
 package org.mytonwallet.app_air.uicomponents.commonViews.cells
 
 import android.content.Context
-import android.text.SpannableStringBuilder
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
-import org.mytonwallet.app_air.walletcontext.models.MRecentAddress
 import org.mytonwallet.app_air.walletcontext.theme.WColor
 import org.mytonwallet.app_air.walletcontext.theme.color
-import org.mytonwallet.app_air.walletcontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
@@ -94,20 +90,6 @@ class TitleSubtitleCell(
             token?.decimals ?: 9,
             true
         )
-        separator.visibility = if (isLast) INVISIBLE else VISIBLE
-    }
-
-    fun configure(recentAddress: MRecentAddress, isLast: Boolean) {
-        identifier = recentAddress.address
-        iconView.config(recentAddress)
-        if (recentAddress.addressAlias.isNotEmpty())
-            topLeftLabel.text = recentAddress.addressAlias
-        else
-            topLeftLabel.text =
-                SpannableStringBuilder(recentAddress.address.formatStartEndAddress()).apply {
-                    updateDotsTypeface()
-                }
-        bottomLeftLabel.setUserFriendlyDate(recentAddress.dt)
         separator.visibility = if (isLast) INVISIBLE else VISIBLE
     }
 

@@ -48,7 +48,7 @@ public struct AddressActions: View {
     
     func onCopy() {
         UIPasteboard.general.string = address
-        topWViewController()?.showToast(animationName: "Copy", message: lang("Address was copied to clipboard."))
+        topWViewController()?.showToast(animationName: "Copy", message: lang("Address was copied!"))
         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
     }
     

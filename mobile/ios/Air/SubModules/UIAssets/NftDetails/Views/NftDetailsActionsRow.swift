@@ -48,7 +48,12 @@ struct NftDetailsActionsRow: View {
     @ViewBuilder var wear: some View {
         if viewModel.nft.isMtwCard {
             ZStack {
-                ActionButton(viewModel: viewModel, "wear", "ActionWear24") {
+                ActionButton(
+                    viewModel: viewModel,
+                    id: "wear",
+                    title: lang("Wear").lowercased(),
+                    icon: "ActionWear24"
+                ) {
                 }
                 Color.clear.contentShape(.rect)
             }
@@ -63,20 +68,35 @@ struct NftDetailsActionsRow: View {
     }
     
     @ViewBuilder var send: some View {
-        ActionButton(viewModel: viewModel, "send", "ActionSend24") {
+        ActionButton(
+            viewModel: viewModel,
+            id: "send",
+            title: lang("Send").lowercased(),
+            icon: "ActionSend24"
+        ) {
             AppActions.showSend(prefilledValues: .init(nfts: [viewModel.nft], nftSendMode: .send))
         }
     }
     
     @ViewBuilder var share: some View {
-        ActionButton(viewModel: viewModel, "share", "ActionShare24") {
+        ActionButton(
+            viewModel: viewModel,
+            id: "share",
+            title: lang("Share").lowercased(),
+            icon: "ActionShare24"
+        ) {
             AppActions.shareUrl(ExplorerHelper.nftUrl(viewModel.nft))
         }
     }
     
     @ViewBuilder var more: some View {
         ZStack {
-            ActionButton(viewModel: viewModel, "more", "ActionMore24") {
+            ActionButton(
+                viewModel: viewModel,
+                id: "more",
+                title: lang("More").lowercased(),
+                icon: "ActionMore24"
+            ) {
             }
             Color.clear.contentShape(.rect)
         }
@@ -125,14 +145,16 @@ struct ActionButton: View {
 
     @ObservedObject var viewModel: NftDetailsViewModel
     
+    var id: String
     var title: String
     var icon: String
     var action: () -> ()
 
-    var isEnabled: Bool { viewModel.selectedSubmenu == nil || viewModel.selectedSubmenu == title }
+    var isEnabled: Bool { viewModel.selectedSubmenu == nil || viewModel.selectedSubmenu == id }
     
-    init(viewModel: NftDetailsViewModel, _ title: String, _ icon: String, action: @escaping () -> Void) {
+    init(viewModel: NftDetailsViewModel, id: String, title: String, icon: String, action: @escaping () -> Void) {
         self.viewModel = viewModel
+        self.id = id
         self.title = title
         self.icon = icon
         self.action = action
@@ -155,7 +177,7 @@ struct ActionButton: View {
     }
 }
 
-struct ActionButtonStyle: ButtonStyle {
+struct ActionButtonStyle: PrimitiveButtonStyle {
 
     @EnvironmentObject var viewModel: NftDetailsViewModel
     
@@ -188,6 +210,9 @@ struct ActionButtonStyle: ButtonStyle {
                 .clipShape(.rect(cornerRadius: 12))
             }
             .contentShape(.rect(cornerRadius: 12))
+            .onTapGesture {
+                configuration.trigger()
+            }
             .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in
                 withAnimation(.spring(duration: 0.1)) {
                     isHighlighted = true

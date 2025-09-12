@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uitransaction.viewControllers
 
 import android.annotation.SuppressLint
-import android.content.Context
 import android.graphics.Color
 import android.graphics.Paint
 import android.text.Spannable
@@ -12,6 +11,7 @@ import android.text.method.LinkMovementMethod
 import android.util.TypedValue
 import android.view.Gravity
 import androidx.appcompat.widget.AppCompatTextView
+import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
 import org.mytonwallet.app_air.uicomponents.helpers.AddressPopupHelpers
@@ -28,13 +28,17 @@ import org.mytonwallet.app_air.walletcontext.theme.WColor
 import org.mytonwallet.app_air.walletcontext.theme.color
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
+import java.lang.ref.WeakReference
 import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class NftHeaderView(
-    context: Context,
+    val viewController: WeakReference<WViewController>,
     val transaction: MApiTransaction
-) : WView(context, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)),
+) : WView(
+    viewController.get()!!.context,
+    LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
+),
     WThemedView {
     private val colorSpan = WForegroundColorSpan()
 
@@ -105,7 +109,7 @@ class NftHeaderView(
             prefixString + formattedAddress
         ).apply {
             AddressPopupHelpers.configSpannableAddress(
-                context,
+                viewController,
                 this,
                 length - formattedAddress.length,
                 formattedAddress.length,

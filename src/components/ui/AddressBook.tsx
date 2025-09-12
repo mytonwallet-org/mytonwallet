@@ -2,7 +2,7 @@ import React, { memo, useMemo } from '../../lib/teact/teact';
 import { withGlobal } from '../../global';
 
 import type { ApiChain } from '../../api/types';
-import type { Account, SavedAddress } from '../../global/types';
+import type { Account, AccountChain, SavedAddress } from '../../global/types';
 
 import { TONCOIN } from '../../config';
 import { selectCurrentAccountState, selectIsMultichainAccount, selectNetworkAccounts } from '../../global/selectors';
@@ -70,21 +70,20 @@ function AddressBook({
       .reduce((acc, accountId) => {
         const account = accounts![accountId];
 
-        Object.keys(account.addressByChain).forEach((addressChain) => {
-          const address = account.addressByChain[addressChain as ApiChain];
-          const key = `${addressChain}:${address}`;
+        (Object.entries(account.byChain) as [ApiChain, AccountChain][]).forEach(([chain, { address }]) => {
+          const key = `${chain}:${address}`;
           if (
             address
             && !uniqueAddresses.has(key)
-            && (!currentChain || addressChain === currentChain)
-            && (isMultichainAccount || addressChain === TONCOIN.chain)
-            && !addressesToBeIgnored.includes(`${addressChain}:${address}`)
+            && (!currentChain || chain === currentChain)
+            && (isMultichainAccount || chain === TONCOIN.chain)
+            && !addressesToBeIgnored.includes(`${chain}:${address}`)
           ) {
             uniqueAddresses.add(key);
             acc.push({
               name: account.title || shortenAddress(address)!,
               address,
-              chain: addressChain as ApiChain,
+              chain,
               isHardware: account.type === 'hardware',
             });
           }

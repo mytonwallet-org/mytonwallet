@@ -106,7 +106,7 @@ export function orderBy<T>(
   });
 }
 
-export function unique<T>(array: T[]): T[] {
+export function unique<T>(array: readonly T[]): T[] {
   return Array.from(new Set(array));
 }
 
@@ -212,10 +212,9 @@ export function filterValues<M>(
   }, {});
 }
 
-export function uniqueByKey<T>(array: T[], key: keyof T, shouldKeepFirst?: boolean) {
+export function uniqueByKey<T>(array: readonly T[], key: keyof T, shouldKeepFirst?: boolean) {
   if (shouldKeepFirst) {
-    array = Array.from(array);
-    array.reverse();
+    array = [...array].reverse();
   }
 
   const result = [...new Map(array.map((item) => [item[key], item])).values()];
@@ -249,44 +248,65 @@ export function swapKeysAndValues<
 }
 
 /**
- * `arr1` and `arr2` must be sorted according to `compareFn`, otherwise the result is not guaranteed.
- * `deduplicateEqual` doesn't remove duplicates if the input arrays contain duplicates.
+ * The arrays inside `arrays` must be sorted according to `compareFn`, otherwise the result is not guaranteed.
+ * `deduplicateEqual` doesn't remove duplicates if the individual input arrays contain duplicates.
+ * Always returns a new array (not any of the input arrays).
  */
 export function mergeSortedArrays<T>(
-  arr1: readonly T[],
-  arr2: readonly T[],
+  arrays: readonly (readonly T[])[],
   compareFn: (item1: T, item2: T) => number,
   deduplicateEqual?: boolean,
 ): T[] {
-  let index1 = 0;
-  let index2 = 0;
-  const result: T[] = [];
+  // This is a divide-and-conquer algorithm combined with a 2-pointers algorithm. Its time complexity is O(n*log(n)*m),
+  // where n is the number of arrays and m is the average array size. The heap algorithm is slightly faster, but it has
+  // the same time complexity and its implementation in JS is too bulky.
+  // This problem on LeetCode: https://leetcode.com/problems/merge-k-sorted-lists/
 
-  while (index1 < arr1.length && index2 < arr2.length) {
-    const compareResult = compareFn(arr1[index1], arr2[index2]);
+  if (arrays.length === 1) return [...arrays[0]];
 
-    if (compareResult === 0) {
-      result.push(arr1[index1]);
-      if (!deduplicateEqual) {
-        result.push(arr2[index2]);
-      }
-      index1++;
-      index2++;
-    } else if (compareResult < 0) {
-      result.push(arr1[index1]);
-      index1++;
-    } else {
-      result.push(arr2[index2]);
-      index2++;
+  let toMerge = arrays as T[][];
+
+  while (toMerge.length > 1) {
+    const nextToMerge: T[][] = [];
+
+    for (let i = 0; i < toMerge.length; i += 2) {
+      nextToMerge.push(
+        i + 1 < toMerge.length
+          ? merge2(toMerge[i], toMerge[i + 1])
+          : toMerge[i], // If toMerge.length is odd, the last iteration has only 1 subarray to merge
+      );
     }
+
+    toMerge = nextToMerge;
   }
 
-  for (; index1 < arr1.length; index1++) {
-    result.push(arr1[index1]);
-  }
-  for (; index2 < arr2.length; index2++) {
-    result.push(arr2[index2]);
-  }
+  return toMerge[0] ?? [];
 
-  return result;
+  function merge2(arr1: readonly T[], arr2: readonly T[]) {
+    let index1 = 0;
+    let index2 = 0;
+    const result: T[] = [];
+
+    while (index1 < arr1.length && index2 < arr2.length) {
+      const compareResult = compareFn(arr1[index1], arr2[index2]);
+
+      if (compareResult === 0) {
+        result.push(arr1[index1]);
+        if (!deduplicateEqual) {
+          result.push(arr2[index2]);
+        }
+        index1++;
+        index2++;
+      } else if (compareResult < 0) {
+        result.push(arr1[index1++]);
+      } else {
+        result.push(arr2[index2++]);
+      }
+    }
+
+    result.push(...arr1.slice(index1));
+    result.push(...arr2.slice(index2));
+
+    return result;
+  }
 }

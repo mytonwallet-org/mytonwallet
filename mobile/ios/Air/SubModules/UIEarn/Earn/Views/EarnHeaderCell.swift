@@ -153,7 +153,7 @@ class EarnHeaderCell: UITableViewCell, WThemedView {
     
     private func updateUnstakingInfo() {
         guard let unstakingAt else {return}
-        let unstakingAtString = WStrings.Earn_UnstakeRequestInfo_Text(remainingTime: unstakingAt.remainingFromNow)
+        let unstakingAtString = lang("You will receive your unstaked deposit in %1$@.", arg1: unstakingAt.remainingFromNow)
         yourBalanceHintLabel.text = lang("Your staking balance") + "\n" + unstakingAtString
         layoutIfNeeded()
     }

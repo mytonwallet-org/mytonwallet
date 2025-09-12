@@ -24,6 +24,9 @@ public extension Array {
         first { $0[keyPath: keyPath] == value }
     }
     
+}
+
+public extension Sequence {
     func `any`(_ isTrue: (Element) -> Bool) -> Bool {
         for item in self {
             if isTrue(item) {

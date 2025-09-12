@@ -70,6 +70,10 @@ extension Api {
     public static func getWalletInfo(network: ApiNetwork, address: String) async throws -> ApiGetWalletInfoResult {
         try await bridge.callApi("getWalletInfo", network, address, decoding: ApiGetWalletInfoResult.self)
     }
+
+    public static func getAddressInfo(network: ApiNetwork, toAddress: String) async throws -> ApiGetAddressInfoResult {
+        try await bridge.callApi("getAddressInfo", network, toAddress, decoding: ApiGetAddressInfoResult.self)
+    }
     
     public static func getWalletStateInit(accountId: String) async throws -> String {
         try await bridge.callApi("getWalletStateInit", accountId, decoding: String.self)
@@ -150,3 +154,12 @@ public struct ApiGetWalletInfoResult: Decodable {
     public var lastTxId: String?
 }
 
+public struct ApiGetAddressInfoResult: Decodable {
+    public var addressName: String?
+    public var isScam: Bool?
+    public var resolvedAddress: String?
+    public var isToAddressNew: Bool?
+    public var isBounceable: Bool?
+    public var isMemoRequired: Bool?
+    public var error: String?
+}

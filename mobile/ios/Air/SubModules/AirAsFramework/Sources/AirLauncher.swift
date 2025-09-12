@@ -128,7 +128,13 @@ public class AirLauncher {
         if !isOnTheAir {
             return
         }
-        Api.setIsAppFocused(isFocused)
+        Task {
+            do {
+                try await Api.setIsAppFocused(isFocused)
+            } catch {
+                log.error("setIsAppFocused: \(error, .public)")
+            }
+        }
     }
     
     public static func handle(url: URL) {

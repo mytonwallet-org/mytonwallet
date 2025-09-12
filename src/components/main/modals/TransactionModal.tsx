@@ -34,6 +34,7 @@ import {
   selectIsHardwareAccount,
 } from '../../../global/selectors';
 import {
+  getIsActivityPendingForUser,
   getIsActivityWithHash,
   getTransactionAmountDisplayMode,
   getTransactionTitle,
@@ -170,7 +171,7 @@ function TransactionModal({
 
   const nativeToken = token ? getNativeToken(token.chain) : undefined;
   const address = isIncoming ? fromAddress : toAddress;
-  const isAnyPending = status === 'pending' || status === 'pendingTrusted';
+  const isAnyPending = renderedTransaction ? getIsActivityPendingForUser(renderedTransaction) : undefined;
   const iconClock = status === 'pendingTrusted' ? 'iconClockGreen' : 'iconClock';
   const localAddressName = useMemo(() => {
     if (!chain) return undefined;
@@ -292,8 +293,7 @@ function TransactionModal({
     const result = await callApi(
       'decryptComment',
       getGlobal().currentAccountId!,
-      encryptedComment!,
-      fromAddress!,
+      renderedTransaction!,
       password,
     );
 
@@ -544,6 +544,7 @@ function TransactionModal({
               copyNotification={lang('Address was copied!')}
               className={styles.copyButtonWrapper}
               textClassName={isScam && isIncoming ? styles.scamAddress : undefined}
+              forceFullAddress
             />
           </>
         )}

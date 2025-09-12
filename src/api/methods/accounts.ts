@@ -1,7 +1,7 @@
-import type { ApiActivityTimestamps, ApiLedgerAccount, ApiTonWallet, OnApiUpdate } from '../types';
+import type { ApiActivityTimestamps, ApiTonWallet, OnApiUpdate } from '../types';
 
 import { IS_EXTENSION } from '../../config';
-import { fetchStoredAccount, fetchStoredTonWallet, getCurrentAccountId, loginResolve } from '../common/accounts';
+import { fetchStoredAccount, fetchStoredWallet, getCurrentAccountId, loginResolve } from '../common/accounts';
 import { waitStorageMigration } from '../common/helpers';
 import { sendUpdateTokens } from '../common/tokens';
 import { callHook } from '../hooks';
@@ -44,9 +44,11 @@ export async function deactivateAllAccounts() {
 }
 
 export function fetchTonWallet(accountId: string): Promise<ApiTonWallet> {
-  return fetchStoredTonWallet(accountId);
+  return fetchStoredWallet(accountId, 'ton');
 }
 
-export function fetchLedgerAccount(accountId: string) {
-  return fetchStoredAccount<ApiLedgerAccount>(accountId);
+export async function fetchLedgerAccount(accountId: string) {
+  const account = await fetchStoredAccount(accountId);
+  if (account.type === 'ledger') return account;
+  throw new Error(`Account ${accountId} is not a Ledger account`);
 }

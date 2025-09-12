@@ -163,7 +163,7 @@ class ExploreCategoryVC: WViewController {
         let categoryId = self.categoryId
         let headerRegistration = UICollectionView.SupplementaryRegistration<UICollectionViewCell>(elementKind: UICollectionView.elementKindSectionHeader) { [weak self] headerView, elementKind, indexPath in
             headerView.contentConfiguration = UIHostingConfiguration {
-                Text(lang(self?.exploreVM.exploreCategories[categoryId]?.name ?? ""))
+                Text(self?.exploreVM.exploreCategories[categoryId]?.displayName ?? "")
                     .font(.system(size: 23, weight: .bold))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .overlay(alignment: .trailing) {

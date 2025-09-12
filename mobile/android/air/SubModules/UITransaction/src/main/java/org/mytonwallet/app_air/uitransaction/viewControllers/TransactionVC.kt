@@ -21,6 +21,7 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.content.ContextCompat
 import androidx.core.widget.NestedScrollView
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
@@ -78,17 +79,20 @@ import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ActivityStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
+import java.lang.ref.WeakReference
 import java.math.BigInteger
 import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
-class TransactionVC(context: Context, val transaction: MApiTransaction) : WViewController(context) {
+class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewController(context),
+    WalletCore.EventObserver {
 
     override val isSwipeBackAllowed = false
 
     private val firstLabel: WSensitiveDataContainer<WLabel> by lazy {
         val lbl = WLabel(context)
+        val transaction = transaction
         when (transaction) {
             is MApiTransaction.Transaction -> {
                 lbl.setStyle(36f, WFont.Medium)
@@ -134,6 +138,7 @@ class TransactionVC(context: Context, val transaction: MApiTransaction) : WViewC
         val lbl = WLabel(context).apply {
             setStyle(22f, WFont.Medium)
         }
+        val transaction = transaction
         when (transaction) {
             is MApiTransaction.Transaction -> {
                 val token = TokenStore.getToken(transaction.slug)
@@ -207,8 +212,7 @@ class TransactionVC(context: Context, val transaction: MApiTransaction) : WViewC
                         WalletCore.call(
                             ApiMethod.WalletData.DecryptComment(
                                 AccountStore.activeAccountId!!,
-                                transaction.encryptedComment!!,
-                                transaction.fromAddress,
+                                transaction,
                                 passcode
                             )
                         ) { res, err ->
@@ -218,6 +222,10 @@ class TransactionVC(context: Context, val transaction: MApiTransaction) : WViewC
                             commentView.removeView(decryptButton)
                             commentView.setConstraints {
                                 toEnd(commentLabel)
+                                constrainMaxWidth(
+                                    commentLabel.id,
+                                    ConstraintSet.MATCH_CONSTRAINT_SPREAD
+                                )
                             }
                             window?.dismissLastNav()
                         }
@@ -231,6 +239,7 @@ class TransactionVC(context: Context, val transaction: MApiTransaction) : WViewC
     private val commentView: WView by lazy {
         val v = WView(context)
         v.addView(commentLabel, ConstraintLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        val transaction = transaction
         if (transaction is MApiTransaction.Transaction) {
             if (!transaction.encryptedComment.isNullOrEmpty()) {
                 commentLabel.text = SpannableHelpers.encryptedCommentSpan(context)
@@ -262,8 +271,16 @@ class TransactionVC(context: Context, val transaction: MApiTransaction) : WViewC
             if (transaction is MApiTransaction.Transaction && !transaction.encryptedComment.isNullOrEmpty()) {
                 setHorizontalBias(decryptButton.id, 1f)
                 toCenterY(decryptButton)
-                startToEnd(decryptButton, commentLabel, 8f)
+                endToStart(commentLabel, decryptButton, 8f)
                 toEnd(decryptButton)
+                v.post {
+                    v.setConstraints {
+                        constrainMaxWidth(
+                            commentLabel.id,
+                            commentView.width - decryptButton.width - 38.dp
+                        )
+                    }
+                }
             } else {
                 toEnd(commentLabel)
             }
@@ -286,12 +303,13 @@ class TransactionVC(context: Context, val transaction: MApiTransaction) : WViewC
     }
     private val headerView: WView by lazy {
         val v = WView(context)
+        val transaction = transaction
         if (transaction is MApiTransaction.Transaction) {
             if (transaction.nft != null) {
-                nftHeaderView = NftHeaderView(context, transaction)
+                nftHeaderView = NftHeaderView(WeakReference(this), transaction)
                 v.addView(nftHeaderView)
             } else {
-                transactionHeaderView = TransactionHeaderView(context, transaction)
+                transactionHeaderView = TransactionHeaderView(WeakReference(this), transaction)
                 v.addView(transactionHeaderView)
             }
         }
@@ -332,9 +350,8 @@ class TransactionVC(context: Context, val transaction: MApiTransaction) : WViewC
         v
     }
 
-    private val actionsView = HeaderActionsView(
-        context,
-        listOfNotNull(
+    private fun generateActions(): List<HeaderActionsView.Item> {
+        return listOfNotNull(
             HeaderActionsView.Item(
                 HeaderActionsView.Identifier.DETAILS,
                 ContextCompat.getDrawable(
@@ -360,7 +377,12 @@ class TransactionVC(context: Context, val transaction: MApiTransaction) : WViewC
                     )!!,
                     LocaleController.getString("Share")
                 ) else null
-        ),
+        )
+    }
+
+    private val actionsView = HeaderActionsView(
+        context,
+        generateActions(),
         onClick = { identifier ->
             when (identifier) {
                 HeaderActionsView.Identifier.DETAILS -> {
@@ -409,6 +431,7 @@ class TransactionVC(context: Context, val transaction: MApiTransaction) : WViewC
         v.addView(transactionDetailsLabel)
         val shouldShowViewInExplorer =
             transaction.getTxIdentifier()?.isNotEmpty() == true && !transaction.isLocal()
+        val transaction = transaction
         when (transaction) {
             is MApiTransaction.Transaction -> {
                 if (transaction.isNft && transaction.nft != null) {
@@ -629,6 +652,7 @@ class TransactionVC(context: Context, val transaction: MApiTransaction) : WViewC
     override fun setupViews() {
         super.setupViews()
 
+        WalletCore.registerObserver(this)
         setNavTitle(transaction.title)
         setNavSubtitle(transaction.dt.formatDateAndTime())
         setupNavBar(true)
@@ -649,6 +673,11 @@ class TransactionVC(context: Context, val transaction: MApiTransaction) : WViewC
             loadActivityDetails()
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        WalletCore.unregisterObserver(this)
+    }
+
     override fun updateTheme() {
         super.updateTheme()
 
@@ -664,6 +693,7 @@ class TransactionVC(context: Context, val transaction: MApiTransaction) : WViewC
             headerView.background = separatorDrawable
             transactionDetails.setBackgroundColor(WColor.Background.color)
         }
+        val transaction = transaction
         when (transaction) {
             is MApiTransaction.Transaction -> {
                 firstLabel.contentView.setTextColor(
@@ -710,7 +740,17 @@ class TransactionVC(context: Context, val transaction: MApiTransaction) : WViewC
         headerViewContainer.setPadding(padding, 0, padding, 0)
     }
 
-    private fun shouldShowRepeatAction() =
+    private fun reloadData() {
+        transactionHeaderView?.reloadData()
+        actionsView.resetTabs(generateActions())
+        feeRow?.setValue(
+            calcFee(transaction),
+            fadeIn = false
+        )
+    }
+
+    private fun shouldShowRepeatAction() = {
+        val transaction = transaction
         AccountStore.activeAccount?.accountType != MAccount.AccountType.VIEW &&
             (
                 transaction is MApiTransaction.Swap ||
@@ -720,6 +760,7 @@ class TransactionVC(context: Context, val transaction: MApiTransaction) : WViewC
                             (transaction.isStaking || (!transaction.isIncoming && transaction.nft == null))
                         )
                 )
+    }()
 
     private fun calcFee(transaction: MApiTransaction): String? {
         if (transaction.shouldLoadDetails == true)
@@ -822,8 +863,7 @@ class TransactionVC(context: Context, val transaction: MApiTransaction) : WViewC
                                     nav.setRoot(browserVC)
                                     window?.present(nav)
                                 }),
-                            popupWidth = 220.dp,
-                            offset = 0,
+                            popupWidth = WRAP_CONTENT,
                             aboveView = false
                         )
                     }
@@ -898,8 +938,7 @@ class TransactionVC(context: Context, val transaction: MApiTransaction) : WViewC
                                     nav.setRoot(browserVC)
                                     window?.present(nav)
                                 }),
-                            popupWidth = 220.dp,
-                            offset = 0,
+                            popupWidth = WRAP_CONTENT,
                             aboveView = false
                         )
                     }
@@ -946,6 +985,7 @@ class TransactionVC(context: Context, val transaction: MApiTransaction) : WViewC
     private fun repeatPressed() {
         val navVC = WNavigationController(window!!)
 
+        val transaction = transaction
         when (transaction) {
             is MApiTransaction.Transaction -> {
                 val token = TokenStore.getToken(transaction.slug) ?: return
@@ -1003,5 +1043,22 @@ class TransactionVC(context: Context, val transaction: MApiTransaction) : WViewC
                 LocaleController.getString("Share")
             )
         )
+    }
+
+    override fun onWalletEvent(walletEvent: WalletEvent) {
+        when (walletEvent) {
+            is WalletEvent.AccountSavedAddressesChanged -> {
+                reloadData()
+            }
+
+            is WalletEvent.ReceivedNewActivities -> {
+                walletEvent.newActivities?.firstOrNull { it.id == transaction.id }?.let {
+                    this.transaction = it
+                    reloadData()
+                }
+            }
+
+            else -> {}
+        }
     }
 }

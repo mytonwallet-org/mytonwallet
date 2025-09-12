@@ -73,7 +73,7 @@ extension BaseCurrencyVC: UITableViewDelegate, UITableViewDataSource {
     public func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         if indexPath.row == 0 {
             let cell = tableView.dequeueReusableCell(withIdentifier: "Header", for: indexPath) as! SectionHeaderCell
-            cell.configure(title: lang("MAIN CURRENCY"))
+            cell.configure(title: lang("Main Currency").uppercased())
             return cell
         }
         let baseCurrency = baseCurrencies[indexPath.row - 1]

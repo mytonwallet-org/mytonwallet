@@ -15,9 +15,9 @@ import android.widget.LinearLayout
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
-import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListTitleCell
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.commonViews.AddressInputLayout
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.activity.ActivitySingleTagView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -33,7 +33,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.unlockView
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views.PasscodeScreenView
-import org.mytonwallet.app_air.uisend.send.lauouts.AddressInputLayout
 import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
 import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletcontext.theme.WColor
@@ -49,8 +48,8 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
+import java.lang.ref.WeakReference
 import java.math.BigInteger
-import kotlin.math.max
 import kotlin.math.roundToInt
 
 class LinkToWalletVC(
@@ -78,11 +77,13 @@ class LinkToWalletVC(
     }
 
     private val addressInputView by lazy {
-        AddressInputLayout(context, onPaste = {
-            view.hideKeyboard()
-        }).apply {
+        AddressInputLayout(
+            WeakReference(this),
+            onTextEntered = {
+                view.hideKeyboard()
+            }).apply {
             id = View.generateViewId()
-            editTextView.hint = LocaleController.getString("Enter Address")
+            setHint(LocaleController.getString("Enter Address"))
         }
     }
 
@@ -149,38 +150,31 @@ class LinkToWalletVC(
         }
 
         address?.let { address ->
-            addressInputView.editTextView.setText(address)
+            addressInputView.setText(address)
             calculateFee(address)
         } ?: run {
             linkButton.isEnabled = false
         }
-        addressInputView.editTextView.addTextChangedListener(onInputDestinationTextWatcher)
+        addressInputView.addTextChangedListener(onInputDestinationTextWatcher)
 
         updateTheme()
     }
 
-    // TODO:: Make WWindow handle position correctly
-    var prevBottomMargin = 0
     override fun insetsUpdated() {
         super.insetsUpdated()
         val systemBarBottom = (navigationController?.getSystemBars()?.bottom ?: 0)
-        val keyboardHeight = (window?.imeInsets?.bottom ?: 0)
         view.setPadding(
             0,
             0,
             0,
-            systemBarBottom + keyboardHeight
+            systemBarBottom
         )
-        val newBottomMargin = max(keyboardHeight, systemBarBottom)
-        val diff = newBottomMargin - prevBottomMargin
-        if (diff != 0) {
-            prevBottomMargin = newBottomMargin
-            navigationController
-                ?.animate()
-                ?.y(navigationController!!.y - diff)
-                ?.setDuration(AnimationConstants.VERY_VERY_QUICK_ANIMATION)
-                ?.start()
-        }
+        addressInputView.insetsUpdated()
+    }
+
+    override fun keyboardAnimationFrameRendered() {
+        super.keyboardAnimationFrameRendered()
+        addressInputView.insetsUpdated()
     }
 
     override fun updateTheme() {
@@ -252,7 +246,7 @@ class LinkToWalletVC(
     private val headerView: View
         get() {
             return PasscodeHeaderSendView(
-                context,
+                WeakReference(this),
                 (window!!.windowView.height * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO).roundToInt()
             ).apply {
                 config(
@@ -327,6 +321,6 @@ class LinkToWalletVC(
     override fun onDestroy() {
         super.onDestroy()
 
-        addressInputView.editTextView.removeTextChangedListener(onInputDestinationTextWatcher)
+        addressInputView.removeTextChangedListener(onInputDestinationTextWatcher)
     }
 }

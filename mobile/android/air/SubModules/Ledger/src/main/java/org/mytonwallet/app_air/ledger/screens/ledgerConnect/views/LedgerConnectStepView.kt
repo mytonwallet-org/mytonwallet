@@ -74,7 +74,7 @@ class LedgerConnectStepView(context: Context, stepText: String) : WView(context)
         }
     }
 
-    fun setError(errorMessage: String?) {
+    fun setError(errorMessage: CharSequence?) {
         if ((errorLabel.text ?: "") == (errorMessage ?: ""))
             return
 

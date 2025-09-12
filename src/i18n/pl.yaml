@@ -216,7 +216,7 @@ $tiny_transfers_help: Wyłącz to, aby wyświetlać transakcje o wartości mniej
 Today: Dzisiaj
 Yesterday: Wczoraj
 Now: Teraz
-$receive_ton_description: Zeskanuj ten kod QR lub udostępnij swój adres, aby doładować saldo portfela.
+$receive_description: Zeskanuj ten kod QR lub udostępnij swój adres, aby doładować saldo portfela.
 Wrong password, please try again.: Niepoprawne hasło, spróbuj ponownie.
 Appearance: Wygląd
 Light: Jasny
@@ -686,7 +686,6 @@ Untitled: Bez tytułu
 Multichain: Multichain
 $swap_too_small_amount: Zbyt mała kwota
 Not enough %symbol%: Za mało %symbol%
-$receive_tron_description: Zeskanuj ten kod QR lub udostępnij swój adres, aby doładować saldo portfela.
 You have just created a new multichain wallet: Właśnie utworzyłeś nowy portfel multichain
 Now you can transfer tokens from your TON and TRON wallets.: Teraz możesz przesyłać tokeny ze swoich portfeli TON i TRON.
 Enter Secret Words: Wprowadź Tajne Słowa
@@ -850,7 +849,7 @@ Not available with biometrics.: Niedostępne z biometrią.
 App will not ask for signature for %1$d minutes after last entry.: Aplikacja nie będzie prosić o podpis przez %1$d minut po ostatnim wprowadzeniu.
 Remember for %1$d minutes: Zapamiętaj na %1$d minut
 Preview: Podgląd
-$preview_not_guaranteed: Wynik podglądu **nie jest gwarantowany **i **może zostać sfałszowany **przez usługę.
+$preview_not_guaranteed: Wynik podglądu **nie jest gwarantowany** i **może zostać sfałszowany** przez usługę.
 Unverified Source: Niezweryfikowane źródło
 $reopen_in_iab: Dla Twojego bezpieczeństwa otwórz tę aplikację ponownie w %browserButton%.
 MyTonWallet Browser: przeglądarce MyTonWallet

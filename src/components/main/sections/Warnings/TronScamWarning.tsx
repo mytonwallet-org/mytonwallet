@@ -50,7 +50,7 @@ export default memo(withGlobal((global): StateProps => {
   const account = selectCurrentAccount(global);
 
   return {
-    isMultisig: account?.isMultisigByChain?.tron,
+    isMultisig: account?.byChain.tron?.isMultisig,
     isViewMode: account?.type === 'view',
   };
 })(TronScamWarning));

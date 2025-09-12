@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.walletcore.moshi
 
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
+import org.mytonwallet.app_air.walletcore.models.MAccount.AccountChain
 import java.math.BigInteger
 
 // Base wallet class
@@ -87,4 +88,11 @@ data class MImportedWalletResponse(
     val accountId: String,
     val address: String,
     val walletInfo: MLedgerWalletInfo,
+)
+
+@JsonClass(generateAdapter = true)
+data class MImportedViewWalletResponse(
+    val accountId: String,
+    val title: String?,
+    val byChain: Map<String, AccountChain>,
 )

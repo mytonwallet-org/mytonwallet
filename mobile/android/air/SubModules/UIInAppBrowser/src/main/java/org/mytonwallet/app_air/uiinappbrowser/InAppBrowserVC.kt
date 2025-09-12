@@ -22,6 +22,7 @@ import android.widget.FrameLayout
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat.checkSelfPermission
+import androidx.core.net.toUri
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -41,6 +42,7 @@ import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.DappsStore
 import java.net.URL
+import java.net.URLEncoder
 import java.util.regex.Pattern
 
 
@@ -86,6 +88,14 @@ class InAppBrowserVC(
         AppCompatImageView(context).apply {
             id = View.generateViewId()
         }
+    }
+
+    private fun canHandleExternalUrl(url: String): Boolean {
+        return url.startsWith("geo:") ||
+            url.startsWith(WebView.SCHEME_MAILTO) ||
+            url.startsWith("market:") ||
+            url.startsWith("intent:") ||
+            url.startsWith("tg:")
     }
 
     val webView: WebView by lazy {
@@ -168,7 +178,10 @@ class InAppBrowserVC(
                     }
                 }
 
-                if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                if (!url.startsWith("http://") &&
+                    !url.startsWith("https://") &&
+                    canHandleExternalUrl(url)
+                ) {
                     val intent = Intent(Intent.ACTION_VIEW)
                     intent.setData(Uri.parse(url))
                     window?.startActivity(intent)
@@ -346,6 +359,8 @@ class InAppBrowserVC(
     }
 
     companion object {
+        const val GOOGLE_SEARCH_URL = "https://www.google.com/search?q="
+
         fun convertToUri(input: String): Uri? {
             try {
                 val url = if (input.startsWith("https://") || input.startsWith("http://")) {
@@ -354,9 +369,9 @@ class InAppBrowserVC(
                     "https://$input"
                 }
 
-                val uri = Uri.parse(url)
+                val uri = url.toUri()
                 if (!isValidDomain(uri.host ?: "")) {
-                    return null
+                    return (GOOGLE_SEARCH_URL + URLEncoder.encode(url, "UTF-8")).toUri()
                 }
                 return uri
             } catch (e: Exception) {

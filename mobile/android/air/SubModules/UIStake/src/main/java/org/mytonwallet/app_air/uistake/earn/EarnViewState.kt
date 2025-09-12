@@ -6,6 +6,7 @@ import java.math.BigInteger
 data class EarnViewState(
     var stakingBalance: String? = null,
     val enableAddStakeButton: Boolean = false,
+    val showAddStakeButton: Boolean = false,
     val showUnstakeButton: Boolean = false,
 
     var totalProfit: String? = null,

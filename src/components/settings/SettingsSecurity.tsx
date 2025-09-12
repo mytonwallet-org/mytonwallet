@@ -66,8 +66,8 @@ import NativeBiometricsToggle from './biometrics/NativeBiometricsToggle';
 import modalStyles from '../ui/Modal.module.scss';
 import styles from './Settings.module.scss';
 
+import backupImg from '../../assets/settings/settings_backup.svg';
 import biometricsImg from '../../assets/settings/settings_biometrics.svg';
-import backupImg from '../../assets/settings/settings_install-app.svg';
 
 export const enum SLIDES {
   password,

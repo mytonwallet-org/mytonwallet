@@ -48,7 +48,7 @@ import { TsUSDeWallet } from './contracts/Ethena/TsUSDeWallet';
 import { StakeWallet } from './contracts/JettonStaking/StakeWallet';
 import { StakingPool } from './contracts/JettonStaking/StakingPool';
 import { NominatorPool } from './contracts/NominatorPool';
-import { fetchStoredTonAccount, fetchStoredTonWallet } from '../../common/accounts';
+import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/accounts';
 import { callBackendGet } from '../../common/backend';
 import { getAccountCache, getStakingCommonCache, updateAccountCache } from '../../common/cache';
 import { getClientId } from '../../common/other';
@@ -120,7 +120,7 @@ export async function checkStakeDraft(accountId: string, amount: bigint, state: 
 
 export async function checkUnstakeDraft(accountId: string, amount: bigint, state: ApiStakingState) {
   const { network } = parseAccountId(accountId);
-  const { address } = await fetchStoredTonWallet(accountId);
+  const { address } = await fetchStoredWallet(accountId, 'ton');
   const commonData = await getStakingCommonCache();
 
   let result: ApiCheckTransactionDraftResult;
@@ -203,7 +203,7 @@ export async function submitStake(
   let result: ApiSubmitTransferTonResult;
 
   const { network } = parseAccountId(accountId);
-  const { address } = await fetchStoredTonWallet(accountId);
+  const { address } = await fetchStoredWallet(accountId, 'ton');
 
   switch (state.type) {
     case 'nominators': {
@@ -271,7 +271,7 @@ export async function submitUnstake(
   state: ApiStakingState,
 ) {
   const { network } = parseAccountId(accountId);
-  const { address } = await fetchStoredTonWallet(accountId);
+  const { address } = await fetchStoredWallet(accountId, 'ton');
 
   let result: ApiSubmitTransferTonResult;
 
@@ -373,7 +373,7 @@ export async function getStakingStates(
   balances: ApiBalanceBySlug,
 ): Promise<ApiStakingState[]> {
   const { network } = parseAccountId(accountId);
-  const { address } = await fetchStoredTonWallet(accountId);
+  const { address } = await fetchStoredWallet(accountId, 'ton');
 
   const {
     loyaltyType,
@@ -624,8 +624,8 @@ function getLiquidStakingTimeRange(commonData: ApiStakingCommonData) {
 }
 
 export async function getBackendStakingState(accountId: string): Promise<ApiBackendStakingState> {
-  const account = await fetchStoredTonAccount(accountId);
-  const state = await fetchBackendStakingState(account.ton.address, account.type === 'view');
+  const account = await fetchStoredChainAccount(accountId, 'ton');
+  const state = await fetchBackendStakingState(account.byChain.ton.address, account.type === 'view');
   return {
     ...state,
     nominatorsPool: {
@@ -673,7 +673,7 @@ export async function submitUnstakeEthenaLocked(
   password: string | undefined,
   state: ApiEthenaStakingState,
 ) {
-  const { address } = await fetchStoredTonWallet(accountId);
+  const { address } = await fetchStoredWallet(accountId, 'ton');
 
   const result = await submitTransfer({
     accountId,

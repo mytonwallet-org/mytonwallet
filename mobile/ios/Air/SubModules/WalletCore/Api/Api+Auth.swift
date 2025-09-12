@@ -37,6 +37,16 @@ extension Api {
         try await bridge.callApi("importLedgerWallet", network, walletInfo, decoding: ApiImportLedgerWalletResult.self)
     }
     
+    /// - Important: Do not call this methods directly, use **AccountStore** instead
+    internal static func resetAccounts() async throws {
+        try await bridge.callApiVoid("resetAccounts")
+    }
+    
+    /// - Important: Do not call this methods directly, use **AccountStore** instead
+    internal static func removeAccount(accountId: String, nextAccountId: String, newestActivityTimestamps: ApiActivityTimestamps?) async throws {
+        try await bridge.callApiVoid("removeAccount", accountId, nextAccountId, newestActivityTimestamps)
+    }
+
     /// - Important: updates **keychain credentials**
     public static func changePassword(oldPassword: String, newPassword: String) async throws {
         try await bridge.callApiVoid("changePassword", oldPassword, newPassword)
@@ -54,15 +64,6 @@ extension Api {
         try await bridge.callApi("importNewWalletVersion", accountId, version, decoding: ApiImportNewWalletVersionResult.self)
     }
     
-    /// - Important: Do not call this methods directly, use **AccountStore** instead
-    internal static func resetAccounts() async throws {
-        try await bridge.callApiVoid("resetAccounts")
-    }
-    
-    /// - Important: Do not call this methods directly, use **AccountStore** instead
-    internal static func removeAccount(accountId: String, nextAccountId: String) async throws {
-        try await bridge.callApiVoid("removeAccount", accountId, nextAccountId)
-    }
 }
 
 
@@ -70,10 +71,7 @@ extension Api {
 
 public struct ApiAddWalletResult: Decodable, Sendable {
     public var accountId: String
-    public var addressByChain: [String: String]
-    
-    public var tonAddress: String? { addressByChain[ApiChain.ton.rawValue] }
-    public var tronAddress: String? { addressByChain[ApiChain.tron.rawValue] }
+    public var byChain: [String: AccountChain]
 }
 
 public struct ApiImportLedgerWalletResult: Decodable, Sendable {
@@ -87,11 +85,12 @@ public typealias ApiImportAddressByChain = [String: String]
 public struct ApiImportViewAccountResult: Decodable, Sendable {
     public var accountId: String
     public var title: String?
-    public var resolvedAddresses: ApiImportAddressByChain
+    public var byChain: [String: AccountChain]
 }
 
 public struct ApiImportNewWalletVersionResult: Decodable, Sendable {
+    public var isNew: Bool
     public var accountId: String
-    public var address: String
+    public var address: String?
     public var ledger: MAccount.Ledger?
 }

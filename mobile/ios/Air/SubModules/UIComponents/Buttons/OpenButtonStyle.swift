@@ -8,7 +8,7 @@
 import SwiftUI
 import WalletContext
 
-public struct OpenButtonStyle: ButtonStyle {
+public struct OpenButtonStyle: PrimitiveButtonStyle {
     @State private var isHighlighted: Bool = false
     
     public init() {}
@@ -23,6 +23,9 @@ public struct OpenButtonStyle: ButtonStyle {
             .foregroundStyle(Color(WTheme.tint))
             .background(Color(WTheme.tint), in: .containerRelative)
             .contentShape(.containerRelative.inset(by: -10))
+            .onTapGesture {
+                configuration.trigger()
+            }
             .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in
                 withAnimation(.spring(duration: 0.1)) {
                     isHighlighted = true

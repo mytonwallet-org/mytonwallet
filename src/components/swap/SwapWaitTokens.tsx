@@ -36,7 +36,7 @@ interface OwnProps {
   payoutAddress?: string;
   payinExtraId?: string;
   activity?: ApiActivity;
-  addressByChain?: Account['addressByChain'];
+  accountChains?: Account['byChain'];
   onClose: NoneToVoidFunction;
 }
 
@@ -50,7 +50,7 @@ function SwapWaitTokens({
   payoutAddress,
   payinExtraId,
   activity,
-  addressByChain,
+  accountChains,
   onClose,
 }: OwnProps) {
   const lang = useLang();
@@ -68,7 +68,7 @@ function SwapWaitTokens({
 
   const shouldShowQrCode = !payinExtraId;
   const isInternalSwap = getIsInternalSwap({
-    from: tokenIn, to: tokenOut, toAddress: payoutAddress, addressByChain,
+    from: tokenIn, to: tokenOut, toAddress: payoutAddress, accountChains,
   });
 
   useHistoryBack({

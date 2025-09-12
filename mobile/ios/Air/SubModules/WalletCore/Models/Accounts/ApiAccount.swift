@@ -17,7 +17,7 @@ public struct ApiTonAccount {
 
 public struct ApiLedgerAccount: Equatable, Hashable, Codable {
   public var type = "ledger"
-  public var ton: ApiTonWallet
+  public var byChain: [String: ApiTonWallet]
   public var driver: ApiLedgerDriver
   public var deviceId: String?
   public var deviceName: String?

@@ -74,7 +74,7 @@ class WWordInput(
 
     override fun updateTheme() {
         numberLabel.setTextColor(WColor.SecondaryText.color)
-        setBackgroundColor(WColor.SecondaryBackground.color, 10f.dp)
+        setBackgroundColor(WColor.Background.color, 10f.dp)
     }
 
     fun checkValue() {

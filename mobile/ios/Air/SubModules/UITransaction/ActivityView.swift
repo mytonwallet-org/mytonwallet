@@ -102,7 +102,7 @@ struct ActivityView: View {
                     Text(name)
                         .font(.system(size: 24, weight: .semibold))
                     HStack(alignment: .firstTextBaseline, spacing: 0) {
-                        Text(tx.isIncoming == true ? lang("Received from ") :  lang("Sent to "))
+                        Text((tx.isIncoming == true ? lang("Received from") :  lang("Sent to")) + " ") 
                         TappableAddress(name: activity.addressToShow,
                                         resolvedAddress: activity.peerAddress,
                                         addressOrName: activity.addressToShow)
@@ -196,7 +196,7 @@ struct ActivityView: View {
             transactionId
             changellyId
         } header: {
-            Text(lang("Transaction details"))
+            Text(lang("Transaction Details"))
                 .padding(.bottom, 1)
         }
         .padding(.top, -8)

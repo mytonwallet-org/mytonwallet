@@ -315,9 +315,9 @@ public class ActivityCell: WHighlightCell {
         case .transaction(let transaction):
             if activity.type == nil {
                 if transaction.isIncoming {
-                    attr.append(NSAttributedString(string: "from "))
+                    attr.append(NSAttributedString(string: lang("$transaction_from", arg1: "")))
                 } else {
-                    attr.append(NSAttributedString(string: "to "))
+                    attr.append(NSAttributedString(string: lang("$transaction_to", arg1: "")))
                 }
                 if AccountStore.account?.isMultichain == true {
                     let chain = activity.slug.starts(with: "ton") ? "ton" : "tron"
@@ -348,12 +348,12 @@ public class ActivityCell: WHighlightCell {
             switch swap.status {
             case .pending, .pendingTrusted:
                 if swap.fromToken?.isOnChain ?? true {
-                    status = lang("In progress")
+                    status = lang("In Progress")
                 } else {
                     if swap.cex?.status.uiStatus == .pending {
-                        status = lang("Waiting for payment")
+                        status = lang("Waiting for Payment")
                     } else {
-                        status = lang("In progress")
+                        status = lang("In Progress")
                     }
                 }
             case .completed:

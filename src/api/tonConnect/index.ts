@@ -56,7 +56,7 @@ import { getTonConnectMaxMessages, tonConnectGetDeviceInfo } from '../../util/to
 import chains from '../chains';
 import { getContractInfo, parsePayloadBase64 } from '../chains/ton';
 import { getIsRawAddress, getWalletPublicKey, toBase64Address, toRawAddress } from '../chains/ton/util/tonCore';
-import { fetchStoredTonAccount, getCurrentAccountId, getCurrentAccountIdOrFail } from '../common/accounts';
+import { fetchStoredChainAccount, getCurrentAccountId, getCurrentAccountIdOrFail } from '../common/accounts';
 import { getKnownAddressInfo } from '../common/addresses';
 import { createDappPromise } from '../common/dappPromises';
 import { isUpdaterAlive } from '../common/helpers';
@@ -71,7 +71,7 @@ import {
   getDapp,
   updateDapp,
 } from '../methods/dapps';
-import { createLocalActivitiesFromEmulation, createLocalTransactions } from '../methods/transactions';
+import { createLocalActivitiesFromEmulation, createLocalTransactions } from '../methods/transfer';
 import * as errors from './errors';
 import { UnknownAppError } from './errors';
 import { getTransferActualToAddress, isTransferPayloadDangerous, isValidString, isValidUrl } from './utils';
@@ -155,11 +155,11 @@ export async function connect(request: ApiDappRequest, message: ConnectRequest, 
     request.accountId = accountId;
     await addDapp(accountId, dapp, uniqueId);
 
-    const account = await fetchStoredTonAccount(accountId);
+    const account = await fetchStoredChainAccount(accountId, 'ton');
 
     const deviceInfo = tonConnectGetDeviceInfo(account);
     const items: ConnectItemReply[] = [
-      buildTonAddressReplyItem(accountId, account.ton),
+      buildTonAddressReplyItem(accountId, account.byChain.ton),
     ];
 
     if (proof) {
@@ -203,11 +203,11 @@ export async function reconnect(request: ApiDappRequest, id: number): Promise<Co
 
     await updateDapp(accountId, url, uniqueId, { connectedAt: Date.now() });
 
-    const account = await fetchStoredTonAccount(accountId);
+    const account = await fetchStoredChainAccount(accountId, 'ton');
 
     const deviceInfo = tonConnectGetDeviceInfo(account);
     const items: ConnectItemReply[] = [
-      buildTonAddressReplyItem(accountId, account.ton),
+      buildTonAddressReplyItem(accountId, account.byChain.ton),
     ];
 
     return {
@@ -254,11 +254,14 @@ export async function sendTransaction(
     const txPayload = JSON.parse(message.params[0]) as TransactionPayload;
     const { messages, network: dappNetworkRaw } = txPayload;
 
-    const account = await fetchStoredTonAccount(accountId);
+    const account = await fetchStoredChainAccount(accountId, 'ton');
     const {
-      type, ton: {
-        address,
-        publicKey: publicKeyHex,
+      type,
+      byChain: {
+        ton: {
+          address,
+          publicKey: publicKeyHex,
+        },
       },
     } = account;
 

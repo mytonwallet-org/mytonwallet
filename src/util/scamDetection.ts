@@ -11,7 +11,7 @@ export function shouldShowSeedPhraseScamWarning(
   transferTokenChain: ApiChain,
 ): boolean {
   // For multisig accounts a warning should always be shown
-  if (account?.isMultisigByChain?.[transferTokenChain]) {
+  if (account?.byChain[transferTokenChain]?.isMultisig) {
     return true;
   }
 

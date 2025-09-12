@@ -62,7 +62,7 @@ class StakingPasscodeView(
     }
 
     private val passcodeInputView: PasscodeInputView by lazy {
-        val v = PasscodeInputView(context, null, light, margins = 8)
+        val v = PasscodeInputView(context, null, light, margins = 8, showKeyboardOnFocus = false)
         v.isEnabled = false
         v.passLength = passLength
         v

@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.PopupWindow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
@@ -182,7 +183,7 @@ class WMenuPopup {
         fun present(
             view: View,
             items: List<Item>,
-            popupWidth: Int = 150.dp,
+            popupWidth: Int = WRAP_CONTENT,
             offset: Int = 0,
             verticalOffset: Int = 0,
             aboveView: Boolean

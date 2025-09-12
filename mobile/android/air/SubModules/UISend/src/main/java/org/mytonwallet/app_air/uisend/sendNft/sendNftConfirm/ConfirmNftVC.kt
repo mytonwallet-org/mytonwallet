@@ -83,8 +83,8 @@ class ConfirmNftVC(
     override var title: String?
         get() = LocaleController.getString(
             when (mode) {
-                is Mode.Send -> "SendNft_Title"
-                is Mode.Burn -> "SendNft_BurnTitle"
+                is Mode.Send -> "Send NFT"
+                is Mode.Burn -> "Burn NFT"
             }
         )
         set(_) {}
@@ -194,7 +194,7 @@ class ConfirmNftVC(
             val formattedAddress = address.formatStartEndAddress()
             val addressAttr = SpannableStringBuilder(formattedAddress).apply {
                 AddressPopupHelpers.configSpannableAddress(
-                    context,
+                    WeakReference(this@ConfirmNftVC),
                     this,
                     length - formattedAddress.length,
                     formattedAddress.length,
@@ -414,7 +414,7 @@ class ConfirmNftVC(
             SpannableStringBuilder(sendingToString).apply {
                 append(" $address")
                 AddressPopupHelpers.configSpannableAddress(
-                    context,
+                    WeakReference(this@ConfirmNftVC),
                     this,
                     length - address.length,
                     address.length,
@@ -435,7 +435,7 @@ class ConfirmNftVC(
                 context,
                 PasscodeViewState.CustomHeader(
                     PasscodeHeaderSendView(
-                        context,
+                        WeakReference(this@ConfirmNftVC),
                         (view.height * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO).roundToInt()
                     ).apply {
                         config(

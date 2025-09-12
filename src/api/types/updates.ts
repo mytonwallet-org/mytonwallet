@@ -3,7 +3,7 @@ import type { SignDataPayload } from '@tonconnect/protocol';
 import type { GlobalState } from '../../global/types';
 import type { ApiCheckTransactionDraftResult, ApiTonWalletVersion } from '../chains/ton/types';
 import type { ApiTonConnectProof } from '../tonConnect/types';
-import type { ApiActivity } from './activity';
+import type { ApiActivity } from './activities';
 import type {
   ApiAccountConfig,
   ApiSwapAsset,

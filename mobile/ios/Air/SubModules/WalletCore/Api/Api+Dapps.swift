@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import WebKit
 import WalletContext
 
 extension Api {
@@ -29,20 +28,18 @@ extension Api {
         try await bridge.callApiVoid("deleteAllDapps", accountId)
     }
     
-    public static func loadExploreSites(isLandscape: Bool = false) async throws -> ExploreSitesResult {
+    public static func loadExploreSites(isLandscape: Bool = false) async throws -> ApiExploreSitesResult {
         struct Opts: Encodable {
             var isLandscape: Bool
         }
-        return try await bridge.callApi("loadExploreSites", Opts(isLandscape: isLandscape), decoding: ExploreSitesResult.self)
+        return try await bridge.callApi("loadExploreSites", Opts(isLandscape: isLandscape), decoding: ApiExploreSitesResult.self)
     }
 }
 
 
 // MARK: - Types
 
-extension Api {
-    public struct ExploreSitesResult: Codable, Sendable {
-        public var categories: [ApiSiteCategory]
-        public var sites: [ApiSite]
-    }
+public struct ApiExploreSitesResult: Codable, Sendable {
+    public var categories: [ApiSiteCategory]
+    public var sites: [ApiSite]
 }

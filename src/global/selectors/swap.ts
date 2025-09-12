@@ -165,9 +165,9 @@ export function selectSwapType(global: GlobalState) {
     return SwapType.OnChain;
   }
 
-  const { addressByChain } = selectCurrentAccount(global) ?? { addressByChain: {} };
+  const byChain = selectCurrentAccount(global)?.byChain ?? {};
 
-  if (tokenInChain in addressByChain) {
+  if (tokenInChain in byChain) {
     return SwapType.CrosschainFromWallet;
   }
 

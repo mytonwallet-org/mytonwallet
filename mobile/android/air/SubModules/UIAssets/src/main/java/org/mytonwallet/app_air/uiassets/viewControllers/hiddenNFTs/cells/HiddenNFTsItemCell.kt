@@ -135,7 +135,8 @@ class HiddenNFTsItemCell(
     private var isLast = false
     fun configure(
         nft: ApiNft,
-        isLast: Boolean
+        isLast: Boolean,
+        showSeparator: Boolean,
     ) {
         this.nft = nft
         this.isLast = isLast
@@ -167,7 +168,7 @@ class HiddenNFTsItemCell(
             }
             updateHideButtonText()
         }
-        separatorView.visibility = if (isLast) INVISIBLE else VISIBLE
+        separatorView.visibility = if (showSeparator) VISIBLE else INVISIBLE
 
         updateTheme()
     }

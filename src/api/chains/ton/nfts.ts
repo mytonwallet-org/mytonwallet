@@ -21,7 +21,7 @@ import {
   fetchAccountEvents, fetchAccountNfts, fetchNftByAddress, fetchNftItems,
 } from './util/tonapiio';
 import { commentToBytes, packBytesAsSnake, toBase64Address } from './util/tonCore';
-import { fetchStoredTonAccount, fetchStoredTonWallet } from '../../common/accounts';
+import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/accounts';
 import { getNftSuperCollectionsByCollectionAddress } from '../../common/addresses';
 import {
   NFT_PAYLOAD_SAFE_MARGIN,
@@ -39,7 +39,7 @@ export async function getAccountNfts(accountId: string, options?: {
   limit?: number;
 }): Promise<ApiNft[]> {
   const { network } = parseAccountId(accountId);
-  const { address } = await fetchStoredTonWallet(accountId);
+  const { address } = await fetchStoredWallet(accountId, 'ton');
   const nftSuperCollectionsByCollectionAddress = await getNftSuperCollectionsByCollectionAddress();
 
   const rawNfts = await fetchAccountNfts(network, address, options);
@@ -48,7 +48,7 @@ export async function getAccountNfts(accountId: string, options?: {
 
 export async function checkNftOwnership(accountId: string, nftAddress: string) {
   const { network } = parseAccountId(accountId);
-  const { address } = await fetchStoredTonWallet(accountId);
+  const { address } = await fetchStoredWallet(accountId, 'ton');
   const rawNft = await fetchNftByAddress(network, nftAddress);
   const nftSuperCollectionsByCollectionAddress = await getNftSuperCollectionsByCollectionAddress();
 
@@ -59,7 +59,7 @@ export async function checkNftOwnership(accountId: string, nftAddress: string) {
 
 export async function getNftUpdates(accountId: string, fromSec: number) {
   const { network } = parseAccountId(accountId);
-  const { address } = await fetchStoredTonWallet(accountId);
+  const { address } = await fetchStoredWallet(accountId, 'ton');
   const nftSuperCollectionsByCollectionAddress = await getNftSuperCollectionsByCollectionAddress();
 
   const events = await fetchAccountEvents(network, address, fromSec);
@@ -138,8 +138,8 @@ export async function checkNftTransferDraft(options: {
   let { toAddress } = options;
 
   const { network } = parseAccountId(accountId);
-  const account = await fetchStoredTonAccount(accountId);
-  const { address: fromAddress } = account.ton;
+  const account = await fetchStoredChainAccount(accountId, 'ton');
+  const { address: fromAddress } = account.byChain.ton;
 
   const result: ApiCheckTransactionDraftResult = await checkToAddress(network, toAddress);
   if ('error' in result) {
@@ -178,7 +178,7 @@ export async function submitNftTransfers(options: {
   const {
     accountId, password, nfts, toAddress, comment,
   } = options;
-  const { address: fromAddress } = await fetchStoredTonWallet(accountId);
+  const { address: fromAddress } = await fetchStoredWallet(accountId, 'ton');
   const messages = nfts.map((nft) => buildNftTransferMessage(nft, fromAddress, toAddress, comment));
   return submitMultiTransfer({ accountId, password, messages });
 }

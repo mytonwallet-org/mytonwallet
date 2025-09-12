@@ -67,9 +67,15 @@ const config: CapacitorConfig = {
       presentationOptions: [],
     },
     Keyboard: {
-      // Needed to disable the automatic focus scrolling on iOS. The scroll is controlled manually by focusScroll.ts
-      // for a better focus scroll control.
+      // Needed to disable the automatic focus scrolling on iOS.
+      // The scroll is controlled manually by focusScroll.ts for a better focus scroll control.
       resize: 'none' as KeyboardResize,
+      // There is an Android bug that prevents the keyboard from resizing the WebView when the app is in full screen
+      // (i.e. if StatusBar plugin is used to overlay the status bar).
+      // This setting, if set to true, add a workaround that resizes the WebView even
+      // when the app is in full screen. Only available for Android
+      // https://capacitorjs.com/docs/apis/keyboard#configuration
+      resizeOnFullScreen: true,
     },
   },
 };

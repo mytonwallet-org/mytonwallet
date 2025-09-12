@@ -8,6 +8,8 @@
 import Foundation
 import WalletContext
 
+public let DEFAULT_PRICE_CURRENCY = MBaseCurrency.USD
+
 public enum MBaseCurrency: String, Equatable, Hashable, Codable, Sendable, Identifiable, CaseIterable {
     case USD = "USD"
     case EUR = "EUR"
@@ -43,26 +45,13 @@ public enum MBaseCurrency: String, Equatable, Hashable, Codable, Sendable, Ident
     }
     
     public var symbol: String {
-        switch self {
-        case .USD:
-            return lang("USD")
-        case .EUR:
-            return lang("EUR")
-        case .RUB:
-            return lang("RUB")
-        case .CNY:
-            return lang("CNY")
-        case .BTC:
-            return lang("BTC")
-        case .TON:
-            return lang("TON")
-        }
+        return rawValue
     }
 
     public var name: String {
         switch self {
         case .USD:
-            return lang("United States Dollar")
+            return lang("US Dollar")
         case .EUR:
             return lang("Euro")
         case .RUB:

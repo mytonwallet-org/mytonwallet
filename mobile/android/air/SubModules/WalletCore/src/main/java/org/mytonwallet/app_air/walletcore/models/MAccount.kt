@@ -1,5 +1,6 @@
 package org.mytonwallet.app_air.walletcore.models
 
+import com.squareup.moshi.JsonClass
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.doubleAbsRepresentation
@@ -9,15 +10,24 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
+@JsonClass(generateAdapter = true)
 class MAccount(
     var accountId: String,
-    val addressByChain: Map<String, String>,
+    val byChain: Map<String, AccountChain>,
     var name: String,
     var accountType: AccountType,
     val ledger: Ledger?,
     var importedAt: Long?,
 ) {
 
+    @JsonClass(generateAdapter = true)
+    data class AccountChain(
+        val address: String,
+        val domain: String? = null,
+        val isMultisig: Boolean? = null
+    )
+
+    @JsonClass(generateAdapter = false)
     enum class AccountType(val value: String) {
         MNEMONIC("mnemonic"),
         HARDWARE("hardware"),
@@ -47,6 +57,7 @@ class MAccount(
             return accountType.isPasscodeProtected
         }
 
+    @JsonClass(generateAdapter = true)
     data class Ledger(val driver: Driver, val index: Int) {
         enum class Driver(val value: String) {
             HID("HID"),
@@ -66,15 +77,28 @@ class MAccount(
 
     constructor(accountId: String, globalJSON: JSONObject) : this(
         accountId,
-        mapOf(
-            "ton" to (globalJSON.optJSONObject("addressByChain")?.optString("ton") ?: ""),
-            "tron" to (globalJSON.optJSONObject("addressByChain")?.optString("tron") ?: ""),
-        ).filterValues { it.isNotEmpty() },
+        parseByChain(globalJSON.optJSONObject("byChain")),
         globalJSON.optString("title"),
         AccountType.fromValue(globalJSON.optString("type"))!!,
         globalJSON.optJSONObject("ledger")?.let { Ledger(it) },
         globalJSON.optLong("importedAt"),
     )
+
+    companion object {
+        fun parseByChain(byChainJson: JSONObject?): Map<String, AccountChain> {
+            val result = mutableMapOf<String, AccountChain>()
+            byChainJson?.keys()?.forEach { chain ->
+                val chainData = byChainJson.getJSONObject(chain)
+                result[chain] = AccountChain(
+                    address = chainData.getString("address"),
+                    domain = chainData.optString("domain").takeIf { it.isNotEmpty() },
+                    isMultisig = chainData.optBoolean("isMultisig")
+                        .takeIf { chainData.has("isMultisig") }
+                )
+            }
+            return result
+        }
+    }
 
     val isHardware: Boolean
         get() {
@@ -83,12 +107,12 @@ class MAccount(
 
     val tonAddress: String?
         get() {
-            return addressByChain["ton"]
+            return byChain["ton"]?.address
         }
 
     val tronAddress: String?
         get() {
-            return addressByChain["tron"]
+            return byChain["tron"]?.address
         }
 
     val firstAddress: String?
@@ -97,8 +121,8 @@ class MAccount(
                 tonAddress
             else {
                 try {
-                    addressByChain.entries.first().value
-                } catch (e: Exception) {
+                    byChain.entries.first().value.address
+                } catch (_: Exception) {
                     null
                 }
             }
@@ -106,8 +130,11 @@ class MAccount(
 
     val isMultichain: Boolean
         get() {
-            return addressByChain.keys.size > 1 || tonAddress == null
+            return byChain.keys.size > 1
         }
+
+    val addressByChain: Map<String, String>
+        get() = byChain.mapValues { it.value.address }
 
     val supportsSwap: Boolean
         get() {

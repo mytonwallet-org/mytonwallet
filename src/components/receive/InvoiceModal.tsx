@@ -150,7 +150,7 @@ function InvoiceModal({
 
 export default memo(
   withGlobal((global): StateProps => {
-    const address = selectAccount(global, global.currentAccountId!)?.addressByChain?.ton;
+    const address = selectAccount(global, global.currentAccountId!)?.byChain.ton?.address;
     const { invoiceTokenSlug } = selectCurrentAccountState(global) || {};
 
     return {

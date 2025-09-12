@@ -281,6 +281,7 @@ extension HomeVC: HomeVMDelegate {
             expandHeader()
         }
         scrollViewDidScroll(tableView)
+        lockButton.isHidden = !AuthSupport.accountsSupportAppLock
     }
 }
 

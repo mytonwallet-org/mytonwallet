@@ -252,7 +252,7 @@ function managePendingActivities() {
     }
 
     if (allPendingActivities) {
-      pendingActivities = sortActivities([...allPendingActivities]);
+      pendingActivities = sortActivities(allPendingActivities);
     } else if (pendingUpdates) {
       pendingActivities = mergePendingActivities(pendingActivities, pendingUpdates);
     }

@@ -5,8 +5,8 @@ import { TONCOIN } from '../../config';
 import { bigintDivideToNumber } from '../../util/bigint';
 import { extractKey } from '../../util/iteratees';
 import chains from '../chains';
-import { fetchStoredAccount, fetchStoredTonWallet } from '../common/accounts';
-import { createLocalTransactions } from './transactions';
+import { fetchStoredAccount, fetchStoredWallet } from '../common/accounts';
+import { createLocalTransactions } from './transfer';
 
 const { ton } = chains;
 
@@ -18,7 +18,7 @@ export function initNfts(_onUpdate: OnApiUpdate) {
 
 export async function fetchNftsFromCollection(accountId: string, collectionAddress: string) {
   const account = await fetchStoredAccount(accountId);
-  if (!account.ton) return;
+  if (!account.byChain.ton) return;
 
   const nfts = await ton.getAccountNfts(accountId, { collectionAddress });
 
@@ -42,7 +42,7 @@ export async function submitNftTransfers(
   comment?: string,
   totalRealFee = 0n,
 ): Promise<ApiSubmitNftTransferResult> {
-  const { address: fromAddress } = await fetchStoredTonWallet(accountId);
+  const { address: fromAddress } = await fetchStoredWallet(accountId, 'ton');
 
   const result = await ton.submitNftTransfers({
     accountId, password, nfts, toAddress, comment,
@@ -75,5 +75,5 @@ export async function submitNftTransfers(
 
 export async function checkNftOwnership(accountId: string, nftAddress: string) {
   const account = await fetchStoredAccount(accountId);
-  return 'ton' in account && ton.checkNftOwnership(accountId, nftAddress);
+  return account.byChain.ton && ton.checkNftOwnership(accountId, nftAddress);
 }

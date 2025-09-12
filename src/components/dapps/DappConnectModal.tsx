@@ -137,13 +137,13 @@ function DappConnectModal({
 
   function renderAccount(
     accountId: string,
-    addressByChain: Account['addressByChain'],
+    byChain: Account['byChain'],
     accountType: AccountType,
     title?: string,
   ) {
-    const hasTonWallet = Boolean(addressByChain.ton);
+    const hasTonWallet = Boolean(byChain.ton);
     const onClick = !hasTonWallet || isViewAccount(accountType) ? undefined : () => setSelectedAccount(accountId);
-    const address = getMainAccountAddress(addressByChain) ?? '';
+    const address = getMainAccountAddress(byChain) ?? '';
     const { cardBackgroundNft } = settingsByAccountId?.[accountId] || {};
 
     return (
@@ -170,8 +170,8 @@ function DappConnectModal({
         labelText={lang('Select wallet to use on this dapp')}
       >
         {iterableAccounts.map(
-          ([accountId, { title, addressByChain, type }]) => {
-            return renderAccount(accountId, addressByChain, type, title);
+          ([accountId, { title, byChain, type }]) => {
+            return renderAccount(accountId, byChain, type, title);
           },
         )}
       </AccountButtonWrapper>

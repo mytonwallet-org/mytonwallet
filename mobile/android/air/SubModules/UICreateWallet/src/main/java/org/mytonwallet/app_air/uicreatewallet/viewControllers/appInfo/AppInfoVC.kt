@@ -10,6 +10,7 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.content.ContextCompat
+import androidx.core.content.pm.PackageInfoCompat
 import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -59,13 +60,23 @@ class AppInfoVC(context: Context) : WViewController(context) {
         )
         setOnClickListener {
             pulseView(0.98f, AnimationConstants.VERY_VERY_QUICK_ANIMATION)
-            tonParticlesView.addParticleSystem(ParticleConfig.particleBurstParams)
+            tonParticlesView.addParticleSystem(
+                ParticleConfig.particleBurstParams(
+                    ParticleConfig.Companion.PARTICLE_COLORS.TON
+                )
+            )
         }
     }
 
     private val titleLabel = WLabel(context).apply {
         setStyle(20f, WFont.Medium)
-        text = LocaleController.getString("Use Responsibly")
+        val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+        val versionName = packageInfo.versionName ?: ""
+        val versionCode = PackageInfoCompat.getLongVersionCode(packageInfo).toString()
+        text = LocaleController.getFormattedString(
+            "MyTonWallet Air v%1$@ (%2$@)",
+            listOf(versionName, versionCode)
+        )
     }
 
     private val subtitleLabel = WLabel(context).apply {
@@ -81,8 +92,11 @@ class AppInfoVC(context: Context) : WViewController(context) {
     private val descriptionLabel = WLabel(context).apply {
         setPaddingDp(24, 16, 24, 16)
         setStyle(16f)
-        text = LocaleController.getString("\$about_mtw")
-            .toProcessedSpannableStringBuilder()
+        text = (
+            LocaleController.getString("\$about_description1") +
+                "\n\n" +
+                LocaleController.getString("\$about_description2")
+            ).toProcessedSpannableStringBuilder()
     }
 
     private val resourcesLabel = WLabel(context).apply {
@@ -98,7 +112,7 @@ class AppInfoVC(context: Context) : WViewController(context) {
             SettingsItem(
                 identifier = SettingsItem.Identifier.NONE,
                 icon = org.mytonwallet.app_air.uicreatewallet.R.drawable.ic_about_video,
-                title = "Watch Video about Features",
+                title = LocaleController.getString("Watch Video about Features"),
                 value = null,
                 hasTintColor = false
             ),
@@ -117,7 +131,7 @@ class AppInfoVC(context: Context) : WViewController(context) {
             SettingsItem(
                 identifier = SettingsItem.Identifier.NONE,
                 icon = org.mytonwallet.app_air.uicreatewallet.R.drawable.ic_about_blog,
-                title = "Enjoy Monthly Updates in Blog",
+                title = LocaleController.getString("Enjoy Monthly Updates in Blog"),
                 value = null,
                 hasTintColor = false
             ),
@@ -136,7 +150,7 @@ class AppInfoVC(context: Context) : WViewController(context) {
             SettingsItem(
                 identifier = SettingsItem.Identifier.NONE,
                 icon = org.mytonwallet.app_air.uicreatewallet.R.drawable.ic_about_help,
-                title = "Learn New Things in Help Center",
+                title = LocaleController.getString("Learn New Things in Help Center"),
                 value = null,
                 hasTintColor = false
             ),

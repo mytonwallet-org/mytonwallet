@@ -20,20 +20,24 @@ interface UseQRCodeHook {
 
 let qrCode: QRCodeStyling;
 
+const formatTransferUrlByChain: Partial<Record<ApiChain, (address: string) => string>> = {
+  ton: formatTransferUrl,
+};
+
 export default function useQrCode({
   address,
   chain,
   isActive,
   hiddenClassName,
   hideLogo,
-  withFormatTransferUrl,
+  preferUrl,
 }: {
   address?: string;
   chain?: ApiChain;
   isActive?: boolean;
   hiddenClassName?: string;
   hideLogo?: boolean;
-  withFormatTransferUrl?: boolean;
+  preferUrl?: boolean;
 }): UseQRCodeHook {
   const [isInitialized, setIsInitialized] = useState(!!qrCode);
   const logoUrl = IS_CORE_WALLET ? './coreWallet/logo.svg' : './logo.svg';
@@ -79,8 +83,12 @@ export default function useQrCode({
   useEffect(() => {
     if (!address || !isActive || !qrCode || !isInitialized) return;
 
-    qrCode.update({ data: withFormatTransferUrl ? formatTransferUrl(address) : address });
-  }, [address, isActive, isInitialized, withFormatTransferUrl]);
+    const data = preferUrl && chain && formatTransferUrlByChain[chain]
+      ? formatTransferUrlByChain[chain](address)
+      : address;
+
+    qrCode.update({ data });
+  }, [address, isActive, isInitialized, preferUrl, chain]);
 
   return { qrCodeRef, isInitialized };
 }

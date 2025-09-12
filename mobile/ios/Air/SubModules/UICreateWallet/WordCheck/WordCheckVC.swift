@@ -201,7 +201,7 @@ class WordCheckVC: WViewController {
         // a word is incorrect.
         showAlert(title: lang("Incorrect words"),
                   text: lang("The secret words you have entered do not match the ones in the list."),
-                  button: lang("Try again"),
+                  button: lang("Try Again"),
                   secondaryButton: lang("See words"),
                   secondaryButtonPressed: { [weak self] in
             // see words pressed

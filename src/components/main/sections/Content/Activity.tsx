@@ -58,7 +58,7 @@ export default function Activity({
         isLast={isLast}
         isActive={isActive}
         appTheme={appTheme}
-        addressByChain={accounts?.[currentAccountId]?.addressByChain}
+        accountChains={accounts?.[currentAccountId]?.byChain}
         isSensitiveDataHidden={isSensitiveDataHidden}
         isFuture={isFuture}
         onClick={onClick}

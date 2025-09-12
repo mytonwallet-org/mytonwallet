@@ -212,7 +212,7 @@ Understood: 明白
 Today: 今天
 Yesterday: 昨天
 Now: 现在
-$receive_ton_description: 扫描此二维码或分享您的地址以充值钱包余额。
+$receive_description: 扫描此二维码或分享您的地址以充值钱包余额。
 Wrong password, please try again.: 密码错误，请再试一次。
 Appearance: 外观
 Light: 白天模式
@@ -227,7 +227,7 @@ $safe_staking_description2: 作为其 **权益证明** 的一部分，您存入�
 $safe_staking_description3: 您可以在 **任何时候** 解除您 TON 的质押，它会在 **36小时** 内存入您的账户。
 $safe_staking_description_jetton1: 代币质押是 **完全去中心化的**，由 %jvault_link% 开发的 **开源** 智能合约操作，并已通过 **安全审计**。
 $safe_staking_description_jetton2: 您可以在 **任何时候** 提取您的质押，并会 **立即** 存入您的账户。
-$min_value: 最小 %1$s
+$min_value: 最小 %value%
 Est. balance in a year: 年平均预期回报
 Confirm Staking: 确认质押
 Confirm operation with your password: 使用您的密码以确认此操作
@@ -671,7 +671,6 @@ Untitled: 未命名
 Multichain: 多链
 $swap_too_small_amount: 金额太小
 Not enough %symbol%: "%symbol% 不足"
-$receive_tron_description: 扫描此二维码或分享您的地址以充值钱包余额。
 You have just created a new multichain wallet: 您刚刚创建了一个新的多链钱包
 Now you can transfer tokens from your TON and TRON wallets.: 现在您可以从您的 TON 和 TRON 钱包中转移代币。
 Enter Secret Words: 输入密语

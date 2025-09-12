@@ -108,7 +108,7 @@ class SplashVC: WViewController {
             return
         }
 
-        if !AccountStore.accountsById.isEmpty && KeychainHelper.isAppLockActivated() {
+        if AuthSupport.accountsSupportAppLock {
             // should unlock
             let unlockVC = UnlockVC(title: lang("Wallet is Locked"),
                                     replacedTitle: lang("Enter your Wallet Passcode"),
@@ -200,8 +200,6 @@ extension SplashVC: WalletContextDelegate {
             }) { _ in
                 let locale = Locale(identifier: Language.current.langCode)
                 isRTL = locale.isRTL
-                WStrings.bundle = Bundle(path: AirBundle.path(forResource: Language.current.langCode,
-                                                              ofType: "lproj")!)!
                 LocaleManager.apply(locale: locale, animated: false)
                 self.startApp()
             }
@@ -210,12 +208,12 @@ extension SplashVC: WalletContextDelegate {
         }
     }
 
-    func addAnotherAccount(wordList: [String], passedPasscode: String) -> UIViewController {
+    func addAnotherAccount(wordList: [String], passedPasscode: String?) -> UIViewController {
         return WalletCreatedVC(wordList: wordList,
                                passedPasscode: passedPasscode)
     }
     
-    func importAnotherAccount(passedPasscode: String, isLedger: Bool) async -> UIViewController {
+    func importAnotherAccount(passedPasscode: String?, isLedger: Bool) async -> UIViewController {
         if isLedger {
             let model = await LedgerAddAccountModel()
             let vc = LedgerAddAccountVC(model: model, showBackButton: false)

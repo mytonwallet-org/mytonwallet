@@ -1,6 +1,6 @@
 import type { ApiActivity } from '../../api/types';
 
-import { mergeSortedArrays } from '../iteratees';
+import { mergeSortedArrays, unique, uniqueByKey } from '../iteratees';
 import { logDebugError } from '../logs';
 import { getIsActivityPending } from './index';
 
@@ -19,99 +19,84 @@ function compareActivities(a: ApiActivity, b: ApiActivity, isAsc = false) {
 }
 
 /**
+ * Makes sure `activities` are suitable for `mergeSortedActivities` input.
  * Use the `mergeSortedActivities` function instead when possible.
  */
-export function sortActivities(activities: ApiActivity[], isAsc?: boolean) {
-  return activities.sort((a1, a2) => compareActivities(a1, a2, isAsc));
+export function sortActivities(activities: readonly ApiActivity[], isAsc?: boolean) {
+  const uniqueActivities = uniqueByKey(activities, 'id');
+  return uniqueActivities.sort((a1, a2) => compareActivities(a1, a2, isAsc));
 }
 
 /**
+ * Makes sure `ids` are suitable for `mergeSortedActivityIds` input.
  * Use the `mergeSortedActivityIds` function instead when possible.
  */
-export function sortActivityIds(activityById: Record<string, ApiActivity>, ids: string[], isAsc?: boolean) {
-  return ids.sort((id1, id2) => compareActivities(activityById[id1], activityById[id2], isAsc));
+function sortActivityIds(activityById: Record<string, ApiActivity>, ids: readonly string[], isAsc?: boolean) {
+  const uniqueIds = unique(ids);
+  return uniqueIds.sort((id1, id2) => compareActivities(activityById[id1], activityById[id2], isAsc));
 }
 
-export function mergeSortedActivities(array1: readonly ApiActivity[], array2: readonly ApiActivity[], isAsc?: boolean) {
+export function mergeSortedActivities(...lists: (readonly ApiActivity[])[]) {
   // It's hard to make sure the input is sorted, so we check and sort just in case.
   // Otherwise, there may be unwanted duplicates in the returned array.
-  const lists = [array1, array2];
   for (let i = 0; i < lists.length; i++) {
-    if (!areActivitiesSorted(lists[i], isAsc)) {
-      logDebugError(`Activity list ${i} is not sorted`, { stack: new Error().stack });
-      lists[i] = sortActivities([...lists[i]], isAsc);
+    if (!areActivitiesSortedAndUnique(lists[i])) {
+      logDebugError(`Activity list ${i} is unsorted or has duplicates`, { stack: new Error().stack });
+      lists[i] = sortActivities(lists[i]);
     }
   }
 
-  return mergeSortedArrays(array1, array2, (a1, a2) => compareActivities(a1, a2, isAsc), true);
+  return mergeSortedArrays(lists, (a1, a2) => compareActivities(a1, a2), true);
 }
 
-export function mergeSortedActivityIds(
-  ids1: readonly string[],
-  ids2: readonly string[],
-  activityById: Record<string, ApiActivity>,
-  isAsc?: boolean,
-) {
+export function mergeSortedActivityIds(activityById: Record<string, ApiActivity>, ...lists: (readonly string[])[]) {
   // It's hard to make sure the input is sorted, so we check and sort just in case.
   // Otherwise, there may be unwanted duplicates in the returned array.
-  const lists = [ids1, ids2];
   for (let i = 0; i < lists.length; i++) {
-    if (!areActivityIdsSorted(activityById, lists[i], isAsc)) {
-      logDebugError(`Activity id list ${i} is not sorted`, { stack: new Error().stack });
-      lists[i] = sortActivityIds(activityById, [...lists[i]], isAsc);
+    if (!areActivityIdsSortedAndUnique(activityById, lists[i])) {
+      logDebugError(`Activity id list ${i} is unsorted or has duplicates`, { stack: new Error().stack });
+      lists[i] = sortActivityIds(activityById, lists[i]);
     }
   }
 
   return mergeSortedArrays(
-    ids1,
-    ids2,
-    (id1, id2) => compareActivities(activityById[id1], activityById[id2], isAsc),
+    lists,
+    (id1, id2) => compareActivities(activityById[id1], activityById[id2]),
     true,
   );
 }
 
-export function mergeSortedActivitiesToMaxTime<T extends readonly ApiActivity[]>(array1: T, array2: T) {
-  if (!array1.length) return array2;
-  if (!array2.length) return array1;
-
+export function mergeSortedActivitiesToMaxTime(...lists: (readonly ApiActivity[])[]) {
   const fromTimestamp = Math.max(
-    array1[array1.length - 1].timestamp,
-    array2[array2.length - 1].timestamp,
+    ...lists.map((activities) => activities.length ? activities[activities.length - 1].timestamp : -Infinity),
   );
 
   const filterPredicate = ({ timestamp }: ApiActivity) => timestamp >= fromTimestamp;
 
   return mergeSortedActivities(
-    array1.filter(filterPredicate),
-    array2.filter(filterPredicate),
+    ...lists.map((activities) => activities.filter(filterPredicate)),
   );
 }
 
-export function mergeSortedActivityIdsToMaxTime<T extends readonly string[]>(
-  ids1: T,
-  ids2: T,
+export function mergeSortedActivityIdsToMaxTime(
   activityById: Record<string, ApiActivity>,
+  ...lists: (readonly string[])[]
 ) {
-  if (!ids1.length) return ids2;
-  if (!ids2.length) return ids1;
-
   const fromTimestamp = Math.max(
-    activityById[ids1[ids1.length - 1]].timestamp,
-    activityById[ids2[ids2.length - 1]].timestamp,
+    ...lists.map((ids) => ids.length ? activityById[ids[ids.length - 1]].timestamp : -Infinity),
   );
 
   const filterPredicate = (id: string) => activityById[id].timestamp >= fromTimestamp;
 
   return mergeSortedActivityIds(
-    ids1.filter(filterPredicate),
-    ids2.filter(filterPredicate),
     activityById,
+    ...lists.map((ids) => ids.filter(filterPredicate)),
   );
 }
 
-export function areActivitiesSorted(activities: readonly ApiActivity[], isAsc?: boolean) {
+export function areActivitiesSortedAndUnique(activities: readonly ApiActivity[], isAsc?: boolean) {
   for (let i = 1; i < activities.length; i++) {
-    if (compareActivities(activities[i - 1], activities[i], isAsc) > 0) {
+    if (compareActivities(activities[i - 1], activities[i], isAsc) >= 0) {
       return false;
     }
   }
@@ -119,13 +104,13 @@ export function areActivitiesSorted(activities: readonly ApiActivity[], isAsc?: 
   return true;
 }
 
-export function areActivityIdsSorted(
+function areActivityIdsSortedAndUnique(
   activityById: Record<string, ApiActivity>,
   ids: readonly string[],
   isAsc?: boolean,
 ) {
   for (let i = 1; i < ids.length; i++) {
-    if (compareActivities(activityById[ids[i - 1]], activityById[ids[i]], isAsc) > 0) {
+    if (compareActivities(activityById[ids[i - 1]], activityById[ids[i]], isAsc) >= 0) {
       return false;
     }
   }

@@ -229,6 +229,7 @@ data class ApiNft(
     val isOnSale: Boolean,
     val isHidden: Boolean? = null,
     val isOnFragment: Boolean? = null,
+    val isTelegramGift: Boolean? = null,
     val isScam: Boolean? = null,
     val metadata: ApiNftMetadata? = null
 ) : WEquatable<ApiNft> {

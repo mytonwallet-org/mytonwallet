@@ -84,7 +84,7 @@ fileprivate struct AddressRowView: View {
     
     func onCopy() {
         UIPasteboard.general.string = row.address
-        topWViewController()?.showToast(animationName: "Copy", message: lang("Address was copied to clipboard."))
+        topWViewController()?.showToast(animationName: "Copy", message: lang("Address was copied!"))
         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
         dismiss()
     }

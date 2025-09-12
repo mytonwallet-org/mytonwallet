@@ -320,7 +320,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
     }
     
     public func fetchActivityDetails(accountId: String, activity: ApiActivity) async throws -> ApiActivity {
-        let activity = try await Api.fetchTonActivityDetails(accountId: accountId, activity: activity)
+        let activity = try await Api.fetchActivityDetails(accountId: accountId, activity: activity)
         withAccountState(accountId) {
             var byId = $0.byId ?? [:]
             // TODO: remove temporary workaround
@@ -381,8 +381,8 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         }
     }
     
-    func getNewestActivitiesBySlug(accountId: String) -> [String: ApiActivity]? {
-        getAccountState(accountId).newestActivitiesBySlug
+    func getNewestActivityTimestamps(accountId: String) -> [String: Int64]? {
+        getAccountState(accountId).newestActivitiesBySlug?.mapValues(\.timestamp)
     }
     
     private func save(accountId: String) {

@@ -5,12 +5,12 @@ import type { TronWeb } from 'tronweb';
 import type { ApiSubmitTransferOptions, CheckTransactionDraftOptions } from '../../methods/types';
 import type { ApiCheckTransactionDraftResult } from '../ton/types';
 import { ApiTransactionDraftError, ApiTransactionError } from '../../types';
-import type { ApiAccountWithMnemonic, ApiBip39Account, ApiNetwork } from '../../types';
+import type { ApiNetwork } from '../../types';
 
 import { parseAccountId } from '../../../util/account';
 import { logDebugError } from '../../../util/logs';
 import { getChainParameters, getTronClient } from './util/tronweb';
-import { fetchStoredAccount, fetchStoredTronWallet } from '../../common/accounts';
+import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/accounts';
 import { getMnemonic } from '../../common/mnemonic';
 import { handleServerError } from '../../errors';
 import { getTrc20Balance, getWalletBalance } from './wallet';
@@ -38,7 +38,7 @@ export async function checkTransactionDraft(
 
     result.resolvedAddress = toAddress;
 
-    const { address } = await fetchStoredTronWallet(accountId);
+    const { address } = await fetchStoredWallet(accountId, 'tron');
     const [trxBalance, bandwidth, { energyUnitFee, bandwidthUnitFee }] = await Promise.all([
       getWalletBalance(network, address),
       tronWeb.trx.getBandwidth(address),
@@ -105,8 +105,11 @@ export async function submitTransfer(options: ApiSubmitTransferOptions): Promise
   try {
     const tronWeb = getTronClient(network);
 
-    const account = await fetchStoredAccount<ApiAccountWithMnemonic>(accountId);
-    const { address } = (account as ApiBip39Account).tron;
+    const account = await fetchStoredChainAccount(accountId, 'tron');
+    if (account.type === 'ledger') throw new Error('Not supported by Ledger accounts');
+    if (account.type === 'view') throw new Error('Not supported by View accounts');
+
+    const { address } = account.byChain.tron;
     const trxBalance = await getWalletBalance(network, address);
 
     const trxAmount = tokenAddress ? fee : fee + amount;

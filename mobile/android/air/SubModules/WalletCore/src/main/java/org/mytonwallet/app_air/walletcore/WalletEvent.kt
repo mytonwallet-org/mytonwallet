@@ -1,5 +1,6 @@
 package org.mytonwallet.app_air.walletcore
 
+import org.json.JSONObject
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 
@@ -26,6 +27,7 @@ sealed class WalletEvent {
     ) : WalletEvent()
 
     data object AccountNameChanged : WalletEvent()
+    data object AccountSavedAddressesChanged : WalletEvent()
     data object AddNewWalletCompletion : WalletEvent()
     data object AccountChangedInApp : WalletEvent()
     data object DappsCountUpdated : WalletEvent()
@@ -46,17 +48,13 @@ sealed class WalletEvent {
 
     data object NftCardUpdated : WalletEvent()
     data object NftDomainDataUpdated : WalletEvent()
+    data class LedgerDeviceModelRequest(
+        val onResponse: (response: JSONObject?) -> Unit
+    ) : WalletEvent()
+
     data class LedgerWriteRequest(
         val apdu: String,
         val onResponse: (response: String?) -> Unit
-    ) : WalletEvent()
-
-    data class LedgerIsJettonIdSupported(
-        val onResponse: (response: Boolean?) -> Unit
-    ) : WalletEvent()
-
-    data class LedgerIsUnsafeSupported(
-        val onResponse: (response: Boolean?) -> Unit
     ) : WalletEvent()
 
     data object ConfigReceived : WalletEvent()

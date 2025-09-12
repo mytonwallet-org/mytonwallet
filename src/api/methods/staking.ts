@@ -16,10 +16,10 @@ import { fromDecimal } from '../../util/decimals';
 import { logDebugError } from '../../util/logs';
 import chains from '../chains';
 import { getTonClient } from '../chains/ton/util/tonCore';
-import { fetchStoredAccount, fetchStoredTonWallet } from '../common/accounts';
+import { fetchStoredAccount, fetchStoredWallet } from '../common/accounts';
 import { callBackendGet } from '../common/backend';
 import { setStakingCommonCache } from '../common/cache';
-import { createLocalTransactions } from './transactions';
+import { createLocalTransactions } from './transfer';
 
 import { StakingPool } from '../chains/ton/contracts/JettonStaking/StakingPool';
 
@@ -43,7 +43,7 @@ export async function submitStake(
   state: ApiStakingState,
   realFee?: bigint,
 ) {
-  const { address: fromAddress } = await fetchStoredTonWallet(accountId);
+  const { address: fromAddress } = await fetchStoredWallet(accountId, 'ton');
 
   const result = await ton.submitStake(
     accountId, password, amount, state,
@@ -92,7 +92,7 @@ export async function submitUnstake(
   state: ApiStakingState,
   realFee?: bigint,
 ) {
-  const { address: fromAddress } = await fetchStoredTonWallet(accountId);
+  const { address: fromAddress } = await fetchStoredWallet(accountId, 'ton');
 
   const result = await ton.submitUnstake(accountId, password, amount, state);
   if ('error' in result) {
@@ -118,7 +118,7 @@ export async function submitUnstake(
 }
 
 export async function getStakingHistory(accountId: string): Promise<ApiStakingHistory> {
-  const { ton: tonWallet } = await fetchStoredAccount(accountId);
+  const { byChain: { ton: tonWallet } } = await fetchStoredAccount(accountId);
   if (!tonWallet) return [];
   return callBackendGet(`/staking/profits/${tonWallet.address}`);
 }
@@ -162,7 +162,7 @@ export async function submitStakingClaimOrUnlock(
   state: ApiJettonStakingState | ApiEthenaStakingState,
   realFee?: bigint,
 ) {
-  const { address: walletAddress } = await fetchStoredTonWallet(accountId);
+  const { address: walletAddress } = await fetchStoredWallet(accountId, 'ton');
 
   let result: ApiSubmitTransferTonResult;
 

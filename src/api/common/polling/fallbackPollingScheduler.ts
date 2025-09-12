@@ -2,7 +2,7 @@ import type { Period } from './utils';
 
 import { focusAwareDelay, onFocusAwareDelay } from '../../../util/focusAwareDelay';
 import { handleError } from '../../../util/handleError';
-import { setCancellableTimeout, throttle } from '../../../util/schedulers';
+import { throttle } from '../../../util/schedulers';
 import { periodToMs } from './utils';
 
 export type PollCallback = () => MaybePromise<void>;
@@ -15,8 +15,9 @@ export interface FallbackPollingOptions {
   /**
    * How much time the polling will start after the socket disconnects.
    * Also applies at the very beginning (until the socket is connected).
+   * If omitted, will be the same as `pollingPeriod`.
    */
-  pollingStartDelay: number;
+  pollingStartDelay?: Period;
   /** Update periods when the socket is disconnected */
   pollingPeriod: Period;
   /** Update periods when the socket is connected but there are no messages */
@@ -38,11 +39,7 @@ export class FallbackPollingScheduler {
   constructor(isSocketConnected: boolean, options: FallbackPollingOptions) {
     this.#options = options;
 
-    if (isSocketConnected) {
-      this.#scheduleForcedPolling();
-    } else {
-      this.#schedulePolling();
-    }
+    this.#schedulePolling(isSocketConnected);
 
     if (options.pollOnStart) {
       this.#poll();
@@ -52,20 +49,20 @@ export class FallbackPollingScheduler {
   /** Call this method when the socket source of data becomes available */
   public onSocketConnect() {
     if (this.#isDestroyed) return;
-    this.#scheduleForcedPolling();
+    this.#schedulePolling(true);
     this.#poll();
   }
 
   /** Call this method when the socket source of data becomes unavailable */
   public onSocketDisconnect() {
     if (this.#isDestroyed) return;
-    this.#schedulePolling();
+    this.#schedulePolling(false);
   }
 
   /** Call this method when the socket shows that it's alive */
   public onSocketMessage() {
     if (this.#isDestroyed) return;
-    this.#scheduleForcedPolling();
+    this.#schedulePolling(true);
   }
 
   public destroy() {
@@ -86,32 +83,20 @@ export class FallbackPollingScheduler {
     return focusAwareDelay(...periodToMs(this.#options.minPollDelay));
   });
 
-  /** Sets up a polling running when the socket is disconnected */
-  #schedulePolling() {
+  #schedulePolling(isSocketConnected: boolean) {
     this.#cancelScheduledPoll?.();
 
-    const { pollingStartDelay, pollingPeriod } = this.#options;
+    const { pollingPeriod, pollingStartDelay = pollingPeriod, forcedPollingPeriod } = this.#options;
+    const firstPause = isSocketConnected ? forcedPollingPeriod : pollingStartDelay;
+    const nextPause = isSocketConnected ? forcedPollingPeriod : pollingPeriod;
 
-    const handleTimeout = () => {
-      this.#cancelScheduledPoll = onFocusAwareDelay(...periodToMs(pollingPeriod), handleTimeout);
-      this.#poll();
-    };
-
-    this.#cancelScheduledPoll = setCancellableTimeout(pollingStartDelay, handleTimeout);
-  }
-
-  /** Sets up a polling running when the socket is connected (to mitigate network and backend problems) */
-  #scheduleForcedPolling() {
-    this.#cancelScheduledPoll?.();
-
-    const schedule = () => {
-      const { forcedPollingPeriod } = this.#options;
-      this.#cancelScheduledPoll = onFocusAwareDelay(...periodToMs(forcedPollingPeriod), () => {
+    const schedule = (isFirst?: boolean) => {
+      this.#cancelScheduledPoll = onFocusAwareDelay(...periodToMs(isFirst ? firstPause : nextPause), () => {
         schedule();
         this.#poll();
       });
     };
 
-    schedule();
+    schedule(true);
   }
 }

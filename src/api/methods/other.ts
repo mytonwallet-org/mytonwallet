@@ -8,7 +8,7 @@ import type { ApiChain, ApiNetwork } from '../types';
 import { setIsAppFocused } from '../../util/focusAwareDelay';
 import { getLogs, logDebugError } from '../../util/logs';
 import chains from '../chains';
-import { fetchStoredAccounts, fetchStoredTonWallet, updateStoredAccount } from '../common/accounts';
+import { fetchStoredAccounts, fetchStoredWallet, updateStoredWallet } from '../common/accounts';
 import { callBackendGet } from '../common/backend';
 import { updateAccountCache } from '../common/cache';
 import { handleServerError } from '../errors';
@@ -21,7 +21,7 @@ export function checkApiAvailability(chain: ApiChain, network: ApiNetwork) {
 }
 
 export async function getBackendAuthToken(accountId: string, password: string) {
-  const accountWallet = await fetchStoredTonWallet(accountId);
+  const accountWallet = await fetchStoredWallet(accountId, 'ton');
   let { authToken } = accountWallet;
   const { publicKey, isInitialized } = accountWallet;
 
@@ -30,11 +30,8 @@ export async function getBackendAuthToken(accountId: string, password: string) {
     const signature = nacl.sign.detached(SIGN_MESSAGE, privateKey!);
     authToken = Buffer.from(signature).toString('base64');
 
-    await updateStoredAccount(accountId, {
-      ton: {
-        ...accountWallet,
-        authToken,
-      },
+    await updateStoredWallet(accountId, 'ton', {
+      authToken,
     });
   }
 

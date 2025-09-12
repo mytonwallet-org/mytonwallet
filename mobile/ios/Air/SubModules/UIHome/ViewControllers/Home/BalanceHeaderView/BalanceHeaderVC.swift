@@ -66,7 +66,7 @@ class BalanceHeaderVC: WViewController {
     
     public func addressCopy(address: String) {
         UIPasteboard.general.string = address
-        showToast(animationName: "Copy", message: lang("Address was copied to clipboard."))
+        showToast(animationName: "Copy", message: lang("Address was copied!"))
         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
     }
     

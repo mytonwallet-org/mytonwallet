@@ -9,48 +9,62 @@ import UIKit
 import WalletContext
 import GRDB
 
-public let DUMMY_ACCOUNT = MAccount(id: "dummy-mainnet", title: " ", type: .view, addressByChain: ["ton": " "], ledger: nil)
+public let DUMMY_ACCOUNT = MAccount(id: "dummy-mainnet", title: " ", type: .view, byChain: ["ton": .init(address: " ")], ledger: nil)
 
 // see src/global/types.ts > Account
 
-public struct MAccount: Equatable, Hashable, Sendable, Codable {
+public struct MAccount: Equatable, Hashable, Sendable, Codable, FetchableRecord, PersistableRecord {
     
     public let id: String
     
-    public var type: AccountType
     public var title: String?
-    public var addressByChain: [String: String] // keys have to strings because encoding won't work with ApiChain as keys
+    public var type: AccountType
+    public var byChain: [String: AccountChain] // keys have to be strings because encoding won't work with ApiChain as keys
     public var ledger: Ledger?
     
-    init(id: String, title: String?, type: AccountType, addressByChain: [String : String], ledger: Ledger?) {
+    static public var databaseTableName: String = "accounts"
+
+    public init(id: String, title: String?, type: AccountType, byChain: [String : AccountChain], ledger: Ledger?) {
         self.id = id
         self.title = title
         self.type = type
-        self.addressByChain = addressByChain
+        self.byChain = byChain
         self.ledger = ledger
+    }
+}
+
+public struct AccountChain: Equatable, Hashable, Sendable, Codable {
+    public var address: String
+    public var domain: String?
+    public var isMultisig: Bool?
+}
+
+extension MAccount {
+    public var addressByChain: [String: String] {
+        byChain.mapValues(\.address)
     }
     
     public var tonAddress: String? {
-        addressByChain[ApiChain.ton.rawValue]
+        byChain[ApiChain.ton.rawValue]?.address
     }
     
     public var tronAddress: String? {
-        addressByChain[ApiChain.tron.rawValue]
+        byChain[ApiChain.tron.rawValue]?.address
     }
     
     public var firstAddress: String? {
-        tonAddress ?? addressByChain.first?.value
+        tonAddress ?? byChain.first?.value.address
     }
     
     public func supports(chain: String?) -> Bool {
         if let chain {
-            return addressByChain[chain] != nil
+            return byChain[chain] != nil
         }
         return false
     }
     
     public var isMultichain: Bool {
-        addressByChain.keys.count > 1
+        byChain.keys.count > 1
     }
     
     public var isHardware: Bool {
@@ -86,16 +100,14 @@ public struct MAccount: Equatable, Hashable, Sendable, Codable {
     }
 }
 
-extension MAccount: FetchableRecord, PersistableRecord {
-    static public var databaseTableName: String = "accounts"
-}
-
 public extension MAccount {
     static let sampleMnemonic = MAccount(
         id: "sample-mainnet",
         title: "Sample Wallet",
         type: .mnemonic,
-        addressByChain: ["ton":"748327432974324328094328903428"],
+        byChain: [
+            "ton": .init(address: "748327432974324328094328903428"),
+        ],
         ledger: nil
     )
 }

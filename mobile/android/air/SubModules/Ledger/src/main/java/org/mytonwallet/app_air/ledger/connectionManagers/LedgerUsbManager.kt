@@ -7,7 +7,6 @@ import android.os.Looper
 import org.mytonwallet.app_air.ledger.LedgerDevice
 import org.mytonwallet.app_air.ledger.LedgerManager.ConnectionState
 import org.mytonwallet.app_air.ledger.helpers.APDUHelpers
-import org.mytonwallet.app_air.ledger.helpers.VersionComparisonHelpers
 import org.mytonwallet.app_air.ledger.usb.HIDDevice
 import org.mytonwallet.app_air.ledger.usb.USBManager
 import org.mytonwallet.app_air.walletcore.models.LedgerAppInfo
@@ -46,7 +45,7 @@ object LedgerUsbManager : ILedgerConnectionManager {
             onUpdate(
                 ConnectionState.Error(
                     step = ConnectionState.Error.Step.CONNECT,
-                    message = null
+                    shortMessage = null
                 )
             )
     }
@@ -69,7 +68,7 @@ object LedgerUsbManager : ILedgerConnectionManager {
                     onUpdate(
                         ConnectionState.Error(
                             step = ConnectionState.Error.Step.CONNECT,
-                            message = null
+                            shortMessage = null
                         )
                     )
                     return@openDevice
@@ -94,7 +93,7 @@ object LedgerUsbManager : ILedgerConnectionManager {
                 onUpdate(
                     ConnectionState.Error(
                         step = ConnectionState.Error.Step.CONNECT,
-                        message = null
+                        shortMessage = null
                     )
                 )
             }
@@ -110,22 +109,12 @@ object LedgerUsbManager : ILedgerConnectionManager {
             write(APDUHelpers.currentApp(), {
                 val openAppData = APDUHelpers.decodeReadable(it)
                 if (openAppData.first() == "TON") {
-                    currentAppInfo = LedgerAppInfo(
-                        isUnsafeSupported = VersionComparisonHelpers.compareVersions(
-                            openAppData[1],
-                            "2.1.0"
-                        ) >= 0,
-                        isJettonIdSupported = VersionComparisonHelpers.compareVersions(
-                            openAppData[1],
-                            "2.2.0"
-                        ) >= 0
-                    )
                     onUpdate(ConnectionState.Done(LedgerDevice.Usb(device), openAppData[1]))
                 } else {
                     onUpdate(
                         ConnectionState.Error(
                             step = ConnectionState.Error.Step.TON_APP,
-                            message = null
+                            shortMessage = null
                         )
                     )
                 }
@@ -133,7 +122,7 @@ object LedgerUsbManager : ILedgerConnectionManager {
                 onUpdate(
                     ConnectionState.Error(
                         step = ConnectionState.Error.Step.TON_APP,
-                        message = null
+                        shortMessage = null
                     )
                 )
             })
@@ -146,7 +135,7 @@ object LedgerUsbManager : ILedgerConnectionManager {
                 onUpdate(
                     ConnectionState.Error(
                         step = ConnectionState.Error.Step.TON_APP,
-                        message = null
+                        shortMessage = null
                     )
                 )
             }
@@ -164,10 +153,6 @@ object LedgerUsbManager : ILedgerConnectionManager {
                     onCompletion(APDUHelpers.decode(it.substring(0, it.length - 4)))
             }
         )
-    }
-
-    override fun appInfo(): LedgerAppInfo {
-        return currentAppInfo!!
     }
 
     override fun write(

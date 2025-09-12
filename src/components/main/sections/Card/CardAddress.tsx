@@ -2,12 +2,13 @@ import React, { memo, useMemo, useRef, useState } from '../../../../lib/teact/te
 import { getActions, withGlobal } from '../../../../global';
 
 import type { ApiChain } from '../../../../api/types';
-import type { Account, AccountType, IAnchorPosition } from '../../../../global/types';
+import type { Account, AccountChain, AccountType, IAnchorPosition } from '../../../../global/types';
 import type { Layout } from '../../../../hooks/useMenuPosition';
 
 import { selectAccount } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
 import { copyTextToClipboard } from '../../../../util/clipboard';
+import { isKeyCountGreater } from '../../../../util/isEmptyObject';
 import { handleUrlClick, openUrl } from '../../../../util/openUrl';
 import { shortenAddress } from '../../../../util/shortenAddress';
 import getChainNetworkIcon from '../../../../util/swap/getChainNetworkIcon';
@@ -26,8 +27,7 @@ import styles from './Card.module.scss';
 import multichainIconSrc from '../../../../assets/multichain_account.svg';
 
 interface StateProps {
-  addressByChain?: Account['addressByChain'];
-  domainByChain?: Account['domainByChain'];
+  byChain?: Account['byChain'];
   isTestnet?: boolean;
   accountType?: AccountType;
   withTextGradient?: boolean;
@@ -35,9 +35,7 @@ interface StateProps {
 
 const MOUSE_LEAVE_TIMEOUT = 150;
 
-function CardAddress({
-  addressByChain, domainByChain, isTestnet, accountType, withTextGradient,
-}: StateProps) {
+function CardAddress({ byChain, isTestnet, accountType, withTextGradient }: StateProps) {
   const { showNotification } = getActions();
 
   const lang = useLang();
@@ -48,19 +46,19 @@ function CardAddress({
   const [menuAnchor, setMenuAnchor] = useState<IAnchorPosition>();
   const isMenuOpen = Boolean(menuAnchor);
 
-  const chains = useMemo(() => Object.keys(addressByChain || {}) as ApiChain[], [addressByChain]);
+  const chains = useMemo(() => Object.keys(byChain || {}) as ApiChain[], [byChain]);
   const isHardwareAccount = accountType === 'hardware';
   const isViewAccount = accountType === 'view';
   const explorerTitle = lang('View on Explorer');
   const chainDropdownItems = useMemo(() => {
-    const hasDomain = chains[0] && domainByChain?.[chains[0]];
+    const hasDomain = Object.values(byChain ?? {}).some((accountChain) => accountChain.domain);
 
-    if (chains.length < 2 && !hasDomain) return undefined;
+    if (!isKeyCountGreater(byChain ?? {}, 1) && !hasDomain) return undefined;
 
-    return chains.map((chain) => ({
-      value: addressByChain![chain]!,
-      address: shortenAddress(addressByChain![chain]!, domainByChain?.[chain] ? 4 : undefined)!,
-      ...(domainByChain?.[chain] && { domain: domainByChain[chain] }),
+    return (Object.entries(byChain ?? {}) as [ApiChain, AccountChain][]).map(([chain, accountChain]) => ({
+      value: accountChain.address,
+      address: shortenAddress(accountChain.address, accountChain.domain ? 4 : undefined)!,
+      ...(accountChain.domain && { domain: accountChain.domain }),
       icon: getChainNetworkIcon(chain),
       fontIcon: 'copy',
       chain,
@@ -69,7 +67,7 @@ function CardAddress({
       }) as string[]
       ).join(''),
     }));
-  }, [addressByChain, domainByChain, chains, lang]);
+  }, [byChain, lang]);
 
   const openMenu = () => {
     const { left, width, bottom: y } = ref.current!.getBoundingClientRect();
@@ -195,7 +193,7 @@ function CardAddress({
 
   if (chainDropdownItems) {
     const chain = chains[0];
-    const domain = domainByChain?.[chain];
+    const domain = byChain?.[chain]?.domain;
     const buttonText = chains.length === 1 && domain ? domain : lang('Multichain');
 
     return (
@@ -231,8 +229,7 @@ function CardAddress({
   const chain = chains[0];
   if (!chain) return undefined;
 
-  const address = addressByChain![chain]!;
-  const domain = domainByChain?.[chain];
+  const { address, domain } = byChain![chain]!;
   const displayText = domain || shortenAddress(address);
 
   return (
@@ -270,11 +267,10 @@ function CardAddress({
 }
 
 export default memo(withGlobal((global): StateProps => {
-  const { type: accountType, addressByChain, domainByChain } = selectAccount(global, global.currentAccountId!) || {};
+  const { type: accountType, byChain } = selectAccount(global, global.currentAccountId!) || {};
 
   return {
-    addressByChain,
-    domainByChain,
+    byChain,
     isTestnet: global.settings.isTestnet,
     accountType,
   };

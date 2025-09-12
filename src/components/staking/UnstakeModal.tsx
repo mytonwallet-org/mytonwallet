@@ -126,9 +126,6 @@ function UnstakeModal({
     return tokenSlug ? tokens?.find(({ slug }) => slug === tokenSlug) : undefined;
   }, [tokenSlug, tokens]);
 
-  let hasAmountError = false;
-  let isInsufficientBalance = false;
-
   const isOnlyFullAmount = isNominators;
   const [unstakeAmount, setUnstakeAmount] = useState(isOnlyFullAmount ? stakingBalance : undefined);
   const [successUnstakeAmount, setSuccessUnstakeAmount] = useState<bigint | undefined>(undefined);
@@ -141,6 +138,12 @@ function UnstakeModal({
   const appTheme = useAppTheme(theme);
 
   const { renderingKey, nextKey, updateNextKey } = useModalTransitionKeys(state, isOpen);
+
+  const hasAmountError = unstakeAmount !== undefined
+    && (unstakeAmount < 0 || !stakingBalance || unstakeAmount > stakingBalance);
+
+  const isInsufficientBalance = error === ApiTransactionDraftError.InsufficientBalance
+    || (unstakeAmount !== undefined && (!stakingBalance || unstakeAmount > stakingBalance));
 
   const isUnstakeDisabled = !isNativeEnough || isInsufficientBalance || !unstakeAmount;
 
@@ -156,10 +159,6 @@ function UnstakeModal({
       setUnstakeDate(unstakeTime);
     }
   }, [unstakeTime]);
-
-  if (error === ApiTransactionDraftError.InsufficientBalance) {
-    isInsufficientBalance = true;
-  }
 
   const refreshUnstakeDate = useLastCallback(() => {
     if (unstakeDate < Date.now()) {
@@ -203,15 +202,6 @@ function UnstakeModal({
         className={!getDoesUsePinPad() ? styles.transactionBanner : undefined}
       />
     );
-  }
-
-  if (unstakeAmount !== undefined) {
-    if (unstakeAmount < 0) {
-      hasAmountError = true;
-    } else if (!stakingBalance || unstakeAmount > stakingBalance) {
-      hasAmountError = true;
-      isInsufficientBalance = true;
-    }
   }
 
   const amountInputProps = useAmountInputState({
@@ -379,20 +369,22 @@ function UnstakeModal({
   }
 
   function renderComplete(isActive: boolean) {
+    const title = getIsMobileTelegramApp()
+      ? lang('Request is sent!')
+      : isLongUnstake
+        ? lang('Request for unstaking is sent!')
+        : lang('Coins have been unstaked!');
+
     return (
       <>
         <ModalHeader
-          title={getIsMobileTelegramApp()
-            ? lang('Request is sent!')
-            : stakingType === 'ethena'
-              ? lang('Request for unstaking is sent!')
-              : lang('Coins have been unstaked!')}
+          title={title}
           onClose={cancelStaking}
         />
 
         <div className={modalStyles.transitionContent}>
           <TransferResult
-            color={stakingType !== 'ethena' ? 'green' : undefined}
+            color={!isLongUnstake ? 'green' : undefined}
             playAnimation={isActive}
             amount={successUnstakeAmount}
             tokenSymbol={token?.symbol}

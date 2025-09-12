@@ -16,17 +16,17 @@ private let log = Log("SwapVM")
 
 protocol SwapVMDelegate: AnyObject {
     @MainActor func updateIsValidPair()
-    @MainActor func receivedEstimateData(swapEstimate: Api.SwapEstimateResponse?, selectedDex: ApiSwapDexLabel?, lateInit: MSwapEstimate.LateInitProperties?)
-    @MainActor func receivedCexEstimate(swapEstimate: MSwapEstimate)
+    @MainActor func receivedEstimateData(swapEstimate: ApiSwapEstimateResponse?, selectedDex: ApiSwapDexLabel?, lateInit: ApiSwapCexEstimateResponse.LateInitProperties?)
+    @MainActor func receivedCexEstimate(swapEstimate: ApiSwapCexEstimateResponse)
 }
 
 
 @MainActor
 final class SwapVM: ObservableObject {
     
-    @Published private(set) var swapEstimate: Api.SwapEstimateResponse? = nil
-    @Published private(set) var lateInit: MSwapEstimate.LateInitProperties? = nil
-    @Published private(set) var cexEstimate: MSwapEstimate? = nil
+    @Published private(set) var swapEstimate: ApiSwapEstimateResponse? = nil
+    @Published private(set) var lateInit: ApiSwapCexEstimateResponse.LateInitProperties? = nil
+    @Published private(set) var cexEstimate: ApiSwapCexEstimateResponse? = nil
     @Published private(set) var isValidPair = true
     @Published private(set) var swapType = SwapType.inChain
     @Published private(set) var dex: ApiSwapDexLabel? = nil
@@ -97,15 +97,15 @@ final class SwapVM: ObservableObject {
         let to = buying.token.swapIdentifier
         
         if swapType != .inChain {
-            let options: Api.SwapCEXEstimateOptions
+            let options: ApiSwapCexEstimateOptions
             if changedFrom == .selling {
                 // normal request
-                options = Api.SwapCEXEstimateOptions(from: from,
+                options = ApiSwapCexEstimateOptions(from: from,
                                                                to: to,
                                                                fromAmount: String(selling.amount.doubleAbsRepresentation(decimals: selling.token.decimals)))
             } else {
                 // reversed request!
-                options = Api.SwapCEXEstimateOptions(from: to,
+                options = ApiSwapCexEstimateOptions(from: to,
                                                                to: from,
                                                                fromAmount: String(buying.amount.doubleAbsRepresentation(decimals: buying.token.decimals)))
             }
@@ -123,7 +123,7 @@ final class SwapVM: ObservableObject {
             }
             
         } else {
-            let props = MSwapEstimate.calculateLateInitProperties(selling: selling,
+            let props = ApiSwapCexEstimateResponse.calculateLateInitProperties(selling: selling,
                                                                   swapType: swapType,
                                                                   networkFee: swapEstimate?.networkFee.value,
                                                                   dieselFee: swapEstimate?.dieselFee?.value,
@@ -132,7 +132,7 @@ final class SwapVM: ObservableObject {
             let shouldTryDiesel = props.isEnoughNative == false
             let toncoinBalance = (BalanceStore.currentAccountBalances["toncoin"]).flatMap { MDouble.forBigInt($0, decimals: 9) }
             let walletVersion = AccountStore.account?.version
-            let swapEstimateRequest = Api.SwapEstimateRequest(
+            let swapEstimateRequest = ApiSwapEstimateRequest(
                 from: from,
                 to: to,
                 slippage: slippage,
@@ -150,7 +150,7 @@ final class SwapVM: ObservableObject {
             do {
                 let swapEstimate = try await Api.swapEstimate(accountId: accountId, request: swapEstimateRequest)
                 try Task.checkCancellation()
-                let lateInit = MSwapEstimate.calculateLateInitProperties(selling: selling,
+                let lateInit = ApiSwapCexEstimateResponse.calculateLateInitProperties(selling: selling,
                                                                          swapType: swapType,
                                                                          networkFee: swapEstimate.networkFee.value,
                                                                          dieselFee: swapEstimate.dieselFee?.value,
@@ -165,7 +165,7 @@ final class SwapVM: ObservableObject {
         }
     }
     
-    func updateEstimate(_ swapEstimate: Api.SwapEstimateResponse?, lateInit: MSwapEstimate.LateInitProperties?) {
+    func updateEstimate(_ swapEstimate: ApiSwapEstimateResponse?, lateInit: ApiSwapCexEstimateResponse.LateInitProperties?) {
         self.swapEstimate = swapEstimate
         self.lateInit = lateInit
         Task {
@@ -173,7 +173,7 @@ final class SwapVM: ObservableObject {
         }
     }
     
-    func updateCexEstimate(_ swapEstimate: MSwapEstimate) {
+    func updateCexEstimate(_ swapEstimate: ApiSwapCexEstimateResponse) {
         self.cexEstimate = swapEstimate
         Task {
             delegate?.receivedCexEstimate(swapEstimate: swapEstimate)
@@ -182,7 +182,7 @@ final class SwapVM: ObservableObject {
     
     // MARK: Check for error
     ///  checks for swap error, returns nil if swap is possible
-    func checkDexSwapError(swapEstimate: Api.SwapEstimateResponse, lateInit: MSwapEstimate.LateInitProperties) -> String? {
+    func checkDexSwapError(swapEstimate: ApiSwapEstimateResponse, lateInit: ApiSwapCexEstimateResponse.LateInitProperties) -> String? {
         guard let tokensSelector else {
             return nil
         }
@@ -210,7 +210,7 @@ final class SwapVM: ObservableObject {
         return swapError
     }
     
-    func checkCexSwapError(swapEstimate: MSwapEstimate) -> String? {
+    func checkCexSwapError(swapEstimate: ApiSwapCexEstimateResponse) -> String? {
         guard let tokensSelector else {
             return nil
         }
@@ -225,7 +225,7 @@ final class SwapVM: ObservableObject {
                 swapError = WStrings.InsufficientBalance_Text(symbol: sellToken.symbol)
             }
         }
-        if swapEstimate.toAmount == 0 && swapEstimate.isEnoughNative == false {
+        if swapEstimate.toAmount.value == 0 && swapEstimate.isEnoughNative == false {
             swapError = WStrings.InsufficientBalance_Text(symbol: sellToken.symbol.uppercased())
         }
         if swapEstimate.isEnoughNative == false && (swapEstimate.isDiesel != true || swapEstimate.dieselStatus?.canContinue != true) {
@@ -237,22 +237,22 @@ final class SwapVM: ObservableObject {
         }
         if let fromMin = swapEstimate.fromMin {
             if swapEstimate.fromAmount < fromMin {
-                swapError = "\(lang("Minimum")) \(fromMin) \(tokensSelector.sellingToken.symbol)"
+                swapError = lang("Minimum amount", arg1: "\(fromMin) \(tokensSelector.sellingToken.symbol)")
             }
         }
         if let fromMax = swapEstimate.fromMax, fromMax > 0 {
             if swapEstimate.fromAmount > fromMax {
-                swapError = "\(lang("Maximum")) \(fromMax) \(tokensSelector.sellingToken.symbol)"
+                swapError = lang("Maximum amount", arg1: "\(fromMax) \(tokensSelector.sellingToken.symbol)")
             }
         }
         if let toMin = swapEstimate.toMin {
             if swapEstimate.toAmount < toMin {
-                swapError = "\(lang("Maximum")) \(toMin) \(tokensSelector.buyingToken.symbol)"
+                swapError = lang("Minimum amount", arg1: "\(toMin) \(tokensSelector.buyingToken.symbol)")
             }
         }
         if let toMax = swapEstimate.toMax, toMax > 0 {
             if swapEstimate.toAmount > toMax {
-                swapError = "\(lang("Maximum")) \(toMax) \(tokensSelector.buyingToken.symbol)"
+                swapError = lang("Maximum amount", arg1: "\(toMax) \(tokensSelector.buyingToken.symbol)")
             }
         }
         return swapError
@@ -271,7 +271,7 @@ final class SwapVM: ObservableObject {
         }
     }
     
-    func swapNow(sellingToken: ApiToken, buyingToken: ApiToken, passcode: String, onTaskDone: @escaping (ApiActivity?, BridgeCallError?) -> Void) {
+    func swapNow(sellingToken: ApiToken, buyingToken: ApiToken, passcode: String, onTaskDone: @escaping (ApiActivity?, Error?) -> Void) {
         switch swapType {
         case .inChain:
             swapInChain(sellingToken: sellingToken, buyingToken: buyingToken, passcode: passcode, onTaskDone: onTaskDone)
@@ -280,7 +280,7 @@ final class SwapVM: ObservableObject {
         case .crossChainFromTon:
             crossChainFromTonSwap(sellingToken: sellingToken, buyingToken: buyingToken, passcode: passcode, onTaskDone: onTaskDone)
         @unknown default:
-            onTaskDone(nil, .unknown())
+            onTaskDone(nil, BridgeCallError.unknown())
         }
     }
     
@@ -292,7 +292,7 @@ final class SwapVM: ObservableObject {
         let shouldTryDiesel = swapEstimate.networkFee.value > 0 &&
             BalanceStore.currentAccountBalances["toncoin"] ?? 0 < BigInt((swapEstimate.networkFee.value + 0.015) * 1e9) && swapEstimate.dieselStatus == .available
         
-        let swapBuildRequest = Api.SwapBuildRequest(
+        let swapBuildRequest = ApiSwapBuildRequest(
             from: swapEstimate.from,
             to: swapEstimate.to,
             fromAddress: fromAddress,
@@ -311,71 +311,75 @@ final class SwapVM: ObservableObject {
         )
         let accountId = try AccountStore.accountId.orThrow()
         let transferData = try await Api.swapBuildTransfer(accountId: accountId, password: passcode, request: swapBuildRequest)
-        let historyItem = Api.makeSwapHistoryItem(swapBuildRequest: swapBuildRequest, swapTransferData: transferData)
+        let historyItem = ApiSwapHistoryItem.makeFrom(swapBuildRequest: swapBuildRequest, swapTransferData: transferData)
         let result = try await Api.swapSubmit(accountId: accountId, password: passcode, transfers: transferData.transfers, historyItem: historyItem, isGasless: shouldTryDiesel)
         print(result)
     }
     
     // MARK: - Cross-Chain to ton swap
-    private func crossChainToTonSwap(sellingToken: ApiToken, buyingToken: ApiToken, passcode: String, onTaskDone: @escaping (ApiActivity?, BridgeCallError?) -> Void) {
+    private func crossChainToTonSwap(sellingToken: ApiToken, buyingToken: ApiToken, passcode: String, onTaskDone: @escaping (ApiActivity?, (any Error)?) -> Void) {
         guard let swapEstimate = self.cexEstimate else {
             return
         }
         if let account = AccountStore.account {
             let fromAddress = account.addressByChain[sellingToken.chain]
             let toAddress = account.addressByChain[buyingToken.chain]
-            let swapCexParams = Api.SwapCexParams(
+            let swapCexParams = ApiSwapCexCreateTransactionParams(
                 from: sellingToken.swapIdentifier,
-                fromAmount: String(swapEstimate.fromAmount),
+                fromAmount: swapEstimate.fromAmount,
                 fromAddress: fromAddress ?? "",
                 to: buyingToken.swapIdentifier,
                 toAddress: toAddress ?? "",
-                swapFee: String(swapEstimate.swapFee),
-                networkFee: String(0)
+                swapFee: swapEstimate.swapFee,
+                networkFee: 0
             )
-            Api.swapCexCreateTransaction(sellingToken: sellingToken,
-                                         params: swapCexParams,
-                                         shouldTransfer: AccountStore.account?.supports(chain: sellingToken.chain) == true,
-                                         passcode: passcode) { res in
-                DispatchQueue.main.async {
-                    switch res {
-                    case .success(let success):
-                        onTaskDone(success, nil)
-                    case .failure(let failure):
-                        onTaskDone(nil, failure)
-                    }
+            Task {
+                do {
+                    _ = try await SwapCexSupport.swapCexCreateTransaction(
+                        sellingToken: sellingToken,
+                        params: swapCexParams,
+                        shouldTransfer: AccountStore.account?.supports(chain: sellingToken.chain) == true,
+                        passcode: passcode
+                    )
+                    onTaskDone(nil, nil)
+                } catch {
+                    log.error("SwapCexSupport.swapCexCreateTransaction: \(error, .public)")
+                    onTaskDone(nil, error)
                 }
             }
+
         }
     }
     
     // MARK: - Cross-Chain from ton swap
-    private func crossChainFromTonSwap(sellingToken: ApiToken, buyingToken: ApiToken, passcode: String, onTaskDone: @escaping (ApiActivity?, BridgeCallError?) -> Void) {
+    private func crossChainFromTonSwap(sellingToken: ApiToken, buyingToken: ApiToken, passcode: String, onTaskDone: @escaping (ApiActivity?, (any Error)?) -> Void) {
         guard let swapEstimate = self.cexEstimate else {
             return
         }
         if let account = AccountStore.account {
             let fromAddress = account.addressByChain[sellingToken.chain]
             let toAddress = account.addressByChain[buyingToken.chain]
-            let cexFromTonSwapParams = Api.SwapCexParams(
+            let cexFromTonSwapParams = ApiSwapCexCreateTransactionParams(
                 from: sellingToken.swapIdentifier,
-                fromAmount: String(swapEstimate.fromAmount),
+                fromAmount: swapEstimate.fromAmount,
                 fromAddress: fromAddress ?? "",
                 to: buyingToken.swapIdentifier,
                 toAddress: toAddress ?? "",
-                swapFee: String(swapEstimate.swapFee),
-                networkFee: String(0)
+                swapFee: swapEstimate.swapFee,
+                networkFee: 0
             )
-            Api.swapCexCreateTransaction(sellingToken: sellingToken,
-                                         params: cexFromTonSwapParams,
-                                         shouldTransfer: true,
-                                         passcode: passcode) { res in
-                switch res {
-                case .success(_):
+            Task {
+                do {
+                    _ = try await SwapCexSupport.swapCexCreateTransaction(
+                        sellingToken: sellingToken,
+                        params: cexFromTonSwapParams,
+                        shouldTransfer: true,
+                        passcode: passcode
+                    )
                     onTaskDone(nil, nil)
-                    break
-                case .failure(let failure):
-                    onTaskDone(nil, failure)
+                } catch {
+                    log.error("SwapCexSupport.swapCexCreateTransaction: \(error, .public)")
+                    onTaskDone(nil, error)
                 }
             }
         }

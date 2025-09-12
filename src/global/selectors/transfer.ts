@@ -38,7 +38,7 @@ export function selectTokenMatchingCurrentTransferAddressSlow(global: GlobalStat
     }
 
     // Otherwise, find the best token of the address's chain
-    const availableChains = selectCurrentAccount(global)?.addressByChain;
+    const availableChains = selectCurrentAccount(global)?.byChain;
     if (availableChains) {
       for (const chain of Object.keys(availableChains) as Array<keyof typeof availableChains>) {
         if (!isValidAddressOrDomain(toAddress, chain, isCheckingPrefix)) {

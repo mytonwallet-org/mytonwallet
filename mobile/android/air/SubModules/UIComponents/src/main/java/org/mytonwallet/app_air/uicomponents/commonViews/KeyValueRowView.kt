@@ -62,10 +62,10 @@ class KeyValueRowView(
     }
 
     private val keyLabel: WLabel by lazy {
-        val lbl = WLabel(context)
-        lbl.setStyle(16f)
-        lbl.text = key
-        lbl
+        WLabel(context).apply {
+            setStyle(16f)
+            text = key
+        }
     }
 
     val valueLabel: WSensitiveDataContainer<WLabel> by lazy {
@@ -102,9 +102,7 @@ class KeyValueRowView(
             updateLoadingState()
         }
 
-    override fun setupViews() {
-        super.setupViews()
-
+    init {
         minimumHeight = 56.dp
         addView(keyLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(valueLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
@@ -202,6 +200,15 @@ class KeyValueRowView(
             toCenterY(valueView)
             if (valueView is WLabel) {
                 startToEnd(valueView, keyLabel, 16f)
+            } else {
+                keyLabel.apply {
+                    setSingleLine()
+                    isHorizontalFadingEdgeEnabled = true
+                    ellipsize = TextUtils.TruncateAt.MARQUEE
+                    isSelected = true
+                }
+                constrainedWidth(keyLabel.id, true)
+                endToStart(keyLabel, valueView, 4f)
             }
         }
     }

@@ -83,7 +83,7 @@ object LedgerBleManager : ILedgerConnectionManager {
                 onUpdate(
                     ConnectionState.Error(
                         step = ConnectionState.Error.Step.CONNECT,
-                        message = null
+                        shortMessage = null
                     )
                 )
             }
@@ -114,7 +114,7 @@ object LedgerBleManager : ILedgerConnectionManager {
                     onUpdate(
                         ConnectionState.Error(
                             step = ConnectionState.Error.Step.TON_APP,
-                            message = null
+                            shortMessage = null
                         )
                     )
                 }
@@ -122,7 +122,7 @@ object LedgerBleManager : ILedgerConnectionManager {
                 onUpdate(
                     ConnectionState.Error(
                         step = ConnectionState.Error.Step.TON_APP,
-                        message = null
+                        shortMessage = null
                     )
                 )
             })
@@ -135,7 +135,7 @@ object LedgerBleManager : ILedgerConnectionManager {
                 onUpdate(
                     ConnectionState.Error(
                         step = ConnectionState.Error.Step.TON_APP,
-                        message = null
+                        shortMessage = null
                     )
                 )
             }
@@ -148,10 +148,6 @@ object LedgerBleManager : ILedgerConnectionManager {
         }, {
             onCompletion(null)
         })
-    }
-
-    override fun appInfo(): LedgerAppInfo {
-        return currentAppInfo!!
     }
 
     override fun write(

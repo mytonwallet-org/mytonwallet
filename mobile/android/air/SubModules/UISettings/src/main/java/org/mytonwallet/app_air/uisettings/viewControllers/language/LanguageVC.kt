@@ -30,9 +30,9 @@ class LanguageVC(context: Context) : WViewController(context),
     companion object {
         val languages = arrayOf(
             WLanguage.ENGLISH,
+            WLanguage.RUSSIAN,
 
             /*WLanguage.CHINESE_SIMPLIFIED,
-            WLanguage.RUSSIAN,
             WLanguage.CHINESE_TRADITIONAL,
             WLanguage.ENGLISH,
             WLanguage.GERMAN,

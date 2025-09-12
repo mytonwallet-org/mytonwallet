@@ -1,5 +1,5 @@
 import type { ParsedTracePart } from '../chains/ton/types';
-import type { ApiActivity } from './activity';
+import type { ApiActivity } from './activities';
 
 export type ApiEmulationResult = {
   networkFee: bigint;

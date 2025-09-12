@@ -1,12 +1,15 @@
 import type { ApiActivity } from '../../types';
 import type { ActivityStream, OnActivityUpdate, OnLoadingChange } from './toncenter';
 
+import { parseAccountId } from '../../../util/account';
 import { mergeSortedActivities } from '../../../util/activities/order';
 import { createCallbackManager } from '../../../util/callbacks';
 import { areSortedArraysEqual, extractKey } from '../../../util/iteratees';
 import { OrGate } from '../../../util/orGate';
 import { throttle } from '../../../util/schedulers';
-import { enrichActivities } from '../../common/activities';
+import { fetchStoredWallet } from '../../common/accounts';
+import { swapReplaceCexActivities } from '../../common/swap';
+import { reloadIncompleteActivities } from './activities';
 
 /**
  * Like `ActivityStream` but applies `enrichActivities` to the confirmed activities.
@@ -86,7 +89,7 @@ export class RichActivityStream {
 
       const rawConfirmedActivities = this.#confirmedActivitiesToReport;
       this.#confirmedActivitiesToReport = [];
-      const richConfirmedActivities = await enrichActivities(this.#accountId, rawConfirmedActivities, undefined, true);
+      const richConfirmedActivities = await enrichActivities(this.#accountId, rawConfirmedActivities);
 
       this.#pendingActivities.updateAfterEnrichment(rawConfirmedActivities);
       this.#reportActivities(richConfirmedActivities);
@@ -155,4 +158,14 @@ function deduplicateActivityUpdates(onUpdate: OnActivityUpdate): OnActivityUpdat
 
     lastPendingActivities = pendingActivities;
   };
+}
+
+async function enrichActivities(accountId: string, activities: ApiActivity[]) {
+  const { network } = parseAccountId(accountId);
+  const { address } = await fetchStoredWallet(accountId, 'ton');
+
+  activities = await reloadIncompleteActivities(network, address, activities);
+  activities = await swapReplaceCexActivities(accountId, activities, undefined, true);
+
+  return activities;
 }

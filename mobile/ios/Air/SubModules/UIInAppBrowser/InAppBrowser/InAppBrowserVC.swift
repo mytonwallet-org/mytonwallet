@@ -163,7 +163,7 @@ public class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
                                           image: UIImage(systemName: "safari")) { [weak self] _ in
             self?.openInSafari()
         }
-        let copyAction = UIAction(title: lang("Copy URL"),
+        let copyAction = UIAction(title: lang("Copy Address"),
                                   image: UIImage(systemName: "doc.on.doc")) { [weak self] _ in
             self?.copy()
         }

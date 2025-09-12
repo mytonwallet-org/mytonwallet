@@ -29,55 +29,60 @@ describe('mergeSortedArrays', () => {
   it.each([
     {
       name: 'merges two sorted arrays of numbers',
-      arr1: [1, 3, 5],
-      arr2: [2, 4, 6],
-      compareFn: numberAsc,
+      arrays: [[1, 3, 5], [2, 4, 6]],
       expected: [1, 2, 3, 4, 5, 6],
     },
     {
       name: 'merges with duplicates when deduplicateEqual is false',
-      arr1: [1, 2, 3],
-      arr2: [2, 3, 4],
-      compareFn: numberAsc,
+      arrays: [[1, 2, 3], [2, 3, 4]],
       expected: [1, 2, 2, 3, 3, 4],
     },
     {
       name: 'merges with deduplication when deduplicateEqual is true',
-      arr1: [1, 2, 3],
-      arr2: [2, 3, 4],
-      compareFn: numberAsc,
+      arrays: [[1, 2, 3], [2, 3, 4]],
       deduplicateEqual: true,
       expected: [1, 2, 3, 4],
     },
     {
       name: 'returns the other array if one is empty',
-      arr1: [],
-      arr2: [1, 2],
-      compareFn: numberAsc,
+      arrays: [[], [1, 2]],
       expected: [1, 2],
     },
     {
       name: 'returns the other array if one is empty (reverse)',
-      arr1: [1, 2],
-      arr2: [],
-      compareFn: numberAsc,
+      arrays: [[1, 2], []],
       expected: [1, 2],
     },
     {
+      name: 'copies the only input array instead of returning',
+      arrays: [[1, 2]],
+      expected: [1, 2],
+    },
+    {
+      name: 'returns an empty array if `arrays` is empty',
+      arrays: [],
+      expected: [],
+    },
+    {
       name: 'respects custom compareFn (reverse order)',
-      arr1: ['c', 'b', 'a'],
-      arr2: ['d', 'b', 'a'],
+      arrays: [['c', 'b', 'a'], ['d', 'b', 'a']],
       compareFn: stringDesc,
       expected: ['d', 'c', 'b', 'b', 'a', 'a'],
     },
     {
       name: 'does not lose items if the input arrays are not sorted',
-      arr1: [3, 5, 2],
-      arr2: [4, 1, 6],
-      compareFn: numberAsc,
+      arrays: [[3, 5, 2], [4, 1, 6]],
       expected: [3, 4, 1, 5, 2, 6],
     },
-  ])('$name', ({ arr1, arr2, compareFn, deduplicateEqual, expected }) => {
-    expect(mergeSortedArrays<any>(arr1, arr2, compareFn, deduplicateEqual)).toEqual(expected);
+    {
+      name: 'merges multiple arrays',
+      arrays: [[2, 7, 15], [4, 10, 19], [1, 8, 21], [3, 12, 16], [5, 11, 17], [6, 13, 20], [9, 14, 18]],
+      expected: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21],
+    },
+  ])('$name', ({ arrays, compareFn = numberAsc, deduplicateEqual, expected }) => {
+    const frozenArrays = Object.freeze(arrays.map((array) => Object.freeze(array)));
+    const actualResult = mergeSortedArrays<any>(frozenArrays, compareFn, deduplicateEqual);
+    expect(actualResult).toEqual(expected);
+    expect(frozenArrays).not.toContain(actualResult);
   });
 });

@@ -393,16 +393,27 @@ class WalletCardView(
     }
 
     fun updateAccountData() {
-        val isMultiChain = AccountStore.activeAccount?.isMultichain == true
+        val account = AccountStore.activeAccount
+        val isMultiChain = account?.isMultichain == true
         addressChain.layoutParams.width = if (isMultiChain) 26.dp else 16.dp
         updateAddressLabel()
         updateCardImage()
-        addressChain.setImageDrawable(
+        val drawableRes = when {
+            isMultiChain -> org.mytonwallet.app_air.icons.R.drawable.ic_multichain
+            account?.byChain?.containsKey(MBlockchain.ton.name) == true ->
+                org.mytonwallet.app_air.icons.R.drawable.ic_blockchain_ton_128
+
+            account?.byChain?.containsKey(MBlockchain.tron.name) == true ->
+                org.mytonwallet.app_air.icons.R.drawable.ic_blockchain_tron_40
+
+            else -> null
+        }
+        addressChain.setImageDrawable(drawableRes?.let {
             ContextCompat.getDrawable(
                 context,
-                if (isMultiChain) org.mytonwallet.app_air.icons.R.drawable.ic_multichain else org.mytonwallet.app_air.icons.R.drawable.ic_blockchain_ton_128
+                drawableRes
             )
-        )
+        })
         addressLabelContainer.addRippleEffect(
             Color.WHITE.colorWithAlpha(25),
             20f.dp

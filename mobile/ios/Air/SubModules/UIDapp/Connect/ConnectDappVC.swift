@@ -264,7 +264,7 @@ public class ConnectDappVC: WViewController, UISheetPresentationControllerDelega
     }
     
     @objc func chooseWalletPressed() {
-        present(ChooseWalletVC(hint: "\(lang("CHOOSE WALLET TO USE ON")) \(URL(string: request.dapp.url)?.host?.uppercased() ?? "")",
+        present(ChooseWalletVC(hint: "\(lang("Choose Wallet to Use On").uppercased()) \(URL(string: request.dapp.url)?.host?.uppercased() ?? "")",
                                selectedAccountId: selectedAccount?.id ?? "",
                                isModal: true,
                                onSelect: { [weak self] newAccount in
@@ -295,7 +295,7 @@ public class ConnectDappVC: WViewController, UISheetPresentationControllerDelega
         UnlockVC.presentAuth(on: self,
                              title: lang("Confirm Connect"),
                              subtitle: URL(string: request.dapp.url)?.host, onDone: { [weak self] passcode in
-            guard let self else {
+            guard let self, let passcode else {
                 return
             }
             didConfirm = true

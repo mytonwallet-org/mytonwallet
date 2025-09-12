@@ -26,7 +26,7 @@ class AppearanceOtherSettingsView: UIStackView, WThemedView {
         lbl.translatesAutoresizingMaskIntoConstraints = false
         lbl.font = .systemFont(ofSize: 13)
         lbl.textColor = WTheme.secondaryLabel
-        lbl.text = lang("OTHER SETTINGS")
+        lbl.text = lang("Other Settings").uppercased()
         return lbl
     }()
 

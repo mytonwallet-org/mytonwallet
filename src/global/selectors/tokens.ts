@@ -54,7 +54,7 @@ export const selectAccountTokensMemoizedFor = withCache((accountId: string) => m
       const isPricelessTokenWithBalance = PRICELESS_TOKEN_HASHES.has(codeHash!) && balance > 0n;
 
       const isEnabled = (
-        (isNewAccount && DEFAULT_ENABLED_TOKEN_SLUGS.includes(slug))
+        (isNewAccount && Object.values(DEFAULT_ENABLED_TOKEN_SLUGS).some((tokenSlugs) => tokenSlugs.includes(slug)))
         || !areTokensWithNoCostHidden
         || (areTokensWithNoCostHidden && hasCost)
         || isPricelessTokenWithBalance

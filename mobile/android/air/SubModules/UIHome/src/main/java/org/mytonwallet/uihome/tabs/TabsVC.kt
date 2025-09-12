@@ -110,7 +110,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             Menu.NONE,
             ID_HOME,
             Menu.NONE,
-            LocaleController.getString("Home")
+            LocaleController.getString("Wallet")
         )
             .setIcon(R.drawable.ic_home)
         menu.add(
@@ -173,11 +173,9 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             doOnTextChanged { text, _, _, _ ->
                 cachedBrowserVC?.search(text.toString())
             }
-            onFocusChangeListener = object : View.OnFocusChangeListener {
-                override fun onFocusChange(v: View?, hasFocus: Boolean) {
-                    val query = if (hasFocus) text.toString() else null
-                    cachedBrowserVC?.search(query)
-                }
+            onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
+                val query = if (hasFocus) text.toString() else null
+                cachedBrowserVC?.search(query)
             }
             setOnEditorActionListener { _, actionId, event ->
                 if (actionId == EditorInfo.IME_ACTION_DONE ||

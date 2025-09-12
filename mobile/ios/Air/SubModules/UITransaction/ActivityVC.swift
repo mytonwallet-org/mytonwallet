@@ -207,11 +207,10 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
             onDone: { [weak self] passcode in
                 guard let self,
                       let accountId = AccountStore.accountId,
-                      let encryptedComment = self.activity.transaction?.encryptedComment,
-                      let fromAddress = self.activity.transaction?.fromAddress else { return }
+                      case .transaction(let tx) = self.activity else { return }
                 Task {
                     do {
-                        self.decryptedComment = try await Api.decryptComment(accountId: accountId, encryptedComment: encryptedComment, fromAddress: fromAddress, password: passcode)
+                        self.decryptedComment = try await Api.decryptComment(accountId: accountId, activity: tx, password: passcode)
                         self.hostingController?.rootView = self.makeView()
                     } catch {
                         self.showAlert(error: error) {

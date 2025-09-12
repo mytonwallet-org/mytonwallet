@@ -2,8 +2,6 @@ package org.mytonwallet.app_air.uisend.send
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.Canvas
-import android.graphics.Paint
 import android.text.SpannableStringBuilder
 import android.util.TypedValue
 import android.view.View
@@ -27,7 +25,6 @@ import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.widgets.CopyTextView
 import org.mytonwallet.app_air.uicomponents.widgets.WAlertLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
-import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.passcode.headers.PasscodeHeaderSendView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
@@ -42,10 +39,9 @@ import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletcontext.theme.WColor
 import org.mytonwallet.app_air.walletcontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
-import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
-import org.mytonwallet.app_air.walletcontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferOptions
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import java.lang.ref.WeakReference
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -381,7 +377,7 @@ class SendConfirmVC(
                     task?.invoke(null)
                 }),
             headerView = PasscodeHeaderSendView(
-                context,
+                WeakReference(this),
                 (view.height * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO).roundToInt()
             ).apply {
                 configSendingToken(
@@ -402,7 +398,7 @@ class SendConfirmVC(
                 context,
                 PasscodeViewState.CustomHeader(
                     PasscodeHeaderSendView(
-                        context,
+                        WeakReference(this),
                         (view.height * 0.25f).roundToInt()
                     ).apply {
                         configSendingToken(

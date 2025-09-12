@@ -1,7 +1,8 @@
 package org.mytonwallet.app_air.walletcontext.models
 
 enum class WLanguage(val langCode: String) {
-    ENGLISH("en");
+    ENGLISH("en"),
+    RUSSIAN("ru");
 
     /*CHINESE_SIMPLIFIED("zh-Hans"),
     CHINESE_TRADITIONAL("zh-Hant"),
@@ -9,7 +10,6 @@ enum class WLanguage(val langCode: String) {
     GERMAN("de"),
     PERSIAN("fa"),
     POLISH("pl"),
-    RUSSIAN("ru"),
     SPANISH("es"),
     THAI("th"),
     TURKISH("tr"),
@@ -24,8 +24,8 @@ enum class WLanguage(val langCode: String) {
         get() {
             return when (this) {
                 ENGLISH -> "English"
-                /*SPANISH -> "Spanish"
                 RUSSIAN -> "Russian"
+                /*SPANISH -> "Spanish"
                 CHINESE_TRADITIONAL -> "Chinese (Traditional)"
                 CHINESE_SIMPLIFIED -> "Chinese (Simplified)"
                 TURKISH -> "Turkish"
@@ -41,8 +41,8 @@ enum class WLanguage(val langCode: String) {
         get() {
             return when (this) {
                 ENGLISH -> "English"
-                /*SPANISH -> "Español"
                 RUSSIAN -> "Русский"
+                /*SPANISH -> "Español"
                 CHINESE_TRADITIONAL -> "繁體"
                 CHINESE_SIMPLIFIED -> "简体"
                 TURKISH -> "Türkçe"

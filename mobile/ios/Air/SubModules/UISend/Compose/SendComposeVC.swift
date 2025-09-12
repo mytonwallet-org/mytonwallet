@@ -131,7 +131,7 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
             authorizeDiesel()
         }
         if let token = model.token, token.isPricelessToken || token.isStakedToken {
-            let alert = UIAlertController(title: lang("Warning"), message: lang("You are about to transfer an important service token required to withdraw your deposit or complete service operations. Please ensure this is the action you intend to take."), preferredStyle: .alert)
+            let alert = UIAlertController(title: lang("Warning"), message: lang("$service_token_transfer_warning"), preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: lang("Cancel"), style: .cancel) { _ in
                 return
             })

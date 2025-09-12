@@ -163,7 +163,7 @@ public class SettingsVC: WViewController, Sendable {
     private func selected(item: SettingsItem.Identifier) {
         switch item {
         case .editWalletName:
-            let alertController = UIAlertController(title: lang("Enter wallet name"),
+            let alertController = UIAlertController(title: lang("Enter wallet name:"),
                                                     message: nil,
                                                     preferredStyle: .alert)
             alertController.addTextField()

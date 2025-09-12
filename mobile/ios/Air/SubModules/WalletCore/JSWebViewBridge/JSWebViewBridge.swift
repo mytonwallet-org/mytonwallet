@@ -198,12 +198,12 @@ class JSWebViewBridge: UIViewController {
                 return nil
             }
         } catch {
-            try _parseError(error)
+            try _parseError(error, methodName: methodName)
         }
     }
     
-    private func _parseError(_ error: any Error) throws -> Never {
-        log.fault("callAsyncJavaScript callApi error \(error, .public)")
+    private func _parseError(_ error: any Error, methodName: String) throws -> Never {
+        log.fault("callAsyncJavaScript callApi(\(methodName, .public)) error \(error, .public)")
         if let error = error as? WKError {
             switch error.code {
             case .javaScriptExceptionOccurred:
@@ -423,6 +423,22 @@ extension JSWebViewBridge: WKScriptMessageHandler {
                             }
                         }))
                         
+                    case "getLedgerDeviceModel":
+                        WalletCoreData.notify(event: .getLedgerDeviceModel(callback: { response in
+                            do {
+                                if response == nil {
+                                    log.error("getLedgerDeviceModel error!")
+                                }
+                                let json = try? response?.json()
+                                _ = try await self.webView?.callAsyncJavaScript(NATIVE_CALL_OK, arguments: [
+                                    "requestNumber": requestNumber,
+                                    "result": json as Any,
+                                ], contentWorld: .page)
+                            } catch {
+                                log.fault("Error injecting isLedgerJettonIdSupported response to JavaScript: \(error)")
+                            }
+                        }))
+                        
                     default:
                         fatalError("nativeCall (\(methodName)) not defined.")
                         break
@@ -626,6 +642,9 @@ extension JSWebViewBridge: WKScriptMessageHandler {
                     #warning("TODO: showError")
                     break
 
+                case "tonConnectOnline":
+                    break
+                    
                 default:
                     log.error("UNKNOWN UPDATE DATA TYPE: \(updateType, .public)")
                     assertionFailure()

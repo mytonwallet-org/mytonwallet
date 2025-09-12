@@ -29,7 +29,7 @@ class AppearanceAppThemeView: UIStackView, WThemedView {
         lbl.translatesAutoresizingMaskIntoConstraints = false
         lbl.font = .systemFont(ofSize: 13)
         lbl.textColor = WTheme.secondaryLabel
-        lbl.text = lang("APP THEME")
+        lbl.text = lang("Theme").uppercased()
         return lbl
     }()
     

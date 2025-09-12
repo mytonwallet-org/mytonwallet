@@ -55,7 +55,7 @@ public class ConfirmPasscodeVC: WViewController {
 
         headerView = HeaderView(animationName: "Password",
                                     animationPlaybackMode: .toggle(false),
-                                    title: lang("Confirm a Passcode"),
+                                    title: lang("Confirm Password"),
                                     description: WStrings.ConfirmPasscode_Text(digits: selectedPasscode.count))
         topView.addSubview(headerView)
         NSLayoutConstraint.activate([

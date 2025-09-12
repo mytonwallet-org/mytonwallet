@@ -20,10 +20,10 @@ public enum MAutolockOption: String, Equatable, Hashable, Codable, Sendable, Cas
 
     public var displayName: String {
         switch self {
-        case .never: return "Never"
-        case .thirtySeconds: return "30 seconds"
-        case .threeMinutes: return "3 minutes"
-        case .tenMinutes: return "10 minutes"
+        case .never: return lang("Never")
+        case .thirtySeconds: return lang("30 seconds")
+        case .threeMinutes: return lang("3 minutes")
+        case .tenMinutes: return lang("10 minutes")
         }
     }
     

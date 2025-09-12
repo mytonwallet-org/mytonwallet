@@ -12,7 +12,7 @@ object TonConnectHelper {
     val deviceInfo: DeviceInfo
         get() = DeviceInfo(
             platform = "android",
-            appName = "MyTonWallet Air",
+            appName = "MyTonWallet",
             appVersion = ApplicationContextHolder.getAppVersion ?: "",
             maxProtocolVersion = 2,
             features = listOf(

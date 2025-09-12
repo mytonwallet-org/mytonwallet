@@ -11,6 +11,7 @@ import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonContainer
@@ -105,7 +106,7 @@ class EarnHeaderView(
 
     private val addStakeButton: WButton by lazy {
         val wButton = WButton(context, WButton.Type.PRIMARY)
-        wButton.text = LocaleController.getString("Add stake")
+        wButton.text = LocaleController.getString("Add Stake")
         wButton.setOnClickListener {
             onAddStakeClick?.invoke()
         }
@@ -123,11 +124,11 @@ class EarnHeaderView(
         wButton
     }
 
+    val buttonMarginSideDp = 20f
     private val innerContainer = WView(context).apply {
         id = generateViewId()
 
         val buttonMarginTopDp = 43.5f
-        val buttonMarginSideDp = 20f
         val buttonMarginBottomDp = 20.5f
         val addStakeButtonLp = ConstraintLayout.LayoutParams(
             ConstraintLayout.LayoutParams.MATCH_CONSTRAINT,
@@ -224,10 +225,11 @@ class EarnHeaderView(
         unstakeButton.alpha = 0f
     }
 
-    fun showInnerViews(shouldShowUnstakeButton: Boolean) {
+    fun showInnerViews(shouldShowStakeButton: Boolean, shouldShowUnstakeButton: Boolean) {
         amountTextView.visibility = VISIBLE
         messageLabel.visibility = VISIBLE
         addStakeButton.visibility = VISIBLE
+        changeStakeButtonVisibility(if (shouldShowStakeButton) VISIBLE else GONE)
         changeUnstakeButtonVisibility(shouldShowUnstakeButton)
         if (amountSkeletonView.visibility != GONE) {
             amountSkeletonView.fadeOut(onCompletion = {
@@ -321,6 +323,20 @@ class EarnHeaderView(
     fun changeAddStakeButtonEnable(shouldBeEnabled: Boolean) {
         addStakeButton.isEnabled =
             shouldBeEnabled && AccountStore.activeAccount?.accountType != MAccount.AccountType.VIEW
+    }
+
+    fun changeStakeButtonVisibility(visibility: Int) {
+        if (addStakeButton.visibility != visibility) {
+            if (addStakeButton.isGone != (visibility == GONE))
+                innerContainer.setConstraints {
+                    if (visibility == GONE) {
+                        toStart(unstakeButton, buttonMarginSideDp)
+                    } else {
+                        startToEnd(unstakeButton, addStakeButton, 5f)
+                    }
+                }
+            addStakeButton.visibility = visibility
+        }
     }
 
     fun changeUnstakeButtonVisibility(shouldShow: Boolean) {

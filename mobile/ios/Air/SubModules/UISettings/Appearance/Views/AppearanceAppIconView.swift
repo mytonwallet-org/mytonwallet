@@ -28,7 +28,7 @@ class AppearanceAppIconView: UIStackView, WThemedView {
         lbl.translatesAutoresizingMaskIntoConstraints = false
         lbl.font = .systemFont(ofSize: 13)
         lbl.textColor = WTheme.secondaryLabel
-        lbl.text = lang("APP ICON")
+        lbl.text = lang("App Icon").uppercased()
         return lbl
     }()
     

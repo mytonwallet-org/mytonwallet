@@ -31,7 +31,7 @@ public struct TransactionIdActions: View {
     
     func onCopy() {
         UIPasteboard.general.string = txId
-        topWViewController()?.showToast(animationName: "Copy", message: lang("Transaction ID was copied to clipboard."))
+        topWViewController()?.showToast(animationName: "Copy", message: lang("Transaction ID was copied!"))
         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
     }
     
@@ -67,7 +67,7 @@ public struct ChangellyIdActions: View {
     
     func onCopy() {
         UIPasteboard.general.string = id
-        topWViewController()?.showToast(animationName: "Copy", message: lang("Transaction ID was copied to clipboard."))
+        topWViewController()?.showToast(animationName: "Copy", message: lang("Transaction ID was copied!"))
         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
     }
     

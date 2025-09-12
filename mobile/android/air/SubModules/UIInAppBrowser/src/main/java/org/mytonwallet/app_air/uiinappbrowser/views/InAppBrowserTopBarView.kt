@@ -340,7 +340,7 @@ class InAppBrowserTopBarView(
                         )
                     )
                 }),
-            offset = (-100).dp,
+            popupWidth = WRAP_CONTENT,
             aboveView = true
         )
     }

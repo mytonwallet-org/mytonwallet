@@ -118,12 +118,12 @@ class SettingsVM {
                 title = LocaleController.getString("Assets & Activity"),
                 hasTintColor = false
             ),
-            /*SettingsItem(
+            SettingsItem(
                 identifier = SettingsItem.Identifier.LANGUAGE,
                 icon = R.drawable.ic_language,
                 title = LocaleController.getString("Language"),
                 hasTintColor = false
-            )*/
+            )
         )
 
         if (DappsStore.dApps[AccountStore.activeAccountId]?.isNotEmpty() == true) {

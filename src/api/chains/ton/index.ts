@@ -7,6 +7,7 @@ export {
   getWalletFromMnemonic,
   getWalletFromPrivateKey,
   getWalletFromAddress,
+  getWalletFromKeys,
   getOtherVersionWallet,
 } from './auth';
 export {
@@ -30,7 +31,6 @@ export {
   submitMultiTransfer,
   signTransfers,
   sendSignedTransactions,
-  decryptComment,
   submitTransferWithDiesel,
   fetchEstimateDiesel,
 } from './transfer';
@@ -89,6 +89,7 @@ export {
   setupInactivePolling,
 } from './polling';
 export {
+  decryptComment,
   fetchActivityDetails,
   fetchActivitySlice,
 } from './activities';

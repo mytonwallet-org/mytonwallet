@@ -20,7 +20,7 @@ import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 class MainWindow : WWindow() {
     private val splashVC by lazy {
         val vc = SplashVC(this)
-        WalletContextManager.delegate = vc
+        WalletContextManager.setDelegate(vc)
         vc
     }
 
@@ -52,6 +52,7 @@ class MainWindow : WWindow() {
         WalletCore.setupBridge(this, windowView, forcedRecreation = forcedRecreation) {
             // Bridge ready now!
             splashVC.bridgeIsReady()
+            setAppFocusedState()
         }
     }
 

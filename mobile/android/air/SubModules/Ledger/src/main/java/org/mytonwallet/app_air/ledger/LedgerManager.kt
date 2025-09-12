@@ -3,13 +3,14 @@ package org.mytonwallet.app_air.ledger
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import org.json.JSONObject
 import org.mytonwallet.app_air.ledger.connectionManagers.ILedgerConnectionManager
 import org.mytonwallet.app_air.ledger.connectionManagers.LedgerBleManager
 import org.mytonwallet.app_air.ledger.connectionManagers.LedgerUsbManager
 import org.mytonwallet.app_air.walletcore.MAIN_NETWORK
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.models.LedgerAppInfo
+import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.moshi.MApiTonWallet
 import org.mytonwallet.app_air.walletcore.moshi.MApiTonWalletVersion
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
@@ -29,7 +30,8 @@ object LedgerManager : WalletCore.EventObserver {
         data class Done(val device: LedgerDevice, val tonAppVersion: String) : ConnectionState()
         data class Error(
             val step: Step,
-            val message: String?,
+            val shortMessage: CharSequence?,
+            val bridgeError: MBridgeError? = null,
         ) :
             ConnectionState() {
             enum class Step {
@@ -111,12 +113,24 @@ object LedgerManager : WalletCore.EventObserver {
         }
     }
 
-    private fun appInfo(): LedgerAppInfo? {
-        return activeManager?.appInfo()
-    }
-
     override fun onWalletEvent(walletEvent: WalletEvent) {
         when (walletEvent) {
+            is WalletEvent.LedgerDeviceModelRequest -> {
+                val device = when (val state = connectionState) {
+                    is ConnectionState.ConnectingToTonApp -> state.device
+                    is ConnectionState.Done -> state.device
+                    else -> null
+                }
+                walletEvent.onResponse(
+                    device?.let {
+                        JSONObject().apply {
+                            put("id", device.model)
+                            put("productName", device.productName)
+                        }
+                    }
+                )
+            }
+
             is WalletEvent.LedgerWriteRequest -> {
                 try {
                     activeManager?.write(walletEvent.apdu, onSuccess = {
@@ -127,14 +141,6 @@ object LedgerManager : WalletCore.EventObserver {
                 } catch (_: Throwable) {
                     walletEvent.onResponse("")
                 }
-            }
-
-            is WalletEvent.LedgerIsJettonIdSupported -> {
-                walletEvent.onResponse(activeManager?.appInfo()?.isJettonIdSupported ?: false)
-            }
-
-            is WalletEvent.LedgerIsUnsafeSupported -> {
-                walletEvent.onResponse(activeManager?.appInfo()?.isUnsafeSupported ?: false)
             }
 
             else -> {}

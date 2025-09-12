@@ -8,7 +8,7 @@ import { TONCOIN } from '../../config';
 import chains from '../chains';
 import {
   fetchStoredAccount,
-  fetchStoredTonWallet,
+  fetchStoredWallet,
   getCurrentAccountId,
   getCurrentAccountIdOrFail,
   waitLogin,
@@ -38,7 +38,7 @@ export async function getBalance() {
   const accountId = await getCurrentAccountIdOrFail();
   const account = await fetchStoredAccount(accountId);
 
-  return 'ton' in account ? ton.getAccountBalance(accountId) : 0n;
+  return account.byChain.ton ? ton.getAccountBalance(accountId) : 0n;
 }
 
 export async function requestAccounts() {
@@ -47,7 +47,7 @@ export async function requestAccounts() {
     return [];
   }
 
-  const { ton: tonWallet } = await fetchStoredAccount(accountId);
+  const { byChain: { ton: tonWallet } } = await fetchStoredAccount(accountId);
   if (!tonWallet) {
     return [];
   }
@@ -61,7 +61,7 @@ export async function requestWallets() {
     return [];
   }
 
-  const { ton: tonWallet } = await fetchStoredAccount(accountId);
+  const { byChain: { ton: tonWallet } } = await fetchStoredAccount(accountId);
   if (!tonWallet) {
     return [];
   }
@@ -156,7 +156,7 @@ export async function sendTransaction(params: {
     return false;
   }
 
-  const { address: fromAddress } = await fetchStoredTonWallet(accountId);
+  const { address: fromAddress } = await fetchStoredWallet(accountId, 'ton');
   const [localActivity] = createLocalTransactions(accountId, 'ton', [{
     id: result.msgHashNormalized,
     amount,

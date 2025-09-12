@@ -5,6 +5,14 @@ import { getTonClient } from '../../api/chains/ton/util/tonCore';
 
 import { PushEscrow } from '../../api/chains/ton/contracts/PushEscrow';
 import { PushEscrow as PushEscrowV3 } from '../../api/chains/ton/contracts/PushEscrowV3';
+import { PushNftEscrow } from '../../api/chains/ton/contracts/PushNftEscrow';
+
+interface ContractVersion {
+  isV1: boolean;
+  isV3: boolean;
+  isV2: boolean;
+  isNft: boolean;
+}
 
 export interface CheckData {
   authDate: string;
@@ -16,7 +24,7 @@ export interface CheckData {
 
 const HEAD_BYTES = 72 / 8;
 
-let openedContract: OpenedContract<PushEscrow | PushEscrowV3> | undefined;
+let openedContract: OpenedContract<PushEscrow | PushEscrowV3 | PushNftEscrow> | undefined;
 
 export function calcAddressHead(address: string) {
   const head = Address.parse(address).hash.subarray(0, HEAD_BYTES);
@@ -46,10 +54,14 @@ export function calcAddressHashBase64(address: string) {
   return Address.parse(address).hash.toString('base64');
 }
 
-export async function cashCheck(contractAddress: string, isV3: boolean, checkId: number, checkData: CheckData) {
+export async function cashCheck(contractAddress: string,
+  contractVersions: ContractVersion,
+  checkId: number,
+  checkData: CheckData,
+) {
   const { authDate, chatInstance, username, receiverAddress, signature } = checkData;
 
-  await getOpenedContract(contractAddress, isV3).sendCashCheck({
+  await getOpenedContract(contractAddress, contractVersions).sendCashCheck({
     checkId,
     authDate,
     chatInstance,
@@ -59,11 +71,15 @@ export async function cashCheck(contractAddress: string, isV3: boolean, checkId:
   });
 }
 
-function getOpenedContract(contractAddress: string, isV3: boolean) {
+function getOpenedContract(contractAddress: string, contractVersions: ContractVersion) {
   const addressObj = Address.parse(contractAddress);
 
   if (!openedContract?.address.equals(addressObj)) {
-    const contractClass = isV3 ? PushEscrowV3 : PushEscrow;
+    const contractClass = contractVersions.isV3
+      ? PushEscrowV3
+      : contractVersions.isNft
+        ? PushNftEscrow
+        : PushEscrow;
     openedContract = getTonClient().open(new contractClass(addressObj));
   }
 

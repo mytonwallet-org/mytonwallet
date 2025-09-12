@@ -1,5 +1,5 @@
 import type {
-  ApiAccountAny,
+  ApiAccountWithChain,
   ApiActivity,
   ApiActivityTimestamps,
   ApiBalanceBySlug,
@@ -13,33 +13,28 @@ import { areDeepEqual } from '../../../util/areDeepEqual';
 import { getChainConfig } from '../../../util/chain';
 import isEmptyObject from '../../../util/isEmptyObject';
 import { logDebugError } from '../../../util/logs';
-import { createTaskQueue } from '../../../util/schedulers';
 import { getTokenSlugs } from './util/tokens';
-import { enrichActivities } from '../../common/activities';
-import { activeWalletTiming, inactiveWalletTiming } from '../../common/polling/utils';
+import { fetchStoredWallet } from '../../common/accounts';
+import { setupInactiveChainPolling } from '../../common/polling/setupInactiveChainPolling';
+import { activeWalletTiming } from '../../common/polling/utils';
 import { WalletPolling } from '../../common/polling/walletPolling';
+import { swapReplaceCexActivities } from '../../common/swap';
 import { buildTokenSlug } from '../../common/tokens';
 import { txCallbacks } from '../../common/txCallbacks';
 import { FIRST_TRANSACTIONS_LIMIT } from '../../constants';
-import { getTokenTransactionSlice, mergeActivities } from './transactions';
+import { getTokenActivitySlice, mergeActivities } from './activities';
 import { getTrc20Balance, getWalletBalance, isTronAccountMultisig } from './wallet';
 
 type OnUpdatingStatusChange = (kind: ApiUpdatingStatus['kind'], isUpdating: boolean) => void;
 
-const inactiveUpdateConcurrencyLimiter = createTaskQueue();
-
 export function setupActivePolling(
   accountId: string,
-  account: ApiAccountAny,
+  account: ApiAccountWithChain<'tron'>,
   onUpdate: OnApiUpdate,
   onUpdatingStatusChange: OnUpdatingStatusChange,
   newestActivityTimestamps: ApiActivityTimestamps,
 ): NoneToVoidFunction {
-  if (!('tron' in account) || !account.tron) {
-    return () => {};
-  }
-
-  const { address } = account.tron;
+  const { address } = account.byChain.tron;
 
   const balancePolling = setupBalancePolling(
     accountId,
@@ -209,30 +204,15 @@ function setupActivityPolling(
 
 export function setupInactivePolling(
   accountId: string,
-  account: ApiAccountAny,
+  account: ApiAccountWithChain<'tron'>,
   onUpdate: OnApiUpdate,
 ): NoneToVoidFunction {
-  if (!('tron' in account) || !account.tron) {
-    return () => {};
-  }
-
-  const { address } = account.tron;
+  const { network } = parseAccountId(accountId);
+  const { address } = account.byChain.tron;
 
   const balancePolling = setupBalancePolling(accountId, address, onUpdate);
 
-  const walletPolling = new WalletPolling({
-    ...inactiveWalletTiming,
-    chain: 'tron',
-    network: parseAccountId(accountId).network,
-    address,
-    onUpdate: inactiveUpdateConcurrencyLimiter.wrap(async () => {
-      await balancePolling.update();
-    }),
-  });
-
-  return () => {
-    walletPolling.destroy();
-  };
+  return setupInactiveChainPolling('tron', network, address, balancePolling.update);
 }
 
 async function loadInitialActivities(
@@ -240,24 +220,23 @@ async function loadInitialActivities(
   tokenSlugs: string[],
   onUpdate: OnApiUpdate,
 ) {
+  const { network } = parseAccountId(accountId);
+  const { address } = await fetchStoredWallet(accountId, 'tron');
   const result: ApiActivityTimestamps = {};
   const bySlug: Record<string, ApiActivity[]> = {};
 
-  const chunks = await Promise.all(tokenSlugs.map(async (slug) => {
-    let activities: ApiActivity[] = await getTokenTransactionSlice(
-      accountId, slug, undefined, undefined, FIRST_TRANSACTIONS_LIMIT,
+  await Promise.all(tokenSlugs.map(async (slug) => {
+    let activities: ApiActivity[] = await getTokenActivitySlice(
+      network, address, slug, undefined, undefined, FIRST_TRANSACTIONS_LIMIT,
     );
 
-    activities = await enrichActivities(accountId, activities, slug, true);
+    activities = await swapReplaceCexActivities(accountId, activities, slug, true);
 
     result[slug] = activities[0]?.timestamp;
     bySlug[slug] = activities;
-
-    return activities;
   }));
 
-  const [trxChunk, ...tokenChunks] = chunks;
-  const mainActivities = mergeActivities(trxChunk, ...tokenChunks);
+  const mainActivities = mergeActivities(bySlug);
 
   mainActivities.slice().reverse().forEach((transaction) => {
     txCallbacks.runCallbacks(transaction);
@@ -280,23 +259,25 @@ async function loadNewActivities(
   tokenSlugs: string[],
   onUpdate: OnApiUpdate,
 ) {
+  const { network } = parseAccountId(accountId);
+  const { address } = await fetchStoredWallet(accountId, 'tron');
   const result: ApiActivityTimestamps = {};
+  const bySlug: Record<string, ApiActivity[]> = {};
 
-  const chunks = await Promise.all(tokenSlugs.map(async (slug) => {
+  await Promise.all(tokenSlugs.map(async (slug) => {
     let newestActivityTimestamp = newestActivityTimestamps[slug];
-    const activities: ApiActivity[] = await getTokenTransactionSlice(
-      accountId, slug, undefined, newestActivityTimestamp, FIRST_TRANSACTIONS_LIMIT,
+    const activities: ApiActivity[] = await getTokenActivitySlice(
+      network, address, slug, undefined, newestActivityTimestamp, FIRST_TRANSACTIONS_LIMIT,
     );
 
     newestActivityTimestamp = activities[0]?.timestamp ?? newestActivityTimestamp;
     result[slug] = newestActivityTimestamp;
-    return activities;
+    bySlug[slug] = activities;
   }));
 
-  const [trxChunk, ...tokenChunks] = chunks;
-  let activities = mergeActivities(trxChunk, ...tokenChunks);
+  let activities = mergeActivities(bySlug);
 
-  activities = await enrichActivities(accountId, activities, undefined, true);
+  activities = await swapReplaceCexActivities(accountId, activities, undefined, true);
 
   activities.slice().reverse().forEach((activity) => {
     txCallbacks.runCallbacks(activity);

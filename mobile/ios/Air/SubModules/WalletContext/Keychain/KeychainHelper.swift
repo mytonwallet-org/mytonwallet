@@ -61,9 +61,6 @@ public struct KeychainHelper {
     public static func save(appLock: Bool) {
         // TODO::
     }
-    public static func isAppLockActivated() -> Bool {
-        return true
-    }
 
     // MARK: - Recent addresses
     private static var recentAddressesKey = "recentAddresses"

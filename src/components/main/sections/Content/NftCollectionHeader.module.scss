@@ -13,10 +13,6 @@
   background: var(--color-background-first);
 
   @include mixins.transition(background-color 150ms);
-
-  @include mixins.respond-above(xs) {
-    height: 2.75rem;
-  }
 }
 
 .backButton {

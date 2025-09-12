@@ -160,6 +160,7 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
             viewStateValue().copy(
                 stakingBalance = stakingBalance,
                 totalProfit = totalProfit,
+                showAddStakeButton = stakingState?.isUnstakeRequestAmountUnlocked != true,
                 showUnstakeButton =
                     (stakingState?.balance ?: BigInteger.ZERO) > BigInteger.ZERO,
                 enableAddStakeButton = getTokenBalance() > BigInteger.ZERO,

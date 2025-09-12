@@ -2,7 +2,6 @@ package org.mytonwallet.app_air.uiassets.viewControllers.assets
 
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.constants.TelegramGiftAddresses
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
@@ -63,7 +62,7 @@ class AssetsVM(val collectionMode: AssetsVC.CollectionMode?, delegate: Delegate)
                 }
 
                 is AssetsVC.CollectionMode.TelegramGifts -> {
-                    TelegramGiftAddresses.all.contains(it.collectionAddress)
+                    it.isTelegramGift == true
                 }
 
                 else -> {

@@ -148,7 +148,8 @@ function SettingsTokens({
     const style = `top: ${isDragged ? draggedTop : top}px;`;
     const knobStyle = 'left: 1rem;';
 
-    const isDeleteButtonVisible = amount === 0n && !DEFAULT_ENABLED_TOKEN_SLUGS.includes(slug);
+    const isDeleteButtonVisible = amount === 0n
+      && !Object.values(DEFAULT_ENABLED_TOKEN_SLUGS).some((tokenSlugs) => tokenSlugs.includes(slug));
 
     const isDragDisabled = isSortByValueEnabled || tokens!.length <= 1;
 

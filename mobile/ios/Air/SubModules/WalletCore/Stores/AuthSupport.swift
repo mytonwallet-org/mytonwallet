@@ -5,7 +5,7 @@ import UIKit
 import Kingfisher
 
 public protocol AuthSupportProtocol {
-    
+    static var accountsSupportAppLock: Bool { get }
     static func verifyPassword(password: String) async throws -> Bool
 }
 
@@ -17,6 +17,10 @@ public struct AuthCooldownError: Error {
 
 private final class AuthSupportImpl: AuthSupportProtocol {
     
+    static var accountsSupportAppLock: Bool {
+        AccountStore.accountsById.values.any { $0.type.isStoredEncrypted }
+    }
+
     static var failedLoginAttempts: Int {
         get {
             let (_, s) = KeychainStorageProvider.get(key: "failedLoginAttempts")

@@ -55,8 +55,9 @@ class WDialogButton(
             }
 
             Config.Style.DANGER -> {
-                setTextColor(WColor.Red.color)
-                addRippleEffect(Color.BLACK.colorWithAlpha(76), 20f.dp)
+                setTextColor(WColor.White.color)
+                setBackgroundColor(WColor.Red.color, 20f.dp)
+                addRippleEffect(Color.BLACK.colorWithAlpha(25), 20f.dp)
             }
 
             Config.Style.NORMAL -> {

@@ -1,5 +1,5 @@
 import type {
-  ApiAccountWithTon,
+  ApiAccountWithChain,
   ApiNftTransferPayload,
   ApiParsedPayload,
   ApiTokensTransferNonStandardPayload,
@@ -19,8 +19,8 @@ export function isTokenTransferPayload(
 }
 
 /** How many messages can be sent in a single transaction */
-export function getMaxMessagesInTransaction(account: ApiAccountWithTon, ignoreLedger?: boolean) {
-  const { type, ton: { version } } = account;
+export function getMaxMessagesInTransaction(account: ApiAccountWithChain<'ton'>, ignoreLedger?: boolean) {
+  const { type, byChain: { ton: { version } } } = account;
 
   if (type === 'ledger' && !ignoreLedger) {
     return LEDGER_MAX_MESSAGES;

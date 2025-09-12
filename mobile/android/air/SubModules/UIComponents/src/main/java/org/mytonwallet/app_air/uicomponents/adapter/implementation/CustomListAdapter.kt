@@ -85,8 +85,6 @@ open class CustomListAdapter : BaseListAdapter() {
         item: BaseListItem,
         position: Int
     ) {
-        holder.itemView.setOnClickListener(null)
-
         val clickableItem = item as? Item.IClickable ?: return
         holder.itemView.isClickable = clickableItem.clickable != null
 

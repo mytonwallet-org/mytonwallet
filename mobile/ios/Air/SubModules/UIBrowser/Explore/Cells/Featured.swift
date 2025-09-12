@@ -112,7 +112,7 @@ struct FeaturedDappCell: View {
     }
 }
 
-fileprivate struct OpenButtonStyle: ButtonStyle {
+fileprivate struct OpenButtonStyle: PrimitiveButtonStyle {
     @State private var isHighlighted: Bool = false
 
     func makeBody(configuration: Configuration) -> some View {
@@ -125,6 +125,9 @@ fileprivate struct OpenButtonStyle: ButtonStyle {
             .foregroundStyle(Color(WTheme.tint))
             .background(.white.opacity(0.5).blendMode(.overlay), in: .containerRelative)
             .contentShape(.containerRelative.inset(by: -10))
+            .onTapGesture {
+                configuration.trigger()
+            }
             .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in
                 withAnimation(.spring(duration: 0.1)) {
                     isHighlighted = true

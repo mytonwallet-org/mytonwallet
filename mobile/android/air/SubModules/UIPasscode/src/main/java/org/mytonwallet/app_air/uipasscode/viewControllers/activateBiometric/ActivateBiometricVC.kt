@@ -2,8 +2,22 @@ package org.mytonwallet.app_air.uipasscode.viewControllers.activateBiometric
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.view.View
+import android.view.ViewGroup
+import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.widget.FrameLayout
+import androidx.core.view.isGone
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.HeaderAndActionsView
+import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.widgets.WButton
+import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
+import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
+import org.mytonwallet.app_air.uicomponents.widgets.particles.ParticleConfig
+import org.mytonwallet.app_air.uicomponents.widgets.particles.ParticleView
+import org.mytonwallet.app_air.uicomponents.widgets.pulseView
 import org.mytonwallet.app_air.uipasscode.R
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
 import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
@@ -17,38 +31,66 @@ class ActivateBiometricVC(context: Context, onCompletion: (activated: Boolean) -
 
     override val shouldDisplayTopBar = false
 
-    private val centerView: HeaderAndActionsView by lazy {
+    private val particleParams = ParticleConfig(
+        particleCount = 35,
+        centerShift = floatArrayOf(0f, 32f),
+        distanceLimit = 0.45f,
+        color = ParticleConfig.Companion.PARTICLE_COLORS.GREEN
+    )
+
+    var particlesCleaner: (() -> Unit)? = null
+    val greenParticlesView = ParticleView(context).apply {
+        id = View.generateViewId()
+        isGone = true
+    }
+
+    private val headerView: HeaderAndActionsView by lazy {
         val v = HeaderAndActionsView(
             context,
-            null,
-            R.drawable.ic_fingerprint,
-            false,
-            LocaleController.getString("Use Biometrics?"),
-            LocaleController.getString("To avoid entering the passcode every time, you can use biometrics."),
-            LocaleController.getString("Use Biometrics"),
-            LocaleController.getString("Skip"),
-            primaryActionPressed = {
-                BiometricHelpers.authenticate(
-                    window!!,
-                    LocaleController.getString("Use Biometrics?"),
-                    subtitle = null,
-                    description = null,
-                    cancel = null,
-                    onSuccess = {
-                        centerView.primaryActionButton.isLoading = true
-                        view.lockView()
-                        onCompletion(true)
-                    },
-                    onCanceled = {}
-                )
-            },
-            secondaryActionPressed = {
-                centerView.secondaryActionButton.isLoading = true
-                view.lockView()
-                onCompletion(false)
-            }
+            HeaderAndActionsView.Media.Image(
+                image = R.drawable.ic_fingerprint,
+                tintedImage = false,
+                onClick = {
+                    headerView.pulseView(0.98f, AnimationConstants.VERY_VERY_QUICK_ANIMATION)
+                    greenParticlesView.addParticleSystem(
+                        ParticleConfig.particleBurstParams(
+                            ParticleConfig.Companion.PARTICLE_COLORS.GREEN
+                        )
+                    )
+                }
+            ),
+            title = LocaleController.getString("Use Biometrics"),
+            subtitle = LocaleController.getString("You can connect your biometric data for more convenience"),
         )
         v
+    }
+
+    private val connectButton = WButton(context, WButton.Type.PRIMARY).apply {
+        text = LocaleController.getString("Connect Biometrics")
+        setOnClickListener {
+            BiometricHelpers.authenticate(
+                window!!,
+                LocaleController.getString("Use Biometrics"),
+                subtitle = null,
+                description = null,
+                cancel = null,
+                onSuccess = {
+                    isLoading = true
+                    view.lockView()
+                    onCompletion(true)
+                },
+                onCanceled = {}
+            )
+        }
+    }
+
+    private val skipButton = WButton(context, WButton.Type.SECONDARY).apply {
+        text = LocaleController.getString("Not Now")
+        setOnClickListener {
+            isLoading = true
+            view.lockView()
+            onCompletion(false)
+        }
     }
 
     override fun setupViews() {
@@ -57,12 +99,24 @@ class ActivateBiometricVC(context: Context, onCompletion: (activated: Boolean) -
         setupNavBar(true)
         setTopBlur(visible = false, animated = false)
 
-        // Add center view
-        view.addView(centerView)
+        view.addView(greenParticlesView, FrameLayout.LayoutParams(0, WRAP_CONTENT))
+        view.addView(headerView)
+        view.addView(connectButton, ViewGroup.LayoutParams(0, WRAP_CONTENT))
+        view.addView(skipButton, ViewGroup.LayoutParams(0, WRAP_CONTENT))
 
-        // Apply constraints to center the view
         view.setConstraints {
-            allEdges(centerView)
+            toTopPx(
+                headerView,
+                WNavigationBar.DEFAULT_HEIGHT.dp +
+                    (navigationController?.getSystemBars()?.top ?: 0)
+            )
+            toCenterX(headerView)
+            topToTop(greenParticlesView, headerView, -59f)
+            toCenterX(greenParticlesView)
+            toBottomPx(skipButton, 32.dp + (navigationController?.getSystemBars()?.bottom ?: 0))
+            toCenterX(skipButton, 32f)
+            bottomToTop(connectButton, skipButton, 16f)
+            toCenterX(connectButton, 32f)
         }
 
         updateTheme()
@@ -71,13 +125,35 @@ class ActivateBiometricVC(context: Context, onCompletion: (activated: Boolean) -
     override fun updateTheme() {
         super.updateTheme()
 
-        view.setBackgroundColor(WColor.Background.color)
+        val backgroundColor = WColor.Background.color
+        view.setBackgroundColor(backgroundColor)
+        greenParticlesView.setParticleBackgroundColor(backgroundColor)
+    }
+
+    override fun viewDidAppear() {
+        super.viewDidAppear()
+
+        if (particlesCleaner == null) {
+            particlesCleaner = greenParticlesView.addParticleSystem(particleParams)
+            greenParticlesView.isGone = false
+        }
+        greenParticlesView.fadeIn { }
+    }
+
+    override fun viewWillDisappear() {
+        super.viewWillDisappear()
+        greenParticlesView.fadeOut { }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        particlesCleaner?.invoke()
     }
 
     override fun showError(error: MBridgeError?) {
         super.showError(error)
-        centerView.primaryActionButton.isLoading = false
-        centerView.secondaryActionButton.isLoading = false
+        connectButton.isLoading = false
+        skipButton.isLoading = false
         view.unlockView()
     }
 }

@@ -20,7 +20,7 @@ import isMnemonicPrivateKey from '../../../util/isMnemonicPrivateKey';
 import { cloneDeep, compact } from '../../../util/iteratees';
 import { getTranslation } from '../../../util/langProvider';
 import { callActionInMain, callActionInNative } from '../../../util/multitab';
-import { clearPoisoningCache } from '../../../util/poisoningHash';
+import { clearPoisoningCache, updatePoisoningCacheFromGlobalState } from '../../../util/poisoningHash';
 import { pause } from '../../../util/schedulers';
 import {
   IS_BIOMETRIC_AUTH_SUPPORTED,
@@ -73,6 +73,10 @@ export async function switchAccount(global: GlobalState, accountId: string, newN
   setGlobal(switchAccountAndClearGlobal(global, accountId));
 
   clearPoisoningCache();
+
+  // Load poisoning cache for the new account
+  global = getGlobal();
+  updatePoisoningCacheFromGlobalState(global);
 
   if (newNetwork) {
     actions.changeNetwork({ network: newNetwork });
@@ -345,7 +349,7 @@ addActionHandler('createAccount', async (global, actions, {
     return;
   }
 
-  const { accountId, addressByChain, secondNetworkAccount } = result;
+  const { accountId, byChain, secondNetworkAccount } = result;
 
   if (!isImporting) {
     global = { ...global, appState: AppState.Auth, isAddAccountModalOpen: undefined };
@@ -354,7 +358,7 @@ addActionHandler('createAccount', async (global, actions, {
     isLoading: undefined,
     password: undefined,
     firstNetworkAccount: {
-      addressByChain,
+      byChain,
       accountId,
     },
     secondNetworkAccount,
@@ -419,13 +423,13 @@ addActionHandler('addHardwareAccounts', (global, actions, { wallets }) => {
       return currentGlobal;
     }
     const { accountId, address, walletInfo } = wallet;
-    const addressByChain = { ton: address };
+    const byChain = { ton: { address } };
 
     currentGlobal = updateCurrentAccountId(currentGlobal, accountId);
     currentGlobal = createAccount({
       global: currentGlobal,
       accountId,
-      addressByChain,
+      byChain,
       type: 'hardware',
       partial: {
         ...(walletInfo && {
@@ -979,7 +983,7 @@ addActionHandler('importAccountByVersion', async (global, actions, { version }) 
   }
 
   const { title: currentWalletTitle, type } = selectAccount(global, accountId)!;
-  const addressByChain = { ton: wallet.address };
+  const byChain = { ton: { address: wallet.address } };
   global = updateCurrentAccountId(global, wallet.accountId);
 
   const ledgerInfo = wallet.ledger ? {
@@ -990,7 +994,7 @@ addActionHandler('importAccountByVersion', async (global, actions, { version }) 
     global,
     accountId: wallet.accountId,
     type,
-    addressByChain,
+    byChain,
     partial: { ...ledgerInfo, title: currentWalletTitle },
     titlePostfix: version,
   });
@@ -1047,7 +1051,7 @@ addActionHandler('importViewAccount', async (global, actions, { addressByChain }
   global = createAccount({
     global,
     accountId: result.accountId,
-    addressByChain: result.resolvedAddresses,
+    byChain: result.byChain,
     type: 'view',
     partial: { title: result.title },
   });

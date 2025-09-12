@@ -19,6 +19,7 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiSwapCexTransactionStatus.SEN
 import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealed
 import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealedSubtype
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.AddressStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.math.BigInteger
 import java.util.Date
@@ -469,9 +470,13 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
     fun addressToShow(): Pair<String, Boolean>? {
         return (when (this) {
             is Transaction -> {
-                if (metadata?.name?.isNotEmpty() == true)
-                    Pair(metadata.name, true) else
-                    Pair(peerAddress.formatStartEndAddress(), false)
+                AddressStore.getAddress(peerAddress)?.name?.let { name ->
+                    Pair(name, true)
+                } ?: run {
+                    if (metadata?.name?.isNotEmpty() == true)
+                        Pair(metadata.name, true) else
+                        Pair(peerAddress.formatStartEndAddress(), false)
+                }
             }
 
             else -> {
@@ -639,7 +644,7 @@ enum class ApiTransactionType {
             BURN to Triple("Burned", "Burning", "Burn"),
             AUCTION_BID to Triple(
                 "NFT Auction Bid",
-                "Bidding at NFT Auction",
+                "Bidding Auction",
                 "Bid at NFT Auction"
             ),
             DNS_CHANGE_ADDRESS to Triple("Address Updated", "Updating Address", "Update Address"),

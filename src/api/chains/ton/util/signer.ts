@@ -5,8 +5,8 @@ import { WalletContractV5R1 } from '@ton/ton/dist/wallets/WalletContractV5R1';
 
 import type { ApiTonConnectProof } from '../../../tonConnect/types';
 import type {
+  ApiAccountWithChain,
   ApiAccountWithMnemonic,
-  ApiAccountWithTon,
   ApiAnyDisplayError,
   ApiNetwork,
   ApiTonWallet,
@@ -52,7 +52,7 @@ export interface Signer {
 
 export function getSigner(
   accountId: string,
-  account: ApiAccountWithTon,
+  account: ApiAccountWithChain<'ton'>,
   /** Required for mnemonic accounts when the mock signing is off */
   password?: string,
   /** Set `true` if you only need to emulate the transaction */
@@ -61,11 +61,11 @@ export function getSigner(
   ledgerSubwalletId?: number,
 ): Signer {
   if (isMockSigning || account.type === 'view') {
-    return new MockSigner(account.ton);
+    return new MockSigner(account.byChain.ton);
   }
 
   if (account.type === 'ledger') {
-    return new LedgerSigner(parseAccountId(accountId).network, account.ton, ledgerSubwalletId);
+    return new LedgerSigner(parseAccountId(accountId).network, account.byChain.ton, ledgerSubwalletId);
   }
 
   if (password === undefined) throw new Error('Password not provided');
@@ -138,10 +138,10 @@ class MnemonicSigner extends PrivateKeySigner {
 
   constructor(
     public accountId: string,
-    public account: ApiAccountWithMnemonic,
+    public account: ApiAccountWithMnemonic & ApiAccountWithChain<'ton'>,
     public password: string,
   ) {
-    const { address, version } = account.ton;
+    const { address, version } = account.byChain.ton;
     super(address, version);
   }
 

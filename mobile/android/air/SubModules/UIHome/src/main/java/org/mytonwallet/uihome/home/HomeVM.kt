@@ -6,7 +6,6 @@ import android.os.Looper
 import org.mytonwallet.app_air.walletcontext.helpers.logger.Logger
 import org.mytonwallet.app_air.walletcore.STAKING_SLUGS
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
-import org.mytonwallet.app_air.walletcore.TRON_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.fetchAccount
@@ -15,6 +14,7 @@ import org.mytonwallet.app_air.walletcore.api.swapGetAssets
 import org.mytonwallet.app_air.walletcore.api.tryUpdatePrices
 import org.mytonwallet.app_air.walletcore.helpers.ActivityLoader
 import org.mytonwallet.app_air.walletcore.helpers.IActivityLoader
+import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
@@ -151,13 +151,22 @@ class HomeVM(val context: Context, delegate: Delegate) : WalletCore.EventObserve
             return
         }
 
-        // make sure default event for receiving toncoin is also called
+        // make sure default event for receiving native tokens of all chains is called
         val balances = BalanceStore.getBalances(AccountStore.activeAccountId)
-        if (
-            balances?.get(TONCOIN_SLUG) == null ||
-            (AccountStore.activeAccount?.isMultichain == true && balances.get(TRON_SLUG) == null)
-        ) {
-            Logger.i(Logger.LogTag.HomeVM, "balancesEventCalledOnce not loaded yet")
+        val account = AccountStore.activeAccount
+
+        val missingNativeTokens = account?.byChain?.keys?.any { chain ->
+            val blockchain = try {
+                MBlockchain.valueOf(chain)
+            } catch (_: IllegalArgumentException) {
+                null
+            }
+            val nativeTokenSlug = blockchain?.nativeSlug
+            nativeTokenSlug != null && balances?.get(nativeTokenSlug) == null
+        } ?: false
+
+        if (missingNativeTokens) {
+            Logger.i(Logger.LogTag.HomeVM, "Native token balances not loaded yet for all chains")
             return
         }
 
@@ -272,6 +281,10 @@ class HomeVM(val context: Context, delegate: Delegate) : WalletCore.EventObserve
 
             WalletEvent.AccountNameChanged -> {
                 delegate.get()?.accountNameChanged()
+                dataUpdated()
+            }
+
+            WalletEvent.AccountSavedAddressesChanged -> {
                 dataUpdated()
             }
 

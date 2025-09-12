@@ -34,7 +34,7 @@ interface OwnProps {
 }
 
 interface StateProps {
-  addressByChain?: Account['addressByChain'];
+  accountChains?: Account['byChain'];
   isSensitiveDataHidden?: true;
 }
 
@@ -48,7 +48,7 @@ function SwapResult({
   secondButtonText,
   swapType,
   toAddress = '',
-  addressByChain,
+  accountChains,
   isSensitiveDataHidden,
   onFirstButtonClick,
   onSecondButtonClick,
@@ -57,11 +57,11 @@ function SwapResult({
   const lang = useLang();
 
   const isInternalSwap = getIsInternalSwap({
-    from: tokenIn, to: tokenOut, toAddress, addressByChain,
+    from: tokenIn, to: tokenOut, toAddress, accountChains,
   });
   const isToAddressInCurrentWallet = useMemo(() => {
-    return Boolean(toAddress && Object.values(addressByChain ?? {}).some((address) => address === toAddress));
-  }, [addressByChain, toAddress]);
+    return Boolean(toAddress && Object.values(accountChains ?? {}).some(({ address }) => address === toAddress));
+  }, [accountChains, toAddress]);
 
   function renderButtons() {
     if (!firstButtonText && !secondButtonText) {
@@ -164,7 +164,7 @@ function SwapResult({
 
 export default memo(withGlobal<OwnProps>((global): StateProps => {
   return {
-    addressByChain: selectCurrentAccount(global)?.addressByChain,
+    accountChains: selectCurrentAccount(global)?.byChain,
     isSensitiveDataHidden: global.settings.isSensitiveDataHidden,
   };
 })(SwapResult));

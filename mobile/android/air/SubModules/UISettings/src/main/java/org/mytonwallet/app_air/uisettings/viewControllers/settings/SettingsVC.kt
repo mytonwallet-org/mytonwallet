@@ -7,7 +7,6 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
-import androidx.appcompat.widget.AppCompatEditText
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
 import androidx.core.content.ContextCompat
 import androidx.core.view.setPadding
@@ -19,6 +18,7 @@ import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
+import org.mytonwallet.app_air.uicomponents.widgets.WEditText
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
@@ -27,6 +27,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.dialog.WDialog
 import org.mytonwallet.app_air.uicomponents.widgets.dialog.WDialogButton
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
+import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
@@ -49,6 +50,7 @@ import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
 import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
+import org.mytonwallet.app_air.walletcontext.helpers.logger.LogMessage
 import org.mytonwallet.app_air.walletcontext.helpers.logger.Logger
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
@@ -68,6 +70,7 @@ import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ActivityStore
+import org.mytonwallet.app_air.walletcore.stores.AddressStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import java.lang.ref.WeakReference
@@ -182,8 +185,7 @@ class SettingsVC(context: Context) : WViewController(context),
                         )
                     }
                 ),
-                popupWidth = 180.dp,
-                offset = (-140).dp,
+                popupWidth = WRAP_CONTENT,
                 aboveView = true
             )
         }
@@ -414,11 +416,19 @@ class SettingsVC(context: Context) : WViewController(context),
     }
 
     private fun renameWalletPressed() {
-        val input = AppCompatEditText(context).apply {
+        val input = object : WEditText(context, null, false) {
+            init {
+                setSingleLine()
+                setPadding(8.dp, 8.dp, 8.dp, 8.dp)
+                updateTheme()
+            }
+
+            override fun updateTheme() {
+                setBackgroundColor(WColor.SecondaryBackground.color, 10f.dp)
+            }
+        }.apply {
             hint = LocaleController.getString("Wallet Name")
             setText(AccountStore.activeAccount?.name)
-            setHintTextColor(WColor.SecondaryText.color)
-            setTextColor(WColor.PrimaryText.color)
         }
         val container = FrameLayout(context).apply {
             setPadding(24.dp, 0, 24.dp, 0)
@@ -440,6 +450,10 @@ class SettingsVC(context: Context) : WViewController(context),
                                 AccountStore.activeAccount!!.accountId,
                                 newWalletName
                             )
+                            AddressStore.updatedAccountName(
+                                AccountStore.activeAccountId!!,
+                                newWalletName
+                            )
                             AirPushNotifications.accountNameChanged(AccountStore.activeAccount!!)
                             WalletCore.notifyEvent(WalletEvent.AccountNameChanged)
                         }
@@ -456,7 +470,8 @@ class SettingsVC(context: Context) : WViewController(context),
                     window!!,
                     WNavigationController.PresentationConfig(
                         overFullScreen = false,
-                        isBottomSheet = true
+                        isBottomSheet = true,
+                        aboveKeyboard = true
                     )
                 )
                 nav.setRoot(WalletContextManager.delegate?.getAddAccountVC() as WViewController)
@@ -471,6 +486,14 @@ class SettingsVC(context: Context) : WViewController(context),
                 ) { res, err ->
                     if (res == null || err != null) {
                         // Should not happen!
+                        Logger.e(
+                            Logger.LogTag.ACCOUNT,
+                            LogMessage.Builder()
+                                .append(
+                                    "Activation failed in settings: $err",
+                                    LogMessage.MessagePartPrivacy.PUBLIC
+                                ).build()
+                        )
                     } else {
                         WalletCore.notifyEvent(WalletEvent.AccountChangedInApp)
                     }

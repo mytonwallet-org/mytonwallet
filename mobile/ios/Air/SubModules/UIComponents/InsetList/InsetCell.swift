@@ -125,7 +125,7 @@ public struct InsetExpandableCell: View {
                         .fixedSize(horizontal: false, vertical: true)
                     if !isExpanded {
                         Button(action: {isExpanded = true}) {
-                            Text(lang("more"))
+                            Text(lang("More").lowercased())
                                 .tint(Color(WTheme.tint))
                         }
                         .buttonStyle(.borderless)

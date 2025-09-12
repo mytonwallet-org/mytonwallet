@@ -21,14 +21,14 @@ struct SwapCexDetailsView: View {
     var sellingToken: ApiToken { selectorsVM.sellingToken }
     var buyingToken: ApiToken { selectorsVM.buyingToken }
     var exchangeRate: SwapRate? { displayExchangeRate }
-    var swapEstimate: MSwapEstimate? { swapVM.cexEstimate }
-    var displayEstimate: MSwapEstimate? { swapEstimate }
+    var swapEstimate: ApiSwapCexEstimateResponse? { swapVM.cexEstimate }
+    var displayEstimate: ApiSwapCexEstimateResponse? { swapEstimate }
 
     var displayExchangeRate: SwapRate? {
         if let est = swapEstimate {
             return ExchangeRateHelpers.getSwapRate(
-                fromAmount: est.fromAmount,
-                toAmount: est.toAmount,
+                fromAmount: est.fromAmount.value,
+                toAmount: est.toAmount.value,
                 fromToken: sellingToken,
                 toToken: buyingToken
             )
@@ -66,7 +66,7 @@ struct SwapCexDetailsView: View {
                 let token = amnt.type
                 let chain = token.chainValue
                 let draft: MTransactionDraft = try await Api.checkTransactionDraft(
-                    chain: chain.rawValue,
+                    chain: chain,
                     options: .init(
                         accountId: account.id,
                         toAddress: chain == .ton ? (AccountStore.account?.tonAddress ?? "") : "TW2LXSebZ7Br1zHaiA2W1zRojDkDwjGmpw",

@@ -15,7 +15,7 @@ import { getTokenByAddress } from '../../common/tokens';
 import { getContractInfo } from './wallet';
 
 const FEE_ADDRESSES = [SWAP_FEE_ADDRESS, DIESEL_ADDRESS];
-const MAX_NETWORK_FEE = 1000000000n; // 1 TON
+const MAX_NETWORK_FEE = 3600000000n; // 3.6 TON = 0.3 TON * 3 * 4 - when 4 splits with 3 hops per split on Stonfi
 
 export async function validateDexSwapTransfers(
   network: ApiNetwork,
@@ -31,7 +31,7 @@ export async function validateDexSwapTransfers(
 
   assert(transfers.length <= 2, 'Too many transfers');
 
-  const [mainTransfer, feeTransfer] = transfers;
+  const [mainTransfer, feeTransfer] = transfers as [TonTransferParams, TonTransferParams | undefined];
 
   if (request.from === TONCOIN.symbol) {
     const maxAmount = fromDecimal(request.fromAmount) + fromDecimal(request.ourFee) + MAX_NETWORK_FEE;

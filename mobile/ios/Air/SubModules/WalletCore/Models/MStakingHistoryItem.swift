@@ -25,7 +25,7 @@ public struct MStakingHistoryItem: Equatable, Hashable, Encodable, Identifiable 
             case .unstaked:
                 return lang("Unstaked")
             case .unstakeRequest:
-                return lang("Unstake request")
+                return lang("Unstake Request")
             }
         }
         

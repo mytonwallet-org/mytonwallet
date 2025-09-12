@@ -131,6 +131,7 @@ class ListIconDualLineCell(context: Context) : FrameLayout(context), WThemedView
         }
 
         separatorDrawable.forceSeparator = separator
+        updateTheme()
     }
 
     override fun updateTheme() {

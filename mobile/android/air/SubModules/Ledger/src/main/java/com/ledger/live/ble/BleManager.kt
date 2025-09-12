@@ -116,7 +116,16 @@ class BleManager internal constructor(
                 //Not called
                 ScanSettings.CALLBACK_TYPE_MATCH_LOST -> {
                     Timber.d("Scan result => Lost")
-                    if (scannedDevices.removeIf { it.id == result.device.address }) {
+                    val iterator = scannedDevices.iterator()
+                    var removed = false
+                    while (iterator.hasNext()) {
+                        val device = iterator.next()
+                        if (device.id == result.device.address) {
+                            iterator.remove()
+                            removed = true
+                        }
+                    }
+                    if (removed) {
                         onScanDevicesCallback?.invoke(scannedDevices)
                     }
                 }

@@ -110,7 +110,7 @@ struct CrossChainToTonView: View {
     
     var header: some View {
         HStack {
-            Text(WStrings.CrossChainSwap_SendToThisAddress_Text(symbol: sellingToken.symbol))
+            Text(WStrings.CrossChainSwap_SendToThisAddress_Text(symbol: sellingToken.symbol).uppercased())
             Spacer()
             Text(remaining)
         }
@@ -129,15 +129,15 @@ struct CrossChainToTonView: View {
     }
     
     var disclaimer: some View {
-        let text = lang("Please note that it may take up to a few hours for tokens to appear in your wallet.\n\nIf there are any problems, please contact support at Changelly Live Chat or support@changelly.org and provide your Transaction ID.")
+        let text = lang("Please note that it may take up to a few hours for tokens to appear in your wallet.") + "\n\n" + lang("$swap_changelly_support", arg1: lang("Changelly Live Chat"), arg2: "support@changelly.org")
         let attr = NSMutableAttributedString(string: text,
                                              attributes: [
             .font: UIFont.systemFont(ofSize: 13),
             .foregroundColor: WTheme.secondaryLabel
         ])
         // Highlight specified terms
-        let highlightLinks = lang("CrossChainSwap_ToTonDescriptionHighlightLinks").components(separatedBy: "|")
-        for (i, highlight) in lang("Changelly Live Chat|support@changelly.org").components(separatedBy: "|").enumerated() {
+        let highlightLinks = ["https://support.changelly.com/support/home", "mailto:support@changelly.org"]
+        for (i, highlight) in [lang("Changelly Live Chat"), "support@changelly.org"].enumerated() {
             let range = (attr.string as NSString).range(of: highlight)
             attr.addAttribute(.foregroundColor, value: WTheme.primaryButton.background, range: range)
             attr.addAttribute(.link, value: highlightLinks[i], range: range)
@@ -165,13 +165,13 @@ struct CrossChainToTonView: View {
     
     func copyAddress() {
         UIPasteboard.general.string = address
-        topWViewController()?.showToast(message: lang("Transaction ID copied"))
+        topWViewController()?.showToast(message: lang("Transaction ID was copied!"))
         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
     }
     
     func copyTx() {
         UIPasteboard.general.string = exchangerTxId
-        topWViewController()?.showToast(message: lang("Transaction ID copied"))
+        topWViewController()?.showToast(message: lang("Transaction ID was copied!"))
         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
     }
     

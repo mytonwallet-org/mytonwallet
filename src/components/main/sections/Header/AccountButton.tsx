@@ -19,7 +19,7 @@ import styles from './AccountButton.module.scss';
 interface OwnProps {
   isActive: boolean;
   accountId: string;
-  addressByChain: Account['addressByChain'];
+  byChain: Account['byChain'];
   accountType: AccountType;
   title?: string;
   cardBackgroundNft?: ApiNft;
@@ -34,7 +34,7 @@ export const ACCOUNT_ADDRESS_SHIFT = 4;
 function AccountButton({
   isActive,
   accountId,
-  addressByChain,
+  byChain,
   accountType,
   title,
   cardBackgroundNft,
@@ -47,10 +47,10 @@ function AccountButton({
   const isHardware = accountType === 'hardware';
   const isViewMode = accountType === 'view';
 
-  const addressOrMultichain = isKeyCountGreater(addressByChain, 1)
+  const addressOrMultichain = isKeyCountGreater(byChain, 1)
     ? lang('Multichain')
     : shortenAddress(
-      getMainAccountAddress(addressByChain) ?? '',
+      getMainAccountAddress(byChain) ?? '',
       accountType !== 'mnemonic' ? ACCOUNT_WITH_ICON_ADDRESS_SHIFT : ACCOUNT_ADDRESS_SHIFT,
       ACCOUNT_ADDRESS_SHIFT,
     );

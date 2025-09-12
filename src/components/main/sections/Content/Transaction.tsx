@@ -24,6 +24,7 @@ import {
 } from '../../../../config';
 import {
   DNS_TRANSACTION_TYPES,
+  getIsActivityPendingForUser,
   getTransactionAmountDisplayMode,
   getTransactionTitle,
   isScamTransaction,
@@ -246,7 +247,7 @@ function Transaction({
           </span>
         )}
         <ActivityStatusIcon
-          isPending={status === 'pending' || status === 'pendingTrusted'}
+          isPending={getIsActivityPendingForUser(transaction)}
           isError={status === 'failed'}
           color={pendingIndicatorColor}
           appTheme={appTheme}

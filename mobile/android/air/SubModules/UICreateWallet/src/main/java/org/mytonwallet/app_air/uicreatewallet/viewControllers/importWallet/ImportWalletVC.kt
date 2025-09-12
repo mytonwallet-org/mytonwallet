@@ -1,10 +1,8 @@
 package org.mytonwallet.app_air.uicreatewallet.viewControllers.importWallet
 
-import WNavigationController
 import android.annotation.SuppressLint
 import android.content.Context
-import android.text.Spannable
-import android.text.SpannableString
+import android.util.TypedValue
 import android.view.View
 import android.view.View.OnFocusChangeListener
 import android.view.View.TEXT_ALIGNMENT_CENTER
@@ -12,13 +10,15 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.inputmethod.EditorInfo
+import androidx.constraintlayout.widget.ConstraintLayout
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.getTextFromClipboard
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
-import org.mytonwallet.app_air.uicomponents.helpers.typeface
+import org.mytonwallet.app_air.uicomponents.widgets.WAnimationView
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WEditText
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -26,10 +26,16 @@ import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.WWordInput
+import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
+import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.suggestion.WSuggestionView
+import org.mytonwallet.app_air.uicreatewallet.viewControllers.intro.IntroVC
+import org.mytonwallet.app_air.uicreatewallet.viewControllers.walletAdded.WalletAddedVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.setPasscode.SetPasscodeVC
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
+import org.mytonwallet.app_air.walletcontext.helpers.logger.LogMessage
+import org.mytonwallet.app_air.walletcontext.helpers.logger.Logger
 import org.mytonwallet.app_air.walletcontext.theme.WColor
 import org.mytonwallet.app_air.walletcontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.toProcessedSpannableStringBuilder
@@ -38,7 +44,6 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.constants.PossibleWords
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
-import org.mytonwallet.uihome.tabs.TabsVC
 import java.lang.ref.WeakReference
 import kotlin.math.max
 
@@ -53,6 +58,9 @@ class ImportWalletVC(
     override val shouldDisplayTopBar = false
     override val ignoreSideGuttering = true
 
+    override val isBackAllowed: Boolean
+        get() = navigationController?.viewControllers?.firstOrNull() is IntroVC
+
     private val importWalletVM by lazy {
         ImportWalletVM(this)
     }
@@ -64,38 +72,42 @@ class ImportWalletVC(
 
     override val shouldDisplayBottomBar = true
 
+    private val animationView: WAnimationView by lazy {
+        WAnimationView(context).apply {
+            play(
+                org.mytonwallet.app_air.uicomponents.R.raw.animation_snitch, true,
+                onStart = {
+                    fadeIn()
+                })
+        }
+    }
     private val titleLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.text = LocaleController.getString("24 Secret Words")
+        lbl.text = LocaleController.getString("Enter Secret Words")
         lbl.setStyle(28f, WFont.Medium)
         lbl
     }
 
     private val subtitleLabel: WLabel by lazy {
-        val lbl = WLabel(context)
-        lbl.setStyle(16f)
-        lbl.setLineHeight(24f)
-        val str = LocaleController.getString("\$auth_import_mnemonic_description")
-            .toProcessedSpannableStringBuilder()
-        val mediumWord = LocaleController.getString("24 Secret Words")
-        val spannable: Spannable = SpannableString(str)
-        spannable.setSpan(
-            WTypefaceSpan(WFont.Regular.typeface),
-            0,
-            str.length,
-            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-        )
-        val mediumWordIndex = str.indexOf(mediumWord)
-        if (mediumWordIndex > -1)
-            spannable.setSpan(
-                WTypefaceSpan(WFont.Medium.typeface),
-                mediumWordIndex,
-                str.indexOf(mediumWord) + mediumWord.length,
-                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-        lbl.text = spannable
-        lbl.textAlignment = TEXT_ALIGNMENT_CENTER
-        lbl
+        WLabel(context).apply {
+            setStyle(16f)
+            setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
+            text = LocaleController.getString("\$auth_import_mnemonic_description")
+                .toProcessedSpannableStringBuilder()
+            textAlignment = TEXT_ALIGNMENT_CENTER
+        }
+    }
+
+    private val pasteButton: WLabel by lazy {
+        WLabel(context).apply {
+            setStyle(16f, WFont.SemiBold)
+            text = LocaleController.getString("Paste from Clipboard")
+            setTextColor(WColor.Tint.color)
+            setPaddingDp(16, 8, 16, 8)
+            setOnClickListener {
+                pasteFromClipboard()
+            }
+        }
     }
 
     private val continueButton: WButton by lazy {
@@ -110,7 +122,8 @@ class ImportWalletVC(
     private val suggestionView: WSuggestionView by lazy {
         val v = WSuggestionView(context) {
             activeField?.textField?.setText(it)
-            val nextFocusView = activeField?.focusSearch(View.FOCUS_DOWN)
+            val nextFocusView = activeField?.textField?.nextFocusView?.get()
+                ?: activeField?.focusSearch(View.FOCUS_DOWN)
             if (nextFocusView != null) {
                 nextFocusView.requestFocus()
             } else {
@@ -126,13 +139,21 @@ class ImportWalletVC(
     private val scrollingContentView: WView by lazy {
         val v = WView(context)
         v.layoutDirection = View.LAYOUT_DIRECTION_LTR
+        v.addView(animationView, ViewGroup.LayoutParams(104.dp, 104.dp))
         v.addView(titleLabel, ViewGroup.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         v.addView(subtitleLabel, ViewGroup.LayoutParams(0, WRAP_CONTENT))
+        v.addView(pasteButton, ViewGroup.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         for (wordNumber in 1..24) {
             val wordInputView = WWordInput(context, wordNumber, this)
-            v.addView(wordInputView)
+            wordInputViews.lastOrNull()?.textField?.nextFocusView =
+                WeakReference(wordInputView.textField)
+            v.addView(wordInputView, ConstraintLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
             wordInputViews.add(wordInputView)
-            wordInputView.textField.setOnEditorActionListener { _, _, _ ->
+            wordInputView.textField.setOnEditorActionListener { _, actionId, _ ->
+                if (actionId == EditorInfo.IME_ACTION_NEXT) {
+                    wordInputViews.getOrNull(wordNumber)?.textField?.requestFocus()
+                    return@setOnEditorActionListener true
+                }
                 false
             }
             wordInputView.textField.onFocusChangeListener = OnFocusChangeListener { _, hasFocus ->
@@ -158,25 +179,50 @@ class ImportWalletVC(
         v.addView(suggestionView, ViewGroup.LayoutParams(0, 48.dp))
         v.setConstraints {
             toTopPx(
-                titleLabel,
+                animationView,
                 WNavigationBar.DEFAULT_HEIGHT.dp + (navigationController?.getSystemBars()?.top
                     ?: 0)
             )
+            toCenterX(animationView)
+            topToBottom(titleLabel, animationView, 24f)
             toCenterX(titleLabel)
-            topToBottom(subtitleLabel, titleLabel, 8f)
-            toCenterX(subtitleLabel, 48F)
-            var prevWordInput: WWordInput? = null
-            for (wordInput in wordInputViews) {
+            topToBottom(subtitleLabel, titleLabel, 20f)
+            toCenterX(subtitleLabel, 48f)
+            topToBottom(pasteButton, subtitleLabel, 1f)
+            toCenterX(pasteButton)
+
+            val containerWidth = (navigationController?.width?.takeIf { it > 0 }
+                ?: context.resources.displayMetrics.widthPixels)
+            val wordInputWidth = (containerWidth - 64.dp - 16.dp) / 2
+
+            var prevLeftWordInput: WWordInput? = null
+            for (i in 0..11) {
+                val wordInput = wordInputViews[i]
                 topToBottom(
                     wordInput,
-                    prevWordInput ?: subtitleLabel,
-                    if (prevWordInput == null) 40F else 10F
+                    prevLeftWordInput ?: pasteButton,
+                    if (prevLeftWordInput == null) 29f else 10f
                 )
-                toCenterX(wordInput, 48F)
-                prevWordInput = wordInput
+                toStart(wordInput, 32f)
+                constrainWidth(wordInput.id, wordInputWidth)
+                prevLeftWordInput = wordInput
             }
-            topToBottom(continueButton, prevWordInput!!, 16F)
-            toCenterX(continueButton, 48F)
+
+            var prevRightWordInput: WWordInput? = null
+            for (i in 12..23) {
+                val wordInput = wordInputViews[i]
+                topToBottom(
+                    wordInput,
+                    prevRightWordInput ?: pasteButton,
+                    if (prevRightWordInput == null) 29f else 10f
+                )
+                toEnd(wordInput, 32f)
+                constrainWidth(wordInput.id, wordInputWidth)
+                prevRightWordInput = wordInput
+            }
+
+            topToBottom(continueButton, prevLeftWordInput!!, 16f)
+            toCenterX(continueButton, 32f)
             toBottomPx(
                 continueButton,
                 48.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
@@ -196,13 +242,17 @@ class ImportWalletVC(
 
         setNavTitle("")
         setupNavBar(true)
+        if (navigationController?.viewControllers?.firstOrNull() !is IntroVC)
+            navigationBar?.addCloseButton()
 
         view.addView(scrollView, ViewGroup.LayoutParams(0, 0))
         view.setConstraints {
             allEdges(scrollView)
         }
 
-        val scrollOffsetToShowNav = WNavigationBar.DEFAULT_HEIGHT.dp
+        val scrollOffsetToShowNav =
+            96.dp + WNavigationBar.DEFAULT_HEIGHT.dp + (navigationController?.getSystemBars()?.top
+                ?: 0)
         scrollView.onScrollChange = { y ->
             if (y > 0) {
                 topReversedCornerView?.resumeBlurring()
@@ -210,7 +260,7 @@ class ImportWalletVC(
                 topReversedCornerView?.pauseBlurring(false)
             }
             if (y > scrollOffsetToShowNav) {
-                setNavTitle(LocaleController.getString("24 Secret Words"))
+                setNavTitle(LocaleController.getString("Enter Secret Words"))
                 setTopBlur(true, animated = true)
             } else {
                 setNavTitle("")
@@ -238,9 +288,10 @@ class ImportWalletVC(
     }
 
     override fun updateTheme() {
-        scrollingContentView.setBackgroundColor(WColor.Background.color)
+        scrollingContentView.setBackgroundColor(WColor.SecondaryBackground.color)
         titleLabel.setTextColor(WColor.PrimaryText.color)
         subtitleLabel.setTextColor(WColor.PrimaryText.color)
+        pasteButton.addRippleEffect(WColor.TintRipple.color, 10f.dp)
     }
 
     private fun importPressed() {
@@ -308,11 +359,23 @@ class ImportWalletVC(
         ) { res, err ->
             if (res == null || err != null) {
                 // Should not happen!
+                Logger.e(
+                    Logger.LogTag.ACCOUNT,
+                    LogMessage.Builder()
+                        .append(
+                            "Activation failed on import finalization: $err",
+                            LogMessage.MessagePartPrivacy.PUBLIC
+                        ).build()
+                )
+                continueButton.isLoading = false
+                view.unlockView()
+                showError(MBridgeError.UNKNOWN)
+                return@activateAccount
             } else {
                 if (WGlobalStorage.accountIds().size < 2) {
-                    val navigationController = WNavigationController(window!!)
-                    navigationController.setRoot(TabsVC(context))
-                    window!!.replace(navigationController, true)
+                    push(WalletAddedVC(context, false), {
+                        navigationController?.removePrevViewControllers()
+                    })
                 } else {
                     WalletCore.notifyEvent(WalletEvent.AddNewWalletCompletion)
                     window!!.dismissLastNav()
@@ -351,6 +414,15 @@ class ImportWalletVC(
             wordInputViews.filter { it.textField.text.toString().trim().isNotEmpty() }.size
         if (wordsCount == 12 || wordsCount == 24)
             importPressed()
+    }
+
+    private fun pasteFromClipboard() {
+        val clipText = context.getTextFromClipboard()
+        if (clipText.isNullOrEmpty()) {
+            return
+        }
+
+        wordInputViews.firstOrNull()?.textField?.handlePaste(clipText)
     }
 
 }

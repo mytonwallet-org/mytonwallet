@@ -1,17 +1,16 @@
+import type { AccountChain } from '../../global/types';
 import type { StorageKey } from '../storages/types';
 import type {
   ApiAccountAny,
+  ApiAccountWithChain,
   ApiAccountWithMnemonic,
-  ApiAccountWithTon,
-  ApiAccountWithTron,
-  ApiBip39Account,
   ApiChain,
   ApiNetwork,
-  ApiTonWallet,
-  ApiTronWallet,
+  ApiWalletByChain,
 } from '../types';
 
 import { buildAccountId, parseAccountId } from '../../util/account';
+import { mapValues } from '../../util/iteratees';
 import { storage } from '../storages';
 
 const MIN_ACCOUNT_NUMBER = 0;
@@ -41,15 +40,11 @@ export async function getNewAccountId(network: ApiNetwork, preferredId?: number)
 }
 
 export async function fetchStoredAddress(accountId: string, chain: ApiChain): Promise<string> {
-  return (await fetchStoredAccount<ApiBip39Account>(accountId))[chain].address;
+  return (await fetchStoredChainAccount(accountId, chain)).byChain[chain].address;
 }
 
-export async function fetchStoredTonWallet(accountId: string): Promise<ApiTonWallet> {
-  return (await fetchStoredTonAccount(accountId)).ton;
-}
-
-export async function fetchStoredTronWallet(accountId: string): Promise<ApiTronWallet> {
-  return (await fetchStoredTronAccount(accountId)).tron;
+export async function fetchStoredWallet<T extends ApiChain>(accountId: string, chain: T) {
+  return (await fetchStoredChainAccount(accountId, chain)).byChain[chain] as ApiWalletByChain[T];
 }
 
 export function fetchMaybeStoredAccount<T extends ApiAccountAny>(accountId: string): Promise<T | undefined> {
@@ -62,16 +57,10 @@ export async function fetchStoredAccount<T extends ApiAccountAny>(accountId: str
   throw new Error(`Account ${accountId} doesn't exist`);
 }
 
-export async function fetchStoredTonAccount<T extends ApiAccountWithTon>(accountId: string): Promise<T> {
+export async function fetchStoredChainAccount<T extends ApiChain>(accountId: string, chain: T) {
   const account = await fetchStoredAccount(accountId);
-  if (account.ton) return account as T;
-  throw new Error('TON wallet missing');
-}
-
-export async function fetchStoredTronAccount<T extends ApiAccountWithTron>(accountId: string): Promise<T> {
-  const account = await fetchStoredAccount(accountId);
-  if ((account as ApiAccountWithTron).tron) return account as T;
-  throw new Error('TRON wallet missing');
+  if (account.byChain[chain]) return account as ApiAccountWithChain<T>;
+  throw new Error(`${chain} wallet missing in account ${accountId}`);
 }
 
 export function fetchStoredAccounts(): Promise<Record<string, ApiAccountAny>> {
@@ -89,12 +78,19 @@ export async function updateStoredAccount<T extends ApiAccountAny>(
   });
 }
 
-export async function updateStoredTonWallet(accountId: string, partial: Partial<ApiTonWallet>): Promise<void> {
-  const tonWallet = await fetchStoredTonWallet(accountId);
+export async function updateStoredWallet<T extends ApiChain>(
+  accountId: string,
+  chain: T,
+  partial: Partial<ApiWalletByChain[T]>,
+): Promise<void> {
+  const account = await fetchStoredChainAccount(accountId, chain);
   return updateStoredAccount(accountId, {
-    ton: {
-      ...tonWallet,
-      ...partial,
+    byChain: {
+      ...account.byChain,
+      [chain]: {
+        ...account.byChain[chain],
+        ...partial,
+      },
     },
   });
 }
@@ -151,11 +147,15 @@ export function waitLogin() {
   return loginPromise;
 }
 
-export function getAddressesFromAccount(account: ApiAccountAny) {
-  const addressByChain: Partial<Record<ApiChain, string>> = {};
+export function getAccountChains(account: ApiAccountAny): Partial<Record<ApiChain, AccountChain>> {
+  return mapValues(account.byChain, (wallet) => ({
+    address: wallet.address,
+  }));
+}
 
-  if ('ton' in account && account.ton) addressByChain.ton = account.ton.address;
-  if ('tron' in account && account.tron) addressByChain.tron = account.tron.address;
-
-  return addressByChain;
+export function doesAccountHaveChain<T extends ApiChain>(
+  account: ApiAccountAny,
+  chain: T,
+): account is ApiAccountWithChain<T> {
+  return !!account.byChain[chain];
 }

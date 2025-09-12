@@ -87,6 +87,10 @@ const val INIT_SCRIPT =
 @SuppressLint("SetJavaScriptEnabled")
 class JSWebViewBridge(context: Context) : WebView(context) {
 
+    init {
+        id = generateViewId()
+    }
+
     internal fun setupBridge(onBridgeReady: () -> Unit) {
         setWebContentsDebuggingEnabled(DEBUG_MODE)
         settings.javaScriptEnabled = true
@@ -558,6 +562,16 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                     bridge.post {
                         bridge.evaluateJavascript(script) {}
                     }
+                }
+
+                "getLedgerDeviceModel" -> {
+                    WalletCore.notifyEvent(WalletEvent.LedgerDeviceModelRequest { responseJsonObject ->
+                        val script =
+                            "window.airBridge.nativeCallCallbacks[$requestNumber]?.({ok: true, result: $responseJsonObject})"
+                        bridge.post {
+                            bridge.evaluateJavascript(script) {}
+                        }
+                    })
                 }
 
                 "exchangeWithLedger" -> {

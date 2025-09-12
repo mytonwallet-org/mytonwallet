@@ -367,7 +367,7 @@ extension ReceiveTableVC: UITableViewDelegate, UITableViewDataSource {
                         .multilineTextAlignment(.leading)
                     
                     Button(action: {
-                        self?.showToast(animationName: "Copy", message: lang("Address was copied to clipboard."))
+                        self?.showToast(animationName: "Copy", message: lang("Address was copied!"))
                         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
                         UIPasteboard.general.string = address
                     }) {
@@ -390,7 +390,7 @@ extension ReceiveTableVC: UITableViewDelegate, UITableViewDataSource {
                 let cell = tableView.dequeueReusableCell(withIdentifier: "Footer")!
                 var config = UIListContentConfiguration.groupedFooter()
                 
-                config.text = chain == .ton ? lang("Send only Toncoin (TON) or TON-based assets to this address. Sending other tokens will result in loss.") : lang("Send only TRON (TRX) or TRON-based assets to this address. Sending other tokens will result in loss.")
+                config.text = chain == .ton ? lang("$send_only_ton") : lang("$send_only_tron")
                 cell.contentConfiguration = config
                 cell.layoutMargins = .init(top: 2, left: 32, bottom: 0, right: 32)
                 cell.backgroundConfiguration = .listGroupedHeaderFooter()

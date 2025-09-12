@@ -29,17 +29,17 @@ export function getIsInternalSwap({
   from,
   to,
   toAddress,
-  addressByChain,
+  accountChains,
 }: {
   from?: UserSwapToken | ApiSwapAsset;
   to?: UserSwapToken | ApiSwapAsset;
   toAddress?: string;
-  addressByChain?: Account['addressByChain'];
+  accountChains?: Account['byChain'];
 }) {
-  const isMultichain = Boolean(addressByChain?.tron);
+  const isMultichain = Boolean(accountChains?.tron);
   return (from?.chain === 'ton' && to?.chain === 'ton') || (
-    isMultichain && from && to && addressByChain
+    isMultichain && from && to && accountChains
     && getIsSupportedChain(from.chain)
-    && addressByChain[to.chain as ApiChain] === toAddress
+    && accountChains[to.chain as ApiChain]?.address === toAddress
   );
 }

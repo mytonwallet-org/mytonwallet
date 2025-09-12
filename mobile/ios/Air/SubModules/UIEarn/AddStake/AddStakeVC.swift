@@ -92,15 +92,7 @@ public class AddStakeVC: WViewController, WalletCoreData.EventsObserver {
         hostingController.view.backgroundColor = WTheme.sheetBackground
         
         _ = addBottomButton()
-        let title: String = switch model.baseToken.slug {
-        case TONCOIN_SLUG:
-            lang("Stake TON")
-        case MYCOIN_SLUG:
-            lang("Stake MY")
-        case TON_USDE_SLUG:
-            "Stake USDe"
-        default: ""
-        }
+        let title: String = lang("$stake_asset", arg1: model.baseToken.slug)
         continueButton.setTitle(title, for: .normal)
         continueButton.addTarget(self, action: #selector(continuePressed), for: .touchUpInside)
         continueButton.isEnabled = false
@@ -149,8 +141,7 @@ public class AddStakeVC: WViewController, WalletCoreData.EventsObserver {
             continueButton.isEnabled = false
         } else if !isNativeToken && toncoinBalance < calculatedFee {
             model.insufficientFunds = true
-            continueButton.setTitle(WStrings.Staking_InsufficientFeeAmount_Text(amount: minAmount.doubleAbsRepresentation(decimals: 9)), for: .normal)
-            continueButton.isEnabled = false
+            continueButton.apply(config: .insufficientFee(minAmount: minAmount))
         } else {
             model.insufficientFunds = false
             continueButton.setTitle(self.title, for: .normal)

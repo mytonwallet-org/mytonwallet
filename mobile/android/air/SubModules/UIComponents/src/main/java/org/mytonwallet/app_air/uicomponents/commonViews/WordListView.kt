@@ -37,6 +37,7 @@ class WordListView(context: Context) : WView(context) {
         setConstraints {
             toTop(leftWordItemView)
             toStart(leftWordItemView)
+            startToEnd(rightWordItemView, leftWordItemView, 48f)
             toTop(rightWordItemView)
             toEnd(rightWordItemView)
         }

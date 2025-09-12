@@ -75,20 +75,23 @@ data class ParticleConfig(
             val TON = floatArrayOf(0f, 152f / 255f, 234f / 255f) // #0098EA
             val USDT = floatArrayOf(0f, 147f / 255f, 147f / 255f) // #009393
             val MY = floatArrayOf(64f / 255f, 122f / 255f, 207f / 255f) // #407ACF
+            val GREEN = floatArrayOf(83f / 255f, 163f / 255f, 13f / 255f) // #407ACF
         }
 
         // Burst particle configuration for tap
-        public val particleBurstParams = ParticleConfig(
-            particleCount = 90,
-            distanceLimit = 1f,
-            fadeInTime = 0.05f,
-            minLifetime = 3f,
-            maxLifetime = 3f,
-            maxStartTimeDelay = 0f,
-            selfDestroyTime = 3f,
-            minSpawnRadius = 35f,
-            maxSpawnRadius = 50f,
-            color = ParticleConfig.Companion.PARTICLE_COLORS.TON
-        )
+        fun particleBurstParams(color: FloatArray = PARTICLE_COLORS.TON): ParticleConfig {
+            return ParticleConfig(
+                particleCount = 90,
+                distanceLimit = 1f,
+                fadeInTime = 0.05f,
+                minLifetime = 3f,
+                maxLifetime = 3f,
+                maxStartTimeDelay = 0f,
+                selfDestroyTime = 3f,
+                minSpawnRadius = 35f,
+                maxSpawnRadius = 50f,
+                color = color
+            )
+        }
     }
 }

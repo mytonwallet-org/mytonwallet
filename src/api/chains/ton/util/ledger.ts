@@ -3,6 +3,7 @@
  * This is needed to reduce the app size when Ledger is not used.
  */
 
+import type { DeviceModelId } from '@ledgerhq/devices';
 import { TransportStatusError } from '@ledgerhq/errors';
 import type { Address, Cell } from '@ton/core';
 import type { TonPayloadFormat } from '@ton-community/ton-ledger';
@@ -41,6 +42,9 @@ const VERSION_WITH_PAYLOAD: Record<TonPayloadFormat['type'], string> = {
   'token-bridge-pay-swap': '2.1',
 };
 
+// https://github.com/LedgerHQ/app-ton/blob/d3e1edbbc1fcf9a5d6982fbb971f757a83d0aa56/doc/MESSAGES.md?plain=1#L51
+const DEVICES_NOT_SUPPORTING_JETTON_ID = new Set<`${DeviceModelId}`>(['nanoS']);
+
 const knownJettonAddresses = Object.fromEntries(
   KNOWN_JETTONS.map(({ masterAddress }, jettonId) => [
     toBase64Address(masterAddress, true, 'mainnet'),
@@ -48,7 +52,8 @@ const knownJettonAddresses = Object.fromEntries(
   ]),
 );
 
-const ledgerTransport = new TonTransport(new WindowTransport());
+const ledgerTransport = new WindowTransport();
+const tonTransport = new TonTransport(ledgerTransport);
 
 /** Thrown when and only when the Ledger TON app needs to be updated to support this transaction */
 export const unsupportedError = new Error('Unsupported');
@@ -64,7 +69,7 @@ export async function signTonProofWithLedger(
   const { timestamp, domain, payload } = proof;
 
   try {
-    const result = await ledgerTransport.getAddressProof(accountPath, {
+    const result = await tonTransport.getAddressProof(accountPath, {
       domain,
       timestamp,
       payload: Buffer.from(payload),
@@ -88,8 +93,9 @@ export async function signTonTransactionsWithLedger(
   maxRetries = ATTEMPTS,
 ): Promise<Cell[] | { error: ApiHardwareError }> {
   const accountPath = getLedgerAccountPathByWallet(network, wallet);
-  const ledgerVersion = await ledgerTransport.getVersion();
-  const isBlindSigningEnabled = await getIsBlindSigningEnabled(ledgerVersion);
+  const deviceModel = await ledgerTransport.getDeviceModel();
+  const ledgerTonVersion = await tonTransport.getVersion();
+  const isBlindSigningEnabled = await getIsBlindSigningEnabled(ledgerTonVersion);
   let ledgerTransactions: LedgerTransactionParams[];
 
   // To improve the UX, making sure all the transactions are signable before asking the user to sign them
@@ -99,7 +105,8 @@ export async function signTonTransactionsWithLedger(
         network,
         wallet.version,
         tonTransaction,
-        ledgerVersion,
+        deviceModel?.id,
+        ledgerTonVersion,
         isBlindSigningEnabled,
         subwalletId,
       )
@@ -113,12 +120,12 @@ export async function signTonTransactionsWithLedger(
   return signLedgerTransactionsWithRetry(accountPath, ledgerTransactions, maxRetries);
 }
 
-async function getIsBlindSigningEnabled(ledgerVersion: string) {
-  if (!doesSupport(ledgerVersion, VERSION_WITH_GET_SETTINGS)) {
+async function getIsBlindSigningEnabled(ledgerTonVersion: string) {
+  if (!doesSupport(ledgerTonVersion, VERSION_WITH_GET_SETTINGS)) {
     return true; // If Ledger actually doesn't allow blind signing, it will throw an error later
   }
 
-  const { blindSigningEnabled } = await ledgerTransport.getSettings();
+  const { blindSigningEnabled } = await tonTransport.getSettings();
   return blindSigningEnabled;
 }
 
@@ -132,7 +139,8 @@ export async function tonTransactionToLedgerTransaction(
   network: ApiNetwork,
   walletVersion: ApiTonWalletVersion,
   tonTransaction: PreparedTransactionToSign,
-  ledgerVersion: string,
+  ledgerModel: DeviceModelId | undefined,
+  ledgerTonVersion: string,
   isBlindSigningEnabled: boolean,
   subwalletId?: number,
 ): Promise<LedgerTransactionParams> {
@@ -146,6 +154,16 @@ export async function tonTransactionToLedgerTransaction(
     throw new Error(`Unsupported message type "${message.info.type}"`);
   }
 
+  const payload = await getPayload(
+    network,
+    message.info.dest,
+    message.body,
+    ledgerModel,
+    ledgerTonVersion,
+    isBlindSigningEnabled,
+    hints,
+  );
+
   return {
     to: message.info.dest,
     sendMode,
@@ -154,8 +172,8 @@ export async function tonTransactionToLedgerTransaction(
     bounce: message.info.bounce,
     amount: message.info.value.coins,
     stateInit: message.init ?? undefined,
-    payload: await getPayload(network, message.info.dest, message.body, ledgerVersion, isBlindSigningEnabled, hints),
-    walletSpecifiers: getWalletSpecifiers(walletVersion, ledgerVersion, subwalletId),
+    payload,
+    walletSpecifiers: getWalletSpecifiers(walletVersion, ledgerTonVersion, subwalletId),
   };
 }
 
@@ -177,13 +195,14 @@ async function getPayload(
   network: ApiNetwork,
   toAddress: Address,
   tonPayload: Cell | undefined,
-  ledgerVersion: string,
+  ledgerModel: DeviceModelId | undefined,
+  ledgerTonVersion: string,
   isBlindSigningEnabled: boolean,
   { tokenAddress }: TonTransferHints = {},
 ) {
-  const ledgerPayload = tonPayloadToLedgerPayload(tonPayload, ledgerVersion);
+  const ledgerPayload = tonPayloadToLedgerPayload(tonPayload, ledgerTonVersion);
 
-  if (ledgerPayload?.type === 'jetton-transfer' && doesSupport(ledgerVersion, VERSION_WITH_JETTON_ID)) {
+  if (ledgerPayload?.type === 'jetton-transfer' && doesSupportJettonId(ledgerModel, ledgerTonVersion)) {
     if (!tokenAddress) {
       const tokenWalletAddress = toBase64Address(toAddress, true, network);
       tokenAddress = await resolveTokenAddress(network, tokenWalletAddress);
@@ -206,7 +225,7 @@ async function getPayload(
  *
  * Exported for tests only.
  */
-export function tonPayloadToLedgerPayload(tonPayload: Cell | undefined, ledgerVersion: string) {
+export function tonPayloadToLedgerPayload(tonPayload: Cell | undefined, ledgerTonVersion: string) {
   if (!tonPayload) {
     return undefined;
   }
@@ -226,9 +245,9 @@ export function tonPayloadToLedgerPayload(tonPayload: Cell | undefined, ledgerVe
     };
   }
 
-  if (ledgerPayload && !doesSupport(ledgerVersion, VERSION_WITH_PAYLOAD[ledgerPayload.type])) {
-    logDebug(`The ${ledgerPayload.type} payload type is not supported by Ledger TON v${ledgerVersion}`);
-    if (!doesSupport(ledgerVersion, VERSION_WITH_PAYLOAD.unsafe)) {
+  if (ledgerPayload && !doesSupport(ledgerTonVersion, VERSION_WITH_PAYLOAD[ledgerPayload.type])) {
+    logDebug(`The ${ledgerPayload.type} payload type is not supported by Ledger TON v${ledgerTonVersion}`);
+    if (!doesSupport(ledgerTonVersion, VERSION_WITH_PAYLOAD.unsafe)) {
       throw unsupportedError;
     }
 
@@ -253,7 +272,7 @@ async function signLedgerTransactionsWithRetry(
 
   while (index < ledgerTransactions.length) {
     try {
-      signedTransactions.push(await ledgerTransport.signTransaction(accountPath, ledgerTransactions[index]));
+      signedTransactions.push(await tonTransport.signTransaction(accountPath, ledgerTransactions[index]));
       index++;
     } catch (err) {
       try {
@@ -271,8 +290,14 @@ async function signLedgerTransactionsWithRetry(
   return signedTransactions;
 }
 
-function doesSupport(ledgerVersion: string, featureVersion: string) {
-  return compareVersions(ledgerVersion, featureVersion) >= 0;
+function doesSupport(ledgerTonVersion: string, featureVersion: string) {
+  return compareVersions(ledgerTonVersion, featureVersion) >= 0;
+}
+
+function doesSupportJettonId(ledgerModel: DeviceModelId | undefined, ledgerTonVersion: string) {
+  return ledgerModel // If the Ledger model is unknown, assuming it can be any model and acting safely
+    && !DEVICES_NOT_SUPPORTING_JETTON_ID.has(ledgerModel)
+    && doesSupport(ledgerTonVersion, VERSION_WITH_JETTON_ID);
 }
 
 function getKnownJetton(tokenAddress: string) {
@@ -281,13 +306,13 @@ function getKnownJetton(tokenAddress: string) {
   return jettonId === undefined ? null : { jettonId, workchain: WORKCHAIN };
 }
 
-function getWalletSpecifiers(walletVersion: ApiTonWalletVersion, ledgerVersion: string, subwalletId?: number) {
+function getWalletSpecifiers(walletVersion: ApiTonWalletVersion, ledgerTonVersion: string, subwalletId?: number) {
   if (walletVersion === 'v3R2') {
-    if (!doesSupport(ledgerVersion, VERSION_WITH_WALLET_SPECIFIERS)) throw unsupportedError;
+    if (!doesSupport(ledgerTonVersion, VERSION_WITH_WALLET_SPECIFIERS)) throw unsupportedError;
     return { includeWalletOp: false };
   }
   if (subwalletId !== undefined) {
-    if (!doesSupport(ledgerVersion, VERSION_WITH_WALLET_SPECIFIERS)) throw unsupportedError;
+    if (!doesSupport(ledgerTonVersion, VERSION_WITH_WALLET_SPECIFIERS)) throw unsupportedError;
     return { subwalletId, includeWalletOp: false };
   }
   return undefined;

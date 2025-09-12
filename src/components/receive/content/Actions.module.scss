@@ -1,0 +1,101 @@
+@use "../../../styles/mixins";
+
+.actionSheetDialog {
+  width: 100%;
+  height: 19.625rem;
+
+  @supports (padding-bottom: var(--safe-area-bottom)) {
+    @include mixins.respond-below(xs) {
+      padding-bottom: max(var(--safe-area-bottom), 1rem);
+    }
+  }
+
+  @media (min-width: 416.01px) { // 26rem = 416px
+    max-width: 24rem;
+  }
+}
+
+.actionButtons {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+
+  border-radius: var(--border-radius-default);
+
+  background: var(--color-background-first);
+}
+
+.actionButtonStatic {
+  flex-shrink: 0;
+  margin: -1rem 0 0;
+  border-bottom: 0.75rem solid var(--color-background-first-disabled);
+  border-radius: 0;
+}
+
+.actionButton {
+  cursor: var(--custom-cursor, pointer);
+
+  position: relative;
+
+  display: grid;
+  grid-auto-columns: 1fr;
+  grid-template-areas: "icon content arrow";
+  grid-template-columns: min-content 1fr min-content;
+  grid-template-rows: 1fr;
+  gap: 0.5rem;
+  align-items: center;
+
+  padding: 0.8125rem 0.75rem 0.8125rem 0.625rem;
+
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1rem;
+  color: var(--color-black);
+
+  @include mixins.transition('background-color 200ms, opacity 200ms');
+
+  &:not(:last-child):after {
+    content: '';
+
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 3rem;
+
+    height: 0.0625rem;
+
+    box-shadow: inset 0 -0.025rem 0 0 var(--color-separator);
+  }
+
+  @media (hover: hover) {
+    &:focus-visible,
+    &:hover {
+      background-color: var(--color-interactive-item-hover);
+    }
+  }
+
+  @media (pointer: coarse) {
+    &:active {
+      background-color: var(--color-interactive-item-hover);
+    }
+  }
+
+  &.disabled {
+    pointer-events: none;
+    opacity: 0.4;
+  }
+}
+
+.actionIcon {
+  display: flex;
+  align-items: center;
+
+  height: 1.875rem;
+
+  font-size: 1.875rem;
+  color: var(--color-accent);
+}
+
+.iconChevronRight {
+  color: var(--color-gray-3);
+}

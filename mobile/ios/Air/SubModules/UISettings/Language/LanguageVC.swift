@@ -45,19 +45,6 @@ public class LanguageVC: WViewController {
         tableView.separatorStyle = .none
         tableView.delaysContentTouches = false
         
-//        let headerLabel = HostingView(ignoreSafeArea: false) {
-//            Text("Localization is a work in progress. For the best experience, please use English.")
-//                .font13()
-//                .padding(.top, 24)
-//                .padding(.bottom, 8)
-//                .padding(.horizontal, 32)
-//                .multilineTextAlignment(.leading)
-//                .frame(maxWidth: UIScreen.main.bounds.width - 32, alignment: .leading)
-//                .foregroundStyle(Color.orange)
-//        }
-//        headerLabel.frame.size.height = 52
-//        tableView.tableHeaderView = headerLabel
-        
         view.addSubview(tableView)
         NSLayoutConstraint.activate([
             tableView.topAnchor.constraint(equalTo: view.topAnchor),
@@ -86,7 +73,7 @@ extension LanguageVC: UITableViewDelegate, UITableViewDataSource {
     public func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         if indexPath.row == 0 {
             let cell = tableView.dequeueReusableCell(withIdentifier: "Header", for: indexPath) as! SectionHeaderCell
-            cell.configure(title: lang("Interface language").uppercased())
+            cell.configure(title: lang("Language").uppercased())
             return cell
         }
         let language = languages[indexPath.row - 1]

@@ -1,10 +1,14 @@
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.graphics.Color
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.coordinatorlayout.widget.CoordinatorLayout
+import androidx.core.animation.doOnEnd
 import androidx.core.graphics.Insets
 import androidx.core.view.isGone
+import androidx.core.view.updateLayoutParams
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.SwipeTouchListener
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
@@ -19,6 +23,7 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
 import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import java.lang.ref.WeakReference
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -29,7 +34,8 @@ class WNavigationController(
 ) : CoordinatorLayout(window), WThemedView {
     data class PresentationConfig(
         val overFullScreen: Boolean = true,
-        val isBottomSheet: Boolean = false
+        val isBottomSheet: Boolean = false,
+        val aboveKeyboard: Boolean = false,
     )
 
     init {
@@ -54,6 +60,7 @@ class WNavigationController(
     }
 
     var tabBarController: ITabBarController? = null
+    private var keyboardAnimationInProgress = false
 
     var viewControllers: ArrayList<WViewController> = arrayListOf()
     private val darkView: WView by lazy {
@@ -118,6 +125,36 @@ class WNavigationController(
                 viewControllers[viewControllers.size - 2].insetsUpdated()
             }
         }
+        handleAboveKeyboardVisibility()
+    }
+
+    var prevBottomMargin = 0
+    private fun handleAboveKeyboardVisibility() {
+        if (!presentationConfig.aboveKeyboard)
+            return
+        val keyboardHeight = (window.imeInsets?.bottom ?: 0) - (getSystemBars().bottom)
+        val newBottomMargin = max(keyboardHeight, 0)
+        val diff = newBottomMargin - prevBottomMargin
+        if (diff != 0) {
+            prevBottomMargin = newBottomMargin
+            keyboardAnimationInProgress = true
+            val startY = translationY
+            val endY = startY - diff.toFloat()
+            val animator = ValueAnimator.ofFloat(startY, endY)
+            animator.duration = AnimationConstants.VERY_VERY_QUICK_ANIMATION
+
+            animator.addUpdateListener { valueAnimator ->
+                val currentY = valueAnimator.animatedValue as Float
+                translationY = currentY
+                viewControllers.lastOrNull()?.keyboardAnimationFrameRendered()
+            }
+
+            animator.doOnEnd {
+                keyboardAnimationInProgress = false
+            }
+
+            animator.start()
+        }
     }
 
     // Set root view controller right after init
@@ -167,9 +204,35 @@ class WNavigationController(
         viewController.navigationController = this
         addViewController(viewController)
         addView(viewController.view, LayoutParams(MATCH_PARENT, MATCH_PARENT))
-        if (!presentationConfig.overFullScreen) {
+        if (presentationConfig.isBottomSheet) {
+            if (hidingVC.isExpandable) {
+                throw Exception("Pushing on an expandable bottom-sheet is not supported.")
+            }
+            if (viewController.isExpandable) {
+                throw Exception("Pushing expandable bottom-sheet is not supported.")
+            }
+            if (viewController.getModalHalfExpandedHeight() == null) {
+                throw Exception("Pushing expandable bottom-sheet is not supported.")
+            }
             // Presented as modal. Should setup bottom sheet behaviour.
-            setupBottomSheetBehaviour(viewController)
+            viewController.getModalHalfExpandedHeight()?.let { newHeight ->
+                updateLayoutParams {
+                    height = newHeight
+                }
+                val hidingVCHeight =
+                    hidingVC.getModalHalfExpandedHeight() ?: hidingVC.view.measuredHeight
+                val newVCHeight = viewController.getModalHalfExpandedHeight()
+                    ?: viewController.view.measuredHeight
+                val diff = hidingVCHeight - newVCHeight
+                animate()
+                    .translationYBy(diff.toFloat())
+                    .setDuration(if (WGlobalStorage.getAreAnimationsActive()) AnimationConstants.NAV_PUSH else 0)
+                    .setInterpolator(WInterpolator.emphasized)
+                    .withEndAction {
+                        setupBottomSheetBehaviour(viewController)
+                    }
+                    .start()
+            }
         }
         viewController.viewWillAppear()
         fun onEnd() {
@@ -188,7 +251,7 @@ class WNavigationController(
             val animation = viewController.view.animate()
                 .alpha(1f)
                 .translationX(0f)
-                .setDuration(500)
+                .setDuration(AnimationConstants.NAV_PUSH)
                 .setInterpolator(WInterpolator.emphasized)
                 .withEndAction {
                     isAnimating = false
@@ -199,6 +262,7 @@ class WNavigationController(
             viewController.view.post {
                 isAnimating = true
                 WGlobalStorage.incDoNotSynchronize()
+                viewController.view.y = 0f
                 viewController.view.visibility = VISIBLE
                 animation.start()
             }
@@ -214,19 +278,23 @@ class WNavigationController(
     }
 
     // Setup bottom sheet behaviour
+    private var bottomSheetBehaviorHolder: WViewController? = null
     private fun setupBottomSheetBehaviour(viewController: WViewController) {
+        (bottomSheetBehaviorHolder?.view?.layoutParams as? LayoutParams)?.behavior = null
+        bottomSheetBehaviorHolder = viewController
         (viewController.view.layoutParams as LayoutParams).behavior =
             BottomSheetBehavior<View>(context)
         val bottomSheetBehavior = BottomSheetBehavior.from<View>(viewController.view)
         val isExpandable = viewController.isExpandable
-        viewController.getModalHalfExpandedHeight()?.let { calcHalfExpandedHeight ->
-            if (height == 0)
-                return@let
-            bottomSheetBehavior.isFitToContents = false
-            val contentHeight = calcHalfExpandedHeight.toFloat() + getSystemBars().bottom
-            bottomSheetBehavior.halfExpandedRatio = min(0.9f, contentHeight / height)
-            viewController.onModalSlide(0, 0f)
-        }
+        if (isExpandable)
+            viewController.getModalHalfExpandedHeight()?.let { calcHalfExpandedHeight ->
+                if (height == 0)
+                    return@let
+                bottomSheetBehavior.isFitToContents = false
+                val contentHeight = calcHalfExpandedHeight.toFloat() + getSystemBars().bottom
+                bottomSheetBehavior.halfExpandedRatio = min(0.9f, contentHeight / height)
+                viewController.onModalSlide(0, 0f)
+            }
         bottomSheetBehavior.addBottomSheetCallback(object : BottomSheetCallback() {
             override fun onStateChanged(bottomSheet: View, newState: Int) {
                 when (newState) {
@@ -283,6 +351,11 @@ class WNavigationController(
         }
     }
 
+    private val isKeyboardOpen: Boolean
+        get() {
+            return (window.imeInsets?.bottom ?: 0) > 0
+        }
+
     fun pop(animated: Boolean = true, onCompletion: (() -> Unit)? = null) {
         if (viewControllers.lastOrNull()?.isDisappeared == true) {
             // Pop is already in progress
@@ -292,6 +365,10 @@ class WNavigationController(
             if (window.isAnimating)
                 return
             window.dismissLastNav(onCompletion = onCompletion)
+            return
+        }
+        if (presentationConfig.isBottomSheet && isKeyboardOpen) {
+            hideKeyboard()
             return
         }
         if (viewControllers.size >= 2)
@@ -304,8 +381,30 @@ class WNavigationController(
                 animated,
                 onCompletion = onCompletion
             )
+            updateHeightOnPop()
         }
         // else ??
+    }
+
+    fun updateHeightOnPop() {
+        if (presentationConfig.isBottomSheet) {
+            val topVC = viewControllers.lastOrNull() ?: return
+            val prevVC = viewControllers.getOrNull(viewControllers.size - 2) ?: return
+            val topVCHeight = topVC.getModalHalfExpandedHeight() ?: topVC.view.measuredHeight
+            val prevVCHeight = prevVC.getModalHalfExpandedHeight() ?: prevVC.view.measuredHeight
+            val diff = topVCHeight - prevVCHeight
+            animate()
+                .translationYBy(diff.toFloat())
+                .setDuration(if (WGlobalStorage.getAreAnimationsActive()) AnimationConstants.NAV_POP else 0)
+                .setInterpolator(WInterpolator.emphasized)
+                .withEndAction {
+                    updateLayoutParams {
+                        height = prevVCHeight
+                    }
+                    setupBottomSheetBehaviour(prevVC)
+                }
+                .start()
+        }
     }
 
     fun popToRoot() {
@@ -342,7 +441,7 @@ class WNavigationController(
 
     // Return FALSE if consumed the back event.
     fun onBackPressed(): Boolean {
-        if (isAnimating)
+        if (isAnimating || keyboardAnimationInProgress)
             return false
         if (viewControllers.lastOrNull()?.isLockedScreen == true) {
             window.moveTaskToBack(true)

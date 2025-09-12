@@ -34,7 +34,7 @@ import {
 } from './addresses';
 import { hexToBytes } from './utils';
 
-const actualStateVersion = 19;
+const actualStateVersion = 20;
 let migrationEnsurePromise: Promise<void>;
 
 export function buildLocalTransaction(
@@ -416,6 +416,13 @@ export async function migrateStorage(onUpdate: OnApiUpdate, ton: typeof chains.t
     version = 19;
     await storage.setItem('stateVersion', version);
   }
+
+  if (version === 19) {
+    await migrations.migration19.start();
+
+    version = 20;
+    await storage.setItem('stateVersion', version);
+  }
 }
 
 function buildOldAccountId(account: { id: number; network: string }) {
@@ -503,24 +510,26 @@ async function migrateCoreWallet(onUpdate: OnApiUpdate) {
     newAccountById[accountId] = {
       type: 'ton',
       mnemonicEncrypted: words,
-      ton: {
-        type: 'ton',
-        address,
-        version: walletVersion,
-        publicKey,
-        index: 0,
+      byChain: {
+        ton: {
+          address,
+          version: walletVersion,
+          publicKey,
+          index: 0,
+        },
       },
     };
 
     newAccountById[secondAccountId] = {
       type: 'ton',
       mnemonicEncrypted: words,
-      ton: {
-        type: 'ton',
-        address: secondAddress,
-        version: walletVersion,
-        publicKey,
-        index: 0,
+      byChain: {
+        ton: {
+          address: secondAddress,
+          version: walletVersion,
+          publicKey,
+          index: 0,
+        },
       },
     };
 

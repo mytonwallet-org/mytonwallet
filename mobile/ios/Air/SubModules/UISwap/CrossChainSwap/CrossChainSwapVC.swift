@@ -24,8 +24,8 @@ public class CrossChainSwapVC: WViewController {
         self.init(sellingToken: (transaction.swap?.fromToken, transaction.swap?.fromAmountInt64 ?? 0),
                   buyingToken: (transaction.swap?.toToken, transaction.swap?.toAmountInt64 ?? 0),
                   swapType: swapType,
-                  swapFee: transaction.swap?.swapFee?.stringValue ?? "0",
-                  networkFee: transaction.swap?.networkFee?.stringValue ?? "0",
+                  swapFee: transaction.swap?.swapFee ?? 0,
+                  networkFee: transaction.swap?.networkFee ?? 0,
                   payinAddress: transaction.swap?.cex?.payinAddress ?? "",
                   exchangerTxId: transaction.swap?.cex?.transactionId ?? "",
                   dt: Date(timeIntervalSince1970: TimeInterval(transaction.timestamp / 1000)))
@@ -34,8 +34,8 @@ public class CrossChainSwapVC: WViewController {
     init(sellingToken: (ApiToken?, BigInt),
                 buyingToken: (ApiToken?, BigInt),
                 swapType: SwapType,
-                swapFee: String,
-                networkFee: String,
+                swapFee: MDouble,
+                networkFee: MDouble,
                 // payin address for cex to ton swaps
                 payinAddress: String,
                 exchangerTxId: String,
@@ -78,7 +78,7 @@ public class CrossChainSwapVC: WViewController {
         navigationItem.hidesBackButton = true
 
         title = crossChainSwapVM.swapType == .crossChainToTon ? lang("Swapping") : lang("Swap") 
-        let subtitle: String? = crossChainSwapVM.swapType == .crossChainToTon ? lang("waiting for payment") : nil
+        let subtitle: String? = crossChainSwapVM.swapType == .crossChainToTon ? lang("Waiting for Payment").lowercased() : nil
         addNavigationBar(
             centerYOffset: crossChainSwapVM.swapType == .crossChainToTon ? 0 : 1,
             title: title,
@@ -229,7 +229,7 @@ public class CrossChainSwapVC: WViewController {
                 crossChainSwapVM.cexFromTonSwap(toAddress: crossChainSwapVM.addressInputString,
                                                 passcode: passcode,
                                                 onTaskDone: { err in
-                    failureError = err
+                    failureError = err as? BridgeCallError
                     onTaskDone()
                 })
             },

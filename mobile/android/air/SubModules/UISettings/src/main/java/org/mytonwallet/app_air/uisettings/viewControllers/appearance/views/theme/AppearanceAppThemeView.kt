@@ -55,16 +55,16 @@ class AppearanceAppThemeView(
         v.addView(lightView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         v.addView(darkView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         v.setConstraints {
-            toTop(systemView)
-            toLeft(systemView)
-            leftToRight(lightView, systemView)
-            leftToRight(darkView, lightView)
+            toTop(lightView)
+            toLeft(lightView)
+            leftToRight(systemView, lightView)
+            leftToRight(darkView, systemView)
             toRight(darkView)
-            toBottom(systemView)
+            toBottom(lightView)
             createHorizontalChain(
                 ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
                 ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
-                intArrayOf(systemView.id, lightView.id, darkView.id),
+                intArrayOf(lightView.id, systemView.id, darkView.id),
                 null,
                 ConstraintSet.CHAIN_SPREAD
             )
@@ -103,7 +103,6 @@ class AppearanceAppThemeView(
             else -> {
                 setBackgroundColor(
                     WColor.Background.color,
-                    ViewConstants.TOP_RADIUS.dp,
                     ViewConstants.BIG_RADIUS.dp
                 )
             }

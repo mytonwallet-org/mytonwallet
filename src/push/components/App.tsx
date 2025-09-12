@@ -14,6 +14,7 @@ import {
   IS_SAFARI,
   IS_WINDOWS,
 } from '../../util/windowEnvironment';
+import { getSearchParameter } from '../util/searchParams';
 import { initTonConnect, tonConnectUi } from '../util/tonConnect';
 
 import useEffectOnce from '../../hooks/useEffectOnce';
@@ -24,6 +25,7 @@ import Transition from '../../components/ui/Transition';
 import Check from './Check';
 import Forward from './Forward';
 import ForwardConfirm from './ForwardConfirm';
+import ManageWallet from './ManageWallet';
 
 import styles from './App.module.scss';
 
@@ -32,13 +34,18 @@ enum AppPages {
   Forward,
   ForwardConfirm,
   Help,
+  ManageWallet,
 }
 
 const TRANSITION_KEYS = Object.values(AppPages).length / 2;
 
 function App() {
   const [wallet, setWallet] = useState<Wallet | undefined>();
-  const [activeKey, setActiveKey] = useState<AppPages>(AppPages.Check);
+  const [activeKey, setActiveKey] = useState<AppPages>(
+    getSearchParameter('action') === 'wallet'
+      ? AppPages.ManageWallet
+      : AppPages.Check,
+  );
   const [check, setCheck] = useState<ApiCheck>();
   const [isJustSentRequest, markJustSentRequest] = useFlag(false);
   const [address, setAddress] = useState<string>('');
@@ -67,7 +74,14 @@ function App() {
       cleanupExceptionKey={AppPages.Check}
       className={styles.app}
     >
-      {(isActive) => activeKey === AppPages.Check ? (
+      {(isActive) => activeKey === AppPages.ManageWallet ? (
+        <ManageWallet
+          isActive={isActive}
+          wallet={wallet}
+          onConnectClick={handleConnectClick}
+          onDisconnectClick={handleDisconnectClick}
+        />
+      ) : activeKey === AppPages.Check ? (
         <Check
           isActive={isActive}
           wallet={wallet}

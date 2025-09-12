@@ -125,13 +125,13 @@ function OnRampWidgetModal({
 }
 
 export default memo(withGlobal((global): StateProps => {
-  const { addressByChain } = selectAccount(global, global.currentAccountId!) || {};
+  const { byChain } = selectAccount(global, global.currentAccountId!) || {};
   const { countryCode } = global.restrictions;
   const { chainForOnRampWidgetModal: chain } = global;
 
   return {
     chain,
-    address: chain && addressByChain?.[chain],
+    address: chain && byChain?.[chain]?.address,
     countryCode,
     theme: global.settings.theme,
   };
