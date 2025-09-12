@@ -418,7 +418,7 @@ jobs:
 
   ios-release:
     name: Release iOS app
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 30
     if: github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/master'
     steps:
@@ -477,6 +477,7 @@ jobs:
       - name: "iOS: Package and publish"
         env:
           IOS_AUTH_KEY_BASE64: ${{ secrets.IOS_AUTH_KEY_BASE64 }}
+          FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: 300
         run: |
           sudo xcode-select --switch /Applications/Xcode_26.0.app/Contents/Developer
           export DEVELOPER_DIR=/Applications/Xcode_26.0.app/Contents/Developer
