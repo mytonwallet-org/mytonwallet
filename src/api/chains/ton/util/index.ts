@@ -5,5 +5,5 @@ export function cloneDeep<T>(value: T): T {
 }
 
 export function generateQueryId() {
-  return bigintRandom(8);
+  return 0;
 }
