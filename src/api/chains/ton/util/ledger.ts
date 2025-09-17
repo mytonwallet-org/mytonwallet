@@ -40,6 +40,9 @@ const VERSION_WITH_PAYLOAD: Record<TonPayloadFormat['type'], string> = {
   'vote-for-proposal': '2.1',
   'change-dns-record': '2.1',
   'token-bridge-pay-swap': '2.1',
+  'tonwhales-pool-deposit': '2.7',
+  'tonwhales-pool-withdraw': '2.7',
+  'vesting-send-msg-comment': '2.7',
 };
 
 // https://github.com/LedgerHQ/app-ton/blob/d3e1edbbc1fcf9a5d6982fbb971f757a83d0aa56/doc/MESSAGES.md?plain=1#L51
