@@ -80,7 +80,11 @@ class WClearSegmentedControl(
     private val animator = ValueAnimator().apply {
         addUpdateListener { animation ->
             currentPosition = animation.animatedValue as Float
-            updateThumbPositionInternal(currentPosition, ensureVisibleThumb = false)
+            updateThumbPositionInternal(
+                currentPosition,
+                ensureVisibleThumb = false,
+                targetIndex = targetPosition.toInt()
+            )
         }
     }
 
@@ -267,7 +271,11 @@ class WClearSegmentedControl(
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 if (scrollState == RecyclerView.SCROLL_STATE_IDLE && !isDraggingItem)
                     return
-                updateThumbPositionInternal(position = currentPosition, ensureVisibleThumb = false)
+                updateThumbPositionInternal(
+                    position = currentPosition,
+                    ensureVisibleThumb = false,
+                    targetIndex = targetPosition.toInt()
+                )
             }
         })
     }
@@ -280,9 +288,10 @@ class WClearSegmentedControl(
         recyclerView.post {
             updateThumbPosition(
                 position = currentPosition,
+                targetPosition = currentPosition.toInt(),
                 animated = false,
                 force = true,
-                ensureVisibleThumb = true
+                isAnimatingToPosition = false
             )
         }
     }
@@ -293,9 +302,10 @@ class WClearSegmentedControl(
             Handler(Looper.getMainLooper()).post {
                 updateThumbPosition(
                     position = currentPosition,
+                    targetPosition = currentPosition.toInt(),
                     animated = false,
                     force = true,
-                    ensureVisibleThumb = true
+                    isAnimatingToPosition = false
                 )
                 invalidate()
             }
@@ -330,9 +340,10 @@ class WClearSegmentedControl(
 
         updateThumbPosition(
             selectedItem.toFloat(),
+            targetPosition = selectedItem,
             animated = true,
             force = true,
-            ensureVisibleThumb = true
+            isAnimatingToPosition = false
         )
 
         delegate?.onItemMoved(fromPosition, toPosition)
@@ -390,39 +401,46 @@ class WClearSegmentedControl(
     fun updateThumbPosition(
         index: Int,
         offset: Float,
+        targetIndex: Int,
         force: Boolean,
-        ensureVisibleThumb: Boolean
+        isAnimatingToPosition: Boolean
     ) {
         if (items.isEmpty() || !isValidIndex(index)) return
         selectedItem = index
         val clampedPosition = offset.coerceIn(0f, (items.size - 1).toFloat())
         updateThumbPosition(
             clampedPosition,
+            targetPosition = targetIndex,
             animated = false,
             force = force,
-            ensureVisibleThumb = ensureVisibleThumb
+            isAnimatingToPosition = isAnimatingToPosition
         )
     }
 
     fun updateThumbPosition(
         position: Float,
+        targetPosition: Int,
         animated: Boolean,
         force: Boolean,
-        ensureVisibleThumb: Boolean
+        isAnimatingToPosition: Boolean,
     ) {
         if (items.isEmpty()) return
 
         val clampedPosition = position.coerceIn(0f, (items.size - 1).toFloat())
         if (clampedPosition == lastPosition && !animated && !force) return
 
-        targetPosition = clampedPosition
         animator.cancel()
 
         if (animated) {
+            this.targetPosition = targetPosition.toFloat()
             startAnimation()
         } else {
-            currentPosition = targetPosition
-            updateThumbPositionInternal(clampedPosition, ensureVisibleThumb)
+            currentPosition = clampedPosition
+            updateThumbPositionInternal(
+                clampedPosition,
+                ensureVisibleThumb = !isAnimatingToPosition,
+                if (isAnimatingToPosition) targetPosition else null
+            )
         }
         lastPosition = clampedPosition
     }
@@ -436,7 +454,11 @@ class WClearSegmentedControl(
         }
     }
 
-    private fun updateThumbPositionInternal(position: Float, ensureVisibleThumb: Boolean = true) {
+    private fun updateThumbPositionInternal(
+        position: Float,
+        ensureVisibleThumb: Boolean = true,
+        targetIndex: Int?
+    ) {
         val layoutManager = recyclerView.layoutManager as? LinearLayoutManager ?: return
         val (index, nextIndex, fraction) = calculatePositionParams(position)
         val (currentView, nextView) = getViews(layoutManager, index, nextIndex)
@@ -446,7 +468,7 @@ class WClearSegmentedControl(
 
         val thumbBounds = calculateThumbBounds(currentView, nextView, fraction, index, nextIndex)
         updatePaths(thumbBounds)
-        updateItemArrowVisibility(index, nextIndex, fraction)
+        updateItemArrowVisibility(index, nextIndex, fraction, targetIndex)
         recyclerView.invalidate()
     }
 
@@ -565,7 +587,12 @@ class WClearSegmentedControl(
         fullPath.addRoundRect(rect, CORNER_RADIUS.dp, CORNER_RADIUS.dp, Path.Direction.CCW)
     }
 
-    private fun updateItemArrowVisibility(index: Int, nextIndex: Int, fraction: Float) {
+    private fun updateItemArrowVisibility(
+        index: Int,
+        nextIndex: Int,
+        fraction: Float,
+        limitArrowToPosition: Int?,
+    ) {
         for (i in 0 until recyclerView.childCount) {
             val childView = recyclerView.getChildAt(i)
             val position = recyclerView.getChildAdapterPosition(childView)
@@ -578,7 +605,14 @@ class WClearSegmentedControl(
                     position == nextIndex && fraction >= 0.5f -> (fraction - 0.5f) * 2f
                     else -> 0f
                 }
-                itemView?.arrowVisibility = arrowVisibility
+                val shouldShowArrow =
+                    limitArrowToPosition == null || limitArrowToPosition == position
+                if (
+                    shouldShowArrow ||
+                    arrowVisibility < (itemView?.arrowVisibility ?: 1f)
+                ) {
+                    itemView?.arrowVisibility = arrowVisibility
+                }
             }
         }
     }

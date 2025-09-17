@@ -31,6 +31,7 @@ import org.mytonwallet.app_air.walletcore.stores.NftStore
 @SuppressLint("ViewConstructor")
 class HiddenNFTsItemCell(
     recyclerView: RecyclerView,
+    private val onSelect: ((nft: ApiNft) -> Unit)
 ) : WCell(recyclerView.context, LayoutParams(MATCH_PARENT, 64.dp)),
     WThemedView {
 
@@ -106,9 +107,7 @@ class HiddenNFTsItemCell(
         }
 
         setOnClickListener {
-            if (nft.isHidden == true) {
-                switchView.isChecked = !switchView.isChecked
-            }
+            onSelect(nft)
         }
 
         updateTheme()

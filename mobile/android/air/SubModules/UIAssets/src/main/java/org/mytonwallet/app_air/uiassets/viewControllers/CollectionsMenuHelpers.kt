@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.uiassets.viewControllers
 
 import WNavigationController
 import android.view.View
+import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC.CollectionMode
 import org.mytonwallet.app_air.uiassets.viewControllers.hiddenNFTs.HiddenNFTsVC
@@ -52,9 +53,9 @@ object CollectionsMenuHelpers {
                     WalletCore.notifyEvent(WalletEvent.HomeNftCollectionsUpdated)
                 }
             ),
-            popupWidth = 120.dp,
-            offset = (view.width - 120.dp) / 2,
-            aboveView = false
+            popupWidth = WRAP_CONTENT,
+            aboveView = false,
+            centerHorizontally = true
         )
     }
 
@@ -162,8 +163,8 @@ object CollectionsMenuHelpers {
         WMenuPopup.Companion.present(
             view,
             menuItems,
-            popupWidth = 240.dp,
-            offset = (-location[0] + (navigationController.width / 2) - 120.dp),
+            popupWidth = 256.dp,
+            offset = (-location[0] + (navigationController.width / 2) - 128.dp),
             aboveView = false
         )
     }

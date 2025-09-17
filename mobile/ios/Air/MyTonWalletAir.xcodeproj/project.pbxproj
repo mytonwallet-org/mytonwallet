@@ -35,6 +35,7 @@
 		584B0F052DD390C000BDF9E7 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 584B0F042DD390C000BDF9E7 /* Lottie */; };
 		584B0F072DD393FD00BDF9E7 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 584B0F062DD393FD00BDF9E7 /* Lottie */; };
 		585AAEE42DDA298F0076975F /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 585AAEE32DDA298F0076975F /* Lottie */; };
+		5860FC952E6BCBFB00A23D61 /* Flow in Frameworks */ = {isa = PBXBuildFile; productRef = 5860FC942E6BCBFB00A23D61 /* Flow */; };
 		587BBD092DDA312400E745A6 /* AirAsFramework.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A3FB2D8456E800535360 /* AirAsFramework.framework */; };
 		587BBD0A2DDA312400E745A6 /* AirAsFramework.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A3FB2D8456E800535360 /* AirAsFramework.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		587BBD0D2DDA312400E745A6 /* BigIntLib.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4022D8456E800535360 /* BigIntLib.framework */; };
@@ -1564,17 +1565,31 @@
 		27ABF4742CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UICreateWallet" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				UICreateWallet/About/AboutVC.swift,
+				UICreateWallet/About/AboutView.swift,
 				UICreateWallet/AccountTypePicker/AccountTypePickerVC.swift,
 				UICreateWallet/AccountTypePicker/AccountTypePickerView.swift,
 				UICreateWallet/AddViewWallet/AddViewWalletVC.swift,
 				UICreateWallet/AddViewWallet/AddViewWalletView.swift,
+				UICreateWallet/CreateBackupDisclaimer/CreateBackupDisclaimerVC.swift,
+				UICreateWallet/CreateBackupDisclaimer/CreateBackupDisclaimerView.swift,
+				UICreateWallet/ImportExistingPicker/ImportExistingPickerVC.swift,
+				UICreateWallet/ImportExistingPicker/ImportExistingPickerView.swift,
+				UICreateWallet/ImportSuccess/Confetti.swift,
 				UICreateWallet/ImportSuccess/ImportSuccessVC.swift,
+				UICreateWallet/ImportSuccess/ImportSuccessView.swift,
 				UICreateWallet/ImportWallet/ImportWalletVC.swift,
-				UICreateWallet/ImportWallet/ImportWalletVM.swift,
+				UICreateWallet/Intro/Checkmark.swift,
 				UICreateWallet/Intro/IntroVC.swift,
-				UICreateWallet/WalletCreated/WalletCreatedVC.swift,
+				UICreateWallet/Intro/IntroView.swift,
+				UICreateWallet/IntroModel.swift,
+				UICreateWallet/UseResponsibly/UseResponsiblyVC.swift,
+				UICreateWallet/UseResponsibly/UseResponsiblyView.swift,
+				UICreateWallet/WordCheck/WordCheckModel.swift,
 				UICreateWallet/WordCheck/WordCheckVC.swift,
+				UICreateWallet/WordCheck/WordCheckView.swift,
 				UICreateWallet/WordDisplay/WordDisplayVC.swift,
+				UICreateWallet/WordDisplay/WordDisplayView.swift,
 			);
 			target = 27DCAAAC2BA5D60D004F83C8 /* UICreateWallet */;
 		};
@@ -1591,6 +1606,7 @@
 				UIHome/ViewControllers/Home/Card/CardBalanceWithChevron.swift,
 				UIHome/ViewControllers/Home/Card/CardBorder.swift,
 				UIHome/ViewControllers/Home/Card/CardMiniPlaceholders.swift,
+				UIHome/ViewControllers/Home/Card/CurrencyMenu.swift,
 				UIHome/ViewControllers/Home/Card/WalletCardView.swift,
 				"UIHome/ViewControllers/Home/Card/WalletCardView+Nft.swift",
 				UIHome/ViewControllers/Home/HomeVC.swift,
@@ -1753,6 +1769,7 @@
 				UISwap/Swap/Views/SwapDetailsView.swift,
 				UISwap/Swap/Views/SwapSelectorsView.swift,
 				UISwap/Swap/Views/SwapView.swift,
+				UISwap/Swap/Views/SwapWarning.swift,
 				UISwap/SwapCexSupport.swift,
 			);
 			target = 27DDF6EB2BEDF85800BB1977 /* UISwap */;
@@ -1820,6 +1837,7 @@
 				UIPasscode/CommonViews/PasscodeScreenView.swift,
 				UIPasscode/Helpers/BiometricHelper.swift,
 				UIPasscode/ViewControllers/ActivateBiometricVC/ActivateBiometricVC.swift,
+				UIPasscode/ViewControllers/ActivateBiometricVC/ActivateBiometricView.swift,
 				UIPasscode/ViewControllers/ChangePasscodeVC/ChangePasscodeVC.swift,
 				UIPasscode/ViewControllers/ConfirmPasscodeVC/ConfirmPasscodeVC.swift,
 				UIPasscode/ViewControllers/SetPasscodeVC/SetPasscodeVC.swift,
@@ -1985,6 +2003,7 @@
 				UIComponents/Utils/UISearchBarUtils.swift,
 				UIComponents/Utils/UIStackViewUtils.swift,
 				UIComponents/Utils/UIViewControllerUtils.swift,
+				UIComponents/Utils/UIViewUtils.swift,
 				UIComponents/Utils/WKeyboardObserver.swift,
 				UIComponents/View/BackgroundBlur.swift,
 				UIComponents/View/GradientView.swift,
@@ -2000,6 +2019,7 @@
 				UIComponents/ViewControllers/TokenSelection/TokenSelectionVC.swift,
 				UIComponents/ViewControllers/WNavigationController.swift,
 				UIComponents/ViewControllers/WViewController.swift,
+				UICreateWallet/Intro/ParticleEffect.swift,
 			);
 			publicHeaders = (
 				"UIComponents/CASpringAnimation+AnimationUtils.h",
@@ -2054,6 +2074,7 @@
 				WalletCore/Models/Activities/ApiTransactionActivity.swift,
 				WalletCore/Models/Activities/BaseActivity.swift,
 				WalletCore/Models/ApiChain.swift,
+				WalletCore/Models/ApiCurrencyRates.swift,
 				WalletCore/Models/ApiNetwork.swift,
 				WalletCore/Models/ApiPriceHistoryPeriod.swift,
 				WalletCore/Models/ApiSignedTransfer.swift,
@@ -2113,6 +2134,7 @@
 				WalletCore/Models/Swap/ApiSwapEstimateResponse.swift,
 				WalletCore/Models/Swap/ApiSwapEstimateVariant.swift,
 				WalletCore/Models/Swap/ApiSwapHistoryItem.swift,
+				WalletCore/Models/Swap/ApiSwapRoute.swift,
 				WalletCore/Models/Swap/ApiSwapTransfer.swift,
 				WalletCore/Models/SwapType.swift,
 				WalletCore/Models/TonConnect/ApiDapp.swift,
@@ -2142,6 +2164,7 @@
 				WalletCore/Updates/NewLocalActivities.swift,
 				WalletCore/Updates/UpdateBalances.swift,
 				WalletCore/Updates/UpdateConfig.swift,
+				WalletCore/Updates/UpdateCurrencyRates.swift,
 				WalletCore/Updates/UpdateNfts.swift,
 				WalletCore/Updates/UpdateStaking.swift,
 				WalletCore/Updates/UpdateSwapTokens.swift,
@@ -2173,6 +2196,10 @@
 				WalletContext/Localization/LocalizationSupport.swift,
 				WalletContext/Localization/WStrings.swift,
 				WalletContext/Logging/Log.swift,
+				WalletContext/Resources/Animations/animation_bill.tgs,
+				WalletContext/Resources/Animations/animation_guard.tgs,
+				WalletContext/Resources/Animations/animation_happy.tgs,
+				WalletContext/Resources/Animations/animation_snitch.tgs,
 				WalletContext/Resources/Animations/Congratulations.tgs,
 				WalletContext/Resources/Animations/Copy.tgs,
 				WalletContext/Resources/Animations/Main.tgs,
@@ -2182,6 +2209,7 @@
 				WalletContext/Resources/Animations/Start.tgs,
 				"WalletContext/Resources/Animations/Test Time.tgs",
 				WalletContext/Resources/Assets.xcassets,
+				"WalletContext/Resources/Fonts/Nunito-ExtraBold.ttf",
 				WalletContext/Resources/Fonts/SFCompactDisplayMedium.otf,
 				WalletContext/Resources/Fonts/SFCompactRoundedBold.otf,
 				WalletContext/Resources/Fonts/SFCompactRoundedMedium.otf,
@@ -2632,6 +2660,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5860FC952E6BCBFB00A23D61 /* Flow in Frameworks */,
 				580C42772DF4865300934F5A /* GRDBSQLite in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -3804,6 +3833,7 @@
 				58AA03B92DDBA87B00C970F4 /* XCRemoteSwiftPackageReference "swiftui-introspect" */,
 				587C28442DE32F2400503E94 /* XCRemoteSwiftPackageReference "Popovers" */,
 				580CDB8D2DF46DA90078F79E /* XCRemoteSwiftPackageReference "GRDB" */,
+				5860FC932E6BCBFB00A23D61 /* XCRemoteSwiftPackageReference "SwiftUI-Flow" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 27DCA77A2BA5725C004F83C8;
@@ -7404,6 +7434,14 @@
 				minimumVersion = 4.5.1;
 			};
 		};
+		5860FC932E6BCBFB00A23D61 /* XCRemoteSwiftPackageReference "SwiftUI-Flow" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/tevelee/SwiftUI-Flow";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.1.1;
+			};
+		};
 		587BCB872DDB9DCA00E745A6 /* XCRemoteSwiftPackageReference "Popovers" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/nikstar/Popovers";
@@ -7552,6 +7590,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 584B0F0A2DD3955600BDF9E7 /* XCRemoteSwiftPackageReference "lottie-spm" */;
 			productName = Lottie;
+		};
+		5860FC942E6BCBFB00A23D61 /* Flow */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5860FC932E6BCBFB00A23D61 /* XCRemoteSwiftPackageReference "SwiftUI-Flow" */;
+			productName = Flow;
 		};
 		587BCB882DDB9DCA00E745A6 /* Popovers */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -21,11 +21,13 @@ public struct ApiSwapEstimateResponse: Equatable, Hashable, Codable, Sendable {
     public var isFromAmountMax: Bool?
     public var toMinAmount: MDouble
     public var impact: Double
-    public var dexLabel: ApiSwapDexLabel
+    public var dexLabel: ApiSwapDexLabel?
     public var dieselStatus: DieselStatus
-    public var other: [ApiSwapEstimateVariant]? // v2
-                                             //        routes?: ApiSwapRoute[][]; // Only in V3
-                                             // Fees
+    /// only in v2
+    public var other: [ApiSwapEstimateVariant]?
+    /// only in v3
+    public var routes: [[ApiSwapRoute]]?
+    // Fees
     public var networkFee: MDouble
     public var realNetworkFee: MDouble
     public var swapFee: MDouble

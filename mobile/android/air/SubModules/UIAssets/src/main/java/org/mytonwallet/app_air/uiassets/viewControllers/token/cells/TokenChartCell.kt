@@ -473,7 +473,7 @@ class TokenChartCell(
             val priceBigInt = price?.toBigInteger(9)
             priceLabel.text = priceBigInt?.toString(
                 9,
-                WalletCore.baseCurrency?.sign ?: "",
+                WalletCore.baseCurrency.sign,
                 priceBigInt.smartDecimalsCount(9).coerceAtLeast(2),
                 false,
                 forceCurrencyToRight = true
@@ -504,7 +504,7 @@ class TokenChartCell(
             val priceBigInt = highlight!!.y.toDouble().toBigInteger(9)!!
             priceLabel.text = priceBigInt.toString(
                 9,
-                WalletCore.baseCurrency?.sign ?: "",
+                WalletCore.baseCurrency.sign,
                 priceBigInt.smartDecimalsCount(9).coerceAtLeast(4),
                 false,
                 forceCurrencyToRight = true

@@ -57,7 +57,6 @@ public final class AccountTypePickerVC: WViewController {
     }
     
     func onHeightChange(_ height: CGFloat) {
-        print(height)
         if let sheet = sheetPresentationController {
             sheet.detents = [.custom(identifier: .content, resolver: { [navHeight] _ in height + navHeight })]
         }

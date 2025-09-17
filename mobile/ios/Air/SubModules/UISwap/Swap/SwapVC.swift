@@ -159,7 +159,7 @@ public class SwapVC: WViewController, WSensitiveDataProtocol {
         } else {
             switch swapVM.swapType {
             case .inChain:
-                continueInChain()
+                warnIfNeededAndContinueInChain()
             case .crossChainFromTon:
                 continueChainFromTon()
             case .crossChainToTon:
@@ -167,6 +167,23 @@ public class SwapVC: WViewController, WSensitiveDataProtocol {
             @unknown default:
                 break
             }
+        }
+    }
+    
+    private func warnIfNeededAndContinueInChain() {
+        if let impact = detailsVM.displayImpactWarning {
+            showAlert(
+                title: lang("The exchange rate is below market value!", arg1: "\(impact.formatted(.number.precision(.fractionLength(0..<1)).locale(.forNumberFormatters)))%"),
+                text: lang("We do not recommend to perform an exchange, try to specify a lower amount."),
+                button: lang("Swap"),
+                buttonStyle: .destructive,
+                buttonPressed: { self.continueInChain() },
+                secondaryButton: lang("Cancel"),
+                secondaryButtonPressed: nil,
+                preferPrimary: true,
+            )
+        } else {
+            continueInChain()
         }
     }
     

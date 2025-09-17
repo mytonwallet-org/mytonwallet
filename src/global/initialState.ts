@@ -16,9 +16,11 @@ import {
 import {
   ANIMATION_LEVEL_DEFAULT,
   DEFAULT_AUTOLOCK_OPTION,
+  DEFAULT_PRICE_CURRENCY,
   DEFAULT_SLIPPAGE_VALUE,
   DEFAULT_STAKING_STATE,
   DEFAULT_TRANSFER_TOKEN_SLUG,
+  FALLBACK_BASE_CURRENCY_RATES,
   INIT_SWAP_ASSETS,
   IS_CORE_WALLET,
   SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY,
@@ -103,6 +105,7 @@ export const INITIAL_STATE: GlobalState = {
     isSortByValueEnabled: true,
     isAppLockEnabled: true,
     autolockValue: DEFAULT_AUTOLOCK_OPTION,
+    baseCurrency: DEFAULT_PRICE_CURRENCY,
   },
 
   byAccountId: {},
@@ -123,4 +126,6 @@ export const INITIAL_STATE: GlobalState = {
   pushNotifications: {
     enabledAccounts: {},
   },
+
+  currencyRates: FALLBACK_BASE_CURRENCY_RATES,
 };

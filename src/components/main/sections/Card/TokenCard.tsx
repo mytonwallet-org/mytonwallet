@@ -50,7 +50,7 @@ interface OwnProps {
 
 interface StateProps {
   period?: TokenPeriod;
-  baseCurrency?: ApiBaseCurrency;
+  baseCurrency: ApiBaseCurrency;
   historyPeriods?: PriceHistoryPeriods;
   tokenAddress?: string;
   isTestnet?: boolean;

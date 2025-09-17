@@ -8,6 +8,7 @@ MyTonWallet: MyTonWallet
 Watch Video about Features: Посмотреть видео о функциях
 Enjoy Monthly Updates in Blog: Ежемесячные обновления в блоге
 Learn New Things in Help Center: Узнать новое в центре помощи
+MyTonWallet Resources: Ресурсы MyTonWallet
 I agree to %term%: Я соглашаюсь %term%
 use the wallet responsibly: использовать кошелёк ответственно
 $import_hint: "Используйте секретные слова или мгновенно мигрируйте неограниченное количество кошельков из другого приложения MyTonWallet:"
@@ -134,7 +135,7 @@ Never: Никогда
 "%1$@ minutes": "%1$@ минут"
 Unstake Request: Запрос на вывод ставок
 Your staking balance: Ваш баланс ставок
-Add Stake: Добавить ставку
+Add Stake: Добавить
 History: История
 Earn up to %1$@ per year from your tokens: Заработайте до %1$@ в год с ваших токенов
 Insufficient %1$@ Balance: Недостаточно %1$@ на балансе
@@ -315,10 +316,23 @@ Unavailable: Недоступно
 Wallet Created: Кошелёк создан
 Wallet is Locked: Кошелёк заблокирован
 Warning: Предупреждение
-Wear: Носимые устройства
+Wear: Надеть
 "You can restore access to your wallet by entering 24 words you wrote when down you creating the wallet.": "Вы можете восстановить доступ к кошельку, введя 24 слова, которые записали при его создании."
 "You will receive your unstaked deposit in %1$@.": "Вы получите выведённый депозит через %1$@."
 Your Address: Ваш адрес
 "Your TON Wallet has just been created.": "Ваш TON‑кошелёк только что создан."
 "Your wallet has just been imported!": "Ваш кошелёк только что импортирован!"
 Passcodes don't match. Please try again.: Пароли не совпадают. Повторите попытку.
+Open wallet without checking: Открыть кошелёк без проверки
+Copy to Clipboard: Скопировать
+Secret phrase was copied to clipboard: Секретная фраза скопирована
+clipboard: буфер обмена
+screenshot: скриншот
+Security Warning: Предупреждение о безопасности
+Make sure you have your recovery phrase securely saved.: Убедитесь, что вы надежно сохранили фразу восстановления.
+Without it, you won't be able to access your wallet.: Без неё вы не сможете получить доступ к своему кошельку.
+Copy Anyway: Всё равно скопировать
+12 Words: 12 слов
+24 Words: 24 слов
+"Please choose the correct words **%1$@**, **%2$@**, **%3$@**:": "Выберите правильные слова **%1$@**, **%2$@**, **%3$@**:"
+"Words don’t match, please try again.": Слова не совпадают, попробуйте ещё раз.

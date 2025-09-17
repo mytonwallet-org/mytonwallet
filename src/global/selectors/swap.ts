@@ -1,8 +1,9 @@
-import type { ApiBalanceBySlug, ApiSwapAsset } from '../../api/types';
+import type { ApiBalanceBySlug, ApiBaseCurrency, ApiCurrencyRates, ApiSwapAsset } from '../../api/types';
 import type { AccountSettings, GlobalState, UserSwapToken } from '../types';
 import { SwapType } from '../types';
 
 import { DEFAULT_SWAP_FIRST_TOKEN_SLUG, DEFAULT_SWAP_SECOND_TOKEN_SLUG, IS_CORE_WALLET } from '../../config';
+import { calculateTokenPrice } from '../../util/calculatePrice';
 import { toBig } from '../../util/decimals';
 import memoize from '../../util/memoize';
 import { getChainBySlug } from '../../util/tokens';
@@ -18,6 +19,8 @@ import { selectAccountTokensMemoizedFor } from './tokens';
 function createTokenList(
   swapTokenInfo: GlobalState['swapTokenInfo'],
   balancesBySlug: ApiBalanceBySlug,
+  baseCurrency: ApiBaseCurrency,
+  currencyRates: ApiCurrencyRates,
   sortFn: (tokenA: ApiSwapAsset, tokenB: ApiSwapAsset) => number,
   filterFn?: (token: ApiSwapAsset) => boolean,
 ): UserSwapToken[] {
@@ -26,9 +29,10 @@ function createTokenList(
     .map(([slug, {
       symbol, name, image,
       decimals, keywords, chain,
-      tokenAddress, isPopular, color, price = 0, priceUsd = 0,
+      tokenAddress, isPopular, color, priceUsd = 0,
     }]) => {
       const amount = balancesBySlug[slug] ?? 0n;
+      const price = calculateTokenPrice(priceUsd, baseCurrency, currencyRates);
       const totalValue = toBig(amount, decimals).mul(price).toString();
 
       return {
@@ -53,44 +57,52 @@ function createTokenList(
     .sort(sortFn);
 }
 
-const selectPopularTokensMemoizedFor = withCache((accountId: string) => memoize(
-  (balancesBySlug: ApiBalanceBySlug, swapTokenInfo: GlobalState['swapTokenInfo']) => {
-    const popularTokenOrder = [
-      'TON',
-      'USD₮',
-      'USDT',
-      'BTC',
-      'ETH',
-      'jUSDT',
-      'jWBTC',
-    ];
-    const orderMap = new Map(popularTokenOrder.map((item, index) => [item, index]));
+const selectPopularTokensMemoizedFor = withCache((accountId: string) => memoize((
+  balancesBySlug: ApiBalanceBySlug,
+  swapTokenInfo: GlobalState['swapTokenInfo'],
+  baseCurrency: ApiBaseCurrency,
+  currencyRates: ApiCurrencyRates,
+) => {
+  const popularTokenOrder = [
+    'TON',
+    'USD₮',
+    'USDT',
+    'BTC',
+    'ETH',
+    'jUSDT',
+    'jWBTC',
+  ];
+  const orderMap = new Map(popularTokenOrder.map((item, index) => [item, index]));
 
-    const filterFn = (token: ApiSwapAsset) => token.isPopular;
-    const sortFn = (tokenA: ApiSwapAsset, tokenB: ApiSwapAsset) => {
-      const orderIndexA = orderMap.has(tokenA.symbol) ? orderMap.get(tokenA.symbol)! : popularTokenOrder.length;
-      const orderIndexB = orderMap.has(tokenB.symbol) ? orderMap.get(tokenB.symbol)! : popularTokenOrder.length;
+  const filterFn = (token: ApiSwapAsset) => token.isPopular;
+  const sortFn = (tokenA: ApiSwapAsset, tokenB: ApiSwapAsset) => {
+    const orderIndexA = orderMap.has(tokenA.symbol) ? orderMap.get(tokenA.symbol)! : popularTokenOrder.length;
+    const orderIndexB = orderMap.has(tokenB.symbol) ? orderMap.get(tokenB.symbol)! : popularTokenOrder.length;
 
-      return orderIndexA - orderIndexB;
-    };
-    return createTokenList(swapTokenInfo, balancesBySlug, sortFn, filterFn);
-  },
-));
+    return orderIndexA - orderIndexB;
+  };
+  return createTokenList(swapTokenInfo, balancesBySlug, baseCurrency, currencyRates, sortFn, filterFn);
+}));
 
-const selectSwapTokensMemoizedFor = withCache((accountId: string) => memoize(
-  (balancesBySlug: ApiBalanceBySlug, swapTokenInfo: GlobalState['swapTokenInfo']) => {
-    const sortFn = (tokenA: ApiSwapAsset, tokenB: ApiSwapAsset) => (
-      tokenA.name.trim().toLowerCase().localeCompare(tokenB.name.trim().toLowerCase())
-    );
-    return createTokenList(swapTokenInfo, balancesBySlug, sortFn);
-  },
-));
+const selectSwapTokensMemoizedFor = withCache((accountId: string) => memoize((
+  balancesBySlug: ApiBalanceBySlug,
+  swapTokenInfo: GlobalState['swapTokenInfo'],
+  baseCurrency: ApiBaseCurrency,
+  currencyRates: ApiCurrencyRates,
+) => {
+  const sortFn = (tokenA: ApiSwapAsset, tokenB: ApiSwapAsset) => (
+    tokenA.name.trim().toLowerCase().localeCompare(tokenB.name.trim().toLowerCase())
+  );
+  return createTokenList(swapTokenInfo, balancesBySlug, baseCurrency, currencyRates, sortFn);
+}));
 
 const selectAccountTokensForSwapMemoizedFor = withCache((accountId: string) => memoize((
   balancesBySlug: ApiBalanceBySlug,
   tokenInfo: GlobalState['tokenInfo'],
   swapTokenInfo: GlobalState['swapTokenInfo'],
   accountSettings: AccountSettings,
+  baseCurrency: ApiBaseCurrency,
+  currencyRates: ApiCurrencyRates,
   isSortByValueEnabled = false,
   areTokensWithNoCostHidden = false,
 ) => {
@@ -100,6 +112,8 @@ const selectAccountTokensForSwapMemoizedFor = withCache((accountId: string) => m
     accountSettings,
     isSortByValueEnabled,
     areTokensWithNoCostHidden,
+    baseCurrency,
+    currencyRates,
   ).filter((token) => token.slug in swapTokenInfo.bySlug && !token.isDisabled);
 }));
 
@@ -117,6 +131,8 @@ export function selectAvailableUserForSwapTokens(global: GlobalState) {
     global.tokenInfo,
     global.swapTokenInfo,
     accountSettings,
+    global.settings.baseCurrency,
+    global.currencyRates,
     isSortByValueEnabled,
     areTokensWithNoCostHidden,
   );
@@ -128,7 +144,12 @@ export function selectPopularTokens(global: GlobalState) {
     return undefined;
   }
 
-  return selectPopularTokensMemoizedFor(global.currentAccountId!)(balancesBySlug, global.swapTokenInfo);
+  return selectPopularTokensMemoizedFor(global.currentAccountId!)(
+    balancesBySlug,
+    global.swapTokenInfo,
+    global.settings.baseCurrency,
+    global.currencyRates,
+  );
 }
 
 export function selectSwapTokens(global: GlobalState) {
@@ -140,6 +161,8 @@ export function selectSwapTokens(global: GlobalState) {
   return selectSwapTokensMemoizedFor(global.currentAccountId!)(
     balancesBySlug,
     global.swapTokenInfo,
+    global.settings.baseCurrency,
+    global.currencyRates,
   );
 }
 

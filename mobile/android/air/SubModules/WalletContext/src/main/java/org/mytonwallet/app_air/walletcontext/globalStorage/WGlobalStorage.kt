@@ -704,6 +704,18 @@ object WGlobalStorage {
         return globalStorageProvider.getBool("byAccountId.$accountId.isCardMinting") == true
     }
 
+    fun setCurrencyRates(rates: Map<String, Double>) {
+        return globalStorageProvider.set(
+            "currencyRates",
+            JSONObject(rates),
+            IGlobalStorageProvider.PERSIST_NORMAL
+        )
+    }
+
+    fun getCurrencyRates(): JSONObject? {
+        return globalStorageProvider.getDict("currencyRates")
+    }
+
     private const val LAST_STATE: Int = 46
     fun migrate() {
         // Lock the storage

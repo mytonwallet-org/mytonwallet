@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.uisettings.viewControllers.settings
 import org.mytonwallet.app_air.uisettings.R
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsItem
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsSection
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
 import org.mytonwallet.app_air.walletcontext.utils.toString
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -70,9 +71,9 @@ class SettingsVM {
 
             val balanceAmount = BalanceStore.totalBalanceInBaseCurrency(account.accountId)
             val balance = balanceAmount?.toString(
-                WalletCore.baseCurrency?.decimalsCount ?: 2,
-                WalletCore.baseCurrency?.sign ?: "",
-                WalletCore.baseCurrency?.decimalsCount ?: 2,
+                WalletCore.baseCurrency.decimalsCount,
+                WalletCore.baseCurrency.sign,
+                WalletCore.baseCurrency.decimalsCount,
                 true
             )
 
@@ -149,7 +150,7 @@ class SettingsVM {
 
         val items = mutableListOf<SettingsItem>()
 
-        if (AccountStore.activeAccount?.isPasscodeProtected == true)
+        if (WGlobalStorage.isPasscodeSet())
             items.add(
                 SettingsItem(
                     identifier = SettingsItem.Identifier.SECURITY,

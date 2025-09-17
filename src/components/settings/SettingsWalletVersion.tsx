@@ -21,6 +21,7 @@ export interface Wallet {
   version: ApiTonWalletVersion;
   totalBalance: string;
   tokens: string[];
+  isTestnetSubwalletId?: boolean;
 }
 
 interface OwnProps {
@@ -54,21 +55,26 @@ function SettingsWalletVersion({
     isScrolled,
   } = useScrolledState();
 
-  const handleAddWallet = useLastCallback((version: ApiTonWalletVersion) => {
+  const handleAddWallet = useLastCallback((version: ApiTonWalletVersion, isTestnetSubwalletId?: boolean) => {
     closeSettings();
-    importAccountByVersion({ version });
+    importAccountByVersion({ version, isTestnetSubwalletId });
   });
 
   function renderWallets() {
     return wallets?.map((v) => {
+      const displayVersion = v.version === 'W5' && v.isTestnetSubwalletId !== undefined
+        ? `${v.version} (${v.isTestnetSubwalletId ? 'Testnet' : 'Mainnet'} Subwallet ID)`
+        : v.version;
       return (
         <div
           key={v.address}
           className={buildClassName(styles.item, styles.item_wallet_version)}
-          onClick={() => handleAddWallet(v.version)}
+          onClick={() => handleAddWallet(v.version, v.isTestnetSubwalletId)}
+          tabIndex={0}
+          role="button"
         >
           <div className={styles.walletVersionInfo}>
-            <span className={styles.walletVersionTitle}>{v.version}</span>
+            <span className={styles.walletVersionTitle}>{displayVersion}</span>
             <span className={styles.walletVersionAddress}>{shortenAddress(v.address)}</span>
           </div>
           <div className={styles.walletVersionInfoRight}>

@@ -24,6 +24,7 @@ import {
   updateAccountStaking,
   updateAccountState,
   updateBalances,
+  updateCurrencyRates,
   updateNft,
   updateRestrictions,
   updateSettings,
@@ -93,11 +94,8 @@ addActionHandler('apiUpdate', (global, actions, update) => {
     }
 
     case 'updateTokens': {
-      const { tokens, baseCurrency } = update;
+      const { tokens } = update;
       global = updateTokens(global, tokens, true);
-      global = updateSettings(global, {
-        baseCurrency,
-      });
       setGlobal(global);
       break;
     }
@@ -106,6 +104,12 @@ addActionHandler('apiUpdate', (global, actions, update) => {
       global = updateSwapTokens(global, update.tokens);
       setGlobal(global);
 
+      break;
+    }
+
+    case 'updateCurrencyRates': {
+      global = updateCurrencyRates(global, update.rates);
+      setGlobal(global);
       break;
     }
 

@@ -39,16 +39,13 @@ open class HostingView: UIView {
 
     override open func layoutSubviews() {
         super.layoutSubviews()
-        print("[HostingView] layoutSubviews")
     }
 
     override open var intrinsicContentSize: CGSize {
-        print("[HostingView] intrinsicContentSize")
         return super.intrinsicContentSize
     }
 
     override open func systemLayoutSizeFitting(_ targetSize: CGSize, withHorizontalFittingPriority horizontalFittingPriority: UILayoutPriority, verticalFittingPriority: UILayoutPriority) -> CGSize {
-        print("[HostingView] systemLayoutSizeFitting")
         return super.systemLayoutSizeFitting(targetSize, withHorizontalFittingPriority: horizontalFittingPriority, verticalFittingPriority: verticalFittingPriority)
     }
 }

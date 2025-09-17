@@ -58,29 +58,6 @@ fileprivate struct Image: View {
     
     var body: some View {
         NftDetailsImage(viewModel: viewModel)
-//        let _ = print(viewModel.y)
-//        ZStack {
-//            Color.clear
-//            ZStack {
-//                NftImage(nft: nft, animateIfPossible: false)
-//                    .aspectRatio(contentMode: .fill)
-//                    .hidden()
-//                
-//                NftImage(nft: nft, animateIfPossible: true)
-//                    .aspectRatio(contentMode: .fill)
-//                    .clipShape(.rect(cornerRadius: isExpanded || viewModel.isFullscreenPreviewOpen ? 0 : 20))
-//                    .gesture(longTap)
-//                    ._onButtonGesture { _ in
-//                    } perform: {
-//                        viewModel.onImageTap()
-//                    }
-//            }
-//            .frame(width: viewModel.state != .collapsed ? nil : 100, height: viewModel.state != .collapsed ? nil : 100)
-//            .scaleEffect(isExpanded && !viewModel.isFullscreenPreviewOpen ? max(1, 1 - viewModel.y * 0.003) : 1, anchor: .bottom)
-//            .highlightScale(!isExpanded && !viewModel.isFullscreenPreviewOpen && isTouching, scale: 1.05, isEnabled: true)
-//            .touchGesture($isTouching)
-//            .frame(maxWidth: .infinity)
-//        }
     }
 }
 

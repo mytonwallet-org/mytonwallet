@@ -5,6 +5,7 @@
 //  Created by Sina on 4/21/23.
 //
 
+import SwiftUI
 import UIKit
 import WalletCore
 import WalletContext
@@ -12,14 +13,19 @@ import UIPasscode
 import UIHome
 import UIComponents
 
+public enum SuccessKind {
+    case created
+    case imported
+}
+
 public class ImportSuccessVC: WViewController {
     
-    private let didImport: Bool
-    private let wordsToImport: [String]?
+    var introModel: IntroModel
+    private let successKind: SuccessKind
     
-    public init(didImport: Bool, wordsToImport: [String]?) {
-        self.didImport = didImport
-        self.wordsToImport = wordsToImport
+    public init(_ successKind: SuccessKind, introModel: IntroModel) {
+        self.introModel = introModel
+        self.successKind = successKind
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -32,83 +38,28 @@ public class ImportSuccessVC: WViewController {
         setupViews()
     }
     
-    private var bottomActionsView: BottomActionsView!
+    private var hostingController: UIHostingController<ImportSuccessView>!
     
     func setupViews() {
-        navigationItem.hidesBackButton = true
         
-        let proceedAction = BottomAction(
-            title: lang("Proceed"),
-            onPress: {
-                self.proceedPressed()
-            }
+        addNavigationBar(
+            closeIcon: false,
         )
         
-        bottomActionsView = BottomActionsView(primaryAction: proceedAction)
-        view.addSubview(bottomActionsView)
-        NSLayoutConstraint.activate([
-            bottomActionsView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -58),
-            bottomActionsView.leftAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leftAnchor, constant: 48),
-            bottomActionsView.rightAnchor.constraint(equalTo: view.safeAreaLayoutGuide.rightAnchor, constant: -48),
-        ])
+        hostingController = addHostingController(makeView(), constraints: .fill)
         
-        let topView = UIView()
-        topView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(topView)
-        NSLayoutConstraint.activate([
-            topView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            topView.leftAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leftAnchor),
-            topView.rightAnchor.constraint(equalTo: view.safeAreaLayoutGuide.rightAnchor),
-            topView.bottomAnchor.constraint(equalTo: bottomActionsView.topAnchor)
-        ])
-        
-        let headerView = HeaderView(animationName: "Congratulations",
-                                    animationPlaybackMode: .once,
-                                    title: lang("Your wallet has just been imported!"))
-        topView.addSubview(headerView)
-        NSLayoutConstraint.activate([
-            headerView.leftAnchor.constraint(equalTo: topView.leftAnchor, constant: 32),
-            headerView.rightAnchor.constraint(equalTo: topView.rightAnchor, constant: -32),
-            headerView.centerYAnchor.constraint(equalTo: topView.centerYAnchor)
-        ])
+        bringNavigationBarToFront()
     }
     
-    func proceedPressed() {
-        guard didImport == false else {
-            viewWallet()
-            return
-        }
-        let nextVC = SetPasscodeVC(onCompletion: { biometricsEnabled, passcode, onResult in
-            Task { @MainActor in
-                do {
-                    _ = try await AccountStore.importMnemonic(network: .mainnet, words: self.wordsToImport!, passcode: passcode, version: nil)
-                    KeychainHelper.save(biometricPasscode: passcode)
-                    AppStorageHelper.save(isBiometricActivated: biometricsEnabled)
-                    self.viewWallet()
-                } catch {
-                    self.showAlert(error: error)
-                    onResult()
-                }
-            }
-        })
-        navigationController?.pushViewController(nextVC, animated: true)
-    }
-    
-    private func viewWallet() {
-        Task { @MainActor in   
-            guard WalletContextManager.delegate?.isWalletReady != true else {
-                dismiss(animated: true)
-                return
-            }
-            let homeVC = HomeTabBarController()
-            AppActions.transitionToNewRootViewController(homeVC, animationDuration: 0.35)
-        }
+    private func makeView() -> ImportSuccessView {
+        ImportSuccessView(introModel: introModel, successKind: successKind)
     }
 }
 
 #if DEBUG
-@available(iOS 17.0, *)
+@available(iOS 18.0, *)
 #Preview {
-    UINavigationController(rootViewController: ImportSuccessVC(didImport: true, wordsToImport: nil))
+    LocalizationSupport.shared.setLanguageCode("ru")
+    return UINavigationController(rootViewController: ImportSuccessVC(.imported, introModel: IntroModel(password: nil)))
 }
 #endif

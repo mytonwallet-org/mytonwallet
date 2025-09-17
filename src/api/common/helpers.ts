@@ -34,7 +34,7 @@ import {
 } from './addresses';
 import { hexToBytes } from './utils';
 
-const actualStateVersion = 20;
+const actualStateVersion = 21;
 let migrationEnsurePromise: Promise<void>;
 
 export function buildLocalTransaction(
@@ -421,6 +421,13 @@ export async function migrateStorage(onUpdate: OnApiUpdate, ton: typeof chains.t
     await migrations.migration19.start();
 
     version = 20;
+    await storage.setItem('stateVersion', version);
+  }
+
+  if (version === 20) {
+    await migrations.migration20.start();
+
+    version = 21;
     await storage.setItem('stateVersion', version);
   }
 }

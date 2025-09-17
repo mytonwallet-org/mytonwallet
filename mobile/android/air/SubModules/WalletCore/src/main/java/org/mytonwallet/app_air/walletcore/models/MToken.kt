@@ -18,6 +18,7 @@ import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
+import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.math.BigDecimal
 import java.math.BigInteger
 import java.math.RoundingMode
@@ -45,7 +46,6 @@ class MToken(json: JSONObject) : IApiToken {
     override val chain: String = json.optString("chain").ifBlank { json.optString("blockchain") }
     val codeHash: String? = json.optString("codeHash")
 
-    var price: Double? = json.optDouble("price")
     var percentChange24hReal: Double = json.optDouble("percentChange24h")
     var percentChange24h: Double =
         if (percentChange24hReal.isFinite()) BigDecimal(percentChange24hReal).setScale(
@@ -100,8 +100,6 @@ class MToken(json: JSONObject) : IApiToken {
             put("name", name)
             put("image", image)
             put("tokenAddress", tokenAddress)
-            if (price?.isFinite() == true)
-                put("price", price)
             if (percentChange24hReal.isFinite())
                 put("percentChange24h", percentChange24hReal)
             if (priceUsd.isFinite())
@@ -148,6 +146,13 @@ class MToken(json: JSONObject) : IApiToken {
         }
         return false
     }
+
+    val price: Double?
+        get() {
+            return TokenStore.baseCurrencyRate?.let { baseCurrencyRate ->
+                priceUsd * baseCurrencyRate
+            }
+        }
 
     val isOnChain: Boolean
         get() {

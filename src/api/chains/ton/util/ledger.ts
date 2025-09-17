@@ -24,9 +24,17 @@ import { resolveTokenAddress, toBase64Address } from './tonCore';
 export type LedgerTransactionParams = Parameters<TonTransport['signTransaction']>[1];
 
 // You can use the https://github.com/LedgerHQ/app-ton history as the version support reference
-const VERSION_WITH_WALLET_SPECIFIERS = '2.1';
-const VERSION_WITH_JETTON_ID = '2.2';
+// Warning! The versions MUST NOT be lower than the actual versions that added support for these features. Otherwise,
+// that features fail. If you are not sure, set the version to a higher value. In that case Ledger will display the
+// transactions as blind/unknown, but will be able to sign them.
 const VERSION_WITH_GET_SETTINGS = '2.1';
+const VERSION_WITH_WALLET_SPECIFIERS = '2.1';
+/** The values are the TON App versions. The keys are the largest jetton ids (jetton indices) added in that versions. */
+const VERSION_WITH_JETTON_ID = {
+  6: '2.2',
+  9: '2.6.1',
+  10: '2.8.0', // TODO Replace to real version
+};
 const VERSION_WITH_PAYLOAD: Record<TonPayloadFormat['type'], string> = {
   unsafe: '2.1',
   comment: '0',
@@ -40,6 +48,9 @@ const VERSION_WITH_PAYLOAD: Record<TonPayloadFormat['type'], string> = {
   'vote-for-proposal': '2.1',
   'change-dns-record': '2.1',
   'token-bridge-pay-swap': '2.1',
+  'tonwhales-pool-deposit': '2.7',
+  'tonwhales-pool-withdraw': '2.7',
+  'vesting-send-msg-comment': '2.7',
 };
 
 // https://github.com/LedgerHQ/app-ton/blob/d3e1edbbc1fcf9a5d6982fbb971f757a83d0aa56/doc/MESSAGES.md?plain=1#L51
@@ -202,14 +213,14 @@ async function getPayload(
 ) {
   const ledgerPayload = tonPayloadToLedgerPayload(tonPayload, ledgerTonVersion);
 
-  if (ledgerPayload?.type === 'jetton-transfer' && doesSupportJettonId(ledgerModel, ledgerTonVersion)) {
+  if (ledgerPayload?.type === 'jetton-transfer' && doesSupportKnownJetton(ledgerModel, ledgerTonVersion)) {
     if (!tokenAddress) {
       const tokenWalletAddress = toBase64Address(toAddress, true, network);
       tokenAddress = await resolveTokenAddress(network, tokenWalletAddress);
     }
 
     if (tokenAddress) {
-      ledgerPayload.knownJetton = getKnownJetton(tokenAddress);
+      ledgerPayload.knownJetton = getKnownJetton(ledgerTonVersion, tokenAddress);
     }
   }
 
@@ -234,8 +245,9 @@ export function tonPayloadToLedgerPayload(tonPayload: Cell | undefined, ledgerTo
 
   try {
     ledgerPayload = parseMessage(tonPayload, {
-      disallowModification: true,
       disallowUnsafe: true, // Otherwise no error will be thrown, and we won't see why the payload can't be converted
+      // We don't use `disallowModification: true`, because it can cause an unnecessary "unsafe" payload, for example,
+      // when a token is transferred with a short comment. On the other hand, the fee may increase by about 0.0001 TON.
     });
   } catch (err) {
     logDebug('Unsafe Ledger payload', err);
@@ -294,16 +306,37 @@ function doesSupport(ledgerTonVersion: string, featureVersion: string) {
   return compareVersions(ledgerTonVersion, featureVersion) >= 0;
 }
 
-function doesSupportJettonId(ledgerModel: DeviceModelId | undefined, ledgerTonVersion: string) {
+/**
+ * Checks whether the current Ledger device supports `knownJetton` generally
+ */
+function doesSupportKnownJetton(ledgerModel: DeviceModelId | undefined, ledgerTonVersion: string) {
   return ledgerModel // If the Ledger model is unknown, assuming it can be any model and acting safely
     && !DEVICES_NOT_SUPPORTING_JETTON_ID.has(ledgerModel)
-    && doesSupport(ledgerTonVersion, VERSION_WITH_JETTON_ID);
+    // Note: JavaScript sorts the numeric `VERSION_WITH_JETTON_ID` keys in ascending order automatically
+    && doesSupport(ledgerTonVersion, Object.values(VERSION_WITH_JETTON_ID)[0]);
 }
 
-function getKnownJetton(tokenAddress: string) {
+function getKnownJetton(ledgerTonVersion: string, tokenAddress: string) {
   const jettonId = knownJettonAddresses[tokenAddress];
-  // eslint-disable-next-line no-null/no-null
-  return jettonId === undefined ? null : { jettonId, workchain: WORKCHAIN };
+  return jettonId !== undefined && doesSupportKnownJettonId(ledgerTonVersion, jettonId)
+    ? { jettonId, workchain: WORKCHAIN }
+    : null; // eslint-disable-line no-null/no-null
+}
+
+/**
+ * Checks that the current Ledger device supports the specific jetton id. This function should be used only if
+ * `doesSupportKnownJetton` returns `true`, because it doesn't check what that function checks.
+ */
+function doesSupportKnownJettonId(ledgerTonVersion: string, jettonId: number) {
+  // Note: JavaScript sorts the numeric `VERSION_WITH_JETTON_ID` keys in ascending order automatically
+  for (const [candidateJettonId, candidateVersion] of Object.entries(VERSION_WITH_JETTON_ID)) {
+    if (jettonId <= Number(candidateJettonId)) {
+      return doesSupport(ledgerTonVersion, candidateVersion);
+    }
+  }
+
+  logDebugError(`The supported version of jetton id ${jettonId} is not set in VERSION_WITH_JETTON_ID`);
+  return false;
 }
 
 function getWalletSpecifiers(walletVersion: ApiTonWalletVersion, ledgerTonVersion: string, subwalletId?: number) {

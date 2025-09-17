@@ -36,6 +36,8 @@ import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.lang.ref.WeakReference
 
+const val TON_CHAIN = "ton"
+
 const val TONCOIN_SLUG = "toncoin"
 const val MYCOIN_SLUG = "ton-eqcfvnlrbn"
 const val USDE_SLUG = "ton-eqaib6kmdf"
@@ -86,6 +88,9 @@ val DEFAULT_SHOWN_TOKENS = setOf(
     TRON_USDT_SLUG,
 )
 
+val DEFAULT_SWAP_VERSION = 3
+val MAX_PRICE_IMPACT_VALUE = 5.0
+
 object WalletCore {
     val moshi: Moshi by lazy {
         MoshiBuilder.build()
@@ -96,7 +101,7 @@ object WalletCore {
     var activeNetwork = "mainnet"
     var isMultichain = false
 
-    var baseCurrency: MBaseCurrency? = MBaseCurrency.valueOf(WGlobalStorage.getBaseCurrency())
+    var baseCurrency = MBaseCurrency.valueOf(WGlobalStorage.getBaseCurrency())
 
     // Events //////////////////////////////////////////////////////////////////////////////////////
 
@@ -364,7 +369,7 @@ object WalletCore {
 
             is ApiUpdate.ApiUpdateTokens -> {
                 TokenStore.setFlowValue(
-                    TokenStore.Tokens(update.tokens, MBaseCurrency.parse(update.baseCurrency))
+                    TokenStore.Tokens(update.tokens)
                 )
             }
 
@@ -381,6 +386,10 @@ object WalletCore {
                 if (AccountStore.activeAccountId != update.accountId)
                     return
                 AccountStore.walletVersionsData = update
+            }
+
+            is ApiUpdate.ApiUpdateCurrencyRates -> {
+                TokenStore.updateCurrencyRates(update)
             }
 
             else -> {}

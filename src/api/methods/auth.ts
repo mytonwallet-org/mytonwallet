@@ -314,7 +314,11 @@ export async function importViewAccount(network: ApiNetwork, addressByChain: Api
   }
 }
 
-export async function importNewWalletVersion(accountId: string, version: ApiTonWalletVersion): Promise<{
+export async function importNewWalletVersion(
+  accountId: string,
+  version: ApiTonWalletVersion,
+  isTestnetSubwalletId?: boolean,
+): Promise<{
   isNew: true;
   accountId: string;
   address: string;
@@ -328,7 +332,7 @@ export async function importNewWalletVersion(accountId: string, version: ApiTonW
   const newAccount: ApiAccountWithChain<'ton'> = {
     ...account,
     byChain: {
-      ton: ton.getOtherVersionWallet(network, account.byChain.ton, version),
+      ton: ton.getOtherVersionWallet(network, account.byChain.ton, version, isTestnetSubwalletId),
     },
   };
 

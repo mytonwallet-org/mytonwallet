@@ -6,6 +6,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import org.mytonwallet.app_air.uiassets.viewControllers.hiddenNFTs.cells.HiddenNFTsItemCell
+import org.mytonwallet.app_air.uiassets.viewControllers.nft.NftVC
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -157,7 +158,9 @@ class HiddenNFTsVC(context: Context) : WViewController(context),
             }
 
             else -> {
-                HiddenNFTsItemCell(recyclerView)
+                HiddenNFTsItemCell(recyclerView, onSelect = { nft ->
+                    push(NftVC(context, nft, blacklistedNFTs + hiddenNFTs))
+                })
             }
         }
     }

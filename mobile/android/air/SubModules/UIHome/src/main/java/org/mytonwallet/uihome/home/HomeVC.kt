@@ -1175,7 +1175,7 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
                 recyclerViewNumberOfItems(recyclerView, EMPTY_VIEW_SECTION) +
                 recyclerViewNumberOfItems(recyclerView, LOADING_SECTION)
         if (count > 0)
-            rvAdapter.reloadRange(startInt + 1, count)
+            rvAdapter.reloadRange(startInt, count)
     }
 
     override fun loadStakingData() {

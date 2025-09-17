@@ -3,6 +3,7 @@ import { getActions, withGlobal } from '../../global';
 
 import type {
   ApiBaseCurrency,
+  ApiCurrencyRates,
   ApiDapp,
   ApiDappTransfer,
   ApiEmulationResult,
@@ -64,7 +65,8 @@ interface StateProps {
   tokensBySlug: Record<string, ApiTokenWithPrice>;
   swapTokensBySlug?: Record<string, ApiSwapAsset>;
   theme: Theme;
-  baseCurrency?: ApiBaseCurrency;
+  baseCurrency: ApiBaseCurrency;
+  currencyRates: ApiCurrencyRates;
   nftsByAddress?: Record<string, ApiNft>;
   currentAccountId: string;
   stakingStateBySlug: Record<string, ApiStakingState>;
@@ -99,6 +101,7 @@ function DappTransferInitial({
   swapTokensBySlug,
   theme,
   baseCurrency,
+  currencyRates,
   nftsByAddress,
   currentAccountId,
   stakingStateBySlug,
@@ -250,6 +253,7 @@ function DappTransferInitial({
               savedAddresses={savedAddresses}
               accounts={accounts}
               baseCurrency={baseCurrency}
+              currencyRates={currencyRates}
             />
           ))}
         </div>
@@ -303,6 +307,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     swapTokensBySlug: global.swapTokenInfo?.bySlug,
     theme: global.settings.theme,
     baseCurrency: global.settings.baseCurrency,
+    currencyRates: global.currencyRates,
     nftsByAddress: accountState?.nfts?.byAddress,
     currentAccountId: accountId,
     stakingStateBySlug: selectAccountStakingStatesBySlug(global, accountId),

@@ -28,10 +28,10 @@ public class ActivateBiometricVC: WViewController {
     }
 
     var headerView: HeaderView!
-    var passcodeInputView: PasscodeInputView!
-    var passcodeOptionsView: PasscodeOptionsView!
-    var bottomConstraint: NSLayoutConstraint!
-    var bottomActionsView: BottomActionsView!
+    var passcodeInputView: PasscodeInputView?
+    var passcodeOptionsView: PasscodeOptionsView?
+    var bottomConstraint: NSLayoutConstraint?
+    var bottomActionsView: BottomActionsView?
     
     public static let passcodeOptionsFromBottom = CGFloat(8)
     
@@ -43,69 +43,36 @@ public class ActivateBiometricVC: WViewController {
     func setupViews() {
         navigationItem.hidesBackButton = true
 
-        let biometricType = BiometricHelper.biometricType()
+        _ = addHostingController(makeView(), constraints: .fill)
         
-        let topImage: UIImage
-        let titleString, descriptionString, enableString, skipString: String
-        if biometricType == .face {
-            topImage = UIImage(named: "FaceIDIcon", in: AirBundle, compatibleWith: nil)!
-            titleString = lang("Enable Face ID")
-            descriptionString = lang("Face ID allows you to open your wallet faster without having to enter your password.")
-            enableString = lang("Enable Face ID")
-            skipString = lang("Skip")
-        } else {
-            topImage = UIImage(named: "TouchIDIcon", in: AirBundle, compatibleWith: nil)!
-            titleString = lang("Enable Touch ID")
-            descriptionString = lang("Touch ID allows you to open your wallet faster without having to enter your password.")
-            enableString = lang("Enable Touch ID")
-            skipString = lang("Skip")
-        }
-
-        let enableButtonAction = BottomAction(
-            title: enableString,
-            onPress: { [weak self] in
+//        let biometricType = BiometricHelper.biometricType()
+//        
+//        let topImage: UIImage
+//        let titleString, descriptionString, enableString, skipString: String
+//        if biometricType == .face {
+//            topImage = UIImage(named: "FaceIDIcon", in: AirBundle, compatibleWith: nil)!
+//            titleString = lang("Enable Face ID")
+//            descriptionString = lang("Face ID allows you to open your wallet faster without having to enter your password.")
+//            enableString = lang("Enable Face ID")
+//            skipString = lang("Skip")
+//        } else {
+//            topImage = UIImage(named: "TouchIDIcon", in: AirBundle, compatibleWith: nil)!
+//            titleString = lang("Enable Touch ID")
+//            descriptionString = lang("Touch ID allows you to open your wallet faster without having to enter your password.")
+//            enableString = lang("Enable Touch ID")
+//            skipString = lang("Skip")
+//        }
+    }
+    
+    func makeView() -> ActivateBiometricView {
+        ActivateBiometricView(
+            onEnable: { [weak self] in
                 self?.activateBiometricPressed()
+            },
+            onSkip: { [ self] in
+                self.finalizeFlow(biometricActivated: false)
             }
         )
-        
-        let skipButtonAction = BottomAction(
-            title: skipString,
-            onPress: { [weak self] in
-                self?.bottomActionsView.secondaryButton.showLoading = true
-                self?.finalizeFlow(biometricActivated: false)
-            }
-        )
-        
-        bottomActionsView = BottomActionsView(primaryAction: enableButtonAction,
-                                              secondaryAction: skipButtonAction)
-        view.addSubview(bottomActionsView)
-        NSLayoutConstraint.activate([
-            bottomActionsView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -58),
-            bottomActionsView.leftAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leftAnchor, constant: 48),
-            bottomActionsView.rightAnchor.constraint(equalTo: view.safeAreaLayoutGuide.rightAnchor, constant: -48),
-        ])
-        
-        let topView = UIView()
-        topView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(topView)
-        NSLayoutConstraint.activate([
-            topView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            topView.leftAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leftAnchor),
-            topView.rightAnchor.constraint(equalTo: view.safeAreaLayoutGuide.rightAnchor),
-            topView.bottomAnchor.constraint(equalTo: bottomActionsView.topAnchor)
-        ])
-
-        let headerView = HeaderView(icon: topImage,
-                                    iconWidth: 124, iconHeight: 124,
-                                    iconTintColor: WTheme.tint,
-                                    title: titleString,
-                                    description: descriptionString)
-        topView.addSubview(headerView)
-        NSLayoutConstraint.activate([
-            headerView.leftAnchor.constraint(equalTo: topView.leftAnchor, constant: 32),
-            headerView.rightAnchor.constraint(equalTo: topView.rightAnchor, constant: -32),
-            headerView.centerYAnchor.constraint(equalTo: topView.centerYAnchor)
-        ])
     }
     
     func activateBiometricPressed() {
@@ -120,7 +87,7 @@ public class ActivateBiometricVC: WViewController {
 
                     DispatchQueue.main.async { [weak self] in
                         if success {
-                            self?.bottomActionsView.primaryButton.showLoading = true
+                            self?.bottomActionsView?.primaryButton.showLoading = true
                             self?.finalizeFlow(biometricActivated: true)
                         } else {
                             // error
@@ -142,3 +109,12 @@ public class ActivateBiometricVC: WViewController {
         })
     }
 }
+
+
+#if DEBUG
+@available(iOS 18.0, *)
+#Preview {
+    let _ = UIFont.registerAirFonts()
+    UINavigationController(rootViewController: ActivateBiometricVC(onCompletion: { _, _ in }, selectedPasscode: ""))
+}
+#endif

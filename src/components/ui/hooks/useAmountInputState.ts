@@ -11,7 +11,7 @@ import { DEFAULT_DECIMALS } from '../../../api/chains/ton/constants';
 import useLastCallback from '../../../hooks/useLastCallback';
 import useSyncEffect from '../../../hooks/useSyncEffect';
 
-type CurrentToken = Pick<ApiTokenWithPrice, 'slug' | 'price' | 'decimals'>;
+type CurrentToken = Pick<ApiTokenWithPrice, 'slug' | 'decimals'> & { price: number };
 
 interface AmountInputStateInput {
   /** The `token` amount from the state. Expressed in `token` regardless of `isBaseCurrency`. */

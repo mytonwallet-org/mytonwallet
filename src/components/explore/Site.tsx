@@ -2,6 +2,7 @@ import React, { memo } from '../../lib/teact/teact';
 
 import type { ApiSite } from '../../api/types';
 
+import renderText from '../../global/helpers/renderText';
 import buildClassName from '../../util/buildClassName';
 import { vibrate } from '../../util/haptics';
 import { openUrl } from '../../util/openUrl';
@@ -20,7 +21,7 @@ interface OwnProps {
 
 function Site({
   site: {
-    url, icon, name, description, isExternal, extendedIcon, withBorder, badgeText,
+    url, icon, name, description, isExternal, isVerified, extendedIcon, withBorder, badgeText,
   },
   isTrending,
   isInList,
@@ -54,11 +55,14 @@ function Site({
           {name}
 
           {!isTrending && isTelegramUrl(url) && (
-            <i className={buildClassName(styles.telegram, 'icon-telegram-filled')} aria-hidden />
+            <i className={buildClassName(styles.titleIcon, 'icon-telegram-filled')} aria-hidden />
+          )}
+          {isTrending && isVerified && (
+            <i className={buildClassName(styles.titleIcon, 'icon-verification')} aria-hidden />
           )}
           {isInList && badgeText && <div className={styles.badgeLabel}>{badgeText}</div>}
         </b>
-        <div className={styles.description}>{description}</div>
+        <div className={styles.description}>{renderText(description, ['simple_markdown'])}</div>
       </div>
       {!isInList && badgeText && <div className={styles.badge}>{badgeText}</div>}
     </div>

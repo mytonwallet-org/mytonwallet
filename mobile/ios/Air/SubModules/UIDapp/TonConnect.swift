@@ -42,7 +42,9 @@ public final class TonConnect {
                         identifier: identifier
                     )
                 )
-                if let returnStrategy, case .url(var str) = returnStrategy {
+                if returnStrategy == .empty {
+                    return
+                } else if let returnStrategy, case .url(var str) = returnStrategy {
                     if !str.contains("://") {
                         str = "https://" + str
                     }

@@ -333,13 +333,18 @@ $listHorizontalPadding: 1rem;
   text-overflow: ellipsis;
 }
 
-.telegram {
+.titleIcon {
   margin-inline-start: 0.25rem;
 
   font-size: 0.9375rem;
   line-height: 1;
   color: var(--color-gray-4);
   vertical-align: -0.125rem;
+
+  &:global(.icon-verification) {
+    color: var(--color-accent);
+    vertical-align: -0.1875rem;
+  }
 }
 
 .emptyList {

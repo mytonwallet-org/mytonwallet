@@ -3,7 +3,7 @@ import Foundation
 import WalletContext
 
 /// Double represented as number or string
-public struct MDouble: Equatable, Hashable, Codable, Sendable, Comparable, ExpressibleByFloatLiteral, ExpressibleByIntegerLiteral {
+public struct MDouble: Equatable, Hashable, Codable, Sendable, Comparable, ExpressibleByFloatLiteral, ExpressibleByIntegerLiteral, CustomStringConvertible {
     
     public var value: Double
     
@@ -53,4 +53,6 @@ public struct MDouble: Equatable, Hashable, Codable, Sendable, Comparable, Expre
     public static func < (lhs: MDouble, rhs: MDouble) -> Bool {
         lhs.value < rhs.value
     }
+    
+    public var description: String { stringValue }
 }

@@ -7,20 +7,20 @@ import org.json.JSONObject
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.fetchPriceHistory
-import org.mytonwallet.app_air.walletcore.models.MBaseCurrency
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.MHistoryTimePeriod
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 
 object TokenStore {
 
     // Observable Flow
     data class Tokens(
         val tokens: Map<String, ApiTokenWithPrice>,
-        val baseCurrency: MBaseCurrency,
     )
 
     private val _tokensFlow = MutableStateFlow<Tokens?>(null)
@@ -32,6 +32,10 @@ object TokenStore {
     /////
 
     fun loadFromCache() {
+        currencyRates = WGlobalStorage.getCurrencyRates()?.let { jsonObject ->
+            jsonObject.keys().asSequence().associateWith { key -> jsonObject.getDouble(key) }
+        }
+
         WCacheStorage.getTokens()?.let { tokensString ->
             val tokensJsonArray = JSONArray(tokensString)
             for (item in 0..<tokensJsonArray.length()) {
@@ -46,7 +50,7 @@ object TokenStore {
             for (item in 0..<swapAssetsArray.length()) {
                 assetsArray.add(MToken(swapAssetsArray.get(item) as JSONObject))
             }
-            if (assetsArray.size > 0) {
+            if (assetsArray.isNotEmpty()) {
                 swapAssets = assetsArray
                 _swapAssetsFlow.value = assetsArray.map { MApiSwapAsset.from(it) }
             }
@@ -59,6 +63,13 @@ object TokenStore {
 
     @Volatile
     var swapAssets: ArrayList<MToken>? = null
+
+    @Volatile
+    var currencyRates: Map<String, Double>? = null
+    val baseCurrencyRate: Double?
+        get() {
+            return currencyRates?.get(WalletCore.baseCurrency.currencyCode)
+        }
 
     internal val _swapAssetsFlow = MutableStateFlow<List<MApiSwapAsset>?>(null)
     val swapAssetsFlow = _swapAssetsFlow.asStateFlow()
@@ -85,12 +96,6 @@ object TokenStore {
         tokens[slug] = token
     }
 
-    fun clearQuotes() {
-        for (token in tokens.values) {
-            setToken(token.slug, token.apply { price = null })
-        }
-    }
-
     fun updateSwapCache() {
         val arr = JSONArray()
         for (it in swapAssets ?: emptyList()) {
@@ -105,6 +110,15 @@ object TokenStore {
             arr.put(tokens[it]?.toDictionary())
         }
         WCacheStorage.setTokens(arr.toString())
+    }
+
+    fun updateCurrencyRates(update: ApiUpdate.ApiUpdateCurrencyRates) {
+        val prevCurrencyRate = baseCurrencyRate
+        currencyRates = update.rates
+        WGlobalStorage.setCurrencyRates(update.rates)
+        if (baseCurrencyRate != prevCurrencyRate) {
+            WalletCore.notifyEvent(WalletEvent.TokensChanged)
+        }
     }
 
     // Load price history from cache and update the price history instantly
@@ -129,7 +143,7 @@ object TokenStore {
         WalletCore.fetchPriceHistory(
             slug,
             period,
-            WalletCore.baseCurrency?.currencyCode ?: ""
+            WalletCore.baseCurrency.currencyCode
         ) { res, err ->
             if (res == null || err != null) {
                 if (retriesLeft > 0) {

@@ -75,7 +75,7 @@ export async function fetchActivitySlice({
 
     if (tokenSlug !== TONCOIN.slug) {
       await tokensPreload.promise;
-      tokenWalletAddress = await resolveTokenWalletAddress(network, address, getTokenBySlug(tokenSlug).tokenAddress!);
+      tokenWalletAddress = await resolveTokenWalletAddress(network, address, getTokenBySlug(tokenSlug)!.tokenAddress!);
     }
 
     activities = await fetchActions({

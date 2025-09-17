@@ -154,7 +154,7 @@ class WalletCardView(
                         WMenuPopup.Item.Config.SelectableItem(
                             title = it.currencyName,
                             subtitle = null,
-                            isSelected = WalletCore.baseCurrency?.currencySymbol == it.currencySymbol
+                            isSelected = WalletCore.baseCurrency.currencySymbol == it.currencySymbol
                         ),
                         false,
                     ) {

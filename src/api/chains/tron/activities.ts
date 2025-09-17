@@ -68,7 +68,7 @@ export async function getTokenActivitySlice(
     });
     activities = rawTransactions.map((rawTx) => parseRawTrxTransaction(address, rawTx));
   } else {
-    const { tokenAddress } = getTokenBySlug(slug);
+    const { tokenAddress } = getTokenBySlug(slug) || {};
     const rawTransactions = await getTrc20Transactions(network, address, {
       contract_address: tokenAddress,
       min_timestamp: fromTimestamp ? fromTimestamp + 1000 : undefined,

@@ -14,7 +14,6 @@ import org.mytonwallet.app_air.uicomponents.helpers.LastItemPaddingDecoration
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
-import org.mytonwallet.app_air.walletcontext.R
 import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
 import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletcontext.theme.WColor
@@ -146,7 +145,7 @@ class BaseCurrencyVC(context: Context) : WViewController(context),
                 (cellHolder.cell as TitleSubtitleSelectionCell).configure(
                     title = baseCurrency.currencySymbol,
                     subtitle = baseCurrency.currencyName,
-                    isSelected = WalletCore.baseCurrency?.currencySymbol == baseCurrency.currencySymbol,
+                    isSelected = WalletCore.baseCurrency.currencySymbol == baseCurrency.currencySymbol,
                     isFirst = false,
                     isLast = indexPath.row == baseCurrencies.size - 1
                 ) {

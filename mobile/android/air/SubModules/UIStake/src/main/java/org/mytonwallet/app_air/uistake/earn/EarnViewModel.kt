@@ -170,7 +170,8 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
     }
 
     private fun refreshStakingHistoryLatestChanges() {
-        requestStakingHistory(AccountStore.activeAccountId!!, 1, true)
+        val activeAccountId = AccountStore.activeAccountId ?: return
+        requestStakingHistory(activeAccountId, 1, true)
         requestTokenActivitiesForUnstakedItems(null, true)
         requestTokenActivitiesForStakedItems(null, true)
     }
@@ -262,7 +263,9 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
 
     fun loadMoreStakingHistoryItems() {
         if (hasLoadedAllStakingHistoryItems) return
-        requestStakingHistory(AccountStore.activeAccountId!!, lastLoadedPage + 1)
+        AccountStore.activeAccountId?.let { activeAccountId ->
+            requestStakingHistory(activeAccountId, lastLoadedPage + 1)
+        }
     }
 
     var lastUnstakedActivityItem: EarnItem? = null
@@ -281,7 +284,7 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
         if (isLoadingUnstakedActivityItems) return
         val callback: ((ArrayList<MApiTransaction>?, MBridgeError?, String) -> Unit) =
             callback@{ transactions, err, requestAccountId ->
-                if (requestAccountId != AccountStore.activeAccountId!!) return@callback
+                if (requestAccountId != AccountStore.activeAccountId) return@callback
                 val transactions = transactions?.filter { it is MApiTransaction.Transaction }
                 if (!transactions.isNullOrEmpty()) {
                     if (!isCheckingLatestChanges) {
@@ -307,13 +310,15 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
             }
 
         isLoadingUnstakedActivityItems = true
-        WalletCore.fetchTokenActivitySlice(
-            AccountStore.activeAccountId!!,
-            tokenSlug,
-            fromTimestamp,
-            limit = 100,
-            callback
-        )
+        AccountStore.activeAccountId?.let { activeAccountId ->
+            WalletCore.fetchTokenActivitySlice(
+                activeAccountId,
+                tokenSlug,
+                fromTimestamp,
+                limit = 100,
+                callback
+            )
+        }
     }
 
     fun loadMoreUnstakeActivityItem() {
@@ -345,9 +350,10 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
             }
             return
         }
+        val activeAccountId = AccountStore.activeAccountId ?: return
         isLoadingStakedActivityItems = true
         WalletCore.fetchTokenActivitySlice(
-            AccountStore.activeAccountId!!,
+            activeAccountId,
             stakedTokenSlug,
             fromTimestamp,
             limit = 100
@@ -383,10 +389,11 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
         passcode: String,
         callback: (JSWebViewBridge.ApiError?) -> Unit
     ) {
+        val activeAccountId = AccountStore.activeAccountId ?: return
         AccountStore.stakingData?.stakingState(tokenSlug)?.let { stakingState ->
             WalletCore.call(
                 ApiMethod.Staking.SubmitStakingClaimOrUnlock(
-                    AccountStore.activeAccountId!!,
+                    activeAccountId,
                     passcode,
                     stakingState,
                     getTonStakingFees(stakingState.stakingType)["claim"]!!.real
@@ -513,10 +520,12 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
     private fun getTokenBalance(): BigInteger {
         return if (token == null) BigInteger.ZERO
         else {
-            if (token?.isEarnAvailable == true)
-                BalanceStore.getBalances(AccountStore.activeAccountId!!)?.get(token!!.slug)
-                    ?: BigInteger.valueOf(0)
-            else
+            if (token?.isEarnAvailable == true) {
+                AccountStore.activeAccountId?.let { activeAccountId ->
+                    BalanceStore.getBalances(activeAccountId)?.get(token!!.slug)
+                        ?: BigInteger.valueOf(0)
+                } ?: BigInteger.valueOf(0)
+            } else
                 AccountStore.stakingData?.stakingState(token!!.slug)?.balance
                     ?: BigInteger.valueOf(0)
         }
@@ -526,7 +535,7 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
         amountInBaseCurrency = token?.price?.let { price ->
             (price * amount.doubleAbsRepresentation(decimals = token?.decimals)).toString(
                 9,
-                WalletCore.baseCurrency?.sign ?: "",
+                WalletCore.baseCurrency.sign,
                 9,
                 true
             )
@@ -605,7 +614,9 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
                 clearStakingHistoryVariables()
                 clearUnstakedItemsVariables()
                 clearStakedItemsVariables()
-                requestStakingState(AccountStore.activeAccountId!!)
+                AccountStore.activeAccountId?.let { activeAccountId ->
+                    requestStakingState(activeAccountId)
+                }
             }
 
             WalletEvent.BalanceChanged -> {

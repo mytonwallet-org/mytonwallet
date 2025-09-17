@@ -85,7 +85,7 @@ class WNavigationBar(
             val arrowDrawable =
                 ContextCompat.getDrawable(
                     context,
-                    androidx.appcompat.R.drawable.abc_ic_ab_back_material
+                    R.drawable.ic_nav_back
                 )
             setImageDrawable(arrowDrawable)
             updateColors(currentTint ?: WColor.SecondaryText, WColor.BackgroundRipple)

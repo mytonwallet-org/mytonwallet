@@ -123,7 +123,7 @@ public class MainActivity extends AppCompatActivity {
   private void splashScreenAnimatedEnded() {
     Log.i("MTWAirApplication", "Splash animation ended");
     updateStatusBarStyle();
-    AirLauncher.getInstance().soarIntoAir(false);
+    AirLauncher.getInstance().soarIntoAir(this, false);
   }
 
   private void makeStatusBarTransparent() {

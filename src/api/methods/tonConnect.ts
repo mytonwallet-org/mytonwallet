@@ -43,7 +43,7 @@ export async function signTransfers(accountId: string, messages: ApiTransferToSi
     stateInit: stateInitBase64 ? Cell.fromBase64(stateInitBase64) : undefined,
     hints: {
       tokenAddress: payload?.type === 'tokens:transfer'
-        ? getTokenBySlug(payload.slug).tokenAddress
+        ? getTokenBySlug(payload.slug)?.tokenAddress
         : undefined,
     },
   }));

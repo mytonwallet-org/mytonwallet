@@ -973,6 +973,12 @@ a.item:hover {
   white-space: nowrap;
 }
 
+.walletVersionTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .walletVersionAddress,
 .walletVersionAmount {
   font-size: 0.75rem;

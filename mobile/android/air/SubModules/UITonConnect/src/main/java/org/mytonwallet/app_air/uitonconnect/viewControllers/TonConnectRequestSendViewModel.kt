@@ -65,7 +65,7 @@ class TonConnectRequestSendViewModel private constructor(
         update.transactions.map { it.payload?.payloadTokenSlug ?: "toncoin" }
     private val tokensMapFlow = TokenStore.tokensFlow.map { tokens ->
         Tokens(
-            currency = tokens?.baseCurrency ?: MBaseCurrency.USD,
+            currency = WalletCore.baseCurrency!!,
             tokens = tokens?.tokens,
             list = transactionTokenSlugs.map {
                 val t = tokens?.tokens?.get(it)

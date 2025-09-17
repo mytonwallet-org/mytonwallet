@@ -28,13 +28,14 @@ import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletcontext.theme.WColor
 import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.models.MExploreSite
 
 @SuppressLint("ViewConstructor")
 class ExploreCategorySiteCell(
     context: Context,
     private val onSiteTap: (site: MExploreSite) -> Unit
-) : WCell(context, LayoutParams(MATCH_PARENT, 76.dp)), WThemedView {
+) : WCell(context, LayoutParams(MATCH_PARENT, 80.dp)), WThemedView {
 
     private val img = WCustomImageView(context).apply {
         defaultRounding = Content.Rounding.Radius(12f.dp)
@@ -53,6 +54,21 @@ class ExploreCategorySiteCell(
         maxLines = 2
     }
 
+    private val contentView = WView(context).apply {
+        addView(titleLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        addView(subtitleLabel, LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
+        setConstraints {
+            toTop(titleLabel)
+            toStart(titleLabel)
+            toEnd(titleLabel)
+            constrainedWidth(titleLabel.id, true)
+            setHorizontalBias(titleLabel.id, 0f)
+            toStart(subtitleLabel)
+            topToBottom(subtitleLabel, titleLabel, 1f)
+            toEnd(subtitleLabel)
+        }
+    }
+
     private val badgeLabel: WLabel by lazy {
         WLabel(context).apply {
             setStyle(12f, WFont.Medium)
@@ -65,7 +81,8 @@ class ExploreCategorySiteCell(
         setStyle(16f, WFont.SemiBold)
         text = LocaleController.getString("Open")
         gravity = Gravity.CENTER
-        setTextColor(WColor.TextOnTint)
+        setTextColor(WColor.Tint)
+        setPadding(12.dp, 0, 12.dp, 0)
         setOnClickListener {
             site?.let {
                 onSiteTap(it)
@@ -84,8 +101,7 @@ class ExploreCategorySiteCell(
         clipChildren = false
 
         addView(img, LayoutParams(48.dp, 48.dp))
-        addView(titleLabel, LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
-        addView(subtitleLabel, LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
+        addView(contentView, LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
         addView(openButton, LayoutParams(WRAP_CONTENT, 32.dp))
         addView(separator, LayoutParams(0, 1))
 
@@ -93,17 +109,15 @@ class ExploreCategorySiteCell(
             addView(badgeLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
 
         setConstraints {
-            toStart(img, 14f)
+            toStart(img, 20f)
             toCenterY(img)
-            toTop(titleLabel, 12f)
-            startToEnd(titleLabel, img, 12f)
-            endToStart(titleLabel, openButton, 8f)
-            setHorizontalBias(titleLabel.id, 0f)
-            startToEnd(subtitleLabel, img, 12f)
-            topToBottom(subtitleLabel, titleLabel)
-            endToStart(subtitleLabel, openButton, 8f)
+            startToEnd(contentView, img, 10f)
+            toTop(contentView, -2f)
+            toBottom(contentView)
+            endToStart(contentView, openButton, 8f)
             toBottom(separator)
-            toCenterX(separator, 16f)
+            toStart(separator, 78f)
+            toEnd(separator)
             if (site?.badgeText?.isNotBlank() == true) {
                 toTop(badgeLabel, -4f)
                 toEnd(badgeLabel, -4f)
@@ -189,26 +203,26 @@ class ExploreCategorySiteCell(
                 0
             )
         }
+        openButton.setBackgroundColor(WColor.SecondaryBackground.color, 16f.dp)
+        openButton.addRippleEffect(WColor.BackgroundRipple.color, 16f.dp)
+
         if (site?.isTelegram == true) {
-            val drawable = ContextCompat.getDrawable(
+            val telegramIcon = ContextCompat.getDrawable(
                 context,
                 org.mytonwallet.app_air.icons.R.drawable.ic_telegram
             )
-            drawable?.setTint(WColor.TextOnTint.color)
-            openButton.setCompoundDrawablesWithIntrinsicBounds(
-                drawable,
-                null,
-                null,
-                null
-            )
-            openButton.compoundDrawablePadding = 5.dp
-            openButton.setPadding(9.dp, 0, 12.dp, 0)
+            telegramIcon?.let { drawable ->
+                drawable.setTint(WColor.PrimaryText.color.colorWithAlpha(50))
+                drawable.setBounds(0, 0, drawable.intrinsicWidth, drawable.intrinsicHeight)
+                titleLabel.setCompoundDrawablesRelativeWithIntrinsicBounds(
+                    null, null, drawable, null
+                )
+            }
         } else {
-            openButton.setCompoundDrawablesWithIntrinsicBounds(null, null, null, null)
-            openButton.setPadding(12.dp, 0, 12.dp, 0)
+            titleLabel.setCompoundDrawablesRelativeWithIntrinsicBounds(
+                null, null, null, null
+            )
         }
-        openButton.setBackgroundColor(WColor.Tint.color, 16f.dp)
-        openButton.addRippleEffect(WColor.TintRipple.color, 16f.dp)
     }
 
 }

@@ -1,6 +1,5 @@
-import type { Address, Cell } from '@ton/core';
+import type { Cell } from '@ton/core';
 import type { SignDataPayload } from '@tonconnect/protocol';
-import type { SignKeyPair } from 'tweetnacl';
 import { WalletContractV5R1 } from '@ton/ton/dist/wallets/WalletContractV5R1';
 
 import type { ApiTonConnectProof } from '../../../tonConnect/types';
@@ -11,15 +10,15 @@ import type {
   ApiNetwork,
   ApiTonWallet,
 } from '../../../types';
-import type { ApiTonWalletVersion, PreparedTransactionToSign } from '../types';
+import type { PreparedTransactionToSign } from '../types';
 import { ApiCommonError } from '../../../types';
 
 import { parseAccountId } from '../../../../util/account';
 import withCache from '../../../../util/withCache';
 import { hexToBytes } from '../../../common/utils';
 import { signDataWithPrivateKey, signTonProofWithPrivateKey } from '../../../tonConnect/signing';
-import { fetchKeyPair } from '../auth';
-import { buildWallet } from '../wallet';
+import { fetchPrivateKey } from '../auth';
+import { getTonWallet } from '../wallet';
 import { decryptMessageComment, encryptMessageComment } from './encryption';
 
 type ErrorResult = { error: ApiAnyDisplayError };
@@ -73,63 +72,69 @@ export function getSigner(
 }
 
 abstract class PrivateKeySigner implements Signer {
-  public abstract readonly isMock: boolean;
+  abstract readonly isMock: boolean;
 
-  constructor(
-    public walletAddress: string | Address,
-    public walletVersion: ApiTonWalletVersion,
-  ) {}
+  constructor(public wallet: ApiTonWallet) {}
 
-  public abstract getKeyPair(): MaybePromise<SignKeyPair | ErrorResult>;
+  abstract getPrivateKey(): MaybePromise<Uint8Array | ErrorResult>;
 
   async signTonProof(proof: ApiTonConnectProof) {
-    const keyPair = await this.getKeyPair();
-    if ('error' in keyPair) return keyPair;
+    const privateKey = await this.getPrivateKey();
+    if ('error' in privateKey) return privateKey;
 
-    const signature = await signTonProofWithPrivateKey(this.walletAddress, keyPair.secretKey, proof);
+    const signature = await signTonProofWithPrivateKey(this.wallet.address, privateKey, proof);
     return Buffer.from(signature);
   }
 
   async signTransactions(transactions: PreparedTransactionToSign[]) {
-    const keyPair = await this.getKeyPair();
-    if ('error' in keyPair) return keyPair;
+    const privateKey = await this.getPrivateKey();
+    if ('error' in privateKey) return privateKey;
 
-    return signTransactionsWithKeyPair(transactions, this.walletVersion, keyPair);
+    return signTransactionsWithPrivateKey(transactions, this.wallet, privateKey);
   }
 
   async signData(timestamp: number, domain: string, payload: SignDataPayload) {
-    const keyPair = await this.getKeyPair();
-    if ('error' in keyPair) return keyPair;
+    const privateKey = await this.getPrivateKey();
+    if ('error' in privateKey) return privateKey;
 
     const signature = await signDataWithPrivateKey(
-      this.walletAddress,
+      this.wallet.address,
       timestamp,
       domain,
       payload,
-      keyPair.secretKey,
+      privateKey,
     );
     return Buffer.from(signature);
   }
 
   async encryptComment(comment: string, recipientPublicKey: Uint8Array) {
-    const keyPair = await this.getKeyPair();
-    if ('error' in keyPair) return keyPair;
+    const privateKey = await this.getPrivateKey();
+    if ('error' in privateKey) return privateKey;
 
     const encrypted = await encryptMessageComment(
       comment,
-      keyPair.publicKey,
+      this.getPublicKey(),
       recipientPublicKey,
-      keyPair.secretKey,
-      this.walletAddress,
+      privateKey,
+      this.wallet.address,
     );
     return Buffer.from(encrypted.buffer, encrypted.byteOffset, encrypted.byteLength);
   }
 
   async decryptComment(encrypted: Uint8Array, senderAddress: string) {
-    const keyPair = await this.getKeyPair();
-    if ('error' in keyPair) return keyPair;
+    const privateKey = await this.getPrivateKey();
+    if ('error' in privateKey) return privateKey;
 
-    return decryptMessageComment(encrypted, keyPair.publicKey, keyPair.secretKey, senderAddress);
+    return decryptMessageComment(encrypted, this.getPublicKey(), privateKey, senderAddress);
+  }
+
+  getPublicKey() {
+    const publicKeyHex = this.wallet.publicKey;
+    if (!publicKeyHex) {
+      // Mnemonic wallets must always have a public key. This error happens when a developer provides a wrong wallet type.
+      throw new Error('Public key is missing');
+    }
+    return hexToBytes(publicKeyHex);
   }
 }
 
@@ -141,32 +146,21 @@ class MnemonicSigner extends PrivateKeySigner {
     public account: ApiAccountWithMnemonic & ApiAccountWithChain<'ton'>,
     public password: string,
   ) {
-    const { address, version } = account.byChain.ton;
-    super(address, version);
+    super(account.byChain.ton);
   }
 
   // Obtaining the key pair from the password takes much time, so the result is cached.
-  public getKeyPair = withCache(async () => {
-    const keyPair = await fetchKeyPair(this.accountId, this.password, this.account);
-    return keyPair || { error: ApiCommonError.InvalidPassword };
+  public getPrivateKey = withCache(async () => {
+    const privateKey = await fetchPrivateKey(this.accountId, this.password, this.account);
+    return privateKey || { error: ApiCommonError.InvalidPassword };
   });
 }
 
 class MockSigner extends PrivateKeySigner {
   public isMock = true;
-  public publicKeyHex?: string;
 
-  constructor({ address, version, publicKey }: ApiTonWallet) {
-    super(address, version);
-    this.publicKeyHex = publicKey;
-  }
-
-  public getKeyPair() {
-    const { publicKeyHex } = this;
-    return {
-      publicKey: publicKeyHex ? hexToBytes(publicKeyHex) : Buffer.alloc(64),
-      secretKey: Buffer.alloc(64),
-    };
+  public getPrivateKey() {
+    return Buffer.alloc(64);
   }
 }
 
@@ -202,13 +196,13 @@ class LedgerSigner implements Signer {
   }
 }
 
-function signTransactionsWithKeyPair(
+function signTransactionsWithPrivateKey(
   transactions: PreparedTransactionToSign[],
-  walletVersion: ApiTonWalletVersion,
-  keyPair: SignKeyPair,
+  storedWallet: ApiTonWallet,
+  secretKeyUint8Array: Uint8Array,
 ) {
-  const secretKey = Buffer.from(keyPair.secretKey);
-  const wallet = buildWallet(keyPair.publicKey, walletVersion);
+  const secretKey = Buffer.from(secretKeyUint8Array);
+  const wallet = getTonWallet(storedWallet);
 
   return transactions.map((transaction) => {
     if (wallet instanceof WalletContractV5R1) {
@@ -222,7 +216,7 @@ function signTransactionsWithKeyPair(
 
     const { authType = 'external' } = transaction;
     if (authType !== 'external') {
-      throw new Error(`${walletVersion} wallet doesn't support authType "${authType}"`);
+      throw new Error(`${storedWallet.version} wallet doesn't support authType "${authType}"`);
     }
 
     return wallet.createTransfer({ ...transaction, secretKey });

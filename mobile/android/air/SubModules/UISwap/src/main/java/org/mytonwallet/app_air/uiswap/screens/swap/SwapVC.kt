@@ -1,5 +1,10 @@
 package org.mytonwallet.app_air.uiswap.screens.swap
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.text.Editable
@@ -13,7 +18,9 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.view.isGone
 import androidx.lifecycle.ViewModelProvider
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
 import org.mytonwallet.app_air.uicomponents.base.showAlert
@@ -25,7 +32,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.setTextIfDiffer
 import org.mytonwallet.app_air.uicomponents.helpers.DieselAuthorizationHelpers
 import org.mytonwallet.app_air.uicomponents.viewControllers.selector.TokenSelectorVC
 import org.mytonwallet.app_air.uicomponents.widgets.ExpandableFrameLayout
-import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
+import org.mytonwallet.app_air.uicomponents.widgets.WAlertLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.dialog.WDialog
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
@@ -48,6 +55,7 @@ import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletcontext.theme.WColor
 import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletcontext.utils.boldSubstring
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import java.math.BigInteger
 import kotlin.math.max
@@ -76,11 +84,15 @@ class SwapVC(
     private val contentLayout = FrameLayout(context)
     private val linearLayout = LinearLayout(context)
 
-    private val topGapView = WBaseView(context)
     private val swapAssetsButton = SwapSwapAssetsButton(context)
     private val sendAmount = SwapAssetInputView(context)
     private val receiveAmount = SwapAssetInputView(context)
-    private val middleGapView = View(context)
+    private val alertView = WAlertLabel(
+        context,
+        alertColor = WColor.Red.color
+    ).apply {
+        isGone = true
+    }
 
     private val continueButton = WButton(context)
 
@@ -188,13 +200,20 @@ class SwapVC(
         sendAmount.setMode(SwapAssetInputView.Mode.SELL)
 
         linearLayout.addView(
-            topGapView, ViewGroup.LayoutParams(MATCH_PARENT, topSpace)
+            View(context),
+            ViewGroup.LayoutParams(MATCH_PARENT, topSpace)
         )
         linearLayout.addView(sendAmount)
         receiveAmount.setMode(SwapAssetInputView.Mode.BUY)
         linearLayout.addView(receiveAmount)
         linearLayout.addView(
-            middleGapView,
+            alertView,
+            LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                topMargin = ViewConstants.GAP.dp
+            })
+
+        linearLayout.addView(
+            View(context),
             ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp)
         )
 
@@ -295,6 +314,12 @@ class SwapVC(
         }
 
         collectFlow(swapViewModel.simulatedSwapFlow) { est ->
+            if (est?.shouldShowPriceImpactWarning == true) {
+                alertView.text = priceImpactWarningMessage(est.dex?.impact)
+                animateAlertViewIn()
+            } else {
+                animateAlertViewOut()
+            }
             estLayout.setEstimated(
                 est,
                 toToken = est?.request?.tokenToReceive ?: swapViewModel.tokenToReceive
@@ -422,24 +447,20 @@ class SwapVC(
             }
 
             is SwapViewModel.Event.ShowConfirm -> {
-                val request = event.request
-                view.hideKeyboard()
-                val confirmActionVC = PasscodeConfirmVC(
-                    context,
-                    PasscodeViewState.CustomHeader(
-                        SwapConfirmView(context).apply {
-                            config(
-                                request.request.tokenToSend,
-                                request.request.tokenToReceive,
-                                request.fromAmount,
-                                request.toAmount
-                            )
+                if (event.request.shouldShowPriceImpactWarning) {
+                    showAlert(
+                        title = LocaleController.getString("Warning"),
+                        text = priceImpactWarningMessage(event.request.dex?.impact),
+                        button = LocaleController.getString("Swap"),
+                        buttonPressed = {
+                            showConfirm(event)
                         },
-                        LocaleController.getString("Confirm")
-                    ), task = { passcode ->
-                        swapViewModel.doSend(passcode, request, event.addressToReceive)
-                    })
-                push(confirmActionVC)
+                        secondaryButton = LocaleController.getString("Cancel"),
+                        primaryIsDanger = true
+                    )
+                } else {
+                    showConfirm(event)
+                }
             }
 
             is SwapViewModel.Event.SwapComplete -> {
@@ -457,7 +478,7 @@ class SwapVC(
                     )
                 } else {
                     pop()
-                    showError(event.error?.parsed)
+                    showError(event.error)
                 }
             }
 
@@ -485,4 +506,115 @@ class SwapVC(
         }
     }
 
+    private fun showConfirm(event: SwapViewModel.Event.ShowConfirm) {
+        val request = event.request
+        view.hideKeyboard()
+        val confirmActionVC = PasscodeConfirmVC(
+            context,
+            PasscodeViewState.CustomHeader(
+                SwapConfirmView(context).apply {
+                    config(
+                        request.request.tokenToSend,
+                        request.request.tokenToReceive,
+                        request.fromAmount,
+                        request.toAmount
+                    )
+                },
+                LocaleController.getString("Confirm")
+            ), task = { passcode ->
+                swapViewModel.doSend(passcode, request, event.addressToReceive)
+            })
+        push(confirmActionVC)
+    }
+
+    private fun priceImpactWarningMessage(impact: Double?): CharSequence {
+        val impactValueText = LocaleController.getStringWithKeyValues(
+            "The exchange rate is below market value!",
+            listOf(
+                Pair("%value%", "$impact%")
+            )
+        )
+        val hintText =
+            LocaleController.getString("We do not recommend to perform an exchange, try to specify a lower amount.")
+        val fullText = "$impactValueText\n$hintText"
+        return fullText.boldSubstring(impactValueText)
+    }
+
+    private var isShowingAlertView = false
+
+    private fun animateAlertViewIn() {
+        if (isShowingAlertView) return
+        isShowingAlertView = true
+
+        alertView.apply {
+            measure(
+                View.MeasureSpec.makeMeasureSpec(linearLayout.width, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+            )
+            val targetHeight = measuredHeight
+            val lp = layoutParams as ViewGroup.MarginLayoutParams
+            lp.height = 0
+            lp.topMargin = 0
+            layoutParams = lp
+            visibility = View.VISIBLE
+            alpha = 0f
+
+            val expandAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+                duration = AnimationConstants.VERY_QUICK_ANIMATION / 2
+                addUpdateListener { anim ->
+                    val progress = anim.animatedValue as Float
+                    lp.height = (targetHeight * progress).toInt()
+                    lp.topMargin = (ViewConstants.GAP.dp * progress).toInt()
+                    layoutParams = lp
+                }
+            }
+
+            val fadeInAnimator = ObjectAnimator.ofFloat(this, "alpha", 0f, 1f).apply {
+                duration = AnimationConstants.VERY_QUICK_ANIMATION / 2
+            }
+
+            AnimatorSet().apply {
+                playSequentially(expandAnimator, fadeInAnimator)
+                start()
+            }
+        }
+    }
+
+    private fun animateAlertViewOut() {
+        if (!isShowingAlertView) return
+        isShowingAlertView = false
+
+        alertView.apply {
+            val initialHeight = measuredHeight
+            val lp = layoutParams as ViewGroup.MarginLayoutParams
+            val initialMargin = lp.topMargin
+
+            val fadeOutAnimator = ObjectAnimator.ofFloat(this, "alpha", 1f, 0f).apply {
+                duration = AnimationConstants.VERY_QUICK_ANIMATION / 2
+            }
+
+            val collapseAnimator = ValueAnimator.ofFloat(1f, 0f).apply {
+                duration = AnimationConstants.VERY_QUICK_ANIMATION / 2
+                addUpdateListener { anim ->
+                    val progress = anim.animatedValue as Float
+                    lp.height = (initialHeight * progress).toInt()
+                    lp.topMargin = (initialMargin * progress).toInt()
+                    layoutParams = lp
+                }
+                addListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        visibility = View.GONE
+                        lp.height = WRAP_CONTENT
+                        lp.topMargin = 0
+                        layoutParams = lp
+                    }
+                })
+            }
+
+            AnimatorSet().apply {
+                playSequentially(fadeOutAnimator, collapseAnimator)
+                start()
+            }
+        }
+    }
 }

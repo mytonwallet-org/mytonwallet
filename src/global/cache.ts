@@ -588,6 +588,7 @@ function updateCache(force?: boolean) {
       'isFullscreen',
       'isManualLockActive',
       'stakingDefault',
+      'currencyRates',
     ]),
     accounts: {
       byId: accountsById,

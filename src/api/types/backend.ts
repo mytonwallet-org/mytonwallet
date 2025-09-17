@@ -3,7 +3,7 @@ import type { StakingPoolConfig } from '../chains/ton/contracts/JettonStaking/St
 import type { ApiTonWalletVersion } from '../chains/ton/types';
 import type { ApiCountryCode, ApiLoyaltyType, ApiMtwCardType, ApiTokenWithPrice } from './misc';
 
-export type ApiTokenDetails = Pick<ApiTokenWithPrice, 'slug' | 'type' | 'price' | 'priceUsd' | 'percentChange24h'>;
+export type ApiTokenDetails = Pick<ApiTokenWithPrice, 'slug' | 'type' | 'priceUsd' | 'percentChange24h'>;
 
 export type ApiSwapDexLabel = 'dedust' | 'ston';
 
@@ -118,7 +118,6 @@ export type ApiSwapAsset = {
   slug: string;
   decimals: number;
   isPopular: boolean;
-  price: number;
   priceUsd: number;
   image?: string;
   tokenAddress?: string;
@@ -266,6 +265,7 @@ export type ApiSite = {
   canBeRestricted: boolean;
   isExternal: boolean;
   isFeatured?: boolean;
+  isVerified?: boolean;
   categoryId?: number;
 
   extendedIcon?: string;

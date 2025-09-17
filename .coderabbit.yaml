@@ -1,0 +1,12 @@
+reviews:
+  profile: assertive
+  high_level_summary: false
+  sequence_diagrams: false
+  poem: false
+  auto_review:
+    auto_incremental_review: false
+  finishing_touches:
+    docstrings:
+      enabled: false
+    unit_tests:
+      enabled: false

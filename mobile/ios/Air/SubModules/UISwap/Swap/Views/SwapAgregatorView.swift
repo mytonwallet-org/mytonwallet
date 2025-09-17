@@ -13,8 +13,13 @@ struct SwapAgregatorView: View {
     var selectedState: ApiSwapDexLabel?
     var onSelect: (ApiSwapDexLabel?) -> ()
     
-    var bestOption: ApiSwapDexLabel { estimate.dexLabel }
-    var worseOption: ApiSwapDexLabel { bestOption == .ston ? .dedust : .ston }
+    var bestOption: ApiSwapDexLabel? { estimate.dexLabel }
+    var worseOption: ApiSwapDexLabel? {
+        if let bestOption {
+            return bestOption == .ston ? .dedust : .ston
+        }
+        return nil
+    }
     
     var fromAmount: TokenAmount { TokenAmount.fromDouble(estimate.fromAmount?.value ?? 99, fromToken) }
     var bestToAmount: TokenAmount { TokenAmount.fromDouble(estimate.toAmount?.value ?? 99, toToken) }

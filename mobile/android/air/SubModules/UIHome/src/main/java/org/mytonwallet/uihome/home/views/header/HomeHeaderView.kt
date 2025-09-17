@@ -342,8 +342,8 @@ class HomeHeaderView(
                     if (changeValue.isFinite()) {
                         val balanceChangeValueString = (changeValue.absoluteValue).toString(
                             2,
-                            WalletCore.baseCurrency?.sign ?: "",
-                            WalletCore.baseCurrency?.decimalsCount ?: 2,
+                            WalletCore.baseCurrency.sign,
+                            WalletCore.baseCurrency.decimalsCount,
                             true
                         )
                         val balanceChangePercentString =
@@ -406,18 +406,18 @@ class HomeHeaderView(
         // Update balance labels
         balanceView.animateText(
             AnimateConfig(
-                balance?.toBigInteger(WalletCore.baseCurrency?.decimalsCount ?: 2),
-                WalletCore.baseCurrency?.decimalsCount ?: 2,
-                WalletCore.baseCurrency?.sign ?: "",
+                balance?.toBigInteger(WalletCore.baseCurrency.decimalsCount),
+                WalletCore.baseCurrency.decimalsCount,
+                WalletCore.baseCurrency.sign,
                 !wasEmpty && animated,
                 forceCurrencyToRight = false
             )
         )
         cardView.balanceView.animateText(
             AnimateConfig(
-                balance?.toBigInteger(WalletCore.baseCurrency?.decimalsCount ?: 2),
-                WalletCore.baseCurrency?.decimalsCount ?: 2,
-                WalletCore.baseCurrency?.sign ?: "",
+                balance?.toBigInteger(WalletCore.baseCurrency.decimalsCount),
+                WalletCore.baseCurrency.decimalsCount,
+                WalletCore.baseCurrency.sign,
                 !wasEmpty && animated,
                 forceCurrencyToRight = false
             )

@@ -106,7 +106,6 @@ class TokenHeaderView(
                     ) {
                         open("https://dexscreener.com/search?q=${token.name.lowercase()}")
                     }),
-                offset = (-10).dp,
                 aboveView = true
             )
         }
@@ -254,9 +253,9 @@ class TokenHeaderView(
                 }
             }
         equivalentLabel.contentView.text = balanceInBaseCurrency?.toString(
-            WalletCore.baseCurrency?.decimalsCount ?: 2,
-            WalletCore.baseCurrency?.sign ?: "",
-            WalletCore.baseCurrency?.decimalsCount ?: 2,
+            WalletCore.baseCurrency.decimalsCount,
+            WalletCore.baseCurrency.sign,
+            WalletCore.baseCurrency.decimalsCount,
             true
         )
     }

@@ -50,7 +50,7 @@ class WMenuPopupViewItem(context: Context, val item: WMenuPopup.Item) : FrameLay
                 item.getIsSubItem() ||
                 item.config is WMenuPopup.Item.Config.SelectableItem
             )
-                57.dp
+                58.dp
             else
                 16.dp
         }
@@ -82,12 +82,12 @@ class WMenuPopupViewItem(context: Context, val item: WMenuPopup.Item) : FrameLay
                 leftMargin = textMargin
         })
         item.getIcon()?.let {
-            val iconSize = item.getIconSize() ?: if (hasSubtitle) 36.dp else 24.dp
+            val iconSize = item.getIconSize() ?: if (hasSubtitle) 36.dp else 30.dp
             addView(iconView, LayoutParams(iconSize, iconSize).apply {
                 val startMargin = if (hasSubtitle)
                     10.dp
                 else
-                    (18.dp - ((item.getIconSize() ?: 24.dp) - 24.dp) / 3f).roundToInt()
+                    (16.dp - ((item.getIconSize() ?: 30.dp) - 30.dp) / 3f).roundToInt()
                 if (LocaleController.isRTL)
                     rightMargin = startMargin
                 else
@@ -103,7 +103,7 @@ class WMenuPopupViewItem(context: Context, val item: WMenuPopup.Item) : FrameLay
             })
         }
         if (!item.getSubItems().isNullOrEmpty()) {
-            addView(arrowView, LayoutParams(24.dp, 24.dp).apply {
+            addView(arrowView, LayoutParams(30.dp, 30.dp).apply {
                 gravity = Gravity.CENTER_VERTICAL or
                     if (LocaleController.isRTL) Gravity.LEFT else Gravity.RIGHT
                 if (LocaleController.isRTL)
@@ -156,7 +156,7 @@ class WMenuPopupViewItem(context: Context, val item: WMenuPopup.Item) : FrameLay
         if (!item.getSubItems().isNullOrEmpty()) {
             val drawable =
                 ContextCompat.getDrawable(context, R.drawable.ic_menu_arrow_right)?.apply {
-                    setTint(WColor.SecondaryText.color)
+                    setTint(WColor.PrimaryLightText.color)
                 }
             arrowView!!.setImageDrawable(drawable)
         }

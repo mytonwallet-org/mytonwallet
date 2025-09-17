@@ -84,7 +84,6 @@ class AssetsVC(
         val ASSET_CELL = WCell.Type(1)
     }
 
-    override val ignoreSideGuttering = collectionMode != null
     override val shouldDisplayBottomBar = mode == Mode.COMPLETE && collectionMode != null
 
     override var title: String?
@@ -261,11 +260,10 @@ class AssetsVC(
         }
     }
 
+    private val layoutManager = GridLayoutManager(context, calculateNoOfColumns())
     private val recyclerView: WRecyclerView by lazy {
         val rv = WRecyclerView(this)
         rv.adapter = rvAdapter
-        val cols = calculateNoOfColumns()
-        val layoutManager = GridLayoutManager(context, cols)
         layoutManager.isSmoothScrollbarEnabled = true
         rv.layoutManager = layoutManager
         rv.setLayoutManager(layoutManager)
@@ -378,7 +376,6 @@ class AssetsVC(
                         )
                         WalletCore.notifyEvent(WalletEvent.HomeNftCollectionsUpdated)
                     }),
-                offset = (-140).dp,
                 popupWidth = WRAP_CONTENT,
                 aboveView = true
             )
@@ -402,7 +399,7 @@ class AssetsVC(
             if (mode == Mode.THUMB) {
                 toCenterX(showAllView)
             }
-            if (mode == Mode.COMPLETE && (navigationController?.viewControllers?.size ?: 1) > 1)
+            if (mode == Mode.COMPLETE && collectionMode != null)
                 toCenterX(
                     recyclerView,
                     ViewConstants.HORIZONTAL_PADDINGS.toFloat()
@@ -588,7 +585,10 @@ class AssetsVC(
     }
 
     override fun nftsUpdated() {
+        layoutManager.spanCount = calculateNoOfColumns()
         rvAdapter.reloadData()
+        if (mode == Mode.THUMB)
+            updateRecyclerViewPaddingForCentering()
         showAllView.visibility = if (thereAreMoreToShow) View.VISIBLE else View.GONE
 
         if (mode == Mode.THUMB) {
@@ -624,10 +624,29 @@ class AssetsVC(
     }
 
     private fun calculateNoOfColumns(): Int {
-        return if (mode == Mode.THUMB) 3 else max(
+        return if (mode == Mode.THUMB) (assetsVM.nfts?.size ?: 0).coerceIn(1, 3) else max(
             2,
             (view.width - 16.dp) / 182.dp
         )
+    }
+
+    private fun updateRecyclerViewPaddingForCentering() {
+        val itemCount = assetsVM.nfts?.size ?: 0
+
+        if (itemCount in 1..2) {
+            val itemWidth = (recyclerView.width - 32.dp) / 3
+            val totalItemsWidth = itemCount * itemWidth
+            val availableWidth = recyclerView.width - 24.dp
+            val horizontalPadding = if (totalItemsWidth < availableWidth) {
+                (availableWidth - totalItemsWidth) / 2 + 12.dp
+            } else {
+                12.dp
+            }
+
+            recyclerView.setPadding(horizontalPadding, 4.dp, horizontalPadding, 4.dp)
+        } else if (mode == Mode.THUMB) {
+            recyclerView.setPadding(12.dp, 4.dp, 12.dp, 4.dp)
+        }
     }
 
     override fun onDestroy() {

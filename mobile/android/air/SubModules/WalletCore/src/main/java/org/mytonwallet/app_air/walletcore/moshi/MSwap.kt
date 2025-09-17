@@ -2,7 +2,9 @@ package org.mytonwallet.app_air.walletcore.moshi
 
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
+import org.json.JSONObject
 import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
+import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.MToken
 import java.math.BigDecimal
 
@@ -13,7 +15,6 @@ data class MApiSwapAsset(
     override val slug: String,
     override val decimals: Int,
     override val isPopular: Boolean? = null,
-    val price: Double? = null,
     val priceUsd: Double? = null,
     override val image: String? = null,
     override val tokenAddress: String? = null,
@@ -30,7 +31,6 @@ data class MApiSwapAsset(
                 slug = token.slug,
                 decimals = token.decimals,
                 isPopular = token.isPopular,
-                price = token.price,
                 priceUsd = token.priceUsd,
                 image = token.image,
                 tokenAddress = token.tokenAddress
@@ -91,7 +91,11 @@ data class MApiSwapEstimateResponse(
     val from: String,
     val to: String,
     val slippage: Double,
+
+    /// only in v2
     val other: List<MApiSwapEstimateVariant>?,
+    // only in v3
+    val routes: List<List<JSONObject>>?,
 
     val bestDexLabel: MApiSwapDexLabel? = null,
     val all: List<MApiSwapEstimateVariant>? = null
@@ -109,10 +113,11 @@ data class MApiSwapBuildRequest(
     val to: String,
     val slippage: Float,
     val fromAddress: String,
-    val swapVersion: Int,
+    val swapVersion: Int?,
     val ourFee: String?,
     val dieselFee: String?,
-    val shouldTryDiesel: Boolean
+    val shouldTryDiesel: Boolean,
+    val routes: List<List<JSONObject>>?
 )
 
 @JsonClass(generateAdapter = true)
@@ -130,14 +135,57 @@ data class MApiSwapCexEstimateRequest(
 
 @JsonClass(generateAdapter = true)
 data class MApiSwapCexEstimateResponse(
-    val from: String,
-    val fromAmount: BigDecimal,
-    val to: String,
-    val toAmount: BigDecimal,
-    val swapFee: BigDecimal,
-    val fromMin: BigDecimal,
-    val fromMax: BigDecimal
-)
+    val from: String? = null,
+    val fromAmount: BigDecimal? = null,
+    val to: String? = null,
+    val toAmount: BigDecimal? = null,
+    val swapFee: BigDecimal? = null,
+    val fromMin: BigDecimal? = null,
+    val fromMax: BigDecimal? = null,
+    val errors: List<SwapEstimateError>? = null
+) {
+    @JsonClass(generateAdapter = true)
+    data class SwapEstimateError(
+        val msg: String,
+    )
+
+    enum class SwapErrorType {
+        InvalidPair,
+        NotEnoughLiquidity,
+        TooSmallAmount,
+    }
+
+    val error: MBridgeError?
+        get() {
+            return errors?.firstOrNull()?.msg.let { msg ->
+                when (SERVER_ERRORS_MAP[msg]) {
+                    SwapErrorType.InvalidPair -> {
+                        MBridgeError.PAIR_NOT_FOUND
+                    }
+
+                    SwapErrorType.NotEnoughLiquidity -> {
+                        MBridgeError.INSUFFICIENT_LIQUIDITY
+                    }
+
+                    SwapErrorType.TooSmallAmount -> {
+                        MBridgeError.TOO_SMALL_AMOUNT
+                    }
+
+                    null -> null
+                }
+            }
+        }
+
+    companion object {
+        val SERVER_ERRORS_MAP = mapOf(
+            "Insufficient liquidity" to SwapErrorType.NotEnoughLiquidity,
+            "Tokens must be different" to SwapErrorType.InvalidPair,
+            "Asset not found" to SwapErrorType.InvalidPair,
+            "Pair not found" to SwapErrorType.InvalidPair,
+            "Too small amount" to SwapErrorType.TooSmallAmount,
+        )
+    }
+}
 
 @JsonClass(generateAdapter = true)
 data class MApiSwapCexCreateTransactionRequest(

@@ -49,7 +49,7 @@ enum class MBaseCurrency(val currencyCode: String) {
     companion object {
         fun parse(value: String) = try {
             MBaseCurrency.valueOf(value)
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             USD
         }
     }

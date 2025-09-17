@@ -154,7 +154,6 @@ class WTokenSymbolIconView(context: Context) : FrameLayout(context), ReplaceAnim
                 decimals = asset.decimals,
                 name = asset.name,
                 image = asset.image,
-                price = asset.price,
                 priceUsd = asset.priceUsd,
                 percentChange24h = asset.percentChange24hReal,
             ),

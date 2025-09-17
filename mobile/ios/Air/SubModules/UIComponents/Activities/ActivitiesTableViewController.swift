@@ -254,13 +254,9 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
         let start = Date()
         defer {
             let t = Date().timeIntervalSince(start)
-            #if DEBUG
-            log.info("reconfigureHeaderPlaceholder: \(t)s\(t > 0.002 ? "\t[!]" : "", .public)")
-            #else
-            if t > 0.0015 {
-                log.info("reconfigureHeaderPlaceholder: \(t)s\(t > 0.002 ? "\t[!]" : "", .public)")
+            if t > 0.004 {
+                log.info("reconfigureHeaderPlaceholder: \(t)s \t[!]")
             }
-            #endif
         }
         guard dataSource != nil, skeletonDataSource != nil else { return }
         // force layout

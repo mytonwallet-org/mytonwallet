@@ -24,8 +24,6 @@ import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcontext.utils.toHashMapLong
 import org.mytonwallet.app_air.walletcontext.utils.toHashMapString
 import org.mytonwallet.app_air.walletcontext.utils.toJSONString
-import org.mytonwallet.app_air.walletcore.api.setBaseCurrency
-import org.mytonwallet.app_air.walletcore.models.MBaseCurrency
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
@@ -291,14 +289,6 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                 }
 
                 "updateTokens" -> {
-                    val baseCurrency = objectJSONObject.optString("baseCurrency")
-                    if (WGlobalStorage.getBaseCurrency() != baseCurrency) {
-                        Handler(Looper.getMainLooper()).post {
-                            WalletCore.setBaseCurrency(WGlobalStorage.getBaseCurrency()) { _, _ -> }
-                        }
-                        return
-                    }
-                    WalletCore.baseCurrency = MBaseCurrency.valueOf(baseCurrency)
                     val tokensJSONObject =
                         objectJSONObject.optJSONObject("tokens") ?: return
                     if (tokensJSONObject.length() < 6) {

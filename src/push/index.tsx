@@ -17,6 +17,7 @@ import { setLanguage } from '../util/langProvider';
 import { logSelfXssWarnings } from '../util/logs';
 import switchTheme, { setStatusBarStyle } from '../util/switchTheme';
 import { getTelegramApp, initTelegramApp } from '../util/telegram';
+import { getSearchParameter } from './util/searchParams';
 import { setEnvironment } from '../api/environment';
 
 import App from './components/App';
@@ -53,7 +54,10 @@ void (() => {
   actions.setTheme({ theme: THEME_DEFAULT });
   switchTheme(THEME_DEFAULT);
 
-  const langCode = getTelegramApp()?.initDataUnsafe.user?.language_code;
+  const langCode = (
+    getTelegramApp()?.initDataUnsafe.user?.language_code
+    ?? getSearchParameter('langCode')
+  );
   if (langCode) {
     void setLanguage(langCode as LangCode);
   }

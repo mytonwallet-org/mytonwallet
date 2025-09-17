@@ -147,8 +147,8 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
                         (token.price
                             ?: 0.0) * transaction.amount.doubleAbsRepresentation(token.decimals),
                         token.decimals,
-                        WalletCore.baseCurrency?.sign ?: "",
-                        WalletCore.baseCurrency?.decimalsCount ?: 2,
+                        WalletCore.baseCurrency.sign,
+                        WalletCore.baseCurrency.decimalsCount,
                         true
                     )
                 }
@@ -465,8 +465,8 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
                         val equivalent = token.price?.let { price ->
                             (price * transaction.amount.doubleAbsRepresentation(decimals = token.decimals)).toString(
                                 token.decimals,
-                                WalletCore.baseCurrency?.sign ?: "",
-                                WalletCore.baseCurrency?.decimalsCount ?: 2,
+                                WalletCore.baseCurrency.sign,
+                                WalletCore.baseCurrency.decimalsCount,
                                 smartDecimals = true,
                                 roundUp = false
                             )

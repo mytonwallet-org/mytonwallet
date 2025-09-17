@@ -86,11 +86,11 @@ struct AccountTypePickerView: View {
                 Task { @MainActor in
                     do {
                         let words = try await Api.generateMnemonic()
-                        guard let walletCreatedVC = WalletContextManager.delegate?.addAnotherAccount(wordList: words,
+                        guard let addAccountVC = WalletContextManager.delegate?.addAnotherAccount(wordList: words,
                                                                                                      passedPasscode: passcode) else {
                             return
                         }
-                        let navVC = WNavigationController(rootViewController: walletCreatedVC)
+                        let navVC = WNavigationController(rootViewController: addAccountVC)
                         topViewController()?.present(navVC, animated: true)
                     } catch {
                         topViewController()?.showAlert(error: error)

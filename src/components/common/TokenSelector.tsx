@@ -83,7 +83,7 @@ interface StateProps {
   tokenInSlug?: string;
   pairsBySlug?: Record<string, AssetPairs>;
   shouldShowAllPairs?: boolean;
-  baseCurrency?: ApiBaseCurrency;
+  baseCurrency: ApiBaseCurrency;
   isLoading?: boolean;
   isMultichain: boolean;
   availableChains?: Partial<Record<ApiChain, unknown>>;

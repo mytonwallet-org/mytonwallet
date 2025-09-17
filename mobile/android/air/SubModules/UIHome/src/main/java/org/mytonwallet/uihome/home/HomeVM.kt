@@ -11,7 +11,6 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.fetchAccount
 import org.mytonwallet.app_air.walletcore.api.requestDAppList
 import org.mytonwallet.app_air.walletcore.api.swapGetAssets
-import org.mytonwallet.app_air.walletcore.api.tryUpdatePrices
 import org.mytonwallet.app_air.walletcore.helpers.ActivityLoader
 import org.mytonwallet.app_air.walletcore.helpers.IActivityLoader
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
@@ -124,8 +123,6 @@ class HomeVM(val context: Context, delegate: Delegate) : WalletCore.EventObserve
     private fun HomeVM.refreshTransactions() {
         // init requests
         initWalletInfo()
-        // update token prices
-        WalletCore.tryUpdatePrices()
     }
 
     private fun dataUpdated() {
@@ -138,16 +135,6 @@ class HomeVM(val context: Context, delegate: Delegate) : WalletCore.EventObserve
         // make sure tokens are loaded
         if (!TokenStore.loadedAllTokens) {
             Logger.i(Logger.LogTag.HomeVM, "tokens not loaded yet")
-            /*
-             to prevent over-requesting for prices, we wait for the initial request and response of the js logic;
-             to track tokens load, wait for for 5 seconds, if not loaded yet, it might be an issue initializing it in js, let's manually reload it.
-             we only call `tryUpdateTokenPrices` on manual refresh, network reconnect and base currency change!
-             */
-            Handler(Looper.getMainLooper()).postDelayed({
-                if (!TokenStore.loadedAllTokens) {
-                    WalletCore.tryUpdatePrices()
-                }
-            }, 5000)
             return
         }
 

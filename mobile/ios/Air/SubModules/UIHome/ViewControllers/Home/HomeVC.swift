@@ -150,7 +150,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
                 reconfigureHeaderPlaceholder()
             }
             if animated && skeletonState != .loading {
-                UIView.animate(withDuration: isExpandingProgrammatically == true ? 0.2 : 0.3, delay: 0, options: [.allowUserInteraction]) { [self] in
+                UIView.animateAdaptive(duration: isExpandingProgrammatically == true ? 0.2 : 0.3) { [self] in
                     updates()
                     view.layoutIfNeeded()
                 }

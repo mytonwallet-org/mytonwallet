@@ -1,5 +1,5 @@
 import type { Wallet } from '@tonconnect/sdk';
-import React, { memo, useMemo, useState } from '../../lib/teact/teact';
+import React, { memo, useLayoutEffect, useMemo, useRef, useState } from '../../lib/teact/teact';
 
 import { PUSH_CHAIN } from '../config';
 import buildClassName from '../../util/buildClassName';
@@ -7,6 +7,7 @@ import { toDecimal } from '../../util/decimals';
 import { getTelegramApp } from '../../util/telegram';
 import { getExplorerAddressUrl } from '../../util/url';
 import { fetchAccountBalance } from '../util/check';
+import { PARTICLE_BURST_PARAMS, PARTICLE_COLORS, PARTICLE_PARAMS, setupParticles } from '../util/particles';
 import { extractAndPurgeToken, getSearchParameter } from '../util/searchParams';
 import { getWalletAddress } from '../util/tonConnect';
 import { connectWallet, fetchConnectedAddress } from '../util/wallet';
@@ -18,9 +19,13 @@ import useLastCallback from '../../hooks/useLastCallback';
 import useSyncEffect from '../../hooks/useSyncEffect';
 
 import Header from './Header';
+import ImageWithParticles from './ImageWithParticles';
 import UniversalButton from './UniversalButton';
 
 import commonStyles from './_common.module.scss';
+import styles from './ManageWallet.module.scss';
+
+import logoPushPath from '../assets/logo_push.png';
 
 interface OwnProps {
   isActive: boolean;
@@ -32,8 +37,11 @@ interface OwnProps {
 const token = extractAndPurgeToken();
 // Note: `URLSearchParams` decodes escape chars
 const query = getSearchParameter('query');
+const isGift = query?.trimStart().toLowerCase().startsWith('gift');
 
 function ConnectWallet({ isActive, wallet, onConnectClick, onDisconnectClick }: OwnProps) {
+  const canvasRef = useRef<HTMLCanvasElement>();
+
   const [connectedAddress, setConnectedAddress] = useState<string | undefined>();
   const [connectedWalletFriendly, setConnectedWalletFriendly] = useState<string>('');
   const [isLoading, markLoading, unmarkLoading] = useFlag(true);
@@ -50,9 +58,22 @@ function ConnectWallet({ isActive, wallet, onConnectClick, onDisconnectClick }: 
     });
   });
 
+  useLayoutEffect(() => {
+    return setupParticles(canvasRef.current!, {
+      color: PARTICLE_COLORS['MY'],
+      ...PARTICLE_PARAMS,
+    });
+  });
+
   useSyncEffect(() => {
     setConnectedWalletFriendly(wallet ? getWalletAddress(wallet) : '');
   }, [wallet]);
+
+  const switchInline = useLastCallback(() => {
+    const baseQuery = query ?? '';
+    const newQuery = baseQuery.endsWith(' ') ? baseQuery.slice(0, -1) : `${baseQuery} `;
+    getTelegramApp()?.switchInlineQuery(newQuery);
+  });
 
   useSyncEffect(() => {
     if (!token) return;
@@ -60,6 +81,7 @@ function ConnectWallet({ isActive, wallet, onConnectClick, onDisconnectClick }: 
     if (wallet && connectedAddress !== wallet.account.address && !isLoading) {
       void connectWallet(wallet.account.address, token).then((response) => {
         setConnectedAddress(response.connectedAddress || undefined);
+        switchInline();
       });
     }
   }, [wallet, connectedAddress, isLoading]);
@@ -75,12 +97,7 @@ function ConnectWallet({ isActive, wallet, onConnectClick, onDisconnectClick }: 
   });
 
   const handleSecondaryClick = useLastCallback(() => {
-    markLoading();
-
-    const newQuery = query!.endsWith(' ') ? query!.slice(0, -1) : query + ' ';
-
-    getTelegramApp()!.switchInlineQuery(newQuery);
-    // It is assumed that the mini app will close
+    switchInline();
   });
 
   const walletUrl = useMemo(() => (
@@ -98,6 +115,14 @@ function ConnectWallet({ isActive, wallet, onConnectClick, onDisconnectClick }: 
     void onDisconnectClick();
   });
 
+  const handleLogoClick = useLastCallback(() => {
+    setupParticles(canvasRef.current!, {
+      color: PARTICLE_COLORS['MY'],
+      ...PARTICLE_PARAMS,
+      ...PARTICLE_BURST_PARAMS,
+    });
+  });
+
   return (
     <div className={buildClassName(commonStyles.container, commonStyles.container_centered)}>
       <Header
@@ -107,8 +132,23 @@ function ConnectWallet({ isActive, wallet, onConnectClick, onDisconnectClick }: 
         onDisconnectClick={handleDisconnectClick}
       />
 
-      <div className={commonStyles.content}>
-        <h2 className={commonStyles.title}>{!wallet && lang('Connect Wallet')}</h2>
+      <ImageWithParticles
+        imgPath={logoPushPath}
+        canvasRef={canvasRef}
+        onClick={handleLogoClick}
+      />
+
+      <div className={styles.actionContainer}>
+        <div className={buildClassName(commonStyles.roundedFont, styles.actionText)}>
+          {lang('Connect your wallet')}
+        </div>
+        <div className={styles.actionComment}>
+          {
+            isGift
+              ? lang('to send and receive gifts right inside Telegram')
+              : lang('to send and receive NFTs right inside Telegram')
+          }
+        </div>
       </div>
 
       <div className={commonStyles.footer}>

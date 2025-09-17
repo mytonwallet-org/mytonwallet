@@ -970,7 +970,7 @@ class NftVC(
                 if (nft.shouldHide()) {
                     add(
                         WMenuPopup.Item(
-                            org.mytonwallet.app_air.icons.R.drawable.ic_header_eye,
+                            org.mytonwallet.app_air.uiassets.R.drawable.ic_nft_unhide,
                             LocaleController.getString("Unhide"),
                             false,
                         ) {
@@ -979,7 +979,7 @@ class NftVC(
                 } else {
                     add(
                         WMenuPopup.Item(
-                            org.mytonwallet.app_air.icons.R.drawable.ic_header_eye_hidden,
+                            org.mytonwallet.app_air.uiassets.R.drawable.ic_nft_hide,
                             LocaleController.getString("Hide"),
                             false,
                         ) {
@@ -1003,7 +1003,6 @@ class NftVC(
                             push(ConfirmNftVC(context, ConfirmNftVC.Mode.Burn, nft, null))
                         })
             },
-            offset = (-147).dp,
             popupWidth = WRAP_CONTENT,
             aboveView = true
         )
@@ -1069,7 +1068,6 @@ class NftVC(
                     }
                 },
             ),
-            offset = (-120).dp,
             verticalOffset = 2.dp,
             popupWidth = WRAP_CONTENT,
             aboveView = false

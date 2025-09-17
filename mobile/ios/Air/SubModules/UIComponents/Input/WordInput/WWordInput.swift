@@ -10,6 +10,7 @@ import WalletContext
 
 public protocol WWordInputDelegate: AnyObject {
     func resignedFirstResponder()
+    func textChanged()
 }
 
 public class WWordInput: UIView {
@@ -36,7 +37,7 @@ public class WWordInput: UIView {
     public lazy var textField = WWordInputField(input: self)
     
     public var nextInput: WWordInput? {
-        return superview?.viewWithTag(tag + 1) as? WWordInput
+        return superview?.superview?.viewWithTag(tag + 1) as? WWordInput
     }
 
     func setup() {
@@ -62,7 +63,7 @@ public class WWordInput: UIView {
 
         // add word number label
         numberLabel.translatesAutoresizingMaskIntoConstraints = false
-        numberLabel.text = "\(wordNumber):"
+        numberLabel.text = "\(wordNumber)"
         numberLabel.textAlignment = .right
         stackView.addArrangedSubview(numberLabel)
         NSLayoutConstraint.activate([
@@ -114,7 +115,7 @@ extension WWordInput: UITextFieldDelegate {
         }
     }
     public func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-        if let nextField = superview?.viewWithTag(tag + 1) as? WWordInput {
+        if let nextField = superview?.superview?.viewWithTag(tag + 1) as? WWordInput {
             nextField.textField.becomeFirstResponder()
         } else {
             textField.resignFirstResponder()
@@ -139,6 +140,7 @@ extension WWordInput: UITextFieldDelegate {
         showSuggestions(for: nil)
     }
     public func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+        defer { delegate?.textChanged() }
         if let text = textField.text,
            let textRange = Range(range, in: text) {
             let newText = text.replacingCharacters(in: textRange, with: string).trimmingCharacters(in: .whitespaces).lowercased()

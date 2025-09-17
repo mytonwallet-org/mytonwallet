@@ -195,16 +195,9 @@ class TokensVC(
             WalletEvent.TokensChanged,
             WalletEvent.AssetsAndActivityDataUpdated,
             is WalletEvent.AccountChanged,
-            WalletEvent.StakingDataUpdated -> {
-                dataUpdated()
-            }
-
+            WalletEvent.StakingDataUpdated,
             WalletEvent.BaseCurrencyChanged -> {
-                walletTokens.forEach {
-                    it.toBaseCurrency = null
-                    it.toBaseCurrency24h = null
-                }
-                rvAdapter.reloadData()
+                dataUpdated()
             }
 
             else -> {}

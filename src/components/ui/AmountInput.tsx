@@ -22,7 +22,7 @@ import Transition from './Transition';
 
 import styles from './AmountInput.module.scss';
 
-export type AmountInputToken = TokenWithId & Pick<ApiTokenWithPrice, 'price' | 'decimals'>;
+export type AmountInputToken = TokenWithId & Pick<ApiTokenWithPrice, 'decimals'> & { price: number };
 
 interface OwnProps extends AmountInputStateOutput {
   /** Expressed in `token` regardless of `isBaseCurrency` */

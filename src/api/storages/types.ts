@@ -25,7 +25,6 @@ export type StorageKey = 'accounts'
   | 'stateVersion'
   | 'currentAccountId'
   | 'clientId'
-  | 'baseCurrency'
   | 'referrer'
   // For extension
   | 'dapps'

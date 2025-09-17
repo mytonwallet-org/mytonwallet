@@ -6,11 +6,13 @@
 //
 
 public struct ApiSwapEstimateVariant: Equatable, Hashable, Codable, Sendable {
-    public let toAmount: MDouble
     public let fromAmount: MDouble
+    public let toAmount: MDouble
     public let toMinAmount: MDouble
     public let impact: Double
-    public let dexLabel: ApiSwapDexLabel
+    public let dexLabel: ApiSwapDexLabel?
+    public let other: [ApiSwapEstimateVariant]?
+    public let routes: [[ApiSwapRoute]]?
     // Fees
     public let networkFee: MDouble
     public let realNetworkFee: MDouble

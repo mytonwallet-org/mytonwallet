@@ -109,9 +109,9 @@ class WalletVersionCell(
         toncoin?.price?.let { price ->
             rightLabel.text =
                 (walletVersion.balance.doubleAbsRepresentation(toncoin.decimals) * price).toString(
-                    WalletCore.baseCurrency?.decimalsCount ?: 2,
-                    WalletCore.baseCurrency?.sign ?: "",
-                    WalletCore.baseCurrency?.decimalsCount ?: 2,
+                    WalletCore.baseCurrency.decimalsCount,
+                    WalletCore.baseCurrency.sign,
+                    WalletCore.baseCurrency.decimalsCount,
                     true
                 )
         }

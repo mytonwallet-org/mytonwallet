@@ -313,7 +313,14 @@ public class ActivityCell: WHighlightCell {
         
         switch activity {
         case .transaction(let transaction):
+            if transaction.status == .failed {
+                attr.append(NSAttributedString(string: lang("Failed")))
+            }
+            
             if activity.type == nil {
+                if !attr.string.isEmpty {
+                    attr.append(NSAttributedString(string: " · "))
+                }
                 if transaction.isIncoming {
                     attr.append(NSAttributedString(string: lang("$transaction_from", arg1: "")))
                 } else {
@@ -336,6 +343,9 @@ public class ActivityCell: WHighlightCell {
                     .font: UIFont.systemFont(ofSize: 14, weight: .semibold)
                 ]))
             } else if activity.shouldShowTransactionAnnualYield, let stakingState = StakingStore.currentAccount?.bySlug(activity.slug) {
+                if !attr.string.isEmpty {
+                    attr.append(NSAttributedString(string: " · "))
+                }
                 attr.append(NSAttributedString(string: "at "))
                 attr.append(NSAttributedString(string: "\(stakingState.yieldType.rawValue) \(stakingState.annualYield.value)%", attributes: [
                     .font: UIFont.systemFont(ofSize: 14, weight: .semibold)

@@ -371,7 +371,7 @@ class InAppBrowserVC(
 
                 val uri = url.toUri()
                 if (!isValidDomain(uri.host ?: "")) {
-                    return (GOOGLE_SEARCH_URL + URLEncoder.encode(url, "UTF-8")).toUri()
+                    return (GOOGLE_SEARCH_URL + URLEncoder.encode(input, "UTF-8")).toUri()
                 }
                 return uri
             } catch (e: Exception) {

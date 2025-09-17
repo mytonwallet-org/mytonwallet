@@ -1,6 +1,9 @@
 {
   "Disconnect": "Disconnect",
   "Secure crypto transfers on Telegram": "Secure crypto transfers on Telegram",
+  "Send": "Send",
+  "Gift": "Gift",
+  "gift": "Gift",
   "Transfer not found": "Transfer not found",
   "Loading...": "Loading...",
   "Confirming...": "Confirming...",
@@ -37,5 +40,9 @@
   "Confirm": "Confirm",
   "Edit": "Edit",
   "Select NFT": "Select NFT",
-  "Change Wallet": "Change Wallet"
+  "Change Wallet": "Change Wallet",
+  "Connect your wallet": "Connect your wallet",
+  "to send and receive gifts right inside Telegram": "to send and receive gifts right inside Telegram",
+  "to send and receive NFTs right inside Telegram": "to send and receive NFTs right inside Telegram",
+  "Before transferring this NFT, please remove it from sale on Fragment.": "Before transferring this NFT, please remove it from sale on Fragment."
 }

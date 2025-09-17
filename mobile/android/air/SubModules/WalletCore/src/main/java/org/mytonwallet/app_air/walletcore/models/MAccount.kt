@@ -37,11 +37,6 @@ class MAccount(
             fun fromValue(value: String): AccountType? = entries.find { it.value == value }
         }
 
-        val isPasscodeProtected: Boolean
-            get() {
-                return this == MNEMONIC
-            }
-
         val badge: String?
             get() {
                 return when (this) {
@@ -52,9 +47,9 @@ class MAccount(
             }
     }
 
-    val isPasscodeProtected: Boolean
+    val isViewOnly: Boolean
         get() {
-            return accountType.isPasscodeProtected
+            return accountType == AccountType.VIEW
         }
 
     @JsonClass(generateAdapter = true)

@@ -18,6 +18,7 @@ class ReturnStrategyAdapter : JsonAdapter<ReturnStrategy>() {
         when (strategy) {
             is ReturnStrategy.None -> writer.value("none")
             is ReturnStrategy.Back -> writer.value("back")
+            is ReturnStrategy.Empty -> writer.value("empty")
             is ReturnStrategy.Url -> writer.value(strategy.url)
         }
     }

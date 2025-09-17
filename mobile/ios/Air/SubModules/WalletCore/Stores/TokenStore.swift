@@ -20,8 +20,8 @@ public class _TokenStore {
     private let _tokens: UnfairLock<[String: ApiToken]> = .init(initialState: _TokenStore.defaultTokens)
     private let _swapAssets: UnfairLock<[ApiToken]?> = .init(initialState: nil)
     private let _swapPairs: UnfairLock<[String: [MPair]]> = .init(initialState: [:])
-
-    private var ignoreBaseCurrencyChange = false
+    private let _currencyRates: UnfairLock<[String: MDouble]> = .init(initialState: [:])
+    
     private var updateTokensTask: Task<Void, Never>?
     
     private init() {}
@@ -29,6 +29,11 @@ public class _TokenStore {
     public private(set) var baseCurrency: MBaseCurrency? {
         get { _baseCurrency.withLock { $0 } }
         set { _baseCurrency.withLock { $0 = newValue } }
+    }
+    
+    public private(set) var currencyRates: [String: MDouble] {
+        get { _currencyRates.withLock { $0 } }
+        set { _currencyRates.withLock { $0 = newValue } }
     }
     
     public private(set) var tokens: [String: ApiToken] {
@@ -53,8 +58,16 @@ public class _TokenStore {
         return nil
     }
     
+    public var baseCurrencyRate: Double {
+        let bc = self.baseCurrency ?? .USD
+        return currencyRates[bc.rawValue]?.value ?? 1.0
+    }
+    
     private func loadTokensFromCache() {
         self.baseCurrency = AppStorageHelper.tokensCurrency() ?? .USD
+        if let ratesDict = AppStorageHelper.currencyRatesDict() {
+            self.currencyRates = ratesDict
+        }
         if var tokensDict = AppStorageHelper.tokensDict() {
             self.baseCurrency = baseCurrency
             tokensDict.merge(Self.defaultTokens) { old, _ in old }
@@ -102,7 +115,7 @@ public class _TokenStore {
         WalletCoreData.notify(event: .tokensChanged)
         if let baseCurrency = self.baseCurrency, tokens.count > 0 {
             DispatchQueue.global(qos: .background).async {
-                AppStorageHelper.save(baseCurrency: baseCurrency, tokens: tokens)
+                AppStorageHelper.save(baseCurrency: baseCurrency, tokens: tokens, currencyRates: self.currencyRates)
             }
         }
     }
@@ -131,7 +144,6 @@ public class _TokenStore {
             customPayloadApiUrl: incoming.customPayloadApiUrl?.nilIfEmpty ?? cached.customPayloadApiUrl,
             codeHash: incoming.codeHash?.nilIfEmpty ?? cached.codeHash,
             isFromBackend: incoming.isFromBackend ?? cached.isFromBackend,
-            price: priceIsInvalid ? cached.price : incoming.price,
             priceUsd: priceIsInvalid ? cached.priceUsd : incoming.priceUsd,
             percentChange24h: priceIsInvalid ? cached.percentChange24h : incoming.percentChange24h
         )
@@ -139,15 +151,6 @@ public class _TokenStore {
     }
     
     private func _applyFixups(tokens: inout [String: ApiToken]) {
-        // Set prices for staked tokens
-//        tokens[STAKED_TON_SLUG]!.price = tokens[TONCOIN_SLUG]!.price
-//        tokens[STAKED_TON_SLUG]!.priceUsd = tokens[TONCOIN_SLUG]!.priceUsd
-//        tokens[STAKED_TON_SLUG]!.percentChange24h = tokens[TONCOIN_SLUG]!.percentChange24h
-//        
-//        tokens[STAKED_MYCOIN_SLUG]!.price = tokens[MYCOIN_SLUG]!.price
-//        tokens[STAKED_MYCOIN_SLUG]!.priceUsd = tokens[MYCOIN_SLUG]!.priceUsd
-//        tokens[STAKED_MYCOIN_SLUG]!.percentChange24h = tokens[MYCOIN_SLUG]!.percentChange24h
-        
         // Set potentially missing images
         if tokens[STAKED_MYCOIN_SLUG]?.image?.nilIfEmpty == nil {
             let image = tokens[MYCOIN_SLUG]!.image
@@ -162,40 +165,16 @@ public class _TokenStore {
     // MARK: Base currency
     
     public func setBaseCurrency(currency: MBaseCurrency) async throws {
-        ignoreBaseCurrencyChange = true
-        try await Api.setBaseCurrency(currency: currency)
         await MainActor.run {
             AppStorageHelper.save(selectedCurrency: currency.rawValue)
         }
         self.baseCurrency = currency
-        resetQuotes()
-        do {
-            try await Api.tryUpdateTokens()
-        } catch {
-            log.error("tryUpdateTokens: \(error, .public)")
-        }
-        AppStorageHelper.save(baseCurrency: currency, tokens: tokens)
+        AppStorageHelper.save(baseCurrency: currency, tokens: tokens, currencyRates: self.currencyRates)
         WalletCoreData.notify(event: .baseCurrencyChanged(to: currency), for: nil)
     }
     
-    public func getExchangeRate(currency: MBaseCurrency) -> Double {
-        return currency.fallbackExchangeRate
-    }
-    
-    private func resetQuotes() {
-        if let baseCurrency = TokenStore.baseCurrency  {
-            var tokens = self.tokens
-            for slug in tokens.keys {
-                if let priceUsd = tokens[slug]?.priceUsd {
-                    let exchangeRate = getExchangeRate(currency: baseCurrency)
-                    tokens[slug]?.price = exchangeRate * priceUsd
-                } else {
-                    tokens[slug]?.price = nil
-                }
-            }
-            self.tokens = tokens
-            WalletCoreData.notify(event: .tokensChanged, for: nil)
-        }
+    public func getCurrencyRate(_ currency: MBaseCurrency) -> Double {
+        _currencyRates.withLock { $0[currency.rawValue]?.value } ?? currency.fallbackExchangeRate
     }
     
     // MARK: - Swap assets
@@ -270,6 +249,13 @@ extension _TokenStore: WalletCoreData.EventsObserver {
     
     public func walletCore(event: WalletCoreData.Event) {
         switch event {
+        case .updateCurrencyRates(let update):
+            let oldBaseCurrencyRate = self.baseCurrencyRate
+            self.currencyRates = update.rates
+            if self.baseCurrencyRate != oldBaseCurrencyRate {
+                WalletCoreData.notify(event: .tokensChanged)
+            }
+
         case .updateTokens(let dict):
             self.updateTokensTask?.cancel()
             self.updateTokensTask = Task.detached {
@@ -277,29 +263,12 @@ extension _TokenStore: WalletCoreData.EventsObserver {
                     // debounce
                     try await Task.sleep(for: .seconds(0.2))
                     try Task.checkCancellation()
-//                    let start = Date()
                     
                     do {
-                        let _bc = try (dict["baseCurrency"] as? String).flatMap(MBaseCurrency.init).orThrow()
                         let _tokens = try (dict["tokens"] as? [String: Any]).orThrow().mapValues { try ApiToken(any: $0) }
-                        
                         let update = ApiUpdate.UpdateTokens(
                             tokens: _tokens,
-                            baseCurrency: _bc
                         )
-                        
-                        if let bc = self.baseCurrency, update.baseCurrency != bc {
-                            Task {
-                                do {
-                                    try await Api.setBaseCurrency(currency: bc)
-                                    return
-                                } catch {
-                                    log.info("error: \(error)")
-                                }
-                            }
-                            return
-                        }
-                        
                         self.process(newTokens: update.tokens)
 
                     } catch {
@@ -310,12 +279,12 @@ extension _TokenStore: WalletCoreData.EventsObserver {
                     log.info("<updateTokens> canceled")
                 }
             }
-            
+        
         case .baseCurrencyChanged(to: let currency):
             if self.baseCurrency != currency {
                 self.baseCurrency = currency
-                resetQuotes()
                 clearHistoryData()
+                WalletCoreData.notify(event: .tokensChanged)
             }
         
         case .updateSwapTokens(let update):
@@ -337,11 +306,15 @@ extension AppStorageHelper {
     // MARK: - Tokens dict
     private static var tokensCurrencyKey = "cache.tokens.currency"
     private static var tokensKey = "cache.tokens"
+    private static var currencyRatesKey = "cache.currencyRates"
     
-    fileprivate static func save(baseCurrency: MBaseCurrency, tokens: [String: ApiToken]) {
+    fileprivate static func save(baseCurrency: MBaseCurrency, tokens: [String: ApiToken], currencyRates: [String: MDouble]) {
         UserDefaults.standard.set(baseCurrency.rawValue, forKey: tokensCurrencyKey)
         if let data = try? JSONEncoder().encode(tokens) {
             UserDefaults.standard.set(data, forKey: AppStorageHelper.tokensKey)
+        }
+        if let data = try? JSONEncoder().encode(currencyRates) {
+            UserDefaults.standard.set(data, forKey: AppStorageHelper.currencyRatesKey)
         }
     }
     
@@ -356,6 +329,14 @@ extension AppStorageHelper {
         if let data = UserDefaults.standard.data(forKey: AppStorageHelper.tokensKey),
            let tokens = try? JSONDecoder().decode([String:ApiToken].self, from: data) {
             return tokens
+        }
+        return nil
+    }
+    
+    fileprivate static func currencyRatesDict() -> [String: MDouble]? {
+        if let data = UserDefaults.standard.data(forKey: AppStorageHelper.currencyRatesKey),
+           let currencyRates = try? JSONDecoder().decode([String: MDouble].self, from: data) {
+            return currencyRates
         }
         return nil
     }

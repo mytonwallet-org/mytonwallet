@@ -6,14 +6,14 @@ import { Big } from '../../../../../lib/big.js';
 import { calcBigChangeValue } from '../../../../../util/calcChangeValue';
 import { toBig } from '../../../../../util/decimals';
 import { formatNumber } from '../../../../../util/formatNumber';
-import { buildCollectionByKey } from '../../../../../util/iteratees';
+import { buildArrayCollectionByKey } from '../../../../../util/iteratees';
 import { round } from '../../../../../util/math';
 import { getFullStakingBalance } from '../../../../../util/staking';
 
 type ChangePrefix = 'up' | 'down' | undefined;
 
 export function calculateFullBalance(tokens: UserToken[], stakingStates?: ApiStakingState[]) {
-  const stakingStateBySlug = buildCollectionByKey(stakingStates ?? [], 'tokenSlug');
+  const stakingStateBySlug = buildArrayCollectionByKey(stakingStates ?? [], 'tokenSlug');
 
   const primaryValue = tokens.reduce((acc, token) => {
     if (STAKED_TOKEN_SLUGS.has(token.slug)) {
@@ -21,9 +21,9 @@ export function calculateFullBalance(tokens: UserToken[], stakingStates?: ApiSta
       return acc;
     }
 
-    const stakingState = stakingStateBySlug[token.slug];
+    const stakingStates = stakingStateBySlug[token.slug] ?? [];
 
-    if (stakingState) {
+    for (const stakingState of stakingStates) {
       const stakingAmount = toBig(getFullStakingBalance(stakingState), token.decimals);
       acc = acc.plus(stakingAmount.mul(token.price));
     }

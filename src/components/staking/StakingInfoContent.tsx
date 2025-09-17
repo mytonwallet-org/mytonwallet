@@ -3,7 +3,9 @@ import React, {
 } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
-import type { ApiStakingHistory, ApiStakingState, ApiTokenWithPrice } from '../../api/types';
+import type {
+  ApiBaseCurrency, ApiCurrencyRates, ApiStakingHistory, ApiStakingState, ApiTokenWithPrice,
+} from '../../api/types';
 import type { Theme, UserToken } from '../../global/types';
 
 import {
@@ -64,6 +66,8 @@ interface StateProps {
   stakingHistory?: ApiStakingHistory;
   tokens?: UserToken[];
   tokenBySlug?: Record<string, ApiTokenWithPrice>;
+  baseCurrency: ApiBaseCurrency;
+  currencyRates: ApiCurrencyRates;
   theme: Theme;
   shouldUseNominators?: boolean;
   isSensitiveDataHidden?: true;
@@ -82,6 +86,8 @@ function StakingInfoContent({
   stakingHistory,
   tokens,
   tokenBySlug,
+  baseCurrency,
+  currencyRates,
   theme,
   shouldUseNominators,
   isViewMode,
@@ -181,6 +187,8 @@ function StakingInfoContent({
     shouldUseNominators,
     selectedStakingId: stakingId,
     isViewMode,
+    baseCurrency,
+    currencyRates,
   });
 
   function renderUnstakeDescription() {
@@ -455,6 +463,8 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     stakingHistory,
     tokens: selectCurrentAccountTokens(global),
     tokenBySlug,
+    baseCurrency: global.settings.baseCurrency,
+    currencyRates: global.currencyRates,
     theme,
     shouldUseNominators: accountState?.staking?.shouldUseNominators,
     isSensitiveDataHidden,

@@ -41,6 +41,7 @@ class SwapSearchEditText @JvmOverloads constructor(
         background = backgroundDrawable
         typeface = WFont.Regular.typeface
         isSingleLine = true
+        isHorizontalFadingEdgeEnabled = true
 
         setHint(LocaleController.getString("Search..."))
 
@@ -65,7 +66,10 @@ class SwapSearchEditText @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+        canvas.save()
+        canvas.translate(scrollX.toFloat(), 0f)
         searchDrawable?.draw(canvas)
+        canvas.restore()
     }
 
     override fun updateTheme() {

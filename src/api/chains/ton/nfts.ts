@@ -150,7 +150,7 @@ export async function checkNftTransferDraft(options: {
 
   const messages = nfts
     .slice(0, account.type === 'ledger' ? 1 : NFT_BATCH_SIZE) // We only need to check the first batch of a multi-transaction
-    .map((nft) => buildNftTransferMessage(nft, fromAddress, toAddress, comment));
+    .map((nft) => buildNftTransferMessage(nft, fromAddress, toAddress, comment, account.type === 'ledger'));
 
   const checkResult = await checkMultiTransactionDraft(accountId, messages);
 
@@ -178,17 +178,28 @@ export async function submitNftTransfers(options: {
   const {
     accountId, password, nfts, toAddress, comment,
   } = options;
-  const { address: fromAddress } = await fetchStoredWallet(accountId, 'ton');
-  const messages = nfts.map((nft) => buildNftTransferMessage(nft, fromAddress, toAddress, comment));
+
+  const account = await fetchStoredChainAccount(accountId, 'ton');
+  const { address: fromAddress } = account.byChain.ton;
+
+  const messages = nfts.map(
+    (nft) => buildNftTransferMessage(nft, fromAddress, toAddress, comment, account.type === 'ledger'),
+  );
   return submitMultiTransfer({ accountId, password, messages });
 }
 
-function buildNftTransferMessage(nft: ApiNft, fromAddress: string, toAddress: string, comment?: string) {
+function buildNftTransferMessage(
+  nft: ApiNft,
+  fromAddress: string,
+  toAddress: string,
+  comment?: string,
+  isLedger?: boolean,
+) {
   const isNotcoinBurn = nft.collectionAddress === NOTCOIN_VOUCHERS_ADDRESS
     && (toAddress === BURN_ADDRESS || NOTCOIN_EXCHANGERS.includes(toAddress as any));
   const payload = isNotcoinBurn
-    ? buildNotcoinVoucherExchange(fromAddress, nft.address, nft.index)
-    : buildNftTransferPayload(fromAddress, toAddress, comment);
+    ? buildNotcoinVoucherExchange(fromAddress, nft.address, nft.index, isLedger)
+    : buildNftTransferPayload(fromAddress, toAddress, comment, undefined, isLedger);
 
   return {
     payload,
@@ -197,7 +208,12 @@ function buildNftTransferMessage(nft: ApiNft, fromAddress: string, toAddress: st
   };
 }
 
-function buildNotcoinVoucherExchange(fromAddress: string, nftAddress: string, nftIndex: number) {
+function buildNotcoinVoucherExchange(
+  fromAddress: string,
+  nftAddress: string,
+  nftIndex: number,
+  isLedger?: boolean,
+) {
   const first4Bits = Address.parse(nftAddress).hash.readUint8() >> 4;
   const toAddress = NOTCOIN_EXCHANGERS[first4Bits];
 
@@ -206,7 +222,7 @@ function buildNotcoinVoucherExchange(fromAddress: string, nftAddress: string, nf
     .storeUint(nftIndex, 64)
     .endCell();
 
-  return buildNftTransferPayload(fromAddress, toAddress, payload, NOTCOIN_FORWARD_TON_AMOUNT);
+  return buildNftTransferPayload(fromAddress, toAddress, payload, NOTCOIN_FORWARD_TON_AMOUNT, isLedger);
 }
 
 export function buildNftTransferPayload(
@@ -214,10 +230,14 @@ export function buildNftTransferPayload(
   toAddress: string,
   payload?: string | Cell,
   forwardAmount = NFT_TRANSFER_FORWARD_AMOUNT,
+  isLedger?: boolean,
 ) {
+  // In ledger-app-ton v2.7.0 a queryId not equal to 0 is handled incorrectly.
+  const queryId = isLedger ? 0n : generateQueryId();
+
   let builder = new Builder()
     .storeUint(NftOpCode.TransferOwnership, 32)
-    .storeUint(generateQueryId(), 64)
+    .storeUint(queryId, 64)
     .storeAddress(Address.parse(toAddress))
     .storeAddress(Address.parse(fromAddress))
     .storeBit(false) // null custom_payload

@@ -1,6 +1,5 @@
 package org.mytonwallet.plugins.air_app_launcher.airLauncher;
 
-import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
@@ -19,17 +18,16 @@ public class AirLauncher {
   private static final int PENDING_SOAR_NO = 0;
   private static final int PENDING_SOAR_FROM_LEGACY = 1;
   private static final int PENDING_SOAR = 2;
-  @SuppressLint("StaticFieldLeak")
   private static AirLauncher airLauncher;
-  private final Activity activity;
+  private final Context applicationContext;
   int pendingSoarIntoAir = PENDING_SOAR_NO;
   private boolean isOnTheAir = false;
   private CapacitorGlobalStorageProvider capacitorGlobalStorageProvider;
   private boolean storageProviderReady = false;
 
-  public AirLauncher(Activity activity) {
-    this.activity = activity;
-    initGlobalStorageProvider();
+  public AirLauncher(Activity currentActivity) {
+    this.applicationContext = currentActivity.getApplicationContext();
+    initGlobalStorageProvider(currentActivity);
   }
 
   public static AirLauncher getInstance() {
@@ -40,8 +38,7 @@ public class AirLauncher {
     airLauncher = instance;
   }
 
-  private void initGlobalStorageProvider() {
-    Context applicationContext = activity.getApplicationContext();
+  private void initGlobalStorageProvider(Activity currentActivity) {
     Log.i("MTWAirApplication", "Initializing CapacitorGlobalStorageProvider");
 
     capacitorGlobalStorageProvider = new CapacitorGlobalStorageProvider(applicationContext, success -> {
@@ -50,10 +47,11 @@ public class AirLauncher {
       AirAsFrameworkApplication.Companion.onCreate(
         applicationContext,
         capacitorGlobalStorageProvider,
-        (ViewGroup) activity.getWindow().getDecorView().getRootView()
+        // The bridge will be moved to MainWindow's view after it has been presented.
+        (ViewGroup) currentActivity.getWindow().getDecorView().getRootView()
       );
       if (pendingSoarIntoAir != PENDING_SOAR_NO)
-        soarIntoAir(pendingSoarIntoAir == PENDING_SOAR_FROM_LEGACY);
+        soarIntoAir(currentActivity, pendingSoarIntoAir == PENDING_SOAR_FROM_LEGACY);
     });
   }
 
@@ -61,7 +59,7 @@ public class AirLauncher {
     return isOnTheAir;
   }
 
-  public void soarIntoAir(Boolean fromLegacy) {
+  public void soarIntoAir(Activity currentActivity, Boolean fromLegacy) {
     if (isOnTheAir)
       return;
 
@@ -75,18 +73,18 @@ public class AirLauncher {
 
     if (fromLegacy) {
       capacitorGlobalStorageProvider.setEmptyObject("tokenPriceHistory.bySlug", IGlobalStorageProvider.PERSIST_NO);
-      LaunchConfig.setShouldStartOnAir(activity, true);
+      LaunchConfig.setShouldStartOnAir(currentActivity, true);
     }
 
     Log.i("MTWAirApplication", "CapacitorGlobalStorageProvider Ready — Opening Air");
-    openAir();
+    openAir(currentActivity);
   }
 
-  private void openAir() {
-    Intent intent = new Intent(activity, MainWindow.class);
+  private void openAir(Activity currentActivity) {
+    Intent intent = new Intent(currentActivity, MainWindow.class);
     intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
-    activity.startActivity(intent);
-    activity.finish();
+    currentActivity.startActivity(intent);
+    currentActivity.finish();
   }
 
   public void handle(Intent intent) {

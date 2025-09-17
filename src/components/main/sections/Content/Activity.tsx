@@ -3,6 +3,7 @@ import React from '../../../../lib/teact/teact';
 import type {
   ApiActivity,
   ApiBaseCurrency,
+  ApiCurrencyRates,
   ApiNft,
   ApiStakingState,
   ApiSwapAsset,
@@ -28,7 +29,8 @@ interface OwnProps {
   stakingStateBySlug: Record<string, ApiStakingState>;
   savedAddresses: SavedAddress[] | undefined;
   accounts: Record<string, Account> | undefined;
-  baseCurrency: ApiBaseCurrency | undefined;
+  baseCurrency: ApiBaseCurrency;
+  currencyRates: ApiCurrencyRates;
   onClick?: (id: string) => void;
 }
 
@@ -48,6 +50,7 @@ export default function Activity({
   savedAddresses,
   accounts,
   baseCurrency,
+  currencyRates,
   onClick,
 }: OwnProps) {
   if (activity.kind === 'swap') {
@@ -85,6 +88,7 @@ export default function Activity({
         isFuture={isFuture}
         accounts={accounts}
         baseCurrency={baseCurrency}
+        currencyRates={currencyRates}
         onClick={onClick}
       />
     );

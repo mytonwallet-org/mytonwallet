@@ -123,8 +123,14 @@ public extension UIColor {
 
 public extension Color {
     struct Air {
+        public let checkmarkDisabled: Color = .airBundle("CheckmarkDisabledColor")
         public let menuSeparator: Color = .airBundle("MenuSeparator")
         public let menuWideSeparator: Color = .airBundle("MenuWideSeparator")
+        public let primaryLabel: Color = Color(UIColor.label)
+        public let secondaryLabel: Color = .airBundle("AirSecondaryLabelColor")
+        public let groupedItem: Color = .airBundle("GroupedItemColor")
+        
+        public var tint: Color { Color(WTheme.tint) }
     }
     
     static let air = Air()

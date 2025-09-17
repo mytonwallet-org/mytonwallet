@@ -38,7 +38,7 @@ interface OwnProps {
   tokens?: UserToken[];
   orderedSlugs?: string[];
   isSortByValueEnabled?: boolean;
-  baseCurrency?: ApiBaseCurrency;
+  baseCurrency: ApiBaseCurrency;
   withChainIcon?: boolean;
   isSensitiveDataHidden?: true;
 }

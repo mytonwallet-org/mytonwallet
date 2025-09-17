@@ -8,6 +8,7 @@ MyTonWallet: MyTonWallet
 Watch Video about Features: Watch Video about Features
 Enjoy Monthly Updates in Blog: Enjoy Monthly Updates in Blog
 Learn New Things in Help Center: Learn New Things in Help Center
+MyTonWallet Resources: MyTonWallet Resources
 I agree to %term%: I agree to %term%
 use the wallet responsibly: use the wallet responsibly
 $import_hint: "Use secret words, or instantly migrate an unlimited number of wallets from another MyTonWallet app:"
@@ -319,3 +320,16 @@ Your Address: Your Address
 "Your TON Wallet has just been created.": "Your TON Wallet has just been created."
 "Your wallet has just been imported!": "Your wallet has just been imported!"
 Passcodes don't match. Please try again.: Passcodes don't match. Please try again.
+Open wallet without checking: Open wallet without checking
+Copy to Clipboard: Copy to Clipboard
+Secret phrase was copied to clipboard: Secret phrase was copied to clipboard
+clipboard: clipboard
+screenshot: screenshot
+Security Warning: Security Warning
+Make sure you have your recovery phrase securely saved.: Make sure you have your recovery phrase securely saved.
+Without it, you won't be able to access your wallet.: Without it, you won't be able to access your wallet.
+Copy Anyway: Copy Anyway
+12 Words: 12 Words
+24 Words: 24 Words
+"Please choose the correct words **%1$@**, **%2$@**, **%3$@**:": "Please choose the correct words **%1$@**, **%2$@**, **%3$@**:"
+"Words don’t match, please try again.": Words don’t match, please try again.

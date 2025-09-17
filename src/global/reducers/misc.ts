@@ -1,6 +1,8 @@
 import type {
   ApiBalanceBySlug,
-  ApiChain, ApiNetwork,
+  ApiChain,
+  ApiCurrencyRates,
+  ApiNetwork,
   ApiSwapAsset,
   ApiTokenWithPrice,
 } from '../../api/types';
@@ -257,13 +259,12 @@ export function updateTokens(
   const existingTokens = global.tokenInfo?.bySlug;
 
   // If the backend does not work, then we won't delete the old prices
-  if (!partial[TONCOIN.slug].price) {
+  if (!partial[TONCOIN.slug].priceUsd) {
     partial = Object.values(partial).reduce((result, token) => {
       const existingToken = existingTokens?.[token.slug];
 
       result[token.slug] = {
         ...token,
-        price: existingToken?.price ?? token.price,
         priceUsd: existingToken?.priceUsd ?? token.priceUsd,
         percentChange24h: existingToken?.percentChange24h ?? token.percentChange24h,
       };
@@ -413,4 +414,11 @@ export function updateCurrentAccountId(global: GlobalState, accountId: string): 
 
 function doesAccountExist(global: GlobalState, accountId: string) {
   return !!selectAccountOrAuthAccount(global, accountId);
+}
+
+export function updateCurrencyRates(global: GlobalState, rates: ApiCurrencyRates): GlobalState {
+  return {
+    ...global,
+    currencyRates: rates,
+  };
 }

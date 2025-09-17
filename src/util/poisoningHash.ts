@@ -57,9 +57,12 @@ export function updatePoisoningCacheFromActivities(activities: readonly ApiActiv
 }
 
 export function updatePoisoningCacheFromGlobalState(global: GlobalState) {
-  if (!global.currentAccountId) return;
+  const { currentAccountId, byAccountId } = global;
 
-  const { byId, newestActivitiesBySlug } = global.byAccountId[global.currentAccountId].activities || {};
+  // Since the `global` can be restored from the cache, it may not contain data for the current account
+  if (!currentAccountId || !byAccountId[currentAccountId]) return;
+
+  const { byId, newestActivitiesBySlug } = byAccountId[currentAccountId].activities || {};
 
   if (byId) {
     updatePoisoningCacheFromActivities(Object.values(byId));

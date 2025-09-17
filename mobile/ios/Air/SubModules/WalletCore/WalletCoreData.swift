@@ -51,6 +51,7 @@ public struct WalletCoreData {
         case newLocalActivity(ApiUpdate.NewLocalActivities)
         case initialActivities(ApiUpdate.InitialActivities)
         case updateBalances(ApiUpdate.UpdateBalances)
+        case updateCurrencyRates(ApiUpdate.UpdateCurrencyRates)
         case updateStaking(ApiUpdate.UpdateStaking)
         case updateSwapTokens(ApiUpdate.UpdateSwapTokens)
         case updateTokens([String: Any])

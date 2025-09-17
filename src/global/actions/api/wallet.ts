@@ -68,7 +68,6 @@ addActionHandler('addToken', (global, actions, { token }) => {
         chain: token.chain,
         image: token.image,
         keywords: token.keywords,
-        price: token.price ?? 0,
         priceUsd: token.priceUsd ?? 0,
         percentChange24h: token.change24h ?? 0,
       },
@@ -138,7 +137,6 @@ addActionHandler('importToken', async (global, actions, { address }) => {
     } else {
       const apiToken: ApiTokenWithPrice = {
         ...token,
-        price: 0,
         priceUsd: 0,
         percentChange24h: 0,
       };
@@ -216,7 +214,6 @@ addActionHandler('addSwapToken', (global, actions, { token }) => {
     tokenAddress: token.tokenAddress,
     keywords: token.keywords,
     isPopular: false,
-    price: 0,
     priceUsd: 0,
   };
 

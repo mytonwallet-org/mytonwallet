@@ -2,7 +2,7 @@ import { Dialog } from '@capacitor/dialog';
 import React, { memo, type TeactNode, useCallback, useEffect, useMemo, useState } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
-import type { ApiBaseCurrency, ApiStakingState, ApiTokenWithPrice } from '../../api/types';
+import type { ApiBaseCurrency, ApiCurrencyRates, ApiStakingState, ApiTokenWithPrice } from '../../api/types';
 import type { UserToken } from '../../global/types';
 import type { Big } from '../../lib/big.js';
 import { StakingState } from '../../global/types';
@@ -76,6 +76,7 @@ interface StateProps {
   shouldUseNominators?: boolean;
   isSensitiveDataHidden?: true;
   baseCurrency: ApiBaseCurrency;
+  currencyRates: ApiCurrencyRates;
 }
 
 const enum BottomRightSlide {
@@ -103,6 +104,7 @@ function StakingInitial({
   shouldUseNominators,
   isSensitiveDataHidden,
   baseCurrency,
+  currencyRates,
 }: OwnProps & StateProps) {
   const {
     submitStakingInitial, fetchStakingFee, cancelStaking, changeCurrentStaking,
@@ -189,6 +191,8 @@ function StakingInitial({
     states,
     shouldUseNominators,
     selectedStakingId: stakingId,
+    baseCurrency,
+    currencyRates,
   });
 
   const handleHelpCenterClick = useLastCallback(() => {
@@ -556,6 +560,7 @@ export default memo(
       const accountState = selectCurrentAccountState(global);
       const tokens = selectCurrentAccountTokens(global);
       const tokenBySlug = global.tokenInfo.bySlug;
+
       const { baseCurrency = DEFAULT_PRICE_CURRENCY, isSensitiveDataHidden } = global.settings;
 
       const {
@@ -578,6 +583,7 @@ export default memo(
         shouldUseNominators: accountState?.staking?.shouldUseNominators,
         isSensitiveDataHidden,
         baseCurrency,
+        currencyRates: global.currencyRates,
       };
     },
     (global, _, stickToFirst) => stickToFirst(global.currentAccountId),

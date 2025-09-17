@@ -5274,6 +5274,40 @@
       },
       "extractionState": "manual"
     },
+    "$finalized_wallet_creation": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**Done! You have created a wallet.**"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**Готово! Кошелёк создан.**"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "$finalized_wallet_import": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**Done! You have imported a wallet.**"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**Готово! Кошелёк импортирован.**"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "$hardware_blind_sign_not_enabled": {
       "localizations": {
         "en": {
@@ -9379,6 +9413,23 @@
       },
       "extractionState": "manual"
     },
+    "$secret_words_warning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Storing words in a digital environment, including the **%1$@**, is not safe. Make sure you have your recovery phrase securely saved."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Хранение слов в цифровой среде, включая **%1$@**, небезопасно. Убедитесь, что ваша фраза восстановления надёжно сохранена."
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "$seed_phrase_scam_warning": {
       "localizations": {
         "en": {
@@ -10182,6 +10233,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "應用程式儲存已清除"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "$store_securely": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can now securely store, receive, and send coins and other digital assets."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Теперь вы можете безопасно хранить, получать и отправлять монеты и другие цифровые активы."
           }
         }
       },
@@ -14519,6 +14587,23 @@
       },
       "extractionState": "manual"
     },
+    "12 Words": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "12 Words"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "12 слов"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "12/24 Secret Words": {
       "localizations": {
         "en": {
@@ -14644,6 +14729,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "24個助記詞"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "24 Words": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "24 Words"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "24 слов"
           }
         }
       },
@@ -15299,7 +15401,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Добавить ставку"
+            "value": "Добавить"
           }
         }
       },
@@ -16176,6 +16278,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "所有去中心化應用"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "All Set!": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All Set!"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готово!"
           }
         }
       },
@@ -18457,6 +18576,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Лучший курс"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Bidding Auction": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bidding Auction"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ставка на аукционе"
           }
         }
       },
@@ -25744,6 +25880,23 @@
       },
       "extractionState": "manual"
     },
+    "Copy Anyway": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Anyway"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Всё равно скопировать"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "Copy Changelly ID": {
       "localizations": {
         "en": {
@@ -25951,6 +26104,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "複製交易ID"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Copy to Clipboard": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy to Clipboard"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать"
           }
         }
       },
@@ -36541,7 +36711,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Let's Check"
+            "value": "Let’s Check"
           }
         },
         "de": {
@@ -36606,7 +36776,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Let's Check!"
+            "value": "Let’s Check!"
           }
         },
         "de": {
@@ -37707,6 +37877,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "主選單"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Make sure you have your recovery phrase securely saved.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Make sure you have your recovery phrase securely saved."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Убедитесь, что вы надежно сохранили фразу восстановления."
           }
         }
       },
@@ -39290,6 +39477,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "MyTonWallet 瀏覽器"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "MyTonWallet Resources": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MyTonWallet Resources"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ресурсы MyTonWallet"
           }
         }
       },
@@ -41986,6 +42190,23 @@
       },
       "extractionState": "manual"
     },
+    "Open Wallet": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Wallet"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть кошелёк"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "Open in Browser": {
       "localizations": {
         "en": {
@@ -42198,6 +42419,23 @@
       },
       "extractionState": "manual"
     },
+    "Open wallet without checking": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open wallet without checking"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть кошелёк без проверки"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "Optional": {
       "localizations": {
         "en": {
@@ -42357,6 +42595,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Другие настройки"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Other apps will be able to read your recovery phrase!": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other apps will be able to read your recovery phrase!"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Другие приложения смогут прочитать вашу фразу восстановления!"
           }
         }
       },
@@ -43174,6 +43429,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "播放聲音"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Please choose the correct words **%1$@**, **%2$@**, **%3$@**:": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Please choose the correct words **%1$@**, **%2$@**, **%3$@**:"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите правильные слова **%1$@**, **%2$@**, **%3$@**:"
           }
         }
       },
@@ -47883,6 +48155,23 @@
       },
       "extractionState": "manual"
     },
+    "Secret phrase was copied to clipboard": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Secret phrase was copied to clipboard"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Секретная фраза скопирована"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "Securely store and send crypto.": {
       "localizations": {
         "en": {
@@ -47960,6 +48249,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "安全"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Security Warning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Security Warning"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предупреждение о безопасности"
           }
         }
       },
@@ -60357,7 +60663,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Носимые устройства"
+            "value": "Надеть"
           }
         }
       },
@@ -60683,6 +60989,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "已提取流動性"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Without it, you won't be able to access your wallet.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Without it, you won't be able to access your wallet."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Без неё вы не сможете получить доступ к своему кошельку."
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Words don’t match, please try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Words don’t match, please try again."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слова не совпадают, попробуйте ещё раз."
           }
         }
       },
@@ -62599,6 +62939,23 @@
       },
       "extractionState": "manual"
     },
+    "clipboard": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "clipboard"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "буфер обмена"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "day": {
       "localizations": {
         "en": {
@@ -62688,29 +63045,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": ""
-          },
-          "variations": {
-            "plural": {
-              "zero": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%1$d часов"
-                }
-              },
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%1$d час"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%1$d часов"
-                }
-              }
-            }
+            "value": "[zero] %1$d часов [one] %1$d час [few] %1$d часа [many] %1$d часов"
           }
         }
       },
@@ -62783,29 +63118,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": ""
-          },
-          "variations": {
-            "plural": {
-              "zero": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "минута"
-                }
-              },
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "минута"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%1$d минут"
-                }
-              }
-            }
+            "value": "[zero] %1$d минут [one] %1$d минута [few] %1$d минуты [many] %1$d минут"
           }
         }
       },
@@ -62876,6 +63189,23 @@
       },
       "extractionState": "manual"
     },
+    "screenshot": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "screenshot"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "скриншот"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "second": {
       "localizations": {
         "en": {
@@ -62909,29 +63239,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": ""
-          },
-          "variations": {
-            "plural": {
-              "zero": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%1$d секунда"
-                }
-              },
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%1$d секунда"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%1$d секунд"
-                }
-              }
-            }
+            "value": "[zero] %1$d секунд [one] %1$d секунда [few] %1$d секунды [many] %1$d секунд"
           }
         }
       },
@@ -62987,29 +63295,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": ""
-          },
-          "variations": {
-            "plural": {
-              "zero": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%1$d перевод"
-                }
-              },
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%1$d перевод"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%1$d переводов"
-                }
-              }
-            }
+            "value": "[zero] %1$d переводов [one] %1$d перевод [few] %1$d перевода [many] %1$d переводов"
           }
         }
       },

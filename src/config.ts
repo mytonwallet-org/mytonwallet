@@ -1,6 +1,7 @@
 import type { ApiTonWalletVersion } from './api/chains/ton/types';
 import type {
   ApiBaseCurrency,
+  ApiCurrencyRates,
   ApiLiquidStakingState,
   ApiNftMarketplace,
   ApiNominatorsStakingState,
@@ -163,7 +164,7 @@ export const PROXY_HOSTS = process.env.PROXY_HOSTS;
 export const TINY_TRANSFER_MAX_COST = 0.01;
 
 export const IMAGE_CACHE_NAME = 'mtw-image';
-export const LANG_CACHE_NAME = 'mtw-lang-232';
+export const LANG_CACHE_NAME = 'mtw-lang-234';
 
 export const LANG_LIST: LangItem[] = [{
   langCode: 'en',
@@ -402,7 +403,6 @@ export const PRIORITY_TOKEN_SLUGS = [
 
 const COMMON_TOKEN = {
   isFromBackend: true,
-  price: 0,
   priceUsd: 0,
   percentChange24h: 0,
 };
@@ -411,7 +411,6 @@ export const TOKEN_INFO: Record<string, ApiTokenWithPrice> = {
   toncoin: {
     ...TONCOIN,
     isFromBackend: true,
-    price: 3.1,
     priceUsd: 3.1,
     percentChange24h: 0,
   },
@@ -467,7 +466,6 @@ export const INIT_SWAP_ASSETS: Record<string, ApiSwapAsset> = {
     chain: TONCOIN.chain,
     slug: TONCOIN.slug,
     decimals: TONCOIN.decimals,
-    price: 0,
     priceUsd: 0,
     isPopular: true,
   },
@@ -480,7 +478,6 @@ export const INIT_SWAP_ASSETS: Record<string, ApiSwapAsset> = {
     // eslint-disable-next-line @stylistic/max-len
     image: 'https://cache.tonapi.io/imgproxy/T3PB4s7oprNVaJkwqbGg54nexKE0zzKhcrPv8jcWYzU/rs:fill:200:200:1/g:no/aHR0cHM6Ly90ZXRoZXIudG8vaW1hZ2VzL2xvZ29DaXJjbGUucG5n.webp',
     tokenAddress: 'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs',
-    price: 0,
     priceUsd: 0,
     isPopular: true,
   },
@@ -719,3 +716,13 @@ export const UNKNOWN_TOKEN = {
   symbol: '[Unknown]',
   decimals: 9,
 } as const;
+
+// https://api.mytonwallet.org/currency-rates
+export const FALLBACK_BASE_CURRENCY_RATES: ApiCurrencyRates = {
+  USD: '1',
+  EUR: '0.85233500',
+  RUB: '84.49824600',
+  CNY: '7.11865000',
+  BTC: '0.00000866',
+  TON: '0.31360000',
+};

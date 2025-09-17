@@ -64,12 +64,10 @@ public class BuyWithCardVC: WViewController, UIScrollViewDelegate {
         guard let address = AccountStore.account?.addressByChain[chain.rawValue] else { return }
         Task {
             let activeTheme = ResolvedTheme(traitCollection: traitCollection)
-            print(chain, address, activeTheme)
             do {
                 let url = try await Api.getMoonpayOnrampUrl(chain: chain, address: address, activeTheme: activeTheme).url
                 open(url: url)
             } catch {
-                print(error)
                 showAlert(error: error)
             }
         }

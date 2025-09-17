@@ -99,7 +99,6 @@ struct NftDetailsImage: View {
             }
         }
         .onPreferenceChange(CoverFlowIsScrollingPreference.self) { isScrolling in
-            print("isScrolling: \(isScrolling)")
             self.hideImage = isScrolling
         }
     }

@@ -13,7 +13,7 @@ import { DnsItem } from '../contracts/DnsItem';
 import { TsUSDeWallet } from '../contracts/Ethena/TsUSDeWallet';
 import { mockTonAddresses, mockTonBounceableAddresses } from '../../../../../tests/mocks';
 import { expectAddress, expectCell } from '../../../../../tests/util/matchers';
-import { NFT_TRANSFER_FORWARD_AMOUNT, TON_GAS, WORKCHAIN } from '../constants';
+import { NFT_TRANSFER_FORWARD_AMOUNT, TON_GAS } from '../constants';
 import { buildNftTransferPayload } from '../nfts';
 import { encryptMessageComment } from './encryption';
 import { lacksBlindSigningError } from './ledger';
@@ -31,13 +31,31 @@ import {
   resolveTokenAddress,
 } from './tonCore';
 
-const sampleTokenAddress = 'EQAvlWFDxGF2lXm67y4yzC17wYKD9A0guwPkMs1gOsM__NOT';
-const sampleTokenKnownJetton = { workchain: WORKCHAIN, jettonId: 1 };
+const sampleKnownJettons = [
+  // Added in TON App 2.2
+  {
+    tokenAddress: 'EQAvlWFDxGF2lXm67y4yzC17wYKD9A0guwPkMs1gOsM__NOT',
+    knownJetton: { workchain: 0, jettonId: 1 },
+    tokenWalletAddress: 'EQA6uJSiYt0aYIta0Wlm71w0va04kpre7XSTCKM3bKCwvkL2',
+  },
+  // Added in TON App 2.6.1
+  {
+    tokenAddress: 'EQD-cvR0Nz6XAyRBvbhz-abTrRC6sI5tvHvvpeQraV9UAAD7',
+    knownJetton: { workchain: 0, jettonId: 7 },
+    tokenWalletAddress: 'EQDU2CT5BziNK9oQGyYxRjkOMk4FBnbPO9XxVA5rIufr2ymz',
+  },
+];
 
 jest.mock('../../../../util/logs');
 jest.mock('./tonCore', () => ({
   ...jest.requireActual('./tonCore'),
-  resolveTokenAddress: jest.fn().mockResolvedValue(sampleTokenAddress),
+  resolveTokenAddress: jest.fn().mockImplementation((network, jettonWallet) => {
+    const sampleToken = sampleKnownJettons.find((jetton) => jetton.tokenWalletAddress === jettonWallet);
+    if (network !== 'mainnet' || !sampleToken) {
+      throw new Error(`${jettonWallet} is not a jetton wallet`);
+    }
+    return sampleToken.tokenAddress;
+  }),
 }));
 
 afterEach(() => {
@@ -96,10 +114,11 @@ describe('tonTransactionToLedgerTransaction', () => {
     'token transfer with hint': () => {
       const tokenAmount = 200_000n;
       const toAddress = mockTonAddresses[0];
+      const token = sampleKnownJettons[0];
       return {
         tonTransaction: makeMockTonTransaction({
           hints: {
-            tokenAddress: sampleTokenAddress,
+            tokenAddress: token.tokenAddress,
           },
         }, {
           body: makeMockTokenTransferPayload({
@@ -113,88 +132,58 @@ describe('tonTransactionToLedgerTransaction', () => {
             type: 'jetton-transfer',
             amount: tokenAmount,
             destination: expectAddress(Address.parse(toAddress)),
-            knownJetton: sampleTokenKnownJetton,
+            knownJetton: token.knownJetton,
           }),
         }),
         expectResolvedTokenWallet: undefined,
       };
     },
 
-    'token transfer with hint and without known jetton support (old TON App)': {
-      tonTransaction: makeMockTonTransaction({
-        hints: {
-          tokenAddress: sampleTokenAddress,
-        },
-      }, {
-        body: makeMockTokenTransferPayload(),
-      }),
-      ledgerTonVersion: '2.1.0',
-      ledgerTransaction: expect.objectContaining({
-        payload: expect.objectContaining({
-          knownJetton: null, // eslint-disable-line no-null/no-null
-        }),
-      }),
-      expectResolvedTokenWallet: undefined,
+    'token transfer with hint and without known jetton support (old TON App)': () => {
+      const token = sampleKnownJettons[0];
+      return makeSimpleTokenTransferCase({
+        tokenWalletAddress: token.tokenWalletAddress,
+        tokenAddressHint: token.tokenAddress,
+        ledgerTonVersion: '2.1.0',
+        expectedKnownJetton: undefined,
+      });
     },
 
     'token transfer without hint': () => {
-      const tokenWalletAddress = mockTonBounceableAddresses[0];
-      return {
-        tonTransaction: makeMockTonTransaction({}, {
-          to: tokenWalletAddress,
-          body: makeMockTokenTransferPayload(),
-        }),
-        ledgerTonVersion: '2.2.0',
-        ledgerTransaction: expect.objectContaining({
-          payload: expect.objectContaining({
-            knownJetton: sampleTokenKnownJetton,
-          }),
-        }),
-        expectResolvedTokenWallet: tokenWalletAddress,
-      };
+      const token = sampleKnownJettons[1];
+      return makeSimpleTokenTransferCase({
+        tokenWalletAddress: token.tokenWalletAddress,
+        expectedKnownJetton: token.knownJetton,
+        expectTokenAddressResolution: true,
+      });
     },
 
-    'token transfer without hint and without known jetton support (old TON App)': {
-      tonTransaction: makeMockTonTransaction({}, {
-        body: makeMockTokenTransferPayload(),
-      }),
+    'token transfer without hint and without known jetton support (old TON App)': makeSimpleTokenTransferCase({
+      tokenWalletAddress: sampleKnownJettons[0].tokenWalletAddress,
       ledgerTonVersion: '2.1.0',
-      ledgerTransaction: expect.objectContaining({
-        payload: expect.objectContaining({
-          knownJetton: null, // eslint-disable-line no-null/no-null
-        }),
-      }),
-      expectResolvedTokenWallet: undefined,
-    },
+      expectedKnownJetton: undefined,
+    }),
 
-    'token transfer without hint and without known jetton support (Ledger Nano S)': {
-      tonTransaction: makeMockTonTransaction({}, {
-        body: makeMockTokenTransferPayload(),
-      }),
+    'token transfer without hint and without known jetton support (Ledger Nano S)': makeSimpleTokenTransferCase({
+      tokenWalletAddress: sampleKnownJettons[1].tokenWalletAddress,
       ledgerModel: DeviceModelId.nanoS,
-      ledgerTransaction: expect.objectContaining({
-        payload: expect.objectContaining({
-          knownJetton: null, // eslint-disable-line no-null/no-null
-        }),
-      }),
-      expectResolvedTokenWallet: undefined,
-    },
+      expectedKnownJetton: undefined,
+    }),
 
-    'token transfer with unknown jetton': {
-      tonTransaction: makeMockTonTransaction({
-        hints: {
-          tokenAddress: mockTonBounceableAddresses[1],
-        },
-      }, {
-        body: makeMockTokenTransferPayload(),
-      }),
-      ledgerTonVersion: '2.2.0',
-      ledgerTransaction: expect.objectContaining({
-        payload: expect.objectContaining({
-          knownJetton: null, // eslint-disable-line no-null/no-null
-        }),
-      }),
-      expectResolvedTokenWallet: undefined,
+    'token transfer with unknown jetton': makeSimpleTokenTransferCase({
+      tokenWalletAddress: mockTonBounceableAddresses[0],
+      tokenAddressHint: mockTonBounceableAddresses[1],
+      expectedKnownJetton: undefined,
+    }),
+
+    'token transfer with unsupported jetton id': () => {
+      const freshToken = sampleKnownJettons[1];
+      return makeSimpleTokenTransferCase({
+        tokenWalletAddress: freshToken.tokenWalletAddress,
+        tokenAddressHint: freshToken.tokenAddress,
+        ledgerTonVersion: '2.2.0',
+        expectedKnownJetton: undefined,
+      });
     },
 
     'with subwallet id': () => {
@@ -269,7 +258,7 @@ describe('tonTransactionToLedgerTransaction', () => {
       walletVersion = DEFAULT_WALLET_VERSION,
       tonTransaction,
       ledgerModel = DeviceModelId.nanoX,
-      ledgerTonVersion = '2.2.0',
+      ledgerTonVersion = '2.7.0',
       isBlindSigningEnabled = false,
       subwalletId,
       ledgerTransaction,
@@ -294,6 +283,35 @@ describe('tonTransactionToLedgerTransaction', () => {
       expect(resolveTokenAddress).not.toHaveBeenCalled();
     }
   });
+
+  function makeSimpleTokenTransferCase({
+    tokenWalletAddress,
+    tokenAddressHint,
+    expectedKnownJetton,
+    expectTokenAddressResolution,
+    ...restOptions
+  }: Partial<TestCase> & {
+    tokenWalletAddress: string;
+    tokenAddressHint?: string;
+    expectedKnownJetton: { jettonId: number; workchain: number } | undefined;
+    expectTokenAddressResolution?: boolean;
+  }): TestCase {
+    return {
+      ...restOptions,
+      tonTransaction: makeMockTonTransaction({
+        hints: tokenAddressHint ? { tokenAddress: tokenAddressHint } : undefined,
+      }, {
+        to: tokenWalletAddress,
+        body: makeMockTokenTransferPayload(),
+      }),
+      ledgerTransaction: expect.objectContaining({
+        payload: expect.objectContaining({
+          knownJetton: expectedKnownJetton ?? null, // eslint-disable-line no-null/no-null
+        }),
+      }),
+      expectResolvedTokenWallet: expectTokenAddressResolution ? tokenWalletAddress : undefined,
+    };
+  }
 });
 
 /**
@@ -505,7 +523,7 @@ describe('tonPayloadToLedgerPayload', () => {
 
   test.each(Object.entries(testCases))('%s', async (_, testCase) => {
     const resolvedTestCase = typeof testCase === 'function' ? await testCase() : testCase;
-    const { tonPayload, ledgerTonVersion = '2.1.0', ledgerPayload } = resolvedTestCase;
+    const { tonPayload, ledgerTonVersion = '2.7.0', ledgerPayload } = resolvedTestCase;
     const runFunction = tonPayloadToLedgerPayload.bind(undefined, tonPayload, ledgerTonVersion);
 
     if (ledgerPayload === 'unsupported') {

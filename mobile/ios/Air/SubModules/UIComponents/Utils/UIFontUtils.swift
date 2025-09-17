@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import SwiftUI
 import WalletContext
 
 public extension UIFont {
@@ -16,6 +17,7 @@ public extension UIFont {
             UIFont.registerFont(withFilenameString: "SFCompactRoundedBold.otf", bundle: AirBundle)
             UIFont.registerFont(withFilenameString: "SFCompactRoundedSemibold.otf", bundle: AirBundle)
             UIFont.registerFont(withFilenameString: "SFCompactRoundedMedium.otf", bundle: AirBundle)
+            UIFont.registerFont(withFilenameString: "Nunito-ExtraBold.ttf", bundle: AirBundle)
         }
     }
     
@@ -73,4 +75,11 @@ public extension UIFont {
         }
     }
     
+}
+
+public extension Font {
+    static func nunito(size: CGFloat) -> Font {
+        let font = UIFont(name: "Nunito-ExtraBold", size: size)!
+        return Font(font)
+    }
 }

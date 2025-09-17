@@ -219,8 +219,8 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         bottomRightLabel.contentView.setAmount(
             tokenBalance.toBaseCurrency,
             token?.decimals ?: 9,
-            WalletCore.baseCurrency?.sign ?: "",
-            WalletCore.baseCurrency?.decimalsCount ?: 2,
+            WalletCore.baseCurrency.sign,
+            WalletCore.baseCurrency.decimalsCount,
             true
         )
 
@@ -349,7 +349,7 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         if (pricedToken?.price != null) {
             val amountText = pricedToken.price!!.toString(
                 token?.decimals ?: 9,
-                WalletCore.baseCurrency?.sign ?: "",
+                WalletCore.baseCurrency.sign,
                 token?.decimals ?: 9,
                 true
             ) ?: ""

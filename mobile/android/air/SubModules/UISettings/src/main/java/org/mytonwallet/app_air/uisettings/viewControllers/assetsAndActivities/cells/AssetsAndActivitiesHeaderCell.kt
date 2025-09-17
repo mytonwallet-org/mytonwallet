@@ -313,7 +313,7 @@ class AssetsAndActivitiesHeaderCell(
     private lateinit var onHideNoCostTokensChanged: (hidden: Boolean) -> Unit
     fun configure(onHideNoCostTokensChanged: (hidden: Boolean) -> Unit) {
         this.onHideNoCostTokensChanged = onHideNoCostTokensChanged
-        currentBaseCurrencyLabel.text = WalletCore.baseCurrency?.currencySymbol
+        currentBaseCurrencyLabel.text = WalletCore.baseCurrency.currencySymbol
     }
 
 }

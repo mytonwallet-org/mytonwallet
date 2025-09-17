@@ -14,9 +14,9 @@ import type { ApiEmulationResult } from './emulation';
 import type { ApiAnyDisplayError } from './errors';
 import type {
   ApiBalanceBySlug,
-  ApiBaseCurrency,
   ApiChain,
   ApiCountryCode,
+  ApiCurrencyRates,
   ApiDappConnectionType,
   ApiDappTransfer,
   ApiNft,
@@ -71,12 +71,16 @@ export type ApiUpdateNewLocalActivities = {
 export type ApiUpdateTokens = {
   type: 'updateTokens';
   tokens: Record<string, ApiTokenWithPrice>;
-  baseCurrency: ApiBaseCurrency;
 };
 
 export type ApiUpdateSwapTokens = {
   type: 'updateSwapTokens';
   tokens: Record<string, ApiSwapAsset>;
+};
+
+export type ApiUpdateCurrencyRates = {
+  type: 'updateCurrencyRates';
+  rates: ApiCurrencyRates;
 };
 
 export type ApiUpdateCreateTransaction = {
@@ -323,6 +327,7 @@ export type ApiUpdate =
   | ApiUpdateNewLocalActivities
   | ApiUpdateTokens
   | ApiUpdateSwapTokens
+  | ApiUpdateCurrencyRates
   | ApiUpdateCreateTransaction
   | ApiUpdateCompleteTransaction
   | ApiUpdateCreateSignature

@@ -58,7 +58,17 @@ data class ApiTokenWithPrice(
     val isTiny: Boolean? = null,
     val customPayloadApiUrl: String? = null,
     val codeHash: String? = null,
-    val price: Double?,
     val priceUsd: Double?,
     val percentChange24h: Double?
-) : IApiToken
+) : IApiToken {
+
+    val price: Double?
+        get() {
+            return priceUsd?.let { priceUsd ->
+                TokenStore.baseCurrencyRate?.let { baseCurrencyRate ->
+                    priceUsd * baseCurrencyRate
+                }
+            }
+        }
+
+}

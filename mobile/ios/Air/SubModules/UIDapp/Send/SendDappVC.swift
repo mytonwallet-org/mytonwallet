@@ -86,11 +86,11 @@ public class SendDappVC: WViewController {
             contentView.rightAnchor.constraint(equalTo: view.rightAnchor)
         ])
 
-        updateDappViews()
-        
         bringNavigationBarToFront()
         
         updateTheme()
+        
+        sendButton.isEnabled = request.currentAccountHasSufficientBalance()
     }
     
     private func makeView() -> SendDappContentView {
@@ -107,9 +107,6 @@ public class SendDappVC: WViewController {
         navigationController?.pushViewController(DappSendTransactionDetailVC(message: tx), animated: true)
     }
     
-    private func updateDappViews() {
-    }
-        
     public override func updateTheme() {
         view.backgroundColor = WTheme.sheetBackground
     }

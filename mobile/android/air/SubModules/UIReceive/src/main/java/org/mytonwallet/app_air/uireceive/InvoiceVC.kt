@@ -309,7 +309,7 @@ class InvoiceVC(context: Context) : WViewController(context) {
     private fun updateInputState() {
         val inputAmountParsed = CoinUtils.fromDecimal(
             amountInputView.amountEditText.text.toString(),
-            (if (fiatMode) WalletCore.baseCurrency?.decimalsCount else token?.decimals) ?: 0
+            (if (fiatMode) WalletCore.baseCurrency.decimalsCount else token?.decimals) ?: 0
         )
         equivalent = TokenEquivalent.from(
             fiatMode,
@@ -328,7 +328,7 @@ class InvoiceVC(context: Context) : WViewController(context) {
                     subtitle = null,
                     fiatMode = fiatMode,
                     inputDecimal = token!!.decimals,
-                    inputSymbol = if (fiatMode) WalletCore.baseCurrency?.sign else null,
+                    inputSymbol = if (fiatMode) WalletCore.baseCurrency.sign else null,
                     inputError = false,
                 ),
                 false

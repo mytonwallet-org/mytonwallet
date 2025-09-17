@@ -188,7 +188,7 @@ export function callApiInMain<T extends keyof AllMethods>(name: T, ...args: AllM
       if (data.type === 'callApiResponse' && data.messageId === messageId) {
         channel!.removeEventListener('message', handleMessage);
         if (data.result.status === 'fulfilled') {
-          resolve(data.result.value);
+          resolve(data.result.value as AllMethodResponse<T>);
         } else {
           reject(data.result.reason);
         }

@@ -83,7 +83,7 @@ private let log = Log("BalanceHeaderView+update")
         }
 
         if shouldAnimate {
-            UIView.animate(withDuration: isExpandingProgrammatically ? 0.2 : 0.3, delay: 0, options: .allowUserInteraction) {
+            UIView.animateAdaptive(duration: isExpandingProgrammatically ? 0.2 : 0.3) {
                 updateView()
             }
             delegate?.headerIsAnimating()

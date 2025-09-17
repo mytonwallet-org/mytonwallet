@@ -7,110 +7,41 @@
 
 import UIKit
 import UIComponents
+import SwiftUI
 import WalletContext
 import WalletCore
 
 public class IntroVC: WViewController {
 
-    public init() {
+    let introModel: IntroModel
+    
+    public init(introModel: IntroModel) {
+        self.introModel = introModel
         super.init(nibName: nil, bundle: nil)
     }
     
-    required init?(coder: NSCoder) {
+    @MainActor required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-
-    public override func loadView() {
-        super.loadView()
+    
+    public override func viewDidLoad() {
+        super.viewDidLoad()
         setupViews()
     }
     
-    private var bottomActionsView: BottomActionsView!
-
+    private var hostingController: UIHostingController<IntroView>!
+    
     func setupViews() {
-        // content view
-        let contentView = UIStackView()
-        contentView.translatesAutoresizingMaskIntoConstraints = false
-        contentView.axis = .vertical
-        contentView.spacing = 32
-        contentView.alignment = .center
-        view.addSubview(contentView)
-        NSLayoutConstraint.activate([
-            contentView.leftAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leftAnchor),
-            contentView.rightAnchor.constraint(equalTo: view.safeAreaLayoutGuide.rightAnchor),
-            contentView.centerYAnchor.constraint(equalTo: view.safeAreaLayoutGuide.centerYAnchor)
-        ])
-
-        // header, center of top view
-        let headerView = HeaderView(animationName: "Start",
-                                    animationPlaybackMode: .loop,
-                                    title: lang("MyTonWallet"),
-                                    description: lang("Securely store and send crypto."))
-
-        // bottom create wallet action
-        let createWalletButton = BottomAction(
-            title: lang("Create Wallet"),
-            onPress: {
-                self.createWalletPressed()
-            }
-        )
         
-        // bottom import wallet action
-        let importExistingWalletButton = BottomAction(
-            title: lang("Import Existing Wallet"),
-            onPress: {
-                self.importWalletPressed()
-            }
-        )
+        hostingController = addHostingController(makeView(), constraints: .fill)
         
-        // bottom actions view
-        bottomActionsView = BottomActionsView(primaryAction: createWalletButton,
-                                              secondaryAction: importExistingWalletButton)
-
-        contentView.addArrangedSubview(headerView)
-        contentView.addArrangedSubview(bottomActionsView)
-        NSLayoutConstraint.activate([
-            headerView.widthAnchor.constraint(equalTo: contentView.widthAnchor, constant: -64),
-            bottomActionsView.widthAnchor.constraint(equalTo: contentView.widthAnchor, constant: -64)
-        ])
-        
-        view.addGestureRecognizer(UILongPressGestureRecognizer(target: self, action: #selector(onLongPress(_:))))
+        let longTap = UILongPressGestureRecognizer(target: self, action: #selector(onLongPress(_:)))
+        longTap.minimumPressDuration = 5
+        view.addGestureRecognizer(longTap)
     }
 
-    var isLoading = false {
-        didSet {
-            bottomActionsView.primaryButton.showLoading = isLoading
-            view.isUserInteractionEnabled = !isLoading
-        }
-    }
-    func createWalletPressed() {
-        if isLoading {
-            return
-        }
-        isLoading = true
-
-        // generate mnemonic!
-        Task { @MainActor in
-            do {
-                let words = try await Api.generateMnemonic()
-                let walletCreatedVC = WalletCreatedVC(wordList: words, passedPasscode: nil)
-                navigationController?.pushViewController(walletCreatedVC, animated: true)
-                isLoading = false
-            } catch {
-                showAlert(error: error)
-                isLoading = false
-            }
-        }
-    }
-    
-    func importWalletPressed() {
-        navigationController?.pushViewController(ImportWalletVC(passedPasscode: nil), animated: true)
-    }
-    
-    func showAlert() {
-        showAlert(title: lang("An Error Occurred"),
-                  text: lang("Sorry. Please try again."),
-                  button: lang("OK"))
+    func makeView() -> IntroView {
+        return IntroView(introModel: introModel)
     }
     
     @objc func onLongPress(_ gesture: UIGestureRecognizer) {
@@ -121,8 +52,10 @@ public class IntroVC: WViewController {
 }
 
 #if DEBUG
-@available(iOS 17.0, *)
+@available(iOS 18.0, *)
 #Preview {
-    return UINavigationController(rootViewController: IntroVC())
+    let _ = UIFont.registerAirFonts()
+    LocalizationSupport.shared.setLanguageCode("ru")
+    return UINavigationController(rootViewController: IntroVC(introModel: IntroModel(password: nil)))
 }
 #endif

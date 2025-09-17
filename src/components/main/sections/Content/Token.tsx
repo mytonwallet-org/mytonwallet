@@ -48,7 +48,7 @@ interface OwnProps {
   annualYield?: number;
   yieldType?: ApiYieldType;
   isActive?: boolean;
-  baseCurrency?: ApiBaseCurrency;
+  baseCurrency: ApiBaseCurrency;
   appTheme: AppTheme;
   withChainIcon?: boolean;
   withContextMenu?: boolean;

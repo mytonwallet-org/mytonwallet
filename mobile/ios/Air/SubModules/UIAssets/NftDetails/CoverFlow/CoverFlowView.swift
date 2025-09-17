@@ -115,14 +115,11 @@ class _CoverFlowView: UIView, UICollectionViewDelegate {
                 
                 item.zIndex = -Int(position)
                 
-                print(item.indexPath.row, item.center.x, position, offset)
-                
                 item.center.x = calculatedCenterX + offset
             }
             date = now
             
             self.updateFocusedItem(idx: minDistanceIndex)
-            print(minDistance)
             scrollingUpdates.send(minDistance > 1e-3)
         }
         
@@ -170,7 +167,6 @@ class _CoverFlowView: UIView, UICollectionViewDelegate {
         
         scrollingUpdates
             .sink { [unowned self] isScrolling in
-                print("isScrolling", isScrolling)
                 if isScrolling {
                     onIsScrolling(true)
                 }
@@ -200,16 +196,13 @@ class _CoverFlowView: UIView, UICollectionViewDelegate {
     }
     
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        print("scrollViewDidScroll")
     }
     
     override func systemLayoutSizeFitting(_ targetSize: CGSize) -> CGSize {
-        print(#function)
         return super.systemLayoutSizeFitting(targetSize)
     }
     
     override func systemLayoutSizeFitting(_ targetSize: CGSize, withHorizontalFittingPriority horizontalFittingPriority: UILayoutPriority, verticalFittingPriority: UILayoutPriority) -> CGSize {
-        print(#function)
         return super.systemLayoutSizeFitting(targetSize, withHorizontalFittingPriority: horizontalFittingPriority, verticalFittingPriority: verticalFittingPriority)
     }
     
@@ -218,7 +211,6 @@ class _CoverFlowView: UIView, UICollectionViewDelegate {
     }
     
     func updateFocusedItem(idx: Int) {
-        print("selected", idx)
         if idx != selectedIdx {
             UISelectionFeedbackGenerator().selectionChanged()
             selectedIdx = idx
@@ -233,7 +225,6 @@ class _CoverFlowView: UIView, UICollectionViewDelegate {
     }
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        print(indexPath)
     }
     
     func scrollTo(_ id: String, animated: Bool) {

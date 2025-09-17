@@ -52,8 +52,8 @@ object LedgerManager : WalletCore.EventObserver {
             activeManager = null
         }
 
-    fun init(applicationContext: Context, context: Context) {
-        LedgerBleManager.init(context)
+    fun init(applicationContext: Context) {
+        LedgerBleManager.init(applicationContext)
         LedgerUsbManager.init(applicationContext)
         WalletCore.registerObserver(this)
     }
@@ -85,6 +85,12 @@ object LedgerManager : WalletCore.EventObserver {
                 })
             }
         }
+    }
+
+    fun stopConnection() {
+        activeManager?.stopConnection()
+        activeManager = null
+        onUpdate = null
     }
 
     suspend fun getWalletInfo(walletIndex: Int): MApiTonWallet? {

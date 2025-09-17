@@ -205,9 +205,9 @@ class StakingVC(
 
                 stakeInputView.getEquivalentLabel().setAmount(
                     inputState.amountInBaseCurrency ?: BigInteger.ZERO,
-                    WalletCore.baseCurrency?.decimalsCount ?: 9,
-                    WalletCore.baseCurrency?.sign ?: "",
-                    WalletCore.baseCurrency?.decimalsCount ?: 9,
+                    WalletCore.baseCurrency.decimalsCount,
+                    WalletCore.baseCurrency.sign,
+                    WalletCore.baseCurrency.decimalsCount,
                     true
                 )
             } else {
@@ -216,7 +216,7 @@ class StakingVC(
                         stakeInputView.amountEditText.setText(
                             CoinUtils.toDecimalString(
                                 inputState.amountInBaseCurrency ?: BigInteger.ZERO,
-                                WalletCore.baseCurrency?.decimalsCount ?: 2
+                                WalletCore.baseCurrency.decimalsCount
                             )
                         )
                         stakeInputView.amountEditText.setSelection(
@@ -227,9 +227,7 @@ class StakingVC(
                     }
 
                     stakeInputView.setShowingBaseCurrency(true)
-                    WalletCore.baseCurrency?.sign?.let {
-                        stakeInputView.amountEditText.setBaseCurrencySymbol(it)
-                    }
+                    stakeInputView.amountEditText.setBaseCurrencySymbol(WalletCore.baseCurrency.sign)
                     stakingViewModel.isInputListenerLocked = false
                 }
 
@@ -390,9 +388,9 @@ class StakingVC(
                         maxBalance,
                         stakingViewModel.currentToken.decimals,
                         stakingViewModel.tokenPrice,
-                        WalletCore.baseCurrency?.decimalsCount
+                        WalletCore.baseCurrency.decimalsCount
                     ),
-                    WalletCore.baseCurrency?.decimalsCount ?: 2
+                    WalletCore.baseCurrency.decimalsCount
                 )
             }
         stakeInputView.amountEditText.setText(maxBalanceStr)

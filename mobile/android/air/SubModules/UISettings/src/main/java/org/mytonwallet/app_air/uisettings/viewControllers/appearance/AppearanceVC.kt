@@ -47,7 +47,7 @@ class AppearanceVC(context: Context) : WViewController(context) {
             SettingsItem(
                 identifier = SettingsItem.Identifier.SWITCH_TO_LEGACY,
                 icon = R.drawable.ic_legacy,
-                title = LocaleController.getString("Switch to Classic Version"),
+                title = LocaleController.getString("Switch to Legacy Version"),
                 hasTintColor = false
             ),
             value = null,

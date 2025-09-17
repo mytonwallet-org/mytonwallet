@@ -8,6 +8,9 @@
 import Foundation
 import UIKit
 
+public let TON_CHAIN = "ton"
+public let TRON_CHAIN = "tron"
+
 public let TONCOIN_SLUG = "toncoin"
 public let TON_USDT_SLUG = "ton-eqcxe6mutq"
 public let TRX_SLUG = "trx"

@@ -42,7 +42,7 @@ import Explore from '../../../explore/Explore';
 import TabList from '../../../ui/TabList';
 import Transition from '../../../ui/Transition';
 import HideNftModal from '../../modals/HideNftModal';
-import Activity from './Activities';
+import Activities from './Activities';
 import Assets from './Assets';
 import NftCollectionHeader from './NftCollectionHeader';
 import Nfts from './Nfts';
@@ -409,7 +409,7 @@ function Content({
     // so we fall back to next tab to not break parent's component logic.
     if (activeTabIndex === 0 && shouldShowSeparateAssetsPanel && !currentCollectionAddress) {
       return (
-        <Activity
+        <Activities
           isActive={isActive}
           totalTokensAmount={totalTokensAmount}
           onScroll={isLandscape ? handleContentScroll : undefined}
@@ -443,7 +443,7 @@ function Content({
         );
       case ContentTab.Activity:
         return (
-          <Activity
+          <Activities
             isActive={isActive}
             totalTokensAmount={totalTokensAmount}
             onScroll={isLandscape ? handleContentScroll : undefined}

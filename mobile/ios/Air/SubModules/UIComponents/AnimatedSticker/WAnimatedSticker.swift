@@ -82,3 +82,34 @@ public class WAnimatedSticker: UIView {
 }
 
 
+public struct WUIAnimatedSticker: UIViewRepresentable {
+    
+    var name: String
+    var size: CGFloat
+    var loop: Bool
+    
+    public init(_ name: String, size: CGFloat, loop: Bool) {
+        self.name = name
+        self.size = size
+        self.loop = loop
+    }
+    
+    public func makeUIView(context: Context) -> WAnimatedSticker {
+        let sticker = WAnimatedSticker()
+        sticker.animationName = name
+        sticker.setup(width: Int(size), height: Int(size), playbackMode: loop ? .loop : .once)
+        return sticker
+    }
+    
+    public func updateUIView(_ sticker: WAnimatedSticker, context: Context) {
+    }
+    
+    public func sizeThatFits(_ proposal: ProposedViewSize, uiView: WAnimatedSticker, context: Context) -> CGSize? {
+        CGSize(width: size, height: size)
+    }
+}
+
+
+#Preview {
+    WUIAnimatedSticker("animation_congrats", size: 144, loop: true)
+}

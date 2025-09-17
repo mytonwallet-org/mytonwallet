@@ -1,16 +1,14 @@
-import type { ApiBaseCurrency, ApiChain, ApiTokenDetails, ApiTokenWithPrice, OnApiUpdate } from '../types';
+import type { ApiChain, ApiTokenDetails, ApiTokenWithPrice, OnApiUpdate } from '../types';
 
-import { DEFAULT_PRICE_CURRENCY, TOKEN_INFO } from '../../config';
+import { TOKEN_INFO } from '../../config';
 import Deferred from '../../util/Deferred';
 import { buildCollectionByKey, omitUndefined } from '../../util/iteratees';
 import { tokenRepository } from '../db';
 
 export const tokensPreload = new Deferred();
 const tokensCache: {
-  baseCurrency: ApiBaseCurrency;
   bySlug: Record<string, ApiTokenWithPrice>;
 } = {
-  baseCurrency: DEFAULT_PRICE_CURRENCY,
   bySlug: { ...TOKEN_INFO },
 };
 
@@ -27,7 +25,6 @@ export async function updateTokens(
   tokens: ApiTokenWithPrice[],
   onUpdate?: OnApiUpdate,
   tokenDetails?: ApiTokenDetails[],
-  baseCurrency?: ApiBaseCurrency,
   shouldSendUpdate?: boolean,
 ) {
   const tokensForDb: ApiTokenWithPrice[] = [];
@@ -57,10 +54,6 @@ export async function updateTokens(
     }
   }
 
-  if (baseCurrency) {
-    tokensCache.baseCurrency = baseCurrency;
-  }
-
   await tokenRepository.bulkPut(tokensForDb);
 
   if (shouldSendUpdate && onUpdate) {
@@ -78,7 +71,6 @@ function mergeTokenWithCache(
     return {
       ...omitUndefined(token.isFromBackend ? cachedToken : token),
       ...omitUndefined(token.isFromBackend ? token : cachedToken),
-      price: token.price || cachedToken.price,
       priceUsd: token.priceUsd || cachedToken.priceUsd,
       percentChange24h: token.percentChange24h || cachedToken.percentChange24h,
     };
@@ -96,19 +88,19 @@ export function getTokensCache() {
   return tokensCache;
 }
 
-export function getTokenBySlug(slug: string) {
+/** Note that this function may return `undefined` if the token is not found (e.g. pTON) */
+export function getTokenBySlug(slug: string): ApiTokenWithPrice | undefined {
   return tokensCache.bySlug[slug];
 }
 
 export function getTokenByAddress(tokenAddress: string) {
-  return getTokenBySlug(buildTokenSlug('ton', tokenAddress));
+  return getTokenBySlug(buildTokenSlug('ton', tokenAddress))!;
 }
 
 export function sendUpdateTokens(onUpdate: OnApiUpdate) {
   onUpdate({
     type: 'updateTokens',
     tokens: tokensCache.bySlug,
-    baseCurrency: tokensCache.baseCurrency,
   });
 }
 

@@ -1,22 +1,29 @@
 package org.mytonwallet.app_air.airasframework.splash
 
 import WNavigationController
+import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Canvas
 import android.graphics.Color
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.view.View
+import android.view.ViewGroup
+import android.widget.ImageView
+import androidx.core.graphics.createBitmap
 import androidx.core.net.toUri
 import org.mytonwallet.app_air.airasframework.AirAsFrameworkApplication
 import org.mytonwallet.app_air.airasframework.MainWindow
 import org.mytonwallet.app_air.sqscan.screen.QrScannerDialog
 import org.mytonwallet.app_air.uiassets.viewControllers.token.TokenVC
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.base.executeWithLowPriority
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
+import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.addAccountOptions.AddAccountOptionsVC
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.intro.IntroVC
@@ -54,7 +61,6 @@ import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.api.removeAccount
 import org.mytonwallet.app_air.walletcore.api.resetAccounts
 import org.mytonwallet.app_air.walletcore.api.swapGetAssets
-import org.mytonwallet.app_air.walletcore.api.tryUpdatePrices
 import org.mytonwallet.app_air.walletcore.deeplink.Deeplink
 import org.mytonwallet.app_air.walletcore.deeplink.DeeplinkNavigator
 import org.mytonwallet.app_air.walletcore.deeplink.DeeplinkParser
@@ -210,7 +216,6 @@ class SplashVC(context: Context) : WViewController(context),
                 }
             } else {
                 // Everything is fine, let's go!
-                WalletCore.tryUpdatePrices()
                 WalletCore.swapGetAssets(true)
                 if (preloadedScreen == null)
                     presentTabsAndLockScreen(WGlobalStorage.isPasscodeSet())
@@ -291,8 +296,10 @@ class SplashVC(context: Context) : WViewController(context),
     }
 
     override fun themeChanged() {
-        AirAsFrameworkApplication.initTheme(window!!.applicationContext)
-        window?.updateTheme()
+        animateThemeChange {
+            AirAsFrameworkApplication.initTheme(window!!.applicationContext)
+            window?.updateTheme()
+        }
     }
 
     override fun protectedModeChanged() {
@@ -712,5 +719,37 @@ class SplashVC(context: Context) : WViewController(context),
             WCacheStorage.clean(removingAccountId)
             onCompletion()
         }
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun animateThemeChange(onThemeChanged: () -> Unit) {
+        window?.let { window ->
+            val rootView = window.windowView
+
+            val bitmap = createBitmap(rootView.width, rootView.height)
+            val canvas = Canvas(bitmap)
+            rootView.draw(canvas)
+
+            val snapshotView = ImageView(context).apply {
+                id = View.generateViewId()
+                setImageBitmap(bitmap)
+                scaleType = ImageView.ScaleType.FIT_XY
+                setOnTouchListener { _, _ -> true }
+            }
+
+            rootView.addView(
+                snapshotView, ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+            )
+
+            onThemeChanged()
+
+            snapshotView.fadeOut(duration = AnimationConstants.VERY_VERY_QUICK_ANIMATION) {
+                rootView.removeView(snapshotView)
+                bitmap.recycle()
+            }
+        } ?: onThemeChanged()
     }
 }

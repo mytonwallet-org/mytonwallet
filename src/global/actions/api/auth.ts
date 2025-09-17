@@ -966,15 +966,15 @@ addActionHandler('copyStorageData', async (global, actions) => {
   }
 });
 
-addActionHandler('importAccountByVersion', async (global, actions, { version }) => {
+addActionHandler('importAccountByVersion', async (global, actions, { version, isTestnetSubwalletId }) => {
   if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('importAccountByVersion', { version });
+    callActionInMain('importAccountByVersion', { version, isTestnetSubwalletId });
     return;
   }
 
   const accountId = global.currentAccountId!;
 
-  const wallet = (await callApi('importNewWalletVersion', accountId, version))!;
+  const wallet = (await callApi('importNewWalletVersion', accountId, version, isTestnetSubwalletId))!;
   global = getGlobal();
 
   if (!wallet.isNew) {

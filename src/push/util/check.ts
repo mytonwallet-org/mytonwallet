@@ -1,14 +1,16 @@
+import { Address } from '@ton/core';
+
 import type { ApiCheck } from '../types';
 
-import { DEBUG } from '../../config';
 import { PUSH_API_URL, PUSH_SC_VERSIONS } from '../config';
 import { signCustomData } from '../../util/authApi/telegram';
 import { fromDecimal } from '../../util/decimals';
 import { fetchJson } from '../../util/fetch';
+import { getTranslation } from '../../util/langProvider';
 import { getTelegramApp } from '../../util/telegram';
 import { getWalletBalance, resolveTokenWalletAddress } from '../../api/chains/ton';
 import { buildNftTransferPayload } from '../../api/chains/ton/nfts';
-import { buildTokenTransferBody, getTokenBalance } from '../../api/chains/ton/util/tonCore';
+import { buildTokenTransferBody, getTokenBalance, getTonClient } from '../../api/chains/ton/util/tonCore';
 import { calcAddressHashBase64, calcAddressHead, calcAddressSha256HeadBase64, cashCheck } from './push';
 import { tonConnectUi } from './tonConnect';
 
@@ -21,6 +23,8 @@ const JETTON_FULL_FEE = Fees.JETTON_CREATE_GAS + Fees.JETTON_CASH_GAS + Fees.JET
 // eslint-disable-next-line @stylistic/max-len
 const TINY_JETTON_FULL_FEE = Fees.JETTON_CREATE_GAS + Fees.JETTON_CASH_GAS + Fees.TINY_JETTON_TRANSFER + Fees.TON_TRANSFER;
 const NFT_FULL_FEE = NftFees.NFT_CREATE_GAS + NftFees.NFT_CASH_GAS + NftFees.NFT_TRANSFER + Fees.TON_TRANSFER;
+
+const ANONYMOUS_NUMBER_COLLECTION = '0:0e41dc1dc3c9067ed24248580e12b3359818d83dee0304fabcf80845eafafdb2';
 
 export async function fetchAccountBalance(ownerAddress: string, tokenAddress?: string) {
   if (!tokenAddress) {
@@ -40,86 +44,94 @@ export async function fetchCheck(checkKey: string) {
 }
 
 export async function processCreateCheck(check: ApiCheck, onSend: NoneToVoidFunction) {
-  try {
-    const userAddress = tonConnectUi.wallet!.account.address;
-    const { id: checkId, type, contractAddress, username, comment } = check;
+  const userAddress = tonConnectUi.wallet!.account.address;
+  const { id: checkId, type, contractAddress, username, comment } = check;
 
-    const isJettonTransfer = type === 'coin' && Boolean(check.minterAddress);
-    const isNftTransfer = type === 'nft';
+  const isJettonTransfer = type === 'coin' && Boolean(check.minterAddress);
+  const isNftTransfer = type === 'nft';
 
-    const amount = check.type === 'coin' ? fromDecimal(check.amount, check.decimals) : 0n;
-    const chatInstance = !username ? getTelegramApp()!.initDataUnsafe.chat_instance! : undefined;
-    const params = { checkId, amount, username, chatInstance, comment };
-    const payload = isJettonTransfer
-      ? PushEscrowV3.prepareCreateJettonCheckForwardPayload(params)
-      : isNftTransfer
-        ? PushNftEscrow.prepareCreateCheck(params)
-        : PushEscrowV3.prepareCreateCheck(params);
+  const amount = check.type === 'coin' ? fromDecimal(check.amount, check.decimals) : 0n;
+  const chatInstance = !username ? getTelegramApp()!.initDataUnsafe.chat_instance! : undefined;
+  const params = { checkId, amount, username, chatInstance, comment };
+  const payload = isJettonTransfer
+    ? PushEscrowV3.prepareCreateJettonCheckForwardPayload(params)
+    : isNftTransfer
+      ? PushNftEscrow.prepareCreateCheck(params)
+      : PushEscrowV3.prepareCreateCheck(params);
 
-    let message;
+  let message;
 
-    if (isJettonTransfer) {
-      const jettonWalletAddress = await resolveTokenWalletAddress('mainnet', userAddress, check.minterAddress!);
-      if (!jettonWalletAddress) {
-        throw new Error('Could not resolve jetton wallet address');
-      }
-
-      const isTinyJetton = TINY_JETTONS.includes(check.minterAddress!);
-      const messageAmount = String(
-        isTinyJetton
-          ? Fees.TINY_JETTON_TRANSFER + TINY_JETTON_FULL_FEE
-          : Fees.JETTON_TRANSFER + JETTON_FULL_FEE,
-      );
-
-      message = {
-        address: jettonWalletAddress,
-        amount: messageAmount,
-        payload: buildTokenTransferBody({
-          tokenAmount: amount,
-          toAddress: contractAddress,
-          responseAddress: userAddress,
-          forwardAmount: isTinyJetton ? TINY_JETTON_FULL_FEE : JETTON_FULL_FEE,
-          forwardPayload: payload,
-        }).toBoc().toString('base64'),
-      };
-    } else if (isNftTransfer) {
-      const { nftInfo } = check;
-      const messageAmount = String(NFT_FULL_FEE + NftFees.NFT_TRANSFER);
-
-      message = {
-        address: nftInfo.address,
-        amount: messageAmount,
-        payload: buildNftTransferPayload(
-          userAddress,
-          contractAddress,
-          payload,
-          NFT_FULL_FEE,
-        ).toBoc().toString('base64'),
-      };
-    } else {
-      const messageAmount = String(amount + TON_FULL_FEE);
-
-      message = {
-        address: contractAddress,
-        amount: messageAmount,
-        payload: payload.toBoc().toString('base64'),
-      };
+  if (isJettonTransfer) {
+    const jettonWalletAddress = await resolveTokenWalletAddress('mainnet', userAddress, check.minterAddress!);
+    if (!jettonWalletAddress) {
+      throw new Error('Could not resolve jetton wallet address');
     }
 
-    await tonConnectUi.sendTransaction({
-      validUntil: Math.floor(Date.now() / 1000) + 360,
-      messages: [message],
-    });
+    const isTinyJetton = TINY_JETTONS.includes(check.minterAddress!);
+    const messageAmount = String(
+      isTinyJetton
+        ? Fees.TINY_JETTON_TRANSFER + TINY_JETTON_FULL_FEE
+        : Fees.JETTON_TRANSFER + JETTON_FULL_FEE,
+    );
 
-    onSend();
+    message = {
+      address: jettonWalletAddress,
+      amount: messageAmount,
+      payload: buildTokenTransferBody({
+        tokenAmount: amount,
+        toAddress: contractAddress,
+        responseAddress: userAddress,
+        forwardAmount: isTinyJetton ? TINY_JETTON_FULL_FEE : JETTON_FULL_FEE,
+        forwardPayload: payload,
+      }).toBoc().toString('base64'),
+    };
+  } else if (isNftTransfer) {
+    const { nftInfo } = check;
 
-    await fetch(`${PUSH_API_URL}/checks/${check.id}/mark_sending`, { method: 'POST' });
-  } catch (err) {
-    if (DEBUG) {
-      // eslint-disable-next-line no-console
-      console.error('Failed to sign transaction', err);
+    if (
+      (nftInfo.isTelegramGift || nftInfo.collectionAddress === ANONYMOUS_NUMBER_COLLECTION)
+      && await isOnSaleOnFragment(nftInfo.address)) {
+      throw new Error(getTranslation('Before transferring this NFT, please remove it from sale on Fragment.'));
     }
+
+    const messageAmount = String(NFT_FULL_FEE + NftFees.NFT_TRANSFER);
+
+    message = {
+      address: nftInfo.address,
+      amount: messageAmount,
+      payload: buildNftTransferPayload(
+        userAddress,
+        contractAddress,
+        payload,
+        NFT_FULL_FEE,
+      ).toBoc().toString('base64'),
+    };
+  } else {
+    const messageAmount = String(amount + TON_FULL_FEE);
+
+    message = {
+      address: contractAddress,
+      amount: messageAmount,
+      payload: payload.toBoc().toString('base64'),
+    };
   }
+
+  await tonConnectUi.sendTransaction({
+    validUntil: Math.floor(Date.now() / 1000) + 360,
+    messages: [message],
+  });
+
+  onSend();
+
+  await fetch(`${PUSH_API_URL}/checks/${check.id}/mark_sending`, { method: 'POST' });
+}
+
+async function isOnSaleOnFragment(giftAddress: string) {
+  const { stack } = await getTonClient().runMethod(
+    Address.parse(giftAddress), 'get_telemint_auction_config',
+  );
+
+  return Boolean(stack.readAddressOpt());
 }
 
 export async function processToggleInvoice(check: ApiCheck, onSend: NoneToVoidFunction) {

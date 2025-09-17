@@ -6,7 +6,7 @@ import { getActions, withGlobal } from '../../global';
 import type { ApiBaseCurrency, ApiNft } from '../../api/types';
 import { SettingsState, type UserToken } from '../../global/types';
 
-import { CURRENCIES, DEFAULT_PRICE_CURRENCY, TINY_TRANSFER_MAX_COST } from '../../config';
+import { CURRENCIES, TINY_TRANSFER_MAX_COST } from '../../config';
 import {
   selectCurrentAccountSettings,
   selectCurrentAccountState,
@@ -42,7 +42,7 @@ interface StateProps {
   areTinyTransfersHidden?: boolean;
   areTokensWithNoCostHidden?: boolean;
   isSensitiveDataHidden?: true;
-  baseCurrency?: ApiBaseCurrency;
+  baseCurrency: ApiBaseCurrency;
   isMultichainAccount: boolean;
   tokens?: UserToken[];
   orderedSlugs?: string[];
@@ -165,7 +165,7 @@ function SettingsAssets({
           <Dropdown
             label={lang('Base Currency')}
             items={currencyItems}
-            selectedValue={baseCurrency ?? DEFAULT_PRICE_CURRENCY}
+            selectedValue={baseCurrency}
             theme="light"
             shouldTranslateOptions
             className={buildClassName(styles.item, styles.item_small)}

@@ -169,7 +169,7 @@ export function buildTokenTransferBody(params: TokenTransferBodyParams) {
 
   let builder = new Builder()
     .storeUint(JettonOpCode.Transfer, 32)
-    .storeUint(queryId || generateQueryId(), 64)
+    .storeUint(queryId ?? generateQueryId(), 64)
     .storeCoins(tokenAmount)
     .storeAddress(Address.parse(toAddress))
     .storeAddress(Address.parse(responseAddress))

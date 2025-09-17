@@ -1,34 +1,45 @@
 import { useMemo } from '../../../lib/teact/teact';
 
-import type { ApiStakingState } from '../../../api/types';
+import type { ApiBaseCurrency, ApiCurrencyRates, ApiStakingState, ApiTokenWithPrice } from '../../../api/types';
 import type { AmountInputToken } from '../../ui/AmountInput';
 
+import { calculateTokenPrice } from '../../../util/calculatePrice';
 import { getIsActiveStakingState } from '../../../util/staking';
 
 interface Options {
-  tokenBySlug?: Record<string, AmountInputToken>;
+  tokenBySlug?: Record<string, ApiTokenWithPrice>;
   states?: ApiStakingState[];
   shouldUseNominators?: boolean;
   selectedStakingId?: string;
   isViewMode?: boolean;
+  baseCurrency: ApiBaseCurrency;
+  currencyRates: ApiCurrencyRates;
 }
 
 export function useTokenDropdown({
   tokenBySlug, states, shouldUseNominators, selectedStakingId, isViewMode,
+  baseCurrency, currencyRates,
 }: Options) {
-  const selectableTokens = useMemo(() => {
+  const selectableTokens = useMemo<AmountInputToken[]>(() => {
     if (!tokenBySlug || !states) {
       return [];
     }
 
-    let tokens = getStakingTokens(tokenBySlug, states, shouldUseNominators);
+    let stakingTokens = getStakingTokens(tokenBySlug, states, shouldUseNominators);
 
     if (isViewMode) {
-      tokens = tokens.filter(({ id }) => id === selectedStakingId);
+      stakingTokens = stakingTokens.filter(({ id }) => id === selectedStakingId);
     }
 
-    return tokens;
-  }, [tokenBySlug, states, shouldUseNominators, isViewMode, selectedStakingId]);
+    const result = stakingTokens.map((token) => ({
+      ...token,
+      price: calculateTokenPrice(token.priceUsd, baseCurrency, currencyRates),
+    }));
+
+    return result;
+  }, [
+    tokenBySlug, states, shouldUseNominators, isViewMode, selectedStakingId, baseCurrency, currencyRates,
+  ]);
 
   const selectedToken = useMemo(
     () => selectableTokens.find((token) => token.id === selectedStakingId),
@@ -39,7 +50,7 @@ export function useTokenDropdown({
 }
 
 function getStakingTokens(
-  tokenBySlug: Record<string, AmountInputToken>,
+  tokenBySlug: Record<string, ApiTokenWithPrice>,
   states: ApiStakingState[],
   shouldUseNominators?: boolean,
 ) {
@@ -56,7 +67,7 @@ function getStakingTokens(
 
   return states
     .filter((state) => tokenBySlug[state.tokenSlug])
-    .map<AmountInputToken>((state) => ({
+    .map<ApiTokenWithPrice & { id: string }>((state) => ({
       ...tokenBySlug[state.tokenSlug],
       id: state.id,
     }));

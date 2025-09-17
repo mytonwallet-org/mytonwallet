@@ -110,7 +110,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
     val fieldMaximumFraction: Int
         get() {
             return if (switchedToBaseCurrencyInput)
-                (min(5, WalletCore.baseCurrency?.decimalsCount ?: 2))
+                min(5, WalletCore.baseCurrency.decimalsCount)
             else
                 (TokenStore.getToken(inputStateValue().tokenToStake?.slug)?.decimals ?: 9)
         }
@@ -140,7 +140,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
                 inputAmount.toString(),
                 currentToken.decimals,
                 tokenPrice,
-                WalletCore.baseCurrency?.decimalsCount
+                WalletCore.baseCurrency.decimalsCount
             )
         } else {
             amountInCrypto =
@@ -148,11 +148,11 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
                     inputAmount.toString(),
                     currentToken.decimals,
                     tokenPrice,
-                    WalletCore.baseCurrency?.decimalsCount
+                    WalletCore.baseCurrency.decimalsCount
                 )
             amountInBaseCurrency = CoinUtils.fromDecimal(
                 inputAmount?.toString(),
-                WalletCore.baseCurrency?.decimalsCount ?: 2
+                WalletCore.baseCurrency.decimalsCount
             )
         }
         _inputStateFlow.tryEmit(
@@ -275,7 +275,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
 
         val estimatedEarningsSymbol =
             if (inputStateValue().isInputCurrencyCrypto) currentToken.symbol
-            else WalletCore.baseCurrency?.sign ?: ""
+            else WalletCore.baseCurrency.sign
 
         val estimatedEarningStr =
             if (estimatedEarning == BigInteger.ZERO) "0"
@@ -294,9 +294,9 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
                                 estimatedEarning,
                                 currentToken.decimals,
                                 tokenPrice,
-                                WalletCore.baseCurrency?.decimalsCount
+                                WalletCore.baseCurrency.decimalsCount
                             ),
-                            WalletCore.baseCurrency?.decimalsCount ?: 2
+                            WalletCore.baseCurrency.decimalsCount
                         )
                     }"
                 }

@@ -9,8 +9,6 @@ export * from './nfts';
 export * from './domains';
 export {
   initPolling,
-  tryUpdateTokens,
-  tryUpdateSwapTokens,
 } from './polling';
 export * from './accounts';
 export * from './staking';

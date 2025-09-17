@@ -74,6 +74,7 @@ public struct DeviceInfo: Encodable {
 public enum ReturnStrategy: Equatable, Hashable, Codable {
     case none
     case back
+    case empty
     case url(String)
     
     init(string ret: String) {
@@ -82,8 +83,10 @@ public enum ReturnStrategy: Equatable, Hashable, Codable {
             self = .back
         case "none":
             self = .none
+        case "empty":
+            self = .empty
         default:
-            self = .url(ret)
+            self = .url(ret.removingPercentEncoding ?? ret)
         }
     }
     
@@ -100,6 +103,8 @@ public enum ReturnStrategy: Equatable, Hashable, Codable {
             try container.encode("none")
         case .back:
             try container.encode("back")
+        case .empty:
+            try container.encode("empty")
         case .url(let url):
             try container.encode(url)
         }

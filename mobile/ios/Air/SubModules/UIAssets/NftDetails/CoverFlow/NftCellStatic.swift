@@ -24,8 +24,6 @@ class NftCellStatic: UICollectionViewCell {
     }
     
     func setup() {
-        print("setup")
-        
         layer.cornerRadius = 12
         layer.cornerCurve = .continuous
         clipsToBounds = true

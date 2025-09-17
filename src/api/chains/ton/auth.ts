@@ -113,7 +113,7 @@ export async function getWalletFromKeys(
   let wallet: TonWallet;
   let lastTxId: string | undefined;
   if (version) {
-    wallet = buildWallet(publicKey, version);
+    wallet = buildWallet(publicKey, version, network === 'testnet');
   } else {
     ({ wallet, version, lastTxId } = await pickBestWallet(network, publicKey));
   }
@@ -140,13 +140,15 @@ export function getOtherVersionWallet(
   network: ApiNetwork,
   wallet: ApiTonWallet,
   otherVersion: ApiTonWalletVersion,
+  isTestnetSubwalletId?: boolean,
 ): ApiTonWallet {
   if (!wallet.publicKey) {
     throw new Error('The wallet has no public key');
   }
 
   const publicKey = hexToBytes(wallet.publicKey);
-  const newAddress = publicKeyToAddress(network, publicKey, otherVersion);
+  const newAddress = publicKeyToAddress(network, publicKey, otherVersion, isTestnetSubwalletId);
+
   return {
     address: newAddress,
     publicKey: wallet.publicKey,

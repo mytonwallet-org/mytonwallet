@@ -74,6 +74,7 @@ async function processNftImage(url: string, quality: number, colorCount: number)
 
 const api = {
   'offscreen-canvas:processNftImage': processNftImage,
+  'offscreen-canvas:extractPaletteFromImage': extractPaletteFromImage,
 };
 
 createPostMessageInterface(api);

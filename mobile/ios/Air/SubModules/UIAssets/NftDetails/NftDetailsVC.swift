@@ -203,7 +203,6 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
     
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
         let offset = scrollView.contentOffset.y + scrollView.adjustedContentInset.top
-        print("scrollViewDidScroll: contentOffset.y=\(scrollView.contentOffset.y) offset=\(offset)")
         viewModel.y = offset
         
         switch viewModel.state {
@@ -245,7 +244,6 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
             }
         }
         if let reportedHeight, let scrollContentHeightConstraint {
-            print("updating height -> \(reportedHeight) currentHostingHeight=\(hostingController?.view.bounds.height ?? 0) scrollContetnHeight=\(scrollView.contentSize.height)")
             self.reportedHeight = nil
             UIView.performWithoutAnimation {
                 scrollContentHeightConstraint.constant = reportedHeight
@@ -259,7 +257,6 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
         let topInset = scrollView.adjustedContentInset.top
         let targetY = targetContentOffset.pointee.y + topInset
         let top = CGPoint(x: 0, y: -topInset)
-        print("scrollViewWillEndDragging: offset=\(targetContentOffset.pointee.y) targetY=\(targetY)")
         if scrollToTopOnRelease {
             self.scrollToTopOnRelease = false
             targetContentOffset.pointee = top

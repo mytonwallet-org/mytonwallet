@@ -1,6 +1,10 @@
 // GPU-Accelerated Particle System Library
 
+import { COLOR_COUNT, QUALITY } from '../../util/accentColor/constants';
 import generateUniqueId from '../../util/generateUniqueId';
+import { getCachedImageUrl } from '../../util/getCachedImageUrl';
+import { requestMediaWorker } from '../../util/launchMediaWorkers';
+import { logDebugError } from '../../util/logs';
 
 import { getIsInBackground } from '../../hooks/useBackgroundMode';
 
@@ -116,6 +120,27 @@ export const PARTICLE_COLORS = {
   TON: [0, 152 / 255, 234 / 255] as [number, number, number], // #0098EA
   USDT: [0, 147 / 255, 147 / 255] as [number, number, number], // #009393
   MY: [64 / 255, 122 / 255, 207 / 255] as [number, number, number], // #407ACF
+  DEFAULT: [0.6, 0.6, 0.6] as [number, number, number], // #999999
+};
+
+export const PARTICLE_PARAMS: Partial<ParticleConfig> = {
+  width: 350,
+  height: 230,
+  particleCount: 35,
+  centerShift: [0, 32] as const,
+  distanceLimit: 0.45,
+};
+
+export const PARTICLE_BURST_PARAMS: Partial<ParticleConfig> = {
+  particleCount: 90,
+  distanceLimit: 1,
+  fadeInTime: 0.05,
+  minLifetime: 3,
+  maxLifetime: 3,
+  maxStartTimeDelay: 0,
+  selfDestroyTime: 3,
+  minSpawnRadius: 35,
+  maxSpawnRadius: 50,
 };
 
 const SIZE_SMALL = 0.67;
@@ -123,6 +148,36 @@ const SIZE_MEDIUM = 1.33;
 const SIZE_LARGE = 2.0;
 
 const canvasManagers = new Map<HTMLCanvasElement, ParticleSystemManager>();
+
+export async function getAccentColorFromImage(imageUrl: string) {
+  let bitmap: ImageBitmap | undefined;
+  let blobUrl: string | undefined;
+
+  try {
+    blobUrl = await getCachedImageUrl(imageUrl);
+    const response = await fetch(blobUrl);
+    const blob = await response.blob();
+    bitmap = await createImageBitmap(blob);
+
+    const rgb = await requestMediaWorker({
+      name: 'offscreen-canvas:extractPaletteFromImage',
+      args: [bitmap, QUALITY, COLOR_COUNT],
+    }, 0);
+    if (!rgb || rgb.length === 0) return undefined;
+
+    return rgb[0].map((val: number) => val / 255) as [number, number, number];
+  } catch (error) {
+    logDebugError('getAccentColorFromImage', error);
+    return undefined;
+  } finally {
+    if (bitmap) {
+      bitmap.close();
+    }
+    if (blobUrl) {
+      URL.revokeObjectURL(blobUrl);
+    }
+  }
+}
 
 export function setupParticles(
   canvas: HTMLCanvasElement,

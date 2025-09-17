@@ -55,7 +55,14 @@ class WMenuPopupView(
 
         var totalHeight = 0
         items.forEachIndexed { index, item ->
-            val itemContentHeight = if (item.getSubTitle().isNullOrEmpty()) 48.dp else 56.dp
+            val itemContentHeight =
+                if (item.config == Config.Back)
+                    44.dp
+                else
+                    if (item.getSubTitle().isNullOrEmpty())
+                        48.dp
+                    else
+                        56.dp
             val itemHeight = itemContentHeight + if (item.hasSeparator) 7.dp else 0
             itemHeights[index] = itemHeight
             itemYPositions[index] = totalHeight

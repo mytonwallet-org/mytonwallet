@@ -1,6 +1,6 @@
 import React, { memo } from '../../lib/teact/teact';
 
-import type { ApiBaseCurrency, ApiTokenWithPrice } from '../../api/types';
+import type { ApiBaseCurrency, ApiCurrencyRates, ApiTokenWithPrice } from '../../api/types';
 
 import { UNKNOWN_TOKEN } from '../../config';
 import { bigintAbs } from '../../util/bigint';
@@ -14,14 +14,15 @@ import styles from './TransactionAmount.module.scss';
 
 interface OwnProps {
   amount: bigint;
-  token?: Pick<ApiTokenWithPrice, 'decimals' | 'symbol' | 'price'>;
+  token?: Pick<ApiTokenWithPrice, 'decimals' | 'symbol' | 'priceUsd'>;
   isIncoming?: boolean;
   isScam?: boolean;
   isFailed?: boolean;
   status?: string;
   noSign?: boolean;
   isSensitiveDataHidden?: true;
-  baseCurrency?: ApiBaseCurrency;
+  baseCurrency: ApiBaseCurrency;
+  currencyRates: ApiCurrencyRates;
 }
 
 function TransactionAmount({
@@ -34,6 +35,7 @@ function TransactionAmount({
   noSign = false,
   isSensitiveDataHidden,
   baseCurrency,
+  currencyRates,
 }: OwnProps) {
   const typeClass = isFailed || isScam
     ? styles.operationNegative
@@ -91,7 +93,7 @@ function TransactionAmount({
         className={styles.baseCurrencyAmountSensitiveData}
         contentClassName={buildClassName(styles.baseCurrencyAmount, 'rounded-font', typeClass)}
       >
-        {formatBaseCurrencyAmount(amount, baseCurrency, token)}
+        {formatBaseCurrencyAmount(amount, baseCurrency, token, currencyRates)}
       </SensitiveData>
     );
   }

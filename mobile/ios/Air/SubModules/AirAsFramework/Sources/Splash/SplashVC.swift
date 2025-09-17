@@ -137,7 +137,7 @@ extension SplashVC: SplashVMDelegate {
     
     func navigateToIntro() {
         afterUnlock { [weak self] in
-            self?.replaceVC(with: IntroVC(), animationDuration: 0.5)
+            self?.replaceVC(with: IntroVC(introModel: IntroModel(password: nil)), animationDuration: 0.5)
         }
     }
 
@@ -209,30 +209,27 @@ extension SplashVC: WalletContextDelegate {
     }
 
     func addAnotherAccount(wordList: [String], passedPasscode: String?) -> UIViewController {
-        return WalletCreatedVC(wordList: wordList,
-                               passedPasscode: passedPasscode)
+        let introModel = IntroModel(password: passedPasscode, words: wordList)
+        return WordDisplayVC(introModel: introModel, wordList: wordList)
     }
     
     func importAnotherAccount(passedPasscode: String?, isLedger: Bool) async -> UIViewController {
         if isLedger {
+            let introModel = IntroModel(password: passedPasscode)
             let model = await LedgerAddAccountModel()
             let vc = LedgerAddAccountVC(model: model, showBackButton: false)
-            vc.onDone = { vc in
-                let success = ImportSuccessVC(didImport: true, wordsToImport: nil)
-                if let nc = vc.navigationController {
-                    nc.pushViewController(success, animated: true, completion: {
-                        nc.viewControllers = [success]
-                    })
-                }
+            vc.onDone = { _ in
+                introModel.onDone(successKind: .imported)
             }
             return vc
         } else {
-            return ImportWalletVC(passedPasscode: passedPasscode)
+            let introModel = IntroModel(password: passedPasscode)
+            return ImportWalletVC(introModel: introModel)
         }
     }
     
     func viewAnyAddress() -> UIViewController {
-        AddViewWalletVC()
+        AddViewWalletVC(introModel: IntroModel(password: nil))
     }
     
     func handleDeeplink(url: URL) -> Bool {

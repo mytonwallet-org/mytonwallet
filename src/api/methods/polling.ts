@@ -5,6 +5,7 @@ import type {
   ApiActivityTimestamps,
   ApiBackendConfig,
   ApiChain,
+  ApiCurrencyRates,
   ApiNetwork,
   ApiSwapAsset,
   ApiTokenDetails,
@@ -32,7 +33,6 @@ import { tryUpdateKnownAddresses } from '../common/addresses';
 import { callBackendGet, callBackendPost } from '../common/backend';
 import { setBackendConfigCache } from '../common/cache';
 import { pollingLoop } from '../common/polling/utils';
-import { getBaseCurrency } from '../common/prices';
 import { getTokensCache, loadTokensCache, tokensPreload, updateTokens } from '../common/tokens';
 import { MINUTE, SEC } from '../constants';
 import { resolveDataPreloadPromise } from './preload';
@@ -61,6 +61,7 @@ export function initPolling(_onUpdate: OnApiUpdate) {
   void Promise.allSettled([
     tryUpdateKnownAddresses(),
     tryUpdateTokens(),
+    tryUpdateCurrencyRates(),
     !IS_STAKING_DISABLED && tryUpdateSwapTokens(),
     tryUpdateStakingCommonData(),
   ]).then(() => resolveDataPreloadPromise());
@@ -83,13 +84,14 @@ function setupCommonBackendPolling() {
     pollingLoop({
       period: BACKEND_INTERVAL,
       skipInitialPoll: true,
-      poll: tryUpdateTokens,
+      poll: tryUpdateCurrencyRates,
     }).stop,
     pollingLoop({
       period: LONG_BACKEND_INTERVAL,
       skipInitialPoll: true,
       async poll() {
         await Promise.all([
+          tryUpdateTokens(),
           tryUpdateKnownAddresses(),
           !IS_STAKING_DISABLED && tryUpdateStakingCommonData(),
           tryUpdateConfig(),
@@ -106,11 +108,10 @@ function setupCommonBackendPolling() {
   };
 }
 
-export async function tryUpdateTokens() {
+async function tryUpdateTokens() {
   try {
-    const baseCurrency = await getBaseCurrency();
+    const tokens = await callBackendGet<ApiTokenWithPrice[]>('/assets');
 
-    const tokens = await callBackendGet<ApiTokenWithPrice[]>('/assets', { base: baseCurrency });
     for (const token of tokens) {
       token.isFromBackend = true;
     }
@@ -127,22 +128,33 @@ export async function tryUpdateTokens() {
 
     // POST is used to retrieve data due to the potentially large number of addresses
     const nonBackendTokenDetails = nonBackendTokenAddresses.length
-      ? await callBackendPost<ApiTokenDetails[]>(`/assets?base=${baseCurrency}`, {
+      ? await callBackendPost<ApiTokenDetails[]>('/assets', {
         assets: nonBackendTokenAddresses.slice(0, MAX_POST_TOKENS),
       }) : undefined;
 
-    await updateTokens(tokens, onUpdate, nonBackendTokenDetails, baseCurrency, true);
+    await updateTokens(tokens, onUpdate, nonBackendTokenDetails, true);
   } catch (err) {
     logDebugError('tryUpdateTokens', err);
   }
 }
 
-export async function tryUpdateSwapTokens() {
+async function tryUpdateCurrencyRates() {
+  try {
+    const currencyRates = await callBackendGet<{ rates: ApiCurrencyRates }>('/currency-rates');
+    onUpdate({
+      type: 'updateCurrencyRates',
+      rates: currencyRates.rates,
+    });
+  } catch (err) {
+    logDebugError('tryUpdateCurrencyRates', err);
+  }
+}
+
+async function tryUpdateSwapTokens() {
   try {
     const assets = await swapGetAssets();
 
     await tokensPreload.promise;
-    const tokensCache = getTokensCache();
 
     const tokens = assets.reduce((acc: Record<string, ApiSwapAsset>, asset) => {
       acc[asset.slug] = {
@@ -152,7 +164,6 @@ export async function tryUpdateSwapTokens() {
         tokenAddress: 'contract' in asset && asset.contract !== TONCOIN.symbol
           ? asset.contract as string
           : asset.tokenAddress,
-        price: tokensCache.bySlug[asset.slug]?.price ?? 0,
       };
       return acc;
     }, {});

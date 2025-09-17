@@ -217,7 +217,7 @@ class WNavigationController(
             // Presented as modal. Should setup bottom sheet behaviour.
             viewController.getModalHalfExpandedHeight()?.let { newHeight ->
                 updateLayoutParams {
-                    height = newHeight
+                    height = max(this@WNavigationController.height, newHeight)
                 }
                 val hidingVCHeight =
                     hidingVC.getModalHalfExpandedHeight() ?: hidingVC.view.measuredHeight

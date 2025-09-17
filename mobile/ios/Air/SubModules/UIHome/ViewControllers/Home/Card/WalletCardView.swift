@@ -460,7 +460,7 @@ public class WalletCardView: WTouchPassView {
     
     @objc func onBalanceTap() {
         let amountBc = BalanceStore.currentAccountBalanceData?.totalBalance ?? 0
-        let exchangeRate1 = TokenStore.getExchangeRate(currency: TokenStore.baseCurrency ?? .USD)
+        let exchangeRate1 = TokenStore.getCurrencyRate(TokenStore.baseCurrency ?? .USD)
         let amountUsd = amountBc / exchangeRate1
         
         let menu = Templates.UIKitMenu(
@@ -472,7 +472,7 @@ public class WalletCardView: WTouchPassView {
                 Templates.DividedVStack {
                     ForEach(MBaseCurrency.allCases) { bc in
                         
-                        let exchangeRate = TokenStore.getExchangeRate(currency: bc)
+                        let exchangeRate = TokenStore.getCurrencyRate(bc)
                         let a = amountUsd * exchangeRate
                         let amount = BaseCurrencyAmount.fromDouble(a, bc)
                         
@@ -548,57 +548,5 @@ public class WalletCardView: WTouchPassView {
     
     @objc func onUpgradeCardTap() {
         AppActions.showUpgradeCard()
-    }
-}
-
-
-
-struct CurrencyMenu: View {
-    
-    @EnvironmentObject private var menuContext: MenuContext
-    
-    var body: some View {
-        ScrollableMenuContent {
-            DividedVStack {
-                let amountBc = BalanceStore.currentAccountBalanceData?.totalBalance ?? 0
-                let exchangeRate1 = TokenStore.getExchangeRate(currency: TokenStore.baseCurrency ?? .USD)
-                let amountUsd = amountBc / exchangeRate1
-                
-                ForEach(MBaseCurrency.allCases) { bc in
-                    let exchangeRate = TokenStore.getExchangeRate(currency: bc)
-                    let a = amountUsd * exchangeRate
-                    let amount = BaseCurrencyAmount.fromDouble(a, bc)
-                    
-                    SelectableMenuItem(id: bc.rawValue, action: {
-                        Task {
-                            do {
-                                try await TokenStore.setBaseCurrency(currency: bc)
-                            } catch {
-                            }
-                        }
-                        menuContext.dismiss()
-                        
-                    }, content: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(bc.name)
-                                    .font(.system(size: 17))
-                                Text(amount.formatted())
-                                    .font(.system(size: 15))
-                                    .padding(.bottom, 1)
-                                    .foregroundStyle(Color(WTheme.secondaryLabel))
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            
-                            if bc == TokenStore.baseCurrency {
-                                Image.airBundle("BaseCurrencyCheckmark")
-                            }
-                        }
-                        .foregroundStyle(Color(WTheme.primaryLabel))
-                        .padding(EdgeInsets(top: -3, leading: 0, bottom: -3, trailing: 0))
-                    })
-                }
-            }
-        }
     }
 }

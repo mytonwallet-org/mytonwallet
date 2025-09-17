@@ -13,9 +13,11 @@ import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.LinedCenteredTitleView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WView
+import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.importViewWallet.ImportViewWalletVC
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.importWallet.ImportWalletVC
@@ -24,13 +26,16 @@ import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.Passco
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.SettingsItemCell
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsItem
+import org.mytonwallet.app_air.uisettings.viewControllers.walletVersions.WalletVersionsVC
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
 import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletcontext.theme.WColor
 import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletcontext.utils.coloredSubstring
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
+import org.mytonwallet.app_air.walletcore.stores.AccountStore
 
 class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
     WViewController(context) {
@@ -38,6 +43,9 @@ class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
     private val showCreateButton = !isOnIntro
 
     override val shouldDisplayTopBar = false
+
+    private val otherVersionsAvailable =
+        AccountStore.walletVersionsData?.versions?.isNotEmpty() == true
 
     private val createWalletRow: SettingsItemCell by lazy {
         SettingsItemCell(context).apply {
@@ -186,6 +194,16 @@ class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
         )
     }
 
+    val switchToOtherWalletVersionsButton = WLabel(view.context).apply {
+        gravity = Gravity.CENTER
+        setStyle(14f)
+        setTextColor(WColor.SecondaryText)
+        setPaddingDp(16, 8, 16, 8)
+        setOnClickListener {
+            handlePush(WalletVersionsVC(context), presentAsModal = false)
+        }
+    }
+
     private val scrollingContentView: WView by lazy {
         WView(context).apply {
             if (showCreateButton) {
@@ -196,6 +214,11 @@ class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
             addView(secretWordsRow, FrameLayout.LayoutParams(0, WRAP_CONTENT))
             addView(ledgerRow, FrameLayout.LayoutParams(0, WRAP_CONTENT))
             addView(viewRow, FrameLayout.LayoutParams(0, WRAP_CONTENT))
+            if (otherVersionsAvailable)
+                addView(
+                    switchToOtherWalletVersionsButton,
+                    FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
+                )
 
             setConstraints {
                 if (showCreateButton) {
@@ -212,10 +235,19 @@ class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
                 toCenterX(ledgerRow, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
                 topToBottom(viewRow, ledgerRow, 16f)
                 toCenterX(viewRow, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
-                toBottomPx(
-                    viewRow,
-                    32.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
-                )
+                if (otherVersionsAvailable) {
+                    topToBottom(switchToOtherWalletVersionsButton, viewRow, 16f)
+                    toCenterX(switchToOtherWalletVersionsButton)
+                    toBottomPx(
+                        switchToOtherWalletVersionsButton,
+                        24.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
+                    )
+                } else {
+                    toBottomPx(
+                        viewRow,
+                        32.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
+                    )
+                }
             }
         }
     }
@@ -257,6 +289,26 @@ class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
             ViewConstants.BIG_RADIUS.dp,
             0f
         )
+        switchToOtherWalletVersionsButton.addRippleEffect(
+            WColor.BackgroundRipple.color,
+            ViewConstants.BIG_RADIUS.dp
+        )
+        updateSwitchWalletVersionText()
+    }
+
+    private fun updateSwitchWalletVersionText() {
+        val action = LocaleController.getString("\$wallet_switch_version_2")
+        val fullText = LocaleController.getStringWithKeyValues(
+            "\$wallet_switch_version_1",
+            listOf(
+                Pair(
+                    "%action%",
+                    action
+                )
+            )
+        )
+        switchToOtherWalletVersionsButton.text =
+            fullText.coloredSubstring(action, WColor.Tint.color)
     }
 
     private var calculatedHeight: Int? = null
@@ -308,15 +360,19 @@ class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
         }
     }
 
-    private fun handlePush(viewController: WViewController, onCompletion: (() -> Unit)? = null) {
+    private fun handlePush(
+        viewController: WViewController,
+        presentAsModal: Boolean = !isOnIntro,
+        onCompletion: (() -> Unit)? = null
+    ) {
         window?.dismissLastNav {
-            if (isOnIntro) {
-                window?.navigationControllers?.lastOrNull()
-                    ?.push(viewController, onCompletion = onCompletion)
-            } else {
+            if (presentAsModal) {
                 val nav = WNavigationController(window!!)
                 nav.setRoot(viewController)
                 window?.present(nav, onCompletion = onCompletion)
+            } else {
+                window?.navigationControllers?.lastOrNull()
+                    ?.push(viewController, onCompletion = onCompletion)
             }
         }
     }

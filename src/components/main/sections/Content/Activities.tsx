@@ -8,6 +8,7 @@ import { getActions, withGlobal } from '../../../../global';
 import type {
   ApiActivity,
   ApiBaseCurrency,
+  ApiCurrencyRates,
   ApiNft,
   ApiStakingState,
   ApiSwapAsset,
@@ -86,7 +87,8 @@ type StateProps = {
   isHistoryEndReached: boolean;
   alwaysShownSlugs?: string[];
   theme: Theme;
-  baseCurrency?: ApiBaseCurrency;
+  baseCurrency: ApiBaseCurrency;
+  currencyRates: ApiCurrencyRates;
   isSensitiveDataHidden?: true;
   stakingStateBySlug: Record<string, ApiStakingState>;
   nftsByAddress?: Record<string, ApiNft>;
@@ -131,6 +133,7 @@ function Activities({
   alwaysShownSlugs,
   theme,
   baseCurrency,
+  currencyRates,
   isSensitiveDataHidden,
   stakingStateBySlug,
   nftsByAddress,
@@ -322,6 +325,7 @@ function Activities({
             withChainIcon={isMultichainAccount}
             accounts={accounts}
             baseCurrency={baseCurrency}
+            currencyRates={currencyRates}
             onClick={handleActivityClick}
           />
         );
@@ -418,6 +422,7 @@ export default memo(
         alwaysShownSlugs: accountSettings?.alwaysShownSlugs,
         theme: global.settings.theme,
         baseCurrency: global.settings.baseCurrency,
+        currencyRates: global.currencyRates,
         stakingStateBySlug,
         isSensitiveDataHidden: global.settings.isSensitiveDataHidden,
         nftsByAddress: byAddress,

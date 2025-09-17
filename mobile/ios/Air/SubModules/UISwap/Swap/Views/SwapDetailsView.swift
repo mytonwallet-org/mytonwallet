@@ -36,6 +36,13 @@ class SwapDetailsVM: ObservableObject {
     private var tokensSelectorVM: SwapSelectorsVM
     private var observer: AnyCancellable?
     
+    public var displayImpactWarning: Double? {
+        if let impact = displayEstimate?.impact, impact > MAX_PRICE_IMPACT_VALUE {
+            return impact
+        }
+        return nil
+    }
+    
     init(swapVM: SwapVM, tokensSelectorVM: SwapSelectorsVM) {
         self.swapVM = swapVM
         self.tokensSelectorVM = tokensSelectorVM
@@ -173,8 +180,10 @@ struct SwapDetailsView: View {
                             }
                             .padding(.trailing, 2)
                     }
-                    Text(lang(" via "))
-                    Text(dexString)
+                    if let dexString {
+                        Text(lang(" via "))
+                        Text(dexString)
+                    }
                     if hasAlternative {
                         Text(Image(systemName: "chevron.right.circle.fill"))
                             .foregroundStyle(Color(WTheme.secondaryLabel.withAlphaComponent(0.3)))
@@ -202,8 +211,8 @@ struct SwapDetailsView: View {
         ], startPoint: .leading, endPoint: .trailing)
     }
     
-    private var dexString: String {
-        displayEstimate?.dexLabel.displayName ?? ""
+    private var dexString: String? {
+        displayEstimate?.dexLabel?.displayName
     }
     
     func showDexPicker() {
@@ -332,10 +341,16 @@ struct SwapDetailsView: View {
                 Text(lang("Price Impact"))
                     .foregroundStyle(Color(WTheme.secondaryLabel))
                     .overlay(alignment: .trailingFirstTextBaseline) {
-                        InfoButton(title: lang("Price Impact"), message: lang("$swap_price_impact_tooltip1"))
+                        InfoButton(title: lang("Price Impact"), message: lang("$swap_price_impact_tooltip1") + "\n\n" +  lang("$swap_price_impact_tooltip2"))
                     }
             } value: {
-                Text("\(formatAmountText(amount: displayEstimate.impact, decimalsCount: 2))%")
+                HStack {
+                    Text("\(formatAmountText(amount: displayEstimate.impact, decimalsCount: 1))%")
+                    if model.displayImpactWarning != nil {
+                        Text(Image(systemName: "exclamitiexclamationmark.triangle.fill"))
+                            .foregroundStyle(.red)
+                    }
+                }
             }
         }
     }

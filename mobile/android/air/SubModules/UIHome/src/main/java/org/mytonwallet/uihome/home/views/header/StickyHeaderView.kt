@@ -108,7 +108,7 @@ class StickyHeaderView(
         })
 
         listOf(scanButton, lockButton, eyeButton).forEach {
-            it.updateColors(WColor.Tint, WColor.TintRipple)
+            it.updateColors(WColor.Tint, WColor.BackgroundRipple)
         }
         updateActions()
         updateTheme()

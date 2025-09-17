@@ -83,15 +83,15 @@ class WSegmentedController(
                     (currentItem as? WSegmentedControllerItemVC)?.onFullyVisible()
                     lastFullyVisible = position
                 } else {
-                    if (lastFullyVisible != null)
-                        (items[lastFullyVisible!!].viewController as? WSegmentedControllerItemVC)?.onPartiallyVisible()
+                    (items[lastFullyVisible].viewController as? WSegmentedControllerItemVC)?.onPartiallyVisible()
                 }
                 onOffsetChange?.invoke(position, currentOffset)
                 clearSegmentedControl.updateThumbPosition(
                     position,
                     offset = currentOffset,
+                    targetIndex = viewPager.currentItem,
                     force = false,
-                    ensureVisibleThumb = !isAnimatingChangeTab
+                    isAnimatingToPosition = isAnimatingChangeTab
                 )
                 val blur1 = abs(blurState[position] ?: 0f)
                 val blur2 = abs(blurState[position + 1] ?: 0f)
@@ -117,8 +117,9 @@ class WSegmentedController(
                     clearSegmentedControl.updateThumbPosition(
                         viewPager.currentItem,
                         offset = currentOffset,
+                        targetIndex = viewPager.currentItem,
                         force = true,
-                        ensureVisibleThumb = true
+                        isAnimatingToPosition = false
                     )
                 }
             }
@@ -267,9 +268,10 @@ class WSegmentedController(
         viewPager.setCurrentItem(index, false)
         clearSegmentedControl.updateThumbPosition(
             index,
+            targetIndex = index,
             offset = index.toFloat(),
             force = true,
-            ensureVisibleThumb = !isAnimatingChangeTab
+            isAnimatingToPosition = isAnimatingChangeTab
         )
     }
 

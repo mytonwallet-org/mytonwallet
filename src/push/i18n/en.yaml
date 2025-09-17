@@ -1,6 +1,11 @@
 Disconnect: Disconnect
 Secure crypto transfers on Telegram: Secure crypto transfers on Telegram
 
+# Check screen
+Send: Send
+Gift: Gift
+gift: Gift
+
 # Status messages
 Transfer not found: Transfer not found
 Loading...: Loading...
@@ -47,3 +52,10 @@ Edit: Edit
 # Connect wallet screen
 Select NFT: Select NFT
 Change Wallet: Change Wallet
+
+Connect your wallet: Connect your wallet
+to send and receive gifts right inside Telegram: to send and receive gifts right inside Telegram
+to send and receive NFTs right inside Telegram: to send and receive NFTs right inside Telegram
+
+# Errors
+Before transferring this NFT, please remove it from sale on Fragment.: Before transferring this NFT, please remove it from sale on Fragment.

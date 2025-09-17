@@ -56,7 +56,7 @@ interface StateProps {
   vesting?: ApiVestingInfo[];
   isInvestorViewEnabled?: boolean;
   currentTokenSlug?: string;
-  baseCurrency?: ApiBaseCurrency;
+  baseCurrency: ApiBaseCurrency;
   theme: Theme;
   mycoin?: ApiTokenWithPrice;
   isMultichainAccount: boolean;

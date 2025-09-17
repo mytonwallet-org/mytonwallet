@@ -79,9 +79,13 @@ final class SwapVM: ObservableObject {
 //            updateEstimate(nil, lateInit: nil)
             isValidPair = true
             prevPair = newPair
-            let pairs = try await Api.swapGetPairs(symbolOrMinter: selling.token.swapIdentifier)
-            try Task.checkCancellation()
-            isValidPair = pairs.contains(where: { p in p.slug == buying.token.slug })
+            if selling.token.chain == TON_CHAIN && buying.token.chain == TON_CHAIN && selling.token.slug != buying.token.slug {
+                isValidPair = true
+            } else {
+                let pairs = try await Api.swapGetPairs(symbolOrMinter: selling.token.swapIdentifier)
+                try Task.checkCancellation()
+                isValidPair = pairs.contains(where: { p in p.slug == buying.token.slug })
+            }
             delegate?.updateIsValidPair()
             if !isValidPair {
                 return
@@ -140,7 +144,7 @@ final class SwapVM: ObservableObject {
                 toAmount: changedFrom == .buying ? MDouble.forBigInt(buying.amount, decimals: buying.token.decimals) : nil,
                 fromAddress: fromAddress,
                 shouldTryDiesel: shouldTryDiesel,
-                swapVersion: 2,
+                swapVersion: nil,
                 toncoinBalance: toncoinBalance,
                 walletVersion: walletVersion,
                 isFromAmountMax: nil
@@ -304,6 +308,7 @@ final class SwapVM: ObservableObject {
             shouldTryDiesel: shouldTryDiesel,
             swapVersion: nil,
             walletVersion: walletVersion,
+            routes: swapEstimate.routes,
             networkFee: swapEstimate.realNetworkFee,
             swapFee: swapEstimate.swapFee,
             ourFee: swapEstimate.ourFee,
@@ -313,7 +318,9 @@ final class SwapVM: ObservableObject {
         let transferData = try await Api.swapBuildTransfer(accountId: accountId, password: passcode, request: swapBuildRequest)
         let historyItem = ApiSwapHistoryItem.makeFrom(swapBuildRequest: swapBuildRequest, swapTransferData: transferData)
         let result = try await Api.swapSubmit(accountId: accountId, password: passcode, transfers: transferData.transfers, historyItem: historyItem, isGasless: shouldTryDiesel)
+        #if DEBUG
         print(result)
+        #endif
     }
     
     // MARK: - Cross-Chain to ton swap

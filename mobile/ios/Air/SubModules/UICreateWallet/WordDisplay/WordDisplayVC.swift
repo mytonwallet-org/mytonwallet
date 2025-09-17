@@ -6,75 +6,72 @@
 //
 
 import UIKit
+import SwiftUI
 import WalletCore
 import WalletContext
 import UIHome
 import UISettings
 import UIComponents
 
-class WordDisplayVC: RecoveryPhraseVC {
+public class WordDisplayVC: WViewController {
 
-    let isFirstWallet: Bool
-    let passedPasscode: String?
+    let introModel: IntroModel
+    let wordList: [String]
+    
+    var hostingController: UIHostingController<WordDisplayView>?
 
-    init(wordList: [String], passedPasscode: String?) {
-        self.isFirstWallet = passedPasscode == nil
-        self.passedPasscode = passedPasscode
-        super.init(wordList: wordList)
+    public init(introModel: IntroModel, wordList: [String]) {
+        self.introModel = introModel
+        self.wordList = wordList
+        super.init(nibName: nil, bundle: nil)
     }
     
-    required init?(coder: NSCoder) {
+    public required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
     
-    override func viewDidLoad() {
+    public override func viewDidLoad() {
         super.viewDidLoad()
-        #if DEBUG
-        let g = UITapGestureRecognizer()
-        g.numberOfTapsRequired = 2
-        g.addTarget(self, action: #selector(gotoWordCheck))
-        headerView.isUserInteractionEnabled = true
-        headerView.addGestureRecognizer(g)
-        #endif
+        setupViews()
     }
 
-    // called on done button press
-    override func donePressed() {
-        gotoWordCheck()
+    func setupViews() {
+        addNavigationBar(
+            title: wordList.count == 24 ? lang("24 Words") : lang("12 Words"),
+            closeIcon: !canGoBack,
+            addBackButton: weakifyGoBackIfAvailable(),
+        )
+        
+        hostingController = addHostingController(makeView(), constraints: .fill)
+        
+        bringNavigationBarToFront()
     }
     
-    @objc func gotoWordCheck() {
-        // select 3 random words
-        var wordIndices: [Int] = []
-        while wordIndices.count < 3 {
-            let index = Int(arc4random_uniform(UInt32(wordList.count)))
-            if !wordIndices.contains(index) {
-                wordIndices.append(index)
-            }
-        }
-        wordIndices.sort()
-        
-        // pass words to WordCheckVC
-        let wordCheckVC = WordCheckVC(wordList: wordList,
-                                      wordIndices: wordIndices,
-                                      passedPasscode: passedPasscode)
-        navigationController?.pushViewController(wordCheckVC, animated: true)
+    func makeView() -> WordDisplayView {
+        WordDisplayView(
+            introModel: introModel,
+            words: wordList,
+            navigationBarInset: navigationBarHeight,
+            onScroll: weakifyUpdateProgressiveBlur(),
+        )
     }
-
 }
 
 #if DEBUG
-@available(iOS 17.0, *)
+@available(iOS 18.0, *)
 #Preview {
-    return UINavigationController(
-        rootViewController: WordDisplayVC(wordList: [
+    UIFont.registerAirFonts()
+    LocalizationSupport.shared.setLanguageCode("ru")
+    return WordDisplayVC(
+        introModel: IntroModel(password: nil),
+        wordList: [
             "word 1", "word 2", "word 3", "word 4",
             "word 5", "word 6", "word 7", "word 8",
             "word 9", "word 10", "word 11", "word 12",
             "word 13", "word 14", "word 15", "word 16",
             "word 17", "word 18", "word 19", "word 20",
-            "word 21", "word 22", "word 23", "word 24"
-        ], passedPasscode: nil)
+            "word 21", "word 22", "wordjj23kdasl", "word 24"
+        ]
     )
 }
 #endif

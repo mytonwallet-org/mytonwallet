@@ -197,8 +197,8 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
                 (price * transaction.amount.doubleAbsRepresentation(decimals = token.decimals))
             equivalentAmount.toString(
                 token.decimals,
-                WalletCore.baseCurrency?.sign ?: "",
-                WalletCore.baseCurrency?.decimalsCount ?: 2,
+                WalletCore.baseCurrency.sign,
+                WalletCore.baseCurrency.decimalsCount,
                 smartDecimals = true,
                 roundUp = false
             )

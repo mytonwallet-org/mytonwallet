@@ -5,8 +5,6 @@ import { callBackendGet } from '../common/backend';
 import { tokensPreload } from '../common/tokens';
 import { getTokenBySlug } from './tokens';
 
-export { setBaseCurrency, getBaseCurrency } from '../common/prices';
-
 export async function fetchPriceHistory(
   slug: string,
   period: ApiPriceHistoryPeriod,

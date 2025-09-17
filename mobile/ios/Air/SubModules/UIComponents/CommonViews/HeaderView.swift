@@ -7,7 +7,7 @@
 
 import UIKit
 
-fileprivate let animationSize = 124
+fileprivate let _animationSize = 124
 
 public class HeaderView: UIView {
     
@@ -17,7 +17,9 @@ public class HeaderView: UIView {
                 title: String,
                 description: String? = nil,
                 additionalView: UIView? = nil,
+                animationSize: Int? = nil,
                 compactMode: Bool = false) {
+        self.animationSize = animationSize ?? _animationSize
         super.init(frame: CGRect.zero)
         setupView(animationName: animationName,
                   animationPlaybackMode: animationPlaybackMode,
@@ -33,7 +35,9 @@ public class HeaderView: UIView {
                 iconTintColor: UIColor,
                 title: String,
                 description: String? = nil,
+                animationSize: Int? = nil,
                 compactMode: Bool = false) {
+        self.animationSize = animationSize ?? _animationSize
         super.init(frame: CGRect.zero)
         setupView(icon: icon,
                   iconWidth: iconWidth,
@@ -46,7 +50,9 @@ public class HeaderView: UIView {
     
     public init(title: String,
                 description: String? = nil,
+                animationSize: Int? = nil,
                 compactMode: Bool = false) {
+        self.animationSize = animationSize ?? _animationSize
         super.init(frame: CGRect.zero)
         setupView(title: title,
                   description: description,
@@ -61,6 +67,8 @@ public class HeaderView: UIView {
         fatalError()
     }
 
+    public let animationSize: Int
+    
     // MARK: - Public subviews
     public var animatedSticker: WAnimatedSticker?
     public var lblTitle: UILabel!
@@ -154,8 +162,13 @@ public class HeaderView: UIView {
         // description
         lblDescription = UILabel()
         lblDescription.translatesAutoresizingMaskIntoConstraints = false
-        lblDescription.text = description
-        lblDescription.font = UIFont.systemFont(ofSize: 17)
+        if let description, let attr = try? NSMutableAttributedString(markdown: description) {
+            attr.addAttribute(.font, value: UIFont.systemFont(ofSize: 17), range: NSRange(location: 0, length: attr.length))
+            lblDescription.attributedText = attr
+        } else {
+            lblDescription.text = description
+            lblDescription.font = UIFont.systemFont(ofSize: 17)
+        }
         lblDescription.numberOfLines = 0
         lblDescription.textAlignment = .center
         addSubview(lblDescription)

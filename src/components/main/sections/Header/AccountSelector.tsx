@@ -51,7 +51,7 @@ interface StateProps {
   currentWalletVersion?: ApiTonWalletVersion;
   settingsByAccountId?: Record<string, AccountSettings>;
   tokens?: UserToken[];
-  baseCurrency?: ApiBaseCurrency;
+  baseCurrency: ApiBaseCurrency;
   stakingStates?: ApiStakingState[];
   isSensitiveDataHidden?: true;
 }

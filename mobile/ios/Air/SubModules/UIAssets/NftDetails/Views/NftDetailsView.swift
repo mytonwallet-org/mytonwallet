@@ -23,7 +23,6 @@ struct NftDetailsView: View {
             VStack(spacing: 0) {
                 listContent
                     .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
-//                        print("height: \(height)")
                         viewModel.contentHeight = height
                     }
                 Spacer(minLength: 0)

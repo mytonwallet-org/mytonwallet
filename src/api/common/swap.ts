@@ -111,7 +111,7 @@ export async function swapReplaceCexActivities(
     const swaps = await swapGetHistory(address, {
       fromTimestamp: fromTime,
       toTimestamp: toTime,
-      asset: slug ? getTokenBySlug(slug).tokenAddress ?? TONCOIN.symbol : undefined,
+      asset: slug ? getTokenBySlug(slug)?.tokenAddress ?? TONCOIN.symbol : undefined,
       hashes,
       isCex: true,
     });

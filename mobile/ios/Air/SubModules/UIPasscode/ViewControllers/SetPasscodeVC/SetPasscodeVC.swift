@@ -9,7 +9,15 @@ import UIKit
 import UIComponents
 import WalletContext
 
-public class SetPasscodeVC: WViewController {
+public class SetPasscodeVC: WViewController, PasscodeScreenViewDelegate {
+    func animateSuccess() {
+        
+    }
+    
+    func onAuthenticated(taskDone: Bool, passcode: String) {
+        
+    }
+    
     
     var onCompletion: (_ biometricsEnabled: Bool, _ passcode: String, _ onResult: @escaping () -> Void) -> Void
 
@@ -25,6 +33,7 @@ public class SetPasscodeVC: WViewController {
     var headerView: HeaderView!
     var passcodeOptionsButton: WButton!
     var passcodeInputView: PasscodeInputView!
+    var passcodeScreenView: PasscodeScreenView!
     var passcodeOptionsView: PasscodeOptionsView!
     var bottomConstraint: NSLayoutConstraint!
 
@@ -48,13 +57,17 @@ public class SetPasscodeVC: WViewController {
             topView.rightAnchor.constraint(equalTo: view.safeAreaLayoutGuide.rightAnchor)
         ])
 
-        headerView = HeaderView(animationName: "Password",
-                                    animationPlaybackMode: .toggle(false),
-                                    title: lang("Set a Passcode"),
-                                    description: WStrings.SetPasscode_Text(digits: PasscodeInputView.defaultPasscodeLength))
+        headerView = HeaderView(
+            animationName: "animation_guard",
+            animationPlaybackMode: .once,
+            title: lang("Wallet is ready!"),
+            description: lang(
+                "Create a code to protect it"
+            )
+        )
         topView.addSubview(headerView)
         NSLayoutConstraint.activate([
-            headerView.topAnchor.constraint(equalTo: topView.topAnchor, constant: 46),
+            headerView.topAnchor.constraint(equalTo: topView.topAnchor, constant: -10),
             headerView.centerXAnchor.constraint(equalTo: topView.centerXAnchor),
             headerView.bottomAnchor.constraint(equalTo: topView.bottomAnchor)
         ])
@@ -67,7 +80,7 @@ public class SetPasscodeVC: WViewController {
             passcodeInputView.topAnchor.constraint(equalTo: topView.bottomAnchor, constant: 40),
             passcodeInputView.centerXAnchor.constraint(equalTo: view.centerXAnchor)
         ])
-        passcodeInputView.becomeFirstResponder()
+        passcodeInputView.isHidden = true
         
         // setup passcode options button
         passcodeOptionsButton = WButton(style: .clearBackground)
@@ -96,11 +109,34 @@ public class SetPasscodeVC: WViewController {
             passcodeOptionsView.centerXAnchor.constraint(equalTo: view.centerXAnchor)
         ])
         view.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(backgroundPressed)))
+        
+        passcodeScreenView = PasscodeScreenView(
+            title: "zzz",
+            replacedTitle: "xxx",
+            subtitle: "rrrr",
+            compactLayout: true,
+            biometricPassAllowed: false,
+            delegate: self,
+            matchHeaderColors: false
+        )
+        view.backgroundColor = WTheme.sheetBackground
+        passcodeScreenView.layer.cornerRadius = 16
+        
+        view.addSubview(passcodeScreenView)
+        passcodeScreenView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            passcodeScreenView.leftAnchor.constraint(equalTo: view.leftAnchor),
+            passcodeScreenView.rightAnchor.constraint(equalTo: view.rightAnchor),
+            passcodeScreenView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+//        passcodeScreenView.enterPasscodeLabel.label.text = "aa"
+        
+        
+        bringNavigationBarToFront()
     }
 
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        passcodeInputView.becomeFirstResponder()
     }
 
     @objc func passcodeOptionsPressed() {
@@ -123,7 +159,6 @@ public class SetPasscodeVC: WViewController {
     // Called from ConfirmPasscodeVC when passcode is wrong
     func passcodesDoNotMatch() {
         headerView.lblDescription.text = lang("Passcodes don't match. Please try again.")
-        passcodeInputView.becomeFirstResponder()
     }
 }
 
@@ -166,3 +201,11 @@ extension SetPasscodeVC: PasscodeOptionsViewDelegate {
         headerView.lblDescription.text = WStrings.SetPasscode_Text(digits: digits)
     }
 }
+
+#if DEBUG
+@available(iOS 18.0, *)
+#Preview {
+    let _ = UIFont.registerAirFonts()
+    UINavigationController(rootViewController: SetPasscodeVC(onCompletion: { _, _, _ in }))
+}
+#endif

@@ -23,12 +23,14 @@ extension HomeVC: BalanceHeaderViewDelegate, WalletAssetsDelegate {
                 scrollExtraOffset -= WalletCardView.collapseOffset
             }
         }
-        UIView.animate(withDuration: isExpandingProgrammatically ? 0.2 : 0.3, delay: 0, options: .allowUserInteraction) { [self] in
+
+        let duration = isExpandingProgrammatically ? 0.2 : 0.3
+        UIView.animateAdaptive(duration: duration) { [self] in
             view.layoutIfNeeded()
-            self.updateTableViewHeaderFrame()
+            updateTableViewHeaderFrame()
             // reset status view to show wallet name in expanded mode and hide in collpased mode
-            self.balanceHeaderView.update(status: self.balanceHeaderView.updateStatusView.state,
-                                           animatedWithDuration: self.isExpandingProgrammatically ? 0.2 : 0.3)
+            balanceHeaderView.update(status: balanceHeaderView.updateStatusView.state,
+                                     animatedWithDuration: duration)
         } completion: { [weak self] _ in
             guard let self else { return }
             scrollViewDidScroll(tableView)

@@ -23,7 +23,7 @@ import { parseAccountId } from '../../util/account';
 import { buildLocalTxId } from '../../util/activities';
 import { omitUndefined } from '../../util/iteratees';
 import chains from '../chains';
-import { fetchStoredWallet } from '../common/accounts';
+import { fetchStoredChainAccount, fetchStoredWallet } from '../common/accounts';
 import { callBackendGet, callBackendPost } from '../common/backend';
 import { getBackendConfigCache } from '../common/cache';
 import {
@@ -66,7 +66,8 @@ export async function swapBuildTransfer(
   }));
 
   try {
-    await ton.validateDexSwapTransfers(network, address, request, transferList);
+    const account = await fetchStoredChainAccount(accountId, 'ton');
+    await ton.validateDexSwapTransfers(network, address, request, transferList, account);
 
     const result = await ton.checkMultiTransactionDraft(accountId, transferList, request.shouldTryDiesel);
 

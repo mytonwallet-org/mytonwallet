@@ -1,4 +1,4 @@
-import type { ApiBalanceBySlug, ApiChain } from '../../api/types';
+import type { ApiBalanceBySlug, ApiBaseCurrency, ApiChain, ApiCurrencyRates } from '../../api/types';
 import type { AccountSettings, GlobalState, UserToken } from '../types';
 
 import {
@@ -11,6 +11,7 @@ import {
   TINY_TRANSFER_MAX_COST,
   TONCOIN,
 } from '../../config';
+import { calculateTokenPrice } from '../../util/calculatePrice';
 import { toBig } from '../../util/decimals';
 import memoize from '../../util/memoize';
 import { round } from '../../util/round';
@@ -36,6 +37,8 @@ export const selectAccountTokensMemoizedFor = withCache((accountId: string) => m
   accountSettings: AccountSettings = {},
   isSortByValueEnabled: boolean = false,
   areTokensWithNoCostHidden: boolean = false,
+  baseCurrency: ApiBaseCurrency,
+  currencyRates: ApiCurrencyRates,
 ) => {
   const isNewAccount = getIsNewAccount(balancesBySlug, tokenInfo);
 
@@ -45,9 +48,10 @@ export const selectAccountTokensMemoizedFor = withCache((accountId: string) => m
     .map(([slug, balance]) => {
       const {
         symbol, name, image, decimals, cmcSlug, color, chain, tokenAddress, codeHash,
-        type, price = 0, percentChange24h = 0, priceUsd,
+        type, percentChange24h = 0, priceUsd,
       } = tokenInfo.bySlug[slug];
 
+      const price = calculateTokenPrice(priceUsd ?? 0, baseCurrency, currencyRates);
       const balanceBig = toBig(balance, decimals);
       const totalValue = balanceBig.mul(price).round(decimals).toString();
       const hasCost = balanceBig.mul(priceUsd ?? 0).gte(TINY_TRANSFER_MAX_COST);
@@ -125,7 +129,7 @@ export function selectAccountTokens(global: GlobalState, accountId: string) {
   }
 
   const accountSettings = selectAccountSettings(global, accountId);
-  const { areTokensWithNoCostHidden, isSortByValueEnabled } = global.settings;
+  const { areTokensWithNoCostHidden, isSortByValueEnabled, baseCurrency } = global.settings;
 
   return selectAccountTokensMemoizedFor(accountId)(
     balancesBySlug,
@@ -133,6 +137,8 @@ export function selectAccountTokens(global: GlobalState, accountId: string) {
     accountSettings,
     isSortByValueEnabled,
     areTokensWithNoCostHidden,
+    baseCurrency,
+    global.currencyRates,
   );
 }
 

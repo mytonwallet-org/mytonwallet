@@ -9,7 +9,6 @@ import org.mytonwallet.app_air.ledger.LedgerManager.ConnectionState
 import org.mytonwallet.app_air.ledger.helpers.APDUHelpers
 import org.mytonwallet.app_air.ledger.usb.HIDDevice
 import org.mytonwallet.app_air.ledger.usb.USBManager
-import org.mytonwallet.app_air.walletcore.models.LedgerAppInfo
 
 object LedgerUsbManager : ILedgerConnectionManager {
     private const val LEDGER_VENDOR_ID = 0x2c97
@@ -28,7 +27,6 @@ object LedgerUsbManager : ILedgerConnectionManager {
     private var devices = emptyList<UsbDevice>()
     private var triedDevices = mutableListOf<UsbDevice>()
     private var selectedDevice: UsbDevice? = null
-    private var currentAppInfo: LedgerAppInfo? = null
 
     override fun startConnection(onUpdate: (ConnectionState) -> Unit) {
         if (!isStopped)

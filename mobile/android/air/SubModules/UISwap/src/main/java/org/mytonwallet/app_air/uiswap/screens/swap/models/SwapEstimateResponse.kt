@@ -6,8 +6,9 @@ import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcontext.utils.max
 import org.mytonwallet.app_air.walletcontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletcontext.utils.toString
-import org.mytonwallet.app_air.walletcore.JSWebViewBridge
+import org.mytonwallet.app_air.walletcore.MAX_PRICE_IMPACT_VALUE
 import org.mytonwallet.app_air.walletcore.helpers.FeeEstimationHelpers
+import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.SwapType
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapCexEstimateResponse
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapEstimateResponse
@@ -20,7 +21,7 @@ data class SwapEstimateResponse(
     val dex: MApiSwapEstimateResponse?,
     val cex: MApiSwapCexEstimateResponse?,
     val fee: BigInteger?,
-    val error: JSWebViewBridge.ApiError?
+    val error: MBridgeError?
 ) {
     private val fromAmountDec = cex?.fromAmount ?: dex?.fromAmount
     private val toAmountDec = cex?.toAmount ?: dex?.toAmount
@@ -181,5 +182,13 @@ data class SwapEstimateResponse(
                     showPositiveSign = false
                 )
             }
+        }
+
+    val shouldShowPriceImpactWarning: Boolean
+        get() {
+            dex?.impact?.let { impact ->
+                return impact > MAX_PRICE_IMPACT_VALUE
+            }
+            return false
         }
 }

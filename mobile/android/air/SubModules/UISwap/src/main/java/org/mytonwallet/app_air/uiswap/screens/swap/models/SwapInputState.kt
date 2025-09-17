@@ -1,8 +1,11 @@
 package org.mytonwallet.app_air.uiswap.screens.swap.models
 
 import org.mytonwallet.app_air.uiswap.screens.swap.helpers.SwapHelpers
+import org.mytonwallet.app_air.walletcore.DEFAULT_SWAP_VERSION
+import org.mytonwallet.app_air.walletcore.TON_CHAIN
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapDexLabel
+import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 
 data class SwapInputState(
     val tokenToSend: IApiToken? = null,
@@ -15,4 +18,15 @@ data class SwapInputState(
     val selectedDex: MApiSwapDexLabel? = null
 ) {
     val isCex = SwapHelpers.isCex(tokenToSend, tokenToReceive)
+
+    val isTonOnlySwap: Boolean
+        get() {
+            return (tokenToSend?.chain ?: TON_CHAIN) == TON_CHAIN &&
+                (tokenToReceive?.chain ?: TON_CHAIN) == TON_CHAIN
+        }
+
+    val shouldShowAllPairs: Boolean
+        get() {
+            return (ConfigStore.swapVersion ?: DEFAULT_SWAP_VERSION) == 3 && isTonOnlySwap
+        }
 }

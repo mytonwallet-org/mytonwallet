@@ -34,11 +34,10 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
     and other details (`ApiTokenDetails`), so no separate requests are needed. */
     public var isFromBackend: Bool?
 
-    public var price: Double?
     public var priceUsd: Double?
     public var percentChange24h: Double?
 
-    public init(slug: String, name: String, symbol: String, decimals: Int, chain: String, tokenAddress: String? = nil, image: String? = nil, isPopular: Bool? = nil, keywords: [String]? = nil, cmcSlug: String? = nil, color: String? = nil, isGaslessEnabled: Bool? = nil, isStarsEnabled: Bool? = nil, isTiny: Bool? = nil, customPayloadApiUrl: String? = nil, codeHash: String? = nil, isFromBackend: Bool? = nil, price: Double? = nil, priceUsd: Double? = nil, percentChange24h: Double? = nil) {
+    public init(slug: String, name: String, symbol: String, decimals: Int, chain: String, tokenAddress: String? = nil, image: String? = nil, isPopular: Bool? = nil, keywords: [String]? = nil, cmcSlug: String? = nil, color: String? = nil, isGaslessEnabled: Bool? = nil, isStarsEnabled: Bool? = nil, isTiny: Bool? = nil, customPayloadApiUrl: String? = nil, codeHash: String? = nil, isFromBackend: Bool? = nil, priceUsd: Double? = nil, percentChange24h: Double? = nil) {
         self.slug = slug
         self.name = name
         self.symbol = symbol
@@ -56,7 +55,6 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
         self.customPayloadApiUrl = customPayloadApiUrl
         self.codeHash = codeHash
         self.isFromBackend = isFromBackend
-        self.price = price
         self.priceUsd = priceUsd
         self.percentChange24h = percentChange24h
     }
@@ -78,7 +76,6 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
         case isTiny
         case customPayloadApiUrl
         case codeHash
-        case price
         case priceUsd
         case percentChange24h
         
@@ -108,10 +105,8 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
         try container.encodeIfPresent(self.isTiny, forKey: .isTiny)
         try container.encodeIfPresent(self.customPayloadApiUrl, forKey: .customPayloadApiUrl)
         try container.encodeIfPresent(self.codeHash, forKey: .codeHash)
-        try container.encodeIfPresent(self.price, forKey: .price)
         try container.encodeIfPresent(self.priceUsd, forKey: .priceUsd)
         try container.encodeIfPresent(self.percentChange24h, forKey: .percentChange24h)
-        
     }
     
     public init(from decoder: any Decoder) throws {
@@ -148,14 +143,12 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
         var quote = try? container.decodeIfPresent(ApiTokenPrice.self, forKey: .quote)
         if quote == nil {
             do {
-                let price = try container.decode(Double.self, forKey: .price)
                 let priceUsd = try container.decode(Double.self, forKey: .priceUsd)
                 let percentChange24h = try? container.decode(Double.self, forKey: .percentChange24h)
-                quote = ApiTokenPrice(price: price, priceUsd: priceUsd, percentChange24h: percentChange24h)
+                quote = ApiTokenPrice(priceUsd: priceUsd, percentChange24h: percentChange24h)
             } catch {
             }
         }
-        self.price = quote?.price
         self.priceUsd = quote?.priceUsd
         self.percentChange24h = quote?.percentChange24h
     }
@@ -180,7 +173,6 @@ public struct ApiToken: Equatable, Hashable, Codable, Sendable {
         self.customPayloadApiUrl = dict["customPayloadApiUrl"] as? String
         self.codeHash = dict["codeHash"] as? String
         self.isFromBackend = dict["isFromBackend"] as? Bool
-        self.price = dict["price"] as? Double
         self.priceUsd = dict["priceUsd"] as? Double
         self.percentChange24h = dict["percentChange24h"] as? Double
     }
@@ -194,6 +186,11 @@ public enum ApiTokenType: String, Equatable, Hashable, Codable, Sendable {
     case lp_token = "lp_token"
 }
 
+extension ApiToken {
+    public var price: Double? {
+        return priceUsd.flatMap { $0 * TokenStore.baseCurrencyRate }
+    }
+}
 
 extension ApiToken {
     
@@ -375,7 +372,6 @@ extension ApiToken {
 // MARK: - ApiTokenPrice
 
 public struct ApiTokenPrice: Equatable, Hashable, Codable, Sendable {
-    public var price: Double
     public var priceUsd: Double
     public var percentChange24h: Double?
 }

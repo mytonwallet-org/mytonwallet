@@ -128,6 +128,12 @@ open class WViewController: UIViewController, WThemedView {
         navigationBar?.separatorView.alpha = progress
     }
     
+    public func weakifyUpdateProgressiveBlur() -> (_ y: CGFloat) -> () {
+        return { [weak self] y in
+            self?.updateNavigationBarProgressiveBlur(y)
+        }
+    }
+    
     @available(*, deprecated, message: "Use addNavigationBar instead")
     open func addCloseToNavBar(color: UIColor? = nil) {
         let closeButton = UIButton(type: .system)
@@ -151,8 +157,26 @@ open class WViewController: UIViewController, WThemedView {
         dismiss(animated: true)
     }
     
+    public var canGoBack: Bool {
+        if let navigationController, navigationController.viewControllers.count > 1 {
+            return true
+        }
+        return false
+    }
+    
     open func goBack() {
         navigationController?.popViewController(animated: true)
+    }
+    
+    public func weakifyGoBack() -> () -> () {
+        return { [weak self] in self?.goBack() }
+    }
+    
+    public func weakifyGoBackIfAvailable() -> (() -> ())? {
+        if canGoBack {
+            return { [weak self] in self?.goBack() }
+        }
+        return nil
     }
     
     // MARK: - Hosting controller

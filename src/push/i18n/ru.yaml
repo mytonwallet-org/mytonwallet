@@ -1,6 +1,11 @@
 Disconnect: Отключить кошелёк
 Secure crypto transfers on Telegram: Мгновенные переводы в Telegram
 
+# Check screen
+Send: Отправить
+Gift: Подарок
+gift: подарок
+
 # Status messages
 Transfer not found: Перевод не найден
 Loading...: Ожидание...
@@ -35,7 +40,7 @@ Forward to Address: Переслать на адрес
 
 # Forward screen
 Forward to...: Переслать...
-Enter TON wallet address or domain to forward: Введите адрес TON-кошелька или домен
+Enter TON wallet address or domain to forward: Введите адрес TON-кошелька или домен, чтобы перевести
 Forward: Переслать
 
 # Forward confirm screen
@@ -47,3 +52,10 @@ Edit: Изменить
 # Connect wallet screen
 Select NFT: Выбрать NFT
 Change Wallet: Изменить кошелёк
+
+Connect your wallet: Подключите кошелёк
+to send and receive gifts right inside Telegram: для того, чтобы отправлять и получать подарки прямо в Telegram
+to send and receive NFTs right inside Telegram: для того, чтобы отправлять и получать NFT прямо в Telegram
+
+# Errors
+Before transferring this NFT, please remove it from sale on Fragment.: Прежде чем передавать этот NFT, пожалуйста, снимите его с продажи на Fragment.

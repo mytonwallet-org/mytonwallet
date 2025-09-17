@@ -15,6 +15,18 @@ export function buildCollectionByKey<T extends AnyLiteral>(collection: readonly 
   }, {});
 }
 
+export function buildArrayCollectionByKey<T extends AnyLiteral>(collection: T[], key: keyof T) {
+  return collection.reduce((byKey: CollectionByKey<Array<T>>, member: T) => {
+    const collectionKey = member[key];
+    if (!byKey[collectionKey]) {
+      byKey[collectionKey] = [];
+    }
+    byKey[collectionKey].push(member);
+
+    return byKey;
+  }, {});
+}
+
 export function groupBy<T extends AnyLiteral>(collection: readonly T[], key: keyof T): GroupedByKey<T> {
   return collection.reduce((byKey: GroupedByKey<T>, member: T) => {
     const groupKey = member[key];

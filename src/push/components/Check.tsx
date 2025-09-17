@@ -1,10 +1,9 @@
 import type { Wallet } from '@tonconnect/sdk';
-import React, { memo, useLayoutEffect, useMemo, useRef, useState } from '../../lib/teact/teact';
+import React, { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../lib/teact/teact';
 
 import type { ApiCheck } from '../types';
-import type { ParticleConfig } from '../util/particles';
 
-import { PUSH_CHAIN, PUSH_SC_VERSIONS, PUSH_START_PARAM_DELIMITER } from '../config';
+import { PUSH_API_URL, PUSH_CHAIN, PUSH_SC_VERSIONS, PUSH_START_PARAM_DELIMITER } from '../config';
 import { areDeepEqual } from '../../util/areDeepEqual';
 import buildClassName from '../../util/buildClassName';
 import { toDecimal } from '../../util/decimals';
@@ -19,7 +18,13 @@ import {
   processCreateCheck,
   processToggleInvoice,
 } from '../util/check';
-import { PARTICLE_COLORS, setupParticles } from '../util/particles';
+import {
+  getAccentColorFromImage,
+  PARTICLE_BURST_PARAMS,
+  PARTICLE_COLORS,
+  PARTICLE_PARAMS,
+  setupParticles,
+} from '../util/particles';
 import { getWalletAddress } from '../util/tonConnect';
 
 import useFlag from '../../hooks/useFlag';
@@ -29,9 +34,9 @@ import useLastCallback from '../../hooks/useLastCallback';
 import useSyncEffect from '../../hooks/useSyncEffect';
 
 import AnimatedIconWithPreview from '../../components/ui/AnimatedIconWithPreview';
-import Image from '../../components/ui/Image';
 import Transition from '../../components/ui/Transition';
 import Header from './Header';
+import ImageWithParticles from './ImageWithParticles';
 import UniversalButton from './UniversalButton';
 
 import commonStyles from './_common.module.scss';
@@ -59,26 +64,6 @@ interface OwnProps {
 const POLLING_INTERVAL = 3000;
 const PLACEHOLDER = '···';
 
-const PARTICLE_PARAMS: Partial<ParticleConfig> = {
-  width: 350,
-  height: 230,
-  particleCount: 35,
-  centerShift: [0, 32] as const,
-  distanceLimit: 0.45,
-};
-
-const PARTICLE_BURST_PARAMS: Partial<ParticleConfig> = {
-  particleCount: 90,
-  distanceLimit: 1,
-  fadeInTime: 0.05,
-  minLifetime: 3,
-  maxLifetime: 3,
-  maxStartTimeDelay: 0,
-  selfDestroyTime: 3,
-  minSpawnRadius: 35,
-  maxSpawnRadius: 50,
-};
-
 let activeKey = 0;
 
 function Check({
@@ -92,22 +77,37 @@ function Check({
   onDisconnectClick,
   onForwardClick,
 }: OwnProps) {
+  const [nftPalette, setNftPalette] = useState<[number, number, number] | undefined>();
+
   const canvasRef = useRef<HTMLCanvasElement>();
 
   const lang = useLang();
 
+  const { initDataUnsafe } = getTelegramApp() ?? {};
   const checkKey = useMemo(() => {
-    const tgWebAppData = getTelegramApp()?.initDataUnsafe;
-    const [action, checkKey2] = tgWebAppData?.start_param?.split(PUSH_START_PARAM_DELIMITER) ?? [];
+    const [action, checkKey2] = initDataUnsafe?.start_param?.split(PUSH_START_PARAM_DELIMITER) ?? [];
 
     return action === 'check' ? checkKey2 : undefined;
-  }, []);
+  }, [initDataUnsafe]);
 
   const [checkError, setCheckError] = useState<Error>();
   const [accountBalance, setAccountBalance] = useState<string>();
   const [isJustSentCancelRequest, markIsJustSentCancelRequest] = useFlag(false);
 
   const checkSymbol = check?.type === 'coin' ? check.symbol : undefined;
+  // TODO: change to check.nftInfo.imageUrl
+  const nftImageUrl = check?.type === 'nft' ? `${PUSH_API_URL}/checks/${checkKey}/image` : undefined;
+  const animationUrl = check?.type === 'nft' ? check.nftInfo.giftAnimationUrl : undefined;
+
+  useEffect(() => {
+    if (!nftImageUrl) return;
+
+    void (async () => {
+      const palette = await getAccentColorFromImage(nftImageUrl);
+
+      setNftPalette(palette);
+    })();
+  }, [nftImageUrl]);
 
   useInterval(async () => {
     if (!checkKey) return;
@@ -144,20 +144,32 @@ function Check({
     activeKey++;
   }, [status, isJustSentRequest, isJustSentCancelRequest, hasError]);
 
+  const exit = useLastCallback(() => {
+    getTelegramApp()?.close();
+    window.close();
+  });
+
+  const autoExit = useLastCallback(() => {
+    // Channels are slow to update messages, so it's better to keep the mini-app open to show status updates
+    if (initDataUnsafe?.chat_type !== 'channel') {
+      exit();
+    }
+  });
+
   useLayoutEffect(() => {
-    if (!checkSymbol) return;
+    if (!checkSymbol && !nftPalette) return;
 
     return setupParticles(canvasRef.current!, {
-      color: PARTICLE_COLORS[checkSymbol],
+      color: nftPalette ?? PARTICLE_COLORS[checkSymbol ?? 'DEFAULT'],
       ...PARTICLE_PARAMS,
     });
-  }, [checkSymbol]);
+  }, [checkSymbol, nftPalette]);
 
   const handleTokenClick = useLastCallback(() => {
-    if (check?.type !== 'coin') return;
+    if (!checkSymbol && !nftPalette) return;
 
     setupParticles(canvasRef.current!, {
-      color: PARTICLE_COLORS[check.symbol],
+      color: nftPalette ?? PARTICLE_COLORS[checkSymbol ?? 'DEFAULT'],
       ...PARTICLE_PARAMS,
       ...PARTICLE_BURST_PARAMS,
     });
@@ -176,8 +188,15 @@ function Check({
 
   const handleSignClick = useLastCallback(async () => {
     markLoading();
-    await processCreateCheck(check!, markJustSentRequest);
+
+    try {
+      await processCreateCheck(check!, markJustSentRequest);
+    } catch (err: any) {
+      alert(String(err));
+    }
+
     unmarkLoading();
+    autoExit();
   });
 
   const handleToggleInvoiceClick = useLastCallback(async () => {
@@ -196,6 +215,7 @@ function Check({
 
     try {
       await processCashCheck(check!, markJustSentRequest, getWalletAddress(wallet!));
+      autoExit();
     } catch (err: any) {
       alert(String(err));
     }
@@ -214,6 +234,8 @@ function Check({
       } else {
         await processCashCheck(check!, markIsJustSentCancelRequest, getWalletAddress(wallet!), true);
       }
+
+      autoExit();
     } catch (err: any) {
       alert(String(err));
     }
@@ -222,8 +244,7 @@ function Check({
   });
 
   const handleCloseClick = useLastCallback(() => {
-    getTelegramApp()?.close();
-    window.close();
+    exit();
   });
 
   const action = isCurrentUserPayer ? 'sending' : 'receiving';
@@ -341,11 +362,14 @@ function Check({
         'Still receiving...'
       )
     ) : status === 'received' ? (
-      !isCurrentUserPayer && check.receiverAddress && wallet && check.receiverAddress !== getWalletAddress(wallet) ? (
-        'Received by another person'
-      ) : (
-        'Received'
-      )
+      !isCurrentUserPayer
+      && check.receiverAddress
+      && (!wallet || check.receiverAddress !== getWalletAddress(wallet))
+        ? (
+          'Received by another person'
+        ) : (
+          'Received'
+        )
     ) : status === 'failed' ? (
       'Returned'
     ) : (
@@ -449,6 +473,28 @@ function Check({
     );
   }
 
+  function renderNftAction() {
+    if (check?.type !== 'nft') return undefined;
+
+    let text = status === 'pending_signature'
+      ? lang('Send')
+      : status === 'pending_receive' && !isCurrentUserSender
+        ? lang('Receive')
+        : '';
+
+    if (text.length > 0) text += ' ';
+
+    text += check.nftInfo.isTelegramGift
+      ? lang(text.length > 0 ? 'gift' : 'Gift')
+      : 'NFT';
+
+    return (
+      <div className={styles.nftAction}>
+        {text}
+      </div>
+    );
+  }
+
   return (
     <div className={buildClassName(commonStyles.container, commonStyles.container_centered)}>
       <Header
@@ -458,24 +504,18 @@ function Check({
         onDisconnectClick={handleDisconnectClick}
       />
 
-      <div className={styles.tokenContainer}>
-        <canvas ref={canvasRef} className={styles.particles} />
-        <div className={styles.tokenLogo}>
-          <div className={styles.tokenImgContainer} onClick={check ? handleTokenClick : undefined}>
-            {imgPath && (
-              <Image
-                url={imgPath}
-                isSlow
-                alt={(check?.type === 'coin'
-                  ? check.symbol
-                  : check?.nftInfo.name) || 't.me/push'}
-                imageClassName={styles.tokenImg}
-              />
-            )}
-          </div>
-          {renderBadge()}
-        </div>
-      </div>
+      <ImageWithParticles
+        imgPath={imgPath}
+        animationPath={animationUrl}
+        alt={(check?.type === 'coin'
+          ? check.symbol
+          : check?.nftInfo.name) || 't.me/push'}
+        canvasRef={canvasRef}
+        onClick={check ? handleTokenClick : undefined}
+        isNft={check?.type === 'nft'}
+      >
+        {renderBadge()}
+      </ImageWithParticles>
 
       <Transition
         name="semiFade"
@@ -485,29 +525,46 @@ function Check({
       >
         {(isMainActive) => (
           <>
-            <div
-              className={
+            {renderNftAction()}
+
+            {check?.type === 'coin' ? (
+              <div
+                className={
+                  buildClassName(
+                    commonStyles.roundedFont,
+                    styles.amount,
+                    check.type === 'coin' && styles[`amount_${action}`],
+                  )
+                }
+              >
+                {formatCurrency(check.amount, check.symbol)}
+
+              </div>
+            ) : check?.type === 'nft' ? (
+              <div className={
+                buildClassName(commonStyles.roundedFont, styles.nftName)
+              }
+              >
+                {check.nftInfo.name}
+              </div>
+            ) : (
+              <div className={
                 buildClassName(
                   commonStyles.roundedFont,
                   styles.amount,
-                  check?.type === 'coin' && styles[`amount_${action}`],
                 )
               }
-            >
-              {!checkKey ? (
-                <a href="https://t.me/push?start=1">t.me/push</a>
-              ) : check?.type === 'coin' ? (
-                check.amount ? (
-                  formatCurrency(check.amount, check.symbol)
-                ) : (
-                  PLACEHOLDER
-                )
-              ) : (
-                check?.nftInfo!.name || PLACEHOLDER
-              )}
-            </div>
+              >
+                {
+                  !checkKey
+                    ? (
+                      <a href="https://t.me/push?start=1">t.me/push</a>
+                    ) : PLACEHOLDER
+                }
+              </div>
+            )}
 
-            <div className={styles.status}>
+            <div className={buildClassName(styles.status, check?.type === 'nft' && styles.status_nft)}>
               {renderStatus()}
             </div>
 

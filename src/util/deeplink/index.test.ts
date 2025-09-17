@@ -25,13 +25,11 @@ const createMockGlobalState = (): GlobalState => {
       bySlug: {
         [TONCOIN.slug]: {
           ...TONCOIN,
-          price: 1,
           priceUsd: 1,
           percentChange24h: 1,
         },
         [TON_USDT_MAINNET_SLUG]: {
           ...TON_USDT,
-          price: 1,
           priceUsd: 1,
           percentChange24h: 1,
         },

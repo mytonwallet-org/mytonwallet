@@ -156,7 +156,7 @@ final class SwapSelectorsVM: ObservableObject {
             self.currentSelector = .buying
             let swapTokenSelectionVC = TokenSelectionVC(
                 forceAvailable: buyingToken.slug,
-                otherSymbolOrMinterAddress: sellingToken.swapIdentifier,
+                otherSymbolOrMinterAddress: nil,
                 title: lang("You buy"),
                 delegate: self,
                 isModal: true,
@@ -236,7 +236,7 @@ final class SwapSelectorsVM: ObservableObject {
     func updateMaxAmount(_ token: ApiToken?, amount: BigInt?) {
         let token = token ?? sellingToken
         let balance = amount ?? BalanceStore.currentAccountBalances[token.slug]
-        self.maxAmount = balance
+        self.maxAmount = balance.flatMap { max(0, $0) }
         if (isUsingMax) {
             if let amount, let sellingAmount, sellingAmount != amount {
                 self.sellingAmount = amount

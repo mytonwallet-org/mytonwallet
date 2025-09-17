@@ -1,7 +1,7 @@
 @font-face {
     font-family: "brilliant-icons";
-    src: url("./brilliant-icons.woff?94192d5603eb2fd7825df702e54a76af") format("woff"),
-url("./brilliant-icons.woff2?94192d5603eb2fd7825df702e54a76af") format("woff2");
+    src: url("./brilliant-icons.woff?494bdbdac7fbf2feb64be7b8ccdb558f") format("woff"),
+url("./brilliant-icons.woff2?494bdbdac7fbf2feb64be7b8ccdb558f") format("woff2");
     font-weight: normal;
     font-style: normal;
     font-display: block;
@@ -345,30 +345,33 @@ url("./brilliant-icons.woff2?94192d5603eb2fd7825df702e54a76af") format("woff2");
 .icon-update::before {
     content: "\f16e";
 }
-.icon-versions::before {
+.icon-verification::before {
     content: "\f16f";
 }
-.icon-view-landscape::before {
+.icon-versions::before {
     content: "\f170";
 }
-.icon-view-portrait::before {
+.icon-view-landscape::before {
     content: "\f171";
 }
-.icon-wallet-add::before {
+.icon-view-portrait::before {
     content: "\f172";
 }
-.icon-wallet-view::before {
+.icon-wallet-add::before {
     content: "\f173";
 }
-.icon-wallet::before {
+.icon-wallet-view::before {
     content: "\f174";
 }
-.icon-windows-close::before {
+.icon-wallet::before {
     content: "\f175";
 }
-.icon-windows-maximize::before {
+.icon-windows-close::before {
     content: "\f176";
 }
-.icon-windows-minimize::before {
+.icon-windows-maximize::before {
     content: "\f177";
+}
+.icon-windows-minimize::before {
+    content: "\f178";
 }

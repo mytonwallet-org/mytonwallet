@@ -8,6 +8,7 @@ import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONS
 import androidx.constraintlayout.widget.Guideline
 import org.mytonwallet.app_air.uiassets.viewControllers.nft.NftVC
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -81,6 +82,7 @@ class NftAttributesView(
                 setStyle(15f, WFont.Medium)
                 text = attribute.traitType
                 setTextColor(WColor.PrimaryText)
+                setPaddingLocalized(0, 0, 12.dp, 0)
             }
             val valueLabel = WLabel(context).apply {
                 setStyle(15f)
@@ -110,7 +112,6 @@ class NftAttributesView(
             id = generateViewId()
         }
         addView(minWidthGuideline)
-        minWidthGuideline.setGuidelineBegin(150.dp)
         val verticalBarrier = Barrier(context).apply {
             id = generateViewId()
             type = Barrier.END

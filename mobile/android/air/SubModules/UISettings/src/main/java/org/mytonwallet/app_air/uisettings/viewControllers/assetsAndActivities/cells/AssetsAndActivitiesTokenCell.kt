@@ -132,8 +132,8 @@ class AssetsAndActivitiesTokenCell(
         amountLabel.contentView.setAmount(
             MTokenBalance.fromParameters(token, balance)!!.toBaseCurrency,
             token.decimals,
-            WalletCore.baseCurrency?.sign ?: "",
-            WalletCore.baseCurrency?.decimalsCount ?: 2,
+            WalletCore.baseCurrency.sign,
+            WalletCore.baseCurrency.decimalsCount,
             true
         )
         skipSwitchChangeListener = true

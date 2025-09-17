@@ -42,3 +42,5 @@ public let TINY_TRANSFER_MAX_COST = 0.01
 public let TELEGRAM_GIFTS_SUPER_COLLECTION = "super:telegram-gifts"
 
 public let JVAULT_URL = "https://jvault.xyz"
+
+public let MAX_PRICE_IMPACT_VALUE = 5.0

@@ -75,7 +75,7 @@ import {
   getTokenBalanceWithMintless,
   getToncoinAmountForTransfer,
 } from './tokens';
-import { buildWallet, getContractInfo, getTonWallet, getWalletBalance, getWalletInfo, getWalletSeqno } from './wallet';
+import { getContractInfo, getTonWallet, getWalletBalance, getWalletInfo, getWalletSeqno } from './wallet';
 
 const WAIT_TRANSFER_TIMEOUT = MINUTE;
 const WAIT_PAUSE = SEC;
@@ -196,6 +196,7 @@ export async function checkTransactionDraft(
         amount,
         payload: data,
         forwardAmount,
+        isLedger: account.type === 'ledger',
       });
       ({ amount: toncoinAmount, toAddress, payload: data } = tokenTransfer);
       const { realAmount: realToncoinAmount, isTokenWalletDeployed, mintlessTokenBalance } = tokenTransfer;
@@ -390,6 +391,7 @@ export async function submitTransfer(options: ApiSubmitTransferOptions): Promise
         amount,
         payload: data,
         forwardAmount,
+        isLedger: account.type === 'ledger',
       }));
     }
 
@@ -498,6 +500,7 @@ export async function submitTransferWithDiesel(options: {
         toAddress,
         amount,
         payload: data,
+        isLedger: account.type === 'ledger',
       }),
     ];
 
@@ -511,6 +514,7 @@ export async function submitTransferWithDiesel(options: {
           amount: dieselAmount,
           shouldSkipMintless: true,
           payload: getOurFeePayload(),
+          isLedger: account.type === 'ledger',
         }),
       );
     }
@@ -1013,9 +1017,10 @@ async function emulateTransactionWithFallback(
 
 export async function sendSignedTransactions(accountId: string, transactions: ApiSignedTransfer[]) {
   const { network } = parseAccountId(accountId);
-  const { address: fromAddress, publicKey, version } = await fetchStoredWallet(accountId, 'ton');
+  const storedWallet = await fetchStoredWallet(accountId, 'ton');
+  const { address: fromAddress } = storedWallet;
   const client = getTonClient(network);
-  const wallet = buildWallet(publicKey!, version);
+  const wallet = getTonWallet(storedWallet);
 
   const attempts = ATTEMPTS + transactions.length;
   let index = 0;

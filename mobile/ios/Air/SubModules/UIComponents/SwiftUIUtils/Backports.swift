@@ -37,4 +37,18 @@ public extension View {
             self
         }
     }
+    
+    @ViewBuilder
+    func backportSensoryFeedback(value: Bool) -> some View {
+        if #available(iOS 17, *) {
+            self.sensoryFeedback(trigger: value) { oldValue, newValue in
+                if newValue {
+                    return .impact(flexibility: .soft, intensity: 0.5)
+                }
+                return nil
+            }
+        } else {
+            self
+        }
+    }
 }

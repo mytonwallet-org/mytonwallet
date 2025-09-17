@@ -88,6 +88,10 @@ class WMenuPopup {
                     WColor.Tint.color
                 }
 
+                Config.Back -> {
+                    WColor.PrimaryLightText.color
+                }
+
                 else -> {
                     WColor.SecondaryText.color
                 }
@@ -186,7 +190,8 @@ class WMenuPopup {
             popupWidth: Int = WRAP_CONTENT,
             offset: Int = 0,
             verticalOffset: Int = 0,
-            aboveView: Boolean
+            aboveView: Boolean,
+            centerHorizontally: Boolean = false
         ): PopupWindow {
             view.lockView()
 
@@ -210,6 +215,21 @@ class WMenuPopup {
 
             val location = IntArray(2)
             view.getLocationOnScreen(location)
+
+            val offset = if (centerHorizontally) {
+                val popupMeasuredWidth = if (popupWidth == WRAP_CONTENT) {
+                    popupView.measure(
+                        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+                        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+                    )
+                    popupView.measuredWidth
+                } else {
+                    popupWidth
+                }
+                (view.width - popupMeasuredWidth) / 2
+            } else {
+                offset
+            }
 
             popupWindow.showAtLocation(
                 view,

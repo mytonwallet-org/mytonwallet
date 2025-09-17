@@ -53,7 +53,7 @@ interface OwnProps {
 interface StateProps {
   tokens?: UserToken[];
   currentTokenSlug?: string;
-  baseCurrency?: ApiBaseCurrency;
+  baseCurrency: ApiBaseCurrency;
   stakingStates?: ApiStakingState[];
   cardNft?: ApiNft;
   isSensitiveDataHidden?: true;

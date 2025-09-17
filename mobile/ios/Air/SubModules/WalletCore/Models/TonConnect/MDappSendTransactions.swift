@@ -80,4 +80,16 @@ extension MDappSendTransactions {
             nftsCount: nftsCount,
         )
     }
+    
+    public func currentAccountHasSufficientBalance() -> Bool {
+        let totals = combinedInfo.tokenTotals
+        let balances = BalanceStore.currentAccountBalances
+        for (slug, amount) in totals {
+            let available = balances[slug] ?? 0
+            if amount > available {
+                return false
+            }
+        }
+        return true
+    }
 }

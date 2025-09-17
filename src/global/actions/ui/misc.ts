@@ -562,15 +562,11 @@ addActionHandler('handleQrCode', async (global, actions, { data }) => {
   actions.showDialog({ title: 'This QR Code is not supported', message: '' });
 });
 
-addActionHandler('changeBaseCurrency', async (global, actions, { currency }) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('changeBaseCurrency', { currency });
-  }
-
-  await callApi('setBaseCurrency', currency);
-  await callApi('tryUpdateTokens');
-  // Swap tokens will be merged with the new prices loaded in `tryUpdateTokens`
-  await callApi('tryUpdateSwapTokens');
+addActionHandler('changeBaseCurrency', (global, actions, { currency }) => {
+  global = updateSettings(global, {
+    baseCurrency: currency,
+  });
+  setGlobal(global);
 });
 
 addActionHandler('setIsPinAccepted', (global) => {

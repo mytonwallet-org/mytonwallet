@@ -5,6 +5,7 @@ import { getActions } from '../../../../global';
 
 import type {
   ApiBaseCurrency,
+  ApiCurrencyRates,
   ApiNft,
   ApiTokenWithPrice,
   ApiTransactionActivity,
@@ -72,7 +73,8 @@ type OwnProps = {
   isFuture?: boolean;
   accounts: Record<string, Account> | undefined;
   currentAccountId: string;
-  baseCurrency: ApiBaseCurrency | undefined;
+  baseCurrency: ApiBaseCurrency;
+  currencyRates: ApiCurrencyRates;
   onClick?: (id: string) => void;
 };
 
@@ -102,6 +104,7 @@ function Transaction({
   accounts,
   currentAccountId,
   baseCurrency,
+  currencyRates,
   onClick,
 }: OwnProps) {
   const { openNftAttributesModal } = getActions();
@@ -301,7 +304,7 @@ function Transaction({
         cellSize={8}
         align="right"
       >
-        {formatBaseCurrencyAmount(amount, baseCurrency, token)}
+        {formatBaseCurrencyAmount(amount, baseCurrency, token, currencyRates)}
       </SensitiveData>
     );
   }

@@ -43,7 +43,7 @@ public class AirAppLauncherPlugin extends Plugin {
       if (airLauncher == null)
         airLauncher = new AirLauncher(getActivity());
       AirLauncher.setInstance(airLauncher);
-      airLauncher.soarIntoAir(true);
+      airLauncher.soarIntoAir(getActivity(), true);
     });
   }
 }

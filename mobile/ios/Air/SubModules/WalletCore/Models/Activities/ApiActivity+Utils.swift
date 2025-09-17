@@ -185,7 +185,11 @@ public extension ApiActivity {
                 blue
             }
         case nil:
-            transaction?.isIncoming == true ? green : blue
+            if transaction?.status == .failed {
+                red
+            } else {
+                transaction?.isIncoming == true ? green : blue
+            }
         }
         return colors
     }

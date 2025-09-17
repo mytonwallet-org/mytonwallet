@@ -6,6 +6,7 @@ import { getActions, getGlobal, withGlobal } from '../../../global';
 
 import type {
   ApiBaseCurrency,
+  ApiCurrencyRates,
   ApiNft,
   ApiStakingState,
   ApiTokenWithPrice,
@@ -98,7 +99,8 @@ type StateProps = {
   nftsByAddress?: Record<string, ApiNft>;
   accounts?: Record<string, Account>;
   currentAccountId: string;
-  baseCurrency?: ApiBaseCurrency;
+  baseCurrency: ApiBaseCurrency;
+  currencyRates: ApiCurrencyRates;
 };
 
 const enum SLIDES {
@@ -122,6 +124,7 @@ function TransactionModal({
   accounts,
   currentAccountId,
   baseCurrency,
+  currencyRates,
 }: StateProps) {
   const {
     fetchActivityDetails,
@@ -527,6 +530,7 @@ function TransactionModal({
             status={isOurUnstaking && !shouldRenderUnstakeTimer ? lang('Successfully') : undefined}
             noSign={amountDisplayMode === 'noSign'}
             baseCurrency={baseCurrency}
+            currencyRates={currencyRates}
           />
         )}
         {nft && <NftInfo nft={nft} withMediaViewer={doesNftExist} withTonExplorer />}
@@ -645,6 +649,7 @@ export default memo(
       accounts,
       currentAccountId: accountId,
       baseCurrency: global.settings.baseCurrency,
+      currencyRates: global.currencyRates,
     };
   })(TransactionModal),
 );

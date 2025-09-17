@@ -67,6 +67,10 @@ class MoshiBuilder {
                             ApiUpdate.ApiUpdateWalletVersions::class.java,
                             "updateWalletVersions"
                         )
+                        .withSubtype(
+                            ApiUpdate.ApiUpdateCurrencyRates::class.java,
+                            "updateCurrencyRates"
+                        )
                         .withDefaultValue(null)
                 )
                 .add(

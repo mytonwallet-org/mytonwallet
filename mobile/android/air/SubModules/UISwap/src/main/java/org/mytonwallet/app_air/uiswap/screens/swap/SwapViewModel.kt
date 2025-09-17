@@ -29,6 +29,7 @@ import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletcontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletcontext.utils.toString
+import org.mytonwallet.app_air.walletcore.DEFAULT_SWAP_VERSION
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
@@ -57,6 +58,7 @@ import org.mytonwallet.app_air.walletcore.moshi.MDieselStatus
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
+import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -159,7 +161,7 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
         val state = _inputStateFlow.value
         val pairs = tokenPairsCache[state.tokenToSend?.slug]
 
-        if (state.tokenToSend == null) {
+        if (state.tokenToSend == null || _inputStateFlow.value.shouldShowAllPairs) {
             _walletStateFlow.value?.assets?.let {
                 _eventsFlow.tryEmit(Event.ShowSelector(it, mode = Mode.RECEIVE))
             }
@@ -288,6 +290,8 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
 
     private fun validatePair() {
         val state = _inputStateFlow.value
+        if (state.shouldShowAllPairs)
+            return
         val pairs = tokenPairsCache[state.tokenToSend?.slug]
         if (pairs != null && state.tokenToReceive != null) {
             if (pairs.find { it.slug == state.tokenToReceive.slug } == null) {
@@ -496,7 +500,7 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
 
         data class SwapComplete(
             val success: Boolean,
-            val error: JSWebViewBridge.ApiError? = null
+            val error: MBridgeError? = null
         ) : Event()
 
         data object ClearEstimateLayout : Event()
@@ -658,14 +662,14 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
         }
 
         estimated.error?.let {
-            when (it.parsed) {
+            when (it) {
                 MBridgeError.AXIOS_ERROR -> return ButtonState(
                     ButtonStatus.WaitNetwork,
                     LocaleController.getString("Waiting for Network")
                 )
 
                 else -> return ButtonState(
-                    ButtonStatus.Error, when (it.parsed) {
+                    ButtonStatus.Error, when (it) {
                         MBridgeError.INSUFFICIENT_BALANCE -> {
                             val walletBalance =
                                 (est.request.wallet.balances[est.request.tokenToSend.slug]
@@ -685,7 +689,7 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                         }
 
                         MBridgeError.TOO_SMALL_AMOUNT,
-                        MBridgeError.PAIR_NOT_FOUND -> it.parsed.toShortLocalized ?: ""
+                        MBridgeError.PAIR_NOT_FOUND -> it.toShortLocalized ?: ""
 
                         else -> LocaleController.getString("Error")
                     }
@@ -786,6 +790,15 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                 }
 
                 val cex = WalletCore.Swap.swapCexEstimate(request.estimateRequestCex)
+                cex.error?.let {
+                    return SwapEstimateResponse(
+                        request = request,
+                        dex = null,
+                        cex = null,
+                        fee = null,
+                        error = it
+                    )
+                }
                 val res = SwapEstimateResponse(
                     request = request,
                     dex = null,
@@ -848,7 +861,7 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                 dex = null,
                 cex = null,
                 fee = null,
-                error = apiError
+                error = apiError.parsed
             )
         }
     }
@@ -883,7 +896,8 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                         toMinAmount = dex.toMinAmount,
                         ourFee = dex.ourFee,
                         dieselFee = dex.dieselFee,
-                        swapVersion = 2
+                        swapVersion = ConfigStore.swapVersion ?: DEFAULT_SWAP_VERSION,
+                        routes = dex.routes
                     )
                 )
 
@@ -913,6 +927,10 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
             }
 
             estimate.cex?.let { cex ->
+                cex.error?.let {
+                    _eventsFlow.tryEmit(Event.SwapComplete(success = false, it))
+                    return
+                }
                 val toUserAddress =
                     estimate.request.wallet.addressByChain[tokenToReceive.mBlockchain?.name]
                         ?: addressToReceive
@@ -928,12 +946,12 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                     passcode,
                     MApiSwapCexCreateTransactionRequest(
                         from = tokenToSend.swapSlug,
-                        fromAmount = cex.fromAmount,
+                        fromAmount = cex.fromAmount!!,
                         fromAddress = accountTonAddress,
                         to = tokenToReceive.swapSlug,
                         toAddress = toUserAddress,
                         payoutExtraId = null,
-                        swapFee = cex.swapFee,
+                        swapFee = cex.swapFee!!,
                         networkFee = networkFee
                     )
                 )
@@ -963,7 +981,7 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                 }
             }
         } catch (e: JSWebViewBridge.ApiError) {
-            _eventsFlow.tryEmit(Event.SwapComplete(success = false, e))
+            _eventsFlow.tryEmit(Event.SwapComplete(success = false, e.parsed))
         } catch (_: Throwable) {
             _eventsFlow.tryEmit(Event.SwapComplete(success = false))
         }

@@ -11,6 +11,7 @@ import type {
   ApiBaseCurrency,
   ApiChain,
   ApiCountryCode,
+  ApiCurrencyRates,
   ApiDapp,
   ApiDappPermissions,
   ApiDappTransfer,
@@ -710,6 +711,8 @@ export type GlobalState = {
     bySlug: Record<string, ApiTokenWithPrice>;
   };
 
+  currencyRates: ApiCurrencyRates;
+
   swapTokenInfo: {
     bySlug: Record<string, ApiSwapAsset>;
     /** Whether the API has loaded and provided the tokens */
@@ -755,7 +758,7 @@ export type GlobalState = {
       token?: UserToken | UserSwapToken;
     };
     authConfig?: AuthConfig;
-    baseCurrency?: ApiBaseCurrency;
+    baseCurrency: ApiBaseCurrency;
     isAppLockEnabled?: boolean;
     autolockValue?: AutolockValueType;
     isAutoConfirmEnabled?: boolean;
@@ -889,7 +892,7 @@ export interface ActionPayloads {
   afterSelectHardwareWallets: { hardwareSelectedIndices: number[] };
   resetApiSettings: { areAllDisabled?: boolean } | undefined;
   checkAppVersion: undefined;
-  importAccountByVersion: { version: ApiTonWalletVersion };
+  importAccountByVersion: { version: ApiTonWalletVersion; isTestnetSubwalletId?: boolean };
   importViewAccount: { addressByChain: ApiImportAddressByChain };
 
   selectToken: { slug?: string } | undefined;

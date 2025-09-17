@@ -552,6 +552,12 @@ class ExploreVC(context: Context) : WViewController(context),
     private fun onDAppTap(it: ApiDapp?) {
         it?.let {
             val url = it.url ?: return
+            if (it.sse != null) {
+                val intent = Intent(Intent.ACTION_VIEW)
+                intent.setData(url.toUri())
+                window?.startActivity(intent)
+                return
+            }
             val inAppBrowserVC = InAppBrowserVC(
                 context,
                 navigationController?.tabBarController,

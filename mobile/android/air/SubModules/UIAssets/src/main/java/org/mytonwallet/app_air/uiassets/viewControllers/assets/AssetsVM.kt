@@ -16,31 +16,11 @@ class AssetsVM(val collectionMode: AssetsVC.CollectionMode?, delegate: Delegate)
 
     private val delegate: WeakReference<Delegate> = WeakReference(delegate)
 
-    private var waitingForNetwork = false
     internal var nfts: MutableList<ApiNft>? = null
-
-    init {
-        updateNftsArray()
-    }
 
     fun delegateIsReady() {
         WalletCore.registerObserver(this)
-        if (!WalletCore.isConnected()) {
-            waitingForNetwork = true
-        }
-        refresh()
-    }
-
-    private fun refresh() {
-        /*WalletCore.fetchNfts(AccountStore.activeAccountId ?: "") { nfts, error ->
-            if (error != null) {
-                if (!waitingForNetwork) {
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        refresh()
-                    }, 3000)
-                }
-            }
-        }*/
+        updateNftsArray()
     }
 
     private fun updateNfts() {
@@ -80,15 +60,6 @@ class AssetsVM(val collectionMode: AssetsVC.CollectionMode?, delegate: Delegate)
 
             is WalletEvent.AccountChanged -> {
                 updateNfts()
-                refresh()
-            }
-
-            WalletEvent.NetworkConnected -> {
-                refresh()
-            }
-
-            WalletEvent.NetworkDisconnected -> {
-                waitingForNetwork = true
             }
 
             else -> {}

@@ -8,7 +8,7 @@ import type {
   ApiTonWallet,
   ApiUpdatingStatus,
   ApiVestingInfo,
-  ApiWalletInfo,
+  ApiWalletWithVersionInfo,
   OnApiUpdate,
 } from '../../types';
 
@@ -408,14 +408,16 @@ function logAndRescue(err: Error) {
 
 function setupWalletVersionsPolling(accountId: string, onUpdate: OnApiUpdate) {
   const { network } = parseAccountId(accountId);
-  let lastResult: ApiWalletInfo[] | undefined;
+  let lastResult: ApiWalletWithVersionInfo[] | undefined;
 
   return pollingLoop({
     period: VERSIONS_INTERVAL,
     async poll() {
       try {
         const { type: accountType, byChain: { ton: tonWallet } } = await fetchStoredAccount(accountId);
-        if (accountType === 'bip39' || !tonWallet) return 'stop';
+        if (accountType === 'bip39' || !tonWallet) {
+          return 'stop';
+        }
 
         const { publicKey, version, isInitialized } = tonWallet;
 
@@ -436,13 +438,20 @@ function setupWalletVersionsPolling(accountId: string, onUpdate: OnApiUpdate) {
         }
 
         const publicKeyBytes = hexToBytes(publicKey);
-        const versions = (accountType === 'ledger' ? LEDGER_WALLET_VERSIONS : POPULAR_WALLET_VERSIONS)
+        let versions = (accountType === 'ledger' ? LEDGER_WALLET_VERSIONS : POPULAR_WALLET_VERSIONS)
           .filter((value) => value !== version);
-        const versionInfos = (await getWalletVersionInfos(
-          network, publicKeyBytes, versions,
-        ));
 
-        const filteredVersions = versionInfos.map(({ wallet, ...rest }) => rest);
+        // For W5 wallets, always include W5 to show subwallet ID variants for testnet
+        if (version === 'W5') {
+          versions = [...versions, 'W5'];
+        }
+        const versionInfos: ApiWalletWithVersionInfo[] = (await getWalletVersionInfos(
+          network, publicKeyBytes, versions,
+        )).map(({ wallet, ...rest }) => rest);
+
+        // Filter out the current wallet (including the current W5 subwallet ID variant)
+        const filteredVersions = versionInfos
+          .filter((v) => v.address !== tonWallet.address);
 
         if (!areDeepEqual(versionInfos, lastResult)) {
           lastResult = versionInfos;

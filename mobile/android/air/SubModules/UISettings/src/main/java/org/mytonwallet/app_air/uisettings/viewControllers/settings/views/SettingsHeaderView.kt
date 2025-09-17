@@ -140,9 +140,9 @@ class SettingsHeaderView(
                 if (BalanceStore.getBalances(AccountStore.activeAccountId)?.get("toncoin") != null)
                     BalanceStore.totalBalanceInBaseCurrency(AccountStore.activeAccountId!!)
                         ?.toString(
-                            WalletCore.baseCurrency?.decimalsCount ?: 2,
-                            WalletCore.baseCurrency?.sign ?: "",
-                            WalletCore.baseCurrency?.decimalsCount ?: 9,
+                            WalletCore.baseCurrency.decimalsCount,
+                            WalletCore.baseCurrency.sign,
+                            WalletCore.baseCurrency.decimalsCount,
                             true
                         ) else null
         val address = AccountStore.activeAccount?.firstAddress?.formatStartEndAddress()

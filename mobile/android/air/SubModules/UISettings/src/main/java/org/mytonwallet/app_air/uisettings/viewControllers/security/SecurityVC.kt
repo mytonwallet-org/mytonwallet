@@ -211,9 +211,11 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
             ViewConstants.HORIZONTAL_PADDINGS.dp,
             0
         )
-        v.addView(backupTitleLabel, ViewGroup.LayoutParams(MATCH_PARENT, 48.dp))
-        v.addView(backupRow)
-        v.addView(spacer1, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
+        if (AccountStore.activeAccount?.isViewOnly != true) {
+            v.addView(backupTitleLabel, ViewGroup.LayoutParams(MATCH_PARENT, 48.dp))
+            v.addView(backupRow)
+            v.addView(spacer1, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
+        }
         v.addView(passcodeTitleLabel, ViewGroup.LayoutParams(MATCH_PARENT, 48.dp))
         v.addView(biometricAuthRow, ConstraintLayout.LayoutParams(MATCH_PARENT, 56.dp))
         v.addView(changePasscodeRow)
@@ -221,11 +223,15 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
         v.addView(appLockLabel, ViewGroup.LayoutParams(MATCH_PARENT, 48.dp))
         v.addView(autoLockRow, ConstraintLayout.LayoutParams(MATCH_PARENT, 56.dp))
         v.setConstraints {
-            toTop(backupTitleLabel)
-            topToBottom(backupRow, backupTitleLabel)
-            toCenterX(backupRow)
-            topToBottom(spacer1, backupRow)
-            topToBottom(passcodeTitleLabel, spacer1)
+            if (AccountStore.activeAccount?.isViewOnly != true) {
+                toTop(backupTitleLabel)
+                topToBottom(backupRow, backupTitleLabel)
+                toCenterX(backupRow)
+                topToBottom(spacer1, backupRow)
+                topToBottom(passcodeTitleLabel, spacer1)
+            } else {
+                toTop(passcodeTitleLabel)
+            }
             topToBottom(biometricAuthRow, passcodeTitleLabel)
             topToBottom(changePasscodeRow, biometricAuthRow)
             topToBottom(spacer2, changePasscodeRow)
@@ -280,19 +286,27 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
             val spacerBackground = WColor.SecondaryBackground.color
             spacer1.setBackgroundColor(spacerBackground)
         }
-        backupTitleLabel.setTextColor(WColor.Tint.color)
-        backupTitleLabel.setBackgroundColor(
-            WColor.Background.color,
-            ViewConstants.TOP_RADIUS.dp,
-            0f,
-        )
-        backupRow.setBackgroundColor(WColor.Background.color)
+        if (AccountStore.activeAccount?.isViewOnly != true) {
+            backupTitleLabel.setTextColor(WColor.Tint.color)
+            backupTitleLabel.setBackgroundColor(
+                WColor.Background.color,
+                ViewConstants.TOP_RADIUS.dp,
+                0f,
+            )
+            backupRow.setBackgroundColor(WColor.Background.color)
+            passcodeTitleLabel.setBackgroundColor(
+                WColor.Background.color,
+                ViewConstants.BIG_RADIUS.dp,
+                0f,
+            )
+        } else {
+            passcodeTitleLabel.setBackgroundColor(
+                WColor.Background.color,
+                ViewConstants.TOP_RADIUS.dp,
+                0f,
+            )
+        }
         passcodeTitleLabel.setTextColor(WColor.Tint.color)
-        passcodeTitleLabel.setBackgroundColor(
-            WColor.Background.color,
-            ViewConstants.BIG_RADIUS.dp,
-            0f,
-        )
         biometricAuthRow.background = separatorBackgroundDrawable
         biometricAuthRow.addRippleEffect(WColor.SecondaryBackground.color)
         biometricLabel.setTextColor(WColor.PrimaryText.color)

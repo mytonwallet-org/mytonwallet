@@ -57,7 +57,9 @@ import org.mytonwallet.app_air.walletcontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.MAIN_NETWORK
+import org.mytonwallet.app_air.walletcore.TON_CHAIN
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.api.submitStake
 import org.mytonwallet.app_air.walletcore.api.submitUnstake
@@ -249,7 +251,7 @@ class LedgerConnectVC(
     override fun setupViews() {
         super.setupViews()
 
-        LedgerManager.init(window!!, context)
+        LedgerManager.init(window!!.applicationContext)
 
         title = when (mode) {
             Mode.AddAccount -> {
@@ -522,7 +524,7 @@ class LedgerConnectVC(
                 try {
                     balance = WalletCore.call(
                         ApiMethod.WalletData.GetWalletBalance(
-                            "ton", MAIN_NETWORK, wallet.address
+                            TON_CHAIN, MAIN_NETWORK, wallet.address
                         )
                     )
                 } catch (e: Throwable) {
@@ -617,11 +619,16 @@ class LedgerConnectVC(
                                 return@activateAccount
                             }
                             Handler(Looper.getMainLooper()).post {
-                                push(
-                                    WalletContextManager.delegate?.getWalletAddedVC(false) as WViewController,
-                                    {
+                                if (prevAccountsCount == 0) {
+                                    push(
+                                        WalletContextManager.delegate?.getWalletAddedVC(false) as WViewController
+                                    ) {
                                         navigationController?.removePrevViewControllers()
-                                    })
+                                    }
+                                } else {
+                                    WalletCore.notifyEvent(WalletEvent.AddNewWalletCompletion)
+                                    window!!.dismissLastNav()
+                                }
                             }
                         }
                     }
@@ -947,6 +954,7 @@ class LedgerConnectVC(
         window!!.unregisterReceiver(
             bluetoothStateReceiver,
         )
+        LedgerManager.stopConnection()
     }
 
     override fun viewWillAppear() {

@@ -14,13 +14,13 @@ import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 @SuppressLint("ViewConstructor")
 class WAlertLabel(
     context: Context,
-    textContents: CharSequence,
+    textContents: CharSequence? = null,
     val alertColor: Int = WColor.Orange.color,
     val handleSize: Float = 4f.dp,
     rounding: Float = 12f.dp,
     bgAlpha: Int = 31,
     coloredText: Boolean = false
-)  : WLabel(context) {
+) : WLabel(context) {
 
     private val paint = Paint().apply {
         color = alertColor

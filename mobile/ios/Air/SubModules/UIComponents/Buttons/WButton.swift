@@ -227,13 +227,17 @@ public class WButton: WBaseButton, WThemedView {
 public struct WUIButtonStyle: PrimitiveButtonStyle {
     
     public var style: WButtonStyle
+    public var loadingIndicatorDelay: CGFloat = 0.2
     
     public init(style: WButtonStyle) {
         self.style = style
     }
     
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.isLoading) private var isLoading
     @State private var isTouching: Bool = false
+    @State private var angle: Angle = .zero
+    @State private var isShowingLoadingIndicator = false
     
     var textColor: UIColor {
         switch style {
@@ -262,27 +266,54 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
     }
     
     public func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(Font(_font))
-            .foregroundStyle(Color(textColor))
-            .opacity(isEnabled && isTouching ? 0.5 : 1)
-            .frame(height: 50)
-            .frame(maxWidth: .infinity)
-            .background(Color(backgroundColor), in: .rect(cornerRadius: _borderRadius))
-            .opacity(isEnabled ? 1 : 0.5)
-            .contentShape(.rect)
-            .onTapGesture {
-                configuration.trigger()
+        HStack  {
+            if !isShowingLoadingIndicator {
+                configuration.label
+                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
+            } else {
+                loadingIndicator
+                    .rotationEffect(angle)
+                    .onAppear {
+                        withAnimation(.linear(duration: 0.625).repeatForever(autoreverses: false)) {
+                            angle += .radians(2 * .pi)
+                        }
+                    }
+                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
-            .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in
-                withAnimation(.spring(duration: 0.1)) {
-                    isTouching = true
-                }
-            }.onEnded { _ in
-                withAnimation(.spring(duration: 0.5)) {
-                    isTouching = false
-                }
-            })
+        }
+        .font(Font(_font))
+        .overlay {
+        }
+        .foregroundStyle(Color(textColor))
+        .opacity(isEnabled && isTouching ? 0.5 : 1)
+        .frame(height: 50)
+        .frame(maxWidth: .infinity)
+        .background(Color(backgroundColor), in: .rect(cornerRadius: _borderRadius))
+        .opacity(isEnabled ? 1 : 0.5)
+        .contentShape(.rect)
+        .onTapGesture {
+            configuration.trigger()
+        }
+        .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in
+            withAnimation(.spring(duration: 0.1)) {
+                isTouching = true
+            }
+        }.onEnded { _ in
+            withAnimation(.spring(duration: 0.5)) {
+                isTouching = false
+            }
+        })
+        .allowsHitTesting(!isLoading)
+        .onChange(of: isLoading) { isLoading in
+            withAnimation(.spring().delay(isLoading ? loadingIndicatorDelay : 0)) {
+                isShowingLoadingIndicator = isLoading
+            }
+        }
+    }
+    
+    var loadingIndicator: some View {
+        Image.airBundle("ActivityIndicator")
+            .renderingMode(.template)
     }
 }
 
@@ -292,11 +323,29 @@ public extension PrimitiveButtonStyle where Self == WUIButtonStyle {
     static var airClearBackground: WUIButtonStyle { WUIButtonStyle(style: .clearBackground) }
 }
 
-
+public extension EnvironmentValues {
+    @Entry var isLoading = false
+}
 
 #if DEBUG
 @available(iOS 17.0, *)
 #Preview {
-    return WButton(style: .primary)
+    @Previewable @State var isLoading = false
+    
+    Button(action: {}) {
+        Text("Helldo")
+    }
+    .buttonStyle(.airPrimary)
+    .environment(\.isLoading, isLoading)
+    .padding()
+    .task {
+        isLoading = false
+        try? await Task.sleep(for: .seconds(2))
+        isLoading = true
+        try? await Task.sleep(for: .seconds(2))
+        isLoading = false
+        try? await Task.sleep(for: .seconds(2))
+        isLoading = true
+    }
 }
 #endif

@@ -2,7 +2,10 @@ interface NftInfo {
   address: string;
   name: string;
   collectionName: string;
+  collectionAddress: string;
   imageUrl?: string;
+  isTelegramGift: boolean;
+  giftAnimationUrl?: string;
 }
 
 export type TokenSymbol = 'TON' | 'USDT' | 'MY';

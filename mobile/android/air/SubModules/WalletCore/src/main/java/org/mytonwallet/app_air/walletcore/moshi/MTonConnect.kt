@@ -89,6 +89,7 @@ enum class ApiConnectionType {
 sealed class ReturnStrategy {
     object None : ReturnStrategy()
     object Back : ReturnStrategy()
+    object Empty : ReturnStrategy()
     data class Url(val url: String) : ReturnStrategy()
 }
 

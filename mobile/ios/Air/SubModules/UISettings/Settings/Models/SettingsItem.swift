@@ -172,7 +172,7 @@ extension SettingsItem.Identifier {
             return SettingsItem(
                 id: .signout,
                 icon: nil,
-                title: lang("Log Out"),
+                title: lang("Remove Wallet"),
                 hasPrimaryColor: false,
                 hasChild: true,
                 isDangerous: true

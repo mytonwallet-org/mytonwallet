@@ -39,11 +39,6 @@ public class AppearanceVC: WViewController {
         v.translatesAutoresizingMaskIntoConstraints = false
         return v
     }()
-    private var appIconView: AppearanceAppIconView = {
-        let v = AppearanceAppIconView()
-        v.translatesAutoresizingMaskIntoConstraints = false
-        return v
-    }()
     private var otherSettingsView: AppearanceOtherSettingsView = {
         let v = AppearanceOtherSettingsView()
         v.translatesAutoresizingMaskIntoConstraints = false

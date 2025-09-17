@@ -69,8 +69,7 @@ sealed class ApiUpdate {
     @JsonSealedSubtype("updateTokens")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateTokens(
-        val tokens: Map<String, ApiTokenWithPrice>,
-        val baseCurrency: String // ApiBaseCurrency
+        val tokens: Map<String, ApiTokenWithPrice>
     ) : ApiUpdate()
 
     @JsonSealedSubtype("dappConnectComplete")
@@ -115,4 +114,12 @@ sealed class ApiUpdate {
             val version: String
         )
     }
+
+    @JsonSealedSubtype("updateCurrencyRates")
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateCurrencyRates(
+        val rates: Map<String, Double>
+    ) : ApiUpdate()
+
+    // NOTICE: Do NOT forget to add new sub-types to MoshiBuilder file to prevent minification issues.
 }

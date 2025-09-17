@@ -91,7 +91,7 @@ export async function checkStakeDraft(accountId: string, amount: bigint, state: 
     }
     case 'jetton': {
       const { tokenSlug, pool, period } = state;
-      const { tokenAddress } = getTokenBySlug(tokenSlug);
+      const { tokenAddress } = getTokenBySlug(tokenSlug)!;
 
       result = await checkTransactionDraft({
         accountId,
@@ -228,7 +228,7 @@ export async function submitStake(
     }
     case 'jetton': {
       const { tokenSlug, pool, period } = state;
-      const { tokenAddress } = getTokenBySlug(tokenSlug);
+      const { tokenAddress } = getTokenBySlug(tokenSlug)!;
 
       result = await submitTransfer({
         accountId,

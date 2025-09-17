@@ -4,6 +4,10 @@ import { JettonStakingGas } from './contracts/JettonStaking/imports/constants';
 
 export const TON_BIP39_PATH = 'm/44\'/607\'/0\'';
 
+// W5 wallet chain IDs for different subwallet variants
+export const TON_MAINNET_CHAIN_ID = -239;
+export const TON_TESTNET_CHAIN_ID = -3;
+
 export const ONE_TON = 1_000_000_000n;
 export const TOKEN_TRANSFER_AMOUNT = 50000000n; // 0.05 TON
 export const TINY_TOKEN_TRANSFER_AMOUNT = 18000000n; // 0.018 TON

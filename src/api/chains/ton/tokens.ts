@@ -126,6 +126,7 @@ export async function buildTokenTransfer(options: {
   payload?: AnyPayload;
   shouldSkipMintless?: boolean;
   forwardAmount?: bigint;
+  isLedger?: boolean;
 }) {
   const {
     network,
@@ -135,6 +136,7 @@ export async function buildTokenTransfer(options: {
     amount,
     shouldSkipMintless,
     forwardAmount = TOKEN_TRANSFER_FORWARD_AMOUNT,
+    isLedger,
   } = options;
   let { payload } = options;
 
@@ -158,6 +160,9 @@ export async function buildTokenTransfer(options: {
     }
   }
 
+  // In ledger-app-ton v2.7.0 a queryId not equal to 0 is handled incorrectly.
+  const queryId = isLedger ? 0n : undefined;
+
   payload = buildTokenTransferBody({
     tokenAmount: amount,
     toAddress,
@@ -165,6 +170,7 @@ export async function buildTokenTransfer(options: {
     forwardPayload: payload,
     responseAddress: fromAddress,
     customPayload: customPayload ? Cell.fromBase64(customPayload) : undefined,
+    queryId,
   });
 
   // eslint-disable-next-line prefer-const
@@ -352,7 +358,6 @@ export async function loadTokenBalances(
   const tokenBalances = await getTokenBalances(network, address);
   const tokens: ApiTokenWithPrice[] = tokenBalances.map(({ token }) => ({
     ...token,
-    price: 0,
     priceUsd: 0,
     percentChange24h: 0,
   }));

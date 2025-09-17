@@ -17,6 +17,8 @@ struct SwapView: View {
                 SwapSelectorsView(model: selectorsVM)
                     .padding(.top, 8)
                 
+                SwapWarning(displayImpactWarning: detailsVM.displayImpactWarning)
+                
                 if swapType == .inChain {
                     SwapDetailsView(
                         swapVM: swapVM,

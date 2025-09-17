@@ -215,19 +215,19 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
                     walletState,
                     inputState,
                     null,
-                    tokens.baseCurrency
+                    WalletCore.baseCurrency
                 )
                 val chain = token.mBlockchain ?: return Incomplete(
                     walletState,
                     inputState,
                     token,
-                    tokens.baseCurrency
+                    WalletCore.baseCurrency
                 )
                 val tokenNative = tokens.tokens[chain.nativeSlug] ?: return Incomplete(
                     walletState,
                     inputState,
                     token,
-                    tokens.baseCurrency
+                    WalletCore.baseCurrency
                 )
 
                 return Complete(
@@ -236,7 +236,7 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
                     token = token,
                     chain = chain,
                     tokenNative = tokenNative,
-                    baseCurrency = tokens.baseCurrency
+                    baseCurrency = WalletCore.baseCurrency!!
                 )
             }
         }

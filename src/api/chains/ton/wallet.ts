@@ -1,4 +1,5 @@
 import { beginCell, Cell, storeStateInit } from '@ton/core';
+import type { WalletContractV5R1 } from '@ton/ton';
 
 import type { ApiNetwork, ApiTonWallet, ApiWalletInfo, ApiWalletWithVersionInfo } from '../../types';
 import type { ApiTonWalletVersion, ContractInfo } from './types';
@@ -14,7 +15,9 @@ import {
 } from './util/tonCore';
 import { fetchStoredWallet } from '../../common/accounts';
 import { base64ToBytes, hexToBytes, sha256 } from '../../common/utils';
-import { ALL_WALLET_VERSIONS, ContractType, KnownContracts, WORKCHAIN } from './constants';
+import {
+  ALL_WALLET_VERSIONS, ContractType, KnownContracts, TON_MAINNET_CHAIN_ID, TON_TESTNET_CHAIN_ID, WORKCHAIN,
+} from './constants';
 import { getWalletInfos } from './toncenter';
 
 export const isAddressInitialized = withCacheAsync(
@@ -32,12 +35,17 @@ export function publicKeyToAddress(
   network: ApiNetwork,
   publicKey: Uint8Array,
   walletVersion: ApiTonWalletVersion,
+  isTestnetSubwalletId?: boolean,
 ) {
-  const wallet = buildWallet(publicKey, walletVersion);
+  const wallet = buildWallet(publicKey, walletVersion, isTestnetSubwalletId);
   return toBase64Address(wallet.address, false, network);
 }
 
-export function buildWallet(publicKey: Uint8Array | string, walletVersion: ApiTonWalletVersion): TonWallet {
+export function buildWallet(
+  publicKey: Uint8Array | string,
+  walletVersion: ApiTonWalletVersion,
+  isTestnetSubwalletId?: boolean,
+): TonWallet {
   if (typeof publicKey === 'string') {
     publicKey = hexToBytes(publicKey);
   }
@@ -45,6 +53,16 @@ export function buildWallet(publicKey: Uint8Array | string, walletVersion: ApiTo
   const WalletClass = walletClassMap[walletVersion];
   if (!WalletClass) {
     throw new Error(`Unsupported wallet contract version "${walletVersion}"`);
+  }
+
+  if (walletVersion === 'W5') {
+    return (WalletClass as typeof WalletContractV5R1).create({
+      publicKey: Buffer.from(publicKey),
+      workchain: WORKCHAIN,
+      walletId: {
+        networkGlobalId: isTestnetSubwalletId ? TON_TESTNET_CHAIN_ID : TON_MAINNET_CHAIN_ID,
+      },
+    });
   }
 
   return WalletClass.create({
@@ -113,7 +131,10 @@ export async function pickBestWallet(network: ApiNetwork, publicKey: Uint8Array)
   lastTxId?: string;
 }> {
   const allWallets = await getWalletVersionInfos(network, publicKey);
-  const defaultWallet = allWallets.filter(({ version }) => version === DEFAULT_WALLET_VERSION)[0];
+  const defaultWallets = allWallets.filter(({ version }) => version === DEFAULT_WALLET_VERSION);
+  const defaultWallet = defaultWallets.find(
+    ({ isTestnetSubwalletId }) => isTestnetSubwalletId,
+  ) ?? defaultWallets[0];
 
   if (defaultWallet.lastTxId) {
     return defaultWallet;
@@ -148,35 +169,58 @@ export async function getWalletVersionInfos(
   publicKey: Uint8Array,
   versions: ApiTonWalletVersion[] = ALL_WALLET_VERSIONS,
 ): Promise<(ApiWalletWithVersionInfo & { wallet: TonWallet })[]> {
-  const items = versions.map((version) => {
-    const wallet = buildWallet(publicKey, version);
-    const address = toBase64Address(wallet.address, false, network);
-    return { wallet, address, version };
-  });
-
+  const items = getWalletVersions(network, publicKey, versions);
   const walletInfos = await getWalletInfos(network, extractKey(items, 'address'));
 
-  return items.map((item) => {
+  const result = items.map((item) => {
+    const walletInfo = walletInfos[item.address] ?? {
+      balance: 0n,
+      isInitialized: false,
+    };
+
     return {
-      ...walletInfos[item.address] ?? {
-        balance: 0n,
-        isInitialized: false,
-      },
+      ...walletInfo,
       ...item,
     };
   });
+
+  return result;
 }
+
+type ApiTonWalletVersionInfo = {
+  wallet: TonWallet;
+  address: string;
+  version: ApiTonWalletVersion;
+  isTestnetSubwalletId?: boolean;
+};
 
 export function getWalletVersions(
   network: ApiNetwork,
   publicKey: Uint8Array,
   versions: ApiTonWalletVersion[] = ALL_WALLET_VERSIONS,
-): {
-    wallet: TonWallet;
-    address: string;
-    version: ApiTonWalletVersion;
-  }[] {
-  return versions.map((version) => {
+): ApiTonWalletVersionInfo[] {
+  return versions.flatMap((version): ApiTonWalletVersionInfo | ApiTonWalletVersionInfo[] => {
+    if (version === 'W5' && network === 'testnet') {
+      // Support wallets with both `subwallet_id` values for testnet to keep backwards compatibility
+      const testnetWallet = buildWallet(publicKey, version, true);
+      const testnetAddress = toBase64Address(testnetWallet.address, false, 'testnet');
+
+      const mainnetWallet = buildWallet(publicKey, version, false);
+      const mainnetAddress = toBase64Address(mainnetWallet.address, false, 'testnet');
+
+      return [{
+        wallet: testnetWallet,
+        address: testnetAddress,
+        version,
+        isTestnetSubwalletId: true,
+      }, {
+        wallet: mainnetWallet,
+        address: mainnetAddress,
+        version,
+        isTestnetSubwalletId: false,
+      }];
+    }
+
     const wallet = buildWallet(publicKey, version);
     const address = toBase64Address(wallet.address, false, network);
 
@@ -184,6 +228,7 @@ export function getWalletVersions(
       wallet,
       address,
       version,
+      isTestnetSubwalletId: undefined,
     };
   });
 }
@@ -204,10 +249,35 @@ export function pickWalletByAddress(network: ApiNetwork, publicKey: Uint8Array, 
   return allWallets.find((w) => w.address === address)!;
 }
 
+/**
+ * Check if the wallet is with testnet subwallet ID
+ * @returns `undefined` if the wallet is not a W5 wallet,
+ * `true` if the wallet is with testnet subwallet ID, `false` otherwise
+ */
+function checkIsTestnetSubwalletId(
+  publicKey: Uint8Array,
+  version: ApiTonWalletVersion,
+  address: string,
+): boolean | undefined {
+  if (version !== 'W5') {
+    return undefined;
+  }
+
+  const testnetSubwalletAddress = publicKeyToAddress('testnet', publicKey, version, true);
+
+  return address === testnetSubwalletAddress;
+}
+
 export function getTonWallet(tonWallet: ApiTonWallet) {
-  const { publicKey, version } = tonWallet;
+  const { publicKey, version, address } = tonWallet;
   if (!publicKey) {
     throw new Error('Public key is missing');
+  }
+
+  // For W5 wallets, determine the correct subwallet ID by comparing addresses
+  if (version === 'W5') {
+    const isTestnetSubwalletId = checkIsTestnetSubwalletId(hexToBytes(publicKey), version, address);
+    return buildWallet(publicKey, version, isTestnetSubwalletId);
   }
 
   return buildWallet(publicKey, version);

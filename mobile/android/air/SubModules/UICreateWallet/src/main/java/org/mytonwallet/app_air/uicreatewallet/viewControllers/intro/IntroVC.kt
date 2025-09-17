@@ -155,7 +155,8 @@ class IntroVC(
                 window!!,
                 WNavigationController.PresentationConfig(
                     overFullScreen = false,
-                    isBottomSheet = true
+                    isBottomSheet = true,
+                    aboveKeyboard = true
                 )
             )
             nav.setRoot(AddAccountOptionsVC(context, isOnIntro = true))

@@ -189,8 +189,9 @@ public class IconView: UIView, WThemedView {
             imageView.contentMode = .center
             imageView.image = .airBundle(image)
         }
+        let isFailed = activity.transaction?.status == .failed || activity.swap?.status == .failed || activity.swap?.status == .expired
         let isPending = activity.isLocal || getIsActivityPending(activity)
-        if isPending {
+        if isPending && !isFailed {
             setChainSize(18, borderWidth: 1.667, borderColor: WTheme.groupedItem, horizontalOffset: 2 + 1.667, verticalOffset: 2 + 1.667)
             chainImageView.image = .airBundle("ActivityWaiting")
             chainImageViewContainer.isHidden = false

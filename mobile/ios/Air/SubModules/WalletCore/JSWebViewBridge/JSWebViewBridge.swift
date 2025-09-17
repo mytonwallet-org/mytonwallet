@@ -487,7 +487,15 @@ extension JSWebViewBridge: WKScriptMessageHandler {
                     } catch {
                         log.fault("failed to decode updateBalances \(error, .public)")
                     }
-                    
+                
+                case "updateCurrencyRates":
+                    do {
+                        let update = try JSONSerialization.decode(ApiUpdate.UpdateCurrencyRates.self, from: data)
+                        WalletCoreData.notify(event: .updateCurrencyRates(update))
+                    } catch {
+                        log.fault("failed to decode updateCurrencyRates \(error, .public)")
+                    }
+                
                 case "updateTokens":
                     WalletCoreData.notify(event: .updateTokens(data))
 

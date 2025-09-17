@@ -165,7 +165,7 @@ fun WalletCore.activateAccount(
                 notifyAccountChanged(account)
                 callback(account, null)
                 WCacheStorage.setInitialScreen(
-                    if (AccountStore.activeAccount?.isPasscodeProtected == true)
+                    if (WGlobalStorage.isPasscodeSet())
                         WCacheStorage.InitialScreen.LOCK
                     else
                         WCacheStorage.InitialScreen.HOME

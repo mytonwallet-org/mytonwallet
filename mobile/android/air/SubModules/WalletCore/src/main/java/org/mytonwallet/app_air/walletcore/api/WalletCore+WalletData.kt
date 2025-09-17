@@ -99,19 +99,6 @@ fun WalletCore.fetchTokenActivitySlice(
     }
 }
 
-fun WalletCore.tryUpdatePrices() {
-    bridge?.callApi(
-        "tryUpdateTokens",
-        "[]"
-    ) { _, _ ->
-    }
-    bridge?.callApi(
-        "tryUpdateSwapTokens",
-        "[]"
-    ) { _, _ ->
-    }
-}
-
 fun WalletCore.fetchPriceHistory(
     slug: String,
     period: MHistoryTimePeriod,

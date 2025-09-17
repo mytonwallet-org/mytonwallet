@@ -47,6 +47,7 @@ import {
   IS_DAPP_SUPPORTED,
   IS_DELEGATED_BOTTOM_SHEET,
   IS_ELECTRON,
+  IS_IOS_APP,
   IS_LEDGER_SUPPORTED,
   IS_TOUCH_ENV,
   IS_WEB,
@@ -217,6 +218,7 @@ function Settings({
           version: v.version,
           totalBalance: balanceInCurrency,
           tokens: accountTokens,
+          isTestnetSubwalletId: v.isTestnetSubwalletId,
         } satisfies Wallet;
       }) ?? [];
   }, [shortBaseSymbol, tonToken, versions, withAllWalletVersions]);
@@ -731,8 +733,8 @@ function Settings({
 
           <div className={styles.block}>
             <div className={buildClassName(styles.item, styles.item_red)} onClick={openLogOutModal}>
-              <img className={styles.menuIcon} src={exitImg} alt={lang('Exit')} />
-              {lang('Exit')}
+              <img className={styles.menuIcon} src={exitImg} alt={IS_IOS_APP ? lang('Remove Wallet') : lang('Exit')} />
+              {IS_IOS_APP ? lang('Remove Wallet') : lang('Exit')}
 
               <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
             </div>

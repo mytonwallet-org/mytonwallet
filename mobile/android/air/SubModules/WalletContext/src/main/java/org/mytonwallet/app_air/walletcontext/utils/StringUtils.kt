@@ -5,6 +5,7 @@ import android.text.Spannable
 import android.text.SpannableString
 import android.text.SpannableStringBuilder
 import android.text.Spanned
+import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import org.mytonwallet.app_air.walletcontext.theme.WColorGradients
 
@@ -180,5 +181,20 @@ fun String.toBoldSpannableStringBuilder(): SpannableStringBuilder {
         Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
     )
 
+    return spannable
+}
+
+fun String.coloredSubstring(target: String, color: Int): SpannableString {
+    val spannable = SpannableString(this)
+    val start = indexOf(target)
+    if (start != -1) {
+        val end = start + target.length
+        spannable.setSpan(
+            ForegroundColorSpan(color),
+            start,
+            end,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+    }
     return spannable
 }

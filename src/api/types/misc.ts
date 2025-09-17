@@ -49,7 +49,6 @@ export interface ApiToken {
 }
 
 export type ApiTokenWithPrice = ApiToken & {
-  price: number;
   priceUsd: number;
   percentChange24h: number;
 };
@@ -296,6 +295,9 @@ export type ApiLocalTransactionParams = Omit<
 
 export type ApiBaseCurrency = 'USD' | 'EUR' | 'RUB' | 'CNY' | 'BTC' | 'TON';
 
+/** 1 USD equivalent to the amount of the other currency, e.g. 1 USD = 0.00000866 BTC */
+export type ApiCurrencyRates = Record<ApiBaseCurrency, string>;
+
 export enum ApiLiquidUnstakeMode {
   Default,
   Instant,
@@ -318,7 +320,14 @@ export type ApiWalletInfo = {
   domain?: string;
 };
 
-export type ApiWalletWithVersionInfo = ApiWalletInfo & Required<Pick<ApiWalletInfo, 'version'>>;
+export type ApiWalletWithVersionInfo = ApiWalletInfo & Required<Pick<ApiWalletInfo, 'version'>> & {
+  /** Whether the wallet is with testnet subwallet ID. `undefined` if the wallet is not a W5 wallet
+   Previously we had a bug that caused W5 testnet wallets to be created with mainnet subwallet ID.
+   To protect from replay attacks, we need to use specific subwallet ID for testnet wallets.
+   For backward compatibility, we need to support both subwallet IDs on testnet.
+  */
+  isTestnetSubwalletId?: boolean;
+};
 
 // Country codes from ISO-3166-1 spec
 export type ApiCountryCode = 'AF' | 'AX' | 'AL' | 'DZ' | 'AS' | 'AD' | 'AO' | 'AI' | 'AQ' | 'AG' | 'AR'

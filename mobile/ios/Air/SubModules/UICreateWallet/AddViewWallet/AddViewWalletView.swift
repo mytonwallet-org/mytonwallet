@@ -6,30 +6,63 @@ import WalletContext
 
 struct AddViewWalletView: View {
     
-    var onChange: (String) -> ()
-    var onSumit: () -> ()
+    var introModel: IntroModel
     
     @State var value: String = ""
     @State var isFocused: Bool = false
     
     var body: some View {
-        ZStack(alignment: .top) {
-            Color.clear.frame(height: 200)
-            VStack(spacing: 24) {
-                Text(langMd("$import_view_account_note"))
-                    .font(.system(size: 17))
-                    .multilineTextAlignment(.center)
+        ZStack {
+            Color.clear
+                .ignoresSafeArea(.keyboard, edges: .bottom)
+                
+            VStack(spacing: 32) {
+                VStack(spacing: 20) {
+                    WUIAnimatedSticker("animation_bill", size: 160, loop: true)
+                        .frame(width: 160, height: 160)
+                    
+                    VStack(spacing: 20) {
+                        title
+                        description
+                    }
+                }
                 addressView
+                    .frame(minHeight: 100, alignment: .top)
             }
-        }
-        .onAppear {
-            if value.isEmpty {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
-                    isFocused = true
+            .padding(.bottom, 100)
+            .onAppear {
+                if value.isEmpty {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
+                        isFocused = true
+                    }
                 }
             }
+            
+            Color.clear
+                .safeAreaInset(edge: .bottom) {
+                    Button(action: onContinue) {
+                        Text(lang("Continue"))
+                    }
+                    .buttonStyle(.airPrimary)
+                    .padding(.bottom, 16)
+                    .disabled(value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty )
+                }
         }
-        .onChange(of: value) { onChange($0) }
+        .padding(.horizontal, 32)
+    }
+    
+    var title: some View {
+        Text(langMd("View Any Address"))
+            .multilineTextAlignment(.center)
+            .font(.system(size: 28, weight: .semibold))
+    }
+    
+    @ViewBuilder
+    var description: some View {
+        Text(langMd("$import_view_account_note"))
+            .font(.system(size: 17))
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
     }
     
     var addressView: some View {
@@ -39,7 +72,7 @@ struct AddViewWalletView: View {
                     AddressTextField(
                         value: $value,
                         isFocused: $isFocused,
-                        onNext: { onSumit() }
+                        onNext: { onSubmit() }
                     )
                     .offset(y: 1)
                     .background(alignment: .leading) {
@@ -79,6 +112,16 @@ struct AddViewWalletView: View {
         .fixedSize(horizontal: false, vertical: true)
     }
 
+    // MARK: Actions
+    
+    func onSubmit() {
+        onContinue()
+    }
+    
+    func onContinue() {
+        introModel.onAddViewWalletContinue(address: self.value)
+    }
+    
     func onPaste() {
         if let string = UIPasteboard.general.string?.nilIfEmpty {
             value = string

@@ -14,7 +14,7 @@ export type ApiDbSseConnection = {
   clientId: string;
 };
 
-const DB_NANE = 'tables';
+const DB_NAME = 'tables';
 
 export class ApiDb extends Dexie {
   nfts!: Table<ApiDbNft>;
@@ -22,7 +22,7 @@ export class ApiDb extends Dexie {
   tokens!: Table<ApiTokenWithPrice>;
 
   constructor() {
-    super(DB_NANE);
+    super(DB_NAME);
     this.version(1).stores({
       nfts: '[accountId+address], accountId, address, collectionAddress',
     });
@@ -40,6 +40,11 @@ export class ApiDb extends Dexie {
       nfts: null,
       // eslint-disable-next-line no-null/no-null
       sseConnections: null,
+    });
+    this.version(6).upgrade((tx) => {
+      return tx.table<ApiTokenWithPrice & { price?: number }>('tokens').toCollection().modify((token) => {
+        delete token.price;
+      });
     });
   }
 }

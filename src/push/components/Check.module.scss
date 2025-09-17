@@ -1,43 +1,3 @@
-.tokenContainer {
-  position: relative;
-
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-
-  width: 100%;
-  height: 16rem;
-}
-
-.particles {
-  position: absolute;
-  bottom: 0;
-}
-
-.tokenLogo {
-  position: relative;
-  width: 6.25rem;
-  height: 6.25rem;
-  margin-bottom: 2rem;
-}
-
-.tokenImgContainer {
-  overflow: hidden;
-  display: block;
-
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-
-  background-color: var(--push-token-bg);
-}
-
-.tokenImg {
-  width: 100%;
-  height: 100%;
-}
-
 .tokenBadgeTransition {
   position: static;
   width: 0;
@@ -93,11 +53,25 @@
   }
 }
 
+.nftAction {
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+  color: var(--push-text-secondary);
+  text-align: center;
+}
+
+.nftName {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--push-text-primary);
+}
+
 .amount {
   font-size: 2.5rem;
   font-weight: 800;
 
-  &_sending, &_receiving {
+  &_sending,
+  &_receiving {
     // Center of mass compensation for +/- signs
     margin-left: -0.875rem;
   }
@@ -106,7 +80,7 @@
     color: var(--push-amount-sending);
 
     &::before {
-      content: '-';
+      content: "-";
       margin-right: 0.25rem;
     }
   }
@@ -115,7 +89,7 @@
     color: var(--push-amount-receiving);
 
     &::before {
-      content: '+';
+      content: "+";
       margin-right: 0.25rem;
     }
   }
@@ -130,17 +104,26 @@
   font-size: 1.25rem;
   color: var(--push-text-secondary);
   text-align: center;
+
+  &_nft {
+    font-size: 1rem;
+  }
 }
 
 .statusLink {
   display: flex;
+  align-items: center;
+
   color: var(--push-text-secondary);
   text-decoration: none !important;
+
   transition: color 150ms;
 }
 
-.txIcon, .whyNotFoundIcon {
+.txIcon,
+.whyNotFoundIcon {
   width: 1.25rem;
+  height: calc(1.25rem + 0.4375rem);
 
   background-repeat: no-repeat;
   background-position: center 0.4375rem;
@@ -191,7 +174,7 @@
     background-color: var(--push-comment-sending-bg);
 
     &::after {
-      content: '';
+      content: "";
 
       position: absolute;
       right: -0.1875rem;
@@ -213,7 +196,7 @@
     background-color: var(--push-comment-receiving-bg);
 
     &::after {
-      content: '';
+      content: "";
 
       position: absolute;
       top: 0;
