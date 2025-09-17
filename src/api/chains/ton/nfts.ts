@@ -15,7 +15,6 @@ import {
 import { parseAccountId } from '../../../util/account';
 import { bigintMultiplyToNumber } from '../../../util/bigint';
 import { compact } from '../../../util/iteratees';
-import { generateQueryId } from './util';
 import { parseTonapiioNft } from './util/metadata';
 import {
   fetchAccountEvents, fetchAccountNfts, fetchNftByAddress, fetchNftItems,
@@ -217,7 +216,7 @@ export function buildNftTransferPayload(
 ) {
   let builder = new Builder()
     .storeUint(NftOpCode.TransferOwnership, 32)
-    .storeUint(generateQueryId(), 64)
+    .storeUint(0, 64) // Fix for Ledger App 2.7.0
     .storeAddress(Address.parse(toAddress))
     .storeAddress(Address.parse(fromAddress))
     .storeBit(false) // null custom_payload

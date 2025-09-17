@@ -165,7 +165,7 @@ export async function buildTokenTransfer(options: {
     forwardPayload: payload,
     responseAddress: fromAddress,
     customPayload: customPayload ? Cell.fromBase64(customPayload) : undefined,
-    queryId: 0n, // Fix for Ledger
+    queryId: 0n, // Fix for Ledger App 2.7.0
   });
 
   // eslint-disable-next-line prefer-const
