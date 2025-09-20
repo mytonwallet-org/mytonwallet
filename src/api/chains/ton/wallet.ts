@@ -85,6 +85,7 @@ export async function getContractInfo(network: ApiNetwork, address: string): Pro
   isWallet?: boolean;
   contractInfo?: ContractInfo;
   codeHash?: string;
+  codeHashOld?: string;
 }> {
   const data = await getTonClient(network).getAddressInfo(address);
 
@@ -105,6 +106,7 @@ export async function getContractInfo(network: ApiNetwork, address: string): Pro
     isSwapAllowed,
     contractInfo,
     codeHash,
+    codeHashOld,
   };
 }
 

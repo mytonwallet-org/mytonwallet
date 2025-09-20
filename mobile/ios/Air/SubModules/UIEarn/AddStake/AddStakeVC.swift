@@ -92,7 +92,7 @@ public class AddStakeVC: WViewController, WalletCoreData.EventsObserver {
         hostingController.view.backgroundColor = WTheme.sheetBackground
         
         _ = addBottomButton()
-        let title: String = lang("$stake_asset", arg1: model.baseToken.slug)
+        let title: String = lang("$stake_asset", arg1: model.baseToken.symbol)
         continueButton.setTitle(title, for: .normal)
         continueButton.addTarget(self, action: #selector(continuePressed), for: .touchUpInside)
         continueButton.isEnabled = false

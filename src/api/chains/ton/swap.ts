@@ -61,8 +61,10 @@ export async function validateDexSwapTransfers(
     for (let i = 0; i < mainTransfers.length; i++) {
       const mainTransfer = mainTransfers[i];
       sumAmount += mainTransfer.amount;
-      const { isSwapAllowed, codeHash } = contractInfos[mainTransfer.toAddress];
-      assert(!!isSwapAllowed, `Main transfer ${i + 1}/${mainTransfers.length} is not to a swap contract: ${codeHash}`);
+      const { isSwapAllowed, codeHashOld } = contractInfos[mainTransfer.toAddress];
+      assert(
+        !!isSwapAllowed, `Main transfer ${i + 1}/${mainTransfers.length} is not to a swap contract: ${codeHashOld}`,
+      );
     }
 
     assert(sumAmount <= maxAmount, 'Main transfers amount is too big');
@@ -109,12 +111,12 @@ export async function validateDexSwapTransfers(
       sumTokenAmount += tokenAmount;
       sumTonAmount += mainTransfer.amount;
 
-      const { isSwapAllowed, codeHash } = contractInfos[destination];
+      const { isSwapAllowed, codeHashOld } = contractInfos[destination];
 
       assert(
         isSwapAllowed || FEE_ADDRESSES.includes(toBase64Address(destination, false)),
         `Main transfer ${i + 1}/${mainTransfers.length} destination is not a swap smart contract: `
-        + `${destination}, ${codeHash}`,
+        + `${destination}, ${codeHashOld}`,
       );
     }
     assert(sumTokenAmount <= maxAmount, 'Main transfers token amount is too big');

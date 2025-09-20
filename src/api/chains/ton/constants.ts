@@ -325,7 +325,7 @@ export const KnownContracts: Record<ContractName, ContractInfo> = {
   // Example: https://tonscan.org/address/EQC_-t0nCnOFMdp7E7qPxAOCbCWGFz-e3pwxb6tTvFmshjt5
   toncoRouter: {
     name: 'toncoRouter',
-    hash: '9b9891eaa7db7becc6ccdda1bd9a8d25dc3df2817d57e4b27ec003daf81a4439',
+    hash: '3bfeca142c7c280d63f7c06f05b2e43504f2c66694f362f6dc0b5ec7f7090403',
     isSwapAllowed: true,
   },
 };
