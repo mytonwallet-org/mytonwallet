@@ -14,10 +14,10 @@ import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
-import org.mytonwallet.app_air.walletcontext.utils.toString
+import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.math.BigInteger

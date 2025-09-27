@@ -48,6 +48,7 @@ dependencies {
     implementation(project("$airSubModulePath:UIComponents"))
     implementation(project("$airSubModulePath:OverScroll"))
     implementation(project("$airSubModulePath:WalletContext"))
+    implementation(project("$airSubModulePath:WalletBaseContext"))
     implementation(project("$airSubModulePath:WalletCore"))
     implementation(project("$airSubModulePath:vkryl:core"))
     implementation(project("$airSubModulePath:vkryl:android"))

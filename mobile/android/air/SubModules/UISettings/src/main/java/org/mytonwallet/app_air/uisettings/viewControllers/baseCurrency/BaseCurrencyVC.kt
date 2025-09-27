@@ -14,14 +14,15 @@ import org.mytonwallet.app_air.uicomponents.helpers.LastItemPaddingDecoration
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.uiwidgets.configurations.WidgetsConfigurations
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.api.setBaseCurrency
-import org.mytonwallet.app_air.walletcore.models.MBaseCurrency
 import java.lang.ref.WeakReference
 
 class BaseCurrencyVC(context: Context) : WViewController(context),
@@ -157,6 +158,7 @@ class BaseCurrencyVC(context: Context) : WViewController(context),
                             navigationController?.pop()
                         }
                     }
+                    WidgetsConfigurations.reloadWidgets(context)
                 }
             }
         }

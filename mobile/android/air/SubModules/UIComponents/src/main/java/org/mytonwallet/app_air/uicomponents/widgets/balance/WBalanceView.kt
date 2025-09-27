@@ -16,10 +16,10 @@ import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
-import org.mytonwallet.app_air.walletcontext.utils.smartDecimalsCount
-import org.mytonwallet.app_air.walletcontext.utils.toString
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
+import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import java.math.BigInteger
 import kotlin.math.max
 import kotlin.math.roundToInt

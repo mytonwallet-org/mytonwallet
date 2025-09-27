@@ -1,0 +1,13 @@
+.particles {
+  pointer-events: none;
+
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  left: 0;
+
+  :global(.interactive) {
+    pointer-events: auto;
+    cursor: var(--custom-cursor, pointer);
+  }
+}

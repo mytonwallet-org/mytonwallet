@@ -23,7 +23,11 @@ public class ReceiveVC: WViewController, WSegmentedController.Delegate {
     private var progress: CGFloat = 0
     
     public init(chain: ApiChain? = nil, showBuyOptions: Bool = true, title: String? = nil) {
-        self.onlyChain = chain
+        var onlyChain = chain
+        if let account = AccountStore.account, account.byChain.count <= 1, let first = account.addressByChain.first {
+            onlyChain = ApiChain(rawValue: first.key)
+        }
+        self.onlyChain = onlyChain
         self.showBuyOptions = showBuyOptions
         self.customTitle = title
         super.init(nibName: nil, bundle: nil)

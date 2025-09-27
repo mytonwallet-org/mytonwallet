@@ -1,6 +1,6 @@
 package org.mytonwallet.app_air.walletcore.helpers
 
-import org.mytonwallet.app_air.walletcontext.utils.formatStartEndAddress
+import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import java.math.BigInteger
 import java.util.concurrent.ConcurrentHashMap

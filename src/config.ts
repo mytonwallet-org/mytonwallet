@@ -1,6 +1,7 @@
 import type { ApiTonWalletVersion } from './api/chains/ton/types';
 import type {
   ApiBaseCurrency,
+  ApiChain,
   ApiCurrencyRates,
   ApiLiquidStakingState,
   ApiNftMarketplace,
@@ -71,6 +72,8 @@ export const MNEMONIC_CHECK_COUNT = 3;
 
 export const MOBILE_SCREEN_MAX_WIDTH = 700; // px
 
+export const VIEW_TRANSITION_CLASS_NAME = 'active-view-transition';
+
 export const ANIMATION_END_DELAY = 50;
 
 export const ANIMATED_STICKER_TINY_ICON_PX = 16;
@@ -139,6 +142,12 @@ export const MTW_CARDS_BASE_URL = `${MTW_STATIC_BASE_URL}/cards/`;
 export const MTW_CARDS_MINT_BASE_URL = `${MTW_STATIC_BASE_URL}/mint-cards/`;
 export const MYTONWALLET_PROMO_URL = 'https://mytonwallet.io/';
 export const MYTONWALLET_MULTISEND_DAPP_URL = 'https://multisend.mytonwallet.io/';
+export const MYTONWALLET_BLOG: Partial<Record<LangCode, string>> = {
+  en: 'https://mytonwallet.io/en/blog/',
+  ru: 'https://mytonwallet.io/ru/blog/',
+};
+export const MYTONWALLET_TERMS_OF_USE_URL = 'https://mytonwallet.io/terms-of-use';
+export const MYTONWALLET_PRIVACY_POLICY_URL = 'https://mytonwallet.io/privacy-policy';
 export const TELEGRAM_WEB_URL = 'https://web.telegram.org/a/';
 export const NFT_MARKETPLACE_URL = 'https://getgems.io/';
 export const NFT_MARKETPLACE_TITLE = NFT_MARKETPLACE_TITLES.getgems;
@@ -164,7 +173,7 @@ export const PROXY_HOSTS = process.env.PROXY_HOSTS;
 export const TINY_TRANSFER_MAX_COST = 0.01;
 
 export const IMAGE_CACHE_NAME = 'mtw-image';
-export const LANG_CACHE_NAME = 'mtw-lang-234';
+export const LANG_CACHE_NAME = 'mtw-lang-240';
 
 export const LANG_LIST: LangItem[] = [{
   langCode: 'en',
@@ -281,40 +290,10 @@ export const MYCOIN_TESTNET = {
   minterAddress: 'kQAWlxpEbwhCDFX9gp824ee2xVBhAh5VRSGWfbNFDddAbQoQ',
 } as const;
 
-export const CHAIN_CONFIG = {
-  ton: {
-    title: 'TON',
-    isMemoSupported: true,
-    isDnsSupported: true,
-    isDepositLinkSupported: true,
-    canBuyWithCardInRussia: true,
-    isTransferCommentSupported: true,
-    addressRegex: /^([-\w_]{48}|0:[\da-h]{64})$/i,
-    addressPrefixRegex: /^([-\w_]{1,48}|0:[\da-h]{0,64})$/i,
-    nativeToken: TONCOIN,
-    doesBackendSocketSupport: true,
-  },
-  tron: {
-    title: 'TRON',
-    isMemoSupported: false,
-    isDnsSupported: false,
-    isDepositLinkSupported: false,
-    canBuyWithCardInRussia: false,
-    isTransferCommentSupported: false,
-    addressRegex: /^T[1-9A-HJ-NP-Za-km-z]{33}$/,
-    addressPrefixRegex: /^T[1-9A-HJ-NP-Za-km-z]{0,33}$/,
-    nativeToken: TRX,
-    doesBackendSocketSupport: true,
-    mainnet: {
-      apiUrl: TRON_MAINNET_API_URL,
-      usdtAddress: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
-    },
-    testnet: {
-      apiUrl: TRON_TESTNET_API_URL,
-      usdtAddress: 'TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs',
-    },
-  },
-} as const;
+export const TOKEN_FONT_ICONS = {
+  [TONCOIN.slug]: 'icon-chain-ton',
+  [TRX.slug]: 'icon-chain-tron',
+};
 
 export const TRC20_USDT_MAINNET_SLUG = 'tron-tr7nhqjekq';
 export const TRC20_USDT_TESTNET_SLUG = 'tron-tg3xxyexbk';
@@ -510,8 +489,8 @@ export const DEFAULT_PRICE_CURRENCY = 'USD';
 export const CURRENCIES: Record<ApiBaseCurrency, { name: string; decimals: number; shortSymbol?: string }> = {
   USD: { name: 'US Dollar', decimals: 2, shortSymbol: '$' },
   EUR: { name: 'Euro', decimals: 2, shortSymbol: '€' },
-  RUB: { name: 'Ruble', decimals: 2, shortSymbol: '₽' },
-  CNY: { name: 'Yuan', decimals: 2, shortSymbol: '¥' },
+  RUB: { name: 'Russian Ruble', decimals: 2, shortSymbol: '₽' },
+  CNY: { name: 'Chinese Yuan', decimals: 2, shortSymbol: '¥' },
   BTC: { name: 'Bitcoin', decimals: 9 },
   [TONCOIN.symbol]: { name: 'Toncoin', decimals: 9 },
 };
@@ -519,8 +498,7 @@ export const CURRENCIES: Record<ApiBaseCurrency, { name: string; decimals: numbe
 export const BURN_ADDRESS = 'UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ';
 
 export const DEFAULT_WALLET_VERSION: ApiTonWalletVersion = 'W5';
-export const POPULAR_WALLET_VERSIONS: ApiTonWalletVersion[] = ['v3R1', 'v3R2', 'v4R2', 'W5'];
-export const LEDGER_WALLET_VERSIONS: ApiTonWalletVersion[] = ['v3R2', 'v4R2'];
+export const POPULAR_WALLET_VERSIONS: readonly ApiTonWalletVersion[] = ['v3R1', 'v3R2', 'v4R2', 'W5'];
 
 export const DEFAULT_TIMEOUT = 10000;
 export const DEFAULT_RETRIES = 3;
@@ -647,7 +625,6 @@ export const DEFAULT_NOMINATORS_STAKING_STATE: ApiNominatorsStakingState = {
   pool: 'Ef8dgIOIRyCLU0NEvF8TD6Me3wrbrkS1z3Gpjk3ppd8m8-s_',
   start: 0,
   end: 0,
-  pendingDepositAmount: 0n,
 };
 
 export const SWAP_API_VERSION = 3;
@@ -717,6 +694,8 @@ export const UNKNOWN_TOKEN = {
   decimals: 9,
 } as const;
 
+export const PUSH_ADDRESS = 'EQBNl2Hnxgc-olNY_Qq9iB3Rd3P7GGrW2oUzLc47BW3EjHNy';
+
 // https://api.mytonwallet.org/currency-rates
 export const FALLBACK_BASE_CURRENCY_RATES: ApiCurrencyRates = {
   USD: '1',
@@ -726,3 +705,5 @@ export const FALLBACK_BASE_CURRENCY_RATES: ApiCurrencyRates = {
   BTC: '0.00000866',
   TON: '0.31360000',
 };
+
+export const DEFAULT_CHAIN: ApiChain = 'ton';

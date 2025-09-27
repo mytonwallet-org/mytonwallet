@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.uiinappbrowser
 
-import WNavigationController
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
@@ -25,6 +24,7 @@ import androidx.core.content.ContextCompat.checkSelfPermission
 import androidx.core.net.toUri
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
+import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.extensions.asImage
@@ -32,8 +32,8 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uiinappbrowser.helpers.IABDarkModeStyleHelpers
 import org.mytonwallet.app_air.uiinappbrowser.views.InAppBrowserTopBarView
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.TonConnectHelper

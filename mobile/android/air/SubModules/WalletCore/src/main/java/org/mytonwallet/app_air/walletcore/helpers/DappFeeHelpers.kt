@@ -1,8 +1,8 @@
 package org.mytonwallet.app_air.walletcore.helpers
 
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.utils.smartDecimalsCount
-import org.mytonwallet.app_air.walletcontext.utils.toString
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
+import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.models.MFee
 import org.mytonwallet.app_air.walletcore.stores.TokenStore

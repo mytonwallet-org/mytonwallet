@@ -32,6 +32,7 @@ sealed class Deeplink {
         val amountIn: Double?
     ) : Deeplink()
 
+    data class Receive(override val accountAddress: String?) : Deeplink()
     data class BuyWithCard(override val accountAddress: String?) : Deeplink()
     data class Stake(override val accountAddress: String?) : Deeplink()
     data class Url(
@@ -194,6 +195,7 @@ class DeeplinkParser {
                 }
 
                 "transfer" -> handleTonInvoice(uri)
+                "receive" -> Deeplink.Receive(accountAddress = null)
                 "buy-with-card" -> Deeplink.BuyWithCard(accountAddress = null)
                 "stake" -> Deeplink.Stake(accountAddress = null)
                 "giveaway" -> {
@@ -283,19 +285,17 @@ fun parseWalletUrl(uri: Uri): ParsedWalletUrl? {
         }
     }
 
-    return address?.let {
-        ParsedWalletUrl(
-            address = it,
-            amount = amount,
-            binary = binary,
-            comment = comment,
-            expiry = expiry,
-            init = init,
-            jetton = jetton,
-            token = token,
-            hasUnsupportedParams = hasUnsupportedParams
-        )
-    }
+    return ParsedWalletUrl(
+        address = address ?: "",
+        amount = amount,
+        binary = binary,
+        comment = comment,
+        expiry = expiry,
+        init = init,
+        jetton = jetton,
+        token = token,
+        hasUnsupportedParams = hasUnsupportedParams
+    )
 }
 
 data class ParsedWalletUrl(

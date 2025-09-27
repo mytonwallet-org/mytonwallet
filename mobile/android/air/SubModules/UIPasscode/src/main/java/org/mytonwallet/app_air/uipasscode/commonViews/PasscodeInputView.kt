@@ -29,11 +29,11 @@ import org.mytonwallet.app_air.uicomponents.widgets.pulseView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uicomponents.widgets.shakeView
 import org.mytonwallet.app_air.uicomponents.widgets.showKeyboard
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
-import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import java.lang.ref.WeakReference
 

@@ -36,17 +36,19 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views.PasscodeScreenView
-import org.mytonwallet.app_air.uisend.sent.SentVC
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
-import org.mytonwallet.app_air.walletcontext.utils.formatStartEndAddress
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
+import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftResult
+import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import java.lang.ref.WeakReference
 import kotlin.math.max
@@ -56,7 +58,7 @@ import kotlin.math.roundToInt
 class SendNftVC(
     context: Context,
     val nft: ApiNft,
-) : WViewController(context), SendNftVM.Delegate {
+) : WViewController(context), SendNftVM.Delegate, WalletCore.EventObserver {
 
     private val viewModel = SendNftVM(this, nft)
 
@@ -170,6 +172,8 @@ class SendNftVC(
 
     override fun setupViews() {
         super.setupViews()
+
+        WalletCore.registerObserver(this)
         setNavTitle(LocaleController.getString("\$send_action"))
         setupNavBar(true)
 
@@ -225,30 +229,14 @@ class SendNftVC(
             }
             if (AccountStore.activeAccount?.isHardware == true) {
                 val account = AccountStore.activeAccount!!
-                val ledger = account.ledger!!
                 push(
                     LedgerConnectVC(
                         context,
                         LedgerConnectVC.Mode.ConnectToSubmitTransfer(
-                            ledger.index,
                             account.tonAddress!!,
                             viewModel.signNftTransferData()
                         ) {
-                            push(
-                                SentVC(
-                                    context,
-                                    LocaleController.getString("Sent"),
-                                    nft.name ?: "",
-                                    SpannableStringBuilder("${LocaleController.getString("Sent to")} $address").apply {
-                                        updateDotsTypeface()
-                                    },
-                                    null
-                                ),
-                                onCompletion = {
-                                    navigationController?.removePrevViewControllers(
-                                        keptFirstViewControllers = 1
-                                    )
-                                })
+                            // Wait for Pending Activity event...
                         },
                         headerView = headerView
                     )
@@ -262,25 +250,12 @@ class SendNftVC(
                             LocaleController.getString("Confirm")
                         ),
                         task = { passcode ->
+                            sentNftAddress = nft.address
                             viewModel.submitTransferNft(
                                 nft,
                                 passcode
                             ) {
-                                push(
-                                    SentVC(
-                                        context,
-                                        LocaleController.getString("Sent"),
-                                        nft.name ?: "",
-                                        SpannableStringBuilder("${LocaleController.getString("Sent to")} $address").apply {
-                                            updateDotsTypeface()
-                                        },
-                                        null
-                                    ),
-                                    onCompletion = {
-                                        navigationController?.removePrevViewControllers(
-                                            keptFirstViewControllers = 1
-                                        )
-                                    })
+                                // Wait for Pending Activity event...
                             }
                         }
                     ))
@@ -296,6 +271,11 @@ class SendNftVC(
         }
 
         updateTheme()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        WalletCore.unregisterObserver(this)
     }
 
     override fun updateTheme() {
@@ -351,6 +331,11 @@ class SendNftVC(
         addressInputView.insetsUpdated()
     }
 
+    override fun showError(error: MBridgeError?) {
+        super.showError(error)
+        sentNftAddress = null
+    }
+
     override fun feeUpdated(result: MApiCheckTransactionDraftResult?, err: MBridgeError?) {
         if (result == null && err == null) {
             continueButton.isLoading = true
@@ -375,4 +360,22 @@ class SendNftVC(
         continueButton.text = err?.toLocalized ?: title
     }
 
+    private var sentNftAddress: String? = null
+    override fun onWalletEvent(walletEvent: WalletEvent) {
+        val sentNftAddress = sentNftAddress ?: return
+        when (walletEvent) {
+            is WalletEvent.ReceivedPendingActivities -> {
+                val activity = walletEvent.pendingActivities?.firstOrNull { activity ->
+                    activity is MApiTransaction.Transaction &&
+                        activity.nft?.address == sentNftAddress
+                } ?: return
+                this@SendNftVC.sentNftAddress = null
+                navigationController?.popToRoot(onCompletion = {
+                    WalletCore.notifyEvent(WalletEvent.OpenActivity(activity))
+                })
+            }
+
+            else -> {}
+        }
+    }
 }

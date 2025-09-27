@@ -20,10 +20,10 @@ struct ImportExistingPickerView: View {
     
     var body: some View {
         VStack(spacing: 24) {
-            Text(lang("Use secret words, or instantly migrate an unlimited number of wallets from another MyTonWallet app:"))
-                .padding(.horizontal, 32)
-                .padding(.bottom, 8)
-                .multilineTextAlignment(.center)
+//            Text(lang("$import_hint"))
+//                .padding(.horizontal, 32)
+//                .padding(.bottom, 8)
+//                .multilineTextAlignment(.center)
 
             InsetSection(dividersInset: 50) {
                 Item(icon: "KeyIcon30", text: lang("12/24 Secret Words"), onTap: onImport)

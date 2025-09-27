@@ -31,14 +31,13 @@ import {
 import { Big } from '../../../lib/big.js';
 import { getIsActivityPendingForUser, parseTxId } from '../../../util/activities';
 import { getDoesUsePinPad } from '../../../util/biometrics';
-import { findChainConfig, getChainConfig } from '../../../util/chain';
 import { fromDecimal, roundDecimal, toDecimal } from '../../../util/decimals';
 import { canAffordSwapEstimateVariant, shouldSwapBeGasless } from '../../../util/fee/swapFee';
 import generateUniqueId from '../../../util/generateUniqueId';
 import { buildCollectionByKey, pick } from '../../../util/iteratees';
 import { callActionInMain, callActionInNative } from '../../../util/multitab';
 import { pause, waitFor } from '../../../util/schedulers';
-import { getChainBySlug, getIsTonToken, getNativeToken } from '../../../util/tokens';
+import { findNativeToken, getChainBySlug, getIsTonToken, getNativeToken } from '../../../util/tokens';
 import { IS_DELEGATED_BOTTOM_SHEET, IS_DELEGATING_BOTTOM_SHEET } from '../../../util/windowEnvironment';
 import { callApi } from '../../../api';
 import { addActionHandler, getGlobal, setGlobal } from '../..';
@@ -106,7 +105,7 @@ function buildSwapBuildRequest(global: GlobalState): ApiSwapBuildRequest {
   const fromAmount = amountIn!;
   const toAmount = amountOut!;
   const account = selectAccount(global, global.currentAccountId!);
-  const nativeTokenIn = findChainConfig(getChainBySlug(tokenIn.slug))?.nativeToken;
+  const nativeTokenIn = findNativeToken(getChainBySlug(tokenIn.slug));
   const nativeTokenInBalance = nativeTokenIn ? selectCurrentAccountTokenBalance(global, nativeTokenIn.slug) : undefined;
   const swapType = selectSwapType(global);
 
@@ -541,7 +540,7 @@ addActionHandler('estimateSwap', async () => {
 async function estimateDexSwap(global: GlobalState): Promise<SwapEstimateResult> {
   const tokenIn = global.swapTokenInfo.bySlug[global.currentSwap.tokenInSlug!];
   const tokenOut = global.swapTokenInfo.bySlug[global.currentSwap.tokenOutSlug!];
-  const nativeTokenIn = getChainConfig(getChainBySlug(tokenIn.slug)).nativeToken;
+  const nativeTokenIn = getNativeToken(getChainBySlug(tokenIn.slug));
 
   const from = tokenIn.slug === TONCOIN.slug ? tokenIn.symbol : tokenIn.tokenAddress!;
   const to = tokenOut.slug === TONCOIN.slug ? tokenOut.symbol : tokenOut.tokenAddress!;
@@ -650,6 +649,7 @@ async function estimateCexSwap(global: GlobalState, shouldStop: () => boolean): 
   const account = global.accounts?.byId[global.currentAccountId!];
   let networkFee: string | undefined;
   let realNetworkFee: string | undefined;
+  let amountIn = estimate.fromAmount;
 
   if (swapType === SwapType.CrosschainFromWallet) {
     if (tokenIn.chain !== 'ton' && tokenIn.chain !== 'tron') {
@@ -669,15 +669,15 @@ async function estimateCexSwap(global: GlobalState, shouldStop: () => boolean): 
     if (txDraft) {
       ({ networkFee, realNetworkFee } = convertTransferFeesToSwapFees(txDraft, tokenIn.chain));
     }
-  }
 
-  let amountIn = estimate.fromAmount;
+    const isNativeTokenIn = getNativeToken(getChainBySlug(tokenIn.slug)).slug === tokenIn.slug;
 
-  // Auto-adjust amountIn for crosschain swaps when fee becomes known
-  if (global.currentSwap.isMaxAmount && networkFee) {
-    const tokenBalance = selectCurrentAccountTokenBalance(global, tokenIn.slug);
-    const amountInBigint = tokenBalance - fromDecimal(networkFee, tokenIn.decimals);
-    amountIn = toDecimal(amountInBigint, tokenIn.decimals);
+    // Auto-adjust amountIn for crosschain swaps when fee becomes known
+    if (global.currentSwap.isMaxAmount && networkFee && isNativeTokenIn) {
+      const tokenBalance = selectCurrentAccountTokenBalance(global, tokenIn.slug);
+      const amountInBigint = tokenBalance - fromDecimal(networkFee, tokenIn.decimals);
+      amountIn = toDecimal(amountInBigint, tokenIn.decimals);
+    }
   }
 
   return {
@@ -962,7 +962,7 @@ function chooseSwapEstimate(
   // Otherwise, select automatically
   const tokenIn = tokenInSlug ? global.swapTokenInfo.bySlug[tokenInSlug] : undefined;
   const tokenInBalance = tokenInSlug ? selectCurrentAccountTokenBalance(global, tokenInSlug) : undefined;
-  const nativeTokenIn = tokenInSlug ? findChainConfig(getChainBySlug(tokenInSlug))?.nativeToken : undefined;
+  const nativeTokenIn = tokenInSlug ? findNativeToken(getChainBySlug(tokenInSlug)) : undefined;
   const nativeTokenInBalance = nativeTokenIn && selectCurrentAccountTokenBalance(global, nativeTokenIn.slug);
   let availableEstimates = newEstimates.filter((variant) => canAffordSwapEstimateVariant({
     variant,

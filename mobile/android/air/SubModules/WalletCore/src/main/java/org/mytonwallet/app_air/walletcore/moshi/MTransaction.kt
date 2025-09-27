@@ -4,11 +4,11 @@ import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcontext.R
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcontext.utils.WEquatable
-import org.mytonwallet.app_air.walletcontext.utils.doubleAbsRepresentation
-import org.mytonwallet.app_air.walletcontext.utils.formatStartEndAddress
-import org.mytonwallet.app_air.walletcontext.utils.gradientColors
+import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
+import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
+import org.mytonwallet.app_air.walletbasecontext.utils.gradientColors
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 import org.mytonwallet.app_air.walletcore.helpers.PoisoningCacheHelper
@@ -396,9 +396,16 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
     }
 
     override fun isSame(comparing: WEquatable<*>): Boolean {
-        if (comparing is MApiTransaction)
-            return id == comparing.id
-        return false
+        val comparingActivity = comparing as? MApiTransaction ?: return false
+
+        if (id == comparingActivity.id)
+            return true
+
+        externalMsgHashNorm?.let { externalMsgHashNorm ->
+            return externalMsgHashNorm == comparingActivity.externalMsgHashNorm && comparingActivity.shouldHide != true
+        }
+
+        return parsedTxId.hash == comparingActivity.parsedTxId.hash
     }
 
     override fun isChanged(comparing: WEquatable<*>): Boolean {

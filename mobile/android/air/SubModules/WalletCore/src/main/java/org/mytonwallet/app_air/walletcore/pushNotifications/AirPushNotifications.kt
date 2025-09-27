@@ -11,13 +11,13 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.logger.LogMessage
-import org.mytonwallet.app_air.walletcontext.helpers.logger.Logger
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiNotificationAddress
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
+import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 
 object AirPushNotifications {
     const val MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT = 3

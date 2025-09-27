@@ -4,7 +4,7 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import org.mytonwallet.app_air.uicomponents.adapter.BaseListItem
 import org.mytonwallet.app_air.uicomponents.image.Content
-import org.mytonwallet.app_air.walletcontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 

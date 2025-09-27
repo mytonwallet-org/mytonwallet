@@ -3,14 +3,13 @@ import type {
   ApiActivity,
   ApiActivityTimestamps,
   ApiBalanceBySlug,
-  ApiUpdatingStatus,
   OnApiUpdate,
+  OnUpdatingStatusChange,
 } from '../../types';
 
 import { TRX } from '../../../config';
 import { parseAccountId } from '../../../util/account';
 import { areDeepEqual } from '../../../util/areDeepEqual';
-import { getChainConfig } from '../../../util/chain';
 import isEmptyObject from '../../../util/isEmptyObject';
 import { logDebugError } from '../../../util/logs';
 import { getTokenSlugs } from './util/tokens';
@@ -23,9 +22,8 @@ import { buildTokenSlug } from '../../common/tokens';
 import { txCallbacks } from '../../common/txCallbacks';
 import { FIRST_TRANSACTIONS_LIMIT } from '../../constants';
 import { getTokenActivitySlice, mergeActivities } from './activities';
+import { NETWORK_CONFIG } from './constants';
 import { getTrc20Balance, getWalletBalance, isTronAccountMultisig } from './wallet';
-
-type OnUpdatingStatusChange = (kind: ApiUpdatingStatus['kind'], isUpdating: boolean) => void;
 
 export function setupActivePolling(
   accountId: string,
@@ -79,10 +77,10 @@ export function setupActivePolling(
   }
 
   const walletPolling = new WalletPolling({
-    ...activeWalletTiming,
     chain: 'tron',
     network: parseAccountId(accountId).network,
     address,
+    pollingOptions: activeWalletTiming,
     onUpdate: handleUpdate,
   });
 
@@ -98,7 +96,7 @@ function setupBalancePolling(
   onUpdatingStatusChange?: (isUpdating: boolean) => void,
 ) {
   const { network } = parseAccountId(accountId);
-  const { usdtAddress } = getChainConfig('tron')[network];
+  const { usdtAddress } = NETWORK_CONFIG[network];
   const usdtSlug = buildTokenSlug('tron', usdtAddress);
 
   let balances: ApiBalanceBySlug | undefined;

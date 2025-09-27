@@ -2,13 +2,14 @@ package org.mytonwallet.app_air.ledger.connectionManagers
 
 import android.content.Context
 import android.hardware.usb.UsbDevice
-import android.os.Handler
-import android.os.Looper
 import org.mytonwallet.app_air.ledger.LedgerDevice
 import org.mytonwallet.app_air.ledger.LedgerManager.ConnectionState
-import org.mytonwallet.app_air.ledger.helpers.APDUHelpers
 import org.mytonwallet.app_air.ledger.usb.HIDDevice
 import org.mytonwallet.app_air.ledger.usb.USBManager
+import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.models.LedgerAppInfo
+import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 
 object LedgerUsbManager : ILedgerConnectionManager {
     private const val LEDGER_VENDOR_ID = 0x2c97
@@ -101,54 +102,20 @@ object LedgerUsbManager : ILedgerConnectionManager {
     private fun connectToTonApp(
         device: HIDDevice,
         onUpdate: (ConnectionState) -> Unit,
-        retriesLeft: Int = 3
     ) {
-        try {
-            write(APDUHelpers.currentApp(), {
-                val openAppData = APDUHelpers.decodeReadable(it)
-                if (openAppData.first() == "TON") {
-                    onUpdate(ConnectionState.Done(LedgerDevice.Usb(device), openAppData[1]))
-                } else {
-                    onUpdate(
-                        ConnectionState.Error(
-                            step = ConnectionState.Error.Step.TON_APP,
-                            shortMessage = null
-                        )
-                    )
+        WalletCore.call(
+            ApiMethod.Other.WaitForLedgerApp(chain = MBlockchain.ton),
+            callback = { res, error ->
+                if (res != true || error != null) {
+                    onUpdate(ConnectionState.Done(LedgerDevice.Usb(device)))
+                    return@call
                 }
-            }, {
                 onUpdate(
                     ConnectionState.Error(
                         step = ConnectionState.Error.Step.TON_APP,
                         shortMessage = null
                     )
                 )
-            })
-        } catch (e: Throwable) {
-            if (retriesLeft > 0) {
-                Handler(Looper.getMainLooper()).postDelayed({
-                    connectToTonApp(device, onUpdate, retriesLeft - 1)
-                }, 500)
-            } else {
-                onUpdate(
-                    ConnectionState.Error(
-                        step = ConnectionState.Error.Step.TON_APP,
-                        shortMessage = null
-                    )
-                )
-            }
-        }
-    }
-
-    override fun getPublicKey(walletIndex: Int, onCompletion: (publicKey: List<Int>?) -> Unit) {
-        usbManager.exchange(
-            selectedDevice!!.deviceId,
-            APDUHelpers.getPublicKey(false, 0, walletIndex),
-            onCompletion = {
-                if (it == null)
-                    onCompletion(null)
-                else
-                    onCompletion(APDUHelpers.decode(it.substring(0, it.length - 4)))
             }
         )
     }

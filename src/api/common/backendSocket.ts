@@ -13,6 +13,7 @@ import { BRILLIANT_API_BASE_URL } from '../../config';
 import ReconnectingWebSocket from '../../util/reconnectingWebsocket';
 import safeExec from '../../util/safeExec';
 import { throttle } from '../../util/schedulers';
+import withCache from '../../util/withCache';
 import { addBackendHeadersToSocketUrl } from './backend';
 import { getBackendConfigCache } from './cache';
 
@@ -40,7 +41,7 @@ interface WalletWatcherInternal extends WalletWatcher {
    * In this context activity is any confirmed wallet change.
    * Called only for wallets with an `activity` event.
    *
-   * Called only when isConnected is true. Therefore, when the socket reconnects, the users should synchronize,
+   * Called only when `isConnected` is true. Therefore, when the socket reconnects, the users should synchronize,
    * otherwise the activity happening during the reconnect will miss.
    */
   onNewActivity?: NewActivityCallback;
@@ -85,6 +86,7 @@ class BackendSocket {
     const watcher: WalletWatcherInternal = {
       id,
       wallets,
+      // The status will turn to `true` via `#actualizeSocket` → `#sendWatchedWalletsToSocket` → socket request → socket response → `#handleSubscribed`
       isConnected: false,
       onNewActivity,
       onConnect,
@@ -204,6 +206,9 @@ class BackendSocket {
     const addresses = this.#getWatchedAddresses(['activity']);
     const requestId = this.#currentUniqueId++;
 
+    // It's necessary to send a `subscribe` request on every `#sendWatchedWalletsToSocket` call, even if the list of
+    // addresses hasn't changed. Otherwise, the mechanism turning `isConnected` to `true` in the watchers will break if
+    // a new watcher containing only existing addresses is added.
     this.#socket!.send({
       type: 'subscribe',
       id: requestId,
@@ -247,12 +252,9 @@ function getSocketUrl(network: ApiNetwork) {
   return url;
 }
 
-const backendSockets: Partial<Record<ApiNetwork, BackendSocket>> = {};
-
 /** Returns a singleton (one constant instance per a network) */
-export function getBackendSocket(network: ApiNetwork) {
-  backendSockets[network] ??= new BackendSocket(network);
-  return backendSockets[network];
-}
+export const getBackendSocket = withCache((network: ApiNetwork) => {
+  return new BackendSocket(network);
+});
 
 export type { BackendSocket };

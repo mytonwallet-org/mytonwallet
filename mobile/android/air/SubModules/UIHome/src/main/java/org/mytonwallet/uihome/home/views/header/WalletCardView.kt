@@ -46,22 +46,25 @@ import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.Item.Config.
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.SensitiveDataMaskView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uiwidgets.configurations.WidgetsConfigurations
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
+import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
-import org.mytonwallet.app_air.walletcontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.setBaseCurrency
-import org.mytonwallet.app_air.walletcore.models.MBaseCurrency
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardTextType
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardType
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.uihome.R
 import org.mytonwallet.uihome.home.views.UpdateStatusView
 import kotlin.math.roundToInt
@@ -150,15 +153,24 @@ class WalletCardView(
                     MBaseCurrency.BTC,
                     MBaseCurrency.TON
                 ).map {
+                    val totalBalance =
+                        BalanceStore.totalBalanceInBaseCurrency(AccountStore.activeAccountId!!, it)
                     WMenuPopup.Item(
                         WMenuPopup.Item.Config.SelectableItem(
                             title = it.currencyName,
-                            subtitle = null,
+                            subtitle = totalBalance?.toString(
+                                decimals = 9,
+                                currency = it.sign,
+                                currencyDecimals = 9,
+                                smartDecimals = true,
+                                roundUp = false
+                            ),
                             isSelected = WalletCore.baseCurrency.currencySymbol == it.currencySymbol
                         ),
                         false,
                     ) {
                         WalletCore.setBaseCurrency(newBaseCurrency = it.currencyCode) { _, _ -> }
+                        WidgetsConfigurations.reloadWidgets(context)
                     }
                 },
                 offset = (-location[0] + (window.navigationControllers.last().width / 2) - 112.5f.dp).toInt(),

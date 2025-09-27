@@ -4,7 +4,7 @@ import android.content.Context
 import android.view.View
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 
 class CenteringLinearLayoutManager(
     context: Context,
@@ -41,7 +41,7 @@ class CenteringLinearLayoutManager(
             if (LocaleController.isRTL && layoutDirection == View.LAYOUT_DIRECTION_RTL) {
                 // In RTL, we need to layout children from right to left
                 var currentRight = width - paddingRight - offset
-                
+
                 for (i in 0 until childCount) {
                     val child = getChildAt(i)
                     child?.let {

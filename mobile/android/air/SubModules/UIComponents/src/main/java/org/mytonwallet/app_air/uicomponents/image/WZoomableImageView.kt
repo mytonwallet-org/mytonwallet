@@ -25,9 +25,9 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.zoomable.AbstractAnimatedZoomableController
 import org.mytonwallet.app_air.uicomponents.widgets.zoomable.DefaultZoomableController
 import org.mytonwallet.app_air.uicomponents.widgets.zoomable.ZoomableDraweeView
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
-import org.mytonwallet.app_air.walletcontext.utils.gradientColors
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.gradientColors
 import org.mytonwallet.app_air.walletcore.models.MToken
 
 // TODO:: Merge with WCustomImageView

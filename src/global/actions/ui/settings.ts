@@ -4,6 +4,7 @@ import type { GlobalState } from '../../types';
 import { SettingsState } from '../../types';
 
 import { setInMemoryPasswordSignal } from '../../../util/authApi/inMemoryPasswordStore';
+import { getChainsSupportingLedger } from '../../../util/chain';
 import { setLanguage } from '../../../util/langProvider';
 import { callActionInMain, callActionInNative } from '../../../util/multitab';
 import switchTheme from '../../../util/switchTheme';
@@ -104,7 +105,7 @@ addActionHandler('setInMemoryPassword', (global, actions, { password, isFinalCal
 });
 
 addActionHandler('openSettingsHardwareWallet', (global) => {
-  global = resetHardware(global);
+  global = resetHardware(global, getChainsSupportingLedger()[0], true); // todo: Add a chain selector screen for Ledger auth
   global = updateSettings(global, { state: SettingsState.LedgerConnectHardware });
 
   setGlobal(global);

@@ -15,8 +15,9 @@ public struct SendPrefilledValues {
     public var binaryPayload: String?
     public var nfts: [ApiNft]?
     public var nftSendMode: NftSendMode?
+    public var stateInit: String?
     
-    public init(address: String? = nil, amount: BigInt? = nil, token: String? = nil, jetton: String? = nil, commentOrMemo: String? = nil, binaryPayload: String? = nil, nfts: [ApiNft]? = nil, nftSendMode: NftSendMode? = nil) {
+    public init(address: String? = nil, amount: BigInt? = nil, token: String? = nil, jetton: String? = nil, commentOrMemo: String? = nil, binaryPayload: String? = nil, nfts: [ApiNft]? = nil, nftSendMode: NftSendMode? = nil, stateInit: String? = nil) {
         self.address = address
         self.amount = amount
         self.token = token
@@ -25,5 +26,6 @@ public struct SendPrefilledValues {
         self.binaryPayload = binaryPayload
         self.nfts = nfts
         self.nftSendMode = nftSendMode
+        self.stateInit = stateInit
     }
 }

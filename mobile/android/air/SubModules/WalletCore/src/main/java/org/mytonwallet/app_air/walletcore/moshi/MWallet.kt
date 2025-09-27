@@ -3,7 +3,6 @@ package org.mytonwallet.app_air.walletcore.moshi
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import org.mytonwallet.app_air.walletcore.models.MAccount.AccountChain
-import java.math.BigInteger
 
 // Base wallet class
 @JsonClass(generateAdapter = true)
@@ -72,12 +71,8 @@ data class MApiLedgerAccount(
 )
 
 @JsonClass(generateAdapter = true)
-data class MLedgerWalletInfo(
-    val index: Int,
-    val address: String,
-    val publicKey: String,
-    val balance: BigInteger,
-    val version: MApiTonWalletVersion,
+data class MApiLedgerAccountInfo(
+    val byChain: Map<String, AccountChain>,
     val driver: MApiLedgerDriver,
     val deviceId: String? = null,
     val deviceName: String? = null
@@ -86,8 +81,7 @@ data class MLedgerWalletInfo(
 @JsonClass(generateAdapter = true)
 data class MImportedWalletResponse(
     val accountId: String,
-    val address: String,
-    val walletInfo: MLedgerWalletInfo,
+    val byChain: Map<String, AccountChain>,
 )
 
 @JsonClass(generateAdapter = true)

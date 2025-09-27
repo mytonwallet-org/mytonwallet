@@ -64,7 +64,7 @@ struct ActivateBiometricView: View {
     }
     
     var shortDescription: some View {
-        Text(langMd("You can connect your biometric data for more convenience"))
+        Text(langMd("$auth_biometric_info"))
             .multilineTextAlignment(.center)
     }
     

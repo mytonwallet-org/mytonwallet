@@ -4,14 +4,14 @@ import android.app.Activity
 import android.os.Handler
 import android.os.Looper
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.logger.LogMessage
-import org.mytonwallet.app_air.walletcontext.helpers.logger.Logger
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.api.importWallet
 import org.mytonwallet.app_air.walletcore.api.validateMnemonic
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
+import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import java.lang.ref.WeakReference
 
 

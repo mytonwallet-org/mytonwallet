@@ -1,5 +1,6 @@
 package org.mytonwallet.app_air.uiassets.viewControllers.assets.cells
 
+import android.animation.ObjectAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
@@ -7,8 +8,10 @@ import android.text.SpannableStringBuilder
 import android.text.TextUtils
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.view.animation.LinearInterpolator
 import androidx.core.view.setPadding
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
 import org.mytonwallet.app_air.uicomponents.widgets.WAnimationView
@@ -17,12 +20,11 @@ import org.mytonwallet.app_air.uicomponents.widgets.WImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
-import org.mytonwallet.app_air.walletcontext.R
 import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
-import org.mytonwallet.app_air.walletcontext.utils.formatStartEndAddress
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 
 @SuppressLint("ViewConstructor")
@@ -107,6 +109,7 @@ class AssetCell(
     private var nft: ApiNft? = null
     fun configure(
         nft: ApiNft,
+        isInDragMode: Boolean
     ) {
         this.nft = nft
         imageView.loadUrl(nft.thumbnail ?: "")
@@ -130,6 +133,11 @@ class AssetCell(
             }
         }
         updateTheme()
+        if (isInDragMode) {
+            startShake()
+        } else {
+            stopShake()
+        }
     }
 
     fun pauseAnimation() {
@@ -140,4 +148,25 @@ class AssetCell(
         animationView.resumeAnimation()
     }
 
+    private var shakeAnimator: ObjectAnimator? = null
+    private fun startShake() {
+        stopShake()
+        shakeAnimator = ObjectAnimator.ofFloat(this, "rotation", 0f, -1f, 2f, -1f, 2f, 0f).apply {
+            duration = AnimationConstants.SLOW_ANIMATION
+            repeatCount = ObjectAnimator.INFINITE
+            interpolator = LinearInterpolator()
+            start()
+        }
+    }
+
+    private fun stopShake() {
+        shakeAnimator?.cancel()
+        shakeAnimator = null
+        rotation = 0f
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        stopShake()
+    }
 }

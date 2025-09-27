@@ -7,9 +7,8 @@ import { DEFAULT_OUR_SWAP_FEE } from '../../config';
 import { Big } from '../../lib/big.js';
 import { bigintDivideToNumber, bigintMax } from '../bigint';
 import { bigMax, bigMin } from '../bigNumber';
-import { findChainConfig } from '../chain';
 import { fromDecimal, toBig } from '../decimals';
-import { getChainBySlug, getIsNativeToken } from '../tokens';
+import { findNativeToken, getChainBySlug, getIsNativeToken } from '../tokens';
 
 type ExplainSwapFeeInput = Pick<GlobalState['currentSwap'],
 'tokenInSlug' | 'networkFee' | 'realNetworkFee' | 'ourFee' | 'dieselStatus' | 'dieselFee'
@@ -147,7 +146,7 @@ export function isBalanceSufficientForSwap(input: BalanceSufficientForSwapInput)
     return undefined;
   }
 
-  const nativeTokenIn = findChainConfig(getChainBySlug(tokenIn.slug))?.nativeToken;
+  const nativeTokenIn = findNativeToken(getChainBySlug(tokenIn.slug));
   if (!nativeTokenIn) {
     return undefined;
   }
@@ -172,7 +171,7 @@ export function canAffordSwapEstimateVariant(input: CanAffordSwapVariant) {
     return undefined;
   }
 
-  const nativeTokenIn = findChainConfig(getChainBySlug(input.tokenIn.slug))?.nativeToken;
+  const nativeTokenIn = findNativeToken(getChainBySlug(input.tokenIn.slug));
   if (!nativeTokenIn) {
     return undefined;
   }
@@ -307,7 +306,7 @@ function getBigNativeTokenInBalance(input: Pick<ExplainSwapFeeInput, 'tokenInSlu
     return undefined;
   }
 
-  const nativeToken = findChainConfig(getChainBySlug(input.tokenInSlug))?.nativeToken;
+  const nativeToken = findNativeToken(getChainBySlug(input.tokenInSlug));
   return nativeToken ? toBig(input.nativeTokenInBalance, nativeToken.decimals) : undefined;
 }
 

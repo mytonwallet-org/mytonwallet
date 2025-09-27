@@ -590,11 +590,6 @@ export async function checkMultiTransactionDraft(
   accountId: string,
   messages: TonTransferParams[],
   withDiesel?: boolean,
-  /**
-   * If `true`, the Ledger's limitation of 1 message per transaction will be overridden. This is to be used for
-   * estimating Ton Connect transactions (where each message is sent in a separate transaction).
-   */
-  doOverrideLedgerLimit?: boolean,
 ): Promise<ApiCheckMultiTransactionDraftResult> {
   let totalAmount: bigint = 0n;
 
@@ -628,7 +623,7 @@ export async function checkMultiTransactionDraft(
     const { seqno, balance } = await getWalletInfo(network, wallet);
 
     const signer = getSigner(accountId, account, undefined, true);
-    const signingResult = await signTransaction({ account, messages, seqno, signer, doOverrideLedgerLimit });
+    const signingResult = await signTransaction({ account, messages, seqno, signer });
     if ('error' in signingResult) return signingResult;
 
     const emulation = applyFeeFactorToEmulationResult(
@@ -884,12 +879,6 @@ interface SignTransactionOptions {
   expireAt?: number;
   /** If true, will sign the transaction as an internal message instead of external. Not supported by Ledger. */
   shouldBeInternal?: boolean;
-  /**
-   * If `true`, the Ledger's limitation of 1 message per transaction will be overridden. This is to be used for
-   * estimating Ton Connect transactions (where each message is sent in a separate transaction).
-   * @todo Remove after DEXs support the 1 message limit
-   */
-  doOverrideLedgerLimit?: boolean;
 }
 
 async function signTransaction(options: SignTransactionOptions) {
@@ -918,9 +907,8 @@ async function signTransactions({
   expireAt = Math.round(Date.now() / 1000) + TRANSFER_TIMEOUT_SEC,
   shouldBeInternal,
   allowOnlyOneTransaction,
-  doOverrideLedgerLimit,
 }: SignTransactionOptions & { allowOnlyOneTransaction?: boolean }) {
-  const messagesPerTransaction = getMaxMessagesInTransaction(account, doOverrideLedgerLimit);
+  const messagesPerTransaction = getMaxMessagesInTransaction(account);
   const messagesByTransaction = split(messages, messagesPerTransaction);
 
   if (allowOnlyOneTransaction && messagesByTransaction.length !== 1) {
@@ -1093,7 +1081,7 @@ async function getDiesel({
   const storedTonWallet = await fetchStoredWallet(accountId, 'ton');
   const wallet = getTonWallet(storedTonWallet);
 
-  const token = getTokenByAddress(tokenAddress);
+  const token = getTokenByAddress(tokenAddress)!;
   if (!token.isGaslessEnabled && !token.isStarsEnabled) return DIESEL_NOT_AVAILABLE;
 
   const { address, version } = storedTonWallet;

@@ -3,6 +3,7 @@ import { ActiveTab, TransferState } from '../../types';
 import { getInMemoryPassword } from '../../../util/authApi/inMemoryPasswordStore';
 import { fromDecimal, toDecimal } from '../../../util/decimals';
 import { callActionInMain, callActionInNative } from '../../../util/multitab';
+import { getChainBySlug } from '../../../util/tokens';
 import { IS_DELEGATED_BOTTOM_SHEET, IS_DELEGATING_BOTTOM_SHEET } from '../../../util/windowEnvironment';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import { resetHardware, setCurrentTransferAddress, updateCurrentTransfer } from '../../reducers';
@@ -86,9 +87,11 @@ addActionHandler('submitTransferConfirm', async (global, actions) => {
   const inMemoryPassword = await getInMemoryPassword();
 
   global = getGlobal();
+  const { tokenSlug } = global.currentTransfer;
+  const chain = getChainBySlug(tokenSlug);
 
   if (selectIsHardwareAccount(global)) {
-    global = resetHardware(global);
+    global = resetHardware(global, chain);
     global = updateCurrentTransfer(global, { state: TransferState.ConnectHardware });
     setGlobal(global);
   } else if (inMemoryPassword) {

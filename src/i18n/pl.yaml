@@ -16,8 +16,6 @@ $auth_password_rule_one_small_char: jedna mała litera
 $auth_password_rule_one_capital_char: jedna wielka litera
 $auth_password_rule_one_digit: jedna cyfra
 $auth_password_rule_one_special_char: i jeden znak specjalny
-The wallet is imported: Portfel jest importowany
-The wallet is ready: Portfel jest gotowy
 Create a password to protect it.: Utwórz hasło, aby je chronić.
 Enter your password: Wprowadź hasło
 Enter your password...: Wprowadź hasło...
@@ -34,16 +32,12 @@ Secret Words: Tajnych Słów
 $auth_import_mnemonic_description: |
   Możesz przywrócić dostęp do swojego portfela, wpisując **12 lub 24 tajne słowa**, które zapisałeś podczas tworzenia portfela.
 Let’s make sure your secrets words are recorded correctly.: Upewnijmy się, że twoje sekretne słowa są poprawnie rejestrowane.
-$mnemonic_check_words_list: Wpisz poniżej słowa **%1$s**.
-$mnemonic_check_error: Wprowadzone tajne słowa nie pasują do tych na liście. Spróbuj ponownie.
-$check_words_description: |
-  Sprawdźmy teraz, czy poprawnie zapisałeś
-  swoje tajne słowa.
+$check_words_description: Sprawdźmy teraz, czy poprawnie zapisałeś swoje tajne słowa.
 $mnemonic_list_description: Zapisz te słowa w **poprawnej kolejności** i przechowuj je w **bezpiecznym miejscu**.
 $private_key_description: Zapisz ten klucz prywatny **poprawnie** i przechowuj go w **bezpiecznym miejscu**.
 $mnemonic_warning: |
-  Nie wysyłaj ani nie pokazuj go **nikomu**,
-  **nie** wprowadzaj go nigdzie.
+  Nie wysyłaj ani nie pokazuj go nikomu,
+  nie wprowadzaj go nigdzie.
 View Secret Words: Wyświetl tajne słowa
 View TON Private Key: Wyświetl prywatny klucz TON
 Can be imported to non-multichain wallets for TON.: Można zaimportować do portfeli TON bez obsługi multichain.
@@ -59,8 +53,6 @@ $safety_rules_one: |
   Na następnym ekranie zobaczysz **tajne słowa**. Zapisz je w odpowiedniej kolejności i **zachowaj w bezpiecznym miejscu**.
 $safety_rules_two: Pozwalają one na **otwarcie portfela** w przypadku utraty hasła lub dostępu do tego urządzenia.
 $safety_rules_three: Jeśli ktokolwiek inny zobaczy te słowa, Twoje środki **mogą zostać skradzione**. **Nie wysyłaj tego nikomu**, nawet deweloperom lub pomocy technicznej.
-Understood: Zrozumiałem
-Congratulations!: Gratulacje!
 Continue: Kontynuuj
 Close: Zamknij
 Back: Powrót
@@ -321,12 +313,11 @@ Select Ledger Wallets: Wybierz portfele Ledgera
 Add: Dodaj
 Try Again: Spróbuj ponownie
 Driver: Sterownik
-Unlock it and open the TON App: Odblokuj go i otwórz aplikację TON
+Unlock it and open the %chain% App: Odblokuj go i otwórz aplikację %chain%
 Maybe you need to check the password or change the driver.: Być może musisz sprawdzić hasło lub zmienić sterownik.
 Confirm via Ledger: Potwierdź za pomocą Ledgera
 Please confirm transaction on your Ledger: Proszę potwierdzić transakcję na swoim Ledgerze
 Declined: Odrzucone
-Create Wallet: Utwórz portfel
 Switch to the newly opened tab to connect Ledger.: Przełącz się na nowo otwarty kartę, aby połączyć się z Ledgerem.
 Once connected, switch back to this window to proceed.: Po połączeniu, przełącz się z powrotem do tego okna, aby kontynuować.
 Not all transactions were sent successfully: Nie wszystkie transakcje zostały wysłane pomyślnie
@@ -343,8 +334,6 @@ Try another keyword or address.: Spróbuj innego słowa kluczowego lub adresu.
 Decrypt: Odszyfruj
 Encrypted Message: Zaszyfrowana Wiadomość
 Message is encrypted.: Wiadomość jest zaszyfrowana.
-$dapp_ledger_warning1: Masz zamiar wysłać transakcję wielokierunkową za pomocą portfela Ledger. Będziesz musiał podpisać każdą związaną transakcję ręcznie, jedną po drugiej.
-$dapp_ledger_warning2: Proszę poświęcić czas i nie przerywać procesu.
 Agree: Zgadzam się
 $swap_action: Wymieniać
 Swap: Wymieniać
@@ -383,19 +372,10 @@ $auth_responsibly_description4: |
 Start Wallet: Uruchom portfel
 $auth_backup_warning_notice: |
   Teraz musisz ręcznie zrobić kopię zapasową kluczy prywatnych, aby w razie zapomnienia hasła lub utraty dostępu do tego urządzenia.
-Later: Później
-Back Up Now: Utwórz teraz kopię zapasową
-I have read and accept this information: Przeczytałem/am i akceptuję te informacje.
 $ledger_verify_address: Zawsze zweryfikuj wklejony adres za pomocą urządzenia Ledger.
-$ledger_not_ready: Ledger nie jest podłączony lub aplikacja TON nie jest otwarta.
+$ledger_not_ready: Ledger nie jest podłączony lub aplikacja %chain% nie jest otwarta.
 Verify now: Zweryfikuj teraz
 Invalid address format. Only URL Safe Base64 format is allowed.: Nieprawidłowy format adresu. Dozwolony jest tylko format URL Safe Base64.
-$auth_backup_description1: |
-  To jest bezpieczny portfel
-  i jest kontrolowany tylko przez ciebie.
-$auth_backup_description2: A z wielką mocą idzie wielka odpowiedzialność.
-$auth_backup_description3: |
-  Musisz ręcznie zrobić kopię zapasową kluczy prywatnych w przypadku zapomnienia hasła lub utraty dostępu do tego urządzenia.
 Swap Placed: Wymiana złożona
 Swapping: Wymienianie
 Swapped: Wymienione
@@ -456,7 +436,6 @@ Please verify the operation.: Proszę zweryfikować operację.
 Create Password: Utwórz hasło
 Complete: Zakończono
 Verification: Weryfikacja
-Create a password or use biometric authentication to protect it.: Utwórz hasło lub użyj uwierzytelniania biometrycznego, aby je zabezpieczyć.
 Connect Biometrics: Połącz biometrię
 Use Password: Użyj hasła
 Biometrics Disabled: Biometria wyłączona
@@ -470,8 +449,8 @@ An error on the server side. Please try again.: Błąd po stronie serwera. Prosz
 Address was saved!: Adres został zapisany!
 US Dollar: Dolar amerykański
 Euro: Euro
-Ruble: Rubel
-Yuan: Juan
+Russian Ruble: Rosyjski rubel
+Chinese Yuan: Chiński juan
 Bitcoin: Bitcoin
 Toncoin: Toncoin
 $max_balance: "Maksymalnie: %balance%"
@@ -489,7 +468,6 @@ Code set successfully: Kod ustawiono pomyślnie
 Use Biometrics: Użyj biometrii
 Use Touch ID: Użyj Touch ID
 Use Face ID: Użyj Face ID
-You can connect your biometric data for more convenience: Możesz połączyć swoje dane biometryczne dla większej wygody
 Connect Touch ID: Połącz Touch ID
 Connect Face ID: Połącz Face ID
 Not Now: Nie teraz
@@ -527,7 +505,6 @@ Cannot load widget: Nie można załadować widżetu
 Explore: Badaj
 No partners yet: Jeszcze brak partnerów
 Clear: Wyczyść
-Get TON: Otrzymaj TON
 $unstake_up_to_information: Natychmiastowo – do %value%
 $all_balance: "Wszystko: %balance%"
 $unstaking_not_enough_balance: Aby kontynuować wycofywanie stawki, musisz mieć %value% na głównym saldzie.
@@ -554,8 +531,7 @@ To use this feature, first enable biometrics in your phone settings.: Aby skorzy
 Open Settings: Otwórz ustawienia
 $service_token_transfer_warning: Zamierzasz przenieść ważny token usługi wymagany do wypłaty depozytu lub ukończenia operacji serwisowych. Upewnij się, że jest to działanie, które chcesz wykonać.
 No Price: Brak ceny
-$ledger_outdated: Ta operacja nie jest obsługiwana przez twoją wersję Ledger TON App. Zaktualizuj ją za pomocą Ledger Live.
-$ledger_unsupported_ton_connect: TonConnect nie jest obsługiwany przez wersję aplikacji Ledger TON. Zaktualizuj go za pomocą Ledger Live.
+$ledger_outdated: Ta operacja nie jest obsługiwana przez twoją wersję Ledger %chain% App. Zaktualizuj ją za pomocą Ledger Live.
 $dapp_transfer_tokens_burn: Spalanie %amount%
 $dapp_dns_set_wallet_payload: Zmiana połączonego portfela domeny %domain% na %address%
 $dapp_dns_delete_wallet_payload: Usuwanie połączonego portfela domeny %domain%
@@ -675,11 +651,7 @@ Confirm Burning: Potwierdź spalanie
 Confirm Passcode: Potwierdź hasło
 Enter your code: Wpisz swój kod
 $hardware_payload_warning: "**Zewnętrzna usługa żąda dostępu do twojego portfela.** Może to prowadzić do utraty środków. Anuluj operację, jeśli nie jesteś pewien niezawodności tej usługi."
-$hardware_blind_sign_not_enabled: |
-  **Zewnętrzna usługa żąda dostępu do twojego portfela.** Może to prowadzić do utraty środków. Anuluj operację, jeśli nie jesteś pewien niezawodności tej usługi.
-
-  Aby kontynuować, włącz opcję „Ślepe Podpisywanie” w ustawieniach aplikacji TON na Ledgerze.
-$hardware_blind_sign_not_enabled_internal: Aby kontynuować, włącz opcję „Ślepe Podpisywanie” w ustawieniach aplikacji TON na Ledgerze.
+$hardware_blind_sign_not_enabled: Aby kontynuować, włącz opcję „Ślepe Podpisywanie” w ustawieniach aplikacji %chain% na Ledgerze.
 Switch to W5: Przełącz na W5
 Not Scam: Nie oszustwo
 Untitled: Bez tytułu
@@ -966,3 +938,39 @@ $multisig_warning_text: "**Wypłacenie środków** z tego portfela przez MyTonWa
 $multisig_warning_link: Kliknij, aby dowiedzieć się więcej
 Multisig sending disabled: Nie można z multisig
 $try_new_air_version: Wypróbuj natywne aplikacje — lżejsze, szybsze i stworzone dla Twojego urządzenia. W każdej chwili możesz wrócić.
+$accept_terms_with_link: Zgadzam się %link%
+use the wallet responsibly: używać portfela odpowiedzialnie
+"%app_name% Resources": "Zasoby %app_name%"
+Watch Video about Features: Obejrzyj film o funkcjach
+Enjoy Monthly Updates in Blog: Ciesz się comiesięcznymi aktualizacjami na blogu
+Learn New Things in Help Center: Ucz się nowych rzeczy w centrum pomocy
+Frequency Questions and Answers: Częste pytania i odpowiedzi
+Paste from Clipboard: Wklej ze schowka
+Use biometric authentication or create a password to protect it.: Użyj uwierzytelniania biometrycznego lub utwórz hasło, aby je chronić.
+Go to Words: Przejdź do Słów
+Copy to Clipboard: Kopiuj do schowka
+$mnemonic_check_words_list: "Proszę wybrać poprawne słowa %word_numbers%:"
+$mnemonic_check_error: Słowa nie pasują, spróbuj ponownie.
+Open Wallet: Otwórz portfel
+All Set!: Wszystko gotowe!
+$wallet_create_done: Gotowe! Utworzyłeś portfel.
+$wallet_import_done:
+  zeroValue: Gotowe! Zaimportowałeś jeden portfel.
+  oneValue: Gotowe! Zaimportowałeś jeden portfel.
+  fewValue: Gotowe! Zaimportowałeś %1$d portfele.
+  manyValue: Gotowe! Zaimportowałeś %1$d portfeli.
+$wallet_done_description: Możesz teraz bezpiecznie przechowywać, otrzymywać i wysyłać monety i inne aktywa cyfrowe.
+Security Warning: Ostrzeżenie bezpieczeństwa
+Go back to Words: Wróć do słów
+I’m sure. Continue: Jestem pewien. Kontynuuj
+$copy_mnemonic_warning: Przechowywanie słów w środowisku cyfrowym, w tym w **schowku**, nie jest bezpieczne. Upewnij się, że masz bezpiecznie zapisaną frazę odzyskiwania.
+Other apps will be able to read your recovery phrase!: Inne aplikacje będą mogły odczytać twoją frazę odzyskiwania!
+I’m sure. Copy anyway: Jestem pewien. Kopiuj mimo to
+$auth_biometric_info: Możesz połączyć swoje dane biometryczne dla **większej wygody.**
+Open wallet without checking: Otwórz portfel bez sprawdzania
+Make sure you have your recovery phrase securely saved.: Upewnij się, że bezpiecznie zapisałeś swoją frazę odzyskiwania.
+Without it, you won't be able to access your wallet.: Bez niej nie będziesz mógł uzyskać dostępu do portfela.
+$ledger_connection_broken: Połączenie Ledger zostało przerwane. Proszę połączyć ponownie i spróbować jeszcze raz.
+$ledger_wrong_device: Bieżące konto jest skonfigurowane z inną frazą odzyskiwania lub hasłem Ledger albo przechowywane na innym urządzeniu Ledger
+Show More: Pokaż więcej
+Purchasing TRON with Russian Rubles is currently unavailable.: Zakup TRON za ruble rosyjskie jest obecnie niedostępny.

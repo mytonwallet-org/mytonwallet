@@ -33,8 +33,6 @@ interface WalletContextManagerDelegate {
     )
 }
 
-val DEBUG_MODE = BuildConfig.DEBUG_MODE!!
-
 object WalletContextManager {
     var delegate: WalletContextManagerDelegate? = null
         private set

@@ -7,7 +7,7 @@ import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbInterface
 import android.hardware.usb.UsbManager
 import android.hardware.usb.UsbRequest
-import org.mytonwallet.app_air.walletcontext.helpers.logger.Logger
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.util.concurrent.ExecutorService

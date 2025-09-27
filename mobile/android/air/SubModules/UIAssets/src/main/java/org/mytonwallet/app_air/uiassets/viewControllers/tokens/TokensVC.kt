@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.uiassets.viewControllers.tokens
 
-import WNavigationController
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Handler
@@ -14,6 +13,7 @@ import org.mytonwallet.app_air.uiassets.viewControllers.assetsTab.AssetsTabVC
 import org.mytonwallet.app_air.uiassets.viewControllers.token.TokenVC
 import org.mytonwallet.app_air.uiassets.viewControllers.tokens.cells.TokenCell
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
+import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.ShowAllView
@@ -22,9 +22,9 @@ import org.mytonwallet.app_air.uicomponents.helpers.LastItemPaddingDecoration
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uistake.earn.EarnRootVC
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
@@ -122,7 +122,7 @@ class TokensVC(
         v.onTap = {
             val window = this.window!!
             val navVC = WNavigationController(window)
-            navVC.setRoot(AssetsTabVC(context))
+            navVC.setRoot(AssetsTabVC(context, defaultSelectedIdentifier = AssetsTabVC.TAB_COINS))
             window.present(navVC)
         }
         v.visibility = View.GONE
@@ -143,6 +143,9 @@ class TokensVC(
                 toCenterX(showAllView)
             }
         }
+
+        if (mode == Mode.ALL)
+            recyclerView.disallowInterceptOnOverscroll()
 
         WalletCore.registerObserver(this)
         dataUpdated()
@@ -255,7 +258,7 @@ class TokensVC(
 
     override fun onDestroy() {
         super.onDestroy()
-        recyclerView.removeOnScrollListener(scrollListener)
+        recyclerView.onDestroy()
         recyclerView.adapter = null
         recyclerView.removeAllViews()
         showAllView.onTap = null

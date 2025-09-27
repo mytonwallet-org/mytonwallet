@@ -12,9 +12,9 @@ import android.graphics.Shader
 import eightbitlab.com.blurview.BlurView
 import eightbitlab.com.blurview.BlurViewFacade
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 
 @SuppressLint("ViewConstructor")

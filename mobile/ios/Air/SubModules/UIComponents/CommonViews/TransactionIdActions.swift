@@ -25,7 +25,7 @@ public struct TransactionIdActions: View {
                 text: Text(lang("Open in Explorer")),
                 image: Image("SendGlobe", bundle: AirBundle),
                 onOpenExplorer
-            )
+            ).fixedSize()
         }
     }
     
@@ -61,7 +61,7 @@ public struct ChangellyIdActions: View {
                 text: Text(lang("Open in Explorer")),
                 image: Image("SendGlobe", bundle: AirBundle),
                 onOpenExplorer
-            )
+            ).fixedSize()
         }
     }
     

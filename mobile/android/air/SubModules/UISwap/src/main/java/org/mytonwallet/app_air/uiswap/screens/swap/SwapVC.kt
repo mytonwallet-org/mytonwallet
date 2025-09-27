@@ -39,7 +39,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
-import org.mytonwallet.app_air.uisend.sent.SentVC
 import org.mytonwallet.app_air.uiswap.screens.cex.SwapSendAddressOutputVC
 import org.mytonwallet.app_air.uiswap.screens.cex.receiveAddressInput.SwapReceiveAddressInputVC
 import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapDetailsVisibility
@@ -50,12 +49,14 @@ import org.mytonwallet.app_air.uiswap.screens.swap.views.SwapEstimatedInfo
 import org.mytonwallet.app_air.uiswap.screens.swap.views.SwapSwapAssetsButton
 import org.mytonwallet.app_air.uiswap.screens.swap.views.dexAggregatorDialog.DexAggregatorDialog
 import org.mytonwallet.app_air.uiswap.views.SwapConfirmView
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
-import org.mytonwallet.app_air.walletcontext.utils.boldSubstring
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.boldSubstring
+import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import java.math.BigInteger
 import kotlin.math.max
@@ -109,14 +110,16 @@ class SwapVC(
             res.dex?.let { dex ->
                 if ((dex.all?.size ?: 0) < 2)
                     return@SwapEstimatedInfo
+                val bestDexLabel = dex.bestDexLabel ?: dex.dexLabel ?: return@SwapEstimatedInfo
+                val selectedDex = res.dex.dexLabel ?: return@SwapEstimatedInfo
                 lateinit var dialogRef: WDialog
                 dialogRef = DexAggregatorDialog.create(
                     context,
                     res.request.tokenToSend,
                     res.request.tokenToReceive,
                     dex.all ?: emptyList(),
-                    dex.bestDexLabel ?: dex.dexLabel,
-                    res.dex.dexLabel,
+                    bestDexLabel,
+                    selectedDex,
                     onSelect = {
                         swapViewModel.setDex(if (it == dex.bestDexLabel) null else it)
                         dialogRef.dismiss()
@@ -466,16 +469,11 @@ class SwapVC(
             is SwapViewModel.Event.SwapComplete -> {
                 val success = event.success
                 if (success) {
-                    push(
-                        SentVC(
-                            context, LocaleController.getString("Swap"),
-                            LocaleController.getString("Swapped"),
-                            null,
-                            null
-                        ), onCompletion = {
-                            navigationController?.removePrevViewControllers()
+                    window?.dismissLastNav {
+                        event.activity?.let { activity ->
+                            WalletCore.notifyEvent(WalletEvent.OpenActivity(activity))
                         }
-                    )
+                    }
                 } else {
                     pop()
                     showError(event.error)

@@ -6,9 +6,9 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.constraintlayout.widget.ConstraintLayout
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uistake.confirm.view.StakingPasscodeView
-import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.api.verifyPassword
 import org.mytonwallet.app_air.walletcore.models.MToken

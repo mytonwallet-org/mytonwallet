@@ -7,15 +7,22 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.commonViews.HeaderActionsView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
+import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
+import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.uihome.R
 import org.mytonwallet.uihome.home.views.UpdateStatusView
@@ -74,6 +81,26 @@ class StickyHeaderView(
             onActionClick(HeaderActionsView.Identifier.SCAN_QR)
         }
         v
+    }
+
+    private val cancelButton: WLabel by lazy {
+        WLabel(context).apply {
+            text = LocaleController.getString("Cancel")
+            setTextColor(WColor.Tint.color)
+            setStyle(18f, WFont.Medium)
+            setPaddingDp(12, 4, 12, 4)
+            alpha = 0f
+        }
+    }
+
+    private val saveButton: WLabel by lazy {
+        WLabel(context).apply {
+            text = LocaleController.getString("Save")
+            setTextColor(WColor.Tint.color)
+            setStyle(18f, WFont.Medium)
+            setPaddingDp(12, 4, 12, 4)
+            alpha = 0f
+        }
     }
 
     private fun setupViews() {
@@ -150,6 +177,59 @@ class StickyHeaderView(
                 marginStart = statusViewMargin
                 marginEnd = statusViewMargin
             }
+    }
+
+    val animationDuration = AnimationConstants.QUICK_ANIMATION / 2
+    fun enterActionMode(onResult: (save: Boolean) -> Unit) {
+        if (saveButton.parent == null) {
+            addView(cancelButton, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                marginStart = 4.dp
+                topMargin = 1.dp
+            })
+            addView(saveButton, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                gravity = Gravity.END or Gravity.CENTER_VERTICAL
+                marginEnd = 4.dp
+                topMargin = 1.dp
+            })
+        }
+        cancelButton.setOnClickListener {
+            onResult(false)
+            exitActionMode()
+        }
+        saveButton.setOnClickListener {
+            onResult(true)
+            exitActionMode()
+        }
+        scanButton.fadeOut(animationDuration)
+        lockButton.fadeOut(animationDuration)
+        eyeButton.fadeOut(animationDuration) {
+            scanButton.isClickable = false
+            lockButton.isClickable = false
+            eyeButton.isClickable = false
+            cancelButton.fadeIn(animationDuration)
+            saveButton.fadeIn(animationDuration) {
+                cancelButton.isClickable = true
+                saveButton.isClickable = true
+            }
+        }
+    }
+
+    fun exitActionMode() {
+        cancelButton.setOnClickListener(null)
+        saveButton.setOnClickListener(null)
+        cancelButton.fadeOut(animationDuration)
+        saveButton.fadeOut(animationDuration) {
+            cancelButton.isClickable = false
+            saveButton.isClickable = false
+            scanButton.fadeIn(animationDuration)
+            lockButton.fadeIn(animationDuration)
+            eyeButton.fadeIn(animationDuration) {
+                scanButton.isClickable = true
+                lockButton.isClickable = true
+                eyeButton.isClickable = true
+            }
+        }
     }
 
     private fun updateEyeIcon() {

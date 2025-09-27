@@ -1,7 +1,13 @@
 import { beginCell, Cell, storeStateInit } from '@ton/core';
 import type { WalletContractV5R1 } from '@ton/ton';
 
-import type { ApiNetwork, ApiTonWallet, ApiWalletInfo, ApiWalletWithVersionInfo } from '../../types';
+import type {
+  ApiAnyDisplayError,
+  ApiNetwork,
+  ApiTonWallet,
+  ApiWalletInfo,
+  ApiWalletWithVersionInfo,
+} from '../../types';
 import type { ApiTonWalletVersion, ContractInfo } from './types';
 import type { TonWallet } from './util/tonCore';
 
@@ -15,9 +21,7 @@ import {
 } from './util/tonCore';
 import { fetchStoredWallet } from '../../common/accounts';
 import { base64ToBytes, hexToBytes, sha256 } from '../../common/utils';
-import {
-  ALL_WALLET_VERSIONS, ContractType, KnownContracts, TON_MAINNET_CHAIN_ID, TON_TESTNET_CHAIN_ID, WORKCHAIN,
-} from './constants';
+import { ALL_WALLET_VERSIONS, ContractType, KnownContracts, NETWORK_CONFIG, WORKCHAIN } from './constants';
 import { getWalletInfos } from './toncenter';
 
 export const isAddressInitialized = withCacheAsync(
@@ -60,7 +64,7 @@ export function buildWallet(
       publicKey: Buffer.from(publicKey),
       workchain: WORKCHAIN,
       walletId: {
-        networkGlobalId: isTestnetSubwalletId ? TON_TESTNET_CHAIN_ID : TON_MAINNET_CHAIN_ID,
+        networkGlobalId: NETWORK_CONFIG[isTestnetSubwalletId ? 'testnet' : 'mainnet'].chainId,
       },
     });
   }
@@ -92,9 +96,12 @@ export async function getContractInfo(network: ApiNetwork, address: string): Pro
   const { code, state } = data;
 
   const codeHashOld = Buffer.from(await sha256(base64ToBytes(code))).toString('hex');
-  const contractInfo = Object.values(KnownContracts).find((info) => info.hash === codeHashOld);
   // For inactive addresses, `code` is an empty string. Cell.fromBase64 throws when `code` is an empty string.
   const codeHash = code && Cell.fromBase64(code).hash().toString('hex');
+
+  const contractInfo = Object.values(KnownContracts).find(
+    (info) => info.hash === codeHash || info.oldHash === codeHashOld,
+  );
 
   const isInitialized = state === 'active';
   const isWallet = state === 'active' ? contractInfo?.type === ContractType.Wallet : undefined;
@@ -108,13 +115,6 @@ export async function getContractInfo(network: ApiNetwork, address: string): Pro
     codeHash,
     codeHashOld,
   };
-}
-
-export async function getAccountBalance(accountId: string) {
-  const { network } = parseAccountId(accountId);
-  const { address } = await fetchStoredWallet(accountId, 'ton');
-
-  return getWalletBalance(network, address);
 }
 
 export async function getWalletBalance(network: ApiNetwork, walletOrAddress: TonWallet | string): Promise<bigint> {
@@ -283,4 +283,13 @@ export function getTonWallet(tonWallet: ApiTonWallet) {
   }
 
   return buildWallet(publicKey, version);
+}
+
+export async function verifyLedgerWalletAddress(accountId: string): Promise<string | { error: ApiAnyDisplayError }> {
+  const { network } = parseAccountId(accountId);
+  const [wallet, { verifyLedgerTonAddress }] = await Promise.all([
+    fetchStoredWallet(accountId, 'ton'),
+    import('./ledger'),
+  ]);
+  return verifyLedgerTonAddress(network, wallet);
 }

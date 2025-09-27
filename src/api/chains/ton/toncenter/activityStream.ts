@@ -1,3 +1,5 @@
+import type { FallbackPollingOptions } from '../../../common/polling/fallbackPollingScheduler';
+import type { Period } from '../../../common/polling/utils';
 import type { ApiActivity, ApiNetwork } from '../../../types';
 import type { ActivitiesUpdate, WalletWatcher } from './socket';
 
@@ -8,17 +10,12 @@ import { extractKey } from '../../../../util/iteratees';
 import { logDebugError } from '../../../../util/logs';
 import { FallbackPollingScheduler } from '../../../common/polling/fallbackPollingScheduler';
 import { periodToMs } from '../../../common/polling/utils';
-import { FIRST_TRANSACTIONS_LIMIT, MINUTE, SEC } from '../../../constants';
+import { FIRST_TRANSACTIONS_LIMIT } from '../../../constants';
 import { fetchActions, fetchPendingActions } from './actions';
 import { getToncenterSocket, isActivityUpdateFinal } from './socket';
 import { throttleToncenterSocketActions } from './throttleSocketActions';
 
 const SOCKET_THROTTLE_DELAY = 250;
-const MIN_POLL_DELAY = { focused: SEC, notFocused: 3 * SEC };
-const POLLING_START_DELAY = 3 * SEC;
-const POLLING_PERIOD = { focused: 1.1 * SEC, notFocused: 10 * SEC };
-const FORCED_POLLING_PERIOD = { focused: MINUTE, notFocused: 2 * MINUTE };
-
 const FINISHED_HASH_MEMORY_SIZE = 100;
 
 /**
@@ -41,6 +38,7 @@ export type OnLoadingChange = (isLoading: boolean) => void;
 export class ActivityStream {
   #network: ApiNetwork;
   #address: string;
+  #minPollDelay: Period;
 
   #newestConfirmedActivityTimestamp?: number;
 
@@ -65,10 +63,11 @@ export class ActivityStream {
     network: ApiNetwork,
     address: string,
     newestConfirmedActivityTimestamp: number | undefined,
-    pollOnStart: boolean,
+    fallbackPollingOptions: FallbackPollingOptions,
   ) {
     this.#network = network;
     this.#address = address;
+    this.#minPollDelay = fallbackPollingOptions.minPollDelay;
     this.#newestConfirmedActivityTimestamp = newestConfirmedActivityTimestamp;
 
     this.#walletWatcher = getToncenterSocket(network).watchWallets(
@@ -82,19 +81,16 @@ export class ActivityStream {
 
     this.#doesNeedToRestoreHistory = this.#walletWatcher.isConnected;
 
-    this.#fallbackPollingScheduler = new FallbackPollingScheduler(this.#walletWatcher.isConnected, {
-      pollOnStart,
-      minPollDelay: MIN_POLL_DELAY,
-      pollingStartDelay: POLLING_START_DELAY,
-      pollingPeriod: POLLING_PERIOD,
-      forcedPollingPeriod: FORCED_POLLING_PERIOD,
-      poll: this.#poll,
-    });
+    this.#fallbackPollingScheduler = new FallbackPollingScheduler(
+      this.#poll,
+      this.#walletWatcher.isConnected,
+      fallbackPollingOptions,
+    );
   }
 
   /**
    * Registers a callback firing then new activities arrive.
-   * The callback is calls are throttled.
+   * The callback calls are throttled.
    */
   public onUpdate(callback: OnActivityUpdate) {
     return this.#updateListeners.addCallback(callback);
@@ -128,6 +124,7 @@ export class ActivityStream {
 
   #handleSocketNewActivities = (updates: ActivitiesUpdate[]) => {
     if (this.#isDestroyed) return;
+    this.#fallbackPollingScheduler.onSocketMessage();
 
     const pendingUpdates = updates.filter((update) => update.arePending);
     const confirmedActivities = sortActivities(
@@ -190,7 +187,7 @@ export class ActivityStream {
           break;
         }
 
-        await focusAwareDelay(...periodToMs(MIN_POLL_DELAY));
+        await focusAwareDelay(...periodToMs(this.#minPollDelay));
       }
     }
 

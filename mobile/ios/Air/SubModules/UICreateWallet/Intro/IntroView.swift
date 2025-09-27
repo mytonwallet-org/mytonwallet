@@ -84,7 +84,7 @@ struct IntroView: View {
         let text = langMd("I agree to %term%", arg1: link)
         
         HStack(spacing: 10) {
-            Checkmark(isOn: $didAgreeToTerms)
+            Checkmark(isOn: didAgreeToTerms)
             Text(text)
                 .foregroundStyle(Color.air.secondaryLabel)
                 .font(.system(size: 14, weight: .medium))

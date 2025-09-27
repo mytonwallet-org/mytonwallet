@@ -12,7 +12,7 @@ import { useStateRef } from './useStateRef';
 import useSyncEffect from './useSyncEffect';
 import useSyncEffectWithPrevDeps from './useSyncEffectWithPrevDeps';
 
-const CLOSE_DURATION = 350;
+export const CLOSE_DURATION = 350;
 
 type BaseHookParams<RefType extends HTMLElement> = {
   isOpen: boolean | undefined;

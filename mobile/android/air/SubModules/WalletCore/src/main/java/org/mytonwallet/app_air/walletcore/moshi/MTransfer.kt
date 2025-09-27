@@ -2,8 +2,7 @@ package org.mytonwallet.app_air.walletcore.moshi
 
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import java.math.BigInteger
 
 @JsonClass(generateAdapter = true)
@@ -242,33 +241,35 @@ enum class MApiAnyDisplayError {
 
     val toErrorDialogMessage: String?
         get() {
-            return LocaleController.getStringOrNull(when (this) {
-                UNEXPECTED -> "Unexpected"
-                // SERVER_ERROR -> if (WalletCore.isConnected())
-                //         "An error on the server side. Please try again."
-                //     else
-                //         "No internet connection. Please check your connection and try again."
-                DEBUG_ERROR -> "Unexpected error. Please let the support know."
-                // UNSUPPORTED_VERSION -> null
-                INVALID_MNEMONIC -> "InvalidMnemonic"
-                INVALID_AMOUNT -> "Invalid amount"
-                // INVALID_TO_ADDRESS -> "Invalid address"
-                // INSUFFICIENT_BALANCE -> "Insufficient balance"
-                INVALID_STATE_INIT -> "\$state_init_invalid"
-                STATE_INIT_WITHOUT_BIN -> "State init supplied without message body" // likely?
-                // DOMAIN_NOT_RESOLVED -> "Domain is not connected to a wallet"
-                WALLET_NOT_INITIALIZED -> "Encryption is not possible. The recipient is not a wallet or has no outgoing transactions."
-                INVALID_ADDRESS_FORMAT -> "Invalid address format. Only URL Safe Base64 format is allowed."
-                INACTIVE_CONTRACT -> "\$transfer_inactive_contract_error"
-                PARTIAL_TRANSACTION_FAILURE -> "Not all transactions were sent successfully"
-                INCORRECT_DEVICE_TIME -> "The time on your device is incorrect, sync it and try again"
-                UNSUCCESSFUL_TRANSFER -> "Transfer was unsuccessful. Try again later."
-                NOT_SUPPORTED_HARDWARE_OPERATION -> "\$ledger_outdated" // most likely
-                HARDWARE_BLIND_SIGNING_NOT_ENABLED -> "\$hardware_blind_sign_not_enabled_internal"
-                WRONG_ADDRESS -> "WrongAddress"
-                WRONG_NETWORK -> "WrongNetwork"
-                else -> null
-            })
+            return LocaleController.getStringOrNull(
+                when (this) {
+                    UNEXPECTED -> "Unexpected"
+                    // SERVER_ERROR -> if (WalletCore.isConnected())
+                    //         "An error on the server side. Please try again."
+                    //     else
+                    //         "No internet connection. Please check your connection and try again."
+                    DEBUG_ERROR -> "Unexpected error. Please let the support know."
+                    // UNSUPPORTED_VERSION -> null
+                    INVALID_MNEMONIC -> "InvalidMnemonic"
+                    INVALID_AMOUNT -> "Invalid amount"
+                    // INVALID_TO_ADDRESS -> "Invalid address"
+                    // INSUFFICIENT_BALANCE -> "Insufficient balance"
+                    INVALID_STATE_INIT -> "\$state_init_invalid"
+                    STATE_INIT_WITHOUT_BIN -> "State init supplied without message body" // likely?
+                    // DOMAIN_NOT_RESOLVED -> "Domain is not connected to a wallet"
+                    WALLET_NOT_INITIALIZED -> "Encryption is not possible. The recipient is not a wallet or has no outgoing transactions."
+                    INVALID_ADDRESS_FORMAT -> "Invalid address format. Only URL Safe Base64 format is allowed."
+                    INACTIVE_CONTRACT -> "\$transfer_inactive_contract_error"
+                    PARTIAL_TRANSACTION_FAILURE -> "Not all transactions were sent successfully"
+                    INCORRECT_DEVICE_TIME -> "The time on your device is incorrect, sync it and try again"
+                    UNSUCCESSFUL_TRANSFER -> "Transfer was unsuccessful. Try again later."
+                    NOT_SUPPORTED_HARDWARE_OPERATION -> "\$ledger_outdated" // most likely
+                    HARDWARE_BLIND_SIGNING_NOT_ENABLED -> "\$hardware_blind_sign_not_enabled_internal"
+                    WRONG_ADDRESS -> "WrongAddress"
+                    WRONG_NETWORK -> "WrongNetwork"
+                    else -> null
+                }
+            )
         }
 
 }

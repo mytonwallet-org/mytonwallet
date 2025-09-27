@@ -109,7 +109,7 @@
   overflow-y: scroll;
 
   min-width: auto;
-  max-height: min(60vh, 20rem);
+  max-height: min(60vh, 22rem);
 
   :global(html.animation-level-0) &,
   &:global(.open) {

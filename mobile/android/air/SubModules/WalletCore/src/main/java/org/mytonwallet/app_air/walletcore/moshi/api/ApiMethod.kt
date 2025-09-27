@@ -1,12 +1,10 @@
 package org.mytonwallet.app_air.walletcore.moshi.api
 
-import android.accounts.Account
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Types
 import org.json.JSONArray
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcore.api.ArgumentsBuilder
-import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
@@ -18,18 +16,17 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiCheckNftDraftOptions
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckStakeDraftResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftOptions
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftResult
+import org.mytonwallet.app_air.walletcore.moshi.MApiLedgerAccountInfo
 import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferOptions
 import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapEstimateRequest
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapEstimateResponse
-import org.mytonwallet.app_air.walletcore.moshi.MApiTonWallet
-import org.mytonwallet.app_air.walletcore.moshi.MApiTonWalletVersion
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.moshi.MImportedViewWalletResponse
 import org.mytonwallet.app_air.walletcore.moshi.MImportedWalletResponse
-import org.mytonwallet.app_air.walletcore.moshi.MLedgerWalletInfo
 import org.mytonwallet.app_air.walletcore.moshi.ReturnStrategy
 import org.mytonwallet.app_air.walletcore.moshi.StakingState
+import org.mytonwallet.app_air.walletcore.moshi.ledger.MLedgerWalletInfo
 import java.lang.reflect.Type
 import java.math.BigInteger
 
@@ -49,6 +46,14 @@ sealed class ApiMethod<T> {
                 .boolean(isFocused)
                 .build()
         }
+
+        class WaitForLedgerApp(chain: MBlockchain) : ApiMethod<Boolean>() {
+            override val name: String = "waitForLedgerApp"
+            override val type: Type = Boolean::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(chain.name)
+                .build()
+        }
     }
 
     /* Auth */
@@ -61,29 +66,31 @@ sealed class ApiMethod<T> {
                 .build()
         }
 
-        class AddressFromPublicKey(
-            publicKey: List<Int>,
+        class GetLedgerWallets(
+            chain: MBlockchain,
             network: String,
-            version: MApiTonWalletVersion
-        ) : ApiMethod<MApiTonWallet>() {
-            override val name: String = "addressFromPublicKey"
-            override val type: Type = MApiTonWallet::class.java
+            startWalletIndex: Int,
+            count: Int
+        ) : ApiMethod<Array<MLedgerWalletInfo>>() {
+            override val name: String = "getLedgerWallets"
+            override val type: Type = Array<MLedgerWalletInfo>::class.java
             override val arguments: String = ArgumentsBuilder()
-                .jsArray(publicKey, Integer::class.java)
+                .string(chain.name)
                 .string(network)
-                .jsObject(version, MApiTonWalletVersion::class.java)
+                .number(startWalletIndex)
+                .number(count)
                 .build()
         }
 
         class ImportLedgerWallet(
             network: String,
-            walletInfo: MLedgerWalletInfo
+            accountInfo: MApiLedgerAccountInfo
         ) : ApiMethod<MImportedWalletResponse>() {
-            override val name: String = "importLedgerWallet"
+            override val name: String = "importLedgerAccount"
             override val type: Type = MImportedWalletResponse::class.java
             override val arguments: String = ArgumentsBuilder()
                 .string(network)
-                .jsObject(walletInfo, MLedgerWalletInfo::class.java)
+                .jsObject(accountInfo, MApiLedgerAccountInfo::class.java)
                 .string(network)
                 .string(null)
                 .build()

@@ -140,8 +140,8 @@ export async function swapReplaceCexActivities(
       }
     });
 
-    // Even though the swap activities returned by the API are sorted by timestamp, the client-side sorting may differ.
-    // It's important to ensuring our sorting, because otherwise `mergeSortedActivities` may leave duplicates.
+    // Even though the swap activities returned by the backend are sorted by timestamp, the client-side sorting may differ.
+    // It's important to enforce our sorting, because otherwise `mergeSortedActivities` may leave duplicates.
     return mergeSortedActivities(sortActivities(swapActivities), otherActivities);
   } catch (err) {
     logDebugError('swapReplaceCexActivities', err);

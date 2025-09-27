@@ -5,7 +5,7 @@ interface OwnProps {
   rootMargin: string;
   threshold?: number[];
   isDisabled?: boolean;
-  targetRef: ElementRef<HTMLDivElement | undefined>;
+  targetRef?: ElementRef<HTMLDivElement | undefined>;
   cb?: (entry: IntersectionObserverEntry) => void;
 }
 
@@ -21,7 +21,8 @@ export default function useElementVisibility(options: OwnProps) {
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    if (isDisabled || !targetRef.current) return undefined;
+    const element = targetRef?.current;
+    if (isDisabled || !element) return undefined;
 
     const observer = new IntersectionObserver((entries) => {
       const entry = entries[0];
@@ -33,7 +34,7 @@ export default function useElementVisibility(options: OwnProps) {
       threshold,
     });
 
-    observer.observe(targetRef.current);
+    observer.observe(element);
 
     return () => {
       observer.disconnect();

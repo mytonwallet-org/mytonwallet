@@ -29,13 +29,13 @@ import org.mytonwallet.app_air.uisettings.R
 import org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.theme.AppearanceAppThemeView
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.SettingsItemCell
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsItem
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
 import org.mytonwallet.app_air.walletcore.WalletCore
 
 class AppearanceVC(context: Context) : WViewController(context) {

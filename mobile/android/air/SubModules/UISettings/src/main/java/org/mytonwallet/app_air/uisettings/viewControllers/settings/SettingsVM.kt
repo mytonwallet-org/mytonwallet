@@ -3,9 +3,9 @@ package org.mytonwallet.app_air.uisettings.viewControllers.settings
 import org.mytonwallet.app_air.uisettings.R
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsItem
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsSection
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.utils.toString
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore

@@ -32,17 +32,17 @@ import org.mytonwallet.app_air.uistake.helpers.StakingMessageHelpers
 import org.mytonwallet.app_air.uistake.staking.views.StakeDetailView
 import org.mytonwallet.app_air.uistake.staking.views.StakeInputView
 import org.mytonwallet.app_air.uistake.staking.views.UnstakeDetailView
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
+import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcontext.utils.PriceConversionUtils
-import org.mytonwallet.app_air.walletcontext.utils.smartDecimalsCount
-import org.mytonwallet.app_air.walletcontext.utils.toString
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
-import org.mytonwallet.app_air.walletcore.models.MBaseCurrency
 import org.mytonwallet.app_air.walletcore.moshi.StakingState
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
@@ -495,7 +495,6 @@ class StakingVC(
         val account = AccountStore.activeAccount!!
         val ledgerConnectVC = LedgerConnectVC(
             context, LedgerConnectVC.Mode.ConnectToSubmitTransfer(
-                account.ledger!!.index,
                 account.tonAddress!!,
                 LedgerConnectVC.SignData.Staking(
                     isStaking = stakingViewModel.isStake(),

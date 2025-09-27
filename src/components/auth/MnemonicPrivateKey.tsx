@@ -18,7 +18,7 @@ type OwnProps = {
   onClose: NoneToVoidFunction;
 };
 
-function MnemonicList({
+function MnemonicPrivateKey({
   isActive, privateKeyHex, onClose,
 }: OwnProps) {
   const lang = useLang();
@@ -31,7 +31,7 @@ function MnemonicList({
   return (
     <div className={modalStyles.transitionContentWrapper}>
       <ModalHeader title={lang('Private Key')} onClose={onClose} />
-      <div className={buildClassName(styles.mnemonicContainer, modalStyles.transitionContent, 'custom-scroll')}>
+      <div className={buildClassName(modalStyles.transitionContent, 'custom-scroll')}>
         <p className={buildClassName(styles.info, styles.small)}>
           <Emoji from="⚠️" />{' '}{renderText(lang('$mnemonic_warning'))}
         </p>
@@ -43,4 +43,4 @@ function MnemonicList({
   );
 }
 
-export default memo(MnemonicList);
+export default memo(MnemonicPrivateKey);

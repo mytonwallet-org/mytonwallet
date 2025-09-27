@@ -400,6 +400,7 @@
 }
 
 .singleTitle {
+  grid-column: 1 / 4;
   line-height: 1.875rem;
 }
 
@@ -465,10 +466,16 @@
   margin-top: auto;
   padding-top: 2rem;
 
+  &.footerButtonsVertical,
   &.footerButtonFullWidth {
     width: 100%;
     margin-top: initial;
     padding-top: initial;
+  }
+
+  &.footerButtonsVertical {
+    flex-direction: column;
+    gap: 0.75rem;
   }
 }
 

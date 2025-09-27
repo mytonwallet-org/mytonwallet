@@ -45,6 +45,7 @@ dependencies {
     implementation(project("$airSubModulePath:WalletCore"))
     implementation(project("$airSubModulePath:UIComponents"))
     implementation(project("$airSubModulePath:WalletContext"))
+    implementation(project("$airSubModulePath:WalletBaseContext"))
     implementation(project("$airSubModulePath:UISwap"))
     implementation(project("$airSubModulePath:UIInAppBrowser"))
     implementation(project("$airSubModulePath:Icons"))

@@ -1,8 +1,8 @@
 package org.mytonwallet.app_air.uiinappbrowser.span
 
-import WNavigationController
 import android.text.style.URLSpan
 import android.view.View
+import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig

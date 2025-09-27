@@ -312,6 +312,7 @@ public class HomeTabBarController: UITabBarController, WThemedView {
     @objc func onTouch(_ gesture: UIGestureRecognizer) {
         if gesture.state == .began {
             if let view = gesture.view {
+                guard view.center.x > 280 else { return }
                 if self.highlightView == nil {
                     let image = view.asImage()
                     let snapshot = UIImageView(image: image)

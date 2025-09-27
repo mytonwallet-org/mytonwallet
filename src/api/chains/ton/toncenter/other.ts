@@ -2,12 +2,13 @@ import type { ApiNetwork, ApiWalletInfo } from '../../../types';
 import type { ApiTonWalletVersion } from '../types';
 import type { AccountState, AddressBook, MetadataMap, WalletState, WalletVersion } from './types';
 
-import { TONCENTER_ACTIONS_VERSION, TONCENTER_MAINNET_URL, TONCENTER_TESTNET_URL } from '../../../../config';
+import { TONCENTER_ACTIONS_VERSION } from '../../../../config';
 import { buildTxId } from '../../../../util/activities';
 import { fetchJson } from '../../../../util/fetch';
 import { buildCollectionByKey, split } from '../../../../util/iteratees';
 import { toRawAddress } from '../util/tonCore';
 import { getEnvironment } from '../../../environment';
+import { NETWORK_CONFIG } from '../constants';
 
 const ADDRESS_BOOK_CHUNK_SIZE = 128;
 const VERSION_MAP: Record<WalletVersion, ApiTonWalletVersion> = {
@@ -102,8 +103,7 @@ export function fetchMetadata(network: ApiNetwork, addresses: string[]): Promise
 }
 
 export function callToncenterV3<T = any>(network: ApiNetwork, path: string, data?: AnyLiteral) {
-  const baseUrl = network === 'testnet' ? TONCENTER_TESTNET_URL : TONCENTER_MAINNET_URL;
-  const url = `${baseUrl}/api/v3${path}`;
+  const url = `${NETWORK_CONFIG[network].toncenterUrl}/api/v3${path}`;
 
   return fetchJson(url, data, {
     headers: getToncenterHeaders(network),
@@ -111,8 +111,8 @@ export function callToncenterV3<T = any>(network: ApiNetwork, path: string, data
 }
 
 export function getToncenterHeaders(network: ApiNetwork) {
-  const { apiHeaders, toncenterMainnetKey, toncenterTestnetKey } = getEnvironment();
-  const apiKey = network === 'testnet' ? toncenterTestnetKey : toncenterMainnetKey;
+  const { apiHeaders, byNetwork } = getEnvironment();
+  const apiKey = byNetwork[network].toncenterKey;
 
   return {
     ...apiHeaders,

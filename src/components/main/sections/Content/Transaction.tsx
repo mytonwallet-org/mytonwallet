@@ -36,6 +36,7 @@ import {
 } from '../../../../util/activities';
 import { bigintAbs } from '../../../../util/bigint';
 import buildClassName from '../../../../util/buildClassName';
+import { getChainTitle } from '../../../../util/chain';
 import { formatTime } from '../../../../util/dateFormat';
 import { toDecimal } from '../../../../util/decimals';
 import { getDnsDomainZone } from '../../../../util/dns';
@@ -329,7 +330,7 @@ function Transaction({
               {withChainIcon && Boolean(chain) && (
                 <i
                   className={buildClassName(styles.chainIcon, `icon-chain-${chain.toLowerCase()}`)}
-                  aria-label={chain}
+                  aria-label={getChainTitle(chain)}
                 />
               )}
               {dexName || marketplaceName || addressName || shortenAddress(address, TRANSACTION_ADDRESS_SHIFT)}

@@ -4,12 +4,12 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
+import org.mytonwallet.app_air.walletbasecontext.utils.add
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.IGlobalStorageProvider
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.AudioHelpers
-import org.mytonwallet.app_air.walletcontext.helpers.logger.Logger
-import org.mytonwallet.app_air.walletcontext.utils.add
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.fetchAllActivitySlice
@@ -65,6 +65,7 @@ object ActivityStore {
     fun clean() {
         _localTransactions = ConcurrentHashMap()
         _cachedTransactions = ConcurrentHashMap()
+        _pendingTransactions = ConcurrentHashMap()
     }
 
     // Called to fetch data for a list

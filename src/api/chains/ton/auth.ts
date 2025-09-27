@@ -2,7 +2,7 @@ import * as tonWebMnemonic from 'tonweb-mnemonic';
 import * as bip39 from 'bip39';
 import nacl from 'tweetnacl';
 
-import type { ApiAccountWithMnemonic, ApiNetwork, ApiTonWallet } from '../../types';
+import type { ApiAccountWithMnemonic, ApiAnyDisplayError, ApiNetwork, ApiTonWallet } from '../../types';
 import type { ApiTonWalletVersion } from './types';
 import type { TonWallet } from './util/tonCore';
 import { ApiAuthError } from '../../types';
@@ -10,7 +10,7 @@ import { ApiAuthError } from '../../types';
 import { DEFAULT_WALLET_VERSION } from '../../../config';
 import * as HDKey from '../../../lib/ed25519-hd-key';
 import isMnemonicPrivateKey from '../../../util/isMnemonicPrivateKey';
-import { omitUndefined } from '../../../util/iteratees';
+import { extractKey, omitUndefined } from '../../../util/iteratees';
 import { logDebugError } from '../../../util/logs';
 import { getWalletPublicKey, toBase64Address } from './util/tonCore';
 import { fetchStoredAccount } from '../../common/accounts';
@@ -18,6 +18,7 @@ import { getMnemonic } from '../../common/mnemonic';
 import { bytesToHex, hexToBytes } from '../../common/utils';
 import { resolveAddress } from './address';
 import { TON_BIP39_PATH } from './constants';
+import { getWalletInfos } from './toncenter';
 import { buildWallet, getWalletInfo, pickBestWallet, publicKeyToAddress } from './wallet';
 
 export function generateMnemonic() {
@@ -183,4 +184,27 @@ export async function getWalletFromAddress(
       isInitialized: walletInfo?.isInitialized ?? false,
     }),
   };
+}
+
+export async function getWalletsFromLedgerAndLoadBalance(
+  network: ApiNetwork,
+  accountIndices: number[],
+): Promise<{ wallet: ApiTonWallet; balance: bigint }[] | { error: ApiAnyDisplayError }> {
+  const { getLedgerTonWallet } = await import('./ledger');
+  const wallets: ApiTonWallet[] = [];
+
+  // Load the wallets from Ledger
+  for (const accountIndex of accountIndices) {
+    const wallet = await getLedgerTonWallet(network, accountIndex);
+    if ('error' in wallet) return { error: wallet.error };
+    wallets.push(wallet);
+  }
+
+  // Fetch the wallets' balances
+  const walletInfos = await getWalletInfos(network, extractKey(wallets, 'address'));
+
+  return wallets.map((wallet) => ({
+    wallet,
+    balance: walletInfos[wallet.address].balance,
+  }));
 }

@@ -1,23 +1,17 @@
 import { TronWeb } from 'tronweb';
 
-import type {
-  ApiActivity,
-  ApiDecryptCommentOptions,
-  ApiFetchActivitySliceOptions,
-  ApiNetwork,
-  ApiTransactionActivity,
-} from '../../types';
+import type { ApiActivity, ApiFetchActivitySliceOptions, ApiNetwork, ApiTransactionActivity } from '../../types';
 
 import { TRX } from '../../../config';
 import { parseAccountId } from '../../../util/account';
 import { mergeSortedActivities, sortActivities } from '../../../util/activities/order';
-import { getChainConfig } from '../../../util/chain';
 import { fetchJson } from '../../../util/fetch';
 import isEmptyObject from '../../../util/isEmptyObject';
 import { buildCollectionByKey } from '../../../util/iteratees';
 import { getTokenSlugs } from './util/tokens';
 import { fetchStoredWallet } from '../../common/accounts';
 import { buildTokenSlug, getTokenBySlug } from '../../common/tokens';
+import { NETWORK_CONFIG } from './constants';
 
 export async function fetchActivitySlice({
   accountId,
@@ -78,8 +72,8 @@ export async function getTokenActivitySlice(
     activities = rawTransactions.map((rawTx) => parseRawTrc20Transaction(address, rawTx));
   }
 
-  // Even though the activities returned by the API are sorted by timestamp, our sorting may differ.
-  // It's important to ensuring our sorting, because otherwise `mergeSortedActivities` may leave duplicates.
+  // Even though the activities returned by the Tron API are sorted by timestamp, our sorting may differ.
+  // It's important to enforce our sorting, because otherwise `mergeSortedActivities` may leave duplicates.
   return sortActivities(activities);
 }
 
@@ -138,7 +132,7 @@ async function getTrxTransactions(
     search_internal?: boolean;
   } = {},
 ): Promise<any[]> {
-  const baseUrl = getChainConfig('tron')[network].apiUrl;
+  const baseUrl = NETWORK_CONFIG[network].apiUrl;
   const url = new URL(`${baseUrl}/v1/accounts/${address}/transactions`);
 
   const result = await fetchJson(url.toString(), queryParams);
@@ -202,7 +196,7 @@ async function getTrc20Transactions(
     only_from?: boolean;
   } = {},
 ): Promise<any[]> {
-  const baseUrl = getChainConfig('tron')[network].apiUrl;
+  const baseUrl = NETWORK_CONFIG[network].apiUrl;
   const url = new URL(`${baseUrl}/v1/accounts/${address}/transactions/trc20`);
 
   const result = await fetchJson(url.toString(), queryParams);
@@ -275,12 +269,6 @@ export function mergeActivities(txsBySlug: Record<string, ApiActivity[]>): ApiAc
   );
 }
 
-// Just for the chain interface compatibility
-export function decryptComment(options: ApiDecryptCommentOptions): never {
-  throw new Error('Not supported in Tron');
-}
-
-// Just for the chain interface compatibility
-export function fetchActivityDetails(accountId: string, activity: ApiActivity): ApiActivity | undefined {
+export function fetchActivityDetails() {
   return undefined;
 }

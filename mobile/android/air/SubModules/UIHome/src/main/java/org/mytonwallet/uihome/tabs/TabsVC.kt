@@ -1,6 +1,5 @@
 package org.mytonwallet.uihome.tabs
 
-import WNavigationController
 import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
@@ -35,6 +34,7 @@ import me.vkryl.android.animatorx.BoolAnimator
 import me.vkryl.android.animatorx.FloatAnimator
 import org.mytonwallet.app_air.uibrowser.viewControllers.explore.ExploreVC
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
@@ -52,11 +52,12 @@ import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.SettingsVC
+import org.mytonwallet.app_air.uitransaction.viewControllers.TransactionVC
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
@@ -568,6 +569,20 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
                         )
                     val nav = WNavigationController(window!!)
                     nav.setRoot(browserVC)
+                    window?.present(nav)
+                }
+            }
+
+            is WalletEvent.OpenActivity -> {
+                walletEvent.activity.let { activity ->
+                    val nav = WNavigationController(
+                        window!!, WNavigationController.PresentationConfig(
+                            overFullScreen = false,
+                            isBottomSheet = true
+                        )
+                    )
+                    val transactionVC = TransactionVC(context, activity)
+                    nav.setRoot(transactionVC)
                     window?.present(nav)
                 }
             }

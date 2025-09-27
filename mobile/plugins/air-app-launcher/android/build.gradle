@@ -55,6 +55,7 @@ dependencies {
   implementation(project("$airSubModulePath:AirAsFramework"))
   implementation(project("$airSubModulePath:WalletCore"))
   implementation(project("$airSubModulePath:WalletContext"))
+  implementation(project("$airSubModulePath:WalletBaseContext"))
   implementation libs.androidx.webkit
   testImplementation "junit:junit:$junitVersion"
   androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"

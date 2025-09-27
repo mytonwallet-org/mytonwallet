@@ -1,8 +1,6 @@
 package org.mytonwallet.app_air.uitonconnect.viewControllers.send.adapter.holder
 
 import android.content.Context
-import android.graphics.Canvas
-import android.graphics.Paint
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextUtils
@@ -27,18 +25,15 @@ import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WAlertLabel
-import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
-import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.adapter.TonConnectItem
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.ApplicationContextHolder
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
-import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
-import org.mytonwallet.app_air.walletcontext.utils.toProcessedSpannableStringBuilder
+import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 

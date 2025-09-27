@@ -1,6 +1,6 @@
 package org.mytonwallet.app_air.uistake.staking
 
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 
 data class StakeViewState(
     val buttonState: StakeButtonState,

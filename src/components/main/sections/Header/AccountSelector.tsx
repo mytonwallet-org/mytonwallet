@@ -2,7 +2,7 @@ import React, { memo, useEffect, useMemo } from '../../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../../global';
 
 import type { ApiTonWalletVersion } from '../../../../api/chains/ton/types';
-import type { ApiBaseCurrency } from '../../../../api/types';
+import type { ApiBaseCurrency, ApiCurrencyRates } from '../../../../api/types';
 import type { Account, AccountSettings, AccountType, UserToken } from '../../../../global/types';
 import { type ApiStakingState } from '../../../../api/types';
 import { SettingsState } from '../../../../global/types';
@@ -52,6 +52,7 @@ interface StateProps {
   settingsByAccountId?: Record<string, AccountSettings>;
   tokens?: UserToken[];
   baseCurrency: ApiBaseCurrency;
+  currencyRates: ApiCurrencyRates;
   stakingStates?: ApiStakingState[];
   isSensitiveDataHidden?: true;
 }
@@ -68,6 +69,7 @@ function AccountSelector({
   withBalance,
   tokens,
   baseCurrency,
+  currencyRates,
   stakingStates,
   isSensitiveDataHidden,
   accounts,
@@ -100,8 +102,8 @@ function AccountSelector({
   const accountsAmount = useMemo(() => Object.keys(accounts || {}).length, [accounts]);
 
   const balanceValues = useMemo(() => {
-    return tokens ? calculateFullBalance(tokens, stakingStates) : undefined;
-  }, [tokens, stakingStates]);
+    return tokens ? calculateFullBalance(tokens, stakingStates, currencyRates[baseCurrency]) : undefined;
+  }, [tokens, stakingStates, currencyRates, baseCurrency]);
   const shortBaseSymbol = getShortCurrencySymbol(baseCurrency);
   const { primaryWholePart, primaryFractionPart } = balanceValues || {};
 
@@ -281,6 +283,7 @@ export default memo(withGlobal<OwnProps>(
   (global): StateProps => {
     const {
       walletVersions,
+      currencyRates,
       settings: {
         byAccountId: settingsByAccountId,
         baseCurrency,
@@ -302,6 +305,7 @@ export default memo(withGlobal<OwnProps>(
       settingsByAccountId,
       tokens: selectCurrentAccountTokens(global),
       baseCurrency,
+      currencyRates,
       stakingStates,
       isSensitiveDataHidden,
     };

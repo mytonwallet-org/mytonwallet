@@ -1,8 +1,8 @@
 package org.mytonwallet.app_air.uiswap.screens.swap.models
 
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
-import org.mytonwallet.app_air.walletcontext.utils.smartDecimalsCount
-import org.mytonwallet.app_air.walletcontext.utils.toString
+import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
+import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import java.math.BigInteger

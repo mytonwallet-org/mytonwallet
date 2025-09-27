@@ -22,21 +22,22 @@ export interface FallbackPollingOptions {
   pollingPeriod: Period;
   /** Update periods when the socket is connected but there are no messages */
   forcedPollingPeriod: Period;
-  /** Never executed in parallel */
-  poll: PollCallback;
 }
 
 /**
  * Schedules regular polling when the socket is disconnected.
  */
 export class FallbackPollingScheduler {
+  #rawPoll: PollCallback;
   #options: FallbackPollingOptions;
 
   #cancelScheduledPoll?: NoneToVoidFunction;
 
   #isDestroyed = false;
 
-  constructor(isSocketConnected: boolean, options: FallbackPollingOptions) {
+  /** `poll` is never executed in parallel */
+  constructor(poll: PollCallback, isSocketConnected: boolean, options: FallbackPollingOptions) {
+    this.#rawPoll = poll;
     this.#options = options;
 
     this.#schedulePolling(isSocketConnected);
@@ -75,7 +76,7 @@ export class FallbackPollingScheduler {
     if (this.#isDestroyed) return;
 
     try {
-      await this.#options.poll();
+      await this.#rawPoll();
     } catch (err: any) {
       handleError(err);
     }

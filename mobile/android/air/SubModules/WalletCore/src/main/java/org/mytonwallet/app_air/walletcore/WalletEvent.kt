@@ -20,6 +20,11 @@ sealed class WalletEvent {
         val loadedAll: Boolean?
     ) : WalletEvent()
 
+    data class ReceivedPendingActivities(
+        val accountId: String? = null,
+        val pendingActivities: List<MApiTransaction>? = null,
+    ) : WalletEvent()
+
     data object NftsUpdated : WalletEvent()
     data object ReceivedNewNFT : WalletEvent()
     data class AccountChanged(
@@ -44,6 +49,10 @@ sealed class WalletEvent {
 
     data class OpenUrl(
         val url: String
+    ) : WalletEvent()
+
+    data class OpenActivity(
+        val activity: MApiTransaction
     ) : WalletEvent()
 
     data object NftCardUpdated : WalletEvent()

@@ -1,0 +1,36 @@
+@use "../../styles/mixins";
+
+.root {
+  position: relative;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+
+  width: 100%;
+  height: 12.75rem;
+
+  &:active .logo {
+    transform: scale(0.96);
+  }
+}
+
+.particles {
+  position: absolute;
+  bottom: 0;
+}
+
+.logo {
+  position: relative;
+  width: 7.5rem;
+  height: 7.5rem;
+  margin-bottom: 2.125rem;
+
+  @include mixins.transition(transform 150ms);
+}
+
+.logoImg {
+  width: 100%;
+  height: 100%;
+}

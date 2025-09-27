@@ -1,4 +1,4 @@
-import { mergeSortedArrays, swapKeysAndValues } from './iteratees';
+import { areSortedArraysEqual, mergeSortedArrays, shuffle, swapKeysAndValues } from './iteratees';
 
 describe('swapKeysAndValues', () => {
   it.each([
@@ -84,5 +84,47 @@ describe('mergeSortedArrays', () => {
     const actualResult = mergeSortedArrays<any>(frozenArrays, compareFn, deduplicateEqual);
     expect(actualResult).toEqual(expected);
     expect(frozenArrays).not.toContain(actualResult);
+  });
+});
+
+describe('shuffle', () => {
+  it('should return an array with the same length', () => {
+    const array = [1, 2, 3, 4, 5];
+    const shuffled = shuffle([...array]);
+    expect(shuffled.length).toBe(array.length);
+  });
+
+  it('should return an array with the same elements', () => {
+    const array = [1, 2, 3, 4, 5];
+    const shuffled = shuffle([...array]);
+    expect(shuffled.sort()).toEqual(array.sort());
+  });
+
+  it('should return an array with a different order for a large enough array', () => {
+    const array = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    const shuffled = shuffle([...array]);
+
+    // This test has a small chance of failing if the shuffled array is the same as the original
+    // but for an array of 10 elements, the probability is 1/10! which is very low.
+    // So we check that the shuffled array is not the same as the original and shuffle it again.
+    if (areSortedArraysEqual(array, shuffled)) {
+      const shuffled2 = shuffle([...array]);
+
+      expect(shuffled2).not.toEqual(shuffled);
+    } else {
+      expect(shuffled).not.toEqual(array);
+    }
+  });
+
+  it('should handle an empty array', () => {
+    const array: any[] = [];
+    const shuffled = shuffle([...array]);
+    expect(shuffled).toEqual([]);
+  });
+
+  it('should handle an array with one element', () => {
+    const array = [1];
+    const shuffled = shuffle([...array]);
+    expect(shuffled).toEqual([1]);
   });
 });

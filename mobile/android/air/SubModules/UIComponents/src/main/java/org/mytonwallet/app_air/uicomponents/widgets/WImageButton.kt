@@ -4,8 +4,8 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
 import androidx.appcompat.widget.AppCompatImageButton
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 class WImageButton(context: Context) : AppCompatImageButton(context), WThemedView {
 
@@ -39,6 +39,7 @@ class WImageButton(context: Context) : AppCompatImageButton(context), WThemedVie
         }.toIntArray()
         val colorStateList = ColorStateList(states, colors)
         imageTintList = colorStateList
+        background = null
         addRippleEffect(rippleColor.color, 100f)
     }
 

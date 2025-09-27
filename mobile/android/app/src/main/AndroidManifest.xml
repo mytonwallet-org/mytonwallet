@@ -27,8 +27,7 @@
       android:exported="true"
       android:label="@string/title_activity_main"
       android:launchMode="singleTask"
-      android:theme="@style/AppTheme.NoActionBarLaunch"
-      >
+      android:theme="@style/AppTheme.NoActionBarLaunch">
       <intent-filter>
         <action android:name="android.intent.action.MAIN" />
         <category android:name="android.intent.category.LAUNCHER" />
@@ -121,6 +120,50 @@
       android:label="@string/title_activity_main"
       android:launchMode="singleTask"
       android:theme="@style/AppTheme.NoActionBarLaunch" />
+
+    <receiver
+      android:name="org.mytonwallet.app_air.widgets.actionsWidget.ActionsWidget"
+      android:exported="false">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+        <action android:name="android.intent.action.CONFIGURATION_CHANGED" />
+      </intent-filter>
+
+      <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/actions_widget_info" />
+    </receiver>
+
+    <receiver
+      android:name="org.mytonwallet.app_air.widgets.priceWidget.PriceWidget"
+      android:exported="false">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+        <action android:name="android.intent.action.CONFIGURATION_CHANGED" />
+      </intent-filter>
+
+      <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/price_widget_info" />
+    </receiver>
+
+    <activity
+      android:name=".WidgetActivity"
+      android:configChanges="orientation|screenSize|uiMode"
+      android:exported="true"
+      android:launchMode="singleTop"
+      android:theme="@style/Theme.MyTonWalletAir">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+      </intent-filter>
+    </activity>
+
+    <activity
+      android:name="org.mytonwallet.app_air.airasframework.WidgetConfigurationWindow"
+      android:configChanges="orientation|screenSize|uiMode"
+      android:exported="false"
+      android:launchMode="singleTop"
+      android:theme="@style/Theme.MyTonWalletAir" />
 
     <service android:name="com.ledger.live.ble.service.BleService" />
 

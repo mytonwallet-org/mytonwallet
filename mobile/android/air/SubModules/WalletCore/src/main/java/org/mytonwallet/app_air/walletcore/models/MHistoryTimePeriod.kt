@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.walletcore.models
 
-import org.mytonwallet.app_air.walletcontext.R
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 
 enum class MHistoryTimePeriod(val value: String) {
     DAY("1D"),

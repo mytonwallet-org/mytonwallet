@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.uicreatewallet.viewControllers.intro
 
-import WNavigationController
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
@@ -22,6 +21,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.drawable.CheckboxDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -42,13 +42,13 @@ import org.mytonwallet.app_air.uicreatewallet.viewControllers.backup.BackupVC
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.userResponsibility.UserResponsibilityVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
-import org.mytonwallet.app_air.walletcontext.utils.toProcessedSpannableStringBuilder
 
 @SuppressLint("ViewConstructor")
 class IntroVC(
@@ -339,7 +339,7 @@ class IntroVC(
         termsView.setOnClickListener {
             // This will be called only when not clicking on the terms link
             termsAccepted = !termsAccepted
-            checkboxDrawable.isChecked = termsAccepted
+            checkboxDrawable.setChecked(termsAccepted, animated = true)
             createNewWalletButton.isEnabled = termsAccepted
         }
 

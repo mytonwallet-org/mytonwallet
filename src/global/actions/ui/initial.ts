@@ -225,7 +225,9 @@ addActionHandler('showError', (global, actions, { error } = {}) => {
   }
 
   actions.showDialog({
-    message: errorCodeToMessage(error),
+    message: error === undefined || typeof error === 'string'
+      ? errorCodeToMessage(error)
+      : error,
   });
 });
 

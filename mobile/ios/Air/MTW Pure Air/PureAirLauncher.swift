@@ -20,9 +20,9 @@ private let log = Log("PureAirLauncher")
             try await GlobalStorage.loadFromWebView()
             try await GlobalStorage.migrate()
             UIApplication.shared.registerForRemoteNotifications()
-            AirLauncher.soarIntoAir()
+            await AirLauncher.soarIntoAir()
         } catch {
-            AirLauncher.soarIntoAir()
+            await AirLauncher.soarIntoAir()
         }
     }
 }

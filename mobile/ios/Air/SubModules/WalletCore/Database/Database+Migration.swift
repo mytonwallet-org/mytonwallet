@@ -117,6 +117,59 @@ func makeMigrator() -> DatabaseMigrator {
         for newAccount in newAccounts {
             try newAccount.update(db)
         }
+    }
+    migrator.registerMigration("v7") { db in
+        // old
+        struct Old_Account: Codable, FetchableRecord, PersistableRecord {
+            let id: String
+            var title: String?
+            var type: String
+            var byChain: [String: _AccountChain]
+            var ledger: Old_Ledger?
+            static var databaseTableName: String = "accounts"
+        }
+        struct Old_Ledger: Codable {
+            var index: Int
+            var driver: String?
+            var deviceId: String?
+            var deviceName: String?
+        }
+        // new
+        struct New_Account: Codable, FetchableRecord, PersistableRecord {
+            let id: String
+            var title: String?
+            var type: String
+            var byChain: [String: _AccountChain]
+            static var databaseTableName: String = "accounts"
+        }
+        // common
+        struct _AccountChain: Codable {
+            var address: String
+            var domain: String?
+            var isMultisig: Bool?
+            var ledgerIndex: Int? // will always be nil before migration
+        }
+        let oldAccounts = try Old_Account.fetchAll(db)
+        let newAccounts = oldAccounts.map { oldAccount in
+            New_Account(
+                id: oldAccount.id,
+                title: oldAccount.title,
+                type: oldAccount.type,
+                byChain: Dictionary(uniqueKeysWithValues: oldAccount.byChain.map { chain, oldAccountChain in
+                    var newAccountChain = oldAccountChain
+                    if oldAccount.type == "hardware" && chain == "ton" && oldAccountChain.ledgerIndex == nil {
+                        newAccountChain.ledgerIndex = oldAccount.ledger?.index
+                    }
+                    return (chain, newAccountChain)
+                }),
+            )
+        }
+        try db.alter(table: "accounts") { t in
+            t.drop(column: "ledger")
+        }
+        for newAccount in newAccounts {
+            try newAccount.update(db)
+        }
         #if DEBUG
 //        let accounts = try! MAccount.fetchAll(db)
 //        print(accounts)

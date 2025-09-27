@@ -8,19 +8,26 @@ import android.graphics.Rect
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
+import android.text.SpannableString
+import android.text.SpannableStringBuilder
+import android.text.Spanned
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.FrameLayout
 import android.widget.ImageView.ScaleType
 import androidx.core.animation.doOnEnd
+import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import com.facebook.drawee.generic.RoundingParams
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
+import org.mytonwallet.app_air.uicomponents.extensions.animateTintColor
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
@@ -28,14 +35,18 @@ import org.mytonwallet.app_air.uicomponents.widgets.WAnimationView
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
 import org.mytonwallet.app_air.uicomponents.widgets.coverFlow.WCoverFlowView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
+import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
+import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
+import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import java.lang.ref.WeakReference
 import kotlin.math.max
@@ -168,7 +179,7 @@ open class NftHeaderView(
     }
 
     val titleLabel = WLabel(context).apply {
-        setStyle(22f, WFont.Medium)
+        setStyle(26f, WFont.SemiBold)
         setSingleLine()
         ellipsize = TextUtils.TruncateAt.MARQUEE
         setSingleLine(true)
@@ -183,7 +194,23 @@ open class NftHeaderView(
         setSingleLine(true)
         marqueeRepeatLimit = -1
         isHorizontalFadingEdgeEnabled = true
+        setPaddingDp(12, 4, 12, 4)
+        setOnClickListener {
+            delegate.get()?.onCollectionTapped()
+        }
     }
+
+    private val subtitleArrowDrawable = ContextCompat.getDrawable(
+        context,
+        org.mytonwallet.app_air.icons.R.drawable.ic_arrow_right_24
+    )!!.apply {
+        mutate()
+        setTint(WColor.PrimaryLightText.color)
+        val width = 18.dp
+        val height = 18.dp
+        setBounds((-2).dp, 1.dp, width - 2.dp, height + 1.dp)
+    }
+
     private val topGradientView = WBaseView(context).apply {
         alpha = 0f
     }
@@ -332,7 +359,12 @@ open class NftHeaderView(
                 AnimationConstants.QUICK_ANIMATION
             )
             subtitleLabel.animateTextColor(
-                if (targetIsCollapsed) WColor.SecondaryText.color else Color.WHITE,
+                if (targetIsCollapsed) WColor.PrimaryLightText.color else Color.WHITE,
+                AnimationConstants.QUICK_ANIMATION
+            )
+            subtitleArrowDrawable.animateTintColor(
+                subtitleLabel.currentTextColor,
+                if (targetIsCollapsed) WColor.PrimaryLightText.color else Color.WHITE,
                 AnimationConstants.QUICK_ANIMATION
             )
 
@@ -505,8 +537,8 @@ open class NftHeaderView(
         subtitleLabel.pivotX = subtitlePivotX
         subtitleLabel.scaleX = subtitleScale
         subtitleLabel.scaleY = subtitleLabel.scaleX
-        subtitleLabel.translationX = subtitleTranslationX
-        subtitleLabel.translationY = subtitleTranslationY
+        subtitleLabel.translationX = subtitleTranslationX - subtitleLabel.paddingLeft
+        subtitleLabel.translationY = subtitleTranslationY - subtitleLabel.paddingTop
         subtitleLabel.alpha = 1f
 
         if (scrollState !is ScrollState.NormalToCompact || (scrollState as ScrollState.NormalToCompact).percent > 0f) {
@@ -608,16 +640,18 @@ open class NftHeaderView(
 
     override fun updateTheme() {
         titleLabel.setTextColor(if (targetIsCollapsed) WColor.PrimaryText.color else Color.WHITE)
-        subtitleLabel.setTextColor(if (targetIsCollapsed) WColor.SecondaryText.color else Color.WHITE)
+        subtitleLabel.setTextColor(if (targetIsCollapsed) WColor.PrimaryLightText.color else Color.WHITE)
+        subtitleLabel.background = null
+        subtitleLabel.addRippleEffect(WColor.BackgroundRipple.color, 16f.dp)
         topGradientView.background = GradientDrawable(
             GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(Color.BLACK, Color.TRANSPARENT)
+            intArrayOf(Color.BLACK.colorWithAlpha(102), Color.TRANSPARENT)
         ).apply {
             gradientType = GradientDrawable.LINEAR_GRADIENT
         }
         bottomGradientView.background = GradientDrawable(
             GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(Color.TRANSPARENT, Color.BLACK)
+            intArrayOf(Color.TRANSPARENT, Color.BLACK.colorWithAlpha(102))
         ).apply {
             gradientType = GradientDrawable.LINEAR_GRADIENT
         }
@@ -626,7 +660,10 @@ open class NftHeaderView(
     }
 
     private fun updateTitleLabel() {
-        titleLabel.text = nft.name
+        titleLabel.text =
+            nft.name ?: SpannableStringBuilder(nft.address.formatStartEndAddress()).apply {
+                updateDotsTypeface()
+            }
         centerTitle()
     }
 
@@ -634,8 +671,14 @@ open class NftHeaderView(
         subtitleLabel.text =
             if (nft.collectionName.isNullOrBlank())
                 LocaleController.getString("Standalone NFT")
-            else
-                nft.collectionName
+            else {
+                val attr = SpannableStringBuilder()
+                attr.append(SpannableString(nft.collectionName))
+                val imageSpan = VerticalImageSpan(subtitleArrowDrawable, LocaleController.isRTL)
+                attr.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                attr
+            }
+        subtitleLabel.isClickable = !nft.collectionName.isNullOrBlank()
         centerSubtitle()
     }
 

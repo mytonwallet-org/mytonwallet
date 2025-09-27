@@ -1,12 +1,8 @@
 import React, {
   memo, useState,
 } from '../../lib/teact/teact';
-import { getActions, withGlobal } from '../../global';
+import { withGlobal } from '../../global';
 
-import type { Account } from '../../global/types';
-import type { LedgerWalletInfo } from '../../util/ledger/types';
-
-import { selectNetworkAccounts } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 
@@ -27,8 +23,6 @@ type OwnProps = {
 };
 
 type StateProps = {
-  hardwareWallets?: LedgerWalletInfo[];
-  accounts?: Record<string, Account>;
   areSettingsOpen?: boolean;
 };
 
@@ -42,12 +36,8 @@ function LedgerModal({
   isOpen,
   noBackdropClose,
   onClose,
-  hardwareWallets,
-  accounts,
   areSettingsOpen,
 }: OwnProps & StateProps) {
-  const { afterSelectHardwareWallets } = getActions();
-
   const [currentSlide, setCurrentSlide] = useState<LedgerModalState>(
     LedgerModalState.Connect,
   );
@@ -55,16 +45,7 @@ function LedgerModal({
     LedgerModalState.SelectWallets,
   );
 
-  const handleAddLedgerWallet = useLastCallback(() => {
-    afterSelectHardwareWallets({ hardwareSelectedIndices: [hardwareWallets![0].index] });
-    onClose();
-  });
-
-  const handleConnected = useLastCallback((isSingleWallet: boolean) => {
-    if (isSingleWallet) {
-      handleAddLedgerWallet();
-      return;
-    }
+  const handleConnected = useLastCallback(() => {
     setCurrentSlide(LedgerModalState.SelectWallets);
   });
 
@@ -78,8 +59,8 @@ function LedgerModal({
         return (
           <LedgerConnect
             isActive={isActive}
-            doLoadWallets
             onConnected={handleConnected}
+            onBackButtonClick={onClose}
             onClose={onClose}
           />
         );
@@ -87,8 +68,7 @@ function LedgerModal({
         return (
           <LedgerSelectWallets
             isActive={isActive}
-            accounts={accounts}
-            hardwareWallets={hardwareWallets}
+            onBackButtonClick={onClose}
             onClose={onClose}
           />
         );
@@ -118,13 +98,7 @@ function LedgerModal({
 }
 
 export default memo(withGlobal<OwnProps>((global): StateProps => {
-  const accounts = selectNetworkAccounts(global);
-
-  const { hardwareWallets } = global.hardware;
-
   return {
-    accounts,
-    hardwareWallets,
     areSettingsOpen: global.areSettingsOpen,
   };
 })(LedgerModal));

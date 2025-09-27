@@ -12,18 +12,19 @@ import android.os.Looper
 import android.view.ViewGroup
 import androidx.core.view.isVisible
 import com.squareup.moshi.Moshi
+import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setAccentColor
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setNftAccentColor
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
-import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
 import org.mytonwallet.app_air.walletcore.api.requestDAppList
 import org.mytonwallet.app_air.walletcore.helpers.PoisoningCacheHelper
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MAssetsAndActivityData
-import org.mytonwallet.app_air.walletcore.models.MBaseCurrency
 import org.mytonwallet.app_air.walletcore.moshi.MoshiBuilder
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
@@ -103,6 +104,16 @@ object WalletCore {
 
     var baseCurrency = MBaseCurrency.valueOf(WGlobalStorage.getBaseCurrency())
 
+    var bridgeUsers = 0
+    fun incBridgeUsers() {
+        bridgeUsers++
+    }
+
+    fun decBridgeUsers() {
+        bridgeUsers--
+        if (bridgeUsers == 0)
+            destroyBridge()
+    }
     // Events //////////////////////////////////////////////////////////////////////////////////////
 
     // Event observers
@@ -142,7 +153,7 @@ object WalletCore {
         AccountStore.walletVersionsData = null
         AccountStore.updateAssetsAndActivityData(MAssetsAndActivityData(accountId), notify = false)
         val prevAccentColor = WColor.Tint.color
-        ThemeManager.updateAccentColor(accountId = accountId)
+        updateAccentColor(accountId = accountId)
         if (WColor.Tint.color != prevAccentColor) {
             WalletContextManager.delegate?.themeChanged()
         }
@@ -151,7 +162,18 @@ object WalletCore {
         AirPushNotifications.subscribe(activeAccount)
     }
 
+    fun updateAccentColor(accountId: String?) {
+        accountId?.let {
+            WGlobalStorage.getNftAccentColorIndex(accountId)?.let {
+                setNftAccentColor(it)
+                return
+            }
+        }
+        setAccentColor(WGlobalStorage.getAccentColorId())
+    }
+
     fun switchingToLegacy() {
+        destroyBridge()
         WSecureStorage.clearCache()
         WGlobalStorage.setTokenInfo(TokenStore.getTokenInfo())
         WGlobalStorage.clearPriceHistory()

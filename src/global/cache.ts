@@ -496,6 +496,8 @@ function migrateCache(cached: GlobalState, initialState: GlobalState) {
   }
 
   if (cached.stateVersion === 45) {
+    clearActivities();
+
     if (cached.accounts) {
       for (const _account of Object.values(cached.accounts.byId)) {
         const account = _account as Account & {
@@ -517,8 +519,26 @@ function migrateCache(cached: GlobalState, initialState: GlobalState) {
         delete account.isMultisigByChain;
       }
     }
-    clearActivities();
+
     cached.stateVersion = 46;
+  }
+
+  if (cached.stateVersion === 46) {
+    if (cached.accounts) {
+      for (const _account of Object.values(cached.accounts.byId)) {
+        const account = _account as Account & { ledger?: { index: number } };
+
+        if (
+          account.type !== 'hardware'
+          || !account.byChain.ton
+          || !account.ledger // Already migrated
+        ) continue;
+
+        account.byChain.ton.ledgerIndex = account.ledger.index;
+        delete account.ledger;
+      }
+    }
+    cached.stateVersion = 47;
   }
 
   // When adding migration here, increase `STATE_VERSION`

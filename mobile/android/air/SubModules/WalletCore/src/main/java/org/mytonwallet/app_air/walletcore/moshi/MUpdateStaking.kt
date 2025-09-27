@@ -89,6 +89,12 @@ data class MUpdateStaking(
             balanceInBaseCurrency(USDE_SLUG, totalUSDeBalance) { toBaseCurrency }
     }
 
+    fun totalBalanceInUSD(): Double {
+        return balanceInBaseCurrency(TONCOIN_SLUG, totalTonBalance) { toUsdBaseCurrency } +
+            balanceInBaseCurrency(MYCOIN_SLUG, totalMycoinBalance) { toUsdBaseCurrency } +
+            balanceInBaseCurrency(USDE_SLUG, totalUSDeBalance) { toUsdBaseCurrency }
+    }
+
     fun totalBalanceInBaseCurrency24h(): Double {
         return balanceInBaseCurrency(TONCOIN_SLUG, totalTonBalance) { toBaseCurrency24h } +
             balanceInBaseCurrency(MYCOIN_SLUG, totalMycoinBalance) { toBaseCurrency24h } +

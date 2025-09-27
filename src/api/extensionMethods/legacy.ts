@@ -5,7 +5,8 @@ import type { OnApiUpdate } from '../types';
 import type { OnApiSiteUpdate } from '../types/dappUpdates';
 
 import { TONCOIN } from '../../config';
-import chains from '../chains';
+import { parseAccountId } from '../../util/account';
+import * as ton from '../chains/ton';
 import {
   fetchStoredAccount,
   fetchStoredWallet,
@@ -18,7 +19,6 @@ import { base64ToBytes, hexToBytes } from '../common/utils';
 import { createLocalTransactions } from '../methods';
 import { openPopupWindow } from './window';
 
-const ton = chains.ton;
 let onPopupUpdate: OnApiUpdate;
 
 export function initLegacyDappMethods(_onPopupUpdate: OnApiUpdate) {
@@ -36,9 +36,11 @@ export async function onDappSendUpdates(onDappUpdate: OnApiSiteUpdate) {
 
 export async function getBalance() {
   const accountId = await getCurrentAccountIdOrFail();
+  const { network } = parseAccountId(accountId);
   const account = await fetchStoredAccount(accountId);
+  const wallet = account.byChain.ton;
 
-  return account.byChain.ton ? ton.getAccountBalance(accountId) : 0n;
+  return wallet ? ton.getWalletBalance(network, wallet.address) : 0n;
 }
 
 export async function requestAccounts() {
@@ -111,7 +113,7 @@ export async function sendTransaction(params: {
   await openPopupWindow();
   await waitLogin();
 
-  const checkResult = await ton.checkTransactionDraft({
+  const checkResult = await ton.default.checkTransactionDraft({
     accountId,
     toAddress,
     amount,

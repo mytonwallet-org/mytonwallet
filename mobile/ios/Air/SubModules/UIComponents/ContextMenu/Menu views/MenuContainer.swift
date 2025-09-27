@@ -17,7 +17,6 @@ struct MenuContainer<Content: View>: View {
     let distanceFromAnchor: CGFloat = 8
     
     var body: some View {
-        let _ = Self._printChanges()
         ZStack(alignment: .topLeading) {
             Color.clear
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

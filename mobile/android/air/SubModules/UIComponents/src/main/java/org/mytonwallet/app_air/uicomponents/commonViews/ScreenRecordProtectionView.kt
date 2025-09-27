@@ -16,8 +16,8 @@ import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 
 @SuppressLint("ViewConstructor", "ClickableViewAccessibility")
 class ScreenRecordProtectionView(

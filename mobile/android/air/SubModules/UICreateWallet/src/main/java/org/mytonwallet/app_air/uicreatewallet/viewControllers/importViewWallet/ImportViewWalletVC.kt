@@ -20,13 +20,10 @@ import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.walletAdded.WalletAddedVC
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.helpers.logger.LogMessage
-import org.mytonwallet.app_air.walletcontext.helpers.logger.Logger
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
-import org.mytonwallet.app_air.walletcontext.utils.toProcessedSpannableStringBuilder
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcore.MAIN_NETWORK
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
@@ -34,6 +31,9 @@ import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import java.lang.ref.WeakReference
 
 class ImportViewWalletVC(context: Context, private val isOnIntro: Boolean) :
@@ -129,9 +129,28 @@ class ImportViewWalletVC(context: Context, private val isOnIntro: Boolean) :
         updateTheme()
     }
 
+    private var cachedHeight = 0
     override val isExpandable = false
     override fun getModalHalfExpandedHeight(): Int? {
-        return 460.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
+        if (cachedHeight > 0)
+            return cachedHeight
+        titleLabel.measure(
+            View.MeasureSpec.makeMeasureSpec(view.width - 64.dp, View.MeasureSpec.AT_MOST),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+        subtitleLabel.measure(
+            View.MeasureSpec.makeMeasureSpec(view.width - 64.dp, View.MeasureSpec.AT_MOST),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+
+        val titleHeight = titleLabel.measuredHeight.coerceAtLeast(1)
+        val subtitleHeight = subtitleLabel.measuredHeight.coerceAtLeast(1)
+
+        cachedHeight = 431.dp + // 416: content + 15: continueButton to bottom
+            titleHeight +
+            subtitleHeight +
+            (navigationController?.getSystemBars()?.bottom ?: 0)
+        return cachedHeight
     }
 
     override fun updateTheme() {
@@ -193,7 +212,6 @@ class ImportViewWalletVC(context: Context, private val isOnIntro: Boolean) :
                     accountType = MAccount.AccountType.VIEW.value,
                     address = result.byChain["ton"]?.address,
                     tronAddress = result.byChain["tron"]?.address,
-                    ledgerWallet = null,
                     importedAt = null
                 )
                 WalletCore.activateAccount(

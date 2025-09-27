@@ -414,17 +414,6 @@ $labelSidePadding: 0.5rem;
   }
 }
 
-.descriptionContent {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-
-  padding: 1rem;
-  border-radius: 1rem;
-
-  background: var(--color-background-first);
-}
-
 .dappInfoSkeleton {
   --skeleton-background-color: var(--color-separator-input-stroke);
 

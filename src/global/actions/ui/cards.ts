@@ -18,7 +18,7 @@ addActionHandler('closeMintCardModal', (global): GlobalState => {
 
 addActionHandler('startCardMinting', (global, action, { type }): GlobalState => {
   if (selectIsHardwareAccount(global)) {
-    global = resetHardware(global);
+    global = resetHardware(global, 'ton');
     global = updateMintCards(global, { state: MintCardState.ConnectHardware });
   } else {
     global = updateMintCards(global, { state: MintCardState.Password });

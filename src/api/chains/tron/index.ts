@@ -1,42 +1,31 @@
-import type { ApiNetwork, ApiTronWallet } from '../../types';
-import { ApiAuthError } from '../../types';
+import type { ChainSdk } from '../../types/chains';
 
-import { getChainConfig } from '../../../util/chain';
-import { getTronClient } from './util/tronweb';
+import { fetchActivityDetails, fetchActivitySlice } from './activities';
+import { getWalletFromAddress, getWalletFromBip39Mnemonic } from './auth';
+import { setupActivePolling, setupInactivePolling } from './polling';
+import { checkTransactionDraft, submitTransfer } from './transfer';
 
-export { setupActivePolling, setupInactivePolling } from './polling';
-export { checkTransactionDraft, submitTransfer } from './transfer';
-export { getWalletBalance, isTronAccountMultisig } from './wallet';
-export { decryptComment, fetchActivityDetails, fetchActivitySlice } from './activities';
-
-export function getWalletFromBip39Mnemonic(network: ApiNetwork, mnemonic: string[]): ApiTronWallet {
-  const { address, publicKey } = getTronClient(network).fromMnemonic(mnemonic.join(' '));
-  return {
-    address,
-    publicKey,
-    index: 0,
-  };
+function notSupported(): never {
+  throw new Error('Not supported in Tron');
 }
 
-export function getWalletFromAddress(
-  network: ApiNetwork,
-  addressOrDomain: string,
-): { title?: string; wallet: ApiTronWallet } | { error: ApiAuthError } {
-  const { addressRegex } = getChainConfig('tron');
+const tronSdk: ChainSdk<'tron'> = {
+  fetchActivitySlice,
+  fetchActivityDetails,
+  decryptComment: notSupported,
+  getWalletFromBip39Mnemonic,
+  getWalletFromAddress,
+  // A note for the future implementation:
+  // In contrast to TON, Tron doesn't allow loading balances of multiple wallets in 1 request. Loading a wallet from
+  // Ledger is relatively slow. So, to parallelize and speed up the loading, each balance should be loaded as soon as
+  // the corresponding wallet is loaded from Ledger.
+  getWalletsFromLedgerAndLoadBalance: notSupported,
+  setupActivePolling,
+  setupInactivePolling,
+  checkTransactionDraft,
+  submitTransfer,
+  verifyLedgerWalletAddress: notSupported,
+  getIsLedgerAppOpen: notSupported,
+};
 
-  if (!addressRegex.test(addressOrDomain)) {
-    return { error: ApiAuthError.DomainNotResolved };
-  }
-
-  return {
-    wallet: {
-      address: addressOrDomain,
-      index: 0,
-    },
-  };
-}
-
-export function checkApiAvailability(network: ApiNetwork) {
-  const isConnected = getTronClient(network).isConnected();
-  return Boolean(isConnected);
-}
+export default tronSdk;

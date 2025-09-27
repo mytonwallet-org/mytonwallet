@@ -127,19 +127,19 @@ struct ClaimRewardsConfirmContent: View {
     
     var body: some View {
         VStack {
-            Text("Claim Rewards")
+            Text(lang("Claim Rewards"))
                 .fontWeight(.semibold)
                 .padding(.vertical, 12)
                 .padding(.bottom, 6)
             amountSection
             HStack {
-                Button("Cancel") {
+                Button(lang("Cancel")) {
                     withAnimation(.spring(duration: 0.25)) {
                         viewModel.isConfirming = false
                     }
                 }
                 .buttonStyle(WUIButtonStyle(style: .secondary))
-                Button("Confirm") {
+                Button(lang("Confirm")) {
                     viewModel.onClaim()
                 }
                 .buttonStyle(WUIButtonStyle(style: .primary))

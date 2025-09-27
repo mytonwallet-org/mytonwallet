@@ -6,8 +6,9 @@ import type { Account, UserSwapToken } from '../../global/types';
 import {
   CHANGELLY_LIVE_CHAT_URL, CHANGELLY_SUPPORT_EMAIL, CHANGELLY_WAITING_DEADLINE,
 } from '../../config';
-import { getIsInternalSwap, getIsSupportedChain } from '../../global/helpers';
+import { getIsInternalSwap } from '../../global/helpers';
 import buildClassName from '../../util/buildClassName';
+import { getIsSupportedChain } from '../../util/chain';
 import { formatCurrencyExtended } from '../../util/formatNumber';
 import getChainNetworkName from '../../util/swap/getChainNetworkName';
 

@@ -2,12 +2,16 @@ import type { ElementRef } from '../../../../lib/teact/teact';
 import React, { memo, useMemo, useRef } from '../../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../../global';
 
-import type { ApiBaseCurrency } from '../../../../api/types';
+import type { ApiBaseCurrency, ApiCurrencyRates, ApiStakingState } from '../../../../api/types';
+import type { IAnchorPosition, UserToken } from '../../../../global/types';
 import type { Layout } from '../../../../hooks/useMenuPosition';
-import type { IAnchorPosition } from '../../../../types';
 import type { DropdownItem } from '../../../ui/Dropdown';
 
 import { CURRENCIES } from '../../../../config';
+import { Big } from '../../../../lib/big.js';
+import { selectAccountStakingStates, selectCurrentAccountTokens } from '../../../../global/selectors';
+import { formatCurrency, getShortCurrencySymbol } from '../../../../util/formatNumber';
+import { calculateFullBalance } from './helpers/calculateFullBalance';
 
 import useLastCallback from '../../../../hooks/useLastCallback';
 
@@ -26,6 +30,9 @@ interface OwnProps {
 
 interface StateProps {
   currentCurrency?: ApiBaseCurrency;
+  tokens?: UserToken[];
+  currencyRates: ApiCurrencyRates;
+  stakingStates?: ApiStakingState[];
 }
 
 function CurrencySwitcherMenu({
@@ -36,6 +43,9 @@ function CurrencySwitcherMenu({
   excludedCurrency,
   menuPositionX,
   className,
+  tokens,
+  currencyRates,
+  stakingStates,
   onClose,
   onChange,
 }: OwnProps & StateProps) {
@@ -43,12 +53,36 @@ function CurrencySwitcherMenu({
 
   const menuRef = useRef<HTMLDivElement>();
 
-  const currencyList = useMemo<DropdownItem<ApiBaseCurrency>[]>(
-    () => Object.entries(CURRENCIES)
+  const currencyList = useMemo<DropdownItem<ApiBaseCurrency>[]>(() => {
+    if (!tokens || !currencyRates) {
+      return Object.entries(CURRENCIES)
+        .filter(([currency]) => currency !== excludedCurrency)
+        .map(([currency, { name }]) => ({ value: currency as keyof typeof CURRENCIES, name }));
+    }
+
+    const totalBalanceInUsd = new Big(
+      calculateFullBalance(tokens, stakingStates).primaryValueUsd,
+    );
+
+    return Object.entries(CURRENCIES)
       .filter(([currency]) => currency !== excludedCurrency)
-      .map(([currency, { name }]) => ({ value: currency as keyof typeof CURRENCIES, name })),
-    [excludedCurrency],
-  );
+      .map(([currency, { name }]) => {
+        const balanceInCurrency = totalBalanceInUsd.mul(currencyRates[currency as ApiBaseCurrency]);
+
+        const currencySymbol = getShortCurrencySymbol(currency as ApiBaseCurrency);
+        const formattedBalance = formatCurrency(
+          balanceInCurrency.toString(),
+          currencySymbol,
+          currency === 'BTC' ? 6 : 2,
+        );
+
+        return {
+          value: currency as keyof typeof CURRENCIES,
+          name,
+          description: formattedBalance,
+        };
+      });
+  }, [excludedCurrency, tokens, currencyRates, stakingStates]);
 
   const handleBaseCurrencyChange = useLastCallback((currency: string) => {
     onClose();
@@ -74,8 +108,8 @@ function CurrencySwitcherMenu({
       withPortal
       ref={menuRef}
       isOpen={isOpen}
-      items={currencyList}
       shouldTranslateOptions
+      items={currencyList}
       selectedValue={currentCurrency}
       menuPositionX={menuPositionX}
       menuAnchor={anchor}
@@ -93,5 +127,8 @@ function CurrencySwitcherMenu({
 export default memo(withGlobal<OwnProps>((global) => {
   return {
     currentCurrency: global.settings.baseCurrency,
+    tokens: selectCurrentAccountTokens(global),
+    currencyRates: global.currencyRates,
+    stakingStates: selectAccountStakingStates(global, global.currentAccountId!),
   };
 })(CurrencySwitcherMenu));

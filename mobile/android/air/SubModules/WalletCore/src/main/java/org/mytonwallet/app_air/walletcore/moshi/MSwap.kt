@@ -3,7 +3,7 @@ package org.mytonwallet.app_air.walletcore.moshi
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import org.json.JSONObject
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.MToken
 import java.math.BigDecimal
@@ -56,7 +56,7 @@ data class MApiSwapEstimateVariant(
     val networkFee: Double,
     val realNetworkFee: Double?,
     val impact: Double,
-    val dexLabel: MApiSwapDexLabel
+    val dexLabel: MApiSwapDexLabel?
 )
 
 @JsonClass(generateAdapter = true)
@@ -85,7 +85,7 @@ data class MApiSwapEstimateResponse(
     val ourFee: String?,
     val ourFeePercent: Double?,
     val impact: Double,
-    val dexLabel: MApiSwapDexLabel,
+    val dexLabel: MApiSwapDexLabel?,
     val dieselStatus: MDieselStatus?,
     val dieselFee: String?,
     val from: String,

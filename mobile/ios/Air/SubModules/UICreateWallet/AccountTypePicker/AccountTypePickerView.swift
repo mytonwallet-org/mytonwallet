@@ -34,10 +34,10 @@ struct AccountTypePickerView: View {
                 .foregroundStyle(Color(WTheme.secondaryLabel))
 
             } else {
-                Text(lang("Use secret words, or instantly migrate an unlimited number of wallets from another MyTonWallet app:"))
-                    .padding(.horizontal, 32)
-                    .padding(.bottom, 8)
-                    .multilineTextAlignment(.center)
+//                Text(lang("$import_hint"))
+//                    .padding(.horizontal, 32)
+//                    .padding(.bottom, 8)
+//                    .multilineTextAlignment(.center)
             }
 
             InsetSection(dividersInset: 50) {

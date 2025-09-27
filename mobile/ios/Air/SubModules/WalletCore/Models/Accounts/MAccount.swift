@@ -9,7 +9,7 @@ import UIKit
 import WalletContext
 import GRDB
 
-public let DUMMY_ACCOUNT = MAccount(id: "dummy-mainnet", title: " ", type: .view, byChain: ["ton": .init(address: " ")], ledger: nil)
+public let DUMMY_ACCOUNT = MAccount(id: "dummy-mainnet", title: " ", type: .view, byChain: ["ton": .init(address: " ")])
 
 // see src/global/types.ts > Account
 
@@ -20,16 +20,14 @@ public struct MAccount: Equatable, Hashable, Sendable, Codable, FetchableRecord,
     public var title: String?
     public var type: AccountType
     public var byChain: [String: AccountChain] // keys have to be strings because encoding won't work with ApiChain as keys
-    public var ledger: Ledger?
     
     static public var databaseTableName: String = "accounts"
 
-    public init(id: String, title: String?, type: AccountType, byChain: [String : AccountChain], ledger: Ledger?) {
+    public init(id: String, title: String?, type: AccountType, byChain: [String : AccountChain]) {
         self.id = id
         self.title = title
         self.type = type
         self.byChain = byChain
-        self.ledger = ledger
     }
 }
 
@@ -37,6 +35,8 @@ public struct AccountChain: Equatable, Hashable, Sendable, Codable {
     public var address: String
     public var domain: String?
     public var isMultisig: Bool?
+    /** Is set only in hardware accounts */
+    public var ledgerIndex: Int?
 }
 
 extension MAccount {
@@ -107,7 +107,6 @@ public extension MAccount {
         type: .mnemonic,
         byChain: [
             "ton": .init(address: "748327432974324328094328903428"),
-        ],
-        ledger: nil
+        ]
     )
 }

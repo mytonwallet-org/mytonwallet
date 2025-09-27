@@ -8,7 +8,7 @@
 import Foundation
 
 // to easily encode/pass both objects and arrays :)
-public struct AnyEncodable: Encodable {
+public struct AnyEncodable: Codable {
     private let _encode: (Encoder) throws -> Void
 
     public init<T: Encodable>(_ wrapped: T) {
@@ -51,8 +51,29 @@ public struct AnyEncodable: Encodable {
             }
         })
     }
-}
 
+    public init(from decoder: any Decoder) throws {
+        print("decoder: \(decoder)")
+        let container = try decoder.singleValueContainer()
+        if let dict = try? container.decode([String: AnyEncodable].self) {
+            self = AnyEncodable(dict: dict)
+        } else if let arr = try? container.decode([AnyEncodable].self) {
+            self = AnyEncodable(arr: arr)
+        } else if let boolValue = try? container.decode(Bool.self) {
+            self = AnyEncodable(boolValue)
+        } else if let intValue = try? container.decode(Int.self) {
+            self = AnyEncodable(intValue)
+        } else if let doubleValue = try? container.decode(Double.self) {
+            self = AnyEncodable(doubleValue)
+        } else if let stringValue = try? container.decode(String.self) {
+            self = AnyEncodable(stringValue)
+        } else {
+            print("failed to parse any known type")
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "failed to parse any known type")
+        }
+        print("self: \(self)")
+    }
+}
 
 public func asAnyEncodables<each T: Encodable>(_ values: repeat each T) -> [AnyEncodable] {
     var result: [AnyEncodable] = []

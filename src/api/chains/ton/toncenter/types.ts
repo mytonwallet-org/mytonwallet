@@ -563,15 +563,12 @@ export type ConfigureSocketMessage = BaseSocketMessage & {
   supported_action_types?: ('v1' | 'v2' | 'latest')[];
 };
 
-export type SubscribeSocketMessage = BaseSocketMessage & {
-  operation: 'subscribe';
-  addresses: string[];
-  types: ('actions' | 'pending_actions')[];
-};
+export type SocketSubscriptionEvent = 'actions' | 'pending_actions' | 'account_state_change' | 'jettons_change';
 
-export type UnsubscribeSocketMessage = BaseSocketMessage & {
-  operation: 'unsubscribe';
-  addresses: string[];
+export type SetSubscriptionSocketMessage = BaseSocketMessage & {
+  operation: 'set_subscription';
+  /** The keys are the addresses to subscribe to in any format */
+  subscriptions: Record<string, SocketSubscriptionEvent[]>;
 };
 
 export type PingSocketMessage = BaseSocketMessage & {
@@ -580,12 +577,11 @@ export type PingSocketMessage = BaseSocketMessage & {
 
 export type ClientSocketMessage =
   | ConfigureSocketMessage
-  | SubscribeSocketMessage
-  | UnsubscribeSocketMessage
+  | SetSubscriptionSocketMessage
   | PingSocketMessage;
 
 export type StatusSocketMessage = BaseSocketMessage & {
-  status: 'subscribed' | 'unsubscribed' | 'configured' | 'pong';
+  status: 'subscription_set' | 'configured' | 'pong';
 };
 
 export type ActionsSocketMessage = BaseSocketMessage & {
@@ -601,7 +597,44 @@ export type InvalidationSocketMessage = BaseSocketMessage & {
   trace_external_hash_norm: string;
 };
 
+export type AccountStateChangeSocketMessage = BaseSocketMessage & {
+  type: 'account_state_change';
+  /** Raw address */
+  account: string;
+  state: {
+    /** Base64 */
+    hash: string;
+    /** Stringified integer */
+    balance: string;
+    account_status: 'active' | 'uninit';
+    /** Base64 */
+    data_hash: string;
+    /** Base64 */
+    code_hash: string;
+  };
+};
+
+export type JettonChangeSocketMessage = BaseSocketMessage & {
+  type: 'jettons_change';
+  jetton: {
+    /** The token wallet raw address */
+    address: string;
+    /** Stringified integer */
+    balance: string;
+    /** The wallet raw address */
+    owner: string;
+    /** The token raw address */
+    jetton: string;
+    /** Stringified integer */
+    last_transaction_lt: string;
+  };
+  address_book: AddressBook;
+  metadata: MetadataMap;
+};
+
 export type ServerSocketMessage =
   | StatusSocketMessage
   | ActionsSocketMessage
-  | InvalidationSocketMessage;
+  | InvalidationSocketMessage
+  | AccountStateChangeSocketMessage
+  | JettonChangeSocketMessage;

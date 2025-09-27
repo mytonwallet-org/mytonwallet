@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.uicomponents.base
 import android.annotation.SuppressLint
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.RecyclerView.NO_POSITION
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.helpers.WDefaultItemAnimator
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -130,6 +131,22 @@ class WRecyclerViewAdapter(
                     val position = indexPathToPosition(change.item)
                     notifyItemChanged(position)
                 }
+            }
+        }
+    }
+
+    fun updateVisibleCells() {
+        val recyclerView = recyclerView ?: return
+        for (i in 0 until recyclerView.childCount) {
+            val child = recyclerView.getChildAt(i)
+            val position = recyclerView.getChildAdapterPosition(child)
+            if (position != NO_POSITION) {
+                val viewHolder = recyclerView.getChildViewHolder(child)
+                datasource.get()?.recyclerViewConfigureCell(
+                    recyclerView,
+                    viewHolder as WCell.Holder,
+                    positionToIndexPath(position)
+                )
             }
         }
     }

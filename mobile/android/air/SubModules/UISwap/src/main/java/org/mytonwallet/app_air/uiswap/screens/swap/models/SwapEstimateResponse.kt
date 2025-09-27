@@ -3,9 +3,9 @@ package org.mytonwallet.app_air.uiswap.screens.swap.models
 import org.mytonwallet.app_air.uicomponents.helpers.Rate
 import org.mytonwallet.app_air.uiswap.screens.swap.helpers.SwapHelpers
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
-import org.mytonwallet.app_air.walletcontext.utils.max
-import org.mytonwallet.app_air.walletcontext.utils.smartDecimalsCount
-import org.mytonwallet.app_air.walletcontext.utils.toString
+import org.mytonwallet.app_air.walletbasecontext.utils.max
+import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
+import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcore.MAX_PRICE_IMPACT_VALUE
 import org.mytonwallet.app_air.walletcore.helpers.FeeEstimationHelpers
 import org.mytonwallet.app_air.walletcore.models.MBridgeError

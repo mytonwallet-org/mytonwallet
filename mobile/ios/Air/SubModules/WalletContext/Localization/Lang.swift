@@ -27,3 +27,7 @@ public func langMd(_ keyAndDefault: String) -> LocalizedStringKey {
 public func langMd(_ keyAndDefault: String, arg1: any CVarArg) -> LocalizedStringKey {
     LocalizedStringKey(String(format: lang(keyAndDefault), arg1))
 }
+
+public func langR(_ keyAndDefault: String.LocalizationValue) -> LocalizedStringResource {
+    LocalizedStringResource(keyAndDefault, bundle: LocalizationSupport.shared.bundle)
+}

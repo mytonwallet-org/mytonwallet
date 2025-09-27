@@ -3,7 +3,7 @@ package org.mytonwallet.app_air.walletcore.models
 import com.squareup.moshi.JsonClass
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.utils.doubleAbsRepresentation
+import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletcore.DEFAULT_SHOWN_TOKENS
 import org.mytonwallet.app_air.walletcore.MAIN_NETWORK
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -16,7 +16,6 @@ class MAccount(
     val byChain: Map<String, AccountChain>,
     var name: String,
     var accountType: AccountType,
-    val ledger: Ledger?,
     var importedAt: Long?,
 ) {
 
@@ -24,7 +23,8 @@ class MAccount(
     data class AccountChain(
         val address: String,
         val domain: String? = null,
-        val isMultisig: Boolean? = null
+        val isMultisig: Boolean? = null,
+        var ledgerIndex: Int? = null
     )
 
     @JsonClass(generateAdapter = false)
@@ -75,7 +75,6 @@ class MAccount(
         parseByChain(globalJSON.optJSONObject("byChain")),
         globalJSON.optString("title"),
         AccountType.fromValue(globalJSON.optString("type"))!!,
-        globalJSON.optJSONObject("ledger")?.let { Ledger(it) },
         globalJSON.optLong("importedAt"),
     )
 
@@ -88,7 +87,8 @@ class MAccount(
                     address = chainData.getString("address"),
                     domain = chainData.optString("domain").takeIf { it.isNotEmpty() },
                     isMultisig = chainData.optBoolean("isMultisig")
-                        .takeIf { chainData.has("isMultisig") }
+                        .takeIf { chainData.has("isMultisig") },
+                    ledgerIndex = chainData.optInt("ledgerIndex")
                 )
             }
             return result

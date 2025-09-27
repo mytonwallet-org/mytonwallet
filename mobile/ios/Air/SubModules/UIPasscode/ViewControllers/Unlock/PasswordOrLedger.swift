@@ -21,14 +21,13 @@ extension WViewController {
         ledgerSignData: SignData,
     ) async throws {
         let account = try AccountStore.account.orThrow("no active account")
-        if let ledger = account.ledger {
+        if account.isHardware {
             let fromAddress = try account.tonAddress.orThrow("no ton address in account")
             try await _pushLedger(
                 title: title,
                 headerView: headerView,
                 accountId: account.id,
                 fromAddress: fromAddress,
-                ledger: ledger,
                 ledgerSignData: ledgerSignData
             )
         } else {
@@ -80,13 +79,11 @@ extension WViewController {
         headerView: HeaderView,
         accountId: String,
         fromAddress: String,
-        ledger: MAccount.Ledger,
         ledgerSignData: SignData,
     ) async throws {
         let signModel = await LedgerSignModel(
             accountId: accountId,
             fromAddress: fromAddress,
-            ledger: ledger,
             signData: ledgerSignData
         )
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in

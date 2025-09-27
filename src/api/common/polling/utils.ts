@@ -1,4 +1,4 @@
-import type { WalletPollingOptions } from './walletPolling';
+import type { FallbackPollingOptions } from './fallbackPollingScheduler';
 
 import Deferred from '../../../util/Deferred';
 import { focusAwareDelay, onFocusAwareDelay } from '../../../util/focusAwareDelay';
@@ -10,21 +10,21 @@ export type Period = number | {
   notFocused: number;
 };
 
-export const activeWalletTiming = {
-  updateOnStart: true,
-  minUpdateDelay: { focused: SEC, notFocused: 3 * SEC },
-  fallbackUpdateStartDelay: 3 * SEC,
-  fallbackUpdatePeriod: { focused: 1.1 * SEC, notFocused: 10 * SEC },
-  forceUpdatePeriod: { focused: MINUTE, notFocused: 2 * MINUTE },
-} satisfies Partial<WalletPollingOptions>;
+export const activeWalletTiming: FallbackPollingOptions = {
+  pollOnStart: true,
+  minPollDelay: { focused: SEC, notFocused: 3 * SEC },
+  pollingStartDelay: 3 * SEC,
+  pollingPeriod: { focused: 3 * SEC, notFocused: 10 * SEC },
+  forcedPollingPeriod: { focused: MINUTE, notFocused: 2 * MINUTE },
+};
 
-export const inactiveWalletTiming = {
-  updateOnStart: false,
-  minUpdateDelay: { focused: 5 * SEC, notFocused: 30 * SEC },
-  fallbackUpdateStartDelay: 5 * SEC,
-  fallbackUpdatePeriod: { focused: 30 * SEC, notFocused: MINUTE },
-  forceUpdatePeriod: { focused: 2 * MINUTE, notFocused: 5 * MINUTE },
-} satisfies Partial<WalletPollingOptions>;
+export const inactiveWalletTiming: FallbackPollingOptions = {
+  pollOnStart: false,
+  minPollDelay: { focused: 5 * SEC, notFocused: 30 * SEC },
+  pollingStartDelay: 5 * SEC,
+  pollingPeriod: { focused: 30 * SEC, notFocused: MINUTE },
+  forcedPollingPeriod: { focused: 2 * MINUTE, notFocused: 5 * MINUTE },
+};
 
 interface PollingLoopOptions<Dep> {
   period: Period;

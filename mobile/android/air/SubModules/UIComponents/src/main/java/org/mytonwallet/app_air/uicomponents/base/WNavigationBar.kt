@@ -1,9 +1,9 @@
 package org.mytonwallet.app_air.uicomponents.base
 
-import WNavigationController
 import android.annotation.SuppressLint
 import android.graphics.Color
 import android.text.TextUtils
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -23,8 +23,8 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 @SuppressLint("ViewConstructor")
 class WNavigationBar(
@@ -63,16 +63,27 @@ class WNavigationBar(
     val titleLabel: WLabel by lazy {
         WLabel(context).apply {
             setStyle(22F, WFont.Medium)
-            maxLines = 2
-            ellipsize = TextUtils.TruncateAt.END
+            setSingleLine()
+            ellipsize = TextUtils.TruncateAt.MARQUEE
+            isSelected = true
+            isHorizontalFadingEdgeEnabled = true
         }
     }
 
     val subtitleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(14F, WFont.Medium)
+            setStyle(12f, WFont.Medium)
             maxLines = 1
             visibility = GONE
+        }
+    }
+
+    private val titleLinearLayout: LinearLayout by lazy {
+        LinearLayout(context).apply {
+            id = generateViewId()
+            orientation = LinearLayout.VERTICAL
+            addView(titleLabel, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            addView(subtitleLabel, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         }
     }
 
@@ -108,18 +119,13 @@ class WNavigationBar(
     private val contentView = WView(context).apply {
         minHeight = calculatedMinHeight
         addView(backButton, ViewGroup.LayoutParams(40.dp, 40.dp))
-        val titleLinearLayout = LinearLayout(context).apply {
-            id = generateViewId()
-            orientation = LinearLayout.VERTICAL
-            addView(titleLabel, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-            addView(subtitleLabel, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        }
-        addView(titleLinearLayout, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        addView(titleLinearLayout, LayoutParams(0, WRAP_CONTENT))
 
         setConstraints {
-            toTopPx(titleLinearLayout, topOffset)
+            toTopPx(titleLinearLayout, topOffset + contentMarginTop)
             toBottom(titleLinearLayout)
-            toCenterX(titleLinearLayout, if (backButton.isVisible) 64f else 20f)
+            toStart(titleLinearLayout, if (backButton.isVisible) 64f else 20f)
+            toEnd(titleLinearLayout, 20f)
             toTopPx(backButton, topOffset + contentMarginTop)
             toBottom(backButton)
             toStart(backButton, 8f)
@@ -220,6 +226,7 @@ class WNavigationBar(
             toTopPx(trailingView, topOffset + contentMarginTop)
             toBottom(trailingView)
             toEnd(trailingView, 8f)
+            endToStart(titleLinearLayout, trailingView, 4f)
         }
     }
 
@@ -240,6 +247,14 @@ class WNavigationBar(
 
     fun setTitleGravity(gravity: Int) {
         titleLabel.gravity = gravity
+        contentView.setConstraints {
+            if (gravity == Gravity.CENTER) {
+                toCenterX(titleLinearLayout, if (backButton.isVisible) 64f else 20f)
+            } else {
+                toStart(titleLinearLayout, if (backButton.isVisible) 64f else 20f)
+                toEnd(titleLinearLayout, 20f)
+            }
+        }
     }
 
     fun fadeOutActions() {

@@ -12,7 +12,7 @@ import com.facebook.drawee.backends.pipeline.Fresco
 import com.facebook.imagepipeline.image.CloseableBitmap
 import com.facebook.imagepipeline.image.CloseableImage
 import com.facebook.imagepipeline.request.ImageRequestBuilder
-import org.mytonwallet.app_air.walletcontext.theme.NftAccentColors
+import org.mytonwallet.app_air.walletbasecontext.theme.NftAccentColors
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardBorderShineType
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardType
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft

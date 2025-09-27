@@ -17,6 +17,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
+import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.commonViews.AnimatedKeyValueRowView
@@ -40,19 +41,22 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views.PasscodeScreenView
-import org.mytonwallet.app_air.uisend.sent.SentVC
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
+import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
-import org.mytonwallet.app_air.walletcontext.utils.formatStartEndAddress
-import org.mytonwallet.app_air.walletcontext.utils.toString
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
+import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftResult
+import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
+import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.lang.ref.WeakReference
 import java.math.BigInteger
@@ -66,7 +70,7 @@ class ConfirmNftVC(
     private val comment: String?
 ) :
     WViewController(context),
-    ConfirmNftVM.Delegate {
+    ConfirmNftVM.Delegate, WalletCore.EventObserver {
 
     sealed class Mode {
         data class Send(
@@ -301,6 +305,7 @@ class ConfirmNftVC(
     override fun setupViews() {
         super.setupViews()
 
+        WalletCore.registerObserver(this)
         setNavTitle(title!!)
         setupNavBar(true)
 
@@ -358,6 +363,11 @@ class ConfirmNftVC(
         }
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        WalletCore.unregisterObserver(this)
+    }
+
     override fun updateTheme() {
         super.updateTheme()
 
@@ -383,6 +393,11 @@ class ConfirmNftVC(
         detailsTitleLabel.setTextColor(WColor.PrimaryText.color)
     }
 
+    override fun showError(error: MBridgeError?) {
+        super.showError(error)
+        sentNftAddress = null
+    }
+
     override fun feeUpdated(result: MApiCheckTransactionDraftResult?, err: MBridgeError?) {
         val ton = TokenStore.getToken(TONCOIN_SLUG)
         ton?.let {
@@ -404,72 +419,101 @@ class ConfirmNftVC(
     }
 
     private fun confirmSend() {
-        val address = viewModel.resolvedAddress?.formatStartEndAddress() ?: ""
-        val sendingToString = LocaleController.getString("Sending To")
-        val startOffset = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-            typeface = WFont.Regular.typeface
-            textSize = 16f.dp
-        }.measureText(sendingToString)
-        val addressAttr =
-            SpannableStringBuilder(sendingToString).apply {
-                append(" $address")
-                AddressPopupHelpers.configSpannableAddress(
-                    WeakReference(this@ConfirmNftVC),
-                    this,
-                    length - address.length,
-                    address.length,
-                    TONCOIN_SLUG,
-                    viewModel.resolvedAddress!!,
-                    startOffset.roundToInt()
+        if (AccountStore.activeAccount?.isHardware == true) {
+            val account = AccountStore.activeAccount!!
+            sentNftAddress = nft.address
+            push(
+                LedgerConnectVC(
+                    context,
+                    LedgerConnectVC.Mode.ConnectToSubmitTransfer(
+                        account.tonAddress!!,
+                        viewModel.signNftTransferData(nft, comment)
+                    ) {
+                        // Wait for Pending Activity event...
+                    },
+                    headerView = headerView
                 )
-                updateDotsTypeface(sendingToString.length + 1)
-                setSpan(
-                    WForegroundColorSpan(WColor.SecondaryText),
-                    length - address.length - 1,
-                    length,
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        } else {
+            push(
+                PasscodeConfirmVC(
+                    context,
+                    PasscodeViewState.CustomHeader(
+                        headerView,
+                        LocaleController.getString("Confirm")
+                    ),
+                    task = { passcode ->
+                        sentNftAddress = nft.address
+                        viewModel.submitTransferNft(
+                            nft,
+                            comment,
+                            passcode
+                        ) {
+                            // Wait for Pending Activity event...
+                        }
+                    }
+                )
+            )
+        }
+    }
+
+    private val headerView: View
+        get() {
+            val address = viewModel.resolvedAddress?.formatStartEndAddress() ?: ""
+            val sendingToString = LocaleController.getString("Sending To")
+            val startOffset = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                typeface = WFont.Regular.typeface
+                textSize = 16f.dp
+            }.measureText(sendingToString)
+            val addressAttr =
+                SpannableStringBuilder(sendingToString).apply {
+                    append(" $address")
+                    AddressPopupHelpers.configSpannableAddress(
+                        WeakReference(this@ConfirmNftVC),
+                        this,
+                        length - address.length,
+                        address.length,
+                        TONCOIN_SLUG,
+                        viewModel.resolvedAddress!!,
+                        startOffset.roundToInt()
+                    )
+                    updateDotsTypeface(sendingToString.length + 1)
+                    setSpan(
+                        WForegroundColorSpan(WColor.SecondaryText),
+                        length - address.length - 1,
+                        length,
+                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                    )
+                }
+            return PasscodeHeaderSendView(
+                WeakReference(this@ConfirmNftVC),
+                (view.height * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO).roundToInt()
+            ).apply {
+                config(
+                    Content.ofUrl(nft.image ?: ""),
+                    nft.name ?: "",
+                    addressAttr,
+                    Content.Rounding.Radius(12f.dp)
                 )
             }
-        push(
-            PasscodeConfirmVC(
-                context,
-                PasscodeViewState.CustomHeader(
-                    PasscodeHeaderSendView(
-                        WeakReference(this@ConfirmNftVC),
-                        (view.height * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO).roundToInt()
-                    ).apply {
-                        config(
-                            Content.ofUrl(nft.image ?: ""),
-                            nft.name ?: "",
-                            addressAttr,
-                            Content.Rounding.Radius(12f.dp)
-                        )
-                    },
-                    LocaleController.getString("Confirm")
-                ),
-                task = { passcode ->
-                    viewModel.submitTransferNft(
-                        nft,
-                        comment,
-                        passcode
-                    ) {
-                        push(
-                            SentVC(
-                                context,
-                                LocaleController.getString("Sent"),
-                                nft.name ?: "",
-                                SpannableStringBuilder("${LocaleController.getString("Sent to")} $address").apply {
-                                    updateDotsTypeface()
-                                },
-                                null
-                            ),
-                            onCompletion = {
-                                navigationController?.removePrevViewControllers(
-                                    keptFirstViewControllers = 1
-                                )
-                            })
-                    }
-                }
-            ))
+        }
+
+    private var sentNftAddress: String? = null
+    override fun onWalletEvent(walletEvent: WalletEvent) {
+        val sentNftAddress = sentNftAddress ?: return
+        when (walletEvent) {
+            is WalletEvent.ReceivedPendingActivities -> {
+                val activity = walletEvent.pendingActivities?.firstOrNull { activity ->
+                    activity is MApiTransaction.Transaction &&
+                        activity.nft?.address == sentNftAddress
+                } ?: return
+                this@ConfirmNftVC.sentNftAddress = null
+                navigationController?.popToRoot(onCompletion = {
+                    WalletCore.notifyEvent(WalletEvent.OpenActivity(activity))
+                })
+            }
+
+            else -> {}
+        }
     }
 }

@@ -20,9 +20,10 @@ import org.mytonwallet.app_air.uicomponents.widgets.particles.ParticleView
 import org.mytonwallet.app_air.uicomponents.widgets.pulseView
 import org.mytonwallet.app_air.uipasscode.R
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 
 @SuppressLint("ViewConstructor")
@@ -60,7 +61,7 @@ class ActivateBiometricVC(context: Context, onCompletion: (activated: Boolean) -
                 }
             ),
             title = LocaleController.getString("Use Biometrics"),
-            subtitle = LocaleController.getString("You can connect your biometric data for more convenience"),
+            subtitle = LocaleController.getString("\$auth_biometric_info").toProcessedSpannableStringBuilder(),
         )
         v
     }

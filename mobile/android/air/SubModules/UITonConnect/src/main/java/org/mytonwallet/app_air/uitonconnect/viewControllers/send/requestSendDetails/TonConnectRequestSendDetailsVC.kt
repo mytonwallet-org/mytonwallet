@@ -10,10 +10,10 @@ import org.mytonwallet.app_air.uicomponents.adapter.BaseListItem
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.CustomListDecorator
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.adapter.Adapter
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import kotlin.math.max
 
 @SuppressLint("ViewConstructor")

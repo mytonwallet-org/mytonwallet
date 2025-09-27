@@ -1,14 +1,17 @@
 import type { GlobalState } from '../../global/types';
-import type { LedgerWalletInfo } from '../../util/ledger/types';
 import type { ApiTonWalletVersion } from '../chains/ton/types';
 import type {
   ApiAccountAny,
   ApiAccountWithChain,
   ApiAccountWithMnemonic,
   ApiActivityTimestamps,
+  ApiAnyDisplayError,
   ApiChain,
   ApiImportAddressByChain,
+  ApiLedgerAccount,
+  ApiLedgerAccountInfo,
   ApiLedgerDriver,
+  ApiLedgerWalletInfo,
   ApiNetwork,
   ApiTonAccount,
   ApiTonWallet,
@@ -20,8 +23,10 @@ import { ApiCommonError } from '../types';
 import { DEFAULT_WALLET_VERSION, IS_BIP39_MNEMONIC_ENABLED, IS_CORE_WALLET } from '../../config';
 import { parseAccountId } from '../../util/account';
 import isMnemonicPrivateKey from '../../util/isMnemonicPrivateKey';
+import { range } from '../../util/iteratees';
 import { createTaskQueue } from '../../util/schedulers';
 import chains from '../chains';
+import * as ton from '../chains/ton';
 import { toBase64Address } from '../chains/ton/util/tonCore';
 import {
   fetchStoredAccounts,
@@ -52,8 +57,6 @@ import {
   removePollingAccount,
 } from './polling';
 
-const { ton } = chains;
-
 export function generateMnemonic(isBip39: boolean) {
   if (isBip39) return generateBip39Mnemonic();
   return ton.generateMnemonic();
@@ -71,7 +74,7 @@ export function createWallet(
 }
 
 export function validateMnemonic(mnemonic: string[]) {
-  return (validateBip39Mnemonic(mnemonic) && IS_BIP39_MNEMONIC_ENABLED) || chains.ton.validateMnemonic(mnemonic);
+  return (validateBip39Mnemonic(mnemonic) && IS_BIP39_MNEMONIC_ENABLED) || ton.validateMnemonic(mnemonic);
 }
 
 export async function importMnemonic(
@@ -182,35 +185,43 @@ export async function createAccountWithSecondNetwork(options: {
   };
 }
 
-export function addressFromPublicKey(
-  publicKey: Uint8Array,
-  network: ApiNetwork,
-  version?: ApiTonWalletVersion,
-): Promise<ApiTonWallet & { lastTxId?: string }> {
-  return ton.getWalletFromKeys(publicKey, network, version);
-}
+export async function importLedgerAccount(network: ApiNetwork, accountInfo: ApiLedgerAccountInfo) {
+  const { byChain, driver, deviceId, deviceName } = accountInfo;
 
-export async function importLedgerWallet(network: ApiNetwork, walletInfo: LedgerWalletInfo) {
-  const {
-    publicKey, address, index, driver, deviceId, deviceName, version,
-  } = walletInfo;
-
-  const accountId = await addAccount(network, {
+  const account: ApiLedgerAccount = {
     type: 'ledger',
-    byChain: {
-      ton: {
-        address,
-        publicKey,
-        version,
-        index,
-      },
-    },
+    byChain,
     driver,
     deviceId,
     deviceName,
-  });
+  };
 
-  return { accountId, address, walletInfo };
+  const accountId = await addAccount(network, account);
+
+  return { accountId, byChain: getAccountChains(account) };
+}
+
+export async function getLedgerWallets(
+  chain: ApiChain,
+  network: ApiNetwork,
+  startWalletIndex: number,
+  count: number,
+): Promise<ApiLedgerWalletInfo[] | { error: ApiAnyDisplayError }> {
+  const { getLedgerDeviceInfo } = await import('../common/ledger');
+  const { driver, deviceId, deviceName } = await getLedgerDeviceInfo();
+
+  const walletInfos = await chains[chain].getWalletsFromLedgerAndLoadBalance(
+    network,
+    range(startWalletIndex, startWalletIndex + count),
+  );
+  if ('error' in walletInfos) return walletInfos;
+
+  return walletInfos.map((walletInfo) => ({
+    ...walletInfo,
+    driver,
+    deviceId,
+    deviceName,
+  }));
 }
 
 // When multiple Ledger accounts are imported, they all are created simultaneously. This causes a race condition causing

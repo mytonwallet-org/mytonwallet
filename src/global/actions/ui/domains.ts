@@ -37,7 +37,7 @@ addActionHandler('openDomainRenewalModal', async (global, actions, { accountId, 
 
 addActionHandler('startDomainsRenewal', (global) => {
   if (selectIsHardwareAccount(global)) {
-    global = resetHardware(global);
+    global = resetHardware(global, 'ton');
     global = updateCurrentDomainRenewal(global, { state: DomainRenewalState.ConnectHardware });
   } else {
     global = updateCurrentDomainRenewal(global, { state: DomainRenewalState.Password });
@@ -68,7 +68,7 @@ addActionHandler('openDomainLinkingModal', (global, actions, { address }) => {
 
 addActionHandler('startDomainLinking', (global) => {
   if (selectIsHardwareAccount(global)) {
-    global = resetHardware(global);
+    global = resetHardware(global, 'ton');
     global = updateCurrentDomainLinking(global, { state: DomainLinkingState.ConnectHardware });
   } else {
     global = updateCurrentDomainLinking(global, { state: DomainLinkingState.Password });

@@ -2,7 +2,7 @@
  * This module is to be used instead of /src/util/environment.ts
  * when `window` is not available (e.g. in a web worker).
  */
-import type { ApiInitArgs } from './types';
+import type { ApiInitArgs, ApiNetwork } from './types';
 
 import {
   ELECTRON_TONCENTER_MAINNET_KEY,
@@ -19,8 +19,7 @@ let environment: ApiInitArgs & {
   isDappSupported?: boolean;
   isSseSupported?: boolean;
   apiHeaders?: AnyLiteral;
-  toncenterMainnetKey?: string;
-  toncenterTestnetKey?: string;
+  byNetwork: Record<ApiNetwork, { toncenterKey?: string }>;
 };
 
 function getAppOrigin(args: ApiInitArgs): string | undefined {
@@ -40,8 +39,14 @@ export function setEnvironment(args: ApiInitArgs) {
     isDappSupported: true,
     isSseSupported: args.isElectron || (IS_CAPACITOR && !args.isNativeBottomSheet),
     apiHeaders: appOrigin ? { 'X-App-Origin': appOrigin } : {},
-    toncenterMainnetKey: args.isElectron ? ELECTRON_TONCENTER_MAINNET_KEY : TONCENTER_MAINNET_KEY,
-    toncenterTestnetKey: args.isElectron ? ELECTRON_TONCENTER_TESTNET_KEY : TONCENTER_TESTNET_KEY,
+    byNetwork: {
+      mainnet: {
+        toncenterKey: args.isElectron ? ELECTRON_TONCENTER_MAINNET_KEY : TONCENTER_MAINNET_KEY,
+      },
+      testnet: {
+        toncenterKey: args.isElectron ? ELECTRON_TONCENTER_TESTNET_KEY : TONCENTER_TESTNET_KEY,
+      },
+    },
   };
   return environment;
 }

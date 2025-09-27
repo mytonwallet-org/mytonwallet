@@ -18,8 +18,8 @@ import org.mytonwallet.app_air.uicomponents.helpers.AmountTextWatcher
 import org.mytonwallet.app_air.uicomponents.helpers.EditTextTint
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import kotlin.math.roundToInt
 

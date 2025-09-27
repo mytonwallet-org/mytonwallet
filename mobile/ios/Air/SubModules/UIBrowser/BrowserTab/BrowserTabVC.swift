@@ -106,22 +106,29 @@ public class BrowserTabVC: WViewController {
                 UINotificationFeedbackGenerator().notificationOccurred(.error)
             }
             
-            var urlString = text
-            if !urlString.contains("://") {
-                urlString = "https://" + urlString
+            var urlString = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !urlString.contains("://") && !urlString.contains(".") {
+                let searchURL = "https://www.google.com/search?q=\(urlString.addingPercentEncoding(withAllowedCharacters: .urlQueryValueAllowed) ?? urlString)"
+                if let url = URL(string: searchURL) {
+                    AppActions.openInBrowser(url)
+                }
+            } else {
+                if !urlString.contains("://") {
+                    urlString = "https://" + urlString
+                }
+                guard let _url = URL(string: urlString), var components = URLComponents(url: _url, resolvingAgainstBaseURL: false) else {
+                    error()
+                    return
+                }
+                if components.scheme == nil {
+                    components.scheme = "https"
+                }
+                guard let url = components.url, url.host(percentEncoded: false)?.contains(".") == true else {
+                    error()
+                    return
+                }
+                AppActions.openInBrowser(url)
             }
-            guard let _url = URL(string: urlString), var components = URLComponents(url: _url, resolvingAgainstBaseURL: false) else {
-                error()
-                return
-            }
-            if components.scheme == nil {
-                components.scheme = "https"
-            }
-            guard let url = components.url, url.host(percentEncoded: false)?.contains(".") == true else {
-                error()
-                return
-            }
-            AppActions.openInBrowser(url)
             view.endEditing(true)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 self.searchBar.text = nil

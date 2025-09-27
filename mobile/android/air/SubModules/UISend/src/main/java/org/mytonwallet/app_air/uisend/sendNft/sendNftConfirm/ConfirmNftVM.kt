@@ -1,5 +1,6 @@
 package org.mytonwallet.app_air.uisend.sendNft.sendNftConfirm
 
+import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uisend.sendNft.sendNftConfirm.ConfirmNftVC.Mode
 import org.mytonwallet.app_air.walletcore.BURN_ADDRESS
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -74,5 +75,18 @@ class ConfirmNftVM(delegate: Delegate) {
                 onSent()
             }
         }
+    }
+
+    fun signNftTransferData(
+        nft: ApiNft,
+        comment: String?
+    ): LedgerConnectVC.SignData.SignNftTransfer {
+        return LedgerConnectVC.SignData.SignNftTransfer(
+            accountId = AccountStore.activeAccountId!!,
+            nft = nft,
+            toAddress = resolvedAddress!!,
+            comment = comment,
+            realFee = feeValue
+        )
     }
 }

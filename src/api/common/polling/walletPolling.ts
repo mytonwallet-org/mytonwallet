@@ -1,5 +1,6 @@
 import type { ApiChain, ApiNetwork } from '../../types';
 import type { WalletWatcher } from '../backendSocket';
+import type { FallbackPollingOptions } from './fallbackPollingScheduler';
 import type { Period } from './utils';
 
 import { getChainConfig } from '../../../util/chain';
@@ -15,19 +16,7 @@ export interface WalletPollingOptions {
   chain: ApiChain;
   network: ApiNetwork;
   address: string;
-  /** Whether an update should be triggerred when the polling object is created */
-  updateOnStart?: boolean;
-  /** The minimum delay between `onUpdate` calls */
-  minUpdateDelay: Period;
-  /**
-   * How much time the fallback polling will start after the socket disconnects.
-   * Also applies at the very beginning (until the socket is connected).
-   */
-  fallbackUpdateStartDelay: Period;
-  /** Update periods when the socket is disconnected */
-  fallbackUpdatePeriod: Period;
-  /** Update periods when the socket is connected but there is no new activity coming */
-  forceUpdatePeriod: Period;
+  pollingOptions: FallbackPollingOptions;
   /**
    * Called whenever the wallet data should be updated.
    * The polling always waits until the returned promise resolves before running this callback again.
@@ -45,7 +34,8 @@ export interface WalletPollingOptions {
  * when the data should be fetched using the plain HTTP API.
  */
 export class WalletPolling {
-  #options: WalletPollingOptions;
+  #minPollDelay: Period;
+  #onUpdate: WalletPollingOptions['onUpdate'];
 
   #walletWatcher?: WalletWatcher;
 
@@ -57,7 +47,9 @@ export class WalletPolling {
   #pendingUpdate?: boolean;
 
   constructor(options: WalletPollingOptions) {
-    this.#options = options;
+    this.#minPollDelay = options.pollingOptions.minPollDelay;
+    this.#onUpdate = options.onUpdate;
+
     const doesSupportSocket = getChainConfig(options.chain).doesBackendSocketSupport;
 
     if (doesSupportSocket) {
@@ -75,14 +67,14 @@ export class WalletPolling {
       );
     }
 
-    this.#fallbackPollingScheduler = new FallbackPollingScheduler(this.#walletWatcher?.isConnected ?? false, {
-      pollOnStart: options.updateOnStart,
-      minPollDelay: options.minUpdateDelay,
-      pollingStartDelay: doesSupportSocket ? options.fallbackUpdateStartDelay : undefined, // If the backend socket doesn't support this chain, the polling should start sooner
-      pollingPeriod: options.fallbackUpdatePeriod,
-      forcedPollingPeriod: options.forceUpdatePeriod,
-      poll: this.#triggerBackupNotifications,
-    });
+    this.#fallbackPollingScheduler = new FallbackPollingScheduler(
+      this.#triggerBackupNotifications,
+      this.#walletWatcher?.isConnected ?? false,
+      {
+        ...options.pollingOptions,
+        pollingStartDelay: doesSupportSocket ? options.pollingOptions.pollingStartDelay : undefined, // If the backend socket doesn't support this chain, the polling should start sooner
+      },
+    );
   }
 
   public destroy() {
@@ -122,9 +114,9 @@ export class WalletPolling {
 
     const isConfident = this.#pendingUpdate;
     this.#pendingUpdate = undefined;
-    await this.#options.onUpdate(isConfident);
+    await this.#onUpdate(isConfident);
   }, () => {
-    const [ms, forceMs] = periodToMs(this.#options.minUpdateDelay);
+    const [ms, forceMs] = periodToMs(this.#minPollDelay);
     return focusAwareDelay(
       ms - UPDATE_CALLBACK_DELAY,
       forceMs - UPDATE_CALLBACK_DELAY,

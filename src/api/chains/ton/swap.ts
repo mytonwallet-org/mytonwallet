@@ -41,7 +41,7 @@ export async function validateDexSwapTransfers(
     toBase64Address(transfers.at(-1)?.toAddress ?? '', false) === SWAP_FEE_ADDRESS
   ) ? transfers.at(-1)! : undefined;
   const mainTransfers = feeTransfer ? transfers.slice(0, -1) : transfers;
-  const maxMessages = getMaxMessagesInTransaction(account, true);
+  const maxMessages = getMaxMessagesInTransaction(account);
   const maxSplits = Math.min(maxMessages - (feeTransfer ? 1 : 0), MAX_SPLITS);
 
   const assert = (condition: boolean, message: string) => {
@@ -61,9 +61,10 @@ export async function validateDexSwapTransfers(
     for (let i = 0; i < mainTransfers.length; i++) {
       const mainTransfer = mainTransfers[i];
       sumAmount += mainTransfer.amount;
-      const { isSwapAllowed, codeHashOld } = contractInfos[mainTransfer.toAddress];
+      const { isSwapAllowed, codeHash } = contractInfos[mainTransfer.toAddress];
       assert(
-        !!isSwapAllowed, `Main transfer ${i + 1}/${mainTransfers.length} is not to a swap contract: ${codeHashOld}`,
+        !!isSwapAllowed,
+        `Main transfer ${i + 1}/${mainTransfers.length} is not to a swap contract: codeHash=${codeHash}`,
       );
     }
 
@@ -76,7 +77,7 @@ export async function validateDexSwapTransfers(
       assert(FEE_ADDRESSES.includes(toBase64Address(feeTransfer.toAddress, false)), 'Unexpected fee transfer address');
     }
   } else {
-    const token = getTokenByAddress(request.from);
+    const token = getTokenByAddress(request.from)!;
     assert(!!token, 'Unknown "from" token');
 
     const maxAmount = fromDecimal(request.fromAmount, token.decimals)
@@ -111,12 +112,12 @@ export async function validateDexSwapTransfers(
       sumTokenAmount += tokenAmount;
       sumTonAmount += mainTransfer.amount;
 
-      const { isSwapAllowed, codeHashOld } = contractInfos[destination];
+      const { isSwapAllowed, codeHash } = contractInfos[destination];
 
       assert(
         isSwapAllowed || FEE_ADDRESSES.includes(toBase64Address(destination, false)),
         `Main transfer ${i + 1}/${mainTransfers.length} destination is not a swap smart contract: `
-        + `${destination}, ${codeHashOld}`,
+        + `${destination}, codeHash=${codeHash}`,
       );
     }
     assert(sumTokenAmount <= maxAmount, 'Main transfers token amount is too big');

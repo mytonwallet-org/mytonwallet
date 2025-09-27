@@ -1,11 +1,11 @@
 package org.mytonwallet.app_air.uitonconnect
 
-import WNavigationController
+import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uitonconnect.viewControllers.connect.TonConnectRequestConnectVC
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.requestSend.TonConnectRequestSendVC
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.helpers.TonConnectHelper
 import org.mytonwallet.app_air.walletcore.models.MAccount

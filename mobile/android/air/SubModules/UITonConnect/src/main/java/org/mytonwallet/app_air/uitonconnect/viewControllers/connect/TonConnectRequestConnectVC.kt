@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.uitonconnect.viewControllers.connect
 
-import WNavigationController
 import android.annotation.SuppressLint
 import android.content.Context
 import android.view.View
@@ -12,6 +11,7 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
+import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -21,10 +21,10 @@ import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.Passco
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.commonViews.ConnectRequestConfirmView
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.commonViews.ConnectRequestView
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
@@ -150,11 +150,9 @@ class TonConnectRequestConnectVC(
 
     private fun confirmHardware() {
         val account = AccountStore.activeAccount!!
-        val ledger = account.ledger ?: return
         val ledgerConnectVC = LedgerConnectVC(
             context,
             LedgerConnectVC.Mode.ConnectToSubmitTransfer(
-                ledger.index,
                 account.tonAddress!!,
                 signData = LedgerConnectVC.SignData.SignLedgerProof(
                     update.promiseId,

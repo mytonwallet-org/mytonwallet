@@ -23,7 +23,7 @@ export async function loadTokensCache() {
 
 export async function updateTokens(
   tokens: ApiTokenWithPrice[],
-  onUpdate?: OnApiUpdate,
+  sendUpdate?: NoneToVoidFunction,
   tokenDetails?: ApiTokenDetails[],
   shouldSendUpdate?: boolean,
 ) {
@@ -56,8 +56,8 @@ export async function updateTokens(
 
   await tokenRepository.bulkPut(tokensForDb);
 
-  if (shouldSendUpdate && onUpdate) {
-    sendUpdateTokens(onUpdate);
+  if (shouldSendUpdate && sendUpdate) {
+    sendUpdate();
   }
 }
 
@@ -94,7 +94,7 @@ export function getTokenBySlug(slug: string): ApiTokenWithPrice | undefined {
 }
 
 export function getTokenByAddress(tokenAddress: string) {
-  return getTokenBySlug(buildTokenSlug('ton', tokenAddress))!;
+  return getTokenBySlug(buildTokenSlug('ton', tokenAddress));
 }
 
 export function sendUpdateTokens(onUpdate: OnApiUpdate) {

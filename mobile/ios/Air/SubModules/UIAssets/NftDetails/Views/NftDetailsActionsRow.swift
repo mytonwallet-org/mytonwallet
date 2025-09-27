@@ -107,11 +107,11 @@ struct NftDetailsActionsRow: View {
                 ScrollableMenuContent {
                     VStack(spacing: 0) {
                         DividedVStack {
-                            WMenuButton(id: "0-hide", title: "Hide", trailingIcon: "MenuHide26") {
+                            WMenuButton(id: "0-hide", title: lang("Hide"), trailingIcon: "MenuHide26") {
                                 NftStore.setHiddenByUser(accountId: AccountStore.accountId ?? "", nftId: viewModel.nft.id, isHidden: true)
                                 moreMenu.dismiss()
                             }
-                            WMenuButton(id: "0-burn", title: "Burn", trailingIcon: "MenuBrush26") {
+                            WMenuButton(id: "0-burn", title: lang("Burn"), trailingIcon: "MenuBrush26") {
                                 AppActions.showSend(prefilledValues: .init(nfts: [viewModel.nft], nftSendMode: .burn))
                                 moreMenu.dismiss()
                             }

@@ -33,8 +33,12 @@ extension Api {
     }
     
     /// - Important: Do not call this method directly, use **AccountStore** instead
-    internal static func importLedgerWallet(network: ApiNetwork, walletInfo: LedgerWalletInfo) async throws -> ApiImportLedgerWalletResult {
-        try await bridge.callApi("importLedgerWallet", network, walletInfo, decoding: ApiImportLedgerWalletResult.self)
+    internal static func importLedgerAccount(network: ApiNetwork, accountInfo: ApiLedgerAccountInfo) async throws -> ApiAddWalletResult {
+        try await bridge.callApi("importLedgerAccount", network, accountInfo, decoding: ApiAddWalletResult.self)
+    }
+
+    public static func getLedgerWallets(chain: ApiChain, network: ApiNetwork, startWalletIndex: Int, count: Int) async throws -> [ApiLedgerWalletInfo] {
+        try await bridge.callApi("getLedgerWallets", chain, network, startWalletIndex, count, decoding: [ApiLedgerWalletInfo].self)
     }
     
     /// - Important: Do not call this methods directly, use **AccountStore** instead
@@ -74,12 +78,6 @@ public struct ApiAddWalletResult: Decodable, Sendable {
     public var byChain: [String: AccountChain]
 }
 
-public struct ApiImportLedgerWalletResult: Decodable, Sendable {
-    public var accountId: String
-    public var address: String
-    public var walletInfo: LedgerWalletInfo
-}
-
 public typealias ApiImportAddressByChain = [String: String]
 
 public struct ApiImportViewAccountResult: Decodable, Sendable {
@@ -92,5 +90,10 @@ public struct ApiImportNewWalletVersionResult: Decodable, Sendable {
     public var isNew: Bool
     public var accountId: String
     public var address: String?
-    public var ledger: MAccount.Ledger?
+    public var ledger: Ledger?
+    
+    public struct Ledger: Equatable, Hashable, Decodable, Sendable {
+        public var index: Int
+        public var driver: ApiLedgerDriver
+    }
 }

@@ -6,21 +6,14 @@ import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.app.Activity;
 import android.content.Intent;
-import android.content.res.Configuration;
-import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
 import android.view.View;
-import android.view.Window;
-import android.view.WindowManager;
 
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.splashscreen.SplashScreen;
-import androidx.core.view.WindowCompat;
-import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
 
 import org.mytonwallet.plugins.air_app_launcher.airLauncher.AirLauncher;
@@ -32,30 +25,23 @@ import org.mytonwallet.plugins.air_app_launcher.airLauncher.LaunchConfig;
     - Only passes deeplink data into active activity and finishes itself if any activities are already open.
     - Plays splash-screen for MTW Air (This flow may be enhanced later)
  */
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends BaseActivity {
   private final int DELAY = 300;
   private boolean keep = true;
 
   @Override
-  protected void onCreate(Bundle savedInstanceState) {
+  public void onCreate(Bundle savedInstanceState) {
     Log.i("MTWAirApplication", "Main Activity Created");
     super.onCreate(savedInstanceState);
-    getApplication().setTheme(R.style.AppTheme_NoActionBar);
-    setTheme(R.style.AppTheme_NoActionBar);
-
-    int backgroundColor;
-    int currentNightMode = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
-    if (currentNightMode == Configuration.UI_MODE_NIGHT_YES) {
-      backgroundColor = 0xFF242426;
-    } else {
-      backgroundColor = 0xFFFFFFFF;
-    }
-    getWindow().getDecorView().setBackgroundColor(backgroundColor);
 
     Activity activity = this;
     boolean shouldStartOnAir = LaunchConfig.shouldStartOnAir(activity);
 
+    AirLauncher airLauncher = AirLauncher.getInstance();
     if (!shouldStartOnAir) {
+      if (airLauncher != null) {
+        airLauncher.switchingToClassic();
+      }
       // Open LegacyActivity and pass all the data there
       Intent intent = new Intent(activity, LegacyActivity.class);
       intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -70,7 +56,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // Do not let MainActivity open again if MTW Air is already on, just pass deeplink to handle, if required.
-    AirLauncher airLauncher = AirLauncher.getInstance();
     if (airLauncher != null && airLauncher.getIsOnTheAir()) {
       airLauncher.handle(getIntent());
       finish();
@@ -124,38 +109,6 @@ public class MainActivity extends AppCompatActivity {
     Log.i("MTWAirApplication", "Splash animation ended");
     updateStatusBarStyle();
     AirLauncher.getInstance().soarIntoAir(this, false);
-  }
-
-  private void makeStatusBarTransparent() {
-    Window window = getWindow();
-    View decorView = window.getDecorView();
-    decorView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
-    window.setStatusBarColor(android.graphics.Color.TRANSPARENT);
-  }
-
-  private void makeNavigationBarTransparent() {
-    Window window = getWindow();
-
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-      WindowCompat.setDecorFitsSystemWindows(window, false);
-      window.setNavigationBarColor(Color.TRANSPARENT);
-      window.setNavigationBarContrastEnforced(false);
-    } else {
-      window.setFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS, WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
-    }
-  }
-
-  private void updateStatusBarStyle() {
-    String style = ((MTWApplication) getApplicationContext()).getCurrentStatusBar();
-    if (style == null || style.equals("DEFAULT"))
-      return;
-
-    Window window = getWindow();
-    View decorView = window.getDecorView();
-
-    WindowInsetsControllerCompat windowInsetsControllerCompat = WindowCompat.getInsetsController(window, decorView);
-    windowInsetsControllerCompat.setAppearanceLightStatusBars(!style.equals("DARK"));
-    windowInsetsControllerCompat.setAppearanceLightNavigationBars(!style.equals("DARK"));
   }
 
   @Override

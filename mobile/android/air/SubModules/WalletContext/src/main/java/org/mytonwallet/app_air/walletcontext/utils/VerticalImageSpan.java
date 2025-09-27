@@ -9,6 +9,8 @@ import android.text.style.ImageSpan;
 public class VerticalImageSpan extends ImageSpan {
 
     private boolean shouldFlipForRTL = false;
+    private int startPadding = 0;
+    private int endPadding = 0;
 
     public VerticalImageSpan(Drawable drawable) {
         super(drawable);
@@ -17,6 +19,19 @@ public class VerticalImageSpan extends ImageSpan {
     public VerticalImageSpan(Drawable drawable, boolean isRTL) {
         super(drawable);
         this.shouldFlipForRTL = isRTL;
+    }
+
+    public VerticalImageSpan(Drawable drawable, int startPadding, int endPadding) {
+        super(drawable);
+        this.startPadding = startPadding;
+        this.endPadding = endPadding;
+    }
+
+    public VerticalImageSpan(Drawable drawable, boolean isRTL, int startPadding, int endPadding) {
+        super(drawable);
+        this.shouldFlipForRTL = isRTL;
+        this.startPadding = startPadding;
+        this.endPadding = endPadding;
     }
 
     /**
@@ -38,7 +53,7 @@ public class VerticalImageSpan extends ImageSpan {
             fontMetricsInt.bottom = centerY + drHeight / 2;
             fontMetricsInt.descent = fontMetricsInt.bottom;
         }
-        return rect.right;
+        return rect.right + startPadding + endPadding;
     }
 
     /**
@@ -64,7 +79,7 @@ public class VerticalImageSpan extends ImageSpan {
         int fontHeight = fmPaint.descent - fmPaint.ascent;
         int centerY = y + fmPaint.descent - fontHeight / 2;
         int transY = centerY - (drawable.getBounds().bottom - drawable.getBounds().top) / 2;
-        canvas.translate(x, transY);
+        canvas.translate(x + startPadding, transY);
 
         if (shouldFlipForRTL) {
             int drawableWidth = drawable.getBounds().width();

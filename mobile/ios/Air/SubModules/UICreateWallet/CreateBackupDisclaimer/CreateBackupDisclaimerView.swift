@@ -49,6 +49,7 @@ struct CreateBackupDisclaimerView: View {
                 .font(.system(size: 28, weight: .semibold))
         }
         .padding(.horizontal, 16)
+        .multilineTextAlignment(.center)
     }
     
     @ViewBuilder
@@ -113,7 +114,7 @@ private struct StepView: View {
         InsetSection {
             InsetButtonCell(verticalPadding: 12, action: onTap) {
                 HStack(spacing: 20) {
-                    Checkmark(isOn: .constant(isCompleted))
+                    Checkmark(isOn: isCompleted)
                         .padding(.leading, 4)
                         .allowsHitTesting(false) // handled by button
                     Text(text)

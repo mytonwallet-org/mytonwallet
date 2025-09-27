@@ -1,38 +1,14 @@
 import type { ApiChain, ApiNft } from '../api/types';
+import type { LangCode } from '../global/types';
 
-import { EMPTY_HASH_VALUE, MTW_CARDS_BASE_URL } from '../config';
+import { EMPTY_HASH_VALUE, MTW_CARDS_BASE_URL, MYTONWALLET_BLOG } from '../config';
 import { base64ToHex } from './base64toHex';
+import { getChainConfig } from './chain';
 import { logDebugError } from './logs';
 
 // Regexp from https://stackoverflow.com/a/3809435
 const URL_REGEX = /[-a-z0-9@:%._+~#=]{1,256}\.[a-z0-9()]{1,6}\b([-a-z0-9()@:%_+.~#?&/=]*)/gi;
 const VALID_PROTOCOLS = new Set(['http:', 'https:']);
-
-// The configuration does not contain data for NFT addresses, they must be configured separately
-const EXPLORER_CONFIGURATIONS = {
-  ton: {
-    name: 'Tonscan',
-    base: {
-      mainnet: 'https://tonscan.org/',
-      testnet: 'https://testnet.tonscan.org/',
-    },
-    address: '{base}address/{address}',
-    explorer: '{base}jetton/{address}',
-    transaction: '{base}tx/{hash}',
-    doConvertHashFromBase64: true,
-  },
-  tron: {
-    name: 'Tronscan',
-    base: {
-      mainnet: 'https://tronscan.org/#/',
-      testnet: 'https://shasta.tronscan.org/#/',
-    },
-    address: '{base}address/{address}',
-    explorer: '{base}token20/{address}',
-    transaction: '{base}transaction/{hash}',
-    doConvertHashFromBase64: false,
-  },
-};
 
 export function isValidUrl(url: string, validProtocols = VALID_PROTOCOLS) {
   try {
@@ -60,15 +36,15 @@ export function getHostnameFromUrl(url: string) {
 }
 
 export function getExplorerName(chain: ApiChain) {
-  return EXPLORER_CONFIGURATIONS[chain].name;
+  return getChainConfig(chain).explorer.name;
 }
 
 function getExplorerBaseUrl(chain: ApiChain, isTestnet = false) {
-  return EXPLORER_CONFIGURATIONS[chain].base[isTestnet ? 'testnet' : 'mainnet'];
+  return getChainConfig(chain).explorer.baseUrl[isTestnet ? 'testnet' : 'mainnet'];
 }
 
 function getTokenExplorerBaseUrl(chain: ApiChain, isTestnet = false) {
-  return EXPLORER_CONFIGURATIONS[chain].explorer.replace('{base}', getExplorerBaseUrl(chain, isTestnet));
+  return getChainConfig(chain).explorer.token.replace('{base}', getExplorerBaseUrl(chain, isTestnet));
 }
 
 export function getExplorerTransactionUrl(
@@ -78,7 +54,7 @@ export function getExplorerTransactionUrl(
 ) {
   if (!transactionHash || transactionHash === EMPTY_HASH_VALUE) return undefined;
 
-  const config = EXPLORER_CONFIGURATIONS[chain];
+  const config = getChainConfig(chain).explorer;
 
   return config.transaction
     .replace('{base}', getExplorerBaseUrl(chain, isTestnet))
@@ -88,7 +64,7 @@ export function getExplorerTransactionUrl(
 export function getExplorerAddressUrl(chain: ApiChain, address?: string, isTestnet?: boolean) {
   if (!address) return undefined;
 
-  return EXPLORER_CONFIGURATIONS[chain].address
+  return getChainConfig(chain).explorer.address
     .replace('{base}', getExplorerBaseUrl(chain, isTestnet))
     .replace('{address}', address);
 }
@@ -119,4 +95,8 @@ export function isTelegramUrl(url: string) {
 
 export function getCardNftImageUrl(nft: ApiNft): string | undefined {
   return `${MTW_CARDS_BASE_URL}${nft.metadata.mtwCardId}.webp`;
+}
+
+export function getBlogUrl(lang: LangCode): string {
+  return MYTONWALLET_BLOG[lang] || MYTONWALLET_BLOG.en!;
 }

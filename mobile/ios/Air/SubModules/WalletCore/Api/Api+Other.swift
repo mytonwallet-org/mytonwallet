@@ -27,8 +27,12 @@ extension Api {
         try await bridge.callApi("ping", decoding: Bool.self)
     }
     
-    public static func getMoonpayOnrampUrl(chain: ApiChain, address: String, activeTheme: ResolvedTheme) async throws -> MoonpayOnrampResult {
-        try await bridge.callApi("getMoonpayOnrampUrl", chain, address, activeTheme, decoding: MoonpayOnrampResult.self)
+    public static func getMoonpayOnrampUrl(chain: ApiChain, address: String, activeTheme: ResolvedTheme, selectedCurrency: MBaseCurrency) async throws -> MoonpayOnrampResult {
+        try await bridge.callApi("getMoonpayOnrampUrl", chain, address, activeTheme, selectedCurrency, decoding: MoonpayOnrampResult.self)
+    }
+
+    public static func waitForLedgerApp(chain: ApiChain, options: WaitForLedgerAppOptions?) async throws -> Bool {
+            try await bridge.callApi("waitForLedgerApp", chain, options, decoding: Bool.self)
     }
 }
 
@@ -36,4 +40,9 @@ extension Api {
 
 public struct MoonpayOnrampResult: Decodable {
     public var url: String
+}
+
+public struct WaitForLedgerAppOptions: Encodable {
+    public var timeout: Int?
+    public var attemptPause: Int?
 }

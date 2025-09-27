@@ -7,10 +7,9 @@ import useLang from '../../hooks/useLang';
 
 import SecretWordsList from '../common/backup/SecretWordsList';
 import Button from '../ui/Button';
-import ModalHeader from '../ui/ModalHeader';
+import Header from './Header';
 
 import modalStyles from '../ui/Modal.module.scss';
-import styles from './Auth.module.scss';
 
 type OwnProps = {
   isActive?: boolean;
@@ -32,8 +31,13 @@ function MnemonicList({
 
   return (
     <div className={modalStyles.transitionContentWrapper}>
-      <ModalHeader title={lang('%1$d Secret Words', wordsCount) as string} onClose={onClose} />
-      <div className={buildClassName(styles.mnemonicContainer, modalStyles.transitionContent, 'custom-scroll')}>
+      <Header
+        isActive={isActive}
+        title={lang('%1$d Secret Words', wordsCount) as string}
+        onBackClick={onClose}
+      />
+
+      <div className={buildClassName(modalStyles.transitionContent, 'custom-scroll')}>
         <SecretWordsList mnemonic={mnemonic} />
         {onNext && (
           <div className={modalStyles.buttons}>

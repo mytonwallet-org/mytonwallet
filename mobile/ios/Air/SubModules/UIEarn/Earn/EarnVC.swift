@@ -230,12 +230,18 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
     
     func stakeUnstakePressed(isStake: Bool) {
         if let stakingState = earnVM.stakingState {
-            let vc = if isStake {
-                AddStakeVC(config: config, stakingState: stakingState)
+            if isStake {
+                let vc = AddStakeVC(config: config, stakingState: stakingState)
+                navigationController?.pushViewController(vc, animated: true)
+
             } else {
-                UnstakeVC(config: config, stakingState: stakingState)
+                if let readyToUnstakeAmount = config.readyToUnstakeAmount {
+                    claimRewardsViewModel.onClaim()
+                } else {
+                    let vc = UnstakeVC(config: config, stakingState: stakingState)
+                    navigationController?.pushViewController(vc, animated: true)
+                }
             }
-            navigationController?.pushViewController(vc, animated: true)
         }
     }
     

@@ -2,7 +2,7 @@ package org.mytonwallet.app_air.uistake.earn.models
 
 import androidx.annotation.DrawableRes
 import org.mytonwallet.app_air.uicomponents.R
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcontext.utils.WEquatable
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import java.math.BigInteger

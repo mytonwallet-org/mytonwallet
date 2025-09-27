@@ -1,13 +1,13 @@
 import type { ApiChain, ApiToken, ApiTokenWithPrice } from '../api/types';
 import type { UserToken } from '../global/types';
 
-import { CHAIN_CONFIG, PRICELESS_TOKEN_HASHES, STAKED_TOKEN_SLUGS, TONCOIN } from '../config';
-import { getChainConfig } from './chain';
+import { PRICELESS_TOKEN_HASHES, STAKED_TOKEN_SLUGS, TONCOIN } from '../config';
+import { findChainConfig, getChainConfig, getSupportedChains } from './chain';
 import { pick } from './iteratees';
 
 const chainByNativeSlug = Object.fromEntries(
-  Object.entries(CHAIN_CONFIG).map(([chain, { nativeToken }]) => [nativeToken.slug, chain]),
-) as Record<string, ApiChain>;
+  getSupportedChains().map((chain) => [getNativeToken(chain).slug, chain]),
+);
 
 export function getIsNativeToken(slug?: string) {
   return slug ? slug in chainByNativeSlug : false;
@@ -19,6 +19,10 @@ export function getIsTonToken(slug: string, withNative?: boolean) {
 
 export function getNativeToken(chain: ApiChain): ApiToken {
   return getChainConfig(chain).nativeToken;
+}
+
+export function findNativeToken(chain: string | undefined): ApiToken | undefined {
+  return findChainConfig(chain)?.nativeToken;
 }
 
 export function getChainBySlug(slug: string) {

@@ -6,51 +6,50 @@ import type {
   ApiNftUpdate,
   ApiStakingState,
   ApiTonWallet,
-  ApiUpdatingStatus,
   ApiVestingInfo,
   ApiWalletWithVersionInfo,
   OnApiUpdate,
+  OnUpdatingStatusChange,
 } from '../../types';
 
-import {
-  IS_CORE_WALLET,
-  IS_STAKING_DISABLED,
-  LEDGER_WALLET_VERSIONS,
-  POPULAR_WALLET_VERSIONS,
-  TONCOIN,
-} from '../../../config';
+import { IS_CORE_WALLET, IS_STAKING_DISABLED, POPULAR_WALLET_VERSIONS, TONCOIN } from '../../../config';
 import { parseAccountId } from '../../../util/account';
 import { getActivityTokenSlugs } from '../../../util/activities';
 import { areDeepEqual } from '../../../util/areDeepEqual';
-import Deferred from '../../../util/Deferred';
 import { focusAwareDelay } from '../../../util/focusAwareDelay';
 import { compact, pick } from '../../../util/iteratees';
 import { logDebugError } from '../../../util/logs';
 import { pause, throttle } from '../../../util/schedulers';
 import { fetchStoredAccount, fetchStoredWallet, updateStoredWallet } from '../../common/accounts';
 import { getBackendConfigCache, getStakingCommonCache } from '../../common/cache';
-import { setupInactiveChainPolling } from '../../common/polling/setupInactiveChainPolling';
-import { periodToMs, pollingLoop, withDoubleCheck } from '../../common/polling/utils';
+import { getConcurrencyLimiter } from '../../common/polling/setupInactiveChainPolling';
+import {
+  activeWalletTiming,
+  inactiveWalletTiming,
+  periodToMs,
+  pollingLoop,
+  withDoubleCheck,
+} from '../../common/polling/utils';
 import { swapReplaceCexActivities } from '../../common/swap';
+import { sendUpdateTokens } from '../../common/tokens';
 import { txCallbacks } from '../../common/txCallbacks';
 import { hexToBytes } from '../../common/utils';
 import { FIRST_TRANSACTIONS_LIMIT, MINUTE, SEC } from '../../constants';
 import { fetchActivitySlice } from './activities';
 import { getWalletFromAddress } from './auth';
+import { BalanceStream } from './balanceStream';
+import { LEDGER_WALLET_VERSIONS } from './constants';
 import { fetchDomains } from './domains';
 import { getAccountNfts, getNftUpdates } from './nfts';
 import { RichActivityStream } from './richActivityStream';
 import { getBackendStakingState, getStakingStates } from './staking';
-import { loadTokenBalances } from './tokens';
 import { ActivityStream } from './toncenter';
 import { fetchVestings } from './vesting';
 import { getWalletInfo, getWalletVersionInfos, isAddressInitialized } from './wallet';
 
-type OnUpdatingStatusChange = (kind: ApiUpdatingStatus['kind'], isUpdating: boolean) => void;
-
 const POLL_DELAY_AFTER_SOCKET = 3 * SEC;
 const POLL_MIN_INTERVAL = { focused: 2 * SEC, notFocused: 10 * SEC };
-const BALANCE_INTERVAL = { focused: MINUTE, notFocused: 5 * MINUTE };
+const DOMAIN_INTERVAL = { focused: MINUTE, notFocused: 5 * MINUTE };
 const INITIALIZATION_INTERVAL = { focused: MINUTE, notFocused: 5 * MINUTE };
 const STAKING_INTERVAL = { focused: 5 * SEC, notFocused: 20 * SEC };
 const VERSIONS_INTERVAL = { focused: 5 * MINUTE, notFocused: 15 * MINUTE };
@@ -67,8 +66,10 @@ export function setupActivePolling(
   onUpdatingStatusChange: OnUpdatingStatusChange,
   newestActivityTimestamps: ApiActivityTimestamps,
 ): NoneToVoidFunction {
-  const balanceAndDomainPolling = setupBalanceAndDomainPolling(
+  const balancePolling = setupBalancePolling(
     accountId,
+    account.byChain.ton.address,
+    true,
     onUpdate,
     onUpdatingStatusChange.bind(undefined, 'balance'),
   );
@@ -80,11 +81,12 @@ export function setupActivePolling(
     onUpdate,
     onUpdatingStatusChange.bind(undefined, 'activities'),
   );
+  const domainPolling = setupDomainPolling(accountId, account.byChain.ton.address, onUpdate);
   const nftPolling = setupNftPolling(accountId, onUpdate);
   const walletInitializationPolling = setupWalletInitializationPolling(accountId);
   const stopWalletVersionPolling = setupWalletVersionsPolling(accountId, onUpdate);
   const stopTonDnsPolling = setupTonDnsPolling(accountId, onUpdate);
-  const stopStakingPolling = setupStakingPolling(accountId, balanceAndDomainPolling.getBalances, onUpdate);
+  const stopStakingPolling = setupStakingPolling(accountId, balancePolling.getBalances, onUpdate);
   const stopVestingPolling = setupVestingPolling(accountId, onUpdate);
 
   async function handleWalletUpdate() {
@@ -94,14 +96,15 @@ export function setupActivePolling(
     await pause(POLL_DELAY_AFTER_SOCKET);
 
     // These data change only when the wallet gets new activities. The other pollings don't depend on the wallet content.
-    balanceAndDomainPolling.poll();
+    domainPolling.poll();
     nftPolling.poll();
     walletInitializationPolling.poll();
   }
 
   return () => {
-    balanceAndDomainPolling.stop();
+    balancePolling.stop();
     stopActivityPolling();
+    domainPolling.stop();
     nftPolling.stop();
     stopWalletVersionPolling();
     stopTonDnsPolling();
@@ -110,97 +113,44 @@ export function setupActivePolling(
   };
 }
 
-function setupBalanceAndDomainPolling(
+function setupBalancePolling(
   accountId: string,
-  onUpdate: OnApiUpdate,
-  onUpdatingStatusChange?: (isUpdating: boolean) => void,
-) {
-  const balanceUpdater = makeBalanceAndDomainUpdater(accountId, onUpdate, onUpdatingStatusChange);
-
-  const polling = pollingLoop({
-    period: BALANCE_INTERVAL,
-    minDelay: POLL_MIN_INTERVAL,
-    poll: balanceUpdater.update,
-  });
-
-  return {
-    ...polling,
-    getBalances: balanceUpdater.get,
-  };
-}
-
-function makeBalanceAndDomainUpdater(
-  accountId: string,
+  address: string,
+  isActive: boolean,
   onUpdate: OnApiUpdate,
   onUpdatingStatusChange?: (isUpdating: boolean) => void,
 ) {
   const { network } = parseAccountId(accountId);
-  let balances: ApiBalanceBySlug | undefined;
-  let balancesDeferred = new Deferred();
-  let lastDomain: string | false | undefined; // Undefined means unknown, false means no domain
 
-  async function get() {
-    await balancesDeferred.promise;
-    return balances!;
+  const balanceStream = new BalanceStream(
+    network,
+    address,
+    () => sendUpdateTokens(onUpdate),
+    isActive ? activeWalletTiming : inactiveWalletTiming,
+    isActive ? undefined : getConcurrencyLimiter('ton', network),
+  );
+
+  balanceStream.onUpdate((balances) => {
+    onUpdate({
+      type: 'updateBalances',
+      accountId,
+      chain: 'ton',
+      balances,
+    });
+  });
+
+  if (onUpdatingStatusChange) {
+    balanceStream.onLoadingChange(onUpdatingStatusChange);
   }
 
-  async function update() {
-    onUpdatingStatusChange?.(true);
-
-    try {
-      const wallet = await fetchStoredWallet(accountId, 'ton');
-      const [tonBalance, tokenBalances] = await Promise.all([
-        getTonBalanceAndCheckDomain(wallet.address),
-        loadTokenBalances(network, wallet.address, onUpdate),
-      ]);
-
-      const newBalances = {
-        [TONCOIN.slug]: tonBalance,
-        ...tokenBalances,
-      };
-      const hasChanged = !areDeepEqual(balances, newBalances);
-      balances = newBalances;
-
-      if (hasChanged) {
-        onUpdate({
-          type: 'updateBalances',
-          accountId,
-          chain: 'ton',
-          balances,
-        });
-      }
-
-      balancesDeferred.resolve();
-    } catch (err) {
-      logDebugError('setupBalanceAndDomainPolling update', err);
-
-      // It's important to reject the deferred instead of keeping it unsettled, because otherwise the main polling cycle
-      // will stuck and never retry. Creating a new deferred gives the `getBalances` callers another chance on retry.
-      balancesDeferred.reject(err);
-      balancesDeferred = new Deferred();
-    } finally {
-      onUpdatingStatusChange?.(false);
-    }
-  }
-
-  async function getTonBalanceAndCheckDomain(address: string) {
-    // Getting the balance and the domain go together, only because they arrive from the same endpoint
-    const { balance, domain = false } = await getWalletInfo(network, address);
-
-    if (domain !== lastDomain) {
-      onUpdate({
-        type: 'updateAccount',
-        accountId,
-        chain: 'ton',
-        domain,
-      });
-      lastDomain = domain;
-    }
-
-    return balance;
-  }
-
-  return { get, update };
+  return {
+    stop() {
+      balanceStream.destroy();
+    },
+    getBalances() {
+      return balanceStream.getBalances();
+    },
+  };
 }
 
 // A good address for testing: UQD5mxRgCuRNLxKxeOjG6r14iSroLF5FtomPnet-sgP5xI-e
@@ -264,8 +214,11 @@ function setupActivityPolling(
       parseAccountId(accountId).network,
       address,
       newestConfirmedActivityTimestamp,
-      // If the initial activities are loaded, the polling on start is excessive
-      !doesNeedInitial,
+      {
+        ...activeWalletTiming,
+        // If the initial activities are loaded, the polling on start is excessive
+        pollOnStart: !doesNeedInitial,
+      },
     );
 
     richActivityStream = new RichActivityStream(accountId, rawActivityStream);
@@ -280,6 +233,33 @@ function setupActivityPolling(
     richActivityStream?.destroy();
     rawActivityStream?.destroy();
   };
+}
+
+function setupDomainPolling(accountId: string, address: string, onUpdate: OnApiUpdate) {
+  const { network } = parseAccountId(accountId);
+  let domain: string | false | undefined; // Undefined means unknown, false means no domain
+
+  return pollingLoop({
+    period: DOMAIN_INTERVAL,
+    minDelay: POLL_MIN_INTERVAL,
+    async poll() {
+      try {
+        const { domain: newDomain = false } = await getWalletInfo(network, address);
+
+        if (newDomain !== domain) {
+          onUpdate({
+            type: 'updateAccount',
+            accountId,
+            chain: 'ton',
+            domain,
+          });
+          domain = newDomain;
+        }
+      } catch (err) {
+        logDebugError('setupDomainPolling', err);
+      }
+    },
+  });
 }
 
 function setupNftPolling(accountId: string, onUpdate: OnApiUpdate) {
@@ -438,7 +418,11 @@ function setupWalletVersionsPolling(accountId: string, onUpdate: OnApiUpdate) {
         }
 
         const publicKeyBytes = hexToBytes(publicKey);
-        let versions = (accountType === 'ledger' ? LEDGER_WALLET_VERSIONS : POPULAR_WALLET_VERSIONS)
+        let versions = (
+          accountType === 'ledger'
+            ? Object.keys(LEDGER_WALLET_VERSIONS) as (keyof typeof LEDGER_WALLET_VERSIONS)[]
+            : POPULAR_WALLET_VERSIONS
+        )
           .filter((value) => value !== version);
 
         // For W5 wallets, always include W5 to show subwallet ID variants for testnet
@@ -543,12 +527,8 @@ export function setupInactivePolling(
   account: ApiAccountWithChain<'ton'>,
   onUpdate: OnApiUpdate,
 ): NoneToVoidFunction {
-  const { network } = parseAccountId(accountId);
-  const { address } = account.byChain.ton;
-
-  const balanceUpdater = makeBalanceAndDomainUpdater(accountId, onUpdate);
-
-  return setupInactiveChainPolling('ton', network, address, balanceUpdater.update);
+  const balancePolling = setupBalancePolling(accountId, account.byChain.ton.address, false, onUpdate);
+  return balancePolling.stop;
 }
 
 function setupWalletInitializationPolling(accountId: string) {

@@ -1,8 +1,8 @@
 import type { ApiNetwork } from '../../../types';
 import type { AccountState, AddressBook, AnyAction, MetadataMap, TraceDetail, Transaction } from './types';
 
-import { TONCENTER_MAINNET_URL, TONCENTER_TESTNET_URL } from '../../../../config';
 import { fetchWithRetry } from '../../../../util/fetch';
+import { NETWORK_CONFIG } from '../constants';
 import { getToncenterHeaders } from './other';
 
 export type EmulationResponse = {
@@ -17,7 +17,7 @@ export type EmulationResponse = {
 };
 
 export async function fetchEmulateTrace(network: ApiNetwork, boc: string): Promise<EmulationResponse> {
-  const baseUrl = network === 'testnet' ? TONCENTER_TESTNET_URL : TONCENTER_MAINNET_URL;
+  const baseUrl = NETWORK_CONFIG[network].toncenterUrl;
 
   const response = await fetchWithRetry(`${baseUrl}/api/emulate/v1/emulateTrace`, {
     method: 'POST',

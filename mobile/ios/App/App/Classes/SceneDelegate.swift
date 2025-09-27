@@ -11,6 +11,7 @@ import UIComponents
 import WalletCore
 import WalletContext
 import Capacitor
+import WidgetKit
 
 private let log = Log("SceneDelegate")
 
@@ -40,11 +41,15 @@ final class SceneDelegate: UIResponder, UISceneDelegate {
         } else if let urlContext = connectionOptions.urlContexts.first {
             handleUrl(urlContext.url)
         }
+        
+        WidgetCenter.shared.reloadAllTimelines()
     }
     
     func sceneWillResignActive(_ scene: UIScene) {
         log.info("sceneWillResignActive")
         AirLauncher.willResignActive()
+        
+        WidgetCenter.shared.reloadAllTimelines()
     }
     
     func scene(_ scene: UIScene, openURLContexts urlContexts: Set<UIOpenURLContext>) {

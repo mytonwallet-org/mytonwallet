@@ -55,6 +55,7 @@ import {
   TONCOIN,
 } from '../../../../config';
 import { buildTxId, parseTxId } from '../../../../util/activities';
+import { sortActivities } from '../../../../util/activities/order';
 import { toMilliseconds, toSeconds } from '../../../../util/datetime';
 import { toDecimal } from '../../../../util/decimals';
 import { getDnsDomainZone } from '../../../../util/dns';
@@ -119,6 +120,9 @@ type FetchActionsOptions = {
   excludeTypes?: AnyAction['type'][];
 };
 
+/**
+ * Fetches actions, parses them, sorts according to our rules and makes sure there are no duplicates.
+ */
 export async function fetchActions(options: FetchActionsOptions): Promise<ApiActivity[]> {
   const {
     network, filter, limit, toTimestamp, fromTimestamp,
@@ -146,7 +150,7 @@ export async function fetchActions(options: FetchActionsOptions): Promise<ApiAct
   } = await callToncenterV3<ActionsResponse>(network, '/actions', data);
   const nftSuperCollectionsByCollectionAddress = await getNftSuperCollectionsByCollectionAddress();
 
-  return parseActions(
+  const activities = parseActions(
     network,
     walletAddress,
     rawActions,
@@ -154,6 +158,10 @@ export async function fetchActions(options: FetchActionsOptions): Promise<ApiAct
     metadata,
     nftSuperCollectionsByCollectionAddress,
   );
+
+  // Even though the activities returned by Toncenter are sorted by timestamp, our sorting may differ.
+  // It's important to enforce our sorting, because otherwise `mergeSortedActivities` may leave duplicates.
+  return sortActivities(activities);
 }
 
 export async function fetchPendingActions(network: ApiNetwork, address: string): Promise<ApiActivity[]> {

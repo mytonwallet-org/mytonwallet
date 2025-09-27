@@ -17,6 +17,7 @@ class AssetsVM(val collectionMode: AssetsVC.CollectionMode?, delegate: Delegate)
     private val delegate: WeakReference<Delegate> = WeakReference(delegate)
 
     internal var nfts: MutableList<ApiNft>? = null
+    var isInDragMode = false
 
     fun delegateIsReady() {
         WalletCore.registerObserver(this)
@@ -34,22 +35,53 @@ class AssetsVM(val collectionMode: AssetsVC.CollectionMode?, delegate: Delegate)
         }
     }
 
-    private fun updateNftsArray() {
-        nfts = NftStore.nftData?.cachedNfts?.filter {
-            !it.shouldHide() && when (collectionMode) {
-                is AssetsVC.CollectionMode.SingleCollection -> {
-                    it.collectionAddress == collectionMode.collection.address
-                }
+    fun updateNftsArray(keepOrder: Boolean = true): Boolean {
+        val oldNfts = nfts?.toList()
 
-                is AssetsVC.CollectionMode.TelegramGifts -> {
-                    it.isTelegramGift == true
-                }
+        if (keepOrder && isInDragMode && cachedNftsToSave != null) {
+            val oldOrder =
+                cachedNftsToSave!!.mapIndexed { index, nft -> nft.address to index }.toMap()
 
-                else -> {
-                    true
+            val updated = NftStore.nftData?.cachedNfts?.filter {
+                !it.shouldHide() && when (collectionMode) {
+                    is AssetsVC.CollectionMode.SingleCollection -> {
+                        it.collectionAddress == collectionMode.collection.address
+                    }
+
+                    is AssetsVC.CollectionMode.TelegramGifts -> {
+                        it.isTelegramGift == true
+                    }
+
+                    else -> true
                 }
-            }
-        }?.toMutableList()
+            } ?: emptyList()
+
+            cachedNftsToSave = NftStore.nftData?.cachedNfts?.sortedWith(
+                compareBy { oldOrder[it.address] ?: Int.MAX_VALUE }
+            )?.toMutableList()
+            nfts = updated.sortedWith(
+                compareBy { oldOrder[it.address] ?: Int.MAX_VALUE }
+            ).toMutableList()
+        } else {
+            nfts = NftStore.nftData?.cachedNfts?.filter {
+                !it.shouldHide() && when (collectionMode) {
+                    is AssetsVC.CollectionMode.SingleCollection -> {
+                        it.collectionAddress == collectionMode.collection.address
+                    }
+
+                    is AssetsVC.CollectionMode.TelegramGifts -> {
+                        it.isTelegramGift == true
+                    }
+
+                    else -> {
+                        true
+                    }
+                }
+            }?.toMutableList()
+            cachedNftsToSave = null
+        }
+
+        return oldNfts != nfts
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
@@ -66,28 +98,39 @@ class AssetsVM(val collectionMode: AssetsVC.CollectionMode?, delegate: Delegate)
         }
     }
 
-    fun moveItem(fromPosition: Int, toPosition: Int) {
+    var cachedNftsToSave: MutableList<ApiNft>? = null
+    fun moveItem(fromPosition: Int, toPosition: Int, shouldSave: Boolean) {
         nfts?.let { nftList ->
             if (fromPosition < nftList.size && toPosition < nftList.size) {
-                val cachedNfts = NftStore.nftData?.cachedNfts ?: return
+                if (cachedNftsToSave == null)
+                    cachedNftsToSave = NftStore.nftData?.cachedNfts?.toMutableList() ?: return
 
                 val mainFromPos =
-                    cachedNfts.indexOfFirst { it.address == nftList[fromPosition].address }
+                    cachedNftsToSave!!.indexOfFirst { it.address == nftList[fromPosition].address }
                 val mainToPos =
-                    cachedNfts.indexOfFirst { it.address == nftList[toPosition].address }
+                    cachedNftsToSave!!.indexOfFirst { it.address == nftList[toPosition].address }
 
                 val item = nftList.removeAt(fromPosition)
                 nftList.add(toPosition, item)
 
-                val mainItem = cachedNfts.removeAt(mainFromPos)
-                cachedNfts.add(mainToPos, mainItem)
-                NftStore.setNfts(
-                    cachedNfts,
-                    accountId = AccountStore.activeAccountId!!,
-                    notifyObservers = true,
-                    isReorder = true
-                )
+                val mainItem = cachedNftsToSave!!.removeAt(mainFromPos)
+                cachedNftsToSave?.add(mainToPos, mainItem)
+                if (shouldSave) {
+                    saveList()
+                }
             }
+        }
+    }
+
+    fun saveList() {
+        cachedNftsToSave?.let {
+            NftStore.setNfts(
+                cachedNftsToSave,
+                accountId = AccountStore.activeAccountId!!,
+                notifyObservers = true,
+                isReorder = true
+            )
+            cachedNftsToSave = null
         }
     }
 }

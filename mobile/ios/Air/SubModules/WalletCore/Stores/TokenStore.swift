@@ -21,7 +21,9 @@ public class _TokenStore {
     private let _swapAssets: UnfairLock<[ApiToken]?> = .init(initialState: nil)
     private let _swapPairs: UnfairLock<[String: [MPair]]> = .init(initialState: [:])
     private let _currencyRates: UnfairLock<[String: MDouble]> = .init(initialState: [:])
-    
+
+    private let sharedCache = SharedCache()
+
     private var updateTokensTask: Task<Void, Never>?
     
     private init() {}
@@ -77,6 +79,7 @@ public class _TokenStore {
             self.tokens = Self.defaultTokens
             // do not notify
         }
+        scheduleSharedCacheUpdate(tokens: self.tokens, baseCurrency: self.baseCurrency, rates: self.currencyRates)
     }
     
     private func loadSwapAssetsFromCache() {
@@ -118,6 +121,7 @@ public class _TokenStore {
                 AppStorageHelper.save(baseCurrency: baseCurrency, tokens: tokens, currencyRates: self.currencyRates)
             }
         }
+        scheduleSharedCacheUpdate(tokens: tokens, baseCurrency: self.baseCurrency, rates: self.currencyRates)
     }
     
     private func _merge(cached: ApiToken?, incoming: ApiToken) -> ApiToken {
@@ -171,6 +175,7 @@ public class _TokenStore {
         self.baseCurrency = currency
         AppStorageHelper.save(baseCurrency: currency, tokens: tokens, currencyRates: self.currencyRates)
         WalletCoreData.notify(event: .baseCurrencyChanged(to: currency), for: nil)
+        scheduleSharedCacheUpdate(tokens: self.tokens, baseCurrency: currency, rates: self.currencyRates)
     }
     
     public func getCurrencyRate(_ currency: MBaseCurrency) -> Double {
@@ -206,7 +211,7 @@ public class _TokenStore {
         self.swapPairs = [:]
     }
     
-    private static let defaultTokens: [String: ApiToken] = [
+    internal static let defaultTokens: [String: ApiToken] = [
         TONCOIN_SLUG: .TONCOIN,
         TRX_SLUG: .TRX,
         MYCOIN_SLUG: .MYCOIN,
@@ -242,6 +247,15 @@ public class _TokenStore {
     private func clearHistoryData() {
         _historyData.withLock { $0 = [:] }
     }
+
+    // MARK: - Shared Cache
+
+    private func scheduleSharedCacheUpdate(tokens: [String: ApiToken]? = nil, baseCurrency: MBaseCurrency? = nil, rates: [String: MDouble]? = nil) {
+        guard tokens != nil || baseCurrency != nil || rates != nil else { return }
+        Task.detached(priority: .background) { [sharedCache] in
+            await sharedCache.update(tokens: tokens, baseCurrency: baseCurrency, rates: rates)
+        }
+    }
 }
 
 
@@ -255,6 +269,7 @@ extension _TokenStore: WalletCoreData.EventsObserver {
             if self.baseCurrencyRate != oldBaseCurrencyRate {
                 WalletCoreData.notify(event: .tokensChanged)
             }
+            scheduleSharedCacheUpdate(rates: update.rates)
 
         case .updateTokens(let dict):
             self.updateTokensTask?.cancel()
@@ -285,8 +300,9 @@ extension _TokenStore: WalletCoreData.EventsObserver {
                 self.baseCurrency = currency
                 clearHistoryData()
                 WalletCoreData.notify(event: .tokensChanged)
+                scheduleSharedCacheUpdate(tokens: self.tokens, baseCurrency: currency, rates: self.currencyRates)
             }
-        
+
         case .updateSwapTokens(let update):
             Task.detached(priority: .background) {
                 let tokens: [ApiToken] = update.tokens.values.sorted { $0.name < $1.name }

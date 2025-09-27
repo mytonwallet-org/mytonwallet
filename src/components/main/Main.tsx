@@ -9,10 +9,10 @@ import { ActiveTab, ContentTab, type Theme } from '../../global/types';
 import { IS_CORE_WALLET } from '../../config';
 import {
   selectAccountStakingState,
-  selectCurrentAccount,
   selectCurrentAccountSettings,
   selectCurrentAccountState,
   selectIsCurrentAccountViewMode,
+  selectIsHardwareAccount,
   selectIsStakingDisabled,
   selectIsSwapDisabled,
 } from '../../global/selectors';
@@ -268,7 +268,7 @@ function Main({
 export default memo(
   withGlobal<OwnProps>(
     (global): StateProps => {
-      const { ledger } = selectCurrentAccount(global) || {};
+      const isLedger = selectIsHardwareAccount(global);
       const accountState = selectCurrentAccountState(global);
       const { currentTokenSlug } = accountState ?? {};
 
@@ -282,7 +282,7 @@ export default memo(
         stakingState,
         currentTokenSlug,
         isTestnet: global.settings.isTestnet,
-        isLedger: Boolean(ledger),
+        isLedger,
         isViewMode: selectIsCurrentAccountViewMode(global),
         isStakingInfoModalOpen: global.isStakingInfoModalOpen,
         isMediaViewerOpen: Boolean(global.mediaViewer?.mediaId),

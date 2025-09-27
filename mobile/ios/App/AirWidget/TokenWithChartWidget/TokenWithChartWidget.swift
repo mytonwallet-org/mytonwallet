@@ -1,0 +1,165 @@
+//
+//  AirWidget.swift
+//  AirWidget
+//
+//  Created by nikstar on 23.09.2025.
+//
+
+import SwiftUI
+import WalletCore
+import WalletContext
+import UIComponents
+import WidgetKit
+import UIKit
+import Charts
+
+public struct TokenWithChartWidget: Widget {
+    public let kind: String = "TokenWithChartWidget"
+    
+    public init() {}
+
+    public var body: some WidgetConfiguration {
+        AppIntentConfiguration(kind: kind, intent: TokenWithChartWidgetConfiguration.self, provider: TokenWithChartWidgetTimelineProvider()) { entry in
+            TokenWithChartWidgetView(entry: entry)
+        }
+        .contentMarginsDisabled()
+        .supportedFamilies([.systemSmall, .systemMedium])
+        .containerBackgroundRemovable()
+        .configurationDisplayName(Text("Rate with Chart"))
+        .description(Text("View current rate and track performance of any selected token."))
+    }
+}
+
+struct TokenWithChartWidgetView: View {
+    var entry: TokenWithChartWidgetTimelineEntry
+
+    @Environment(\.widgetFamily) private var family
+    
+    var isVivid: Bool { entry.chartStyle == .vivid }
+    var isSmall: Bool { family == .systemSmall }
+    var isMedium: Bool { family == .systemMedium }
+    
+    var body: some View {
+        ZStack {
+            ChartView(token: entry.token, chartData: entry.chartData, chartStyle: entry.chartStyle)
+            
+            if isSmall {
+                HStack(spacing: 0) {
+                    TokenImage(image: entry.image, size: 28)
+                    Spacer()
+                    Text(entry.token.symbol)
+                        .font(.system(size: 17, weight: .medium))
+                        .lineLimit(1)
+                        .foregroundStyle(.white.opacity(0.75))
+                        .padding(.trailing, 2)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .padding(14)
+            } else if isMedium {
+                HStack(spacing: 6) {
+                    TokenImage(image: entry.image, size: 24)
+                    Text(entry.token.symbol)
+                        .font(.system(size: 17, weight: .medium))
+                        .lineLimit(1)
+                        .foregroundStyle(.white)
+                    change
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .padding(16)
+            }
+            
+            if isSmall {
+                bottomSmall
+            } else if isMedium {
+                bottomMedium
+            }
+        }
+        .containerBackground(for: .widget) {
+            if isVivid {
+                CardBackground(tokenSlug: entry.token.slug, tokenColor: entry.token.color)
+            } else {
+                LinearGradient(
+                    colors: [
+                        Color(UIColor(hex: "#252525")),
+                        Color(UIColor(hex: "#1A1A1A")),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+        }
+    }
+    
+    @ViewBuilder
+    public var change: some View {
+        ChangeView(changePercent: entry.changePercent, changeInCurrency: entry.changeInCurrency, useColors: false)
+            .font(.system(size: 14, weight: .regular))
+            .foregroundStyle(isVivid ? .white.opacity(0.75) : tintColor)
+    }
+    
+    @ViewBuilder
+    public var bottomSmall: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(entry.currencyRate.formatted(maxDecimals: entry.currencyRate.adaptiveDecimals()))
+                .font(.compactRoundedSemibold(size: 30))
+                .lineLimit(1)
+                .foregroundStyle(.white)
+            change
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+    }
+    
+    @ViewBuilder
+    public var bottomMedium: some View {
+        HStack(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 0) {
+                if let firstDate = entry.firstDate, let firstValue = entry.firstValue {
+                    Text(firstValue.formatted(maxDecimals: firstValue.adaptiveDecimals()))
+                        .font(.system(size: 17, weight: .semibold))
+                        .lineLimit(1)
+                        .foregroundStyle(.white)
+                    Text(firstDate.formatted(.dateTime.month(.abbreviated).day()))
+                        .font(.system(size: 14, weight: .regular))
+                        .foregroundStyle(.white.opacity(0.75))
+                }
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 0) {
+                Text(entry.currencyRate.formatted(maxDecimals: entry.currencyRate.adaptiveDecimals()))
+                    .font(.system(size: 17, weight: .semibold))
+                    .lineLimit(1)
+                    .foregroundStyle(.white)
+                if let lastDate = entry.lastDate {
+                    Text(lastDate.formatted(.dateTime.month(.abbreviated).day().hour(.defaultDigits(amPM: .narrow)).minute()))
+                        .font(.system(size: 14, weight: .regular))
+                        .foregroundStyle(.white.opacity(0.75))
+                }
+            }
+         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+    
+    var tintColor: Color {
+        colorForSlug(entry.token.slug, tokenColor: entry.token.color)
+    }
+}
+
+#if DEBUG
+extension TokenWithChartWidgetTimelineEntry {
+    static var sample: TokenWithChartWidgetTimelineEntry {
+        var sample = TokenWithChartWidgetTimelineEntry.placeholder
+        sample.chartData = [(0, 10), (0.25,10.75), (0.5,10.75), (0.75,9.6), (1,10)]
+        return sample
+    }
+}
+
+#Preview(as: .systemMedium) {
+    TokenWithChartWidget()
+} timeline: {
+    TokenWithChartWidgetTimelineEntry.sample
+}
+#endif

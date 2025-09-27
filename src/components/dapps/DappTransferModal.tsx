@@ -22,7 +22,6 @@ import Modal from '../ui/Modal';
 import ModalHeader from '../ui/ModalHeader';
 import PasswordForm from '../ui/PasswordForm';
 import Transition from '../ui/Transition';
-import DappLedgerWarning from './DappLedgerWarning';
 import DappTransaction from './DappTransaction';
 import DappTransferComplete from './DappTransferComplete';
 import DappTransferInitial from './DappTransferInitial';
@@ -113,7 +112,7 @@ function DappTransferModal({
           isLoading={isLoading}
           error={error}
           withCloseButton={IS_CAPACITOR}
-          submitLabel={lang('Send')}
+          submitLabel={lang('Confirm')}
           cancelLabel={lang('Back')}
           onSubmit={handleTransferPasswordSubmit}
           onCancel={handleBackClick}
@@ -127,14 +126,6 @@ function DappTransferModal({
     switch (currentKey) {
       case TransferState.Initial:
         return <DappTransferInitial onClose={closeDappTransfer} />;
-
-      case TransferState.WarningHardware:
-        return (
-          <>
-            <ModalHeader title={lang('Send Transaction')} onClose={closeDappTransfer} />
-            <DappLedgerWarning />
-          </>
-        );
 
       case TransferState.Confirm:
         return (

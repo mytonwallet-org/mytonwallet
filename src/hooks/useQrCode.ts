@@ -8,8 +8,8 @@ import { removeExtraClass } from '../lib/teact/teact-dom';
 import type { ApiChain } from '../api/types';
 
 import { IS_CORE_WALLET } from '../config';
+import { getChainConfig } from '../util/chain';
 import getChainNetworkIcon from '../util/swap/getChainNetworkIcon';
-import formatTransferUrl from '../util/ton/formatTransferUrl';
 
 const QR_SIZE = 600;
 
@@ -19,10 +19,6 @@ interface UseQRCodeHook {
 }
 
 let qrCode: QRCodeStyling;
-
-const formatTransferUrlByChain: Partial<Record<ApiChain, (address: string) => string>> = {
-  ton: formatTransferUrl,
-};
 
 export default function useQrCode({
   address,
@@ -59,7 +55,7 @@ export default function useQrCode({
           cornersSquareOptions: { type: 'extra-rounded' },
           imageOptions: { imageSize: 0.4, margin: 8, crossOrigin: 'anonymous' },
           qrOptions: { errorCorrectionLevel: 'M' },
-          data: formatTransferUrl(''),
+          data: '',
         });
 
         setIsInitialized(true);
@@ -83,9 +79,8 @@ export default function useQrCode({
   useEffect(() => {
     if (!address || !isActive || !qrCode || !isInitialized) return;
 
-    const data = preferUrl && chain && formatTransferUrlByChain[chain]
-      ? formatTransferUrlByChain[chain](address)
-      : address;
+    const formatTransferUrl = chain && getChainConfig(chain).formatTransferUrl;
+    const data = preferUrl && formatTransferUrl ? formatTransferUrl(address) : address;
 
     qrCode.update({ data });
   }, [address, isActive, isInitialized, preferUrl, chain]);

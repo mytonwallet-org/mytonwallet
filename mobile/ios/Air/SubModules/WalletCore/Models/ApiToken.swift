@@ -249,6 +249,17 @@ extension ApiToken {
     public var isStakedToken: Bool {
         return STAKED_TOKEN_SLUGS.contains(slug)
     }
+    
+    /// assumes keyword is lowercased and trimmed
+    public func matchesSearch(_ keyword: String) -> Bool {
+        if keyword.isEmpty { return true }
+        if name.lowercased().contains(keyword) { return true }
+        if symbol.lowercased().contains(keyword) { return true }
+        if let keywords, keywords.any({ $0.contains(keyword) }) {
+            return true
+        }
+        return false
+    }
 }
 
 @inline(__always) func getPriority(tokenSlug: String) -> Int {

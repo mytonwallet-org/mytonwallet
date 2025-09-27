@@ -44,7 +44,7 @@ function AddAccountPasswordModal({
         error={error}
         operationType="passcode"
         withCloseButton={IS_CAPACITOR}
-        submitLabel={lang('Send')}
+        submitLabel={lang('Confirm')}
         cancelLabel={lang('Back')}
         onSubmit={onSubmit}
         onCancel={onBack}

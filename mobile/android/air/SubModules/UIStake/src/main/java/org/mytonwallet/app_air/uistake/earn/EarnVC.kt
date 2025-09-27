@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.uistake.earn
 
-import WNavigationController
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
@@ -24,6 +23,7 @@ import androidx.recyclerview.widget.RecyclerView
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.R
+import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter.WRecyclerViewDataSource
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
@@ -57,13 +57,13 @@ import org.mytonwallet.app_air.uistake.helpers.StakingMessageHelpers
 import org.mytonwallet.app_air.uistake.staking.StakingVC
 import org.mytonwallet.app_air.uistake.staking.StakingViewModel
 import org.mytonwallet.app_air.uistake.util.getTonStakingFees
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
-import org.mytonwallet.app_air.walletcontext.utils.toString
+import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.USDE_SLUG
@@ -887,7 +887,6 @@ class EarnVC(
             val account = AccountStore.activeAccount!!
             val ledgerConnectVC = LedgerConnectVC(
                 context, LedgerConnectVC.Mode.ConnectToSubmitTransfer(
-                    account.ledger!!.index,
                     account.tonAddress!!,
                     LedgerConnectVC.SignData.ClaimRewards(
                         accountId = account.accountId,

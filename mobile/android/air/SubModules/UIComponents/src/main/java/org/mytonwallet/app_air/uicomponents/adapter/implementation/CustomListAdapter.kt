@@ -14,9 +14,9 @@ import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListT
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.activity.ActivityCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 
 // TODO: There are few screens using this class instead of WRecyclerViewAdapter, let's unify them :)

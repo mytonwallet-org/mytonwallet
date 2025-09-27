@@ -17,4 +17,14 @@ object DappsStore {
     }
     /////
 
+    fun removeAccount(accountId: String) {
+        _dAppsFlow.value = _dAppsFlow.value.toMutableMap().apply {
+            remove(accountId)
+        }
+    }
+
+    fun clean() {
+        _dAppsFlow.value = emptyMap()
+    }
+
 }

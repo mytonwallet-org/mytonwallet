@@ -4,9 +4,7 @@ import android.graphics.Typeface
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.SpannableStringBuilder
-import android.text.Spanned
 import android.text.style.StyleSpan
-import org.mytonwallet.app_air.walletcontext.theme.WColorGradients
 
 fun SpannableString.toProcessedSpannableStringBuilder(): SpannableStringBuilder {
     val spannable = SpannableStringBuilder()

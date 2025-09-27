@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.airasframework
 
-import WNavigationController
 import android.Manifest
 import android.content.pm.PackageManager
 import android.content.res.Configuration
@@ -9,13 +8,14 @@ import android.os.Bundle
 import android.view.MotionEvent
 import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.airasframework.splash.SplashVC
+import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.AutoLockHelper
-import org.mytonwallet.app_air.walletcontext.helpers.logger.Logger
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 
 class MainWindow : WWindow() {
     private val splashVC by lazy {
@@ -40,6 +40,7 @@ class MainWindow : WWindow() {
 
         AirAsFrameworkApplication.initTheme(applicationContext)
 
+        WalletCore.incBridgeUsers()
         restartBridge(forcedRecreation = false)
 
         AutoLockHelper.start(WGlobalStorage.getAppLock().period)
@@ -57,7 +58,7 @@ class MainWindow : WWindow() {
     }
 
     fun destroyBridge() {
-        WalletCore.destroyBridge()
+        WalletCore.decBridgeUsers()
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {

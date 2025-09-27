@@ -9,17 +9,17 @@ import type {
 import type { AnyAction, CallContractAction, JettonTransferAction, SwapAction } from './toncenter/types';
 import type { ParsedTrace, ParsedTracePart } from './types';
 
-import { TONCOIN } from '../../../config';
+import { PUSH_ADDRESS, STON_PTON_ADDRESS, TONCOIN } from '../../../config';
 import { parseAccountId } from '../../../util/account';
 import { getActivityTokenSlugs, getIsActivityPending } from '../../../util/activities';
-import { sortActivities } from '../../../util/activities/order';
+import { mergeSortedActivities } from '../../../util/activities/order';
 import { fromDecimal, toDecimal } from '../../../util/decimals';
-import { buildCollectionByKey, findDifference, intersection, split } from '../../../util/iteratees';
+import { extractKey, findDifference, intersection, split } from '../../../util/iteratees';
 import { logDebug, logDebugError } from '../../../util/logs';
 import { pause } from '../../../util/schedulers';
 import withCacheAsync from '../../../util/withCacheAsync';
 import { getSigner } from './util/signer';
-import { resolveTokenWalletAddress } from './util/tonCore';
+import { resolveTokenWalletAddress, toBase64Address } from './util/tonCore';
 import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/accounts';
 import { getTokenBySlug, tokensPreload } from '../../common/tokens';
 import { SEC } from '../../constants';
@@ -90,10 +90,6 @@ export async function fetchActivitySlice({
     activities = activities.filter((activity) => getActivityTokenSlugs(activity).includes(tokenSlug));
   }
 
-  // Even though the activities returned by the API are sorted by timestamp, our sorting may differ.
-  // It's important to ensuring our sorting, because otherwise `mergeSortedActivities` may leave duplicates.
-  activities = sortActivities(activities);
-
   return reloadIncompleteActivities(network, address, activities);
 }
 
@@ -118,6 +114,7 @@ export async function reloadIncompleteActivities(network: ApiNetwork, address: s
     logDebugError('reloadIncompleteActivities', err);
   }
 
+  // We want to return the latest modified activities list in case of an error in the above `try { }`
   return activities;
 }
 
@@ -142,10 +139,13 @@ async function tryReloadIncompleteActivities(
   const reloadedActivities = batchResults.flat();
 
   if (reloadedActivities.length) {
-    const replaceById = buildCollectionByKey(reloadedActivities, 'id');
+    const replacedIds = new Set(extractKey(reloadedActivities, 'id'));
     const reloadedActionIds = reloadedActivities.map((activity) => parseActionActivityId(activity.id).actionId);
 
-    activities = activities.map((activity) => replaceById[activity.id] ?? activity);
+    activities = mergeSortedActivities(
+      activities.filter((activity) => !replacedIds.has(activity.id)),
+      reloadedActivities,
+    );
     actionIdsToReload = findDifference(actionIdsToReload, reloadedActionIds);
   }
 
@@ -195,6 +195,7 @@ export async function fetchActivityDetails(
 export function calculateActivityDetails(
   activity: ApiActivity,
   parsedTrace: ParsedTrace,
+  isEmulation?: boolean,
 ): ActivityDetailsResult | undefined {
   const { actionId } = parseActionActivityId(activity.id);
   const { actions, byTransactionIndex } = parsedTrace;
@@ -219,7 +220,7 @@ export function calculateActivityDetails(
     });
   } else {
     result = setTransactionDetails({
-      parsedTrace, activity, action, tracePart,
+      parsedTrace, activity, action, tracePart, actions, actionId, isEmulation,
     });
   }
 
@@ -253,11 +254,14 @@ function setSwapDetails(options: {
 
   // When the transaction is failed, its `sent` and `received` are always 0 (as defined in `parseFailedTransactions`)
   if (tracePart.isSuccess) {
-    if (!details.asset_in) {
-      // TON -> token
+    const isToncoinIn = !details.asset_in;
+    const isToncoinOut = details.asset_out
+      ? toBase64Address(details.asset_out) === STON_PTON_ADDRESS
+      : true;
+
+    if (isToncoinIn) {
       sentForFee -= BigInt(details.dex_incoming_transfer.amount);
-    } else if (!details.asset_out) {
-      // Token -> TON
+    } else if (isToncoinOut) {
       excess -= BigInt(details.dex_outgoing_transfer.amount);
     }
   }
@@ -299,28 +303,38 @@ function setSwapDetails(options: {
 
 function setTransactionDetails(options: {
   parsedTrace: ParsedTrace;
+  actions: AnyAction[];
+  actionId: string;
   action: AnyAction;
   activity: ApiTransactionActivity;
   tracePart: ParsedTracePart;
+  isEmulation?: boolean;
 }): ActivityDetailsResult {
   const {
+    actions,
+    actionId,
     action,
     tracePart,
-    parsedTrace: {
-      addressBook,
-      totalSent,
-      totalReceived,
-      totalNetworkFee,
-    },
+    parsedTrace,
+    isEmulation,
   } = options;
 
   let { activity } = options;
   let { networkFee, sent: sentForFee, received: excess } = tracePart;
+  const { addressBook, totalSent, totalReceived, totalNetworkFee } = parsedTrace;
+
+  // The flag indicates that this activity is already accounted for in the excess of another activity to avoid double counting
+  const isExcessAccounted = isEmulation
+    && isActivityExcessAccounted(actions, actionId, tracePart, parsedTrace, activity.fromAddress);
 
   switch (action.type) {
     case 'ton_transfer':
     case 'call_contract': {
-      sentForFee -= BigInt(action.details.value);
+      const isPush = toBase64Address(action.details.destination) === PUSH_ADDRESS;
+      const hasExcess = isExcessAccounted || isPush;
+      if (!hasExcess) {
+        sentForFee -= BigInt(action.details.value);
+      }
       break;
     }
     case 'nft_transfer': {
@@ -388,7 +402,22 @@ function setTransactionDetails(options: {
 
   delete activity.shouldLoadDetails;
 
-  return { activity, sentForFee, excess };
+  return { activity, sentForFee, excess: isExcessAccounted ? 0n : excess };
+}
+
+function isActivityExcessAccounted(
+  actions: AnyAction[],
+  actionId: string,
+  tracePart: ParsedTracePart,
+  parsedTrace: ParsedTrace,
+  fromAddress: string,
+): boolean {
+  return actions.some((otherAction) =>
+    otherAction.action_id !== actionId
+    && (otherAction.type === 'ton_transfer' || otherAction.type === 'call_contract')
+    && intersection(new Set(otherAction.transactions), tracePart.hashes).size
+    && parsedTrace.addressBook[otherAction.details.destination]?.user_friendly === fromAddress,
+  );
 }
 
 export function getActivityRealFee(activity: ApiActivity) {

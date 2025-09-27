@@ -2,9 +2,9 @@ package org.mytonwallet.app_air.uiswap.screens.swap.helpers
 
 import org.mytonwallet.app_air.uiswap.screens.swap.DEFAULT_OUR_SWAP_FEE
 import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapEstimateResponse
+import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
+import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
-import org.mytonwallet.app_air.walletcontext.utils.doubleAbsRepresentation
-import org.mytonwallet.app_air.walletcontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletcore.helpers.FeeEstimationHelpers
 import org.mytonwallet.app_air.walletcore.models.MFee
 import org.mytonwallet.app_air.walletcore.models.SwapType

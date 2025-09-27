@@ -8,8 +8,8 @@ import android.view.inputmethod.EditorInfo
 import androidx.core.widget.doOnTextChanged
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WEditText.Delegate
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.constants.PossibleWords
 
 @SuppressLint("SetTextI18n", "ViewConstructor")

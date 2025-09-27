@@ -333,6 +333,7 @@ public struct TonTransferUrl {
     public var token: String?
     public var bin: String?
     public var jetton: String?
+    public var stateInit: String?
 }
 
 private let invalidWalletAddressCharacters = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_=").inverted
@@ -359,6 +360,7 @@ public func parseTonTransferUrl(_ url: URL) -> TonTransferUrl? {
     var token: String?
     var bin: String?
     var jetton: String?
+    var stateInit: String?
     
     if let query = updatedUrl.query, let components = URLComponents(string: "/?" + query), let queryItems = components.queryItems {
         for queryItem in queryItems {
@@ -373,11 +375,13 @@ public func parseTonTransferUrl(_ url: URL) -> TonTransferUrl? {
                     bin = value
                 } else if queryItem.name == "jetton", !value.isEmpty {
                     jetton = value
+                } else if queryItem.name == "init" || queryItem.name == "stateInit", !value.isEmpty {
+                    stateInit = value
                 }
             }
         }
     }
-    return TonTransferUrl(address: address, amount: amount, comment: comment, token: token, bin: bin, jetton: jetton)
+    return TonTransferUrl(address: address, amount: amount, comment: comment, token: token, bin: bin, jetton: jetton, stateInit: stateInit)
 }
 
 private func _tokenDecimals(for amountVal: BigInt, tokenDecimals: Int) -> Int {

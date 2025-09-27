@@ -1,4 +1,4 @@
-import React, { memo } from '../../lib/teact/teact';
+import React, { memo, useRef } from '../../lib/teact/teact';
 import { getActions } from '../../global';
 
 import type { AuthMethod } from '../../global/types';
@@ -8,9 +8,11 @@ import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
+import useLastCallback from '../../hooks/useLastCallback';
 
 import AnimatedIconWithPreview from '../ui/AnimatedIconWithPreview';
 import Button from '../ui/Button';
+import Header from './Header';
 
 import styles from './Auth.module.scss';
 
@@ -30,46 +32,57 @@ const AuthCreateBiometrics = ({
   } = getActions();
 
   const lang = useLang();
+  const headerRef = useRef<HTMLDivElement>();
   const isImporting = method !== 'createAccount';
+  const title = lang(isImporting ? 'Wallet is imported!' : 'Wallet is ready!');
 
   useHistoryBack({
     isActive,
     onBack: resetAuth,
   });
 
-  return (
-    <div className={buildClassName(styles.container, styles.container_scrollable, 'custom-scroll')}>
-      <AnimatedIconWithPreview
-        play={isActive}
-        tgsUrl={ANIMATED_STICKERS_PATHS.happy}
-        previewUrl={ANIMATED_STICKERS_PATHS.happyPreview}
-        noLoop={false}
-        nonInteractive
-        className={styles.sticker}
-      />
-      <div className={styles.title}>{lang('Congratulations!')}</div>
-      <p className={styles.info}>
-        <b>{lang(isImporting ? 'The wallet is imported' : 'The wallet is ready')}.</b>
-      </p>
-      <p className={styles.info}>
-        {lang('Create a password or use biometric authentication to protect it.')}
-      </p>
+  const handleUsePasswordClick = useLastCallback(() => {
+    skipCreateBiometrics({ isImporting });
+  });
 
-      <div className={styles.buttons}>
-        <Button
-          isPrimary
-          className={styles.btn}
-          onClick={startCreatingBiometrics}
-        >
-          {lang('Connect Biometrics')}
-        </Button>
-        <Button
-          isText
-          className={buildClassName(styles.btn, styles.btn_text)}
-          onClick={skipCreateBiometrics}
-        >
-          {lang('Use Password')}
-        </Button>
+  return (
+    <div className={styles.wrapper}>
+      <Header
+        isActive={isActive}
+        title={title}
+        topTargetRef={headerRef}
+        onBackClick={resetAuth}
+      />
+      <div className={buildClassName(styles.container, styles.container_scrollable, 'custom-scroll')}>
+        <AnimatedIconWithPreview
+          play={isActive}
+          tgsUrl={ANIMATED_STICKERS_PATHS.guard}
+          previewUrl={ANIMATED_STICKERS_PATHS.guardPreview}
+          noLoop={false}
+          nonInteractive
+          className={styles.sticker}
+        />
+        <div ref={headerRef} className={styles.title}>{title}</div>
+        <p className={styles.info}>
+          {lang('Use biometric authentication or create a password to protect it.')}
+        </p>
+
+        <div className={styles.buttons}>
+          <Button
+            isPrimary
+            className={styles.btn}
+            onClick={startCreatingBiometrics}
+          >
+            {lang('Connect Biometrics')}
+          </Button>
+          <Button
+            isText
+            className={buildClassName(styles.btn, styles.btn_text)}
+            onClick={handleUsePasswordClick}
+          >
+            {lang('Use Password')}
+          </Button>
+        </div>
       </div>
     </div>
   );

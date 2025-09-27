@@ -8,8 +8,8 @@ import android.text.Spanned
 import android.text.style.StyleSpan
 import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 
 object SpannableHelpers {
     fun encryptedCommentSpan(context: Context): SpannableStringBuilder {

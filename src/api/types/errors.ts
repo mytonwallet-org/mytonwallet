@@ -34,11 +34,13 @@ export enum ApiTransactionError {
 }
 
 export enum ApiHardwareError {
-  /** Used when the Ledger TON app needs to be updated to support this transaction */
+  /** Used when the chain's Ledger app needs to be updated to support this transaction */
   HardwareOutdated = 'HardwareOutdated',
   BlindSigningNotEnabled = 'BlindSigningNotEnabled',
   RejectedByUser = 'RejectedByUser',
   ProofTooLarge = 'ProofTooLarge',
+  ConnectionBroken = 'ConnectionBroken',
+  WrongDevice = 'WrongDevice',
 }
 
 export type ApiAnyDisplayError =

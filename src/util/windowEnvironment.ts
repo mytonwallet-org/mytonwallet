@@ -64,6 +64,7 @@ export const IS_MULTITAB_SUPPORTED = 'BroadcastChannel' in window && !IS_LEDGER_
 export const IS_DAPP_SUPPORTED = IS_EXTENSION || IS_ELECTRON || IS_CAPACITOR;
 export const IS_IOS_APP = IS_IOS && IS_CAPACITOR;
 export const IS_ANDROID_APP = IS_ANDROID && IS_CAPACITOR;
+export const IS_VIEW_TRANSITION_SUPPORTED = typeof document.startViewTransition === 'function';
 
 // Note: As of 27-11-2023, Firefox does not support readText()
 // Note: As of 22-02-2023, clipboard functionality is only available to the Telegram partners

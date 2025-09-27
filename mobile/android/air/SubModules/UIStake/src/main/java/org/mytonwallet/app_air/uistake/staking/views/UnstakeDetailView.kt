@@ -11,7 +11,7 @@ import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
 import org.mytonwallet.app_air.uicomponents.widgets.WLinearLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcore.moshi.StakingState
 
 @SuppressLint("ViewConstructor")

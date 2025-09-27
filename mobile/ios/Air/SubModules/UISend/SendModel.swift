@@ -46,6 +46,8 @@ private let log = Log("SendModel")
                 self.nftSendMode = nftSendMode
             }
         }
+        
+        self.stateInit = prefilledValues?.stateInit
 
         if nftSendMode == .burn {
             self.addressOrDomain = BURN_ADDRESS
@@ -88,6 +90,7 @@ private let log = Log("SendModel")
     @Published var binaryPayload: String?
     @Published var nfts: [ApiNft]?
     @Published var nftSendMode: NftSendMode?
+    let stateInit: String?
     var isSendNft: Bool { nftSendMode != nil }
     
     // Wallet state
@@ -461,7 +464,7 @@ private let log = Log("SendModel")
             amount: amount ?? 0,
             tokenAddress: token.tokenAddress,
             data: comment,
-            stateInit: nil,
+            stateInit: stateInit,
             shouldEncrypt: shouldEncrypt,
             isBase64Data: isBase64Data,
             forwardAmount: nil,
@@ -475,11 +478,6 @@ private let log = Log("SendModel")
         }
         let (isBase64Data, comment, shouldEncrypt) = _prepareCommentOptions()
         let account = AccountStore.account!
-        var stateInit: String?
-        let isInitialized = try? await Api.isWalletInitialized(network: .mainnet, address: addressOrDomain)
-        if isInitialized == false {
-            stateInit = try await Api.getWalletStateInit(accountId: account.id)
-        }
         let draft = draftData.transactionDraft
         return ApiSubmitTransferOptions(
             accountId: account.id,
@@ -531,7 +529,7 @@ private let log = Log("SendModel")
                 self.draftData = .init(status: .none, transactionDraft: nil)
                 return
             }
-            log.info("checkTransactionDraft \(chain, .public) \(draftOptions.amount, .public)")
+            log.info("checkTransactionDraft \(chain, .public) \(draftOptions.amount as Any, .public)")
             let draft = try await Api.checkTransactionDraft(chain: chain, options: draftOptions)
             try handleDraftError(draft)
             switch draft.error {

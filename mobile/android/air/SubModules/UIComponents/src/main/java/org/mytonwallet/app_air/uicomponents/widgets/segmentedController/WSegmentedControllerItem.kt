@@ -5,6 +5,7 @@ import org.mytonwallet.app_air.uicomponents.base.WViewController
 
 data class WSegmentedControllerItem(
     val viewController: WViewController,
-    val identifier: String? = null,
-    var onClick: ((v: View) -> Unit)? = null
+    val identifier: String?,
+    var onRemovePressed: ((v: View) -> Unit)? = null,
+    var onMenuPressed: ((v: View) -> Unit)? = null,
 )

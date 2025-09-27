@@ -13,11 +13,11 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uistake.util.getTonStakingFees
+import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
+import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
+import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcontext.utils.PriceConversionUtils
-import org.mytonwallet.app_air.walletcontext.utils.smartDecimalsCount
-import org.mytonwallet.app_air.walletcontext.utils.toBigInteger
-import org.mytonwallet.app_air.walletcontext.utils.toString
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.STAKED_MYCOIN_SLUG

@@ -1,4 +1,4 @@
-import type { ApiChain, ApiNetwork } from '../../api/types';
+import type { ApiChain, ApiLedgerAccountInfo, ApiNetwork } from '../../api/types';
 import type {
   Account, AccountSettings, AccountState, GlobalState, UserToken,
 } from '../types';
@@ -81,17 +81,6 @@ export function selectIsHardwareAccount(global: GlobalState, accountId?: string)
   return Boolean(account) && isHardwareAccount(account);
 }
 
-export function selectAllHardwareAccounts(global: GlobalState, network: ApiNetwork) {
-  const accounts = selectAccounts(global);
-
-  return Object.entries(accounts ?? {}).reduce<Account[]>((accounts, [accountId, account]) => {
-    if (isHardwareAccount(account) && parseAccountId(accountId).network === network) {
-      accounts.push(account);
-    }
-    return accounts;
-  }, []);
-}
-
 export function selectIsOneAccount(global: GlobalState) {
   return Object.keys(selectAccounts(global) || {}).length === 1;
 }
@@ -99,28 +88,6 @@ export function selectIsOneAccount(global: GlobalState) {
 export const selectEnabledTokensCountMemoizedFor = withCache((accountId: string) => memoize((tokens?: UserToken[]) => {
   return (tokens ?? []).filter(({ isDisabled }) => !isDisabled).length;
 }));
-
-export function selectLedgerAccountIndexToImport(global: GlobalState, network: ApiNetwork) {
-  const hardwareAccounts = selectAllHardwareAccounts(global, network);
-  const hardwareAccountIndexes = hardwareAccounts?.map((account) => account.ledger!.index)
-    .sort((a, b) => a - b);
-
-  if (hardwareAccountIndexes.length === 0 || hardwareAccountIndexes[0] !== 0) {
-    return -1;
-  }
-
-  if (hardwareAccountIndexes.length === 1) {
-    return 0;
-  }
-
-  for (let i = 1; i < hardwareAccountIndexes.length; i++) {
-    if (hardwareAccountIndexes[i] - hardwareAccountIndexes[i - 1] !== 1) {
-      return i - 1;
-    }
-  }
-
-  return hardwareAccountIndexes.length - 1;
-}
 
 function isMnemonicAccount(account: Account) {
   return account.type === 'mnemonic';
@@ -221,4 +188,16 @@ export function selectIsCurrentAccountViewMode(global: GlobalState) {
 export function selectDoesAccountSupportNft(global: GlobalState) {
   const account = selectCurrentAccount(global);
   return Boolean(account?.byChain.ton);
+}
+
+export function selectSelectedHardwareAccountsSlow(global: GlobalState): ApiLedgerAccountInfo[] {
+  const selectedIndices = new Set(global.auth.hardwareSelectedIndices ?? []);
+  const { chain, hardwareWallets } = global.hardware;
+
+  return (hardwareWallets ?? [])
+    .filter((wallet) => selectedIndices.has(wallet.wallet.index))
+    .map(({ wallet, balance, ...rest }) => ({
+      ...rest,
+      byChain: { [chain]: wallet },
+    }));
 }

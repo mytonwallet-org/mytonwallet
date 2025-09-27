@@ -6,9 +6,9 @@ import android.graphics.Paint
 import android.graphics.Paint.Style
 import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
-import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 class SeparatorBackgroundDrawable : Drawable() {
     private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {

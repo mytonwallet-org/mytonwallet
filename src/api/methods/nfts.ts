@@ -4,11 +4,9 @@ import type { ApiSubmitNftTransferResult } from './types';
 import { TONCOIN } from '../../config';
 import { bigintDivideToNumber } from '../../util/bigint';
 import { extractKey } from '../../util/iteratees';
-import chains from '../chains';
+import * as ton from '../chains/ton';
 import { fetchStoredAccount, fetchStoredWallet } from '../common/accounts';
 import { createLocalTransactions } from './transfer';
-
-const { ton } = chains;
 
 let onUpdate: OnApiUpdate;
 

@@ -7,7 +7,7 @@ import android.os.Looper
 import android.view.Choreographer
 import android.view.FrameMetrics
 import android.view.Window
-import org.mytonwallet.app_air.walletcontext.helpers.logger.Logger
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 
 class WFramePerformanceMonitor(
     private val activity: Activity,

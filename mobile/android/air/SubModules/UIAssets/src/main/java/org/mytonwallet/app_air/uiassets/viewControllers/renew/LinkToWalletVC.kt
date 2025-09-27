@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.uiassets.viewControllers.renew
 
-import WNavigationController
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Handler
@@ -16,6 +15,7 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListTitleCell
+import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.AddressInputLayout
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.activity.ActivitySingleTagView
@@ -33,12 +33,12 @@ import org.mytonwallet.app_air.uicomponents.widgets.unlockView
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views.PasscodeScreenView
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
-import org.mytonwallet.app_air.walletcontext.utils.smartDecimalsCount
-import org.mytonwallet.app_air.walletcontext.utils.toString
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
+import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
@@ -261,11 +261,9 @@ class LinkToWalletVC(
     private fun submitDnsChangeWithHardware() {
         linkButton.lockView()
         val account = AccountStore.activeAccount!!
-        val ledger = account.ledger ?: return
         val ledgerConnectVC = LedgerConnectVC(
             context,
             LedgerConnectVC.Mode.ConnectToSubmitTransfer(
-                ledger.index,
                 account.tonAddress!!,
                 signData = LedgerConnectVC.SignData.LinkNftToWallet(
                     accountId = account.accountId,

@@ -16,8 +16,6 @@ $auth_password_rule_one_small_char: bir küçük harf
 $auth_password_rule_one_capital_char: bir büyük harf
 $auth_password_rule_one_digit: bir rakam
 $auth_password_rule_one_special_char: ve bir özel karakter
-The wallet is imported: Cüzdan içe aktarıldı
-The wallet is ready: Cüzdan kullanıma hazır
 Create a password to protect it.: Cüzdanı korumak için bir şifre oluşturun.
 Enter your password: Şifrenizi girin
 Enter your password...: Şifrenizi girin...
@@ -32,16 +30,12 @@ Secret Words: Gizli Kelimelerden
 $auth_import_mnemonic_description: |
   Cüzdanınıza erişimi, cüzdanı oluştururken not ettiğiniz **12 veya 24 gizli kelimeyi** girerek geri yükleyebilirsiniz.
 Let’s make sure your secrets words are recorded correctly.: Gizli kelimelerinizin doğru kaydedildiğinden emin olun.
-$mnemonic_check_words_list: "**%1$s** numaralı kelimeleri aşağıya girin."
-$mnemonic_check_error: Girdiğiniz gizli kelimeler listedekilerle eşleşmiyor. Lütfen tekrar deneyin.
-$check_words_description: |
-  Şimdi, gizli kelimelerinizi
-  doğru yazıp yazmadığınızı kontrol edelim.
+$check_words_description: Şimdi, gizli kelimelerinizi doğru yazıp yazmadığınızı kontrol edelim.
 $mnemonic_list_description: Bu kelimeleri **doğru sırayla** yazın ve **güvenli bir yerde** saklayın.
 $private_key_description: Bu özel anahtarı **doğru bir şekilde** kaydedin ve **güvenli bir yerde** saklayın.
 $mnemonic_warning: |
-  Kimseye **göndermeyin** veya göstermeyin,
-  Hiçbir yere **girmeyin**.
+  Kimseye göndermeyin veya göstermeyin,
+  Hiçbir yere girmeyin.
 View Secret Words: Gizli Kelimeleri Görüntüle
 View TON Private Key: TON Özel Anahtarını Görüntüle
 Can be imported to non-multichain wallets for TON.: TON için çoklu zincir olmayan cüzdanlara aktarılabilir.
@@ -57,8 +51,6 @@ $safety_rules_one: |
   Bir sonraki ekranda **gizli kelimeleri** göreceksiniz. Bunları doğru sırayla yazın ve **güvenli bir yerde saklayın**.
 $safety_rules_two: Bu kelimeler, şifrenizi veya bu cihaza erişiminizi kaybederseniz **cüzdanınızı açmanızı** sağlar.
 $safety_rules_three: Bu kelimeleri başka birinin görmesi halinde paranız **çalınabilir**. Kimseye, hatta geliştiricilere veya teknik desteğe bile göndermeyin.
-Understood: Anladım
-Congratulations!: Tebrikler!
 Continue: Devam
 Close: Kapat
 Back: Geri
@@ -315,12 +307,11 @@ Select Ledger Wallets: Ledger cüzdanları seçin
 Add: Ekle
 Try Again: Yeniden dene
 Driver: Sürücü
-Unlock it and open the TON App: Cihazın kilidi açın ve TON uygulamasını başlatın
+Unlock it and open the %chain% App: Cihazın kilidi açın ve %chain% uygulamasını başlatın
 Maybe you need to check the password or change the driver.: Şifreyi kontrol etmeniz veya sürücüyü değiştirmeniz gerekebilir.
 Confirm via Ledger: Ledger aracılığıyla onaylayın
 Please confirm transaction on your Ledger: Lütfen Ledger'ınızdaki işlemi onaylayın
 Declined: Reddedildi
-Create Wallet: Cüzdan Oluşturun
 Switch to the newly opened tab to connect Ledger.: Ledger'ı bağlamak için yeni açılan sekmeye geçin.
 Once connected, switch back to this window to proceed.: Bağlandıktan sonra devam etmek için bu pencereye geri dönün.
 Not all transactions were sent successfully: Tüm işlemler başarılı şekilde gönderilmedi
@@ -337,8 +328,6 @@ Try another keyword or address.: Başka bir anahtar kelime veya adres deneyin.
 Decrypt: Şifre çöz
 Encrypted Message: Şifrelenmiş Mesaj
 Message is encrypted.: Mesaj şifrelenmiştir.
-$dapp_ledger_warning1: "**Ledger** cüzdanınızı kullanarak çok yönlü bir işlem göndermek üzeresiniz. İlgili her işlemi **tek tek manuel olarak** imzalamanız gerekecektir."
-$dapp_ledger_warning2: Lütfen acele etmeyin ve süreci kesintiye uğratmayın.
 Agree: Kabul et
 $swap_action: Takas
 Swap: Takas
@@ -377,19 +366,10 @@ $auth_responsibly_description4: |
 Start Wallet: Cüzdanı Başlat
 $auth_backup_warning_notice: |
   Artık şifrenizi unutmanız veya bu cihaza erişiminizi kaybetmeniz ihtimaline karşı **gizli anahtarları** manuel olarak **yedeklemeniz** gerekmektedir.
-Later: Sonra
-Back Up Now: Şimdi yedekle
-I have read and accept this information: Bu bilgileri okudum ve kabul ediyorum.
 $ledger_verify_address: Yapıştırılan adresi her zaman Ledger cihazınızı kullanarak doğrulayın.
-$ledger_not_ready: Ledger bağlı değil veya TON uygulaması açık değil.
+$ledger_not_ready: Ledger bağlı değil veya %chain% uygulaması açık değil.
 Verify now: Şimdi doğrula
 Invalid address format. Only URL Safe Base64 format is allowed.: Geçersiz adres formatı. Yalnızca URL Safe Base64 formatına izin verilmektedir.
-$auth_backup_description1: |
-  Bu bir **güvenli cüzdandır**
-  ve sadece **sizin tarafınızdan kontrol edilir**.
-$auth_backup_description2: Ve büyük güç **büyük sorumluluğu** da beraberinde getirir.
-$auth_backup_description3: |
-  Parolanızı unutmanız veya bu cihaza erişiminizi kaybetmeniz ihtimaline karşı **gizli anahtarları** manuel olarak **yedeklemeniz** gerekir.
 Swap Placed: Takas emri gönderildi
 Swapping: Takas devam ediyor
 Swapped: Takas gerçekleşti
@@ -449,7 +429,6 @@ Please verify the operation.: Lütfen işlemi doğrulayın.
 Create Password: Parola oluştur
 Complete: Tamamlandı
 Verification: Doğrulama
-Create a password or use biometric authentication to protect it.: Korumak için bir parola oluşturun veya biyometrik kimlik doğrulama kullanın.
 Connect Biometrics: Biyometrik koruma bağlayın
 Use Password: Parola Kullanın
 Biometrics Disabled: Biyometrik koruma devre dışı
@@ -463,8 +442,8 @@ An error on the server side. Please try again.: Sunucu tarafında bir hata oluş
 Address was saved!: Adres kaydedildi!
 US Dollar: ABD doları
 Euro: Euro
-Ruble: Ruble
-Yuan: Yuan
+Russian Ruble: Rus Rublesi
+Chinese Yuan: Çin Yuanı
 Bitcoin: Bitcoin
 Toncoin: Toncoin
 $max_balance: "Maks.: %balance%"
@@ -482,7 +461,6 @@ Code set successfully: Kod başarıyla ayarlandı
 Use Biometrics: Biyometrik koruma kullanın
 Use Touch ID: Touch ID kullanın
 Use Face ID: Face ID kullanın
-You can connect your biometric data for more convenience: Daha kolay kullanım için biyometrik verilerinizi bağlayabilirsiniz
 Connect Touch ID: Touch ID'yi Bağlayın
 Connect Face ID: Face ID'yi bağlayın
 Not Now: Şimdi değil
@@ -520,7 +498,6 @@ Cannot load widget: Widget yüklenemiyor
 Explore: Keşfetmek
 No partners yet: Henüz ortak yok
 Clear: Temizle
-Get TON: TON Almak
 $unstake_up_to_information: Anında – en fazla %value%
 $all_balance: "Tümü: %balance%"
 $unstaking_not_enough_balance: Stake iptal işlemine devam etmek için ana bakiyenizde %value% olması gerekmektedir.
@@ -547,8 +524,7 @@ To use this feature, first enable biometrics in your phone settings.: Bu özelli
 Open Settings: Ayarları aç
 $service_token_transfer_warning: Mevduatınızı çekmek veya hizmet işlemlerini tamamlamak için gerekli olan önemli bir hizmet tokenini transfer etmek üzeresiniz. Bu işlemi yapmayı gerçekten istediğinizden emin olun.
 No Price: Fiyat yok
-$ledger_outdated: Bu işlem, kullandığınız Ledger TON App sürümü tarafından desteklenmiyor. Lütfen Ledger Live kullanarak güncelleyin.
-$ledger_unsupported_ton_connect: TonConnect, Ledger Ton uygulamanızın sürümü tarafından desteklenmez. Lütfen Ledger Live kullanarak güncelleyin.
+$ledger_outdated: Bu işlem, kullandığınız Ledger %chain% App sürümü tarafından desteklenmiyor. Lütfen Ledger Live kullanarak güncelleyin.
 $dapp_transfer_tokens_burn: "%amount% yakılıyor"
 $dapp_dns_set_wallet_payload: "%domain% alanının bağlı cüzdanını %address% olarak değiştirme"
 $dapp_dns_delete_wallet_payload: Deleting linked wallet of domain %domain%
@@ -666,11 +642,7 @@ Confirm Burning: Yazmayı Onayla
 Confirm Passcode: Şifreyi Onayla
 Enter your code: Kodunuzu girin
 $hardware_payload_warning: "**Üçüncü taraf bir hizmet cüzdanınıza erişim istiyor.** Bu, fon kaybına yol açabilir. Bu hizmetin güvenilirliğinden emin değilseniz işlemi iptal edin."
-$hardware_blind_sign_not_enabled: |
-  **Üçüncü taraf bir hizmet cüzdanınıza erişim istiyor.** Bu, fon kaybına yol açabilir. Bu hizmetin güvenilirliğinden emin değilseniz işlemi iptal edin.
-
-  Devam etmek için, Ledger üzerindeki TON Uygulamasının ayarlarında "Kör İmzalama" seçeneğini etkinleştirin.
-$hardware_blind_sign_not_enabled_internal: Devam etmek için, Ledger üzerindeki TON Uygulamasının ayarlarında "Kör İmzalama" seçeneğini etkinleştirin.
+$hardware_blind_sign_not_enabled: Devam etmek için, Ledger üzerindeki %chain% Uygulamasının ayarlarında "Kör İmzalama" seçeneğini etkinleştirin.
 Switch to W5: W5'e Geç
 Not Scam: Dolandırıcılık Değil
 Untitled: Başlıksız
@@ -948,7 +920,42 @@ $domain_like_scam_warning: |
 Allow Suspicious Actions: Şüpheli Eylemlere İzin Ver
 $allow_suspicious_actions_description: Şüpheli adreslere göndermeye ve potansiyel olarak güvenli olmayan kontratlarla etkileşime izin verir.
 Multisig Wallet Detected: Multisig Cüzdan Tespit Edildi
-$multisig_warning_text: "Bu cüzdandan MyTonWallet üzerinden **para çekmek** **imkansızdır**. Gerçekten sizin olduğundan emin olun — aksi takdirde bir dolandırıcılık olabilir. %multisig_warning_link%"
+$multisig_warning_text: Bu cüzdandan MyTonWallet üzerinden **para çekmek** **imkansızdır**. Gerçekten sizin olduğundan emin olun — aksi takdirde bir dolandırıcılık olabilir. %multisig_warning_link%
 $multisig_warning_link: Daha fazla öğrenmek için tıklayın
 Multisig sending disabled: Multisig'den olmaz
 $try_new_air_version: Yerel uygulama deneyimini deneyin — daha hafif, daha hızlı ve cihazınız için oluşturuldu. İstediğiniz zaman geri dönebilirsiniz.
+$accept_terms_with_link: "%link% kabul ediyorum"
+use the wallet responsibly: Cüzdanı sorumlu bir şekilde kullanmak
+"%app_name% Resources": "%app_name% Kaynakları"
+Watch Video about Features: Özellikler hakkında video izleyin
+Enjoy Monthly Updates in Blog: Blog'daki aylık güncellemelerin keyfini çıkarın
+Learn New Things in Help Center: Yardım Merkezi'nde yeni şeyler öğrenin
+Frequency Questions and Answers: Sık Sorulan Sorular ve Cevaplar
+Paste from Clipboard: Panodan Yapıştır
+Use biometric authentication or create a password to protect it.: Koruma için biyometrik kimlik doğrulama kullanın veya bir şifre oluşturun.
+Go to Words: Kelimelere Git
+Copy to Clipboard: Panoya Kopyala
+$mnemonic_check_words_list: "Lütfen doğru kelimeleri seçin %word_numbers%:"
+$mnemonic_check_error: Kelimeler eşleşmiyor, lütfen tekrar deneyin.
+Open Wallet: Cüzdanı Aç
+All Set!: Her Şey Hazır!
+$wallet_create_done: Tamamlandı! Bir cüzdan oluşturdunuz.
+$wallet_import_done:
+  zeroValue: Tamamlandı! Bir cüzdan içe aktardınız.
+  oneValue: Tamamlandı! Bir cüzdan içe aktardınız.
+  otherValue: Tamamlandı! %1$d cüzdan içe aktardınız.
+$wallet_done_description: Artık coinleri ve diğer dijital varlıkları güvenle saklayabilir, alabilir ve gönderebilirsiniz.
+Security Warning: Güvenlik Uyarısı
+Go back to Words: Kelimelere Geri Dön
+I’m sure. Continue: Eminim. Devam Et
+$copy_mnemonic_warning: Kelimeleri **pano** dahil dijital bir ortamda saklamak güvenli değildir. Kurtarma ifadenizi güvenli bir şekilde kaydettiğinizden emin olun.
+Other apps will be able to read your recovery phrase!: Diğer uygulamalar kurtarma ifadenizi okuyabilecek!
+I’m sure. Copy anyway: Eminim. Yine de Kopyala
+$auth_biometric_info: "**Daha fazla konfor** için biyometrik verilerinizi bağlayabilirsiniz."
+Open wallet without checking: Kontrol etmeden cüzdanı aç
+Make sure you have your recovery phrase securely saved.: Kurtarma ifadenizi güvenli bir şekilde kaydettiğinizden emin olun.
+Without it, you won't be able to access your wallet.: Onsuz cüzdanınıza erişemezsiniz.
+$ledger_connection_broken: Ledger bağlantısı kesildi. Lütfen yeniden bağlanıp tekrar deneyin.
+$ledger_wrong_device: Mevcut hesap başka bir Ledger kurtarma ifadesi veya parola ile kuruldu ya da başka bir Ledger cihazında saklanıyor
+Show More: Daha fazla göster
+Purchasing TRON with Russian Rubles is currently unavailable.: Rus Rublesi ile TRON satın alma şu anda kullanılamıyor.

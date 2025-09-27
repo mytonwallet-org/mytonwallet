@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.uiassets.viewControllers.assets.views
 
-import WNavigationController
 import android.annotation.SuppressLint
 import android.text.Spannable
 import android.text.SpannableString
@@ -8,6 +7,7 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.core.content.ContextCompat
+import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -16,9 +16,9 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 

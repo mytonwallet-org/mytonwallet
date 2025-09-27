@@ -15,17 +15,17 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views.PasscodeScreenView
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.helpers.logger.Logger
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
-import org.mytonwallet.app_air.walletcontext.utils.toProcessedSpannableStringBuilder
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.api.resetAccounts
 import org.mytonwallet.app_air.walletcore.stores.AuthCooldownError
 import org.mytonwallet.app_air.walletcore.stores.AuthStore
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 
 @SuppressLint("ViewConstructor")
 class PasscodeConfirmVC(
@@ -139,8 +139,10 @@ class PasscodeConfirmVC(
     override fun viewWillAppear() {
         super.viewWillAppear()
 
-        val startWithBiometrics = (passcodeViewState as? PasscodeViewState.Default)?.startWithBiometrics
-            ?: (passcodeViewState as? PasscodeViewState.CustomHeader)?.startWithBiometrics ?: false;
+        val startWithBiometrics =
+            (passcodeViewState as? PasscodeViewState.Default)?.startWithBiometrics
+                ?: (passcodeViewState as? PasscodeViewState.CustomHeader)?.startWithBiometrics
+                ?: false;
 
         if (window?.isPaused == true ||
             !startWithBiometrics ||

@@ -15,13 +15,11 @@ public final class LedgerSignModel: LedgerBaseModel, @unchecked Sendable {
     
     public let accountId: String
     public let fromAddress: String
-    public let ledger: MAccount.Ledger
     public let signData: SignData
     
-    public init(accountId: String, fromAddress: String, ledger: MAccount.Ledger, signData: SignData) async {
+    public init(accountId: String, fromAddress: String, signData: SignData) async {
         self.accountId = accountId
         self.fromAddress = fromAddress
-        self.ledger = ledger
         self.signData = signData
         await super.init(steps: START_STEPS)
     }
@@ -32,7 +30,7 @@ public final class LedgerSignModel: LedgerBaseModel, @unchecked Sendable {
     }
     
     override func performSteps() async throws {
-        try await connect(knownLedger: self.ledger)
+        try await connect()
         try await openApp()
         try await signAndSend()
         try? await Task.sleep(for: .seconds(0.8))
@@ -43,12 +41,6 @@ public final class LedgerSignModel: LedgerBaseModel, @unchecked Sendable {
     
         await updateStep(.sign, status: .current)
         do {
-            let pub = try await connection.getPublicKey(walletIndex: ledger.index)
-            assert(pub.count == 32)
-            let wallet = try await Api.addressFromPublicKey(publicKey: pub, network: .mainnet, version: LEDGER_WALLET_VERSION)
-            guard wallet.address == self.fromAddress else {
-                throw LedgerError.wrongFromAddress
-            }
             try await _signImpl()
             await updateStep(.sign, status: .done)
         } catch {
@@ -92,9 +84,6 @@ public final class LedgerSignModel: LedgerBaseModel, @unchecked Sendable {
         case .signLedgerProof(let promiseId, let proof):
             do {
                 let accountId = try AccountStore.accountId.orThrow()
-                let network = AccountStore.activeNetwork
-                let index = ledger.index
-                let path = APDUHelpers.getLedgerAccountPath(isTestnet: network == .testnet, workChain: 0, index: Int32(index))
                 var result: ApiSignTonProofResult?
                 if let proof {
                     result = try await Api.signTonProof(accountId: accountId, proof: proof, password: nil)

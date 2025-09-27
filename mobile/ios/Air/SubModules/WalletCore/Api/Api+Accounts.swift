@@ -13,10 +13,6 @@ extension Api {
         try await bridge.callApiVoid("deactivateAllAccounts")
     }
 
-    public static func fetchTonWallet(accountId: String) async throws -> ApiTonWallet {
-        try await bridge.callApi("fetchTonWallet", accountId, decoding: ApiTonWallet.self)
-    }
-
     public static func fetchLedgerAccount(accountId: String) async throws -> ApiLedgerAccount {
         try await bridge.callApi("fetchLedgerAccount", accountId, decoding: ApiLedgerAccount.self)
     }

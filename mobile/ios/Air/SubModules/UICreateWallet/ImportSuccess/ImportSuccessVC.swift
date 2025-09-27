@@ -16,6 +16,7 @@ import UIComponents
 public enum SuccessKind {
     case created
     case imported
+    case importedView
 }
 
 public class ImportSuccessVC: WViewController {

@@ -50,6 +50,7 @@ dependencies {
     implementation(project("$airSubModulePath:OverScroll"))
     implementation(project("$airSubModulePath:WalletCore"))
     implementation(project("$airSubModulePath:WalletContext"))
+    implementation(project("$airSubModulePath:WalletBaseContext"))
     implementation(project("$airSubModulePath:vkryl:core"))
     implementation(project("$airSubModulePath:vkryl:android"))
     implementation(project("$airSubModulePath:Ledger"))

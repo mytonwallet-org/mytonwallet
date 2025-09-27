@@ -308,7 +308,6 @@ Transfer Details: Transfer Details
 "Transferring NFT is not yet supported by Ledger.": "Transferring NFT is not yet supported by Ledger."
 Unavailable: Unavailable
 "Updating…": "Updating…"
-"Use secret words, or instantly migrate an unlimited number of wallets from another MyTonWallet app:": "Use secret words, or instantly migrate an unlimited number of wallets from another MyTonWallet app:"
 "Waiting for network…": "Waiting for network…"
 Wallet Created: Wallet Created
 Wallet is Locked: Wallet is Locked
@@ -320,8 +319,6 @@ Your Address: Your Address
 "Your TON Wallet has just been created.": "Your TON Wallet has just been created."
 "Your wallet has just been imported!": "Your wallet has just been imported!"
 Passcodes don't match. Please try again.: Passcodes don't match. Please try again.
-Open wallet without checking: Open wallet without checking
-Copy to Clipboard: Copy to Clipboard
 Secret phrase was copied to clipboard: Secret phrase was copied to clipboard
 clipboard: clipboard
 screenshot: screenshot
@@ -333,3 +330,8 @@ Copy Anyway: Copy Anyway
 24 Words: 24 Words
 "Please choose the correct words **%1$@**, **%2$@**, **%3$@**:": "Please choose the correct words **%1$@**, **%2$@**, **%3$@**:"
 "Words don’t match, please try again.": Words don’t match, please try again.
+Load 5 More Wallets: Load 5 More Wallets
+$n_wallets_selected:
+  zeroValue: "%1$d selected"
+  oneValue: "%1$d selected"
+  otherValue: "%1$d selected"

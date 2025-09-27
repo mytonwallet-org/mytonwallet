@@ -6,16 +6,19 @@ import android.content.res.Configuration
 import android.view.ViewGroup
 import com.facebook.drawee.backends.pipeline.Fresco
 import org.mytonwallet.app_air.uicomponents.helpers.FontManager
+import org.mytonwallet.app_air.walletbasecontext.WBaseStorage
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.IGlobalStorageProvider
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 import org.mytonwallet.app_air.walletcontext.helpers.LauncherIconController
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.helpers.logger.Logger
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
-import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setAccentColor
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setNftAccentColor
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ActivityStore
@@ -64,6 +67,13 @@ class AirAsFrameworkApplication {
             )
 
             t = System.currentTimeMillis()
+            WBaseStorage.init(applicationContext)
+            Logger.i(
+                Logger.LogTag.AIR_APPLICATION,
+                "WBaseStorage.init: ${System.currentTimeMillis() - t}ms"
+            )
+
+            t = System.currentTimeMillis()
             FontManager.init(applicationContext)
             Logger.i(
                 Logger.LogTag.AIR_APPLICATION,
@@ -77,7 +87,7 @@ class AirAsFrameworkApplication {
                 "initTheme: ${System.currentTimeMillis() - t}ms"
             )
 
-            LocaleController.init(applicationContext)
+            LocaleController.init(applicationContext, WGlobalStorage.getLangCode())
 
             t = System.currentTimeMillis()
             Fresco.initialize(applicationContext)
@@ -138,15 +148,22 @@ class AirAsFrameworkApplication {
         }
 
         fun initTheme(applicationContext: Context) {
-            val accountId = AccountStore.activeAccountId ?: WGlobalStorage.getActiveAccountId()
             val selectedTheme = WGlobalStorage.getActiveTheme()
             when (selectedTheme) {
                 ThemeManager.THEME_LIGHT -> {
-                    ThemeManager.init(ThemeManager.THEME_LIGHT, accountId = accountId)
+                    ThemeManager.init(
+                        theme = ThemeManager.THEME_LIGHT,
+                        uiMode = WGlobalStorage.getActiveUiMode(),
+                        sideGuttersActive = WGlobalStorage.getAreSideGuttersActive()
+                    )
                 }
 
                 ThemeManager.THEME_DARK -> {
-                    ThemeManager.init(ThemeManager.THEME_DARK, accountId = accountId)
+                    ThemeManager.init(
+                        theme = ThemeManager.THEME_DARK,
+                        uiMode = WGlobalStorage.getActiveUiMode(),
+                        sideGuttersActive = WGlobalStorage.getAreSideGuttersActive()
+                    )
                 }
 
                 ThemeManager.THEME_SYSTEM -> {
@@ -154,22 +171,37 @@ class AirAsFrameworkApplication {
                         applicationContext.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
                     when (nightModeFlags) {
                         Configuration.UI_MODE_NIGHT_YES -> ThemeManager.init(
-                            ThemeManager.THEME_DARK,
-                            accountId = accountId
+                            theme = ThemeManager.THEME_DARK,
+                            uiMode = WGlobalStorage.getActiveUiMode(),
+                            sideGuttersActive = WGlobalStorage.getAreSideGuttersActive()
                         )
 
                         Configuration.UI_MODE_NIGHT_NO -> ThemeManager.init(
-                            ThemeManager.THEME_LIGHT,
-                            accountId = accountId
+                            theme = ThemeManager.THEME_LIGHT,
+                            uiMode = WGlobalStorage.getActiveUiMode(),
+                            sideGuttersActive = WGlobalStorage.getAreSideGuttersActive()
                         )
 
                         Configuration.UI_MODE_NIGHT_UNDEFINED -> ThemeManager.init(
-                            ThemeManager.THEME_LIGHT,
-                            accountId = accountId
+                            theme = ThemeManager.THEME_LIGHT,
+                            uiMode = WGlobalStorage.getActiveUiMode(),
+                            sideGuttersActive = WGlobalStorage.getAreSideGuttersActive()
                         )
                     }
                 }
             }
+            val accountId = AccountStore.activeAccountId ?: WGlobalStorage.getActiveAccountId()
+            updateAccentColor(accountId)
+        }
+
+        fun updateAccentColor(accountId: String?) {
+            accountId?.let {
+                WGlobalStorage.getNftAccentColorIndex(accountId)?.let {
+                    setNftAccentColor(it)
+                    return
+                }
+            }
+            setAccentColor(WGlobalStorage.getAccentColorId())
         }
     }
 }

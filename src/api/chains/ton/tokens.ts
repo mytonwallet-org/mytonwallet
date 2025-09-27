@@ -1,7 +1,7 @@
 import type { JettonBalance } from 'tonapi-sdk-js';
 import { Address, Cell } from '@ton/core';
 
-import type { ApiBalanceBySlug, ApiNetwork, ApiToken, ApiTokenWithPrice, OnApiUpdate } from '../../types';
+import type { ApiBalanceBySlug, ApiNetwork, ApiToken, ApiTokenWithPrice } from '../../types';
 import type { AnyPayload, JettonMetadata, TonTransferParams } from './types';
 
 import { TON_USDT_MAINNET_SLUG, TON_USDT_TESTNET_SLUG } from '../../../config';
@@ -141,7 +141,7 @@ export async function buildTokenTransfer(options: {
   let { payload } = options;
 
   const tokenWalletAddress = await resolveTokenWalletAddress(network, fromAddress, tokenAddress);
-  const token = getTokenByAddress(tokenAddress);
+  const token = getTokenByAddress(tokenAddress)!;
 
   const {
     isTokenWalletDeployed = !!(await isActiveSmartContract(network, tokenWalletAddress)),
@@ -195,7 +195,7 @@ export async function buildTokenTransfer(options: {
 
 export async function getTokenBalanceWithMintless(network: ApiNetwork, accountAddress: string, tokenAddress: string) {
   const tokenWalletAddress = await resolveTokenWalletAddress(network, accountAddress, tokenAddress);
-  const token = getTokenByAddress(tokenAddress);
+  const token = getTokenByAddress(tokenAddress)!;
 
   const {
     isTokenWalletDeployed = !!(await isActiveSmartContract(network, tokenWalletAddress)),
@@ -350,10 +350,21 @@ export function getToncoinAmountForTransfer(token: ApiToken, willClaimMintless: 
   return { amount, realAmount };
 }
 
+export async function importToken(network: ApiNetwork, address: string, sendUpdateTokens: NoneToVoidFunction) {
+  const rawToken = await fetchToken(network, address);
+  const token: ApiTokenWithPrice = {
+    ...rawToken,
+    priceUsd: 0,
+    percentChange24h: 0,
+  };
+  await updateTokens([token], sendUpdateTokens);
+  await updateTokenHashes(network, [token.slug], sendUpdateTokens);
+}
+
 export async function loadTokenBalances(
   network: ApiNetwork,
   address: string,
-  onUpdate: OnApiUpdate,
+  sendUpdateTokens: NoneToVoidFunction,
 ): Promise<ApiBalanceBySlug> {
   const tokenBalances = await getTokenBalances(network, address);
   const tokens: ApiTokenWithPrice[] = tokenBalances.map(({ token }) => ({
@@ -361,7 +372,8 @@ export async function loadTokenBalances(
     priceUsd: 0,
     percentChange24h: 0,
   }));
-  await updateTokens(tokens, onUpdate);
-  await updateTokenHashes(network, tokens.map((token) => token.slug), onUpdate);
+  await updateTokens(tokens, sendUpdateTokens);
+  await updateTokenHashes(network, tokens.map((token) => token.slug), sendUpdateTokens);
+
   return Object.fromEntries(tokenBalances.map(({ slug, balance }) => [slug, balance]));
 }

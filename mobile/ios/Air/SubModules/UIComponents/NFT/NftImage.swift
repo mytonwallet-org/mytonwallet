@@ -45,10 +45,9 @@ public struct NftImage: View {
     }
     
     public var body: some View {
-        let _ = Self._printChanges()
         KFImage(imageUrl)
             .backgroundDecode()
-            .fade(duration: 0.15)
+            .fade(duration: loadFullSize ? 0 : 0.15)
             .loadDiskFileSynchronously(false)
             .placeholder({
                 if loadFullSize {

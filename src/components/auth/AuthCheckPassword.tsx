@@ -38,7 +38,7 @@ function AuthCheckPassword({
         isLoading={isLoading}
         error={error}
         containerClassName={styles.passwordForm}
-        submitLabel={lang('Send')}
+        submitLabel={lang('Confirm')}
         cancelLabel={lang('Back')}
         onSubmit={handleSubmit}
         onCancel={resetAuth}

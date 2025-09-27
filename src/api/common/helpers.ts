@@ -1,4 +1,4 @@
-import type chains from '../chains';
+import type * as tonSdk from '../chains/ton';
 import type { ApiDbSseConnection } from '../db';
 import type { StorageKey } from '../storages/types';
 import type {
@@ -101,7 +101,7 @@ export function isUpdaterAlive(onUpdate: OnApiUpdate) {
   return currentOnUpdate === onUpdate;
 }
 
-export function startStorageMigration(onUpdate: OnApiUpdate, ton: typeof chains.ton, accountIds?: string[]) {
+export function startStorageMigration(onUpdate: OnApiUpdate, ton: typeof tonSdk, accountIds?: string[]) {
   migrationEnsurePromise = migrateStorage(onUpdate, ton, accountIds)
     .catch((err) => {
       logDebugError('Migration error', err);
@@ -117,7 +117,7 @@ export function waitStorageMigration() {
   return migrationEnsurePromise;
 }
 
-export async function migrateStorage(onUpdate: OnApiUpdate, ton: typeof chains.ton, accountIds?: string[]) {
+export async function migrateStorage(onUpdate: OnApiUpdate, ton: typeof tonSdk, accountIds?: string[]) {
   let version = Number(await storage.getItem('stateVersion', true));
 
   if (version === actualStateVersion) {

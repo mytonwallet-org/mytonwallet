@@ -1,8 +1,12 @@
 import React, { memo, useEffect, useState } from '../../lib/teact/teact';
+import { withGlobal } from '../../global';
+
+import type { ApiChain } from '../../api/types';
 
 import { ANIMATED_STICKER_BIG_SIZE_PX } from '../../config';
 import renderText from '../../global/helpers/renderText';
 import buildClassName from '../../util/buildClassName';
+import { getChainTitle } from '../../util/chain';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
@@ -25,14 +29,18 @@ interface OwnProps {
   onTryAgain: () => void;
 }
 
+interface StateProps {
+  chain: ApiChain;
+}
+
 enum ConfirmTransactionState {
   Waiting,
   Error,
 }
 
 function LedgerConfirmOperation({
-  isActive, text, error, onClose, onTryAgain,
-}: OwnProps) {
+  isActive, text, error, onClose, onTryAgain, chain,
+}: OwnProps & StateProps) {
   const lang = useLang();
 
   const [activeState, setActiveState] = useState(ConfirmTransactionState.Waiting);
@@ -70,7 +78,7 @@ function LedgerConfirmOperation({
           <div className={buildClassName(styles.textBlock, styles.textBlock_small)}>
             <span className={styles.text}>{text}</span>
           </div>
-          <div className={buildClassName(styles.actionBlock, styles.actionBlock_single)}>
+          <div className={buildClassName(styles.actionBlock, styles.actionBlockSingle)}>
             <Button onClick={onClose} className={buildClassName(styles.button, styles.button_single)}>
               {lang('Cancel')}
             </Button>
@@ -81,13 +89,8 @@ function LedgerConfirmOperation({
   }
 
   function renderTryAgain(isActiveSlide: boolean) {
-    const isErrorDetailed = error && [
-      '$hardware_blind_sign_not_enabled',
-      '$hardware_blind_sign_not_enabled_internal',
-    ].includes(error);
-    const errorMessage = isErrorDetailed
-      ? (<span>{renderText(lang(error))}</span>)
-      : renderText(lang(error!));
+    const isErrorDetailed = error === '$hardware_blind_sign_not_enabled';
+    const errorMessage = lang(error ?? '', { chain: getChainTitle(chain) });
 
     return (
       <>
@@ -103,7 +106,7 @@ function LedgerConfirmOperation({
             previewUrl={ANIMATED_STICKERS_PATHS.holdTonPreview}
           />
           <div className={buildClassName(styles.declinedLabel, isErrorDetailed && styles.declinedLabelDetailed)}>
-            {errorMessage}
+            {renderText(errorMessage)}
           </div>
           <div className={styles.actionBlock}>
             <Button onClick={onClose} className={styles.button}>{lang('Cancel')}</Button>
@@ -136,4 +139,8 @@ function LedgerConfirmOperation({
   );
 }
 
-export default memo(LedgerConfirmOperation);
+export default memo(withGlobal<OwnProps>((global): StateProps => {
+  const { chain } = global.hardware;
+
+  return { chain };
+})(LedgerConfirmOperation));

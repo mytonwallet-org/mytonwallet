@@ -12,8 +12,8 @@ import androidx.interpolator.view.animation.FastOutSlowInInterpolator
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.drawable.RoundProgressDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 class LedgerConnectStepStatusView(context: Context) : View(context) {
 

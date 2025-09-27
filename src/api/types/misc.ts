@@ -4,6 +4,7 @@ import type { ApiTonWalletVersion } from '../chains/ton/types';
 import type { ApiTransactionActivity } from './activities';
 import type { ApiParsedPayload } from './payload';
 import type { ApiSseOptions } from './storage';
+import type { ApiUpdatingStatus } from './updates';
 
 export type ApiChain = 'ton' | 'tron';
 export type ApiNetwork = 'mainnet' | 'testnet';
@@ -172,7 +173,6 @@ export type ApiNominatorsStakingState = BaseStakingState & {
   type: 'nominators';
   start: number;
   end: number;
-  pendingDepositAmount: bigint;
 };
 
 export type ApiLiquidStakingState = BaseStakingState & {
@@ -353,3 +353,5 @@ export type ApiCountryCode = 'AF' | 'AX' | 'AL' | 'DZ' | 'AS' | 'AD' | 'AO' | 'A
 export type ApiImportAddressByChain = Partial<Record<ApiChain, string>>;
 
 export type ApiNftMarketplace = 'fragment' | 'getgems';
+
+export type OnUpdatingStatusChange = (kind: ApiUpdatingStatus['kind'], isUpdating: boolean) => void;

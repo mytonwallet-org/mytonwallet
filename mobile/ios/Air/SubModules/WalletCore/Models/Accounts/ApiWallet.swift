@@ -30,3 +30,5 @@ public struct ApiTronWallet: ApiBaseWallet, Equatable, Hashable, Codable, Sendab
     public var publicKey: String?
     public var index: Int
 }
+
+public typealias ApiAnyChainWallet = ApiTonWallet

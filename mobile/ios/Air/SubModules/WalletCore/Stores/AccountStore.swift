@@ -186,7 +186,6 @@ public final class _AccountStore: @unchecked Sendable {
             title: _defaultTitle(),
             type: .mnemonic,
             byChain: result.byChain,
-            ledger: nil
         )
         try await _storeAccount(account: account)
         _ = try await self.activateAccount(accountId: result.accountId, isNew: true)
@@ -201,7 +200,6 @@ public final class _AccountStore: @unchecked Sendable {
             title: _defaultTitle(),
             type: .mnemonic,
             byChain: result.byChain,
-            ledger: nil
         )
         try await _storeAccount(account: account)
         _ = try await self.activateAccount(accountId: result.accountId, isNew: true)
@@ -209,22 +207,15 @@ public final class _AccountStore: @unchecked Sendable {
         return account
     }
 
-    public func importLedgerWallet(walletInfo: LedgerWalletInfo) async throws -> String {
-        let result = try await Api.importLedgerWallet(network: .mainnet, walletInfo: walletInfo)
-        let title = "Ledger \(walletInfo.index + 1)"
+    public func importLedgerAccount(accountInfo: ApiLedgerAccountInfo) async throws -> String {
+        let result = try await Api.importLedgerAccount(network: .mainnet, accountInfo: accountInfo)
+        let index = accountInfo.byChain[TON_CHAIN]?.index ?? 0
+        let title = "Ledger \(index + 1)"
         let account = MAccount(
             id: result.accountId,
             title: title,
             type: .hardware,
-            byChain: [
-                ApiChain.ton.rawValue: AccountChain(address: result.address)
-            ],
-            ledger: MAccount.Ledger(
-                index: walletInfo.index,
-                driver: walletInfo.driver,
-                deviceId: walletInfo.deviceId,
-                deviceName: walletInfo.deviceName
-            )
+            byChain: result.byChain,
         )
         try await _storeAccount(account: account)
         return result.accountId
@@ -246,9 +237,11 @@ public final class _AccountStore: @unchecked Sendable {
                 title: title,
                 type: originalAccount.type,
                 byChain: [
-                    ApiChain.ton.rawValue: AccountChain(address: result.address.orThrow("Address missing for new wallet version")),
+                    ApiChain.ton.rawValue: AccountChain(
+                        address: result.address.orThrow("Address missing for new wallet version"),
+                        ledgerIndex: result.ledger?.index
+                    ),
                 ],
-                ledger: originalAccount.ledger
             )
             
             try await _storeAccount(account: account)
@@ -275,7 +268,6 @@ public final class _AccountStore: @unchecked Sendable {
             title: result.title ?? "View Wallet \(AccountStore.accountsById.count + 1)",
             type: .view,
             byChain: result.byChain,
-            ledger: nil
         )
 
         try await _storeAccount(account: account)

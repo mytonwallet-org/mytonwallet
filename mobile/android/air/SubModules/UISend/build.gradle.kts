@@ -46,6 +46,7 @@ dependencies {
     implementation(project("$airSubModulePath:Icons"))
     implementation(project("$airSubModulePath:OverScroll"))
     implementation(project("$airSubModulePath:WalletContext"))
+    implementation(project("$airSubModulePath:WalletBaseContext"))
     implementation(project("$airSubModulePath:WalletCore"))
     implementation(project("$airSubModulePath:UIPasscode"))
     implementation(project("$airSubModulePath:QRScan"))

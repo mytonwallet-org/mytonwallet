@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.uitransaction.viewControllers
 
-import WNavigationController
 import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -25,6 +24,7 @@ import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.content.ContextCompat
 import androidx.core.widget.NestedScrollView
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
+import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.HeaderActionsView
 import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
@@ -51,22 +51,22 @@ import org.mytonwallet.app_air.uistake.earn.EarnRootVC
 import org.mytonwallet.app_air.uistake.staking.StakingVC
 import org.mytonwallet.app_air.uistake.staking.StakingViewModel
 import org.mytonwallet.app_air.uiswap.screens.swap.SwapVC
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
+import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
+import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
+import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
+import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
-import org.mytonwallet.app_air.walletcontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletcontext.utils.formatDateAndTime
-import org.mytonwallet.app_air.walletcontext.utils.formatStartEndAddress
-import org.mytonwallet.app_air.walletcontext.utils.smartDecimalsCount
-import org.mytonwallet.app_air.walletcontext.utils.toBigInteger
-import org.mytonwallet.app_air.walletcontext.utils.toString
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
@@ -741,12 +741,27 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
     }
 
     private fun reloadData() {
-        transactionHeaderView?.reloadData()
+        transactionHeaderView?.apply {
+            transaction = this@TransactionVC.transaction
+            reloadData()
+        }
+        swapHeaderView?.apply {
+            transaction = this@TransactionVC.transaction
+            reloadData()
+        }
+        nftHeaderView?.apply {
+            transaction = this@TransactionVC.transaction
+            reloadData()
+        }
         actionsView.resetTabs(generateActions())
-        feeRow?.setValue(
-            calcFee(transaction),
-            fadeIn = false
-        )
+        calcFee(transaction)?.let { fee ->
+            feeRow?.setValue(
+                fee,
+                fadeIn = false
+            )
+        } ?: run {
+            loadActivityDetails()
+        }
     }
 
     private fun shouldShowRepeatAction() = {
@@ -976,7 +991,7 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
                     ActivityStore.updateCachedTransaction(accountId, transaction)
                     feeRow?.setValue(
                         calcFee(transaction),
-                        fadeIn = true
+                        fadeIn = feeRow?.valueLabel?.contentView?.text.isNullOrEmpty()
                     )
                 }
             })
@@ -1051,8 +1066,15 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
                 reloadData()
             }
 
+            is WalletEvent.ReceivedPendingActivities -> {
+                walletEvent.pendingActivities?.firstOrNull { this.transaction.isSame(it) }?.let {
+                    this.transaction = it
+                    reloadData()
+                }
+            }
+
             is WalletEvent.ReceivedNewActivities -> {
-                walletEvent.newActivities?.firstOrNull { it.id == transaction.id }?.let {
+                walletEvent.newActivities?.firstOrNull { this.transaction.isSame(it) }?.let {
                     this.transaction = it
                     reloadData()
                 }

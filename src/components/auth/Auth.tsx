@@ -1,4 +1,4 @@
-import React, { memo, useState } from '../../lib/teact/teact';
+import React, { memo, useRef, useState } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import type { GlobalState, Theme } from '../../global/types';
@@ -17,7 +17,7 @@ import AuthCheckPassword from './AuthCheckPassword';
 import AuthCheckWords from './AuthCheckWords';
 import AuthConfirmBiometrics from './AuthConfirmBiometrics';
 import AuthConfirmPin from './AuthConfirmPin';
-import AuthCreateBackup from './AuthCreateBackup';
+import AuthCongratulations from './AuthCongratulations';
 import AuthCreateBiometrics from './AuthCreateBiometrics';
 import AuthCreateNativeBiometrics from './AuthCreateNativeBiometrics';
 import AuthCreatePassword from './AuthCreatePassword';
@@ -34,6 +34,7 @@ import styles from './Auth.module.scss';
 
 type StateProps = Pick<GlobalState['auth'], (
   'state' | 'biometricsStep' | 'error' | 'mnemonic' | 'mnemonicCheckIndexes' | 'isLoading' | 'method'
+  | 'hardwareSelectedIndices'
 )> & { theme: Theme };
 
 const RENDER_COUNT = Object.keys(AuthState).length / 2;
@@ -45,6 +46,7 @@ const Auth = ({
   isLoading,
   mnemonic,
   mnemonicCheckIndexes,
+  hardwareSelectedIndices,
   method,
   theme,
 }: StateProps) => {
@@ -53,6 +55,7 @@ const Auth = ({
     closeImportViewAccount,
   } = getActions();
 
+  const containerRef = useRef<HTMLDivElement>();
   const { isPortrait } = useDeviceScreen();
 
   // Transitioning to ready state is done in another component
@@ -104,8 +107,6 @@ const Auth = ({
         );
       case AuthState.createPassword:
         return <AuthCreatePassword isActive={isActive} isLoading={isLoading} method="createAccount" />;
-      case AuthState.createBackup:
-        return <AuthCreateBackup isActive={isActive} />;
       case AuthState.disclaimerAndBackup:
         return (
           <AuthDisclaimer key="create" isActive={isActive} />
@@ -130,7 +131,6 @@ const Auth = ({
           <AuthDisclaimer
             key="import"
             isActive={isActive}
-            isImport
           />
         );
       case AuthState.importWalletCreateNativeBiometrics:
@@ -155,7 +155,7 @@ const Auth = ({
           <SettingsAbout
             isActive={isActive}
             theme={theme}
-            headerClassName={styles.aboutHeader}
+            slideClassName={styles.aboutSlide}
             handleBackClick={closeAbout}
           />
         );
@@ -173,21 +173,32 @@ const Auth = ({
             onCancel={closeImportViewAccount}
           />
         );
+      case AuthState.congratulations:
+        return (
+          <AuthCongratulations
+            isActive={isActive}
+            hardwareWalletsAmount={hardwareSelectedIndices?.length}
+            isImporting={Boolean(hardwareSelectedIndices?.length)}
+          />
+        );
+      case AuthState.importCongratulations:
+        return <AuthCongratulations isActive={isActive} isImporting />;
     }
   }
 
   return (
     <Transition
+      ref={containerRef}
       name={isPortrait ? (IS_ANDROID ? 'slideFade' : 'slideLayers') : 'semiFade'}
       activeKey={renderingAuthState}
       renderCount={RENDER_COUNT}
       shouldCleanup
+      shouldWrap
       className={styles.transitionContainer}
       slideClassName={styles.transitionSlide}
       prevKey={prevKey}
       nextKey={nextKey}
       onStop={updateRenderingKeys}
-      shouldWrap
     >
       {renderAuthScreen}
     </Transition>
@@ -197,6 +208,7 @@ const Auth = ({
 export default memo(withGlobal((global): StateProps => {
   const authProps = pick(global.auth, [
     'state', 'biometricsStep', 'error', 'mnemonic', 'mnemonicCheckIndexes', 'isLoading', 'method',
+    'hardwareSelectedIndices',
   ]);
   return {
     ...authProps,

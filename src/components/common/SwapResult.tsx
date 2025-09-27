@@ -4,8 +4,9 @@ import { withGlobal } from '../../global';
 import type { Account, UserSwapToken } from '../../global/types';
 import { SwapType } from '../../global/types';
 
-import { getIsInternalSwap, getIsSupportedChain } from '../../global/helpers';
+import { getIsInternalSwap } from '../../global/helpers';
 import { selectCurrentAccount } from '../../global/selectors';
+import { getIsSupportedChain } from '../../util/chain';
 import getChainNetworkName from '../../util/swap/getChainNetworkName';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 

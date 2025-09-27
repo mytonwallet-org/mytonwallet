@@ -14,8 +14,8 @@ import com.facebook.drawee.interfaces.DraweeController
 import com.facebook.drawee.view.SimpleDraweeView
 import com.facebook.imagepipeline.request.ImageRequestBuilder
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 
 @Deprecated("use WCustomImageView (or AppCompatImageView for simple cases)")

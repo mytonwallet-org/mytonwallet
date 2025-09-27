@@ -23,9 +23,9 @@ import org.mytonwallet.app_air.uicomponents.widgets.WImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import java.lang.ref.WeakReference
@@ -34,7 +34,7 @@ import kotlin.math.roundToInt
 @SuppressLint("ViewConstructor")
 class NftHeaderView(
     val viewController: WeakReference<WViewController>,
-    val transaction: MApiTransaction
+    var transaction: MApiTransaction
 ) : WView(
     viewController.get()!!.context,
     LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
@@ -65,7 +65,7 @@ class NftHeaderView(
     }
 
     init {
-        config()
+        reloadData()
 
         addView(imageView)
         addView(nameTextView)
@@ -87,7 +87,8 @@ class NftHeaderView(
         updateTheme()
     }
 
-    fun config() {
+    fun reloadData() {
+        val transaction = transaction
         if (transaction !is MApiTransaction.Transaction)
             throw Exception()
         val nft = transaction.nft!!

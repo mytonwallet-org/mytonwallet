@@ -7,16 +7,15 @@ import type { ApiSubmitTransferOptions, ApiSubmitTransferResult, CheckTransactio
 
 import { parseAccountId } from '../../util/account';
 import { buildLocalTxId } from '../../util/activities';
-import { getChainConfig } from '../../util/chain';
+import { getNativeToken } from '../../util/tokens';
 import chains from '../chains';
+import * as ton from '../chains/ton';
 import { fetchStoredAddress } from '../common/accounts';
 import { buildLocalTransaction } from '../common/helpers';
 import { FAKE_TX_ID } from '../constants';
 import { buildTokenSlug } from './tokens';
 
 let onUpdate: OnApiUpdate;
-
-const { ton } = chains;
 
 export function initTransfer(_onUpdate: OnApiUpdate) {
   onUpdate = _onUpdate;
@@ -91,7 +90,7 @@ export async function submitTransfer(
 
   const slug = tokenAddress
     ? buildTokenSlug(chain, tokenAddress)
-    : getChainConfig(chain).nativeToken.slug;
+    : getNativeToken(chain).slug;
 
   let localActivity: ApiTransactionActivity;
 
@@ -167,9 +166,7 @@ export function createLocalTransactions(
 }
 
 export function fetchEstimateDiesel(accountId: string, tokenAddress: string) {
-  const chain = chains.ton;
-
-  return chain.fetchEstimateDiesel(accountId, tokenAddress);
+  return ton.fetchEstimateDiesel(accountId, tokenAddress);
 }
 
 /**
@@ -237,7 +234,7 @@ function convertEmulationActivityToLocal(
     let normalizedAddress = activity.normalizedAddress;
     if (!normalizedAddress && chain === 'ton' && accountId) {
       const { network } = parseAccountId(accountId);
-      normalizedAddress = chains.ton.normalizeAddress(activity.toAddress, network);
+      normalizedAddress = ton.normalizeAddress(activity.toAddress, network);
     }
 
     return {

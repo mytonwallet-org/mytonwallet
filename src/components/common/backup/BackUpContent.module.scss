@@ -1,3 +1,50 @@
+@use "../../../styles/mixins";
+
+.title {
+  margin: 1.5rem 0 2.5rem;
+
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 2.5rem;
+  color: var(--color-black);
+  text-align: center;
+}
+
+.checkboxBlock {
+  pointer-events: none;
+
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border-radius: var(--border-radius-default);
+
+  opacity: 0.4;
+  background: var(--color-background-first);
+
+  @include mixins.transition(opacity 200ms);
+
+  &.accessible {
+    pointer-events: auto;
+    opacity: 1;
+  }
+}
+
+.checkbox {
+  position: relative;
+  padding-left: 2.25rem;
+
+  &::before,
+  &::after {
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+  }
+}
+
+.checkWordsSlide {
+  display: flex;
+  flex-direction: column;
+}
+
 .modalSticker {
   margin-bottom: 2rem;
 }
@@ -11,10 +58,18 @@
 .footerButton {
   width: 100%;
   max-width: 100% !important;
+  height: 3rem !important;
+  font-weight: 700;
 }
 
-.checkMnemonicInput {
-  margin-bottom: 1.25rem;
+.copyButton {
+  margin-bottom: 2rem;
+  font-weight: 700;
+
+  > .copyButtonIcon {
+    margin-inline-end: 0.25rem;
+    font-weight: 700 !important;
+  }
 }
 
 .error {
@@ -22,10 +77,6 @@
   font-weight: 600;
   color: var(--color-red);
   text-align: center;
-}
-
-.checkMnemonicForm {
-  width: 100%;
 }
 
 .info {
@@ -41,17 +92,28 @@
 .warning {
   align-self: center;
 
-  margin-bottom: 2rem;
+  margin: 1.25rem auto;
   padding: 0.5rem 0.75rem;
   border-radius: var(--border-radius-buttons);
 
-  font-size: 0.9375rem;
+  font-size: 1.0625rem;
   font-weight: 600;
   line-height: 1.3125rem;
   color: var(--color-transaction-amount-red-text);
   text-align: center;
 
   background-color: var(--color-transaction-amount-red-bg);
+}
+
+.text {
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.warningText {
+  font-weight: 700;
+  color: var(--color-red);
 }
 
 .words {

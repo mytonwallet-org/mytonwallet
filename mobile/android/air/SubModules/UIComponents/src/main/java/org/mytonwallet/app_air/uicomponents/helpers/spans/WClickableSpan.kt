@@ -3,8 +3,8 @@ package org.mytonwallet.app_air.uicomponents.helpers.spans
 import android.text.TextPaint
 import android.text.style.ClickableSpan
 import android.view.View
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 class WClickableSpan(
     private val url: String,

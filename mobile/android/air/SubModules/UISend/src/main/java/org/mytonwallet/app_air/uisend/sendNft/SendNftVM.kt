@@ -4,7 +4,7 @@ import android.annotation.SuppressLint
 import android.os.Handler
 import android.os.Looper
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft

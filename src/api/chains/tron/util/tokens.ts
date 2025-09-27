@@ -1,11 +1,11 @@
 import type { ApiNetwork } from '../../../types';
 
 import { TRX } from '../../../../config';
-import { getChainConfig } from '../../../../util/chain';
 import { buildTokenSlug } from '../../../common/tokens';
+import { NETWORK_CONFIG } from '../constants';
 
 export function getTokenSlugs(network: ApiNetwork) {
-  const { usdtAddress } = getChainConfig('tron')[network];
+  const { usdtAddress } = NETWORK_CONFIG[network];
   const usdtSlug = buildTokenSlug('tron', usdtAddress);
   return [TRX.slug, usdtSlug];
 }

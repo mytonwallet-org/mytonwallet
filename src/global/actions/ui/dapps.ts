@@ -41,7 +41,7 @@ addActionHandler('submitDappTransferConfirm', async (global, actions) => {
   global = getGlobal();
 
   if (selectIsHardwareAccount(global)) {
-    global = resetHardware(global);
+    global = resetHardware(global, 'ton');
     global = updateCurrentDappTransfer(global, { state: TransferState.ConnectHardware });
     setGlobal(global);
   } else if (inMemoryPassword) {

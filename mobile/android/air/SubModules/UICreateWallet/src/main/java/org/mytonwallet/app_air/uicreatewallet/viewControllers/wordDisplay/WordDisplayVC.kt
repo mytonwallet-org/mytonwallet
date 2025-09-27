@@ -6,7 +6,7 @@ import org.mytonwallet.app_air.uicreatewallet.WalletCreationVM
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.walletAdded.WalletAddedVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.setPasscode.SetPasscodeVC
 import org.mytonwallet.app_air.uisettings.viewControllers.RecoveryPhraseVC
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcontext.helpers.WordCheckMode
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent

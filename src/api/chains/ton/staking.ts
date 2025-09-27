@@ -12,7 +12,6 @@ import type {
   ApiStakingState,
 } from '../../types';
 import type { StakingPoolConfigUnpacked } from './contracts/JettonStaking/StakingPool';
-import type { Nominator } from './contracts/NominatorPool';
 import type { ApiCheckTransactionDraftResult, ApiSubmitTransferTonResult, TonTransferParams } from './types';
 import { ApiLiquidUnstakeMode, ApiTransactionDraftError } from '../../types';
 
@@ -458,36 +457,34 @@ async function buildNominatorsState({
   network,
   address,
   backendState,
-  commonData,
 }: StakingStateOptions): Promise<ApiStakingState> {
-  const balance = backendState.balance;
-  const { address: pool, apy } = backendState.nominatorsPool;
+  const { address: pool, apy, start, end } = backendState.nominatorsPool;
 
-  const isPrevRoundUnlocked = Date.now() > commonData.prevRound.unlock;
-  const start = isPrevRoundUnlocked ? commonData.round.start : commonData.prevRound.start;
-  const end = isPrevRoundUnlocked ? commonData.round.unlock : commonData.prevRound.unlock;
+  const nominatorPool = getTonClient(network).open(new NominatorPool(Address.parse(pool)));
+  const nominators = await nominatorPool.getListNominators();
+  const addressObject = Address.parse(address);
+  const nominator = nominators.find((n) => n.address.equals(addressObject));
 
-  let currentNominator: Nominator | undefined;
-
+  let balance = 0n;
   if (backendState.type === 'nominators') {
-    const nominatorPool = getTonClient(network).open(new NominatorPool(Address.parse(pool)));
-    const nominators = await nominatorPool.getListNominators();
-    const addressObject = Address.parse(address);
-    currentNominator = nominators.find((n) => n.address.equals(addressObject));
+    // The backend state includes the loyalty bonus, so it takes priority.
+    balance = backendState.balance;
+  } else if (nominator) {
+    // A rare state when a user has two types of staking or switches between them.
+    balance = nominator.amount + nominator.pendingDepositAmount;
   }
 
   return {
     type: 'nominators',
     id: 'nominators',
     tokenSlug: TONCOIN.slug,
-    balance: currentNominator ? balance : 0n,
+    balance,
     annualYield: apy,
     yieldType: 'APY',
     pool,
     start,
-    end,
-    pendingDepositAmount: currentNominator?.pendingDepositAmount ?? 0n,
-    unstakeRequestAmount: currentNominator?.withdrawRequested ? balance : 0n,
+    end: end + UNSTAKE_TON_GRACE_PERIOD,
+    unstakeRequestAmount: nominator?.withdrawRequested ? balance : 0n,
   };
 }
 
@@ -504,7 +501,7 @@ async function buildJettonState(
     poolConfig,
   } = pool;
 
-  const { decimals, slug: tokenSlug } = getTokenByAddress(tokenAddress);
+  const { decimals, slug: tokenSlug } = getTokenByAddress(tokenAddress)!;
 
   // pool
   const { tvl, rewardJettons } = unpackDicts(poolConfig) as StakingPoolConfigUnpacked;
@@ -625,15 +622,7 @@ function getLiquidStakingTimeRange(commonData: ApiStakingCommonData) {
 
 export async function getBackendStakingState(accountId: string): Promise<ApiBackendStakingState> {
   const account = await fetchStoredChainAccount(accountId, 'ton');
-  const state = await fetchBackendStakingState(account.byChain.ton.address, account.type === 'view');
-  return {
-    ...state,
-    nominatorsPool: {
-      ...state.nominatorsPool,
-      start: state.nominatorsPool.start * 1000,
-      end: state.nominatorsPool.end * 1000,
-    },
-  };
+  return fetchBackendStakingState(account.byChain.ton.address, account.type === 'view');
 }
 
 export async function fetchBackendStakingState(address: string, isViewOnly: boolean): Promise<ApiBackendStakingState> {

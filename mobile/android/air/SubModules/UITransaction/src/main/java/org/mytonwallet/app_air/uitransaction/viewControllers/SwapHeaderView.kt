@@ -17,17 +17,17 @@ import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
-import org.mytonwallet.app_air.walletcontext.utils.toString
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 
 @SuppressLint("ViewConstructor")
 class SwapHeaderView(
     context: Context,
-    val transaction: MApiTransaction
+    var transaction: MApiTransaction
 ) : WView(context, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)),
     WThemedView {
     private val sizeSpan = RelativeSizeSpan(28f / 36f)
@@ -79,7 +79,7 @@ class SwapHeaderView(
     }
 
     init {
-        config()
+        reloadData()
 
         addView(tokenToSendIconView)
         addView(tokenToReceiveIconView)
@@ -107,7 +107,8 @@ class SwapHeaderView(
         updateTheme()
     }
 
-    fun config() {
+    fun reloadData() {
+        val transaction = transaction
         if (transaction !is MApiTransaction.Swap)
             throw Exception()
         if (transaction.fromToken != null) {

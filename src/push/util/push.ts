@@ -1,6 +1,7 @@
 import type { OpenedContract } from '@ton/core';
 import { Address } from '@ton/core';
 
+import { NETWORK } from '../config';
 import { getTonClient } from '../../api/chains/ton/util/tonCore';
 
 import { PushEscrow } from '../../api/chains/ton/contracts/PushEscrow';
@@ -80,7 +81,7 @@ function getOpenedContract(contractAddress: string, contractVersions: ContractVe
       : contractVersions.isNft
         ? PushNftEscrow
         : PushEscrow;
-    openedContract = getTonClient().open(new contractClass(addressObj));
+    openedContract = getTonClient(NETWORK).open(new contractClass(addressObj));
   }
 
   return openedContract;

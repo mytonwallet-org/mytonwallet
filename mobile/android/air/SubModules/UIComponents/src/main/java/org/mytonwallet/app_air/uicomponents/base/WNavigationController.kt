@@ -1,3 +1,5 @@
+package org.mytonwallet.app_air.uicomponents.base
+
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.graphics.Color
@@ -9,9 +11,6 @@ import androidx.core.graphics.Insets
 import androidx.core.view.isGone
 import androidx.core.view.updateLayoutParams
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
-import org.mytonwallet.app_air.uicomponents.base.SwipeTouchListener
-import org.mytonwallet.app_air.uicomponents.base.WViewController
-import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
@@ -20,8 +19,8 @@ import org.mytonwallet.app_air.uicomponents.widgets.material.bottomSheetBehavior
 import org.mytonwallet.app_air.uicomponents.widgets.material.bottomSheetBehavior.BottomSheetBehavior.BottomSheetCallback
 import org.mytonwallet.app_air.uicomponents.widgets.updateThemeForChildren
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
 import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import java.lang.ref.WeakReference
 import kotlin.math.max
 import kotlin.math.min
@@ -407,9 +406,13 @@ class WNavigationController(
         }
     }
 
-    fun popToRoot() {
-        // TODO:: Should be implemented later; Not required for now :)
-        pop()
+    fun popToRoot(animated: Boolean = true, onCompletion: (() -> Unit)? = null) {
+        if (viewControllers.size <= 1) {
+            onCompletion?.invoke()
+            return
+        }
+        removePrevViewControllers(keptFirstViewControllers = 1)
+        pop(animated = animated, onCompletion = onCompletion)
     }
 
     fun removePrevViewControllerOnly() {

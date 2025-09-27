@@ -1,7 +1,7 @@
 package org.mytonwallet.app_air.walletcontext.utils
 
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date

@@ -44,7 +44,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.setOnClickListener
 import org.mytonwallet.app_air.uicomponents.extensions.setView
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlin.math.max

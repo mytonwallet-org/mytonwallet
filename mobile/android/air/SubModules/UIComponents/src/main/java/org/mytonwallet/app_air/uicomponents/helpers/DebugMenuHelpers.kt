@@ -4,7 +4,7 @@ import android.content.Context
 import android.view.View
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
-import org.mytonwallet.app_air.walletcontext.helpers.logger.Logger
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 
 class DebugMenuHelpers {
     companion object {

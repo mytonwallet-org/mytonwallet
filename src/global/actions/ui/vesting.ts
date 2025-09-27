@@ -24,7 +24,7 @@ addActionHandler('startClaimingVesting', (global) => {
   global = { ...global, isVestingModalOpen: undefined };
   global = updateVesting(global, accountId, { isConfirmRequested: true });
   if (selectIsHardwareAccount(global)) {
-    global = resetHardware(global);
+    global = resetHardware(global, 'ton');
     global = updateVesting(global, accountId, { unfreezeState: VestingUnfreezeState.ConnectHardware });
   } else {
     global = updateVesting(global, accountId, { unfreezeState: VestingUnfreezeState.Password });

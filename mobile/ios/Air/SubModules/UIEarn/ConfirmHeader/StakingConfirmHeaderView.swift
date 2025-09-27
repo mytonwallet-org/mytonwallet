@@ -67,7 +67,7 @@ struct StakingConfirmHeaderView: View {
         case .unstake:
             lang("Request for unstaking")
         case .claim:
-            "Claiming staking rewards"
+            lang("Accumulated rewards")
         }
         Text(hint)
     }

@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.airasframework.splash
 
-import WNavigationController
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
@@ -18,6 +17,7 @@ import org.mytonwallet.app_air.airasframework.MainWindow
 import org.mytonwallet.app_air.sqscan.screen.QrScannerDialog
 import org.mytonwallet.app_air.uiassets.viewControllers.token.TokenVC
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.base.executeWithLowPriority
@@ -44,13 +44,10 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.AutoLockHelper
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
 import org.mytonwallet.app_air.walletcontext.helpers.LaunchConfig
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
 import org.mytonwallet.app_air.walletcontext.helpers.WordCheckMode
-import org.mytonwallet.app_air.walletcontext.helpers.logger.LogMessage
-import org.mytonwallet.app_air.walletcontext.helpers.logger.Logger
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.MAIN_NETWORK
 import org.mytonwallet.app_air.walletcore.TEST_NETWORK
@@ -76,6 +73,9 @@ import org.mytonwallet.app_air.walletcore.stores.ActivityStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.uihome.tabs.TabsVC
 import java.io.UnsupportedEncodingException
 import java.net.URLEncoder
@@ -599,6 +599,12 @@ class SplashVC(context: Context) : WViewController(context),
                 )
                 val navVC = WNavigationController(window!!)
                 navVC.setRoot(swapVC)
+                window?.present(navVC)
+            }
+
+            is Deeplink.Receive -> {
+                val navVC = WNavigationController(window!!)
+                navVC.setRoot(ReceiveVC(context, MBlockchain.ton, false))
                 window?.present(navVC)
             }
 

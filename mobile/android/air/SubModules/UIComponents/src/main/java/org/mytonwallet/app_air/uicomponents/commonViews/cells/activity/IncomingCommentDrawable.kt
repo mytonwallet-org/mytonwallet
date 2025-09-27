@@ -7,9 +7,9 @@ import android.graphics.Path
 import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 
 class IncomingCommentDrawable : Drawable() {
 

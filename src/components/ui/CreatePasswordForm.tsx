@@ -190,7 +190,6 @@ function CreatePasswordForm({
             onInput={handleFirstPasswordChange}
             onFocus={markPasswordFocused}
             onBlur={unmarkPasswordFocused}
-            className={styles.input}
             maxLength={isMobile ? PIN_LENGTH : undefined}
             enterKeyHint="next"
           />
@@ -206,7 +205,6 @@ function CreatePasswordForm({
             onInput={handleSecondPasswordChange}
             onFocus={markSecondPasswordFocused}
             onBlur={unmarkSecondPasswordFocused}
-            className={styles.input}
             maxLength={isMobile ? PIN_LENGTH : undefined}
             enterKeyHint="next"
           />
@@ -214,16 +212,13 @@ function CreatePasswordForm({
 
         {renderErrors()}
 
-        <div className={modalStyles.buttons}>
-          <Button onClick={onCancel} className={modalStyles.button} isDisabled={isLoading}>
-            {lang('Cancel')}
-          </Button>
+        <div className={styles.buttons}>
           <Button
             isSubmit
             isPrimary
             isDisabled={isPasswordsNotEqual || firstPassword === ''}
             isLoading={isLoading}
-            className={modalStyles.button}
+            className={styles.btn}
           >
             {lang('Continue')}
           </Button>
@@ -242,9 +237,13 @@ function CreatePasswordForm({
         <p className={modalStyles.text}>
           {lang('Continue or change password to something more secure?')}
         </p>
-        <div className={buildClassName(modalStyles.buttons, modalStyles.buttonsNoExtraSpace)}>
-          <Button isPrimary onClick={closeWeakPasswordModal} className={modalStyles.button}>{lang('Change')}</Button>
-          <Button forFormId={formId} isSubmit isDestructive className={modalStyles.button}>{lang('Continue')}</Button>
+        <div className={buildClassName(modalStyles.footerButtons, modalStyles.footerButtonsVertical)}>
+          <Button isPrimary onClick={closeWeakPasswordModal} className={modalStyles.buttonFullWidth}>
+            {lang('Change')}
+          </Button>
+          <Button isDestructive forFormId={formId} isSubmit className={modalStyles.buttonFullWidth}>
+            {lang('Continue')}
+          </Button>
         </div>
       </Modal>
     </>

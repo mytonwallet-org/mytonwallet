@@ -4,12 +4,14 @@ import React, {
 } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
+import type { ApiChain } from '../../api/types';
 import type { Theme } from '../../global/types';
 import type { LedgerTransport } from '../../util/ledger/types';
 import { HardwareConnectState } from '../../global/types';
 
 import { IS_CAPACITOR } from '../../config';
 import buildClassName from '../../util/buildClassName';
+import { getChainTitle } from '../../util/chain';
 import { closeLedgerTab } from '../../util/ledger/tab';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 import { IS_ANDROID, IS_IOS, IS_IOS_APP, IS_LEDGER_EXTENSION_TAB } from '../../util/windowEnvironment';
@@ -44,13 +46,8 @@ import ledgerMobileUsbDarkSrc from '../../assets/ledger/mobile-usb-dark.png';
 interface OwnProps {
   isActive: boolean;
   isStatic?: boolean;
-  /**
-   * If true, `global.hardware.hardwareWallets` will be populated before calling `onConnected`.
-   * This is slow, so use it only when necessary.
-   */
-  doLoadWallets?: boolean;
   className?: string;
-  onConnected: (isSingleWallet: boolean) => void;
+  onConnected: () => void;
   onBackButtonClick?: NoneToVoidFunction;
   onCancel?: NoneToVoidFunction;
   onClose: NoneToVoidFunction;
@@ -58,11 +55,11 @@ interface OwnProps {
 
 interface StateProps {
   state: HardwareConnectState;
+  chain: ApiChain;
   isLedgerConnected?: boolean;
-  isTonAppConnected?: boolean;
+  isChainAppConnected?: boolean;
   availableTransports?: LedgerTransport[];
   lastUsedTransport?: LedgerTransport;
-  loadedWalletCount: number;
   currentTheme: Theme;
 }
 
@@ -75,13 +72,12 @@ const TRANSPORT_NAMES: Record<LedgerTransport, string> = {
 function LedgerConnect({
   isActive,
   isStatic,
-  doLoadWallets = false,
   state,
+  chain,
   isLedgerConnected,
-  isTonAppConnected,
+  isChainAppConnected,
   availableTransports,
   lastUsedTransport,
-  loadedWalletCount,
   currentTheme,
   className,
   onConnected,
@@ -97,12 +93,13 @@ function LedgerConnect({
   const appTheme = useAppTheme(currentTheme);
 
   const isLedgerFailed = isLedgerConnected === false;
-  const isTonAppFailed = isTonAppConnected === false;
+  const isChainAppFailed = isChainAppConnected === false;
   const isConnected = state === HardwareConnectState.Connected;
   const isConnecting = state === HardwareConnectState.Connecting;
   const isWaitingForRemoteTab = state === HardwareConnectState.WaitingForRemoteTab;
   const title = isConnected ? lang('Ledger Connected!') : lang('Connect Ledger');
   const shouldCloseOnCancel = !onCancel;
+  const noCancelButton = Boolean(onBackButtonClick);
 
   const renderingAvailableTransports = useMemo(() => {
     return (availableTransports || []).map((transport) => ({
@@ -135,10 +132,7 @@ function LedgerConnect({
   useEffect(() => {
     if (!isActive) return;
 
-    initializeHardwareWalletModal({ doLoadWallets });
-    // We don't want changes in `doLoadWallets` to trigger the effect, because the `doLoadWallets` prop should affect
-    // only the component initialization.
-    // eslint-disable-next-line react-hooks-static-deps/exhaustive-deps
+    initializeHardwareWalletModal();
   }, [isActive]);
 
   useEffectWithPrevDeps(([prevLastUsedTransport]) => {
@@ -147,21 +141,19 @@ function LedgerConnect({
     }
   }, [lastUsedTransport]);
 
-  const handleConnected = useLastCallback((isSingleWallet: boolean) => {
+  const handleConnected = useLastCallback(() => {
     if (IS_LEDGER_EXTENSION_TAB) {
       return;
     }
 
-    setTimeout(() => {
-      onConnected(isSingleWallet);
-    }, NEXT_SLIDE_DELAY);
+    setTimeout(() => onConnected(), NEXT_SLIDE_DELAY);
   });
 
   useEffect(() => {
     if (isConnected && isActive) {
-      handleConnected(loadedWalletCount === 1);
+      handleConnected();
     }
-  }, [isConnected, isActive, loadedWalletCount, handleConnected]);
+  }, [isConnected, isActive, handleConnected]);
 
   const handleCloseWithRemoteTab = useLastCallback(() => {
     const closeAction = shouldCloseOnCancel ? onClose : onCancel;
@@ -171,7 +163,7 @@ function LedgerConnect({
 
   const handleSubmit = useLastCallback(() => {
     if (selectedTransport) {
-      initializeHardwareWalletConnection({ transport: selectedTransport, doLoadWallets });
+      initializeHardwareWalletConnection({ transport: selectedTransport });
     }
   });
 
@@ -197,10 +189,10 @@ function LedgerConnect({
 
     if (IS_LEDGER_EXTENSION_TAB && isConnected) {
       return (
-        <div className={buildClassName(styles.actionBlock, isConnected && styles.actionBlock_single)}>
+        <div className={buildClassName(styles.actionBlock, isConnected && styles.actionBlockSingle)}>
           <Button
             isDisabled={isConnecting}
-            className={buildClassName(styles.button, isConnected && styles.button_single)}
+            className={buildClassName(styles.button, isConnected && styles.buttonSingle)}
             onClick={onClose}
           >
             {lang('Continue')}
@@ -210,22 +202,28 @@ function LedgerConnect({
     }
 
     return (
-      <div className={styles.actionBlock}>
-        <Button
-          className={styles.button}
-          onClick={shouldCloseOnCancel ? onClose : onCancel}
-        >
-          {lang(shouldCloseOnCancel ? 'Cancel' : 'Back')}
-        </Button>
+      <div className={buildClassName(
+        styles.actionBlock,
+        noCancelButton ? styles.actionBlockVertical : styles.actionBlockHorizontal,
+      )}
+      >
         <Button
           isPrimary
           isLoading={isConnecting}
           isDisabled={isConnecting || isConnected || !availableTransports?.length}
-          className={styles.button}
+          className={buildClassName(styles.button, noCancelButton && styles.buttonFullWidth)}
           onClick={handleSubmit}
         >
           {isFailed ? lang('Try Again') : lang('Continue')}
         </Button>
+        {!noCancelButton && (
+          <Button
+            className={buildClassName(styles.button, noCancelButton && styles.buttonFullWidth)}
+            onClick={shouldCloseOnCancel ? onClose : onCancel}
+          >
+            {lang(shouldCloseOnCancel ? 'Cancel' : 'Back')}
+          </Button>
+        )}
       </div>
     );
   }
@@ -309,7 +307,7 @@ function LedgerConnect({
             {lang('Once connected, switch back to this window to proceed.')}
           </span>
         </div>
-        <div className={buildClassName(styles.actionBlock, styles.actionBlock_single)}>
+        <div className={buildClassName(styles.actionBlock, styles.actionBlockSingle)}>
           <Button
             className={buildClassName(styles.button, styles.button_single)}
             onClick={handleCloseWithRemoteTab}
@@ -347,16 +345,16 @@ function LedgerConnect({
           <span
             className={buildClassName(
               styles.text,
-              isTonAppFailed && styles.text_failed,
-              isTonAppConnected && styles.text_connected,
+              isChainAppFailed && styles.text_failed,
+              isChainAppConnected && styles.text_connected,
               isConnected && styles.text_success,
             )}
           >
             <i
-              className={buildClassName(styles.textIcon, isTonAppConnected ? 'icon-accept' : 'icon-dot')}
+              className={buildClassName(styles.textIcon, isChainAppConnected ? 'icon-accept' : 'icon-dot')}
               aria-hidden
             />
-            {lang('Unlock it and open the TON App')}
+            {lang('Unlock it and open the %chain% App', { chain: getChainTitle(chain) })}
           </span>
         </div>
 
@@ -389,20 +387,20 @@ function LedgerConnect({
 export default memo(withGlobal<OwnProps>((global): StateProps => {
   const {
     hardwareState,
-    hardwareWallets,
+    chain,
     isLedgerConnected,
-    isTonAppConnected,
+    isChainAppConnected,
     availableTransports,
     lastUsedTransport,
   } = global.hardware;
 
   return {
     state: hardwareState,
+    chain,
     isLedgerConnected,
-    isTonAppConnected,
+    isChainAppConnected,
     availableTransports,
     lastUsedTransport,
-    loadedWalletCount: hardwareWallets?.length ?? 0,
     currentTheme: global.settings.theme,
   };
 })(LedgerConnect));

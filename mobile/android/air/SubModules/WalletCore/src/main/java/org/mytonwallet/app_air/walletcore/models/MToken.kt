@@ -2,7 +2,7 @@ package org.mytonwallet.app_air.walletcore.models
 
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.utils.doubleAbsRepresentation
+import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletcore.ALWAYS_SHOWN_TOKENS
 import org.mytonwallet.app_air.walletcore.DEFAULT_SHOWN_TOKENS
 import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG

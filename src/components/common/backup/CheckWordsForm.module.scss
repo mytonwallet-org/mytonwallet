@@ -1,0 +1,102 @@
+@use "../../../styles/mixins";
+
+.wordRow {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+
+.rowLabel {
+  min-width: 1.75rem;
+  padding-top: 0.875rem;
+
+  color: var(--color-gray-2);
+  text-align: right;
+
+  transition: color 150ms ease;
+
+  &.correct {
+    font-weight: 700;
+    color: var(--color-green);
+  }
+
+  &.error {
+    font-weight: 700;
+    color: var(--color-red);
+  }
+}
+
+.words {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.word {
+  cursor: var(--custom-cursor, pointer);
+
+  padding: 0.875rem;
+  border: none;
+  border-radius: var(--border-radius-default);
+
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-black);
+
+  background-color: var(--color-background-first);
+
+  @include mixins.transition('color 200ms, box-shadow 200ms, background-color 200ms');
+
+  @media (hover: hover) {
+    &:hover,
+    &:focus-visible {
+      background-color: var(--color-interactive-item-hover);
+    }
+  }
+
+  &Selected {
+    color: var(--color-accent);
+    box-shadow: 0 0 0 1.5px var(--color-accent);
+  }
+
+  &Correct {
+    color: var(--color-green);
+    box-shadow: 0 0 0 1.5px var(--color-green);
+  }
+
+  &Error {
+    color: var(--color-red);
+    box-shadow: 0 0 0 1.5px var(--color-red);
+  }
+}
+
+.errorMessage {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-red);
+  text-align: center;
+
+  visibility: hidden;
+  opacity: 0;
+
+  @include mixins.transition(opacity 200ms);
+
+  &Visible {
+    visibility: visible;
+    opacity: 1;
+  }
+}
+
+.buttonWrapper {
+  width: 100%;
+  margin-top: auto;
+  padding: 3rem 1rem 0;
+}
+
+.footerButton {
+  width: 100%;
+  max-width: 100% !important;
+  height: 3rem !important;
+}

@@ -71,15 +71,6 @@ extension View {
     }
     
     @ViewBuilder
-    public func touchGesture(_ binding: Binding<Bool>) -> some View {
-        self.simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in binding.wrappedValue = true }
-                .onEnded { _ in binding.wrappedValue = false }
-        )
-    }
-    
-    @ViewBuilder
     public func highlightBackground(_ isHighlighted: Bool) -> some View {
         self.background {
             if isHighlighted {

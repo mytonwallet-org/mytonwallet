@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.uicreatewallet.viewControllers.addAccountOptions
 
-import WNavigationController
 import android.content.Context
 import android.view.Gravity
 import android.view.View
@@ -10,6 +9,7 @@ import android.widget.FrameLayout
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.widget.NestedScrollView
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
+import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.LinedCenteredTitleView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -28,11 +28,11 @@ import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.Setting
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsItem
 import org.mytonwallet.app_air.uisettings.viewControllers.walletVersions.WalletVersionsVC
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
-import org.mytonwallet.app_air.walletcontext.utils.coloredSubstring
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.coloredSubstring
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -209,7 +209,8 @@ class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
             if (showCreateButton) {
                 addView(createNewWalletView, FrameLayout.LayoutParams(0, WRAP_CONTENT))
             } else {
-                addView(importTitleLabel, FrameLayout.LayoutParams(0, WRAP_CONTENT))
+                // Temporarily removed for now
+                // addView(importTitleLabel, FrameLayout.LayoutParams(0, WRAP_CONTENT))
             }
             addView(secretWordsRow, FrameLayout.LayoutParams(0, WRAP_CONTENT))
             addView(ledgerRow, FrameLayout.LayoutParams(0, WRAP_CONTENT))
@@ -226,9 +227,10 @@ class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
                     toCenterX(createNewWalletView)
                     topToBottom(secretWordsRow, createNewWalletView)
                 } else {
-                    toTop(importTitleLabel, 84f)
-                    toCenterX(importTitleLabel, 32f)
-                    topToBottom(secretWordsRow, importTitleLabel, 32f)
+                    // toTop(importTitleLabel, 84f)
+                    // toCenterX(importTitleLabel, 32f)
+                    // topToBottom(secretWordsRow, importTitleLabel, 32f)
+                    toTop(secretWordsRow, 84f)
                 }
                 toCenterX(secretWordsRow, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
                 topToBottom(ledgerRow, secretWordsRow)

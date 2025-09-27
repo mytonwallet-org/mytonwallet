@@ -3,9 +3,9 @@ import { getActions, withGlobal } from '../../../global';
 
 import type { ApiChain, ApiCountryCode } from '../../../api/types';
 
-import { DEFAULT_CEX_SWAP_SECOND_TOKEN_SLUG, DEFAULT_TRX_SWAP_FIRST_TOKEN_SLUG, TONCOIN, TRX } from '../../../config';
 import buildClassName from '../../../util/buildClassName';
 import { getChainConfig } from '../../../util/chain';
+import { getNativeToken } from '../../../util/tokens';
 
 import useLang from '../../../hooks/useLang';
 import useLastCallback from '../../../hooks/useLastCallback';
@@ -27,23 +27,6 @@ interface StateProps {
   countryCode?: ApiCountryCode;
 }
 
-const buySwapByChain: Record<ApiChain, {
-  tokenInSlug: string;
-  tokenOutSlug: string;
-  amountIn: string;
-}> = {
-  ton: {
-    tokenInSlug: DEFAULT_CEX_SWAP_SECOND_TOKEN_SLUG,
-    tokenOutSlug: TONCOIN.slug,
-    amountIn: '100',
-  },
-  tron: {
-    tokenInSlug: DEFAULT_TRX_SWAP_FIRST_TOKEN_SLUG,
-    tokenOutSlug: TRX.slug,
-    amountIn: '10',
-  },
-};
-
 function Actions({
   chain,
   className,
@@ -64,11 +47,12 @@ function Actions({
 
   const lang = useLang();
 
-  const { canBuyWithCardInRussia, isDepositLinkSupported } = getChainConfig(chain);
+  const { canBuyWithCardInRussia, formatTransferUrl } = getChainConfig(chain);
   const canBuyWithCard = canBuyWithCardInRussia || countryCode !== 'RU';
   const isSwapAllowed = !isTestnet && !isLedger && !isSwapDisabled;
   // TRX purchase is not possible via the Dreamwalkers service (Russian), however in static mode we show the buy button
   const isOnRampAllowed = !isTestnet && !isOnRampDisabled && (canBuyWithCard || isStatic);
+  const isDepositLinkSupported = !!formatTransferUrl;
   const shouldRender = Boolean(isSwapAllowed || isOnRampAllowed || isStatic);
 
   const handleBuyFiat = useLastCallback(() => {
@@ -77,13 +61,19 @@ function Actions({
   });
 
   const handleSwapClick = useLastCallback(() => {
-    startSwap(buySwapByChain[chain]);
+    const { tokenInSlug, amountIn } = getChainConfig(chain).buySwap;
+
+    startSwap({
+      tokenInSlug,
+      tokenOutSlug: getNativeToken(chain).slug,
+      amountIn: String(amountIn),
+    });
     onClose?.();
   });
 
   const handleReceiveClick = useLastCallback(() => {
     closeReceiveModal();
-    openInvoiceModal();
+    openInvoiceModal({ tokenSlug: getNativeToken(chain).slug });
     onClose?.();
   });
 

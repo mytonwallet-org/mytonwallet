@@ -11,13 +11,13 @@ import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.textOffset
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.isSameDayAs
 import org.mytonwallet.app_air.walletcontext.utils.isSameYearAs
-import org.mytonwallet.app_air.walletcontext.utils.smartDecimalsCount
-import org.mytonwallet.app_air.walletcontext.utils.toString
+import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
+import org.mytonwallet.app_air.walletbasecontext.utils.toString
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import java.math.BigInteger
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -31,11 +31,26 @@ open class WLabel(context: Context) : AppCompatTextView(context), WThemedView {
         gravity = if (LocaleController.isRTL) Gravity.RIGHT else Gravity.LEFT
     }
 
-    private val monthAndDayFormat by lazy {
-        SimpleDateFormat("MMMM d", Locale(WGlobalStorage.getLangCode()))
+    private val datePattern by lazy {
+        when (WGlobalStorage.getLangCode()) {
+            "ru" -> "d MMMM"
+            else -> "MMMM d"
+        }
     }
+
+    private val fullDatePattern by lazy {
+        when (WGlobalStorage.getLangCode()) {
+            "ru" -> "d MMMM yyyy"
+            else -> "MMMM d, yyyy"
+        }
+    }
+
+    private val monthAndDayFormat by lazy {
+        SimpleDateFormat(datePattern, Locale(WGlobalStorage.getLangCode()))
+    }
+
     private val fullDateFormat by lazy {
-        SimpleDateFormat("MMMM d, yyyy", Locale(WGlobalStorage.getLangCode()))
+        SimpleDateFormat(fullDatePattern, Locale(WGlobalStorage.getLangCode()))
     }
 
     private var textOffset = 0

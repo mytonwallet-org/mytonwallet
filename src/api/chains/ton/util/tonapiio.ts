@@ -2,38 +2,26 @@ import { Api, HttpClient } from 'tonapi-sdk-js';
 
 import type { ApiNetwork } from '../../../types';
 
-import { TONAPIIO_MAINNET_URL, TONAPIIO_TESTNET_URL } from '../../../../config';
 import { fetchWithRetry } from '../../../../util/fetch';
+import withCache from '../../../../util/withCache';
 import { getEnvironment } from '../../../environment';
+import { NETWORK_CONFIG } from '../constants';
 
 const MAX_LIMIT = 500;
 const EVENTS_LIMIT = 100;
 
-let apiByNetwork: Record<ApiNetwork, Api<unknown>> | undefined;
+const getApi = withCache((network: ApiNetwork) => {
+  const headers = {
+    ...getEnvironment().apiHeaders,
+    'Content-Type': 'application/json',
+  };
 
-function getApi(network: ApiNetwork) {
-  if (!apiByNetwork) {
-    const headers = {
-      ...getEnvironment().apiHeaders,
-      'Content-Type': 'application/json',
-    };
-
-    apiByNetwork = {
-      mainnet: new Api(new HttpClient({
-        baseUrl: TONAPIIO_MAINNET_URL,
-        baseApiParams: { headers },
-        customFetch: fetchWithRetry as typeof fetch,
-      })),
-      testnet: new Api(new HttpClient({
-        baseUrl: TONAPIIO_TESTNET_URL,
-        baseApiParams: { headers },
-        customFetch: fetchWithRetry as typeof fetch,
-      })),
-    };
-  }
-
-  return apiByNetwork[network];
-}
+  return new Api(new HttpClient({
+    baseUrl: NETWORK_CONFIG[network].tonApiIoUrl,
+    baseApiParams: { headers },
+    customFetch: fetchWithRetry as typeof fetch,
+  }));
+});
 
 export async function fetchJettonBalances(network: ApiNetwork, account: string) {
   return (await getApi(network).accounts.getAccountJettonsBalances(account, {

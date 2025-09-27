@@ -201,7 +201,7 @@ private let log = Log("IntroActions")
             let ton = chain == .ton ? address : nil
             let tron = chain == .tron ? address : nil
             _ = try await AccountStore.importViewWallet(network: .mainnet, tonAddress: ton, tronAddress: tron)
-            self.onDone(successKind: .imported)
+            self.onDone(successKind: .importedView)
         } catch {
             topWViewController()?.showAlert(error: error)
         }

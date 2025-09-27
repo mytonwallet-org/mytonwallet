@@ -12,6 +12,7 @@ import type { DropdownItem } from './Dropdown';
 import { selectCurrentAccountState, selectIsMultichainAccount } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import captureKeyboardListeners from '../../util/captureKeyboardListeners';
+import { getChainTitle } from '../../util/chain';
 import { copyTextToClipboard } from '../../util/clipboard';
 import { stopEvent } from '../../util/domEvents';
 import { handleUrlClick, openUrl } from '../../util/openUrl';
@@ -250,7 +251,10 @@ function InteractiveTextField({
       >
         {isScam && <img src={scamImg} alt={lang('Scam')} className={styles.scamImage} />}
         {isMultichainAccount && !isTransaction && (
-          <i className={buildClassName(styles.chainIcon, `icon-chain-${chain}`)} aria-label={chain} />
+          <i
+            className={buildClassName(styles.chainIcon, `icon-chain-${chain}`)}
+            aria-label={chain && getChainTitle(chain)}
+          />
         )}
         {renderedContent}
         {Boolean(addressName) && (

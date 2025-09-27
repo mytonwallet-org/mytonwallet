@@ -10,8 +10,8 @@ import org.mytonwallet.app_air.uicomponents.widgets.ExpandableFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.dialog.WDialog
 import org.mytonwallet.app_air.uiswap.screens.swap.DEFAULT_OUR_SWAP_FEE
 import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapEstimateResponse
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.utils.toProcessedSpannableStringBuilder
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import java.math.BigInteger
 

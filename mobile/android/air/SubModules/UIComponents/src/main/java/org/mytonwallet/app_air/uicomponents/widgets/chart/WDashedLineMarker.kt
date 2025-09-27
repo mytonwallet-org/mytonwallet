@@ -11,8 +11,8 @@ import com.github.mikephil.charting.utils.MPPointF
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 class WDashedLineMarker(context: Context?) : MarkerView(context, R.layout.frame),
     WThemedView {

@@ -1579,7 +1579,6 @@
 				UICreateWallet/ImportSuccess/ImportSuccessVC.swift,
 				UICreateWallet/ImportSuccess/ImportSuccessView.swift,
 				UICreateWallet/ImportWallet/ImportWalletVC.swift,
-				UICreateWallet/Intro/Checkmark.swift,
 				UICreateWallet/Intro/IntroVC.swift,
 				UICreateWallet/Intro/IntroView.swift,
 				UICreateWallet/IntroModel.swift,
@@ -1754,6 +1753,8 @@
 		27ABF47C2CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UISwap" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				UISwap/BuyWithCard/BuyWithCardHeader.swift,
+				UISwap/BuyWithCard/BuyWithCardModel.swift,
 				UISwap/BuyWithCard/BuyWithCardVC.swift,
 				UISwap/Confirm/SwapConfirmHeaderView.swift,
 				UISwap/CrossChainSwap/CrossChainSwapVC.swift,
@@ -1881,6 +1882,7 @@
 				UIComponents/AnimatedSticker/Sources/GenerateImage.swift,
 				UIComponents/AnimatedSticker/Sources/SoftwareAnimationRenderer.swift,
 				UIComponents/AnimatedSticker/WAnimatedSticker.swift,
+				UIComponents/Buttons/Checkmark.swift,
 				UIComponents/Buttons/EarnGradient.swift,
 				UIComponents/Buttons/OpenButtonStyle.swift,
 				UIComponents/Buttons/WBaseButton.swift,
@@ -1995,6 +1997,7 @@
 				UIComponents/Utils/InteractivePopRecognizer.swift,
 				UIComponents/Utils/SkeletonState.swift,
 				UIComponents/Utils/SwiftUIUtils.swift,
+				UIComponents/Utils/TouchGesture.swift,
 				UIComponents/Utils/UIFontUtils.swift,
 				UIComponents/Utils/UIImageUtils.swift,
 				UIComponents/Utils/UIKitUtils.swift,
@@ -2066,7 +2069,6 @@
 				WalletCore/Models/Accounts/ApiWallet.swift,
 				WalletCore/Models/Accounts/MAccount.swift,
 				"WalletCore/Models/Accounts/MAccount+display.swift",
-				"WalletCore/Models/Accounts/MAccount+Ledger.swift",
 				WalletCore/Models/Activities/ApiActivity.swift,
 				"WalletCore/Models/Activities/ApiActivity+Preview.swift",
 				"WalletCore/Models/Activities/ApiActivity+Utils.swift",
@@ -2090,12 +2092,13 @@
 				WalletCore/Models/GlobalStorage/AccountType.swift,
 				WalletCore/Models/GlobalStorage/AppStorageHelper.swift,
 				WalletCore/Models/GlobalStorage/PushNotifications.swift,
+				WalletCore/Models/Ledger/ApiLedgerAccountInfo.swift,
 				WalletCore/Models/Ledger/ApiLedgerDeviceModel.swift,
 				WalletCore/Models/Ledger/ApiLedgerDriver.swift,
+				WalletCore/Models/Ledger/ApiLedgerWalletInfo.swift,
 				WalletCore/Models/Ledger/ApiTonConnectProof.swift,
 				WalletCore/Models/Ledger/LedgerAppInfo.swift,
 				WalletCore/Models/Ledger/LedgerSignResult.swift,
-				WalletCore/Models/Ledger/LedgerWalletInfo.swift,
 				WalletCore/Models/Ledger/SignData.swift,
 				WalletCore/Models/MAccountBalanceData.swift,
 				WalletCore/Models/MAsset.swift,
@@ -2170,12 +2173,15 @@
 				WalletCore/Updates/UpdateSwapTokens.swift,
 				WalletCore/Updates/UpdateTokens.swift,
 				WalletCore/WalletCoreData.swift,
+				WalletCore/WidgetSupport/SharedCache.swift,
+				WalletCore/WidgetSupport/SharedStore.swift,
 			);
 			target = 27DCAAE12BA5DDA7004F83C8 /* WalletCore */;
 		};
 		27ABF4842CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "WalletContext" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				WalletContext/AppGroup.swift,
 				WalletContext/Config.swift,
 				WalletContext/GlobalStorage/GlobalStorage.swift,
 				"WalletContext/GlobalStorage/GlobalStorage+Migration.swift",
@@ -2438,6 +2444,8 @@
 				Ledger/AddAccount/LedgerAddAccountModel.swift,
 				Ledger/AddAccount/LedgerAddAccountVC.swift,
 				Ledger/AddAccount/LedgerAddAccountView.swift,
+				Ledger/AddAccount/LedgerSelectWalletsVC.swift,
+				Ledger/AddAccount/LedgerSelectWalletsView.swift,
 				Ledger/APDUHelpers.swift,
 				Ledger/Config.swift,
 				Ledger/LedgerConnectionManager.swift,
@@ -3714,7 +3722,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1620;
+				LastSwiftUpdateCheck = 2600;
 				LastUpgradeCheck = 1530;
 				TargetAttributes = {
 					272B3CB12D2AD4360024658E = {

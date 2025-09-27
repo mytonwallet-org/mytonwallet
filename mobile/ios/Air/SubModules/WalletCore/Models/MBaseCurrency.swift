@@ -67,7 +67,7 @@ public enum MBaseCurrency: String, Equatable, Hashable, Codable, Sendable, Ident
     
     public var id: Self { self }
     
-    var fallbackExchangeRate: Double {
+    public var fallbackExchangeRate: Double {
         switch self {
         case .USD:
             1.0

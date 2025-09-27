@@ -14,6 +14,30 @@
   }
 }
 
+.header {
+  padding: 1rem 1rem 0.75rem !important;
+}
+
+.title {
+  --offset-x-value: 50%;
+  --translate-x: -50%;
+
+  overflow: visible !important;
+}
+
+.dropdown {
+  margin: -0.5rem 0 -1rem;
+}
+
+.dropdownValue {
+  font-size: 0.75rem !important;
+}
+
+.closeButton {
+  position: relative;
+  top: -0.125rem;
+}
+
 .content {
   position: relative;
 

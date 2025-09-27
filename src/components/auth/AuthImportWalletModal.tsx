@@ -2,6 +2,7 @@ import React, { memo } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import { IS_CORE_WALLET } from '../../config';
+import { getChainsSupportingLedger } from '../../util/chain';
 import { IS_LEDGER_SUPPORTED } from '../../util/windowEnvironment';
 
 import useLang from '../../hooks/useLang';
@@ -33,7 +34,7 @@ function AuthImportWalletModal({ isOpen }: StateProps) {
 
   const handleImportHardwareWalletClick = useLastCallback(() => {
     closeAuthImportWalletModal();
-    openHardwareWalletModal();
+    openHardwareWalletModal({ chain: getChainsSupportingLedger()[0] }); // todo: Add a chain selector screen for Ledger auth
   });
 
   const handleImportViewAccountClick = useLastCallback(() => {

@@ -1,30 +1,37 @@
 package org.mytonwallet.uihome.home.cells
 
-import WNavigationController
 import android.annotation.SuppressLint
 import android.content.Context
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import org.mytonwallet.app_air.uiassets.viewControllers.CollectionsMenuHelpers
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC
+import org.mytonwallet.app_air.uiassets.viewControllers.assets.title
 import org.mytonwallet.app_air.uiassets.viewControllers.assetsTab.AssetsTabVC
 import org.mytonwallet.app_air.uiassets.viewControllers.tokens.TokensVC
+import org.mytonwallet.app_air.uicomponents.base.ISortableController
+import org.mytonwallet.app_air.uicomponents.base.ISortableView
+import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
+import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.uicomponents.widgets.animateHeight
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedController
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedControllerItem
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.models.NftCollection
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
 import java.util.concurrent.Executors
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -33,8 +40,11 @@ class HomeAssetsCell(
     context: Context,
     private val window: WWindow,
     private val navigationController: WNavigationController,
-    private val heightChanged: () -> Unit
-) : WCell(context), WThemedView {
+    private val heightChanged: () -> Unit,
+    // Allows home screen to know we are in editing mode, and get the end decision
+    private val onReorderingRequested: () -> Unit,
+    private val onForceEndReorderingRequested: () -> Unit,
+) : WCell(context), WThemedView, ISortableController {
 
     private val tokensVC: TokensVC by lazy {
         val vc = TokensVC(
@@ -51,9 +61,11 @@ class HomeAssetsCell(
     private val collectiblesVC: AssetsVC by lazy {
         val vc = AssetsVC(context, AssetsVC.Mode.THUMB, injectedWindow = window, onHeightChanged = {
             updateHeight()
-        }) {
+        }, onScroll = {
             updateHeight()
-        }
+        }, onReorderingRequested = {
+            onReorderingRequested()
+        }, isShowingSingleCollection = false)
         vc
     }
 
@@ -67,40 +79,15 @@ class HomeAssetsCell(
             onOffsetChange = { _, _ ->
                 updateHeight()
             },
-            onItemsReordered = {
-                val items = segmentedController.items
-                val orderedCollections = items.mapNotNull {
-                    when (it.viewController) {
-                        is TokensVC -> {
-                            return@mapNotNull AssetsTabVC.TAB_COINS
-                        }
-
-                        is AssetsVC -> {
-                            val collectionMode = (it.viewController as AssetsVC).collectionMode
-                            return@mapNotNull when (collectionMode) {
-                                is AssetsVC.CollectionMode.SingleCollection -> {
-                                    collectionMode.collection.address
-                                }
-
-                                AssetsVC.CollectionMode.TelegramGifts -> {
-                                    NftCollection.TELEGRAM_GIFTS_SUPER_COLLECTION
-                                }
-
-                                null -> AssetsTabVC.TAB_COLLECTIBLES
-                            }
-                        }
-
-                        else ->
-                            null
-                    }
-                }
-                WGlobalStorage.setHomeNftCollections(
-                    AccountStore.activeAccountId!!,
-                    orderedCollections
-                )
+            onItemsReordered = null,
+            onReorderingStarted = {
+                onReorderingRequested()
+            },
+            onForceEndReorderingRequested = {
+                onForceEndReorderingRequested()
             }
         ).apply {
-            setDragEnabled(true)
+            setDragAllowed(true)
         }
         segmentedController
     }
@@ -170,7 +157,7 @@ class HomeAssetsCell(
             segmentedController.setActiveIndex(0)
     }
 
-    val segmentItems: Array<WSegmentedControllerItem>
+    val segmentItems: MutableList<WSegmentedControllerItem>
         get() {
             val hiddenNFTsExist =
                 NftStore.nftData?.cachedNfts?.firstOrNull { it.isHidden == true } != null ||
@@ -180,17 +167,25 @@ class HomeAssetsCell(
                 WGlobalStorage.getHomeNftCollections(AccountStore.activeAccountId ?: "")
             val items = mutableListOf<WSegmentedControllerItem>()
             if (!homeNftCollections.contains(AssetsTabVC.TAB_COINS))
-                items.add(WSegmentedControllerItem(tokensVC))
+                items.add(
+                    WSegmentedControllerItem(
+                        tokensVC,
+                        identifier = AssetsTabVC.identifierForVC(tokensVC)
+                    )
+                )
             if (!homeNftCollections.contains(AssetsTabVC.TAB_COLLECTIBLES))
                 items.add(
                     WSegmentedControllerItem(
                         collectiblesVC,
-                        identifier = AssetsTabVC.ASSETS_IDENTIFIER,
-                        onClick = if (showCollectionsMenu) {
+                        identifier = AssetsTabVC.TAB_COLLECTIBLES,
+                        onMenuPressed = if (showCollectionsMenu) {
                             { v ->
                                 CollectionsMenuHelpers.presentCollectionsMenuOn(
                                     v,
-                                    navigationController
+                                    navigationController,
+                                    onReorderTapped = {
+                                        onReorderingRequested()
+                                    }
                                 )
                             }
                         } else {
@@ -204,17 +199,23 @@ class HomeAssetsCell(
                 items.addAll(homeNftCollections.mapNotNull { homeNftCollection ->
                     when (homeNftCollection) {
                         AssetsTabVC.TAB_COINS -> {
-                            WSegmentedControllerItem(tokensVC)
+                            WSegmentedControllerItem(
+                                tokensVC,
+                                AssetsTabVC.identifierForVC(tokensVC)
+                            )
                         }
 
                         AssetsTabVC.TAB_COLLECTIBLES -> {
                             WSegmentedControllerItem(
                                 collectiblesVC,
-                                identifier = AssetsTabVC.ASSETS_IDENTIFIER,
-                                onClick = if (showCollectionsMenu) { v ->
+                                identifier = AssetsTabVC.TAB_COLLECTIBLES,
+                                onMenuPressed = if (showCollectionsMenu) { v ->
                                     CollectionsMenuHelpers.presentCollectionsMenuOn(
                                         v,
-                                        navigationController
+                                        navigationController,
+                                        onReorderTapped = {
+                                            onReorderingRequested()
+                                        }
                                     )
                                 } else null)
                         }
@@ -235,15 +236,55 @@ class HomeAssetsCell(
                                     collectionMode = collectionMode,
                                     onHeightChanged = {
                                         updateHeight()
-                                    }) {
-                                    updateHeight()
-                                }
+                                    }, onScroll = {
+                                        updateHeight()
+                                    }, onReorderingRequested = {
+                                        onReorderingRequested()
+                                    }, isShowingSingleCollection = false
+                                )
                                 WSegmentedControllerItem(
                                     viewController = vc,
-                                    onClick = { v ->
+                                    identifier = AssetsTabVC.identifierForVC(vc),
+                                    onRemovePressed = {
+                                        remove(collectionMode)
+                                    },
+                                    onMenuPressed = { v ->
                                         CollectionsMenuHelpers.presentPinnedCollectionMenuOn(
                                             v,
-                                            collectionMode
+                                            collectionMode,
+                                            onReorderTapped = {
+                                                onReorderingRequested()
+                                            },
+                                            onRemoveTapped = {
+                                                navigationController.viewControllers.lastOrNull()
+                                                    ?.showAlert(
+                                                        LocaleController.getString("Remove Tab"),
+                                                        LocaleController.getStringWithKeyValues(
+                                                            "Are you sure you want to unpin %tab%?",
+                                                            listOf(
+                                                                Pair("%tab%", collectionMode.title)
+                                                            )
+                                                        ),
+                                                        LocaleController.getString("Yes"),
+                                                        buttonPressed = {
+                                                            remove(collectionMode)
+                                                            val homeNftCollections =
+                                                                WGlobalStorage.getHomeNftCollections(
+                                                                    AccountStore.activeAccountId!!
+                                                                )
+                                                            homeNftCollections.remove(collectionMode.collectionAddress)
+                                                            WGlobalStorage.setHomeNftCollections(
+                                                                AccountStore.activeAccountId!!,
+                                                                homeNftCollections
+                                                            )
+                                                            //WalletCore.notifyEvent(WalletEvent.HomeNftCollectionsUpdated)
+                                                        },
+                                                        secondaryButton = LocaleController.getString(
+                                                            "Cancel"
+                                                        ),
+                                                        primaryIsDanger = true
+                                                    )
+                                            }
                                         )
                                     }
                                 )
@@ -254,7 +295,7 @@ class HomeAssetsCell(
                     }
                 })
             }
-            return items.toTypedArray()
+            return items
         }
 
     private val backgroundExecutor = Executors.newSingleThreadExecutor()
@@ -264,13 +305,16 @@ class HomeAssetsCell(
                 NftStore.nftData?.cachedNfts?.firstOrNull { it.isHidden == true } != null ||
                     NftStore.nftData?.blacklistedNftAddresses?.isNotEmpty() == true
             val showCollectionsMenu = !NftStore.getCollections().isEmpty() || hiddenNFTsExist
-            segmentedController.updateOnClick(
-                identifier = AssetsTabVC.ASSETS_IDENTIFIER,
-                onClick = if (showCollectionsMenu) {
+            segmentedController.updateOnMenuPressed(
+                identifier = AssetsTabVC.TAB_COLLECTIBLES,
+                onMenuPressed = if (showCollectionsMenu) {
                     { v ->
                         CollectionsMenuHelpers.presentCollectionsMenuOn(
                             v,
-                            navigationController
+                            navigationController,
+                            onReorderTapped = {
+                                onReorderingRequested()
+                            }
                         )
                     }
                 } else {
@@ -327,4 +371,97 @@ class HomeAssetsCell(
         get() {
             return (segmentedController.currentItem as? AssetsVC)?.isDragging == true
         }
+
+    fun remove(collectionMode: AssetsVC.CollectionMode) {
+        val currentItems = segmentedController.items
+        val itemToRemoveIndex = currentItems.indexOfFirst { item ->
+            when (val vc = item.viewController) {
+                is AssetsVC -> vc.collectionMode?.matches(collectionMode) ?: false
+                else -> false
+            }
+        }
+        if (itemToRemoveIndex < 0)
+            return
+        if (itemToRemoveIndex == segmentedController.currentOffset.toInt()) {
+            val nextHeight =
+                getViewHeight(
+                    segmentedController.items[max(
+                        0,
+                        itemToRemoveIndex - 1
+                    )].viewController
+                ) +
+                    56.dp +
+                    if (ThemeManager.uiMode.hasRoundedCorners) 0 else ViewConstants.GAP.dp
+            animateHeight(nextHeight)
+        }
+        val removedItem = segmentedController.removeItem(itemToRemoveIndex, onCompletion = {
+            (segmentedController.currentItem as? AssetsVC)?.startSorting()
+        })
+        (removedItem?.viewController as? AssetsVC)?.reloadList()
+    }
+
+    private fun saveOrderedItems() {
+        val items = segmentedController.items
+        val orderedCollections = items.mapNotNull {
+            AssetsTabVC.identifierForVC(it.viewController)
+        }
+        WGlobalStorage.setHomeNftCollections(
+            AccountStore.activeAccountId!!,
+            orderedCollections
+        )
+    }
+
+    val isInDragMode: Boolean
+        get() {
+            return segmentedController.isInDragMode
+        }
+
+    private fun finalizeSort(save: Boolean) {
+        if (!segmentedController.isInDragMode)
+            return
+        var animateHeaderSegmentedControl: Boolean
+        if (save) {
+            saveOrderedItems()
+            animateHeaderSegmentedControl = true
+        } else {
+            segmentedController.preeditItems?.let { originalItems ->
+                val currentItems = segmentedController.items
+                val itemsChanged = originalItems.size != currentItems.size ||
+                    originalItems.zip(currentItems).any { (original, current) ->
+                        original.identifier != current.identifier
+                    }
+                animateHeaderSegmentedControl = !itemsChanged
+                segmentedController.updateItems(
+                    originalItems,
+                    fadeAnimation = itemsChanged,
+                    keepSelection = true,
+                    onUpdated = {
+                        if (itemsChanged)
+                            segmentedController.endSortingClearSegmentedControl(animated = false)
+                    }
+                )
+            } ?: run {
+                animateHeaderSegmentedControl = true
+            }
+        }
+        segmentedController.exitDragMode()
+        if (animateHeaderSegmentedControl)
+            segmentedController.endSortingClearSegmentedControl(animated = true)
+        (segmentedController.currentItem as? ISortableView)?.endSorting()
+        (segmentedController.currentItem as? AssetsVC)?.apply {
+            if (save)
+                saveList()
+            else
+                reloadList()
+        }
+    }
+
+    override fun startSorting() {
+        segmentedController.startSorting()
+        (segmentedController.currentItem as? ISortableView)?.startSorting()
+    }
+
+    override fun endSorting(save: Boolean) {
+        finalizeSort(save)
+    }
 }

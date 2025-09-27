@@ -137,14 +137,12 @@ public class SendDappVC: WViewController {
     private func confirmLedger() async {
         guard
             let account = AccountStore.account,
-            let fromAddress = account.tonAddress?.nilIfEmpty,
-            let ledger = account.ledger
+            let fromAddress = account.tonAddress?.nilIfEmpty
         else { return }
         
         let signModel = await LedgerSignModel(
             accountId: account.id,
             fromAddress: fromAddress,
-            ledger: ledger,
             signData: .signDappTransfers(update: request)
         )
         let vc = LedgerSignVC(

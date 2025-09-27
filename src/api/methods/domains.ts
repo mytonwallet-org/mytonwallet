@@ -2,11 +2,9 @@ import type { ApiNft } from '../types';
 
 import { TONCOIN } from '../../config';
 import { buildCollectionByKey, extractKey } from '../../util/iteratees';
-import chains from '../chains';
+import * as ton from '../chains/ton';
 import { fetchStoredWallet } from '../common/accounts';
 import { createLocalTransactions } from './transfer';
-
-const { ton } = chains;
 
 export function checkDnsRenewalDraft(accountId: string, nfts: ApiNft[]) {
   const nftAddresses = extractKey(nfts, 'address');

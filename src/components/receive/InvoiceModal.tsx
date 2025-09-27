@@ -1,16 +1,17 @@
-import React, { memo, useState } from '../../lib/teact/teact';
+import React, { memo, useMemo, useState } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import type { ApiTokenWithPrice } from '../../api/types';
-import type { UserSwapToken, UserToken } from '../../global/types';
+import type { Account, UserSwapToken, UserToken } from '../../global/types';
 
-import { IS_CAPACITOR, TONCOIN } from '../../config';
+import { DEFAULT_CHAIN, IS_CAPACITOR } from '../../config';
 import renderText from '../../global/helpers/renderText';
-import { selectAccount, selectCurrentAccountState } from '../../global/selectors';
+import { selectCurrentAccount, selectCurrentAccountState } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
+import { getChainConfig } from '../../util/chain';
 import { fromDecimal } from '../../util/decimals';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
-import formatTransferUrl from '../../util/ton/formatTransferUrl';
+import { getChainBySlug } from '../../util/tokens';
 
 import useFlag from '../../hooks/useFlag';
 import useLang from '../../hooks/useLang';
@@ -32,7 +33,7 @@ interface StateProps {
   isOpen?: boolean;
   tokenSlug?: string;
   tokensBySlug?: Record<string, ApiTokenWithPrice>;
-  address?: string;
+  byChain?: Account['byChain'];
 }
 
 const enum SLIDES {
@@ -41,23 +42,33 @@ const enum SLIDES {
 }
 
 function InvoiceModal({
-  address,
+  byChain,
   tokenSlug,
   tokensBySlug,
   isOpen,
 }: StateProps) {
   const { changeInvoiceToken, closeInvoiceModal } = getActions();
 
+  const selectedChain = tokenSlug ? getChainBySlug(tokenSlug) : DEFAULT_CHAIN;
+  const { isTransferCommentSupported, nativeToken, formatTransferUrl } = getChainConfig(selectedChain);
+  const selectedToken = (tokenSlug && tokensBySlug?.[tokenSlug]) || nativeToken;
+  const address = byChain?.[selectedChain]?.address;
+
   const lang = useLang();
-  const selectedToken = tokensBySlug && tokenSlug ? tokensBySlug[tokenSlug] : TONCOIN;
   const [isTokenSelectorOpen, openTokenSelector, closeTokenSelector] = useFlag(false);
   const [amountValue, setAmountValue] = useState<string | undefined>(undefined);
   const [comment, setComment] = useState<string>('');
 
-  const decimals = selectedToken?.decimals ?? TONCOIN.decimals;
-  const amount = amountValue ? fromDecimal(amountValue, decimals) : 0n;
+  const avalableChains = useMemo(
+    () => byChain
+      ? (Object.keys(byChain) as (keyof typeof byChain)[]).filter((chain) => getChainConfig(chain).formatTransferUrl)
+      : [],
+    [byChain],
+  );
+
+  const amount = amountValue ? fromDecimal(amountValue, selectedToken.decimals) : 0n;
   const tokenAddress = 'tokenAddress' in selectedToken ? selectedToken?.tokenAddress : undefined;
-  const invoiceUrl = address ? formatTransferUrl(address, amount, comment, tokenAddress) : '';
+  const invoiceUrl = address && formatTransferUrl ? formatTransferUrl(address, amount, comment, tokenAddress) : '';
 
   const handleTokenSelect = useLastCallback((token: UserToken | UserSwapToken) => {
     changeInvoiceToken({ tokenSlug: token.slug });
@@ -84,19 +95,21 @@ function InvoiceModal({
                 onChange={setAmountValue}
               >
                 <SelectTokenButton
-                  noChainIcon
+                  noChainIcon={avalableChains.length <= 1}
                   token={selectedToken}
                   className={styles.tokenButton}
                   onClick={openTokenSelector}
                 />
               </RichNumberInput>
-              <Input
-                value={comment}
-                label={lang('Comment')}
-                placeholder={lang('Optional')}
-                wrapperClassName={styles.invoiceComment}
-                onInput={setComment}
-              />
+              {isTransferCommentSupported && (
+                <Input
+                  value={comment}
+                  label={lang('Comment')}
+                  placeholder={lang('Optional')}
+                  wrapperClassName={styles.invoiceComment}
+                  onInput={setComment}
+                />
+              )}
 
               <p className={styles.labelForInvoice}>
                 {lang('Share this URL to receive %token%', { token: selectedToken?.symbol })}
@@ -118,7 +131,7 @@ function InvoiceModal({
           <TokenSelector
             isActive={isActive}
             shouldHideNotSupportedTokens
-            selectedChain="ton"
+            selectedChain={avalableChains}
             onTokenSelect={handleTokenSelect}
             onBack={closeTokenSelector}
             onClose={closeInvoiceModal}
@@ -150,14 +163,14 @@ function InvoiceModal({
 
 export default memo(
   withGlobal((global): StateProps => {
-    const address = selectAccount(global, global.currentAccountId!)?.byChain.ton?.address;
+    const account = selectCurrentAccount(global);
     const { invoiceTokenSlug } = selectCurrentAccountState(global) || {};
 
     return {
       isOpen: global.isInvoiceModalOpen,
       tokenSlug: invoiceTokenSlug,
       tokensBySlug: global.tokenInfo?.bySlug,
-      address,
+      byChain: account?.byChain,
     };
   })(InvoiceModal),
 );

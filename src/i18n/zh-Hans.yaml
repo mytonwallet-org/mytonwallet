@@ -15,8 +15,6 @@ $auth_password_rule_one_small_char: 含有一个小写英文字母
 $auth_password_rule_one_capital_char: 含有一个大写英文字母
 $auth_password_rule_one_digit: 含有一个数字
 $auth_password_rule_one_special_char: 含有一个特殊符号
-The wallet is imported: 钱包已导入
-The wallet is ready: 钱包已经准备完成
 Create a password to protect it.: 创建一个密码以保护钱包
 Enter your password: 请输入您的密码
 Enter your password...: 请输入您的密码···
@@ -31,16 +29,12 @@ Secret Words: 密语
 $auth_import_mnemonic_description: |
   您可以通过输入创建钱包时记录的**12或24个密语**来恢复对钱包的访问。
 Let’s make sure your secrets words are recorded correctly.: 请确保您已经将助记词正确的记录至安全的地方，这将是您访问钱包的唯一凭证。
-$mnemonic_check_words_list: 请输入以下单词
-$mnemonic_check_error: 您输入的单词与列表中的单词不符，请再试一次。
-$check_words_description: |
-  现在让我们检查一下
-  您是否正确写下了秘密词语。
+$check_words_description: 现在让我们检查一下您是否正确写下了秘密词语。
 $mnemonic_list_description: 按**正确顺序**写下这些单词并存放在一个**安全的地方**。
 $private_key_description: 正确保存此私钥并存放在一个**安全的地方**。
 $mnemonic_warning: |
-  **不要** 发送或向任何人展示，
-  **不要** 在任何地方输入。
+  不要发送或向任何人展示，
+  不要在任何地方输入。
 View Secret Words: 查看密语
 View TON Private Key: 查看TON私钥
 Can be imported to non-multichain wallets for TON.: 可以导入到不支持多链的TON钱包。
@@ -57,7 +51,6 @@ $safety_rules_one: |
   请以正确的顺序记下它们并且存放在**安全的地方**
 $safety_rules_two: 如果您忘记密码或无法访问此装置，助记词将成为您恢复钱包的唯一凭证。
 $safety_rules_three: 如果其他人看到这些单词，您的资金将可能不再安全！请注意周围是否有人或摄像头！
-Congratulations!: 恭喜！
 Continue: 继续
 Close: 关闭
 Back: 返回上一步
@@ -208,7 +201,6 @@ Focus on asset value rather than current balance: 关注资产价值而非当前
 $logout_confirm: 登出**所有**钱包
 $logout_warning2: 钱包位于去中心化的 TON 区块链中。如果您只是想弃用钱包，只需将所有TON转移出去即可。
 $tiny_transfers_help: 关闭此功能以显示少于 $%value% 的交易。 请注意，此类交易通常用于垃圾信息和诈骗目的。
-Understood: 明白
 Today: 今天
 Yesterday: 昨天
 Now: 现在
@@ -313,12 +305,11 @@ Select Ledger Wallets: 选择分类帐钱包
 Add: 添加
 Try Again: 再试一次
 Driver: 司机
-Unlock it and open the TON App: 解锁并打开 TON 应用
+Unlock it and open the %chain% App: 解锁并打开 %chain% 应用
 Maybe you need to check the password or change the driver.: 也许您需要检查密码或更改驱动程序。
 Confirm via Ledger: 通过账本确认
 Please confirm transaction on your Ledger: 请在您的账本上确认交易
 Declined: 谢绝
-Create Wallet: 创建钱包
 Switch to the newly opened tab to connect Ledger.: 切换到新打开的标签页以连接 Ledger。
 Once connected, switch back to this window to proceed.: 连接成功后，请切换回此窗口以继续。
 Not all transactions were sent successfully: 并非所有交易都成功发送
@@ -335,8 +326,6 @@ Try another keyword or address.: 尝试其他关键字或地址。
 Decrypt: 解密
 Encrypted Message: 加密消息
 Message is encrypted.: 消息已加密。
-$dapp_ledger_warning1: 您即将使用您的**Ledger**钱包发送多方交易。您需要手动**逐个**签署每笔底层交易。
-$dapp_ledger_warning2: 请慢慢来，不要中断过程。
 Agree: 同意
 $swap_action: 交换
 Swap: 交换
@@ -375,18 +364,10 @@ $auth_responsibly_description4: |
 Start Wallet: 启动钱包
 $auth_backup_warning_notice: |
   现在，您需要手动**备份密钥**，以防忘记密码或无法访问该设备。
-Later: 之后
-Back Up Now: 立即备份
-I have read and accept this information: 我已阅读并接受此信息。
 $ledger_verify_address: 请务必使用您的 Ledger 设备验证粘贴的地址。
-$ledger_not_ready: Ledger 未连接或 TON 应用程序未打开。
+$ledger_not_ready: Ledger 未连接或 %chain% 应用程序未打开。
 Verify now: 现在检查
 Invalid address format. Only URL Safe Base64 format is allowed.: 地址格式无效。 仅允许使用 URL Safe Base64 格式。
-$auth_backup_description1: |
-  这是一个**仅由您控制的**且**安全**的钱包。
-$auth_backup_description2: “能力越大，责任越大。”
-$auth_backup_description3: |
-  您需要手动**备份助记词**，以免忘记助记词以永远失去您的钱包。
 Swap Placed: 已提交交换
 Swapping: 进行交换
 Swapped: 已交换
@@ -446,7 +427,6 @@ Please verify the operation.: 请验证操作。
 Create Password: 创建密码
 Complete: 完成
 Verification: 确认
-Create a password or use biometric authentication to protect it.: 创建密码或使用生物识别身份验证来保护它。
 Connect Biometrics: 连接生物识别
 Use Password: 使用密码
 Biometrics Disabled: 生物识别已禁用
@@ -460,8 +440,8 @@ An error on the server side. Please try again.: 服务器端的错误。请再�
 Address was saved!: 地址已保存！
 US Dollar: 美元
 Euro: 欧元
-Ruble: 卢布
-Yuan: 元
+Russian Ruble: 俄罗斯卢布
+Chinese Yuan: 人民币
 $max_balance: "最大: %balance%"
 $unstake_information_instantly: 您将立即获得存款
 Select Token: 选择代币
@@ -477,7 +457,6 @@ Code set successfully: 代码设置成功
 Use Biometrics: 使用生物识别技术
 Use Touch ID: 使用 Touch ID
 Use Face ID: 使用 Face ID
-You can connect your biometric data for more convenience: 您可以连接您的生物识别数据以获得更多便利
 Connect Touch ID: 连接 Touch ID
 Connect Face ID: 连接 Face ID
 Not Now: 现在不要
@@ -515,7 +494,6 @@ Cannot load widget: 无法加载小部件
 Explore: 探索
 No partners yet: 还没有伴侣
 Clear: 清除
-Get TON: 获取TON
 $unstake_up_to_information: 立即 – 高达 %value%
 $all_balance: "全部: %balance%"
 $unstaking_not_enough_balance: 您需要在主要余额中有 %value% 才能继续解押。
@@ -542,8 +520,7 @@ To use this feature, first enable biometrics in your phone settings.: 要使用�
 Open Settings: 打开设置
 $service_token_transfer_warning: 您即将转移一个重要的服务代币，该代币是提款或完成服务操作所必需的。请确保这是您打算执行的操作。
 No Price: 无价格
-$ledger_outdated: 此操作不支持您当前版本的 Ledger TON 应用程序。请使用 Ledger Live 进行更新。
-$ledger_unsupported_ton_connect: TonConnect不受您的Ledger Ton应用程序的支持。请使用Ledger Live更新它。
+$ledger_outdated: 此操作不支持您当前版本的 Ledger %chain% 应用程序。请使用 Ledger Live 进行更新。
 $dapp_transfer_tokens_burn: 燃烧%amount%
 $dapp_dns_set_wallet_payload: 将域 %domain% 的链接钱包更改为 %address%
 $dapp_dns_delete_wallet_payload: 删除域 %domain% 的链接钱包
@@ -660,11 +637,7 @@ Confirm Burning: 确认刻录
 Confirm Passcode: 确认密码
 Enter your code: 输入您的代码
 $hardware_payload_warning: "**第三方服务正在请求访问您的钱包。**这可能会导致资金损失。如果您不确定该服务的可靠性，请取消操作。"
-$hardware_blind_sign_not_enabled: |
-  **第三方服务正在请求访问您的钱包。**这可能会导致资金损失。如果您不确定该服务的可靠性，请取消操作。
-
-  要继续，请在 Ledger 的 TON 应用程序设置中启用“盲签名”选项。
-$hardware_blind_sign_not_enabled_internal: 要继续，请在 Ledger 的 TON 应用程序设置中启用“盲签名”选项。
+$hardware_blind_sign_not_enabled: 要继续，请在 Ledger 的 %chain% 应用程序设置中启用“盲签名”选项。
 Switch to W5: 切换到 W5
 Not Scam: 不是骗局
 Untitled: 未命名
@@ -941,7 +914,42 @@ $domain_like_scam_warning: |
 Allow Suspicious Actions: 允许可疑操作
 $allow_suspicious_actions_description: 允许发送至可疑地址并与潜在不安全的合约交互。
 Multisig Wallet Detected: 检测到多重签名钱包
-$multisig_warning_text: "通过 MyTonWallet **提取资金**是**不可能的**。请确认这真的是您的钱包——否则可能是诈骗。%multisig_warning_link%"
+$multisig_warning_text: 通过 MyTonWallet **提取资金**是**不可能的**。请确认这真的是您的钱包——否则可能是诈骗。%multisig_warning_link%
 $multisig_warning_link: 点击了解更多
 Multisig sending disabled: 无法从多签发送
 $try_new_air_version: 尝试原生应用体验 — 更轻量、更快速，专为您的设备打造。您可以随时切换回来。
+$accept_terms_with_link: 我同意 %link%
+use the wallet responsibly: 负责任地使用钱包
+"%app_name% Resources": "%app_name% 资源"
+Watch Video about Features: 观看功能视频
+Enjoy Monthly Updates in Blog: 享受博客中的每月更新
+Learn New Things in Help Center: 在帮助中心学习新知识
+Frequency Questions and Answers: 常见问题与解答
+Paste from Clipboard: 从剪贴板粘贴
+Use biometric authentication or create a password to protect it.: 使用生物识别认证或创建密码进行保护。
+Go to Words: 转到单词
+Copy to Clipboard: 复制到剪贴板
+$mnemonic_check_words_list: "请选择正确的单词 %word_numbers%:"
+$mnemonic_check_error: 单词不匹配，请重试。
+Open Wallet: 打开钱包
+All Set!: 全部设置完成！
+$wallet_create_done: 完成！您已创建钱包。
+$wallet_import_done:
+  zeroValue: 完成！您已导入一个钱包。
+  oneValue: 完成！您已导入一个钱包。
+  otherValue: 完成！您已导入%1$d个钱包。
+$wallet_done_description: 您现在可以安全地存储、接收和发送代币及其他数字资产。
+Security Warning: 安全警告
+Go back to Words: 返回单词
+I’m sure. Continue: 我确定。继续
+$copy_mnemonic_warning: 在数字环境（包括**剪贴板**）中存储单词不安全。请确保您已安全保存恢复短语。
+Other apps will be able to read your recovery phrase!: 其他应用将能够读取您的恢复短语！
+I’m sure. Copy anyway: 我确定。仍然复制
+$auth_biometric_info: 您可以连接生物识别数据以**获得更多便利。**
+Open wallet without checking: 不检查直接打开钱包
+Make sure you have your recovery phrase securely saved.: 请确保您已安全保存恢复短语。
+Without it, you won't be able to access your wallet.: 没有它，您将无法访问您的钱包。
+$ledger_connection_broken: Ledger连接已断开。请重新连接并重试。
+$ledger_wrong_device: 当前账户使用了其他 Ledger 恢复短语或密码，或存储在其他 Ledger 设备上
+Show More: 显示更多
+Purchasing TRON with Russian Rubles is currently unavailable.: 目前无法使用俄罗斯卢布购买TRON。

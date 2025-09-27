@@ -17,9 +17,9 @@ import org.mytonwallet.app_air.uicomponents.widgets.shakeView
 import org.mytonwallet.app_air.uipasscode.commonViews.PasscodeInputView
 import org.mytonwallet.app_air.uipasscode.viewControllers.activateBiometric.ActivateBiometricVC
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import java.lang.ref.WeakReference
 import kotlin.math.max
 

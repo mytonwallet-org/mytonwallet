@@ -25,7 +25,9 @@
 .container {
   display: flex;
   flex-direction: column;
+
   height: 100%;
+  min-height: 0; // To make children with `overflow: auto` scroll instead of expanding the container
   padding: 0 1rem max(var(--safe-area-bottom, 1rem), 1rem);
 
   :global(html.is-android-app) &:not(.containerStatic) {
@@ -133,9 +135,20 @@
   gap: 1rem;
   margin-top: auto;
 
-  &_single {
+  &Single {
     gap: 0;
     justify-content: center;
+  }
+
+  &Vertical {
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0 1rem;
+  }
+
+  &Horizontal {
+    flex-direction: row-reverse;
   }
 }
 
@@ -145,15 +158,20 @@
   &_single {
     width: unset;
   }
+
+  &FullWidth {
+    max-width: 100% !important;
+  }
 }
 
 .accounts {
-  overflow-y: scroll;
+  scrollbar-gutter: stable;
+
+  overflow-y: auto;
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 0.5rem;
 
-  max-height: 13.25rem;
   margin-bottom: 2rem;
   padding: 0.5rem;
   border-radius: var(--border-radius-default);
@@ -161,6 +179,15 @@
   background-color: var(--color-background-first);
 
   @include mixins.adapt-padding-to-scrollbar(0.5rem, !important);
+
+  // Ensure view-transition pseudo-elements are clipped by the container
+  &::view-transition-group(acc-list),
+  &::view-transition-new(acc-list),
+  &::view-transition-old(acc-list) {
+    contain: paint;
+    overflow: clip;
+    border-radius: var(--border-radius-default);
+  }
 
   &_two {
     grid-template-columns: repeat(6, 1fr);
@@ -196,6 +223,11 @@
 
   transition: opacity 200ms;
 
+  &_connected {
+    cursor: not-allowed;
+    filter: grayscale(100%);
+  }
+
   &_current {
     cursor: default;
     opacity: 1;
@@ -219,6 +251,8 @@
 }
 
 .addAccountContainer {
+  position: relative;
+
   flex-direction: column !important;
   align-items: flex-start !important;
   justify-content: space-between !important;
@@ -246,6 +280,18 @@
     // Optimization
     transition: none;
   }
+}
+
+.addAccountIconTransition {
+  --spinner-size: 1.25rem;
+  --color-dot: var(--color-add-wallet-text);
+
+  display: flex;
+  align-items: flex-end;
+}
+
+.addAccountLoading {
+  margin-bottom: 0.5625rem;
 }
 
 .addAccountIcon {
@@ -284,9 +330,9 @@
 }
 
 .accountCurrencyIcon {
-  margin-right: 0.125rem;
-  font-size: 0.5rem;
-  line-height: 0.5rem;
+  margin-left: -0.0625rem;
+  font-size: 0.75rem;
+  vertical-align: -0.125rem;
 }
 
 .accountAddress {
@@ -315,9 +361,6 @@
 }
 
 .declinedLabel {
-  display: flex;
-  align-items: center;
-
   margin: 0.75rem auto 0;
   padding: 0.75rem;
   border-radius: var(--border-radius-normal);

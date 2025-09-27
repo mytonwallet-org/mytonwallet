@@ -103,4 +103,10 @@ public extension StakingConfig {
     var unstakeTime: Date? {
         stakingState.flatMap(getUnstakeTime(state:))
     }
+    var readyToUnstakeAmount: BigInt? {
+        if let amount = stakingState?.unstakeRequestAmount, amount > 0, let unstakeTime, unstakeTime <= Date() {
+            return amount
+        }
+        return nil
+    }
 }

@@ -2,8 +2,8 @@ package org.mytonwallet.app_air.uistake.util
 
 import org.mytonwallet.app_air.uistake.earn.models.EarnItem
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
-import org.mytonwallet.app_air.walletcontext.utils.smartDecimalsCount
-import org.mytonwallet.app_air.walletcontext.utils.toString
+import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
+import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcore.STAKED_USDE_SLUG
 import org.mytonwallet.app_air.walletcore.USDE_SLUG
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType

@@ -1,7 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.image
 
 import org.mytonwallet.app_air.icons.R
-import org.mytonwallet.app_air.walletcontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletcore.STAKE_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.models.MBlockchain

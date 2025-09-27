@@ -33,6 +33,16 @@ public enum ApiTransactionError: String, Error {
     case wrongNetwork = "WrongNetwork"
 }
 
+public enum ApiHardwareError: String, Error {
+  /** Used when the chain's Ledger app needs to be updated to support this transaction */
+  case hardwareOutdated = "HardwareOutdated"
+  case blindSigningNotEnabled = "BlindSigningNotEnabled"
+  case rejectedByUser = "RejectedByUser"
+  case proofTooLarge = "ProofTooLarge"
+  case connectionBroken = "ConnectionBroken"
+  case wrongDevice = "WrongDevice"
+}
+
 
 public enum ApiAnyDisplayError: String, Codable, Error {
     // Common
@@ -65,4 +75,13 @@ public enum ApiAnyDisplayError: String, Codable, Error {
 
     // TransactionDraft/Transaction
     case insufficientBalance = "InsufficientBalance"
+    
+    // Hardware
+    /** Used when the chain's Ledger app needs to be updated to support this transaction */
+    case hardwareOutdated = "HardwareOutdated"
+    case blindSigningNotEnabled = "BlindSigningNotEnabled"
+    case rejectedByUser = "RejectedByUser"
+    case proofTooLarge = "ProofTooLarge"
+    case connectionBroken = "ConnectionBroken"
+    case wrongDevice = "WrongDevice"
 }

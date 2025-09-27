@@ -799,6 +799,71 @@
       },
       "extractionState": "manual"
     },
+    "$accept_terms_with_link": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I agree to %1$@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ich stimme zu, %1$@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acepto %1$@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zgadzam się %1$@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Я соглашаюсь %1$@"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ฉันยอมรับ %1$@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ kabul ediyorum"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Я погоджуюсь %1$@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我同意 %1$@"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我同意 %1$@"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "$all_balance": {
       "localizations": {
         "en": {
@@ -1001,60 +1066,6 @@
             "state": "translated",
             "value": "This is a **secure wallet**\nand is only **controlled by you**."
           }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\"Dies ist eine **sichere Wallet** und\nwird nur **von Ihnen kontrolliert**."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Este es un **monedero seguro**\ny **totalmente bajo su control**."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "To jest bezpieczny portfel\ni jest kontrolowany tylko przez ciebie."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Вы создали новый **безопасный кошелёк**,\nдоступ к которому **есть только у вас**."
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "นี้เป็น **วอลเล็ตที่ปลอดภัย**\nและเป็น **จัดการด้วยโดยตัวคุณเท่านั้น**."
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bu bir **güvenli cüzdandır**\nve sadece **sizin tarafınızdan kontrol edilir**."
-          }
-        },
-        "uk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ви створили новий **безпечний гаманець**,\nдоступ до якого **є тільки у вас**."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "这是一个**仅由您控制的**且**安全**的钱包。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "這是一個**僅由您控制**且**安全**的錢包。"
-          }
         }
       },
       "extractionState": "manual"
@@ -1066,60 +1077,6 @@
             "state": "translated",
             "value": "And with great power comes **great responsibility**."
           }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Und mit großer Macht kommt **große Verantwortung**."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Y un gran poder conlleva una **gran responsabilidad**."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A z wielką mocą idzie wielka odpowiedzialność."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Однако важно помнить:\n**особые возможности**\nтребуют **особой ответственности**!"
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "และ พลังอันยิ่งใหญ่มาพร้อมกับ **ความรับผิดชอบที่ใหญ่ยิ่ง**."
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ve büyük güç **büyük sorumluluğu** da beraberinde getirir."
-          }
-        },
-        "uk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Однак важливо пам'ятати:\n**особливі можливості**\nвимагають **особливої відповідальності**!"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "“能力越大，责任越大。”"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "「能力越強，責任越大。」"
-          }
         }
       },
       "extractionState": "manual"
@@ -1130,60 +1087,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "You need to manually **back up secret keys** in case you forget your password or lose access to this device."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sie müssen manuell **Geheimschlüssel sichern**, falls Sie Ihr Passwort vergessen oder den Zugriff auf dieses Gerät verlieren."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Debe hacer manualmente una **copia de seguridad de la frase semilla** que le permitirá recuperar su monedero en caso de que olvide su contraseña o pierda el acceso a este dispositivo."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Musisz ręcznie zrobić kopię zapasową kluczy prywatnych w przypadku zapomnienia hasła lub utraty dostępu do tego urządzenia."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Сейчас необходимо сделать\n**резервную копию** секретных слов.\nЭто поможет, если вы потеряете доступ\nк этому устройству или забудете пароль."
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "คุณต้อง **สำรองซีเคร็ทคีย์** ด้วยตนเอง ในกรณีที่คุณลืมรหัสผ่านหรือสูญเสียการเข้าถึงอุปกรณ์นี้."
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Parolanızı unutmanız veya bu cihaza erişiminizi kaybetmeniz ihtimaline karşı **gizli anahtarları** manuel olarak **yedeklemeniz** gerekir."
-          }
-        },
-        "uk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Зараз необхідно зробити\n**резервну копію** секретних слів.\nЦе допоможе, якщо ви втратите доступ\nдо цього пристрою або забудете пароль."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "您需要手动**备份助记词**，以免忘记助记词以永远失去您的钱包。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "你需要手動**備份註記詞**，免得你忘記助記詞而無法登入此裝置。"
           }
         }
       },
@@ -1249,6 +1152,71 @@
           "stringUnit": {
             "state": "translated",
             "value": "現在，您需要手動**備份密鑰**，以防忘記密碼或無法訪問該設備。"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "$auth_biometric_info": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can connect your biometric data for **more convenience.**"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sie können Ihre biometrischen Daten für **mehr Komfort** verbinden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puedes conectar tus datos biométricos para **mayor comodidad.**"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Możesz połączyć swoje dane biometryczne dla **większej wygody.**"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вы можете подключить свои биометрические данные для **большего удобства.**"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คุณสามารถเชื่อมต่อข้อมูลชีวมาตรของคุณเพื่อ **ความสะดวกสบายมากขึ้น**"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**Daha fazla konfor** için biyometrik verilerinizi bağlayabilirsiniz."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ви можете підключити свої біометричні дані для **більшої зручності.**"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "您可以连接生物识别数据以**获得更多便利。**"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "您可以連接生物識別資料以**獲得更多便利。**"
           }
         }
       },
@@ -1389,7 +1357,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "**Securely** store crypto\nand make blockchain payments\nat the **speed of light**."
+            "value": "**Securely** store crypto and make blockchain\npayments at the **speed of light**."
           }
         },
         "de": {
@@ -2494,61 +2462,126 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Now let’s check that you wrote\nyour secret words correctly."
+            "value": "Now let’s check that you wrote your secret words correctly."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Jetzt überprüfen wir, ob Sie\nIhre geheimen Wörter korrekt geschrieben haben."
+            "value": "Jetzt überprüfen wir, ob Sie Ihre geheimen Wörter korrekt geschrieben haben."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ahora verifiquemos que haya escrito\nsus palabras secretas correctamente."
+            "value": "Ahora verifiquemos que haya escrito sus palabras secretas correctamente."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sprawdźmy teraz, czy poprawnie zapisałeś\nswoje tajne słowa."
+            "value": "Sprawdźmy teraz, czy poprawnie zapisałeś swoje tajne słowa."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Теперь давайте проверим, правильно ли вы\nзаписали свои секретные слова."
+            "value": "Теперь давайте проверим, правильно ли вы записали свои секретные слова."
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "ตอนนี้เรามาตรวจสอบกันว่า\nคุณเขียนคำลับถูกต้องหรือไม่"
+            "value": "ตอนนี้เรามาตรวจสอบกันว่าคุณเขียนคำลับถูกต้องหรือไม่"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Şimdi, gizli kelimelerinizi\ndoğru yazıp yazmadığınızı kontrol edelim."
+            "value": "Şimdi, gizli kelimelerinizi doğru yazıp yazmadığınızı kontrol edelim."
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Тепер давайте перевіримо, чи правильно ви\nзаписали свої секретні слова."
+            "value": "Тепер давайте перевіримо, чи правильно ви записали свої секретні слова."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "现在让我们检查一下\n您是否正确写下了秘密词语。"
+            "value": "现在让我们检查一下您是否正确写下了秘密词语。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "現在讓我們檢查一下\n您是否正確寫下了秘密詞語。"
+            "value": "現在讓我們檢查一下您是否正確寫下了秘密詞語。"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "$copy_mnemonic_warning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Storing words in a digital environment, including the **clipboard**, is not safe. Make sure you have your recovery phrase securely saved."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Speichern von Wörtern in einer digitalen Umgebung, einschließlich der **Zwischenablage**, ist nicht sicher. Stellen Sie sicher, dass Sie Ihren Wiederherstellungssatz sicher gespeichert haben."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Almacenar palabras en un entorno digital, incluido el **portapapeles**, no es seguro. Asegúrate de tener tu frase de recuperación guardada de forma segura."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przechowywanie słów w środowisku cyfrowym, w tym w **schowku**, nie jest bezpieczne. Upewnij się, że masz bezpiecznie zapisaną frazę odzyskiwania."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Хранение слов в цифровой среде, включая **буфер обмена**, небезопасно. Убедитесь, что вы сохранили свою фразу восстановления в безопасном месте."
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "การเก็บคำในสภาพแวดล้อมดิจิทัล รวมถึง **คลิปบอร์ด** ไม่ปลอดภัย ตรวจสอบให้แน่ใจว่าคุณได้บันทึกวลีกู้คืนไว้อย่างปลอดภัย"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kelimeleri **pano** dahil dijital bir ortamda saklamak güvenli değildir. Kurtarma ifadenizi güvenli bir şekilde kaydettiğinizden emin olun."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Зберігання слів у цифровому середовищі, включаючи **буфер обміну**, не є безпечним. Переконайтеся, що ви зберегли свою фразу відновлення в безпечному місці."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在数字环境（包括**剪贴板**）中存储单词不安全。请确保您已安全保存恢复短语。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在數位環境（包括**剪貼簿**）中儲存單字不安全。請確保您已安全保存恢復短語。"
           }
         }
       },
@@ -2939,136 +2972,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "將網域 %1$@ 的連結錢包更改為 %2$@"
-          }
-        }
-      },
-      "extractionState": "manual"
-    },
-    "$dapp_ledger_warning1": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You are about to send a multi-way transaction using your **Ledger** wallet. You will need to sign each underlying transaction **one by one manually**."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sie sind dabei, eine Mehrweg-Transaktion mit Ihrer **Ledger**-Wallet durchzuführen. Sie müssen jede zugrunde liegende Transaktion **manuell nacheinander** signieren."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Estás a punto de enviar una transacción multi-direccional utilizando tu monedero **Ledger**. Necesitarás firmar cada transacción subyacente **una por una manualmente**."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Masz zamiar wysłać transakcję wielokierunkową za pomocą portfela Ledger. Będziesz musiał podpisać każdą związaną transakcję ręcznie, jedną po drugiej."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Вы собираетесь отправить многоадресную транзакцию, используя свой кошелёк **Ledger**. Вам нужно будет подписать каждую базовую транзакцию **по одной вручную**."
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "คุณกำลังจะส่งธุรกรรมแบบหลายทางโดยใช้วอลเล็ต **Ledger** ของคุณ. คุณจำเป็นต้องลงนามในธุรกรรมที่เกี่ยวข้องกัน **ทีละรายการด้วยตนเอง**."
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "**Ledger** cüzdanınızı kullanarak çok yönlü bir işlem göndermek üzeresiniz. İlgili her işlemi **tek tek manuel olarak** imzalamanız gerekecektir."
-          }
-        },
-        "uk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ви збираєтеся відправити багатоадресну транзакцію, використовуючи свій гаманець **Ledger**. Вам потрібно буде підписати кожну базову транзакцію **по одній вручну**."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "您即将使用您的**Ledger**钱包发送多方交易。您需要手动**逐个**签署每笔底层交易。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "您即將使用您的**Ledger**錢包發送多方交易。您需要手動**一一**簽署每筆底層交易。"
-          }
-        }
-      },
-      "extractionState": "manual"
-    },
-    "$dapp_ledger_warning2": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Please take your time and do not interrupt the process."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bitte nehmen Sie sich Zeit und unterbrechen Sie den Prozess nicht."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Por favor, tómate tu tiempo y no interrumpas el proceso."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Proszę poświęcić czas i nie przerywać procesu."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Пожалуйста, не торопитесь и не прерывайте процесс."
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "โปรดสละเวลาของคุณและอย่าขัดขวางกระบวนการนี้."
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lütfen acele etmeyin ve süreci kesintiye uğratmayın."
-          }
-        },
-        "uk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Будь ласка, не поспішайте і не переривайте процес."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请慢慢来，不要中断过程。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "請慢慢來，不要中斷過程。"
           }
         }
       },
@@ -5313,126 +5216,61 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "**A third-party service is requesting access to your wallet.** This could lead to the loss of funds. Cancel the operation if you are not sure about the reliability of this service.\n\nTo continue, enable the \"Blind Signing\" option in the settings of the TON App on Ledger."
+            "value": "To continue, enable the \"Blind Signing\" option in the settings of the %1$@ App on Ledger."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "**Ein externer Dienst fordert Zugriff auf Ihre Wallet an.** Dies kann zum Verlust von Mitteln führen. Brechen Sie den Vorgang ab, wenn Sie sich der Zuverlässigkeit dieses Dienstes nicht sicher sind.\n\nUm fortzufahren, aktivieren Sie die Option „Blindsignatur“ in den Einstellungen der TON App auf dem Ledger."
+            "value": "Um fortzufahren, aktivieren Sie die Option „Blindsignatur“ in den Einstellungen der %1$@ App auf dem Ledger."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "**Un servicio de terceros está solicitando acceso a su billetera.** Esto podría provocar la pérdida de fondos. Cancele la operación si no está seguro sobre la fiabilidad de este servicio.\n\nPara continuar, habilite la opción \"Firma Ciega\" en la configuración de la aplicación TON en Ledger."
+            "value": "Para continuar, habilite la opción \"Firma Ciega\" en la configuración de la aplicación %1$@ en Ledger."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "**Zewnętrzna usługa żąda dostępu do twojego portfela.** Może to prowadzić do utraty środków. Anuluj operację, jeśli nie jesteś pewien niezawodności tej usługi.\n\nAby kontynuować, włącz opcję „Ślepe Podpisywanie” w ustawieniach aplikacji TON na Ledgerze."
+            "value": "Aby kontynuować, włącz opcję „Ślepe Podpisywanie” w ustawieniach aplikacji %1$@ na Ledgerze."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "**Сторонний сервис запрашивает доступ к вашему кошельку.** Это может привести к потере средств. Отмените операцию, если вы не уверены в надёжности этого сервиса.\n\nЧтобы продолжить, включите опцию «Слепое подписание» в настройках TON App на Ledger."
+            "value": "Чтобы продолжить, включите опцию «Слепое подписание» в настройках %1$@ App на Ledger."
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "**บริการของบุคคลที่สามกำลังขอเข้าถึงกระเป๋าเงินของคุณ** อาจทำให้สูญเสียเงินได้ ยกเลิกการดำเนินการหากคุณไม่แน่ใจเกี่ยวกับความน่าเชื่อถือของบริการนี้\n\nในการดำเนินการต่อ ให้เปิดใช้งานตัวเลือก \"การลงนามแบบบอด\" ในการตั้งค่าแอป TON บน Ledger"
+            "value": "ในการดำเนินการต่อ ให้เปิดใช้งานตัวเลือก \"การลงนามแบบบอด\" ในการตั้งค่าแอป %1$@ บน Ledger"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "**Üçüncü taraf bir hizmet cüzdanınıza erişim istiyor.** Bu, fon kaybına yol açabilir. Bu hizmetin güvenilirliğinden emin değilseniz işlemi iptal edin.\n\nDevam etmek için, Ledger üzerindeki TON Uygulamasının ayarlarında \"Kör İmzalama\" seçeneğini etkinleştirin."
+            "value": "Devam etmek için, Ledger üzerindeki %1$@ Uygulamasının ayarlarında \"Kör İmzalama\" seçeneğini etkinleştirin."
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "**Сторонній сервіс запитує доступ до вашого гаманця.** Це може призвести до втрати коштів. Скасуйте операцію, якщо ви не впевнені в надійності цього сервісу.\n\nЩоб продовжити, увімкніть опцію «Сліпе підписання» в налаштуваннях TON App на Ledger."
+            "value": "Щоб продовжити, увімкніть опцію «Сліпе підписання» в налаштуваннях %1$@ App на Ledger."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "**第三方服务正在请求访问您的钱包。**这可能会导致资金损失。如果您不确定该服务的可靠性，请取消操作。\n\n要继续，请在 Ledger 的 TON 应用程序设置中启用“盲签名”选项。"
+            "value": "要继续，请在 Ledger 的 %1$@ 应用程序设置中启用“盲签名”选项。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "**第三方服務正在請求訪問您的錢包。**這可能會導致資金損失。如果您不確定此服務的可靠性，請取消操作。\n\n要繼續，請在 Ledger 的 TON 應用程序設置中啟用“盲簽名”選項。"
-          }
-        }
-      },
-      "extractionState": "manual"
-    },
-    "$hardware_blind_sign_not_enabled_internal": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "To continue, enable the \"Blind Signing\" option in the settings of the TON App on Ledger."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Um fortzufahren, aktivieren Sie die Option „Blindsignatur“ in den Einstellungen der TON App auf dem Ledger."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Para continuar, habilite la opción \"Firma Ciega\" en la configuración de la aplicación TON en Ledger."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aby kontynuować, włącz opcję „Ślepe Podpisywanie” w ustawieniach aplikacji TON na Ledgerze."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Чтобы продолжить, включите опцию «Слепое подписание» в настройках TON App на Ledger."
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ในการดำเนินการต่อ ให้เปิดใช้งานตัวเลือก \"การลงนามแบบบอด\" ในการตั้งค่าแอป TON บน Ledger"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Devam etmek için, Ledger üzerindeki TON Uygulamasının ayarlarında \"Kör İmzalama\" seçeneğini etkinleştirin."
-          }
-        },
-        "uk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Щоб продовжити, увімкніть опцію «Сліпе підписання» в налаштуваннях TON App на Ledger."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "要继续，请在 Ledger 的 TON 应用程序设置中启用“盲签名”选项。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "要繼續，請在 Ledger 的 TON 應用程序設置中啟用“盲簽名”選項。"
+            "value": "要繼續，請在 Ledger 的 %1$@ 應用程序設置中啟用“盲簽名”選項。"
           }
         }
       },
@@ -6058,66 +5896,131 @@
       },
       "extractionState": "manual"
     },
-    "$ledger_not_ready": {
+    "$ledger_connection_broken": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ledger is not connected or TON app is not open."
+            "value": "The Ledger connection has broken. Please reconnect and try again."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ledger ist nicht verbunden oder die TON-App ist nicht geöffnet."
+            "value": "Die Ledger-Verbindung wurde unterbrochen. Bitte erneut verbinden und versuchen."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "El libro mayor no está conectado o la aplicación TON no está abierta."
+            "value": "La conexión de Ledger se ha interrumpido. Por favor, vuelva a conectar y pruebe de nuevo."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ledger nie jest podłączony lub aplikacja TON nie jest otwarta."
+            "value": "Połączenie Ledger zostało przerwane. Proszę połączyć ponownie i spróbować jeszcze raz."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ledger не подключён или приложение TON не открыто."
+            "value": "Соединение с Ledger прервано. Пожалуйста, переподключитесь и попробуйте снова."
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ledger ไม่ได้เชื่อมต่อหรือแอป TON ยังไม่เปิด."
+            "value": "การเชื่อมต่อ Ledger ถูกตัด กรุณาเชื่อมต่อใหม่และลองอีกครั้ง"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ledger bağlı değil veya TON uygulaması açık değil."
+            "value": "Ledger bağlantısı kesildi. Lütfen yeniden bağlanıp tekrar deneyin."
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ledger не підключений або застосунок TON не відкритий."
+            "value": "З'єднання з Ledger перервано. Будь ласка, перепідключіться і спробуйте ще раз."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ledger 未连接或 TON 应用程序未打开。"
+            "value": "Ledger连接已断开。请重新连接并重试。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ledger 未連接或 TON 應用程序未打開。"
+            "value": "Ledger連線已中斷。請重新連接並再試一次。"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "$ledger_not_ready": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ledger is not connected or %1$@ App is not open."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ledger ist nicht verbunden oder die %1$@-App ist nicht geöffnet."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El libro mayor no está conectado o la aplicación %1$@ no está abierta."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ledger nie jest podłączony lub aplikacja %1$@ nie jest otwarta."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ledger не подключён или приложение %1$@ не открыто."
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ledger ไม่ได้เชื่อมต่อหรือแอป %1$@ ยังไม่เปิด."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ledger bağlı değil veya %1$@ uygulaması açık değil."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ledger не підключений або застосунок %1$@ не відкритий."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ledger 未连接或 %1$@ 应用程序未打开。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ledger 未連接或 %1$@ 應用程序未打開。"
           }
         }
       },
@@ -6128,126 +6031,61 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This operation is not supported by your version of the Ledger TON App. Please update it using Ledger Live."
+            "value": "This operation is not supported by your version of the Ledger %1$@ App. Please update it using Ledger Live."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Diese Operation wird von Ihrer Version der Ledger TON App nicht unterstützt. Bitte aktualisieren Sie sie mit Ledger Live."
+            "value": "Diese Operation wird von Ihrer Version der Ledger %1$@ App nicht unterstützt. Bitte aktualisieren Sie sie mit Ledger Live."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Esta operación no es compatible con su versión de Ledger TON App. Actualícela utilizando Ledger Live."
+            "value": "Esta operación no es compatible con su versión de Ledger %1$@ App. Actualícela utilizando Ledger Live."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ta operacja nie jest obsługiwana przez twoją wersję Ledger TON App. Zaktualizuj ją za pomocą Ledger Live."
+            "value": "Ta operacja nie jest obsługiwana przez twoją wersję Ledger %1$@ App. Zaktualizuj ją za pomocą Ledger Live."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Данная операция не поддерживается вашей версией Ledger TON App. Пожалуйста, обновите его с помощью Ledger Live."
+            "value": "Данная операция не поддерживается вашей версией Ledger %1$@ App. Пожалуйста, обновите его с помощью Ledger Live."
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "การดำเนินการนี้ไม่รองรับในเวอร์ชันแอป Ledger TON ของคุณ โปรดอัปเดตโดยใช้ Ledger Live"
+            "value": "การดำเนินการนี้ไม่รองรับในเวอร์ชันแอป Ledger %1$@ ของคุณ โปรดอัปเดตโดยใช้ Ledger Live"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bu işlem, kullandığınız Ledger TON App sürümü tarafından desteklenmiyor. Lütfen Ledger Live kullanarak güncelleyin."
+            "value": "Bu işlem, kullandığınız Ledger %1$@ App sürümü tarafından desteklenmiyor. Lütfen Ledger Live kullanarak güncelleyin."
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ця операція не підтримується вашою версією Ledger TON App. Будь ласка, оновіть її за допомогою Ledger Live."
+            "value": "Ця операція не підтримується вашою версією Ledger %1$@ App. Будь ласка, оновіть її за допомогою Ledger Live."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "此操作不支持您当前版本的 Ledger TON 应用程序。请使用 Ledger Live 进行更新。"
+            "value": "此操作不支持您当前版本的 Ledger %1$@ 应用程序。请使用 Ledger Live 进行更新。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "此操作不支持您當前版本的 Ledger TON 應用程序。請使用 Ledger Live 進行更新。"
-          }
-        }
-      },
-      "extractionState": "manual"
-    },
-    "$ledger_unsupported_ton_connect": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "TonConnect is not supported by version of your Ledger TON App. Please update it using Ledger Live."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "TonConnect wird nicht durch die Version Ihrer Ledger Ton App unterstützt. Bitte aktualisieren Sie es mit Ledger Live."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "TonConnect no es compatible con la versión de su Ledger TON App. Actualice con Ledger Live."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "TonConnect nie jest obsługiwany przez wersję aplikacji Ledger TON. Zaktualizuj go za pomocą Ledger Live."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "TonConnect не поддерживается версией вашего Ledger TON App. Пожалуйста, обновите его с помощью Ledger Live."
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "TonConnect ไม่รองรับเวอร์ชันของแอป Ledger TON ของคุณ โปรดอัปเดตโดยใช้ Ledger Live"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "TonConnect, Ledger Ton uygulamanızın sürümü tarafından desteklenmez. Lütfen Ledger Live kullanarak güncelleyin."
-          }
-        },
-        "uk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "TonConnect не підтримується версією вашої програми Ledger TON. Оновіть його за допомогою Ledger Live."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "TonConnect不受您的Ledger Ton应用程序的支持。请使用Ledger Live更新它。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "TonConnect不受您的Ledger Ton應用程序的支持。請使用Ledger Live更新它。"
+            "value": "此操作不支持您當前版本的 Ledger %1$@ 應用程序。請使用 Ledger Live 進行更新。"
           }
         }
       },
@@ -6378,6 +6216,71 @@
           "stringUnit": {
             "state": "translated",
             "value": "請驗證您的 Ledger 上的網址。"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "$ledger_wrong_device": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The current account is set up with another Ledger recovery phrase or passphrase, or stored on another Ledger device"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das aktuelle Konto ist mit einer anderen Ledger-Wiederherstellungsphrase oder Passphrase eingerichtet oder auf einem anderen Ledger-Gerät gespeichert"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La cuenta actual está configurada con otra frase de recuperación o contraseña de Ledger, o almacenada en otro dispositivo Ledger"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bieżące konto jest skonfigurowane z inną frazą odzyskiwania lub hasłem Ledger albo przechowywane na innym urządzeniu Ledger"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Текущий аккаунт создан из другой фразы восстановления или парольной фразы Ledger, либо хранится на другом устройстве Ledger"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "บัญชีปัจจุบันถูกตั้งค่าด้วยวลีการกู้คืนหรือรหัสผ่าน Ledger อื่น หรือถูกจัดเก็บไว้ในอุปกรณ์ Ledger อื่น"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mevcut hesap başka bir Ledger kurtarma ifadesi veya parola ile kuruldu ya da başka bir Ledger cihazında saklanıyor"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поточний акаунт налаштовано з іншою фразою відновлення або паролем Ledger, або збережено на іншому пристрої Ledger"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前账户使用了其他 Ledger 恢复短语或密码，或存储在其他 Ledger 设备上"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "當前帳戶使用了其他 Ledger 恢復短語或密碼，或存儲在其他 Ledger 設備上"
           }
         }
       },
@@ -7157,61 +7060,61 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The secret words you have entered do not match the ones in the list. Please try again."
+            "value": "Words don’t match, please try again."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die eingegebenen geheimen Wörter stimmen nicht mit denen in der Liste überein. Bitte versuchen Sie es erneut."
+            "value": "Wörter stimmen nicht überein, bitte versuchen Sie es erneut."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "La frases semilla que ha introducido no coinciden. Inténtalo de nuevo."
+            "value": "Las palabras no coinciden, por favor intenta de nuevo."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wprowadzone tajne słowa nie pasują do tych na liście. Spróbuj ponownie."
+            "value": "Słowa nie pasują, spróbuj ponownie."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Введённые слова не совпадают со словами из списка. Попробуйте ещё раз."
+            "value": "Слова не совпадают, попробуйте снова."
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "ซีเคร็ทเวิร์ดที่คุณกรอกไม่ตรงกับซีเคร็ทเวิร์ดที่แสดงบนรายการ. โปรดลองใหม่อีกครั้ง."
+            "value": "คำไม่ตรงกัน โปรดลองอีกครั้ง"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Girdiğiniz gizli kelimeler listedekilerle eşleşmiyor. Lütfen tekrar deneyin."
+            "value": "Kelimeler eşleşmiyor, lütfen tekrar deneyin."
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Введені слова не збігаються зі словами зі списку. Спробуйте ще раз."
+            "value": "Слова не збігаються, будь ласка, спробуйте ще раз."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "您输入的单词与列表中的单词不符，请再试一次。"
+            "value": "单词不匹配，请重试。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "您輸入的單字與列表中的單字不相符。 請再試一遍。"
+            "value": "單字不匹配，請重試。"
           }
         }
       },
@@ -7222,61 +7125,61 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Please enter the words **%1$s** below."
+            "value": "Please choose the correct words %1$@:"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bitte geben Sie die Wörter **%1$s** unten ein."
+            "value": "Bitte wählen Sie die richtigen Wörter %1$@:"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Introduce las **%1$s** palabras de la frase semilla a continuación."
+            "value": "Por favor elige las palabras correctas %1$@:"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wpisz poniżej słowa **%1$s**."
+            "value": "Proszę wybrać poprawne słowa %1$@:"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Пожалуйста, введите слова **%1$s** в соответствующие поля."
+            "value": "Пожалуйста, выберите правильные слова %1$@:"
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "โปรดกรอกซีเคร็ทเวิร์ด **%1$s** ด้านล่าง."
+            "value": "โปรดเลือกคำที่ถูกต้อง %1$@:"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "**%1$s** numaralı kelimeleri aşağıya girin."
+            "value": "Lütfen doğru kelimeleri seçin %1$@:"
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Будь ласка, введіть слова **%1$s** у відповідні поля."
+            "value": "Будь ласка, виберіть правильні слова %1$@:"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "请输入以下单词"
+            "value": "请选择正确的单词 %1$@:"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "請輸入以下單字"
+            "value": "請選擇正確的單字 %1$@:"
           }
         }
       },
@@ -7352,61 +7255,61 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "**Do not** send or show it to anyone,\n**do not** enter it anywhere."
+            "value": "Do not send or show it to anyone,\ndo not enter it anywhere."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "**Senden** oder zeigen Sie es niemandem,\n**geben** Sie es nirgendwo ein."
+            "value": "Senden oder zeigen Sie es niemandem,\ngeben Sie es nirgendwo ein."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "**No** lo envíes ni lo muestres a nadie,\n**no** lo ingreses en ningún lugar."
+            "value": "No lo envíes ni lo muestres a nadie,\nno lo ingreses en ningún lugar."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nie wysyłaj ani nie pokazuj go **nikomu**,\n**nie** wprowadzaj go nigdzie."
+            "value": "Nie wysyłaj ani nie pokazuj go nikomu,\nnie wprowadzaj go nigdzie."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "**Никому** не сообщайте, не показывайте\nи не вводите **нигде**."
+            "value": "Никому не сообщайте, не показывайте\nи не вводите нигде."
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "**ไม่ควร** ส่งหรือแสดงให้ใครเห็น,\n**ไม่ควร** เอาไปใช้ที่อื่นได."
+            "value": "ไม่ควร ส่งหรือแสดงให้ใครเห็น,\nไม่ควร เอาไปใช้ที่อื่นได."
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kimseye **göndermeyin** veya göstermeyin,\nHiçbir yere **girmeyin**."
+            "value": "Kimseye göndermeyin veya göstermeyin,\nHiçbir yere girmeyin."
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "**Нікому** не повідомляйте, не показуйте\nі не вводьте **ніде**."
+            "value": "Нікому не повідомляйте, не показуйте\nі не вводьте ніде."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "**不要** 发送或向任何人展示，\n**不要** 在任何地方输入。"
+            "value": "不要发送或向任何人展示，\n不要在任何地方输入。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "**不要** 發送或向任何人展示，\n**不要** 在任何地方輸入。"
+            "value": "不要發送或向任何人展示，\n不要在任何地方輸入。"
           }
         }
       },
@@ -7667,6 +7570,67 @@
           "stringUnit": {
             "state": "translated",
             "value": "透過 MyTonWallet **提取資金**是**不可能的**。請確認這真的是您的錢包——否則可能是詐騙。%1$@"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "$n_wallets_selected": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ""
+          },
+          "variations": {
+            "plural": {
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$d selected"
+                }
+              },
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$d selected"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$d selected"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ""
+          },
+          "variations": {
+            "plural": {
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$d выбрано"
+                }
+              },
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$d выбран"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%1$d выбрано"
+                }
+              }
+            }
           }
         }
       },
@@ -13298,6 +13262,349 @@
       },
       "extractionState": "manual"
     },
+    "$wallet_create_done": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done! You have created a wallet."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fertig! Sie haben eine Wallet erstellt."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¡Listo! Has creado una billetera."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gotowe! Utworzyłeś portfel."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готово! Вы создали кошелёк."
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เสร็จแล้ว! คุณได้สร้างกระเป๋าเงินแล้ว"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tamamlandı! Bir cüzdan oluşturdunuz."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готово! Ви створили гаманець."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成！您已创建钱包。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成！您已建立錢包。"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "$wallet_done_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can now securely store, receive, and send coins and other digital assets."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sie können jetzt sicher Münzen und andere digitale Assets speichern, empfangen und senden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ahora puedes almacenar, recibir y enviar monedas y otros activos digitales de forma segura."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Możesz teraz bezpiecznie przechowywać, otrzymywać i wysyłać monety i inne aktywa cyfrowe."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Теперь вы можете безопасно хранить, получать и отправлять монеты и другие цифровые активы."
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ตอนนี้คุณสามารถเก็บ รับ และส่งเหรียญและสินทรัพย์ดิจิทัลอื่นๆ ได้อย่างปลอดภัย"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Artık coinleri ve diğer dijital varlıkları güvenle saklayabilir, alabilir ve gönderebilirsiniz."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тепер ви можете безпечно зберігати, отримувати та надсилати монети та інші цифрові активи."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "您现在可以安全地存储、接收和发送代币及其他数字资产。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "您現在可以安全地儲存、接收和發送代幣及其他數位資產。"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "$wallet_import_done": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ""
+          },
+          "variations": {
+            "plural": {
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Done! You have imported a wallet."
+                }
+              },
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Done! You have imported a wallet."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Done! You have imported %1$d wallets."
+                }
+              }
+            }
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ""
+          },
+          "variations": {
+            "plural": {
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Erledigt! Sie haben eine Wallet importiert."
+                }
+              },
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Erledigt! Sie haben eine Wallet importiert."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Erledigt! Sie haben %1$d Wallets importiert."
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ""
+          },
+          "variations": {
+            "plural": {
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "¡Listo! Has importado una cartera."
+                }
+              },
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "¡Listo! Has importado una cartera."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "¡Listo! Has importado %1$d carteras."
+                }
+              }
+            }
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[zero] Gotowe! Zaimportowałeś jeden portfel. [one] Gotowe! Zaimportowałeś jeden portfel. [few] Gotowe! Zaimportowałeś %1$d portfele. [many] Gotowe! Zaimportowałeś %1$d portfeli."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[zero] Готово! Вы импортировали кошелёк. [one] Готово! Вы импортировали кошелёк. [few] Готово! Вы импортировали %1$d кошелька. [many] Готово! Вы импортировали %1$d кошельков."
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ""
+          },
+          "variations": {
+            "plural": {
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "เรียบร้อย! คุณได้นำเข้ากระเป๋าสตางค์แล้ว"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "เรียบร้อย! คุณได้นำเข้ากระเป๋าสตางค์แล้ว %1$d ใบ"
+                }
+              }
+            }
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ""
+          },
+          "variations": {
+            "plural": {
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Tamamlandı! Bir cüzdan içe aktardınız."
+                }
+              },
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Tamamlandı! Bir cüzdan içe aktardınız."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Tamamlandı! %1$d cüzdan içe aktardınız."
+                }
+              }
+            }
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[zero] Готово! Ви імпортували гаманець. [one] Готово! Ви імпортували гаманець. [few] Готово! Ви імпортували %1$d гаманця. [many] Готово! Ви імпортували %1$d гаманців."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ""
+          },
+          "variations": {
+            "plural": {
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "完成！您已导入一个钱包。"
+                }
+              },
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "完成！您已导入一个钱包。"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "完成！您已导入%1$d个钱包。"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ""
+          },
+          "variations": {
+            "plural": {
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "完成！您已匯入一個錢包。"
+                }
+              },
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "完成！您已匯入一個錢包。"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "完成！您已匯入%1$d個錢包。"
+                }
+              }
+            }
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "$wallet_switch_version_1": {
       "localizations": {
         "en": {
@@ -14180,6 +14487,71 @@
       },
       "extractionState": "manual"
     },
+    "%app_name% Resources": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ Resources"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ Ressourcen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recursos de %1$@"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zasoby %1$@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ресурсы %1$@"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ทรัพยากร %1$@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ Kaynakları"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ресурси %1$@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ 资源"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ 資源"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "%lld transfer": {
       "localizations": {
         "en": {
@@ -14745,7 +15117,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "24 слов"
+            "value": "24 слова"
           }
         }
       },
@@ -16291,10 +16663,58 @@
             "value": "All Set!"
           }
         },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alles fertig!"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¡Todo listo!"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wszystko gotowe!"
+          }
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Готово!"
+            "value": "Всё готово!"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "พร้อมแล้ว!"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Her Şey Hazır!"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все готово!"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全部设置完成！"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全部設定完成！"
           }
         }
       },
@@ -18180,60 +18600,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Back Up Now"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Jetzt sichern"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copia ahora"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Utwórz teraz kopię zapasową"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Показать слова сейчас"
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "สํารองข้อมูลตอนนี้"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Şimdi yedekle"
-          }
-        },
-        "uk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Показати слова зараз"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "立即备份"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "立即備份"
           }
         }
       },
@@ -22058,6 +22424,71 @@
       },
       "extractionState": "manual"
     },
+    "Chinese Yuan": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chinese Yuan"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chinesischer Yuan"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yuan chino"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chiński juan"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Китайский юань"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "หยวนจีน"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Çin Yuanı"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Китайський юань"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "人民币"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "人民幣"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "Choose Currency": {
       "localizations": {
         "en": {
@@ -24613,60 +25044,6 @@
             "state": "translated",
             "value": "Congratulations!"
           }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Herzlichen Glückwunsch!"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "¡Felicidades!"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gratulacje!"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Поздравляем!"
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ยินดีด้วย!"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tebrikler!"
-          }
-        },
-        "uk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Вітаємо!"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "恭喜！"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "恭喜!"
-          }
         }
       },
       "extractionState": "manual"
@@ -26117,10 +26494,58 @@
             "value": "Copy to Clipboard"
           }
         },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In Zwischenablage kopieren"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar al portapapeles"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiuj do schowka"
+          }
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Скопировать"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คัดลอกไปยังคลิปบอร์ด"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Panoya Kopyala"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копіювати в буфер обміну"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制到剪贴板"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "複製到剪貼簿"
           }
         }
       },
@@ -26588,60 +27013,6 @@
             "state": "translated",
             "value": "Create Wallet"
           }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wallet erstellen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Crear Billetera"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Utwórz portfel"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Создать кошелёк"
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "สร้างวอลเล็ต"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cüzdan Oluşturun"
-          }
-        },
-        "uk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Створити гаманець"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "创建钱包"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "建立錢包"
-          }
         }
       },
       "extractionState": "manual"
@@ -26717,60 +27088,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Create a password or use biometric authentication to protect it."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Erstellen Sie ein Passwort oder verwenden Sie die biometrische Authentifizierung, um es zu schützen."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cree una contraseña o utilice autenticación biométrica para protegerla."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Utwórz hasło lub użyj uwierzytelniania biometrycznego, aby je zabezpieczyć."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Создайте пароль или используйте биометрическую аутентификацию для его защиты."
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "คุณสามารถสร้างรหัส หรือใช้ Biometric ในการปกป้องวอลเล็ตของคุณ."
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Korumak için bir parola oluşturun veya biyometrik kimlik doğrulama kullanın."
-          }
-        },
-        "uk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Створіть пароль або використовуйте біометричну аутентифікацію для його захисту."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "创建密码或使用生物识别身份验证来保护它。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "創建密碼或使用生物識別身份驗證來保護它。"
           }
         }
       },
@@ -30125,10 +30442,58 @@
             "value": "Enjoy Monthly Updates in Blog"
           }
         },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Monatliche Updates im Blog genießen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disfruta actualizaciones mensuales en el blog"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ciesz się comiesięcznymi aktualizacjami na blogu"
+          }
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ежемесячные обновления в блоге"
+            "value": "Блог"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "อัปเดตรายเดือนในบล็อก"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blog'daki aylık güncellemelerin keyfini çıkarın"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Насолоджуйтесь щомісячними оновленнями в блозі"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "享受博客中的每月更新"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "享受博客中的每月更新"
           }
         }
       },
@@ -32670,6 +33035,71 @@
       },
       "extractionState": "manual"
     },
+    "Frequency Questions and Answers": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Frequency Questions and Answers"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Häufige Fragen und Antworten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preguntas y respuestas frecuentes"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Częste pytania i odpowiedzi"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Частые вопросы и ответы"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คำถามและคำตอบที่พบบ่อย"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sık Sorulan Sorular ve Cevaplar"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Часті питання та відповіді"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "常见问题与解答"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "常見問題與解答"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "From": {
       "localizations": {
         "en": {
@@ -32882,71 +33312,6 @@
       },
       "extractionState": "manual"
     },
-    "Get TON": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Get TON"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "TON erhalten"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Obtener TON"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Otrzymaj TON"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Получить TON"
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "รับ TON"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "TON Almak"
-          }
-        },
-        "uk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Отримати TON"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "获取TON"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "獲取TON"
-          }
-        }
-      },
-      "extractionState": "manual"
-    },
     "Get a card with unique background and personalized palette for wallet interface.": {
       "localizations": {
         "en": {
@@ -33072,6 +33437,136 @@
           "stringUnit": {
             "state": "translated",
             "value": "獲取獨特的 MyTonWallet 卡片以解鎖新的調色板。"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Go back to Words": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Go back to Words"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zurück zu wörtern"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volver a palabras"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wróć do słów"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуться к словам"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กลับไปที่คำ"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kelimelere Geri Dön"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Повернутися до слів"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "返回单词"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "返回單字"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Go to Words": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Go to Words"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zu Wörtern gehen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ir a Palabras"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przejdź do Słów"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перейти к cловам"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ไปที่คำ"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kelimelere Git"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перейти до Слів"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "转到单词"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "前往單字"
           }
         }
       },
@@ -34031,60 +34526,6 @@
             "state": "translated",
             "value": "I have read and accept this information."
           }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ich habe diese Informationen gelesen und akzeptiere sie."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "He leído y acepto esta información."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Przeczytałem/am i akceptuję te informacje."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Я прочитал и принимаю эту информацию."
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ฉันได้อ่านและยอมรับข้อมูลนี้"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bu bilgileri okudum ve kabul ediyorum."
-          }
-        },
-        "uk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Я прочитав і приймаю цю інформацію."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "我已阅读并接受此信息。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "我已閱讀並接受此信息。"
-          }
         }
       },
       "extractionState": "manual"
@@ -34378,7 +34819,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Импорт существующего кошелька"
+            "value": "Импортировать существующий"
           }
         },
         "th": {
@@ -36412,6 +36853,136 @@
       },
       "extractionState": "manual"
     },
+    "I’m sure. Continue": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I’m sure. Continue"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ich bin sicher. Fortfahren"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estoy seguro. Continuar"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jestem pewien. Kontynuuj"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Я уверен. Продолжить"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ฉันแน่ใจ ดำเนินการต่อ"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eminim. Devam Et"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Я впевнений. Продовжити"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我确定。继续"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我確定。繼續"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "I’m sure. Copy anyway": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I’m sure. Copy anyway"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ich bin sicher. Trotzdem kopieren"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estoy seguro. Copiar de todos modos"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jestem pewien. Kopiuj mimo to"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Я уверен. Всё равно скопировать"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ฉันแน่ใจ ยังคงคัดลอก"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eminim. Yine de Kopyala"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Я впевнений. Все одно копіювати"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我确定。仍然复制"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我確定。仍然複製"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "Language": {
       "localizations": {
         "en": {
@@ -36484,60 +37055,6 @@
             "state": "translated",
             "value": "Later"
           }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Später"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Más tarde"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Później"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Позже"
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ภายหลัง"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sonra"
-          }
-        },
-        "uk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Пізніше"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "之后"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "之後"
-          }
         }
       },
       "extractionState": "manual"
@@ -36550,10 +37067,58 @@
             "value": "Learn New Things in Help Center"
           }
         },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neues im Hilfezentrum lernen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aprende cosas nuevas en el centro de ayuda"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ucz się nowych rzeczy w centrum pomocy"
+          }
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Узнать новое в центре помощи"
+            "value": "База знаний"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เรียนรู้สิ่งใหม่ๆ ในศูนย์ช่วยเหลือ"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yardım Merkezi'nde yeni şeyler öğrenin"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дізнавайтеся нове в центрі допомоги"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在帮助中心学习新知识"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在幫助中心學習新知識"
           }
         }
       },
@@ -37260,6 +37825,23 @@
       },
       "extractionState": "manual"
     },
+    "Load 5 More Wallets": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Load 5 More Wallets"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузить ещё 5 кошельков"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "Loading...": {
       "localizations": {
         "en": {
@@ -37890,10 +38472,58 @@
             "value": "Make sure you have your recovery phrase securely saved."
           }
         },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stellen Sie sicher, dass Sie Ihren Wiederherstellungssatz sicher gespeichert haben."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Asegúrate de tener tu frase de recuperación guardada de forma segura."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upewnij się, że bezpiecznie zapisałeś swoją frazę odzyskiwania."
+          }
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Убедитесь, что вы надежно сохранили фразу восстановления."
+            "value": "Убедитесь, что вы сохранили свою фразу восстановления в безопасном месте."
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ตรวจสอบให้แน่ใจว่าคุณได้บันทึกวลีกู้คืนไว้อย่างปลอดภัย"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kurtarma ifadenizi güvenli bir şekilde kaydettiğinizden emin olun."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переконайтеся, що ви зберегли свою фразу відновлення в безпечному місці."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请确保您已安全保存恢复短语。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請確保您已安全保存恢復短語。"
           }
         }
       },
@@ -42198,10 +42828,58 @@
             "value": "Open Wallet"
           }
         },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wallet öffnen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir billetera"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otwórz portfel"
+          }
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Открыть кошелёк"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เปิดกระเป๋าเงิน"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cüzdanı Aç"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Відкрити гаманець"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开钱包"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開啟錢包"
           }
         }
       },
@@ -42427,10 +43105,58 @@
             "value": "Open wallet without checking"
           }
         },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wallet ohne Überprüfung öffnen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir billetera sin verificar"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otwórz portfel bez sprawdzania"
+          }
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Открыть кошелёк без проверки"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เปิดกระเป๋าเงินโดยไม่ตรวจสอบ"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontrol etmeden cüzdanı aç"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Відкрити гаманець без перевірки"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不检查直接打开钱包"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不檢查直接開啟錢包"
           }
         }
       },
@@ -42608,10 +43334,58 @@
             "value": "Other apps will be able to read your recovery phrase!"
           }
         },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Andere Apps können Ihren Wiederherstellungssatz lesen!"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¡Otras aplicaciones podrán leer tu frase de recuperación!"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inne aplikacje będą mogły odczytać twoją frazę odzyskiwania!"
+          }
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Другие приложения смогут прочитать вашу фразу восстановления!"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "แอปอื่นๆ จะสามารถอ่านวลีกู้คืนของคุณได้!"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diğer uygulamalar kurtarma ifadenizi okuyabilecek!"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Інші програми зможуть прочитати вашу фразу відновлення!"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "其他应用将能够读取您的恢复短语！"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "其他應用程式將能夠讀取您的恢復短語！"
           }
         }
       },
@@ -43131,10 +43905,58 @@
             "value": "Paste from Clipboard"
           }
         },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aus Zwischenablage einfügen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pegar desde el portapapeles"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wklej ze schowka"
+          }
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Вставить из буфера"
+            "value": "Вставить из буфера обмена"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "วางจากคลิปบอร์ด"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Panodan Yapıştır"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вставити з буфера обміну"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "从剪贴板粘贴"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "從剪貼簿貼上"
           }
         }
       },
@@ -44871,6 +45693,71 @@
           "stringUnit": {
             "state": "translated",
             "value": "提供流動性"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Purchasing TRON with Russian Rubles is currently unavailable.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Purchasing TRON with Russian Rubles is currently unavailable."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Kauf von TRON mit Russischen Rubel ist derzeit nicht verfügbar."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La compra de TRON con rublos rusos no está disponible actualmente."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zakup TRON za ruble rosyjskie jest obecnie niedostępny."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Покупка TRON за рубли в данный момент недоступна."
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ขณะนี้ไม่สามารถซื้อ TRON ด้วยรูเบิลรัสเซียได้"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rus Rublesi ile TRON satın alma şu anda kullanılamıyor."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Купівля TRON за російські рублі наразі недоступна."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目前无法使用俄罗斯卢布购买TRON。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目前無法使用俄羅斯盧布購買TRON。"
           }
         }
       },
@@ -47406,66 +48293,66 @@
       },
       "extractionState": "manual"
     },
-    "Ruble": {
+    "Russian Ruble": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ruble"
+            "value": "Russian Ruble"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rubel"
+            "value": "Russischer Rubel"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rublo"
+            "value": "Rublo ruso"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rubel"
+            "value": "Rosyjski rubel"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Рубль"
+            "value": "Российский рубль"
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "รูเบิล"
+            "value": "รูเบิลรัสเซีย"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ruble"
+            "value": "Rus Rublesi"
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Рубль"
+            "value": "Російський рубль"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "卢布"
+            "value": "俄罗斯卢布"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "盧布"
+            "value": "俄羅斯盧布"
           }
         }
       },
@@ -48262,10 +49149,58 @@
             "value": "Security Warning"
           }
         },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sicherheitswarnung"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Advertencia de seguridad"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ostrzeżenie bezpieczeństwa"
+          }
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Предупреждение о безопасности"
+            "value": "Предупреждение безопасности"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คำเตือนด้านความปลอดภัย"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Güvenlik Uyarısı"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Попередження безпеки"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "安全警告"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "安全警告"
           }
         }
       },
@@ -49903,6 +50838,71 @@
           "stringUnit": {
             "state": "translated",
             "value": "Показать все коллекции"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Show More": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show More"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mehr anzeigen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar más"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pokaż więcej"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать ещё"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "แสดงเพิ่มเติม"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daha fazla göster"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показати більше"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示更多"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "顯示更多"
           }
         }
       },
@@ -53553,60 +54553,6 @@
             "state": "translated",
             "value": "The wallet is imported"
           }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Die Wallet wurde importiert."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Importando monedero"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Portfel jest importowany"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Кошелёк импортирован"
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "นำเข้าวอลเล็ตเรียบร้อยแล้ว"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cüzdan içe aktarıldı"
-          }
-        },
-        "uk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Гаманець імпортовано"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "钱包已导入"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "錢包已經匯入"
-          }
         }
       },
       "extractionState": "manual"
@@ -53617,60 +54563,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "The wallet is ready"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Die Wallet ist bereit."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El monedero está listo"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Portfel jest gotowy"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Всё готово"
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "วอลเล็ตพร้อมแล้ว"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cüzdan kullanıma hazır"
-          }
-        },
-        "uk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Все готово"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "钱包已经准备完成"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "錢包已經準備完成"
           }
         }
       },
@@ -56559,60 +57451,6 @@
             "state": "translated",
             "value": "Understood"
           }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Verstanden"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Entiendo"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zrozumiałem"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Понятно"
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "เข้าใจแล้ว"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Anladım"
-          }
-        },
-        "uk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Зрозуміло"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "明白"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "了解"
-          }
         }
       },
       "extractionState": "manual"
@@ -57308,66 +58146,66 @@
       },
       "extractionState": "manual"
     },
-    "Unlock it and open the TON App": {
+    "Unlock it and open the %chain% App": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Unlock it and open the TON App"
+            "value": "Unlock it and open the %1$@ App"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Entsperren Sie es und öffnen Sie die TON-App"
+            "value": "Entsperren Sie es und öffnen Sie die %1$@-App"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Desbloquéalo y abre la aplicación de TON"
+            "value": "Desbloquéalo y abre la aplicación de %1$@"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Odblokuj go i otwórz aplikację TON"
+            "value": "Odblokuj go i otwórz aplikację %1$@"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Разблокируйте его и откройте приложение TON"
+            "value": "Разблокируйте его и откройте приложение %1$@"
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "ปิดล็อกและเปิดแอป TON"
+            "value": "ปิดล็อกและเปิดแอป %1$@"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cihazın kilidi açın ve TON uygulamasını başlatın"
+            "value": "Cihazın kilidi açın ve %1$@ uygulamasını başlatın"
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Розблокуйте його і відкрийте додаток TON"
+            "value": "Розблокуйте його і відкрийте додаток %1$@"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "解锁并打开 TON 应用"
+            "value": "解锁并打开 %1$@ 应用"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "解鎖並開啟 TON 應用"
+            "value": "解鎖並開啟 %1$@ 應用"
           }
         }
       },
@@ -59069,18 +59907,66 @@
       },
       "extractionState": "manual"
     },
-    "Use secret words, or instantly migrate an unlimited number of wallets from another MyTonWallet app:": {
+    "Use biometric authentication or create a password to protect it.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Use secret words, or instantly migrate an unlimited number of wallets from another MyTonWallet app:"
+            "value": "Use biometric authentication or create a password to protect it."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verwenden Sie die biometrische Authentifizierung oder erstellen Sie ein Passwort zum Schutz."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usa autenticación biométrica o crea una contraseña para protegerla."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Użyj uwierzytelniania biometrycznego lub utwórz hasło, aby je chronić."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Используйте секретные слова или мгновенно мигрируйте неограниченное количество кошельков из другого приложения MyTonWallet:"
+            "value": "Используйте биометрическую аутентификацию или создайте пароль для защиты."
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ใช้การยืนยันตัวตนด้วยชีวมาตรหรือสร้างรหัสผ่านเพื่อป้องกัน"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koruma için biyometrik kimlik doğrulama kullanın veya bir şifre oluşturun."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Використовуйте біометричну аутентифікацію або створіть пароль для захисту."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用生物识别认证或创建密码进行保护。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用生物識別認證或建立密碼進行保護。"
           }
         }
       },
@@ -60575,13 +61461,61 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Watch Video about Features"
+            "value": "Watch Video About Features"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Video über Funktionen ansehen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ver video sobre características"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obejrzyj film o funkcjach"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Посмотреть видео о функциях"
+            "value": "Советы и обучающие видео"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ดูวิดีโอเกี่ยวกับคุณสมบัติ"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Özellikler hakkında video izleyin"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переглянути відео про функції"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "观看功能视频"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "觀看功能視頻"
           }
         }
       },
@@ -61002,10 +61936,58 @@
             "value": "Without it, you won't be able to access your wallet."
           }
         },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ohne ihn können Sie nicht auf Ihre Wallet zugreifen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin ella, no podrás acceder a tu billetera."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bez niej nie będziesz mógł uzyskać dostępu do portfela."
+          }
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Без неё вы не сможете получить доступ к своему кошельку."
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "หากไม่มีมัน คุณจะไม่สามารถเข้าถึงกระเป๋าเงินของคุณได้"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onsuz cüzdanınıza erişemezsiniz."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Без неї ви не зможете отримати доступ до свого гаманця."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有它，您将无法访问您的钱包。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沒有它，您將無法存取您的錢包。"
           }
         }
       },
@@ -61517,66 +62499,12 @@
       },
       "extractionState": "manual"
     },
-    "You can connect your biometric data for more convenience": {
+    "You can connect your biometric data for more convenience.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "You can connect your biometric data for more convenience"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sie können Ihre biometrischen Daten für mehr Bequemlichkeit verbinden."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Puede conectar sus datos biométricos para mayor comodidad"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Możesz połączyć swoje dane biometryczne dla większej wygody"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Для большего удобства вы можете подключить свои биометрические данные"
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "คุณสามารถเชื่อมต่อข้อมูล Biometric ของคุณเพื่อใช้งานได้อย่างเต็มที่"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Daha kolay kullanım için biyometrik verilerinizi bağlayabilirsiniz"
-          }
-        },
-        "uk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Для більшої зручності ви можете підключити свої біометричні дані"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "您可以连接您的生物识别数据以获得更多便利"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "您可以連接您的生物識別數據以獲得更多便利"
+            "value": "You can connect your biometric data for more convenience."
           }
         }
       },
@@ -62792,71 +63720,6 @@
       },
       "extractionState": "manual"
     },
-    "Yuan": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Yuan"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Yuan"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Yuan"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Juan"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Юань"
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "หยวน"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Yuan"
-          }
-        },
-        "uk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Юань"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "元"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "元"
-          }
-        }
-      },
-      "extractionState": "manual"
-    },
     "at": {
       "localizations": {
         "en": {
@@ -63374,10 +64237,58 @@
             "value": "use the wallet responsibly"
           }
         },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "die Brieftasche verantwortungsvoll zu benutzen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "usar la billetera responsablemente"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "używać portfela odpowiedzialnie"
+          }
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "использовать кошелёк ответственно"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ใช้งานกระเป๋าเงินอย่างมีความรับผิดชอบ"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cüzdanı sorumlu bir şekilde kullanmak"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "використовувати гаманець відповідально"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "负责任地使用钱包"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "負責任地使用錢包"
           }
         }
       },

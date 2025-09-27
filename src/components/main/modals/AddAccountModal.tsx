@@ -1,13 +1,13 @@
 import React, { memo, useEffect, useState } from '../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../global';
 
-import type { LedgerWalletInfo } from '../../../util/ledger/types';
-import { type Account, SettingsState } from '../../../global/types';
+import { SettingsState } from '../../../global/types';
 
 import { IS_CORE_WALLET } from '../../../config';
-import { selectIsPasswordPresent, selectNetworkAccounts } from '../../../global/selectors';
+import { selectIsPasswordPresent } from '../../../global/selectors';
 import { getHasInMemoryPassword, getInMemoryPassword } from '../../../util/authApi/inMemoryPasswordStore';
 import buildClassName from '../../../util/buildClassName';
+import { getChainsSupportingLedger } from '../../../util/chain';
 import resolveSlideTransitionName from '../../../util/resolveSlideTransitionName';
 import { IS_LEDGER_SUPPORTED } from '../../../util/windowEnvironment';
 
@@ -31,8 +31,6 @@ interface StateProps {
   isLoading?: boolean;
   error?: string;
   isPasswordPresent: boolean;
-  hardwareWallets?: LedgerWalletInfo[];
-  accounts?: Record<string, Account>;
   withOtherWalletVersions?: boolean;
   forceAddingTonOnlyAccount?: boolean;
 }
@@ -51,9 +49,7 @@ function AddAccountModal({
   isOpen,
   isLoading,
   error,
-  hardwareWallets,
   isPasswordPresent,
-  accounts,
   withOtherWalletVersions,
   forceAddingTonOnlyAccount,
 }: StateProps) {
@@ -61,7 +57,6 @@ function AddAccountModal({
     addAccount,
     clearAccountError,
     closeAddAccountModal,
-    afterSelectHardwareWallets,
     openSettingsWithState,
     resetHardwareWalletConnect,
     clearAccountLoading,
@@ -134,20 +129,14 @@ function AddAccountModal({
   });
 
   const handleImportHardwareWalletClick = useLastCallback(() => {
-    resetHardwareWalletConnect();
+    resetHardwareWalletConnect({
+      chain: getChainsSupportingLedger()[0], // todo: Add a chain selector screen for Ledger auth
+      shouldLoadWallets: true,
+    });
     setRenderingKey(RenderingState.ConnectHardware);
   });
 
-  const handleAddLedgerWallet = useLastCallback(() => {
-    afterSelectHardwareWallets({ hardwareSelectedIndices: [hardwareWallets![0].index] });
-    closeAddAccountModal();
-  });
-
-  const handleHardwareWalletConnected = useLastCallback((isSingleWallet: boolean) => {
-    if (isSingleWallet) {
-      handleAddLedgerWallet();
-      return;
-    }
+  const handleHardwareWalletConnected = useLastCallback(() => {
     setRenderingKey(RenderingState.SelectAccountsHardware);
   });
 
@@ -244,7 +233,6 @@ function AddAccountModal({
         return (
           <LedgerConnect
             isActive={isActive}
-            doLoadWallets
             onConnected={handleHardwareWalletConnected}
             onCancel={handleBackClick}
             onClose={closeAddAccountModal}
@@ -253,8 +241,6 @@ function AddAccountModal({
       case RenderingState.SelectAccountsHardware:
         return (
           <LedgerSelectWallets
-            accounts={accounts}
-            hardwareWallets={hardwareWallets}
             onCancel={handleBackClick}
             onClose={closeAddAccountModal}
           />
@@ -265,7 +251,6 @@ function AddAccountModal({
             isActive={isActive}
             isLoading={isLoading}
             onCancel={handleBackClick}
-            onClose={closeAddAccountModal}
           />
         );
     }
@@ -299,21 +284,18 @@ function AddAccountModal({
 }
 
 export default memo(withGlobal((global): StateProps => {
-  const accounts = selectNetworkAccounts(global);
   const isPasswordPresent = selectIsPasswordPresent(global);
   const { byId: versionById } = global.walletVersions ?? {};
   const versions = versionById?.[global.currentAccountId!];
   const withOtherWalletVersions = !!versions?.length;
 
-  const { auth: { forceAddingTonOnlyAccount }, hardware: { hardwareWallets } } = global;
+  const { auth: { forceAddingTonOnlyAccount } } = global;
 
   return {
     isOpen: global.isAddAccountModalOpen,
     isLoading: global.accounts?.isLoading,
     error: global.accounts?.error,
-    accounts,
     isPasswordPresent,
-    hardwareWallets,
     withOtherWalletVersions,
     forceAddingTonOnlyAccount,
   };

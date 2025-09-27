@@ -4,12 +4,11 @@ import React, { memo } from '../../lib/teact/teact';
 import type { ApiToken } from '../../api/types';
 import type { FeePrecision, FeeTerms, FeeValue } from '../../util/fee/types';
 
-import { STARS_SYMBOL, TONCOIN, TRX } from '../../config';
+import { STARS_SYMBOL, TOKEN_FONT_ICONS } from '../../config';
 import buildClassName from '../../util/buildClassName';
-import { findChainConfig } from '../../util/chain';
 import { toDecimal } from '../../util/decimals';
 import { formatCurrency } from '../../util/formatNumber';
-import { getChainBySlug } from '../../util/tokens';
+import { findNativeToken, getChainBySlug } from '../../util/tokens';
 
 import styles from './Fee.module.scss';
 
@@ -28,10 +27,6 @@ const UNKNOWN_TOKEN: FeeToken = {
   slug: '__unknown__',
   symbol: '',
   decimals: 0,
-};
-const TOKEN_ICONS: Record<string, string | undefined> = {
-  [TONCOIN.slug]: 'icon-chain-ton',
-  [TRX.slug]: 'icon-chain-tron',
 };
 
 export type FeeToken = Pick<ApiToken, 'slug' | 'symbol' | 'decimals'>;
@@ -63,7 +58,7 @@ function Fee({
   termClassName,
   symbolClassName,
 }: OwnProps) {
-  const nativeToken = findChainConfig(getChainBySlug(token.slug))?.nativeToken ?? UNKNOWN_TOKEN;
+  const nativeToken = findNativeToken(getChainBySlug(token.slug)) ?? UNKNOWN_TOKEN;
   const content: TeactNode[] = [PRECISION_PREFIX[precision]];
 
   convertTermsObjectToList(terms).forEach(({ tokenType, amount }, index) => {
@@ -72,7 +67,9 @@ function Fee({
     }
 
     const currentToken = tokenType === 'stars' ? STARS_TOKEN : tokenType === 'native' ? nativeToken : token;
-    const icon = shouldPreferIcons ? TOKEN_ICONS[currentToken.slug] : undefined;
+    const icon = shouldPreferIcons
+      ? (TOKEN_FONT_ICONS as Record<string, string | undefined>)[currentToken.slug]
+      : undefined;
 
     if (typeof amount === 'bigint') {
       amount = toDecimal(amount, currentToken.decimals);

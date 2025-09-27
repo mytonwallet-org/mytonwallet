@@ -5,7 +5,7 @@ import type { TonTransferParams } from '../chains/ton/types';
 import type { ApiTonConnectProof } from '../tonConnect/types';
 import type { ApiTransferToSign } from '../types';
 
-import chains from '../chains';
+import * as ton from '../chains/ton';
 import { getSigner } from '../chains/ton/util/signer';
 import { fetchStoredChainAccount } from '../common/accounts';
 import { getTokenBySlug } from '../common/tokens';
@@ -28,7 +28,6 @@ export async function signTransfers(accountId: string, messages: ApiTransferToSi
   validUntil?: number;
 } = {}) {
   const { password, validUntil, vestingAddress } = options;
-  const chain = chains.ton;
 
   const preparedMessages = messages.map(({
     toAddress,
@@ -48,7 +47,7 @@ export async function signTransfers(accountId: string, messages: ApiTransferToSi
     },
   }));
 
-  return chain.signTransfers(
+  return ton.signTransfers(
     accountId,
     preparedMessages,
     password,

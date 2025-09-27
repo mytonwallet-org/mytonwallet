@@ -2,15 +2,20 @@ import { Address } from '@ton/core';
 
 import type { ApiCheck } from '../types';
 
-import { PUSH_API_URL, PUSH_SC_VERSIONS } from '../config';
+import { NETWORK, PUSH_API_URL, PUSH_SC_VERSIONS } from '../config';
 import { signCustomData } from '../../util/authApi/telegram';
 import { fromDecimal } from '../../util/decimals';
 import { fetchJson } from '../../util/fetch';
 import { getTranslation } from '../../util/langProvider';
 import { getTelegramApp } from '../../util/telegram';
-import { getWalletBalance, resolveTokenWalletAddress } from '../../api/chains/ton';
 import { buildNftTransferPayload } from '../../api/chains/ton/nfts';
-import { buildTokenTransferBody, getTokenBalance, getTonClient } from '../../api/chains/ton/util/tonCore';
+import {
+  buildTokenTransferBody,
+  getTokenBalance,
+  getTonClient,
+  resolveTokenWalletAddress,
+} from '../../api/chains/ton/util/tonCore';
+import { getWalletBalance } from '../../api/chains/ton/wallet';
 import { calcAddressHashBase64, calcAddressHead, calcAddressSha256HeadBase64, cashCheck } from './push';
 import { tonConnectUi } from './tonConnect';
 
@@ -28,12 +33,12 @@ const ANONYMOUS_NUMBER_COLLECTION = '0:0e41dc1dc3c9067ed24248580e12b3359818d83de
 
 export async function fetchAccountBalance(ownerAddress: string, tokenAddress?: string) {
   if (!tokenAddress) {
-    return getWalletBalance('mainnet', ownerAddress);
+    return getWalletBalance(NETWORK, ownerAddress);
   }
 
-  const jettonWalletAddress = await resolveTokenWalletAddress('mainnet', ownerAddress, tokenAddress);
+  const jettonWalletAddress = await resolveTokenWalletAddress(NETWORK, ownerAddress, tokenAddress);
 
-  return getTokenBalance('mainnet', jettonWalletAddress);
+  return getTokenBalance(NETWORK, jettonWalletAddress);
 }
 
 export async function fetchCheck(checkKey: string) {
@@ -62,7 +67,7 @@ export async function processCreateCheck(check: ApiCheck, onSend: NoneToVoidFunc
   let message;
 
   if (isJettonTransfer) {
-    const jettonWalletAddress = await resolveTokenWalletAddress('mainnet', userAddress, check.minterAddress!);
+    const jettonWalletAddress = await resolveTokenWalletAddress(NETWORK, userAddress, check.minterAddress!);
     if (!jettonWalletAddress) {
       throw new Error('Could not resolve jetton wallet address');
     }
@@ -127,7 +132,7 @@ export async function processCreateCheck(check: ApiCheck, onSend: NoneToVoidFunc
 }
 
 async function isOnSaleOnFragment(giftAddress: string) {
-  const { stack } = await getTonClient().runMethod(
+  const { stack } = await getTonClient(NETWORK).runMethod(
     Address.parse(giftAddress), 'get_telemint_auction_config',
   );
 

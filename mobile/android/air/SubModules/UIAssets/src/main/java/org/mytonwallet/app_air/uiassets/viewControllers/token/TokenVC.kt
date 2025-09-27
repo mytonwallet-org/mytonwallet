@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.uiassets.viewControllers.token
 
-import WNavigationController
 import android.annotation.SuppressLint
 import android.content.Context
 import android.view.Gravity
@@ -19,6 +18,7 @@ import androidx.recyclerview.widget.RecyclerView
 import org.mytonwallet.app_air.uiassets.viewControllers.token.cells.TokenChartCell
 import org.mytonwallet.app_air.uiassets.viewControllers.token.views.TokenHeaderView
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
+import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter.WRecyclerViewDataSource
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -46,10 +46,10 @@ import org.mytonwallet.app_air.uisend.send.SendVC
 import org.mytonwallet.app_air.uistake.earn.EarnRootVC
 import org.mytonwallet.app_air.uiswap.screens.swap.SwapVC
 import org.mytonwallet.app_air.uitransaction.viewControllers.TransactionVC
-import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcontext.utils.isSameDayAs
 import org.mytonwallet.app_air.walletcore.models.MAccount

@@ -8,8 +8,8 @@ import android.graphics.drawable.StateListDrawable
 import androidx.appcompat.widget.SwitchCompat
 import androidx.core.graphics.drawable.DrawableCompat
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 class WSwitch(context: Context) : SwitchCompat(context), WThemedView {
 

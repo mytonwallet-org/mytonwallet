@@ -86,7 +86,8 @@ export type ContractName = ApiTonWalletVersion
 export type ContractInfo = {
   name: ContractName;
   type?: ContractType;
-  hash: string;
+  oldHash?: string;
+  hash?: string;
   isSwapAllowed?: boolean;
 };
 

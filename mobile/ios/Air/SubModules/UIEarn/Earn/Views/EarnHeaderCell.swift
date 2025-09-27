@@ -177,12 +177,17 @@ class EarnHeaderCell: UITableViewCell, WThemedView {
             )
             unstakeButton.isHidden = stakingBalance == 0
             self.unstakingAt = config.unstakeTime
-            if let amount = config.stakingState?.unstakeRequestAmount, amount > 0, unstakingAt != nil {
-                self.updateUnstakingInfo()
-                if timer == nil {
-                    timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-                        self?.updateUnstakingInfo()
+            if let amount = config.stakingState?.unstakeRequestAmount, amount > 0, let unstakingAt {
+                if unstakingAt > Date() {
+                    self.updateUnstakingInfo()
+                    if timer == nil {
+                        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+                            self?.updateUnstakingInfo()
+                        }
                     }
+                } else {
+                    timer?.invalidate()
+                    yourBalanceHintLabel.text = lang("Your staking balance") + "\n"
                 }
             } else {
                 timer?.invalidate()
@@ -202,6 +207,12 @@ class EarnHeaderCell: UITableViewCell, WThemedView {
             amountView.isHidden = true
             indicatorView.startAnimating(animated: true)
             indicatorView.isHidden = false
+        }
+        if let readyToUnstakeAmount = config.readyToUnstakeAmount {
+            let amount = TokenAmount(readyToUnstakeAmount, config.baseToken)
+            unstakeButton.setTitle(lang("Unstake %amount%", arg1: amount.formatted(maxDecimals: 2)), for: .normal)
+        } else {
+            unstakeButton.setTitle(lang("Unstake"), for: .normal)
         }
     }
     

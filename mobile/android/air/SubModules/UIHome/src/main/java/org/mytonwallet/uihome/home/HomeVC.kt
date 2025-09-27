@@ -1,6 +1,5 @@
 package org.mytonwallet.uihome.home
 
-import WNavigationController
 import android.annotation.SuppressLint
 import android.content.Context
 import android.view.MotionEvent
@@ -20,6 +19,8 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import me.everything.android.ui.overscroll.IOverScrollState
 import org.mytonwallet.app_air.sqscan.screen.QrScannerDialog
+import org.mytonwallet.app_air.uicomponents.base.ISortableView
+import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter.WRecyclerViewDataSource
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
@@ -51,16 +52,16 @@ import org.mytonwallet.app_air.uiswap.screens.cex.SwapSendAddressOutputVC
 import org.mytonwallet.app_air.uiswap.screens.swap.SwapVC
 import org.mytonwallet.app_air.uitonconnect.TonConnectController
 import org.mytonwallet.app_air.uitransaction.viewControllers.TransactionVC
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcontext.utils.isSameDayAs
-import org.mytonwallet.app_air.walletcontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -78,7 +79,7 @@ import java.lang.ref.WeakReference
 import kotlin.math.roundToInt
 
 class HomeVC(context: Context) : WViewControllerWithModelStore(context),
-    WRecyclerViewDataSource, HomeVM.Delegate, WThemedView, WProtectedView {
+    WRecyclerViewDataSource, HomeVM.Delegate, WThemedView, WProtectedView, ISortableView {
     companion object {
         val HEADER_CELL = WCell.Type(1)
         val ACTIONS_CELL = WCell.Type(2)
@@ -175,6 +176,7 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
                 navigationController?.tabBarController?.scrollingUp()
             }
             updateScroll(computedOffset)
+            //endSorting()
         }
 
         private var prevState = RecyclerView.SCROLL_STATE_IDLE
@@ -888,6 +890,12 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
                     navigationController = navigationController!!,
                     heightChanged = {
                         resumeBottomBlurViews()
+                    },
+                    onReorderingRequested = {
+                        startSorting()
+                    },
+                    onForceEndReorderingRequested = {
+                        endSorting()
                     }
                 )
             }
@@ -1284,5 +1292,29 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
 
     override fun accountConfigChanged() {
         headerView.updateMintIconVisibility()
+    }
+
+    override fun startSorting() {
+        homeAssetsCell?.startSorting()
+        stickyHeaderView.enterActionMode(onResult = { save ->
+            homeAssetsCell?.endSorting(save)
+        })
+    }
+
+    override fun endSorting() {
+        endSorting(true)
+    }
+
+    private fun endSorting(save: Boolean) {
+        homeAssetsCell?.endSorting(save)
+        stickyHeaderView.exitActionMode()
+    }
+
+    override fun onBackPressed(): Boolean {
+        if (homeAssetsCell?.isInDragMode == true) {
+            endSorting(false)
+            return false
+        }
+        return super.onBackPressed()
     }
 }

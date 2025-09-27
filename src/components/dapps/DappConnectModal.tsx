@@ -103,7 +103,7 @@ function DappConnectModal({
         cancelDappConnectRequestConfirm();
       });
     } else if (isHardware) {
-      resetHardwareWalletConnect();
+      resetHardwareWalletConnect({ chain: 'ton' });
       setDappConnectRequestState({ state: DappConnectState.ConnectHardware });
     } else if (getHasInMemoryPassword()) {
       submitDappConnectRequestConfirm({

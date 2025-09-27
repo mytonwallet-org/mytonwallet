@@ -261,20 +261,21 @@ extension SplashVC: DeeplinkNavigator {
             defer { nextDeeplink = nil }
             
             switch deeplink {
-            case .invoice(address: let address, amount: let amount, comment: let comment, binaryPayload: let binaryPayload, token: let token, jetton: let jetton):
+            case .invoice(address: let address, amount: let amount, comment: let comment, binaryPayload: let binaryPayload, token: let token, jetton: let jetton, stateInit: let stateInit):
                 let addressObj = MRecentAddress(chain: "ton",
                                                 address: address,
                                                 addressAlias: nil,
                                                 timstamp: Date().timeIntervalSince1970)
                 RecentAddressesHelper.saveRecentAddress(accountId: AccountStore.accountId!, recentAddress: addressObj)
                 
-                AppActions.showSend(prefilledValues: .init(
+                AppActions.showSend(prefilledValues: SendPrefilledValues(
                     address: addressObj.address,
                     amount: amount,
                     token: token,
                     jetton: jetton,
                     commentOrMemo: comment,
-                    binaryPayload: binaryPayload
+                    binaryPayload: binaryPayload,
+                    stateInit: stateInit,
                 ))
 
             case .tonConnect2(requestLink: let requestLink):
@@ -294,6 +295,12 @@ extension SplashVC: DeeplinkNavigator {
                 
             case .switchToClassic:
                 WalletContextManager.delegate?.switchToCapacitor()
+                
+            case .transfer:
+                AppActions.showSend(prefilledValues: nil)
+                
+            case .receive:
+                AppActions.showReceive(chain: nil, showBuyOptions: nil, title: nil)
             }
             
         } else {

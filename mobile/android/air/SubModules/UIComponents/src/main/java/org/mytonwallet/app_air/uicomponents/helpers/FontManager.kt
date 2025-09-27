@@ -3,7 +3,7 @@ package org.mytonwallet.app_air.uicomponents.helpers
 import android.content.Context
 import android.graphics.Typeface
 import androidx.core.content.res.ResourcesCompat
-import org.mytonwallet.app_air.uicomponents.R
+import org.mytonwallet.app_air.walletbasecontext.R
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
 enum class WFont {

@@ -1,6 +1,6 @@
 package org.mytonwallet.app_air.walletcontext.models
 
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 
 enum class MAutoLockOption(val value: String, val period: Int?) {
     NEVER("never", null),

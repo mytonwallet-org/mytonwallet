@@ -10,6 +10,9 @@ $team_id = CredentialsManager::AppfileConfig.try_fetch_value(:team_id)
 $app_identifier = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
 $profile_name = 'MyTonWallet Production profile'
 $scheme = 'MyTonWallet'
+$app_identifier_widget = "#{$app_identifier}.AirWidget"
+$profile_name_widget = 'MyTonWallet Production profile - Widget'
+$scheme_widget = 'AirWidgetExtension'
 
 if $is_air
   $profile_name = 'MyTonWallet Air 4'
@@ -20,6 +23,9 @@ puts "$is_air: #{$is_air}"
 puts "$app_identifier: #{$app_identifier}"
 puts "$profile_name: #{$profile_name}"
 puts "$scheme: #{$scheme}"
+puts "$app_identifier_widget: #{$app_identifier_widget}"
+puts "$profile_name_widget: #{$profile_name_widget}"
+puts "$scheme_widget: #{$scheme_widget}"
 
 $project_data = nil
 $plist_data = nil
@@ -70,6 +76,17 @@ platform :ios do
       profile_name: $profile_name,
       sdk: "iphoneos*",
       team_id: $team_id,
+      targets: [$scheme],
+      code_sign_identity: "iPhone Distribution"
+    )
+
+    update_code_signing_settings(
+      path: "App.xcodeproj",
+      use_automatic_signing: false,
+      profile_name: $profile_name_widget,
+      sdk: "iphoneos*",
+      team_id: $team_id,
+      targets: [$scheme_widget],
       code_sign_identity: "iPhone Distribution"
     )
   end
@@ -84,6 +101,7 @@ platform :ios do
       export_options: {
         provisioningProfiles: {
           $app_identifier => $profile_name,
+          $app_identifier_widget => $profile_name_widget,
         }
       }
     )
@@ -113,6 +131,7 @@ platform :ios do
       export_options: {
         provisioningProfiles: {
           $app_identifier => $profile_name,
+          $app_identifier_widget => $profile_name_widget,
         }
       }
     )

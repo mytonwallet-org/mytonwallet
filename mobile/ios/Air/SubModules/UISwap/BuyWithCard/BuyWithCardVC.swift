@@ -10,12 +10,16 @@ import UIKit
 import UIComponents
 import WalletCore
 import WalletContext
+import SwiftUI
+import Combine
 
 public class BuyWithCardVC: WViewController, UIScrollViewDelegate {
     
-    private let chain: ApiChain
+    let model: BuyWithCardModel
+    var observer: AnyCancellable?
+    
     public init(chain: ApiChain) {
-        self.chain = chain
+        self.model = BuyWithCardModel(chain: chain, selectedCurrency: TokenStore.baseCurrency)
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -26,7 +30,10 @@ public class BuyWithCardVC: WViewController, UIScrollViewDelegate {
     public override func viewDidLoad() {
         super.viewDidLoad()
         setupViews()
-        loadOnramp()
+        loadOnramp(currency: model.selectedCurrency)
+        observer = model.$selectedCurrency.sink { [weak self] currency in
+            self?.loadOnramp(currency: currency)
+        }
     }
 
     private let webView = WKWebView()
@@ -38,6 +45,18 @@ public class BuyWithCardVC: WViewController, UIScrollViewDelegate {
             closeIcon: true,
             addBackButton: { [weak self] in self?.navigationController?.popViewController(animated: true) }
         )
+        
+        if let navigationBar {
+            navigationBar.titleLabel?.isHidden = true
+            let header = HostingView(ignoreSafeArea: true, content: {
+                BuyWithCardHeader(model: model)
+            })
+            navigationBar.addSubview(header)
+            NSLayoutConstraint.activate([
+                navigationBar.titleStackView.centerXAnchor.constraint(equalTo: header.centerXAnchor),
+                navigationBar.titleStackView.centerYAnchor.constraint(equalTo: header.centerYAnchor),
+            ])
+        }
         
         webView.isOpaque = false
         webView.translatesAutoresizingMaskIntoConstraints = false
@@ -55,20 +74,20 @@ public class BuyWithCardVC: WViewController, UIScrollViewDelegate {
         bringNavigationBarToFront()
     }
     
-    private func loadOnramp() {
-        if ConfigStore.shared.config?.countryCode == "RU" {
-            open(url: "https://dreamwalkers.io/ru/mytonwallet/?wallet=\(AccountStore.account?.tonAddress ?? "")&give=CARDRUB&take=TON&type=buy")
-            return
-        }
+    private func loadOnramp(currency: MBaseCurrency) {
         
-        guard let address = AccountStore.account?.addressByChain[chain.rawValue] else { return }
-        Task {
-            let activeTheme = ResolvedTheme(traitCollection: traitCollection)
-            do {
-                let url = try await Api.getMoonpayOnrampUrl(chain: chain, address: address, activeTheme: activeTheme).url
-                open(url: url)
-            } catch {
-                showAlert(error: error)
+        if currency == .RUB {
+            open(url: "https://dreamwalkers.io/ru/mytonwallet/?wallet=\(AccountStore.account?.tonAddress ?? "")&give=CARDRUB&take=TON&type=buy")
+        } else {
+            guard let address = AccountStore.account?.addressByChain[model.chain.rawValue] else { return }
+            Task {
+                let activeTheme = ResolvedTheme(traitCollection: traitCollection)
+                do {
+                    let url = try await Api.getMoonpayOnrampUrl(chain: model.chain, address: address, activeTheme: activeTheme, selectedCurrency: currency).url
+                    open(url: url)
+                } catch {
+                    showAlert(error: error)
+                }
             }
         }
     }

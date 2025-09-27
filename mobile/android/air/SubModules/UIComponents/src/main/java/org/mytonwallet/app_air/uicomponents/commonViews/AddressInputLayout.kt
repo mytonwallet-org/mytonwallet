@@ -32,6 +32,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.getTextFromClipboard
 import org.mytonwallet.app_air.uicomponents.extensions.resize
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.extensions.setTextIfDiffer
 import org.mytonwallet.app_air.uicomponents.helpers.EditTextTint
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -44,14 +45,14 @@ import org.mytonwallet.app_air.uicomponents.widgets.autoComplete.WAutoCompleteVi
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uicomponents.widgets.showKeyboard
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.colorStateList
+import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
-import org.mytonwallet.app_air.walletcontext.theme.colorStateList
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
-import org.mytonwallet.app_air.walletcontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MSavedAddress
 import org.mytonwallet.app_air.walletcore.stores.AddressStore
@@ -138,7 +139,6 @@ class AddressInputLayout(
             }
             false
         }
-        setPaddingDp(20, 8, 20, 20)
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
@@ -166,6 +166,7 @@ class AddressInputLayout(
             if (t.toString().trim() != selectedAddress?.address) {
                 selectedAddress = null
             }
+            updateTextFieldPadding()
         }
     }
 
@@ -284,6 +285,7 @@ class AddressInputLayout(
             }
         )
 
+        updateTextFieldPadding()
         updateTheme()
     }
 
@@ -431,5 +433,17 @@ class AddressInputLayout(
         )
 
         overlayLabel.text = spannable
+    }
+
+    private fun updateTextFieldPadding() {
+        val rightPadding = if (textField.text.isNullOrEmpty()) {
+            val pasteTextWidth =
+                pasteTextView.paint.measureText(LocaleController.getString("Paste")).toInt()
+            (20.dp + 24.dp + 12.dp + pasteTextWidth + 8.dp)
+        } else {
+            20.dp
+        }
+
+        textField.setPaddingLocalized(20.dp, 8.dp, rightPadding, 20.dp)
     }
 }

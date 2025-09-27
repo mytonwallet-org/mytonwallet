@@ -5,10 +5,10 @@ import type { ApiChain } from '../../api/types';
 import type { Account } from '../../global/types';
 import type { TabWithProperties } from '../ui/TabList';
 
-import { CHAIN_CONFIG } from '../../config';
+import { DEFAULT_CHAIN } from '../../config';
 import { selectAccount, selectCurrentAccountState } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
-import { getChainConfig } from '../../util/chain';
+import { getChainTitle, getSupportedChains } from '../../util/chain';
 import { swapKeysAndValues } from '../../util/iteratees';
 
 import { useDeviceScreen } from '../../hooks/useDeviceScreen';
@@ -25,7 +25,7 @@ import styles from './ReceiveModal.module.scss';
 interface StateProps {
   accountChains?: Account['byChain'];
   isLedger?: boolean;
-  chain?: ApiChain;
+  chain: ApiChain;
 }
 
 type OwnProps = {
@@ -35,13 +35,13 @@ type OwnProps = {
 };
 
 const tabIdByChain = Object.fromEntries(
-  Object.keys(CHAIN_CONFIG).map((chain, index) => [chain, index]),
-) as Record<keyof typeof CHAIN_CONFIG, number>;
+  getSupportedChains().map((chain, index) => [chain, index]),
+) as Record<ReturnType<typeof getSupportedChains>[number], number>;
 
 const chainByTabId = swapKeysAndValues(tabIdByChain);
 
 function Content({
-  isOpen, accountChains, chain: _chain, isStatic, isLedger, onClose,
+  isOpen, accountChains, chain, isStatic, isLedger, onClose,
 }: StateProps & OwnProps) {
   const { setReceiveActiveTab } = getActions();
 
@@ -51,8 +51,6 @@ function Content({
   const { isPortrait } = useDeviceScreen();
 
   const tabs = useMemo(() => getChainTabs(accountChains ?? {}), [accountChains]);
-
-  const chain = _chain ?? (tabs.length ? chainByTabId[tabs[0].id] : 'ton');
   const activeTab = tabIdByChain[chain];
 
   const handleSwitchTab = useLastCallback((tabId: number) => {
@@ -115,8 +113,8 @@ export default memo(
 
     return {
       accountChains: account?.byChain,
-      isLedger: Boolean(account?.ledger),
-      chain: receiveModalChain,
+      isLedger: account?.type === 'hardware',
+      chain: receiveModalChain ?? DEFAULT_CHAIN,
     };
   },
   (global, _, stickToFirst) => stickToFirst(global.currentAccountId))(Content),
@@ -125,14 +123,14 @@ export default memo(
 function getChainTabs(accountChains: Partial<Record<ApiChain, unknown>>) {
   const result: TabWithProperties[] = [];
 
-  for (const chain of Object.keys(CHAIN_CONFIG) as (keyof typeof CHAIN_CONFIG)[]) {
+  for (const chain of getSupportedChains()) {
     if (!(chain in accountChains)) {
       continue;
     }
 
     result.push({
       id: tabIdByChain[chain],
-      title: getChainConfig(chain).title,
+      title: getChainTitle(chain),
       className: buildClassName(styles.tab, styles[chain]),
     });
   }

@@ -10,12 +10,18 @@ import Foundation
 extension Int64 {
     public var dateTimeString: String {
         let date = Date(timeIntervalSince1970: Double(self) / 1000)
-        let dateFormatter = DateFormatter()
-        if date.isInSameYear(as: Date()) {
-            dateFormatter.dateFormat = "d MMMM 'at' H:mm"
+        return if date.isInSameYear(as: Date()) {
+            date.formatted(.dateTime
+                .month(.wide).day(.defaultDigits)
+                .hour(.defaultDigits(amPM: .abbreviated)).minute()
+                .locale(LocalizationSupport.shared.locale)
+            )
         } else {
-            dateFormatter.dateFormat = "d MMMM yyyy 'at' H:mm"
+            date.formatted(.dateTime
+                .year(.defaultDigits).month(.wide).day(.defaultDigits)
+                .hour(.defaultDigits(amPM: .abbreviated)).minute()
+                .locale(LocalizationSupport.shared.locale)
+            )
         }
-        return dateFormatter.string(from: date)
     }
 }

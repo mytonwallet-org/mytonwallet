@@ -17,13 +17,13 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import okio.IOException
 import org.json.JSONArray
 import org.json.JSONObject
-import org.mytonwallet.app_air.walletcontext.DEBUG_MODE
+import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
+import org.mytonwallet.app_air.walletbasecontext.utils.toHashMapLong
+import org.mytonwallet.app_air.walletbasecontext.utils.toHashMapString
+import org.mytonwallet.app_air.walletbasecontext.utils.toJSONString
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.logger.Logger
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
-import org.mytonwallet.app_air.walletcontext.utils.toHashMapLong
-import org.mytonwallet.app_air.walletcontext.utils.toHashMapString
-import org.mytonwallet.app_air.walletcontext.utils.toJSONString
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
@@ -368,6 +368,16 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                             val transactionObj = pendingTransactionsJSONArray.getJSONObject(index)
                             val transaction = MApiTransaction.fromJson(transactionObj)!!
                             pendingTransactions.add(transaction)
+                        }
+                        if (pendingTransactions.isNotEmpty()) {
+                            Handler(Looper.getMainLooper()).post {
+                                WalletCore.notifyEvent(
+                                    WalletEvent.ReceivedPendingActivities(
+                                        accountId,
+                                        pendingTransactions
+                                    )
+                                )
+                            }
                         }
                         ActivityStore.newActivities(
                             context = bridge.context,

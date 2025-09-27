@@ -1,4 +1,4 @@
-import { decodeExtensionMessage, encodeExtensionMessage } from './extensionMessageSerializer';
+import { decodeError, decodeExtensionMessage, encodeExtensionMessage } from './extensionMessageSerializer';
 import generateUniqueId from './generateUniqueId';
 import { logDebugError } from './logs';
 
@@ -39,6 +39,12 @@ export interface OriginMessageEvent extends MessageEvent {
 // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
 export type ApiUpdate = { type: string } & any;
 
+export type WorkerMessageError = {
+  name: string;
+  message: string;
+  stack?: string;
+};
+
 export type WorkerMessageData = {
   channel?: string;
   type: 'update';
@@ -48,7 +54,7 @@ export type WorkerMessageData = {
   type: 'methodResponse';
   messageId: string;
   response?: any;
-  error?: { message: string };
+  error?: WorkerMessageError;
 } | {
   channel?: string;
   type: 'methodCallback';
@@ -57,7 +63,7 @@ export type WorkerMessageData = {
 } | {
   channel?: string;
   type: 'unhandledError';
-  error?: { message: string; stack?: string };
+  error: WorkerMessageError;
 };
 
 export interface WorkerMessageEvent {
@@ -180,7 +186,7 @@ class ConnectorClass<T extends InputRequestTypes> {
       const requestState = requestStates.get(data.messageId);
       if (requestState) {
         if (data.error) {
-          requestState.reject(data.error);
+          requestState.reject(decodeError(data.error));
         } else {
           requestState.resolve(data.response);
         }
@@ -189,11 +195,7 @@ class ConnectorClass<T extends InputRequestTypes> {
       const requestState = requestStates.get(data.messageId);
       requestState?.callback?.(...data.callbackArgs);
     } else if (data.type === 'unhandledError') {
-      const error = new Error(data.error?.message);
-      if (data.error?.stack) {
-        error.stack = data.error.stack;
-      }
-      throw error;
+      throw decodeError(data.error);
     }
   }
 

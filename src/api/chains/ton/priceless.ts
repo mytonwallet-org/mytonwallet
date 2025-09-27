@@ -1,11 +1,15 @@
-import type { ApiNetwork, ApiTokenWithPrice, OnApiUpdate } from '../../types';
+import type { ApiNetwork, ApiTokenWithPrice } from '../../types';
 
 import { buildCollectionByKey } from '../../../util/iteratees';
 import { logDebugError } from '../../../util/logs';
 import { getTokensCache, tokensPreload, updateTokens } from '../../common/tokens';
 import { getAccountStates } from './toncenter';
 
-export async function updateTokenHashes(network: ApiNetwork, tokenSlugs: string[], onUpdate?: OnApiUpdate) {
+export async function updateTokenHashes(
+  network: ApiNetwork,
+  tokenSlugs: string[],
+  sendUpdateTokens?: NoneToVoidFunction,
+) {
   await tokensPreload.promise;
   const cachedTokens = getTokensCache().bySlug;
 
@@ -38,7 +42,7 @@ export async function updateTokenHashes(network: ApiNetwork, tokenSlugs: string[
       tokensByAddress[address].codeHash = Buffer.from(states[address].code_hash, 'base64').toString('hex');
     }
 
-    await updateTokens(Object.values(tokensByAddress).filter((token) => token.codeHash), onUpdate);
+    await updateTokens(Object.values(tokensByAddress).filter((token) => token.codeHash), sendUpdateTokens);
   } catch (err) {
     logDebugError('Failed to fetch contract code hashes for tokens', err);
   }

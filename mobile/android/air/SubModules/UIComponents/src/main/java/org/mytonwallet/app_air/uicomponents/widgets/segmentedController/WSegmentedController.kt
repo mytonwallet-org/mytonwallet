@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.uicomponents.widgets.segmentedController
 
-import WNavigationController
 import android.annotation.SuppressLint
 import android.graphics.Color
 import android.view.MotionEvent
@@ -12,8 +11,11 @@ import androidx.core.view.isVisible
 import androidx.core.view.setPadding
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.R
+import org.mytonwallet.app_air.uicomponents.base.ISortableView
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
+import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerView
@@ -25,30 +27,39 @@ import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.clearSegmentedControl.WClearSegmentedControl
-import org.mytonwallet.app_air.uicomponents.widgets.clearSegmentedControl.WClearSegmentedControlItem
+import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
+import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
-import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.utils.EquatableChange
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import java.lang.ref.WeakReference
 import kotlin.math.abs
+import kotlin.math.max
 
+// TODO: Refactor this class to improve performance and readability.
 @SuppressLint("ViewConstructor")
 class WSegmentedController(
     private val navigationController: WNavigationController,
-    initialItems: Array<WSegmentedControllerItem>,
+    initialItems: MutableList<WSegmentedControllerItem>,
     private val defaultSelectedIndex: Int = 0,
     private val isFullScreen: Boolean = true,
     private val isTransparent: Boolean = false,
     private val applySideGutters: Boolean = true,
     val navHeight: Int = WNavigationBar.DEFAULT_HEIGHT.dp,
     private var onOffsetChange: ((position: Int, currentOffset: Float) -> Unit)? = null,
-    private var onItemsReordered: (() -> Unit)? = null
+    // Lets parent know the view items are reordered
+    private var onItemsReordered: (() -> Unit)? = null,
+    // Lets parent know the view asked to go to reordering mode
+    private val onReorderingStarted: (() -> Unit)? = null,
+    private val onForceEndReorderingRequested: (() -> Unit)? = null,
 ) : WView(navigationController.context), WThemedView, WProtectedView,
     WRecyclerViewAdapter.WRecyclerViewDataSource,
-    WClearSegmentedControl.Delegate {
+    WClearSegmentedControl.Delegate,
+    ISortableView {
 
     companion object {
         val PAGE_CELL = WCell.Type(1)
@@ -66,6 +77,7 @@ class WSegmentedController(
 
     private var isAnimatingChangeTab = false
     private var lastFullyVisible: Int = 0
+    private var isUserInteracting = false
     private val viewPager: ViewPager2 by lazy {
         val vp = ViewPager2(context)
         vp.id = generateViewId()
@@ -78,12 +90,14 @@ class WSegmentedController(
                 positionOffsetPixels: Int
             ) {
                 super.onPageScrolled(position, positionOffset, positionOffsetPixels)
+                if (isUserInteracting && clearSegmentedControl.isInDragMode)
+                    onForceEndReorderingRequested?.invoke()
                 currentOffset = position + positionOffset
                 if (currentOffset == position.toFloat() && lastFullyVisible != position) {
                     (currentItem as? WSegmentedControllerItemVC)?.onFullyVisible()
                     lastFullyVisible = position
                 } else {
-                    (items[lastFullyVisible].viewController as? WSegmentedControllerItemVC)?.onPartiallyVisible()
+                    (items.getOrNull(lastFullyVisible)?.viewController as? WSegmentedControllerItemVC)?.onPartiallyVisible()
                 }
                 onOffsetChange?.invoke(position, currentOffset)
                 clearSegmentedControl.updateThumbPosition(
@@ -129,6 +143,16 @@ class WSegmentedController(
         recyclerView.itemAnimator = null
         recyclerView.addOnItemTouchListener(object : RecyclerView.OnItemTouchListener {
             override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
+                when (e.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        isUserInteracting = true
+                    }
+
+                    MotionEvent.ACTION_UP,
+                    MotionEvent.ACTION_CANCEL -> {
+                        isUserInteracting = false
+                    }
+                }
                 return false
             }
 
@@ -164,7 +188,7 @@ class WSegmentedController(
         val v = WView(context)
         v.addView(
             clearSegmentedControl,
-            ViewGroup.LayoutParams(MATCH_PARENT, navHeight)
+            ViewGroup.LayoutParams(0, navHeight)
         )
         v.setConstraints {
             toTopPx(
@@ -244,23 +268,79 @@ class WSegmentedController(
         clearSegmentedControl.secondaryTextColor = Color.WHITE
     }
 
-    private fun applyItems() {
+    private fun applyItems(selectedItem: Int = 0) {
         items.forEach {
             it.viewController.navigationController = navigationController
         }
         clearSegmentedControl.setItems(items.map {
-            WClearSegmentedControlItem(
+            WClearSegmentedControl.Item(
                 it.viewController.title ?: "",
-                it.onClick
+                it.onRemovePressed,
+                it.onMenuPressed,
             )
-        }, 0, this)
+        }, selectedItem, this)
         clearSegmentedControl.isVisible = items.size > 1
+        clearSegmentedControl.updateItemsTrailingViews()
     }
 
-    fun updateItems(items: Array<WSegmentedControllerItem>) {
-        this.items = items
-        applyItems()
-        vpAdapter.reloadData()
+    fun updateItems(
+        items: MutableList<WSegmentedControllerItem>,
+        fadeAnimation: Boolean = false,
+        keepSelection: Boolean = false,
+        onUpdated: (() -> Unit)? = null
+    ) {
+        if (closeButton.parent != null)
+            contentView.setConstraints {
+                toEnd(clearSegmentedControl, if (items.size < 3) 0f else 56f)
+            }
+        if (fadeAnimation) {
+            clearSegmentedControl
+            clearSegmentedControl.fadeOut(AnimationConstants.VERY_QUICK_ANIMATION) {
+                updateItems(items, false, keepSelection, onUpdated)
+                clearSegmentedControl.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
+            }
+        } else {
+            onUpdated?.invoke()
+            val currentSelectionIdentifier = this.items[viewPager.currentItem].identifier
+            this.items = items
+            val newIndex = if (keepSelection) items.indexOfFirst {
+                it.identifier == currentSelectionIdentifier
+            } else -1
+            applyItems(selectedItem = max(0, newIndex))
+            vpAdapter.reloadData()
+            if (newIndex >= 0) {
+                viewPager.setCurrentItem(newIndex, false)
+            }
+        }
+    }
+
+    fun getNextSelectedIndex(current: Int, m: Int): Int {
+        return when {
+            current < m -> current
+            current > m -> current - 1
+            m > 0 -> m - 1
+            else -> 0
+        }
+    }
+
+    var removingItem = false
+    fun removeItem(index: Int, onCompletion: () -> Unit): WSegmentedControllerItem? {
+        if (removingItem)
+            return null
+        removingItem = true
+        val removedItem = items.getOrNull(index) ?: return null
+        (items[index].viewController as ISortableView).endSorting()
+        items.removeAt(index)
+        vpAdapter.applyChanges(listOf(EquatableChange.Delete(IndexPath(0, index))))
+        val nextSelectedIndex = getNextSelectedIndex(viewPager.currentItem, index)
+        clearSegmentedControl.removeItem(index, nextSelectedIndex, onCompletion = {
+            removingItem = false
+            currentOffset = nextSelectedIndex.toFloat()
+            if (nextSelectedIndex != viewPager.currentItem)
+                setActiveIndex(nextSelectedIndex)
+            onCompletion()
+        })
+        return removedItem
     }
 
     fun setActiveIndex(index: Int) {
@@ -291,7 +371,9 @@ class WSegmentedController(
                     (navigationController.getSystemBars().top)
             )
             toEnd(closeButton, 8f)
+            toEnd(clearSegmentedControl, if (items.size < 3) 0f else 56f)
         }
+        clearSegmentedControl.horizontalFadingEdge = true
     }
 
     fun scrollToTop() {
@@ -324,14 +406,14 @@ class WSegmentedController(
         }
     }
 
-    fun updateOnClick(identifier: String, onClick: ((v: View) -> Unit)?) {
+    fun updateOnMenuPressed(identifier: String, onMenuPressed: ((v: View) -> Unit)?) {
         val index = items.indexOfFirst { it.identifier == identifier }
-        items[index].onClick = onClick
-        clearSegmentedControl.updateOnClick(index = index, onClick = onClick)
+        items[index].onMenuPressed = onMenuPressed
+        clearSegmentedControl.updateOnMenuPressed(index = index, onMenuPressed = onMenuPressed)
     }
 
-    fun setDragEnabled(enabled: Boolean) {
-        clearSegmentedControl.setDragEnabled(enabled)
+    fun setDragAllowed(enabled: Boolean) {
+        clearSegmentedControl.isDragAllowed = enabled
     }
 
     override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
@@ -376,7 +458,7 @@ class WSegmentedController(
         val movedItem = itemsList.removeAt(from)
         itemsList.add(to, movedItem)
 
-        items = itemsList.toTypedArray()
+        items = itemsList
 
         val newBlurState = hashMapOf<Int, Float>()
         blurState.forEach { (index, value) ->
@@ -414,7 +496,7 @@ class WSegmentedController(
 
     fun onDestroy() {
         items.map { it.viewController.onDestroy() }
-        items = emptyArray()
+        items = mutableListOf()
         onOffsetChange = null
         onItemsReordered = null
         removeAllViews()
@@ -422,5 +504,36 @@ class WSegmentedController(
 
     fun scrollToFirst() {
         viewPager.setCurrentItem(0, true)
+    }
+
+    // Cached items to allow canceling the edit and revert
+    var preeditItems: MutableList<WSegmentedControllerItem>? = null
+        private set
+    var isInDragMode = false
+
+    override fun enterReorderingMode() {
+        onReorderingStarted?.invoke()
+    }
+
+    override fun startSorting() {
+        if (clearSegmentedControl.isInDragMode)
+            return
+        isInDragMode = true
+        preeditItems = items.toMutableList()
+        clearSegmentedControl.setDragMode(value = true, animated = true)
+    }
+
+    override fun endSorting() {
+        exitDragMode()
+        endSortingClearSegmentedControl(true)
+    }
+
+    fun exitDragMode() {
+        isInDragMode = false
+        preeditItems = null
+    }
+
+    fun endSortingClearSegmentedControl(animated: Boolean) {
+        clearSegmentedControl.setDragMode(value = false, animated = animated)
     }
 }

@@ -15,11 +15,10 @@ import {
   selectSwapType,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
-import { findChainConfig } from '../../util/chain';
 import { explainSwapFee } from '../../util/fee/swapFee';
 import { formatCurrency } from '../../util/formatNumber';
 import getSwapRate from '../../util/swap/getSwapRate';
-import { getChainBySlug } from '../../util/tokens';
+import { findNativeToken, getChainBySlug } from '../../util/tokens';
 
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
@@ -331,7 +330,7 @@ const SwapSettings = memo(
       dieselFee,
     } = global.currentSwap;
 
-    const nativeToken = tokenInSlug ? findChainConfig(getChainBySlug(tokenInSlug))?.nativeToken : undefined;
+    const nativeToken = tokenInSlug ? findNativeToken(getChainBySlug(tokenInSlug)) : undefined;
     const nativeTokenInBalance = nativeToken ? selectCurrentAccountTokenBalance(global, nativeToken.slug) : undefined;
 
     return {

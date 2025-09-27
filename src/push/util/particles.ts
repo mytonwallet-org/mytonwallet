@@ -1,5 +1,6 @@
 // GPU-Accelerated Particle System Library
 
+import { suppressStrict } from '../../lib/fasterdom/fasterdom';
 import { COLOR_COUNT, QUALITY } from '../../util/accentColor/constants';
 import generateUniqueId from '../../util/generateUniqueId';
 import { getCachedImageUrl } from '../../util/getCachedImageUrl';
@@ -329,10 +330,13 @@ function createParticleSystemManager(canvas: HTMLCanvasElement) {
       maxHeight = DEFAULT_CONFIG.height;
     }
 
-    canvas.width = maxWidth * dpr;
-    canvas.height = maxHeight * dpr;
-    canvas.style.width = maxWidth + 'px';
-    canvas.style.height = maxHeight + 'px';
+    suppressStrict(() => {
+      canvas.width = maxWidth * dpr;
+      canvas.style.width = maxWidth + 'px';
+      canvas.height = maxHeight * dpr;
+      canvas.style.height = maxHeight + 'px';
+    });
+
     gl.viewport(0, 0, canvas.width, canvas.height);
   }
 

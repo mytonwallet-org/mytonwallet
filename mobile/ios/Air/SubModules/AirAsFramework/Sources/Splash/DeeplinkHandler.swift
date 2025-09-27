@@ -15,12 +15,14 @@ let SELF_UNIVERSAL_URLS = ["https://my.tt/",  "https://go.mytonwallet.org/"]
 
 enum Deeplink {
     case tonConnect2(requestLink: String)
-    case invoice(address: String, amount: BigInt?, comment: String?, binaryPayload: String?, token: String?, jetton: String?)
+    case invoice(address: String, amount: BigInt?, comment: String?, binaryPayload: String?, token: String?, jetton: String?, stateInit: String?)
     case swap(from: String?, to: String?, amountIn: Double?)
     case buyWithCard
     case stake
     case url(config: InAppBrowserPageVC.Config)
     case switchToClassic
+    case transfer
+    case receive
 }
 
 protocol DeeplinkNavigator: AnyObject {
@@ -77,7 +79,8 @@ class DeeplinkHandler {
                                                              comment: parsedWalletURL.comment,
                                                              binaryPayload: parsedWalletURL.bin,
                                                              token: parsedWalletURL.token,
-                                                             jetton: parsedWalletURL.jetton))
+                                                             jetton: parsedWalletURL.jetton,
+                                                             stateInit: parsedWalletURL.stateInit))
     }
     
     private func handleMTW(with url: URL) {
@@ -134,16 +137,20 @@ class DeeplinkHandler {
                 }
             }
             deeplinkNavigator?.handle(deeplink: Deeplink.swap(from: from, to: to, amountIn: amountIn))
-            break
+
         case "transfer":
-            handleTonInvoice(with: url)
-            break
+            if url.pathComponents.count <= 1 {
+                deeplinkNavigator?.handle(deeplink: .transfer)
+            } else {
+                handleTonInvoice(with: url)
+            }
+
         case "buy-with-card":
             deeplinkNavigator?.handle(deeplink: Deeplink.buyWithCard)
-            break
+
         case "stake":
             deeplinkNavigator?.handle(deeplink: Deeplink.stake)
-            break
+
         case "giveaway":
             let pathname = url.absoluteString
             let regex = try! NSRegularExpression(pattern: "giveaway/([^/]+)")
@@ -176,7 +183,10 @@ class DeeplinkHandler {
             deeplinkNavigator?.handle(deeplink: .url(config: .init(url: url,
                                                                    title: "Checkin",
                                                                    injectTonConnectBridge: true)))
-            break
+            
+        case "receive":
+            deeplinkNavigator?.handle(deeplink: .receive)
+            
         default:
             break
         }

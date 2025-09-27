@@ -1,24 +1,21 @@
 import nacl from 'tweetnacl';
 
 import type { Theme } from '../../global/types';
-import type { AccountCache } from '../common/cache';
 import type { StorageKey } from '../storages/types';
-import type { ApiChain, ApiNetwork } from '../types';
+import type { ApiAnyDisplayError, ApiBaseCurrency, ApiChain } from '../types';
 
 import { setIsAppFocused } from '../../util/focusAwareDelay';
 import { getLogs, logDebugError } from '../../util/logs';
+import { pause } from '../../util/schedulers';
 import chains from '../chains';
+import * as ton from '../chains/ton';
 import { fetchStoredAccounts, fetchStoredWallet, updateStoredWallet } from '../common/accounts';
 import { callBackendGet } from '../common/backend';
-import { updateAccountCache } from '../common/cache';
+import { SEC } from '../constants';
 import { handleServerError } from '../errors';
 import { storage } from '../storages';
 
 const SIGN_MESSAGE = Buffer.from('MyTonWallet_AuthToken_n6i0k4w8pb');
-
-export function checkApiAvailability(chain: ApiChain, network: ApiNetwork) {
-  return chains[chain].checkApiAvailability(network);
-}
 
 export async function getBackendAuthToken(accountId: string, password: string) {
   const accountWallet = await fetchStoredWallet(accountId, 'ton');
@@ -26,7 +23,7 @@ export async function getBackendAuthToken(accountId: string, password: string) {
   const { publicKey, isInitialized } = accountWallet;
 
   if (!authToken) {
-    const privateKey = await chains.ton.fetchPrivateKey(accountId, password);
+    const privateKey = await ton.fetchPrivateKey(accountId, password);
     const signature = nacl.sign.detached(SIGN_MESSAGE, privateKey!);
     authToken = Buffer.from(signature).toString('base64');
 
@@ -62,22 +59,58 @@ export function ping() {
   return true;
 }
 
-export function updateAccountMemoryCache(accountId: string, address: string, partial: Partial<AccountCache>) {
-  updateAccountCache(accountId, address, partial);
-}
-
 export { setIsAppFocused, getLogs };
 
-export async function getMoonpayOnrampUrl(chain: ApiChain, address: string, theme: Theme) {
+export async function getMoonpayOnrampUrl(chain: ApiChain, address: string, theme: Theme, currency: ApiBaseCurrency) {
   try {
     return await callBackendGet<{ url: string }>('/onramp-url', {
       chain,
       address,
       theme,
+      currency: currency.toLowerCase(),
     });
   } catch (err) {
     logDebugError('getMoonpayOnrampUrl', err);
 
     return handleServerError(err);
   }
+}
+
+export function waitForLedgerApp(chain: ApiChain, options: {
+  timeout?: number;
+  attemptPause?: number;
+} = {}): Promise<boolean | { error: ApiAnyDisplayError }> {
+  const {
+    timeout = 1.25 * SEC,
+    attemptPause = 0.125 * SEC,
+  } = options;
+
+  let hasTimedOut = false;
+
+  const waitForDeadline = async () => {
+    await pause(timeout);
+    hasTimedOut = true;
+    return false;
+  };
+
+  const checkApp = async () => {
+    while (!hasTimedOut) {
+      try {
+        const result = await chains[chain].getIsLedgerAppOpen();
+        if (typeof result === 'object' && 'error' in result) return result;
+
+        if (result) {
+          return true;
+        }
+      } catch (err) {
+        logDebugError('waitForLedgerApp', chain, err);
+      }
+
+      await pause(attemptPause);
+    }
+
+    return false;
+  };
+
+  return Promise.race([waitForDeadline(), checkApp()]);
 }

@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.settings
 
-import WNavigationController
 import android.content.Context
 import android.view.View
 import android.view.ViewGroup
@@ -11,6 +10,7 @@ import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
 import androidx.core.content.ContextCompat
 import androidx.core.view.setPadding
 import androidx.recyclerview.widget.RecyclerView
+import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
@@ -49,16 +49,13 @@ import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.helpers.logger.LogMessage
-import org.mytonwallet.app_air.walletcontext.helpers.logger.Logger
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
-import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
-import org.mytonwallet.app_air.walletcontext.utils.toProcessedSpannableStringBuilder
+import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
@@ -72,7 +69,12 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ActivityStore
 import org.mytonwallet.app_air.walletcore.stores.AddressStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
+import org.mytonwallet.app_air.walletcore.stores.DappsStore
+import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import java.lang.ref.WeakReference
 
 class SettingsVC(context: Context) : WViewController(context),
@@ -376,6 +378,13 @@ class SettingsVC(context: Context) : WViewController(context),
             if (done == true) {
                 Logger.d(Logger.LogTag.ACCOUNT, "Remove account: $removingAccountId")
                 ActivityStore.removeAccount(removingAccountId)
+                DappsStore.removeAccount(removingAccountId)
+                NftStore.setNfts(
+                    null,
+                    removingAccountId,
+                    notifyObservers = false,
+                    isReorder = false
+                )
                 WGlobalStorage.removeAccount(removingAccountId)
                 StakingStore.setStakingState(removingAccountId, null)
                 BalanceStore.removeBalances(removingAccountId)

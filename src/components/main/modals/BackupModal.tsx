@@ -170,7 +170,6 @@ function BackupModal({
         return (
           <MnemonicCheck
             isActive={isActive}
-            isInModal
             mnemonic={mnemonicRef.current as string[]}
             checkIndexes={checkIndexes}
             buttonLabel={lang('Done')}

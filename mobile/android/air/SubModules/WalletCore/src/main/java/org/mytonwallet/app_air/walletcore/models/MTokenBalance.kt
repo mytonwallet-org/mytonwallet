@@ -1,7 +1,7 @@
 package org.mytonwallet.app_air.walletcore.models
 
 import org.json.JSONObject
-import org.mytonwallet.app_air.walletcontext.utils.doubleAbsRepresentation
+import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TON_USDT_SLUG
 import org.mytonwallet.app_air.walletcore.TRON_SLUG

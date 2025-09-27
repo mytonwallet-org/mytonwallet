@@ -4,26 +4,28 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.Drawable
+import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
-import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.content.ContextCompat
 import androidx.core.view.get
-import org.mytonwallet.app_air.uicomponents.R
+import androidx.core.widget.TextViewCompat
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.R
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.MAIN_NETWORK
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
@@ -67,13 +69,23 @@ class HeaderActionsView(
             iconView.id = generateViewId()
             iconView.setImageDrawable(item.icon)
             tabView.addView(iconView, 0, 0)
-            val label = WLabel(context)
-            label.setStyle(15f, WFont.SemiBold)
-            label.text = item.title
-            tabView.addView(label, LayoutParams(WRAP_CONTENT, 24.dp))
+            val label = WLabel(context).apply {
+                gravity = Gravity.CENTER
+                setSingleLine()
+                setStyle(15f, WFont.SemiBold)
+                TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
+                    this,
+                    8,
+                    15,
+                    5,
+                    TypedValue.COMPLEX_UNIT_SP
+                )
+                text = item.title
+            }
+
+            tabView.addView(label, LayoutParams(MATCH_PARENT, 24.dp))
             tabView.setConstraints {
-                toStart(label)
-                toEnd(label)
+                toCenterX(label)
                 toBottom(label)
                 toTop(iconView)
                 toStart(iconView)
@@ -221,15 +233,18 @@ class HeaderActionsView(
                 add(
                     Item(
                         Identifier.RECEIVE,
-                        ContextCompat.getDrawable(context, R.drawable.ic_header_add)!!,
-                        LocaleController.getString("Add")
+                        ContextCompat.getDrawable(
+                            context,
+                            R.drawable.ic_header_add
+                        )!!,
+                        LocaleController.getString("Add / Buy")
                     )
                 )
                 add(
                     Item(
                         Identifier.SEND,
                         ContextCompat.getDrawable(context, R.drawable.ic_header_send)!!,
-                        LocaleController.getString("\$send_action")
+                        LocaleController.getString("Send")
                     )
                 )
                 add(

@@ -4,10 +4,10 @@ import android.text.Spannable
 import android.text.style.ForegroundColorSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WClickableSpan
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
-import org.mytonwallet.app_air.walletcontext.utils.toProcessedSpannableStringBuilder
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcore.TRON_SLUG
 import org.mytonwallet.app_air.walletcore.TRON_USDT_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore

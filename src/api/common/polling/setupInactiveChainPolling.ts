@@ -18,10 +18,10 @@ export function setupInactiveChainPolling(
   const concurrencyLimiter = getConcurrencyLimiter(chain, network);
 
   const walletPolling = new WalletPolling({
-    ...inactiveWalletTiming,
     chain,
     network,
     address,
+    pollingOptions: inactiveWalletTiming,
     onUpdate: concurrencyLimiter.wrap(async () => {
       await updateBalance();
     }),
@@ -32,7 +32,7 @@ export function setupInactiveChainPolling(
   };
 }
 
-function getConcurrencyLimiter(chain: ApiChain, network: ApiNetwork) {
+export function getConcurrencyLimiter(chain: ApiChain, network: ApiNetwork) {
   const key = `${chain} ${network}`;
   concurrencyLimiters[key] ||= createTaskQueue();
   return concurrencyLimiters[key];

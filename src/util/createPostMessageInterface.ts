@@ -7,7 +7,7 @@ import type {
   WorkerMessageData,
 } from './PostMessageConnector';
 
-import { decodeExtensionMessage, encodeExtensionMessage } from './extensionMessageSerializer';
+import { decodeExtensionMessage, encodeError, encodeExtensionMessage } from './extensionMessageSerializer';
 import { logDebugError } from './logs';
 
 declare const self: WorkerGlobalScope;
@@ -245,7 +245,7 @@ async function onMessage(
           sendToOrigin({
             type: 'methodResponse',
             messageId,
-            error: { message: err.message },
+            error: encodeError(err),
           });
         }
       }
@@ -272,29 +272,23 @@ function isTransferable(obj: any) {
 }
 
 function handleErrors(sendToOrigin: SendToOrigin) {
-  self.onerror = (e) => {
-    const message = e.error?.message || 'Uncaught exception in worker';
-    logDebugError(message, e.error);
+  self.addEventListener('error', (e) => {
+    const error = e.error || { name: 'Error', message: 'Uncaught exception in worker' };
+    logDebugError(error.message, e.error);
 
     sendToOrigin({
       type: 'unhandledError',
-      error: {
-        message,
-        stack: e.error?.stack,
-      },
+      error: encodeError(error),
     });
-  };
+  });
 
   self.addEventListener('unhandledrejection', (e) => {
-    const message = e.reason?.message || 'Unhandled rejection in worker';
-    logDebugError(message, e.reason);
+    const error = e.reason || { name: 'Error', message: 'Unhandled rejection in worker' };
+    logDebugError(error.message, e.reason);
 
     sendToOrigin({
       type: 'unhandledError',
-      error: {
-        message,
-        stack: e.reason?.stack,
-      },
+      error: encodeError(error),
     });
   });
 }

@@ -55,7 +55,7 @@ public class LedgerBaseModel: @unchecked Sendable {
         fatalError("abstract")
     }
     
-    func connect(knownLedger ledger: MAccount.Ledger?) async throws {
+    func connect() async throws {
         await updateStep(.connect, status: .current)
         do {
             try await withRetries(4) {

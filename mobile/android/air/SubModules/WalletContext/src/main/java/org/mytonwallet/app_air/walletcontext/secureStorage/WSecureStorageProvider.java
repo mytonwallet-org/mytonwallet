@@ -14,7 +14,7 @@ import android.util.Base64;
 
 import androidx.annotation.Nullable;
 
-import org.mytonwallet.app_air.walletcontext.helpers.logger.Logger;
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

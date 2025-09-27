@@ -4,7 +4,7 @@ import org.mytonwallet.app_air.uiassets.viewControllers.nft.views.NftHeaderView.
 import org.mytonwallet.app_air.uiassets.viewControllers.nft.views.NftHeaderView.Companion.OVERSCROLL_OFFSET
 import org.mytonwallet.app_air.uiassets.viewControllers.nft.views.NftHeaderView.Companion.TEXTS_FROM_BOTTOM
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import kotlin.math.max
 import kotlin.math.pow
@@ -58,7 +58,7 @@ sealed class ScrollState() {
                     headerView.titleLabel.text.toString()
                 ) else 0f
             }
-        override val titleScale = 1 - percent * 0.2f
+        override val titleScale = 1 - percent * 0.323f
         override val titleTranslationX: Float
             get() {
                 return lerp(headerView.titleCompactTranslationX, 96f.dp, percent)
@@ -66,7 +66,7 @@ sealed class ScrollState() {
         override val titleTranslationY: Float
             get() {
                 with(headerView) {
-                    return lerp(topExtraPadding + 162f.dp, topExtraPadding - 54f.dp, percent)
+                    return lerp(topExtraPadding + 158f.dp, topExtraPadding - 53f.dp, percent)
                 }
             }
         override val subtitlePivotX: Float
@@ -83,7 +83,7 @@ sealed class ScrollState() {
         override val subtitleTranslationY: Float
             get() {
                 with(headerView) {
-                    return lerp(topExtraPadding + 194f.dp, topExtraPadding - 32f.dp, percent)
+                    return lerp(topExtraPadding + 194f.dp, topExtraPadding - 31f.dp, percent)
                 }
             }
         override val subtitleAlpha = 1f
@@ -123,7 +123,7 @@ sealed class ScrollState() {
             get() {
                 with(headerView) {
                     return lerp(
-                        topExtraPadding + 162f.dp,
+                        topExtraPadding + 158f.dp,
                         viewWidth - TEXTS_FROM_BOTTOM.dp - (realScrollOffset - OVERSCROLL_OFFSET.dp),
                         percent * EXPAND_PERCENT
                     )
@@ -137,7 +137,7 @@ sealed class ScrollState() {
             }
         override val subtitleTranslationY: Float
             get() {
-                return titleTranslationY + 32.dp + 6.dp * percent * EXPAND_PERCENT
+                return titleTranslationY + 36.dp + 6.dp * percent * EXPAND_PERCENT
             }
         override val subtitleAlpha = 1f
     }
@@ -179,10 +179,7 @@ sealed class ScrollState() {
                     headerView.titleLabel.text.toString()
                 ) else 0f
             }
-        override val titleScale: Float
-            get() {
-                return 1 + percent * 0.18f
-            }
+        override val titleScale = 1f
         override val titleTranslationX: Float
             get() {
                 return lerp(
@@ -243,7 +240,7 @@ sealed class ScrollState() {
                     headerView.titleLabel.text.toString()
                 ) else 0f
             }
-        override val titleScale = 1.18f
+        override val titleScale = 1f
         override val titleTranslationX = 0f
         override val titleTranslationY: Float
             get() {

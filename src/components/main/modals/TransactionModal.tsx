@@ -175,7 +175,7 @@ function TransactionModal({
   const nativeToken = token ? getNativeToken(token.chain) : undefined;
   const address = isIncoming ? fromAddress : toAddress;
   const isAnyPending = renderedTransaction ? getIsActivityPendingForUser(renderedTransaction) : undefined;
-  const iconClock = status === 'pendingTrusted' ? 'iconClockGreen' : 'iconClock';
+  const iconClock = status === 'pendingTrusted' ? 'iconClock' : 'iconClockOrange';
   const localAddressName = useMemo(() => {
     if (!chain) return undefined;
 
@@ -585,7 +585,7 @@ function TransactionModal({
               error={passwordError}
               withCloseButton={IS_CAPACITOR}
               containerClassName={IS_CAPACITOR ? styles.passwordFormContent : styles.passwordFormContentInModal}
-              submitLabel={lang('Send')}
+              submitLabel={lang('Confirm')}
               onSubmit={handlePasswordSubmit}
               onCancel={closePasswordSlide}
               onUpdate={clearPasswordError}

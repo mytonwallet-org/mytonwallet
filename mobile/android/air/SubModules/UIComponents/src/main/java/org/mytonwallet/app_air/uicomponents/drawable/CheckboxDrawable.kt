@@ -44,13 +44,18 @@ class CheckboxDrawable(private val invalidateCallback: (() -> Unit)? = null) : D
         }
 
     var isChecked = false
-        set(value) {
-            if (field != value) {
-                field = value
-                animator?.cancel()
-                animateToProgress(if (value) 1f else 0f)
-            }
+        private set
+
+    fun setChecked(isChecked: Boolean, animated: Boolean) {
+        this.isChecked = isChecked
+        animator?.cancel()
+        if (animated)
+            animateToProgress(if (isChecked) 1f else 0f)
+        else {
+            progress = if (isChecked) 1f else 0f
+            invalidateSelf()
         }
+    }
 
     private fun animateToProgress(targetProgress: Float) {
         animator = ValueAnimator.ofFloat(progress, targetProgress).apply {

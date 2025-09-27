@@ -5,8 +5,8 @@ import android.util.TypedValue
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.htextview.htextview.scale.ScaleTextView
-import org.mytonwallet.app_air.walletcontext.utils.smartDecimalsCount
-import org.mytonwallet.app_air.walletcontext.utils.toString
+import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
+import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import java.math.BigInteger
 
 open class WAnimatedLabel(context: Context) : ScaleTextView(context), WThemedView {

@@ -8,9 +8,9 @@ import com.ledger.live.ble.BleManagerFactory
 import com.ledger.live.ble.model.BleDeviceModel
 import org.mytonwallet.app_air.ledger.LedgerDevice
 import org.mytonwallet.app_air.ledger.LedgerManager.ConnectionState
-import org.mytonwallet.app_air.ledger.helpers.APDUHelpers
-import org.mytonwallet.app_air.ledger.helpers.VersionComparisonHelpers
-import org.mytonwallet.app_air.walletcore.models.LedgerAppInfo
+import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import java.lang.ref.WeakReference
 
 object LedgerBleManager : ILedgerConnectionManager {
@@ -31,7 +31,6 @@ object LedgerBleManager : ILedgerConnectionManager {
     private var devices = emptyList<BleDeviceModel>()
     private var triedDevices = mutableListOf<BleDeviceModel>()
     private var selectedDevice: BleDeviceModel? = null
-    private var currentAppInfo: LedgerAppInfo? = null
 
     fun isPermissionGranted(): Boolean {
         return bleManager?.isPermissionGranted() == true
@@ -65,7 +64,7 @@ object LedgerBleManager : ILedgerConnectionManager {
             if (selectedDevice?.id != device.id)
                 return@connect
             onUpdate(ConnectionState.ConnectingToTonApp(LedgerDevice.Ble(it)))
-            connectToTonApp(device, onUpdate)
+            waitForLedgerApp(device, onUpdate)
         }, onConnectError = {
             if (selectedDevice?.id != device.id)
                 return@connect
@@ -90,64 +89,27 @@ object LedgerBleManager : ILedgerConnectionManager {
         })
     }
 
-    private fun connectToTonApp(
+    private fun waitForLedgerApp(
         device: BleDeviceModel,
         onUpdate: (ConnectionState) -> Unit,
-        retriesLeft: Int = 3
     ) {
-        try {
-            bleManager?.send(APDUHelpers.currentApp(), {
-                val openAppData = APDUHelpers.decodeReadable(it)
-                if (openAppData.first() == "TON") {
-                    currentAppInfo = LedgerAppInfo(
-                        isUnsafeSupported = VersionComparisonHelpers.compareVersions(
-                            openAppData[1],
-                            "2.1.0"
-                        ) >= 0,
-                        isJettonIdSupported = VersionComparisonHelpers.compareVersions(
-                            openAppData[1],
-                            "2.2.0"
-                        ) >= 0
-                    )
-                    onUpdate(ConnectionState.Done(LedgerDevice.Ble(device), openAppData[1]))
-                } else {
-                    onUpdate(
-                        ConnectionState.Error(
-                            step = ConnectionState.Error.Step.TON_APP,
-                            shortMessage = null
+        Handler(Looper.getMainLooper()).post {
+            WalletCore.call(
+                ApiMethod.Other.WaitForLedgerApp(chain = MBlockchain.ton),
+                callback = { res, error ->
+                    if (res != true || error != null) {
+                        onUpdate(
+                            ConnectionState.Error(
+                                step = ConnectionState.Error.Step.TON_APP,
+                                shortMessage = null
+                            )
                         )
-                    )
+                        return@call
+                    }
+                    onUpdate(ConnectionState.Done(LedgerDevice.Ble(device)))
                 }
-            }, {
-                onUpdate(
-                    ConnectionState.Error(
-                        step = ConnectionState.Error.Step.TON_APP,
-                        shortMessage = null
-                    )
-                )
-            })
-        } catch (e: Throwable) {
-            if (retriesLeft > 0) {
-                Handler(Looper.getMainLooper()).postDelayed({
-                    connectToTonApp(device, onUpdate, retriesLeft - 1)
-                }, 500)
-            } else {
-                onUpdate(
-                    ConnectionState.Error(
-                        step = ConnectionState.Error.Step.TON_APP,
-                        shortMessage = null
-                    )
-                )
-            }
+            )
         }
-    }
-
-    override fun getPublicKey(walletIndex: Int, onCompletion: (publicKey: List<Int>?) -> Unit) {
-        bleManager?.send(APDUHelpers.getPublicKey(false, 0, walletIndex), {
-            onCompletion(APDUHelpers.decode(it.substring(0, it.length - 4)))
-        }, {
-            onCompletion(null)
-        })
     }
 
     override fun write(

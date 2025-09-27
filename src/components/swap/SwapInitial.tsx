@@ -28,11 +28,11 @@ import {
   selectSwapType,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
-import { findChainConfig } from '../../util/chain';
 import { fromDecimal, toDecimal } from '../../util/decimals';
 import { stopEvent } from '../../util/domEvents';
 import { explainSwapFee, getMaxSwapAmount, isBalanceSufficientForSwap } from '../../util/fee/swapFee';
 import { vibrate } from '../../util/haptics';
+import { findNativeToken } from '../../util/tokens';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
 import { isBackgroundModeActive } from '../../hooks/useBackgroundMode';
@@ -129,7 +129,7 @@ function SwapInitial({
   );
 
   const nativeTokenInSlug = isMultichainAccount || tokenIn?.chain === 'ton'
-    ? findChainConfig(tokenIn?.chain)?.nativeToken.slug
+    ? findNativeToken(tokenIn?.chain)?.slug
     : undefined;
   const nativeUserTokenIn = useMemo(
     () => tokens?.find((token) => token.slug === nativeTokenInSlug),

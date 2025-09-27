@@ -1,7 +1,7 @@
 import type { ApiInitArgs, OnApiUpdate } from '../types';
 
 import { initWindowConnector } from '../../util/windowProvider/connector';
-import chains from '../chains';
+import * as ton from '../chains/ton';
 import { fetchBackendReferrer } from '../common/backend';
 import { connectUpdater, disconnectUpdater, startStorageMigration } from '../common/helpers';
 import { setEnvironment } from '../environment';
@@ -39,7 +39,7 @@ export default async function init(onUpdate: OnApiUpdate, args: ApiInitArgs) {
     tonConnectSse.initSse(onUpdate);
   }
 
-  await startStorageMigration(onUpdate, chains.ton, args.accountIds);
+  await startStorageMigration(onUpdate, ton, args.accountIds);
 
   if (environment.isSseSupported) {
     void tonConnectSse.resetupSseConnection();

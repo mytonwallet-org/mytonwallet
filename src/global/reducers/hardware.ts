@@ -1,3 +1,4 @@
+import type { ApiChain } from '../../api/types';
 import type { GlobalState } from '../types';
 
 import { INITIAL_STATE } from '../initialState';
@@ -12,9 +13,13 @@ export function updateHardware(global: GlobalState, hardwareUpdate: Partial<Glob
   };
 }
 
-export function resetHardware(global: GlobalState) {
+export function resetHardware(global: GlobalState, chain: ApiChain, shouldLoadWallets = false) {
   return {
     ...global,
-    hardware: INITIAL_STATE.hardware,
+    hardware: {
+      ...INITIAL_STATE.hardware,
+      chain,
+      shouldLoadWallets: shouldLoadWallets || undefined,
+    },
   };
 }

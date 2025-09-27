@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.uibrowser.viewControllers.explore
 
-import WNavigationController
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
@@ -26,6 +25,7 @@ import org.mytonwallet.app_air.uibrowser.viewControllers.exploreCategory.Explore
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
+import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.LinedCenteredTitleView
@@ -40,9 +40,9 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.uisettings.viewControllers.connectedApps.ConnectedAppsVC
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
@@ -56,6 +56,8 @@ import kotlin.math.roundToInt
 @SuppressLint("ViewConstructor")
 class ExploreVC(context: Context) : WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource, ExploreVM.Delegate {
+
+    override val ignoreSideGuttering: Boolean = true
 
     companion object {
         val EXPLORE_TITLE_CELL = WCell.Type(1)
@@ -207,7 +209,7 @@ class ExploreVC(context: Context) : WViewController(context),
 
         setNavTitle(LocaleController.getString("Explore"))
         setupNavBar(true)
-        navigationBar?.titleLabel?.setStyle(20f, WFont.Regular)
+        navigationBar?.titleLabel?.setStyle(20f, WFont.SemiBold)
         navigationBar?.setTitleGravity(Gravity.CENTER)
 
         view.addView(recyclerView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))

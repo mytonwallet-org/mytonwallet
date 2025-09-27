@@ -1,12 +1,15 @@
 import React, {
   memo, useMemo, useState,
 } from '../../lib/teact/teact';
-import { getActions } from '../../global';
+import { getActions, withGlobal } from '../../global';
 
+import type { ApiChain, ApiLedgerWalletInfo } from '../../api/types';
 import type { Account } from '../../global/types';
-import type { LedgerWalletInfo } from '../../util/ledger/types';
 
+import { TOKEN_FONT_ICONS } from '../../config';
+import { selectNetworkAccounts } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
+import { getChainConfig } from '../../util/chain';
 import { toDecimal } from '../../util/decimals';
 import { formatCurrency } from '../../util/formatNumber';
 import { shortenAddress } from '../../util/shortenAddress';
@@ -14,9 +17,12 @@ import { shortenAddress } from '../../util/shortenAddress';
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
+import useViewTransitionedState from '../../hooks/useViewTransitionedState';
 
 import Button from '../ui/Button';
+import LoadingDots from '../ui/LoadingDots';
 import ModalHeader from '../ui/ModalHeader';
+import Transition from '../ui/Transition';
 
 import settingsStyles from '../settings/Settings.module.scss';
 import styles from './LedgerModal.module.scss';
@@ -24,11 +30,16 @@ import styles from './LedgerModal.module.scss';
 type OwnProps = {
   isActive?: boolean;
   isStatic?: boolean;
-  hardwareWallets?: LedgerWalletInfo[];
-  accounts?: Record<string, Account>;
   onBackButtonClick?: NoneToVoidFunction;
   onCancel?: NoneToVoidFunction;
   onClose: NoneToVoidFunction;
+};
+
+type StateProps = {
+  chain: ApiChain;
+  hardwareWallets?: ApiLedgerWalletInfo[];
+  accounts?: Record<string, Account>;
+  isLoading?: boolean;
 };
 
 const ACCOUNT_ADDRESS_SHIFT = 4;
@@ -37,32 +48,42 @@ const ACCOUNT_BALANCE_DECIMALS = 3;
 function LedgerSelectWallets({
   isActive,
   isStatic,
+  chain,
   hardwareWallets,
   accounts,
+  isLoading,
   onBackButtonClick,
   onCancel,
   onClose,
-}: OwnProps) {
+}: OwnProps & StateProps) {
   const {
     afterSelectHardwareWallets,
     loadMoreHardwareWallets,
   } = getActions();
   const lang = useLang();
+  const balanceToken = getChainConfig(chain).nativeToken;
+  const balanceTokenFontIcon = (TOKEN_FONT_ICONS as Record<string, string | undefined>)[balanceToken.slug];
 
+  const { renderedValue: renderedWallets, vtnStyle } = useViewTransitionedState(
+    hardwareWallets,
+    { transitionName: 'acc-list' },
+  );
   const [selectedAccountIndices, setSelectedAccountIndices] = useState<number[]>([]);
   const shouldCloseOnCancel = !onCancel;
+  const shouldUseVerticalButtons = Boolean(onBackButtonClick);
 
   useHistoryBack({
     isActive,
     onBack: onCancel ?? onClose,
   });
 
+  // Use functional state update to avoid stale closures on rapid toggles
   const handleAccountToggle = useLastCallback((index: number) => {
-    if (selectedAccountIndices.includes(index)) {
-      setSelectedAccountIndices(selectedAccountIndices.filter((id) => id !== index));
-    } else {
-      setSelectedAccountIndices(selectedAccountIndices.concat([index]));
-    }
+    setSelectedAccountIndices((prev) => (
+      prev.includes(index)
+        ? prev.filter((id) => id !== index)
+        : prev.concat([index])
+    ));
   });
 
   const handleAddLedgerWallets = useLastCallback(() => {
@@ -71,43 +92,62 @@ function LedgerSelectWallets({
   });
 
   const alreadyConnectedList = useMemo(
-    () => Object.values(accounts ?? [])
-      .map((account) => account.byChain.ton?.address)
-      .filter(Boolean),
-    [accounts],
+    () => new Set(
+      Object.values(accounts ?? [])
+        .map((account) => account.byChain[chain]?.address)
+        .filter(Boolean),
+    ),
+    [accounts, chain],
   );
-
-  const handleAddWalletClick = useLastCallback(() => {
-    const list = hardwareWallets ?? [];
-    const lastIndex = list[list.length - 1]?.index ?? 0;
-
-    loadMoreHardwareWallets({ lastIndex });
-  });
 
   function renderAddAccount() {
     return (
       <Button
         className={styles.addAccountContainer}
-        onClick={handleAddWalletClick}
+        onClick={!isLoading ? loadMoreHardwareWallets : undefined}
       >
-        {lang('Add Wallet')}
-        <i className={buildClassName(styles.addAccountIcon, 'icon-plus')} aria-hidden />
+        {lang('Show More')}
+        <Transition
+          name="fade"
+          activeKey={isLoading ? 1 : 0}
+          slideClassName={styles.addAccountIconTransition}
+        >
+          {isLoading ? (
+            <LoadingDots isActive className={styles.addAccountLoading} />
+          ) : (
+            <i className={buildClassName(styles.addAccountIcon, 'icon-plus')} aria-hidden />
+          )}
+        </Transition>
       </Button>
     );
   }
 
   function renderAccount(address: string, balance: bigint, index: number, isConnected: boolean) {
-    const isActiveAccount = isConnected || selectedAccountIndices.includes(index);
+    const isSelected = selectedAccountIndices.includes(index);
+    const balanceNumber = toDecimal(balance, balanceToken.decimals);
 
     return (
       <div
         key={address}
-        className={buildClassName(styles.account, isActiveAccount && styles.account_current)}
+        className={buildClassName(
+          styles.account,
+          isConnected && styles.account_connected,
+          isSelected && styles.account_current,
+        )}
         onClick={isConnected ? undefined : () => handleAccountToggle(index)}
       >
         <span className={styles.accountName}>
-          <i className={buildClassName(styles.accountCurrencyIcon, 'icon-ton')} aria-hidden />
-          {formatCurrency(toDecimal(balance), '', ACCOUNT_BALANCE_DECIMALS)}
+          {balanceTokenFontIcon ? (
+            <>
+              <i
+                className={buildClassName(styles.accountCurrencyIcon, balanceTokenFontIcon)}
+                aria-label={balanceToken.symbol}
+              />
+              {formatCurrency(balanceNumber, '', ACCOUNT_BALANCE_DECIMALS)}
+            </>
+          ) : (
+            formatCurrency(balanceNumber, balanceToken.symbol, ACCOUNT_BALANCE_DECIMALS)
+          )}
         </span>
         <div className={styles.accountFooter}>
           <span className={styles.accountAddress}>
@@ -115,27 +155,31 @@ function LedgerSelectWallets({
           </span>
         </div>
 
-        <div className={buildClassName(styles.accountCheckMark, isActiveAccount && styles.accountCheckMark_active)} />
+        <div
+          className={buildClassName(
+            styles.accountCheckMark,
+            (isConnected || isSelected) && styles.accountCheckMark_active,
+          )}
+        />
       </div>
     );
   }
 
   function renderAccounts() {
-    const list = hardwareWallets ?? [];
     const fullClassName = buildClassName(
       styles.accounts,
-      list.length === 1 && styles.accounts_two,
+      (renderedWallets || []).length === 1 && styles.accounts_two,
       'custom-scroll',
     );
 
     return (
-      <div className={fullClassName}>
-        {list.map(
-          ({ address, balance, index }) => renderAccount(
+      <div className={fullClassName} style={vtnStyle}>
+        {(renderedWallets || []).map(
+          ({ wallet: { index, address }, balance }) => renderAccount(
             address,
             balance,
             index,
-            alreadyConnectedList.includes(address),
+            alreadyConnectedList.has(address),
           ),
         )}
         {renderAddAccount()}
@@ -143,7 +187,6 @@ function LedgerSelectWallets({
     );
   }
 
-  const areAccountsSelected = !selectedAccountIndices.length;
   const title = selectedAccountIndices.length
     ? lang('%1$d Selected', selectedAccountIndices.length) as string
     : lang('Select Ledger Wallets');
@@ -170,20 +213,24 @@ function LedgerSelectWallets({
       )}
       >
         {renderAccounts()}
-        <div className={styles.actionBlock}>
+        <div className={buildClassName(
+          styles.actionBlock,
+          shouldUseVerticalButtons ? styles.actionBlockVertical : styles.actionBlockHorizontal,
+        )}
+        >
           <Button
-            className={styles.button}
+            isPrimary
+            isDisabled={selectedAccountIndices.length === 0}
+            onClick={handleAddLedgerWallets}
+            className={buildClassName(styles.button, styles.buttonFullWidth)}
+          >
+            {lang('Add')}
+          </Button>
+          <Button
+            className={buildClassName(styles.button, shouldUseVerticalButtons && styles.buttonFullWidth)}
             onClick={shouldCloseOnCancel ? onClose : onCancel}
           >
             {lang(shouldCloseOnCancel ? 'Cancel' : 'Back')}
-          </Button>
-          <Button
-            isPrimary
-            isDisabled={areAccountsSelected}
-            onClick={handleAddLedgerWallets}
-            className={styles.button}
-          >
-            {lang('Add')}
           </Button>
         </div>
       </div>
@@ -191,4 +238,14 @@ function LedgerSelectWallets({
   );
 }
 
-export default memo(LedgerSelectWallets);
+export default memo(withGlobal<OwnProps>((global): StateProps => {
+  const { chain, hardwareWallets, isLoading } = global.hardware;
+  const accounts = selectNetworkAccounts(global);
+
+  return {
+    chain,
+    hardwareWallets,
+    accounts,
+    isLoading,
+  };
+})(LedgerSelectWallets));

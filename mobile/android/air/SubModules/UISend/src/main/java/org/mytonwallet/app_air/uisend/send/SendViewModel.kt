@@ -18,14 +18,14 @@ import org.mytonwallet.app_air.uicomponents.commonViews.TokenAmountInputView
 import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uicomponents.extensions.throttle
 import org.mytonwallet.app_air.uisend.send.helpers.TransferHelpers
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletcontext.helpers.DNSHelpers
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.TokenEquivalent
-import org.mytonwallet.app_air.walletcore.models.MBaseCurrency
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.MFee

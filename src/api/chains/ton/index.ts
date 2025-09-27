@@ -1,18 +1,45 @@
+import type { ChainSdk } from '../../types/chains';
+
+import { decryptComment, fetchActivityDetails, fetchActivitySlice } from './activities';
+import { getWalletFromAddress, getWalletFromBip39Mnemonic, getWalletsFromLedgerAndLoadBalance } from './auth';
+import { getIsLedgerAppOpen } from './other';
+import { setupActivePolling, setupInactivePolling } from './polling';
+import { checkTransactionDraft, submitTransfer } from './transfer';
+import { verifyLedgerWalletAddress } from './wallet';
+
+const tonSdk: ChainSdk<'ton'> = {
+  fetchActivitySlice,
+  fetchActivityDetails,
+  decryptComment,
+  getWalletFromBip39Mnemonic,
+  getWalletFromAddress,
+  getWalletsFromLedgerAndLoadBalance,
+  setupActivePolling,
+  setupInactivePolling,
+  checkTransactionDraft,
+  submitTransfer,
+  verifyLedgerWalletAddress,
+  getIsLedgerAppOpen,
+};
+
+export default tonSdk;
+
+// The chain methods that haven't been multichain-refactored yet:
+
+// todo: Remove as a part of the multichain send refactoring
+export { submitTransfer };
+
 export {
   generateMnemonic,
   rawSign,
   validateMnemonic,
   fetchPrivateKey,
-  getWalletFromBip39Mnemonic,
   getWalletFromMnemonic,
   getWalletFromPrivateKey,
-  getWalletFromAddress,
-  getWalletFromKeys,
   getOtherVersionWallet,
 } from './auth';
 export {
   getAccountNfts,
-  getNftUpdates,
   checkNftTransferDraft,
   submitNftTransfers,
   checkNftOwnership,
@@ -23,33 +50,17 @@ export {
   checkDnsChangeWalletDraft,
   submitDnsChangeWallet,
 } from './domains';
-export { oneCellFromBoc } from './util/tonCore';
 export {
-  checkTransactionDraft,
-  submitTransfer,
   checkMultiTransactionDraft,
+  checkToAddress,
   submitMultiTransfer,
   signTransfers,
-  sendSignedTransactions,
   submitTransferWithDiesel,
   fetchEstimateDiesel,
 } from './transfer';
 export {
-  getAccountBalance,
-  getTonWallet,
-  pickBestWallet,
-  publicKeyToAddress,
-  getWalletStateInit,
   getWalletBalance,
-  getWalletSeqno,
-  isAddressInitialized,
-  isActiveSmartContract,
-  getWalletInfo,
   pickWalletByAddress,
-  getWalletVersions,
-  getWalletVersionInfos,
-  getContractInfo,
-  buildWallet,
 } from './wallet';
 export {
   checkStakeDraft,
@@ -62,34 +73,12 @@ export {
   submitUnstakeEthenaLocked,
 } from './staking';
 export {
-  packPayloadToBoc,
-  checkApiAvailability,
-} from './other';
-export {
   fetchToken,
   insertMintlessPayload,
-  getToncoinAmountForTransfer,
 } from './tokens';
-export {
-  resolveTokenWalletAddress,
-  resolveTokenAddress,
-} from './util/tonCore';
-export {
-  parsePayloadBase64,
-} from './util/metadata';
 export {
   normalizeAddress,
 } from './address';
 export {
   validateDexSwapTransfers,
 } from './swap';
-export { Workchain } from './constants';
-export {
-  setupActivePolling,
-  setupInactivePolling,
-} from './polling';
-export {
-  decryptComment,
-  fetchActivityDetails,
-  fetchActivitySlice,
-} from './activities';

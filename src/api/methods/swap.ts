@@ -22,7 +22,7 @@ import { SWAP_API_VERSION, TONCOIN } from '../../config';
 import { parseAccountId } from '../../util/account';
 import { buildLocalTxId } from '../../util/activities';
 import { omitUndefined } from '../../util/iteratees';
-import chains from '../chains';
+import * as ton from '../chains/ton';
 import { fetchStoredChainAccount, fetchStoredWallet } from '../common/accounts';
 import { callBackendGet, callBackendPost } from '../common/backend';
 import { getBackendConfigCache } from '../common/cache';
@@ -37,8 +37,6 @@ import { ApiServerError } from '../errors';
 import { callHook } from '../hooks';
 import { getBackendAuthToken } from './other';
 import { submitTransfer } from './transfer';
-
-const ton = chains.ton;
 
 let onUpdate: OnApiUpdate;
 

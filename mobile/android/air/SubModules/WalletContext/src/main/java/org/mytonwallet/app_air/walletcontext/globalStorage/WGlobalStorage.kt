@@ -4,10 +4,10 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
 import org.mytonwallet.app_air.walletcontext.models.MAutoLockOption
-import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletcontext.theme.ThemeManager.UIMode
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.UIMode
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 
 object WGlobalStorage {
     val isInitialized: Boolean
@@ -110,9 +110,9 @@ object WGlobalStorage {
         accountType: String,
         address: String?,
         tronAddress: String?,
-        ledgerWallet: JSONObject? = null,
         name: String? = null,
         importedAt: Long?,
+        tonLedgerIndex: Int? = null,
     ) {
         val accountIds = accountIds()
         val suggestedName =
@@ -128,6 +128,9 @@ object WGlobalStorage {
         if (address != null) {
             val tonChainData = JSONObject()
             tonChainData.put("address", address)
+            tonLedgerIndex?.let { tonLedgerIndex ->
+                tonChainData.put("ledgerIndex", tonLedgerIndex)
+            }
             byChain.put("ton", tonChainData)
         }
         if (!tronAddress.isNullOrEmpty()) {
@@ -148,13 +151,6 @@ object WGlobalStorage {
             accountType,
             IGlobalStorageProvider.PERSIST_NO
         )
-        ledgerWallet?.let {
-            globalStorageProvider.set(
-                "accounts.byId.$accountId.ledger",
-                ledgerWallet,
-                IGlobalStorageProvider.PERSIST_NO
-            )
-        }
         if (importedAt != null)
             globalStorageProvider.set(
                 "accounts.byId.$accountId.importedAt",
@@ -716,7 +712,7 @@ object WGlobalStorage {
         return globalStorageProvider.getDict("currencyRates")
     }
 
-    private const val LAST_STATE: Int = 46
+    private const val LAST_STATE: Int = 47
     fun migrate() {
         // Lock the storage
         incDoNotSynchronize()
@@ -738,11 +734,11 @@ object WGlobalStorage {
         if (currentState < 32)
             throw Exception() // Not supported!
 
-        if (currentState <= 35) {
+        if (currentState < 36) {
             clearActivities()
         }
 
-        if (currentState <= 36) {
+        if (currentState < 37) {
             accountIds().forEach { accountId ->
                 val account = getAccount(accountId)
                 val updatedType =
@@ -787,7 +783,7 @@ object WGlobalStorage {
             )
         }
 
-        if (currentState <= 45) {
+        if (currentState < 46) {
             clearActivities()
 
             val accountIds = accountIds()
@@ -824,6 +820,21 @@ object WGlobalStorage {
                         saveAccount(accountId, account)
                     }
                 }
+            }
+        }
+
+        if (currentState < 47) {
+            val accountIds = accountIds()
+            for (accountId in accountIds) {
+                val account = getAccount(accountId) ?: continue
+                if (account.optString("type") != "hardware")
+                    continue
+                val byChain = account.optJSONObject("byChain") ?: continue
+                val tonObj = byChain.optJSONObject("ton") ?: continue
+                val ledgerObj = account.optJSONObject("ledger") ?: continue // Already migrated
+                tonObj.put("ledgerIndex", ledgerObj.optInt("index"))
+                account.remove("ledger")
+                saveAccount(accountId, account)
             }
         }
 

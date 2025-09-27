@@ -19,10 +19,10 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.intro.IntroVC
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.wordDisplay.WordDisplayVC
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
-import org.mytonwallet.app_air.walletcontext.utils.toProcessedSpannableStringBuilder
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import java.lang.ref.WeakReference
 import kotlin.math.max
 
@@ -196,10 +196,10 @@ class BackupVC(
             toBottomPx(
                 toWordsButton,
                 32.dp +
-                        max(
-                            (navigationController?.getSystemBars()?.bottom ?: 0),
-                            (window?.imeInsets?.bottom ?: 0)
-                        )
+                    max(
+                        (navigationController?.getSystemBars()?.bottom ?: 0),
+                        (window?.imeInsets?.bottom ?: 0)
+                    )
             )
         }
     }

@@ -1,7 +1,7 @@
 package org.mytonwallet.app_air.walletcore.models
 
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.utils.toProcessedSpannableStringBuilder
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 
 class MBridgeException(val error: MBridgeError) : Throwable()
 
@@ -23,6 +23,7 @@ enum class MBridgeError(val errorName: String? = null, var customMessage: String
     HARDWARE_BLIND_SIGNING_NOT_ENABLED("BlindSigningNotEnabled"),
     REJECTED_BY_USER("RejectedByUser"),
     PROOF_TOO_LARGE("ProofTooLarge"),
+    CONNECTION_BROKEN("ConnectionBroken"),
     WRONG_ADDRESS("WrongAddress"),
     WRONG_NETWORK("WrongNetwork"),
     INVALID_ADDRESS("InvalidAddress"),
@@ -49,6 +50,7 @@ enum class MBridgeError(val errorName: String? = null, var customMessage: String
                         .toProcessedSpannableStringBuilder()
 
                 PROOF_TOO_LARGE -> LocaleController.getString("The proof for signing provided by the Dapp is too large")
+                CONNECTION_BROKEN -> LocaleController.getString("\$ledger_connection_broken")
 
                 WRONG_ADDRESS -> LocaleController.getString("WrongAddress")
                 WRONG_NETWORK -> LocaleController.getString("WrongNetwork")

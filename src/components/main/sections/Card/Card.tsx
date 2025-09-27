@@ -4,7 +4,7 @@ import React, {
 } from '../../../../lib/teact/teact';
 import { withGlobal } from '../../../../global';
 
-import type { ApiBaseCurrency, ApiNft, ApiStakingState } from '../../../../api/types';
+import type { ApiBaseCurrency, ApiCurrencyRates, ApiNft, ApiStakingState } from '../../../../api/types';
 import type { IAnchorPosition, UserToken } from '../../../../global/types';
 
 import { IS_CORE_WALLET } from '../../../../config';
@@ -54,6 +54,7 @@ interface StateProps {
   tokens?: UserToken[];
   currentTokenSlug?: string;
   baseCurrency: ApiBaseCurrency;
+  currencyRates: ApiCurrencyRates;
   stakingStates?: ApiStakingState[];
   cardNft?: ApiNft;
   isSensitiveDataHidden?: true;
@@ -68,6 +69,7 @@ function Card({
   onTokenCardClose,
   onYieldClick,
   baseCurrency,
+  currencyRates,
   stakingStates,
   isSensitiveDataHidden,
   isNftBuyingDisabled,
@@ -116,8 +118,8 @@ function Card({
   });
 
   const values = useMemo(() => {
-    return tokens ? calculateFullBalance(tokens, stakingStates) : undefined;
-  }, [tokens, stakingStates]);
+    return tokens ? calculateFullBalance(tokens, stakingStates, currencyRates[baseCurrency]) : undefined;
+  }, [tokens, stakingStates, currencyRates, baseCurrency]);
 
   useHistoryBack({
     isActive: Boolean(currentTokenSlug),
@@ -280,6 +282,7 @@ export default memo(
         tokens: selectCurrentAccountTokens(global),
         currentTokenSlug: accountState?.currentTokenSlug,
         baseCurrency: global.settings.baseCurrency,
+        currencyRates: global.currencyRates,
         stakingStates,
         cardNft,
         isSensitiveDataHidden: global.settings.isSensitiveDataHidden,

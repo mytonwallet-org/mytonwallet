@@ -27,10 +27,10 @@ import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views.
 import org.mytonwallet.app_air.uitonconnect.viewControllers.TonConnectRequestSendViewModel
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.adapter.Adapter
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.requestSendDetails.TonConnectRequestSendDetailsVC
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
@@ -193,11 +193,9 @@ class TonConnectRequestSendVC(
 
     private fun confirmHardware() {
         val account = AccountStore.activeAccount!!
-        val ledger = account.ledger ?: return
         val ledgerConnectVC = LedgerConnectVC(
             context,
             LedgerConnectVC.Mode.ConnectToSubmitTransfer(
-                ledger.index,
                 account.tonAddress!!,
                 signData = LedgerConnectVC.SignData.SignDappTransfers(update),
                 onDone = {

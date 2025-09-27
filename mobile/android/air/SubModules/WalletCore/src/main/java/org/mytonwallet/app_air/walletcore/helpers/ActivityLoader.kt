@@ -3,7 +3,7 @@ package org.mytonwallet.app_air.walletcore.helpers
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
-import org.mytonwallet.app_air.walletcontext.helpers.logger.Logger
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers.Companion.isSuitableToGetTimestamp

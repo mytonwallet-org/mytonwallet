@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
+import android.view.ViewConfiguration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import me.everything.android.ui.overscroll.OverScrollBounceEffectDecoratorBase
@@ -61,6 +62,61 @@ open class WRecyclerView(context: Context) : RecyclerView(context) {
         }
     }
 
+    private var overscrollListener: OnItemTouchListener? = null
+
+    fun disallowInterceptOnOverscroll() {
+        if (overscrollListener != null)
+            return
+        overscrollListener = object : OnItemTouchListener {
+            private var startY = 0f
+            private var overscrollDetected = false
+            private val mSwipeSlop = ViewConfiguration.get(context).scaledTouchSlop
+
+            override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
+                when (e.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        startY = e.y
+                    }
+
+                    MotionEvent.ACTION_MOVE -> {
+                        if (overscrollDetected)
+                            return false
+
+                        val deltaY = e.y - startY
+
+                        val atTop = !rv.canScrollVertically(-1)
+                        val atBottom = !rv.canScrollVertically(1)
+
+                        if ((atTop && deltaY > mSwipeSlop) || (atBottom && deltaY < mSwipeSlop)) {
+                            if (!overscrollDetected) {
+                                overscrollDetected = true
+                                parent?.requestDisallowInterceptTouchEvent(true)
+                            }
+                        }
+                    }
+
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        overscrollDetected = false
+                        rv.parent?.requestDisallowInterceptTouchEvent(false)
+                    }
+                }
+                return false
+            }
+
+            override fun onTouchEvent(rv: RecyclerView, e: MotionEvent) {}
+            override fun onRequestDisallowInterceptTouchEvent(disallowIntercept: Boolean) {}
+        }
+        addOnItemTouchListener(overscrollListener!!)
+    }
+
+    fun onDestroy() {
+        clearOnScrollListeners()
+        overscrollListener?.let { it ->
+            removeOnItemTouchListener(it)
+        }
+    }
+
+    // OVERSCROLL //////////////////////////////////////////////////////////////////////////////////
     fun setupOverScroll() {
         verticalOverScrollBounceEffectDecorator?.detach()
         verticalOverScrollBounceEffectDecorator = VerticalOverScrollBounceEffectDecorator(

@@ -19,9 +19,9 @@ import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.models.MExploreSite
 
@@ -70,10 +70,18 @@ class ExploreTrendingItemCell(
     private val subtitleLabel = WLabel(context).apply {
         setStyle(12f, WFont.Medium)
         text = site.description
-        setSingleLine()
-        ellipsize = TextUtils.TruncateAt.MARQUEE
-        isHorizontalFadingEdgeEnabled = true
-        isSelected = true
+        maxLines = 2
+        ellipsize = TextUtils.TruncateAt.END
+    }
+
+    private val textsContainerView = WView(context).apply {
+        addView(titleLabel, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        addView(subtitleLabel, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        setConstraints {
+            toTop(titleLabel)
+            topToBottom(subtitleLabel, titleLabel)
+            toBottom(subtitleLabel, 1f)
+        }
     }
 
     private val bottomBlurView = WBlurryBackgroundView(
@@ -104,25 +112,21 @@ class ExploreTrendingItemCell(
             addView(thumbImageView, ViewGroup.LayoutParams(48.dp, 48.dp))
             addView(openButton, ViewGroup.LayoutParams(65.dp, 32.dp))
         }
-        addView(titleLabel, ViewGroup.LayoutParams(0, WRAP_CONTENT))
-        addView(subtitleLabel, ViewGroup.LayoutParams(0, WRAP_CONTENT))
+        addView(textsContainerView, ViewGroup.LayoutParams(0, WRAP_CONTENT))
 
         setConstraints {
             allEdges(bottomBlurView)
             toStart(thumbImageView, 20f)
             toCenterY(thumbImageView)
-            toTop(titleLabel, 11f)
-            toStart(titleLabel, if (site.extendedIcon.isNotBlank()) 78f else 8f)
-            startToStart(subtitleLabel, titleLabel)
-            toBottom(subtitleLabel, 12f)
+            toCenterY(textsContainerView)
+            toCenterX(textsContainerView)
+            toStart(textsContainerView, if (site.extendedIcon.isNotBlank()) 78f else 8f)
             if (site.extendedIcon.isNotBlank()) {
                 toEnd(openButton, 20f)
                 toCenterY(openButton)
-                endToStart(titleLabel, openButton, 4f)
-                endToStart(subtitleLabel, openButton, 4f)
+                endToStart(textsContainerView, openButton, 4f)
             } else {
-                toEnd(titleLabel, 8f)
-                toEnd(subtitleLabel, 8f)
+                toEnd(textsContainerView, 8f)
             }
         }
     }

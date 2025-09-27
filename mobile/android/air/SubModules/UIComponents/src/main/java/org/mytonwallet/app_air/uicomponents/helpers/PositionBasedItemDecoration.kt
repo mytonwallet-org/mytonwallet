@@ -3,7 +3,7 @@ package org.mytonwallet.app_air.uicomponents.helpers
 import android.graphics.Rect
 import android.view.View
 import androidx.recyclerview.widget.RecyclerView
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 
 class PositionBasedItemDecoration(
     private val spacingProvider: (position: Int) -> Rect

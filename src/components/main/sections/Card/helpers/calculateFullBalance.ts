@@ -12,10 +12,14 @@ import { getFullStakingBalance } from '../../../../../util/staking';
 
 type ChangePrefix = 'up' | 'down' | undefined;
 
-export function calculateFullBalance(tokens: UserToken[], stakingStates?: ApiStakingState[]) {
+export function calculateFullBalance(
+  tokens: UserToken[],
+  stakingStates?: ApiStakingState[],
+  baseCurrencyRate: string = '1',
+) {
   const stakingStateBySlug = buildArrayCollectionByKey(stakingStates ?? [], 'tokenSlug');
 
-  const primaryValue = tokens.reduce((acc, token) => {
+  const primaryValueUsd = tokens.reduce((acc, token) => {
     if (STAKED_TOKEN_SLUGS.has(token.slug)) {
       // Cost of staked tokens is already taken into account
       return acc;
@@ -25,11 +29,12 @@ export function calculateFullBalance(tokens: UserToken[], stakingStates?: ApiSta
 
     for (const stakingState of stakingStates) {
       const stakingAmount = toBig(getFullStakingBalance(stakingState), token.decimals);
-      acc = acc.plus(stakingAmount.mul(token.price));
+      acc = acc.plus(stakingAmount.mul(token.priceUsd));
     }
 
-    return acc.plus(token.totalValue);
+    return acc.plus(toBig(token.amount, token.decimals).mul(token.priceUsd));
   }, Big(0));
+  const primaryValue = primaryValueUsd.mul(baseCurrencyRate);
 
   const [primaryWholePart, primaryFractionPart] = formatNumber(primaryValue).split('.');
   const changeValue = tokens.reduce((acc, token) => {
@@ -41,6 +46,7 @@ export function calculateFullBalance(tokens: UserToken[], stakingStates?: ApiSta
 
   return {
     primaryValue: primaryValue.toString(),
+    primaryValueUsd: primaryValueUsd.toString(),
     primaryWholePart,
     primaryFractionPart,
     changePrefix,

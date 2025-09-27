@@ -17,11 +17,11 @@ import type {
 import { IS_AIR_APP, IS_CORE_WALLET, IS_STAKING_DISABLED, TONCOIN } from '../../config';
 import { parseAccountId } from '../../util/account';
 import { areDeepEqual } from '../../util/areDeepEqual';
-import { getChainConfig } from '../../util/chain';
 import { omit } from '../../util/iteratees';
 import { logDebugError } from '../../util/logs';
 import { OrGate } from '../../util/orGate';
 import { forbidConcurrency } from '../../util/schedulers';
+import { getNativeToken } from '../../util/tokens';
 import chains from '../chains';
 import {
   doesAccountHaveChain,
@@ -33,7 +33,7 @@ import { tryUpdateKnownAddresses } from '../common/addresses';
 import { callBackendGet, callBackendPost } from '../common/backend';
 import { setBackendConfigCache } from '../common/cache';
 import { pollingLoop } from '../common/polling/utils';
-import { getTokensCache, loadTokensCache, tokensPreload, updateTokens } from '../common/tokens';
+import { getTokensCache, loadTokensCache, sendUpdateTokens, tokensPreload, updateTokens } from '../common/tokens';
 import { MINUTE, SEC } from '../constants';
 import { resolveDataPreloadPromise } from './preload';
 import { tryUpdateStakingCommonData } from './staking';
@@ -132,7 +132,7 @@ async function tryUpdateTokens() {
         assets: nonBackendTokenAddresses.slice(0, MAX_POST_TOKENS),
       }) : undefined;
 
-    await updateTokens(tokens, onUpdate, nonBackendTokenDetails, true);
+    await updateTokens(tokens, () => sendUpdateTokens(onUpdate), nonBackendTokenDetails, true);
   } catch (err) {
     logDebugError('tryUpdateTokens', err);
   }
@@ -221,8 +221,6 @@ export async function setActivePollingAccount(
   stopActiveAccountPolling?.();
   stopActiveAccountPolling = undefined;
 
-  inactiveAccountPolling?.setActiveAccount(accountId);
-
   if (accountId) {
     const account = await fetchStoredAccount(accountId);
 
@@ -250,6 +248,9 @@ export async function setActivePollingAccount(
       }
     };
   }
+
+  // Setting up inactive account polling at the end in order to give the active account polling a higher priority in the connection queue
+  inactiveAccountPolling?.setActiveAccount(accountId);
 }
 
 /** Call it every time a new account is created */
@@ -432,7 +433,7 @@ function createInactiveAccountsPollingManager() {
 }
 
 function pickChainTimestamps(bySlug: ApiActivityTimestamps, chain: ApiChain) {
-  const { slug: nativeSlug } = getChainConfig(chain).nativeToken;
+  const { slug: nativeSlug } = getNativeToken(chain);
   return Object.entries(bySlug).reduce((newBySlug, [slug, timestamp]) => {
     if (slug === nativeSlug || slug.startsWith(`${chain}-`)) {
       newBySlug[slug] = timestamp;

@@ -27,10 +27,10 @@ import org.mytonwallet.app_air.uiswap.screens.cex.receiveAddressInput.views.Swap
 import org.mytonwallet.app_air.uiswap.screens.cex.receiveAddressInput.views.SwapInputView
 import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapEstimateResponse
 import org.mytonwallet.app_air.uiswap.views.SwapConfirmView
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.api.swapCexValidateAddress

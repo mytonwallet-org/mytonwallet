@@ -33,6 +33,7 @@ import org.mytonwallet.app_air.ledger.LedgerManager
 import org.mytonwallet.app_air.ledger.connectionManagers.LedgerBleManager
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.views.LedgerConnectStepStatusView
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.views.LedgerConnectStepView
+import org.mytonwallet.app_air.ledger.screens.ledgerWallets.LedgerWalletsVC
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -44,36 +45,25 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.R
-import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.helpers.logger.LogMessage
-import org.mytonwallet.app_air.walletcontext.helpers.logger.Logger
-import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.MAIN_NETWORK
-import org.mytonwallet.app_air.walletcore.TON_CHAIN
 import org.mytonwallet.app_air.walletcore.WalletCore
-import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.api.submitStake
 import org.mytonwallet.app_air.walletcore.api.submitUnstake
-import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.ApiTonConnectProof
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransferToSign
 import org.mytonwallet.app_air.walletcore.moshi.LocalActivityParams
-import org.mytonwallet.app_air.walletcore.moshi.MApiLedgerDriver
 import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferOptions
-import org.mytonwallet.app_air.walletcore.moshi.MApiTonWallet
-import org.mytonwallet.app_air.walletcore.moshi.MApiTonWalletVersion
-import org.mytonwallet.app_air.walletcore.moshi.MLedgerWalletInfo
 import org.mytonwallet.app_air.walletcore.moshi.StakingState
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
@@ -90,7 +80,6 @@ class LedgerConnectVC(
     sealed class Mode {
         data object AddAccount : Mode()
         data class ConnectToSubmitTransfer(
-            val index: Int,
             val address: String,
             val signData: SignData,
             val onDone: () -> Unit
@@ -505,344 +494,205 @@ class LedgerConnectVC(
         })
     }
 
-    private fun finalizeImport(deviceId: String, deviceName: String) {
-        val allHardwareWalletAddresses = WGlobalStorage.accountIds().mapNotNull {
-            WGlobalStorage.getAccountTonAddress(it)
-        }
-        var index = -1
-        CoroutineScope(Dispatchers.IO).launch {
-            val newWallets = mutableListOf<MApiTonWallet>()
-            val walletsInfo = hashMapOf<String, MLedgerWalletInfo>()
-            while (true) {
-                index += 1
-                val wallet = LedgerManager.getWalletInfo(index) ?: break
-                if (allHardwareWalletAddresses.contains(wallet.address)) {
-                    // Already imported
-                    continue
-                }
-                val balance: BigInteger
-                try {
-                    balance = WalletCore.call(
-                        ApiMethod.WalletData.GetWalletBalance(
-                            TON_CHAIN, MAIN_NETWORK, wallet.address
-                        )
-                    )
-                } catch (e: Throwable) {
-                    finalizeFailed()
-                    continue
-                }
-                walletsInfo[wallet.address] = MLedgerWalletInfo(
-                    index = index,
-                    address = wallet.address,
-                    publicKey = wallet.publicKey,
-                    balance = balance,
-                    version = MApiTonWalletVersion.V4_R2,
-                    driver = MApiLedgerDriver.HID,
-                    deviceId = deviceId,
-                    deviceName = deviceName
-                )
-                if (balance != BigInteger.ZERO) {
-                    newWallets.add(wallet)
-                    continue
-                }
-                if (newWallets.isEmpty()) newWallets.add(wallet)
-                break
-            }
-            if (isDisappeared) {
-                return@launch
-            }
-            Handler(Looper.getMainLooper()).post {
-                view.lockView()
-            }
-            CoroutineScope(Dispatchers.IO).launch {
-                val finalizedWallets = mutableListOf<String>()
-                newWallets.forEach { newWallet ->
-                    try {
-                        val result = WalletCore.call(
-                            ApiMethod.Auth.ImportLedgerWallet(
-                                MAIN_NETWORK, walletsInfo[newWallet.address]!!
-                            )
-                        )
-                        Logger.d(
-                            Logger.LogTag.ACCOUNT,
-                            LogMessage.Builder()
-                                .append(
-                                    result.accountId,
-                                    LogMessage.MessagePartPrivacy.PUBLIC
-                                )
-                                .append(
-                                    "Connected",
-                                    LogMessage.MessagePartPrivacy.PUBLIC
-                                )
-                                .append(
-                                    "Address: ${result.address}",
-                                    LogMessage.MessagePartPrivacy.REDACTED
-                                ).build()
-                        )
-                        WGlobalStorage.addAccount(
-                            accountId = result.accountId,
-                            accountType = MAccount.AccountType.HARDWARE.value,
-                            address = newWallet.address,
-                            null,
-                            JSONObject().apply {
-                                put("driver", result.walletInfo.driver)
-                                put("index", result.walletInfo.index)
-                            },
-                            importedAt = null
-                        )
-                        finalizedWallets.add(result.accountId)
-                    } catch (_: Throwable) {
-                    }
-                }
-                Handler(Looper.getMainLooper()).post {
-                    if (finalizedWallets.size == 0) {
-                        finalizeFailed()
-                    } else {
-                        /*if (addedWallets != newWallets.size) {
-                        // TODO:: Handle partial added situation
-                        }*/
-                        WalletCore.activateAccount(
-                            accountId = finalizedWallets.first(),
-                            notifySDK = true
-                        ) { _, err ->
-                            if (err != null) {
-                                // Should not happen
-                                Logger.e(
-                                    Logger.LogTag.ACCOUNT,
-                                    LogMessage.Builder()
-                                        .append(
-                                            "Activation failed on ledger connect: $err",
-                                            LogMessage.MessagePartPrivacy.PUBLIC
-                                        ).build()
-                                )
-                                finalizeFailed()
-                                return@activateAccount
-                            }
-                            Handler(Looper.getMainLooper()).post {
-                                if (prevAccountsCount == 0) {
-                                    push(
-                                        WalletContextManager.delegate?.getWalletAddedVC(false) as WViewController
-                                    ) {
-                                        navigationController?.removePrevViewControllers()
-                                    }
-                                } else {
-                                    WalletCore.notifyEvent(WalletEvent.AddNewWalletCompletion)
-                                    window!!.dismissLastNav()
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     private fun finalizeValidation() {
         val mode = mode as Mode.ConnectToSubmitTransfer
         CoroutineScope(Dispatchers.IO).launch {
-            val info = LedgerManager.getWalletInfo(mode.index)
-            if (info?.address == mode.address) {
-                when (val signData = mode.signData) {
-                    is SignData.SignTransfer -> {
-                        try {
-                            WalletCore.call(
-                                ApiMethod.Transfer.SubmitTransfer(
-                                    MBlockchain.ton,
-                                    options = signData.transferOptions
-                                )
+            when (val signData = mode.signData) {
+                is SignData.SignTransfer -> {
+                    try {
+                        WalletCore.call(
+                            ApiMethod.Transfer.SubmitTransfer(
+                                MBlockchain.ton,
+                                options = signData.transferOptions
                             )
-                            Handler(Looper.getMainLooper()).post {
-                                mode.onDone()
-                            }
-                        } catch (e: Throwable) {
-                            Handler(Looper.getMainLooper()).post {
-                                signFailed(e as? JSWebViewBridge.ApiError)
-                            }
+                        )
+                        Handler(Looper.getMainLooper()).post {
+                            mode.onDone()
                         }
-                    }
-
-                    is SignData.SignDappTransfers -> {
-                        try {
-                            val signedMessages = WalletCore.call(
-                                ApiMethod.Transfer.SignTransfers(
-                                    accountId = signData.update.accountId,
-                                    transactions = signData.update.transactions.map {
-                                        ApiTransferToSign(
-                                            toAddress = it.toAddress,
-                                            amount = it.amount,
-                                            rawPayload = it.rawPayload,
-                                            payload = it.payload,
-                                            stateInit = it.stateInit
-                                        )
-                                    },
-                                    options = ApiMethod.Transfer.SignTransfers.Options(
-                                        password = null,
-                                        validUntil = signData.update.validUntil,
-                                        vestingAddress = signData.update.vestingAddress
-                                    )
-                                )
-                            )
-                            WalletCore.call(
-                                ApiMethod.DApp.ConfirmDappRequestSendTransaction(
-                                    signData.update.promiseId,
-                                    signedMessages
-                                )
-                            )
-                            Handler(Looper.getMainLooper()).post {
-                                mode.onDone()
-                            }
-                        } catch (e: Throwable) {
-                            Handler(Looper.getMainLooper()).post {
-                                signFailed(e as? JSWebViewBridge.ApiError)
-                            }
-                        }
-                    }
-
-                    is SignData.SignLedgerProof -> {
-                        try {
-                            Handler(Looper.getMainLooper()).post {
-                                view.unlockView()
-                            }
-                            val signResult = WalletCore.call(
-                                ApiMethod.DApp.SignTonProof(
-                                    AccountStore.activeAccountId!!,
-                                    signData.proof,
-                                    ""
-                                )
-                            )
-                            WalletCore.call(
-                                ApiMethod.DApp.ConfirmDappRequestConnect(
-                                    signData.promiseId,
-                                    ApiMethod.DApp.ConfirmDappRequestConnect.Request(
-                                        accountId = AccountStore.activeAccountId!!,
-                                        proofSignature = signResult.signature
-                                    )
-                                )
-                            )
-                            Handler(Looper.getMainLooper()).post {
-                                mode.onDone()
-                            }
-                        } catch (e: Throwable) {
-                            Handler(Looper.getMainLooper()).post {
-                                signFailed(e as? JSWebViewBridge.ApiError)
-                            }
-                        }
-                    }
-
-                    is SignData.SignNftTransfer -> {
-                        try {
-                            WalletCore.call(
-                                ApiMethod.Nft.SubmitNftTransfer(
-                                    accountId = signData.accountId,
-                                    passcode = "",
-                                    nft = signData.nft,
-                                    address = signData.toAddress,
-                                    comment = signData.comment,
-                                    fee = signData.realFee ?: BigInteger.ZERO
-                                )
-                            )
-                            Handler(Looper.getMainLooper()).post {
-                                mode.onDone()
-                            }
-                        } catch (e: Throwable) {
-                            Handler(Looper.getMainLooper()).post {
-                                signFailed(e as? JSWebViewBridge.ApiError)
-                            }
-                        }
-                    }
-
-                    is SignData.Staking -> {
-                        try {
-                            if (signData.isStaking)
-                                WalletCore.submitStake(
-                                    accountId = signData.accountId,
-                                    passcode = "",
-                                    amount = signData.amount,
-                                    stakingState = signData.stakingState,
-                                    realFee = signData.realFee,
-                                )
-                            else
-                                WalletCore.submitUnstake(
-                                    accountId = signData.accountId,
-                                    passcode = "",
-                                    amount = signData.amount,
-                                    stakingState = signData.stakingState,
-                                    realFee = signData.realFee,
-                                )
-                            Handler(Looper.getMainLooper()).post {
-                                mode.onDone()
-                            }
-                        } catch (e: Throwable) {
-                            Handler(Looper.getMainLooper()).post {
-                                signFailed(e as? JSWebViewBridge.ApiError)
-                            }
-                        }
-                    }
-
-                    is SignData.ClaimRewards -> {
-                        try {
-                            WalletCore.call(
-                                ApiMethod.Staking.SubmitStakingClaimOrUnlock(
-                                    accountId = AccountStore.activeAccountId!!,
-                                    password = "",
-                                    state = signData.stakingState,
-                                    realFee = signData.realFee
-                                )
-                            )
-                            Handler(Looper.getMainLooper()).post {
-                                mode.onDone()
-                            }
-                        } catch (e: Throwable) {
-                            Handler(Looper.getMainLooper()).post {
-                                signFailed(e as? JSWebViewBridge.ApiError)
-                            }
-                        }
-                    }
-
-                    is SignData.RenewNfts -> {
-                        try {
-                            WalletCore.call(
-                                ApiMethod.Domains.SubmitDnsRenewal(
-                                    accountId = AccountStore.activeAccountId!!,
-                                    password = "",
-                                    nfts = signData.nfts,
-                                    realFee = signData.realFee
-                                )
-                            )
-                            Handler(Looper.getMainLooper()).post {
-                                mode.onDone()
-                            }
-                        } catch (e: Throwable) {
-                            Handler(Looper.getMainLooper()).post {
-                                signFailed(e as? JSWebViewBridge.ApiError)
-                            }
-                        }
-                    }
-
-                    is SignData.LinkNftToWallet -> {
-                        try {
-                            WalletCore.call(
-                                ApiMethod.Domains.SubmitDnsChangeWallet(
-                                    accountId = AccountStore.activeAccountId!!,
-                                    password = "",
-                                    nft = signData.nft,
-                                    address = signData.address,
-                                    realFee = signData.realFee
-                                )
-                            )
-                            Handler(Looper.getMainLooper()).post {
-                                mode.onDone()
-                            }
-                        } catch (e: Throwable) {
-                            Handler(Looper.getMainLooper()).post {
-                                signFailed(e as? JSWebViewBridge.ApiError)
-                            }
+                    } catch (e: Throwable) {
+                        Handler(Looper.getMainLooper()).post {
+                            signFailed(e as? JSWebViewBridge.ApiError)
                         }
                     }
                 }
-            } else {
-                Handler(Looper.getMainLooper()).post {
-                    finalizeFailed()
+
+                is SignData.SignDappTransfers -> {
+                    try {
+                        val signedMessages = WalletCore.call(
+                            ApiMethod.Transfer.SignTransfers(
+                                accountId = signData.update.accountId,
+                                transactions = signData.update.transactions.map {
+                                    ApiTransferToSign(
+                                        toAddress = it.toAddress,
+                                        amount = it.amount,
+                                        rawPayload = it.rawPayload,
+                                        payload = it.payload,
+                                        stateInit = it.stateInit
+                                    )
+                                },
+                                options = ApiMethod.Transfer.SignTransfers.Options(
+                                    password = null,
+                                    validUntil = signData.update.validUntil,
+                                    vestingAddress = signData.update.vestingAddress
+                                )
+                            )
+                        )
+                        WalletCore.call(
+                            ApiMethod.DApp.ConfirmDappRequestSendTransaction(
+                                signData.update.promiseId,
+                                signedMessages
+                            )
+                        )
+                        Handler(Looper.getMainLooper()).post {
+                            mode.onDone()
+                        }
+                    } catch (e: Throwable) {
+                        Handler(Looper.getMainLooper()).post {
+                            signFailed(e as? JSWebViewBridge.ApiError)
+                        }
+                    }
+                }
+
+                is SignData.SignLedgerProof -> {
+                    try {
+                        Handler(Looper.getMainLooper()).post {
+                            view.unlockView()
+                        }
+                        val signResult = WalletCore.call(
+                            ApiMethod.DApp.SignTonProof(
+                                AccountStore.activeAccountId!!,
+                                signData.proof,
+                                ""
+                            )
+                        )
+                        WalletCore.call(
+                            ApiMethod.DApp.ConfirmDappRequestConnect(
+                                signData.promiseId,
+                                ApiMethod.DApp.ConfirmDappRequestConnect.Request(
+                                    accountId = AccountStore.activeAccountId!!,
+                                    proofSignature = signResult.signature
+                                )
+                            )
+                        )
+                        Handler(Looper.getMainLooper()).post {
+                            mode.onDone()
+                        }
+                    } catch (e: Throwable) {
+                        Handler(Looper.getMainLooper()).post {
+                            signFailed(e as? JSWebViewBridge.ApiError)
+                        }
+                    }
+                }
+
+                is SignData.SignNftTransfer -> {
+                    try {
+                        WalletCore.call(
+                            ApiMethod.Nft.SubmitNftTransfer(
+                                accountId = signData.accountId,
+                                passcode = "",
+                                nft = signData.nft,
+                                address = signData.toAddress,
+                                comment = signData.comment,
+                                fee = signData.realFee ?: BigInteger.ZERO
+                            )
+                        )
+                        Handler(Looper.getMainLooper()).post {
+                            mode.onDone()
+                        }
+                    } catch (e: Throwable) {
+                        Handler(Looper.getMainLooper()).post {
+                            signFailed(e as? JSWebViewBridge.ApiError)
+                        }
+                    }
+                }
+
+                is SignData.Staking -> {
+                    try {
+                        if (signData.isStaking)
+                            WalletCore.submitStake(
+                                accountId = signData.accountId,
+                                passcode = "",
+                                amount = signData.amount,
+                                stakingState = signData.stakingState,
+                                realFee = signData.realFee,
+                            )
+                        else
+                            WalletCore.submitUnstake(
+                                accountId = signData.accountId,
+                                passcode = "",
+                                amount = signData.amount,
+                                stakingState = signData.stakingState,
+                                realFee = signData.realFee,
+                            )
+                        Handler(Looper.getMainLooper()).post {
+                            mode.onDone()
+                        }
+                    } catch (e: Throwable) {
+                        Handler(Looper.getMainLooper()).post {
+                            signFailed(e as? JSWebViewBridge.ApiError)
+                        }
+                    }
+                }
+
+                is SignData.ClaimRewards -> {
+                    try {
+                        WalletCore.call(
+                            ApiMethod.Staking.SubmitStakingClaimOrUnlock(
+                                accountId = AccountStore.activeAccountId!!,
+                                password = "",
+                                state = signData.stakingState,
+                                realFee = signData.realFee
+                            )
+                        )
+                        Handler(Looper.getMainLooper()).post {
+                            mode.onDone()
+                        }
+                    } catch (e: Throwable) {
+                        Handler(Looper.getMainLooper()).post {
+                            signFailed(e as? JSWebViewBridge.ApiError)
+                        }
+                    }
+                }
+
+                is SignData.RenewNfts -> {
+                    try {
+                        WalletCore.call(
+                            ApiMethod.Domains.SubmitDnsRenewal(
+                                accountId = AccountStore.activeAccountId!!,
+                                password = "",
+                                nfts = signData.nfts,
+                                realFee = signData.realFee
+                            )
+                        )
+                        Handler(Looper.getMainLooper()).post {
+                            mode.onDone()
+                        }
+                    } catch (e: Throwable) {
+                        Handler(Looper.getMainLooper()).post {
+                            signFailed(e as? JSWebViewBridge.ApiError)
+                        }
+                    }
+                }
+
+                is SignData.LinkNftToWallet -> {
+                    try {
+                        WalletCore.call(
+                            ApiMethod.Domains.SubmitDnsChangeWallet(
+                                accountId = AccountStore.activeAccountId!!,
+                                password = "",
+                                nft = signData.nft,
+                                address = signData.address,
+                                realFee = signData.realFee
+                            )
+                        )
+                        Handler(Looper.getMainLooper()).post {
+                            mode.onDone()
+                        }
+                    } catch (e: Throwable) {
+                        Handler(Looper.getMainLooper()).post {
+                            signFailed(e as? JSWebViewBridge.ApiError)
+                        }
+                    }
                 }
             }
         }
@@ -877,7 +727,25 @@ class LedgerConnectVC(
                     Mode.AddAccount -> {
                         openTonAppStep.state =
                             LedgerConnectStepStatusView.State.IN_PROGRESS
-                        finalizeImport(state.device.id, state.device.name)
+                        WalletCore.call(
+                            ApiMethod.Auth.GetLedgerWallets(
+                                MBlockchain.ton,
+                                MAIN_NETWORK,
+                                0,
+                                5
+                            )
+                        ) { res, err ->
+                            res?.let {
+                                shouldDestroyLedgerManager = false
+                                push(
+                                    LedgerWalletsVC(context, res.toList()),
+                                    onCompletion = {
+                                        navigationController?.removePrevViewControllers()
+                                    })
+                            } ?: run {
+                                finalizeFailed()
+                            }
+                        }
                     }
 
                     is Mode.ConnectToSubmitTransfer -> {
@@ -949,12 +817,14 @@ class LedgerConnectVC(
         )
     }
 
+    var shouldDestroyLedgerManager = true
     override fun onDestroy() {
         super.onDestroy()
         window!!.unregisterReceiver(
             bluetoothStateReceiver,
         )
-        LedgerManager.stopConnection()
+        if (shouldDestroyLedgerManager)
+            LedgerManager.stopConnection()
     }
 
     override fun viewWillAppear() {

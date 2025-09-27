@@ -12,9 +12,9 @@ import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.Item.Config.Icon
 import org.mytonwallet.app_air.uicomponents.widgets.unlockView
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 class WMenuPopup {
 
@@ -140,6 +140,10 @@ class WMenuPopup {
         fun getSubTitle(): CharSequence? {
             return when (config) {
                 is Config.Item -> {
+                    config.subtitle
+                }
+
+                is Config.SelectableItem -> {
                     config.subtitle
                 }
 

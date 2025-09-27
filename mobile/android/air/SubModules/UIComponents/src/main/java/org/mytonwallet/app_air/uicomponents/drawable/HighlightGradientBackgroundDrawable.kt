@@ -2,8 +2,8 @@ package org.mytonwallet.app_air.uicomponents.drawable
 
 import android.graphics.drawable.GradientDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 
 class HighlightGradientBackgroundDrawable(

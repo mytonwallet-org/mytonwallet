@@ -15,10 +15,11 @@ import { WalletContractV5R1 } from '@ton/ton/dist/wallets/WalletContractV5R1';
 import type { ApiNetwork } from '../../../types';
 import type { ApiTonWalletVersion, TokenTransferBodyParams } from '../types';
 
-import { DEFAULT_TIMEOUT, TONCENTER_MAINNET_URL, TONCENTER_TESTNET_URL } from '../../../../config';
+import { DEFAULT_TIMEOUT } from '../../../../config';
 import { getDnsZoneByCollection } from '../../../../util/dns';
 import { fromKeyValueArrays, mapValues } from '../../../../util/iteratees';
 import { logDebugError } from '../../../../util/logs';
+import withCache from '../../../../util/withCache';
 import withCacheAsync from '../../../../util/withCacheAsync';
 import { DnsItem } from '../contracts/DnsItem';
 import { JettonMinter } from '../contracts/JettonMaster';
@@ -28,7 +29,7 @@ import { StakingPool } from '../contracts/JettonStaking/StakingPool';
 import { JettonWallet } from '../contracts/JettonWallet';
 import { hexToBytes } from '../../../common/utils';
 import { getEnvironment } from '../../../environment';
-import { DEFAULT_IS_BOUNCEABLE, JettonOpCode, LiquidStakingOpCode, OpCode } from '../constants';
+import { DEFAULT_IS_BOUNCEABLE, JettonOpCode, LiquidStakingOpCode, NETWORK_CONFIG, OpCode } from '../constants';
 import { generateQueryId } from './index';
 
 import { TonClient } from './TonClient';
@@ -55,8 +56,6 @@ export type TonWallet = WalletContractV1R1
 
 const TON_MAX_COMMENT_BYTES = 127;
 
-let clientByNetwork: Record<ApiNetwork, TonClient> | undefined;
-
 export const walletClassMap: Record<ApiTonWalletVersion, TonWalletType> = {
   simpleR1: WalletContractV1R1,
   simpleR2: WalletContractV1R2,
@@ -69,28 +68,16 @@ export const walletClassMap: Record<ApiTonWalletVersion, TonWalletType> = {
   W5: WalletContractV5R1,
 };
 
-export function getTonClient(network: ApiNetwork = 'mainnet') {
-  if (!clientByNetwork) {
-    const { apiHeaders, toncenterMainnetKey, toncenterTestnetKey } = getEnvironment();
+export const getTonClient = withCache((network: ApiNetwork) => {
+  const { apiHeaders, byNetwork } = getEnvironment();
 
-    clientByNetwork = {
-      mainnet: new TonClient({
-        endpoint: `${TONCENTER_MAINNET_URL}/api/v2/jsonRPC`,
-        timeout: DEFAULT_TIMEOUT,
-        apiKey: toncenterMainnetKey,
-        headers: apiHeaders,
-      }),
-      testnet: new TonClient({
-        endpoint: `${TONCENTER_TESTNET_URL}/api/v2/jsonRPC`,
-        timeout: DEFAULT_TIMEOUT,
-        apiKey: toncenterTestnetKey,
-        headers: apiHeaders,
-      }),
-    };
-  }
-
-  return clientByNetwork[network];
-}
+  return new TonClient({
+    endpoint: `${NETWORK_CONFIG[network].toncenterUrl}/api/v2/jsonRPC`,
+    timeout: DEFAULT_TIMEOUT,
+    apiKey: byNetwork[network].toncenterKey,
+    headers: apiHeaders,
+  });
+});
 
 export const resolveTokenWalletAddress = withCacheAsync(
   async (network: ApiNetwork, address: string, tokenAddress: string) => {
@@ -134,10 +121,6 @@ export function getJettonMinterData(network: ApiNetwork, address: string) {
   return contract.getJettonData();
 }
 
-export function oneCellFromBoc(bytes: Uint8Array) {
-  return Cell.fromBoc(Buffer.from(bytes));
-}
-
 export function toBase64Address(address: Address | string, isBounceable = DEFAULT_IS_BOUNCEABLE, network?: ApiNetwork) {
   if (typeof address === 'string') {
     address = Address.parse(address);
@@ -154,6 +137,17 @@ export function toRawAddress(address: Address | string) {
     address = Address.parse(address);
   }
   return address.toRawString();
+}
+
+export function areAddressesEqual(address1: Address | string, address2: Address | string) {
+  if (address1 === address2) {
+    return true;
+  }
+
+  if (typeof address1 === 'string') address1 = Address.parse(address1);
+  if (typeof address2 === 'string') address2 = Address.parse(address2);
+
+  return address1.equals(address2);
 }
 
 export function buildTokenTransferBody(params: TokenTransferBodyParams) {

@@ -34,7 +34,7 @@ export async function emulateTransaction(
   return parseEmulation(network, walletAddress, emulation, nftSuperCollectionsByCollectionAddress);
 }
 
-function parseEmulation(
+export function parseEmulation(
   network: ApiNetwork,
   walletAddress: string,
   emulation: EmulationResponse,
@@ -73,7 +73,7 @@ function parseEmulation(
     }
 
     if (activity.shouldLoadDetails) {
-      const result = calculateActivityDetails(activity, parsedTrace);
+      const result = calculateActivityDetails(activity, parsedTrace, true);
       if (result) {
         activity = result.activity;
         totalExcess += result.excess;

@@ -190,33 +190,20 @@ public class TokenSelectionVC: WViewController {
     }
     
     func filterTokens() {
-        showingWalletTokens = walletTokens.filter({ it in
-            let token = TokenStore.tokens[it.tokenSlug]
-            return (!onlyTonChain || token?.chain == "ton") && (
-                keyword.isEmpty || (
-                    it.tokenSlug.lowercased().contains(keyword.lowercased()) ||
-                    (token?.name.lowercased().contains(keyword.lowercased()) ?? false)
-                )
-            )
-        })
-        showingPopularTokens = TokenStore.swapAssets?.filter({ it in
-            (it.isPopular ?? false) && (
-                (!onlyTonChain || it.chain == "ton") && (
-                    self.keyword.isEmpty || (
-                        it.slug.lowercased().contains(self.keyword.lowercased()) ||
-                        it.name.lowercased().contains(self.keyword.lowercased())
-                    )
-                )
-            )
-        }) ?? []
-        showingAllAssets = TokenStore.swapAssets?.filter({ it in
-            (!onlyTonChain || it.chain == "ton") && (
-                self.keyword.isEmpty || (
-                    it.slug.lowercased().contains(self.keyword.lowercased()) ||
-                    it.name.lowercased().contains(self.keyword.lowercased())
-                )
-            )
-        }) ?? []
+        let keyword = self.keyword.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        showingWalletTokens = walletTokens.filter { token in
+            if let token = TokenStore.tokens[token.tokenSlug] {
+                return (!onlyTonChain || token.chain == TON_CHAIN) && token.matchesSearch(keyword)
+            }
+            return false
+        }
+        showingPopularTokens = TokenStore.swapAssets?.filter { swapAsset in
+            guard swapAsset.isPopular == true else { return false }
+            return (!onlyTonChain || swapAsset.chain == TON_CHAIN) && swapAsset.matchesSearch(keyword)
+        } ?? []
+        showingAllAssets = TokenStore.swapAssets?.filter { swapAsset in
+            return (!onlyTonChain || swapAsset.chain == TON_CHAIN) && swapAsset.matchesSearch(keyword)
+        } ?? []
         tableView?.reloadData()
     }
 }

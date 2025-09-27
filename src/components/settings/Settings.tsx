@@ -3,8 +3,7 @@ import { getActions, withGlobal } from '../../global';
 
 import type { ApiTonWalletVersion } from '../../api/chains/ton/types';
 import type { ApiDapp, ApiWalletWithVersionInfo } from '../../api/types';
-import type { Account, GlobalState, UserToken } from '../../global/types';
-import type { LedgerWalletInfo } from '../../util/ledger/types';
+import type { GlobalState, UserToken } from '../../global/types';
 import type { Wallet } from './SettingsWalletVersion';
 import { SettingsState } from '../../global/types';
 
@@ -30,7 +29,6 @@ import {
   selectCurrentAccountTokens,
   selectIsCurrentAccountViewMode,
   selectIsPasswordPresent,
-  selectNetworkAccounts,
 } from '../../global/selectors';
 import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
@@ -129,8 +127,6 @@ type StateProps = {
   versions?: ApiWalletWithVersionInfo[];
   isCopyStorageEnabled?: boolean;
   supportAccountsCount?: number;
-  hardwareWallets?: LedgerWalletInfo[];
-  accounts?: Record<string, Account>;
   arePushNotificationsAvailable?: boolean;
   isNftBuyingDisabled?: boolean;
   isViewMode: boolean;
@@ -161,8 +157,6 @@ function Settings({
   versions,
   isCopyStorageEnabled,
   supportAccountsCount = SUPPORT_ACCOUNTS_COUNT_DEFAULT,
-  accounts,
-  hardwareWallets,
   arePushNotificationsAvailable,
   isNftBuyingDisabled,
   isViewMode,
@@ -176,7 +170,6 @@ function Settings({
     toggleTonMagic,
     getDapps,
     clearIsPinAccepted,
-    afterSelectHardwareWallets,
   } = getActions();
 
   const lang = useLang();
@@ -340,16 +333,7 @@ function Settings({
     void openUrl('https://mytonwallet.io/get/mobile', { isExternal: true });
   }
 
-  const handleAddLedgerWallet = useLastCallback(() => {
-    afterSelectHardwareWallets({ hardwareSelectedIndices: [hardwareWallets![0].index] });
-    handleCloseSettings();
-  });
-
-  const handleLedgerConnected = useLastCallback((isSingleWallet: boolean) => {
-    if (isSingleWallet) {
-      handleAddLedgerWallet();
-      return;
-    }
+  const handleLedgerConnected = useLastCallback(() => {
     setSettingsState({ state: SettingsState.LedgerSelectWallets });
   });
 
@@ -858,7 +842,6 @@ function Settings({
             <LedgerConnect
               isActive={isActive && isSlideActive}
               isStatic={!isInsideModal}
-              doLoadWallets
               className={styles.nestedTransition}
               onBackButtonClick={handleBackClick}
               onConnected={handleLedgerConnected}
@@ -872,8 +855,6 @@ function Settings({
             <LedgerSelectWallets
               isActive={isActive && isSlideActive}
               isStatic={!isInsideModal}
-              accounts={accounts}
-              hardwareWallets={hardwareWallets}
               onBackButtonClick={handleBackClick}
               onClose={handleBackOrCloseAction}
             />
@@ -918,13 +899,11 @@ function Settings({
 
 export default memo(withGlobal<OwnProps>((global): StateProps => {
   const isPasswordPresent = selectIsPasswordPresent(global);
-  const accounts = selectNetworkAccounts(global);
   const { isCopyStorageEnabled, supportAccountsCount = 1, isNftBuyingDisabled } = global.restrictions;
 
   const { currentVersion, byId: versionsById } = global.walletVersions ?? {};
   const versions = versionsById?.[global.currentAccountId!];
   const { dapps = MEMO_EMPTY_ARRAY } = selectCurrentAccountState(global) || {};
-  const { hardwareWallets } = global.hardware;
 
   return {
     settings: global.settings,
@@ -936,8 +915,6 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     versions,
     isCopyStorageEnabled,
     supportAccountsCount,
-    hardwareWallets,
-    accounts,
     isNftBuyingDisabled,
     arePushNotificationsAvailable: global.pushNotifications.isAvailable,
     isViewMode: selectIsCurrentAccountViewMode(global),

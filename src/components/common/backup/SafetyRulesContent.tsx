@@ -1,7 +1,9 @@
+import type { ElementRef } from '../../../lib/teact/teact';
 import React, { memo } from '../../../lib/teact/teact';
 
 import { ANIMATED_STICKER_MIDDLE_SIZE_PX } from '../../../config';
 import renderText from '../../../global/helpers/renderText';
+import buildClassName from '../../../util/buildClassName';
 import { ANIMATED_STICKERS_PATHS } from '../../ui/helpers/animatedAssets';
 
 import useLang from '../../../hooks/useLang';
@@ -18,12 +20,14 @@ interface OwnProps {
   customButtonWrapperClassName?: string;
   isFullSizeButton?: boolean;
   isActive?: boolean;
+  withHeader?: boolean;
+  headerRef?: ElementRef<HTMLDivElement>;
   isFirstCheckboxSelected: boolean;
   isSecondCheckboxSelected: boolean;
   isThirdCheckboxSelected: boolean;
-  onFirstCheckboxClick: AnyFunction;
-  onSecondCheckboxClick: AnyFunction;
-  onThirdCheckboxClick: AnyFunction;
+  onFirstCheckboxClick: (isChecked: boolean) => void;
+  onSecondCheckboxClick: (isChecked: boolean) => void;
+  onThirdCheckboxClick: (isChecked: boolean) => void;
   textFirst: string;
   textSecond: string;
   textThird: string;
@@ -35,6 +39,8 @@ function SafetyRulesContent({
   customButtonWrapperClassName,
   isFullSizeButton,
   isActive,
+  withHeader,
+  headerRef,
   isFirstCheckboxSelected,
   isSecondCheckboxSelected,
   isThirdCheckboxSelected,
@@ -49,6 +55,25 @@ function SafetyRulesContent({
   const lang = useLang();
 
   const canSubmit = isFirstCheckboxSelected && isSecondCheckboxSelected && isThirdCheckboxSelected;
+
+  const handleFirstCheckboxChange = useLastCallback((isChecked: boolean) => {
+    if (isChecked) {
+      onFirstCheckboxClick(true);
+    } else {
+      onFirstCheckboxClick(false);
+      onSecondCheckboxClick(false);
+      onThirdCheckboxClick(false);
+    }
+  });
+
+  const handleSecondCheckboxChange = useLastCallback((isChecked: boolean) => {
+    if (isChecked) {
+      onSecondCheckboxClick(true);
+    } else {
+      onSecondCheckboxClick(false);
+      onThirdCheckboxClick(false);
+    }
+  });
 
   const handleSubmit = useLastCallback(() => {
     if (!canSubmit) {
@@ -69,22 +94,36 @@ function SafetyRulesContent({
         noLoop={false}
         className={customStickerClassName || styles.modalSticker}
       />
+      {withHeader && (
+        <div ref={headerRef} className={styles.title}>
+          {lang('Create Backup')}
+        </div>
+      )}
+
       <Checkbox
         checked={isFirstCheckboxSelected}
-        onChange={onFirstCheckboxClick}
+        className={buildClassName(styles.checkboxBlock, styles.accessible)}
+        contentClassName={styles.checkbox}
+        onChange={handleFirstCheckboxChange}
       >
         {renderText(textFirst)}
       </Checkbox>
 
       <Checkbox
+        isDisabled={!isFirstCheckboxSelected}
         checked={isSecondCheckboxSelected}
-        onChange={onSecondCheckboxClick}
+        className={buildClassName(styles.checkboxBlock, isFirstCheckboxSelected && styles.accessible)}
+        contentClassName={styles.checkbox}
+        onChange={handleSecondCheckboxChange}
       >
         {renderText(textSecond)}
       </Checkbox>
 
       <Checkbox
+        isDisabled={!isSecondCheckboxSelected}
         checked={isThirdCheckboxSelected}
+        className={buildClassName(styles.checkboxBlock, isSecondCheckboxSelected && styles.accessible)}
+        contentClassName={styles.checkbox}
         onChange={onThirdCheckboxClick}
       >
         {renderText(textThird)}
@@ -97,7 +136,7 @@ function SafetyRulesContent({
           className={isFullSizeButton ? styles.footerButton : undefined}
           onClick={handleSubmit}
         >
-          {lang('Understood')}
+          {lang('Go to Words')}
         </Button>
       </div>
     </>

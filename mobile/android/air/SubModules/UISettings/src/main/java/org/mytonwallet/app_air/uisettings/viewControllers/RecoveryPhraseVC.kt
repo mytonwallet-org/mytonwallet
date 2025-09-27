@@ -31,14 +31,14 @@ import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
-import org.mytonwallet.app_air.walletcontext.DEBUG_MODE
+import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
 import org.mytonwallet.app_air.walletcontext.helpers.WordCheckMode
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
-import org.mytonwallet.app_air.walletcontext.utils.toProcessedSpannableStringBuilder
+import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import java.lang.ref.WeakReference
 import kotlin.random.Random
 
@@ -216,12 +216,17 @@ open class RecoveryPhraseVC(context: Context, private val words: Array<String>) 
     override fun setupViews() {
         super.setupViews()
 
-        setNavTitle(
-            LocaleController.getFormattedString(
-                "%1\$d Secret Words",
-                listOf(wordsCount.toString())
+        if (wordsCount == 24) {
+            // This standard case has much better localization support
+            setNavTitle(LocaleController.getString("24 Secret Words"))
+        } else {
+            setNavTitle(
+                LocaleController.getFormattedString(
+                    "%1\$d Secret Words",
+                    listOf(wordsCount.toString())
+                )
             )
-        )
+        }
         setupNavBar(true)
         setTopBlur(visible = false, animated = false)
 

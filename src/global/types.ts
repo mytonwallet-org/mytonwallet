@@ -19,6 +19,7 @@ import type {
   ApiHistoryList,
   ApiImportAddressByChain,
   ApiLedgerDriver,
+  ApiLedgerWalletInfo,
   ApiMtwCardType,
   ApiNetwork,
   ApiNft,
@@ -47,7 +48,7 @@ import type {
 import type { AUTOLOCK_OPTIONS_LIST } from '../config';
 import type { AuthConfig } from '../util/authApi/types';
 import type { CapacitorPlatform } from '../util/capacitor/platform';
-import type { LedgerTransport, LedgerWalletInfo } from '../util/ledger/types';
+import type { LedgerTransport } from '../util/ledger/types';
 
 export type IAnchorPosition = {
   x: number;
@@ -128,7 +129,6 @@ export enum AuthState {
   confirmBiometrics,
   createNativeBiometrics,
   createPassword,
-  createBackup,
   disclaimerAndBackup,
   importWalletCheckPassword,
   importWallet,
@@ -139,12 +139,14 @@ export enum AuthState {
   importWalletConfirmBiometrics,
   importWalletCreatePassword,
   disclaimer,
-  ready,
   about,
   safetyRules,
   mnemonicPage,
   checkWords,
   importViewAccount,
+  congratulations,
+  importCongratulations,
+  ready,
 }
 
 export enum BiometricsState {
@@ -161,7 +163,6 @@ export enum BiometricsState {
 
 export enum TransferState {
   None,
-  WarningHardware,
   Initial,
   Confirm,
   Password,
@@ -359,16 +360,14 @@ export interface AccountChain {
   address: string;
   domain?: string;
   isMultisig?: true;
+  /** Is set only in hardware accounts */
+  ledgerIndex?: number;
 }
 
 export interface Account {
   title?: string;
   type: AccountType;
   byChain: Partial<Record<ApiChain, AccountChain>>;
-  ledger?: {
-    index: number;
-    driver: ApiLedgerDriver;
-  };
 }
 
 export type AssetPairs = Record<string, {
@@ -524,11 +523,20 @@ export type GlobalState = {
 
   hardware: {
     hardwareState: HardwareConnectState;
-    hardwareWallets?: LedgerWalletInfo[];
+    chain: ApiChain;
+    /**
+     * If true, `hardwareWallets` will be populated before the `hardwareState` switches to `Connected`.
+     * This is slow, so use it only when necessary.
+     */
+    shouldLoadWallets?: true;
+    /** All the wallets belong to `chain` */
+    hardwareWallets?: ApiLedgerWalletInfo[];
     isLedgerConnected?: boolean;
-    isTonAppConnected?: boolean;
+    isChainAppConnected?: boolean;
     availableTransports?: LedgerTransport[];
     lastUsedTransport?: LedgerTransport;
+    /** Loading flag for paginated wallet fetch (Show More) */
+    isLoading?: boolean;
   };
 
   currentTransfer: {
@@ -851,13 +859,16 @@ export interface ActionPayloads {
   resetAuth: undefined;
   startCreatingWallet: undefined;
   afterCheckMnemonic: undefined;
+  afterCongratulations: { isImporting?: boolean };
   skipCheckMnemonic: undefined;
-  restartCheckMnemonicIndexes: { worldsCount: number };
-  cancelDisclaimer: undefined;
+  restartCheckMnemonicIndexes: {
+    wordsCount: number;
+    preserveIndexes?: number[];
+  };
   afterCreatePassword: { password: string; isPasswordNumeric?: boolean };
   startCreatingBiometrics: undefined;
   afterCreateBiometrics: undefined;
-  skipCreateBiometrics: undefined;
+  skipCreateBiometrics: { isImporting: boolean };
   cancelCreateBiometrics: undefined;
   afterCreateNativeBiometrics: undefined;
   skipCreateNativeBiometrics: undefined;
@@ -872,22 +883,21 @@ export interface ActionPayloads {
   cleanAuthError: undefined;
   openAbout: undefined;
   closeAbout: undefined;
+  openDisclaimer: undefined;
+  closeDisclaimer: undefined;
   startImportViewAccount: undefined;
   closeImportViewAccount: undefined;
   openAuthImportWalletModal: undefined;
   closeAuthImportWalletModal: undefined;
   openAuthBackupWalletModal: undefined;
   openMnemonicPage: undefined;
-  openCreateBackUpPage: undefined;
   openCheckWordsPage: undefined;
   closeCheckWordsPage: { isBackupCreated?: boolean } | undefined;
-  initializeHardwareWalletModal: { doLoadWallets?: boolean } | undefined;
-  initializeHardwareWalletConnection: { transport: LedgerTransport; doLoadWallets?: boolean };
+  initializeHardwareWalletModal: undefined;
+  initializeHardwareWalletConnection: { transport: LedgerTransport };
   createHardwareAccounts: undefined;
-  addHardwareAccounts: {
-    wallets: ({ accountId: string; address: string; walletInfo: LedgerWalletInfo } | undefined)[];
-  };
-  loadMoreHardwareWallets: { lastIndex: number };
+  addHardwareAccounts: { accounts: { accountId: string; byChain: Account['byChain'] }[] };
+  loadMoreHardwareWallets: undefined;
   createAccount: { password: string; isImporting: boolean; isPasswordNumeric?: boolean; version?: ApiTonWalletVersion };
   afterSelectHardwareWallets: { hardwareSelectedIndices: number[] };
   resetApiSettings: { areAllDisabled?: boolean } | undefined;
@@ -899,9 +909,9 @@ export interface ActionPayloads {
   openBackupWalletModal: undefined;
   closeBackupWalletModal: undefined;
   setIsBackupRequired: { isMnemonicChecked: boolean };
-  openHardwareWalletModal: undefined;
+  openHardwareWalletModal: { chain: ApiChain };
   closeHardwareWalletModal: undefined;
-  resetHardwareWalletConnect: undefined;
+  resetHardwareWalletConnect: { chain: ApiChain; shouldLoadWallets?: boolean };
   setTransferScreen: { state: TransferState };
   setTransferAmount: { amount?: bigint };
   setTransferToAddress: { toAddress?: string };
@@ -952,7 +962,7 @@ export interface ActionPayloads {
   dismissTransferScamWarning: undefined;
   showDialog: DialogType;
   dismissDialog: undefined;
-  showError: { error?: ApiAnyDisplayError | string };
+  showError: { error?: ApiAnyDisplayError | TeactNode | string };
   showNotification: { message: string; icon?: string };
   dismissNotification: undefined;
   initLedgerPage: undefined;
@@ -967,7 +977,7 @@ export interface ActionPayloads {
   clearAccountError: undefined;
   clearAccountLoading: undefined;
   setIsAccountLoading: { isLoading: true | undefined };
-  verifyHardwareAddress: undefined;
+  verifyHardwareAddress: { chain: ApiChain };
   authorizeDiesel: undefined;
   fetchTransferDieselState: { tokenSlug: string };
   setIsAuthLoading: { isLoading: true | undefined };

@@ -1,7 +1,7 @@
-import type { ApiNetwork, ApiTransactionActivity } from '../../types';
+import type { ApiNetwork, ApiSwapActivity, ApiTransactionActivity } from '../../types';
 import type { TracesResponse } from './toncenter/traces';
 
-import { makeMockTransactionActivity } from '../../../../tests/mocks';
+import { makeMockSwapActivity, makeMockTransactionActivity } from '../../../../tests/mocks';
 import { calculateActivityDetails } from './activities';
 import { parseTrace } from './traces';
 
@@ -183,18 +183,67 @@ describe('parseTrace + calculateActivityDetails', () => {
       },
     ];
 
-    test.each(testCases)('$name', ({ walletAddress, activityPart, traceResponse, expectedFee }) => {
+    test.each(testCases)('$name', (params) => {
+      const { walletAddress, activityPart, traceResponse, expectedFee } = params;
+
       const activity = makeMockTransactionActivity({
         ...activityPart,
         fee: 0n,
         shouldLoadDetails: true,
       });
+
       const parsedTrace = parseTraceResponse('mainnet', walletAddress, traceResponse);
 
       expect(calculateActivityDetails(activity, parsedTrace)?.activity).toEqual({
         ...activity,
         fee: expectedFee,
         shouldLoadDetails: undefined,
+      });
+    });
+  });
+
+  describe('swaps', () => {
+    const testCases: {
+      name: string;
+      walletAddress: string;
+      activityPart: Partial<ApiSwapActivity>;
+      traceResponse: TracesResponse;
+      expectedFee: string;
+    }[] = [
+      {
+        name: 'utya swap to ton',
+        walletAddress: 'UQAXt7U0eHXLZhcngXzALAryEm_dtkTevqFfa2zc7UfcciR8',
+        activityPart: {
+          id: 'OHiU4S9hRHHEPnvR3kISqq0RqhWqR4WvQGz1PpMVAvc='
+            + ':61381078000002-HPEZBwAgCEAXuQebK+MFrFFHFzsQAMa3hnrUGO0aVVQ=',
+          kind: 'swap',
+          timestamp: 1757491121000,
+          from: 'ton-eqbacguwoo',
+          fromAmount: '196.803411472',
+          to: 'toncoin',
+          toAmount: '1.031388991',
+          networkFee: '0.045536041',
+          swapFee: '0',
+          ourFee: '1.72202985',
+          status: 'completed',
+          hashes: [],
+          externalMsgHashNorm: '5IvAF0fn34L7MDxzu67m4MzeNp6Mpg2poC9dXE1DdFw=',
+        },
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        traceResponse: require('./testData/utyaSwapTraceResponse.json'),
+        expectedFee: '0.045536041', // This is the full fee, because the excess is a separate action in this trace
+      },
+    ];
+
+    test.each(testCases)('$name', (params) => {
+      const { walletAddress, activityPart, traceResponse, expectedFee } = params;
+
+      const activity = makeMockSwapActivity(activityPart);
+      const parsedTrace = parseTraceResponse('mainnet', walletAddress, traceResponse);
+
+      expect(calculateActivityDetails(activity, parsedTrace)?.activity).toEqual({
+        ...activity,
+        networkFee: expectedFee,
       });
     });
   });

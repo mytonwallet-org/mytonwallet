@@ -126,7 +126,7 @@ addActionHandler('submitStakingInitial', async (global, actions, payload) => {
         global = updateCurrentStaking(global, { error: result.error });
       } else {
         if (selectIsHardwareAccount(global)) {
-          global = resetHardware(global);
+          global = resetHardware(global, 'ton');
           global = updateCurrentStaking(global, { state: StakingState.UnstakeConnectHardware });
         } else {
           global = updateCurrentStaking(global, { state: StakingState.UnstakePassword });
@@ -155,7 +155,7 @@ addActionHandler('submitStakingInitial', async (global, actions, payload) => {
         global = updateCurrentStaking(global, { error: result.error });
       } else {
         if (selectIsHardwareAccount(global)) {
-          global = resetHardware(global);
+          global = resetHardware(global, 'ton');
           global = updateCurrentStaking(global, { state: StakingState.StakeConnectHardware });
         } else {
           global = updateCurrentStaking(global, { state: StakingState.StakePassword });
@@ -328,7 +328,7 @@ addActionHandler('startStakingClaim', (global, actions, payload) => {
   }
 
   if (selectIsHardwareAccount(global)) {
-    global = resetHardware(global);
+    global = resetHardware(global, 'ton');
     global = updateCurrentStaking(global, { state: StakingState.ClaimConnectHardware });
   } else {
     global = updateCurrentStaking(global, { state: StakingState.ClaimPassword });

@@ -52,10 +52,12 @@ import { getDappConnectionUniqueId } from '../../util/getDappConnectionUniqueId'
 import { pick } from '../../util/iteratees';
 import { logDebugError } from '../../util/logs';
 import safeExec from '../../util/safeExec';
-import { getTonConnectMaxMessages, tonConnectGetDeviceInfo } from '../../util/tonConnectEnvironment';
-import chains from '../chains';
-import { getContractInfo, parsePayloadBase64 } from '../chains/ton';
+import { getMaxMessagesInTransaction } from '../../util/ton/transfer';
+import { tonConnectGetDeviceInfo } from '../../util/tonConnectEnvironment';
+import { checkMultiTransactionDraft, sendSignedTransactions } from '../chains/ton/transfer';
+import { parsePayloadBase64 } from '../chains/ton/util/metadata';
 import { getIsRawAddress, getWalletPublicKey, toBase64Address, toRawAddress } from '../chains/ton/util/tonCore';
+import { getContractInfo, getWalletStateInit } from '../chains/ton/wallet';
 import { fetchStoredChainAccount, getCurrentAccountId, getCurrentAccountIdOrFail } from '../common/accounts';
 import { getKnownAddressInfo } from '../common/addresses';
 import { createDappPromise } from '../common/dappPromises';
@@ -77,8 +79,6 @@ import { UnknownAppError } from './errors';
 import { getTransferActualToAddress, isTransferPayloadDangerous, isValidString, isValidUrl } from './utils';
 
 const BLANK_GIF_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
-
-const ton = chains.ton;
 
 let resolveInit: AnyFunction;
 const initPromise = new Promise((resolve) => {
@@ -265,7 +265,7 @@ export async function sendTransaction(
       },
     } = account;
 
-    const maxMessages = getTonConnectMaxMessages(account);
+    const maxMessages = getMaxMessagesInTransaction(account);
 
     if (messages.length > maxMessages) {
       throw new errors.BadRequestError(`Payload contains more than ${maxMessages} messages, which exceeds limit`);
@@ -340,7 +340,7 @@ export async function sendTransaction(
       throw new errors.BadRequestError('The confirmation timeout has expired');
     }
 
-    const sentTransactions = await ton.sendSignedTransactions(accountId, signedTransactions);
+    const sentTransactions = await sendSignedTransactions(accountId, signedTransactions);
 
     if ('error' in sentTransactions) {
       throw new errors.UnknownError(sentTransactions.error, sentTransactions.error);
@@ -526,12 +526,13 @@ async function checkTransactionMessages(
     };
   });
 
-  const checkResult = await ton.checkMultiTransactionDraft(accountId, preparedMessages, false, true);
+  const checkResult = await checkMultiTransactionDraft(accountId, preparedMessages);
 
   // Handle insufficient balance error specifically for TON Connect by converting to fallback emulation
   if ('error' in checkResult
     && checkResult.error === ApiTransactionDraftError.InsufficientBalance
-    && checkResult.emulation) {
+    && checkResult.emulation
+  ) {
     const fallbackCheckResult: ApiCheckMultiTransactionDraftResult = {
       emulation: {
         isFallback: true,
@@ -610,7 +611,7 @@ function buildTonAddressReplyItem(accountId: string, wallet: ApiTonWallet): Conn
   const { network } = parseAccountId(accountId);
   const { publicKey, address } = wallet;
 
-  const stateInit = ton.getWalletStateInit(wallet);
+  const stateInit = getWalletStateInit(wallet);
 
   return {
     name: 'ton_addr',

@@ -47,36 +47,16 @@ extension Api {
         try await bridge.callApiVoid("cancelDappRequest", promiseId, reason)
     }
 
-    public static func getWalletSeqno(accountId: String, address: String?) async throws -> Int {
-        try await bridge.callApi("getWalletSeqno", accountId, address, decoding: Int.self)
-    }
-    
     public static func fetchAddress(accountId: String, chain: ApiChain) async throws -> String {
         try await bridge.callApi("fetchAddress", accountId, chain, decoding: String.self)
-    }
-    
-    public static func isWalletInitialized(network: ApiNetwork, address: String) async throws -> Bool {
-        try await bridge.callApi("isWalletInitialized", network, address, decoding: Bool.self)
     }
     
     public static func getWalletBalance(chain: ApiChain, network: ApiNetwork, address: String) async throws -> BigInt {
         try await bridge.callApi("getWalletBalance", chain, network, address, decoding: BigInt.self)
     }
     
-    public static func getContractInfo(network: ApiNetwork, address: String) async throws -> ApiGetContractInfoResult {
-        try await bridge.callApi("getContractInfo", network, address, decoding: ApiGetContractInfoResult.self)
-    }
-    
-    public static func getWalletInfo(network: ApiNetwork, address: String) async throws -> ApiGetWalletInfoResult {
-        try await bridge.callApi("getWalletInfo", network, address, decoding: ApiGetWalletInfoResult.self)
-    }
-
     public static func getAddressInfo(network: ApiNetwork, toAddress: String) async throws -> ApiGetAddressInfoResult {
         try await bridge.callApi("getAddressInfo", network, toAddress, decoding: ApiGetAddressInfoResult.self)
-    }
-    
-    public static func getWalletStateInit(accountId: String) async throws -> String {
-        try await bridge.callApi("getWalletStateInit", accountId, decoding: String.self)
     }
 }
 
@@ -92,14 +72,6 @@ public struct ApiDappRequestConfirmation: Encodable {
         self.accountId = accountId
         self.proofSignature = proofSignature
     }
-}
-
-public struct ApiGetContractInfoResult: Decodable {
-    public var isInitialized: Bool
-    public var isSwapAllowed: Bool?
-    public var isWallet: Bool?
-    public var contractInfo: ContractInfo?
-    public var codeHash: String?
 }
 
 public struct ContractInfo: Equatable, Hashable, Codable, Sendable {
@@ -144,14 +116,6 @@ public enum ContractName: String, Equatable, Hashable, Codable, Sendable {
 public enum ContractType: String, Equatable, Hashable, Codable, Sendable {
     case wallet = "wallet"
     case staking = "staking"
-}
-
-public struct ApiGetWalletInfoResult: Decodable {
-    public var isInitialized: Bool
-    public var isWallet: Bool
-    public var seqno: Int
-    public var balance: BigInt
-    public var lastTxId: String?
 }
 
 public struct ApiGetAddressInfoResult: Decodable {

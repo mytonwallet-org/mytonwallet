@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.uicomponents.base
 
-import WNavigationController
 import android.animation.Animator
 import android.annotation.SuppressLint
 import android.view.MotionEvent
@@ -16,11 +15,11 @@ import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
 import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
-import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import java.lang.ref.WeakReference
 import kotlin.math.abs
 import kotlin.math.max

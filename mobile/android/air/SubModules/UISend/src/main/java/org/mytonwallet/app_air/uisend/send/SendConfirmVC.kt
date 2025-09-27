@@ -33,11 +33,11 @@ import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.Passco
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views.PasscodeScreenView
 import org.mytonwallet.app_air.uisend.send.lauouts.ConfirmAmountView
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferOptions
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -363,11 +363,9 @@ class SendConfirmVC(
     private fun confirmHardware(transferOptions: MApiSubmitTransferOptions) {
         confirmButton.lockView()
         val account = AccountStore.activeAccount!!
-        val ledger = account.ledger ?: return
         val ledgerConnectVC = LedgerConnectVC(
             context,
             LedgerConnectVC.Mode.ConnectToSubmitTransfer(
-                ledger.index,
                 account.tonAddress!!,
                 signData = LedgerConnectVC.SignData.SignTransfer(
                     transferOptions = transferOptions,

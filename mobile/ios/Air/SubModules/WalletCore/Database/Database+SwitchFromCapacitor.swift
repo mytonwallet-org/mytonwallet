@@ -28,7 +28,6 @@ private func moveAccounts(global: _GlobalStorage, db: any DatabaseWriter) async 
         var title: String?
         var type: AccountType
         var byChain: [String: AccountChain]
-        var ledger: MAccount.Ledger?
     }
 
     for accountId in accountIds {
@@ -43,7 +42,6 @@ private func moveAccounts(global: _GlobalStorage, db: any DatabaseWriter) async 
             title: _account.title,
             type: _account.type,
             byChain: _account.byChain,
-            ledger: _account.ledger
         )
         accounts.append(account)
     }

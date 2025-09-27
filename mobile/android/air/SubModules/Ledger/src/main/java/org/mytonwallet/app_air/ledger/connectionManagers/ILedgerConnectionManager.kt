@@ -6,7 +6,6 @@ interface ILedgerConnectionManager {
     fun startConnection(onUpdate: (LedgerManager.ConnectionState) -> Unit)
     fun stopConnection()
 
-    fun getPublicKey(walletIndex: Int, onCompletion: (publicKey: List<Int>?) -> Unit)
     fun write(
         apdu: String,
         onSuccess: (String) -> Unit,

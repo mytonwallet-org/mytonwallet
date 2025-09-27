@@ -78,7 +78,7 @@ class AccountCell: UITableViewCell, WThemedView {
         separator.translatesAutoresizingMaskIntoConstraints = false
         addSubview(separator)
         NSLayoutConstraint.activate([
-            separator.heightAnchor.constraint(equalToConstant: 0.33),
+            separator.heightAnchor.constraint(equalToConstant: 0.333),
             separator.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             separator.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             separator.bottomAnchor.constraint(equalTo: bottomAnchor)
@@ -102,7 +102,7 @@ class AccountCell: UITableViewCell, WThemedView {
     
     public func updateTheme() {
         stackView.highlightBackgroundColor = .airBundle("AltHighlightColor")
-        separator.backgroundColor = WTheme.separator
+        separator.backgroundColor = .airBundle("MenuSeparator")
     }
     
     @objc private func accountSelected() {

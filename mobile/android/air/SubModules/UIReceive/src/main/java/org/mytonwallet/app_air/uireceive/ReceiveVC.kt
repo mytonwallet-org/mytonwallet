@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.uireceive
 
-import WNavigationController
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.ClipData
@@ -23,6 +22,7 @@ import androidx.core.view.isVisible
 import androidx.lifecycle.ViewModelProvider
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
+import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
 import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -38,10 +38,10 @@ import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegment
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.uiswap.screens.swap.SwapVC
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TRON_USDT_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -93,12 +93,12 @@ class ReceiveVC(
         val segmentedController = WSegmentedController(
             navigationController!!,
             arrayListOf(
-                WSegmentedControllerItem(qrCodeVcTon)
+                WSegmentedControllerItem(qrCodeVcTon, null)
             ).apply {
                 if (qrCodeVcTron != null) {
-                    add(WSegmentedControllerItem(qrCodeVcTron))
+                    add(WSegmentedControllerItem(qrCodeVcTron, null))
                 }
-            }.toTypedArray(),
+            },
             isTransparent = true,
             applySideGutters = false,
             defaultSelectedIndex = if (defaultChain == MBlockchain.tron) 1 else 0,

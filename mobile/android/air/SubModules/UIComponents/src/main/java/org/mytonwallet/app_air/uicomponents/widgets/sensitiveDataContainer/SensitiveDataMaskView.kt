@@ -11,7 +11,7 @@ import android.graphics.RectF
 import android.view.View
 import androidx.core.math.MathUtils.clamp
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import kotlin.math.roundToInt
 import kotlin.random.Random
 

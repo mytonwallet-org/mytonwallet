@@ -6,7 +6,7 @@ import android.os.Handler
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.fragment.app.FragmentActivity
-import org.mytonwallet.app_air.walletcontext.R
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import java.util.concurrent.Executor
 
 class BiometricHelpers {

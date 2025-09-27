@@ -172,10 +172,6 @@
   text-align: left;
 }
 
-.toAddress {
-  color: var(--color-gray-3);
-}
-
 .transferActions {
   display: flex;
   grid-area: actions;
@@ -188,6 +184,7 @@
   color: var(--color-gray-3);
 }
 
+.toAddress,
 .iconChevronRight {
   color: var(--color-gray-3);
 }

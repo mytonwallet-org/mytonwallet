@@ -25,5 +25,6 @@ export default tseslint.config(
     'deploy',
     'dist',
     'dist-electron',
+    'dist-air',
   ]),
 );

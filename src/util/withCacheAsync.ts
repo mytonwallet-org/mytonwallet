@@ -8,22 +8,27 @@ export default function withCacheAsync<T extends AnyAsyncFunction>(
     const cacheKey = buildCacheKey(args);
 
     if (fnCache) {
-      const cached = fnCache.get(cacheKey);
-      if (cached) {
-        return cached;
+      if (fnCache.has(cacheKey)) {
+        return fnCache.get(cacheKey);
       }
     } else {
       fnCache = new Map();
       cache.set(fn, fnCache);
     }
 
-    const newValue = await fn(...args);
+    const resultPromise = fn(...args);
+    fnCache.set(cacheKey, resultPromise); // Putting into the cache early to prevent concurrent `fn` calls
 
-    if (canBeCached(newValue)) {
-      fnCache.set(cacheKey, newValue);
+    try {
+      const result = await resultPromise;
+      if (!canBeCached(result)) {
+        fnCache.delete(cacheKey);
+      }
+      return result;
+    } catch (err) {
+      fnCache.delete(cacheKey);
+      throw err;
     }
-
-    return newValue;
   };
 }
 

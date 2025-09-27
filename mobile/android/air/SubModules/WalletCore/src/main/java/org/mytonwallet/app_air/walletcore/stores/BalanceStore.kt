@@ -3,9 +3,11 @@ package org.mytonwallet.app_air.walletcore.stores
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.STAKE_SLUG
 import org.mytonwallet.app_air.walletcore.STAKING_SLUGS
+import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
 import java.math.BigInteger
 import java.util.concurrent.ConcurrentHashMap
@@ -87,7 +89,11 @@ object BalanceStore {
         }
     }
 
-    fun totalBalanceInBaseCurrency(accountId: String): Double? {
+    fun totalBalanceInBaseCurrency(
+        accountId: String,
+        baseCurrency: MBaseCurrency = WalletCore.baseCurrency
+    ): Double? {
+        val currencyRate = TokenStore.currencyRates?.get(baseCurrency.currencyCode) ?: return null
         val accountBalances = balances[accountId]
         val walletTokens = accountBalances?.filter { !STAKING_SLUGS.contains(it.key) }
             ?.mapNotNull { (tokenSlug, balance) ->
@@ -99,9 +105,9 @@ object BalanceStore {
                     null
             } ?: return null
         val stakingBalance =
-            StakingStore.getStakingState(accountId)?.totalBalanceInBaseCurrency() ?: 0.0
+            StakingStore.getStakingState(accountId)?.totalBalanceInUSD() ?: 0.0
 
-        return walletTokens.sumOf { it.toBaseCurrency ?: 0.0 } + stakingBalance
+        return (walletTokens.sumOf { it.toUsdBaseCurrency ?: 0.0 } + stakingBalance) * currencyRate
     }
 
 }

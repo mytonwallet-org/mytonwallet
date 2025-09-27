@@ -645,7 +645,6 @@ addActionHandler('openReceiveModal', (global, actions, params) => {
 });
 
 addActionHandler('closeReceiveModal', (global): GlobalState => {
-  global = updateCurrentAccountState(global, { receiveModalChain: undefined });
   return { ...global, isReceiveModalOpen: undefined };
 });
 

@@ -13,8 +13,8 @@ import {
 } from '../../config';
 import {
   selectAccountTokenBySlug,
-  selectCurrentAccount,
   selectCurrentAccountNftByAddress,
+  selectIsHardwareAccount,
   selectTokenByMinterAddress,
 } from '../../global/selectors';
 import { callApi } from '../../api';
@@ -47,6 +47,7 @@ enum DeeplinkCommand {
   Giveaway = 'giveaway',
   Transfer = 'transfer',
   Explore = 'explore',
+  Receive = 'receive',
 }
 
 let urlAfterSignIn: string | undefined;
@@ -97,6 +98,15 @@ async function processTonDeeplink(url: string): Promise<boolean> {
   const global = getGlobal();
   if (!global.currentAccountId) {
     return false;
+  }
+
+  // Trying to open the transfer modal from a widget using a deeplink
+  if (url === 'ton://transfer') {
+    actions.startTransfer({
+      isPortrait: getIsPortrait(),
+    });
+
+    return true;
   }
 
   const startTransferParams = parseTonDeeplink(url, global);
@@ -292,7 +302,7 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
     const actions = getActions();
     const global = getGlobal();
     const { isTestnet } = global.settings;
-    const isLedger = selectCurrentAccount(global)?.ledger;
+    const isLedger = selectIsHardwareAccount(global);
 
     logDebug('Processing deeplink', deeplink);
 
@@ -389,6 +399,15 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
           }
         }
 
+        return true;
+      }
+
+      case DeeplinkCommand.Receive: {
+        if (getIsLandscape()) {
+          actions.setLandscapeActionsActiveTabIndex({ index: ActiveTab.Receive });
+        } else {
+          actions.openReceiveModal();
+        }
         return true;
       }
     }

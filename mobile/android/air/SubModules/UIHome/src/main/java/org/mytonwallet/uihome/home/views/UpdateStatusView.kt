@@ -7,14 +7,15 @@ import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WReplaceableLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 class UpdateStatusView(
     context: Context,
@@ -42,6 +43,7 @@ class UpdateStatusView(
         clipToPadding = false
         addView(statusReplaceableLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
             gravity = Gravity.CENTER
+            bottomMargin = 2.dp
         })
 
         updateTheme()
@@ -56,10 +58,17 @@ class UpdateStatusView(
     private var targetAlpha = 0f
 
     private fun setLabelStyle(state: State) {
-        statusReplaceableLabel.label.setStyle(
-            if (state == State.Updated) 20f else 16f,
-            WFont.Medium
-        )
+        if (state == State.Updated) {
+            statusReplaceableLabel.label.setStyle(
+                20f,
+                WFont.SemiBold
+            )
+        } else {
+            statusReplaceableLabel.label.setStyle(
+                16f,
+                WFont.Medium
+            )
+        }
         statusReplaceableLabel.label.setTextColor(if (state != State.Updated) WColor.SecondaryText.color else WColor.PrimaryText.color)
     }
 

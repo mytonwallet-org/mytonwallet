@@ -3,7 +3,7 @@ package org.mytonwallet.app_air.uicomponents.extensions
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.view.View
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import kotlin.math.roundToInt
 
 fun View.setOnClickListener(listener: (() -> Unit)?) {

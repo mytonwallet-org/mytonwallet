@@ -3,6 +3,9 @@ import Foundation
 import WalletContext
 import WalletCore
 import OrderedCollections
+import SwiftUI
+import UIKit
+import UIComponents
 
 private let START_STEPS: OrderedDictionary<StepId, StepStatus> = [
     .connect: .current,
@@ -11,7 +14,28 @@ private let START_STEPS: OrderedDictionary<StepId, StepStatus> = [
 ]
 private let log = Log("LedgerAddAccountModel")
 
-public final class LedgerAddAccountModel: LedgerBaseModel, @unchecked Sendable {
+@MainActor public final class LedgerAddAccountModel: LedgerBaseModel, @unchecked Sendable, ObservableObject {
+    
+    struct DiscoveredWallet: Identifiable, @unchecked Sendable {
+        var id: Int
+        var displayName: String?
+        var address: String
+        var balance: TokenAmount
+        var domainName: String?
+        var status: Status
+        var accountInfo: ApiLedgerAccountInfo
+        
+        enum Status {
+            case alreadyImported, available, selected
+        }
+    }
+    
+    var currentWalletAddresses: Set<String> = []
+    @Published var discoveredWallets: [DiscoveredWallet] = []
+    @Published var isLoadingMore: Bool = false
+    
+    var selectedCount: Int { discoveredWallets.count(where: { $0.status == .selected }) }
+    var canContinue: Bool { discoveredWallets.any { $0.status == .selected } }
     
     public init() async {
         await super.init(steps: START_STEPS)
@@ -23,11 +47,13 @@ public final class LedgerAddAccountModel: LedgerBaseModel, @unchecked Sendable {
     }
     
     override func performSteps() async throws {
-        try await connect(knownLedger: nil)
+        try await connect()
         try await openApp()
         try await discoverAccounts()
-        try? await Task.sleep(for: .seconds(1.0))
-        await onDone?()
+        try? await Task.sleep(for: .seconds(0.5))
+        await MainActor.run {
+            topWViewController()?.navigationController?.pushViewController(LedgerSelectWalletsVC(model: self), animated: true)
+        }
     }
     
     func discoverAccounts() async throws {
@@ -43,47 +69,61 @@ public final class LedgerAddAccountModel: LedgerBaseModel, @unchecked Sendable {
     }
     
     func _discoverAccountsImpl() async throws {
+        
+        currentWalletAddresses = Set(
+            AccountStore.accountsById.values.filter(\.isHardware).compactMap(\.tonAddress)
+        )
+        await requestMoreWallets() // request first batch before pushing
+    }
+    
+    func requestMoreWallets() async {
+        do {
+            withAnimation(.spring) {
+                isLoadingMore = true
+            }
+            let newDiscoveredWallets = try await Api.getLedgerWallets(chain: .ton, network: .mainnet, startWalletIndex: discoveredWallets.count, count: 5)
+            try appendDiscoveredWallets(newDiscoveredWallets)
+        } catch {
+            topWViewController()?.showAlert(error: error)
+        }
+    }
+    
+    func appendDiscoveredWallets(_ newWallets: [ApiLedgerWalletInfo]) throws {
+        let startIndex = discoveredWallets.count
+        let toncoin = ApiToken.toncoin
         let peripheralID = try self.connectedIdentifier.orThrow()
-        let importedHardwareAdresses: Set<String> = Set(AccountStore.allAccounts
-            .filter(\.isHardware)
-            .compactMap(\.tonAddress))
-        var newWallets: [LedgerWalletInfo] = []
-        for idx in 0... {
-            do {
-                let pub = try await connection.getPublicKey(walletIndex: idx)
-                assert(pub.count == 32)
-                let wallet = try await Api.addressFromPublicKey(publicKey: pub, network: .mainnet, version: LEDGER_WALLET_VERSION)
-                if importedHardwareAdresses.contains(wallet.address) {
-                    continue
-                }
-                let balance = try await Api.getWalletBalance(chain: .ton, network: .mainnet, address: wallet.address)
-                let walletInfo = LedgerWalletInfo(
-                    index: idx,
-                    address: wallet.address,
-                    publicKey: wallet.publicKey,
-                    balance: balance,
-                    version: LEDGER_WALLET_VERSION,
+
+        let newWallets: [DiscoveredWallet] = newWallets.enumerated().map { (idx, walletInfo) in
+            let alreadyImported = currentWalletAddresses.contains(walletInfo.wallet.address)
+            let title = AccountStore.accountsById.values.first(where: { $0.tonAddress == walletInfo.wallet.address })?.title
+            return DiscoveredWallet(
+                id: startIndex + walletInfo.wallet.index,
+                displayName: title,
+                address: walletInfo.wallet.address,
+                balance: TokenAmount(walletInfo.balance, toncoin),
+                domainName: nil,
+                status: alreadyImported ? .alreadyImported : walletInfo.balance > 0 ? .selected : .available,
+                accountInfo: ApiLedgerAccountInfo(
+                    byChain: [
+                        TON_CHAIN: walletInfo.wallet
+                    ],
                     driver: .hid,
                     deviceId: peripheralID.uuid.uuidString,
                     deviceName: peripheralID.name
-                )
-                if balance > 0 {
-                    newWallets.append(walletInfo)
-                } else if newWallets.isEmpty {
-                    newWallets.append(walletInfo)
-                    break
-                } else {
-                    break
-                }
-                
-            } catch {
-                log.error("\(error)")
-                throw error
-            }
+                ),
+            )
         }
+        withAnimation(.spring) {
+            discoveredWallets.append(contentsOf: newWallets)
+            isLoadingMore = false
+        }
+    }
+    
+    func finalizeImport() async throws {
+        let walletsToImport = discoveredWallets.filter { $0.status == .selected }
         var firstId: String?
-        for walletInfo in newWallets {
-            let accountId = try await AccountStore.importLedgerWallet(walletInfo: walletInfo)
+        for discoveredWallet in walletsToImport {
+            let accountId = try await AccountStore.importLedgerAccount(accountInfo: discoveredWallet.accountInfo)
             if firstId == nil {
                 firstId = accountId
             }
@@ -91,5 +131,6 @@ public final class LedgerAddAccountModel: LedgerBaseModel, @unchecked Sendable {
         if let firstId {
             _ = try await AccountStore.activateAccount(accountId: firstId)
         }
+        await onDone?()
     }
 }

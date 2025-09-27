@@ -27,8 +27,13 @@ import Combine
         $stakingState
             .sink { [weak self] stakingState in
                 guard let self else { return }
-                if case .jetton(let jetton) = stakingState {
+                switch stakingState {
+                case .jetton(let jetton):
                     self.amount = TokenAmount(jetton.unclaimedRewards, token)
+                case .ethena(let ethena):
+                    self.amount = TokenAmount(ethena.unstakeRequestAmount ?? 0, token)
+                case .liquid, .nominators, .unknown, nil:
+                    break
                 }
             }
             .store(in: &observables)
@@ -39,7 +44,7 @@ import Combine
     func confirmAction(account: MAccount) async throws {
         guard let viewController else { return }
         let headerView = StakingConfirmHeaderView(
-            mode: .claim,
+            mode: token.slug == TON_USDE_SLUG ? .unstake : .claim,
             tokenAmount: amount,
         )
         let headerVC = UIHostingController(rootView: headerView)
@@ -58,7 +63,7 @@ import Combine
                     viewController.navigationController?.popToRootViewController(animated: true)
                 }
         }
-        let title = "Confirm Rewards Claim"
+        let title = token.slug == TON_USDE_SLUG ? lang("Confirm Unstaking") : lang("Confirm Rewards Claim")
         if account.isHardware {
             try await confirmLedger(account: account, title: title, headerView: headerView, onDone: onDone)
         } else {
@@ -89,14 +94,12 @@ import Combine
         guard
             let account = AccountStore.account,
             let fromAddress = account.tonAddress?.nilIfEmpty,
-            let ledger = account.ledger,
             let viewController
         else { return }
         
         let signModel = try await LedgerSignModel(
             accountId: account.id,
             fromAddress: fromAddress,
-            ledger: ledger,
             signData: SignData.submitStakingClaimOrUnlock(
                 accountId: account.id,
                 state: stakingState.orThrow(),

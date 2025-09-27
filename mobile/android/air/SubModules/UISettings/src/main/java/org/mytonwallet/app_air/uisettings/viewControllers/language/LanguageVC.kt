@@ -14,13 +14,14 @@ import org.mytonwallet.app_air.uicomponents.helpers.LastItemPaddingDecoration
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
+import org.mytonwallet.app_air.uiwidgets.configurations.WidgetsConfigurations
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.localization.WLanguage
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.models.WLanguage
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import java.lang.ref.WeakReference
 
@@ -163,8 +164,9 @@ class LanguageVC(context: Context) : WViewController(context),
                 ) {
                     WGlobalStorage.setLangCode(language.langCode)
                     switchLanguageIfRequired(language)
-                    LocaleController.init(context)
+                    LocaleController.init(context, WGlobalStorage.getLangCode())
                     WalletContextManager.delegate?.restartApp()
+                    WidgetsConfigurations.reloadWidgets(context)
                 }
             }
         }

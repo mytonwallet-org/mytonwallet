@@ -6,7 +6,7 @@ import {
   APP_NAME, IS_EXTENSION, IS_TELEGRAM_APP, TONCONNECT_PROTOCOL_VERSION,
 } from '../config';
 import packageJson from '../../package.json';
-import { DEFAULT_MAX_MESSAGES, W5_MAX_MESSAGES } from '../api/chains/ton/constants';
+import { W5_MAX_MESSAGES } from '../api/chains/ton/constants';
 import { getMaxMessagesInTransaction } from './ton/transfer';
 
 type DevicePlatform = DeviceInfo['platform'];
@@ -20,7 +20,7 @@ export function tonConnectGetDeviceInfo(account?: ApiAccountWithChain<'ton'>): D
     'SendTransaction', // TODO DEPRECATED
     {
       name: 'SendTransaction',
-      maxMessages: account ? getTonConnectMaxMessages(account) : W5_MAX_MESSAGES,
+      maxMessages: account ? getMaxMessagesInTransaction(account) : W5_MAX_MESSAGES,
     },
   ];
 
@@ -38,17 +38,6 @@ export function tonConnectGetDeviceInfo(account?: ApiAccountWithChain<'ton'>): D
     maxProtocolVersion: TONCONNECT_PROTOCOL_VERSION,
     features,
   };
-}
-
-/** How many messages can be sent in a single TON Connect transaction sending */
-export function getTonConnectMaxMessages(account: ApiAccountWithChain<'ton'>) {
-  const { type } = account;
-
-  if (type === 'ledger') {
-    return DEFAULT_MAX_MESSAGES; // TODO Remove after DEXs support the 1 message limit
-  } else {
-    return getMaxMessagesInTransaction(account);
-  }
 }
 
 function getPlatform(): DevicePlatform {

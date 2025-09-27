@@ -5,7 +5,7 @@
 //  Created by nikstar on 31.08.2025.
 //
 
-public struct ApiSwapEstimateVariant: Equatable, Hashable, Codable, Sendable {
+public struct ApiSwapEstimateVariant: Codable, Sendable {
     public let fromAmount: MDouble
     public let toAmount: MDouble
     public let toMinAmount: MDouble

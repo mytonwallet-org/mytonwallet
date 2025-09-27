@@ -9,6 +9,7 @@ import android.os.Build
 import android.text.TextUtils
 import android.widget.ImageView
 import androidx.core.content.FileProvider
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import java.io.File
 import java.io.FileOutputStream
 

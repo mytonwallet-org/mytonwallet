@@ -174,12 +174,12 @@ class LedgerSigner implements Signer {
   ) {}
 
   async signTonProof(proof: ApiTonConnectProof) {
-    const { signTonProofWithLedger } = await import('./ledger');
+    const { signTonProofWithLedger } = await import('../ledger');
     return signTonProofWithLedger(this.network, this.wallet, proof);
   }
 
   async signTransactions(transactions: PreparedTransactionToSign[]) {
-    const { signTonTransactionsWithLedger } = await import('./ledger');
+    const { signTonTransactionsWithLedger } = await import('../ledger');
     return signTonTransactionsWithLedger(this.network, this.wallet, transactions, this.subwalletId);
   }
 

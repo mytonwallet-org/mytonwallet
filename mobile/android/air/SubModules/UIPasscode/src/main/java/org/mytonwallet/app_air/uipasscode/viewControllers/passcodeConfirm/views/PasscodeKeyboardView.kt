@@ -16,8 +16,8 @@ import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.unlockView
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.stores.AuthStore
 import kotlin.math.min
 

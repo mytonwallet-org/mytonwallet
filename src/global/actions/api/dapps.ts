@@ -24,7 +24,6 @@ import {
   updateCurrentDappTransfer,
   updateDappConnectRequest,
 } from '../../reducers';
-import { selectIsHardwareAccount } from '../../selectors';
 import { switchAccount } from './auth';
 
 import { getIsPortrait } from '../../../hooks/useDeviceScreen';
@@ -289,9 +288,7 @@ addActionHandler('apiUpdateDappSendTransaction', async (global, actions, payload
     (global) => global.currentDappTransfer.state !== TransferState.None,
     clearCurrentDappTransfer,
     (global) => updateCurrentDappTransfer(global, {
-      state: selectIsHardwareAccount(global) && transactions.length > 1
-        ? TransferState.WarningHardware
-        : TransferState.Initial,
+      state: TransferState.Initial,
       promiseId,
       transactions,
       emulation,

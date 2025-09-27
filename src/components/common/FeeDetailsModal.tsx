@@ -6,8 +6,8 @@ import type { FeeToken } from '../ui/Fee';
 
 import renderText from '../../global/helpers/renderText';
 import buildClassName from '../../util/buildClassName';
-import { getChainConfig } from '../../util/chain';
-import { getChainBySlug } from '../../util/tokens';
+import { getChainTitle } from '../../util/chain';
+import { getChainBySlug, getNativeToken } from '../../util/tokens';
 
 import useLang from '../../hooks/useLang';
 
@@ -62,7 +62,7 @@ function FeeDetailsContent({
   extraContent,
 }: Omit<OwnProps, 'isOpen' | 'title'>) {
   const chain = token && getChainBySlug(token.slug);
-  const nativeToken = chain && getChainConfig(chain).nativeToken;
+  const nativeToken = chain && getNativeToken(chain);
   const lang = useLang();
 
   return (
@@ -104,7 +104,7 @@ function FeeDetailsContent({
           {renderText(lang('$fee_details', {
             full_fee: fullFee && token && <b><Fee terms={fullFee} precision="exact" token={token} /></b>,
             excess_symbol: <b>{nativeToken?.symbol}</b>,
-            chain_name: chain?.toUpperCase(),
+            chain_name: chain && getChainTitle(chain),
           }))}
         </div>
         {extraContent}

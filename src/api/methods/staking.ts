@@ -14,7 +14,7 @@ import type {
 import { TONCOIN } from '../../config';
 import { fromDecimal } from '../../util/decimals';
 import { logDebugError } from '../../util/logs';
-import chains from '../chains';
+import * as ton from '../chains/ton';
 import { getTonClient } from '../chains/ton/util/tonCore';
 import { fetchStoredAccount, fetchStoredWallet } from '../common/accounts';
 import { callBackendGet } from '../common/backend';
@@ -22,8 +22,6 @@ import { setStakingCommonCache } from '../common/cache';
 import { createLocalTransactions } from './transfer';
 
 import { StakingPool } from '../chains/ton/contracts/JettonStaking/StakingPool';
-
-const { ton } = chains;
 
 export function initStaking() {
 }

@@ -1,5 +1,5 @@
 import React, {
-  memo, useEffect, useMemo, useState,
+  memo, useEffect, useMemo, useRef, useState,
 } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
@@ -9,8 +9,10 @@ import {
 import renderText from '../../global/helpers/renderText';
 import buildClassName from '../../util/buildClassName';
 import captureKeyboardListeners from '../../util/captureKeyboardListeners';
+import { readClipboardContent } from '../../util/clipboard';
 import isMnemonicPrivateKey from '../../util/isMnemonicPrivateKey';
 import { compact } from '../../util/iteratees';
+import { IS_CLIPBOARDS_SUPPORTED } from '../../util/windowEnvironment';
 import { callApi } from '../../api';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
@@ -19,10 +21,12 @@ import { useDeviceScreen } from '../../hooks/useDeviceScreen';
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
+import useScrolledState from '../../hooks/useScrolledState';
 
 import InputMnemonic from '../common/InputMnemonic';
 import AnimatedIconWithPreview from '../ui/AnimatedIconWithPreview';
 import Button from '../ui/Button';
+import Header from './Header';
 
 import styles from './Auth.module.scss';
 
@@ -47,11 +51,27 @@ const AuthImportMnemonic = ({ isActive, isLoading, error }: OwnProps & StateProp
     afterImportMnemonic,
     resetAuth,
     cleanAuthError,
+    showNotification,
   } = getActions();
 
   const lang = useLang();
+  const containerRef = useRef<HTMLDivElement>();
+  const headerRef = useRef<HTMLDivElement>();
+  const [shouldRenderPasteButton, setShouldRenderPasteButton] = useState(IS_CLIPBOARDS_SUPPORTED);
   const [mnemonic, setMnemonic] = useState<Record<number, string>>({});
   const { isPortrait } = useDeviceScreen();
+
+  const {
+    isAtEnd: noButtonsSeparator,
+    update,
+    handleScroll,
+  } = useScrolledState();
+
+  useEffect(() => {
+    if (isActive) {
+      update(containerRef.current);
+    }
+  }, [isActive, update]);
 
   const handleMnemonicSet = useLastCallback((pastedMnemonic: string[]) => {
     if (!MNEMONIC_COUNTS.includes(pastedMnemonic.length) && !isMnemonicPrivateKey(pastedMnemonic)) {
@@ -85,6 +105,20 @@ const AuthImportMnemonic = ({ isActive, isLoading, error }: OwnProps & StateProp
 
   useClipboardPaste(Boolean(isActive), handlePasteMnemonic);
 
+  const handlePasteMnemonicClick = useLastCallback(async () => {
+    try {
+      const { type, text } = await readClipboardContent();
+
+      if (type === 'text/plain') {
+        const newValue = text.trim();
+
+        handlePasteMnemonic(newValue);
+      }
+    } catch (err: any) {
+      showNotification({ message: lang('Error reading clipboard') });
+      setShouldRenderPasteButton(false);
+    }
+  });
   const isSubmitDisabled = useMemo(() => {
     const mnemonicValues = compact(Object.values(mnemonic));
 
@@ -138,56 +172,78 @@ const AuthImportMnemonic = ({ isActive, isLoading, error }: OwnProps & StateProp
   }, [handleSubmit, isLoading, isSubmitDisabled, mnemonic]);
 
   return (
-    <div className={buildClassName(styles.container, styles.container_scrollable, 'custom-scroll')}>
-      <AnimatedIconWithPreview
-        play={isActive}
-        size={ANIMATED_STICKER_SMALL_SIZE_PX}
-        tgsUrl={ANIMATED_STICKERS_PATHS.snitch}
-        previewUrl={ANIMATED_STICKERS_PATHS.snitchPreview}
-        nonInteractive
-        noLoop={false}
-        className={styles.sticker}
+    <div className={styles.wrapper}>
+      <Header
+        isActive={isActive}
+        title={lang('Enter Secret Words')}
+        topTargetRef={headerRef}
+        onBackClick={handleCancel}
       />
-      <div className={buildClassName(styles.title, styles.title_afterSmallSticker)}>
-        {lang('Enter Secret Words')}
-      </div>
-      <div className={buildClassName(styles.info, styles.infoSmallFont, styles.infoPull)}>
-        {renderText(lang(IS_BIP39_MNEMONIC_ENABLED
-          ? '$auth_import_mnemonic_description'
-          : '$auth_import_24_mnemonic_description'))}
-      </div>
+      <div
+        ref={containerRef}
+        className={buildClassName(styles.container, styles.container_scrollable, 'custom-scroll')}
+        onScroll={handleScroll}
+      >
+        <AnimatedIconWithPreview
+          play={isActive}
+          size={ANIMATED_STICKER_SMALL_SIZE_PX}
+          tgsUrl={ANIMATED_STICKERS_PATHS.snitch}
+          previewUrl={ANIMATED_STICKERS_PATHS.snitchPreview}
+          nonInteractive
+          noLoop={false}
+          className={styles.sticker}
+        />
+        <div ref={headerRef} className={buildClassName(styles.title, styles.title_afterSmallSticker)}>
+          {lang('Enter Secret Words')}
+        </div>
+        <div className={buildClassName(styles.info, styles.infoSmallFont, styles.infoPull)}>
+          {renderText(lang(IS_BIP39_MNEMONIC_ENABLED
+            ? '$auth_import_mnemonic_description'
+            : '$auth_import_24_mnemonic_description'))}
+        </div>
 
-      <div className={styles.importingContent}>
-        {MNEMONIC_INPUTS.map(({ id, label }, i) => (
-          <InputMnemonic
-            key={id}
-            id={`import-mnemonic-${id}`}
-            nextId={id + 1 < MNEMONIC_COUNT ? `import-mnemonic-${id + 1}` : undefined}
-            labelText={label}
-            value={mnemonic[id]}
-            suggestionsPosition={getSuggestPosition(id, isPortrait)}
-            inputArg={id}
-            onInput={handleSetWord}
-            onEnter={i === MNEMONIC_COUNT - 1 ? handleSubmit : undefined}
-          />
-        ))}
-      </div>
+        {shouldRenderPasteButton && (
+          <Button isText className={styles.pasteButton} onClick={handlePasteMnemonicClick}>
+            <i className={buildClassName(styles.pasteButtonIcon, 'icon-copy-bold')} aria-hidden />
 
-      <div className={styles.buttons}>
-        {error && <div className={styles.footerError}>{lang(error)}</div>}
-        <div className={styles.buttons__inner}>
-          <Button onClick={handleCancel} className={styles.footerButton}>
-            {lang('Cancel')}
+            {lang('Paste from Clipboard')}
           </Button>
-          <Button
-            isPrimary
-            isDisabled={isSubmitDisabled}
-            isLoading={isLoading}
-            className={styles.footerButton}
-            onClick={handleSubmit}
-          >
-            {lang('Continue')}
-          </Button>
+        )}
+
+        <div className={styles.importingContent}>
+          {MNEMONIC_INPUTS.map(({ id, label }, i) => (
+            <InputMnemonic
+              key={id}
+              id={`import-mnemonic-${id}`}
+              nextId={id + 1 < MNEMONIC_COUNT ? `import-mnemonic-${id + 1}` : undefined}
+              labelText={label}
+              value={mnemonic[id]}
+              suggestionsPosition={getSuggestPosition(id, isPortrait)}
+              inputArg={id}
+              onInput={handleSetWord}
+              onEnter={i === MNEMONIC_COUNT - 1 ? handleSubmit : undefined}
+            />
+          ))}
+        </div>
+
+        <div className={buildClassName(
+          styles.buttons,
+          styles.buttonsBottomStuck,
+          noButtonsSeparator && styles.buttonsNoSeparator,
+        )}
+        >
+          <div className={styles.buttonsBottomStuckInner}>
+            {error && <div className={styles.footerError}>{lang(error)}</div>}
+            <Button
+              isPrimary
+              isDisabled={isSubmitDisabled}
+              isLoading={isLoading}
+              className={styles.btn}
+              onClick={handleSubmit}
+            >
+              {lang('Continue')}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

@@ -108,7 +108,6 @@ struct CoverFlow_iOS18<Item: Identifiable, Content: View>: View, Equatable {
     }
     
     var body: some View {
-        let _ = Self._printChanges()
         ScrollView(.horizontal) {
             HStack(spacing: itemSpacing) {
                 ForEach(Array(viewModel.items.enumerated()), id: \.element.id) { (idx, item) in
@@ -192,7 +191,6 @@ struct CoverFlowItem<Content: View>: View {
 //    @State private var distance2: CGFloat = 0
     
     var body: some View {
-        let _ = Self._printChanges()
         content()
 //            .overlay {
 //                Text(distance.formatted())

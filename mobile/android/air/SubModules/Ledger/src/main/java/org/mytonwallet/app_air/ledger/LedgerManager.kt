@@ -7,15 +7,9 @@ import org.json.JSONObject
 import org.mytonwallet.app_air.ledger.connectionManagers.ILedgerConnectionManager
 import org.mytonwallet.app_air.ledger.connectionManagers.LedgerBleManager
 import org.mytonwallet.app_air.ledger.connectionManagers.LedgerUsbManager
-import org.mytonwallet.app_air.walletcore.MAIN_NETWORK
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
-import org.mytonwallet.app_air.walletcore.moshi.MApiTonWallet
-import org.mytonwallet.app_air.walletcore.moshi.MApiTonWalletVersion
-import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
-import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
 
 object LedgerManager : WalletCore.EventObserver {
     enum class ConnectionMode {
@@ -27,7 +21,7 @@ object LedgerManager : WalletCore.EventObserver {
         data object None : ConnectionState()
         data object Connecting : ConnectionState()
         data class ConnectingToTonApp(val device: LedgerDevice) : ConnectionState()
-        data class Done(val device: LedgerDevice, val tonAppVersion: String) : ConnectionState()
+        data class Done(val device: LedgerDevice) : ConnectionState()
         data class Error(
             val step: Step,
             val shortMessage: CharSequence?,
@@ -91,32 +85,6 @@ object LedgerManager : WalletCore.EventObserver {
         activeManager?.stopConnection()
         activeManager = null
         onUpdate = null
-    }
-
-    suspend fun getWalletInfo(walletIndex: Int): MApiTonWallet? {
-        return suspendCoroutine { continuation ->
-            activeManager?.getPublicKey(walletIndex) { publicKey ->
-                if (publicKey == null) {
-                    continuation.resume(null)
-                    return@getPublicKey
-                }
-
-                Handler(Looper.getMainLooper()).post {
-                    WalletCore.call(
-                        ApiMethod.Auth.AddressFromPublicKey(
-                            publicKey,
-                            MAIN_NETWORK,
-                            MApiTonWalletVersion.V4_R2
-                        ), callback = { wallet, error ->
-                            if (error != null) {
-                                continuation.resume(null)
-                            } else {
-                                continuation.resume(wallet)
-                            }
-                        })
-                }
-            }
-        }
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {

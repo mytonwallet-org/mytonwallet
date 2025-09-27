@@ -15,8 +15,8 @@ import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import kotlin.math.max
 import kotlin.math.min
@@ -154,7 +154,7 @@ class NftAttributesView(
         }
         setBackgroundColor(WColor.Background.color, 8f.dp, 8f.dp, true, WColor.Separator.color, 1)
         titlesBackground.setBackgroundColor(
-            WColor.GroupedBackground.color,
+            WColor.AttributesBackground.color,
             topRadius = 0f,
             clipToBounds = true,
             bottomRadius = 0f,

@@ -68,7 +68,7 @@ interface OwnProps {
   shouldUseSwapTokens?: boolean;
   shouldHideMyTokens?: boolean;
   shouldHideNotSupportedTokens?: boolean;
-  selectedChain?: ApiChain;
+  selectedChain?: ApiChain | ApiChain[];
   header?: TeactNode;
   onClose: NoneToVoidFunction;
   onBack: NoneToVoidFunction;
@@ -156,24 +156,29 @@ function TokenSelector({
   const [renderingKey, setRenderingKey] = useState(SearchState.Initial);
   const [searchTokenList, setSearchTokenList] = useState<TokenType[]>([]);
 
+  const selectedChains = useMemo(
+    () => selectedChain && new Set(Array.isArray(selectedChain) ? selectedChain : [selectedChain]),
+    [selectedChain],
+  );
+
   // It is necessary to use useCallback instead of useLastCallback here
   const filterTokens = useCallback((tokens: TokenType[]) => {
     return filterAndSortTokens(tokens, isMultichain, tokenInSlug, pairsBySlug, shouldShowAllPairs);
   }, [pairsBySlug, tokenInSlug, isMultichain, shouldShowAllPairs]);
 
   const userTokens = useMemo(
-    () => filterSupportedTokens(userTokensProp, shouldHideNotSupportedTokens, availableChains, selectedChain),
-    [userTokensProp, shouldHideNotSupportedTokens, availableChains, selectedChain],
+    () => filterSupportedTokens(userTokensProp, shouldHideNotSupportedTokens, availableChains, selectedChains),
+    [userTokensProp, shouldHideNotSupportedTokens, availableChains, selectedChains],
   );
 
   const allTokens = useMemo(
-    () => filterSupportedTokens(swapTokens, shouldHideNotSupportedTokens, availableChains, selectedChain),
-    [swapTokens, shouldHideNotSupportedTokens, availableChains, selectedChain],
+    () => filterSupportedTokens(swapTokens, shouldHideNotSupportedTokens, availableChains, selectedChains),
+    [swapTokens, shouldHideNotSupportedTokens, availableChains, selectedChains],
   );
 
   const popularTokens = useMemo(
-    () => filterSupportedTokens(popularTokensProp, shouldHideNotSupportedTokens, availableChains, selectedChain),
-    [popularTokensProp, shouldHideNotSupportedTokens, availableChains, selectedChain],
+    () => filterSupportedTokens(popularTokensProp, shouldHideNotSupportedTokens, availableChains, selectedChains),
+    [popularTokensProp, shouldHideNotSupportedTokens, availableChains, selectedChains],
   );
 
   const { userTokensWithFilter, popularTokensWithFilter, swapTokensWithFilter } = useMemo(() => {
@@ -352,7 +357,7 @@ function TokenSelector({
 
   function renderToken(currentToken: TokenType) {
     const isAvailable = Boolean(!shouldFilter || currentToken.canSwap);
-    const withChainIcon = Boolean((isMultichain || shouldUseSwapTokens) && !selectedChain);
+    const withChainIcon = (isMultichain || !!shouldUseSwapTokens) && (!selectedChains || selectedChains.size > 1);
     const descriptionText = isAvailable
       ? getChainNetworkName(currentToken.chain)
       : lang('Unavailable');
@@ -650,9 +655,9 @@ function filterSupportedTokens<T extends TokenType>(
   tokens: T[],
   isFilterActive: boolean,
   availableChains: Partial<Record<ApiChain, unknown>>,
-  selectedChain?: ApiChain,
+  selectedChains?: Set<ApiChain>,
 ): T[] {
-  if (!isFilterActive && !selectedChain) {
+  if (!isFilterActive && !selectedChains) {
     return tokens;
   }
 
@@ -661,6 +666,6 @@ function filterSupportedTokens<T extends TokenType>(
       return false;
     }
 
-    return !(selectedChain && token.chain !== selectedChain);
+    return !selectedChains || selectedChains.has(token.chain as ApiChain);
   });
 }

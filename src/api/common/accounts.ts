@@ -63,8 +63,8 @@ export async function fetchStoredChainAccount<T extends ApiChain>(accountId: str
   throw new Error(`${chain} wallet missing in account ${accountId}`);
 }
 
-export function fetchStoredAccounts(): Promise<Record<string, ApiAccountAny>> {
-  return storage.getItem('accounts');
+export async function fetchStoredAccounts(): Promise<Record<string, ApiAccountAny>> {
+  return (await storage.getItem('accounts')) ?? {};
 }
 
 export async function updateStoredAccount<T extends ApiAccountAny>(
@@ -150,6 +150,7 @@ export function waitLogin() {
 export function getAccountChains(account: ApiAccountAny): Partial<Record<ApiChain, AccountChain>> {
   return mapValues(account.byChain, (wallet) => ({
     address: wallet.address,
+    ledgerIndex: account.type === 'ledger' ? wallet.index : undefined,
   }));
 }
 

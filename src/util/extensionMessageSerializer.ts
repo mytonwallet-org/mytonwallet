@@ -1,4 +1,4 @@
-import type { OriginMessageData, WorkerMessageData } from './PostMessageConnector';
+import type { OriginMessageData, WorkerMessageData, WorkerMessageError } from './PostMessageConnector';
 
 import { BIGINT_PREFIX } from './bigint';
 
@@ -37,4 +37,29 @@ export function decodeExtensionMessage<T extends OriginMessageData | WorkerMessa
     return JSON.parse(data, extensionMessageReviver);
   }
   return data;
+}
+
+export function encodeError(error: Error): WorkerMessageError {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    };
+  }
+
+  // Just in case
+  return {
+    name: 'Error',
+    message: String(error),
+  };
+}
+
+export function decodeError({ name, message, stack }: WorkerMessageError): Error {
+  const error = new Error(message);
+  error.name = name;
+  if (stack) {
+    error.stack = stack;
+  }
+  return error;
 }

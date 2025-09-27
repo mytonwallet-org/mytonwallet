@@ -62,8 +62,8 @@ struct ImportSuccessView: View {
     
     @ViewBuilder
     var description: some View {
-        let line1 = lang(successKind == .created ? "$finalized_wallet_creation" : "$finalized_wallet_import")
-        let line2 = lang("$store_securely")
+        let line1 = successKind == .created ? lang("$finalized_wallet_creation") : lang("$finalized_wallet_import")
+        let line2 = successKind != .importedView ? lang("$store_securely") : ""
         Text(LocalizedStringKey(line1 + "\n\n" + line2))
             .multilineTextAlignment(.center)
     }

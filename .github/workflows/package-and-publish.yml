@@ -450,16 +450,19 @@ jobs:
           IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
           IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
           IOS_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
+          IOS_PROVISION_PROFILE_WIDGET_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_WIDGET_BASE64 }}
           IOS_KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
         run: |
           # create variables
           CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
           PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
+          PP_WIDGET_PATH=$RUNNER_TEMP/build_pp_widget.mobileprovision
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
 
           # import certificate and provisioning profile from secrets
           echo -n "$IOS_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
           echo -n "$IOS_PROVISION_PROFILE_BASE64" | base64 --decode -o $PP_PATH
+          echo -n "$IOS_PROVISION_PROFILE_WIDGET_BASE64" | base64 --decode -o $PP_WIDGET_PATH
 
           # create temporary keychain
           security create-keychain -p "$IOS_KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
@@ -473,6 +476,7 @@ jobs:
           # apply provisioning profile
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $PP_WIDGET_PATH ~/Library/MobileDevice/Provisioning\ Profiles
 
       - name: "iOS: Package and publish"
         env:

@@ -1,4 +1,4 @@
-import React, { memo } from '../../lib/teact/teact';
+import React, { memo, useRef } from '../../lib/teact/teact';
 import { getActions } from '../../global';
 
 import type { AuthMethod } from '../../global/types';
@@ -13,6 +13,7 @@ import useLastCallback from '../../hooks/useLastCallback';
 
 import AnimatedIconWithPreview from '../ui/AnimatedIconWithPreview';
 import CreatePasswordForm from '../ui/CreatePasswordForm';
+import Header from './Header';
 
 import styles from './Auth.module.scss';
 
@@ -30,9 +31,11 @@ const AuthCreatePassword = ({
   const { afterCreatePassword, resetAuth } = getActions();
 
   const lang = useLang();
+  const headerRef = useRef<HTMLDivElement>();
   const isImporting = method !== 'createAccount';
   const formId = getFormId(method!);
   const withDescription = !getIsBiometricAuthSupported();
+  const title = lang(withDescription ? 'Congratulations!' : 'Create Password');
 
   useHistoryBack({
     isActive,
@@ -44,36 +47,45 @@ const AuthCreatePassword = ({
   });
 
   return (
-    <div className={buildClassName(styles.container, styles.container_scrollable, 'custom-scroll')}>
-      <AnimatedIconWithPreview
-        play={isActive}
-        tgsUrl={ANIMATED_STICKERS_PATHS.guard}
-        previewUrl={ANIMATED_STICKERS_PATHS.guardPreview}
-        noLoop={false}
-        nonInteractive
-        className={styles.sticker}
-      />
-      <div className={buildClassName(styles.title, !withDescription && styles.titleSmallMargin)}>
-        {lang(withDescription ? 'Congratulations!' : 'Create Password')}
-      </div>
-      {withDescription && (
-        <>
-          <p className={styles.info}>
-            <b>{lang(isImporting ? 'The wallet is imported' : 'The wallet is ready')}.</b>
-          </p>
-          <p className={styles.info}>
-            {lang('Create a password to protect it.')}
-          </p>
-        </>
-      )}
-
-      <CreatePasswordForm
+    <div className={styles.wrapper}>
+      <Header
         isActive={isActive}
-        isLoading={isLoading}
-        formId={formId}
-        onCancel={resetAuth}
-        onSubmit={handleSubmit}
+        title={title}
+        topTargetRef={headerRef}
+        onBackClick={resetAuth}
       />
+
+      <div className={buildClassName(styles.container, styles.container_scrollable, 'custom-scroll')}>
+        <AnimatedIconWithPreview
+          play={isActive}
+          tgsUrl={ANIMATED_STICKERS_PATHS.guard}
+          previewUrl={ANIMATED_STICKERS_PATHS.guardPreview}
+          noLoop={false}
+          nonInteractive
+          className={styles.sticker}
+        />
+        <div ref={headerRef} className={buildClassName(styles.title, !withDescription && styles.titleSmallMargin)}>
+          {title}
+        </div>
+        {withDescription && (
+          <>
+            <p className={styles.info}>
+              <b>{lang(isImporting ? 'The wallet is imported' : 'The wallet is ready')}.</b>
+            </p>
+            <p className={styles.info}>
+              {lang('Create a password to protect it.')}
+            </p>
+          </>
+        )}
+
+        <CreatePasswordForm
+          isActive={isActive}
+          isLoading={isLoading}
+          formId={formId}
+          onCancel={resetAuth}
+          onSubmit={handleSubmit}
+        />
+      </div>
     </div>
   );
 };

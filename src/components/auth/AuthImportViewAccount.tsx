@@ -7,6 +7,7 @@ import type { ApiImportAddressByChain } from '../../api/types';
 
 import renderText from '../../global/helpers/renderText';
 import buildClassName from '../../util/buildClassName';
+import { getSupportedChains } from '../../util/chain';
 import { stopEvent } from '../../util/domEvents';
 import { isValidAddressOrDomain } from '../../util/isValidAddressOrDomain';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
@@ -28,11 +29,10 @@ type OwnProps = {
   isActive?: boolean;
   isLoading?: boolean;
   onCancel: NoneToVoidFunction;
-  onClose?: NoneToVoidFunction;
 };
 
 function AuthImportViewAccount({
-  isActive, isLoading, onCancel, onClose,
+  isActive, isLoading, onCancel,
 }: OwnProps) {
   const { importViewAccount } = getActions();
 
@@ -65,14 +65,11 @@ function AuthImportViewAccount({
     const addressByChain: ApiImportAddressByChain = {};
 
     const hasValidAddress = addresses.reduce((isValid, address) => {
-      if (isValidAddressOrDomain(address, 'ton')) {
-        addressByChain.ton = address;
-        return true;
-      }
-
-      if (isValidAddressOrDomain(address, 'tron')) {
-        addressByChain.tron = address;
-        return true;
+      for (const chain of getSupportedChains()) {
+        if (isValidAddressOrDomain(address, chain)) {
+          addressByChain[chain] = address;
+          return true;
+        }
       }
 
       return isValid;
@@ -88,7 +85,7 @@ function AuthImportViewAccount({
 
   return (
     <div className={modalStyles.transitionContentWrapper}>
-      <ModalHeader title={lang('View Any Address')} onClose={onClose} onBackButtonClick={onCancel} />
+      <ModalHeader title={lang('View Any Address')} onBackButtonClick={onCancel} />
       <form
         action="#"
         className={buildClassName(modalStyles.transitionContent, 'custom-scroll')}
@@ -117,7 +114,7 @@ function AuthImportViewAccount({
 
         <p className={styles.info}>{renderText(lang('$import_view_account_note'))}</p>
 
-        <div className={modalStyles.buttons}>
+        <div className={styles.buttons}>
           <Button
             isPrimary
             isSubmit

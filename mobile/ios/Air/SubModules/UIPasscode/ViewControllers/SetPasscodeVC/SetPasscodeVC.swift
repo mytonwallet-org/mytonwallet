@@ -180,6 +180,7 @@ extension SetPasscodeVC: PasscodeInputViewDelegate {
                                                      completion: { [weak self] in
                 // make passcode empty on completion
                 self?.passcodeInputView.currentPasscode = ""
+                self?.passcodeScreenView.passcodeInputView.currentPasscode = ""
             })
         }
     }

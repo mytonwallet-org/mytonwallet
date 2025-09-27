@@ -18,6 +18,7 @@ import WalletContext
     static func showConnectedDapps(push: Bool)
     static func showCrossChainSwapVC(_ transaction: ApiActivity)
     static func showEarn(token: ApiToken?)
+    static func showError(error: Error?)
     static func showHiddenNfts() -> ()
     static func showImportWalletVersion() -> ()
     static func showReceive(chain: ApiChain?, showBuyOptions: Bool?, title: String?)
@@ -52,6 +53,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showConnectedDapps(push: Bool) { }
     static func showCrossChainSwapVC(_ transaction: ApiActivity) { }
     static func showEarn(token: ApiToken?) { }
+    static func showError(error: Error?) { }
     static func showHiddenNfts() -> () { }
     static func showImportWalletVersion() -> () { }
     static func showReceive(chain: ApiChain?, showBuyOptions: Bool?, title: String?) { }

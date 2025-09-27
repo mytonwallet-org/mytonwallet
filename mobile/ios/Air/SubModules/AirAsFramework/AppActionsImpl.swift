@@ -178,6 +178,12 @@ private class AppActionsImpl: AppActionsProtocol {
         topViewController()?.present(WNavigationController(rootViewController: earnVC), animated: true)
     }
     
+    static func showError(error: Error?) {
+        if let error {
+            topViewController()?.showAlert(error: error)
+        }
+    }
+    
     static func showHiddenNfts() {
         let hiddenVC = HiddenNftsVC()
         let topVC = topViewController()

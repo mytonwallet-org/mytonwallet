@@ -16,7 +16,6 @@ import styles from './Auth.module.scss';
 
 type OwnProps = {
   isActive?: boolean;
-  isInModal?: boolean;
   mnemonic?: string[];
   checkIndexes?: number[];
   buttonLabel: string;
@@ -26,7 +25,7 @@ type OwnProps = {
 };
 
 function MnemonicCheck({
-  isActive, isInModal, mnemonic, checkIndexes, buttonLabel, onCancel, onSubmit, onClose,
+  isActive, mnemonic, checkIndexes, buttonLabel, onCancel, onSubmit, onClose,
 }: OwnProps) {
   const lang = useLang();
 
@@ -48,7 +47,6 @@ function MnemonicCheck({
           isActive={isActive}
           mnemonic={mnemonic}
           checkIndexes={checkIndexes}
-          isInModal={isInModal}
           errorClassName={buildClassName(styles.error, styles.small)}
           onSubmit={onSubmit}
         />

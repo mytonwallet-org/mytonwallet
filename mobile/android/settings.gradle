@@ -14,6 +14,7 @@ def subModules = [
   "UISwap",
   "WalletContext",
   "WalletCore",
+  "WalletSDK",
   "UISettings",
   "UIPasscode",
   "UIHome",
@@ -28,7 +29,10 @@ def subModules = [
   "QRScan",
   "UIReceive",
   "UITonConnect",
-  "Ledger"
+  "Ledger",
+  "UIWidgets",
+  "UIWidgetsConfigurations",
+  "WalletBaseContext",
 ]
 include("$airSubModulePath:vkryl:core")
 include("$airSubModulePath:vkryl:android")

@@ -35,7 +35,9 @@ object AccountStore {
     @Synchronized
     fun updateAssetsAndActivityData(newValue: MAssetsAndActivityData, notify: Boolean) {
         assetsAndActivityData = newValue
-        WGlobalStorage.setAssetsAndActivityData(activeAccountId!!, newValue.toJSON)
+        activeAccountId?.let { activeAccountId ->
+            WGlobalStorage.setAssetsAndActivityData(activeAccountId, newValue.toJSON)
+        }
         if (notify)
             notifyEvent(WalletEvent.AssetsAndActivityDataUpdated)
     }
@@ -69,5 +71,8 @@ object AccountStore {
     fun clean() {
         WGlobalStorage.deleteAllWallets()
         WSecureStorage.deleteAllWalletValues()
+        updateActiveAccount(null)
+        updateAssetsAndActivityData(MAssetsAndActivityData(), notify = false)
+        walletVersionsData = null
     }
 }

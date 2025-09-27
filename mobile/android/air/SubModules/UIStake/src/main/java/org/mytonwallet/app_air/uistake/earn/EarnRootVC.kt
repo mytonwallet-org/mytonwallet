@@ -10,9 +10,9 @@ import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedController
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedControllerItem
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.USDE_SLUG
@@ -45,10 +45,10 @@ class EarnRootVC(context: Context, private val tokenSlug: String = TONCOIN_SLUG)
             }) else null
 
     private val segmentView: WSegmentedController by lazy {
-        val viewControllers = mutableListOf(WSegmentedControllerItem(tonVC)).apply {
-            if (mycoinVC != null) add(WSegmentedControllerItem(mycoinVC))
-            if (usdeVC != null) add(WSegmentedControllerItem(usdeVC))
-        }.toTypedArray()
+        val viewControllers = mutableListOf(WSegmentedControllerItem(tonVC, null)).apply {
+            if (mycoinVC != null) add(WSegmentedControllerItem(mycoinVC, null))
+            if (usdeVC != null) add(WSegmentedControllerItem(usdeVC, null))
+        }
         val segmentedController = WSegmentedController(
             navigationController!!,
             viewControllers,

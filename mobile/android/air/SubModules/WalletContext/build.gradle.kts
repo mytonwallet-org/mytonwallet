@@ -14,21 +14,13 @@ android {
         consumerProguardFiles("consumer-rules.pro")
     }
 
-    buildFeatures {
-        buildConfig = true
-    }
-
     buildTypes {
-        debug {
-            buildConfigField("Boolean", "DEBUG_MODE", "true")
-        }
         release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            buildConfigField("Boolean", "DEBUG_MODE", "false")
         }
     }
     compileOptions {
@@ -40,6 +32,8 @@ android {
     }
 }
 
+val airSubModulePath = project.property("airSubModulePath")
+
 dependencies {
 
     implementation(libs.androidx.core.ktx)
@@ -47,6 +41,7 @@ dependencies {
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.material)
+    implementation(project("$airSubModulePath:WalletBaseContext"))
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

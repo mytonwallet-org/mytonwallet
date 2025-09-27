@@ -3,7 +3,6 @@ package org.mytonwallet.uihome.home
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
-import org.mytonwallet.app_air.walletcontext.helpers.logger.Logger
 import org.mytonwallet.app_air.walletcore.STAKING_SLUGS
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -17,6 +16,7 @@ import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.uihome.home.views.UpdateStatusView
 import java.lang.ref.WeakReference
 import java.util.concurrent.Executors

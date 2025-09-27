@@ -28,12 +28,12 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uitransaction.viewControllers.views.LabelAndIconView
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
+import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
-import org.mytonwallet.app_air.walletcontext.utils.smartDecimalsCount
-import org.mytonwallet.app_air.walletcontext.utils.toString
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -45,7 +45,7 @@ import kotlin.math.roundToInt
 @SuppressLint("ViewConstructor")
 class TransactionHeaderView(
     val viewController: WeakReference<WViewController>,
-    val transaction: MApiTransaction
+    var transaction: MApiTransaction
 ) : WView(
     viewController.get()!!.context,
     LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
@@ -98,6 +98,7 @@ class TransactionHeaderView(
     }
 
     fun reloadData() {
+        val transaction = transaction
         if (transaction !is MApiTransaction.Transaction)
             throw Exception()
         val token = TokenStore.getToken(transaction.slug)

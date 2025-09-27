@@ -39,7 +39,7 @@ function TransferPassword({
   const title = isBurning ? 'Confirm Burning' : 'Confirm Sending';
   const submitLabel = isGaslessWithStars
     ? lang('Pay fee with %stars_symbol%', { stars_symbol: STARS_SYMBOL })
-    : lang('Send');
+    : lang('Confirm');
 
   return (
     <>

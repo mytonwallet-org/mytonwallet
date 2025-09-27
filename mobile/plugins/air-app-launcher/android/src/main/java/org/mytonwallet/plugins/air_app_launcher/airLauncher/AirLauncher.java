@@ -1,6 +1,7 @@
 package org.mytonwallet.plugins.air_app_launcher.airLauncher;
 
 import android.app.Activity;
+import android.appwidget.AppWidgetManager;
 import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
@@ -8,19 +9,52 @@ import android.view.ViewGroup;
 
 import org.mytonwallet.app_air.airasframework.AirAsFrameworkApplication;
 import org.mytonwallet.app_air.airasframework.MainWindow;
+import org.mytonwallet.app_air.airasframework.WidgetConfigurationWindow;
 import org.mytonwallet.app_air.airasframework.splash.SplashVC;
 import org.mytonwallet.app_air.walletcontext.globalStorage.IGlobalStorageProvider;
 import org.mytonwallet.app_air.walletcore.deeplink.Deeplink;
 import org.mytonwallet.app_air.walletcore.deeplink.DeeplinkNavigator;
 import org.mytonwallet.app_air.walletcore.deeplink.DeeplinkParser;
 
+abstract class PendingTask {
+  private PendingTask() {
+  }
+
+  public static final class ToAir extends PendingTask {
+    private final boolean fromLegacy;
+
+    public ToAir(boolean fromLegacy) {
+      this.fromLegacy = fromLegacy;
+    }
+
+    public boolean isFromLegacy() {
+      return fromLegacy;
+    }
+  }
+
+  public static final class ToWidgetConfigurations extends PendingTask {
+    private final int requestCode;
+    private final int appWidgetId;
+
+    public ToWidgetConfigurations(int requestCode, int appWidgetId) {
+      this.requestCode = requestCode;
+      this.appWidgetId = appWidgetId;
+    }
+
+    public int getRequestCode() {
+      return requestCode;
+    }
+
+    public int getAppWidgetId() {
+      return appWidgetId;
+    }
+  }
+}
+
 public class AirLauncher {
-  private static final int PENDING_SOAR_NO = 0;
-  private static final int PENDING_SOAR_FROM_LEGACY = 1;
-  private static final int PENDING_SOAR = 2;
   private static AirLauncher airLauncher;
   private final Context applicationContext;
-  int pendingSoarIntoAir = PENDING_SOAR_NO;
+  PendingTask pendingAirTask;
   private boolean isOnTheAir = false;
   private CapacitorGlobalStorageProvider capacitorGlobalStorageProvider;
   private boolean storageProviderReady = false;
@@ -50,8 +84,14 @@ public class AirLauncher {
         // The bridge will be moved to MainWindow's view after it has been presented.
         (ViewGroup) currentActivity.getWindow().getDecorView().getRootView()
       );
-      if (pendingSoarIntoAir != PENDING_SOAR_NO)
-        soarIntoAir(currentActivity, pendingSoarIntoAir == PENDING_SOAR_FROM_LEGACY);
+      if (pendingAirTask != null) {
+        if (pendingAirTask instanceof PendingTask.ToAir task) {
+          soarIntoAir(currentActivity, task.isFromLegacy());
+        } else if (pendingAirTask instanceof PendingTask.ToWidgetConfigurations task) {
+          presentWidgetConfiguration(currentActivity, task.getRequestCode(), task.getAppWidgetId());
+        }
+        pendingAirTask = null;
+      }
     });
   }
 
@@ -59,15 +99,19 @@ public class AirLauncher {
     return isOnTheAir;
   }
 
+  public void switchingToClassic() {
+    isOnTheAir = false;
+  }
+
   public void soarIntoAir(Activity currentActivity, Boolean fromLegacy) {
     if (isOnTheAir)
       return;
 
     if (!storageProviderReady) {
-      pendingSoarIntoAir = fromLegacy ? PENDING_SOAR_FROM_LEGACY : PENDING_SOAR;
+      pendingAirTask = new PendingTask.ToAir(fromLegacy);
       return;
     }
-    pendingSoarIntoAir = PENDING_SOAR_NO;
+    pendingAirTask = null;
 
     isOnTheAir = true;
 
@@ -78,6 +122,18 @@ public class AirLauncher {
 
     Log.i("MTWAirApplication", "CapacitorGlobalStorageProvider Ready — Opening Air");
     openAir(currentActivity);
+  }
+
+  public void presentWidgetConfiguration(Activity currentActivity, int requestCode, int appWidgetId) {
+    if (!storageProviderReady) {
+      pendingAirTask = new PendingTask.ToWidgetConfigurations(requestCode, appWidgetId);
+      return;
+    }
+
+    Intent intent = new Intent(currentActivity, WidgetConfigurationWindow.class);
+    intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
+    intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
+    currentActivity.startActivityForResult(intent, requestCode);
   }
 
   private void openAir(Activity currentActivity) {

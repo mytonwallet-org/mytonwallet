@@ -3,7 +3,7 @@ package org.mytonwallet.app_air.uicomponents.extensions
 import android.graphics.drawable.GradientDrawable
 import androidx.core.graphics.toColorInt
 import org.mytonwallet.app_air.uicomponents.image.Content
-import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 
 fun GradientDrawable.setRounding(rounding: Content.Rounding) {

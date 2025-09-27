@@ -14,10 +14,10 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsItem
-import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 interface ISettingsItemCell {
     fun configure(
@@ -45,7 +45,7 @@ class SettingsItemCell(context: Context) : WCell(context), ISettingsItemCell, WT
         WLabel(context).apply {
             setStyle(16f)
             setSingleLine()
-            ellipsize = TextUtils.TruncateAt.END
+            ellipsize = TextUtils.TruncateAt.MARQUEE
             isHorizontalFadingEdgeEnabled = true
             isSelected = true
         }

@@ -1,9 +1,9 @@
 package org.mytonwallet.app_air.walletcore.api
 
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletbasecontext.utils.toJSONString
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.utils.toJSONString
 import org.mytonwallet.app_air.walletcore.MAIN_NETWORK
 import org.mytonwallet.app_air.walletcore.POPULAR_WALLET_VERSIONS
 import org.mytonwallet.app_air.walletcore.TEST_NETWORK
@@ -15,6 +15,7 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ActivityStore
 import org.mytonwallet.app_air.walletcore.stores.AddressStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
+import org.mytonwallet.app_air.walletcore.stores.DappsStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
 
@@ -41,7 +42,6 @@ fun WalletCore.createWallet(
                     MAccount.parseByChain(account.optJSONObject("byChain")),
                     "",
                     MAccount.AccountType.MNEMONIC,
-                    ledger = null,
                     importedAt = null
                 ), null
             )
@@ -72,7 +72,6 @@ fun WalletCore.importWallet(
                     MAccount.parseByChain(account.optJSONObject("byChain")),
                     name = "",
                     accountType = MAccount.AccountType.MNEMONIC,
-                    ledger = null,
                     importedAt = System.currentTimeMillis()
                 ), null
             )
@@ -102,7 +101,6 @@ fun WalletCore.importNewWalletVersion(
                 callback(MAccount(accountId, WGlobalStorage.getAccount(accountId)!!), null)
                 return@callApi
             }
-            val ledgerObj = accountObj.optJSONObject("ledger")
             val regex = "\\b(${POPULAR_WALLET_VERSIONS.joinToString("|")})\\b".toRegex()
             val prevName = prevAccount.name.replace(regex, "").trim()
             callback(
@@ -115,7 +113,6 @@ fun WalletCore.importNewWalletVersion(
                     ),
                     name = "$prevName $version",
                     accountType = prevAccount.accountType,
-                    ledger = if (ledgerObj != null) MAccount.Ledger(ledgerObj) else null,
                     importedAt = System.currentTimeMillis()
                 ), null
             )
@@ -227,6 +224,7 @@ fun WalletCore.resetAccounts(
             ActivityStore.clean()
             AddressStore.clean()
             BalanceStore.clean()
+            DappsStore.clean()
             NftStore.clean()
             StakingStore.clean()
             WCacheStorage.clean(accountIds)

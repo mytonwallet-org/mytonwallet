@@ -647,10 +647,17 @@ extension JSWebViewBridge: WKScriptMessageHandler {
                     break
 
                 case "showError":
-                    #warning("TODO: showError")
-                    break
+                    if let error = data["error"] as? String {
+                        let error = BridgeCallError(message: error, payload: nil)
+                        Task { @MainActor in
+                            AppActions.showError(error: error)
+                        }
+                    }
 
                 case "tonConnectOnline":
+                    break
+                    
+                case "incorrectTime":
                     break
                     
                 default:

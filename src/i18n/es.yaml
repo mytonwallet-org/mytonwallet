@@ -16,8 +16,6 @@ $auth_password_rule_one_small_char: una letra minúscula
 $auth_password_rule_one_capital_char: una letra mayúscula
 $auth_password_rule_one_digit: un dígito
 $auth_password_rule_one_special_char: y un carácter especial
-The wallet is imported: Importando monedero
-The wallet is ready: El monedero está listo
 Create a password to protect it.: Cree una contraseña para protegerlo.
 Enter your password: Ingresa la contraseña
 Enter your password...: Ingresa la contraseña...
@@ -32,16 +30,12 @@ Secret Words: Frases Semilla
 $auth_import_mnemonic_description: |
   Puedes restaurar el acceso a tu billetera ingresando las **12 o 24 palabras secretas** que anotaste al crear la billetera.
 Let’s make sure your secrets words are recorded correctly.: Asegurémonos de que hayas guardado la frase semilla correctamente.
-$mnemonic_check_words_list: Introduce las **%1$s** palabras de la frase semilla a continuación.
-$mnemonic_check_error: La frases semilla que ha introducido no coinciden. Inténtalo de nuevo.
-$check_words_description: |
-  Ahora verifiquemos que haya escrito
-  sus palabras secretas correctamente.
+$check_words_description: Ahora verifiquemos que haya escrito sus palabras secretas correctamente.
 $mnemonic_list_description: Escriba estas palabras en el **orden correcto** y guárdelas en un **lugar seguro**.
 $private_key_description: Guarde esta clave privada **correctamente** y almacénela en un **lugar seguro**.
 $mnemonic_warning: |
-  **No** lo envíes ni lo muestres a nadie,
-  **no** lo ingreses en ningún lugar.
+  No lo envíes ni lo muestres a nadie,
+  no lo ingreses en ningún lugar.
 View Secret Words: Ver palabras secretas
 View TON Private Key: Ver clave privada de TON
 Can be imported to non-multichain wallets for TON.: Puede ser importado a carteras no multichain para TON.
@@ -57,8 +51,6 @@ $safety_rules_one: |
   En la siguiente pantalla verás las palabras de la **frase semilla**. Escríbalas en el mismo orden y **guárdelas en un lugar seguro**.
 $safety_rules_two: Permiten **acceder a su mondero** si pierde su contraseña o el acceso a este dispositivo.
 $safety_rules_three: Si alguien más las ve, sus activos **pueden ser robados**. **No se lo envíe a nadie**, ni siquiera a los desarrolladores o al soporte técnico.
-Understood: Entiendo
-Congratulations!: ¡Felicidades!
 Continue: Continuar
 Close: Cerrar
 Back: Volver
@@ -318,12 +310,11 @@ Select Ledger Wallets: Seleccionar carteras contables
 Add: Agregar
 Try Again: Intentar otra vez
 Driver: Conductor
-Unlock it and open the TON App: Desbloquéalo y abre la aplicación de TON
+Unlock it and open the %chain% App: Desbloquéalo y abre la aplicación de %chain%
 Maybe you need to check the password or change the driver.: Tal vez necesite verificar la contraseña o cambiar el controlador.
 Confirm via Ledger: Confirmar a través de Ledger
 Please confirm transaction on your Ledger: Confirme la transacción en su libro mayor
 Declined: Declinado
-Create Wallet: Crear Billetera
 Switch to the newly opened tab to connect Ledger.: Cambia a la pestaña recién abierta para conectar el Ledger.
 Once connected, switch back to this window to proceed.: Una vez conectado, vuelve a esta ventana para continuar.
 Not all transactions were sent successfully: No todas las transacciones se enviaron correctamente
@@ -340,8 +331,6 @@ Try another keyword or address.: Prueba con otra palabra clave o dirección.
 Decrypt: Descifrar
 Encrypted Message: Mensaje encriptado
 Message is encrypted.: El mensaje está encriptado.
-$dapp_ledger_warning1: Estás a punto de enviar una transacción multi-direccional utilizando tu monedero **Ledger**. Necesitarás firmar cada transacción subyacente **una por una manualmente**.
-$dapp_ledger_warning2: Por favor, tómate tu tiempo y no interrumpas el proceso.
 Agree: Aceptar
 $swap_action: Intercambiar
 Swap: Intercambiar
@@ -380,19 +369,10 @@ $auth_responsibly_description4: |
 Start Wallet: Iniciar billetera
 $auth_backup_warning_notice: |
   Ahora debe realizar manualmente una **copia de seguridad de las claves secretas** en caso de que olvide su contraseña o pierda el acceso a este dispositivo.
-Later: Más tarde
-Back Up Now: Copia ahora
-I have read and accept this information: He leído y acepto esta información.
 $ledger_verify_address: Siempre verifique la dirección pegada usando su dispositivo Ledger.
-$ledger_not_ready: El libro mayor no está conectado o la aplicación TON no está abierta.
+$ledger_not_ready: El libro mayor no está conectado o la aplicación %chain% no está abierta.
 Verify now: Comprobar ahora
 Invalid address format. Only URL Safe Base64 format is allowed.: Formato de dirección no válido. Solo se permite el formato urlsafe base64.
-$auth_backup_description1: |
-  Este es un **monedero seguro**
-  y **totalmente bajo su control**.
-$auth_backup_description2: Y un gran poder conlleva una **gran responsabilidad**.
-$auth_backup_description3: |
-  Debe hacer manualmente una **copia de seguridad de la frase semilla** que le permitirá recuperar su monedero en caso de que olvide su contraseña o pierda el acceso a este dispositivo.
 Swap Placed: Intercambio Colocado
 Swapping: Intercambiando
 Swapped: Intercambiado
@@ -452,7 +432,6 @@ Please verify the operation.: Verifique la operación.
 Create Password: Crear contraseña
 Complete: Completo
 Verification: Verificación
-Create a password or use biometric authentication to protect it.: Cree una contraseña o utilice autenticación biométrica para protegerla.
 Connect Biometrics: Conectar biométrico
 Use Password: Usar contraseña
 Biometrics Disabled: Biometría deshabilitada
@@ -466,8 +445,8 @@ An error on the server side. Please try again.: Un error en el lado del servidor
 Address was saved!: ¡Dirección guardada!
 US Dollar: Dólar estadounidense
 Euro: Euro
-Ruble: Rublo
-Yuan: Yuan
+Russian Ruble: Rublo ruso
+Chinese Yuan: Yuan chino
 $max_balance: "Máximo: %balance%"
 $unstake_information_instantly: Obtendrá su depósito al instante
 Select Token: Seleccionar Token
@@ -483,7 +462,6 @@ Code set successfully: Código configurado correctamente
 Use Biometrics: Utilice la biometría
 Use Touch ID: Usar Touch ID
 Use Face ID: Usar Face ID
-You can connect your biometric data for more convenience: Puede conectar sus datos biométricos para mayor comodidad
 Connect Touch ID: Conectar Touch ID
 Connect Face ID: Conectar Face ID
 Not Now: Ahora no
@@ -521,7 +499,6 @@ Cannot load widget: No se puede cargar el widget
 Explore: Explorar
 No partners yet: No hay socios todavía
 Clear: Borrar
-Get TON: Obtener TON
 $unstake_up_to_information: Al instante – hasta %value%
 $all_balance: "Todo: %balance%"
 $unstaking_not_enough_balance: Necesitas tener %value% en tu saldo principal para proceder con el desbloqueo.
@@ -548,8 +525,7 @@ To use this feature, first enable biometrics in your phone settings.: Para utili
 Open Settings: Configuración abierta
 $service_token_transfer_warning: Está a punto de transferir un token de servicio importante necesario para retirar su depósito o completar operaciones de servicio. Asegúrese de que esta es la acción que desea realizar.
 No Price: Sin precio
-$ledger_outdated: Esta operación no es compatible con su versión de Ledger TON App. Actualícela utilizando Ledger Live.
-$ledger_unsupported_ton_connect: TonConnect no es compatible con la versión de su Ledger TON App. Actualice con Ledger Live.
+$ledger_outdated: Esta operación no es compatible con su versión de Ledger %chain% App. Actualícela utilizando Ledger Live.
 $dapp_transfer_tokens_burn: Quemando %cantidad%
 $dapp_dns_set_wallet_payload: Cambiar la billetera vinculada del dominio %domain% a %address%
 $dapp_dns_delete_wallet_payload: Eliminando la billetera vinculada del dominio %domain%
@@ -667,11 +643,7 @@ Confirm Burning: Confirmar quema
 Confirm Passcode: Confirmar contraseña
 Enter your code: Ingrese su código
 $hardware_payload_warning: "**Un servicio de terceros está solicitando acceso a su billetera.** Esto podría provocar la pérdida de fondos. Cancele la operación si no está seguro sobre la fiabilidad de este servicio."
-$hardware_blind_sign_not_enabled: |
-  **Un servicio de terceros está solicitando acceso a su billetera.** Esto podría provocar la pérdida de fondos. Cancele la operación si no está seguro sobre la fiabilidad de este servicio.
-
-  Para continuar, habilite la opción "Firma Ciega" en la configuración de la aplicación TON en Ledger.
-$hardware_blind_sign_not_enabled_internal: Para continuar, habilite la opción "Firma Ciega" en la configuración de la aplicación TON en Ledger.
+$hardware_blind_sign_not_enabled: Para continuar, habilite la opción "Firma Ciega" en la configuración de la aplicación %chain% en Ledger.
 Switch to W5: Cambiar a W5
 Not Scam: No es una estafa
 Untitled: Sin título
@@ -953,3 +925,38 @@ $multisig_warning_text: "**Retirar fondos** de esta cartera a través de MyTonWa
 $multisig_warning_link: Haz clic para saber más
 Multisig sending disabled: No se puede enviar multisig
 $try_new_air_version: Prueba la experiencia de la aplicación nativa — más ligera, más rápida y diseñada para tu dispositivo. Puedes volver en cualquier momento.
+$accept_terms_with_link: Acepto %link%
+use the wallet responsibly: usar la billetera responsablemente
+"%app_name% Resources": "Recursos de %app_name%"
+Watch Video about Features: Ver video sobre características
+Enjoy Monthly Updates in Blog: Disfruta actualizaciones mensuales en el blog
+Learn New Things in Help Center: Aprende cosas nuevas en el centro de ayuda
+Frequency Questions and Answers: Preguntas y respuestas frecuentes
+Paste from Clipboard: Pegar desde el portapapeles
+Use biometric authentication or create a password to protect it.: Usa autenticación biométrica o crea una contraseña para protegerla.
+Go to Words: Ir a Palabras
+Copy to Clipboard: Copiar al portapapeles
+$mnemonic_check_words_list: "Por favor elige las palabras correctas %word_numbers%:"
+$mnemonic_check_error: Las palabras no coinciden, por favor intenta de nuevo.
+Open Wallet: Abrir billetera
+All Set!: ¡Todo listo!
+$wallet_create_done: ¡Listo! Has creado una billetera.
+$wallet_import_done:
+  zeroValue: ¡Listo! Has importado una cartera.
+  oneValue: ¡Listo! Has importado una cartera.
+  otherValue: ¡Listo! Has importado %1$d carteras.
+$wallet_done_description: Ahora puedes almacenar, recibir y enviar monedas y otros activos digitales de forma segura.
+Security Warning: Advertencia de seguridad
+Go back to Words: Volver a palabras
+I’m sure. Continue: Estoy seguro. Continuar
+$copy_mnemonic_warning: Almacenar palabras en un entorno digital, incluido el **portapapeles**, no es seguro. Asegúrate de tener tu frase de recuperación guardada de forma segura.
+Other apps will be able to read your recovery phrase!: ¡Otras aplicaciones podrán leer tu frase de recuperación!
+I’m sure. Copy anyway: Estoy seguro. Copiar de todos modos
+$auth_biometric_info: Puedes conectar tus datos biométricos para **mayor comodidad.**
+Open wallet without checking: Abrir billetera sin verificar
+Make sure you have your recovery phrase securely saved.: Asegúrate de tener tu frase de recuperación guardada de forma segura.
+Without it, you won't be able to access your wallet.: Sin ella, no podrás acceder a tu billetera.
+$ledger_connection_broken: La conexión de Ledger se ha interrumpido. Por favor, vuelva a conectar y pruebe de nuevo.
+$ledger_wrong_device: La cuenta actual está configurada con otra frase de recuperación o contraseña de Ledger, o almacenada en otro dispositivo Ledger
+Show More: Mostrar más
+Purchasing TRON with Russian Rubles is currently unavailable.: La compra de TRON con rublos rusos no está disponible actualmente.

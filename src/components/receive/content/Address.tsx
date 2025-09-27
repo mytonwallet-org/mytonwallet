@@ -51,7 +51,7 @@ function Address({
     e.preventDefault();
     e.stopPropagation();
 
-    verifyHardwareAddress();
+    verifyHardwareAddress({ chain });
   };
 
   return (
@@ -72,9 +72,10 @@ function Address({
       />
 
       {isLedger && (
-        <div className={buildClassName(
-          styles.contentTitle, styles.contentTitleLedger, isStatic && styles.contentTitleLedgerStatic,
-        )}
+        <div
+          className={buildClassName(
+            styles.contentTitle, styles.contentTitleLedger, isStatic && styles.contentTitleLedgerStatic,
+          )}
         >
           {renderText(lang('$ledger_verify_address'))}
           {' '}

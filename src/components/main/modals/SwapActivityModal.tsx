@@ -15,7 +15,7 @@ import {
   TONCOIN,
 } from '../../../config';
 import { Big } from '../../../lib/big.js';
-import { getIsInternalSwap, getIsSupportedChain, resolveSwapAsset } from '../../../global/helpers';
+import { getIsInternalSwap, resolveSwapAsset } from '../../../global/helpers';
 import {
   selectCurrentAccount,
   selectCurrentAccountState,
@@ -23,6 +23,7 @@ import {
 } from '../../../global/selectors';
 import { getIsActivityPendingForUser, parseTxId } from '../../../util/activities';
 import buildClassName from '../../../util/buildClassName';
+import { getIsSupportedChain } from '../../../util/chain';
 import { formatFullDay, formatTime } from '../../../util/dateFormat';
 import { formatCurrencyExtended } from '../../../util/formatNumber';
 import getChainNetworkName from '../../../util/swap/getChainNetworkName';

@@ -33,7 +33,6 @@ import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
-import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
 import org.mytonwallet.app_air.uicomponents.helpers.DieselAuthorizationHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
@@ -47,23 +46,24 @@ import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uicomponents.widgets.showKeyboard
 import org.mytonwallet.app_air.uisend.send.helpers.ScamDetectionHelpers
-import org.mytonwallet.app_air.uisend.sent.SentVC
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.LocaleController
-import org.mytonwallet.app_air.walletcontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletcontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletcontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
-import org.mytonwallet.app_air.walletcontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.PRICELESS_TOKEN_HASHES
 import org.mytonwallet.app_air.walletcore.STAKED_MYCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.STAKED_USDE_SLUG
 import org.mytonwallet.app_air.walletcore.STAKE_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
+import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.lang.ref.WeakReference
@@ -75,7 +75,7 @@ class SendVC(
     context: Context,
     private val initialTokenSlug: String? = null,
     private val initialValues: InitialValues? = null,
-) : WViewControllerWithModelStore(context) {
+) : WViewControllerWithModelStore(context), WalletCore.EventObserver {
     private val viewModel by lazy { ViewModelProvider(this)[SendViewModel::class.java] }
 
     data class InitialValues(
@@ -327,8 +327,13 @@ class SendVC(
         override fun afterTextChanged(s: Editable?) {}
     }
 
+    private var sentActivityConfig: SendViewModel.DraftResult.Result? = null
+
     override fun setupViews() {
         super.setupViews()
+
+        WalletCore.registerObserver(this)
+
         setNavTitle(LocaleController.getString("\$send_action"))
         setupNavBar(true)
         navigationBar?.addCloseButton()
@@ -366,59 +371,22 @@ class SendVC(
                     viewModel.getTransferOptions(config, ""),
                     viewModel.getTokenSlug()
                 )
+                val isHardware = AccountStore.activeAccount?.isHardware == true
+                if (isHardware)
+                    sentActivityConfig = config
                 vc.setNextTask { passcode ->
                     lifecycleScope.launch {
-                        if (AccountStore.activeAccount?.isHardware == true) {
+                        if (isHardware) {
                             // Sent using LedgerConnect
-                            push(
-                                SentVC(
-                                    context,
-                                    LocaleController.getString("Sent"),
-                                    "-${config.request.amountEquivalent.getFmt(false)}",
-                                    SpannableStringBuilder(
-                                        config.request.amountEquivalent.getFmt(
-                                            true
-                                        )
-                                    ),
-                                    SpannableStringBuilder(
-                                        LocaleController.getFormattedString(
-                                            "Coins have been sent to %1$@", listOf(
-                                                config.resolvedAddress?.formatStartEndAddress()
-                                                    ?: ""
-                                            )
-                                        )
-                                    ).apply {
-                                        updateDotsTypeface()
-                                    }
-                                ),
-                                onCompletion = { navigationController?.removePrevViewControllers() })
+                            // Wait for Pending Activity event...
                         } else {
                             // Send with passcode
                             try {
+                                sentActivityConfig = config
                                 viewModel.callSend(config, passcode!!)
-                                push(
-                                    SentVC(
-                                        context,
-                                        LocaleController.getString("Sent"),
-                                        "-${config.request.amountEquivalent.getFmt(false)}",
-                                        SpannableStringBuilder(
-                                            config.request.amountEquivalent.getFmt(
-                                                true
-                                            )
-                                        ),
-                                        SpannableStringBuilder(
-                                            LocaleController.getFormattedString(
-                                                "Coins have been sent to %1$@", listOf(
-                                                    config.resolvedAddress?.formatStartEndAddress()
-                                                        ?: ""
-                                                )
-                                            )
-                                        ).apply {
-                                            updateDotsTypeface()
-                                        }
-                                    ),
-                                    onCompletion = { navigationController?.removePrevViewControllers() })
+                                // Wait for Pending Activity event...
                             } catch (e: JSWebViewBridge.ApiError) {
+                                sentActivityConfig = null
                                 navigationController?.viewControllers[navigationController!!.viewControllers.size - 2]?.showError(
                                     e.parsed
                                 )
@@ -653,9 +621,8 @@ class SendVC(
 
     override fun onDestroy() {
         super.onDestroy()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            scrollView.setOnScrollChangeListener(null)
-        }
+        WalletCore.unregisterObserver(this)
+        scrollView.setOnScrollChangeListener(null)
         addressInputView.qrScanImageView.setOnClickListener(null)
         addressInputView.removeTextChangedListener(onInputDestinationTextWatcher)
         amountInputView.tokenSelectorView.setOnClickListener(null)
@@ -676,6 +643,27 @@ class SendVC(
                     viewModel.onInputToken(blockchain.nativeSlug)
                 }
             }
+        }
+    }
+
+    override fun onWalletEvent(walletEvent: WalletEvent) {
+        val sentActivityConfig = sentActivityConfig ?: return
+        when (walletEvent) {
+            is WalletEvent.ReceivedPendingActivities -> {
+                val activity = walletEvent.pendingActivities?.firstOrNull { activity ->
+                    activity is MApiTransaction.Transaction &&
+                        activity.amount == sentActivityConfig.request.amount.amountInteger &&
+                        activity.fromAddress == AccountStore.activeAccount?.addressByChain[sentActivityConfig.request.token.chain] &&
+                        activity.toAddress == sentActivityConfig.resolvedAddress
+                } ?: return
+
+                this.sentActivityConfig = null
+                window?.dismissLastNav {
+                    WalletCore.notifyEvent(WalletEvent.OpenActivity(activity))
+                }
+            }
+
+            else -> {}
         }
     }
 }

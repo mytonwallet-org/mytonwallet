@@ -239,8 +239,7 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
     func sendLedgerNormal() async throws {
         guard
             let account = AccountStore.account,
-            let fromAddress = account.tonAddress?.nilIfEmpty,
-            let ledger = account.ledger
+            let fromAddress = account.tonAddress?.nilIfEmpty
         else { return }
         
         let transferOptions = try await model.makeSubmitTransferOptions(
@@ -252,7 +251,6 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
         let signModel = await LedgerSignModel(
             accountId: account.id,
             fromAddress: fromAddress,
-            ledger: ledger,
             signData: .signTransfer(
                 transferOptions: transferOptions
             )
@@ -273,7 +271,6 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
         guard
             let account = AccountStore.account,
             let fromAddress = account.tonAddress?.nilIfEmpty,
-            let ledger = account.ledger,
             let nft = model.nfts?.first
         else { return }
         
@@ -284,7 +281,6 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
         let signModel = await LedgerSignModel(
             accountId: account.id,
             fromAddress: fromAddress,
-            ledger: ledger,
             signData: .signNftTransfer(
                 accountId: account.id,
                 nft: nft,
