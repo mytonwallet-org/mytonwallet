@@ -1,4 +1,6 @@
-import { DEFAULT_PRICE_CURRENCY, IS_EXTENSION } from '../../../config';
+import { AirAppLauncher } from '@mytonwallet/air-app-launcher';
+
+import { DEFAULT_PRICE_CURRENCY, IS_CAPACITOR, IS_EXTENSION } from '../../../config';
 import { logDebug } from '../../../util/logs';
 import {
   IS_ANDROID_APP, IS_DELEGATED_BOTTOM_SHEET, IS_ELECTRON, IS_IOS_APP,
@@ -43,4 +45,5 @@ addActionHandler('resetApiSettings', (global, actions, params) => {
     actions.toggleDeeplinkHook({ isEnabled: isDefaultEnabled });
   }
   actions.changeBaseCurrency({ currency: DEFAULT_PRICE_CURRENCY });
+  if (IS_CAPACITOR) void AirAppLauncher.setBaseCurrency({ currency: DEFAULT_PRICE_CURRENCY });
 });

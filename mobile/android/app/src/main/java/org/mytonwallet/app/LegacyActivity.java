@@ -23,10 +23,13 @@ import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
 
+import org.mytonwallet.plugins.air_app_launcher.airLauncher.AirLauncher;
+
 import java.util.Date;
 
 public class LegacyActivity extends BridgeActivity {
   private final int DELAY = 300;
+  long lastWidgetUpdate = 0;
   private boolean keep = true;
   private long lastTouchEventTimestamp = 0;
 
@@ -127,5 +130,15 @@ public class LegacyActivity extends BridgeActivity {
       return;
     lastTouchEventTimestamp = now;
     bridge.triggerWindowJSEvent("touch");
+  }
+
+  @Override
+  public void onPause() {
+    super.onPause();
+    long currentDt = System.currentTimeMillis();
+    if (currentDt - lastWidgetUpdate > 60 * 1000) {
+      lastWidgetUpdate = currentDt;
+      AirLauncher.reloadWidgets(getApplicationContext());
+    }
   }
 }

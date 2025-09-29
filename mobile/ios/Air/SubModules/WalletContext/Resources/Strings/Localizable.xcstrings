@@ -864,6 +864,23 @@
       },
       "extractionState": "manual"
     },
+    "$actions_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quickly access most common actions."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Быстрый доступ к наиболее часто используемым действиям."
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "$all_balance": {
       "localizations": {
         "en": {
@@ -1054,39 +1071,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "啟用應用程式鎖後，主頁面的卡片上會出現鎖圖標。使用它鎖定 %1$@。"
-          }
-        }
-      },
-      "extractionState": "manual"
-    },
-    "$auth_backup_description1": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This is a **secure wallet**\nand is only **controlled by you**."
-          }
-        }
-      },
-      "extractionState": "manual"
-    },
-    "$auth_backup_description2": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "And with great power comes **great responsibility**."
-          }
-        }
-      },
-      "extractionState": "manual"
-    },
-    "$auth_backup_description3": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You need to manually **back up secret keys** in case you forget your password or lose access to this device."
           }
         }
       },
@@ -7783,6 +7767,108 @@
       },
       "extractionState": "manual"
     },
+    "$period_3months": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 Months"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 месяца"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "$period_all": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All Time"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все время"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "$period_day": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 Day"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 день"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "$period_month": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 Month"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 месяц"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "$period_week": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 Week"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 неделя"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "$period_year": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 Year"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 год"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "$preview_not_guaranteed": {
       "localizations": {
         "en": {
@@ -7973,6 +8059,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "提供流動性"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "$rate_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View current rate of any selected token."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Просмотр текущего курса любого выбранного токена."
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "$rate_with_chart_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View current rate and track performance of any selected token."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Просмотр текущего курса и наблюдение за динамикой для выбранного токена."
           }
         }
       },
@@ -15533,6 +15653,23 @@
       },
       "extractionState": "manual"
     },
+    "Actions": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actions"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Действия"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "Activity": {
       "localizations": {
         "en": {
@@ -16732,6 +16869,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Все подарки в Telegram"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "All Tokens": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All Tokens"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все токены"
           }
         }
       },
@@ -18589,17 +18743,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "上一步"
-          }
-        }
-      },
-      "extractionState": "manual"
-    },
-    "Back Up Now": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Back Up Now"
           }
         }
       },
@@ -22294,6 +22437,23 @@
       },
       "extractionState": "manual"
     },
+    "Chart Period": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chart Period"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Период данных"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "Check eligibility": {
       "localizations": {
         "en": {
@@ -25037,17 +25197,6 @@
       },
       "extractionState": "manual"
     },
-    "Congratulations!": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Congratulations!"
-          }
-        }
-      },
-      "extractionState": "manual"
-    },
     "Connect": {
       "localizations": {
         "en": {
@@ -27006,17 +27155,6 @@
       },
       "extractionState": "manual"
     },
-    "Create Wallet": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Create Wallet"
-          }
-        }
-      },
-      "extractionState": "manual"
-    },
     "Create a code to protect it": {
       "localizations": {
         "en": {
@@ -27077,17 +27215,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "創建程式碼來保護它"
-          }
-        }
-      },
-      "extractionState": "manual"
-    },
-    "Create a password or use biometric authentication to protect it.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Create a password or use biometric authentication to protect it."
           }
         }
       },
@@ -34519,17 +34646,6 @@
       },
       "extractionState": "manual"
     },
-    "I have read and accept this information": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "I have read and accept this information."
-          }
-        }
-      },
-      "extractionState": "manual"
-    },
     "If away for 10 min": {
       "localizations": {
         "en": {
@@ -37043,17 +37159,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "語言"
-          }
-        }
-      },
-      "extractionState": "manual"
-    },
-    "Later": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Later"
           }
         }
       },
@@ -40777,6 +40882,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Сетевая ошибка"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Neutral": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neutral"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нейтральный"
           }
         }
       },
@@ -45840,6 +45962,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Вопросы и ответы"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Rate": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rate"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Курс"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Rate with Chart": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rate with Chart"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Курс с графиком"
           }
         }
       },
@@ -52539,6 +52695,23 @@
       },
       "extractionState": "manual"
     },
+    "Style": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Style"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стиль"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "Successfully": {
       "localizations": {
         "en": {
@@ -54546,28 +54719,6 @@
       },
       "extractionState": "manual"
     },
-    "The wallet is imported": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The wallet is imported"
-          }
-        }
-      },
-      "extractionState": "manual"
-    },
-    "The wallet is ready": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The wallet is ready"
-          }
-        }
-      },
-      "extractionState": "manual"
-    },
     "Theme": {
       "localizations": {
         "en": {
@@ -55835,6 +55986,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "切換至豎屏模式"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Token": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Token"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Токен"
           }
         }
       },
@@ -57439,17 +57607,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Недоступно"
-          }
-        }
-      },
-      "extractionState": "manual"
-    },
-    "Understood": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Understood"
           }
         }
       },
@@ -60752,6 +60909,23 @@
       },
       "extractionState": "manual"
     },
+    "Vivid": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vivid"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Яркий"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "W": {
       "localizations": {
         "en": {
@@ -62499,17 +62673,6 @@
       },
       "extractionState": "manual"
     },
-    "You can connect your biometric data for more convenience.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You can connect your biometric data for more convenience."
-          }
-        }
-      },
-      "extractionState": "manual"
-    },
     "You can now transfer your tokens from another wallet or exchange.": {
       "localizations": {
         "en": {
@@ -63720,6 +63883,23 @@
       },
       "extractionState": "manual"
     },
+    "add": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "add"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "добавить"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "at": {
       "localizations": {
         "en": {
@@ -63853,6 +64033,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "[zero] %1$d дней [one] %1$d день [few] %1$d дня [many] %1$d дней"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "earn": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "earn"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "стейкинг"
           }
         }
       },
@@ -64103,6 +64300,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "[zero] %1$d секунд [one] %1$d секунда [few] %1$d секунды [many] %1$d секунд"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "send": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "send"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "отправить"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "swap": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "swap"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "oбменять"
           }
         }
       },

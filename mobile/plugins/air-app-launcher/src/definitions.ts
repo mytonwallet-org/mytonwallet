@@ -1,3 +1,5 @@
 export interface AirAppLauncherPlugin {
-  switchToAir(): void;
+  switchToAir(): Promise<void>;
+  setLanguage(options: { langCode: string }): Promise<void>;
+  setBaseCurrency(options: { currency: string }): Promise<void>;
 }

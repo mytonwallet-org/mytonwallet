@@ -2,14 +2,16 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/container"
     android:layout_width="wrap_content"
-    android:layout_height="wrap_content">
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_widget_background_rounded"
+    android:clipToOutline="true">
 
     <ImageView
+        android:id="@+id/img_background"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:importantForAccessibility="no"
-        android:scaleType="centerCrop"
-        android:src="@drawable/img_widget_price" />
+        android:scaleType="centerCrop" />
 
     <ImageView
         android:id="@+id/text_symbol"
@@ -17,6 +19,16 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="18dp"
         android:layout_marginTop="20dp"
+        android:paddingEnd="46dp"
+        tools:ignore="ContentDescription" />
+
+    <ImageView
+        android:id="@+id/text_change"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="-40dp"
+        android:layout_marginTop="21dp"
+        android:layout_toEndOf="@+id/text_symbol"
         tools:ignore="ContentDescription" />
 
     <ImageView
@@ -26,26 +38,54 @@
         android:layout_alignParentEnd="true"
         android:layout_marginTop="14dp"
         android:layout_marginEnd="14dp"
-        android:background="@drawable/bg_white_20_circle"
         android:importantForAccessibility="no"
-        android:scaleType="fitXY"
-        android:src="@drawable/ic_widget_ton" />
+        android:scaleType="fitXY" />
 
     <ImageView
-        android:id="@+id/text_price"
+        android:id="@+id/chart"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:scaleType="fitXY"
+        tools:ignore="ContentDescription" />
+
+    <ImageView
+        android:id="@+id/text_left"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
         android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
         android:paddingBottom="41dp"
         tools:ignore="ContentDescription" />
 
     <ImageView
-        android:id="@+id/text_price_change"
+        android:id="@+id/text_bottom_left"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
         android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:paddingBottom="18dp"
+        tools:ignore="ContentDescription" />
+
+    <ImageView
+        android:id="@+id/text_right"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentBottom="true"
+        android:paddingEnd="16dp"
+        android:paddingBottom="41dp"
+        tools:ignore="ContentDescription" />
+
+    <ImageView
+        android:id="@+id/text_bottom_right"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentBottom="true"
+        android:paddingEnd="16dp"
         android:paddingBottom="18dp"
         tools:ignore="ContentDescription" />
 </RelativeLayout>

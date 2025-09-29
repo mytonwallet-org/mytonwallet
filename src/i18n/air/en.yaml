@@ -335,3 +335,29 @@ $n_wallets_selected:
   zeroValue: "%1$d selected"
   oneValue: "%1$d selected"
   otherValue: "%1$d selected"
+Are you sure you want to unpin %tab%?: Are you sure you want to unpin %tab%?
+add: add
+send: send
+swap: swap
+earn: earn
+Actions: Actions
+$actions_description: Quickly access most common actions.
+Rate: Rate
+$rate_description: View current rate of any selected token.
+Rate with Chart: Rate with Chart
+$rate_with_chart_description: View current rate and track performance of any selected token.
+Style: Style
+Neutral: Neutral
+Vivid: Vivid
+Chart Period: Chart Period
+$period_all: All Time
+$period_day: 1 Day
+$period_week: 1 Week
+$period_month: 1 Month
+$period_3months: 3 Months
+$period_year: 1 Year
+Token: Token
+All Tokens: All Tokens
+Customize Widget: Customize Widget
+$accumulated_rewards: Accumulated Rewards
+$claim: Claim

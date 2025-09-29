@@ -2,8 +2,8 @@ package org.mytonwallet.app_air.walletcore.models
 
 import com.squareup.moshi.JsonClass
 import org.json.JSONObject
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.DEFAULT_SHOWN_TOKENS
 import org.mytonwallet.app_air.walletcore.MAIN_NETWORK
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -54,6 +54,7 @@ class MAccount(
 
     @JsonClass(generateAdapter = true)
     data class Ledger(val driver: Driver, val index: Int) {
+        @JsonClass(generateAdapter = false)
         enum class Driver(val value: String) {
             HID("HID"),
         }

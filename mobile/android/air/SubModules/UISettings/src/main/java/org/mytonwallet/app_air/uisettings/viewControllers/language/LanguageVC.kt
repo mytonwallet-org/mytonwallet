@@ -15,6 +15,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateO
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uiwidgets.configurations.WidgetsConfigurations
+import org.mytonwallet.app_air.walletbasecontext.WBaseStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.localization.WLanguage
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
@@ -166,6 +167,7 @@ class LanguageVC(context: Context) : WViewController(context),
                     switchLanguageIfRequired(language)
                     LocaleController.init(context, WGlobalStorage.getLangCode())
                     WalletContextManager.delegate?.restartApp()
+                    WBaseStorage.setActiveLanguage(language.langCode)
                     WidgetsConfigurations.reloadWidgets(context)
                 }
             }

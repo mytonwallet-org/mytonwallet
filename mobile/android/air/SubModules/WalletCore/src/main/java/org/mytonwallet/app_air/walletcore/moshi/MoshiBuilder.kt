@@ -43,6 +43,10 @@ class MoshiBuilder {
                             ApiUpdate.ApiUpdateDappSendTransactions::class.java,
                             "dappSendTransactions"
                         )
+//                        .withSubtype(
+//                            ApiUpdate.ApiUpdateDappSignData::class.java,
+//                            "dappSignData"
+//                        )
                         .withSubtype(ApiUpdate.ApiUpdateDappConnect::class.java, "dappConnect")
                         .withSubtype(
                             ApiUpdate.ApiUpdateDappDisconnect::class.java,

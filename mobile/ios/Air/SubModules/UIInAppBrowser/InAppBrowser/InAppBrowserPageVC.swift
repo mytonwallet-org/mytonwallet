@@ -166,7 +166,7 @@ public class InAppBrowserPageVC: WViewController {
     
     // Called after any ton-connect related request to send response into browser
     @MainActor
-    private func injectTonConnectResult(invocationId: String, result: Any?, error: String?) async throws {
+    private func injectTonConnectResult(invocationId: String, result: Any?, error: Any?) async throws {
         let connectionResultMessage: [String: Any]
         if error == nil {
             guard let dict = result as? [String: Any] else {
@@ -326,17 +326,31 @@ extension InAppBrowserPageVC: WKScriptMessageHandler {
                         let isUrlEnsured = self?.webView?.hasOnlySecureContent
                         let dapp = ApiDappRequest(url: origin, isUrlEnsured: isUrlEnsured, accountId: accountId, identifier: IDENTIFIER, sseOptions: nil)
                         
-                        let response = try await Api.tonConnect_sendTransaction(
-                            request: dapp,
-                            message: .init(method: request.method.rawValue, params: request.params, id: request.id )
-                        )
-                        try await self?.injectTonConnectResult(invocationId: invocationId, result: [
-                            "id": response.id,
-                            "result": response.result
-                        ], error: nil)
+                        switch request.method {
+                        case .sendTransaction:
+                            let response = try await Api.tonConnect_sendTransaction(
+                                request: dapp,
+                                message: .init(method: request.method.rawValue, params: request.params, id: request.id )
+                            )
+                            try await self?.injectTonConnectResult(invocationId: invocationId, result: [
+                                "id": response.id,
+                                "result": response.result
+                            ], error: nil)
+
+                        case .signData:
+                            let response = try await Api.tonConnect_signData(request: dapp, params: request.params)
+                            try await self?.injectTonConnectResult(invocationId: invocationId, result: response, error: nil)
+                            print(response)
+                            
+                        case .disconnect:
+                            throw TonConnectError(code: .methodNotSupported)
+                        }
+                        
                         
                     } catch let error as ApiSendTransactionRpcResponseError {
                         try? await self?.injectTonConnectResult(invocationId: invocationId, result: nil, error: TonConnectErrorCodes[error.error.code] ?? "Bad request")
+                    } catch let error as TonConnectError {
+                        try? await self?.injectTonConnectResult(invocationId: invocationId, result: nil, error: TonConnectErrorCodes[error.code.rawValue])
                     } catch {
                         try? await self?.injectTonConnectResult(invocationId: invocationId, result: nil, error: "Bad request")
                     }
@@ -363,7 +377,7 @@ extension InAppBrowserPageVC: WKScriptMessageHandler {
                 let result = try await f()
                 try await self.injectTonConnectResult(invocationId: invocationId, result: result, error: nil)
             } catch {
-                try? await self.injectTonConnectResult(invocationId: invocationId, result: nil, error: error.localizedDescription)
+                try? await self.injectTonConnectResult(invocationId: invocationId, result: nil, error: error)
             }
         }
     }

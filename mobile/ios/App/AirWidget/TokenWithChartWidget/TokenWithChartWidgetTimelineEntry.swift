@@ -14,6 +14,7 @@ public struct TokenWithChartWidgetTimelineEntry: TimelineEntry {
     public var token: ApiToken
     public var image: UIImage?
     public var currencyRate: DisplayCurrencyAmount
+    public var period: PricePeriod
     public var chartData: [(Double, Double)]
     public var chartStyle: ChartStyle
     
@@ -64,6 +65,7 @@ public extension TokenWithChartWidgetTimelineEntry {
             token: token,
             image: nil, 
             currencyRate: DisplayCurrencyAmount.fromDouble(4.21, .USD),
+            period: .month,
             chartData: [],
             chartStyle: .vivid,
         )

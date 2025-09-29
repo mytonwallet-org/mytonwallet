@@ -398,6 +398,7 @@ class SwapVC(
         }
     }
 
+    var isSwapDone = false
     private fun onEvent(event: SwapViewModel.Event) {
         when (event) {
             is SwapViewModel.Event.ShowSelector -> {
@@ -469,6 +470,9 @@ class SwapVC(
             is SwapViewModel.Event.SwapComplete -> {
                 val success = event.success
                 if (success) {
+                    if (isSwapDone)
+                        return
+                    isSwapDone = true
                     window?.dismissLastNav {
                         event.activity?.let { activity ->
                             WalletCore.notifyEvent(WalletEvent.OpenActivity(activity))

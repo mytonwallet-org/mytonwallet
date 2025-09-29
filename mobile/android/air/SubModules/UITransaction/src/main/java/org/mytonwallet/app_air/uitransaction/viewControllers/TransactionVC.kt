@@ -57,6 +57,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
+import org.mytonwallet.app_air.walletbasecontext.utils.formatDateAndTime
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
@@ -66,7 +67,6 @@ import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
-import org.mytonwallet.app_air.walletcontext.utils.formatDateAndTime
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
@@ -1006,14 +1006,15 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
                 val token = TokenStore.getToken(transaction.slug) ?: return
                 if (transaction.isStaking) {
                     navVC.setRoot(EarnRootVC(context))
-                    navVC.push(
-                        StakingVC(
-                            context,
-                            transaction.slug,
-                            if (transaction.type == ApiTransactionType.STAKE) StakingViewModel.Mode.STAKE else StakingViewModel.Mode.UNSTAKE
-                        ),
-                        animated = false
-                    )
+                    if (transaction.type != ApiTransactionType.UNSTAKE_REQUEST)
+                        navVC.push(
+                            StakingVC(
+                                context,
+                                transaction.slug,
+                                if (transaction.type == ApiTransactionType.STAKE) StakingViewModel.Mode.STAKE else StakingViewModel.Mode.UNSTAKE
+                            ),
+                            animated = false
+                        )
                 } else {
                     navVC.setRoot(
                         SendVC(

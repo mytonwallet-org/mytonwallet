@@ -42,9 +42,9 @@ class ActionsStyleView(
             updateSelection()
         }
     )
-    private val naturalView = ActionsStyleItemView(
+    private val neutralView = ActionsStyleItemView(
         context,
-        ActionsWidget.Config.Style.NATURAL,
+        ActionsWidget.Config.Style.NEUTRAL,
         onSelect = {
             selectedStyle = it
             updateSelection()
@@ -55,20 +55,20 @@ class ActionsStyleView(
         val v = WView(context)
         v.addView(vividView, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
         v.addView(
-            naturalView,
+            neutralView,
             LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
         )
         v.setConstraints {
             toTop(vividView)
             toLeft(vividView)
-            leftToRight(naturalView, vividView)
-            leftToRight(naturalView, vividView)
-            toRight(naturalView)
-            toBottom(naturalView)
+            leftToRight(neutralView, vividView)
+            leftToRight(neutralView, vividView)
+            toRight(neutralView)
+            toBottom(neutralView)
             createHorizontalChain(
                 ConstraintSet.PARENT_ID, ConstraintSet.LEFT,
                 ConstraintSet.PARENT_ID, ConstraintSet.RIGHT,
-                intArrayOf(vividView.id, naturalView.id),
+                intArrayOf(vividView.id, neutralView.id),
                 null,
                 ConstraintSet.CHAIN_SPREAD
             )
@@ -96,14 +96,14 @@ class ActionsStyleView(
             toBottom(separatorView)
         }
 
-        arrayOf(vividView, naturalView).forEach {
+        arrayOf(vividView, neutralView).forEach {
             it.isActive = selectedStyle == it.identifier
         }
         updateTheme()
     }
 
     private fun updateSelection() {
-        arrayOf(vividView, naturalView).forEach {
+        arrayOf(vividView, neutralView).forEach {
             it.isActive = selectedStyle == it.identifier
             it.updateTheme()
         }

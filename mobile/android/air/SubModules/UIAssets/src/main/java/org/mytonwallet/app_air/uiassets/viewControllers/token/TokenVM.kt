@@ -3,12 +3,12 @@ package org.mytonwallet.app_air.uiassets.viewControllers.token
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import org.mytonwallet.app_air.walletbasecontext.utils.MHistoryTimePeriod
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.ActivityLoader
 import org.mytonwallet.app_air.walletcore.helpers.IActivityLoader
-import org.mytonwallet.app_air.walletcore.models.MHistoryTimePeriod
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore

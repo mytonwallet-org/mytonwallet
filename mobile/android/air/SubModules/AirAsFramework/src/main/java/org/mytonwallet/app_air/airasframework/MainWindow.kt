@@ -10,12 +10,13 @@ import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.airasframework.splash.SplashVC
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
+import org.mytonwallet.app_air.uiwidgets.configurations.WidgetsConfigurations
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.AutoLockHelper
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
-import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 
 class MainWindow : WWindow() {
     private val splashVC by lazy {
@@ -84,6 +85,16 @@ class MainWindow : WWindow() {
     override fun onResume() {
         super.onResume()
         AutoLockHelper.appResumed()
+    }
+
+    var lastWidgetUpdate: Long = 0
+    override fun onPause() {
+        super.onPause()
+        val currentDt = System.currentTimeMillis()
+        if (currentDt - lastWidgetUpdate > 60 * 1000) {
+            lastWidgetUpdate = currentDt
+            WidgetsConfigurations.reloadWidgets(applicationContext)
+        }
     }
 
     override fun onDestroy() {

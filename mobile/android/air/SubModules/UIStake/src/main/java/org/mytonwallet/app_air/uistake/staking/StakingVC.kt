@@ -256,7 +256,7 @@ class StakingVC(
                 )
                 viewState.buttonState.getText(
                     minAmountStr,
-                    stakingViewModel.currentToken.nativeToken?.symbol ?: ""
+                    stakingViewModel.tokenSymbol
                 )
             }
 
@@ -272,7 +272,7 @@ class StakingVC(
                     false,
                     true
                 )
-                viewState.buttonState.getText("$minAmountStr ${stakingViewModel.currentToken.nativeToken?.symbol}")
+                viewState.buttonState.getText("$minAmountStr ${stakingViewModel.tokenSymbol}")
             }
 
             is StakeButtonState.EmptyAmount -> {

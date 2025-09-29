@@ -1,8 +1,7 @@
-package org.mytonwallet.app_air.walletcontext.helpers
+package org.mytonwallet.app_air.walletbasecontext.utils
 
 import android.content.Context
 import android.content.pm.PackageInfo
-import org.mytonwallet.app_air.walletcontext.utils.density
 
 object ApplicationContextHolder {
     lateinit var applicationContext: Context
@@ -16,7 +15,8 @@ object ApplicationContextHolder {
         density = applicationContext.density()
     }
 
-    val packageInfo: PackageInfo get() {
+    val packageInfo: PackageInfo
+        get() {
         val packageManager = applicationContext.packageManager
         val packageName = applicationContext.packageName
         return packageManager.getPackageInfo(packageName, 0)

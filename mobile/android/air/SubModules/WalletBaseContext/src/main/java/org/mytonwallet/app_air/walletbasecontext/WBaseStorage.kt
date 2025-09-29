@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletbasecontext.localization.WLanguage
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 
 // BaseStorage is used to store common data which can be accessed/modified through the `main applications` and `widgets`.
@@ -17,11 +18,13 @@ object WBaseStorage {
     private const val CACHE_WIDGET_CONFIG = "widgetConfig."
 
     fun init(context: Context) {
-        sharedPreferences = context.getSharedPreferences(CACHE_PREF_NAME, Context.MODE_PRIVATE)
+        sharedPreferences =
+            context.applicationContext.getSharedPreferences(CACHE_PREF_NAME, Context.MODE_PRIVATE)
     }
 
-    fun getActiveLanguage(): String? {
-        return sharedPreferences.getString(CACHE_ACTIVE_LANGUAGE, null)
+    fun getActiveLanguage(): String {
+        return sharedPreferences.getString(CACHE_ACTIVE_LANGUAGE, WLanguage.ENGLISH.langCode)
+            ?: WLanguage.ENGLISH.langCode
     }
 
     fun setActiveLanguage(value: String) {

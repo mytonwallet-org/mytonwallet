@@ -61,6 +61,7 @@ struct TokenWithChartWidgetTimelineProvider: AppIntentTimelineProvider {
             token: token,
             image: image,
             currencyRate: currencyRate,
+            period: configuration.period,
             chartData: chartData,
             chartStyle: .vivid // configuration.style,
         )

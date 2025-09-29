@@ -7,7 +7,6 @@ import org.mytonwallet.app_air.ledger.LedgerManager.ConnectionState
 import org.mytonwallet.app_air.ledger.usb.HIDDevice
 import org.mytonwallet.app_air.ledger.usb.USBManager
 import org.mytonwallet.app_air.walletcore.WalletCore
-import org.mytonwallet.app_air.walletcore.models.LedgerAppInfo
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 
@@ -107,15 +106,15 @@ object LedgerUsbManager : ILedgerConnectionManager {
             ApiMethod.Other.WaitForLedgerApp(chain = MBlockchain.ton),
             callback = { res, error ->
                 if (res != true || error != null) {
-                    onUpdate(ConnectionState.Done(LedgerDevice.Usb(device)))
+                    onUpdate(
+                        ConnectionState.Error(
+                            step = ConnectionState.Error.Step.TON_APP,
+                            shortMessage = null
+                        )
+                    )
                     return@call
                 }
-                onUpdate(
-                    ConnectionState.Error(
-                        step = ConnectionState.Error.Step.TON_APP,
-                        shortMessage = null
-                    )
-                )
+                onUpdate(ConnectionState.Done(LedgerDevice.Usb(device)))
             }
         )
     }

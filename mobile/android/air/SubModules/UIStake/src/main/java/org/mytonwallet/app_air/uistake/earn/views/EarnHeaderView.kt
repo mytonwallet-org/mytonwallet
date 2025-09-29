@@ -31,14 +31,14 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uistake.earn.EarnVC
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.StakingState
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -115,7 +115,7 @@ class EarnHeaderView(
 
     private val unstakeButton: WButton by lazy {
         val wButton = WButton(context, WButton.Type.PRIMARY).apply {
-            text = LocaleController.getString("\$unstake_action")
+            text = LocaleController.getString("Unstake")
             isEnabled = AccountStore.activeAccount?.accountType != MAccount.AccountType.VIEW
             setOnClickListener {
                 onUnstakeClick?.invoke()
@@ -125,10 +125,11 @@ class EarnHeaderView(
     }
 
     val buttonMarginSideDp = 20f
+    val buttonMarginTopDp = 43.5f
+    val buttonMarginTopInProgressUnstakeDp = 40f
     private val innerContainer = WView(context).apply {
         id = generateViewId()
 
-        val buttonMarginTopDp = 43.5f
         val buttonMarginBottomDp = 20.5f
         val addStakeButtonLp = ConstraintLayout.LayoutParams(
             ConstraintLayout.LayoutParams.MATCH_CONSTRAINT,
@@ -271,13 +272,19 @@ class EarnHeaderView(
             }
 
         messageLabel.text = buildString {
-            append(LocaleController.getString("Your staking balance"))
+            append(LocaleController.getString("Currently Staked"))
             inProgressWithdraw?.let { append("\n\n").append(it) }
         }.toProcessedSpannableStringBuilder()
 
         if (inProgressWithdraw != null) {
+            innerContainer.setConstraints {
+                topToBottom(unstakeButton, messageLabel, buttonMarginTopInProgressUnstakeDp)
+            }
             startUpdateTimer()
         } else {
+            innerContainer.setConstraints {
+                topToBottom(unstakeButton, messageLabel, buttonMarginTopDp)
+            }
             stopUpdateTimer()
         }
     }
@@ -315,8 +322,16 @@ class EarnHeaderView(
     private fun updateMessageLabel() {
         currentStakingState?.getRequestedAmount()?.let {
             val inProgressWithdraw = formatWithdrawText(currentStakingState!!)
-            messageLabel.text = (LocaleController.getString("Your staking balance") +
+            messageLabel.text = (LocaleController.getString("Currently Staked") +
                 "\n\n$inProgressWithdraw").toProcessedSpannableStringBuilder()
+            innerContainer.setConstraints {
+                topToBottom(unstakeButton, messageLabel, buttonMarginTopInProgressUnstakeDp)
+            }
+        } ?: run {
+            LocaleController.getString("Currently Staked")
+            innerContainer.setConstraints {
+                topToBottom(unstakeButton, messageLabel, buttonMarginTopDp)
+            }
         }
     }
 
@@ -350,7 +365,7 @@ class EarnHeaderView(
                     )
                 )
         } else {
-            unstakeButton.text = LocaleController.getString("\$unstake_action")
+            unstakeButton.text = LocaleController.getString("Unstake")
         }
     }
 

@@ -31,7 +31,7 @@ struct ChartView: View {
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color.primary.opacity(0.06))
                 .overlay(
-                    Text("No Data")
+                    Text(LocalizedStringResource("No Data", bundle: LocalizationSupport.shared.bundle))
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(.white.opacity(0.76))
                 )

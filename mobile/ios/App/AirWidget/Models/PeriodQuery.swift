@@ -19,16 +19,16 @@ public enum PricePeriod: String, CaseIterable, Equatable, Hashable, Codable, Sen
     case year = "1Y"
     case all = "ALL"
     
-    public static var typeDisplayRepresentation: TypeDisplayRepresentation = TypeDisplayRepresentation(name: "Chart Period")
+    public static var typeDisplayRepresentation = TypeDisplayRepresentation(name: LocalizedStringResource("Chart Period", bundle: LocalizationSupport.shared.bundle))
     
     public static var caseDisplayRepresentations: [PricePeriod : DisplayRepresentation] {
         return [
-            .all: "All",
-            .year: "1 Year",
-            .threeMonths: "3 Months",
-            .month: "1 Month",
-            .week: "1 Week",
-            .day: "1 Day",
+            .all: DisplayRepresentation(title: LocalizedStringResource("$period_all", bundle: LocalizationSupport.shared.bundle)),
+            .year: DisplayRepresentation(title: LocalizedStringResource("$period_year", bundle: LocalizationSupport.shared.bundle)),
+            .threeMonths: DisplayRepresentation(title: LocalizedStringResource("$period_3months", bundle: LocalizationSupport.shared.bundle)),
+            .month: DisplayRepresentation(title: LocalizedStringResource("$period_month", bundle: LocalizationSupport.shared.bundle)),
+            .week: DisplayRepresentation(title: LocalizedStringResource("$period_week", bundle: LocalizationSupport.shared.bundle)),
+            .day: DisplayRepresentation(title: LocalizedStringResource("$period_day", bundle: LocalizationSupport.shared.bundle)),
         ]
     }
     
@@ -46,6 +46,6 @@ public struct PeriodQuery: EntityQuery {
     }
 
     public func suggestedEntities() async throws -> IntentItemCollection<PricePeriod> {
-        return IntentItemCollection(items: [.day, .week, .month, .threeMonths, .year])
+        return IntentItemCollection(items: [.all, .year, .threeMonths, .month, .week, .day])
     }
 }

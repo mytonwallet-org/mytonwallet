@@ -4,29 +4,34 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.HeaderAndActionsView
 import org.mytonwallet.app_air.uicomponents.commonViews.WordCheckerView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
+import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicreatewallet.WalletCreationVM
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.walletAdded.WalletAddedVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.setPasscode.SetPasscodeVC
 import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.WordCheckMode
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.helpers.WordCheckMode
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MAccount
@@ -64,15 +69,28 @@ class WordCheckVC(
             ),
             title = LocaleController.getString("Let's Check!"),
             subtitle = (LocaleController.getString("\$check_words_description") + "\n" +
-                LocaleController.getFormattedString(
+                LocaleController.getStringWithKeyValues(
                     "\$mnemonic_check_words_list",
-                    listOf(initialWordIndices.joinToString(", ") { it.toString() })
+                    listOf(
+                        Pair(
+                            "%word_numbers%",
+                            "**${currentWordIndices.joinToString(", ") { it.toString() }}**"
+                        )
+                    )
                 )).toProcessedSpannableStringBuilder(),
             onStarted = {
                 scrollView.fadeIn()
             }
         )
         v
+    }
+
+    private val wordsDoNotMatchLabel = WLabel(context).apply {
+        setStyle(16f, WFont.Medium)
+        text = LocaleController.getString("Words don’t match, please try again.")
+        gravity = Gravity.CENTER
+        setTextColor(WColor.Red)
+        alpha = 0f
     }
 
     private var wordCheckerViews = ArrayList<WordCheckerView>()
@@ -82,6 +100,7 @@ class WordCheckVC(
         val v = WView(context)
         v.layoutDirection = View.LAYOUT_DIRECTION_LTR
         v.addView(headerView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        v.addView(wordsDoNotMatchLabel, ViewGroup.LayoutParams(0, WRAP_CONTENT))
         initialWordIndices.forEachIndexed { viewIndex, wordNumber ->
             val wordCheckerView = WordCheckerView(context, this::onWordSelected)
             wordCheckerView.config(
@@ -109,8 +128,10 @@ class WordCheckVC(
                 toCenterX(wordCheckerView, 32f)
                 prevWordCheckerView = wordCheckerView
             }
+            topToBottom(wordsDoNotMatchLabel, prevWordCheckerView!!, 40f)
+            toCenterX(wordsDoNotMatchLabel, 32f)
             toBottomPx(
-                prevWordCheckerView!!,
+                wordsDoNotMatchLabel,
                 32.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
             )
         }
@@ -164,16 +185,14 @@ class WordCheckVC(
     override fun insetsUpdated() {
         super.insetsUpdated()
         scrollingContentView.setConstraints {
-            wordCheckerViews.lastOrNull()?.let {
-                toBottomPx(
-                    it,
-                    48.dp + max(
-                        (navigationController?.getSystemBars()?.bottom
-                            ?: 0), (window?.imeInsets?.bottom
-                            ?: 0)
-                    )
+            toBottomPx(
+                wordsDoNotMatchLabel,
+                48.dp + max(
+                    (navigationController?.getSystemBars()?.bottom
+                        ?: 0), (window?.imeInsets?.bottom
+                        ?: 0)
                 )
-            }
+            )
         }
     }
 
@@ -208,6 +227,9 @@ class WordCheckVC(
                         animated = true
                     )
                 }
+                Handler(Looper.getMainLooper()).postDelayed({
+                    wordsDoNotMatchLabel.fadeIn { }
+                }, AnimationConstants.VERY_QUICK_ANIMATION)
                 updateHeaderDescription()
             }, 1000)
             return
@@ -271,15 +293,21 @@ class WordCheckVC(
         val allSelected = wordCheckerViews.all {
             it.isWordSelected && !it.isValidatedAndWrong
         }
+        wordsDoNotMatchLabel.fadeOut { }
         if (allSelected)
             checkPressed()
     }
 
     private fun updateHeaderDescription() {
         val newDescription = (LocaleController.getString("\$check_words_description") + "\n" +
-            LocaleController.getFormattedString(
+            LocaleController.getStringWithKeyValues(
                 "\$mnemonic_check_words_list",
-                listOf(currentWordIndices.joinToString(", ") { it.toString() })
+                listOf(
+                    Pair(
+                        "%word_numbers%",
+                        "**${currentWordIndices.joinToString(", ") { it.toString() }}**"
+                    )
+                )
             )).toProcessedSpannableStringBuilder()
         headerView.setSubtitleText(newDescription)
     }

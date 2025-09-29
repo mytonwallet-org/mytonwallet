@@ -47,6 +47,8 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.MHistoryTimePeriod
+import org.mytonwallet.app_air.walletbasecontext.utils.formatDateAndTime
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
@@ -54,9 +56,7 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.TaskManager
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
-import org.mytonwallet.app_air.walletcontext.utils.formatDateAndTime
 import org.mytonwallet.app_air.walletcore.WalletCore
-import org.mytonwallet.app_air.walletcore.models.MHistoryTimePeriod
 import org.mytonwallet.app_air.walletcore.models.MToken
 import java.lang.Float.max
 import java.text.SimpleDateFormat
@@ -509,17 +509,8 @@ class TokenChartCell(
                 false,
                 forceCurrencyToRight = true
             )
-            priceChangeLabel.text = Date(highlight!!.x.toLong() * 1000).formatDateAndTime(
-                when (activePeriod) {
-                    MHistoryTimePeriod.YEAR, MHistoryTimePeriod.ALL -> {
-                        "MMM d, yyyy"
-                    }
-
-                    else -> {
-                        "MMM d, HH:mm"
-                    }
-                }
-            )
+            priceChangeLabel.text =
+                Date(highlight!!.x.toLong() * 1000).formatDateAndTime(activePeriod)
         }
         updatePriceChangeLabelColor()
     }

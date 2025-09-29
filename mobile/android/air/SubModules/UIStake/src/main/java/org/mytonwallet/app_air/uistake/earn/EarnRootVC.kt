@@ -57,7 +57,8 @@ class EarnRootVC(context: Context, private val tokenSlug: String = TONCOIN_SLUG)
                     0,
                     viewControllers.indexOfFirst { (it.viewController as EarnVC).tokenSlug == tokenSlug }
                 ),
-            applySideGutters = false
+            applySideGutters = false,
+            forceCenterTabs = true
         )
         segmentedController.addCloseButton()
         segmentedController

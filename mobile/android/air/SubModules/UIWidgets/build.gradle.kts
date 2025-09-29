@@ -39,6 +39,8 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
+    implementation(libs.fresco)
+    implementation(libs.fresco.middleware)
     implementation(project("$airSubModulePath:WalletSDK"))
     implementation(project("$airSubModulePath:WalletBaseContext"))
     testImplementation(libs.junit)

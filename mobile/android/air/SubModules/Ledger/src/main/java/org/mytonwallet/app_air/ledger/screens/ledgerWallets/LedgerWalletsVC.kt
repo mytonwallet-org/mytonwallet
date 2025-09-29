@@ -255,7 +255,7 @@ class LedgerWalletsVC(
             else -> {
                 LedgerLoadMoreCell(context).apply {
                     onTap = {
-                        homeVM.loadMore(items.size - 1)
+                        homeVM.loadMore(items.size)
                     }
                 }
             }

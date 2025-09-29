@@ -36,18 +36,18 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedController
 import org.mytonwallet.app_air.uicomponents.widgets.updateThemeForChildren
-import org.mytonwallet.app_air.walletcontext.WalletContextManager
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.WalletContextManager
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import java.util.function.Consumer
 import kotlin.math.min
 
@@ -130,6 +130,12 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
             this,
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
+                    topViewController?.let { topVC ->
+                        if (topVC.activeDialog != null) {
+                            topVC.activeDialog?.dismiss()
+                            return
+                        }
+                    }
                     navigationControllers.lastOrNull()?.onBackPressed()
                 }
             }

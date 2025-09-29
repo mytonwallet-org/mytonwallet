@@ -21,15 +21,20 @@ public final class LocalizationSupport {
     private let key = "selectedLanguageCode"
 
     public var langCode: String {
-        
-        if let lang = UserDefaults.standard.string(forKey: key) {
-            if Language.supportedLanguages.map(\.langCode).contains(lang) {
-                return lang
-            } else {
-                return "en"
-            }
+        let fetchedValue: String
+        if let lang = UserDefaults.appGroup.string(forKey: key), !lang.isEmpty {
+            fetchedValue = lang
+        } else if let lang = UserDefaults.standard.string(forKey: key), !lang.isEmpty {
+            UserDefaults.appGroup.set(lang, forKey: key)
+            fetchedValue = lang
+        } else {
+            fetchedValue = "en"
         }
-        return "en"
+        if Language.supportedLanguages.map(\.langCode).contains(fetchedValue) {
+            return fetchedValue
+        } else {
+            return "en"
+        }
     }
     
     public var locale: Locale!
@@ -39,7 +44,7 @@ public final class LocalizationSupport {
         guard newValue != langCode else { return }
         self.locale = Locale(identifier: newValue)
         self.bundle = Bundle(path: AirBundle.path(forResource: newValue, ofType: "lproj")!)!
-        UserDefaults.standard.set(newValue, forKey: key)
+        UserDefaults.appGroup.set(newValue, forKey: key)
         NotificationCenter.default.post(name: .languageDidChange, object: nil)
     }
 }

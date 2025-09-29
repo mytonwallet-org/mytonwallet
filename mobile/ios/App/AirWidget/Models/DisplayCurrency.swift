@@ -47,20 +47,20 @@ public enum DisplayCurrency: String, Equatable, Hashable, Codable, Sendable, Ide
         return rawValue
     }
 
-    public var name: String {
+    public var name: LocalizedStringResource {
         switch self {
         case .USD:
-            return lang("US Dollar")
+            return LocalizedStringResource("US Dollar", bundle: LocalizationSupport.shared.bundle)
         case .EUR:
-            return lang("Euro")
+            return LocalizedStringResource("Euro", bundle: LocalizationSupport.shared.bundle)
         case .RUB:
-            return lang("Russian Ruble")
+            return LocalizedStringResource("Russian Ruble", bundle: LocalizationSupport.shared.bundle)
         case .CNY:
-            return lang("Chinese Yuan")
+            return LocalizedStringResource("Chinese Yuan", bundle: LocalizationSupport.shared.bundle)
         case .BTC:
-            return lang("Bitcoin")
+            return LocalizedStringResource("Bitcoin", bundle: LocalizationSupport.shared.bundle)
         case .TON:
-            return lang("Toncoin")
+            return LocalizedStringResource("Toncoin", bundle: LocalizationSupport.shared.bundle)
         }
     }
     

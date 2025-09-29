@@ -13,6 +13,8 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
+import org.mytonwallet.app_air.uiwidgets.configurations.WidgetsConfigurations;
+import org.mytonwallet.app_air.walletbasecontext.WBaseStorage;
 import org.mytonwallet.plugins.air_app_launcher.airLauncher.AirLauncher;
 
 @CapacitorPlugin(name = "AirAppLauncher")
@@ -44,6 +46,24 @@ public class AirAppLauncherPlugin extends Plugin {
         airLauncher = new AirLauncher(getActivity());
       AirLauncher.setInstance(airLauncher);
       airLauncher.soarIntoAir(getActivity(), true);
+    });
+  }
+
+  @PluginMethod
+  public void setLanguage(PluginCall call) {
+    new Handler(Looper.getMainLooper()).post(() -> {
+      WBaseStorage.INSTANCE.init(getActivity());
+      WBaseStorage.INSTANCE.setActiveLanguage(call.getString("langCode"));
+      WidgetsConfigurations.INSTANCE.reloadWidgets(getActivity());
+    });
+  }
+
+  @PluginMethod
+  public void setBaseCurrency(PluginCall call) {
+    new Handler(Looper.getMainLooper()).post(() -> {
+      WBaseStorage.INSTANCE.init(getActivity());
+      WBaseStorage.INSTANCE.setBaseCurrency(call.getString("currency"));
+      WidgetsConfigurations.INSTANCE.reloadWidgets(getActivity());
     });
   }
 }

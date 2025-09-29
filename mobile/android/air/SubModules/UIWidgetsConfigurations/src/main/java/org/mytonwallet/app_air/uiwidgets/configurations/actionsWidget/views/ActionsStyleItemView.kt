@@ -33,8 +33,8 @@ class ActionsStyleItemView(
     private val nameLabel: WLabel by lazy {
         val lbl = WLabel(context)
         lbl.text = when (identifier) {
-            ActionsWidget.Config.Style.NATURAL -> {
-                LocaleController.getString("Natural")
+            ActionsWidget.Config.Style.NEUTRAL -> {
+                LocaleController.getString("Neutral")
             }
 
             ActionsWidget.Config.Style.VIVID -> {

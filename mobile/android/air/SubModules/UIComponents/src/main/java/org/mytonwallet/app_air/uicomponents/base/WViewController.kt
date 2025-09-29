@@ -33,13 +33,13 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.material.bottomSheetBehavior.BottomSheetBehavior
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import java.lang.ref.WeakReference
 import kotlin.math.abs
 import kotlin.math.min
@@ -304,7 +304,9 @@ open class WViewController(val context: Context) : WThemedView, WProtectedView {
         navigationController?.pop()
     }
 
-    private var activeDialog: WDialog? = null
+    var activeDialog: WDialog? = null
+        private set
+
     fun setActiveDialog(dialog: WDialog?) {
         activeDialog = dialog
     }

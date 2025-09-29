@@ -50,8 +50,8 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.isSameDayAs
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
-import org.mytonwallet.app_air.walletcontext.utils.isSameDayAs
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MToken

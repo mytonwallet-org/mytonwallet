@@ -25,8 +25,8 @@ public struct TokenWithChartWidget: Widget {
         .contentMarginsDisabled()
         .supportedFamilies([.systemSmall, .systemMedium])
         .containerBackgroundRemovable()
-        .configurationDisplayName(Text("Rate with Chart"))
-        .description(Text("View current rate and track performance of any selected token."))
+        .configurationDisplayName(Text(LocalizedStringResource("Rate with Chart", bundle: LocalizationSupport.shared.bundle)))
+        .description(Text(LocalizedStringResource("$rate_with_chart_description", bundle: LocalizationSupport.shared.bundle)))
     }
 }
 
@@ -44,28 +44,9 @@ struct TokenWithChartWidgetView: View {
             ChartView(token: entry.token, chartData: entry.chartData, chartStyle: entry.chartStyle)
             
             if isSmall {
-                HStack(spacing: 0) {
-                    TokenImage(image: entry.image, size: 28)
-                    Spacer()
-                    Text(entry.token.symbol)
-                        .font(.system(size: 17, weight: .medium))
-                        .lineLimit(1)
-                        .foregroundStyle(.white.opacity(0.75))
-                        .padding(.trailing, 2)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(14)
+                topSmall
             } else if isMedium {
-                HStack(spacing: 6) {
-                    TokenImage(image: entry.image, size: 24)
-                    Text(entry.token.symbol)
-                        .font(.system(size: 17, weight: .medium))
-                        .lineLimit(1)
-                        .foregroundStyle(.white)
-                    change
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(16)
+                topMedium
             }
             
             if isSmall {
@@ -75,35 +56,43 @@ struct TokenWithChartWidgetView: View {
             }
         }
         .containerBackground(for: .widget) {
-            if isVivid {
-                CardBackground(tokenSlug: entry.token.slug, tokenColor: entry.token.color)
-            } else {
-                LinearGradient(
-                    colors: [
-                        Color(UIColor(hex: "#252525")),
-                        Color(UIColor(hex: "#1A1A1A")),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            }
+            background
         }
     }
     
     @ViewBuilder
-    public var change: some View {
-        ChangeView(changePercent: entry.changePercent, changeInCurrency: entry.changeInCurrency, useColors: false)
-            .font(.system(size: 14, weight: .regular))
-            .foregroundStyle(isVivid ? .white.opacity(0.75) : tintColor)
+    var topSmall: some View {
+        HStack(spacing: 0) {
+            TokenImage(image: entry.image, size: 28)
+            Spacer()
+            Text(entry.token.symbol)
+                .font(.system(size: 17, weight: .medium))
+                .lineLimit(1)
+                .foregroundStyle(.white.opacity(0.75))
+                .padding(.trailing, 2)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(14)
     }
-    
+
     @ViewBuilder
-    public var bottomSmall: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(entry.currencyRate.formatted(maxDecimals: entry.currencyRate.adaptiveDecimals()))
-                .font(.compactRoundedSemibold(size: 30))
+    var topMedium: some View {
+        HStack(spacing: 6) {
+            TokenImage(image: entry.image, size: 24)
+            Text(entry.token.symbol)
+                .font(.system(size: 17, weight: .medium))
                 .lineLimit(1)
                 .foregroundStyle(.white)
+            change
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(16)
+    }
+
+    @ViewBuilder
+    var bottomSmall: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            RateLarge(rate: entry.currencyRate)
             change
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
@@ -112,7 +101,7 @@ struct TokenWithChartWidgetView: View {
     }
     
     @ViewBuilder
-    public var bottomMedium: some View {
+    var bottomMedium: some View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 0) {
                 if let firstDate = entry.firstDate, let firstValue = entry.firstValue {
@@ -120,7 +109,7 @@ struct TokenWithChartWidgetView: View {
                         .font(.system(size: 17, weight: .semibold))
                         .lineLimit(1)
                         .foregroundStyle(.white)
-                    Text(firstDate.formatted(.dateTime.month(.abbreviated).day()))
+                    Text(firstDateString(date: firstDate))
                         .font(.system(size: 14, weight: .regular))
                         .foregroundStyle(.white.opacity(0.75))
                 }
@@ -132,7 +121,7 @@ struct TokenWithChartWidgetView: View {
                     .lineLimit(1)
                     .foregroundStyle(.white)
                 if let lastDate = entry.lastDate {
-                    Text(lastDate.formatted(.dateTime.month(.abbreviated).day().hour(.defaultDigits(amPM: .narrow)).minute()))
+                    Text(lastDateString(date: lastDate))
                         .font(.system(size: 14, weight: .regular))
                         .foregroundStyle(.white.opacity(0.75))
                 }
@@ -143,8 +132,43 @@ struct TokenWithChartWidgetView: View {
         .padding(.vertical, 12)
     }
     
+    func firstDateString(date: Date) -> String {
+        if entry.period == .year || entry.period == .all {
+            date.formatted(.dateTime.year().month(.abbreviated).day())
+        } else {
+            date.formatted(.dateTime.month(.abbreviated).day())
+        }
+    }
+    
+    func lastDateString(date: Date) -> String {
+        date.formatted(.dateTime.month(.abbreviated).day().hour(.defaultDigits(amPM: .narrow)).minute())
+    }
+    
     var tintColor: Color {
         colorForSlug(entry.token.slug, tokenColor: entry.token.color)
+    }
+    
+    @ViewBuilder
+    var change: some View {
+        ChangeView(changePercent: entry.changePercent, changeInCurrency: entry.changeInCurrency, useColors: false)
+            .font(.system(size: 14, weight: .regular))
+            .foregroundStyle(isVivid ? .white.opacity(0.75) : tintColor)
+    }
+    
+    @ViewBuilder
+    private var background: some View {
+        if isVivid {
+            CardBackground(tokenSlug: entry.token.slug, tokenColor: entry.token.color)
+        } else {
+            LinearGradient(
+                colors: [
+                    Color(UIColor(hex: "#252525")),
+                    Color(UIColor(hex: "#1A1A1A")),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
     }
 }
 

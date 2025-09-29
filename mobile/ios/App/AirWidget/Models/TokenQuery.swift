@@ -11,7 +11,7 @@ import WidgetKit
 import WalletContext
 
 extension ApiToken: @retroactive AppEntity {
-    public static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Token")
+    public static let typeDisplayRepresentation = TypeDisplayRepresentation(name: LocalizedStringResource("Token", bundle: LocalizationSupport.shared.bundle))
     public var displayRepresentation: DisplayRepresentation {
         .init(title: "\(symbol)", subtitle: "\(name)")
     }
@@ -36,8 +36,8 @@ public struct TokenQuery: EntityStringQuery {
 //        let notPopular = tokens
 //            .filter { $0.isPopular != true }  
         return IntentItemCollection {
-            ItemSection("Popular", items: popular)
-//            ItemSection("All Tokens", items: notPopular)
+            ItemSection(LocalizedStringResource("Popular", bundle: LocalizationSupport.shared.bundle), items: popular)
+//            ItemSection(LocalizedStringResource("All Tokens", bundle: LocalizationSupport.shared.bundle), items: notPopular)
         }
     }
 
@@ -47,7 +47,7 @@ public struct TokenQuery: EntityStringQuery {
             .filter { $0.priceUsd?.nilIfZero != nil }
             .filter { $0.matchesSearch(string) }
         return IntentItemCollection {
-            ItemSection("Results", items: tokens)
+            ItemSection(LocalizedStringResource("All Tokens", bundle: LocalizationSupport.shared.bundle), items: tokens)
         }
     }
 

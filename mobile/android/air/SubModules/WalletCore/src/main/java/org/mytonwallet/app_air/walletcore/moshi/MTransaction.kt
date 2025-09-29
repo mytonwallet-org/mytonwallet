@@ -3,12 +3,12 @@ package org.mytonwallet.app_air.walletcore.moshi
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import org.json.JSONObject
-import org.mytonwallet.app_air.walletcontext.R
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletcontext.utils.WEquatable
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletbasecontext.utils.gradientColors
+import org.mytonwallet.app_air.walletcontext.R
+import org.mytonwallet.app_air.walletcontext.utils.WEquatable
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 import org.mytonwallet.app_air.walletcore.helpers.PoisoningCacheHelper
@@ -642,8 +642,12 @@ enum class ApiTransactionType {
         mapOf(
             STAKE to Triple("Staked", "Staking", "Stake"),
             UNSTAKE to Triple("Unstaked", "Unstaking", "Unstake"),
-            UNSTAKE_REQUEST to Triple("Unstake Request", "Requesting Unstake", "Request Unstake"),
-            CALL_CONTRACT to Triple("Contract Called", "Calling Contract", "Call Contract"),
+            UNSTAKE_REQUEST to Triple("Requested Unstake", "Requesting Unstake", "Request Unstake"),
+            CALL_CONTRACT to Triple(
+                "Called Contract",
+                "Calling Contract",
+                "\$call_contract_action"
+            ),
             EXCESS to Triple("Excess", "Processing Excess", "Process Excess"),
             CONTRACT_DEPLOY to Triple("Contract Deployed", "Deploying Contract", "Deploy Contract"),
             BOUNCED to Triple("Bounced", "Bouncing", "Bounce"),

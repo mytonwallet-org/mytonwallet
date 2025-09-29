@@ -11,9 +11,9 @@ import WidgetKit
 import WalletContext
 
 struct TokenWidgetConfiguration: WidgetConfigurationIntent {
-    static var title: LocalizedStringResource = "Token"
-    static var description: IntentDescription = "Track a token price on your Home Screen."
+    static var title: LocalizedStringResource = LocalizedStringResource("Token", bundle: LocalizationSupport.shared.bundle)
+    static var description: IntentDescription = IntentDescription(LocalizedStringResource("$rate_description", bundle: LocalizationSupport.shared.bundle))
 
-    @Parameter(title: "Token", default: .TONCOIN)
+    @Parameter(title: LocalizedStringResource("Token", bundle: LocalizationSupport.shared.bundle), default: .TONCOIN)
     var token: ApiToken
 }

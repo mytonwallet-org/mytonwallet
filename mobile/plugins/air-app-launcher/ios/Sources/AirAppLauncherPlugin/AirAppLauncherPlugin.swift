@@ -10,12 +10,18 @@ public class AirAppLauncherPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "AirAppLauncherPlugin"
     public let jsName = "AirAppLauncher"
     public let pluginMethods: [CAPPluginMethod] = [
-        CAPPluginMethod(name: "switchToAir", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "switchToAir", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setLanguage", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setBaseCurrency", returnType: CAPPluginReturnPromise)
     ]
 
     @objc public func switchToAir(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
             (UIApplication.shared.delegate as? MTWAirToggleDelegate)?.switchToAir()
         }
+    }
+    @objc public func setLanguage(_ call: CAPPluginCall) {
+    }
+    @objc public func setBaseCurrency(_ call: CAPPluginCall) {
     }
 }

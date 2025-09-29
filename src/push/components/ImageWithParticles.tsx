@@ -2,6 +2,8 @@ import type { RefObject, TeactNode } from '../../lib/teact/teact';
 import { memo } from '../../lib/teact/teact';
 import React from '../../lib/teact/teact';
 
+import buildClassName from '../../util/buildClassName';
+
 import AnimatedIconWithPreview from '../../components/ui/AnimatedIconWithPreview';
 import Image from '../../components/ui/Image';
 
@@ -26,7 +28,12 @@ function ImageWithParticles({ children, imgPath, animationPath, alt, canvasRef, 
     <div className={styles.container}>
       <canvas ref={canvasRef} className={styles.particles} />
       <div className={isNft ? styles.nft : styles.logo}>
-        <div className={isNft ? styles.logoNftContainer : styles.logoImgContainer} onClick={onClick}>
+        <div
+          className={buildClassName(styles.logoContainer, isNft ? styles.logoNftContainer : styles.logoImgContainer)}
+          tabIndex={-1}
+          role="button"
+          onClick={onClick}
+        >
           {animationPath ? (
             <AnimatedIconWithPreview
               tgsUrl={animationPath}
@@ -41,7 +48,7 @@ function ImageWithParticles({ children, imgPath, animationPath, alt, canvasRef, 
               url={imgPath}
               isSlow
               alt={alt ?? 't.me/push'}
-              imageClassName={styles.logoImg}
+              className={styles.logoImg}
             />
           )}
         </div>

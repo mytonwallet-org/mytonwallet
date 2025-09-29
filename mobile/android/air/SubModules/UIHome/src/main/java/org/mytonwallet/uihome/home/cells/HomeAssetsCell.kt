@@ -21,12 +21,12 @@ import org.mytonwallet.app_air.uicomponents.widgets.animateHeight
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedController
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedControllerItem
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.models.NftCollection
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
@@ -256,34 +256,33 @@ class HomeAssetsCell(
                                                 onReorderingRequested()
                                             },
                                             onRemoveTapped = {
-                                                navigationController.viewControllers.lastOrNull()
-                                                    ?.showAlert(
-                                                        LocaleController.getString("Remove Tab"),
-                                                        LocaleController.getStringWithKeyValues(
-                                                            "Are you sure you want to unpin %tab%?",
-                                                            listOf(
-                                                                Pair("%tab%", collectionMode.title)
+                                                window.topViewController?.showAlert(
+                                                    LocaleController.getString("Remove Tab"),
+                                                    LocaleController.getStringWithKeyValues(
+                                                        "Are you sure you want to unpin %tab%?",
+                                                        listOf(
+                                                            Pair("%tab%", collectionMode.title)
+                                                        )
+                                                    ),
+                                                    LocaleController.getString("Yes"),
+                                                    buttonPressed = {
+                                                        remove(collectionMode)
+                                                        val homeNftCollections =
+                                                            WGlobalStorage.getHomeNftCollections(
+                                                                AccountStore.activeAccountId!!
                                                             )
-                                                        ),
-                                                        LocaleController.getString("Yes"),
-                                                        buttonPressed = {
-                                                            remove(collectionMode)
-                                                            val homeNftCollections =
-                                                                WGlobalStorage.getHomeNftCollections(
-                                                                    AccountStore.activeAccountId!!
-                                                                )
-                                                            homeNftCollections.remove(collectionMode.collectionAddress)
-                                                            WGlobalStorage.setHomeNftCollections(
-                                                                AccountStore.activeAccountId!!,
-                                                                homeNftCollections
-                                                            )
-                                                            //WalletCore.notifyEvent(WalletEvent.HomeNftCollectionsUpdated)
-                                                        },
-                                                        secondaryButton = LocaleController.getString(
-                                                            "Cancel"
-                                                        ),
-                                                        primaryIsDanger = true
-                                                    )
+                                                        homeNftCollections.remove(collectionMode.collectionAddress)
+                                                        WGlobalStorage.setHomeNftCollections(
+                                                            AccountStore.activeAccountId!!,
+                                                            homeNftCollections
+                                                        )
+                                                        //WalletCore.notifyEvent(WalletEvent.HomeNftCollectionsUpdated)
+                                                    },
+                                                    secondaryButton = LocaleController.getString(
+                                                        "Cancel"
+                                                    ),
+                                                    primaryIsDanger = true
+                                                )
                                             }
                                         )
                                     }

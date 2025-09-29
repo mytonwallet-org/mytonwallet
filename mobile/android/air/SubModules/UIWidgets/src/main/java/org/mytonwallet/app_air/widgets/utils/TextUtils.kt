@@ -20,7 +20,7 @@ object TextUtils {
     fun textToBitmap(
         context: Context,
         drawableText: DrawableText,
-    ): Bitmap {
+    ): Bitmap? {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = drawableText.color
             textSize = TypedValue.applyDimension(
@@ -40,7 +40,7 @@ object TextUtils {
 
         val width = bounds.width()
         val height = bounds.height()
-        val bitmap = createBitmap(width, height)
+        val bitmap = createBitmap(width.coerceAtLeast(1), height.coerceAtLeast(1))
 
         val canvas = Canvas(bitmap)
 

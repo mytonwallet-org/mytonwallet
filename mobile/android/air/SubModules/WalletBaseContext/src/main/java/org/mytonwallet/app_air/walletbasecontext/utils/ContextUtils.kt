@@ -1,4 +1,4 @@
-package org.mytonwallet.app_air.walletcontext.utils
+package org.mytonwallet.app_air.walletbasecontext.utils
 
 import android.content.Context
 import android.util.DisplayMetrics

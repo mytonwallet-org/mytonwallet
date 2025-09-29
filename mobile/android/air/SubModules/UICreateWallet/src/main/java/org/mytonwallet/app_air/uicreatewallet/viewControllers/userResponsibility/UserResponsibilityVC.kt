@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.uicreatewallet.viewControllers.userResponsibilit
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -47,6 +48,7 @@ class UserResponsibilityVC(context: Context) : WViewController(context) {
     private val titleLabel = WLabel(context).apply {
         setStyle(28f, WFont.Medium)
         text = LocaleController.getString("Use Responsibly")
+        gravity = Gravity.CENTER
     }
 
     @SuppressLint("SetTextI18n")
@@ -107,7 +109,7 @@ class UserResponsibilityVC(context: Context) : WViewController(context) {
         v.layoutDirection = View.LAYOUT_DIRECTION_LTR
         v.setPaddingDp(ViewConstants.HORIZONTAL_PADDINGS, 0, ViewConstants.HORIZONTAL_PADDINGS, 0)
         v.addView(animationView, ViewGroup.LayoutParams(90.dp, 90.dp))
-        v.addView(titleLabel, ViewGroup.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        v.addView(titleLabel, ViewGroup.LayoutParams(0, WRAP_CONTENT))
         v.addView(descriptionLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.addView(termsOfUseRow, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.addView(privacyPolicyRow, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
@@ -118,7 +120,7 @@ class UserResponsibilityVC(context: Context) : WViewController(context) {
             )
             toCenterX(animationView)
             topToBottom(titleLabel, animationView, 26f)
-            toCenterX(titleLabel)
+            toCenterX(titleLabel, 10f)
             topToBottom(descriptionLabel, titleLabel, 32f)
             topToBottom(termsOfUseRow, descriptionLabel, 16f)
             topToBottom(privacyPolicyRow, termsOfUseRow)

@@ -18,7 +18,7 @@ public enum TonConnectErrorCode: Int, Codable {
 }
 
 
-public struct TonConnectError: Error {
+public struct TonConnectError: Error, Codable {
     public var code: TonConnectErrorCode
     
     public init(code: TonConnectErrorCode) {
@@ -55,11 +55,13 @@ public func decodeWalletActionRequestsArray(args: Any?) throws -> [any WalletAct
 }
 
 
-public func decodeWalletActionRequest(data: Data) throws -> some WalletActionRequest {
+public func decodeWalletActionRequest(data: Data) throws -> any WalletActionRequest {
     let method = try JSONDecoder().decode(AnyWalletActionRequest.self, from: data).method
     switch method {
     case .sendTransaction:
         return try JSONDecoder().decode(SendTransactionRequest.self, from: data)
+    case .signData:
+        return try JSONDecoder().decode(SignDataRpcRequest.self, from: data)
     default:
         throw TonConnectError(code: .methodNotSupported)
     }
@@ -73,22 +75,12 @@ struct AnyWalletActionRequest: Decodable {
 
 public struct SendTransactionRequest: WalletActionRequest {
     public var id: String
-    public let method: WalletAction = .sendTransaction
+    public var method: WalletAction = .sendTransaction
     public var params: [String]
-    
-    public enum CodingKeys: CodingKey {
-        case id
-        case method
-        case params
-    }
-    
-    public init(from decoder: any Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        let method = try container.decode(WalletAction.self, forKey: .method)
-        if method != .sendTransaction {
-            throw DecodingError.dataCorruptedError(forKey: .method, in: container, debugDescription: "expected method = \(WalletAction.sendTransaction.rawValue)")
-        }
-        self.id = try container.decode(String.self, forKey: .id)
-        self.params = try container.decode([String].self, forKey: .params)
-    }
+}
+
+public struct SignDataRpcRequest: WalletActionRequest {
+    public var id: String
+    public var method: WalletAction = .signData
+    public var params: [String]
 }

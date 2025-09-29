@@ -13,7 +13,6 @@ public struct ApiStakingStateNominators: MBaseStakingState, Equatable, Hashable,
     public var unstakeRequestAmount: BigInt?
     
     public var type = "nominators"
-    public var pendingDepositAmount: BigInt
     public var start: Int
     public var end: Int
 }

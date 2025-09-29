@@ -21,7 +21,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletcontext.utils.DateUtils
+import org.mytonwallet.app_air.walletbasecontext.utils.DateUtils
 import kotlin.math.abs
 
 class EarnItemCell(context: Context) : WCell(context), WThemedView {

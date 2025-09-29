@@ -27,16 +27,16 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uisettings.viewControllers.RecoveryPhraseVC
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.AutoLockHelper
-import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletcontext.models.MAutoLockOption
-import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.helpers.AutoLockHelper
+import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
+import org.mytonwallet.app_air.walletcontext.models.MAutoLockOption
+import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -372,6 +372,8 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
                 ) { _, err ->
                     if (err != null)
                         return@call
+                    if (WGlobalStorage.isBiometricActivated())
+                        WSecureStorage.setBiometricPasscode(window!!, newPasscode)
                     currentPasscode = newPasscode
                     navigationController?.removePrevViewControllers(2)
                     navigationController?.pop(true)

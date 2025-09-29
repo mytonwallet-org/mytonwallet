@@ -5,8 +5,10 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Build
+import android.os.Bundle
 import android.util.SizeF
 import android.view.View
 import android.widget.RemoteViews
@@ -14,16 +16,24 @@ import androidx.core.content.ContextCompat
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.WBaseStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.localization.WLanguage
 import org.mytonwallet.app_air.widgets.R
 import org.mytonwallet.app_air.widgets.utils.DeeplinkUtils
 import org.mytonwallet.app_air.widgets.utils.FontUtils
 import org.mytonwallet.app_air.widgets.utils.TextUtils
 
+// TODO:: Support account id tint colors...
 class ActionsWidget : AppWidgetProvider() {
-    data class Config(val style: Style) {
+    data class Config(
+        val style: Style,
+        var appWidgetMinWidth: Int? = null,
+        var appWidgetMinHeight: Int? = null,
+        var appWidgetMaxWidth: Int? = null,
+        var appWidgetMaxHeight: Int? = null
+    ) {
         enum class Style(val value: Int) {
             VIVID(1),
-            NATURAL(2);
+            NEUTRAL(2);
 
             companion object {
                 fun fromValue(value: Int?): Style =
@@ -32,11 +42,28 @@ class ActionsWidget : AppWidgetProvider() {
         }
 
         constructor(config: JSONObject?) : this(
-            style = Style.fromValue(config?.optInt("style"))
+            style = Style.fromValue(config?.optInt("style")),
+            appWidgetMinWidth = config?.optInt("appWidgetMinWidth").let {
+                if ((it ?: 0) > 0) it else null
+            },
+            appWidgetMinHeight = config?.optInt("appWidgetMinHeight").let {
+                if ((it ?: 0) > 0) it else null
+            },
+            appWidgetMaxWidth = config?.optInt("appWidgetMaxWidth").let {
+                if ((it ?: 0) > 0) it else null
+            },
+            appWidgetMaxHeight = config?.optInt("appWidgetMaxHeight").let {
+                if ((it ?: 0) > 0) it else null
+            },
         )
 
         fun toJson(): JSONObject =
-            JSONObject().put("style", style.value)
+            JSONObject()
+                .put("style", style.value)
+                .put("appWidgetMinWidth", appWidgetMinWidth)
+                .put("appWidgetMinHeight", appWidgetMinHeight)
+                .put("appWidgetMaxWidth", appWidgetMaxWidth)
+                .put("appWidgetMaxHeight", appWidgetMaxHeight)
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -60,17 +87,66 @@ class ActionsWidget : AppWidgetProvider() {
         }
     }
 
+    override fun onAppWidgetOptionsChanged(
+        context: Context?,
+        appWidgetManager: AppWidgetManager?,
+        appWidgetId: Int,
+        newOptions: Bundle?
+    ) {
+        super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
+        val context = context ?: return
+        val minWidth = newOptions?.getInt("appWidgetMinWidth") ?: return
+        val minHeight = newOptions.getInt("appWidgetMinHeight")
+        val maxWidth = newOptions.getInt("appWidgetMaxWidth")
+        val maxHeight = newOptions.getInt("appWidgetMaxHeight")
+        if (minWidth == 0 || minHeight == 0)
+            return
+        WBaseStorage.init(context)
+        val config = WBaseStorage.getWidgetConfigurations(appWidgetId) ?: JSONObject()
+        WBaseStorage.setWidgetConfigurations(appWidgetId, config.apply {
+            put("appWidgetMinWidth", minWidth)
+            put("appWidgetMinHeight", minHeight)
+            put("appWidgetMaxWidth", maxWidth)
+            put("appWidgetMaxHeight", maxHeight)
+        })
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            // On older devices, handle size change manually
+            appWidgetManager?.let {
+                updateAppWidget(context, appWidgetManager, appWidgetId)
+            }
+        }
+    }
+
     fun updateAppWidget(
         context: Context,
         appWidgetManager: AppWidgetManager,
         appWidgetId: Int
     ) {
         val config = Config(config = WBaseStorage.getWidgetConfigurations(appWidgetId))
+        if (config.appWidgetMinWidth == null || config.appWidgetMinHeight == null) {
+            val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
+            config.appWidgetMinWidth =
+                options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
+            config.appWidgetMinHeight =
+                options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
+            config.appWidgetMaxWidth =
+                options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH)
+            config.appWidgetMaxHeight =
+                options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
+            WBaseStorage.setWidgetConfigurations(appWidgetId, config.toJson())
+        }
+        WBaseStorage.setWidgetConfigurations(appWidgetId, config.toJson())
         val remoteViews = generateRemoteViews(context, config, false)
         appWidgetManager.updateAppWidget(appWidgetId, remoteViews)
     }
 
-    // TODO:: Support account id tint colors...
+    val set =
+        setOf(R.layout.actions_widget, R.layout.actions_widget_tall, R.layout.actions_widget_wide)
+
+    fun layoutHasTexts(layoutId: Int): Boolean {
+        return set.contains(layoutId)
+    }
+
     fun generateRemoteViews(context: Context, config: Config, isPreview: Boolean): RemoteViews {
         if (isPreview) {
             return RemoteViews(context.packageName, R.layout.actions_widget_mini).apply {
@@ -102,9 +178,22 @@ class ActionsWidget : AppWidgetProvider() {
             )
             RemoteViews(viewMapping)
         } else {
-            // TODO:: How to handle different displays?!
-            RemoteViews(context.packageName, R.layout.actions_widget).apply {
-                configure(context, this@apply, false, config)
+            val orientation = context.resources.configuration.orientation
+            val isLandscape = orientation == Configuration.ORIENTATION_LANDSCAPE
+            val width =
+                (if (isLandscape) config.appWidgetMaxWidth else config.appWidgetMinWidth) ?: 1000
+            val height =
+                (if (isLandscape) config.appWidgetMinHeight else config.appWidgetMaxHeight) ?: 1000
+            val layoutId = when {
+                width < 120 && height < 120 -> R.layout.actions_widget_mini
+                width < 120 && height >= 120 -> R.layout.actions_widget_mini_tall
+                width >= 120 && height < 120 -> R.layout.actions_widget_mini_wide
+                width < 190 && height >= 190 -> R.layout.actions_widget_tall
+                width >= 190 && height < 190 -> R.layout.actions_widget_wide
+                else -> R.layout.actions_widget
+            }
+            RemoteViews(context.packageName, layoutId).apply {
+                configure(context, this@apply, layoutHasTexts(layoutId), config)
             }
         }
         return remoteViews
@@ -118,12 +207,12 @@ class ActionsWidget : AppWidgetProvider() {
         isPreview: Boolean = false
     ) {
         val addString = LocaleController.getString("Add")
-        val sendString = LocaleController.getString("\$send_action")
+        val sendString = LocaleController.getString("Send")
         val swapString = LocaleController.getString("Swap")
         val earnString = LocaleController.getString("Earn")
 
         var iconColor = Color.WHITE
-        if (config.style == Config.Style.NATURAL) {
+        if (config.style == Config.Style.NEUTRAL) {
             iconColor = ContextCompat.getColor(context, R.color.widget_tint)
             remoteViews.setInt(
                 R.id.container,
@@ -159,12 +248,14 @@ class ActionsWidget : AppWidgetProvider() {
         remoteViews.setContentDescription(R.id.action_earn, earnString)
         if (renderTexts) {
             val typeface = FontUtils.semiBold(context)
+            val textSize =
+                if (WBaseStorage.getActiveLanguage() == WLanguage.RUSSIAN.langCode) 12 else 15
             remoteViews.setImageViewBitmap(
                 R.id.text_add,
                 TextUtils.textToBitmap(
                     context, TextUtils.DrawableText(
                         addString,
-                        15,
+                        textSize,
                         iconColor,
                         typeface
                     )
@@ -175,7 +266,7 @@ class ActionsWidget : AppWidgetProvider() {
                 TextUtils.textToBitmap(
                     context, TextUtils.DrawableText(
                         sendString,
-                        15,
+                        textSize,
                         iconColor,
                         typeface
                     )
@@ -186,7 +277,7 @@ class ActionsWidget : AppWidgetProvider() {
                 TextUtils.textToBitmap(
                     context, TextUtils.DrawableText(
                         swapString,
-                        15,
+                        textSize,
                         iconColor,
                         typeface
                     )
@@ -197,7 +288,7 @@ class ActionsWidget : AppWidgetProvider() {
                 TextUtils.textToBitmap(
                     context, TextUtils.DrawableText(
                         earnString,
-                        15,
+                        textSize,
                         iconColor,
                         typeface
                     )
@@ -208,6 +299,8 @@ class ActionsWidget : AppWidgetProvider() {
 
     override fun onDeleted(context: Context?, appWidgetIds: IntArray?) {
         super.onDeleted(context, appWidgetIds)
+        val context = context ?: return
+        WBaseStorage.init(context.applicationContext)
         appWidgetIds?.forEach { appWidgetId ->
             WBaseStorage.setWidgetConfigurations(appWidgetId, null)
         }

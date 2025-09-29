@@ -40,8 +40,8 @@ enum class MBaseCurrency(val currencyCode: String) {
         get() = when (this) {
             USD -> LocaleController.getString("US Dollar")
             EUR -> LocaleController.getString("Euro")
-            RUB -> LocaleController.getString("Ruble")
-            CNY -> LocaleController.getString("Yuan")
+            RUB -> LocaleController.getString("Russian Ruble")
+            CNY -> LocaleController.getString("Chinese Yuan")
             BTC -> LocaleController.getString("Bitcoin")
             TON -> LocaleController.getString("Toncoin")
         }

@@ -11,9 +11,9 @@ import WidgetKit
 import WalletContext
 
 struct ActionsWidgetConfiguration: WidgetConfigurationIntent {
-    static var title: LocalizedStringResource = "Actions"
-    static var description: IntentDescription = "Quick access to actions."
+    static var title: LocalizedStringResource = LocalizedStringResource("Actions", bundle: LocalizationSupport.shared.bundle)
+    static var description: IntentDescription = IntentDescription(LocalizedStringResource("$actions_description", bundle: LocalizationSupport.shared.bundle))
 
-    @Parameter(title: "Style", default: .neutral)
+    @Parameter(title: LocalizedStringResource("Style", bundle: LocalizationSupport.shared.bundle), default: .neutral)
     var style: ActionsStyle
 }

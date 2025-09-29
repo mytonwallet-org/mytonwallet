@@ -831,7 +831,8 @@ class LedgerConnectVC(
         super.viewWillAppear()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             configureTryAgainButton(
-                toOpenSettings = !LedgerBleManager.isPermissionGranted() &&
+                toOpenSettings = LedgerManager.activeMode == LedgerManager.ConnectionMode.BLE &&
+                    !LedgerBleManager.isPermissionGranted() &&
                     !ActivityCompat.shouldShowRequestPermissionRationale(
                         window!!,
                         Manifest.permission.BLUETOOTH_SCAN

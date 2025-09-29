@@ -11,6 +11,7 @@ import org.mytonwallet.app_air.airasframework.AirAsFrameworkApplication;
 import org.mytonwallet.app_air.airasframework.MainWindow;
 import org.mytonwallet.app_air.airasframework.WidgetConfigurationWindow;
 import org.mytonwallet.app_air.airasframework.splash.SplashVC;
+import org.mytonwallet.app_air.uiwidgets.configurations.WidgetsConfigurations;
 import org.mytonwallet.app_air.walletcontext.globalStorage.IGlobalStorageProvider;
 import org.mytonwallet.app_air.walletcore.deeplink.Deeplink;
 import org.mytonwallet.app_air.walletcore.deeplink.DeeplinkNavigator;
@@ -70,6 +71,10 @@ public class AirLauncher {
 
   public static void setInstance(AirLauncher instance) {
     airLauncher = instance;
+  }
+
+  public static void reloadWidgets(Context applicationContext) {
+    WidgetsConfigurations.INSTANCE.reloadWidgets(applicationContext);
   }
 
   private void initGlobalStorageProvider(Activity currentActivity) {

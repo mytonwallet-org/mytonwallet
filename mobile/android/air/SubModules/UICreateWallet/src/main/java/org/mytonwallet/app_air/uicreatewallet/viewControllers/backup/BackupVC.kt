@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.uicreatewallet.viewControllers.backup
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -56,6 +57,7 @@ class BackupVC(
             text = LocaleController.getString("Create Backup")
             setStyle(28f, WFont.Medium)
             setTextColor(WColor.PrimaryText.color)
+            gravity = Gravity.CENTER
         }
     }
 
@@ -92,7 +94,7 @@ class BackupVC(
         val v = WView(context)
         v.layoutDirection = View.LAYOUT_DIRECTION_LTR
         v.addView(animationView, ViewGroup.LayoutParams(132.dp, 132.dp))
-        v.addView(titleLabel, ViewGroup.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        v.addView(titleLabel, ViewGroup.LayoutParams(0, WRAP_CONTENT))
         for (checkboxView in checkboxViews) {
             v.addView(checkboxView, ViewGroup.LayoutParams(0, WRAP_CONTENT))
         }
@@ -105,7 +107,7 @@ class BackupVC(
             )
             toCenterX(animationView)
             topToBottom(titleLabel, animationView, 24f)
-            toCenterX(titleLabel)
+            toCenterX(titleLabel, 10f)
             checkboxViews.forEachIndexed { i, checkboxView ->
                 checkboxView.setOnClickListener {
                     checkboxView.isChecked = !checkboxView.isChecked

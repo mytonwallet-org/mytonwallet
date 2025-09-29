@@ -2,12 +2,13 @@ package org.mytonwallet.app_air.walletcontext.globalStorage
 
 import org.json.JSONArray
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.localization.WLanguage
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.UIMode
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.models.MAutoLockOption
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.UIMode
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 
 object WGlobalStorage {
     val isInitialized: Boolean
@@ -689,7 +690,7 @@ object WGlobalStorage {
     }
 
     fun getLangCode(): String {
-        return globalStorageProvider.getString(LANG_CODE) ?: "en"
+        return globalStorageProvider.getString(LANG_CODE) ?: WLanguage.ENGLISH.langCode
     }
 
     fun getCardsInfo(accountId: String): JSONObject? {

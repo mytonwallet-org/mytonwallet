@@ -24,8 +24,8 @@ public struct TokenWidget: Widget {
         .contentMarginsDisabled()
         .supportedFamilies([.systemSmall])
         .containerBackgroundRemovable()
-        .configurationDisplayName(Text("Rate"))
-        .description(Text("View current rate of any selected token."))
+        .configurationDisplayName(Text(LocalizedStringResource("Rate", bundle: LocalizationSupport.shared.bundle)))
+        .description(Text(LocalizedStringResource("$rate_description", bundle: LocalizationSupport.shared.bundle)))
     }
 }
 
@@ -35,18 +35,7 @@ struct TokenWidgetView: View {
     
     var body: some View {
         ZStack {
-            HStack(spacing: 0) {
-                TokenImage(image: entry.image, size: 28)
-                Spacer()
-                Text(entry.token.symbol)
-                    .font(.system(size: 17, weight: .medium))
-                    .lineLimit(1)
-                    .foregroundStyle(.white.opacity(0.75))
-                    .padding(.trailing, 2)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .padding(14)
-            
+            topView
             bottomView
         }
         .containerBackground(for: .widget) {
@@ -55,19 +44,26 @@ struct TokenWidgetView: View {
     }
     
     @ViewBuilder
-    public var change: some View {
-        ChangeView(changePercent: entry.token.percentChange24h, changeInCurrency: entry.changeInCurrency, useColors: false)
-            .font(.system(size: 14, weight: .regular))
+    private var topView: some View {
+        HStack(spacing: 0) {
+            TokenImage(image: entry.image, size: 28)
+            Spacer()
+            Text(entry.token.symbol)
+                .font(.system(size: 17, weight: .medium))
+                .lineLimit(1)
+                .foregroundStyle(.white.opacity(0.75))
+                .padding(.trailing, 2)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(14)
     }
     
     @ViewBuilder
     public var bottomView: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(entry.currencyRate.formatted(maxDecimals: entry.currencyRate.adaptiveDecimals()))
-                .font(.compactRoundedSemibold(size: 32))
-                .lineLimit(1)
-                .foregroundStyle(.white)
-            change
+            RateLarge(rate: entry.currencyRate)
+            ChangeView(changePercent: entry.token.percentChange24h, changeInCurrency: entry.changeInCurrency, useColors: false)
+                .font(.system(size: 14, weight: .regular))
                 .foregroundStyle(.white.opacity(0.75))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)

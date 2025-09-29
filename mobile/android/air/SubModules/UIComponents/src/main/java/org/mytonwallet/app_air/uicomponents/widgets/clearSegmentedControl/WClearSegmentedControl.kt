@@ -30,15 +30,14 @@ import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
-import org.mytonwallet.app_air.uicomponents.helpers.CenteringLinearLayoutManager
 import org.mytonwallet.app_air.uicomponents.helpers.SpacesItemDecoration
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.recyclerView.CustomItemTouchHelper
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import java.lang.ref.WeakReference
 import kotlin.math.abs
@@ -398,7 +397,7 @@ class WClearSegmentedControl(
         }
     }.apply {
         adapter = rvAdapter
-        val layoutManager = CenteringLinearLayoutManager(context).apply {
+        val layoutManager = LinearLayoutManager(context).apply {
             isSmoothScrollbarEnabled = true
             orientation = RecyclerView.HORIZONTAL
         }
@@ -407,6 +406,7 @@ class WClearSegmentedControl(
         addOnItemTouchListener(recyclerViewTouchListener)
         setPaddingDp(11, 4, 11, 4)
         clipToPadding = false
+        overScrollMode = OVER_SCROLL_NEVER
 
         itemAnimator?.removeDuration = 0
 

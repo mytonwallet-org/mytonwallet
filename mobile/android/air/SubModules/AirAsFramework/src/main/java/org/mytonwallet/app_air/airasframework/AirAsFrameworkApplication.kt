@@ -9,16 +9,16 @@ import org.mytonwallet.app_air.uicomponents.helpers.FontManager
 import org.mytonwallet.app_air.walletbasecontext.WBaseStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
-import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
-import org.mytonwallet.app_air.walletcontext.globalStorage.IGlobalStorageProvider
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.ApplicationContextHolder
-import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
-import org.mytonwallet.app_air.walletcontext.helpers.LauncherIconController
-import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setAccentColor
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setNftAccentColor
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
+import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
+import org.mytonwallet.app_air.walletcontext.globalStorage.IGlobalStorageProvider
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
+import org.mytonwallet.app_air.walletcontext.helpers.LauncherIconController
+import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ActivityStore
@@ -68,6 +68,8 @@ class AirAsFrameworkApplication {
 
             t = System.currentTimeMillis()
             WBaseStorage.init(applicationContext)
+            WBaseStorage.setActiveLanguage(WGlobalStorage.getLangCode())
+            WBaseStorage.setBaseCurrency(WGlobalStorage.getBaseCurrency())
             Logger.i(
                 Logger.LogTag.AIR_APPLICATION,
                 "WBaseStorage.init: ${System.currentTimeMillis() - t}ms"

@@ -12,6 +12,7 @@ import WalletCore
 import WalletContext
 import Combine
 
+private let log = Log("SwapCexDetailsView")
 
 struct SwapCexDetailsView: View {
 
@@ -84,7 +85,7 @@ struct SwapCexDetailsView: View {
                 self.fee = fee
             }
         } catch {
-            print(error)
+            log.error("\(error)")
         }
     }
     

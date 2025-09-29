@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.uicomponents.commonViews.cells
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -25,10 +26,10 @@ class SwitchCell(
 ) : WCell(context), WThemedView {
 
     private val titleLabel: WLabel by lazy {
-        val lbl = WLabel(context)
-        lbl.setStyle(16f)
-        lbl.text = title
-        lbl
+        WLabel(context).apply {
+            setStyle(16f)
+            text = title
+        }
     }
 
     private val switchView: WSwitch by lazy {
@@ -50,11 +51,12 @@ class SwitchCell(
     override fun setupViews() {
         super.setupViews()
 
-        addView(titleLabel)
+        addView(titleLabel, LayoutParams(0, WRAP_CONTENT))
         addView(switchView)
         setConstraints {
             toStart(titleLabel, 20f)
             toCenterY(titleLabel)
+            endToStart(titleLabel, switchView, 4f)
             toEnd(switchView, 20f)
             toCenterY(switchView)
         }

@@ -1,4 +1,4 @@
-package org.mytonwallet.app_air.walletcore.models
+package org.mytonwallet.app_air.walletbasecontext.utils
 
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 
@@ -20,6 +20,16 @@ enum class MHistoryTimePeriod(val value: String) {
             ALL -> LocaleController.getString("All")
         }
 
+    val localizedLong: String
+        get() = when (this) {
+            DAY -> LocaleController.getString("\$period_day")
+            WEEK -> LocaleController.getString("\$period_week")
+            MONTH -> LocaleController.getString("\$period_month")
+            THREE_MONTHS -> LocaleController.getString("\$period_3months")
+            YEAR -> LocaleController.getString("\$period_year")
+            ALL -> LocaleController.getString("\$period_all")
+        }
+
     companion object {
         val allPeriods = arrayOf(
             ALL,
@@ -29,5 +39,8 @@ enum class MHistoryTimePeriod(val value: String) {
             WEEK,
             DAY
         )
+
+        fun fromValue(value: String?): MHistoryTimePeriod? =
+            allPeriods.find { it.value == value }
     }
 }

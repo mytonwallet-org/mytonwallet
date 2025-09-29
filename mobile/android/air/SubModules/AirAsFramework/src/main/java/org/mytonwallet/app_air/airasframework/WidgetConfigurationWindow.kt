@@ -32,7 +32,7 @@ class WidgetConfigurationWindow : WWindow() {
                 ActionsWidgetConfigurationVC(this, appWidgetId, onResult)
             }
 
-            "org.mytonwallet.app_air.widgets.actionsWidget.PriceWidget" -> {
+            "org.mytonwallet.app_air.widgets.priceWidget.PriceWidget" -> {
                 PriceWidgetConfigurationVC(this, appWidgetId, onResult)
             }
 

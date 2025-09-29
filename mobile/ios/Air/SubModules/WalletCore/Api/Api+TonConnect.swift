@@ -49,8 +49,6 @@ public struct ApiSignTransfersOptions: Encodable {
     }
 }
 
-public typealias SignDataPayload = AnyEncodable
-
 public struct ApiSseConnectionParams: Encodable {
     public var url: String
     public var isFromInAppBrowser: Bool?

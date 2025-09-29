@@ -160,6 +160,44 @@ public final class TonConnect {
             }
         }
     }
+    
+    func presentSignData(update: ApiUpdate.DappSignData) {
+        Task { @MainActor in
+            let vc = SignDataVC(
+                update: update,
+                onConfirm: { password in
+                    self.confirmSignData(update: update, password: password)
+                },
+                onCancel: {
+                    self.cancelSignData(update: update)
+                }
+            )
+            let nc = WNavigationController(rootViewController: vc)
+            topViewController()?.present(nc, animated: true)
+        }
+    }
+    
+    func confirmSignData(update: ApiUpdate.DappSignData, password: String?) {
+        Task {
+            do {
+                let result = try await Api.signData(accountId: update.accountId, dappUrl: update.dapp.url, payloadToSign: update.payloadToSign, password: password)
+                let dict = try (result as? [String: Any]).orThrow()
+                try await Api.confirmDappRequestSignData(promiseId: update.promiseId, data: AnyEncodable(dict: dict))
+            } catch {
+                log.error("confirmSignData: \(error)")
+            }
+        }
+    }
+    
+    func cancelSignData(update: ApiUpdate.DappSignData) {
+        Task {
+            do {
+                try await Api.cancelDappRequest(promiseId: update.promiseId, reason: nil)
+            } catch {
+                log.error("cancelSignData: \(error)")
+            }
+        }
+    }
 }
 
 
@@ -170,6 +208,8 @@ extension TonConnect: WalletCoreData.EventsObserver {
             presentConnect(request: request)
         case .dappSendTransactions(let request):
             presentSendTransactions(request: request)
+        case .dappSignData(let update):
+            presentSignData(update: update)
         default:
             break
         }

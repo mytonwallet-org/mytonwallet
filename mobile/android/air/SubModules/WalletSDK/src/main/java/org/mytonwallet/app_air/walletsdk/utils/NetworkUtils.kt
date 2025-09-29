@@ -17,45 +17,60 @@ object NetworkUtils {
         urlString: String,
         method: Method,
         headers: Map<String, String> = emptyMap(),
-        body: String? = null
+        body: String? = null,
+        connectTimeout: Int = 3_000,
+        readTimeout: Int = 5_000,
+        maxRetries: Int = 2,
+        retryDelay: Long = 100L
     ): String? {
-        var connection: HttpURLConnection? = null
-        return try {
-            val url = URL(urlString)
-            connection = url.openConnection() as HttpURLConnection
-            connection.requestMethod = method.value
-            connection.doInput = true
+        var attempt = 0
 
-            connection.setRequestProperty("Accept", "application/json")
-            for ((key, value) in headers) {
-                connection.setRequestProperty(key, value)
-            }
+        while (attempt < maxRetries) {
+            var connection: HttpURLConnection? = null
+            try {
+                val url = URL(urlString)
+                connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = method.value
+                connection.doInput = true
+                connection.connectTimeout = connectTimeout
+                connection.readTimeout = readTimeout
 
-            if ((method == Method.POST || method == Method.PUT) && body != null) {
-                connection.doOutput = true
-                val bytes = body.toByteArray(Charsets.UTF_8)
-                connection.outputStream.use { os: OutputStream ->
-                    os.write(bytes, 0, bytes.size)
+                connection.setRequestProperty("Accept", "application/json")
+                for ((key, value) in headers) {
+                    connection.setRequestProperty(key, value)
                 }
-            }
 
-            val reader = if (connection.responseCode in 200..299) {
-                BufferedReader(InputStreamReader(connection.inputStream))
-            } else {
-                BufferedReader(InputStreamReader(connection.errorStream))
-            }
+                if ((method == Method.POST || method == Method.PUT) && body != null) {
+                    connection.doOutput = true
+                    val bytes = body.toByteArray(Charsets.UTF_8)
+                    connection.outputStream.use { os: OutputStream ->
+                        os.write(bytes, 0, bytes.size)
+                    }
+                }
 
-            val response = StringBuilder()
-            reader.useLines { lines ->
-                lines.forEach { response.append(it) }
-            }
-            response.toString()
+                val reader = if (connection.responseCode in 200..299) {
+                    BufferedReader(InputStreamReader(connection.inputStream))
+                } else {
+                    BufferedReader(InputStreamReader(connection.errorStream))
+                }
 
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        } finally {
-            connection?.disconnect()
+                val response = StringBuilder()
+                reader.useLines { lines ->
+                    lines.forEach { response.append(it) }
+                }
+                return response.toString()
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+                attempt++
+                if (attempt < maxRetries) {
+                    Thread.sleep(retryDelay * attempt)
+                }
+            } finally {
+                connection?.disconnect()
+            }
         }
+
+        return null
     }
 }

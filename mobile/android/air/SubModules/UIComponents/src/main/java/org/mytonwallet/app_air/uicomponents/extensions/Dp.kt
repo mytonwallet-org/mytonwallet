@@ -1,6 +1,6 @@
 package org.mytonwallet.app_air.uicomponents.extensions
 
-import org.mytonwallet.app_air.walletcontext.helpers.ApplicationContextHolder
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import kotlin.math.roundToInt
 
 val Int.dp get() = (this * ApplicationContextHolder.density).roundToInt()

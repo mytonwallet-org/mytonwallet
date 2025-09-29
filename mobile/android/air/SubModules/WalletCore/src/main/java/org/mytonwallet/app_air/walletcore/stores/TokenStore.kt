@@ -4,13 +4,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONArray
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletbasecontext.utils.MHistoryTimePeriod
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.fetchPriceHistory
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
-import org.mytonwallet.app_air.walletcore.models.MHistoryTimePeriod
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset

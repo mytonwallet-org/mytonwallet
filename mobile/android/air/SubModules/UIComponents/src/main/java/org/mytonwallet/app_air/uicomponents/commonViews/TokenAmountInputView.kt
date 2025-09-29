@@ -23,12 +23,12 @@ import org.mytonwallet.app_air.uicomponents.widgets.WTokenMaxButton
 import org.mytonwallet.app_air.uicomponents.widgets.WTokenSymbolIconView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 
 class TokenAmountInputView(
     context: Context,
@@ -63,7 +63,7 @@ class TokenAmountInputView(
         isSingleLine = true
         ellipsize = TextUtils.TruncateAt.END
         text =
-            LocaleController.getString("\$send_action")
+            LocaleController.getString("Amount")
         typeface = WFont.Medium.typeface
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)

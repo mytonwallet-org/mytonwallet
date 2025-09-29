@@ -11,11 +11,13 @@ object WidgetsConfigurations {
         val appWidgetManager = AppWidgetManager.getInstance(context)
         appWidgetManager
             .getAppWidgetIds(ComponentName(context, ActionsWidget::class.java))
-            .forEach { appWidgetId ->
-                ActionsWidget().updateAppWidget(context, appWidgetManager, appWidgetId)
+            .let { appWidgetIds ->
+                ActionsWidget().onUpdate(context, appWidgetManager, appWidgetIds)
             }
-        val appWidgetIds = appWidgetManager
+        appWidgetManager
             .getAppWidgetIds(ComponentName(context, PriceWidget::class.java))
-        PriceWidget().onUpdate(context, appWidgetManager, appWidgetIds)
+            .let { appWidgetIds ->
+                PriceWidget().onUpdate(context, appWidgetManager, appWidgetIds)
+            }
     }
 }

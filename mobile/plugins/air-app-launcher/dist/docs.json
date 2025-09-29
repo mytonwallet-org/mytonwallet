@@ -7,13 +7,45 @@
     "methods": [
       {
         "name": "switchToAir",
-        "signature": "() => void",
+        "signature": "() => Promise<void>",
         "parameters": [],
-        "returns": "void",
+        "returns": "Promise<void>",
         "tags": [],
         "docs": "",
         "complexTypes": [],
         "slug": "switchtoair"
+      },
+      {
+        "name": "setLanguage",
+        "signature": "(options: { langCode: string; }) => Promise<void>",
+        "parameters": [
+          {
+            "name": "options",
+            "docs": "",
+            "type": "{ langCode: string; }"
+          }
+        ],
+        "returns": "Promise<void>",
+        "tags": [],
+        "docs": "",
+        "complexTypes": [],
+        "slug": "setlanguage"
+      },
+      {
+        "name": "setBaseCurrency",
+        "signature": "(options: { currency: string; }) => Promise<void>",
+        "parameters": [
+          {
+            "name": "options",
+            "docs": "",
+            "type": "{ currency: string; }"
+          }
+        ],
+        "returns": "Promise<void>",
+        "tags": [],
+        "docs": "",
+        "complexTypes": [],
+        "slug": "setbasecurrency"
       }
     ],
     "properties": []

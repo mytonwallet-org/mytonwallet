@@ -9,6 +9,8 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
+import android.text.SpannableStringBuilder
+import android.text.Spanned
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.ViewGroup
@@ -37,13 +39,18 @@ import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
+import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
+import java.lang.ref.WeakReference
 import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class InAppBrowserTopBarView(
     private val viewController: InAppBrowserVC,
     private val tabBarController: WNavigationController.ITabBarController?,
+    private val options: List<InAppBrowserConfig.Option>?,
+    private var selectedOption: String?,
     private val minimizeStarted: () -> Unit,
     private val maximizeFinished: () -> Unit,
 ) : WView(viewController.context), WThemedView {
@@ -67,6 +74,57 @@ class InAppBrowserTopBarView(
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isHorizontalFadingEdgeEnabled = true
             pivotX = 0f
+        }
+    }
+
+    fun textWithArrow(txt: String?): SpannableStringBuilder {
+        val ss = SpannableStringBuilder(txt)
+        ContextCompat.getDrawable(
+            context,
+            R.drawable.ic_arrow_bottom_8
+        )?.let { drawable ->
+            drawable.mutate()
+            drawable.setTint(WColor.SecondaryText.color)
+            val width = 8.dp
+            val height = 4.dp
+            drawable.setBounds(5.dp, 1.dp, width + 5.dp, (height + 0.5f.dp).roundToInt())
+            val imageSpan = VerticalImageSpan(drawable)
+            ss.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        return ss
+    }
+
+    private val subtitleLabel: WLabel by lazy {
+        WLabel(context).apply {
+            setTextColor(WColor.SecondaryText)
+            setStyle(12f, WFont.Medium)
+            gravity = Gravity.CENTER_VERTICAL or
+                if (LocaleController.isRTL) Gravity.RIGHT else Gravity.LEFT
+            setSingleLine()
+            ellipsize = TextUtils.TruncateAt.MARQUEE
+            isHorizontalFadingEdgeEnabled = true
+            pivotX = 0f
+            text = textWithArrow(options?.find { it.identifier == selectedOption }?.title)
+            setOnClickListener {
+                WMenuPopup.present(
+                    subtitleLabel,
+                    options?.map { option ->
+                        WMenuPopup.Item(
+                            WMenuPopup.Item.Config.SelectableItem(
+                                option.title,
+                                null,
+                                selectedOption == option.identifier
+                            ),
+                            onTap = {
+                                selectedOption = option.identifier
+                                subtitleLabel.text = textWithArrow(option.title)
+                                option.onClick(WeakReference(viewController))
+                            }
+                        )
+                    } ?: emptyList(),
+                    aboveView = false
+                )
+            }
         }
     }
 
@@ -98,10 +156,12 @@ class InAppBrowserTopBarView(
         super.setupViews()
 
         minHeight =
-            WNavigationBar.DEFAULT_HEIGHT_TINY.dp +
+            (if (options.isNullOrEmpty()) WNavigationBar.DEFAULT_HEIGHT_TINY else WNavigationBar.DEFAULT_HEIGHT).dp +
                 (viewController.navigationController?.getSystemBars()?.top ?: 0)
         maxHeight = minHeight
         addView(titleLabel, LayoutParams(0, WRAP_CONTENT))
+        if (!options.isNullOrEmpty())
+            addView(subtitleLabel, LayoutParams(0, WRAP_CONTENT))
         addView(backButton, ViewGroup.LayoutParams(40.dp, 40.dp))
         addView(moreButton, LayoutParams(40.dp, 40.dp))
         if (tabBarController != null) {
@@ -116,11 +176,21 @@ class InAppBrowserTopBarView(
         addView(iconView, LayoutParams(24.dp, 24.dp))
 
         setConstraints {
-            toTopPx(titleLabel, viewController.navigationController?.getSystemBars()?.top ?: 0)
-            toBottom(titleLabel)
             startToEnd(titleLabel, backButton, 8f)
             endToStart(titleLabel, if (tabBarController != null) minimizeButton else moreButton, 8f)
-            centerYToCenterY(iconView, titleLabel)
+            if (options.isNullOrEmpty()) {
+                toTopPx(titleLabel, viewController.navigationController?.getSystemBars()?.top ?: 0)
+                toBottom(titleLabel)
+            } else {
+                toTopPx(
+                    titleLabel,
+                    8.dp + (viewController.navigationController?.getSystemBars()?.top ?: 0)
+                )
+                startToStart(subtitleLabel, titleLabel)
+                topToBottom(subtitleLabel, titleLabel)
+            }
+            toTopPx(iconView, viewController.navigationController?.getSystemBars()?.top ?: 0)
+            toBottom(iconView)
             startToStart(iconView, titleLabel, 4f)
             toTopPx(backButton, viewController.navigationController?.getSystemBars()?.top ?: 0)
             toBottom(backButton)
@@ -169,6 +239,10 @@ class InAppBrowserTopBarView(
             }
         minimizeButton.setImageDrawable(minimizeDrawable)
         minimizeButton.addRippleEffect(WColor.BackgroundRipple.color, 20f.dp)
+        if (!options.isNullOrEmpty()) {
+            subtitleLabel.text =
+                textWithArrow(options.find { it.identifier == selectedOption }?.title)
+        }
     }
 
     fun blendColors(color1: Int, color2: Int, ratio: Float): Int {

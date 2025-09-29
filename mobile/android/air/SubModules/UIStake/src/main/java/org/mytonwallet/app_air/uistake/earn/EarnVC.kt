@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -17,6 +18,7 @@ import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONS
 import androidx.core.view.contains
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
+import androidx.core.widget.TextViewCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -62,8 +64,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
+import org.mytonwallet.app_air.walletcontext.utils.IndexPath
+import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.USDE_SLUG
@@ -408,30 +411,41 @@ class EarnVC(
             )
         )
     }
-    val claimButton = WButton(context, WButton.Type.SECONDARY_WITH_BACKGROUND).apply {
-        buttonHeight = 30.dp
+    val claimButton = WLabel(context).apply {
         text =
             LocaleController.getString("Claim")
         setOnClickListener {
             claimRewardsPressed()
         }
         isGone = AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW
+        setTextColor(WColor.Tint)
+        setPadding(12.dp, 0, 12.dp, 0)
+        gravity = Gravity.CENTER
     }
     private val claimRewardView: WView by lazy {
         WView(context).apply {
             elevation = 4f.dp
             val titleLabel = WLabel(context).apply {
                 text =
-                    LocaleController.getString("Accumulated Rewards")
+                    LocaleController.getString("\$accumulated_rewards")
                 setStyle(16f, WFont.Medium)
                 setTextColor(WColor.PrimaryText)
+                setSingleLine()
+                TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
+                    this,
+                    12,
+                    16,
+                    3,
+                    TypedValue.COMPLEX_UNIT_SP
+                )
             }
-            addView(titleLabel)
+            addView(titleLabel, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
             addView(rewardLabel)
-            addView(claimButton, ConstraintLayout.LayoutParams(80.dp, WRAP_CONTENT))
+            addView(claimButton, ConstraintLayout.LayoutParams(WRAP_CONTENT, 30.dp))
             setConstraints {
                 toTop(titleLabel, 8f)
                 toStart(titleLabel, 20f)
+                endToStart(titleLabel, claimButton, 8f)
                 topToBottom(rewardLabel, titleLabel, 8f)
                 toStart(rewardLabel, 20f)
                 toBottom(rewardLabel, 8f)
@@ -616,6 +630,7 @@ class EarnVC(
             WColor.Background.color,
             ViewConstants.STANDARD_ROUNDS.dp
         )
+        claimButton.setBackgroundColor(WColor.Tint.color.colorWithAlpha(25), 15f.dp)
     }
 
     override fun insetsUpdated() {

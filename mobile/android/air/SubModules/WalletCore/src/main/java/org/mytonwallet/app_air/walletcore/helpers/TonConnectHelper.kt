@@ -1,6 +1,6 @@
 package org.mytonwallet.app_air.walletcore.helpers
 
-import org.mytonwallet.app_air.walletcontext.helpers.ApplicationContextHolder
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.DeviceInfo
 import java.security.SecureRandom

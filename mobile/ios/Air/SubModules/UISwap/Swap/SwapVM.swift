@@ -319,7 +319,7 @@ final class SwapVM: ObservableObject {
         let historyItem = ApiSwapHistoryItem.makeFrom(swapBuildRequest: swapBuildRequest, swapTransferData: transferData)
         let result = try await Api.swapSubmit(accountId: accountId, password: passcode, transfers: transferData.transfers, historyItem: historyItem, isGasless: shouldTryDiesel)
         #if DEBUG
-        print(result)
+        log.info("\(result)")
         #endif
     }
     

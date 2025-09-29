@@ -29,29 +29,30 @@
   margin-bottom: 2rem;
 }
 
-.logoImgContainer {
+.logoContainer {
   overflow: hidden;
   display: block;
 
   width: 100%;
   height: 100%;
-  border-radius: 50%;
 
   background-color: var(--push-token-bg);
+
+  &:active .logoImg {
+    transform: scale(0.96);
+  }
+}
+
+.logoImgContainer {
+  border-radius: 50%;
 }
 
 .logoNftContainer {
-  overflow: hidden;
-  display: block;
-
-  width: 100%;
-  height: 100%;
   border-radius: 22%;
-
-  background-color: var(--push-token-bg);
 }
 
 .logoImg {
   width: 100%;
   height: 100%;
+  transition: transform 150ms;
 }

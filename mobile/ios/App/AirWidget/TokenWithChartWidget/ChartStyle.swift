@@ -16,10 +16,10 @@ public enum ChartStyle: String, AppEnum {
     case vivid
     case dark
 
-    public static let typeDisplayRepresentation: TypeDisplayRepresentation = TypeDisplayRepresentation(name: "Style")
+    public static let typeDisplayRepresentation: TypeDisplayRepresentation = TypeDisplayRepresentation(name: LocalizedStringResource("Style", bundle: LocalizationSupport.shared.bundle))
     
     public static var caseDisplayRepresentations: [ChartStyle : DisplayRepresentation] = [
-        .vivid: DisplayRepresentation(title: "Vivid"),
-        .dark: DisplayRepresentation(title: "Dark"),
+        .vivid: DisplayRepresentation(title: LocalizedStringResource("Vivid", bundle: LocalizationSupport.shared.bundle)),
+        .dark: DisplayRepresentation(title: LocalizedStringResource("Dark", bundle: LocalizationSupport.shared.bundle)),
     ]
 }

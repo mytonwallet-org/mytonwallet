@@ -9,3 +9,7 @@ import Foundation
 
 public let APP_GROUP_ID = "group.org.mytonwallet.app"
 public let appGroupContainerUrl = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: APP_GROUP_ID)!
+
+public extension UserDefaults {
+    static let appGroup = UserDefaults(suiteName: APP_GROUP_ID)!
+}

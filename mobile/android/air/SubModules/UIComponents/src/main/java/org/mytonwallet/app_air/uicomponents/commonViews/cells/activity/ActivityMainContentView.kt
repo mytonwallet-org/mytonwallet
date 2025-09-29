@@ -26,11 +26,11 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
+import org.mytonwallet.app_air.walletbasecontext.utils.formatTime
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
-import org.mytonwallet.app_air.walletcontext.utils.formatTime
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction

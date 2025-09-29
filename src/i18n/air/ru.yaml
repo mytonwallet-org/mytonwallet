@@ -16,7 +16,7 @@ Proceed: Продолжить
 $secret_words_warning: Хранение слов в цифровой среде, включая **%1$@**, небезопасно. Убедитесь, что ваша фраза восстановления надёжно сохранена.
 Other apps will be able to read your recovery phrase!: Другие приложения смогут прочитать вашу фразу восстановления!
 Incorrect words: Неправильные слова
-See Words: Просмотреть слова
+See Words: К словам
 Wrong Phrase: Неверная фраза
 $finalized_wallet_creation: "**Готово! Кошелёк создан.**"
 $finalized_wallet_import: "**Готово! Кошелёк импортирован.**"
@@ -58,7 +58,7 @@ Bidding Auction: Ставка на аукционе
 Receive With QR or Invoice: Получить с помощью QR или счёта
 "Enter wallet name:": "Введите имя кошелька:"
 No NFTs yet: Нет коллекционных предметов
-$nft_explore_offer: Исследовать рынок
+$nft_explore_offer: Открыть Getgems
 All Telegram Gifts: Все подарки в Telegram
 Add Crypto: Добавить крипто
 Share QR Code: Поделиться QR кодом
@@ -133,8 +133,8 @@ Lock the app after: Автоматическая блокировка через
 Never: Никогда
 "%1$@ seconds": "%1$@ секунд"
 "%1$@ minutes": "%1$@ минут"
-Unstake Request: Запрос на вывод ставок
-Your staking balance: Ваш баланс ставок
+Unstake Request: Запрос на вывод стейка
+Your staking balance: Текущий депозит
 Add Stake: Добавить
 History: История
 Earn up to %1$@ per year from your tokens: Заработайте до %1$@ в год с ваших токенов
@@ -328,13 +328,12 @@ screenshot: скриншот
 Security Warning: Предупреждение о безопасности
 Make sure you have your recovery phrase securely saved.: Убедитесь, что вы надежно сохранили фразу восстановления.
 Without it, you won't be able to access your wallet.: Без неё вы не сможете получить доступ к своему кошельку.
-Copy Anyway: Всё равно скопировать
+Copy Anyway: Скопировать
 12 Words: 12 слов
 24 Words: 24 слова
 "Please choose the correct words **%1$@**, **%2$@**, **%3$@**:": "Выберите правильные слова **%1$@**, **%2$@**, **%3$@**:"
 "Words don’t match, please try again.": Слова не совпадают, попробуйте ещё раз.
 "Sign Out": "Выход"
-"Go to Words": "Перейти к секретным словам"
 "Unlock it and open the TON App": "Разблокируйте его и откройте TON App"
 "The wallet is ready": "Кошелёк готов"
 Load 5 More Wallets: Загрузить ещё 5 кошельков
@@ -342,3 +341,28 @@ $n_wallets_selected:
   zeroValue: "%1$d выбрано"
   oneValue: "%1$d выбран"
   otherValue: "%1$d выбрано"
+"Are you sure you want to unpin %tab%?": "Вы уверены, что хотите открепить вкладку %tab%?"
+add: добавить
+send: отправить
+swap: oбменять
+earn: стейкинг
+Actions: Действия
+$actions_description: Быстрый доступ к наиболее часто используемым действиям.
+Rate: Курс
+$rate_description: Просмотр текущего курса любого выбранного токена.
+Rate with Chart: Курс с графиком
+$rate_with_chart_description: Просмотр текущего курса и наблюдение за динамикой для выбранного токена.
+Style: Стиль
+Neutral: Нейтральный
+Vivid: Яркий
+Chart Period: Период
+$period_all: Все время
+$period_day: 1 день
+$period_week: 1 неделя
+$period_month: 1 месяц
+$period_3months: 3 месяца
+$period_year: 1 год
+Token: Токен
+All Tokens: Все токены
+Customize Widget: Настроить виджет
+$accumulated_rewards: Награды

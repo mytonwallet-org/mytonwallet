@@ -3,7 +3,7 @@ package org.mytonwallet.app_air.walletcore.moshi
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletcontext.utils.DateUtils
+import org.mytonwallet.app_air.walletbasecontext.utils.DateUtils
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG

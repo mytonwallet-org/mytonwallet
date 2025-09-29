@@ -168,5 +168,5 @@ export async function fixIosAppStorage() {
 
 export function switchToAir() {
   void callApi('destroy');
-  AirAppLauncher.switchToAir();
+  void AirAppLauncher.switchToAir();
 }

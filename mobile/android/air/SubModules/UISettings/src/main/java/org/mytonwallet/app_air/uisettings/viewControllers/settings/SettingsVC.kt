@@ -45,17 +45,20 @@ import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.Setting
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsItem
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.views.SettingsHeaderView
 import org.mytonwallet.app_air.uisettings.viewControllers.walletVersions.WalletVersionsVC
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
-import org.mytonwallet.app_air.walletbasecontext.theme.WColor
-import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
-import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
@@ -72,9 +75,6 @@ import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.DappsStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
-import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import java.lang.ref.WeakReference
 
 class SettingsVC(context: Context) : WViewController(context),
@@ -173,7 +173,7 @@ class SettingsVC(context: Context) : WViewController(context),
                         org.mytonwallet.app_air.icons.R.drawable.ic_exit,
                         LocaleController.getString("Log Out")
                     ) {
-                        showAlert(
+                        window?.topViewController?.showAlert(
                             LocaleController.getString("Sign Out"),
                             LocaleController.getString("\$logout_warning")
                                 .toProcessedSpannableStringBuilder(),

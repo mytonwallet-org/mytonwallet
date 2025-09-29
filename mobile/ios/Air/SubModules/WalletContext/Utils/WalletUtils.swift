@@ -40,7 +40,7 @@ public var isRTL = false
 
 public var supportedTonConnectVersion = 2
 
-public let appName = "MyTonWallet Air"
+public let appName = "MyTonWallet"
 public var devicePlatform: String {
     switch UIDevice.current.userInterfaceIdiom {
     case .phone:

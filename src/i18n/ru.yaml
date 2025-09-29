@@ -261,7 +261,7 @@ Earn: Стейкинг
 Earning: Стейкинг
 You can save this address for quick access while sending.: Вы можете сохранить этот адрес для быстрого доступа при отправке.
 Stake Again: Повторить депозит
-Earned: Заработано
+Earned: Всего
 Connect Dapp: Подключить приложение
 Select wallet to use on this dapp: Выберите кошелёк для использования с этим приложением
 Connect: Подключить
@@ -598,7 +598,7 @@ until %date%: до %date%
 Until %date%: До %date%
 "%volume% in %amount% parts": "%volume% в %amount% частях"
 Unfreeze: Разморозить
-Claim: Вывести награды
+Claim: Вывести
 Confirm Unfreezing: Подтвердите разморозку
 Insufficient Balance for Fee: Недостаточный баланс для комиссии
 $fee_value_bold: "**Комиссия:** %fee%"

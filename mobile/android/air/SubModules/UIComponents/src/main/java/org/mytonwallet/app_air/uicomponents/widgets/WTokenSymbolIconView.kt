@@ -18,6 +18,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
@@ -25,12 +26,11 @@ import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import kotlin.math.max
 import kotlin.math.round
 import kotlin.math.roundToInt
 
-class WTokenSymbolIconView(context: Context) : FrameLayout(context), ReplaceAnimator.Callback,
+open class WTokenSymbolIconView(context: Context) : FrameLayout(context), ReplaceAnimator.Callback,
     WThemedView {
     private class Item(
         val slug: String?,
@@ -51,7 +51,7 @@ class WTokenSymbolIconView(context: Context) : FrameLayout(context), ReplaceAnim
     private val baseCurrWidth = baseCurrLeftPadding + 9.dp
     private val baseCurrIndicatorText = LocaleController.getString("in")
 
-    private val shapeDrawable = ViewHelpers.roundedShapeDrawable(0, 18f.dp)
+    val shapeDrawable = ViewHelpers.roundedShapeDrawable(0, 18f.dp)
     var drawable: Drawable? = null
         set(value) {
             field = value

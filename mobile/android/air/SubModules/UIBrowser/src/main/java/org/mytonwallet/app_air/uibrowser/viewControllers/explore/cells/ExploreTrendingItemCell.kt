@@ -100,6 +100,7 @@ class ExploreTrendingItemCell(
             LocaleController.getString("Open")
         gravity = Gravity.CENTER
         background = openButtonRipple
+        setPadding(12.dp, 0, 12.dp, 0)
         setOnClickListener {
             onSiteTap(site)
         }
@@ -110,7 +111,7 @@ class ExploreTrendingItemCell(
         addView(bottomBlurView, ViewGroup.LayoutParams(0, 0))
         if (site.extendedIcon.isNotBlank()) {
             addView(thumbImageView, ViewGroup.LayoutParams(48.dp, 48.dp))
-            addView(openButton, ViewGroup.LayoutParams(65.dp, 32.dp))
+            addView(openButton, ViewGroup.LayoutParams(WRAP_CONTENT, 32.dp))
         }
         addView(textsContainerView, ViewGroup.LayoutParams(0, WRAP_CONTENT))
 

@@ -14,6 +14,8 @@ npx cap sync
 <docgen-index>
 
 * [`switchToAir()`](#switchtoair)
+* [`setLanguage(...)`](#setlanguage)
+* [`setBaseCurrency(...)`](#setbasecurrency)
 
 </docgen-index>
 
@@ -23,8 +25,34 @@ npx cap sync
 ### switchToAir()
 
 ```typescript
-switchToAir() => void
+switchToAir() => Promise<void>
 ```
+
+--------------------
+
+
+### setLanguage(...)
+
+```typescript
+setLanguage(options: { langCode: string; }) => Promise<void>
+```
+
+| Param         | Type                               |
+| ------------- | ---------------------------------- |
+| **`options`** | <code>{ langCode: string; }</code> |
+
+--------------------
+
+
+### setBaseCurrency(...)
+
+```typescript
+setBaseCurrency(options: { currency: string; }) => Promise<void>
+```
+
+| Param         | Type                               |
+| ------------- | ---------------------------------- |
+| **`options`** | <code>{ currency: string; }</code> |
 
 --------------------
 

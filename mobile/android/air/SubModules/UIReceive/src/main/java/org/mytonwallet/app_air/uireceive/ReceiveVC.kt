@@ -24,7 +24,6 @@ import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
-import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
@@ -39,6 +38,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.uiswap.screens.swap.SwapVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -58,7 +58,7 @@ import java.lang.ref.WeakReference
 class ReceiveVC(
     context: Context,
     private val defaultChain: MBlockchain = MBlockchain.ton,
-    private val openBuyWithCardInstantly: Boolean = false,
+    private var openBuyWithCardInstantly: Boolean = false,
 ) : WViewControllerWithModelStore(context) {
 
     override val shouldDisplayTopBar = false
@@ -83,11 +83,6 @@ class ReceiveVC(
                 showInvoiceView()
             }
         }
-
-    init {
-        receiveViewModel.getBuyWithCardUrl("ton")
-        if (walletAddressTron != null) receiveViewModel.getBuyWithCardUrl("tron")
-    }
 
     private val qrSegmentView: WSegmentedController by lazy {
         val segmentedController = WSegmentedController(
@@ -130,8 +125,6 @@ class ReceiveVC(
                 }
 
                 isShowingTon = blueColorView.alpha > redColorView.alpha
-
-                receiveViewModel.redirectBuyWithCardSymbol = null
             }
         )
         segmentedController.addCloseButton()
@@ -416,12 +409,6 @@ class ReceiveVC(
             qrCodeVcTron
         else
             qrCodeVcTon).addressView.viewTreeObserver.addOnPreDrawListener(viewTreeObserver)
-
-        setupObservers()
-
-        if (openBuyWithCardInstantly) {
-            openBuyWithCard(defaultChain.nativeSlug)
-        }
     }
 
     override fun updateTheme() {
@@ -488,39 +475,26 @@ class ReceiveVC(
         }
     }
 
-    private fun setupObservers() {
-        collectFlow(receiveViewModel.eventsFlow) {
-            when (it) {
-                is ReceiveViewModel.VmToVcEvents.OpenBuyWithCard -> {
-                    if (!receiveViewModel.redirectBuyWithCardSymbol.isNullOrBlank())
-                        openBuyWithCard(receiveViewModel.redirectBuyWithCardSymbol!!)
-                }
-
-                else -> {}
-            }
-        }
-    }
-
-    private fun openBuyWithCard(tokenSymbol: String) {
-        if (ConfigStore.countryCode == "RU") {
-            val address = AccountStore.activeAccount?.tonAddress ?: ""
-            openBuyWithCardWebView(
-                "https://dreamwalkers.io/ru/mytonwallet/?wallet=$address&give=CARDRUB&take=TON&type=buy"
-            )
-        } else {
-            val buyTonUrl = receiveViewModel.buyWithCardUrls[tokenSymbol]
-            if (buyTonUrl == null) {
-                receiveViewModel.redirectBuyWithCardSymbol = tokenSymbol
-                if (receiveViewModel.failedToGetUrlOnce || !WalletCore.isConnected())
+    private fun openBuyWithCard(chain: String) {
+        val baseCurrency = if (ConfigStore.countryCode == "RU")
+            MBaseCurrency.RUB
+        else
+            WalletCore.baseCurrency
+        receiveViewModel.buyWithCardUrl(chain, baseCurrency) { url ->
+            url?.let {
+                openBuyWithCardWebView(
+                    chain,
+                    url,
+                    baseCurrency
+                )
+            } ?: run {
+                if (!WalletCore.isConnected())
                     showError(MBridgeError.SERVER_ERROR)
-            } else {
-                receiveViewModel.redirectBuyWithCardSymbol = null
-                openBuyWithCardWebView(buyTonUrl)
             }
         }
     }
 
-    private fun openBuyWithCardWebView(url: String) {
+    private fun openBuyWithCardWebView(chain: String, url: String, defaultCurrency: MBaseCurrency) {
         val nav = WNavigationController(window!!)
         nav.setRoot(
             InAppBrowserVC(
@@ -530,7 +504,25 @@ class ReceiveVC(
                     url,
                     title = LocaleController.getString("Buy with Card"),
                     injectTonConnectBridge = false,
-                    forceCloseOnBack = true
+                    forceCloseOnBack = true,
+                    options = listOf(
+                        MBaseCurrency.USD,
+                        MBaseCurrency.EUR,
+                        MBaseCurrency.RUB
+                    ).map { baseCurrency ->
+                        InAppBrowserConfig.Option(
+                            identifier = baseCurrency.currencyCode,
+                            title = baseCurrency.currencyName,
+                            onClick = { vc ->
+                                receiveViewModel.buyWithCardUrl(chain, baseCurrency, { url ->
+                                    url?.let {
+                                        (vc.get() as? InAppBrowserVC)?.navigate(url)
+                                    }
+                                })
+                            }
+                        )
+                    },
+                    selectedOption = defaultCurrency.currencyCode
                 )
             )
         )
@@ -547,6 +539,11 @@ class ReceiveVC(
     override fun viewDidAppear() {
         super.viewDidAppear()
         window!!.forceStatusBarLight = true
+
+        if (openBuyWithCardInstantly) {
+            openBuyWithCardInstantly = false
+            openBuyWithCard(defaultChain.name)
+        }
     }
 
     override fun viewWillDisappear() {

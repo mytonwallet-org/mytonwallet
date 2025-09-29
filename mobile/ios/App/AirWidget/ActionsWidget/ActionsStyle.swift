@@ -15,10 +15,10 @@ public enum ActionsStyle: String, AppEnum {
     case neutral
     case vivid
 
-    public static let typeDisplayRepresentation: TypeDisplayRepresentation = TypeDisplayRepresentation(name: "Style")
+    public static let typeDisplayRepresentation: TypeDisplayRepresentation = TypeDisplayRepresentation(name: LocalizedStringResource("Style", bundle: LocalizationSupport.shared.bundle))
     
     public static var caseDisplayRepresentations: [ActionsStyle : DisplayRepresentation] = [
-        .neutral: DisplayRepresentation(title: "Neutral"),
-        .vivid: DisplayRepresentation(title: "Vivid"),
+        .neutral: DisplayRepresentation(title: LocalizedStringResource("Neutral", bundle: LocalizationSupport.shared.bundle)),
+        .vivid: DisplayRepresentation(title: LocalizedStringResource("Vivid", bundle: LocalizationSupport.shared.bundle)),
     ]
 }

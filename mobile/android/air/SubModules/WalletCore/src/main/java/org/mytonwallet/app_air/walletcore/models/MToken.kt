@@ -1,8 +1,8 @@
 package org.mytonwallet.app_air.walletcore.models
 
 import org.json.JSONObject
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.ALWAYS_SHOWN_TOKENS
 import org.mytonwallet.app_air.walletcore.DEFAULT_SHOWN_TOKENS
 import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
@@ -59,7 +59,7 @@ class MToken(json: JSONObject) : IApiToken {
         List(it.length()) { i -> it.optString(i) }
     }
     val cmcSlug: String? = json.optString("cmcSlug").ifBlank { null }
-    val color: String? = json.optString("color").ifBlank { null }
+    var color: String? = json.optString("color").ifBlank { null }
     val isGaslessEnabled: Boolean = json.optBoolean("isGaslessEnabled")
     val isStarsEnabled: Boolean = json.optBoolean("isStarsEnabled")
     val isTiny: Boolean = json.optBoolean("isTiny")

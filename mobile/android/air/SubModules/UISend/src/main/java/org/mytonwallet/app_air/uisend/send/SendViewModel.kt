@@ -571,7 +571,7 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
             val state: InputStateFull.Complete = when (input) {
                 is InputStateFull.Complete -> input
                 is InputStateFull.Incomplete -> return TokenAmountInputView.State(
-                    title = LocaleController.getString("\$send_action"),
+                    title = LocaleController.getString("Amount"),
                     subtitle = null,
                     token = input.token,
                     fiatMode = input.input.fiatMode,
@@ -590,7 +590,7 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
                 appendNonNative = true
             )
             return TokenAmountInputView.State(
-                title = LocaleController.getString("\$send_action"),
+                title = LocaleController.getString("Amount"),
                 subtitle = if (feeFmt != null)
                     LocaleController.getString("\$fee_value_with_colon")
                         .replace("%fee%", feeFmt)

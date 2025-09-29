@@ -33,12 +33,12 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletcontext.WalletContextManager
-import org.mytonwallet.app_air.walletcontext.helpers.WordCheckMode
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
+import org.mytonwallet.app_air.walletcontext.WalletContextManager
+import org.mytonwallet.app_air.walletcontext.helpers.WordCheckMode
+import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import java.lang.ref.WeakReference
 import kotlin.random.Random
 
@@ -118,7 +118,7 @@ open class RecoveryPhraseVC(context: Context, private val words: Array<String>) 
         setOnClickListener {
             showAlert(
                 title = LocaleController.getString("Security Warning"),
-                text = warningText(LocaleController.getString("Clipboard")),
+                text = warningText(LocaleController.getString("clipboard")),
                 button = LocaleController.getString("Copy Anyway"),
                 buttonPressed = {
                     val clipboard =

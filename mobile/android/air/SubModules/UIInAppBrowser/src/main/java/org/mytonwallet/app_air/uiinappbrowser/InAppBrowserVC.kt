@@ -62,19 +62,23 @@ class InAppBrowserVC(
         get() = topBar
 
     private val topBar: InAppBrowserTopBarView by lazy {
-        InAppBrowserTopBarView(this, tabBarController, minimizeStarted = {
-            webViewScreenShot.setImageBitmap(webViewContainer.asImage())
-            webViewScreenShot.visibility = View.VISIBLE
-            webView.visibility = View.GONE
-        }, maximizeFinished = {
-            view.post {
-                webView.visibility = View.VISIBLE
-                webView.post {
-                    // prevents web-view flickers from being visible
-                    webViewScreenShot.visibility = View.GONE
+        InAppBrowserTopBarView(
+            this, tabBarController, minimizeStarted = {
+                webViewScreenShot.setImageBitmap(webViewContainer.asImage())
+                webViewScreenShot.visibility = View.VISIBLE
+                webView.visibility = View.GONE
+            },
+            options = config.options,
+            selectedOption = config.selectedOption,
+            maximizeFinished = {
+                view.post {
+                    webView.visibility = View.VISIBLE
+                    webView.post {
+                        // prevents web-view flickers from being visible
+                        webViewScreenShot.visibility = View.GONE
+                    }
                 }
-            }
-        }).apply {
+            }).apply {
             updateTitle(lastTitle, animated = false)
             config.thumbnail?.let {
                 setIconUrl(it)
@@ -259,6 +263,11 @@ class InAppBrowserVC(
         updateTheme()
 
         WalletCore.registerObserver(this)
+    }
+
+    fun navigate(url: String) {
+        webView.loadUrl(url)
+        webView.clearHistory()
     }
 
     private var isFirstAppearance = true

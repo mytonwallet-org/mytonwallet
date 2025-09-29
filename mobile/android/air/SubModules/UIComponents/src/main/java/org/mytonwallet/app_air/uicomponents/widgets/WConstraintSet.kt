@@ -34,6 +34,11 @@ class WConstraintSet(private val constraintView: ConstraintLayout) : ConstraintS
         toEnd(v, margin)
     }
 
+    fun toCenterXPx(v: View, margin: Int = 0) {
+        toStartPx(v, margin)
+        toEndPx(v, margin)
+    }
+
     fun toCenterY(v: View, margin: Float = 0F) {
         toTop(v, margin)
         toBottom(v, margin)

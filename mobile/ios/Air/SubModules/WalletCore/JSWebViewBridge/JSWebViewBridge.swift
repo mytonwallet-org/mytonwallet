@@ -629,6 +629,14 @@ extension JSWebViewBridge: WKScriptMessageHandler {
                     } catch {
                         assertionFailure()
                     }
+                case "dappSignData":
+                    do {
+                        let value = try JSONSerialization.decode(ApiUpdate.DappSignData.self, from: data)
+                        WalletCoreData.notify(event: .dappSignData(value), for: nil)
+                    } catch {
+                        assertionFailure()
+                    }
+
                 case "dappDisconnect":
                     if let accountId = data["acountId"] as? String, let origin = data["origin"] as? String {
                         WalletCoreData.notify(event: .dappDisconnect(accountId: accountId, origin: origin), for: nil)
@@ -637,6 +645,9 @@ extension JSWebViewBridge: WKScriptMessageHandler {
                     WalletCoreData.notify(event: .updateDapps, for: nil)
 
                 case "dappTransferComplete":
+                    break
+
+                case "dappSignDataComplete":
                     break
 
                 case "dappCloseLoading":

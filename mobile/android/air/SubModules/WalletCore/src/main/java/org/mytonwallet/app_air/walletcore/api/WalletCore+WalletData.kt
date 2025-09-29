@@ -4,12 +4,12 @@ import android.os.Handler
 import android.os.Looper
 import org.json.JSONArray
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
+import org.mytonwallet.app_air.walletbasecontext.utils.MHistoryTimePeriod
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
-import org.mytonwallet.app_air.walletcore.models.MHistoryTimePeriod
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
-import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import java.util.concurrent.Executors
 
 fun WalletCore.fetchAllActivitySlice(

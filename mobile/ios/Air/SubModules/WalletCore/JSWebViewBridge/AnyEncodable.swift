@@ -26,34 +26,45 @@ public struct AnyEncodable: Codable {
                 encodableItems.append(AnyEncodable(dict: it))
             } else if let it = it as? [Any] {
                 encodableItems.append(AnyEncodable(arr: it))
+            } else if let primitive = AnyEncodable(primitiveType: it) {
+                encodableItems.append(primitive)
+            } else {
+                assertionFailure()
             }
         }
         self.init(encodableItems)
     }
     public init(dict: [String: Any]) {
-        self.init(dict.mapValues { value in
+        self.init(dict.compactMapValues { value in
             if let encodableValue = value as? Encodable {
                 return AnyEncodable(encodableValue)
             } else if let encodableDict = value as? [String: Any] {
                 return AnyEncodable(dict: encodableDict)
             } else if let arr = value as? [Any] {
                 return AnyEncodable(arr: arr)
-            } else if let boolValue = value as? Bool {
-                return AnyEncodable(boolValue)
-            } else if let intValue = value as? Int {
-                return AnyEncodable(intValue)
-            } else if let doubleValue = value as? Double {
-                return AnyEncodable(doubleValue)
-            } else if let stringValue = value as? String {
-                return AnyEncodable(stringValue)
+            } else if let primitive = AnyEncodable(primitiveType: value) {
+                return primitive
             } else {
-                fatalError("Unsupported value type")
+                assertionFailure()
+                return nil
             }
         })
     }
+    private init?(primitiveType value: Any) {
+        if let boolValue = value as? Bool {
+            self = AnyEncodable(boolValue)
+        } else if let intValue = value as? Int {
+            self = AnyEncodable(intValue)
+        } else if let doubleValue = value as? Double {
+            self = AnyEncodable(doubleValue)
+        } else if let stringValue = value as? String {
+            self = AnyEncodable(stringValue)
+        } else {
+            return nil
+        }
+    }
 
     public init(from decoder: any Decoder) throws {
-        print("decoder: \(decoder)")
         let container = try decoder.singleValueContainer()
         if let dict = try? container.decode([String: AnyEncodable].self) {
             self = AnyEncodable(dict: dict)
@@ -68,10 +79,8 @@ public struct AnyEncodable: Codable {
         } else if let stringValue = try? container.decode(String.self) {
             self = AnyEncodable(stringValue)
         } else {
-            print("failed to parse any known type")
             throw DecodingError.dataCorruptedError(in: container, debugDescription: "failed to parse any known type")
         }
-        print("self: \(self)")
     }
 }
 

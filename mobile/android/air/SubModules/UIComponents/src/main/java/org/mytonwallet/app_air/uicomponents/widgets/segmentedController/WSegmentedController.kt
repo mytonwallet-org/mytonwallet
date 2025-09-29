@@ -56,6 +56,7 @@ class WSegmentedController(
     // Lets parent know the view asked to go to reordering mode
     private val onReorderingStarted: (() -> Unit)? = null,
     private val onForceEndReorderingRequested: (() -> Unit)? = null,
+    private val forceCenterTabs: Boolean = false,
 ) : WView(navigationController.context), WThemedView, WProtectedView,
     WRecyclerViewAdapter.WRecyclerViewDataSource,
     WClearSegmentedControl.Delegate,
@@ -291,7 +292,7 @@ class WSegmentedController(
     ) {
         if (closeButton.parent != null)
             contentView.setConstraints {
-                toEnd(clearSegmentedControl, if (items.size < 3) 0f else 56f)
+                toEnd(clearSegmentedControl, if (items.size < 3 || forceCenterTabs) 0f else 56f)
             }
         if (fadeAnimation) {
             clearSegmentedControl
@@ -371,7 +372,7 @@ class WSegmentedController(
                     (navigationController.getSystemBars().top)
             )
             toEnd(closeButton, 8f)
-            toEnd(clearSegmentedControl, if (items.size < 3) 0f else 56f)
+            toEnd(clearSegmentedControl, if (items.size < 3 || forceCenterTabs) 0f else 56f)
         }
         clearSegmentedControl.horizontalFadingEdge = true
     }

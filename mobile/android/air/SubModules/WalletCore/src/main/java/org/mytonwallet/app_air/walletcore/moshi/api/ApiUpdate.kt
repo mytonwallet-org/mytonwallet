@@ -34,6 +34,15 @@ sealed class ApiUpdate {
         data class Emulation(val activities: List<MApiTransaction>, val realFee: BigInteger)
     }
 
+//    @JsonSealedSubtype("dappSignData")
+//    @JsonClass(generateAdapter = true)
+//    data class ApiUpdateDappSignData(
+//        val promiseId: String,
+//        val accountId: String,
+//        val dapp: ApiDapp,
+//        val payloadToSign: MSignDataPayload,
+//    ) : ApiUpdate()
+
     @JsonSealedSubtype("dappConnect")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateDappConnect(

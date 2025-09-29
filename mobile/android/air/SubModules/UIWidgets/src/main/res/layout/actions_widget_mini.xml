@@ -7,6 +7,8 @@
         android:id="@+id/img_background"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:background="@drawable/bg_widget_background_rounded"
+        android:clipToOutline="true"
         android:importantForAccessibility="no"
         android:scaleType="centerCrop"
         android:src="@drawable/img_widget_actions" />
@@ -15,7 +17,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:padding="4dp">
+        android:padding="2dp">
 
         <!-- First row -->
         <LinearLayout
@@ -38,8 +40,8 @@
 
                 <ImageView
                     android:id="@+id/img_add"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
                     android:importantForAccessibility="no"
                     android:scaleType="centerInside"
                     android:src="@drawable/ic_header_add"
@@ -60,8 +62,8 @@
 
                 <ImageView
                     android:id="@+id/img_send"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
                     android:importantForAccessibility="no"
                     android:scaleType="centerInside"
                     android:src="@drawable/ic_header_send"
@@ -91,8 +93,8 @@
 
                 <ImageView
                     android:id="@+id/img_swap"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
                     android:importantForAccessibility="no"
                     android:scaleType="centerInside"
                     android:src="@drawable/ic_header_swap"
@@ -112,8 +114,8 @@
 
                 <ImageView
                     android:id="@+id/img_earn"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
                     android:importantForAccessibility="no"
                     android:scaleType="centerInside"
                     android:src="@drawable/ic_header_earn"
