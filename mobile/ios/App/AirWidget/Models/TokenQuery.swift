@@ -54,7 +54,7 @@ public struct TokenQuery: EntityStringQuery {
     private func loadTokens() async -> [ApiToken] {
         let store = SharedStore()
         _ = await store.reloadCache()
-        let tokens = await store.tokensDictionary()
+        let tokens = await store.tokensDictionary(tryRemote: false)
         return Array(tokens.values)
     }
 }

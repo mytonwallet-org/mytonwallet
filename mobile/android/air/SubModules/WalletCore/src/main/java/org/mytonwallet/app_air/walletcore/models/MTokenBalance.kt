@@ -50,13 +50,22 @@ data class MTokenBalance(
             if (token == null || amount == null)
                 return null
             val toBaseCurrency =
-                token.price?.let { amount.doubleAbsRepresentation(token.decimals) * it }
+                token.price?.let { amount.doubleAbsRepresentation(token.decimals) * it }?.let {
+                    if (it.isFinite()) it else null
+                }
             val priceYesterday =
-                token.price?.let { (token.price!!) / (1 + token.percentChange24hReal / 100) }
+                token.price?.let { (token.price!!) / (1 + token.percentChange24hReal / 100) }?.let {
+                    if (it.isFinite()) it else null
+                }
             val toBaseCurrency24h =
                 priceYesterday?.let { amount.doubleAbsRepresentation(token.decimals) * priceYesterday }
+                    ?.let {
+                        if (it.isFinite()) it else null
+                    }
             val toUsdBaseCurrency =
-                token.priceUsd.let { amount.doubleAbsRepresentation(token.decimals) * it }
+                token.priceUsd.let { amount.doubleAbsRepresentation(token.decimals) * it }.let {
+                    if (it.isFinite()) it else null
+                }
             return MTokenBalance(
                 token.slug,
                 amount,

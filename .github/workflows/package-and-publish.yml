@@ -112,6 +112,9 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
+      - name: Install DigiCert Client tools
+        uses: digicert/ssm-code-signing@v1.0.1
+
       - name: Setup certificate
         shell: bash
         run: echo "${{ secrets.SM_CLIENT_CERT_FILE_B64 }}" | base64 --decode > /d/Certificate_pkcs12.p12
@@ -129,18 +132,6 @@ jobs:
           echo "C:\Program Files (x86)\Windows Kits\10\App Certification Kit" >> $GITHUB_PATH
           echo "C:\Program Files (x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools" >> $GITHUB_PATH
           echo "C:\Program Files\DigiCert\DigiCert One Signing Manager Tools" >> $GITHUB_PATH
-
-      - name: Setup SSM KSP
-        env:
-          SM_API_KEY: ${{ secrets.SM_API_KEY }}
-        shell: cmd
-        run: |
-          curl.exe -X GET https://one.digicert.com/signingmanager/api-ui/v1/releases/smtools-windows-x64.msi/download -H "x-api-key:%SM_API_KEY%" -o smtools.msi
-          msiexec /i smtools.msi /quiet /qn
-          smksp_registrar.exe list
-          smctl.exe keypair ls
-          C:\Windows\System32\certutil.exe -csp "DigiCert Signing Manager KSP" -key -user
-          smksp_cert_sync.exe
 
       - name: Download Windows package
         id: download-artifact

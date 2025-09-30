@@ -28,6 +28,13 @@ object WGlobalStorage {
         migrate()
     }
 
+    fun clearCachedData() {
+        cachedAccountNames.clear()
+        cachedAccountTonAddresses.clear()
+        _isSensitiveDataProtectionOn =
+            globalStorageProvider.getBool(IS_SENSITIVE_DATA_HIDDEN) == true
+    }
+
     fun incDoNotSynchronize() {
         globalStorageProvider.doNotSynchronize += 1
         //Logger.d("---", "doNotSynchronize: ${globalStorageProvider.doNotSynchronize}")

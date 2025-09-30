@@ -14,26 +14,34 @@ import org.mytonwallet.app_air.uicomponents.viewControllers.selector.TokenSelect
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WEditableItemView
 import org.mytonwallet.app_air.uicomponents.widgets.WTokenSymbolIconView
+import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uicomponents.widgets.unlockView
 import org.mytonwallet.app_air.uiwidgets.configurations.WidgetConfigurationVC
 import org.mytonwallet.app_air.walletbasecontext.WBaseStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.MHistoryTimePeriod
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TRON_SLUG
+import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
+import org.mytonwallet.app_air.walletsdk.methods.SDKApiMethod
 import org.mytonwallet.app_air.widgets.priceWidget.PriceWidget
+import org.mytonwallet.app_air.widgets.priceWidget.PriceWidget.Config
 
 class PriceWidgetConfigurationVC(
     context: Context,
     override val appWidgetId: Int,
     override val onResult: (ok: Boolean) -> Unit
 ) :
-    WidgetConfigurationVC(context) {
+    WidgetConfigurationVC(context), WalletCore.EventObserver {
 
     override val shouldDisplayTopBar = false
 
@@ -49,7 +57,7 @@ class PriceWidgetConfigurationVC(
             context,
             org.mytonwallet.app_air.icons.R.drawable.ic_arrows_18
         )
-        defaultSymbol = LocaleController.getString("Select Token")
+        defaultSymbol = LocaleController.getString("Loading...")
         setAsset(selectedToken)
     }
     private val tokenRow =
@@ -62,18 +70,7 @@ class PriceWidgetConfigurationVC(
         ).apply {
             setValueView(tokenView)
             setOnClickListener {
-                push(
-                    TokenSelectorVC(
-                        context,
-                        LocaleController.getString("Select Token"),
-                        TokenStore.tokens.values.toList(),
-                        showMyAssets = false
-                    ).apply {
-                        setOnAssetSelectListener { asset ->
-                            selectedToken = TokenStore.getToken(asset.slug)
-                            tokenView.setAsset(asset)
-                        }
-                    })
+                openTokenSelector()
             }
         }
 
@@ -96,6 +93,8 @@ class PriceWidgetConfigurationVC(
         ).apply {
             setValueView(periodView)
             setOnClickListener {
+                if (continueButton.isLoading)
+                    return@setOnClickListener
                 WMenuPopup.present(
                     periodView,
                     MHistoryTimePeriod.allPeriods.map {
@@ -117,19 +116,42 @@ class PriceWidgetConfigurationVC(
     val continueButton = WButton(context, WButton.Type.PRIMARY).apply {
         text = LocaleController.getString("Continue")
         setOnClickListener {
-            val config = PriceWidget.Config(selectedToken?.toDictionary()?.apply {
+            lockView()
+            isLoading = true
+            val config = Config(selectedToken?.toDictionary()?.apply {
                 if (selectedToken?.slug == TRON_SLUG)
                     put("color", "#FF3B30")
             }, selectedPeriod)
-            WBaseStorage.setWidgetConfigurations(
-                appWidgetId,
-                config.toJson()
+            val baseCurrency = (WBaseStorage.getBaseCurrency() ?: MBaseCurrency.USD).currencyCode
+            SDKApiMethod.Token.PriceChart(
+                config.assetId ?: PriceWidget.DEFAULT_TOKEN,
+                selectedPeriod.value,
+                baseCurrency
             )
-            val appWidgetManager = AppWidgetManager.getInstance(context)
-            PriceWidget().onUpdate(
-                context, appWidgetManager, intArrayOf(appWidgetId)
-            )
-            onResult(true)
+                .call(object : SDKApiMethod.ApiCallback<Array<Array<Double>>> {
+                    override fun onSuccess(result: Array<Array<Double>>) {
+                        config.apply {
+                            cachedChart = result.toList()
+                            cachedChartDt = System.currentTimeMillis()
+                            cachedChartCurrency = baseCurrency
+                        }
+                        WBaseStorage.setWidgetConfigurations(
+                            appWidgetId,
+                            config.toJson()
+                        )
+                        val appWidgetManager = AppWidgetManager.getInstance(context)
+                        PriceWidget().onUpdate(
+                            context, appWidgetManager, intArrayOf(appWidgetId)
+                        )
+                        onResult(true)
+                    }
+
+                    override fun onError(error: Throwable) {
+                        unlockView()
+                        isLoading = false
+                        showError(MBridgeError.UNKNOWN)
+                    }
+                })
         }
     }
 
@@ -157,6 +179,10 @@ class PriceWidgetConfigurationVC(
                 )
             }
         }
+
+        if (TokenStore.tokens.isEmpty()) {
+            WalletCore.registerObserver(this)
+        }
     }
 
     override fun updateTheme() {
@@ -179,6 +205,48 @@ class PriceWidgetConfigurationVC(
                 continueButton,
                 16.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
             )
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        WalletCore.unregisterObserver(this)
+    }
+
+    var openSelectorsOnTokenReceive = false
+    private fun openTokenSelector() {
+        if (continueButton.isLoading || isDisappeared)
+            return
+        if (TokenStore.tokens.isEmpty()) {
+            openSelectorsOnTokenReceive = true
+            return
+        }
+        push(
+            TokenSelectorVC(
+                context,
+                LocaleController.getString("Select Token"),
+                TokenStore.tokens.values.toList(),
+                showMyAssets = false
+            ).apply {
+                setOnAssetSelectListener { asset ->
+                    selectedToken = TokenStore.getToken(asset.slug)
+                    tokenView.setAsset(asset)
+                }
+            })
+    }
+
+    override fun onWalletEvent(walletEvent: WalletEvent) {
+        when (walletEvent) {
+            WalletEvent.TokensChanged -> {
+                if (openSelectorsOnTokenReceive)
+                    openTokenSelector()
+                if (selectedToken == null) {
+                    selectedToken = TokenStore.getToken(TONCOIN_SLUG)
+                    tokenView.setAsset(selectedToken)
+                }
+            }
+
+            else -> {}
         }
     }
 }

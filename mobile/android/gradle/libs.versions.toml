@@ -27,6 +27,7 @@ webkit = "1.14.0"
 blurview = "version-2.0.6"
 timber = "5.0.1"
 firebaseMessaging = "24.1.0" # Sync with capacitor app
+workRuntimeKtx = "2.10.5"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -64,6 +65,7 @@ androidx-palette-ktx = { group = "androidx.palette", name = "palette-ktx", versi
 androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "webkit" }
 timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging", version.ref = "firebaseMessaging" }
+androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workRuntimeKtx" }
 
 [plugins]
 jetbrains-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }

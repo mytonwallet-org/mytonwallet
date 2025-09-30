@@ -29,7 +29,7 @@ struct TokenWidgetTimelineProvider: AppIntentTimelineProvider {
         _ = await store.reloadCache()
         
         let displayCurrency = await store.displayCurrency()
-        let tokens = await store.tokensDictionary()
+        let tokens = await store.tokensDictionary(tryRemote: true)
         let rates = await store.ratesDictionary()
         
         let selectedSlug = configuration.token.slug

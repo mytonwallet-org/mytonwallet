@@ -50,7 +50,10 @@ class PriceWidget : AppWidgetProvider() {
         var appWidgetMaxWidth: Int? = null,
         var appWidgetMaxHeight: Int? = null,
         // Cache chart to redraw on size changes
-        var cachedChart: List<Array<Double>> = listOf()
+        var cachedChart: List<Array<Double>> = listOf(),
+        var cachedChartDt: Long = 0,
+        var cachedChartCurrency: String? = null,
+        var isShown: Boolean = false
     ) {
         constructor(config: JSONObject?) : this(
             token = config?.optJSONObject("token"),
@@ -82,7 +85,10 @@ class PriceWidget : AppWidgetProvider() {
                     }
                 }
                 chartList
-            }()
+            }(),
+            cachedChartDt = config?.optLong("cachedChartDt") ?: 0,
+            cachedChartCurrency = config?.optString("cachedChartCurrency"),
+            isShown = config?.optBoolean("isShown") ?: false,
         )
 
         fun toJson(): JSONObject =
@@ -99,6 +105,9 @@ class PriceWidget : AppWidgetProvider() {
                         }
                     }
                     put("cachedChart", JSONArray(chartArray))
+                    put("cachedChartDt", cachedChartDt)
+                    put("cachedChartCurrency", cachedChartCurrency)
+                    put("isShown", isShown)
                 }
 
         val tokenChain: String?
@@ -177,7 +186,6 @@ class PriceWidget : AppWidgetProvider() {
                 appWidgetManager,
                 appWidgetId,
                 config,
-                WBaseStorage.getBaseCurrency()
             )
         }
     }
@@ -185,7 +193,16 @@ class PriceWidget : AppWidgetProvider() {
     override fun onUpdate(
         context: Context,
         appWidgetManager: AppWidgetManager,
-        appWidgetIds: IntArray
+        appWidgetIds: IntArray,
+    ) {
+        updateAppWidgets(context, appWidgetManager, appWidgetIds, null)
+    }
+
+    fun updateAppWidgets(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetIds: IntArray,
+        onCompletion: (() -> Unit)?
     ) {
         val cachedPriceChartData = mutableMapOf<String, Array<Array<Double>>>()
         ApplicationContextHolder.update(context.applicationContext)
@@ -193,21 +210,28 @@ class PriceWidget : AppWidgetProvider() {
         val baseCurrency = WBaseStorage.getBaseCurrency() ?: MBaseCurrency.USD
         val widgetQueue: Queue<Int> = LinkedList(appWidgetIds.toList())
 
+        // TODO:: Consider loading parallel since it's not common to have several widgets with same token and period.
+        //      Make sure to don't miss onCompletion?.invoke() if changed anything!
         fun processNextWidget() {
-            val appWidgetId = widgetQueue.poll() ?: return
+            val appWidgetId = widgetQueue.poll() ?: run {
+                onCompletion?.invoke()
+                return
+            }
 
             var config = Config(WBaseStorage.getWidgetConfigurations(appWidgetId) ?: JSONObject())
             if (config.appWidgetMinWidth == null || config.appWidgetMinHeight == null) {
                 val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
-                config.appWidgetMinWidth =
-                    options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
-                config.appWidgetMinHeight =
-                    options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
-                config.appWidgetMaxWidth =
-                    options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH)
-                config.appWidgetMaxHeight =
-                    options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
-                WBaseStorage.setWidgetConfigurations(appWidgetId, config.toJson())
+                val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
+                if (minWidth > 0) {
+                    config.appWidgetMinWidth = minWidth
+                    config.appWidgetMinHeight =
+                        options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
+                    config.appWidgetMaxWidth =
+                        options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH)
+                    config.appWidgetMaxHeight =
+                        options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
+                    WBaseStorage.setWidgetConfigurations(appWidgetId, config.toJson())
+                }
             }
             val period = config.period
             val cacheKey = "${config.assetId}_$period"
@@ -223,7 +247,6 @@ class PriceWidget : AppWidgetProvider() {
                     appWidgetManager,
                     appWidgetId,
                     config,
-                    baseCurrency
                 )
                 processNextWidget()
             } ?: run {
@@ -231,15 +254,21 @@ class PriceWidget : AppWidgetProvider() {
                     processNextWidget()
                     return
                 }
-                if (config.cachedChart.isEmpty()) {
-                    // Show loading widget
+                // Update with latest chart data available if base currencies match
+                if (config.cachedChartCurrency == baseCurrency.currencyCode)
                     updateAppWidget(
                         context,
                         appWidgetManager,
                         appWidgetId,
                         config,
-                        baseCurrency
                     )
+                // Ignore requesting again if it's updated less than a minute ago
+                if (config.cachedChart.isNotEmpty() &&
+                    config.cachedChartDt > System.currentTimeMillis() - 60_000 &&
+                    config.cachedChartCurrency == baseCurrency.currencyCode
+                ) {
+                    processNextWidget()
+                    return
                 }
                 val assetId = config.assetId ?: DEFAULT_TOKEN
                 SDKApiMethod.Token.PriceChart(
@@ -253,6 +282,8 @@ class PriceWidget : AppWidgetProvider() {
                             config =
                                 Config(WBaseStorage.getWidgetConfigurations(appWidgetId)).apply {
                                     cachedChart = result.toList()
+                                    cachedChartDt = System.currentTimeMillis()
+                                    cachedChartCurrency = baseCurrency.currencyCode
                                 }
                             if (config.assetId != assetId || config.period?.value != period) {
                                 processNextWidget()
@@ -264,7 +295,6 @@ class PriceWidget : AppWidgetProvider() {
                                 appWidgetManager,
                                 appWidgetId,
                                 config,
-                                baseCurrency
                             )
                             processNextWidget()
                         }
@@ -284,10 +314,24 @@ class PriceWidget : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetId: Int,
         config: Config,
-        baseCurrency: MBaseCurrency? = null,
     ) {
         val orientation = context.resources.configuration.orientation
         val isLandscape = orientation == Configuration.ORIENTATION_LANDSCAPE
+        if (!config.isShown) {
+            config.isShown = true
+            WBaseStorage.setWidgetConfigurations(appWidgetId, config.toJson())
+            appWidgetManager.updateAppWidget(
+                appWidgetId,
+                generateRemoteViews(
+                    context,
+                    config,
+                    if (isLandscape) config.appWidgetMaxWidth else config.appWidgetMinWidth,
+                    if (isLandscape) config.appWidgetMinHeight else config.appWidgetMaxHeight,
+                    null,
+                    appWidgetId
+                )
+            )
+        }
         ImageUtils.loadBitmapFromUrl(
             context,
             config.token?.optString("image", ""),
@@ -297,7 +341,6 @@ class PriceWidget : AppWidgetProvider() {
                     generateRemoteViews(
                         context,
                         config,
-                        baseCurrency,
                         if (isLandscape) config.appWidgetMaxWidth else config.appWidgetMinWidth,
                         if (isLandscape) config.appWidgetMinHeight else config.appWidgetMaxHeight,
                         image,
@@ -311,7 +354,6 @@ class PriceWidget : AppWidgetProvider() {
     private fun generateRemoteViews(
         context: Context,
         config: Config,
-        baseCurrency: MBaseCurrency?,
         width: Int?,
         height: Int?,
         image: Bitmap?,
@@ -328,6 +370,7 @@ class PriceWidget : AppWidgetProvider() {
         )
 
         // PREPARE VALUES //////////////////////////////////////////////////////////////////////////
+        val baseCurrency = config.cachedChartCurrency?.let { MBaseCurrency.parse(it) }
         val priceChartData = config.cachedChart.toTypedArray()
         val baseColor = config.token?.optString("color", DEFAULT_COLOR)?.toColorInt()
             ?: DEFAULT_COLOR.toColorInt()
@@ -495,17 +538,18 @@ class PriceWidget : AppWidgetProvider() {
         height: Int?,
         isCompact: Boolean
     ) {
-        views.setImageViewBitmap(
-            R.id.chart,
-            ChartUtils.chartToBitmap(
-                context,
-                priceChartData,
-                baseColor = baseColor,
-                chartWidth = width?.dp ?: 200.dp,
-                chartHeight = (height?.dp ?: 180.dp) - 130.dp,
-                paddingBottom = if (isCompact) 77.dp else 68.dp
+        if (width != null && height != null)
+            views.setImageViewBitmap(
+                R.id.chart,
+                ChartUtils.chartToBitmap(
+                    context,
+                    priceChartData,
+                    baseColor = baseColor,
+                    chartWidth = width.dp,
+                    chartHeight = height.dp - 130.dp,
+                    paddingBottom = if (isCompact) 77.dp else 68.dp
+                )
             )
-        )
     }
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray?) {

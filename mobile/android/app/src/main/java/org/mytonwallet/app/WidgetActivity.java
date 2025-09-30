@@ -35,6 +35,15 @@ public class WidgetActivity extends BaseActivity {
         AppWidgetManager.INVALID_APPWIDGET_ID
       );
     }
+
+    if (AirLauncher.getInstance().isWidgetConfigured(appWidgetId)) {
+      Intent resultValue = new Intent();
+      resultValue.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
+      setResult(RESULT_OK, resultValue);
+      finish();
+      return;
+    }
+
     if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
       finish();
       return;

@@ -58,7 +58,7 @@ const headsByElement = new WeakMap<Element, VirtualDomHead>();
 const extraClasses = new WeakMap<Element, Set<string>>();
 const extraStyles = new WeakMap<Element, Record<string, string>>();
 
-const uniqueChildKeysCache = new WeakMap<VirtualElementChildren, any[]>();
+const uniqueChildKeysCache = new WeakMap<VirtualElementChildren, (keyof any)[]>();
 
 let DEBUG_virtualTreeSize = 1;
 
@@ -530,54 +530,30 @@ function renderFastListChildren(
   const newChildren = $new.children;
 
   // Clear out duplicated keys to avoid incorrect elements matching
-  const currentKeysByIndex = getUniqueChildKeysByIndex(currentChildren);
-  const newKeysByIndex = getUniqueChildKeysByIndex(newChildren);
+  const currentKeysByIndex = getChildKeysByIndex(currentChildren);
+  const newKeysByIndex = getChildKeysByIndex(newChildren);
+  const newKeys = new Set(newKeysByIndex);
 
-  const newKeys = new Set();
-  for (let i = 0, l = newChildren.length; i < l; i++) {
-    const $newChild = newChildren[i];
-    const key = newKeysByIndex[i];
-
-    if (DEBUG && isParentElement($newChild)) {
-      if (isNullable(key)) {
-        // eslint-disable-next-line no-console
-        console.warn('Missing `key` in `teactFastList`');
-      }
-
+  if (DEBUG) {
+    for (const $newChild of newChildren) {
       if ($newChild.type === VirtualType.Fragment) {
         throw new Error('[Teact] Fragment can not be child of container with `teactFastList`');
       }
     }
-
-    newKeys.add(key);
   }
 
   // Build a collection of old children that also remain in the new list
   let currentRemainingIndex = 0;
-  const remainingByKey: Record<string, { $element: VirtualElement; index: number; orderKey?: number }> = {};
+  const remainingByKey: Record<keyof any, { $element: VirtualElement; index: number; orderKey?: number }> = {};
   for (let i = 0, l = currentChildren.length; i < l; i++) {
     const $currentChild = currentChildren[i];
-
-    let key = currentKeysByIndex[i];
-    const isKeyPresent = !isNullable(key);
+    const key = currentKeysByIndex[i];
 
     // First we process removed children
-    if (isKeyPresent && !newKeys.has(key)) {
+    if (!newKeys.has(key)) {
       renderWithVirtual(currentEl, $currentChild, undefined, $new, currentContext, -1);
 
       continue;
-    } else if (!isKeyPresent) {
-      const $newChild = newChildren[i];
-      const newChildKey = $newChild && newKeysByIndex[i];
-      // If a non-key element remains at the same index we preserve it with a virtual `key`
-      if ($newChild && !newChildKey) {
-        key = `${INDEX_KEY_PREFIX}${i}`;
-        // Otherwise, we just remove it
-      } else {
-        renderWithVirtual(currentEl, $currentChild, undefined, $new, currentContext, -1);
-
-        continue;
-      }
     }
 
     // Then we build up info about remaining children
@@ -595,7 +571,7 @@ function renderFastListChildren(
 
   for (let i = 0, l = newChildren.length; i < l; i++) {
     const $newChild = newChildren[i];
-    const key = newKeysByIndex[i] ?? `${INDEX_KEY_PREFIX}${i}`;
+    const key = newKeysByIndex[i];
     const currentChildInfo = remainingByKey[key];
 
     if (!currentChildInfo) {
@@ -927,7 +903,8 @@ function DEBUG_addToVirtualTreeSize($current: VirtualElementParent | VirtualDomH
   });
 }
 
-function getUniqueChildKeysByIndex(children: VirtualElementChildren) {
+/** Returns unique and not missing key for each child */
+function getChildKeysByIndex(children: VirtualElementChildren) {
   // The caching makes sense, because each children list is handled at least twice (as the new and the current children)
   let uniqueKeysByIndex = uniqueChildKeysCache.get(children);
   if (uniqueKeysByIndex) return uniqueKeysByIndex;
@@ -935,20 +912,29 @@ function getUniqueChildKeysByIndex(children: VirtualElementChildren) {
   const seenKeys = new Set<any>();
   const DEBUG_duplicatedKeys = new Set<any>();
 
-  uniqueKeysByIndex = children.map(($child) => {
-    const key = getElementKey($child);
-    if (isNullable(key)) return key;
+  uniqueKeysByIndex = children.map(($child, index) => {
+    let key = getElementKey($child);
 
-    if (!seenKeys.has(key)) {
-      seenKeys.add(key);
-      return key;
+    if (isNullable(key)) {
+      if (DEBUG && isParentElement($child)) {
+        // eslint-disable-next-line no-console
+        console.warn('Missing `key` in `teactFastList`');
+      }
+
+      key = `${INDEX_KEY_PREFIX}${index}`;
+    } else {
+      if (seenKeys.has(key)) {
+        if (DEBUG) {
+          DEBUG_duplicatedKeys.add(key);
+        }
+
+        key = `${INDEX_KEY_PREFIX}${index}`;
+      } else {
+        seenKeys.add(key);
+      }
     }
 
-    if (DEBUG) {
-      DEBUG_duplicatedKeys.add(key);
-    }
-
-    return undefined;
+    return key;
   });
 
   if (DEBUG && DEBUG_duplicatedKeys.size) {

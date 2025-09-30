@@ -13,6 +13,8 @@ import org.mytonwallet.app_air.airasframework.WidgetConfigurationWindow;
 import org.mytonwallet.app_air.airasframework.splash.SplashVC;
 import org.mytonwallet.app_air.uiwidgets.configurations.WidgetsConfigurations;
 import org.mytonwallet.app_air.walletcontext.globalStorage.IGlobalStorageProvider;
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage;
+import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage;
 import org.mytonwallet.app_air.walletcore.deeplink.Deeplink;
 import org.mytonwallet.app_air.walletcore.deeplink.DeeplinkNavigator;
 import org.mytonwallet.app_air.walletcore.deeplink.DeeplinkParser;
@@ -73,6 +75,10 @@ public class AirLauncher {
     airLauncher = instance;
   }
 
+  public static void scheduleWidgetUpdates(Context applicationContext) {
+    WidgetsConfigurations.INSTANCE.scheduleWidgetUpdates(applicationContext);
+  }
+
   public static void reloadWidgets(Context applicationContext) {
     WidgetsConfigurations.INSTANCE.reloadWidgets(applicationContext);
   }
@@ -123,6 +129,9 @@ public class AirLauncher {
     if (fromLegacy) {
       capacitorGlobalStorageProvider.setEmptyObject("tokenPriceHistory.bySlug", IGlobalStorageProvider.PERSIST_NO);
       LaunchConfig.setShouldStartOnAir(currentActivity, true);
+      // Just-in-case. These might contain outdated data after adding widget when using Classic app!
+      WSecureStorage.INSTANCE.clearCache();
+      WGlobalStorage.INSTANCE.clearCachedData();
     }
 
     Log.i("MTWAirApplication", "CapacitorGlobalStorageProvider Ready — Opening Air");
@@ -158,5 +167,9 @@ public class AirLauncher {
         SplashVC.Companion.setPendingDeeplink(deeplink);
       }
     }
+  }
+
+  public boolean isWidgetConfigured(int appWidgetId) {
+    return WidgetsConfigurations.INSTANCE.isWidgetConfigured(appWidgetId);
   }
 }

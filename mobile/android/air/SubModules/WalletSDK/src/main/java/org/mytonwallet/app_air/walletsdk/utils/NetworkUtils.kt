@@ -18,9 +18,9 @@ object NetworkUtils {
         method: Method,
         headers: Map<String, String> = emptyMap(),
         body: String? = null,
-        connectTimeout: Int = 3_000,
-        readTimeout: Int = 5_000,
-        maxRetries: Int = 2,
+        connectTimeout: Int = 10_000,
+        readTimeout: Int = 10_000,
+        maxRetries: Int = 10,
         retryDelay: Long = 100L
     ): String? {
         var attempt = 0

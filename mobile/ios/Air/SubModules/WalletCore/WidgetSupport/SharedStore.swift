@@ -24,8 +24,18 @@ public actor SharedStore {
         await cache.baseCurrency
     }
 
-    public func tokensDictionary() async -> [String: ApiToken] {
-        await cache.tokens
+    public func tokensDictionary(tryRemote: Bool) async -> [String: ApiToken] {
+        var tokens = await cache.tokens
+        if tokens.count < 20 || tryRemote {
+            do {
+                let (data, _) = try await URLSession.shared.data(from: URL(string: "https://api.mytonwallet.org/assets")!)
+                tokens = try JSONDecoder().decode([ApiToken].self, from: data).dictionaryByKey(\.slug)
+                await cache.setTokens(tokens)
+            } catch {
+                print(error)
+            }
+        }
+        return tokens
     }
 
     public func tokens(sortedByName: Bool = true) async -> [ApiToken] {
