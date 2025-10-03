@@ -14,7 +14,10 @@ class WidgetUpdateWorker(
     override suspend fun doWork(): Result {
         return try {
             suspendCoroutine { cont ->
-                WidgetsConfigurations.reloadPriceWidgets(applicationContext) {
+                WidgetsConfigurations.reloadPriceWidgets(applicationContext) { widgetExists ->
+                    if (!widgetExists) {
+                        WidgetsConfigurations.cancelWidgetUpdates(applicationContext)
+                    }
                     cont.resume(Result.success())
                 }
             }

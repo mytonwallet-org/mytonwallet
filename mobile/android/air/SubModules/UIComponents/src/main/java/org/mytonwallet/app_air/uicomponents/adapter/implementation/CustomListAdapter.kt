@@ -5,10 +5,11 @@ import android.view.ViewGroup
 import org.mytonwallet.app_air.uicomponents.adapter.BaseListAdapter
 import org.mytonwallet.app_air.uicomponents.adapter.BaseListHolder
 import org.mytonwallet.app_air.uicomponents.adapter.BaseListItem
-import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListAddressCellHolder
+import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListAlertCell
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListExpandableTextCell
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListGapCell
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListIconDualLineCell
+import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListTextCellHolder
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListTitleCell
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListTitleValueCell
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.activity.ActivityCell
@@ -47,10 +48,11 @@ open class CustomListAdapter : BaseListAdapter() {
             Item.Type.LIST_TITLE.value -> ListTitleCell.Holder(parent)
             Item.Type.LIST_TITLE_VALUE.value -> ListTitleValueCell.Holder(parent)
             Item.Type.ICON_DUAL_LINE.value -> ListIconDualLineCell.Holder(parent)
-            Item.Type.ADDRESS.value -> ListAddressCellHolder(parent)
+            Item.Type.COPYABLE_TEXT.value -> ListTextCellHolder(parent)
             Item.Type.EXPANDABLE_TEXT.value -> ListExpandableTextCell.Holder(parent)
             Item.Type.GAP.value -> ListGapCell.Holder(parent)
             Item.Type.ACTIVITY.value -> ActivityCell.Holder(parent)
+            Item.Type.ALERT.value -> ListAlertCell.Holder(parent)
             else -> throw IllegalArgumentException("Unknown viewType: $viewType")
         }
     }
@@ -73,11 +75,12 @@ open class CustomListAdapter : BaseListAdapter() {
             isLast || isNextViewGap -> ViewConstants.BIG_RADIUS.dp
             else -> 0f
         }
-        holder.itemView.setBackgroundColor(
-            WColor.Background.color,
-            topRadius,
-            bottomRadius
-        )
+        if (holder !is ListAlertCell.Holder)
+            holder.itemView.setBackgroundColor(
+                WColor.Background.color,
+                topRadius,
+                bottomRadius
+            )
     }
 
     private fun applyClickable(

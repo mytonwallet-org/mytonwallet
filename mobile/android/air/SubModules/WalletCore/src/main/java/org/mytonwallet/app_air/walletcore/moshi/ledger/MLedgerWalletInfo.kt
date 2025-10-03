@@ -16,5 +16,10 @@ data class MLedgerWalletInfo(
     data class WalletItem(
         val index: Int,
         val address: String,
+        val publicKey: String?,
+
+        val version: String,
+        val isInitialized: Boolean?,
+        val authToken: String?
     )
 }

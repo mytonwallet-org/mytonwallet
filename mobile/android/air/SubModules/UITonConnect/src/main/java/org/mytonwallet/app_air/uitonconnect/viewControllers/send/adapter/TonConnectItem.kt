@@ -20,7 +20,7 @@ sealed class TonConnectItem(
     ) : TonConnectItem(Type.AMOUNT, text.toString())
 
     data class SendRequestHeader(
-        val update: ApiUpdate.ApiUpdateDappSendTransactions,
+        val update: ApiUpdate.ApiUpdateDappSignRequest,
         val onShowUnverifiedSourceWarning: () -> Unit
     ) : TonConnectItem(Type.SEND_HEADER, update.dapp.url)
 }

@@ -40,7 +40,7 @@ class LedgerWalletsVM(delegate: Delegate) {
                         ApiMethod.Auth.ImportLedgerWallet(
                             MAIN_NETWORK, MApiLedgerAccountInfo(
                                 byChain = mapOf(
-                                    TON_CHAIN to MAccount.AccountChain(newWallet.wallet.address),
+                                    TON_CHAIN to newWallet.wallet,
                                 ),
                                 driver = MApiLedgerDriver.HID,
                                 deviceId = newWallet.deviceId,

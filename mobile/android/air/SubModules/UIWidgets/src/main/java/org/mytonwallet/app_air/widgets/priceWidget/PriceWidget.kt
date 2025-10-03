@@ -57,7 +57,8 @@ class PriceWidget : AppWidgetProvider() {
     ) {
         constructor(config: JSONObject?) : this(
             token = config?.optJSONObject("token"),
-            period = MHistoryTimePeriod.fromValue(config?.optString("period")),
+            period = MHistoryTimePeriod.fromValue(config?.optString("period"))
+                ?: MHistoryTimePeriod.DAY,
             appWidgetMinWidth = config?.optInt("appWidgetMinWidth")?.let {
                 if (it > 0) it else null
             },
@@ -318,8 +319,10 @@ class PriceWidget : AppWidgetProvider() {
         val orientation = context.resources.configuration.orientation
         val isLandscape = orientation == Configuration.ORIENTATION_LANDSCAPE
         if (!config.isShown) {
-            config.isShown = true
-            WBaseStorage.setWidgetConfigurations(appWidgetId, config.toJson())
+            if (config.token != null) {
+                config.isShown = true
+                WBaseStorage.setWidgetConfigurations(appWidgetId, config.toJson())
+            }
             appWidgetManager.updateAppWidget(
                 appWidgetId,
                 generateRemoteViews(
@@ -372,8 +375,12 @@ class PriceWidget : AppWidgetProvider() {
         // PREPARE VALUES //////////////////////////////////////////////////////////////////////////
         val baseCurrency = config.cachedChartCurrency?.let { MBaseCurrency.parse(it) }
         val priceChartData = config.cachedChart.toTypedArray()
-        val baseColor = config.token?.optString("color", DEFAULT_COLOR)?.toColorInt()
-            ?: DEFAULT_COLOR.toColorInt()
+        val baseColor = config.token?.optString("color", DEFAULT_COLOR)?.let {
+            if (it != "null")
+                it.toColorInt()
+            else
+                DEFAULT_COLOR.toColorInt()
+        } ?: DEFAULT_COLOR.toColorInt()
         val firstEntry = priceChartData.firstOrNull {
             it[1] != 0.0
         }

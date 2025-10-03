@@ -7,22 +7,38 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequest
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import org.mytonwallet.app_air.walletbasecontext.WBaseStorage
 import org.mytonwallet.app_air.widgets.actionsWidget.ActionsWidget
 import org.mytonwallet.app_air.widgets.priceWidget.PriceWidget
 import java.util.concurrent.TimeUnit
 
 object WidgetsConfigurations {
+    const val WIDGET_UPDATE_WORK = "widgetUpdateWork"
+
     fun scheduleWidgetUpdates(context: Context) {
-        val widgetUpdateRequest = PeriodicWorkRequestBuilder<WidgetUpdateWorker>(
-            PeriodicWorkRequest.MIN_PERIODIC_INTERVAL_MILLIS,
-            TimeUnit.MILLISECONDS
-        ).build()
-        WorkManager.getInstance(context.applicationContext).enqueueUniquePeriodicWork(
-            "widgetUpdateWork",
-            ExistingPeriodicWorkPolicy.KEEP,
-            widgetUpdateRequest
-        )
+        val appWidgetManager = AppWidgetManager.getInstance(context)
+        val priceWidgetIds =
+            appWidgetManager.getAppWidgetIds(ComponentName(context, PriceWidget::class.java))
+
+        val shouldUpdateWidgets = priceWidgetIds.isNotEmpty()
+
+        if (shouldUpdateWidgets) {
+            val widgetUpdateRequest = PeriodicWorkRequestBuilder<WidgetUpdateWorker>(
+                PeriodicWorkRequest.MIN_PERIODIC_INTERVAL_MILLIS,
+                TimeUnit.MILLISECONDS
+            ).build()
+            WorkManager.getInstance(context.applicationContext).enqueueUniquePeriodicWork(
+                WIDGET_UPDATE_WORK,
+                ExistingPeriodicWorkPolicy.KEEP,
+                widgetUpdateRequest
+            )
+        } else {
+            cancelWidgetUpdates(context)
+        }
+    }
+
+    fun cancelWidgetUpdates(context: Context) {
+        WorkManager.getInstance(context.applicationContext)
+            .cancelUniqueWork(WIDGET_UPDATE_WORK)
     }
 
     fun reloadWidgets(context: Context) {
@@ -39,7 +55,10 @@ object WidgetsConfigurations {
             }
     }
 
-    fun reloadPriceWidgets(context: Context, onCompletion: (() -> Unit)? = null) {
+    fun reloadPriceWidgets(
+        context: Context,
+        onCompletion: ((widgetExists: Boolean) -> Unit)? = null
+    ) {
         val appWidgetManager = AppWidgetManager.getInstance(context)
         appWidgetManager
             .getAppWidgetIds(ComponentName(context, PriceWidget::class.java))
@@ -48,12 +67,12 @@ object WidgetsConfigurations {
                     context,
                     appWidgetManager,
                     appWidgetIds,
-                    onCompletion
+                    onCompletion = onCompletion?.let {
+                        return@let {
+                            onCompletion.invoke(appWidgetIds.size > 0)
+                        }
+                    }
                 )
             }
-    }
-
-    fun isWidgetConfigured(appWidgetId: Int): Boolean {
-        return WBaseStorage.getWidgetConfigurations(appWidgetId) != null
     }
 }

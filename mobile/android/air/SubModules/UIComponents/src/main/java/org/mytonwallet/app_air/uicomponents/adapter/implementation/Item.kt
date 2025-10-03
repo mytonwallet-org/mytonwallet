@@ -16,8 +16,9 @@ open class Item(
         LIST_TITLE,
         LIST_TITLE_VALUE,
         ICON_DUAL_LINE,
-        ADDRESS,
+        COPYABLE_TEXT,
         ACTIVITY,
+        ALERT,
         EXPANDABLE_TEXT,
         GAP;
 
@@ -53,15 +54,21 @@ open class Item(
         val text: String
     ) : Item(Type.EXPANDABLE_TEXT.value, text)
 
-    data class Address(
+    data class CopyableText(
         val address: String,
-    ) : Item(Type.ADDRESS.value)
+        val copyLabel: String,
+        val copyToast: String,
+    ) : Item(Type.COPYABLE_TEXT.value)
 
     data class Activity(
         val activity: MApiTransaction,
         val isFirst: Boolean,
         val isLast: Boolean,
     ) : Item(Type.ACTIVITY.value)
+
+    data class Alert(
+        val text: String,
+    ) : Item(Type.ALERT.value)
 
     data object Gap : Item(Type.GAP.value)
 

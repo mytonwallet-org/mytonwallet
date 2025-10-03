@@ -767,8 +767,11 @@ class EarnVC(
             if (lastStakingHistoryItem?.let { timestampOfShowingItem <= it.timestamp } == true) {
                 loadMoreStakingHistoryItems()
             }
-            if (lastStakedActivityItem?.let { timestampOfShowingItem <= it.timestamp } == true) {
+            if (lastStakedActivityTimestamp?.let { timestampOfShowingItem <= it } == true) {
                 loadMoreStakeActivityItems()
+            }
+            if (lastUnstakedActivityTimestamp?.let { timestampOfShowingItem <= it } == true) {
+                loadMoreUnstakeActivityItem()
             }
         }
     }

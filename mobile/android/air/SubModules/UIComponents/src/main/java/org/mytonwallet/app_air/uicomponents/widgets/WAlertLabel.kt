@@ -12,7 +12,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 
 @SuppressLint("ViewConstructor")
-class WAlertLabel(
+open class WAlertLabel(
     context: Context,
     textContents: CharSequence? = null,
     val alertColor: Int = WColor.Orange.color,

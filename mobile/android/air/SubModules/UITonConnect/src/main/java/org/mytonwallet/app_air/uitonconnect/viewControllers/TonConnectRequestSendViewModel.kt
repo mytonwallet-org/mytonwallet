@@ -34,11 +34,11 @@ import org.mytonwallet.app_air.uitonconnect.viewControllers.send.adapter.TonConn
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
-import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
@@ -51,7 +51,11 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiDappTransfer
 import org.mytonwallet.app_air.walletcore.moshi.ApiParsedPayload
 import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransferToSign
+import org.mytonwallet.app_air.walletcore.moshi.MSignDataPayload
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.DApp.ConfirmDappRequestSendTransaction
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Transfer.SignTransfers
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Transfer.SignTransfers.Options
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.app_air.walletcore.toAmountString
@@ -59,13 +63,15 @@ import java.math.BigDecimal
 import java.math.BigInteger
 
 class TonConnectRequestSendViewModel private constructor(
-    private val update: ApiUpdate.ApiUpdateDappSendTransactions
+    private val update: ApiUpdate.ApiUpdateDappSignRequest
 ) : ViewModel() {
     private val transactionTokenSlugs =
-        update.transactions.map { it.payload?.payloadTokenSlug ?: "toncoin" }
+        if (update is ApiUpdate.ApiUpdateDappSendTransactions) update.transactions.map {
+            it.payload?.payloadTokenSlug ?: "toncoin"
+        } else emptyList()
     private val tokensMapFlow = TokenStore.tokensFlow.map { tokens ->
         Tokens(
-            currency = WalletCore.baseCurrency!!,
+            currency = WalletCore.baseCurrency,
             tokens = tokens?.tokens,
             list = transactionTokenSlugs.map {
                 val t = tokens?.tokens?.get(it)
@@ -140,35 +146,61 @@ class TonConnectRequestSendViewModel private constructor(
         }
 
         viewModelScope.launch {
-            try {
-                val signedMessages = WalletCore.call(
-                    ApiMethod.Transfer.SignTransfers(
-                        accountId = update.accountId,
-                        transactions = update.transactions.map {
-                            ApiTransferToSign(
-                                toAddress = it.toAddress,
-                                amount = it.amount,
-                                rawPayload = it.rawPayload,
-                                payload = it.payload,
-                                stateInit = it.stateInit
+            when (update) {
+                is ApiUpdate.ApiUpdateDappSendTransactions -> {
+                    try {
+                        val signedMessages = WalletCore.call(
+                            SignTransfers(
+                                accountId = update.accountId,
+                                transactions = update.transactions.map {
+                                    ApiTransferToSign(
+                                        toAddress = it.toAddress,
+                                        amount = it.amount,
+                                        rawPayload = it.rawPayload,
+                                        payload = it.payload,
+                                        stateInit = it.stateInit
+                                    )
+                                },
+                                options = Options(
+                                    password = password,
+                                    validUntil = update.validUntil,
+                                    vestingAddress = update.vestingAddress
+                                )
                             )
-                        },
-                        options = ApiMethod.Transfer.SignTransfers.Options(
-                            password = password,
-                            validUntil = update.validUntil,
-                            vestingAddress = update.vestingAddress
                         )
-                    )
-                )
-                WalletCore.call(
-                    ApiMethod.DApp.ConfirmDappRequestSendTransaction(
-                        update.promiseId,
-                        signedMessages
-                    )
-                )
-                notifyDone(true, null)
-            } catch (err: JSWebViewBridge.ApiError) {
-                notifyDone(false, err.parsed)
+                        WalletCore.call(
+                            ConfirmDappRequestSendTransaction(
+                                update.promiseId,
+                                signedMessages
+                            )
+                        )
+                        notifyDone(true, null)
+                    } catch (err: JSWebViewBridge.ApiError) {
+                        notifyDone(false, err.parsed)
+                    }
+                }
+
+                is ApiUpdate.ApiUpdateDappSignData -> {
+                    try {
+                        val signedData = WalletCore.call(
+                            ApiMethod.Transfer.SignData(
+                                accountId = update.accountId,
+                                dappUrl = update.dapp.url!!,
+                                payloadToSign = update.payloadToSign,
+                                password = password
+                            )
+                        )
+                        WalletCore.call(
+                            ApiMethod.DApp.ConfirmDappRequestSignData(
+                                update.promiseId,
+                                signedData
+                            )
+                        )
+                        notifyDone(true, null)
+                    } catch (err: JSWebViewBridge.ApiError) {
+                        notifyDone(false, err.parsed)
+                    }
+                }
             }
         }
     }
@@ -211,7 +243,7 @@ class TonConnectRequestSendViewModel private constructor(
             TonConnectItem.SendRequestHeader(update, {
                 val warningText = SpannableStringBuilder()
                 val template =
-                    LocaleController.getString("For your safety, please re-open this dapp in %browserButton%.")
+                    LocaleController.getString("\$reopen_in_iab")
                 val browserButtonText = LocaleController.getString("MyTonWallet Browser")
                 val browserButtonPlaceholder = "%browserButton%"
 
@@ -254,112 +286,186 @@ class TonConnectRequestSendViewModel private constructor(
             Item.Gap
         )
 
-        if (update.transactions.size == 1) {
-            uiItems.addAll(
-                buildUiItemsSingleTransaction(
-                    //update,
-                    update.transactions[0],
-                    tokens,
-                    0
+        when (update) {
+            is ApiUpdate.ApiUpdateDappSendTransactions -> {
+                if (update.transactions.size == 1) {
+                    uiItems.addAll(
+                        buildUiItemsSingleTransaction(
+                            //update,
+                            update.transactions[0],
+                            tokens,
+                            0
+                        )
+                    )
+                } else {
+                    uiItems.addAll(buildUiItemsListTransactions(update, tokens))
+                }
+
+                uiItems.addAll(
+                    listOf(
+                        Item.Gap
+                    )
                 )
-            )
-        } else {
-            uiItems.addAll(buildUiItemsListTransactions(update, tokens))
-        }
 
-        uiItems.addAll(
-            listOf(
-                Item.Gap
-            )
-        )
+                update.emulation?.activities?.let { previewActivities ->
+                    val previewTitle = SpannableStringBuilder()
+                    previewTitle.append(LocaleController.getString("Preview"))
+                    previewTitle.append(" ")
+                    ContextCompat.getDrawable(
+                        ApplicationContextHolder.applicationContext,
+                        org.mytonwallet.app_air.walletcontext.R.drawable.ic_warning
+                    )?.let { drawable ->
+                        val width = 14.dp
+                        val height = 26.dp
+                        drawable.setBounds(0, 0, width, height)
+                        val imageSpan = VerticalImageSpan(drawable)
+                        val start = previewTitle.length
+                        previewTitle.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
 
-        update.emulation?.activities?.let { previewActivities ->
-            val previewTitle = SpannableStringBuilder()
-            previewTitle.append(LocaleController.getString("Preview"))
-            previewTitle.append(" ")
-            ContextCompat.getDrawable(
-                ApplicationContextHolder.applicationContext,
-                org.mytonwallet.app_air.walletcontext.R.drawable.ic_warning
-            )?.let { drawable ->
-                val width = 14.dp
-                val height = 26.dp
-                drawable.setBounds(0, 0, width, height)
-                val imageSpan = VerticalImageSpan(drawable)
-                val start = previewTitle.length
-                previewTitle.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                        val clickableSpan = object : ClickableSpan() {
+                            override fun onClick(widget: View) {
+                                _eventsFlow.tryEmit(
+                                    Event.ShowWarningAlert(
+                                        LocaleController.getString("Warning"),
+                                        LocaleController.getString("\$preview_not_guaranteed")
+                                            .toProcessedSpannableStringBuilder()
+                                    )
+                                )
+                            }
+                        }
+                        previewTitle.setSpan(
+                            clickableSpan,
+                            start,
+                            previewTitle.length,
+                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                        )
+                    }
 
-                val clickableSpan = object : ClickableSpan() {
-                    override fun onClick(widget: View) {
-                        _eventsFlow.tryEmit(
-                            Event.ShowWarningAlert(
-                                LocaleController.getString("Warning"),
-                                LocaleController.getString("\$preview_not_guaranteed")
-                                    .toProcessedSpannableStringBuilder()
+                    val tonToken = TokenStore.getToken(TONCOIN_SLUG)
+                    var feeValue: CharSequence? = null
+                    tonToken?.let {
+                        val realFee = update.emulation?.realFee
+                        realFee?.let {
+                            feeValue = LocaleController.getStringWithKeyValues(
+                                "\$fee_value_with_colon",
+                                listOf(
+                                    Pair(
+                                        "%fee%", "**~" + realFee.toString(
+                                            tonToken.decimals,
+                                            tonToken.symbol,
+                                            realFee.smartDecimalsCount(tonToken.decimals),
+                                            false,
+                                            forceCurrencyToRight = true,
+                                            roundUp = true
+                                        ) + "**"
+                                    )
+                                )
+                            )
+                        }
+                    }
+                    uiItems.add(
+                        Item.ListTitleValue(
+                            previewTitle,
+                            feeValue?.toProcessedSpannableStringBuilder()
+                        )
+                    )
+
+                    previewActivities.forEachIndexed { index, activity ->
+                        uiItems.add(
+                            Item.Activity(
+                                activity = activity.apply {
+                                    isEmulation = true
+                                },
+                                isFirst = index == 0,
+                                isLast = index == previewActivities.lastIndex
                             )
                         )
                     }
                 }
-                previewTitle.setSpan(
-                    clickableSpan,
-                    start,
-                    previewTitle.length,
-                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-            }
 
-            val tonToken = TokenStore.getToken(TONCOIN_SLUG)
-            var feeValue: CharSequence? = null
-            tonToken?.let {
-                val realFee = update.emulation?.realFee
-                realFee?.let {
-                    feeValue = LocaleController.getStringWithKeyValues(
-                        "\$fee_value_with_colon",
-                        listOf(
-                            Pair(
-                                "%fee%", "**~" + realFee.toString(
-                                    tonToken.decimals,
-                                    tonToken.symbol,
-                                    realFee.smartDecimalsCount(tonToken.decimals),
-                                    false,
-                                    forceCurrencyToRight = true,
-                                    roundUp = true
-                                ) + "**"
-                            )
+                if (update.emulation?.activities.isNullOrEmpty()) {
+                    uiItems.add(
+                        Item.ListTitle(
+                            title = LocaleController.getString("Preview is currently unavailable."),
+                            paddingDp = RectF(16f, 24f, 16f, 24f),
+                            Gravity.CENTER,
+                            font = WFont.Regular.typeface,
+                            textColor = WColor.SecondaryText,
+                            textSize = 14f
                         )
                     )
                 }
             }
-            uiItems.add(
-                Item.ListTitleValue(
-                    previewTitle,
-                    feeValue?.toProcessedSpannableStringBuilder()
-                )
-            )
 
-            previewActivities.forEachIndexed { index, activity ->
-                uiItems.add(
-                    Item.Activity(
-                        activity = activity.apply {
-                            isEmulation = true
-                        },
-                        isFirst = index == 0,
-                        isLast = index == previewActivities.lastIndex
-                    )
-                )
+            is ApiUpdate.ApiUpdateDappSignData -> {
+                when (update.payloadToSign) {
+                    is MSignDataPayload.SignDataPayloadBinary -> {
+                        uiItems.addAll(
+                            listOf(
+                                Item.ListTitle(
+                                    LocaleController.getString(
+                                        "Binary Data"
+                                    )
+                                ),
+                                Item.CopyableText(
+                                    ((update.payloadToSign as MSignDataPayload.SignDataPayloadBinary).bytes),
+                                    "Binary Data",
+                                    LocaleController.getString("Data was copied!")
+                                ),
+                                Item.Gap,
+                                Item.Alert(LocaleController.getString("The binary data content is unclear. Sign it only if you trust the service."))
+                            )
+                        )
+                    }
+
+                    is MSignDataPayload.SignDataPayloadCell -> {
+                        uiItems.addAll(
+                            listOf(
+                                Item.ListTitle(
+                                    LocaleController.getString(
+                                        "Cell Schema"
+                                    )
+                                ),
+                                Item.CopyableText(
+                                    (update.payloadToSign as MSignDataPayload.SignDataPayloadCell).schema,
+                                    "Cell Schema",
+                                    LocaleController.getString("Data was copied!")
+                                ),
+                                Item.Gap,
+                                Item.ListTitle(
+                                    LocaleController.getString(
+                                        "Cell Data"
+                                    )
+                                ),
+                                Item.CopyableText(
+                                    (update.payloadToSign as MSignDataPayload.SignDataPayloadCell).cell,
+                                    "Cell Data",
+                                    LocaleController.getString("Data was copied!")
+                                ),
+                                Item.Gap,
+                                Item.Alert(LocaleController.getString("The binary data content is unclear. Sign it only if you trust the service."))
+                            )
+                        )
+                    }
+
+                    is MSignDataPayload.SignDataPayloadText -> {
+                        uiItems.addAll(
+                            listOf(
+                                Item.ListTitle(
+                                    LocaleController.getString(
+                                        "Message"
+                                    )
+                                ),
+                                Item.CopyableText(
+                                    ((update.payloadToSign as MSignDataPayload.SignDataPayloadText).text),
+                                    "Message",
+                                    LocaleController.getString("Data was copied!")
+                                ),
+                            )
+                        )
+                    }
+                }
             }
-        }
-
-        if (update.emulation?.activities.isNullOrEmpty()) {
-            uiItems.add(
-                Item.ListTitle(
-                    title = LocaleController.getString("Preview is currently unavailable."),
-                    paddingDp = RectF(16f, 24f, 16f, 24f),
-                    Gravity.CENTER,
-                    font = WFont.Regular.typeface,
-                    textColor = WColor.SecondaryText,
-                    textSize = 14f
-                )
-            )
         }
 
         return uiItems
@@ -367,7 +473,7 @@ class TonConnectRequestSendViewModel private constructor(
 
 
     @Suppress("UNCHECKED_CAST")
-    class Factory(private val update: ApiUpdate.ApiUpdateDappSendTransactions) :
+    class Factory(private val update: ApiUpdate.ApiUpdateDappSignRequest) :
         ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(TonConnectRequestSendViewModel::class.java)) {
@@ -634,7 +740,11 @@ class TonConnectRequestSendViewModel private constructor(
             uiItems.addAll(
                 listOf(
                     Item.ListTitle(LocaleController.getString("Receiving Address")),
-                    Item.Address(receivingAddress),
+                    Item.CopyableText(
+                        receivingAddress,
+                        "Address",
+                        LocaleController.getString("Address was copied!")
+                    ),
                     Item.Gap
                 )
             )
@@ -712,7 +822,11 @@ class TonConnectRequestSendViewModel private constructor(
                     listOf(
                         Item.Gap,
                         Item.ListTitle(LocaleController.getString("Comment")),
-                        Item.Address(text),
+                        Item.CopyableText(
+                            text,
+                            "Comment",
+                            LocaleController.getString("Comment was copied!")
+                        ),
                     )
                 )
             }
@@ -727,6 +841,15 @@ class TonConnectRequestSendViewModel private constructor(
                         )
                     )
                 }
+            }
+
+            if (transaction.isDangerous) {
+                uiItems.addAll(
+                    listOf(
+                        Item.Gap,
+                        Item.Alert(LocaleController.getString("\$hardware_payload_warning")),
+                    )
+                )
             }
 
             return uiItems

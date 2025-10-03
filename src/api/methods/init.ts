@@ -54,13 +54,7 @@ export function destroy() {
 }
 
 async function saveReferrer(args: ApiInitArgs) {
-  let referrer = await storage.getItem('referrer');
-
-  if (referrer) {
-    return;
-  }
-
-  referrer = args.referrer ?? await fetchBackendReferrer();
+  const referrer = args.referrer ?? await fetchBackendReferrer();
 
   if (referrer) {
     await storage.setItem('referrer', referrer);

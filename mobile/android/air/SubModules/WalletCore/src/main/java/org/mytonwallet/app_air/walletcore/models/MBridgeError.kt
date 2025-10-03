@@ -3,8 +3,6 @@ package org.mytonwallet.app_air.walletcore.models
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 
-class MBridgeException(val error: MBridgeError) : Throwable()
-
 enum class MBridgeError(val errorName: String? = null, var customMessage: String? = null) {
     AXIOS_ERROR("AxiosError"),
     SERVER_ERROR("ServerError"),

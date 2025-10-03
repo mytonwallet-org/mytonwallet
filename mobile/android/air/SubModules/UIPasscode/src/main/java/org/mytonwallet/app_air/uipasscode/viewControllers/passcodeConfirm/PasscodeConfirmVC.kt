@@ -13,19 +13,19 @@ import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.drawable.MotionBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views.PasscodeScreenView
-import org.mytonwallet.app_air.walletcontext.WalletContextManager
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
+import org.mytonwallet.app_air.walletcontext.WalletContextManager
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.api.resetAccounts
 import org.mytonwallet.app_air.walletcore.stores.AuthCooldownError
 import org.mytonwallet.app_air.walletcore.stores.AuthStore
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 
 @SuppressLint("ViewConstructor")
 class PasscodeConfirmVC(
@@ -152,7 +152,8 @@ class PasscodeConfirmVC(
         ) {
             passcodeScreenView.inBiometry.animatedValue = false
         } else {
-            passcodeScreenView.tryBiometrics()
+            if (!isDoingTask)
+                passcodeScreenView.tryBiometrics()
         }
 
         passcodeScreenView.setupCooldown(AuthStore.getCooldownDate())

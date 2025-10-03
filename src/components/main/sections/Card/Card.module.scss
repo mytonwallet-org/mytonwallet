@@ -260,6 +260,11 @@ $signSizeDiff: 0.375rem;
   --offset-y-value: -0.75rem;
 }
 
+.currencySwitcherMenuBubble {
+  right: auto !important;
+  left: var(--offset-x-value, var(--offset-x));
+}
+
 .addressContainer {
   margin: auto auto 0.75rem;
 

@@ -67,6 +67,7 @@ interface OwnProps {
 
 interface StateProps {
   isLoading?: boolean;
+  isComplete?: boolean;
   isViewMode: boolean;
   apiError?: string;
   tokens?: UserToken[];
@@ -95,6 +96,7 @@ function StakingInitial({
   isActive,
   isStatic,
   isLoading,
+  isComplete,
   isViewMode,
   apiError,
   tokens,
@@ -283,6 +285,10 @@ function StakingInitial({
 
     submitStakingInitial({ amount });
   });
+
+  useEffect(() => {
+    if (isComplete) setAmount(undefined);
+  }, [isComplete]);
 
   const handleCheckEligibility = useLastCallback(() => {
     void openUrl(ETHENA_ELIGIBILITY_CHECK_URL);
@@ -575,6 +581,7 @@ export default memo(
       return {
         isViewMode: selectIsCurrentAccountViewMode(global),
         isLoading: isLoading && ACTIVE_STATES.has(state),
+        isComplete: state === StakingState.StakeComplete,
         tokens,
         tokenBySlug,
         apiError,

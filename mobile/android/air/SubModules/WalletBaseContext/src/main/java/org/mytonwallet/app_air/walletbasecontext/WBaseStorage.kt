@@ -17,7 +17,11 @@ object WBaseStorage {
     private const val CACHE_BASE_CURRENCY = "baseCurrency"
     private const val CACHE_WIDGET_CONFIG = "widgetConfig."
 
+    var isInitialized = false
+        private set
+
     fun init(context: Context) {
+        isInitialized = true
         sharedPreferences =
             context.applicationContext.getSharedPreferences(CACHE_PREF_NAME, Context.MODE_PRIVATE)
     }

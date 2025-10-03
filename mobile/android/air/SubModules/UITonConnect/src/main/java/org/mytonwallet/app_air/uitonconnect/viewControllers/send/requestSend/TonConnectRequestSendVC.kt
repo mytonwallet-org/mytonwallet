@@ -27,6 +27,7 @@ import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views.
 import org.mytonwallet.app_air.uitonconnect.viewControllers.TonConnectRequestSendViewModel
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.adapter.Adapter
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.requestSendDetails.TonConnectRequestSendDetailsVC
+import org.mytonwallet.app_air.uitonconnect.viewControllers.signed.SignedVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -42,7 +43,7 @@ import kotlin.math.roundToInt
 @SuppressLint("ViewConstructor")
 class TonConnectRequestSendVC(
     context: Context,
-    private val update: ApiUpdate.ApiUpdateDappSendTransactions
+    private val update: ApiUpdate.ApiUpdateDappSignRequest
 ) : WViewControllerWithModelStore(context), CustomListAdapter.ItemClickListener {
 
     override val shouldDisplayTopBar = true
@@ -76,12 +77,20 @@ class TonConnectRequestSendVC(
 
     override fun setupViews() {
         super.setupViews()
-        title = LocaleController.getString(
-            LocaleController.getPluralWord(
-                update.transactions.size,
-                "Confirm Actions"
-            )
-        )
+        title = when (update) {
+            is ApiUpdate.ApiUpdateDappSendTransactions -> {
+                LocaleController.getPluralWord(
+                    update.transactions.size,
+                    "Confirm Actions"
+                )
+            }
+
+            is ApiUpdate.ApiUpdateDappSignData -> {
+                LocaleController.getString("Sign Data")
+            }
+
+            else -> throw Exception()
+        }
 
         rvAdapter.setOnItemClickListener(this)
 
@@ -139,9 +148,15 @@ class TonConnectRequestSendVC(
         when (event) {
             is TonConnectRequestSendViewModel.Event.Close -> pop()
             is TonConnectRequestSendViewModel.Event.Complete -> {
-                if (event.success)
-                    navigationController?.window?.dismissLastNav()
-                else
+                if (event.success) {
+                    if (update is ApiUpdate.ApiUpdateDappSignData) {
+                        navigationController?.push(SignedVC(context), onCompletion = {
+                            navigationController?.removePrevViewControllers()
+                        })
+                    } else {
+                        navigationController?.window?.dismissLastNav()
+                    }
+                } else
                     navigationController?.pop(true, onCompletion = {
                         showError(event.err)
                     })
@@ -197,7 +212,7 @@ class TonConnectRequestSendVC(
             context,
             LedgerConnectVC.Mode.ConnectToSubmitTransfer(
                 account.tonAddress!!,
-                signData = LedgerConnectVC.SignData.SignDappTransfers(update),
+                signData = ledgerSignDataObject,
                 onDone = {
                     viewModel.notifyDone(true, null)
                 }),
@@ -226,11 +241,34 @@ class TonConnectRequestSendVC(
             ).apply {
                 config(
                     Content.ofUrl(update.dapp.iconUrl ?: ""),
-                    title ?: "",
+                    when (update) {
+                        is ApiUpdate.ApiUpdateDappSignData -> {
+                            LocaleController.getString("Confirm Action")
+                        }
+
+                        else -> title ?: ""
+                    },
                     update.dapp.host ?: "",
                     Content.Rounding.Radius(12f.dp)
                 )
                 setSubtitleColor(WColor.Tint)
+            }
+        }
+
+    private val ledgerSignDataObject: LedgerConnectVC.SignData
+        get() {
+            return when (update) {
+                is ApiUpdate.ApiUpdateDappSendTransactions -> {
+                    LedgerConnectVC.SignData.SignDappTransfers(update)
+                }
+
+                is ApiUpdate.ApiUpdateDappSignData -> {
+                    LedgerConnectVC.SignData.SignDappData(update)
+                }
+
+                else -> {
+                    throw Exception()
+                }
             }
         }
 }

@@ -441,7 +441,11 @@
   margin-top: 0.0625rem;
   font-size: 0.9375rem;
   font-weight: 600;
-  line-height: 1.5rem;
+
+  &::before,
+  &::after {
+    top: 0 !important;
+  }
 }
 
 .responsibilityCheckboxLink {

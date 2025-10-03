@@ -8,40 +8,52 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiDappTransfer
 import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
 import org.mytonwallet.app_air.walletcore.moshi.ApiTonConnectProof
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
+import org.mytonwallet.app_air.walletcore.moshi.MSignDataPayload
 import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealed
 import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealedSubtype
 import java.math.BigInteger
 
 @JsonSealed("type")
 sealed class ApiUpdate {
+
+    interface ApiUpdateDappSignRequest {
+        val promiseId: String
+        val accountId: String
+        val dapp: ApiDapp
+        val isDangerous: Boolean
+    }
+
     @JsonSealedSubtype("dappSendTransactions")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateDappSendTransactions(
-        val promiseId: String,
-        val accountId: String,
-        val dapp: ApiDapp,
+        override val promiseId: String,
+        override val accountId: String,
+        override val dapp: ApiDapp,
         val transactions: List<ApiDappTransfer>,
         val vestingAddress: String? = null,
         val validUntil: Long? = null,
         val emulation: Emulation? = null
-    ) : ApiUpdate() {
+    ) : ApiUpdate(), ApiUpdateDappSignRequest {
 
-        val isDangerous = transactions.any {
-            it.isDangerous
-        }
+        override val isDangerous: Boolean = transactions.any { it.isDangerous }
 
         @JsonClass(generateAdapter = true)
-        data class Emulation(val activities: List<MApiTransaction>, val realFee: BigInteger)
+        data class Emulation(
+            val activities: List<MApiTransaction>,
+            val realFee: BigInteger
+        )
     }
 
-//    @JsonSealedSubtype("dappSignData")
-//    @JsonClass(generateAdapter = true)
-//    data class ApiUpdateDappSignData(
-//        val promiseId: String,
-//        val accountId: String,
-//        val dapp: ApiDapp,
-//        val payloadToSign: MSignDataPayload,
-//    ) : ApiUpdate()
+    @JsonSealedSubtype("dappSignData")
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateDappSignData(
+        override val promiseId: String,
+        override val accountId: String,
+        override val dapp: ApiDapp,
+        val payloadToSign: MSignDataPayload
+    ) : ApiUpdate(), ApiUpdateDappSignRequest {
+        override val isDangerous: Boolean = false
+    }
 
     @JsonSealedSubtype("dappConnect")
     @JsonClass(generateAdapter = true)

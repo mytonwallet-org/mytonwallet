@@ -3,6 +3,7 @@ package org.mytonwallet.app;
 import android.app.ComponentCaller;
 import android.appwidget.AppWidgetManager;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -14,11 +15,20 @@ import java.util.Objects;
 
 public class WidgetActivity extends BaseActivity {
   private static final int CONFIGURATION_REQUEST = 12;
+  private static final String IS_CONFIGURING_KEY = "isConfiguring";
   int appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID;
 
   @Override
   public void onCreate(@Nullable Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
+    int backgroundColor;
+    int currentNightMode = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
+    if (currentNightMode == Configuration.UI_MODE_NIGHT_YES) {
+      backgroundColor = 0xFF181818;
+    } else {
+      backgroundColor = 0xFFF4F4F5;
+    }
+    getWindow().getDecorView().setBackgroundColor(backgroundColor);
 
     setResult(RESULT_CANCELED);
 
@@ -36,11 +46,8 @@ public class WidgetActivity extends BaseActivity {
       );
     }
 
-    if (AirLauncher.getInstance().isWidgetConfigured(appWidgetId)) {
-      Intent resultValue = new Intent();
-      resultValue.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
-      setResult(RESULT_OK, resultValue);
-      finish();
+    if (savedInstanceState != null && savedInstanceState.getBoolean(IS_CONFIGURING_KEY)) {
+      finalizeWidget();
       return;
     }
 
@@ -50,6 +57,12 @@ public class WidgetActivity extends BaseActivity {
     }
 
     airLauncher.presentWidgetConfiguration(this, CONFIGURATION_REQUEST, appWidgetId);
+  }
+
+  @Override
+  protected void onSaveInstanceState(@NonNull Bundle outState) {
+    super.onSaveInstanceState(outState);
+    outState.putBoolean(IS_CONFIGURING_KEY, true);
   }
 
   @Override
@@ -66,14 +79,22 @@ public class WidgetActivity extends BaseActivity {
 
   private void onResult(int requestCode, int resultCode, @Nullable Intent data) {
     if (requestCode == CONFIGURATION_REQUEST && resultCode == RESULT_OK) {
-      Intent resultValue = new Intent();
-      resultValue.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
       boolean ok = Objects.requireNonNull(data).getBooleanExtra("ok", false);
       if (ok)
-        setResult(RESULT_OK, resultValue);
-      finish();
+        finalizeWidget();
+      else
+        finish();
     } else {
       finish();
     }
+  }
+
+  private void finalizeWidget() {
+    AirLauncher.scheduleWidgetUpdates(getApplicationContext());
+
+    Intent resultValue = new Intent();
+    resultValue.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
+    setResult(RESULT_OK, resultValue);
+    finish();
   }
 }

@@ -66,6 +66,16 @@ import org.mytonwallet.app_air.walletcore.moshi.LocalActivityParams
 import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferOptions
 import org.mytonwallet.app_air.walletcore.moshi.StakingState
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.DApp.ConfirmDappRequestConnect
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.DApp.ConfirmDappRequestConnect.Request
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.DApp.ConfirmDappRequestSendTransaction
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.DApp.SignTonProof
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Domains.SubmitDnsChangeWallet
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Domains.SubmitDnsRenewal
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Nft.SubmitNftTransfer
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Staking.SubmitStakingClaimOrUnlock
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Transfer.SignTransfers
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Transfer.SignTransfers.Options
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import java.math.BigInteger
@@ -96,6 +106,10 @@ class LedgerConnectVC(
 
         data class SignDappTransfers(
             val update: ApiUpdate.ApiUpdateDappSendTransactions
+        ) : SignData()
+
+        data class SignDappData(
+            val update: ApiUpdate.ApiUpdateDappSignData
         ) : SignData()
 
         data class SignLedgerProof(
@@ -519,7 +533,7 @@ class LedgerConnectVC(
                 is SignData.SignDappTransfers -> {
                     try {
                         val signedMessages = WalletCore.call(
-                            ApiMethod.Transfer.SignTransfers(
+                            SignTransfers(
                                 accountId = signData.update.accountId,
                                 transactions = signData.update.transactions.map {
                                     ApiTransferToSign(
@@ -530,7 +544,7 @@ class LedgerConnectVC(
                                         stateInit = it.stateInit
                                     )
                                 },
-                                options = ApiMethod.Transfer.SignTransfers.Options(
+                                options = Options(
                                     password = null,
                                     validUntil = signData.update.validUntil,
                                     vestingAddress = signData.update.vestingAddress
@@ -538,7 +552,7 @@ class LedgerConnectVC(
                             )
                         )
                         WalletCore.call(
-                            ApiMethod.DApp.ConfirmDappRequestSendTransaction(
+                            ConfirmDappRequestSendTransaction(
                                 signData.update.promiseId,
                                 signedMessages
                             )
@@ -559,16 +573,16 @@ class LedgerConnectVC(
                             view.unlockView()
                         }
                         val signResult = WalletCore.call(
-                            ApiMethod.DApp.SignTonProof(
+                            SignTonProof(
                                 AccountStore.activeAccountId!!,
                                 signData.proof,
                                 ""
                             )
                         )
                         WalletCore.call(
-                            ApiMethod.DApp.ConfirmDappRequestConnect(
+                            ConfirmDappRequestConnect(
                                 signData.promiseId,
-                                ApiMethod.DApp.ConfirmDappRequestConnect.Request(
+                                Request(
                                     accountId = AccountStore.activeAccountId!!,
                                     proofSignature = signResult.signature
                                 )
@@ -587,7 +601,7 @@ class LedgerConnectVC(
                 is SignData.SignNftTransfer -> {
                     try {
                         WalletCore.call(
-                            ApiMethod.Nft.SubmitNftTransfer(
+                            SubmitNftTransfer(
                                 accountId = signData.accountId,
                                 passcode = "",
                                 nft = signData.nft,
@@ -637,8 +651,8 @@ class LedgerConnectVC(
                 is SignData.ClaimRewards -> {
                     try {
                         WalletCore.call(
-                            ApiMethod.Staking.SubmitStakingClaimOrUnlock(
-                                accountId = AccountStore.activeAccountId!!,
+                            SubmitStakingClaimOrUnlock(
+                                accountId = signData.accountId,
                                 password = "",
                                 state = signData.stakingState,
                                 realFee = signData.realFee
@@ -657,8 +671,8 @@ class LedgerConnectVC(
                 is SignData.RenewNfts -> {
                     try {
                         WalletCore.call(
-                            ApiMethod.Domains.SubmitDnsRenewal(
-                                accountId = AccountStore.activeAccountId!!,
+                            SubmitDnsRenewal(
+                                accountId = signData.accountId,
                                 password = "",
                                 nfts = signData.nfts,
                                 realFee = signData.realFee
@@ -677,12 +691,38 @@ class LedgerConnectVC(
                 is SignData.LinkNftToWallet -> {
                     try {
                         WalletCore.call(
-                            ApiMethod.Domains.SubmitDnsChangeWallet(
-                                accountId = AccountStore.activeAccountId!!,
+                            SubmitDnsChangeWallet(
+                                accountId = signData.accountId,
                                 password = "",
                                 nft = signData.nft,
                                 address = signData.address,
                                 realFee = signData.realFee
+                            )
+                        )
+                        Handler(Looper.getMainLooper()).post {
+                            mode.onDone()
+                        }
+                    } catch (e: Throwable) {
+                        Handler(Looper.getMainLooper()).post {
+                            signFailed(e as? JSWebViewBridge.ApiError)
+                        }
+                    }
+                }
+
+                is SignData.SignDappData -> {
+                    try {
+                        val signedData = WalletCore.call(
+                            ApiMethod.Transfer.SignData(
+                                accountId = signData.update.accountId,
+                                dappUrl = signData.update.dapp.url!!,
+                                payloadToSign = signData.update.payloadToSign,
+                                password = ""
+                            )
+                        )
+                        WalletCore.call(
+                            ApiMethod.DApp.ConfirmDappRequestSignData(
+                                signData.update.promiseId,
+                                signedData
                             )
                         )
                         Handler(Looper.getMainLooper()).post {

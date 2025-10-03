@@ -27,13 +27,13 @@ import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WAlertLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.adapter.TonConnectItem
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 
@@ -82,9 +82,9 @@ class CellHeaderSendRequest(context: Context) : LinearLayout(context), WThemedVi
         updateTheme()
     }
 
-    var update: ApiUpdate.ApiUpdateDappSendTransactions? = null
+    var update: ApiUpdate.ApiUpdateDappSignRequest? = null
     fun configure(
-        update: ApiUpdate.ApiUpdateDappSendTransactions,
+        update: ApiUpdate.ApiUpdateDappSignRequest,
         onShowUnverifiedSourceWarning: () -> Unit
     ) {
         this.update = update
@@ -139,7 +139,7 @@ class CellHeaderSendRequest(context: Context) : LinearLayout(context), WThemedVi
                 drawable.setBounds(0, 0, width, height)
                 val imageSpan = VerticalImageSpan(drawable)
                 val start = builder.length
-                builder.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                builder.append("\u00A0", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
 
                 val clickableSpan = object : ClickableSpan() {
                     override fun onClick(widget: android.view.View) {

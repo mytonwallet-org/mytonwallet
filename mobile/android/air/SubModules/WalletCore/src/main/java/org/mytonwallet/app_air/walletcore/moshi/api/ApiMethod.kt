@@ -24,6 +24,7 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiSwapEstimateResponse
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.moshi.MImportedViewWalletResponse
 import org.mytonwallet.app_air.walletcore.moshi.MImportedWalletResponse
+import org.mytonwallet.app_air.walletcore.moshi.MSignDataPayload
 import org.mytonwallet.app_air.walletcore.moshi.ReturnStrategy
 import org.mytonwallet.app_air.walletcore.moshi.StakingState
 import org.mytonwallet.app_air.walletcore.moshi.ledger.MLedgerWalletInfo
@@ -251,6 +252,23 @@ sealed class ApiMethod<T> {
                 .jsObject(options, Options::class.java)
                 .build()
         }
+
+        class SignData(
+            accountId: String,
+            dappUrl: String,
+            payloadToSign: MSignDataPayload,
+            password: String,
+        ) : ApiMethod<JSONObject>() {
+
+            override val name: String = "signData"
+            override val type: Type = JSONObject::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .string(dappUrl)
+                .jsObject(payloadToSign, MSignDataPayload::class.java)
+                .string(password)
+                .build()
+        }
     }
 
 
@@ -312,6 +330,18 @@ sealed class ApiMethod<T> {
             override val arguments: String = ArgumentsBuilder()
                 .string(promiseId)
                 .jsObject(signedMessages, JSONArray::class.java)
+                .build()
+        }
+
+        class ConfirmDappRequestSignData(
+            promiseId: String,
+            signedData: JSONObject
+        ) : ApiMethod<Unit>() {
+            override val name: String = "confirmDappRequestSignData"
+            override val type: Type = Unit::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(promiseId)
+                .jsObject(signedData, JSONObject::class.java)
                 .build()
         }
 

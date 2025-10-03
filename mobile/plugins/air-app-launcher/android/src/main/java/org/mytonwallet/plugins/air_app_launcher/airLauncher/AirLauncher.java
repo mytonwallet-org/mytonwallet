@@ -169,7 +169,4 @@ public class AirLauncher {
     }
   }
 
-  public boolean isWidgetConfigured(int appWidgetId) {
-    return WidgetsConfigurations.INSTANCE.isWidgetConfigured(appWidgetId);
-  }
 }

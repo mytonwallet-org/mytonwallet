@@ -14,10 +14,10 @@ import org.mytonwallet.app_air.uistake.earn.models.EarnItem
 import org.mytonwallet.app_air.uistake.util.getTonStakingFees
 import org.mytonwallet.app_air.uistake.util.toViewItem
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
+import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.STAKED_MYCOIN_SLUG
@@ -268,11 +268,11 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
         }
     }
 
-    var lastUnstakedActivityItem: EarnItem? = null
+    var lastUnstakedActivityTimestamp: Long? = null
     private var hasLoadedAllUnstakedActivityItems = false
     private var isLoadingUnstakedActivityItems = false
     private fun clearUnstakedItemsVariables() {
-        lastUnstakedActivityItem = null
+        lastUnstakedActivityTimestamp = null
         hasLoadedAllUnstakedActivityItems = false
         isLoadingUnstakedActivityItems = false
     }
@@ -285,12 +285,10 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
         val callback: ((ArrayList<MApiTransaction>?, MBridgeError?, String) -> Unit) =
             callback@{ transactions, err, requestAccountId ->
                 if (requestAccountId != AccountStore.activeAccountId) return@callback
-                val transactions = transactions?.filter { it is MApiTransaction.Transaction }
                 if (!transactions.isNullOrEmpty()) {
                     if (!isCheckingLatestChanges) {
                         hasLoadedAllUnstakedActivityItems = transactions.isEmpty()
-                        lastUnstakedActivityItem =
-                            transactions.last().toViewItem(tokenSlug, stakedTokenSlug)
+                        lastUnstakedActivityTimestamp = transactions.last().timestamp
                     }
                     mergeTransaction(transactions)
                 } else if (err != null) {
@@ -323,16 +321,16 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
 
     fun loadMoreUnstakeActivityItem() {
         if (hasLoadedAllUnstakedActivityItems) return
-        val timeStamp = lastUnstakedActivityItem?.timestamp ?: return
+        val timeStamp = lastUnstakedActivityTimestamp ?: return
         requestTokenActivitiesForUnstakedItems(fromTimestamp = timeStamp)
     }
 
 
-    var lastStakedActivityItem: EarnItem? = null
+    var lastStakedActivityTimestamp: Long? = null
     private var hasLoadedAllStakedActivityItems = false
     private var isLoadingStakedActivityItems = false
     private fun clearStakedItemsVariables() {
-        lastStakedActivityItem = null
+        lastStakedActivityTimestamp = null
         hasLoadedAllStakedActivityItems = false
         isLoadingStakedActivityItems = false
     }
@@ -361,8 +359,7 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
             if (!transactions.isNullOrEmpty()) {
                 if (!isCheckingLatestChanges) {
                     hasLoadedAllStakedActivityItems = transactions.isEmpty()
-                    lastStakedActivityItem =
-                        transactions.last().toViewItem(tokenSlug, stakedTokenSlug)
+                    lastStakedActivityTimestamp = transactions.last().timestamp
                 }
                 mergeTransaction(transactions)
             } else if (err != null) {
@@ -381,7 +378,7 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
 
     fun loadMoreStakeActivityItems() {
         if (hasLoadedAllStakedActivityItems) return
-        val timeStamp = lastStakedActivityItem?.timestamp ?: return
+        val timeStamp = lastStakedActivityTimestamp ?: return
         requestTokenActivitiesForStakedItems(fromTimestamp = timeStamp)
     }
 
@@ -408,8 +405,8 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
     private val allLoadedOnce: Boolean
         get() {
             return (lastLoadedPage > 0 &&
-                (lastUnstakedActivityItem != null || hasLoadedAllUnstakedActivityItems) &&
-                (lastStakedActivityItem != null || hasLoadedAllStakedActivityItems))
+                (lastUnstakedActivityTimestamp != null || hasLoadedAllUnstakedActivityItems) &&
+                (lastStakedActivityTimestamp != null || hasLoadedAllStakedActivityItems))
         }
 
     private fun mergeTransaction(newTransactions: List<MApiTransaction>) {

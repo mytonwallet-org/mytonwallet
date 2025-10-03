@@ -20,7 +20,6 @@ object ChartUtils {
         chartWidth: Int = 200.dp,
         chartHeight: Int = 120.dp,
         paddingBottom: Int = 77.dp,
-        maxSamples: Int = chartWidth / 10
     ): Bitmap {
         val totalHeight = chartHeight + paddingBottom
         val bitmap = createBitmap(chartWidth, totalHeight)
@@ -40,20 +39,15 @@ object ChartUtils {
             strokeJoin = Paint.Join.ROUND
         }
 
-        val step = if (priceChartData.size > maxSamples) {
-            priceChartData.size / maxSamples
-        } else 1
-        val sampledData = priceChartData.filterIndexed { index, _ -> index % step == 0 }
-
-        val prices = sampledData.map { it[1] }
+        val prices = priceChartData.map { it[1] }
         val minPrice = prices.minOrNull() ?: 0.0
         val maxPrice = prices.maxOrNull() ?: 0.0
         val priceRange = maxPrice - minPrice
         if (priceRange == 0.0) return bitmap
 
         val lineChartPath = Path()
-        sampledData.forEachIndexed { index, dataPoint ->
-            val x = (index.toFloat() / (sampledData.size - 1)) * chartWidth
+        priceChartData.forEachIndexed { index, dataPoint ->
+            val x = (index.toFloat() / (priceChartData.size - 1)) * chartWidth
             val normalizedPrice = (dataPoint[1] - minPrice) / priceRange
             val y = (1 - normalizedPrice) * chartHeight
 

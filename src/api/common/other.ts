@@ -14,7 +14,7 @@ export async function getClientId() {
 
   if (clientId) {
     const parts = clientId.split(':', 1);
-    if (!parts[1] && referrer) {
+    if (referrer && referrer !== parts[1]) {
       clientId = `${parts[0]}:${referrer}`;
       void storage.setItem('clientId', clientId);
     }

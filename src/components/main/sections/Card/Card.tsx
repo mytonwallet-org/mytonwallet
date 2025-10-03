@@ -206,6 +206,7 @@ function Card({
           triggerRef={amountRef}
           anchor={currencyMenuAnchor}
           className={styles.currencySwitcherMenu}
+          bubbleClassName={styles.currencySwitcherMenuBubble}
           onClose={closeCurrencyMenu}
         />
         {primaryValue !== '0' && (

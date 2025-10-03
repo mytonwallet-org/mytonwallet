@@ -43,10 +43,10 @@ class MoshiBuilder {
                             ApiUpdate.ApiUpdateDappSendTransactions::class.java,
                             "dappSendTransactions"
                         )
-//                        .withSubtype(
-//                            ApiUpdate.ApiUpdateDappSignData::class.java,
-//                            "dappSignData"
-//                        )
+                        .withSubtype(
+                            ApiUpdate.ApiUpdateDappSignData::class.java,
+                            "dappSignData"
+                        )
                         .withSubtype(ApiUpdate.ApiUpdateDappConnect::class.java, "dappConnect")
                         .withSubtype(
                             ApiUpdate.ApiUpdateDappDisconnect::class.java,
@@ -141,6 +141,13 @@ class MoshiBuilder {
                             ApiParsedPayload.ApiLiquidStakingVotePayload::class.java,
                             "liquid-staking:vote"
                         )
+                        .withDefaultValue(null)
+                )
+                .add(
+                    PolymorphicJsonAdapterFactory.of(MSignDataPayload::class.java, "type")
+                        .withSubtype(MSignDataPayload.SignDataPayloadText::class.java, "text")
+                        .withSubtype(MSignDataPayload.SignDataPayloadBinary::class.java, "binary")
+                        .withSubtype(MSignDataPayload.SignDataPayloadCell::class.java, "cell")
                         .withDefaultValue(null)
                 )
                 .add(KotlinJsonAdapterFactory())

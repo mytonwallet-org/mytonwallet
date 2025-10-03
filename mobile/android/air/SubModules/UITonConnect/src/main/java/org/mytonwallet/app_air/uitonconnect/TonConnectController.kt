@@ -53,6 +53,12 @@ class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObse
                 window.presentOnWalletReady(navVC)
             }
 
+            is ApiUpdate.ApiUpdateDappSignData -> {
+                val navVC = WNavigationController(window)
+                navVC.setRoot(TonConnectRequestSendVC(window, update))
+                window.presentOnWalletReady(navVC)
+            }
+
             else -> {}
         }
     }
@@ -60,12 +66,17 @@ class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObse
     fun onCreate() {
         WalletCore.subscribeToApiUpdates(ApiUpdate.ApiUpdateDappConnect::class.java, this)
         WalletCore.subscribeToApiUpdates(ApiUpdate.ApiUpdateDappSendTransactions::class.java, this)
+        WalletCore.subscribeToApiUpdates(ApiUpdate.ApiUpdateDappSignData::class.java, this)
     }
 
     fun onDestroy() {
         WalletCore.unsubscribeFromApiUpdates(ApiUpdate.ApiUpdateDappConnect::class.java, this)
         WalletCore.unsubscribeFromApiUpdates(
             ApiUpdate.ApiUpdateDappSendTransactions::class.java,
+            this
+        )
+        WalletCore.unsubscribeFromApiUpdates(
+            ApiUpdate.ApiUpdateDappSignData::class.java,
             this
         )
     }

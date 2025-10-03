@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.walletcore.moshi
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import org.mytonwallet.app_air.walletcore.models.MAccount.AccountChain
+import org.mytonwallet.app_air.walletcore.moshi.ledger.MLedgerWalletInfo
 
 // Base wallet class
 @JsonClass(generateAdapter = true)
@@ -72,7 +73,7 @@ data class MApiLedgerAccount(
 
 @JsonClass(generateAdapter = true)
 data class MApiLedgerAccountInfo(
-    val byChain: Map<String, AccountChain>,
+    val byChain: Map<String, MLedgerWalletInfo.WalletItem>,
     val driver: MApiLedgerDriver,
     val deviceId: String? = null,
     val deviceName: String? = null

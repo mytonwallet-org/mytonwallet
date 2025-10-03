@@ -25,6 +25,7 @@ interface OwnProps {
   triggerRef: ElementRef;
   anchor: IAnchorPosition | undefined;
   className?: string;
+  bubbleClassName?: string;
   onClose: NoneToVoidFunction;
   onChange?: (currency: ApiBaseCurrency) => void;
 }
@@ -44,6 +45,7 @@ function CurrencySwitcherMenu({
   excludedCurrency,
   menuPositionX,
   className,
+  bubbleClassName,
   tokens,
   currencyRates,
   stakingStates,
@@ -120,6 +122,7 @@ function CurrencySwitcherMenu({
       getMenuElement={getMenuElement}
       getLayout={getLayout}
       className={className}
+      bubbleClassName={bubbleClassName}
       onClose={onClose}
       onSelect={handleBaseCurrencyChange}
     />

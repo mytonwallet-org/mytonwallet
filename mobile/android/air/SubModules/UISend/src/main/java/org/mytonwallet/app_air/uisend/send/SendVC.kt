@@ -46,12 +46,12 @@ import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uicomponents.widgets.showKeyboard
 import org.mytonwallet.app_air.uisend.send.helpers.ScamDetectionHelpers
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
@@ -196,7 +196,7 @@ class SendVC(
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
             text = initialValues?.binary
             clipLabel = LocaleController.getString("Signing Data")
-            clipToast = LocaleController.getString("Signing Data was copied!")
+            clipToast = LocaleController.getString("Data was copied!")
         }
     }
 
@@ -652,7 +652,7 @@ class SendVC(
             is WalletEvent.ReceivedPendingActivities -> {
                 val activity = walletEvent.pendingActivities?.firstOrNull { activity ->
                     activity is MApiTransaction.Transaction &&
-                        activity.amount == sentActivityConfig.request.amount.amountInteger &&
+                        activity.amount.abs() == sentActivityConfig.request.amount.amountInteger &&
                         activity.fromAddress == AccountStore.activeAccount?.addressByChain[sentActivityConfig.request.token.chain] &&
                         activity.toAddress == sentActivityConfig.resolvedAddress
                 } ?: return

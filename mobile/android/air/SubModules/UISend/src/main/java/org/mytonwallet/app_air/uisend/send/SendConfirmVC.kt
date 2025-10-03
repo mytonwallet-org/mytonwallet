@@ -155,7 +155,7 @@ class SendConfirmVC(
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
             text = config.request.input.binary
             clipLabel = "Signing Data"
-            clipToast = LocaleController.getString("Signing Data was copied!")
+            clipToast = LocaleController.getString("Data was copied!")
         }
     }
 

@@ -24,7 +24,7 @@ class MAccount(
         val address: String,
         val domain: String? = null,
         val isMultisig: Boolean? = null,
-        var ledgerIndex: Int? = null
+        var ledgerIndex: Int? = null,
     )
 
     @JsonClass(generateAdapter = false)
