@@ -273,6 +273,7 @@ function SwapModal({
             isActive={isActive}
             shouldUseSwapTokens
             shouldFilter={currentKey === SwapState.SelectTokenTo}
+            isSwapOut={currentKey === SwapState.SelectTokenTo}
             onTokenSelect={handleTokenSelect}
             onBack={handleBackClick}
             onClose={handleModalCloseWithReset}

@@ -95,7 +95,10 @@ object LedgerBleManager : ILedgerConnectionManager {
     ) {
         Handler(Looper.getMainLooper()).post {
             WalletCore.call(
-                ApiMethod.Other.WaitForLedgerApp(chain = MBlockchain.ton),
+                ApiMethod.Other.WaitForLedgerApp(
+                    chain = MBlockchain.ton,
+                    ApiMethod.Other.WaitForLedgerApp.Options(timeout = 2000)
+                ),
                 callback = { res, error ->
                     if (res != true || error != null) {
                         onUpdate(

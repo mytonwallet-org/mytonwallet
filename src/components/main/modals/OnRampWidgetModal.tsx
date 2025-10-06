@@ -60,9 +60,11 @@ function OnRampWidgetModal({
 
   const dropdownItems = useMemo<DropdownItem<ApiBaseCurrency>[]>(
     () => Object.entries(CURRENCIES)
-      .filter(([currency]) => SUPPORTED_CURRENCIES.has(currency as ApiBaseCurrency))
+      .filter(([currency]) => {
+        return SUPPORTED_CURRENCIES.has(currency as ApiBaseCurrency) && (chain !== 'tron' || currency !== 'RUB');
+      })
       .map(([currency, { name }]) => ({ value: currency as ApiBaseCurrency, name })),
-    [],
+    [chain],
   );
 
   useEffect(() => {
@@ -89,11 +91,8 @@ function OnRampWidgetModal({
     const cardType = getCardType(chain, selectedCurrency);
 
     if (cardType === 'avanchange') {
-      if (chain === 'ton') {
-        setIframeSrc(buildAvanchangeUrl(address));
-      } else {
-        handleError(lang('Purchasing TRON with Russian Rubles is currently unavailable.'));
-      }
+      setIframeSrc(buildAvanchangeUrl(address));
+
       return;
     }
 

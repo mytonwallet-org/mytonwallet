@@ -964,4 +964,3 @@ Without it, you won't be able to access your wallet.: Без неё вы не с
 $ledger_connection_broken: Соединение с Ledger прервано. Пожалуйста, переподключитесь и попробуйте снова.
 $ledger_wrong_device: Текущий аккаунт создан из другой фразы восстановления или парольной фразы Ledger, либо хранится на другом устройстве Ledger
 Show More: Показать ещё
-Purchasing TRON with Russian Rubles is currently unavailable.: Покупка TRON за рубли в данный момент недоступна.

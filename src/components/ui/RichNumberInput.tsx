@@ -1,4 +1,4 @@
-import type { TeactNode } from '../../lib/teact/teact';
+import type { RefObject, TeactNode } from '../../lib/teact/teact';
 import React, { memo, useLayoutEffect, useRef } from '../../lib/teact/teact';
 
 import { FRACTION_DIGITS } from '../../config';
@@ -6,6 +6,7 @@ import buildClassName from '../../util/buildClassName';
 import { saveCaretPosition } from '../../util/saveCaretPosition';
 import { buildContentHtml } from './helpers/buildContentHtml';
 
+import { useCombinedRefs } from '../../hooks/useCombinedRef';
 import useFlag from '../../hooks/useFlag';
 import useFontScale from '../../hooks/useFontScale';
 import useLang from '../../hooks/useLang';
@@ -14,6 +15,7 @@ import useLastCallback from '../../hooks/useLastCallback';
 import styles from './Input.module.scss';
 
 type OwnProps = {
+  ref?: RefObject<HTMLInputElement | undefined>;
   id?: string;
   labelText?: TeactNode;
   value?: string;
@@ -42,6 +44,7 @@ type OwnProps = {
 const MIN_LENGTH_FOR_SHRINK = 5;
 
 function RichNumberInput({
+  ref,
   id,
   labelText,
   hasError,
@@ -68,6 +71,7 @@ function RichNumberInput({
   const inputRef = useRef<HTMLInputElement>();
   const placeholderRef = useRef<HTMLDivElement>();
   const lang = useLang();
+  const combinedRef = useCombinedRefs<HTMLDivElement>(inputRef, ref);
 
   const [hasFocus, markHasFocus, unmarkHasFocus] = useFlag(false);
   const { updateFontScale, isFontChangedRef } = useFontScale(inputRef);
@@ -182,7 +186,7 @@ function RichNumberInput({
       <div className={inputWrapperFullClass}>
         <div className={styles.rich}>
           <div
-            ref={inputRef}
+            ref={combinedRef}
             contentEditable={!disabled && !isLoading}
             id={id}
             role="textbox"

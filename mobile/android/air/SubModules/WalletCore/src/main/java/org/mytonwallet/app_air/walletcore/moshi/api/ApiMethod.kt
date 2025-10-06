@@ -48,11 +48,19 @@ sealed class ApiMethod<T> {
                 .build()
         }
 
-        class WaitForLedgerApp(chain: MBlockchain) : ApiMethod<Boolean>() {
+        class WaitForLedgerApp(chain: MBlockchain, options: Options? = null) :
+            ApiMethod<Boolean>() {
+            @JsonClass(generateAdapter = true)
+            data class Options(
+                val timeout: Int? = null,
+                val attemptPause: Int? = null
+            )
+
             override val name: String = "waitForLedgerApp"
             override val type: Type = Boolean::class.java
             override val arguments: String = ArgumentsBuilder()
                 .string(chain.name)
+                .jsObject(options, Options::class.java)
                 .build()
         }
     }

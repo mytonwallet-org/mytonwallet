@@ -165,6 +165,7 @@ function TransferInitial({
   const { amount: balance, symbol, chain } = transferToken || {};
 
   const renderedScamWarningType = useCurrentOrPrev(scamWarningType, true);
+  const amountInputRef = useRef<HTMLInputElement>();
   const isDisabledDebounce = useRef<boolean>(false);
   const isToncoin = tokenSlug === TONCOIN.slug;
   const isAddressValid = chain ? isValidAddressOrDomain(toAddress, chain) : undefined;
@@ -178,6 +179,12 @@ function TransferInitial({
     }
 
     setTransferToAddress({ toAddress: newToAddress });
+  });
+
+  const handleAddressPaste = useLastCallback(() => {
+    requestAnimationFrame(() => {
+      amountInputRef.current?.focus();
+    });
   });
 
   const shouldDisableClearButton = !toAddress && !(comment || binPayload) && !shouldEncrypt
@@ -494,12 +501,14 @@ function TransferInitial({
             address={resolvedAddress || toAddress}
             addressName={toAddressName}
             onInput={handleAddressInput}
+            onPaste={handleAddressPaste}
             onClose={cancelTransfer}
           />
 
           {!isNftTransfer && (
             <AmountInputSection
               {...amountInputProps}
+              ref={amountInputRef}
               maxAmount={maxAmount}
               token={transferToken}
               allTokens={tokensToSelect}

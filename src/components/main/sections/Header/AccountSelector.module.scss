@@ -150,7 +150,7 @@ $iconGapSize: 1rem;
 
   &_compact {
     grid-template-columns: 1fr 1fr;
-    max-width: calc(66% + 1rem);
+    max-width: 15rem;
   }
 
   .container:global(.closing) > & {

@@ -1,5 +1,5 @@
 import type {
-  ChangeEvent, FormEvent, HTMLAttributes, KeyboardEvent, RefObject,
+  ChangeEvent, ClipboardEvent, FormEvent, HTMLAttributes, KeyboardEvent, RefObject,
 } from 'react';
 import type { ElementRef, TeactNode } from '../../lib/teact/teact';
 import React, { memo, useState } from '../../lib/teact/teact';
@@ -37,6 +37,7 @@ type OwnProps = {
   inputArg?: any;
   children?: TeactNode;
   onInput: (value: string, inputArg?: any) => void;
+  onPaste?: (e: ClipboardEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onKeyDown?: (e: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onFocus?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onBlur?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
@@ -67,6 +68,7 @@ function Input({
   enterKeyHint,
   children,
   onInput,
+  onPaste,
   onKeyDown,
   onFocus,
   onBlur,
@@ -142,6 +144,7 @@ function Input({
             autoComplete={autoComplete}
             onInput={handleInput}
             onChange={handleChange}
+            onPaste={onPaste}
             onKeyDown={onKeyDown}
             onFocus={handleFocus}
             onBlur={handleBlur}
@@ -164,6 +167,7 @@ function Input({
             autoCorrect={autoCorrect}
             spellCheck={autoCorrect}
             onInput={handleInput}
+            onPaste={onPaste}
             onKeyDown={onKeyDown}
             onFocus={handleFocus}
             onBlur={handleBlur}

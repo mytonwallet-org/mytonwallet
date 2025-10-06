@@ -1,4 +1,4 @@
-import type { TeactNode } from '../../lib/teact/teact';
+import type { RefObject, TeactNode } from '../../lib/teact/teact';
 import React, { memo, useEffect, useRef } from '../../lib/teact/teact';
 
 import type { ApiTokenWithPrice } from '../../api/types';
@@ -26,6 +26,7 @@ export type AmountInputToken = TokenWithId & Pick<ApiTokenWithPrice, 'decimals'>
 
 interface OwnProps extends AmountInputStateOutput {
   /** Expressed in `token` regardless of `isBaseCurrency` */
+  ref?: RefObject<HTMLInputElement | undefined>;
   maxAmount?: bigint;
   token: AmountInputToken | undefined;
   allTokens?: AmountInputToken[];
@@ -42,6 +43,7 @@ interface OwnProps extends AmountInputStateOutput {
 }
 
 function AmountInput({
+  ref,
   isBaseCurrency,
   inputValue,
   alternativeValue,
@@ -102,6 +104,7 @@ function AmountInput({
     return (
       <RichNumberInput
         id={inputId}
+        ref={ref}
         hasError={hasError}
         value={inputValue}
         labelText={labelText ?? lang('Amount')}

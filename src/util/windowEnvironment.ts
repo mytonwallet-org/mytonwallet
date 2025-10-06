@@ -66,10 +66,10 @@ export const IS_IOS_APP = IS_IOS && IS_CAPACITOR;
 export const IS_ANDROID_APP = IS_ANDROID && IS_CAPACITOR;
 export const IS_VIEW_TRANSITION_SUPPORTED = typeof document.startViewTransition === 'function';
 
-// Note: As of 27-11-2023, Firefox does not support readText()
+// Note: As of 01-10-2025, Firefox extensions require `clipboardRead` permission in manifest to read data
 // Note: As of 22-02-2023, clipboard functionality is only available to the Telegram partners
 // https://github.com/Telegram-Mini-Apps/telegram-apps/issues/609#issuecomment-2571435311
-export const IS_CLIPBOARDS_SUPPORTED = !(IS_FIREFOX || IS_FIREFOX_EXTENSION || IS_TELEGRAM_APP);
+export const IS_CLIPBOARDS_SUPPORTED = !(IS_TELEGRAM_APP || IS_FIREFOX_EXTENSION) && getIsClipboardReadTextSupported();
 
 export const REM = parseInt(getComputedStyle(document.documentElement).fontSize, 10);
 export const STICKY_CARD_INTERSECTION_THRESHOLD = -3 * REM;
@@ -92,4 +92,12 @@ export function setScrollbarWidthProperty() {
 
 export function getIsMobileTelegramApp() {
   return IS_TELEGRAM_APP && TELEGRAM_MOBILE_PLATFORM.has(window.Telegram?.WebApp.platform ?? '');
+}
+
+function getIsClipboardReadTextSupported() {
+  return (
+    typeof navigator !== 'undefined'
+    && 'clipboard' in navigator
+    && typeof navigator.clipboard?.readText === 'function'
+  );
 }

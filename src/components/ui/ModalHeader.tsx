@@ -69,7 +69,16 @@ function ModalHeader<T extends string>({
           <span>{lang('Back')}</span>
         </Button>
       )}
-      {title !== undefined && <div className={buildClassName(modalStyles.title, modalStyles.singleTitle)}>{title}</div>}
+      {title !== undefined && (
+        <div className={buildClassName(
+          modalStyles.title,
+          modalStyles.singleTitle,
+          !onBackButtonClick && modalStyles.titleFullWidth,
+        )}
+        >
+          {title}
+        </div>
+      )}
       {hasMenu && (
         <Button
           ref={menuButtonRef}

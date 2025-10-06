@@ -272,6 +272,8 @@
   &_back {
     cursor: var(--custom-cursor, pointer);
 
+    z-index: 1;
+
     display: flex;
     grid-area: back;
     align-items: center;
@@ -397,10 +399,13 @@
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
+
+  &FullWidth {
+    grid-column: 1 / 4;
+  }
+};
 
 .singleTitle {
-  grid-column: 1 / 4;
   line-height: 1.875rem;
 }
 

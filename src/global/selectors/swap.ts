@@ -2,7 +2,7 @@ import type { ApiBalanceBySlug, ApiBaseCurrency, ApiCurrencyRates, ApiSwapAsset 
 import type { AccountSettings, GlobalState, UserSwapToken } from '../types';
 import { SwapType } from '../types';
 
-import { DEFAULT_SWAP_FIRST_TOKEN_SLUG, DEFAULT_SWAP_SECOND_TOKEN_SLUG, IS_CORE_WALLET } from '../../config';
+import { DEFAULT_SWAP_FIRST_TOKEN_SLUG, DEFAULT_SWAP_SECOND_TOKEN_SLUG, IS_CORE_WALLET, TONCOIN } from '../../config';
 import { calculateTokenPrice } from '../../util/calculatePrice';
 import { toBig } from '../../util/decimals';
 import memoize from '../../util/memoize';
@@ -96,7 +96,7 @@ const selectSwapTokensMemoizedFor = withCache((accountId: string) => memoize((
   return createTokenList(swapTokenInfo, balancesBySlug, baseCurrency, currencyRates, sortFn);
 }));
 
-const selectAccountTokensForSwapMemoizedFor = withCache((accountId: string) => memoize((
+const selectAccountTokensForSwapInMemoizedFor = withCache((accountId: string) => memoize((
   balancesBySlug: ApiBalanceBySlug,
   tokenInfo: GlobalState['tokenInfo'],
   swapTokenInfo: GlobalState['swapTokenInfo'],
@@ -117,7 +117,31 @@ const selectAccountTokensForSwapMemoizedFor = withCache((accountId: string) => m
   ).filter((token) => token.slug in swapTokenInfo.bySlug && !token.isDisabled);
 }));
 
-export function selectAvailableUserForSwapTokens(global: GlobalState) {
+const selectAccountTokensForSwapOutMemoizedFor = withCache((accountId: string) => memoize((
+  balancesBySlug: ApiBalanceBySlug,
+  tokenInfo: GlobalState['tokenInfo'],
+  swapTokenInfo: GlobalState['swapTokenInfo'],
+  accountSettings: AccountSettings,
+  baseCurrency: ApiBaseCurrency,
+  currencyRates: ApiCurrencyRates,
+  isSortByValueEnabled = false,
+  areTokensWithNoCostHidden = false,
+) => {
+  return selectAccountTokensMemoizedFor(accountId)(
+    balancesBySlug,
+    tokenInfo,
+    accountSettings,
+    isSortByValueEnabled,
+    areTokensWithNoCostHidden,
+    baseCurrency,
+    currencyRates,
+  ).filter((token) => (
+    token.slug in swapTokenInfo.bySlug
+    && (!token.isDisabled || token.slug === TONCOIN.slug)
+  ));
+}));
+
+export function selectAvailableUserForSwapTokens(global: GlobalState, isSwapOut = false) {
   const balancesBySlug = selectCurrentAccountState(global)?.balances?.bySlug;
   if (!balancesBySlug || !global.tokenInfo || !global.swapTokenInfo) {
     return undefined;
@@ -126,7 +150,11 @@ export function selectAvailableUserForSwapTokens(global: GlobalState) {
   const accountSettings = selectCurrentAccountSettings(global) ?? {};
   const { areTokensWithNoCostHidden, isSortByValueEnabled } = global.settings;
 
-  return selectAccountTokensForSwapMemoizedFor(global.currentAccountId!)(
+  const selectAccountTokens = isSwapOut
+    ? selectAccountTokensForSwapOutMemoizedFor
+    : selectAccountTokensForSwapInMemoizedFor;
+
+  return selectAccountTokens(global.currentAccountId!)(
     balancesBySlug,
     global.tokenInfo,
     global.swapTokenInfo,

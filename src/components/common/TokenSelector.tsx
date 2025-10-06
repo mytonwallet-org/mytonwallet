@@ -68,6 +68,7 @@ interface OwnProps {
   shouldUseSwapTokens?: boolean;
   shouldHideMyTokens?: boolean;
   shouldHideNotSupportedTokens?: boolean;
+  isSwapOut?: boolean;
   selectedChain?: ApiChain | ApiChain[];
   header?: TeactNode;
   onClose: NoneToVoidFunction;
@@ -513,12 +514,12 @@ function TokenSelector({
   );
 }
 
-export default memo(withGlobal<OwnProps>((global): StateProps => {
+export default memo(withGlobal<OwnProps>((global, ownProps): StateProps => {
   const { baseCurrency, isSensitiveDataHidden } = global.settings;
   const { isLoading, token } = global.settings.importToken ?? {};
   const { tokenInSlug, shouldShowAllPairs } = global.currentSwap ?? {};
   const pairsBySlug = global.swapPairs?.bySlug;
-  const userTokens = selectAvailableUserForSwapTokens(global);
+  const userTokens = selectAvailableUserForSwapTokens(global, ownProps.isSwapOut);
   const popularTokens = selectPopularTokens(global);
   const swapTokens = selectSwapTokens(global);
   const isMultichain = selectIsMultichainAccount(global, global.currentAccountId!);

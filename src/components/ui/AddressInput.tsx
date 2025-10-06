@@ -1,3 +1,4 @@
+import type { ClipboardEvent } from 'react';
 import React, {
   type ElementRef,
   memo,
@@ -56,6 +57,7 @@ interface OwnProps {
   validateAddress?: ({ address }: { address?: string }) => void;
   error?: string;
   onInput: (value: string, isValueReplaced?: boolean) => void;
+  onPaste?: (value: string) => void;
   onClose: NoneToVoidFunction;
 }
 
@@ -80,6 +82,7 @@ function AddressInput({
   validateAddress,
   error,
   onInput,
+  onPaste,
   onClose,
 }: OwnProps) {
   const {
@@ -157,6 +160,7 @@ function AddressInput({
       if (type === 'text/plain') {
         const newValue = text.trim();
         onInput(newValue, true);
+        onPaste?.(newValue);
 
         handleAddressCheck(newValue);
       }
@@ -222,6 +226,13 @@ function AddressInput({
     });
   });
 
+  const handleAddressPaste = useLastCallback((event: ClipboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    event.preventDefault();
+    const value = event.clipboardData.getData('text');
+    onInput(value, false);
+    onPaste?.(value);
+  });
+
   const handleAddressClear = useLastCallback(() => {
     onInput('');
     handleAddressCheck();
@@ -250,6 +261,7 @@ function AddressInput({
 
   const handleAddressBookItemSelect = useLastCallback((address: string) => {
     onInput(address, true);
+    onPaste?.(address);
     closeAddressBook();
   });
 
@@ -311,6 +323,7 @@ function AddressInput({
         autoCorrect={false}
         valueOverlay={!localError ? addressOverlay : undefined}
         onInput={onInput}
+        onPaste={handleAddressPaste}
         onFocus={handleAddressFocus}
         onBlur={handleAddressBlur}
       >
