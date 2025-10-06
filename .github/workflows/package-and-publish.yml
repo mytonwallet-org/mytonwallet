@@ -28,302 +28,302 @@ env:
   PUBLISH_REPO: ${{ vars.PUBLISH_REPO }}
 
 jobs:
-#  electron-release:
-#    name: Build, package and publish Electron
-#    runs-on: macos-13
-#    timeout-minutes: 30
-#    steps:
-#      - name: Checkout
-#        uses: actions/checkout@v4
-#
-#      - name: Prepare the Node environment
-#        uses: ./.github/actions/prepare_node
-#        with:
-#          node-version: ${{ vars.NODE_VERSION }}
-#
-#      - name: Import MacOS signing certificate
-#        env:
-#          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
-#          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-#        run: |
-#          KEY_CHAIN=build.keychain
-#          CERTIFICATE_P12=certificate.p12
-#          echo "$APPLE_CERTIFICATE_BASE64" | base64 --decode > $CERTIFICATE_P12
-#          security create-keychain -p actions $KEY_CHAIN
-#          security default-keychain -s $KEY_CHAIN
-#          security unlock-keychain -p actions $KEY_CHAIN
-#          security import $CERTIFICATE_P12 -k $KEY_CHAIN -P $APPLE_CERTIFICATE_PASSWORD -T /usr/bin/codesign
-#          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions $KEY_CHAIN
-#          security find-identity -v -p codesigning $KEY_CHAIN
-#
-#      - name: Get branch name for current workflow run
-#        id: branch-name
-#        uses: tj-actions/branch-names@v7
-#
-#      - name: Build, package and publish
-#        env:
-#          ELECTRON_TONCENTER_MAINNET_KEY: ${{ secrets.ELECTRON_TONCENTER_MAINNET_KEY }}
-#          ELECTRON_TONCENTER_TESTNET_KEY: ${{ secrets.ELECTRON_TONCENTER_TESTNET_KEY }}
-#
-#          APPLE_ID: ${{ secrets.APPLE_ID }}
-#          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
-#          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-#
-#          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#          BASE_URL: ${{ vars.BASE_URL }}
-#          IS_PREVIEW: ${{ steps.branch-name.outputs.current_branch != 'master' }}
-#        run: |
-#          if [ -z "$PUBLISH_REPO" ]; then
-#            npm run electron:package:staging
-#          else
-#            npm run electron:release:production
-#          fi
-#
-#      - name: Upload macOS x64 artifact
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: ${{ env.APP_NAME }}-x64.dmg
-#          path: dist-electron/${{ env.APP_NAME }}-x64.dmg
-#
-#      - name: Upload macOS arm64 artifact
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: ${{ env.APP_NAME }}-arm64.dmg
-#          path: dist-electron/${{ env.APP_NAME }}-arm64.dmg
-#
-#      - name: Upload Linux artifact
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: ${{ env.APP_NAME }}-x86_64.AppImage
-#          path: dist-electron/${{ env.APP_NAME }}-x86_64.AppImage
-#
-#      - name: Upload Windows artifact
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: ${{ env.APP_NAME }}-x64-unsigned.exe
-#          path: dist-electron/${{ env.APP_NAME }}-x64.exe
-#
-#  electron-sign-for-windows:
-#    name: Sign and re-publish Windows package
-#    needs: electron-release
-#    runs-on: windows-latest
-#    timeout-minutes: 10
-#    if: vars.PUBLISH_REPO != ''
-#    env:
-#      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#    steps:
-#      - name: Install DigiCert Client tools
-#        uses: digicert/ssm-code-signing@v1.0.1
-#
-#      - name: Setup certificate
-#        shell: bash
-#        run: echo "${{ secrets.SM_CLIENT_CERT_FILE_B64 }}" | base64 --decode > /d/Certificate_pkcs12.p12
-#
-#      - name: Set environment variables
-#        id: variables
-#        shell: bash
-#        run: |
-#          echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-#          echo "FILE_NAME=${{ env.APP_NAME }}-x64.exe" >> "$GITHUB_ENV"
-#          echo "SM_HOST=${{ secrets.SM_HOST }}" >> "$GITHUB_ENV"
-#          echo "SM_API_KEY=${{ secrets.SM_API_KEY }}" >> "$GITHUB_ENV"
-#          echo "SM_CLIENT_CERT_FILE=D:\\Certificate_pkcs12.p12" >> "$GITHUB_ENV"
-#          echo "SM_CLIENT_CERT_PASSWORD=${{ secrets.SM_CLIENT_CERT_PASSWORD }}" >> "$GITHUB_ENV"
-#          echo "C:\Program Files (x86)\Windows Kits\10\App Certification Kit" >> $GITHUB_PATH
-#          echo "C:\Program Files (x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools" >> $GITHUB_PATH
-#          echo "C:\Program Files\DigiCert\DigiCert One Signing Manager Tools" >> $GITHUB_PATH
-#
-#      - name: Download Windows package
-#        id: download-artifact
-#        uses: actions/download-artifact@v4
-#        with:
-#          name: ${{ env.APP_NAME }}-x64-unsigned.exe
-#
-#      - name: Sign package
-#        env:
-#          KEYPAIR_ALIAS: ${{ secrets.KEYPAIR_ALIAS }}
-#          FILE_PATH: ${{ steps.download-artifact.outputs.download-path }}
-#        shell: cmd
-#        run: smctl.exe sign --keypair-alias=%KEYPAIR_ALIAS% --input "%FILE_PATH%\%FILE_NAME%"
-#
-#      - uses: actions/upload-artifact@v4
-#        with:
-#          name: ${{ env.FILE_NAME }}
-#          path: ${{ env.FILE_NAME }}
-#
-#  extensions-package:
-#    name: Build and package extensions
-#    runs-on: ubuntu-latest
-#    timeout-minutes: 10
-#    steps:
-#      - name: Checkout
-#        uses: actions/checkout@v4
-#
-#      - name: Prepare the Node environment
-#        uses: ./.github/actions/prepare_node
-#        with:
-#          node-version: ${{ vars.NODE_VERSION }}
-#
-#      - name: Build and package
-#        run: |
-#          if [ -z "$PUBLISH_REPO" ]; then
-#            npm run extension-chrome:package:staging
-#            npm run extension-firefox:package:staging
-#          else
-#            npm run extension-chrome:package:production
-#            npm run extension-firefox:package:production
-#          fi
-#
-#      - name: Upload Chrome extension artifact
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: ${{ env.APP_NAME }}-chrome.zip
-#          path: ${{ env.APP_NAME }}-chrome.zip
-#
-#      - name: Upload Firefox extension artifact
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: ${{ env.APP_NAME }}-firefox.zip
-#          path: ${{ env.APP_NAME }}-firefox.zip
-#
-#  chrome-publish:
-#    name: Publish Chrome extension
-#    needs: extensions-package
-#    runs-on: ubuntu-latest
-#    timeout-minutes: 5
-#    if: vars.PUBLISH_REPO != ''
-#    steps:
-#      - name: Checkout
-#        uses: actions/checkout@v4
-#
-#      - name: Prepare the Node environment
-#        uses: ./.github/actions/prepare_node
-#        with:
-#          dont-install-npm-packages: true
-#          node-version: ${{ vars.NODE_VERSION }}
-#      - name: Set environment variables
-#        id: variables
-#        run: |
-#          echo "CHROME_FILE_NAME=${{ env.APP_NAME }}-chrome.zip" >> "$GITHUB_ENV"
-#          echo "FIREFOX_FILE_NAME=${{ env.APP_NAME }}-firefox.zip" >> "$GITHUB_ENV"
-#
-#      - name: Download Chrome extension artifact
-#        uses: actions/download-artifact@v4
-#        with:
-#          name: ${{ env.CHROME_FILE_NAME }}
-#
-#      - name: Publish to Chrome store
-#        env:
-#          EXTENSION_ID: ${{ vars.CHROME_EXTENSION_ID }}
-#          CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-#          CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-#          REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
-#        run: npx --yes chrome-webstore-upload-cli@2 upload --auto-publish --source ${{ env.CHROME_FILE_NAME }}
-#
-#  firefox-publish:
-#    name: Publish Firefox extension
-#    needs: extensions-package
-#    runs-on: ubuntu-latest
-#    timeout-minutes: 5
-#    if: vars.PUBLISH_REPO != ''
-#    steps:
-#      - name: Checkout
-#        uses: actions/checkout@v4
-#
-#      - name: Prepare the Node environment
-#        uses: ./.github/actions/prepare_node
-#        with:
-#          dont-install-npm-packages: true
-#          node-version: ${{ vars.NODE_VERSION }}
-#
-#      - name: Set environment variables
-#        id: variables
-#        run: |
-#          echo "FIREFOX_FILE_NAME=${{ env.APP_NAME }}-firefox.zip" >> "$GITHUB_ENV"
-#
-#      - name: Download Firefox extension artifact
-#        uses: actions/download-artifact@v4
-#        with:
-#          name: ${{ env.FIREFOX_FILE_NAME }}
-#
-#      - name: Publish to Firefox addons
-#        env:
-#          WEB_EXT_API_KEY: ${{ secrets.FIREFOX_API_KEY }}
-#          WEB_EXT_API_SECRET: ${{ secrets.FIREFOX_API_SECRET }}
-#          FIREFOX_EXTENSION_ID: ${{ vars.FIREFOX_EXTENSION_ID }}
-#        run: |
-#          npm i jsonwebtoken@9 web-ext-submit@7
-#          UNZIP_DIR=/tmp/${{ env.APP_NAME }}-firefox
-#          mkdir $UNZIP_DIR
-#          unzip ${{ env.FIREFOX_FILE_NAME }} -d $UNZIP_DIR
-#          npx web-ext-submit --source-dir=$UNZIP_DIR
-#          echo "APP_NAME=\"${APP_NAME}\"
-#          PROXY_HOSTS=\"${PROXY_HOSTS}\"
-#          STAKING_POOLS=\"${STAKING_POOLS}\"" >.env
-#          bash deploy/firefox_pack_sources.sh
-#          node deploy/firefoxPatchVersion.js
-#
-#  edge-publish:
-#    name: Publish Edge extension
-#    needs: extensions-package
-#    runs-on: ubuntu-latest
-#    if: vars.PUBLISH_REPO != ''
-#    timeout-minutes: 5
-#    steps:
-#      - name: Checkout
-#        uses: actions/checkout@v4
-#
-#      - name: Prepare the Node environment
-#        uses: ./.github/actions/prepare_node
-#        with:
-#          dont-install-npm-packages: true
-#          node-version: ${{ vars.NODE_VERSION }}
-#
-#      - name: Set environment variables
-#        id: variables
-#        run: |
-#          echo "CHROME_FILE_NAME=${{ env.APP_NAME }}-chrome.zip" >> "$GITHUB_ENV"
-#
-#      - name: Download Chrome extension artifact
-#        uses: actions/download-artifact@v4
-#        with:
-#          name: ${{ env.CHROME_FILE_NAME }}
-#
-#      - name: Publish to Edge store
-#        env:
-#          EDGE_PRODUCT_ID: ${{ secrets.EDGE_PRODUCT_ID }}
-#          EDGE_CLIENT_ID: ${{ secrets.EDGE_CLIENT_ID }}
-#          EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
-#        run: |
-#          npm i @plasmohq/edge-addons-api@2.0.0
-#          export EDGE_FILE_PATH="./$CHROME_FILE_NAME"
-#          node deploy/edgePublish.js
-#
-#  calculate-hash:
-#    name: Calculate sha256 hashes
-#    env:
-#      HASH_FILENAME: checksum.sha256
-#    needs:
-#      - electron-sign-for-windows
-#      - extensions-package
-#      - android-release
-#    runs-on: ubuntu-latest
-#    steps:
-#      - name: Download artifacts
-#        uses: actions/download-artifact@v4
-#
-#      - name: Calculate sha256 hashes
-#        run: |
-#          mkdir release
-#          mv */*.dmg MyTonWallet-x64.exe/MyTonWallet-x64.exe */*.AppImage */*.apk release/
-#          sha256sum release/* >${{ env.HASH_FILENAME }}
-#
-#      - name: Upload hash artifact
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: ${{ env.HASH_FILENAME }}
-#          path: ${{ env.HASH_FILENAME }}
-#
+  electron-release:
+    name: Build, package and publish Electron
+    runs-on: macos-13
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare the Node environment
+        uses: ./.github/actions/prepare_node
+        with:
+          node-version: ${{ vars.NODE_VERSION }}
+
+      - name: Import MacOS signing certificate
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          KEY_CHAIN=build.keychain
+          CERTIFICATE_P12=certificate.p12
+          echo "$APPLE_CERTIFICATE_BASE64" | base64 --decode > $CERTIFICATE_P12
+          security create-keychain -p actions $KEY_CHAIN
+          security default-keychain -s $KEY_CHAIN
+          security unlock-keychain -p actions $KEY_CHAIN
+          security import $CERTIFICATE_P12 -k $KEY_CHAIN -P $APPLE_CERTIFICATE_PASSWORD -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions $KEY_CHAIN
+          security find-identity -v -p codesigning $KEY_CHAIN
+
+      - name: Get branch name for current workflow run
+        id: branch-name
+        uses: tj-actions/branch-names@v7
+
+      - name: Build, package and publish
+        env:
+          ELECTRON_TONCENTER_MAINNET_KEY: ${{ secrets.ELECTRON_TONCENTER_MAINNET_KEY }}
+          ELECTRON_TONCENTER_TESTNET_KEY: ${{ secrets.ELECTRON_TONCENTER_TESTNET_KEY }}
+
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_URL: ${{ vars.BASE_URL }}
+          IS_PREVIEW: ${{ steps.branch-name.outputs.current_branch != 'master' }}
+        run: |
+          if [ -z "$PUBLISH_REPO" ]; then
+            npm run electron:package:staging
+          else
+            npm run electron:release:production
+          fi
+
+      - name: Upload macOS x64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-x64.dmg
+          path: dist-electron/${{ env.APP_NAME }}-x64.dmg
+
+      - name: Upload macOS arm64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-arm64.dmg
+          path: dist-electron/${{ env.APP_NAME }}-arm64.dmg
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-x86_64.AppImage
+          path: dist-electron/${{ env.APP_NAME }}-x86_64.AppImage
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-x64-unsigned.exe
+          path: dist-electron/${{ env.APP_NAME }}-x64.exe
+
+  electron-sign-for-windows:
+    name: Sign and re-publish Windows package
+    needs: electron-release
+    runs-on: windows-latest
+    timeout-minutes: 10
+    if: vars.PUBLISH_REPO != ''
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Install DigiCert Client tools
+        uses: digicert/ssm-code-signing@v1.0.1
+
+      - name: Setup certificate
+        shell: bash
+        run: echo "${{ secrets.SM_CLIENT_CERT_FILE_B64 }}" | base64 --decode > /d/Certificate_pkcs12.p12
+
+      - name: Set environment variables
+        id: variables
+        shell: bash
+        run: |
+          echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          echo "FILE_NAME=${{ env.APP_NAME }}-x64.exe" >> "$GITHUB_ENV"
+          echo "SM_HOST=${{ secrets.SM_HOST }}" >> "$GITHUB_ENV"
+          echo "SM_API_KEY=${{ secrets.SM_API_KEY }}" >> "$GITHUB_ENV"
+          echo "SM_CLIENT_CERT_FILE=D:\\Certificate_pkcs12.p12" >> "$GITHUB_ENV"
+          echo "SM_CLIENT_CERT_PASSWORD=${{ secrets.SM_CLIENT_CERT_PASSWORD }}" >> "$GITHUB_ENV"
+          echo "C:\Program Files (x86)\Windows Kits\10\App Certification Kit" >> $GITHUB_PATH
+          echo "C:\Program Files (x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools" >> $GITHUB_PATH
+          echo "C:\Program Files\DigiCert\DigiCert One Signing Manager Tools" >> $GITHUB_PATH
+
+      - name: Download Windows package
+        id: download-artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-x64-unsigned.exe
+
+      - name: Sign package
+        env:
+          KEYPAIR_ALIAS: ${{ secrets.KEYPAIR_ALIAS }}
+          FILE_PATH: ${{ steps.download-artifact.outputs.download-path }}
+        shell: cmd
+        run: smctl.exe sign --keypair-alias=%KEYPAIR_ALIAS% --input "%FILE_PATH%\%FILE_NAME%"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.FILE_NAME }}
+          path: ${{ env.FILE_NAME }}
+
+  extensions-package:
+    name: Build and package extensions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare the Node environment
+        uses: ./.github/actions/prepare_node
+        with:
+          node-version: ${{ vars.NODE_VERSION }}
+
+      - name: Build and package
+        run: |
+          if [ -z "$PUBLISH_REPO" ]; then
+            npm run extension-chrome:package:staging
+            npm run extension-firefox:package:staging
+          else
+            npm run extension-chrome:package:production
+            npm run extension-firefox:package:production
+          fi
+
+      - name: Upload Chrome extension artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-chrome.zip
+          path: ${{ env.APP_NAME }}-chrome.zip
+
+      - name: Upload Firefox extension artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-firefox.zip
+          path: ${{ env.APP_NAME }}-firefox.zip
+
+  chrome-publish:
+    name: Publish Chrome extension
+    needs: extensions-package
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: vars.PUBLISH_REPO != ''
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare the Node environment
+        uses: ./.github/actions/prepare_node
+        with:
+          dont-install-npm-packages: true
+          node-version: ${{ vars.NODE_VERSION }}
+      - name: Set environment variables
+        id: variables
+        run: |
+          echo "CHROME_FILE_NAME=${{ env.APP_NAME }}-chrome.zip" >> "$GITHUB_ENV"
+          echo "FIREFOX_FILE_NAME=${{ env.APP_NAME }}-firefox.zip" >> "$GITHUB_ENV"
+
+      - name: Download Chrome extension artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.CHROME_FILE_NAME }}
+
+      - name: Publish to Chrome store
+        env:
+          EXTENSION_ID: ${{ vars.CHROME_EXTENSION_ID }}
+          CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+        run: npx --yes chrome-webstore-upload-cli@2 upload --auto-publish --source ${{ env.CHROME_FILE_NAME }}
+
+  firefox-publish:
+    name: Publish Firefox extension
+    needs: extensions-package
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: vars.PUBLISH_REPO != ''
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare the Node environment
+        uses: ./.github/actions/prepare_node
+        with:
+          dont-install-npm-packages: true
+          node-version: ${{ vars.NODE_VERSION }}
+
+      - name: Set environment variables
+        id: variables
+        run: |
+          echo "FIREFOX_FILE_NAME=${{ env.APP_NAME }}-firefox.zip" >> "$GITHUB_ENV"
+
+      - name: Download Firefox extension artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.FIREFOX_FILE_NAME }}
+
+      - name: Publish to Firefox addons
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.FIREFOX_API_KEY }}
+          WEB_EXT_API_SECRET: ${{ secrets.FIREFOX_API_SECRET }}
+          FIREFOX_EXTENSION_ID: ${{ vars.FIREFOX_EXTENSION_ID }}
+        run: |
+          npm i jsonwebtoken@9 web-ext-submit@7
+          UNZIP_DIR=/tmp/${{ env.APP_NAME }}-firefox
+          mkdir $UNZIP_DIR
+          unzip ${{ env.FIREFOX_FILE_NAME }} -d $UNZIP_DIR
+          npx web-ext-submit --source-dir=$UNZIP_DIR
+          echo "APP_NAME=\"${APP_NAME}\"
+          PROXY_HOSTS=\"${PROXY_HOSTS}\"
+          STAKING_POOLS=\"${STAKING_POOLS}\"" >.env
+          bash deploy/firefox_pack_sources.sh
+          node deploy/firefoxPatchVersion.js
+
+  edge-publish:
+    name: Publish Edge extension
+    needs: extensions-package
+    runs-on: ubuntu-latest
+    if: vars.PUBLISH_REPO != ''
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare the Node environment
+        uses: ./.github/actions/prepare_node
+        with:
+          dont-install-npm-packages: true
+          node-version: ${{ vars.NODE_VERSION }}
+
+      - name: Set environment variables
+        id: variables
+        run: |
+          echo "CHROME_FILE_NAME=${{ env.APP_NAME }}-chrome.zip" >> "$GITHUB_ENV"
+
+      - name: Download Chrome extension artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.CHROME_FILE_NAME }}
+
+      - name: Publish to Edge store
+        env:
+          EDGE_PRODUCT_ID: ${{ secrets.EDGE_PRODUCT_ID }}
+          EDGE_CLIENT_ID: ${{ secrets.EDGE_CLIENT_ID }}
+          EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
+        run: |
+          npm i @plasmohq/edge-addons-api@2.0.0
+          export EDGE_FILE_PATH="./$CHROME_FILE_NAME"
+          node deploy/edgePublish.js
+
+  calculate-hash:
+    name: Calculate sha256 hashes
+    env:
+      HASH_FILENAME: checksum.sha256
+    needs:
+      - electron-sign-for-windows
+      - extensions-package
+      - android-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Calculate sha256 hashes
+        run: |
+          mkdir release
+          mv */*.dmg MyTonWallet-x64.exe/MyTonWallet-x64.exe */*.AppImage */*.apk release/
+          sha256sum release/* >${{ env.HASH_FILENAME }}
+
+      - name: Upload hash artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.HASH_FILENAME }}
+          path: ${{ env.HASH_FILENAME }}
+
   android-release:
     name: Release Android app
     runs-on: ubuntu-latest
@@ -406,159 +406,159 @@ jobs:
         with:
           name: ${{ env.APP_NAME }}.apk
           path: ${{ env.APP_NAME }}.apk
-#
-#  ios-release:
-#    name: Release iOS app
-#    runs-on: macos-26
-#    timeout-minutes: 30
-#    if: github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/master'
-#    steps:
-#      - name: Checkout
-#        uses: actions/checkout@v4
-#
-#      - name: Prepare the Node environment
-#        uses: ./.github/actions/prepare_node
-#        with:
-#          node-version: ${{ vars.NODE_VERSION }}
-#
-#      - name: Build and sync mobile project
-#        run: |
-#          if [ -z "$PUBLISH_REPO" ]; then
-#            npm run mobile:build:staging
-#          else
-#            npm run mobile:build:production
-#          fi
-#
-#      - name: Use Ruby and install dependencies
-#        uses: ruby/setup-ruby@v1
-#        with:
-#          ruby-version: 3.2
-#          bundler-cache: true
-#          working-directory: mobile
-#
-#      - name: Install the Apple certificate and provisioning profile
-#        env:
-#          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
-#          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
-#          IOS_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
-#          IOS_PROVISION_PROFILE_WIDGET_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_WIDGET_BASE64 }}
-#          IOS_KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
-#        run: |
-#          # create variables
-#          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
-#          PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
-#          PP_WIDGET_PATH=$RUNNER_TEMP/build_pp_widget.mobileprovision
-#          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-#
-#          # import certificate and provisioning profile from secrets
-#          echo -n "$IOS_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
-#          echo -n "$IOS_PROVISION_PROFILE_BASE64" | base64 --decode -o $PP_PATH
-#          echo -n "$IOS_PROVISION_PROFILE_WIDGET_BASE64" | base64 --decode -o $PP_WIDGET_PATH
-#
-#          # create temporary keychain
-#          security create-keychain -p "$IOS_KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-#          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-#          security unlock-keychain -p "$IOS_KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-#
-#          # import certificate to keychain
-#          security import $CERTIFICATE_PATH -P "$IOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
-#          security list-keychain -d user -s $KEYCHAIN_PATH
-#
-#          # apply provisioning profile
-#          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-#          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
-#          cp $PP_WIDGET_PATH ~/Library/MobileDevice/Provisioning\ Profiles
-#
-#      - name: "iOS: Package and publish"
-#        env:
-#          IOS_AUTH_KEY_BASE64: ${{ secrets.IOS_AUTH_KEY_BASE64 }}
-#          FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: 300
-#        run: |
-#          sudo xcode-select --switch /Applications/Xcode_26.0.app/Contents/Developer
-#          export DEVELOPER_DIR=/Applications/Xcode_26.0.app/Contents/Developer
-#          xcodebuild -version
-#          xcodebuild -showsdks
-#          xcodebuild -downloadPlatform iOS || true
-#          sudo xcodebuild -runFirstLaunch || true
-#          xcodebuild -showsdks | grep iphoneos
-#
-#          cd mobile/ios/App
-#          echo -n "$IOS_AUTH_KEY_BASE64" | base64 --decode -o ./AuthKey.p8
-#          if [ -z "$PUBLISH_REPO" ]; then
-#            bundle exec fastlane beta
-#          else
-#            bundle exec fastlane release
-#          fi
-#
-#  publish-release:
-#    name: Publish GitHub release
-#    runs-on: ubuntu-latest
-#    timeout-minutes: 30
-#    needs:
-#      - android-release
-#      - electron-sign-for-windows
-#    if: github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/master' && vars.PUBLISH_REPO != ''
-#    env:
-#      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#    steps:
-#      - name: Set environment variables
-#        id: variables
-#        run: |
-#          echo "WINDOWS_FILE_NAME=${{ env.APP_NAME }}-x64.exe" >> "$GITHUB_ENV"
-#          echo "ANDROID_FILE_NAME=${{ env.APP_NAME }}.apk" >> "$GITHUB_ENV"
-#
-#      - name: Download Windows package
-#        id: download-windows
-#        uses: actions/download-artifact@v4
-#        with:
-#          name: ${{ env.WINDOWS_FILE_NAME }}
-#
-#      - name: Download Android package
-#        id: download-android
-#        uses: actions/download-artifact@v4
-#        with:
-#          name: ${{ env.ANDROID_FILE_NAME }}
-#
-#      - name: Get latest release ID
-#        id: release-id
-#        run: |
-#          RELEASE_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$PUBLISH_REPO/releases?per_page=1" | jq -r '.[0].id')
-#          echo "release_id=$RELEASE_ID" >> $GITHUB_OUTPUT
-#
-#      - name: Delete existing asset
-#        env:
-#          RELEASE_ID: ${{ steps.release-id.outputs.release_id }}
-#        run: |
-#          PUBLISH_FILE_NAME=${WINDOWS_FILE_NAME// /-} # Consistency with electron-builder
-#          ASSET_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID/assets" | jq -r --arg PUBLISH_FILE_NAME "$PUBLISH_FILE_NAME" '.[] | select(.name == $PUBLISH_FILE_NAME) | .id')
-#          curl -X DELETE -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$PUBLISH_REPO/releases/assets/$ASSET_ID"
-#
-#      - name: Push new Windows asset
-#        env:
-#          FILE_PATH: ${{ steps.download-windows.outputs.download-path }}
-#          RELEASE_ID: ${{ steps.release-id.outputs.release_id }}
-#        run: |
-#          FILE_NAME=$WINDOWS_FILE_NAME
-#          PUBLISH_FILE_NAME=${WINDOWS_FILE_NAME// /-} # Consistency with electron-builder
-#          curl -X POST -H "Authorization: Bearer $GH_TOKEN" \
-#            -H "Content-Type: application/octet-stream" \
-#            --data-binary "@$FILE_PATH/$FILE_NAME" \
-#            "https://uploads.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID/assets?name=$PUBLISH_FILE_NAME"
-#
-#      - name: Push new Android asset
-#        env:
-#          FILE_PATH: ${{ steps.download-android.outputs.download-path }}
-#          RELEASE_ID: ${{ steps.release-id.outputs.release_id }}
-#        run: |
-#          FILE_NAME=$ANDROID_FILE_NAME
-#          PUBLISH_FILE_NAME=${ANDROID_FILE_NAME// /-}
-#          curl -X POST -H "Authorization: Bearer $GH_TOKEN" \
-#            -H "Content-Type: application/octet-stream" \
-#            --data-binary "@$FILE_PATH/$FILE_NAME" \
-#            "https://uploads.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID/assets?name=$PUBLISH_FILE_NAME"
-#
-#      - name: Publish release
-#        env:
-#          RELEASE_ID: ${{ steps.release-id.outputs.release_id }}
-#        run: |
-#          curl -X PATCH -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID" -d '{"draft": false}'
+
+  ios-release:
+    name: Release iOS app
+    runs-on: macos-26
+    timeout-minutes: 30
+    if: github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/master'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare the Node environment
+        uses: ./.github/actions/prepare_node
+        with:
+          node-version: ${{ vars.NODE_VERSION }}
+
+      - name: Build and sync mobile project
+        run: |
+          if [ -z "$PUBLISH_REPO" ]; then
+            npm run mobile:build:staging
+          else
+            npm run mobile:build:production
+          fi
+
+      - name: Use Ruby and install dependencies
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.2
+          bundler-cache: true
+          working-directory: mobile
+
+      - name: Install the Apple certificate and provisioning profile
+        env:
+          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
+          IOS_PROVISION_PROFILE_WIDGET_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_WIDGET_BASE64 }}
+          IOS_KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
+        run: |
+          # create variables
+          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+          PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
+          PP_WIDGET_PATH=$RUNNER_TEMP/build_pp_widget.mobileprovision
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+
+          # import certificate and provisioning profile from secrets
+          echo -n "$IOS_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
+          echo -n "$IOS_PROVISION_PROFILE_BASE64" | base64 --decode -o $PP_PATH
+          echo -n "$IOS_PROVISION_PROFILE_WIDGET_BASE64" | base64 --decode -o $PP_WIDGET_PATH
+
+          # create temporary keychain
+          security create-keychain -p "$IOS_KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$IOS_KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # import certificate to keychain
+          security import $CERTIFICATE_PATH -P "$IOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+          # apply provisioning profile
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $PP_WIDGET_PATH ~/Library/MobileDevice/Provisioning\ Profiles
+
+      - name: "iOS: Package and publish"
+        env:
+          IOS_AUTH_KEY_BASE64: ${{ secrets.IOS_AUTH_KEY_BASE64 }}
+          FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: 300
+        run: |
+          sudo xcode-select --switch /Applications/Xcode_26.0.app/Contents/Developer
+          export DEVELOPER_DIR=/Applications/Xcode_26.0.app/Contents/Developer
+          xcodebuild -version
+          xcodebuild -showsdks
+          xcodebuild -downloadPlatform iOS || true
+          sudo xcodebuild -runFirstLaunch || true
+          xcodebuild -showsdks | grep iphoneos
+
+          cd mobile/ios/App
+          echo -n "$IOS_AUTH_KEY_BASE64" | base64 --decode -o ./AuthKey.p8
+          if [ -z "$PUBLISH_REPO" ]; then
+            bundle exec fastlane beta
+          else
+            bundle exec fastlane release
+          fi
+
+  publish-release:
+    name: Publish GitHub release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs:
+      - android-release
+      - electron-sign-for-windows
+    if: github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/master' && vars.PUBLISH_REPO != ''
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Set environment variables
+        id: variables
+        run: |
+          echo "WINDOWS_FILE_NAME=${{ env.APP_NAME }}-x64.exe" >> "$GITHUB_ENV"
+          echo "ANDROID_FILE_NAME=${{ env.APP_NAME }}.apk" >> "$GITHUB_ENV"
+
+      - name: Download Windows package
+        id: download-windows
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.WINDOWS_FILE_NAME }}
+
+      - name: Download Android package
+        id: download-android
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.ANDROID_FILE_NAME }}
+
+      - name: Get latest release ID
+        id: release-id
+        run: |
+          RELEASE_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$PUBLISH_REPO/releases?per_page=1" | jq -r '.[0].id')
+          echo "release_id=$RELEASE_ID" >> $GITHUB_OUTPUT
+
+      - name: Delete existing asset
+        env:
+          RELEASE_ID: ${{ steps.release-id.outputs.release_id }}
+        run: |
+          PUBLISH_FILE_NAME=${WINDOWS_FILE_NAME// /-} # Consistency with electron-builder
+          ASSET_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID/assets" | jq -r --arg PUBLISH_FILE_NAME "$PUBLISH_FILE_NAME" '.[] | select(.name == $PUBLISH_FILE_NAME) | .id')
+          curl -X DELETE -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$PUBLISH_REPO/releases/assets/$ASSET_ID"
+
+      - name: Push new Windows asset
+        env:
+          FILE_PATH: ${{ steps.download-windows.outputs.download-path }}
+          RELEASE_ID: ${{ steps.release-id.outputs.release_id }}
+        run: |
+          FILE_NAME=$WINDOWS_FILE_NAME
+          PUBLISH_FILE_NAME=${WINDOWS_FILE_NAME// /-} # Consistency with electron-builder
+          curl -X POST -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary "@$FILE_PATH/$FILE_NAME" \
+            "https://uploads.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID/assets?name=$PUBLISH_FILE_NAME"
+
+      - name: Push new Android asset
+        env:
+          FILE_PATH: ${{ steps.download-android.outputs.download-path }}
+          RELEASE_ID: ${{ steps.release-id.outputs.release_id }}
+        run: |
+          FILE_NAME=$ANDROID_FILE_NAME
+          PUBLISH_FILE_NAME=${ANDROID_FILE_NAME// /-}
+          curl -X POST -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary "@$FILE_PATH/$FILE_NAME" \
+            "https://uploads.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID/assets?name=$PUBLISH_FILE_NAME"
+
+      - name: Publish release
+        env:
+          RELEASE_ID: ${{ steps.release-id.outputs.release_id }}
+        run: |
+          curl -X PATCH -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID" -d '{"draft": false}'
