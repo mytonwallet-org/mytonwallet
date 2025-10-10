@@ -73,6 +73,7 @@ interface StateProps {
   shouldEncrypt?: boolean;
   isActive: boolean;
   isLoading?: boolean;
+  isComplete?: boolean;
   fee?: bigint;
   realFee?: bigint;
   tokenSlug: string;
@@ -123,6 +124,7 @@ function TransferInitial({
   isMemoRequired,
   isActive,
   isLoading,
+  isComplete,
   baseCurrency,
   nfts,
   binPayload,
@@ -284,6 +286,10 @@ function TransferInitial({
       });
     }
   }, [lang, transferToken]);
+
+  useEffect(() => {
+    if (isComplete) clearForm();
+  }, [isComplete]);
 
   const handleTokenChange = useLastCallback((slug: string) => {
     changeTransferToken({ tokenSlug: slug });
@@ -655,6 +661,7 @@ export default memo(
         isMemoRequired,
         isActive,
         isLoading: isLoading && isActive,
+        isComplete: state === TransferState.Complete,
         baseCurrency,
         currentAccountId: global.currentAccountId!,
         accounts: selectNetworkAccounts(global),

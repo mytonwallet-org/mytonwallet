@@ -8,7 +8,8 @@ import type {
 } from '../../api/types';
 import type { Account, AccountChain, AccountState, AccountType, GlobalState } from '../types';
 
-import { APP_NAME, DEFAULT_ENABLED_TOKEN_SLUGS, IS_CORE_WALLET, POPULAR_WALLET_VERSIONS, TONCOIN } from '../../config';
+import { DEFAULT_ENABLED_TOKEN_SLUGS, POPULAR_WALLET_VERSIONS, TONCOIN } from '../../config';
+import { generateAccountTitle } from '../../util/account';
 import isPartialDeepEqual from '../../util/isPartialDeepEqual';
 import { getChainBySlug } from '../../util/tokens';
 import {
@@ -80,36 +81,20 @@ export function createAccount({
     type,
     byChain,
   };
-  let shouldForceAccountEdit = true;
 
   if (!account.title) {
     network = network || selectCurrentNetwork(global);
     const accounts = selectNetworkAccounts(global) || {};
-    const accountAmount = Object.keys(accounts).length;
-    const isMainnet = network === 'mainnet';
 
-    const viewWalletsCount = Object.values(accounts).filter((acc) => acc.type === 'view').length;
-    const regularWalletsCount = accountAmount - viewWalletsCount;
-
-    const titlePrefix = type === 'view'
-      ? 'View Wallet'
-      : isMainnet ? 'Wallet' : 'Testnet Wallet';
-    const postfix = titlePostfix ? ` ${titlePostfix}` : '';
-
-    const count = type === 'view' ? viewWalletsCount + 1 : regularWalletsCount + 1;
-    account.title = `${titlePrefix} ${count}${postfix}`;
-
-    if (accountAmount === 0) {
-      account.title = isMainnet ? APP_NAME : `Testnet ${APP_NAME}`;
-      shouldForceAccountEdit = false;
-    }
+    account.title = generateAccountTitle({
+      accounts,
+      accountType: type,
+      network,
+      titlePostfix,
+    });
   } else if (titlePostfix) {
     const title = account.title?.replace(new RegExp(`\\b(${POPULAR_WALLET_VERSIONS.join('|')})\\b`, 'g'), '');
     account.title = `${title.trim()} ${titlePostfix}`;
-  }
-
-  if (!IS_CORE_WALLET) {
-    global = { ...global, shouldForceAccountEdit };
   }
 
   if (selectAccount(global, accountId)) {

@@ -67,6 +67,7 @@ interface StateProps {
   swapType: SwapType;
   isSensitiveDataHidden?: true;
   pairsBySlug?: Record<string, AssetPairs>;
+  isComplete?: boolean;
 }
 
 const ESTIMATE_REQUEST_INTERVAL = 1_000;
@@ -90,11 +91,13 @@ function SwapInitial({
     ourFee,
     ourFeePercent,
     dieselFee,
+    maxAmountFromBackend,
   },
   accountChains,
   tokens,
   isActive,
   isStatic,
+  isComplete,
   isMultichainAccount,
   swapType,
   isSensitiveDataHidden,
@@ -155,12 +158,17 @@ function SwapInitial({
     [swapType, tokenInSlug, networkFee, realNetworkFee, ourFee, dieselStatus, dieselFee, nativeTokenInBalance],
   );
 
+  const maxAmountFromBackendBigint = maxAmountFromBackend && tokenIn
+    ? fromDecimal(maxAmountFromBackend, tokenIn.decimals)
+    : undefined;
+
   const maxAmount = getMaxSwapAmount({
     swapType,
     tokenInBalance: balanceIn,
     tokenIn,
     fullNetworkFee: explainedFee.fullFee?.networkTerms,
     ourFeePercent,
+    maxAmountFromBackend: maxAmountFromBackendBigint,
   });
 
   // Note: this constant has 3 distinct meaningful values
@@ -169,9 +177,9 @@ function SwapInitial({
     tokenInBalance: balanceIn,
     tokenIn,
     fullNetworkFee: explainedFee.fullFee?.networkTerms,
-    ourFeePercent,
     amountIn,
     nativeTokenInBalance,
+    maxAmountFromBackend: maxAmountFromBackendBigint,
   });
 
   const networkFeeBigint = networkFee !== undefined && nativeUserTokenIn
@@ -240,6 +248,15 @@ function SwapInitial({
     const intervalId = setInterval(handleEstimateSwap, ESTIMATE_REQUEST_INTERVAL);
     return () => clearInterval(intervalId);
   }, [isEstimating]);
+
+  useEffect(() => {
+    if (isComplete) clearForm();
+  }, [isComplete]);
+
+  function clearForm() {
+    setSwapAmountIn({ amount: undefined, isMaxAmount: false });
+    setSwapAmountOut({ amount: undefined });
+  }
 
   const handleAmountInChange = useLastCallback(
     (amount: string | undefined) => {
@@ -314,7 +331,7 @@ function SwapInitial({
   function renderBalance() {
     return (
       <AmountInputMaxButton
-        maxAmount={maxAmount}
+        maxAmount={maxAmount ?? balanceIn}
         token={tokenIn}
         isSensitiveDataHidden={isSensitiveDataHidden}
         onAmountClick={handleMaxAmountClick}
@@ -521,6 +538,7 @@ export default memo(
         swapType: selectSwapType(global),
         isSensitiveDataHidden: global.settings.isSensitiveDataHidden,
         pairsBySlug: global.swapPairs?.bySlug,
+        isComplete: global.currentSwap.state === SwapState.Complete,
       };
     },
     (global, _, stickToFirst) => stickToFirst(global.currentAccountId),

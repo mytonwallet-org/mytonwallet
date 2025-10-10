@@ -404,10 +404,6 @@ addActionHandler('addHardwareAccounts', (global, actions, { accounts }) => {
   }, global);
 
   global = updateAuth(global, { isLoading: false });
-  global = {
-    ...global,
-    shouldForceAccountEdit: true,
-  };
   setGlobal(global);
 
   if (getGlobal().areSettingsOpen) {

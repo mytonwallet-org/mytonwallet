@@ -54,6 +54,8 @@ type MaxSwapAmountInput = Pick<GlobalState['currentSwap'], 'ourFeePercent'> & {
   tokenIn: Pick<ApiToken, 'slug' | 'decimals'> | undefined;
   /** The full network fee terms calculated by `explainSwapFee`. Undefined means that they're unknown. */
   fullNetworkFee: FeeTerms<string> | undefined;
+  /** The maximum amount available for swap, as calculated by the backend. Undefined means it's unknown. */
+  maxAmountFromBackend: bigint | undefined;
 };
 
 type BalanceSufficientForSwapInput = MaxSwapAmountInput & {
@@ -61,6 +63,8 @@ type BalanceSufficientForSwapInput = MaxSwapAmountInput & {
   nativeTokenInBalance: bigint | undefined;
   /** The "in" amount to swap. Undefined means that it's unspecified. */
   amountIn: string | undefined;
+  /** The maximum amount available for swap, as calculated by the backend. Undefined means it's unknown. */
+  maxAmountFromBackend: bigint | undefined;
 };
 
 type CanAffordSwapVariant = {
@@ -91,7 +95,12 @@ export function getMaxSwapAmount({
   tokenIn,
   fullNetworkFee,
   ourFeePercent,
+  maxAmountFromBackend,
 }: MaxSwapAmountInput): bigint | undefined {
+  if (maxAmountFromBackend) {
+    return maxAmountFromBackend;
+  }
+
   if (swapType === SwapType.CrosschainToWallet || tokenInBalance === undefined) {
     return undefined;
   }

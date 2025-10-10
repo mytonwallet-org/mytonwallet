@@ -50,7 +50,7 @@ export async function validateDexSwapTransfers(
     });
   };
 
-  assert(transfers.length <= maxSplits, 'Too many main transfers');
+  assert(mainTransfers.length <= maxSplits, 'Too many main transfers');
 
   if (request.from === TONCOIN.symbol) {
     const maxAmount = fromDecimal(request.fromAmount) + fromDecimal(request.ourFee) + MAX_NETWORK_FEE;

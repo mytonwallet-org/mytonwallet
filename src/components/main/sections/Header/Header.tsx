@@ -7,6 +7,7 @@ import buildClassName from '../../../../util/buildClassName';
 import { IS_ELECTRON } from '../../../../util/windowEnvironment';
 
 import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
+import useQrScannerSupport from '../../../../hooks/useQrScannerSupport';
 
 import AccountSelector from './AccountSelector';
 import AppLockButton from './actionButtons/AppLockButton';
@@ -44,6 +45,7 @@ function Header({
 }: OwnProps & StateProps) {
   const { isPortrait } = useDeviceScreen();
   const canToggleAppLayout = IS_EXTENSION || IS_ELECTRON;
+  const isQrScannerSupported = useQrScannerSupport() && !isViewMode;
 
   if (isPortrait) {
     const fullClassName = buildClassName(
@@ -70,10 +72,20 @@ function Header({
     );
   }
 
+  const buttonsAmount = Math.max(
+    1 + (isAppLockEnabled ? 1 : 0) + (isQrScannerSupported ? 1 : 0),
+    1 + (canToggleAppLayout ? 1 : 0) + (IS_TELEGRAM_APP ? 1 : 0),
+  );
+
   return (
     <div className={styles.header}>
       <div className={styles.headerInner}>
-        <div className={styles.landscapeActions}>
+        <div className={buildClassName(
+          styles.landscapeActions,
+          styles[`landscapeActionsButtons${buttonsAmount}`],
+          styles.landscapeActionsStart,
+        )}
+        >
           <ToggleSensitiveDataButton isSensitiveDataHidden={isSensitiveDataHidden} />
           <QrScannerButton isViewMode={isViewMode} />
           {isAppLockEnabled && <AppLockButton />}
@@ -81,7 +93,12 @@ function Header({
 
         <AccountSelector withBalance={withBalance} withAccountSelector={!IS_CORE_WALLET} />
 
-        <div className={styles.landscapeActions}>
+        <div className={buildClassName(
+          styles.landscapeActions,
+          buttonsAmount > 1 && styles[`landscapeActionsButtons${buttonsAmount}`],
+          styles.landscapeActionsEnd,
+        )}
+        >
           {IS_TELEGRAM_APP && <ToggleFullscreenButton isFullscreen={isFullscreen} />}
           {canToggleAppLayout && <ToggleLayoutButton />}
           <SettingsButton />

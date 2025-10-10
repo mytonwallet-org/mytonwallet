@@ -96,7 +96,7 @@ export async function swapSubmit(
   const tonWallet = await fetchStoredWallet(accountId, 'ton');
 
   const { address } = tonWallet;
-  const authToken = tonWallet.authToken ?? await getBackendAuthToken(accountId, password);
+  const authToken = await getBackendAuthToken(accountId, password);
 
   try {
     const transferList: TonTransferParams[] = transfers.map((transfer) => ({

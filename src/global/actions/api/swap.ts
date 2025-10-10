@@ -416,6 +416,7 @@ addActionHandler('switchSwapTokens', (global) => {
     tokenInSlug: tokenOutSlug,
     tokenOutSlug: tokenInSlug,
     inputSource: SwapInputSource.In,
+    maxAmountFromBackend: undefined,
   });
   setGlobal(global);
 });
@@ -440,6 +441,7 @@ addActionHandler('setSwapTokenIn', (global, actions, { tokenSlug: newTokenInSlug
     amountOut: adjustedAmountOut === '0' ? undefined : adjustedAmountOut,
     tokenInSlug: newTokenInSlug,
     tokenOutSlug: newTokenOutSlug,
+    maxAmountFromBackend: undefined,
   });
   setGlobal(global);
 });
@@ -464,6 +466,7 @@ addActionHandler('setSwapTokenOut', (global, actions, { tokenSlug: newTokenOutSl
     amountIn: adjustedAmountIn === '0' ? undefined : adjustedAmountIn,
     tokenOutSlug: newTokenOutSlug,
     tokenInSlug: newTokenInSlug,
+    maxAmountFromBackend: undefined,
   });
   setGlobal(global);
 });
@@ -502,7 +505,7 @@ addActionHandler('estimateSwap', async () => {
 
     const shouldShowAllPairs = global.swapVersion === 3 && isTonOnlySwap;
 
-    // Set shouldShowAllPairs for TON-only swaps
+    // Set `shouldShowAllPairs` for TON-only swaps
     if (shouldShowAllPairs !== Boolean(global.currentSwap.shouldShowAllPairs)) {
       global = updateCurrentSwap(global, { shouldShowAllPairs: shouldShowAllPairs || undefined });
       setGlobal(global);
@@ -589,7 +592,10 @@ async function estimateDexSwap(global: GlobalState): Promise<SwapEstimateResult>
       ? { amountOut: currentEstimate.toAmount }
       : { amountIn: currentEstimate.fromAmount }
     ),
-    ...(isFromAmountMax ? { amountIn: currentEstimate.fromAmount } : undefined),
+    ...(isFromAmountMax ? {
+      amountIn: currentEstimate.fromAmount,
+      maxAmountFromBackend: currentEstimate.fromAmount,
+    } : undefined),
     bestRateDexLabel: estimate.dexLabel,
     amountOutMin: currentEstimate.toMinAmount,
     priceImpact: currentEstimate.impact,

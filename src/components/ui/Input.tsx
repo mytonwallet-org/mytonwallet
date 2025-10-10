@@ -1,10 +1,10 @@
-import type {
-  ChangeEvent, ClipboardEvent, FormEvent, HTMLAttributes, KeyboardEvent, RefObject,
+import type { ClipboardEvent, FormEvent, HTMLAttributes, KeyboardEvent, RefObject,
 } from 'react';
 import type { ElementRef, TeactNode } from '../../lib/teact/teact';
+import { useLayoutEffect, useRef } from '../../lib/teact/teact';
 import React, { memo, useState } from '../../lib/teact/teact';
 
-import { requestMutation } from '../../lib/fasterdom/fasterdom';
+import { forceMeasure } from '../../lib/fasterdom/fasterdom';
 import buildClassName from '../../util/buildClassName';
 
 import useFlag from '../../hooks/useFlag';
@@ -77,6 +77,11 @@ function Input({
   const [isPasswordVisible, setIsPasswordVisible] = useState<boolean>(false);
   const [hasFocus, markHasFocus, unmarkHasFocus] = useFlag(false);
 
+  let inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>();
+  if (ref) {
+    inputRef = ref;
+  }
+
   const showValueOverlay = Boolean(valueOverlay && !hasFocus);
 
   const handleInput = (e: FormEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -87,15 +92,14 @@ function Input({
     setIsPasswordVisible(!isPasswordVisible);
   };
 
-  const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
-    const { currentTarget } = e;
-    const { scrollHeight } = currentTarget;
+  useLayoutEffect(() => {
+    if (!isMultiline) return;
 
-    requestMutation(() => {
-      currentTarget.style.height = '0';
-      currentTarget.style.height = `${scrollHeight}px`;
-    });
-  };
+    const textareaEl = inputRef.current as HTMLTextAreaElement | undefined;
+    if (textareaEl) {
+      updateTextAreaHeight(textareaEl);
+    }
+  }, [isMultiline, value]);
 
   const handleFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     markHasFocus();
@@ -135,7 +139,7 @@ function Input({
       <div className={styles.inputContainer}>
         {isMultiline ? (
           <textarea
-            ref={ref as RefObject<HTMLTextAreaElement>}
+            ref={inputRef as RefObject<HTMLTextAreaElement>}
             id={id}
             className={inputFullClass}
             value={value}
@@ -143,7 +147,6 @@ function Input({
             maxLength={maxLength}
             autoComplete={autoComplete}
             onInput={handleInput}
-            onChange={handleChange}
             onPaste={onPaste}
             onKeyDown={onKeyDown}
             onFocus={handleFocus}
@@ -154,7 +157,7 @@ function Input({
           />
         ) : (
           <input
-            ref={ref as RefObject<HTMLInputElement>}
+            ref={inputRef as RefObject<HTMLInputElement>}
             id={id}
             className={inputFullClass}
             type={finalType}
@@ -207,3 +210,10 @@ function Input({
 }
 
 export default memo(Input);
+
+function updateTextAreaHeight(el: HTMLTextAreaElement) {
+  forceMeasure(() => {
+    el.style.height = '0';
+    el.style.height = `${el.scrollHeight}px`;
+  });
+}

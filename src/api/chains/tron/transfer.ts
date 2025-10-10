@@ -67,9 +67,9 @@ export async function checkTransactionDraft(
       const size = 9 + 60 + Buffer.from(transaction.raw_data_hex, 'hex').byteLength + SIGNATURE_SIZE;
       fee = bandwidth > size ? 0n : BigInt(size) * BigInt(bandwidthUnitFee);
 
-      // If the account is not activated, we pay an extra 1 TRX for activation
+      // If the account is not activated, we pay an extra 1 TRX and 100 bandwidth fees for activation
       if (account.balance === undefined) {
-        fee += ONE_TRX;
+        fee += ONE_TRX + 100n * BigInt(bandwidthUnitFee);
       }
     }
 

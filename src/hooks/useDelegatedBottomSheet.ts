@@ -39,8 +39,9 @@ if (IS_DELEGATED_BOTTOM_SHEET) {
     currentKey = key;
     controlledByMain.get(key)?.();
 
+    const incomingGlobal = sanitizeGlobalForBottomSheet(globalJson);
     setGlobal(
-      JSON.parse(globalJson, bigintReviver) as GlobalState,
+      incomingGlobal,
       { forceOutdated: true, forceSyncOnIOs: true },
     );
   });
@@ -201,4 +202,17 @@ function preventScrollOnFocus(el: HTMLDivElement) {
   });
 
   document.documentElement.scrollTop = 0;
+}
+
+function sanitizeGlobalForBottomSheet(globalJson: string) {
+  const global = JSON.parse(globalJson, bigintReviver) as GlobalState;
+
+  // When the application is unlocked, the global state is copied from the main application to NBS.
+  // This also copies the isPinAccepted state, which causes an error in the modals.
+  // Therefore, we reset the isPinAccepted state when opening a modal in NBS.
+  if (global.isPinAccepted) {
+    global.isPinAccepted = undefined;
+  }
+
+  return global;
 }

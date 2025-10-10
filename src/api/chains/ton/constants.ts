@@ -308,9 +308,10 @@ export const KnownContracts: Record<ContractName, ContractInfo> = {
     oldHash: '5bc82f0c5972ccc6732e98cbe31ea4795da818f9e06c991331568182a8362307',
     isSwapAllowed: true,
   },
+  // Example: https://tonscan.org/address/EQARULUYsmJq1RiZ-YiH-IJLcAZUVkVff-KBPwEmmaQGH6aC
   stonPtonWallet: {
     name: 'stonPtonWallet',
-    oldHash: '6ccbf71a3ed9c7355f84a698a44a7406574bfb8aa34d4bbd86ab75ee9c994880',
+    hash: '8836d2f41b39cd2cbdd8a66c10f9665d075242a66003bd8f14485bd6b140d303',
     isSwapAllowed: true,
   },
   stonRouter: {
@@ -355,6 +356,12 @@ export const KnownContracts: Record<ContractName, ContractInfo> = {
   toncoRouter: {
     name: 'toncoRouter',
     hash: '9b9891eaa7db7becc6ccdda1bd9a8d25dc3df2817d57e4b27ec003daf81a4439',
+    isSwapAllowed: true,
+  },
+  // Example: https://tonscan.org/address/EQCHHakhWxSQIWbw6ioW21YnjVKBCDd_gVjF9Mz9_dIuFy23
+  wrappedToncoTonWallet: {
+    name: 'wrappedToncoTonWallet',
+    hash: 'c16fb5d47aa4f0ad23057d34490e6f26a62c71e6422e4f6a8648126857c71438',
     isSwapAllowed: true,
   },
   // `oldHash` should no longer be used for new contracts; it is retained for backwards compatibility with

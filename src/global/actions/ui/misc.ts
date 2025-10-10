@@ -232,8 +232,6 @@ addActionHandler('addAccount2', (global, actions, { method, password }) => {
 });
 
 addActionHandler('renameAccount', (global, actions, { accountId, title }) => {
-  global = { ...global, shouldForceAccountEdit: false };
-
   setGlobal(renameAccount(global, accountId, title));
 
   actions.renameNotificationAccount({ accountId });

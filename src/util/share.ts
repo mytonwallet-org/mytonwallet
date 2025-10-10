@@ -8,12 +8,17 @@ import { getActions } from '../global';
 import { IS_CAPACITOR } from '../config';
 import { copyTextToClipboard } from './clipboard';
 import { getTranslation } from './langProvider';
-import { IS_IOS, IS_TOUCH_ENV } from './windowEnvironment';
+import { IS_ANDROID, IS_IOS, IS_TOUCH_ENV } from './windowEnvironment';
 
 export async function shareUrl(url: string, title?: string) {
-  const shareData = { url, title };
+  // Android Share supports only http/https/file URLs in `url` field.
+  // For custom schemes (e.g., ton://), pass via `text` to ensure the chooser opens.
+  const isShareableUrl = /^(https?:|file:)/.test(url);
+  const shareData = IS_ANDROID && !isShareableUrl
+    ? { text: url, title }
+    : { url, title };
 
-  if (await tryCapacitorShare(shareData) || await tryNavigatorShare(shareData)) {
+  if (await tryCapacitorShare(shareData) || await tryNavigatorShare({ url, title })) {
     return;
   }
 

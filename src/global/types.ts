@@ -615,6 +615,7 @@ export type GlobalState = {
     isDexLabelChanged?: true;
     currentDexLabel?: ApiSwapDexLabel;
     bestRateDexLabel?: ApiSwapDexLabel;
+    maxAmountFromBackend?: string;
     // Fees. Undefined values mean that these fields are unknown.
     networkFee?: string;
     realNetworkFee?: string;
@@ -792,7 +793,6 @@ export type GlobalState = {
   isInvoiceModalOpen?: boolean;
   isReceiveModalOpen?: boolean;
   isVestingModalOpen?: boolean;
-  shouldForceAccountEdit?: boolean;
   isIncorrectTimeNotificationReceived?: boolean;
   currentBrowserOptions?: {
     url: string;
