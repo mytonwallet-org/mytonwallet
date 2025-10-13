@@ -16,6 +16,7 @@ import {
   doesSupport,
   doesSupportKnownJetton,
   doesSupportKnownJettonId,
+  doesSupportNonZeroQueryId,
   VERSION_WITH_GET_SETTINGS,
   VERSION_WITH_PAYLOAD,
   VERSION_WITH_WALLET_SPECIFIERS,
@@ -46,6 +47,7 @@ export async function signTonTransactionsWithLedger(
   wallet: ApiTonWallet,
   tonTransactions: PreparedTransactionToSign[],
   subwalletId?: number,
+  isTonConnect?: boolean,
   maxRetries = ATTEMPTS,
 ): Promise<Cell[] | { error: ApiHardwareError }> {
   const accountPath = getLedgerAccountPathByWallet(network, wallet);
@@ -70,6 +72,7 @@ export async function signTonTransactionsWithLedger(
         ledgerTonVersion,
         isBlindSigningEnabled,
         subwalletId,
+        isTonConnect,
       )
     )));
   } catch (err) {
@@ -102,6 +105,7 @@ export async function tonTransactionToLedgerTransaction(
   ledgerTonVersion: string,
   isBlindSigningEnabled: boolean,
   subwalletId?: number,
+  isTonConnect?: boolean,
 ): Promise<LedgerTransactionParams> {
   const { authType = 'external', sendMode = 0, seqno, timeout, hints } = tonTransaction;
   const message = getMessageFromTonTransaction(tonTransaction);
@@ -121,6 +125,7 @@ export async function tonTransactionToLedgerTransaction(
     ledgerTonVersion,
     isBlindSigningEnabled,
     hints,
+    isTonConnect,
   );
 
   return {
@@ -158,8 +163,9 @@ async function getPayload(
   ledgerTonVersion: string,
   isBlindSigningEnabled: boolean,
   { tokenAddress }: TonTransferHints = {},
+  isTonConnect?: boolean,
 ) {
-  const ledgerPayload = tonPayloadToLedgerPayload(tonPayload, ledgerTonVersion);
+  const ledgerPayload = tonPayloadToLedgerPayload(tonPayload, ledgerTonVersion, isTonConnect);
 
   if (ledgerPayload?.type === 'jetton-transfer' && doesSupportKnownJetton(ledgerModel, ledgerTonVersion)) {
     if (!tokenAddress) {
@@ -182,7 +188,11 @@ async function getPayload(
 /**
  * Converts a TON message body to the Ledger payload format. Doesn't populate the `knownJetton` field.
  */
-export function tonPayloadToLedgerPayload(tonPayload: Cell | undefined, ledgerTonVersion: string) {
+export function tonPayloadToLedgerPayload(
+  tonPayload: Cell | undefined,
+  ledgerTonVersion: string,
+  isTonConnect?: boolean,
+) {
   if (!tonPayload) {
     return undefined;
   }
@@ -190,13 +200,37 @@ export function tonPayloadToLedgerPayload(tonPayload: Cell | undefined, ledgerTo
   let ledgerPayload: TonPayloadFormat | undefined;
 
   try {
-    ledgerPayload = parseMessage(tonPayload, {
+    const options = isTonConnect ? {
+      // Modifying the payload generated in the dApp can lead to unpredictable errors
+      // (for example, an NFT may get stuck in the contract).
+      disallowModification: true,
+    } : {
       disallowUnsafe: true, // Otherwise no error will be thrown, and we won't see why the payload can't be converted
       // We don't use `disallowModification: true`, because it can cause an unnecessary "unsafe" payload, for example,
       // when a token is transferred with a short comment. On the other hand, the fee may increase by about 0.0001 TON.
-    });
+    };
+    ledgerPayload = parseMessage(tonPayload, options);
   } catch (err) {
     logDebug('Unsafe Ledger payload', err);
+    ledgerPayload = {
+      type: 'unsafe',
+      message: tonPayload,
+    };
+  }
+
+  if (
+    ledgerPayload
+    && 'queryId' in ledgerPayload
+    && typeof ledgerPayload.queryId === 'bigint'
+    && ledgerPayload.queryId > 0n
+    && !doesSupportNonZeroQueryId(ledgerTonVersion)
+  ) {
+    logDebug(`A non-zero queryId is being used on a TON App version v${ledgerTonVersion} where this is broken.`);
+    if (!doesSupport(ledgerTonVersion, VERSION_WITH_PAYLOAD.unsafe)) {
+      throw unsupportedError;
+    }
+
+    logDebug('Falling back to an unsafe payload');
     ledgerPayload = {
       type: 'unsafe',
       message: tonPayload,

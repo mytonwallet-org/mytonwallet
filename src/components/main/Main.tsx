@@ -33,6 +33,7 @@ import useEffectOnce from '../../hooks/useEffectOnce';
 import useElementVisibility from '../../hooks/useElementVisibility';
 import useFlag from '../../hooks/useFlag';
 import useInterval from '../../hooks/useInterval';
+import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import usePreventPinchZoomGesture from '../../hooks/usePreventPinchZoomGesture';
 
@@ -105,6 +106,7 @@ function Main({
     updatePendingSwaps,
   } = getActions();
 
+  const lang = useLang();
   const cardRef = useRef<HTMLDivElement>();
   const portraitContainerRef = useRef<HTMLDivElement>();
   const landscapeContainerRef = useRef<HTMLDivElement>();
@@ -126,7 +128,7 @@ function Main({
   useEffectOnce(() => {
     if (IS_CORE_WALLET) return;
 
-    loadExploreSites({ isLandscape });
+    loadExploreSites({ isLandscape, langCode: lang.code });
   });
 
   useInterval(updatePendingSwaps, isFocused ? UPDATE_SWAPS_INTERVAL : UPDATE_SWAPS_INTERVAL_NOT_FOCUSED);

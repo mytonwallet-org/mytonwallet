@@ -12,7 +12,7 @@ export interface SearchSuggestions {
 }
 
 export interface ProcessedSites {
-  trendingSites: ApiSite[];
+  featuredSites: ApiSite[];
   allSites: Record<number, ApiSite[]>;
 }
 const GOOGLE_SEARCH_URL = 'https://www.google.com/search?q=';
@@ -52,7 +52,7 @@ export function generateSearchSuggestions(
 export function processSites(sites?: ApiSite[]): ProcessedSites {
   return (sites || []).reduce((acc, site) => {
     if (site.isFeatured) {
-      acc.trendingSites.push(site);
+      acc.featuredSites.push(site);
     }
 
     if (!acc.allSites[site.categoryId!]) {
@@ -61,7 +61,7 @@ export function processSites(sites?: ApiSite[]): ProcessedSites {
     acc.allSites[site.categoryId!].push(site);
 
     return acc;
-  }, { trendingSites: [], allSites: {} } as ProcessedSites);
+  }, { featuredSites: [], allSites: {} } as ProcessedSites);
 }
 
 export function findSiteByUrl(sites?: ApiSite[], targetUrl?: string): ApiSite | undefined {

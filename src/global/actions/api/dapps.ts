@@ -8,7 +8,7 @@ import { getDoesUsePinPad } from '../../../util/biometrics';
 import { getDappConnectionUniqueId } from '../../../util/getDappConnectionUniqueId';
 import { callActionInMain, callApiInMain } from '../../../util/multitab';
 import { pause, waitFor } from '../../../util/schedulers';
-import { IS_DELEGATED_BOTTOM_SHEET } from '../../../util/windowEnvironment';
+import { IS_DELEGATED_BOTTOM_SHEET, USER_AGENT_LANG_CODE } from '../../../util/windowEnvironment';
 import { callApi } from '../../../api';
 import { handleDappSignatureResult, prepareDappOperation } from '../../helpers/transfer';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
@@ -405,8 +405,8 @@ addActionHandler('apiUpdateDappCloseLoading', async (global, actions, { connecti
   setGlobal(global);
 });
 
-addActionHandler('loadExploreSites', async (global, _, { isLandscape }) => {
-  const exploreData = await callApi('loadExploreSites', { isLandscape });
+addActionHandler('loadExploreSites', async (global, _, { isLandscape, langCode = USER_AGENT_LANG_CODE }) => {
+  const exploreData = await callApi('loadExploreSites', { isLandscape, langCode });
   global = getGlobal();
   if (areDeepEqual(exploreData, global.exploreData)) {
     return;

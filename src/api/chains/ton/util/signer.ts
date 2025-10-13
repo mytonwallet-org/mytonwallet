@@ -33,7 +33,10 @@ export interface Signer {
   readonly isMock: boolean;
   signTonProof(proof: ApiTonConnectProof): MaybePromise<Buffer | ErrorResult>;
   /** The output Cell order matches the input transactions order exactly. */
-  signTransactions(transactions: PreparedTransactionToSign[]): MaybePromise<Cell[] | ErrorResult>;
+  signTransactions(
+    transactions: PreparedTransactionToSign[],
+    isTonConnect?: boolean,
+  ): MaybePromise<Cell[] | ErrorResult>;
   /**
    * See https://docs.tonconsole.com/academy/sign-data#how-the-signature-is-built for more details.
    *
@@ -178,9 +181,9 @@ class LedgerSigner implements Signer {
     return signTonProofWithLedger(this.network, this.wallet, proof);
   }
 
-  async signTransactions(transactions: PreparedTransactionToSign[]) {
+  async signTransactions(transactions: PreparedTransactionToSign[], isTonConnect?: boolean) {
     const { signTonTransactionsWithLedger } = await import('../ledger');
-    return signTonTransactionsWithLedger(this.network, this.wallet, transactions, this.subwalletId);
+    return signTonTransactionsWithLedger(this.network, this.wallet, transactions, this.subwalletId, isTonConnect);
   }
 
   signData(): never {

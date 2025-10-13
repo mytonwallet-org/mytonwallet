@@ -532,7 +532,6 @@ $dapp_liquid_staking_vote_payload: 對提案 %votingAddress% 投票“%vote%”
 $dapp_single_nominator_change_validator_payload: 將 SingleNominator 質押合約驗證器的位址改為 %address%
 $dapp_single_nominator_withdraw_payload: 從 SingleNominator 質押合約中提取 %amount% TON
 $dapp_vesting_add_whitelist_payload: 將%address%加入歸屬錢包白名單
-Search or enter address: 搜尋或輸入地址
 Connecting dapps is not yet supported by Ledger.: Ledger 尚不支援連接 dapp。
 Time synchronization issue. Please ensure your device's time settings are correct.: 時間同步問題。 請確保您設備的時間設定正確。
 Data was copied!: 資料被複製！
@@ -700,8 +699,6 @@ $fee_details: |
   這就是 %chain_name% 區塊鏈的工作方式。
 Got It: 知道了
 Wallet: 錢包
-Connected: 已連接
-All Dapps: 所有去中心化應用
 Trending: 熱門
 No Data: 無數據
 Toggle fullscreen: 切換全螢幕模式
@@ -952,3 +949,6 @@ Without it, you won't be able to access your wallet.: 沒有它，您將無法�
 $ledger_connection_broken: Ledger連線已中斷。請重新連接並再試一次。
 $ledger_wrong_device: 當前帳戶使用了其他 Ledger 恢復短語或密碼，或存儲在其他 Ledger 設備上
 Show More: 顯示更多
+Search app or enter address: 搜尋應用程式或輸入地址
+Connected Apps: 已連線的應用程式
+Popular Apps: 熱門應用程式

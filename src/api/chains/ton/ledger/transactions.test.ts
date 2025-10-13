@@ -375,10 +375,10 @@ describe('tonPayloadToLedgerPayload', () => {
       const fromAddress = mockTonAddresses[0];
       const toAddress = mockTonAddresses[1];
       return {
-        tonPayload: buildNftTransferPayload(fromAddress, toAddress),
+        tonPayload: buildNftTransferPayload(fromAddress, toAddress, undefined, undefined, true),
         ledgerPayload: {
           type: 'nft-transfer',
-          queryId: expect.any(BigInt),
+          queryId: null, // eslint-disable-line no-null/no-null
           newOwner: expectAddress(Address.parse(toAddress)),
           responseDestination: expectAddress(Address.parse(fromAddress)),
           customPayload: null, // eslint-disable-line no-null/no-null
@@ -392,7 +392,7 @@ describe('tonPayloadToLedgerPayload', () => {
       const payload = packBytesAsSnakeCell(commentToBytes('Hello, world'));
       const forwardAmount = 20n;
       return {
-        tonPayload: buildNftTransferPayload(mockTonAddresses[0], mockTonAddresses[1], payload, forwardAmount),
+        tonPayload: buildNftTransferPayload(mockTonAddresses[0], mockTonAddresses[1], payload, forwardAmount, true),
         ledgerPayload: expect.objectContaining({
           customPayload: null, // eslint-disable-line no-null/no-null
           forwardAmount,
@@ -406,16 +406,19 @@ describe('tonPayloadToLedgerPayload', () => {
       const toAddress = mockTonAddresses[1];
       const amount = 42_000_000n;
       const forwardAmount = 3n;
+      const queryId = 0n;
+
       return {
         tonPayload: buildTokenTransferBody({
           tokenAmount: amount,
           toAddress,
           forwardAmount,
           responseAddress: fromAddress,
+          queryId,
         }),
         ledgerPayload: {
           type: 'jetton-transfer',
-          queryId: expect.any(BigInt),
+          queryId: null, // eslint-disable-line no-null/no-null
           amount,
           destination: expectAddress(Address.parse(toAddress)),
           responseDestination: expectAddress(Address.parse(fromAddress)),
@@ -530,7 +533,7 @@ describe('tonPayloadToLedgerPayload', () => {
 
   test.each(Object.entries(testCases))('%s', async (_, testCase) => {
     const resolvedTestCase = typeof testCase === 'function' ? await testCase() : testCase;
-    const { tonPayload, ledgerTonVersion = '2.7.0', ledgerPayload } = resolvedTestCase;
+    const { tonPayload, ledgerTonVersion = '2.8.1', ledgerPayload } = resolvedTestCase;
     const runFunction = tonPayloadToLedgerPayload.bind(undefined, tonPayload, ledgerTonVersion);
 
     if (ledgerPayload === 'unsupported') {
@@ -579,6 +582,7 @@ function makeMockTokenTransferPayload(params: Partial<TokenTransferBodyParams> =
     toAddress: mockTonAddresses[8],
     forwardAmount: 1n,
     responseAddress: mockTonAddresses[7],
+    queryId: 0n,
     ...params,
   });
 }

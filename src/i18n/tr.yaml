@@ -536,7 +536,6 @@ $dapp_liquid_staking_vote_payload: "%votingAddress% teklifi için \"%vote%\" oyu
 $dapp_single_nominator_change_validator_payload: SingleNominator staking sözleşmesi doğrulayıcısının adresi %address% olarak değiştiriliyor
 $dapp_single_nominator_withdraw_payload: "%amount% TON'un SingleNominator staking sözleşmesinden çekilmesi"
 $dapp_vesting_add_whitelist_payload: Vesting cüzdanı beyaz listesine %address% ekleniyor
-Search or enter address: Adresi arayın veya girin
 Connecting dapps is not yet supported by Ledger.: Dapp'lerin bağlanması henüz Ledger tarafından desteklenmiyor.
 Time synchronization issue. Please ensure your device's time settings are correct.: Time synchronization issue. Zaman senkronizasyonu sorunu. Lütfen cihazınızın saat ayarlarının doğru olduğundan emin olun.
 Data was copied!: Veri kopyalandı!
@@ -705,8 +704,6 @@ $fee_details: |
   %chain_name% Blockchain’in çalışma prensibi şöyledir.
 Got It: Anladım
 Wallet: Cüzdan
-Connected: Bağlandı
-All Dapps: Tüm Dapp'lar
 Trending: Trendler
 No Data: Veri Yok
 Toggle fullscreen: Tam ekranı aç/kapat
@@ -958,3 +955,6 @@ Without it, you won't be able to access your wallet.: Onsuz cüzdanınıza eriş
 $ledger_connection_broken: Ledger bağlantısı kesildi. Lütfen yeniden bağlanıp tekrar deneyin.
 $ledger_wrong_device: Mevcut hesap başka bir Ledger kurtarma ifadesi veya parola ile kuruldu ya da başka bir Ledger cihazında saklanıyor
 Show More: Daha fazla göster
+Search app or enter address: Uygulama ara veya adres gir
+Connected Apps: Bağlı Uygulamalar
+Popular Apps: Popüler Uygulamalar

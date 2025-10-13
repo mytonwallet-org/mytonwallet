@@ -8,6 +8,8 @@
 .header {
   cursor: var(--custom-cursor, pointer);
 
+  margin-bottom: 0;
+
   font-size: 0.8125rem;
   font-weight: 700;
   line-height: 1;
@@ -25,7 +27,7 @@
   padding: 1rem;
   border-radius: min(2rem, 25%);
 
-  background-color: var(--color-gray-button-background-light);
+  background-color: var(--color-background-second);
 
   &.interactive {
     cursor: var(--custom-cursor, pointer);

@@ -6,12 +6,12 @@ $imageSize: 3rem;
 $imageGapSize: 0.75rem;
 $listHorizontalPadding: 1rem;
 
-.rootSlide {
-  overflow: visible !important;
+// More specific selector for overwrite css variable
+.rootSlide.rootSlide {
+  --background-color: var(--color-background-first);
 
-  @include mixins.respond-above(xs) {
-    --background-color: var(--color-background-first);
-  }
+  overflow: visible !important;
+  background-color: var(--background-color);
 }
 
 .slide {
@@ -134,7 +134,7 @@ $listHorizontalPadding: 1rem;
 
       background-color: var(--color-interactive-item-hover);
 
-      .trendingImage,
+      .featuredImage,
       .imageWrapperScalable {
         transform: scale(1.05);
       }
@@ -143,7 +143,7 @@ $listHorizontalPadding: 1rem;
 
   @media (pointer: coarse) {
     &:active {
-      .trendingImage,
+      .featuredImage,
       .imageWrapperScalable {
         transform: scale(1.05);
       }
@@ -168,19 +168,19 @@ $listHorizontalPadding: 1rem;
   }
 
   @include mixins.respond-above(xs) {
-    &:not(.trending):first-child .badge {
+    &:not(.featured):first-child .badge {
       top: 0;
     }
   }
 }
 
-.trending {
+.featured {
   flex-direction: column;
 
-  width: 11.6875rem;
-  height: 11.6875rem;
+  width: 11.5625rem;
+  height: 11.5625rem;
   padding: 0;
-  border-radius: var(--border-radius-normal);
+  border-radius: var(--border-radius-big);
 
   .imageWrapper {
     position: absolute;
@@ -200,7 +200,7 @@ $listHorizontalPadding: 1rem;
 
     margin-top: auto;
     padding: 0.75rem;
-    border-radius: 0 0 var(--border-radius-normal) var(--border-radius-normal);
+    border-radius: 0 0 var(--border-radius-big) var(--border-radius-big);
 
     text-overflow: ellipsis;
 
@@ -214,15 +214,20 @@ $listHorizontalPadding: 1rem;
       bottom: 0;
       left: 0;
 
-      border-radius: 0 0 var(--border-radius-normal) var(--border-radius-normal);
+      border-radius: 0 0 var(--border-radius-big) var(--border-radius-big);
 
-      background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.3) 10%, rgba(0, 0, 0, 0.6) 20%, rgba(0, 0, 0, 0.85) 30%, rgba(0, 0, 0, 0.98) 40%, #000000 50%);
-      backdrop-filter: blur(1px);
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.4) 100%);
+      backdrop-filter: blur(10px);
     }
   }
 
   &.extended {
-    width: min(23.375rem, calc(100vw - calc(2 * $listHorizontalPadding - var(--scrollbar-width))));
+    width: min(23.125rem, calc(100vw - calc(2 * $listHorizontalPadding - var(--scrollbar-width))));
+  }
+
+  .image,
+  .imageWrapper {
+    border-radius: var(--border-radius-big);
   }
 }
 
@@ -237,7 +242,7 @@ $listHorizontalPadding: 1rem;
   width: 100%;
   height: 100%;
   border: 0.125rem solid var(--color-accent);
-  border-radius: var(--border-radius-normal);
+  border-radius: var(--border-radius-big);
 }
 
 .badge,
@@ -259,8 +264,9 @@ $listHorizontalPadding: 1rem;
   top: -0.25rem;
   right: 0;
 
-  .trending & {
-    right: -0.25rem;
+  .featured & {
+    top: -0.5rem;
+    right: 1.25rem;
   }
 }
 
@@ -300,7 +306,7 @@ $listHorizontalPadding: 1rem;
 }
 
 .imageWrapperScalable,
-.trendingImage {
+.featuredImage {
   transition: transform 300ms, opacity 0.15s ease !important;
 
   :global(html.animation-level-0) & {
@@ -313,6 +319,10 @@ $listHorizontalPadding: 1rem;
   flex-direction: column;
   justify-content: center;
   line-height: 1.0625rem;
+
+  &.wide {
+    flex-grow: 1;
+  }
 }
 
 .title {
@@ -347,6 +357,22 @@ $listHorizontalPadding: 1rem;
   }
 }
 
+.button {
+  flex-shrink: 0;
+  align-self: center;
+
+  margin-inline-start: 0.5rem;
+  padding: 0.4375rem 0.625rem;
+  border-radius: var(--border-radius-default);
+
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-accent);
+
+  background-color: color-mix(in lab, var(--color-accent) 8%, transparent);
+}
+
 .emptyList {
   display: flex;
   flex-direction: column;
@@ -375,7 +401,7 @@ $listHorizontalPadding: 1rem;
   width: 100%;
   margin-bottom: 0.5rem;
   padding-bottom: 1rem;
-  background-color: var(--color-background-first);
+  background-color: var(--background-color);
 
   @include mixins.respond-below(xs) {
     position: sticky !important;
@@ -383,8 +409,6 @@ $listHorizontalPadding: 1rem;
     top: 0;
 
     padding-top: calc(0.5rem + var(--safe-area-top));
-
-    background-color: var(--color-background-second);
 
     transition: background-color 300ms;
 
@@ -394,7 +418,7 @@ $listHorizontalPadding: 1rem;
 
     &:global(.is-scrolled) {
       @supports (backdrop-filter: saturate(180%) blur(20px)) {
-        background-color: var(--color-background-tab-bar);
+        background-color: var(--color-background-first-blur);
         backdrop-filter: saturate(180%) blur(20px);
       }
     }
@@ -402,6 +426,8 @@ $listHorizontalPadding: 1rem;
 }
 
 .searchContainer {
+  --background-color: #B4BCC329;
+
   position: relative;
 
   display: flex;
@@ -414,14 +440,18 @@ $listHorizontalPadding: 1rem;
 
   font-size: 1.25rem;
   line-height: 1;
-  color: var(--color-gray-3);
+  color: var(--color-gray-2);
 
-  background-color: var(--color-gray-button-background-light);
+  background-color: var(--background-color);
 
   @include mixins.adapt-margin-to-scrollbar(1rem);
 
   @include mixins.respond-below(xs) {
     margin-top: 0.25rem;
+  }
+
+  :global(.theme-dark) & {
+    --background-color: #888C9029;
   }
 }
 
@@ -458,19 +488,23 @@ $listHorizontalPadding: 1rem;
 }
 
 .sectionHeader {
-  margin: 0 1rem 0.75rem;
+  margin: 0 1rem 0.625rem;
 
   font-size: 1.25rem;
   font-weight: 800;
   line-height: 1.75rem;
   color: var(--color-black);
+
+  &Featured {
+    margin-bottom: 0;
+  }
 }
 
-.trendingSection {
-  margin-bottom: 2rem;
+.featuredSection {
+  margin-bottom: 1.75rem;
 }
 
-.trendingList {
+.featuredList {
   scrollbar-width: none;
 
   overflow-x: auto;
@@ -478,7 +512,7 @@ $listHorizontalPadding: 1rem;
   gap: 0.75rem;
 
   margin-top: -0.25rem;
-  padding: 0.25rem 1rem 0;
+  padding: 0.875rem 1rem 0;
 
   &::-webkit-scrollbar {
     display: none !important;

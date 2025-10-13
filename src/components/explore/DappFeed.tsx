@@ -78,7 +78,7 @@ function DappFeed({ dapps: dappsFromState, dappLastOpenedDatesByUrl }: StateProp
 
   return (
     <div className={styles.root} ref={containerRef}>
-      <h2 className={exploreStyles.sectionHeader}>{lang('Connected')}</h2>
+      <h2 className={exploreStyles.sectionHeader}>{lang('Connected Apps')}</h2>
 
       <div className={fullClassName}>
         {dapps?.map((dapp) => renderDapp(dapp, mode))}

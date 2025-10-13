@@ -540,7 +540,6 @@ $dapp_liquid_staking_vote_payload: Abstimmung „%vote%“ für Vorschlag %votin
 $dapp_single_nominator_change_validator_payload: Adresse des SingleNominator-Staking-Vertragsvalidators in %address% ändern
 $dapp_single_nominator_withdraw_payload: Abhebung von %amount% TON vom SingleNominator-Staking-Vertrag
 $dapp_vesting_add_whitelist_payload: "%address% zur Vesting Wallet-Whitelist hinzufügen"
-Search or enter address: Adresse suchen oder eingeben
 Connecting dapps is not yet supported by Ledger.: Das Verbinden von Dapps wird von Ledger noch nicht unterstützt.
 Time synchronization issue. Please ensure your device's time settings are correct.: Problem mit der Zeitsynchronisierung. Bitte stellen Sie sicher, dass die Zeiteinstellungen Ihres Geräts korrekt sind.
 Data was copied!: Daten wurden kopiert!
@@ -709,8 +708,6 @@ $fee_details: |
   So funktioniert die %chain_name% Blockchain.
 Got It: Verstanden
 Wallet: Wallet
-Connected: Verbunden
-All Dapps: Alle Dapps
 Trending: Im Trend
 No Data: Keine Daten
 Toggle fullscreen: Vollbildmodus umschalten
@@ -962,3 +959,6 @@ Without it, you won't be able to access your wallet.: Ohne ihn können Sie nicht
 $ledger_connection_broken: Die Ledger-Verbindung wurde unterbrochen. Bitte erneut verbinden und versuchen.
 $ledger_wrong_device: Das aktuelle Konto ist mit einer anderen Ledger-Wiederherstellungsphrase oder Passphrase eingerichtet oder auf einem anderen Ledger-Gerät gespeichert
 Show More: Mehr anzeigen
+Search app or enter address: App suchen oder Adresse eingeben
+Connected Apps: Verbundene Apps
+Popular Apps: Beliebte Apps

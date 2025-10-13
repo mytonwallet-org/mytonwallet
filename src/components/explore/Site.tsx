@@ -8,13 +8,15 @@ import { vibrate } from '../../util/haptics';
 import { openUrl } from '../../util/openUrl';
 import { getHostnameFromUrl, isTelegramUrl } from '../../util/url';
 
+import useLang from '../../hooks/useLang';
+
 import Image from '../ui/Image';
 
 import styles from './Explore.module.scss';
 
 interface OwnProps {
   site: ApiSite;
-  isTrending?: boolean;
+  isFeatured?: boolean;
   isInList?: boolean;
   className?: string;
 }
@@ -23,10 +25,12 @@ function Site({
   site: {
     url, icon, name, description, isExternal, isVerified, extendedIcon, withBorder, badgeText,
   },
-  isTrending,
+  isFeatured,
   isInList,
   className,
 }: OwnProps) {
+  const lang = useLang();
+
   function handleClick() {
     void vibrate();
     void openUrl(url, { isExternal, title: name, subtitle: getHostnameFromUrl(url) });
@@ -36,8 +40,8 @@ function Site({
     <div
       className={buildClassName(
         styles.item,
-        (extendedIcon && isTrending) && styles.extended,
-        isTrending && styles.trending,
+        (extendedIcon && isFeatured) && styles.extended,
+        isFeatured && styles.featured,
         !isInList && withBorder && styles.withBorder,
         className,
       )}
@@ -46,24 +50,25 @@ function Site({
       onClick={handleClick}
     >
       <Image
-        url={extendedIcon && isTrending ? extendedIcon : icon}
-        className={buildClassName(styles.imageWrapper, !isTrending && styles.imageWrapperScalable)}
-        imageClassName={buildClassName(styles.image, isTrending && styles.trendingImage)}
+        url={extendedIcon && isFeatured ? extendedIcon : icon}
+        className={buildClassName(styles.imageWrapper, !isFeatured && styles.imageWrapperScalable)}
+        imageClassName={buildClassName(styles.image, isFeatured && styles.featuredImage)}
       />
-      <div className={styles.infoWrapper}>
+      <div className={buildClassName(styles.infoWrapper, !isFeatured && styles.wide)}>
         <b className={styles.title}>
           {name}
 
-          {!isTrending && isTelegramUrl(url) && (
+          {!isFeatured && isTelegramUrl(url) && (
             <i className={buildClassName(styles.titleIcon, 'icon-telegram-filled')} aria-hidden />
           )}
-          {isTrending && isVerified && (
+          {isFeatured && isVerified && (
             <i className={buildClassName(styles.titleIcon, 'icon-verification')} aria-hidden />
           )}
           {isInList && badgeText && <div className={styles.badgeLabel}>{badgeText}</div>}
         </b>
         <div className={styles.description}>{renderText(description, ['simple_markdown'])}</div>
       </div>
+      {isInList && <div className={styles.button}>{lang('Open')}</div>}
       {!isInList && badgeText && <div className={styles.badge}>{badgeText}</div>}
     </div>
   );

@@ -57,6 +57,7 @@ interface OwnProps {
 interface StateProps {
   categories?: ApiSiteCategory[];
   sites?: ApiSite[];
+  featuredTitle?: string;
   shouldRestrict: boolean;
   browserHistory?: string[];
   currentSiteCategoryId?: number;
@@ -69,7 +70,14 @@ const enum SLIDES {
 }
 
 function Explore({
-  isActive, categories, sites: originalSites, shouldRestrict, browserHistory, currentSiteCategoryId, onScroll,
+  isActive,
+  categories,
+  sites: originalSites,
+  featuredTitle,
+  shouldRestrict,
+  browserHistory,
+  currentSiteCategoryId,
+  onScroll,
 }: OwnProps & StateProps) {
   const {
     loadExploreSites,
@@ -82,7 +90,7 @@ function Explore({
   const inputRef = useRef<HTMLInputElement>();
   const suggestionsTimeoutRef = useRef<number | undefined>(undefined);
   const transitionRef = useRef<HTMLDivElement>();
-  const trendingContainerRef = useRef<HTMLDivElement>();
+  const featuredContainerRef = useRef<HTMLDivElement>();
 
   const lang = useLang();
   const { isLandscape, isPortrait } = useDeviceScreen();
@@ -111,7 +119,7 @@ function Explore({
     [browserHistory, searchValue, filteredSites],
   );
 
-  const { trendingSites, allSites } = useMemo(() => processSites(filteredSites), [filteredSites]);
+  const { featuredSites, allSites } = useMemo(() => processSites(filteredSites), [filteredSites]);
 
   useEffect(() => {
     if (!IS_TOUCH_ENV || !filteredSites?.length) {
@@ -133,10 +141,10 @@ function Explore({
   }, [disableSwipeToClose, enableSwipeToClose, filteredSites?.length, prevSiteCategoryIdRef]);
 
   useHorizontalScroll({
-    containerRef: trendingContainerRef,
-    isDisabled: IS_TOUCH_ENV || trendingSites.length === 0,
+    containerRef: featuredContainerRef,
+    isDisabled: IS_TOUCH_ENV || featuredSites.length === 0,
     shouldPreventDefault: true,
-    contentSelector: `.${styles.trendingList}`,
+    contentSelector: `.${styles.featuredList}`,
   });
 
   const filteredCategories = useMemo(() => {
@@ -147,8 +155,8 @@ function Explore({
     if (!isActive) return;
 
     getDapps();
-    loadExploreSites({ isLandscape });
-  }, [isActive, isLandscape]);
+    loadExploreSites({ isLandscape, langCode: lang.code });
+  }, [isActive, isLandscape, lang.code]);
 
   const safeShowSuggestions = useLastCallback(() => {
     if (searchSuggestions.isEmpty) return;
@@ -219,7 +227,7 @@ function Explore({
         <input
           name="explore-search"
           className={styles.searchInput}
-          placeholder={lang('Search or enter address')}
+          placeholder={lang('Search app or enter address')}
           value={searchValue}
           autoCorrect={false}
           autoCapitalize="none"
@@ -233,13 +241,15 @@ function Explore({
     );
   }
 
-  function renderTrending() {
+  function renderFeatured() {
     return (
-      <div ref={trendingContainerRef} className={styles.trendingSection}>
-        <h2 className={styles.sectionHeader}>{lang('Trending')}</h2>
-        <div className={styles.trendingList}>
-          {trendingSites.map((site) => (
-            <Site key={`${site.url}-${site.name}`} site={site} isTrending />
+      <div ref={featuredContainerRef} className={styles.featuredSection}>
+        <h2 className={buildClassName(styles.sectionHeader, styles.sectionHeaderFeatured)}>
+          {lang(featuredTitle || 'Trending')}
+        </h2>
+        <div className={styles.featuredList}>
+          {featuredSites.map((site) => (
+            <Site key={`${site.url}-${site.name}`} site={site} isFeatured />
           ))}
         </div>
       </div>
@@ -268,11 +278,11 @@ function Explore({
 
             <DappFeed />
 
-            {Boolean(trendingSites.length) && renderTrending()}
+            {Boolean(featuredSites.length) && renderFeatured()}
 
             {Boolean(filteredCategories?.length) && (
               <>
-                <h2 className={styles.sectionHeader}>{lang('All Dapps')}</h2>
+                <h2 className={styles.sectionHeader}>{lang('Popular Apps')}</h2>
                 <div className={buildClassName(styles.list, isLandscape && styles.landscapeList)}>
                   {filteredCategories.map((category) => (
                     <Category key={category.id} category={category} sites={allSites[category.id]} />
@@ -339,11 +349,12 @@ function Explore({
 
 export default memo(withGlobal<OwnProps>((global): StateProps => {
   const { browserHistory, currentSiteCategoryId } = selectCurrentAccountState(global) || {};
-  const { categories, sites } = global.exploreData || {};
+  const { categories, sites, featuredTitle } = global.exploreData || {};
 
   return {
     sites,
     categories,
+    featuredTitle,
     shouldRestrict: global.restrictions.isLimitedRegion && (IS_IOS_APP || IS_ANDROID_APP),
     browserHistory,
     currentSiteCategoryId,

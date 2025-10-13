@@ -206,6 +206,7 @@ public class WNavigationBar: WTouchPassView, WThemedView {
                 leadingItem.view.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
                 leadingItem.view.centerYAnchor.constraint(equalTo: contentView.centerYAnchor)
             ])
+            leadingItem.view.setContentCompressionResistancePriority(.required, for: .horizontal)
         }
 
         if let trailingItem {
@@ -215,6 +216,7 @@ public class WNavigationBar: WTouchPassView, WThemedView {
                 trailingItem.view.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
                 trailingItem.view.leadingAnchor.constraint(greaterThanOrEqualTo: titleStackView.trailingAnchor, constant: 4),
             ])
+            trailingItem.view.setContentCompressionResistancePriority(.required, for: .horizontal)
         }
         
         if closeIcon {

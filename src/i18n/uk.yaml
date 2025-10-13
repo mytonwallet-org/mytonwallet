@@ -543,7 +543,6 @@ $dapp_liquid_staking_vote_payload: Голосування "%vote%" за проп
 $dapp_single_nominator_change_validator_payload: Зміна адреси валідатора контракту стекінгу SingleNominator на %address%
 $dapp_single_nominator_withdraw_payload: Зняття %amount% TON з контракту на ставку SingleNominator
 $dapp_vesting_add_whitelist_payload: Додавання %address% до білого списку гаманців
-Search or enter address: Введіть адресу або запит
 Time synchronization issue. Please ensure your device's time settings are correct.: Проблема із синхронізацією часу. Будь ласка, переконайтеся, що налаштування часу на вашому пристрої правильні.
 Data was copied!: Дані скопійовано!
 Open NFT Collection: Відкрити колекцію NFT
@@ -711,8 +710,6 @@ $fee_details: |
   Ось як працює блокчейн %chain_name%.
 Got It: Зрозуміло
 Wallet: Гаманець
-Connected: Підключено
-All Dapps: Всі додатки
 Trending: У тренді
 No Data: Даних немає
 Toggle fullscreen: Перемкнути повноекранний режим
@@ -970,3 +967,6 @@ Without it, you won't be able to access your wallet.: Без неї ви не з
 $ledger_connection_broken: З'єднання з Ledger перервано. Будь ласка, перепідключіться і спробуйте ще раз.
 $ledger_wrong_device: Поточний акаунт налаштовано з іншою фразою відновлення або паролем Ledger, або збережено на іншому пристрої Ledger
 Show More: Показати більше
+Search app or enter address: Пошук або адреса
+Connected Apps: Підключені додатки
+Popular Apps: Популярні додатки

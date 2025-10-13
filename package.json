@@ -1,6 +1,6 @@
 {
   "name": "mytonwallet",
-  "version": "4.2.5",
+  "version": "4.2.6",
   "description": "The most feature-rich web wallet and browser extension for TON – with support of multi-accounts, tokens (jettons), NFT, TON DNS, TON Sites, TON Proxy, and TON Magic.",
   "main": "index.js",
   "scripts": {

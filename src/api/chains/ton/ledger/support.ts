@@ -11,12 +11,13 @@ import { logDebugError } from '../../../../util/logs';
 
 export const VERSION_WITH_GET_SETTINGS = '2.1';
 export const VERSION_WITH_WALLET_SPECIFIERS = '2.1';
+export const VERSION_WITH_BROKEN_QUERY_ID = { min: '2.7.0', max: '2.8.0' };
 
 /** The values are the TON App versions. The keys are the largest jetton ids (jetton indices) added in that versions. */
 const VERSION_WITH_JETTON_ID = {
   6: '2.2',
   9: '2.6.1',
-  10: '2.8.0', // TODO Replace to real version
+  10: '2.9.0', // TODO Replace to real version
 };
 
 export const VERSION_WITH_PAYLOAD: Record<TonPayloadFormat['type'], string> = {
@@ -70,4 +71,11 @@ export function doesSupportKnownJettonId(ledgerTonVersion: string, jettonId: num
 
   logDebugError(`The minimum TON App version for jetton id ${jettonId} is not set in VERSION_WITH_JETTON_ID`);
   return false;
+}
+
+export function doesSupportNonZeroQueryId(ledgerTonVersion: string) {
+  return !(
+    compareVersions(ledgerTonVersion, VERSION_WITH_BROKEN_QUERY_ID.min) >= 0
+    && compareVersions(ledgerTonVersion, VERSION_WITH_BROKEN_QUERY_ID.max) <= 0
+  );
 }

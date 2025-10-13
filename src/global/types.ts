@@ -635,6 +635,7 @@ export type GlobalState = {
   };
 
   exploreData?: {
+    featuredTitle?: string;
     categories: ApiSiteCategory[];
     sites: ApiSite[];
   };
@@ -1154,7 +1155,7 @@ export interface ActionPayloads {
   getDapps: undefined;
   deleteAllDapps: undefined;
   deleteDapp: { url: string; uniqueId: string };
-  loadExploreSites: { isLandscape: boolean };
+  loadExploreSites: { isLandscape: boolean; langCode: LangCode | undefined };
   updateDappLastOpenedAt: { url: string };
 
   addSiteToBrowserHistory: { url: string };

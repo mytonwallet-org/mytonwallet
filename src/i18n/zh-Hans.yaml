@@ -532,7 +532,6 @@ $dapp_liquid_staking_vote_payload: 对提案 %votingAddress% 投票“%vote%”
 $dapp_single_nominator_change_validator_payload: 将 SingleNominator 质押合约验证者的地址更改为 %address%
 $dapp_single_nominator_withdraw_payload: 从 SingleNominator 质押合约中提取 %amount% TON
 $dapp_vesting_add_whitelist_payload: 将 %address% 添加到归属钱包白名单
-Search or enter address: 搜索或输入地址
 Connecting dapps is not yet supported by Ledger.: Ledger 尚不支持连接 dapp。
 Time synchronization issue. Please ensure your device's time settings are correct.: 时间同步问题。 请确保您设备的时间设置正确。
 Data was copied!: 数据被复制！
@@ -700,8 +699,6 @@ $fee_details: |
   这就是 %chain_name% 区块链的工作方式。
 Got It: 知道了
 Wallet: 钱包
-Connected: 已连接
-All Dapps: 所有去中心化应用
 Trending: 热门
 No Data: 无数据
 Toggle fullscreen: 切换全屏模式
@@ -952,3 +949,6 @@ Without it, you won't be able to access your wallet.: 没有它，您将无法�
 $ledger_connection_broken: Ledger连接已断开。请重新连接并重试。
 $ledger_wrong_device: 当前账户使用了其他 Ledger 恢复短语或密码，或存储在其他 Ledger 设备上
 Show More: 显示更多
+Search app or enter address: 搜索应用或输入地址
+Connected Apps: 已连接的应用
+Popular Apps: 热门应用

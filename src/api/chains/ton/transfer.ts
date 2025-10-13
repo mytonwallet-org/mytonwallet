@@ -841,6 +841,7 @@ export async function signTransfers(
   expireAt?: number,
   /** Used for specific transactions on vesting.ton.org */
   ledgerVestingAddress?: string,
+  isTonConnect?: boolean,
 ): Promise<ApiSignedTransfer[] | { error: ApiAnyDisplayError }> {
   const account = await fetchStoredChainAccount(accountId, 'ton');
 
@@ -860,7 +861,9 @@ export async function signTransfers(
     false,
     ledgerVestingAddress ? LEDGER_VESTING_SUBWALLET_ID : undefined,
   );
-  const signedTransactions = await signTransactions({ account, expireAt, messages, seqno, signer });
+  const signedTransactions = await signTransactions({
+    account, expireAt, messages, seqno, signer, isTonConnect,
+  });
   if ('error' in signedTransactions) return signedTransactions;
 
   return signedTransactions.map(({ seqno, transaction }) => ({
@@ -879,6 +882,7 @@ interface SignTransactionOptions {
   expireAt?: number;
   /** If true, will sign the transaction as an internal message instead of external. Not supported by Ledger. */
   shouldBeInternal?: boolean;
+  isTonConnect?: boolean;
 }
 
 async function signTransaction(options: SignTransactionOptions) {
@@ -907,6 +911,7 @@ async function signTransactions({
   expireAt = Math.round(Date.now() / 1000) + TRANSFER_TIMEOUT_SEC,
   shouldBeInternal,
   allowOnlyOneTransaction,
+  isTonConnect,
 }: SignTransactionOptions & { allowOnlyOneTransaction?: boolean }) {
   const messagesPerTransaction = getMaxMessagesInTransaction(account);
   const messagesByTransaction = split(messages, messagesPerTransaction);
@@ -938,7 +943,7 @@ async function signTransactions({
 
   // All the transactions are passed to a single `signer.signTransactions` call, because it checks the transactions
   // before signing. See the `signTransactions` description for more details.
-  const signedTransactions = await signer.signTransactions(transactionsToSign);
+  const signedTransactions = await signer.signTransactions(transactionsToSign, isTonConnect);
   if ('error' in signedTransactions) return signedTransactions;
 
   return signedTransactions.map((transaction, index) => ({

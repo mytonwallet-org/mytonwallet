@@ -537,7 +537,6 @@ $dapp_liquid_staking_vote_payload: Votando "%vote%" por la propuesta %votingAddr
 $dapp_single_nominator_change_validator_payload: Cambiar la dirección del validador de contratos de participación de SingleNominator a %address%
 $dapp_single_nominator_withdraw_payload: Retiro de %amount% TON del contrato de participación de SingleNominator
 $dapp_vesting_add_whitelist_payload: Agregar %address% a la lista blanca de billeteras con derechos de uso
-Search or enter address: Buscar o ingresar dirección
 Connecting dapps is not yet supported by Ledger.: Ledger aún no admite la conexión de dapps.
 Time synchronization issue. Please ensure your device's time settings are correct.: Problema de sincronización horaria. Asegúrese de que la configuración de hora de su dispositivo sea correcta.
 Data was copied!: ¡Los datos fueron copiados!
@@ -706,8 +705,6 @@ $fee_details: |
   Así es como funciona %chain_name% Blockchain.
 Got It: Entendido
 Wallet: Monedero
-Connected: Conectado
-All Dapps: Todas las Dapps
 Trending: Tendencia
 No Data: Sin datos
 Toggle fullscreen: Alternar pantalla completa
@@ -959,3 +956,6 @@ Without it, you won't be able to access your wallet.: Sin ella, no podrás acced
 $ledger_connection_broken: La conexión de Ledger se ha interrumpido. Por favor, vuelva a conectar y pruebe de nuevo.
 $ledger_wrong_device: La cuenta actual está configurada con otra frase de recuperación o contraseña de Ledger, o almacenada en otro dispositivo Ledger
 Show More: Mostrar más
+Search app or enter address: Buscar aplicación o ingresar dirección
+Connected Apps: Aplicaciones conectadas
+Popular Apps: Aplicaciones populares

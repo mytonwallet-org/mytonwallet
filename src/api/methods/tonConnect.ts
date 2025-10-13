@@ -53,6 +53,7 @@ export async function signTransfers(accountId: string, messages: ApiTransferToSi
     password,
     validUntil,
     vestingAddress,
+    true,
   );
 }
 
