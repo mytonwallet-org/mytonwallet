@@ -192,17 +192,34 @@ public class BottomSheetPlugin: CAPPlugin, FloatingPanelControllerDelegate {
         currentOpenSelfCall = call
 
         DispatchQueue.main.async { [self] in
-            let parentFpc = bridge!.viewController!.parent! as! FloatingPanelController
-            parentFpc.surfaceView.backgroundColor = UIColor(hexString: call.getString("backgroundColor")!)
-
-            let topVc = parentFpc.presentingViewController as! CAPBridgeViewController
-            let topBottomSheetPlugin = topVc.bridge!.plugin(withName: "BottomSheet") as! BottomSheetPlugin
-
-            topBottomSheetPlugin.doOpen(
-                height: CGFloat(Float(call.getString("height")!)!)
-            )
-
-            bridge!.webView!.becomeFirstResponder()
+            guard let bridge, let parentFpc = bridge.viewController?.parent as? FloatingPanelController else {
+                assertionFailure("bridge or view controller is not set")
+                return
+            }
+            
+            if let colorString = call.getString("backgroundColor") {
+                parentFpc.surfaceView.backgroundColor = UIColor(hexString: colorString)
+            } else {
+                assertionFailure("can't get backgroundColor argument")
+            }
+            
+            if let topVc = parentFpc.presentingViewController as? CAPBridgeViewController,
+               let topBottomSheetPlugin = topVc.bridge?.plugin(withName: "BottomSheet") as? BottomSheetPlugin,
+               let heightString = call.getString("height"),
+               let height = Float(heightString)
+            {
+                topBottomSheetPlugin.doOpen(
+                    height: CGFloat(height)
+                )
+            } else {
+                assertionFailure("can't find parent plugin or height")
+            }
+            
+            if let webView = bridge.webView {
+                webView.becomeFirstResponder()
+            } else {
+                assertionFailure("can't find webView")
+            }
         }
     }
 
@@ -300,7 +317,16 @@ public class BottomSheetPlugin: CAPPlugin, FloatingPanelControllerDelegate {
     // Extra security level, potentially redundant
     private func ensureLocalOrigin() {
         DispatchQueue.main.sync { [self] in
-            precondition(bridge!.webView!.url!.absoluteString.hasPrefix(bridge!.config.serverURL.absoluteString))
+            guard let bridge else {
+                preconditionFailure("ensureLocalOrigin: bridge not set")
+            }
+            guard let webView = bridge.webView else {
+                preconditionFailure("ensureLocalOrigin: webView not set")
+            }
+            guard let url = webView.url else {
+                preconditionFailure("ensureLocalOrigin: url not set")
+            }
+            precondition(url.absoluteString.hasPrefix(bridge.config.serverURL.absoluteString))
         }
     }
 
@@ -375,27 +401,30 @@ public class BottomSheetPlugin: CAPPlugin, FloatingPanelControllerDelegate {
         if currentHalfY == nil {
             return
         }
-
-        let view = bridge!.viewController!.view!
+        guard let topVc = bridge?.viewController, let view = topVc.view else {
+            assertionFailure("can't find view")
+            return
+        }
+        
         let y = fpc.surfaceView.frame.origin.y
         let offsetTop = view.safeAreaInsets.top + FULL_INSET
         let currentOffsetY = y - offsetTop
         let currentHalfOffsetY = currentHalfY! - offsetTop
         let progress = 1 - currentOffsetY / currentHalfOffsetY
 
-        let maxMainHeight = view.superview!.frame.height
+        let maxMainHeight = view.superview?.frame.height ?? 0
         let minMainHeight = maxMainHeight - (view.safeAreaInsets.top * 2)
-        let maxScaleFactor = 1 - minMainHeight / maxMainHeight
+        let maxScaleFactor = maxMainHeight > 0 ? 1 - minMainHeight / maxMainHeight : 1
 
         let scale = 1 - maxScaleFactor * max(progress, 0)
 
         view.transform = CGAffineTransform(scaleX: scale, y: scale)
 
-        let topVc = bridge!.viewController!
-        topVc.view.layer.cornerRadius = scale < 1 ? CORNER_RADIUS : 0.0
+        view.layer.cornerRadius = scale < 1 ? CORNER_RADIUS : 0.0
 
-        let childBottomSheetPlugin = capVc!.bridge!.plugin(withName: "BottomSheet") as! BottomSheetPlugin
-        childBottomSheetPlugin.notifyListeners("move", data: nil)
+        if let childBottomSheetPlugin = capVc?.bridge?.plugin(withName: "BottomSheet") as? BottomSheetPlugin {
+            childBottomSheetPlugin.notifyListeners("move", data: nil)
+        }
     }
 
     public func floatingPanelDidChangeState(_ fpc: FloatingPanelController) {
