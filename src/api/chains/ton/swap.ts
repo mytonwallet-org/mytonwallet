@@ -72,7 +72,6 @@ export async function validateDexSwapTransfers(
 
     if (feeTransfer) {
       assert(feeTransfer.amount <= sumAmount, 'Fee transfer amount is bigger than main transfers amount');
-      assert(feeTransfer.amount <= MAX_NETWORK_FEE, 'Fee transfer amount is bigger than max network fee');
       assert(feeTransfer.amount + sumAmount < maxAmount, 'Total amount is too big');
       assert(FEE_ADDRESSES.includes(toBase64Address(feeTransfer.toAddress, false)), 'Unexpected fee transfer address');
     }
