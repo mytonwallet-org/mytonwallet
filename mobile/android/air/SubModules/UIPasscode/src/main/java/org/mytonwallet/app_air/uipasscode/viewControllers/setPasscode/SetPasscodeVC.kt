@@ -165,10 +165,13 @@ class SetPasscodeVC(
             insetsUpdatedBefore &&
             (window?.imeInsets?.bottom ?: 0) == 0
         ) {
-            if (!confirmedPasscode && wasShowingKeyboard)
-                pop()
-            else
-                passcodeInputView.requestFocus()
+            if (!confirmedPasscode){
+                if (wasShowingKeyboard)
+                    pop()
+                else
+                    passcodeInputView.requestFocus()
+            }
+
         }
         wasShowingKeyboard = isKeyboardOpen
         insetsUpdatedBefore = true
