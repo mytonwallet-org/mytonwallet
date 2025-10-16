@@ -9,6 +9,7 @@ data class InAppBrowserConfig(
     val injectTonConnectBridge: Boolean,
     val forceCloseOnBack: Boolean = false,
     val injectDarkModeStyles: Boolean = false,
+    val saveInVisitedHistory: Boolean = false,
     val options: List<Option>? = null,
     val selectedOption: String? = null,
 ) {

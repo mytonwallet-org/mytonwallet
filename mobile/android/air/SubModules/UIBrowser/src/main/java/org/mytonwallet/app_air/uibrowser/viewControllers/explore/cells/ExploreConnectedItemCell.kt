@@ -24,11 +24,11 @@ class ExploreConnectedItemCell(
     WThemedView {
 
     private val imageView = WCustomImageView(context).apply {
-        defaultRounding = Content.Rounding.Radius(10f.dp)
+        defaultRounding = Content.Rounding.Radius(12f.dp)
     }
 
     private val titleLabel = WLabel(context).apply {
-        setStyle(15f, WFont.Medium)
+        setStyle(16f, WFont.Medium)
         maxLines = 1
     }
 
@@ -46,7 +46,7 @@ class ExploreConnectedItemCell(
             toCenterY(imageView)
             startToEnd(titleLabel, imageView, 8f)
             toCenterY(titleLabel)
-            toEnd(titleLabel, 12f)
+            toEnd(titleLabel, 8f)
         }
 
         setOnClickListener {
@@ -69,8 +69,8 @@ class ExploreConnectedItemCell(
     }
 
     override fun updateTheme() {
-        setBackgroundColor(WColor.GroupedBackground.color, 10f.dp)
-        addRippleEffect(WColor.BackgroundRipple.color, 10f.dp)
+        setBackgroundColor(WColor.Background.color, 12f.dp)
+        addRippleEffect(WColor.BackgroundRipple.color, 12f.dp)
         titleLabel.setTextColor(WColor.PrimaryText.color)
     }
 }

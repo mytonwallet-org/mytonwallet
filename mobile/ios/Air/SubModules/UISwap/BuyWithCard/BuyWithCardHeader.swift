@@ -29,32 +29,37 @@ struct BuyWithCardHeader: View {
                 .foregroundStyle(.secondary)
         }
         .contentShape(.rect)
-        .menuSource(isEnabled: true, coordinateSpace: .global, menuContext: menuContext)
-        .onChange(of: model.selectedCurrency, perform: setMenu)
-        .onAppear { setMenu(model.selectedCurrency) }
+        .menuSource(menuContext: menuContext)
+        .onChange(of: model.selectedCurrency, perform: configureMenu)
+        .onAppear { configureMenu(model.selectedCurrency) }
     }
     
-    func setMenu(_ selection: MBaseCurrency) {
-        menuContext.setMenu {
-            ScrollableMenuContent {
-                DividedVStack {
-                    ForEach(model.supportedCurrencies) { currency in
-                        SelectableMenuItem(id: currency.rawValue, action: {
-                            model.selectedCurrency = currency
-                            menuContext.dismiss()
-                        }) {
-                            HStack {
-                                Text(lang(currency.name))
-                                    .fixedSize()
-                                Spacer()
-                                if selection == currency {
-                                    Text(Image(systemName: "checkmark"))
+    func configureMenu(_ selection: MBaseCurrency) {
+        menuContext.makeConfig = {
+            let items: [MenuItem] = model.supportedCurrencies.map { currency in
+                MenuItem.customView(
+                    id: currency.rawValue,
+                    view: {
+                        AnyView(
+                            SelectableMenuItem(id: "0-" + currency.rawValue, action: {
+                                model.selectedCurrency = currency
+                            }) {
+                                HStack {
+                                    Text(lang(currency.name))
+                                        .fixedSize()
+                                    Spacer()
+                                    if selection == currency {
+                                        Text(Image(systemName: "checkmark"))
+                                    }
                                 }
                             }
-                        }
-                    }
-                }
+                            .frame(height: 44)
+                        )
+                    },
+                    height: 44,
+                )
             }
+            return MenuConfig(menuItems: items)
         }
     }
 }

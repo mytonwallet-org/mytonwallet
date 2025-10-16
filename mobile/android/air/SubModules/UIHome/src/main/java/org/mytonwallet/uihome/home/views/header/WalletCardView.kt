@@ -220,6 +220,8 @@ class WalletCardView(
         lbl
     }
 
+    private val walletTypeView = WalletTypeView(context)
+
     val addressLabelContainer = WView(context).apply {
         setPaddingDp(4, 0, 4, 0)
         addView(addressChain, LayoutParams(16.dp, 16.dp))
@@ -230,6 +232,17 @@ class WalletCardView(
             startToEnd(addressLabel, addressChain, 6f)
             toEnd(addressLabel)
             toCenterY(addressLabel)
+        }
+    }
+    val bottomViewContainer = WView(context).apply {
+        addView(walletTypeView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        addView(addressLabelContainer, LayoutParams(WRAP_CONTENT, MATCH_PARENT))
+        setConstraints {
+            toStart(walletTypeView)
+            startToEnd(addressLabelContainer, walletTypeView)
+            toEnd(addressLabelContainer)
+            toCenterY(walletTypeView)
+            toCenterY(addressLabelContainer)
         }
     }
 
@@ -258,7 +271,7 @@ class WalletCardView(
         v.addView(miniPlaceholders)
         v.addView(balanceViewContainer, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         v.addView(balanceChangeLabel, LayoutParams(WRAP_CONTENT, 28.dp))
-        v.addView(addressLabelContainer, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        v.addView(bottomViewContainer, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         v.addView(mintIcon, LayoutParams(40.dp, 40.dp))
 
         v.setConstraints {
@@ -271,14 +284,14 @@ class WalletCardView(
             toCenterX(balanceViewContainer)
             toTop(balanceChangeLabel)
             toCenterX(balanceChangeLabel)
-            toCenterX(addressLabelContainer)
+            toCenterX(bottomViewContainer)
             toEnd(mintIcon, 4f)
         }
 
         v.post {
             val topOffset = (((parent as View).width - 32.dp) * ratio - 40.dp).roundToInt()
             v.setConstraints {
-                toTopPx(addressLabelContainer, topOffset)
+                toTopPx(bottomViewContainer, topOffset)
                 toTopPx(mintIcon, topOffset - 8)
                 constrainMaxWidth(balanceViewContainer.id, (parent as View).width - 34.dp)
             }
@@ -430,6 +443,14 @@ class WalletCardView(
             Color.WHITE.colorWithAlpha(25),
             20f.dp
         )
+        walletTypeView.configure()
+        bottomViewContainer.setConstraints {
+            startToEnd(
+                addressLabelContainer,
+                walletTypeView,
+                if (walletTypeView.isGone) 0f else 6f
+            )
+        }
     }
 
     private fun updateAddressLabel() {
@@ -447,9 +468,9 @@ class WalletCardView(
         )?.let { drawable ->
             drawable.mutate()
             drawable.setTint(addressLabel.currentTextColor)
-            val width = 16.dp
-            val height = 16.dp
-            drawable.setBounds(0, 1.dp - FontManager.activeFont.textOffset, width, height)
+            val width = 18.dp
+            val height = 18.dp
+            drawable.setBounds(1.dp, 1.dp - FontManager.activeFont.textOffset, width + 1.dp, height)
             val imageSpan = VerticalImageSpan(drawable)
             ss.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
@@ -607,6 +628,7 @@ class WalletCardView(
             Color.WHITE.colorWithAlpha(25),
             20f.dp
         )
+        walletTypeView.setColor(secondaryColor.colorWithAlpha(191))
     }
 
     val miniPlaceholdersMaxBottom = 28f.dp

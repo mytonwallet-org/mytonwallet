@@ -9,8 +9,8 @@ extension Api {
         try await bridge.callApiVoid("fetchNftsFromCollection", accountId, collectionAddress)
     }
     
-    public static func checkNftTransferDraft(options: ApiCheckNftTransferDraftOptions) async throws -> MTransactionDraft {
-        try await bridge.callApi("checkNftTransferDraft", options, decoding: MTransactionDraft.self)
+    public static func checkNftTransferDraft(options: ApiCheckNftTransferDraftOptions) async throws -> ApiCheckTransactionDraftResult {
+        try await bridge.callApi("checkNftTransferDraft", options, decoding: ApiCheckTransactionDraftResult.self)
     }
 
     public static func submitNftTransfers(accountId: String, password: String?, nfts: [ApiNft], toAddress: String, comment: String?, totalRealFee: BigInt?) async throws -> ApiSubmitNftTransfersResult {
@@ -40,17 +40,8 @@ public struct ApiCheckNftTransferDraftOptions: Encodable {
 }
 
 public struct ApiSubmitNftTransfersResult: Decodable, Sendable {
-    // ApiSubmitMultiTransferResult
-    public let messages: [TonTransferParams]
-    public let amount: String
-    public let seqno: Int
-    public let boc: String
-    public let msgHash: String
-    public let msgHashNormalized: String
-    public let paymentLink: String?
-    public let withW5Gasless: Bool?
-
-    public let activityIds: [String]
+    public var activityIds: [String]?
+    public var error: String?
 }
 
 public struct TonTransferParams: Equatable, Hashable, Codable, Sendable {

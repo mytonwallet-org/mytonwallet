@@ -44,6 +44,7 @@ public struct WalletCoreData {
         case dappSendTransactions(MDappSendTransactions)
         case dappSignData(ApiUpdate.DappSignData)
         case dappDisconnect(accountId: String, origin: String)
+        case dappLoading(ApiUpdate.DappLoading)
         
         case configChanged
 

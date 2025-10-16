@@ -1,15 +1,11 @@
-//
-//  MDiesel.swift
-//  MyTonWalletAir
-//
-//  Created by Sina on 12/20/24.
-//
 
 import WalletContext
 
-public typealias ApiFetchEstimateDieselResult = MDiesel
-
-public struct MDiesel: Equatable, Codable, Sendable {
+/**
+ * "Gas" is a fee in the native token.
+ * "Diesel" is a fee in the transferred token (or in Telegram stars) in gasless mode.
+ */
+public struct ApiFetchEstimateDieselResult: Equatable, Codable, Sendable {
     
     public let status: DieselStatus?
     
@@ -36,9 +32,7 @@ public struct MDiesel: Equatable, Codable, Sendable {
     let realFee: BigInt
 }
 
-extension MDiesel {
-    @available(*, deprecated, message: "check if diesel == nil or status == .notAvailable")
-    public var shouldPrefer: Bool { status != .notAvailable }
+extension ApiFetchEstimateDieselResult {
     public var tokenAmount: BigInt? { status == .starsFee ? nil : amount }
     public var starsAmount: BigInt? { status == .starsFee ? amount : nil }
 }

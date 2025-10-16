@@ -659,8 +659,8 @@ fun WViewController.showAlert(
     preferPrimary: Boolean = true,
     primaryIsDanger: Boolean = false,
     allowLinkInText: Boolean = false,
-) {
-    WDialog(
+): WDialog {
+    val dialog = WDialog(
         customView = FrameLayout(context).apply {
             val messageLabel = object : WLabel(context), WThemedView {
                 init {
@@ -698,7 +698,9 @@ fun WViewController.showAlert(
                 style = WDialogButton.Config.Style.NORMAL
             ) else null
         )
-    ).presentOn(this)
+    )
+    dialog.presentOn(this)
+    return dialog
 }
 
 fun WViewController.executeWithLowPriority(block: () -> Unit) {

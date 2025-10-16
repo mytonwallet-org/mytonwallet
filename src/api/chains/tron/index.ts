@@ -1,9 +1,10 @@
 import type { ChainSdk } from '../../types/chains';
 
 import { fetchActivityDetails, fetchActivitySlice } from './activities';
+import { normalizeAddress } from './address';
 import { getWalletFromAddress, getWalletFromBip39Mnemonic } from './auth';
 import { setupActivePolling, setupInactivePolling } from './polling';
-import { checkTransactionDraft, submitTransfer } from './transfer';
+import { checkTransactionDraft, fetchEstimateDiesel, submitGasfullTransfer } from './transfer';
 
 function notSupported(): never {
   throw new Error('Not supported in Tron');
@@ -13,6 +14,7 @@ const tronSdk: ChainSdk<'tron'> = {
   fetchActivitySlice,
   fetchActivityDetails,
   decryptComment: notSupported,
+  normalizeAddress,
   getWalletFromBip39Mnemonic,
   getWalletFromAddress,
   // A note for the future implementation:
@@ -23,7 +25,9 @@ const tronSdk: ChainSdk<'tron'> = {
   setupActivePolling,
   setupInactivePolling,
   checkTransactionDraft,
-  submitTransfer,
+  fetchEstimateDiesel,
+  submitGasfullTransfer,
+  submitGaslessTransfer: notSupported,
   verifyLedgerWalletAddress: notSupported,
   getIsLedgerAppOpen: notSupported,
 };

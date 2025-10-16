@@ -45,13 +45,19 @@ class ConnectedAppsViewModel : ViewModel(), WalletCore.EventObserver {
         viewModelScope.launch {
             try {
                 dapp.url?.let { dappUrl ->
-                    WalletCore.call(ApiMethod.DApp.DeleteDapp(accountId, dappUrl))
+                    WalletCore.call(
+                        ApiMethod.DApp.DeleteDapp(
+                            accountId,
+                            dapp.sse?.appClientId ?: "jsbridge",
+                            dappUrl,
+                        )
+                    )
                 }
                 WalletCore.notifyEvent(WalletEvent.DappRemoved(dapp))
                 WalletCore.requestDAppList()
-            } catch (e: JSWebViewBridge.ApiError) {
+            } catch (_: JSWebViewBridge.ApiError) {
 
-            } catch (e: IllegalArgumentException) {
+            } catch (_: IllegalArgumentException) {
 
             }
         }

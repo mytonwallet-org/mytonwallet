@@ -4,7 +4,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 
-object DappsStore {
+object DappsStore : IStore {
 
     // Observable Flow
     private val _dAppsFlow = MutableStateFlow<Map<String, List<ApiDapp>>>(emptyMap())
@@ -23,7 +23,11 @@ object DappsStore {
         }
     }
 
-    fun clean() {
+    override fun wipeData() {
+        clearCache()
+    }
+
+    override fun clearCache() {
         _dAppsFlow.value = emptyMap()
     }
 

@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.uicomponents.helpers
 
-import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Rect
@@ -11,8 +10,8 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 class WDividerItemDecoration(
-    private val context: Context,
     private val marginStartPx: Float,
+    private val marginEndPx: Float,
     private val backgroundColor: Int
 ) : RecyclerView.ItemDecoration() {
 
@@ -28,7 +27,7 @@ class WDividerItemDecoration(
 
     override fun onDrawOver(c: Canvas, parent: RecyclerView, state: RecyclerView.State) {
         val left = marginStartPx
-        val right = parent.width.toFloat()
+        val right = parent.width.toFloat() - marginEndPx
 
         for (i in 0 until parent.childCount) {
             val child = parent.getChildAt(i)

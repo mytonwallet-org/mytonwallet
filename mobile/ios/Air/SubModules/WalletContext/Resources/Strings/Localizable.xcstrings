@@ -864,6 +864,23 @@
       },
       "extractionState": "manual"
     },
+    "$accumulated_rewards": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accumulated Rewards"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Награды"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "$actions_description": {
       "localizations": {
         "en": {
@@ -876,6 +893,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Быстрый доступ к наиболее часто используемым действиям."
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "$ago": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d ago"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d назад"
           }
         }
       },
@@ -2501,6 +2535,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "現在讓我們檢查一下您是否正確寫下了秘密詞語。"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "$claim": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claim"
           }
         }
       },
@@ -13382,6 +13427,23 @@
       },
       "extractionState": "manual"
     },
+    "$visited_ago": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visited %1$d ago"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Посещено: %1$d назад"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "$wallet_create_done": {
       "localizations": {
         "en": {
@@ -16734,60 +16796,6 @@
             "state": "translated",
             "value": "All Dapps"
           }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Alle Dapps"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Todas las Dapps"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wszystkie Dapps"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Все приложения"
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dapps ทั้งหมด"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tüm Dapp'lar"
-          }
-        },
-        "uk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Всі додатки"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "所有去中心化应用"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "所有去中心化應用"
-          }
         }
       },
       "extractionState": "manual"
@@ -16868,7 +16876,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Все подарки в Telegram"
+            "value": "Все подарки Telegram"
           }
         }
       },
@@ -18319,6 +18327,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "您確定要從保存的地址中刪除嗎？"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Are you sure you want to unpin %tab%?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Are you sure you want to unpin %1$@?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вы уверены, что хотите открепить вкладку %1$@?"
           }
         }
       },
@@ -22448,7 +22473,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Период данных"
+            "value": "Период"
           }
         }
       },
@@ -22746,7 +22771,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Вывести награды"
+            "value": "Вывести"
           }
         },
         "th": {
@@ -22924,6 +22949,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "清除"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Clear All": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear All"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Очистить все"
           }
         }
       },
@@ -25676,59 +25718,87 @@
             "state": "translated",
             "value": "Connected"
           }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Connected Apps": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected Apps"
+          }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Verbunden"
+            "value": "Verbundene Apps"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Conectado"
+            "value": "Aplicaciones conectadas"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Połączono"
+            "value": "Połączone aplikacje"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Подключено"
+            "value": "Подключённые приложения"
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "เชื่อมต่อแล้ว"
+            "value": "แอปที่เชื่อมต่อ"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bağlandı"
+            "value": "Bağlı Uygulamalar"
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Підключено"
+            "value": "Підключені додатки"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已连接"
+            "value": "已连接的应用"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "已連接"
+            "value": "已連線的應用程式"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Connected Dapp": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected Dapp"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключённое приложение"
           }
         }
       },
@@ -26417,7 +26487,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Всё равно скопировать"
+            "value": "Скопировать"
           }
         }
       },
@@ -27608,6 +27678,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "目前質押數量"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Customize Widget": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Customize Widget"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настроить виджет"
           }
         }
       },
@@ -30002,7 +30089,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Заработано"
+            "value": "Всего"
           }
         },
         "th": {
@@ -45189,10 +45276,75 @@
             "value": "Popular Apps"
           }
         },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beliebte Apps"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplicaciones populares"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Popularne aplikacje"
+          }
+        },
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Популярные приложения"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "แอปยอดนิยม"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Popüler Uygulamalar"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Популярні додатки"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "热门应用"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "熱門應用程式"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Popular and connected apps": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Popular and connected apps"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Популярные и подключённые приложения"
           }
         }
       },
@@ -45820,71 +45972,6 @@
       },
       "extractionState": "manual"
     },
-    "Purchasing TRON with Russian Rubles is currently unavailable.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Purchasing TRON with Russian Rubles is currently unavailable."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Der Kauf von TRON mit Russischen Rubel ist derzeit nicht verfügbar."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La compra de TRON con rublos rusos no está disponible actualmente."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zakup TRON za ruble rosyjskie jest obecnie niedostępny."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Покупка TRON за рубли в данный момент недоступна."
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ขณะนี้ไม่สามารถซื้อ TRON ด้วยรูเบิลรัสเซียได้"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rus Rublesi ile TRON satın alma şu anda kullanılamıyor."
-          }
-        },
-        "uk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Купівля TRON за російські рублі наразі недоступна."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "目前无法使用俄罗斯卢布购买TRON。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "目前無法使用俄羅斯盧布購買TRON。"
-          }
-        }
-      },
-      "extractionState": "manual"
-    },
     "Push Notifications": {
       "localizations": {
         "en": {
@@ -46440,6 +46527,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Адрес получения"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Recent Searches": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recent Searches"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Недавние поисковые запросы"
           }
         }
       },
@@ -49003,66 +49107,77 @@
       },
       "extractionState": "manual"
     },
+    "Search app or enter address": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search app or enter address"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App suchen oder Adresse eingeben"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buscar aplicación o ingresar dirección"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wyszukaj aplikację lub wprowadź adres"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поиск или адрес"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ค้นหาแอปหรือป้อนที่อยู่"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uygulama ara veya adres gir"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пошук або адреса"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "搜索应用或输入地址"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "搜尋應用程式或輸入地址"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "Search or enter address": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Search or enter address"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Adresse suchen oder eingeben"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Buscar o ingresar dirección"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Szukaj lub wprowadź adres"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Введите адрес или запрос"
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ค้นหา หรือ กรอกที่อยู่บัญชี"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Adresi arayın veya girin"
-          }
-        },
-        "uk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Введіть адресу або запит"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "搜索或输入地址"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "搜尋或輸入地址"
           }
         }
       },
@@ -49373,7 +49488,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Просмотреть слова"
+            "value": "К словам"
           }
         }
       },
@@ -52837,6 +52952,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "這樣的錯誤，很多標籤"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Suggestions": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggestions"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предложения"
           }
         }
       },
@@ -58574,7 +58706,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Запрос на вывод ставок"
+            "value": "Запрос на вывод стейка"
           }
         }
       },
@@ -63860,7 +63992,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ваш баланс ставок"
+            "value": "Текущий депозит"
           }
         }
       },

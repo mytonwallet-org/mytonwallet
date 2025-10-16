@@ -4,8 +4,8 @@ import { withGlobal } from '../../global';
 import type { ApiChain } from '../../api/types';
 import type { Account, AccountChain, SavedAddress } from '../../global/types';
 
-import { TONCOIN } from '../../config';
-import { selectCurrentAccountState, selectIsMultichainAccount, selectNetworkAccounts } from '../../global/selectors';
+import { selectCurrentAccount, selectCurrentAccountState, selectNetworkAccounts } from '../../global/selectors';
+import { isKeyCountGreater } from '../../util/isEmptyObject';
 import { shortenAddress } from '../../util/shortenAddress';
 
 import useLang from '../../hooks/useLang';
@@ -28,15 +28,16 @@ interface OwnProps {
 interface StateProps {
   savedAddresses?: SavedAddress[];
   accounts?: Record<string, Account>;
-  isMultichainAccount?: boolean;
+  supportedChains?: Partial<Record<ApiChain, unknown>>;
 }
 
 function AddressBook({
   isOpen, currentChain, currentAddress = '', otherAccountIds,
-  accounts, savedAddresses, isMultichainAccount,
+  accounts, savedAddresses, supportedChains,
   onAddressSelect, onSavedAddressDelete, onClose,
 }: OwnProps & StateProps) {
   const lang = useLang();
+  const isMultichainAccount = supportedChains && isKeyCountGreater(supportedChains, 1);
 
   const renderedSavedAddresses = useMemo(() => {
     if (!savedAddresses || savedAddresses.length === 0) {
@@ -62,10 +63,9 @@ function AddressBook({
   }, [currentAddress, isMultichainAccount, currentChain, lang, onAddressSelect, onSavedAddressDelete, savedAddresses]);
 
   const renderedOtherAccounts = useMemo(() => {
-    if (!otherAccountIds || otherAccountIds.length === 0) return undefined;
+    if (!otherAccountIds || otherAccountIds.length === 0 || !supportedChains) return undefined;
 
-    const addressesToBeIgnored = savedAddresses?.map((item) => `${item.chain}:${item.address}`) ?? [];
-    const uniqueAddresses = new Set<string>();
+    const uniqueAddresses = new Set<string>(savedAddresses?.map((item) => `${item.chain}:${item.address}`) ?? []);
     const otherAccounts = otherAccountIds
       .reduce((acc, accountId) => {
         const account = accounts![accountId];
@@ -76,8 +76,7 @@ function AddressBook({
             address
             && !uniqueAddresses.has(key)
             && (!currentChain || chain === currentChain)
-            && (isMultichainAccount || chain === TONCOIN.chain)
-            && !addressesToBeIgnored.includes(`${chain}:${address}`)
+            && chain in supportedChains
           ) {
             uniqueAddresses.add(key);
             acc.push({
@@ -106,7 +105,10 @@ function AddressBook({
         onClick={onAddressSelect}
       />
     ));
-  }, [otherAccountIds, savedAddresses, accounts, currentChain, isMultichainAccount, currentAddress, onAddressSelect]);
+  }, [
+    otherAccountIds, savedAddresses, accounts, currentChain, isMultichainAccount, supportedChains, currentAddress,
+    onAddressSelect,
+  ]);
 
   const shouldRender = Boolean(renderedOtherAccounts?.length || renderedSavedAddresses?.length);
 
@@ -130,11 +132,12 @@ function AddressBook({
 }
 
 export default memo(withGlobal<OwnProps>((global): StateProps => {
+  const account = selectCurrentAccount(global);
   const accountState = selectCurrentAccountState(global);
 
   return {
     savedAddresses: accountState?.savedAddresses,
-    isMultichainAccount: selectIsMultichainAccount(global, global.currentAccountId!),
+    supportedChains: account?.byChain,
     accounts: selectNetworkAccounts(global),
   };
 })(AddressBook));

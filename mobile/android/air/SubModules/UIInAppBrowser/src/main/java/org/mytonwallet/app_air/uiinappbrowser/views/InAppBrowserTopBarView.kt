@@ -23,6 +23,7 @@ import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.resize
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
@@ -186,7 +187,7 @@ class InAppBrowserTopBarView(
                     titleLabel,
                     8.dp + (viewController.navigationController?.getSystemBars()?.top ?: 0)
                 )
-                startToStart(subtitleLabel, titleLabel)
+                startToStart(subtitleLabel, titleLabel, 1f)
                 topToBottom(subtitleLabel, titleLabel)
             }
             toTopPx(iconView, viewController.navigationController?.getSystemBars()?.top ?: 0)
@@ -233,10 +234,11 @@ class InAppBrowserTopBarView(
         val minimizeDrawable =
             ContextCompat.getDrawable(
                 context,
-                R.drawable.ic_arrow_bottom_24
+                R.drawable.ic_arrow_up_24
             )?.apply {
                 setTint(WColor.SecondaryText.color)
-            }
+            }?.resize(context, 24.dp, 24.dp)
+        minimizeButton.rotation = 180f
         minimizeButton.setImageDrawable(minimizeDrawable)
         minimizeButton.addRippleEffect(WColor.BackgroundRipple.color, 20f.dp)
         if (!options.isNullOrEmpty()) {
@@ -277,18 +279,18 @@ class InAppBrowserTopBarView(
                 }
                 titleLabel.scaleX = 1 - 0.23f * it
                 titleLabel.scaleY = titleLabel.scaleX
-                minimizeButton.rotation = it * 180
+                minimizeButton.rotation = (1 - it) * 180
                 setBackgroundColor(WColor.SearchFieldBackground.color.colorWithAlpha((it * 255).toInt()))
                 val drawableColor =
                     blendColors(
                         WColor.SecondaryText.color,
-                        WColor.PrimaryText.color,
+                        WColor.PrimaryLightText.color,
                         it
                     )
                 backDrawable.setColor(drawableColor)
                 backDrawable.setRotatedColor(drawableColor)
                 minimizeButton.drawable.setTint(drawableColor)
-                titleLabel.translationX = 35f.dp * it
+                titleLabel.translationX = 36f.dp * it
                 iconView.alpha = it
                 if (it == 1f) {
                     minimized = true
@@ -311,7 +313,7 @@ class InAppBrowserTopBarView(
                 }
                 titleLabel.scaleX = 1 - 0.23f * (1 - it)
                 titleLabel.scaleY = titleLabel.scaleX
-                minimizeButton.rotation = 180 + it * 180
+                minimizeButton.rotation = it * 180
                 titleLabel.setTextColor(
                     blendColors(
                         WColor.SecondaryText.color,

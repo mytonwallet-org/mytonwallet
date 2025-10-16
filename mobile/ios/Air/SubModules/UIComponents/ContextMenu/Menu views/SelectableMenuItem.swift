@@ -9,15 +9,17 @@ public struct SelectableMenuItem<Content: View>: View, @unchecked Sendable {
     
     var id: String
     var action: @Sendable () -> ()
+    var dismissOnSelect: Bool
     @ViewBuilder var content: () -> Content
     
     @EnvironmentObject private var menuContext: MenuContext
     
     var isSelected: Bool { menuContext.currentItem == id }
     
-    public init(id: String, action: @MainActor @escaping () -> Void, content: @escaping () -> Content) {
+    public init(id: String, action: @MainActor @escaping () -> Void, dismissOnSelect: Bool = true, @ViewBuilder content: @escaping () -> Content) {
         self.id = id
         self.action = action
+        self.dismissOnSelect = dismissOnSelect
         self.content = content
     }
     
@@ -28,6 +30,7 @@ public struct SelectableMenuItem<Content: View>: View, @unchecked Sendable {
                 .padding(.vertical, 11.5)
             Spacer(minLength: 0)
         }
+        .frame(minHeight: 44)
         .background {
             if isSelected {
                 Color.secondary.opacity(0.2)
@@ -35,45 +38,50 @@ public struct SelectableMenuItem<Content: View>: View, @unchecked Sendable {
         }
         .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }, action: { menuContext.locations[id] = $0 })
         .onAppear {
-            menuContext.registerAction(id: id, action: action)
+            menuContext.registerAction(id: id, action: _action)
         }
 
     }
+    
+    func _action() {
+        action()
+        if dismissOnSelect {
+            menuContext.dismiss()
+        }
+    }
 }
-
 
 public struct WMenuButton: View {
     
     var id: String
     var title: String
-    var leadingIcon: String?
-    var trailingIcon: String?
+    var leadingIcon: IconConfig?
+    var trailingIcon: IconConfig?
     var action: () -> ()
+    var dismissOnSelect: Bool
     
-    public init(id: String, title: String, leadingIcon: String? = nil, trailingIcon: String? = nil, action: @escaping () -> Void) {
+    public init(id: String, title: String, leadingIcon: IconConfig? = nil, trailingIcon: IconConfig? = nil, action: @escaping () -> Void, dismissOnSelect: Bool = true) {
         self.id = id
         self.title = title
         self.leadingIcon = leadingIcon
         self.trailingIcon = trailingIcon
         self.action = action
+        self.dismissOnSelect = dismissOnSelect
     }
     
-    
     public var body: some View {
-        SelectableMenuItem(id: id, action: action) {
+        SelectableMenuItem(id: id, action: action, dismissOnSelect: dismissOnSelect) {
             HStack {
                 HStack(spacing: 10) {
                     if let leadingIcon {
-                        Image.airBundle(leadingIcon)
-                            .padding(.vertical, -8)
+                        leadingIcon
                     }
                     Text(title)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 0)
                 if let trailingIcon {
-                    Image.airBundle(trailingIcon)
-                        .padding(.vertical, -8)
+                    trailingIcon
                 }
             }
         }

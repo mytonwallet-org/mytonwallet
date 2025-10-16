@@ -1,7 +1,7 @@
 import type { SignDataPayload } from '@tonconnect/protocol';
 import type { TeactNode } from '../lib/teact/teact';
 
-import type { ApiFetchEstimateDieselResult, ApiTonWalletVersion } from '../api/chains/ton/types';
+import type { ApiTonWalletVersion } from '../api/chains/ton/types';
 import type { ApiTonConnectProof } from '../api/tonConnect/types';
 import type {
   ApiAccountConfig,
@@ -16,6 +16,7 @@ import type {
   ApiDappPermissions,
   ApiDappTransfer,
   ApiEmulationResult,
+  ApiFetchEstimateDieselResult,
   ApiHistoryList,
   ApiImportAddressByChain,
   ApiLedgerDriver,
@@ -571,7 +572,7 @@ export type GlobalState = {
     isMemoRequired?: boolean;
     // Every time this field value changes, the `amount` value should be actualized using `preserveMaxTransferAmount`
     diesel?: ApiFetchEstimateDieselResult;
-    withDiesel?: boolean;
+    isGasless?: boolean;
     isGaslessWithStars?: boolean;
     // This field is used to display a scam warning in the UI only because `Dialogs` are not displayed in iOS
     // due to NBS specifics. Undefined means closed.
@@ -949,7 +950,7 @@ export interface ActionPayloads {
     comment?: string;
     shouldEncrypt?: boolean;
     nfts?: ApiNft[];
-    withDiesel?: boolean;
+    isGasless?: boolean;
     isBase64Data?: boolean;
     binPayload?: string;
     isGaslessWithStars?: boolean;

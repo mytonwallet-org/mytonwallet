@@ -11,7 +11,6 @@ import UIComponents
 import WalletCore
 import WalletContext
 import SwiftUI
-import Popovers
 import SwiftUIIntrospect
 
 private let log = Log("WalletCardView")
@@ -189,10 +188,10 @@ public class WalletCardView: WTouchPassView {
         
         let tapTarget = HostingView(ignoreSafeArea: true) {
             Color.clear.contentShape(.rect)
-                .menuSource(isEnabled: true, coordinateSpace: .global, menuContext: menuContext)
+                .menuSource(isEnabled: true, menuContext: menuContext)
                 .task {
-                    self.menuContext.setMenu {
-                        CurrencyMenu()
+                    self.menuContext.makeConfig = { [menuContext = self.menuContext] in
+                        currencyMenu(menuContext: menuContext)
                     }
                 }
         }
@@ -285,9 +284,9 @@ public class WalletCardView: WTouchPassView {
             walletChangeLabel.centerYAnchor.constraint(equalTo: walletChangeBackground.centerYAnchor, constant: -0.6),
 
             // Force address to animate vertically with balance view
-            addressView.bottomAnchor.constraint(greaterThanOrEqualTo: balanceCopyView.topAnchor, constant: 100 + addressView.walletAddressPadding),
+            addressView.bottomAnchor.constraint(greaterThanOrEqualTo: balanceCopyView.topAnchor, constant: 100 + 11),
             // Preffer it to be on bottom
-            addressView.label.bottomAnchor.constraint(equalTo: v.bottomAnchor, constant: -17).withPriority(.defaultHigh),
+            addressView.bottomAnchor.constraint(equalTo: v.bottomAnchor, constant: -6).withPriority(.defaultHigh),
             
             upgradeCardButton.bottomAnchor.constraint(greaterThanOrEqualTo: addressView.bottomAnchor),
             upgradeCardButton.bottomAnchor.constraint(equalTo: v.bottomAnchor, constant: -4).withPriority(.defaultHigh),
@@ -331,14 +330,10 @@ public class WalletCardView: WTouchPassView {
             //miniPlaceholders.topAnchor.constraint(lessThanOrEqualTo: delegate!.topAnchor, constant: 52)
         ])
 
-        addressView.addTarget(self, action: #selector(_addressPressed), for: .touchUpInside)
-        addressView.showsMenuAsPrimaryAction = false
-
         upgradeCardButton.addTarget(self, action: #selector(onUpgradeCardTap), for: .primaryActionTriggered)
 
         isUserInteractionEnabled = true
         addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(cardTapped)))
-        setupTapGestures()
     }
     
     // MARK: - Update methods
@@ -439,112 +434,7 @@ public class WalletCardView: WTouchPassView {
         currentNft?.gradientColor(in: rect ?? defaultGradientRect) ?? .white
     }
     
-    // MARK: Balance context menu
-    
-    func setupTapGestures() {
-        balanceWithArrow.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(onBalanceTap)))
-    }
-    
-    private var dismissMenu: (() -> ())?
-    
-    func setBaseCurrency(_ bc: MBaseCurrency) {
-        dismissMenu?()
-        dismissMenu = nil
-        Task {
-            do {
-                try await TokenStore.setBaseCurrency(currency: bc)
-            } catch {
-            }
-        }
-    }
-    
-    @objc func onBalanceTap() {
-        let amountBc = BalanceStore.currentAccountBalanceData?.totalBalance ?? 0
-        let exchangeRate1 = TokenStore.getCurrencyRate(TokenStore.baseCurrency ?? .USD)
-        let amountUsd = amountBc / exchangeRate1
-        
-        let menu = Templates.UIKitMenu(
-            sourceView: balanceWithArrow,
-            configuration: { config in
-                config.hapticFeedbackEnabled = true
-            },
-            content: {
-                Templates.DividedVStack {
-                    ForEach(MBaseCurrency.allCases) { bc in
-                        
-                        let exchangeRate = TokenStore.getCurrencyRate(bc)
-                        let a = amountUsd * exchangeRate
-                        let amount = BaseCurrencyAmount.fromDouble(a, bc)
-                        
-                        Templates.MenuItem({ [weak self] in self?.setBaseCurrency(bc)}) { pressed in
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(bc.name)
-                                        .font(.system(size: 17))
-                                    Text(amount.formatted())
-                                        .font(.system(size: 15))
-                                        .padding(.bottom, 1)
-                                        .foregroundStyle(Color(WTheme.secondaryLabel))
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                
-                                if bc == TokenStore.baseCurrency {
-                                    Image.airBundle("BaseCurrencyCheckmark")
-                                }
-                            }
-                            .foregroundStyle(Color(WTheme.primaryLabel))
-                            .padding(EdgeInsets(top: 7, leading: 16, bottom: 7, trailing: 16))
-                            .background(pressed ? Templates.buttonHighlightColor : Color.clear)
-                        }
-                    }
-                }
-            },
-            fadeLabel: nil
-        )
-        dismissMenu = {
-            menu.dismiss()
-        }
-        menu.present()
-    }
-    
-    
-    // MARK: - Address info
-    
-    @objc private func _addressPressed() {
-        let isMultichain = AccountStore.account?.isMultichain == true
-        if isMultichain {
-            showAddressesMenu()
-        } else {
-            UIPasteboard.general.string = AccountStore.account?.firstAddress
-            topWViewController()?.showToast(animationName: "Copy", message: lang("Address was copied!"))
-            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-        }
-    }
-    
-    func showAddressesMenu() {
-        
-        let menu = Templates.UIKitMenu(
-            sourceView: addressView,
-            configuration: { config in
-                config.hapticFeedbackEnabled = true
-                config.width = min(280, self.bounds.width - 48)
-                config.sourceFrameInset = .init(top: 0, left: 0, bottom: 6, right: 0)
-            },
-            content: {
-                AddressesMenuContent(dismiss: {
-                    self.dismissMenu?()
-                })
-            },
-            fadeLabel: nil
-        )
-        dismissMenu = {
-            menu.dismiss()
-        }
-        menu.present()
-    }
-    
     // MARK: - Upgrade card
-    
     
     @objc func onUpgradeCardTap() {
         AppActions.showUpgradeCard()

@@ -3,6 +3,7 @@ import { Address } from '@ton/core';
 import type {
   ApiBackendStakingState,
   ApiBalanceBySlug,
+  ApiCheckTransactionDraftResult,
   ApiEthenaStakingState,
   ApiJettonStakingState,
   ApiLoyaltyType,
@@ -10,9 +11,10 @@ import type {
   ApiStakingCommonData,
   ApiStakingJettonPool,
   ApiStakingState,
+  ApiSubmitGasfullTransferResult,
 } from '../../types';
 import type { StakingPoolConfigUnpacked } from './contracts/JettonStaking/StakingPool';
-import type { ApiCheckTransactionDraftResult, ApiSubmitTransferTonResult, TonTransferParams } from './types';
+import type { TonTransferParams } from './types';
 import { ApiLiquidUnstakeMode, ApiTransactionDraftError } from '../../types';
 
 import {
@@ -54,7 +56,7 @@ import { getClientId } from '../../common/other';
 import { buildTokenSlug, getTokenByAddress, getTokenBySlug } from '../../common/tokens';
 import { isKnownStakingPool } from '../../common/utils';
 import { STAKE_COMMENT, TON_GAS, UNSTAKE_COMMENT } from './constants';
-import { checkTransactionDraft, submitTransfer } from './transfer';
+import { checkTransactionDraft, submitGasfullTransfer } from './transfer';
 
 export async function checkStakeDraft(accountId: string, amount: bigint, state: ApiStakingState) {
   let result: ApiCheckTransactionDraftResult;
@@ -69,7 +71,7 @@ export async function checkStakeDraft(accountId: string, amount: bigint, state: 
         accountId,
         toAddress: state.pool,
         amount: amount + TON_GAS.stakeNominators,
-        data: STAKE_COMMENT,
+        payload: { type: 'comment', text: STAKE_COMMENT },
       });
       if ('fee' in result && result.fee) {
         result.fee = TON_GAS.stakeNominators + result.fee;
@@ -81,7 +83,7 @@ export async function checkStakeDraft(accountId: string, amount: bigint, state: 
         accountId,
         toAddress: LIQUID_POOL,
         amount: amount + TON_GAS.stakeLiquid,
-        data: buildLiquidStakingDepositBody(),
+        payload: buildLiquidStakingDepositBody(),
       });
       if ('fee' in result && result.fee) {
         result.fee = TON_GAS.stakeLiquid + result.fee;
@@ -97,7 +99,7 @@ export async function checkStakeDraft(accountId: string, amount: bigint, state: 
         toAddress: pool,
         tokenAddress,
         amount,
-        data: StakingPool.stakePayload(period),
+        payload: StakingPool.stakePayload(period),
         forwardAmount: TON_GAS.stakeJettonsForward,
       });
       break;
@@ -117,7 +119,11 @@ export async function checkStakeDraft(accountId: string, amount: bigint, state: 
   return result;
 }
 
-export async function checkUnstakeDraft(accountId: string, amount: bigint, state: ApiStakingState) {
+export async function checkUnstakeDraft(
+  accountId: string,
+  amount: bigint, // The amount that the user sees
+  state: ApiStakingState,
+) {
   const { network } = parseAccountId(accountId);
   const { address } = await fetchStoredWallet(accountId, 'ton');
   const commonData = await getStakingCommonCache();
@@ -131,7 +137,7 @@ export async function checkUnstakeDraft(accountId: string, amount: bigint, state
         accountId,
         toAddress: state.pool,
         amount: TON_GAS.unstakeNominators,
-        data: UNSTAKE_COMMENT,
+        payload: { type: 'comment', text: UNSTAKE_COMMENT },
       });
       break;
     }
@@ -150,7 +156,7 @@ export async function checkUnstakeDraft(accountId: string, amount: bigint, state
         accountId,
         toAddress: params.toAddress,
         amount: params.amount,
-        data: params.payload,
+        payload: params.payload,
       });
       break;
     }
@@ -161,7 +167,7 @@ export async function checkUnstakeDraft(accountId: string, amount: bigint, state
         accountId,
         toAddress: state.stakeWalletAddress,
         amount: TON_GAS.unstakeJettons,
-        data: buildJettonUnstakePayload(amount, true),
+        payload: buildJettonUnstakePayload(amount, true),
       });
       break;
     }
@@ -199,55 +205,57 @@ export async function submitStake(
   amount: bigint,
   state: ApiStakingState,
 ) {
-  let result: ApiSubmitTransferTonResult;
+  let result: ApiSubmitGasfullTransferResult | { error: string };
+  let toAddress: string;
 
   const { network } = parseAccountId(accountId);
   const { address } = await fetchStoredWallet(accountId, 'ton');
 
   switch (state.type) {
     case 'nominators': {
-      result = await submitTransfer({
+      toAddress = toBase64Address(state.pool, true, network);
+      result = await submitGasfullTransfer({
         accountId,
         password,
-        toAddress: toBase64Address(state.pool, true, network),
+        toAddress,
         amount: amount + TON_GAS.stakeNominators,
-        data: STAKE_COMMENT,
+        payload: { type: 'comment', text: STAKE_COMMENT },
       });
       break;
     }
     case 'liquid': {
-      result = await submitTransfer({
+      toAddress = LIQUID_POOL;
+      result = await submitGasfullTransfer({
         accountId,
         password,
-        toAddress: LIQUID_POOL,
+        toAddress,
         amount: amount + TON_GAS.stakeLiquid,
-        data: buildLiquidStakingDepositBody(),
+        payload: buildLiquidStakingDepositBody(),
       });
       break;
     }
     case 'jetton': {
       const { tokenSlug, pool, period } = state;
       const { tokenAddress } = getTokenBySlug(tokenSlug)!;
+      toAddress = pool;
 
-      result = await submitTransfer({
+      result = await submitGasfullTransfer({
         accountId,
         password,
-        toAddress: pool,
+        toAddress,
         tokenAddress,
         amount,
-        data: StakingPool.stakePayload(period),
+        payload: StakingPool.stakePayload(period),
         forwardAmount: TON_GAS.stakeJettonsForward,
       });
-      if (!('error' in result)) {
-        result.toAddress = pool;
-      }
       break;
     }
     case 'ethena': {
-      result = await submitTransfer({
+      toAddress = ETHENA_STAKING_VAULT;
+      result = await submitGasfullTransfer({
         accountId,
         password,
-        toAddress: ETHENA_STAKING_VAULT,
+        toAddress,
         tokenAddress: TON_USDE.tokenAddress,
         amount,
         forwardAmount: TON_GAS.stakeEthenaForward,
@@ -256,32 +264,43 @@ export async function submitStake(
     }
   }
 
-  if (!('error' in result)) {
-    updateAccountCache(accountId, address, { stakedAt: Date.now() });
+  if ('error' in result) {
+    return result;
   }
 
-  return result;
+  updateAccountCache(accountId, address, { stakedAt: Date.now() });
+
+  return {
+    ...result,
+    localActivityParams: {
+      ...result.localActivityParams,
+      toAddress,
+    },
+  };
 }
 
 export async function submitUnstake(
   accountId: string,
   password: string | undefined,
-  amount: bigint,
+  amount: bigint, // Token amount (not the amount that the user sees)
   state: ApiStakingState,
 ) {
   const { network } = parseAccountId(accountId);
   const { address } = await fetchStoredWallet(accountId, 'ton');
 
-  let result: ApiSubmitTransferTonResult;
+  let result: ApiSubmitGasfullTransferResult | { error: string };
+  let toAddress: string;
+  let tokenSlug: string = TONCOIN.slug;
 
   switch (state.type) {
     case 'nominators': {
-      result = await submitTransfer({
+      toAddress = toBase64Address(state.pool, true, network);
+      result = await submitGasfullTransfer({
         accountId,
         password,
-        toAddress: toBase64Address(state.pool, true, network),
+        toAddress,
         amount: TON_GAS.unstakeNominators,
-        data: UNSTAKE_COMMENT,
+        payload: { type: 'comment', text: UNSTAKE_COMMENT },
       });
       break;
     }
@@ -292,45 +311,53 @@ export async function submitUnstake(
 
       const params = await buildLiquidStakingWithdraw(network, address, amount, mode);
 
-      result = await submitTransfer({
+      toAddress = params.toAddress;
+      result = await submitGasfullTransfer({
         accountId,
         password,
-        toAddress: params.toAddress,
+        toAddress,
         amount: params.amount,
-        data: params.payload,
+        payload: params.payload,
       });
       break;
     }
     case 'jetton': {
-      result = await submitTransfer({
+      toAddress = state.stakeWalletAddress;
+      result = await submitGasfullTransfer({
         accountId,
         password,
-        toAddress: state.stakeWalletAddress,
+        toAddress,
         amount: TON_GAS.unstakeJettons,
-        data: buildJettonUnstakePayload(amount, true),
+        payload: buildJettonUnstakePayload(amount, true),
       });
       break;
     }
     case 'ethena': {
-      result = await submitTransfer({
+      toAddress = TON_TSUSDE.tokenAddress;
+      tokenSlug = TON_TSUSDE.slug;
+      result = await submitGasfullTransfer({
         accountId,
         password,
-        toAddress: TON_TSUSDE.tokenAddress,
+        toAddress,
         amount,
         tokenAddress: TON_TSUSDE.tokenAddress,
         forwardAmount: TON_GAS.unstakeEthenaForward,
       });
-      if (!('error' in result)) {
-        result.localActivityParams = {
-          slug: TON_TSUSDE.slug,
-          amount: 0n,
-          toAddress: TON_TSUSDE.tokenAddress,
-        };
-      }
     }
   }
 
-  return result;
+  if ('error' in result) {
+    return result;
+  }
+
+  return {
+    ...result,
+    localActivityParams: {
+      ...result.localActivityParams,
+      toAddress,
+      slug: tokenSlug,
+    },
+  };
 }
 
 export async function buildLiquidStakingWithdraw(
@@ -643,18 +670,34 @@ export async function fetchBackendStakingState(address: string, isViewOnly: bool
   return stakingState;
 }
 
-export function submitTokenStakingClaim(
+export async function submitTokenStakingClaim(
   accountId: string,
   password: string | undefined,
   state: ApiJettonStakingState,
 ) {
-  return submitTransfer({
+  const toAddress = state.stakeWalletAddress;
+  const amount = TON_GAS.claimJettons;
+  const result = await submitGasfullTransfer({
     accountId,
     password,
-    toAddress: state.stakeWalletAddress,
-    amount: TON_GAS.claimJettons,
-    data: buildJettonClaimPayload(state.poolWallets!),
+    toAddress,
+    amount,
+    payload: buildJettonClaimPayload(state.poolWallets!),
   });
+
+  if ('error' in result) {
+    return result;
+  }
+
+  return {
+    ...result,
+    localActivityParams: {
+      ...result.localActivityParams,
+      toAddress,
+      amount,
+      slug: TONCOIN.slug,
+    },
+  };
 }
 
 export async function submitUnstakeEthenaLocked(
@@ -664,12 +707,12 @@ export async function submitUnstakeEthenaLocked(
 ) {
   const { address } = await fetchStoredWallet(accountId, 'ton');
 
-  const result = await submitTransfer({
+  const result = await submitGasfullTransfer({
     accountId,
     password,
     toAddress: state.tsUsdeWalletAddress,
     amount: TON_GAS.unstakeEthenaLocked,
-    data: TsUSDeWallet.transferTimelockedMessage({
+    payload: TsUSDeWallet.transferTimelockedMessage({
       jettonAmount: state.unstakeRequestAmount,
       to: Address.parse(TON_TSUSDE.tokenAddress),
       responseAddress: Address.parse(address),
@@ -677,16 +720,20 @@ export async function submitUnstakeEthenaLocked(
     }),
   });
 
-  if (!('error' in result)) {
-    result.localActivityParams = {
-      type: 'unstake',
+  if ('error' in result) {
+    return result;
+  }
+
+  return {
+    ...result,
+    localActivityParams: {
+      ...result.localActivityParams,
+      type: 'unstake' as const,
       amount: state.unstakeRequestAmount,
       isIncoming: true,
       slug: TON_USDE.slug,
       fromAddress: ETHENA_STAKING_VAULT,
       toAddress: address,
-    };
-  }
-
-  return result;
+    },
+  };
 }

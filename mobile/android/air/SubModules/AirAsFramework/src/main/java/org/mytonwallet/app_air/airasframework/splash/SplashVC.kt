@@ -37,6 +37,14 @@ import org.mytonwallet.app_air.uisend.send.SendVC
 import org.mytonwallet.app_air.uisend.send.SendVC.InitialValues
 import org.mytonwallet.app_air.uistake.earn.EarnRootVC
 import org.mytonwallet.app_air.uiswap.screens.swap.SwapVC
+import org.mytonwallet.app_air.uitonconnect.TonConnectController
+import org.mytonwallet.app_air.uitonconnect.viewControllers.connect.TonConnectRequestConnectVC
+import org.mytonwallet.app_air.uitonconnect.viewControllers.send.requestSend.TonConnectRequestSendVC
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.WalletContextManagerDelegate
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
@@ -46,8 +54,6 @@ import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
 import org.mytonwallet.app_air.walletcontext.helpers.LaunchConfig
 import org.mytonwallet.app_air.walletcontext.helpers.WordCheckMode
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
-import org.mytonwallet.app_air.walletbasecontext.theme.WColor
-import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.MAIN_NETWORK
 import org.mytonwallet.app_air.walletcore.TEST_NETWORK
@@ -64,25 +70,25 @@ import org.mytonwallet.app_air.walletcore.deeplink.DeeplinkParser
 import org.mytonwallet.app_air.walletcore.helpers.TonConnectHelper
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.moshi.ApiConnectionType
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.DApp.StartSseConnection
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.DApp.StartSseConnection.Request
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ActivityStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
-import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.uihome.tabs.TabsVC
 import java.io.UnsupportedEncodingException
 import java.net.URLEncoder
 
 class SplashVC(context: Context) : WViewController(context),
     WalletContextManagerDelegate,
-    DeeplinkNavigator {
+    DeeplinkNavigator,
+    WalletCore.UpdatesObserver {
 
     override val shouldDisplayTopBar = false
 
@@ -111,6 +117,7 @@ class SplashVC(context: Context) : WViewController(context),
         // Handle possible deep-links right after screen load (like switch to classic on first app launch)
         handleDeeplinkIfRequired()
         updateTheme()
+        WalletCore.subscribeToApiUpdates(ApiUpdate.ApiUpdateDappLoading::class.java, this)
     }
 
     override fun updateTheme() {
@@ -211,7 +218,7 @@ class SplashVC(context: Context) : WViewController(context),
                 } else {
                     // No more accounts left, let's reset
                     Logger.d(Logger.LogTag.ACCOUNT, "Reset accounts on splash error")
-                    StakingStore.clean()
+                    StakingStore.wipeData()
                     resetToIntro()
                 }
             } else {
@@ -424,7 +431,12 @@ class SplashVC(context: Context) : WViewController(context),
             switchToLegacy()
             return
         }
-        if (!_isWalletReady || !isAppUnlocked()) {
+        if (!_isWalletReady) {
+            nextDeeplink = deeplink
+            return
+        }
+        handleInstantDeeplinks(deeplink)
+        if (!isAppUnlocked()) {
             nextDeeplink = deeplink
             return
         }
@@ -432,6 +444,47 @@ class SplashVC(context: Context) : WViewController(context),
             nextDeeplink = null
             return
         }
+        handleWalletReadyDeeplinks(deeplink)
+    }
+
+    private fun handleInstantDeeplinks(deeplink: Deeplink) {
+        when (deeplink) {
+            is Deeplink.TonConnect2 -> {
+                if (deeplink.isConnectRequest &&
+                    AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW
+                ) {
+                    return // Will show a dialog after unlock!
+                }
+                val uri = try {
+                    encodeUriParams(deeplink.requestUri).toString()
+                } catch (_: Throwable) {
+                    //Logger.e(Logger.LogTag.DEEPLINK, "Encode error: ${t.toString()}")
+                    return
+                }
+                //Logger.d(Logger.LogTag.DEEPLINK, uri)
+                WalletCore.call(
+                    StartSseConnection(
+                        Request(
+                            url = uri,
+                            deviceInfo = TonConnectHelper.deviceInfo,
+                            identifier = TonConnectHelper.generateId()
+                        )
+                    )
+                ) { returnStrategy, err ->
+                    if (err != null) {
+                        //Logger.e(Logger.LogTag.DEEPLINK, "Error: $err")
+                        return@call
+                    }
+                    //Logger.d(Logger.LogTag.DEEPLINK, "Strategy: $returnStrategy")
+                }
+                nextDeeplink = null
+            }
+
+            else -> {}
+        }
+    }
+
+    private fun handleWalletReadyDeeplinks(deeplink: Deeplink) {
         if (deeplink.accountAddress != null) {
             val accountId =
                 AccountStore.accountIdByAddress(deeplink.accountAddress) ?: run {
@@ -489,7 +542,6 @@ class SplashVC(context: Context) : WViewController(context),
             return
         }
 
-        @Suppress("KotlinConstantConditions")
         when (deeplink) {
             is Deeplink.Invoice -> {
                 if (AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW) {
@@ -546,33 +598,17 @@ class SplashVC(context: Context) : WViewController(context),
             }
 
             is Deeplink.TonConnect2 -> {
-                if (AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW) {
+                if (deeplink.isConnectRequest &&
+                    AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW
+                ) {
+                    window?.topViewController?.showAlert(
+                        LocaleController.getString("Error"),
+                        LocaleController.getString("Action is not possible on a view-only wallet.")
+                    )
                     nextDeeplink = null
                     return
                 }
-                val uri = try {
-                    encodeUriParams(deeplink.requestUri).toString()
-                } catch (_: Throwable) {
-                    //Logger.e(Logger.LogTag.DEEPLINK, "Encode error: ${t.toString()}")
-                    return
-                }
-                //Logger.d(Logger.LogTag.DEEPLINK, uri)
-
-                WalletCore.call(
-                    StartSseConnection(
-                        Request(
-                            url = uri,
-                            deviceInfo = TonConnectHelper.deviceInfo,
-                            identifier = TonConnectHelper.generateId()
-                        )
-                    )
-                ) { returnStrategy, err ->
-                    if (err != null) {
-                        //Logger.e(Logger.LogTag.DEEPLINK, "Error: $err")
-                        return@call
-                    }
-                    //Logger.d(Logger.LogTag.DEEPLINK, "Strategy: $returnStrategy")
-                }
+                // Already handled
             }
 
             is Deeplink.Swap -> {
@@ -757,5 +793,68 @@ class SplashVC(context: Context) : WViewController(context),
                 bitmap.recycle()
             }
         } ?: onThemeChanged()
+    }
+
+    private fun presentTonConnectLoading() {
+        window?.let { window ->
+            val tonConnectRequestVC = TonConnectRequestConnectVC(window)
+            val isLoadingVCAdded =
+                TonConnectController.setLoadingConnectRequestViewController(
+                    tonConnectRequestVC
+                )
+            if (isLoadingVCAdded) {
+                val navVC = WNavigationController(
+                    window, WNavigationController.PresentationConfig(
+                        overFullScreen = false,
+                        isBottomSheet = true
+                    )
+                )
+                navVC.setRoot(tonConnectRequestVC)
+                if (isAppUnlocked())
+                    window.present(navVC)
+                else
+                    window.presentOnWalletReady(navVC)
+            }
+        }
+    }
+
+    private fun presentTonSendLoading(connectionType: ApiConnectionType) {
+        window?.let { window ->
+            if (!window.isAnimating &&
+                window.pendingPresentationNav?.viewControllers?.firstOrNull() !is TonConnectRequestSendVC
+            ) {
+                val tonConnectRequestSendVC = TonConnectRequestSendVC(window, connectionType)
+                val isLoadingVCAdded =
+                    TonConnectController.setLoadingSendRequestViewController(
+                        tonConnectRequestSendVC
+                    )
+                if (isLoadingVCAdded) {
+                    val navVC = WNavigationController(window)
+                    navVC.setRoot(tonConnectRequestSendVC)
+                    if (isAppUnlocked())
+                        window.present(navVC)
+                    else
+                        window.presentOnWalletReady(navVC)
+                }
+            }
+        }
+    }
+
+    override fun onBridgeUpdate(update: ApiUpdate) {
+        when (update) {
+            is ApiUpdate.ApiUpdateDappLoading -> {
+                when (update.connectionType) {
+                    ApiConnectionType.CONNECT -> {
+                        presentTonConnectLoading()
+                    }
+
+                    ApiConnectionType.SEND_TRANSACTION, ApiConnectionType.SIGN_DATA -> {
+                        presentTonSendLoading(update.connectionType)
+                    }
+                }
+            }
+
+            else -> {}
+        }
     }
 }

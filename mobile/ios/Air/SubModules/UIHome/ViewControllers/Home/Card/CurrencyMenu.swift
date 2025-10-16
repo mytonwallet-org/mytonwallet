@@ -6,37 +6,33 @@
 //
 
 import SwiftUI
-import Popovers
 import UIComponents
 import WalletContext
 import WalletCore
 
-struct CurrencyMenu: View {
+func currencyMenu(menuContext: MenuContext) -> MenuConfig {
     
-    @EnvironmentObject private var menuContext: MenuContext
-    
-    var body: some View {
-        ScrollableMenuContent {
-            DividedVStack {
-                let amountBc = BalanceStore.currentAccountBalanceData?.totalBalance ?? 0
-                let exchangeRate1 = TokenStore.getCurrencyRate(TokenStore.baseCurrency ?? .USD)
-                let amountUsd = amountBc / exchangeRate1
-                
-                ForEach(MBaseCurrency.allCases) { bc in
-                    let exchangeRate = TokenStore.getCurrencyRate(bc)
-                    let a = amountUsd * exchangeRate
-                    let amount = BaseCurrencyAmount.fromDouble(a, bc)
-                    
-                    SelectableMenuItem(id: bc.rawValue, action: {
+    let items: [MenuItem] = MBaseCurrency.allCases.map { bc in
+        MenuItem.customView(
+            id: "0-" + bc.rawValue,
+            view: {
+                AnyView(
+                    SelectableMenuItem(id: "0-" + bc.rawValue, action: {
                         Task {
                             do {
                                 try await TokenStore.setBaseCurrency(currency: bc)
                             } catch {
                             }
-                        }
-                        menuContext.dismiss()
-                        
+                        }                        
                     }, content: {
+                        let amountBc = BalanceStore.currentAccountBalanceData?.totalBalance ?? 0
+                        let exchangeRate1 = TokenStore.getCurrencyRate(TokenStore.baseCurrency ?? .USD)
+                        let amountUsd = amountBc / exchangeRate1
+                        
+                        let exchangeRate = TokenStore.getCurrencyRate(bc)
+                        let a = amountUsd * exchangeRate
+                        let amount = BaseCurrencyAmount.fromDouble(a, bc)
+                        
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(bc.name)
@@ -55,8 +51,10 @@ struct CurrencyMenu: View {
                         .foregroundStyle(Color(WTheme.primaryLabel))
                         .padding(EdgeInsets(top: -3, leading: 0, bottom: -3, trailing: 0))
                     })
-                }
-            }
-        }
+                )
+            },
+            height: 58
+        )
     }
+    return MenuConfig(menuItems: items)
 }

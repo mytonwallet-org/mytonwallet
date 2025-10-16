@@ -129,7 +129,7 @@ class CellHeaderSendRequest(context: Context) : LinearLayout(context), WThemedVi
             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
         )
         if (update.dapp.isUrlEnsured != true) {
-            builder.append(" ")
+            builder.append("\u00A0")
             ContextCompat.getDrawable(
                 ApplicationContextHolder.applicationContext,
                 org.mytonwallet.app_air.walletcontext.R.drawable.ic_warning
@@ -139,7 +139,7 @@ class CellHeaderSendRequest(context: Context) : LinearLayout(context), WThemedVi
                 drawable.setBounds(0, 0, width, height)
                 val imageSpan = VerticalImageSpan(drawable)
                 val start = builder.length
-                builder.append("\u00A0", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                builder.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
 
                 val clickableSpan = object : ClickableSpan() {
                     override fun onClick(widget: android.view.View) {

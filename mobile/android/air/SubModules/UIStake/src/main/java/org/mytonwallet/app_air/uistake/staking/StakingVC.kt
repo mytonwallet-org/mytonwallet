@@ -13,6 +13,7 @@ import androidx.lifecycle.ViewModelProvider
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
 import org.mytonwallet.app_air.uicomponents.base.showAlert
+import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -121,6 +122,12 @@ class StakingVC(
 
     private val scrollView = WScrollView(WeakReference(this))
 
+    private val bottomReversedCornerViewUpsideDown: ReversedCornerViewUpsideDown =
+        ReversedCornerViewUpsideDown(context, scrollView).apply {
+            if (ignoreSideGuttering)
+                setHorizontalPadding(0f)
+        }
+
     override fun setupViews() {
         super.setupViews()
 
@@ -133,6 +140,13 @@ class StakingVC(
 
         scrollView.addView(linearLayout, ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         view.addView(scrollView, ConstraintLayout.LayoutParams(MATCH_PARENT, 0))
+        view.addView(
+            bottomReversedCornerViewUpsideDown,
+            ConstraintLayout.LayoutParams(
+                MATCH_PARENT,
+                MATCH_CONSTRAINT
+            )
+        )
         view.addView(
             stakeButton,
             ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT)
@@ -152,6 +166,13 @@ class StakingVC(
                     (window?.imeInsets?.bottom ?: 0)
                 )
             )
+
+            topToTop(
+                bottomReversedCornerViewUpsideDown,
+                stakeButton,
+                -20f - ViewConstants.BIG_RADIUS
+            )
+            toBottom(bottomReversedCornerViewUpsideDown)
         }
 
         stakeInputView.setAsset(TokenStore.getToken(stakingViewModel.currentToken.unstakedSlug))

@@ -25,6 +25,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.children
+import androidx.core.view.doOnLayout
 import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -290,7 +291,9 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         })
     }
 
-    private var pendingPresentationNav: WNavigationController? = null
+    var pendingPresentationNav: WNavigationController? = null
+        private set
+
     fun presentOnWalletReady(
         navigationController: WNavigationController
     ): Boolean {
@@ -352,7 +355,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         navigationController.y = windowView.bottom.toFloat()
         val wasAnimating = isAnimating
         isAnimating = true
-        navigationController.post {
+        windowView.doOnLayout {
             val shouldPresentFullScreen = !navigationController.presentationConfig.isBottomSheet ||
                 navigationController.viewControllers.firstOrNull()?.isExpandable == true
             val finalY =
@@ -367,7 +370,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
                 removePrevNavigationControllersFromHierarchy()
                 isAnimating = false
                 onCompletion?.invoke()
-                return@post
+                return@doOnLayout
             }
             activeAnimator?.cancel()
             activeAnimator = ValueAnimator.ofInt(

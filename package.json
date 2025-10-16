@@ -1,6 +1,6 @@
 {
   "name": "mytonwallet",
-  "version": "4.2.7",
+  "version": "4.2.8",
   "description": "The most feature-rich web wallet and browser extension for TON – with support of multi-accounts, tokens (jettons), NFT, TON DNS, TON Sites, TON Proxy, and TON Magic.",
   "main": "index.js",
   "scripts": {
@@ -40,7 +40,7 @@
     "telegram:build:staging": "cross-env APP_ENV=staging npm run telegram:build",
     "telegram:build:production": "npm run telegram:build",
     "mobile:build:sdk": "bash ./deploy/build_sdk.sh",
-    "mobile:build": "npm run mobile:build:sdk && cross-env IS_CAPACITOR=1 npm run build && cap sync",
+    "mobile:build": "npm run mobile:build:sdk && cross-env IS_CAPACITOR=1 npm run build && cap sync --deployment",
     "mobile:build:dev": "cross-env APP_ENV=development npm run mobile:build",
     "mobile:build:staging": "cross-env APP_ENV=staging npm run mobile:build",
     "mobile:build:production": "npm run mobile:build",
@@ -204,7 +204,7 @@
     "@capacitor/share": "7.0.1",
     "@capacitor/splash-screen": "https://github.com/mytonwallet-org/capacitor-plugins/raw/1dfeb965cecefdd99eaebff28f48e1b0d75ea6b2/splash-screen/dist.tgz",
     "@capacitor/status-bar": "https://github.com/mytonwallet-org/capacitor-plugins/raw/1dfeb965cecefdd99eaebff28f48e1b0d75ea6b2/status-bar/dist.tgz",
-    "@capgo/capacitor-native-biometric": "github:mytonwallet-org/capacitor-native-biometric#6adb20543f4521471ca361e3015baebec8b2ce76",
+    "@capgo/capacitor-native-biometric": "github:mytonwallet-org/capacitor-native-biometric#e5f5fed9caad00c2276b7ca559766180c5b020b2",
     "@capgo/native-audio": "7.1.2",
     "@ledgerhq/hw-transport-webhid": "6.30.0",
     "@ledgerhq/hw-transport-webusb": "6.29.4",

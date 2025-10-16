@@ -90,21 +90,22 @@ async function getPassword(config: AuthConfig) {
       if (!isVerified) return undefined;
       password = token;
     } else if (config.kind === 'native-biometrics') {
-      const isVerified = await NativeBiometric.verifyIdentity({
+      const result = await NativeBiometric.verifyIdentityAndGetCredentials({
         title: APP_NAME,
         subtitle: '',
         isWeakAuthenticatorAllowed: true,
         maxAttempts: 1,
-      })
-        .then(() => true)
-        .catch(() => false);
-
-      if (!isVerified) return undefined;
-
-      const credentials = await NativeBiometric.getCredentials({
         server: NATIVE_BIOMETRICS_SERVER,
-      });
-      password = credentials.password;
+      })
+        .then((credentials) => credentials.password)
+        .catch((e) => {
+          logDebugError('getPassword', e);
+          return undefined;
+        });
+
+      if (!result) return undefined;
+
+      password = result;
     } else {
       throw new Error('Unexpected auth kind');
     }

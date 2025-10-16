@@ -23,9 +23,9 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
-import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import java.lang.ref.WeakReference
 import kotlin.math.max
@@ -169,11 +169,12 @@ class WDialog(private val customView: ViewGroup, private val config: Config) {
             overlayView,
             ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
         )
+        val contentViewWidth = 500.dp.coerceAtMost(parentView.width - 40.dp)
         parentView.apply {
             addView(
                 contentView,
                 FrameLayout.LayoutParams(
-                    500.dp.coerceAtMost(parentView.width - 40.dp),
+                    contentViewWidth,
                     WRAP_CONTENT
                 )
             )
@@ -183,12 +184,21 @@ class WDialog(private val customView: ViewGroup, private val config: Config) {
             }
         }
         contentView.post {
+            if (customView.height == 0) {
+                customView.measure(
+                    View.MeasureSpec.makeMeasureSpec(contentViewWidth, View.MeasureSpec.AT_MOST),
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+                )
+            }
+
+            val measuredHeight =
+                if (customView.height > 0) customView.height else customView.measuredHeight
             val customViewLp = customView.layoutParams.apply {
-                height = customView.height
+                height = measuredHeight
             } as? ViewGroup.MarginLayoutParams
             customView.layoutParams = customViewLp
             fullHeight =
-                (customViewLp?.topMargin ?: 0) + customView.height + (customViewLp?.bottomMargin
+                (customViewLp?.topMargin ?: 0) + measuredHeight + (customViewLp?.bottomMargin
                     ?: 0)
             if (actionButton != null)
                 actionButton.layoutParams =

@@ -14,7 +14,9 @@ export interface ChainConfig {
   /** Whether MyTonWallet supports purchasing crypto in that blockchain with a bank card in Russia */
   canBuyWithCardInRussia: boolean;
   /** Whether the chain supports sending asset transfers with a comment */
-  isTransferCommentSupported: boolean;
+  isTransferPayloadSupported: boolean;
+  /** Whether the chain supports sending the full balance of the native token (the fee is taken from the sent amount) */
+  canTransferFullNativeBalance: boolean;
   /** Whether Ledger support is implemented for this chain */
   isLedgerSupported: boolean;
   /** Regular expression for wallet and contract addresses in the chain */
@@ -54,7 +56,8 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     title: 'TON',
     isDnsSupported: true,
     canBuyWithCardInRussia: true,
-    isTransferCommentSupported: true,
+    isTransferPayloadSupported: true,
+    canTransferFullNativeBalance: true,
     isLedgerSupported: true,
     addressRegex: /^([-\w_]{48}|0:[\da-h]{64})$/i,
     addressPrefixRegex: /^([-\w_]{1,48}|0:[\da-h]{0,64})$/i,
@@ -81,7 +84,8 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     title: 'TRON',
     isDnsSupported: false,
     canBuyWithCardInRussia: false,
-    isTransferCommentSupported: false,
+    isTransferPayloadSupported: false,
+    canTransferFullNativeBalance: false,
     isLedgerSupported: false,
     addressRegex: /^T[1-9A-HJ-NP-Za-km-z]{33}$/,
     addressPrefixRegex: /^T[1-9A-HJ-NP-Za-km-z]{0,33}$/,

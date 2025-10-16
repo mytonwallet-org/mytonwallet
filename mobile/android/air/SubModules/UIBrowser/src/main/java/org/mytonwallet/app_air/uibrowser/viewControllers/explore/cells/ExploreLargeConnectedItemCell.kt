@@ -54,8 +54,8 @@ class ExploreLargeConnectedItemCell(
         setConstraints {
             toCenterX(imageView, imagePadding.toFloat())
             toTop(imageView, imagePadding.toFloat())
-            topToBottom(titleLabel, imageView, 4f)
-            toBottom(titleLabel, 8f)
+            topToBottom(titleLabel, imageView, 6f)
+            toBottom(titleLabel, 6f)
             toCenterX(titleLabel, 6f)
         }
 
@@ -83,7 +83,7 @@ class ExploreLargeConnectedItemCell(
                 org.mytonwallet.app_air.icons.R.drawable.ic_details
             )!!
             imageView.setImageDrawable(
-                drawable.resize(context, 32.dp, 32.dp, WColor.SecondaryText.color)
+                drawable.resize(context, 30.dp, 30.dp, WColor.SecondaryText.color)
             )
             titleLabel.text = LocaleController.getString("Settings")
         }

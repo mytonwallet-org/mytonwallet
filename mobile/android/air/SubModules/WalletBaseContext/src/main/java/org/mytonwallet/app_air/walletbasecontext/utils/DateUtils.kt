@@ -7,6 +7,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 
 private val cal = Calendar.getInstance()
 fun Date.isSameDayAs(date2: Date): Boolean {
@@ -66,6 +67,33 @@ fun Date.formatDateAndTime(period: MHistoryTimePeriod): String {
 
 fun Date.formatTime(): String {
     return formatDateAndTime("HH:mm")
+}
+
+fun Date.timeAgo(template: String = "\$ago"): String {
+    val diffInMillis = System.currentTimeMillis() - time
+
+    if (diffInMillis < 0) return ""
+
+    val seconds = TimeUnit.MILLISECONDS.toSeconds(diffInMillis)
+    val minutes = TimeUnit.MILLISECONDS.toMinutes(diffInMillis)
+    val hours = TimeUnit.MILLISECONDS.toHours(diffInMillis)
+
+    return when {
+        seconds < 60 -> LocaleController.getString("just now")
+        minutes < 60 -> LocaleController.getFormattedString(
+            template, listOf(
+                LocaleController.getPlural(minutes.toInt(), "minute")
+            )
+        )
+
+        hours < 24 -> LocaleController.getFormattedString(
+            template, listOf(
+                LocaleController.getPlural(hours.toInt(), "hour")
+            )
+        )
+
+        else -> formatDateAndTime()
+    }
 }
 
 object DateUtils {

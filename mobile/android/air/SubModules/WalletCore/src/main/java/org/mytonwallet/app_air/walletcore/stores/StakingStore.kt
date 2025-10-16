@@ -10,7 +10,7 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.MUpdateStaking
 import java.util.concurrent.ConcurrentHashMap
 
-object StakingStore {
+object StakingStore : IStore {
     private var stakingData = ConcurrentHashMap<String, MUpdateStaking?>()
 
     fun loadCachedStates() {
@@ -64,7 +64,11 @@ object StakingStore {
         return stakingData[accountId]
     }
 
-    fun clean() {
+    override fun wipeData() {
+        clearCache()
+    }
+
+    override fun clearCache() {
         stakingData.clear()
     }
 }

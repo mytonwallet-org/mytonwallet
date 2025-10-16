@@ -396,7 +396,7 @@ describe('tonPayloadToLedgerPayload', () => {
         ledgerPayload: expect.objectContaining({
           customPayload: null, // eslint-disable-line no-null/no-null
           forwardAmount,
-          forwardPayload: payload,
+          forwardPayload: expectCell(payload),
         }),
       };
     },

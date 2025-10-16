@@ -6,6 +6,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
@@ -22,7 +23,7 @@ fun WalletCore.loadExploreSites(
 ) {
     bridge?.callApi(
         "loadExploreSites",
-        "[{\"langCode\": \"en\", \"isLandscape\": false}]"
+        "[{\"langCode\": \"${WGlobalStorage.getLangCode()}\", \"isLandscape\": false}]"
     ) { result, error ->
         if (error != null || result == null) {
             callback(null, null, error)

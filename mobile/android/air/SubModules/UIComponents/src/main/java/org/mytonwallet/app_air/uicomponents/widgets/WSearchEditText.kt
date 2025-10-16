@@ -15,11 +15,11 @@ import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.ViewHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 
-class SwapSearchEditText @JvmOverloads constructor(
+open class SwapSearchEditText @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyle: Int = R.attr.editTextStyle,
@@ -76,5 +76,19 @@ class SwapSearchEditText @JvmOverloads constructor(
         setHintTextColor(WColor.SecondaryText.color)
         setTextColor(WColor.PrimaryText.color)
         backgroundDrawable.paint.color = WColor.SearchFieldBackground.color
+    }
+
+    fun setTextKeepCursor(newText: String) {
+        val currentSelectionStart = selectionStart
+        val currentSelectionEnd = selectionEnd
+
+        setText(newText)
+
+        if (currentSelectionStart >= 0 && currentSelectionEnd >= 0) {
+            val newLength = text?.length ?: 0
+            val safeStart = currentSelectionStart.coerceAtMost(newLength)
+            val safeEnd = currentSelectionEnd.coerceAtMost(newLength)
+            setSelection(safeStart, safeEnd)
+        }
     }
 }

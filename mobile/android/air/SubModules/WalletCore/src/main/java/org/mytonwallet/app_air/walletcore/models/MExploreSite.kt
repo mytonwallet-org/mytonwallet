@@ -2,9 +2,10 @@ package org.mytonwallet.app_air.walletcore.models
 
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcontext.utils.WEquatable
+import org.mytonwallet.app_air.walletcore.moshi.IDapp
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 
-class MExploreSite(json: JSONObject) : WEquatable<MExploreSite> {
+class MExploreSite(json: JSONObject) : WEquatable<MExploreSite>, IDapp {
 
     override fun isSame(comparing: WEquatable<*>): Boolean {
         if (comparing is MExploreSite)
@@ -21,13 +22,13 @@ class MExploreSite(json: JSONObject) : WEquatable<MExploreSite> {
         return true
     }
 
-    val name: String? = json.optString("name")
+    override val name: String? = json.optString("name")
     val canBeRestricted: Boolean = json.optBoolean("canBeRestricted")
     val isExternal: Boolean = json.optBoolean("isExternal")
     val manifestUrl: String? = json.optString("manifestUrl")
     val description: String? = json.optString("description")
-    val icon: String? = json.optString("icon")
-    val url: String? = json.optString("url")
+    override val iconUrl: String? = json.optString("icon")
+    override val url: String? = json.optString("url")
     val isFeatured = json.optBoolean("isFeatured")
     val categoryId = json.optInt("categoryId")
     val extendedIcon: String = json.optString("extendedIcon")

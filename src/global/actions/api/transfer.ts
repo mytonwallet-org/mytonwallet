@@ -1,15 +1,17 @@
-import type { ApiCheckTransactionDraftResult } from '../../../api/chains/ton/types';
 import type {
-  ApiSubmitNftTransferResult,
+  ApiChain,
+  ApiCheckTransactionDraftResult,
   ApiSubmitTransferOptions,
-  ApiSubmitTransferResult,
-} from '../../../api/methods/types';
+  ApiTransferPayload,
+} from '../../../api/types';
+import type { GlobalState } from '../../types';
 import { ApiTransactionDraftError } from '../../../api/types';
 import { ScamWarningType, TransferState } from '../../types';
 
 import { NFT_BATCH_SIZE } from '../../../config';
 import { bigintDivideToNumber } from '../../../util/bigint';
 import { getDoesUsePinPad } from '../../../util/biometrics';
+import { getChainConfig } from '../../../util/chain';
 import { explainApiTransferFee, getDieselTokenAmount } from '../../../util/fee/transferFee';
 import { split } from '../../../util/iteratees';
 import { callActionInNative } from '../../../util/multitab';
@@ -35,7 +37,6 @@ import {
   selectCurrentNetwork,
   selectIsHardwareAccount,
   selectToken,
-  selectTokenAddress,
 } from '../../selectors';
 
 addActionHandler('submitTransferInitial', async (global, actions, payload) => {
@@ -51,7 +52,7 @@ addActionHandler('submitTransferInitial', async (global, actions, payload) => {
     comment,
     shouldEncrypt,
     nfts,
-    withDiesel,
+    isGasless,
     stateInit,
     isGaslessWithStars,
     binPayload,
@@ -76,10 +77,8 @@ addActionHandler('submitTransferInitial', async (global, actions, payload) => {
       tokenAddress,
       toAddress,
       amount,
-      data: binPayload ?? comment,
-      shouldEncrypt,
+      payload: getTransferPayload(chain, binPayload, comment, shouldEncrypt),
       stateInit,
-      isBase64Data: Boolean(binPayload),
       allowGasless: true,
     });
   }
@@ -113,7 +112,7 @@ addActionHandler('submitTransferInitial', async (global, actions, payload) => {
     shouldEncrypt,
     tokenSlug,
     isToNewAddress: result.isToAddressNew,
-    withDiesel,
+    isGasless,
     isGaslessWithStars,
   }));
 });
@@ -131,18 +130,14 @@ addActionHandler('fetchTransferFee', async (global, actions, payload) => {
   const result = await callApi('checkTransactionDraft', chain, {
     accountId: global.currentAccountId!,
     toAddress,
-    data: binPayload ?? comment,
+    payload: getTransferPayload(chain, binPayload, comment, shouldEncrypt),
     tokenAddress,
-    shouldEncrypt,
-    isBase64Data: Boolean(binPayload),
     stateInit,
     allowGasless: true,
   });
 
   global = getGlobal();
-
-  if (tokenSlug !== global.currentTransfer.tokenSlug || global.currentTransfer.nfts?.length) {
-    // For cases when the user switches the token before the result arrives
+  if (hasCurrentTokenChanged(global, tokenSlug)) {
     return;
   }
 
@@ -177,6 +172,7 @@ addActionHandler('fetchTransferFee', async (global, actions, payload) => {
 
 addActionHandler('fetchNftFee', async (global, actions, payload) => {
   const { toAddress, nfts, comment } = payload;
+  const chain = 'ton';
 
   global = updateCurrentTransfer(global, { isLoading: true, error: undefined });
   setGlobal(global);
@@ -185,7 +181,7 @@ addActionHandler('fetchNftFee', async (global, actions, payload) => {
     accountId: global.currentAccountId!,
     nfts,
     toAddress,
-    comment,
+    comment: getNftTransferComment(chain, comment),
   });
 
   global = getGlobal();
@@ -223,7 +219,7 @@ addActionHandler('submitTransfer', async (global, actions, { password } = {}) =>
     shouldEncrypt,
     binPayload,
     nfts,
-    withDiesel,
+    isGasless,
     diesel,
     stateInit,
     isGaslessWithStars,
@@ -244,9 +240,10 @@ addActionHandler('submitTransfer', async (global, actions, { password } = {}) =>
   const fullNativeFee = explainedFee.fullFee?.nativeSum;
   const realNativeFee = explainedFee.realFee?.nativeSum;
 
-  let result: ApiSubmitTransferResult | ApiSubmitNftTransferResult | undefined;
+  let result: { activityId: string } | { activityIds: string[] } | { error: string } | undefined;
 
   if (nfts?.length) {
+    const chain = 'ton';
     const chunks = split(nfts, selectIsHardwareAccount(global) ? 1 : NFT_BATCH_SIZE);
 
     for (const chunk of chunks) {
@@ -256,7 +253,7 @@ addActionHandler('submitTransfer', async (global, actions, { password } = {}) =>
         password,
         chunk,
         resolvedAddress!,
-        comment,
+        getNftTransferComment(chain, comment),
         realNativeFee && bigintDivideToNumber(realNativeFee, nfts.length / chunk.length),
       );
 
@@ -276,13 +273,11 @@ addActionHandler('submitTransfer', async (global, actions, { password } = {}) =>
       password,
       toAddress: resolvedAddress!,
       amount: amount!,
-      comment: binPayload ?? comment,
+      payload: getTransferPayload(chain, binPayload, comment, shouldEncrypt),
       tokenAddress,
       fee: fullNativeFee,
       realFee: realNativeFee,
-      shouldEncrypt,
-      isBase64Data: Boolean(binPayload),
-      withDiesel,
+      isGasless,
       dieselAmount: diesel && getDieselTokenAmount(diesel),
       stateInit,
       isGaslessWithStars,
@@ -331,13 +326,17 @@ addActionHandler('cancelTransfer', (global, actions, { shouldReset } = {}) => {
 });
 
 addActionHandler('fetchTransferDieselState', async (global, actions, { tokenSlug }) => {
-  const tokenAddress = selectTokenAddress(global, tokenSlug);
+  const { tokenAddress, chain } = selectToken(global, tokenSlug);
   if (!tokenAddress) return;
 
-  const diesel = await callApi('fetchEstimateDiesel', global.currentAccountId!, tokenAddress);
+  const diesel = await callApi('fetchEstimateDiesel', global.currentAccountId!, chain, tokenAddress);
   if (!diesel) return;
 
   global = getGlobal();
+  if (hasCurrentTokenChanged(global, tokenSlug)) {
+    return;
+  }
+
   const accountState = selectAccountState(global, global.currentAccountId!);
   global = preserveMaxTransferAmount(global, updateCurrentTransfer(global, { diesel }));
   if (accountState?.isDieselAuthorizationStarted && diesel.status !== 'not-authorized') {
@@ -368,3 +367,28 @@ addActionHandler('checkTransferAddress', async (global, actions, { address }) =>
   }
   setGlobal(global);
 });
+
+function getTransferPayload(
+  chain: ApiChain,
+  binPayload?: string,
+  comment?: string,
+  shouldEncryptComment?: boolean,
+): ApiTransferPayload | undefined {
+  if (!getChainConfig(chain).isTransferPayloadSupported) {
+    return undefined;
+  }
+
+  if (binPayload) return { type: 'base64', data: binPayload };
+  if (comment) return { type: 'comment', text: comment, shouldEncrypt: shouldEncryptComment };
+  return undefined;
+}
+
+function getNftTransferComment(chain: ApiChain, comment?: string) {
+  return getChainConfig(chain).isTransferPayloadSupported ? comment : undefined;
+}
+
+/** For cases when the user switches the token before the API result arrives */
+function hasCurrentTokenChanged(currentGlobal: GlobalState, oldSlug: string) {
+  const { tokenSlug, nfts } = currentGlobal.currentTransfer;
+  return oldSlug !== tokenSlug || nfts?.length;
+}

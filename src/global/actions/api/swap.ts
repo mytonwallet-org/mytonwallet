@@ -1,7 +1,8 @@
-import type { ApiCheckTransactionDraftResult } from '../../../api/chains/ton/types';
-import type { ApiSubmitTransferOptions, ApiSubmitTransferResult } from '../../../api/methods/types';
 import type {
   ApiChain,
+  ApiCheckTransactionDraftResult,
+  ApiSubmitGasfullTransferOptions,
+  ApiSubmitGasfullTransferResult,
   ApiSwapActivity,
   ApiSwapBuildRequest,
   ApiSwapCexCreateTransactionRequest,
@@ -377,7 +378,7 @@ addActionHandler('submitSwapCex', async (global, actions, { password }) => {
   setGlobal(global);
 
   if (shouldSendTransaction) {
-    const transferOptions: ApiSubmitTransferOptions = {
+    const transferOptions: ApiSubmitGasfullTransferOptions = {
       password,
       accountId: global.currentAccountId!,
       fee: fromDecimal(swapItem.swap.networkFee, tokenIn.decimals),
@@ -388,7 +389,7 @@ addActionHandler('submitSwapCex', async (global, actions, { password }) => {
 
     await pause(WAIT_FOR_CHANGELLY);
 
-    let transferResult: ApiSubmitTransferResult | undefined;
+    let transferResult: ApiSubmitGasfullTransferResult | { error: string } | undefined;
 
     if (shouldSendTonTransaction) {
       transferResult = await callApi('swapCexSubmit', 'ton', transferOptions, swapItem.swap.id);

@@ -11,7 +11,13 @@ import java.net.URLDecoder
 sealed class Deeplink {
     abstract val accountAddress: String?
 
-    data class TonConnect2(override val accountAddress: String?, val requestUri: Uri) : Deeplink()
+    data class TonConnect2(override val accountAddress: String?, val requestUri: Uri) : Deeplink() {
+        val isConnectRequest: Boolean
+            get() {
+                return !requestUri.getQueryParameter("r").isNullOrBlank()
+            }
+    }
+
     data class Invoice(
         override val accountAddress: String?,
         val address: String,

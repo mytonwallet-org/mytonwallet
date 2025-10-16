@@ -92,7 +92,6 @@ extension DragulaItem {
 /// } dropView: { item in
 ///     Color.gray
 /// } dropCompleted: {
-///     print("Drop completed")
 /// }
 /// ```
 public struct DragulaSectionedView<Header: View,
@@ -215,7 +214,6 @@ public struct DragulaSectionedView<Header: View,
 /// } dropView: { item in
 ///     Color.secondary
 /// } dropCompleted: {
-///     print("Items reordered")
 /// }
 /// ```
 public struct DragulaView<Card: View, DropView: View, Item: DragulaItem>: View {

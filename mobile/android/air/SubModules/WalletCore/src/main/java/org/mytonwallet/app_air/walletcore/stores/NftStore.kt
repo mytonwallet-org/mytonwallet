@@ -14,7 +14,7 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import java.util.concurrent.Executors
 
-object NftStore {
+object NftStore : IStore {
     private var cacheExecutor = Executors.newSingleThreadExecutor()
 
     data class NftData(
@@ -39,7 +39,7 @@ object NftStore {
         private set
 
     fun loadCachedNfts(accountId: String) {
-        clean()
+        wipeData()
         nftData = NftData(
             accountId = accountId,
         )
@@ -219,7 +219,11 @@ object NftStore {
         WalletCore.notifyEvent(WalletEvent.NftsUpdated)
     }
 
-    fun clean() {
+    override fun wipeData() {
+        clearCache()
+    }
+
+    override fun clearCache() {
         nftData = null
         cacheExecutor.shutdownNow()
         cacheExecutor = Executors.newSingleThreadExecutor()

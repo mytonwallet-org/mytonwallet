@@ -107,6 +107,8 @@ class LedgerWalletCell(
         bottomLeftLabel.setTextColor(WColor.SecondaryText.color)
         rightLabel.setTextColor(WColor.SecondaryText.color)
         separator.setBackgroundColor(WColor.Separator.color)
+        checkboxDrawable.checkedColor = WColor.Tint.color
+        checkboxDrawable.uncheckedColor = WColor.SecondaryText.color
     }
 
     fun configure(

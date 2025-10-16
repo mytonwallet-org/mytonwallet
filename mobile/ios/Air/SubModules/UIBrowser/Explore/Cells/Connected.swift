@@ -132,15 +132,10 @@ struct ConnectedSettingsCellLarge: View {
         .frame(height: 36)
         HStack(spacing: 8) {
             ConnectedDappCellLarge(dapp: .sample, isHighlighted: false)
-                .border(.red)
 
             ConnectedSettingsCellLarge(isHighlighted: false)
-                .border(.red)
         }
         .aspectRatio(contentMode: .fit)
     }
-//    .border(Color.red)
-//    .padding(20)
-//    .background(.blue)
 }
 #endif

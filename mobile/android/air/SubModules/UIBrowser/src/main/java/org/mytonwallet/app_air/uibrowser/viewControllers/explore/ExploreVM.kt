@@ -9,7 +9,6 @@ import org.mytonwallet.app_air.walletcore.models.MExploreCategory
 import org.mytonwallet.app_air.walletcore.models.MExploreSite
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.DappsStore
 import java.lang.ref.WeakReference
 
@@ -17,6 +16,7 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
     interface Delegate {
         fun updateEmptyView()
         fun sitesUpdated()
+        fun accountChanged()
     }
 
     private val delegate: WeakReference<Delegate> = WeakReference(delegate)
@@ -24,7 +24,8 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
     private var waitingForNetwork = false
     internal var connectedSites: Array<ApiDapp>? =
         DappsStore.dApps[AccountStore.activeAccountId]?.toTypedArray()
-    private var allSites: Array<MExploreSite>? = null
+    var allSites: Array<MExploreSite>? = null
+        private set
     private var allExploreCategories: Array<MExploreCategory>? = null
 
     internal var showingExploreCategories: Array<MExploreCategory>? = null
@@ -89,19 +90,11 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
                 delegate.get()?.sitesUpdated()
             }
 
-            else -> {}
-        }
-    }
+            WalletEvent.AccountChangedInApp -> {
+                delegate.get()?.accountChanged()
+            }
 
-    fun filterSites(query: String): List<MExploreSite>? {
-        val query = query.lowercase()
-        return allSites?.filter {
-            (ConfigStore.isLimited != true || !it.canBeRestricted) &&
-                (
-                    it.name?.lowercase()?.contains(query) != false ||
-                        it.description?.lowercase()?.contains(query) != false ||
-                        it.url?.lowercase()?.contains(query) != false
-                    )
+            else -> {}
         }
     }
 

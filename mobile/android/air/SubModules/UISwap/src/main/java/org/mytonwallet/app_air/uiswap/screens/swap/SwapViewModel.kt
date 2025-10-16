@@ -779,12 +779,10 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                             accountId = request.wallet.accountId,
                             toAddress = estFeeAddress,
                             amount = estAmount,
-                            data = null,
                             stateInit = null,
                             tokenAddress = if (!request.tokenToSend.isBlockchainNative) request.tokenToSend.tokenAddress else null,
-                            shouldEncrypt = null,
-                            isBase64Data = null,
-                            allowGasless = null,
+                            payload = null,
+                            allowGasless = null
                         )
                     ).fee!!
                 } else {

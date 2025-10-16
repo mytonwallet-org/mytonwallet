@@ -51,7 +51,11 @@ class MainWindow : WWindow() {
 
     fun restartBridge(forcedRecreation: Boolean) {
         splashVC.preloadScreens()
-        WalletCore.setupBridge(this, windowView, forcedRecreation = forcedRecreation) {
+        WalletCore.setupBridge(
+            applicationContext,
+            windowView,
+            forcedRecreation = forcedRecreation
+        ) {
             // Bridge ready now!
             splashVC.bridgeIsReady()
             setAppFocusedState()

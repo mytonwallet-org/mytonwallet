@@ -4,42 +4,39 @@ import SwiftUI
 import UIComponents
 import WalletCore
 import WalletContext
-import Popovers
 
-
-struct AddressesMenuContent: View {
-    
-    var dismiss: () -> ()
-    
-    struct Row: Identifiable {
-        var chain: ApiChain
-        var address: String
-        var id: String { chain.tokenSlug }
-    }
-    
-    var rows: [Row] {
-        return (AccountStore.account?.addressByChain ?? [:])
-            .sorted(by: { $0.key < $1.key })
-            .map { (chain, address) in
-                Row(chain: ApiChain(rawValue: chain)!, address: address)
-            }
-    }
-    
-    var body: some View {
-        Templates.DividedVStack {
-            ForEach(rows) { row in
-                AddressRowView(dismiss: dismiss, row: row)
-            }
-        }
-        .clipShape(.rect(cornerRadius: 14))
-    }
+struct AddressesMenuContentRow: Identifiable {
+    var chain: ApiChain
+    var address: String
+    var id: String { "0-" + chain.tokenSlug }
 }
 
+func makeAddressesMenuConfig() -> MenuConfig {
+    
+    let rows: [AddressesMenuContentRow] = (AccountStore.account?.addressByChain ?? [:])
+        .sorted(by: { $0.key < $1.key })
+        .map { (chain, address) in
+            AddressesMenuContentRow(chain: ApiChain(rawValue: chain)!, address: address)
+        }
+    let items: [MenuItem] = rows.map { row in
+        .customView(
+            id: row.id,
+            view: {
+                AnyView(
+                    AddressRowView(row: row)
+                )
+            },
+            height: 60
+        )
+    }
+    return MenuConfig(menuItems: items)
+}
 
 fileprivate struct AddressRowView: View {
     
-    var dismiss: () -> ()
-    var row: AddressesMenuContent.Row
+    var row: AddressesMenuContentRow
+    
+    @EnvironmentObject private var menuContext: MenuContext
     
     var body: some View {
         HStack(spacing: 10) {
@@ -86,12 +83,12 @@ fileprivate struct AddressRowView: View {
         UIPasteboard.general.string = row.address
         topWViewController()?.showToast(animationName: "Copy", message: lang("Address was copied!"))
         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-        dismiss()
+        menuContext.dismiss()
     }
     
     func onOpenExplorer() {
         let url = ExplorerHelper.addressUrl(chain: row.chain, address: row.address)
         AppActions.openInBrowser(url)
-        dismiss()
+        menuContext.dismiss()
     }
 }

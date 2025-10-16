@@ -114,7 +114,8 @@ public class SettingsVC: WViewController, Sendable {
             case UICollectionView.elementKindSectionFooter:
                 let cell = collectionView.dequeueReusableSupplementaryView(ofKind: kind, withReuseIdentifier: kind, for: indexPath) as! FooterView
                 cell.bounds = CGRect(x: 0, y: 0, width: collectionView.contentSize.width, height: 46)
-                let g = UILongPressGestureRecognizer(target: self, action: #selector(SettingsVC.onVersionLongTap(_:)))
+                let g = UITapGestureRecognizer(target: self, action: #selector(SettingsVC.onVersionMultipleTap(_:)))
+                g.numberOfTapsRequired = 5
                 cell.addGestureRecognizer(g)
                 return cell
             default:
@@ -284,8 +285,8 @@ public class SettingsVC: WViewController, Sendable {
             })
     }
     
-    @objc func onVersionLongTap(_ gesture: UIGestureRecognizer) {
-        if gesture.state == .began {
+    @objc func onVersionMultipleTap(_ gesture: UIGestureRecognizer) {
+        if gesture.state == .ended {
             (UIApplication.shared.delegate as? MtwAppDelegateProtocol)?.showDebugView()
         }
     }

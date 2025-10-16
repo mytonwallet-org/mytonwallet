@@ -36,4 +36,8 @@ public extension UIView {
             )
         }
     }
+    
+    var windowFrame: CGRect {
+        self.convert(bounds, to: nil)
+    }
 }

@@ -7,8 +7,8 @@ extension View {
     
     @ViewBuilder
     public func menuSource(
-        isEnabled: Bool,
-        coordinateSpace: CoordinateSpace,
+        isEnabled: Bool = true,
+        coordinateSpace: CoordinateSpace = .global,
         menuContext: MenuContext
     ) -> some View {
         if isEnabled {
@@ -73,10 +73,6 @@ struct MenuSourceViewModifier: ViewModifier {
     }
     
     func showMenu() {
-        if !menuContext.menuShown {
-            if let view = getMenuLayerView() {
-                view.showMenu(menuContext: menuContext)
-            }
-        }
+        menuContext.present()
     }
 }

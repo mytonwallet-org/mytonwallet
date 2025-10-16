@@ -72,11 +72,9 @@ struct MoreItemsCell: View {
 #Preview {
     HStack(spacing: 16) {
         DappCell(item: .sampleFeaturedTelegram, isHighlighted: false)
-            .border(.red)
             .frame(width: 100, height: 100)
         
         MoreItemsCell(items: [.sampleFeaturedTelegram, .sampleFeaturedTelegram, .sampleFeaturedTelegram], isHighlighted: false)
-            .border(.red)
             .frame(width: 100, height: 100)
     }
     .padding(.horizontal, 20)

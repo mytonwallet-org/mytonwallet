@@ -161,7 +161,7 @@ class MToken(json: JSONObject) : IApiToken {
 
     val explorerUrl: String?
         get() {
-            if (tokenAddress.isNullOrEmpty())
+            if (tokenAddress.isNullOrEmpty() && cmcSlug != null)
                 return "https://coinmarketcap.com/currencies/${cmcSlug}/"
 
             val chain = MBlockchain.valueOf(chain)

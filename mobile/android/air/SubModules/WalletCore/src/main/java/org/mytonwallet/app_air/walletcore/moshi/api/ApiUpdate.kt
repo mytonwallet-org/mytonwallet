@@ -142,5 +142,16 @@ sealed class ApiUpdate {
         val rates: Map<String, Double>
     ) : ApiUpdate()
 
+    @JsonSealedSubtype("updateAccount")
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateUpdateAccount(
+        val accountId: String,
+        val chain: MBlockchain,
+        val address: String?,
+        /** `false` means that the account has no domain; `undefined` means that the domain has not changed */
+        val domain: String?,
+        val isMultisig: Boolean?
+    ) : ApiUpdate()
+
     // NOTICE: Do NOT forget to add new sub-types to MoshiBuilder file to prevent minification issues.
 }

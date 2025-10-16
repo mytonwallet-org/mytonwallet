@@ -4,12 +4,15 @@ import android.content.Context
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.recyclerview.widget.RecyclerView
 import org.mytonwallet.app_air.ledger.LedgerManager
 import org.mytonwallet.app_air.ledger.screens.ledgerWallets.cells.LedgerLoadMoreCell
 import org.mytonwallet.app_air.ledger.screens.ledgerWallets.cells.LedgerWalletCell
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.LastItemPaddingDecoration
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
@@ -46,7 +49,7 @@ class LedgerWalletsVC(
     )
 
     var items = mutableListOf<Item>()
-    private val homeVM by lazy {
+    private val ledgerWalletsVM by lazy {
         LedgerWalletsVM(this)
     }
 
@@ -81,7 +84,7 @@ class LedgerWalletsVC(
                 lockView()
                 this@apply.isLoading = true
                 this@apply.isEnabled = true
-                homeVM.finalizeImport(newlySelectedItems.map { it.wallet })
+                ledgerWalletsVM.finalizeImport(newlySelectedItems.map { it.wallet })
             }
         }
     }
@@ -122,6 +125,12 @@ class LedgerWalletsVC(
         rv
     }
 
+    private val bottomReversedCornerViewUpsideDown: ReversedCornerViewUpsideDown =
+        ReversedCornerViewUpsideDown(context, recyclerView).apply {
+            if (ignoreSideGuttering)
+                setHorizontalPadding(0f)
+        }
+
     override fun setupViews() {
         super.setupViews()
 
@@ -129,12 +138,19 @@ class LedgerWalletsVC(
         setupNavBar(true)
 
         view.addView(recyclerView, ViewGroup.LayoutParams(MATCH_PARENT, 0))
+        view.addView(
+            bottomReversedCornerViewUpsideDown,
+            ConstraintLayout.LayoutParams(
+                MATCH_PARENT,
+                MATCH_CONSTRAINT
+            )
+        )
         view.addView(continueButton, ViewGroup.LayoutParams(MATCH_PARENT, 0))
         recyclerView.setPadding(
             ViewConstants.HORIZONTAL_PADDINGS.dp,
             navigationBar?.calculatedMinHeight ?: 0,
             ViewConstants.HORIZONTAL_PADDINGS.dp,
-            8.dp +
+            20.dp +
                 continueButton.buttonHeight +
                 20.dp +
                 (navigationController?.getSystemBars()?.bottom ?: 0)
@@ -149,6 +165,12 @@ class LedgerWalletsVC(
                 continueButton, 20.dp +
                     (navigationController?.getSystemBars()?.bottom ?: 0)
             )
+            topToTop(
+                bottomReversedCornerViewUpsideDown,
+                continueButton,
+                -20f - ViewConstants.BIG_RADIUS
+            )
+            toBottom(bottomReversedCornerViewUpsideDown)
         }
 
         updateTheme()
@@ -160,7 +182,7 @@ class LedgerWalletsVC(
             ViewConstants.HORIZONTAL_PADDINGS.dp,
             navigationBar?.calculatedMinHeight ?: 0,
             ViewConstants.HORIZONTAL_PADDINGS.dp,
-            8.dp +
+            20.dp +
                 continueButton.buttonHeight +
                 20.dp +
                 (navigationController?.getSystemBars()?.bottom ?: 0)
@@ -255,7 +277,7 @@ class LedgerWalletsVC(
             else -> {
                 LedgerLoadMoreCell(context).apply {
                     onTap = {
-                        homeVM.loadMore(items.size)
+                        ledgerWalletsVM.loadMore(items.size)
                     }
                 }
             }

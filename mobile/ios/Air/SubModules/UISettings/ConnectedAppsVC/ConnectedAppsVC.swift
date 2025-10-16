@@ -203,10 +203,10 @@ extension ConnectedAppsVC: UITableViewDelegate, UITableViewDataSource {
         guard let dapps, indexPath.row - 1 < dapps.count else { return nil }
         let dapp = dapps[indexPath.row - 1]
         let deleteAction = UIContextualAction(style: .destructive, title: lang("Disconnect")) { [weak self] action, indexPath, callback  in
-            self?.dapps?.removeAll(where: { $0.url == dapp.url })
+            self?.dapps?.removeAll(where: { $0 == dapp })
             Task { @MainActor in
                 do {
-                    try await DappsStore.deleteDapp(url: dapp.url)
+                    try await DappsStore.deleteDapp(dapp: dapp)
                     callback(true)
                 } catch {
                     callback(false)

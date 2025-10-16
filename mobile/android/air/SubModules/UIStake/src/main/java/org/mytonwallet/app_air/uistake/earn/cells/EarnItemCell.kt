@@ -88,9 +88,13 @@ class EarnItemCell(context: Context) : WCell(context), WThemedView {
     }
 
     private val itemDateLabel: WLabel by lazy {
-        val label = WLabel(context)
-        label.setStyle(14f, WFont.Regular)
-        label
+        WLabel(context).apply {
+            setStyle(14f, WFont.Regular)
+            setSingleLine()
+            ellipsize = TextUtils.TruncateAt.MARQUEE
+            isHorizontalFadingEdgeEnabled = true
+            isSelected = true
+        }
     }
 
     private val amountLabel: WSensitiveDataContainer<WLabel> by lazy {
@@ -161,6 +165,9 @@ class EarnItemCell(context: Context) : WCell(context), WThemedView {
 
             topToBottom(itemDateLabel, titleLabel, -1f)
             startToStart(itemDateLabel, titleLabel)
+            endToStart(itemDateLabel, fiatValueLabel, 4f)
+            constrainedWidth(itemDateLabel.id, true)
+            setHorizontalBias(itemDateLabel.id, 0f)
             toBottom(itemDateLabel, 9f)
 
             topToTop(amountLabel, iconView)

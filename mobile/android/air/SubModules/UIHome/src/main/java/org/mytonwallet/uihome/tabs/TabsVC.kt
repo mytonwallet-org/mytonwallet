@@ -5,6 +5,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.os.Build
+import android.text.Spannable
+import android.text.SpannableString
+import android.text.style.ForegroundColorSpan
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.Menu
@@ -53,16 +57,18 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.SettingsVC
 import org.mytonwallet.app_air.uitransaction.viewControllers.TransactionVC
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
+import org.mytonwallet.app_air.walletcore.models.MExploreHistory
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
+import org.mytonwallet.app_air.walletcore.stores.ExploreHistoryStore
 import org.mytonwallet.uihome.R
 import org.mytonwallet.uihome.home.HomeVC
 import kotlin.math.max
@@ -80,10 +86,13 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         const val SEARCH_HEIGHT = 48
         const val SEARCH_TOP_MARGIN = 8
 
-        const val BOTTOM_TABS_LAYOUT_HEIGHT = 74
+        const val BOTTOM_TABS_LAYOUT_HEIGHT = 75
         const val BOTTOM_TABS_PADDING_OFFSET = -2
-        const val BOTTOM_TABS_BOTTOM_MARGIN = -12
+        const val BOTTOM_TABS_BOTTOM_MARGIN = -5
         const val BOTTOM_TABS_TOP_MARGIN = -8
+        const val BOTTOM_TABS_BOTTOM_TO_NAV_DIFF = 2
+
+        const val ELEVATION_COLOR = 0x44000000
     }
 
     override val isSwipeBackAllowed = false
@@ -165,40 +174,89 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         bottomNavigationView
     }
 
+    var isProcessingSearchKeyword = false
     private val searchView by lazy {
-        SwapSearchEditText(context).apply {
+        object : SwapSearchEditText(context) {
+            override fun onSelectionChanged(selStart: Int, selEnd: Int) {
+                super.onSelectionChanged(selStart, selEnd)
+                if (isProcessingSearchKeyword || searchMatchedSite == null)
+                    return
+
+                isProcessingSearchKeyword = true
+                setTextKeepCursor(searchKeyword)
+                searchMatchedSite = null
+                isProcessingSearchKeyword = false
+            }
+        }.apply {
             hint =
                 LocaleController.getString("Search or enter address")
             isVisible = false
             isEnabled = false
-            doOnTextChanged { text, _, _, _ ->
-                cachedBrowserVC?.search(text.toString())
+            doOnTextChanged { text, start, before, count ->
+                if (text != null && text == searchKeyword)
+                    return@doOnTextChanged
+                if (isProcessingSearchKeyword)
+                    return@doOnTextChanged
+                isProcessingSearchKeyword = true
+                if ((text?.length ?: 0) > searchKeyword.length)
+                    checkForMatchingUrl(text?.toString() ?: "")
+                else {
+                    searchKeyword = text?.toString() ?: ""
+                    searchMatchedSite = null
+                }
+                if (searchMatchedSite == null) {
+                    val cursorPosition = start + count
+                    setText(searchKeyword)
+                    setSelection(cursorPosition.coerceAtMost(searchKeyword.length))
+                }
+                cachedExploreVC?.search(searchKeyword, hasFocus())
+                post {
+                    isProcessingSearchKeyword = false
+                }
             }
             onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
-                val query = if (hasFocus) text.toString() else null
-                cachedBrowserVC?.search(query)
+                if (isProcessingSearchKeyword)
+                    return@OnFocusChangeListener
+                isProcessingSearchKeyword = true
+                val query = if (hasFocus) text?.toString() else null
+                cachedExploreVC?.search(query, hasFocus)
+                checkForMatchingUrl(query ?: "")
+                post {
+                    isProcessingSearchKeyword = false
+                }
             }
             setOnEditorActionListener { _, actionId, event ->
                 if (actionId == EditorInfo.IME_ACTION_DONE ||
                     event?.action == KeyEvent.ACTION_DOWN && event.keyCode == KeyEvent.KEYCODE_ENTER
                 ) {
-                    val uri = InAppBrowserVC.convertToUri(text.toString())
-                    uri?.let {
-                        val inAppBrowserVC = InAppBrowserVC(
-                            context,
-                            this@TabsVC,
-                            InAppBrowserConfig(
-                                url = it.toString(),
-                                injectTonConnectBridge = true
-                            )
+                    val config = searchMatchedSite?.let { searchMatchedSite ->
+                        InAppBrowserConfig(
+                            url = searchMatchedSite.url,
+                            injectTonConnectBridge = true,
+                            saveInVisitedHistory = true
                         )
-                        val nav = WNavigationController(window!!)
-                        nav.setRoot(inAppBrowserVC)
-                        window!!.present(nav)
-                        clearFocus()
-                        hideKeyboard()
-                        return@setOnEditorActionListener true
+                    } ?: run {
+                        val (isValidUrl, uri) = InAppBrowserVC.convertToUri(text.toString())
+                        if (!isValidUrl)
+                            ExploreHistoryStore.saveSearchHistory(text.toString())
+                        InAppBrowserConfig(
+                            url = uri.toString(),
+                            injectTonConnectBridge = true,
+                            saveInVisitedHistory = isValidUrl
+                        )
                     }
+                    val inAppBrowserVC = InAppBrowserVC(
+                        context,
+                        this@TabsVC,
+                        config
+                    )
+                    val nav = WNavigationController(window!!)
+                    nav.setRoot(inAppBrowserVC)
+                    window!!.present(nav, onCompletion = {
+                        setText("")
+                    })
+                    clearFocus()
+                    hideKeyboard()
                 }
                 false
             }
@@ -224,8 +282,9 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
     private fun render() {
         val keyboard = if (keyboardVisible.value > 0) keyboardVisible.value else 0f
         val minimizedNavHeight = if (minimizedNavHeight != null) minimizedNavHeight!! else 0f
+        val searchAdditionalTopMargin = 4.dp
         val additionalHeight =
-            (56f.dp * searchVisible.floatValue + keyboard + minimizedNavHeight).roundToInt()
+            ((56f.dp + searchAdditionalTopMargin) * searchVisible.floatValue + keyboard + minimizedNavHeight).roundToInt()
         val contentHeight = BOTTOM_TABS_LAYOUT_HEIGHT.dp +
             BOTTOM_TABS_BOTTOM_MARGIN.dp +
             BOTTOM_TABS_TOP_MARGIN.dp +
@@ -244,11 +303,11 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             }
         }
         searchView.translationY =
-            (SEARCH_HEIGHT + SEARCH_TOP_MARGIN).dp - BOTTOM_TABS_LAYOUT_HEIGHT.dp - BOTTOM_TABS_BOTTOM_MARGIN.dp - BOTTOM_TABS_TOP_MARGIN.dp / 2 - additionalHeight.toFloat()
+            (SEARCH_HEIGHT + SEARCH_TOP_MARGIN).dp - BOTTOM_TABS_LAYOUT_HEIGHT.dp - BOTTOM_TABS_BOTTOM_MARGIN.dp - BOTTOM_TABS_TOP_MARGIN.dp / 2 - (additionalHeight - searchAdditionalTopMargin).toFloat()
         val visibilityTranslationY = (1 - visibilityFraction) * contentHeight
         searchView.translationY += visibilityTranslationY
         bottomNavigationView.y =
-            contentHeight - (BOTTOM_TABS_LAYOUT_HEIGHT.dp + BOTTOM_TABS_BOTTOM_MARGIN.dp + minimizedNavHeight)
+            contentHeight - (BOTTOM_TABS_LAYOUT_HEIGHT.dp + BOTTOM_TABS_BOTTOM_MARGIN.dp + minimizedNavHeight) + BOTTOM_TABS_BOTTOM_TO_NAV_DIFF.dp * visibilityFraction
         if (activeVisibilityValueAnimator?.isRunning == true) {
             minimizedNav?.y = minimizedNavY!! + visibilityTranslationY
         }
@@ -286,8 +345,8 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         bottomNavigationFrameLayout.addView(
             searchView,
             FrameLayout.LayoutParams(MATCH_PARENT, SEARCH_HEIGHT.dp, Gravity.BOTTOM).apply {
-                leftMargin = 16.dp
-                rightMargin = 16.dp
+                leftMargin = 10.dp
+                rightMargin = 10.dp
             })
 
         view.addView(contentView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
@@ -369,6 +428,9 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             backgroundColor = WColor.Tint.color
         }
 
+        searchView.highlightColor = WColor.Tint.color.colorWithAlpha(51)
+        checkForMatchingUrl(searchKeyword)
+
         render()
     }
 
@@ -381,6 +443,11 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
     override fun viewDidAppear() {
         super.viewDidAppear()
         activeNavigationController?.viewDidAppear()
+    }
+
+    override fun viewWillDisappear() {
+        super.viewWillDisappear()
+        clearSearchAutoComplete()
     }
 
     override fun updateProtectedView() {
@@ -439,9 +506,13 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         bottomNavigationFrameLayout.clipToPadding = false
         onUpdateAdditionalHeight()
         bottomCornerView.setHorizontalPadding(ViewConstants.HORIZONTAL_PADDINGS.dp.toFloat())
+
+        if (searchMatchedSite != null && !isKeyboardOpen) {
+            clearSearchAutoComplete()
+        }
     }
 
-    private var cachedBrowserVC: ExploreVC? = null
+    private var cachedExploreVC: ExploreVC? = null
 
     private fun getNavigationStack(id: Int): WNavigationController {
         if (stackNavigationControllers.containsKey(id))
@@ -457,7 +528,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
 
                 ID_BROWSER -> {
                     val b = ExploreVC(context)
-                    cachedBrowserVC = b
+                    cachedExploreVC = b
                     b
                 }
 
@@ -547,6 +618,49 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         } else {
             hideUpdateButton()
         }
+    }
+
+    var searchMatchedSite: MExploreHistory.VisitedSite? = null
+    var searchKeyword = ""
+    private fun checkForMatchingUrl(keyword: String) {
+        searchKeyword = keyword
+        if (keyword.isEmpty())
+            return
+        searchMatchedSite =
+            if (keyword.isEmpty() || !isKeyboardOpen)
+                null
+            else
+                ExploreHistoryStore.exploreHistory?.visitedSites?.firstOrNull {
+                    it.url.toUri().host?.startsWith(keyword) == true ||
+                        it.url.startsWith(keyword)
+                }
+        searchMatchedSite?.let { matchedSite ->
+            val urlPart = matchedSite.url.toUri().let { uri ->
+                if (uri.host?.startsWith(keyword) == true) {
+                    uri.host
+                } else {
+                    "${uri.scheme}://${uri.host}"
+                }
+            }
+            val txt = "$urlPart — ${matchedSite.title}"
+            val spannable = SpannableString(txt)
+            spannable.setSpan(
+                ForegroundColorSpan(WColor.Tint.color),
+                (urlPart?.length ?: 0),
+                txt.length,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            searchView.setText(spannable)
+            searchView.setSelection(keyword.length, txt.length)
+            searchView.post {
+                searchView.scrollTo(0, 0)
+            }
+        }
+    }
+
+    private fun clearSearchAutoComplete() {
+        searchView.setText(searchKeyword)
+        checkForMatchingUrl(searchKeyword)
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
@@ -660,19 +774,23 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             dismissMinimized(false)
         this.onMaximizeProgress = onMaximizeProgress
         minimizedNav = nav
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            minimizedNav?.outlineAmbientShadowColor = ELEVATION_COLOR
+            minimizedNav?.outlineSpotShadowColor = ELEVATION_COLOR
+        }
         nav.window.detachLastNav()
         view.addView(minimizedNav)
         val initialHeight = nav.height
         val finalHeight = 48.dp
         val initialWidth = nav.width
-        val finalWidth = initialWidth - 8.dp
+        val finalWidth = initialWidth - 20.dp
         val finalY = view.height -
             ((navigationController?.getSystemBars()?.bottom ?: 0)) -
-            finalHeight
+            finalHeight - 4.dp
         val bottomBar = window?.systemBars?.bottom ?: 0
         minimizedNavHeight = finalHeight + 8f.dp
         bottomNavigationView.y =
-            bottomNavigationFrameLayout.height - (bottomNavigationView.height + BOTTOM_TABS_BOTTOM_MARGIN.dp + bottomBar + minimizedNavHeight!!)
+            bottomNavigationFrameLayout.height - (bottomNavigationView.height + BOTTOM_TABS_BOTTOM_MARGIN.dp + bottomBar + minimizedNavHeight!!) + BOTTOM_TABS_BOTTOM_TO_NAV_DIFF.dp
         render()
 
         fun onUpdate(animatedFraction: Float) {
@@ -686,9 +804,9 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
                 width = finalWidth +
                     ((initialWidth - finalWidth) * (1 - animatedFraction)).roundToInt()
             }
-            nav.translationX = animatedFraction * 4.dp
-            nav.setBackgroundColor(Color.TRANSPARENT, 10.dp * animatedFraction, true)
-            nav.elevation = animatedFraction * 4.dp
+            nav.translationX = animatedFraction * 10.dp
+            nav.setBackgroundColor(Color.TRANSPARENT, 24.dp * animatedFraction, true)
+            nav.elevation = animatedFraction * 1.5f.dp
         }
 
         if (WGlobalStorage.getAreAnimationsActive()) {
@@ -732,9 +850,9 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
                 width = finalWidth +
                     ((initialWidth - finalWidth) * (1 - animatedFraction)).roundToInt()
             }
-            nav.translationX = (1 - animatedFraction) * 4.dp
-            nav.setBackgroundColor(Color.TRANSPARENT, 10.dp * (1 - animatedFraction), true)
-            nav.elevation = (1 - animatedFraction) * 4.dp
+            nav.translationX = (1 - animatedFraction) * 10.dp
+            nav.setBackgroundColor(Color.TRANSPARENT, 24.dp * (1 - animatedFraction), true)
+            nav.elevation = (1 - animatedFraction) * 1.5f.dp
         }
 
         fun onEnd() {
@@ -779,7 +897,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         fun onUpdate(animatedFraction: Float) {
             minimizedNavHeight = (1 - animatedFraction) * 48.dp
             bottomNavigationView.y =
-                bottomNavigationFrameLayout.height - (bottomNavigationView.height + BOTTOM_TABS_BOTTOM_MARGIN.dp + bottomBar + minimizedNavHeight!!)
+                bottomNavigationFrameLayout.height - (bottomNavigationView.height + BOTTOM_TABS_BOTTOM_MARGIN.dp + bottomBar + minimizedNavHeight!!) + BOTTOM_TABS_BOTTOM_TO_NAV_DIFF.dp * (1 - animatedFraction)
             render()
             nav?.alpha = visibilityFraction * (1 - animatedFraction)
         }
@@ -811,6 +929,11 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
 
     override fun resumeBlurring() {
         bottomCornerView.resumeBlurring()
+    }
+
+    override fun setSearchText(text: String) {
+        searchView.requestFocus()
+        searchView.setText(text)
     }
 
     override fun onDestroy() {

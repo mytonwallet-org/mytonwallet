@@ -43,10 +43,10 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
-import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import java.lang.ref.WeakReference
 import kotlin.math.max
@@ -194,7 +194,7 @@ open class NftHeaderView(
         setSingleLine(true)
         marqueeRepeatLimit = -1
         isHorizontalFadingEdgeEnabled = true
-        setPaddingDp(12, 4, 12, 4)
+        setPaddingDp(12, 2, 6, 4)
         setOnClickListener {
             delegate.get()?.onCollectionTapped()
         }

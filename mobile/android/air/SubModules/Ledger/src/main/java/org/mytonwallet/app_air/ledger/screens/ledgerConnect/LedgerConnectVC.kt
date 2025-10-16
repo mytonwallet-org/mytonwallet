@@ -51,19 +51,21 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.R
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.MAIN_NETWORK
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.submitStake
 import org.mytonwallet.app_air.walletcore.api.submitUnstake
+import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.ApiTonConnectProof
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransferToSign
 import org.mytonwallet.app_air.walletcore.moshi.LocalActivityParams
 import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferOptions
+import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.moshi.StakingState
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.DApp.ConfirmDappRequestConnect
@@ -85,7 +87,7 @@ class LedgerConnectVC(
     context: Context,
     private val mode: Mode,
     private val headerView: View? = null,
-) : WViewController(context), WThemedView {
+) : WViewController(context), WThemedView, WalletCore.EventObserver {
 
     sealed class Mode {
         data object AddAccount : Mode()
@@ -249,8 +251,6 @@ class LedgerConnectVC(
         }
     }
 
-    private val prevAccountsCount = WGlobalStorage.accountIds().size
-
     override fun setupViews() {
         super.setupViews()
 
@@ -318,6 +318,8 @@ class LedgerConnectVC(
 
         initBluetooth()
         tryAgain(LedgerManager.activeMode)
+
+        WalletCore.registerObserver(this)
     }
 
     override fun updateTheme() {
@@ -514,12 +516,13 @@ class LedgerConnectVC(
             when (val signData = mode.signData) {
                 is SignData.SignTransfer -> {
                     try {
-                        WalletCore.call(
+                        val id = WalletCore.call(
                             ApiMethod.Transfer.SubmitTransfer(
                                 MBlockchain.ton,
                                 options = signData.transferOptions
                             )
-                        )
+                        ).activityId
+                        sentActivityId = ActivityHelpers.getTxIdFromId(id)
                         Handler(Looper.getMainLooper()).post {
                             mode.onDone()
                         }
@@ -865,6 +868,7 @@ class LedgerConnectVC(
         )
         if (shouldDestroyLedgerManager)
             LedgerManager.stopConnection()
+        WalletCore.unregisterObserver(this)
     }
 
     override fun viewWillAppear() {
@@ -880,6 +884,26 @@ class LedgerConnectVC(
             )
         } else {
             configureTryAgainButton(false)
+        }
+    }
+
+    private var sentActivityId: String? = null
+    override fun onWalletEvent(walletEvent: WalletEvent) {
+        val sentActivityId = sentActivityId ?: return
+        when (walletEvent) {
+            is WalletEvent.ReceivedPendingActivities -> {
+                val activity = walletEvent.pendingActivities?.firstOrNull { activity ->
+                    activity is MApiTransaction.Transaction &&
+                        sentActivityId == activity.getTxHash()
+                } ?: return
+
+                this.sentActivityId = null
+                window?.dismissLastNav {
+                    WalletCore.notifyEvent(WalletEvent.OpenActivity(activity))
+                }
+            }
+
+            else -> {}
         }
     }
 }

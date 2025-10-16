@@ -58,6 +58,8 @@ import kotlin.math.max
 
 class InvoiceVC(context: Context) : WViewController(context) {
 
+    override val shouldDisplayBottomBar = true
+
     private val topGapView = View(context).apply {
         id = View.generateViewId()
     }

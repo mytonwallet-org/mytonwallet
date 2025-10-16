@@ -8,6 +8,13 @@ import { areDeepEqual } from '../../util/areDeepEqual';
 import buildClassName from '../../util/buildClassName';
 import { toDecimal } from '../../util/decimals';
 import { formatCurrency } from '../../util/formatNumber';
+import {
+  getAccentColorFromImage,
+  PARTICLE_BURST_PARAMS,
+  PARTICLE_COLORS,
+  PARTICLE_PARAMS,
+  setupParticles,
+} from '../../util/particles';
 import { getTelegramApp } from '../../util/telegram';
 import { getExplorerAddressUrl, getExplorerTransactionUrl } from '../../util/url';
 import {
@@ -18,13 +25,6 @@ import {
   processCreateCheck,
   processToggleInvoice,
 } from '../util/check';
-import {
-  getAccentColorFromImage,
-  PARTICLE_BURST_PARAMS,
-  PARTICLE_COLORS,
-  PARTICLE_PARAMS,
-  setupParticles,
-} from '../util/particles';
 import { getWalletAddress } from '../util/tonConnect';
 
 import useFlag from '../../hooks/useFlag';

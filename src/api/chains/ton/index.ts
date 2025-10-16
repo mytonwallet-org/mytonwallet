@@ -1,23 +1,27 @@
 import type { ChainSdk } from '../../types/chains';
 
 import { decryptComment, fetchActivityDetails, fetchActivitySlice } from './activities';
+import { normalizeAddress } from './address';
 import { getWalletFromAddress, getWalletFromBip39Mnemonic, getWalletsFromLedgerAndLoadBalance } from './auth';
 import { getIsLedgerAppOpen } from './other';
 import { setupActivePolling, setupInactivePolling } from './polling';
-import { checkTransactionDraft, submitTransfer } from './transfer';
+import { checkTransactionDraft, fetchEstimateDiesel, submitGasfullTransfer, submitGaslessTransfer } from './transfer';
 import { verifyLedgerWalletAddress } from './wallet';
 
 const tonSdk: ChainSdk<'ton'> = {
   fetchActivitySlice,
   fetchActivityDetails,
   decryptComment,
+  normalizeAddress,
   getWalletFromBip39Mnemonic,
   getWalletFromAddress,
   getWalletsFromLedgerAndLoadBalance,
   setupActivePolling,
   setupInactivePolling,
   checkTransactionDraft,
-  submitTransfer,
+  fetchEstimateDiesel,
+  submitGasfullTransfer,
+  submitGaslessTransfer,
   verifyLedgerWalletAddress,
   getIsLedgerAppOpen,
 };
@@ -25,9 +29,6 @@ const tonSdk: ChainSdk<'ton'> = {
 export default tonSdk;
 
 // The chain methods that haven't been multichain-refactored yet:
-
-// todo: Remove as a part of the multichain send refactoring
-export { submitTransfer };
 
 export {
   generateMnemonic,
@@ -51,12 +52,12 @@ export {
   submitDnsChangeWallet,
 } from './domains';
 export {
+  checkTransactionDraft,
+  submitGasfullTransfer,
   checkMultiTransactionDraft,
   checkToAddress,
   submitMultiTransfer,
   signTransfers,
-  submitTransferWithDiesel,
-  fetchEstimateDiesel,
 } from './transfer';
 export {
   getWalletBalance,
@@ -76,9 +77,6 @@ export {
   fetchToken,
   insertMintlessPayload,
 } from './tokens';
-export {
-  normalizeAddress,
-} from './address';
 export {
   validateDexSwapTransfers,
 } from './swap';

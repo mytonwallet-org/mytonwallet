@@ -24,9 +24,9 @@ import org.mytonwallet.app_air.uicomponents.adapter.BaseListItem
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.Item
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
+import org.mytonwallet.app_air.uicomponents.helpers.DappWarningPopupHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.FakeLoading
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.helpers.spans.WClickableSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WForegroundColorSpan
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.image.Content
@@ -44,6 +44,8 @@ import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.api.requestDAppList
 import org.mytonwallet.app_air.walletcore.helpers.DappFeeHelpers
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
@@ -241,38 +243,20 @@ class TonConnectRequestSendViewModel private constructor(
     private fun buildUiItems(tokens: Tokens): List<BaseListItem> {
         val uiItems = mutableListOf(
             TonConnectItem.SendRequestHeader(update, {
-                val warningText = SpannableStringBuilder()
-                val template =
-                    LocaleController.getString("\$reopen_in_iab")
-                val browserButtonText = LocaleController.getString("MyTonWallet Browser")
-                val browserButtonPlaceholder = "%browserButton%"
-
-                val placeholderStart = template.indexOf(browserButtonPlaceholder)
-                if (placeholderStart != -1) {
-                    warningText.append(template.substring(0, placeholderStart))
-
-                    val buttonStart = warningText.length
-                    warningText.append(browserButtonText)
-                    val buttonEnd = warningText.length
-
-                    val clickableSpan = WClickableSpan(update.dapp.url ?: "", onClick = {
-                        update.dapp.url?.let { url ->
-                            _eventsFlow.tryEmit(Event.OpenDappInBrowser(url))
+                val warningText = DappWarningPopupHelpers.reopenInIabWarningText {
+                    WalletCore.call(
+                        ApiMethod.DApp.DeleteDapp(
+                            update.accountId,
+                            update.dapp.sse?.appClientId ?: "",
+                            update.dapp.url ?: ""
+                        ), callback = { _, _ ->
+                            WalletCore.notifyEvent(WalletEvent.DappRemoved(update.dapp))
+                            WalletCore.requestDAppList()
                         }
-                    })
-                    warningText.setSpan(
-                        clickableSpan,
-                        buttonStart,
-                        buttonEnd,
-                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
                     )
-
-                    val placeholderEnd = placeholderStart + browserButtonPlaceholder.length
-                    if (placeholderEnd < template.length) {
-                        warningText.append(template.substring(placeholderEnd))
+                    update.dapp.url?.let { url ->
+                        _eventsFlow.tryEmit(Event.OpenDappInBrowser(url))
                     }
-                } else {
-                    warningText.append(template)
                 }
 
                 _eventsFlow.tryEmit(
@@ -310,7 +294,7 @@ class TonConnectRequestSendViewModel private constructor(
                 update.emulation?.activities?.let { previewActivities ->
                     val previewTitle = SpannableStringBuilder()
                     previewTitle.append(LocaleController.getString("Preview"))
-                    previewTitle.append(" ")
+                    previewTitle.append("\u00A0")
                     ContextCompat.getDrawable(
                         ApplicationContextHolder.applicationContext,
                         org.mytonwallet.app_air.walletcontext.R.drawable.ic_warning

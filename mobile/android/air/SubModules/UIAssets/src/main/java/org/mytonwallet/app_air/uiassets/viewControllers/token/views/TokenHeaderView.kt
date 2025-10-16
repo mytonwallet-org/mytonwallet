@@ -68,22 +68,25 @@ class TokenHeaderView(
         btn.setOnClickListener {
             WMenuPopup.present(
                 btn,
-                listOf(
-                    WMenuPopup.Item(
-                        R.drawable.ic_world,
-                        LocaleController.getString("View on Explorer"),
-                        true,
-                    ) {
-                        token.explorerUrl?.let {
-                            open(it)
+                listOfNotNull(
+                    if (token.tokenAddress?.isNotEmpty() == true || token.cmcSlug != null)
+                        WMenuPopup.Item(
+                            R.drawable.ic_world,
+                            LocaleController.getString("View on Explorer"),
+                            true,
+                        ) {
+                            token.explorerUrl?.let {
+                                open(it)
+                            }
+                        } else null,
+                    token.cmcSlug?.let {
+                        WMenuPopup.Item(
+                            null,
+                            "CoinMarketCap",
+                            false,
+                        ) {
+                            open("https://coinmarketcap.com/currencies/${token.cmcSlug}")
                         }
-                    },
-                    WMenuPopup.Item(
-                        null,
-                        "CoinMarketCap",
-                        false,
-                    ) {
-                        open("https://coinmarketcap.com/currencies/${token.name.lowercase()}")
                     },
                     WMenuPopup.Item(
                         null,

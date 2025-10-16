@@ -10,12 +10,12 @@ import WalletContext
 
 extension Api {
     
-    public static func checkStakeDraft(accountId: String, amount: BigInt, state: ApiStakingState) async throws -> MTransactionDraft {
-        try await bridge.callApi("checkStakeDraft", accountId, amount, state, decoding: MTransactionDraft.self)
+    public static func checkStakeDraft(accountId: String, amount: BigInt, state: ApiStakingState) async throws -> ApiCheckTransactionDraftResult {
+        try await bridge.callApi("checkStakeDraft", accountId, amount, state, decoding: ApiCheckTransactionDraftResult.self)
     }
     
-    public static func checkUnstakeDraft(accountId: String, amount: BigInt, state: ApiStakingState) async throws -> MTransactionDraft {
-        try await bridge.callApi("checkUnstakeDraft", accountId, amount, state, decoding: MTransactionDraft.self)
+    public static func checkUnstakeDraft(accountId: String, amount: BigInt, state: ApiStakingState) async throws -> ApiCheckTransactionDraftResult {
+        try await bridge.callApi("checkUnstakeDraft", accountId, amount, state, decoding: ApiCheckTransactionDraftResult.self)
     }
 
     public static func submitStake(accountId: String, password: String?, amount: BigInt, state: ApiStakingState, realFee: BigInt?) async throws -> String {

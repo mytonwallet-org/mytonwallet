@@ -1,11 +1,11 @@
 import { memo, useLayoutEffect, useRef } from '../../lib/teact/teact';
 import React from '../../lib/teact/teact';
 
-import type { ParticleConfig } from '../../push/util/particles';
+import type { ParticleConfig } from '../../util/particles';
 
 import buildClassName from '../../util/buildClassName';
 import { logDebugError } from '../../util/logs';
-import { setupParticles } from '../../push/util/particles';
+import { setupParticles } from '../../util/particles';
 
 import useLastCallback from '../../hooks/useLastCallback';
 

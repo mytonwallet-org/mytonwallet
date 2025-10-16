@@ -22,37 +22,11 @@ struct DebugView: View {
     @State private var showDeleteAllAlert: Bool = false
     @AppStorage("debug_languageSwitcher") private var languageSwitcher = false
     
+    @Environment(\.dismiss) private var dismiss
+    
     var body: some View {
         NavigationStack {
             List {
-                
-#if DEBUG
-                Section {
-                    Button("Switch to Air") {
-                        log.info("Switching to Air")
-                        UIApplication.shared.connectedSceneDelegate?.switchToAir()
-                    }
-                    Button("Switch to Air (force reload)") {
-                        log.info("Switching to Air (force reload)")
-                        AirLauncher.isOnTheAir = true
-                        UIApplication.shared.connectedSceneDelegate?.appSwitcher?.startTheApp()
-                    }
-                    Button("Switch to Capacitor") {
-                        log.info("Switching to Capacitor")
-                        AirLauncher.isOnTheAir = false
-                        UIApplication.shared.connectedSceneDelegate?.appSwitcher?.startTheApp()
-                    }
-                }
-                
-                Section {
-                    Button("Reactivate current account") {
-                        Task {
-                            log.info("Reactivate current account")
-//                            try! await AccountStore.reactivateCurrentAccount()
-                        }
-                    }
-                }
-#endif
                 
                 Section {
                     Button("Share logs") {
@@ -72,7 +46,50 @@ struct DebugView: View {
                     }
                 }
                 
+                Section {
+                    Button("Switch to Air") {
+                        log.info("Switch to Air")
+                        UIApplication.shared.open(URL(string: "mtw://air")!)
+                        dismiss()
+                    }
+                    Button("Switch to Classic") {
+                        log.info("Switch to Classic")
+                        UIApplication.shared.open(URL(string: "mtw://classic")!)
+                    }
+                }
+                
+                Section {
+                    Button("Clear activities cache") {
+                        log.info("Clear activities cache")
+                        Task {
+                            await ActivityStore.debugOnly_clean()
+                            do {
+                                if let accountId = AccountStore.accountId {
+                                    _ = try await AccountStore.activateAccount(accountId: accountId)
+                                }
+                            } catch {
+                                log.error("\(error, .public)")
+                            }
+                            dismiss()
+                        }
+                    }
+                }
+
 #if DEBUG
+                Section {} footer: {
+                    Text("**DEBUG ONLY**")
+                        .foregroundStyle(.orange)
+                }
+                
+                Section {
+                    Button("Reactivate current account") {
+                        Task {
+                            log.info("Reactivate current account")
+//                            try! await AccountStore.reactivateCurrentAccount()
+                        }
+                    }
+                }
+
                 Section {
                     Button("Download database") {
                         do {

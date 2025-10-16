@@ -13,7 +13,7 @@ import java.math.BigInteger
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 
-object BalanceStore {
+object BalanceStore : IStore {
 
     // Observable Flow
     private val _balancesFlow = MutableStateFlow<Map<String, Map<String, BigInteger>>>(emptyMap())
@@ -45,7 +45,12 @@ object BalanceStore {
         balances.remove(accountId)
     }
 
-    fun clean() {
+    override fun wipeData() {
+        clearCache()
+    }
+
+    override fun clearCache() {
+        _balancesFlow.value = emptyMap()
         balances.clear()
     }
 

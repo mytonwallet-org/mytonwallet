@@ -128,8 +128,9 @@ class ExploreCategoryVC(context: Context, val category: MExploreCategory) :
             InAppBrowserConfig(
                 url = app.url!!,
                 title = app.name,
-                thumbnail = app.icon,
-                injectTonConnectBridge = true
+                thumbnail = app.iconUrl,
+                injectTonConnectBridge = true,
+                saveInVisitedHistory = true,
             )
         )
         val nav = WNavigationController(window!!)

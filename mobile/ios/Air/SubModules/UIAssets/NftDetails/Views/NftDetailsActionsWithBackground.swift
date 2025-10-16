@@ -89,7 +89,6 @@ struct ActionsWithBackground: View {
         Color.blue.opacity(0.2)
             .ignoresSafeArea()
         ActionsWithBackground(viewModel: viewModel)
-            .border(.red)
             .aspectRatio(contentMode: .fit)
     }
 }

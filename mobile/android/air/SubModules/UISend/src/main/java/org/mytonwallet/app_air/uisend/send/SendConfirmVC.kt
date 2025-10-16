@@ -11,11 +11,14 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import androidx.appcompat.widget.AppCompatTextView
+import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.constraintlayout.widget.ConstraintSet
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListGapCell
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListTitleCell
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -237,6 +240,12 @@ class SendConfirmVC(
         }
     }
 
+    private val bottomReversedCornerViewUpsideDown: ReversedCornerViewUpsideDown =
+        ReversedCornerViewUpsideDown(context, scrollView).apply {
+            if (ignoreSideGuttering)
+                setHorizontalPadding(0f)
+        }
+
     private val confirmButton by lazy {
         WButton(context, WButton.Type.PRIMARY).apply {
             id = View.generateViewId()
@@ -266,6 +275,13 @@ class SendConfirmVC(
         navigationBar?.addCloseButton()
 
         view.addView(scrollView, ViewGroup.LayoutParams(MATCH_PARENT, 0))
+        view.addView(
+            bottomReversedCornerViewUpsideDown,
+            ConstraintLayout.LayoutParams(
+                MATCH_PARENT,
+                MATCH_CONSTRAINT
+            )
+        )
         view.addView(cancelButton, ViewGroup.LayoutParams(0, 50.dp))
         view.addView(confirmButton, ViewGroup.LayoutParams(0, 50.dp))
         view.setConstraints {
@@ -278,6 +294,12 @@ class SendConfirmVC(
                     (window?.imeInsets?.bottom ?: 0)
                 )
             )
+            topToTop(
+                bottomReversedCornerViewUpsideDown,
+                cancelButton,
+                -20f - ViewConstants.BIG_RADIUS
+            )
+            toBottom(bottomReversedCornerViewUpsideDown)
             topToTop(confirmButton, cancelButton)
             toLeft(cancelButton)
             leftToRight(confirmButton, cancelButton)

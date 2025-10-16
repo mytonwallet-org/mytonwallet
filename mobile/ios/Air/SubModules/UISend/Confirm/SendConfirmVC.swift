@@ -185,7 +185,7 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
                 } else {
                     do {
                         let fee = model.toAddressDraft?.realFee ?? BigInt(0)
-                        _ = try await Api.submitNftTransfers(
+                        let result = try await Api.submitNftTransfers(
                             accountId: accountId,
                             password: passcode,
                             nfts: model.nfts ?? [],
@@ -193,6 +193,9 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
                             comment: model.comment.nilIfEmpty,
                             totalRealFee: fee
                         )
+                        if let error = result.error {
+                            throw BridgeCallError(message: error, payload: nil)
+                        }
                         transferSuccessful = true
                     } catch {
                         transferSuccessful = false

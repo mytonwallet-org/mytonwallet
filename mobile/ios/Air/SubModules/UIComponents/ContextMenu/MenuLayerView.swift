@@ -72,6 +72,7 @@ public final class MenuLayerView: UIView {
             var sourceViewFrame = sourceView.convert(sourceView.frame, to: self)
             sourceViewFrame.origin.y -= 13 // why? i don't know
             portalView.frame = sourceViewFrame
+            self.portalView = portalView
             
             let sourceFrameBounds = window.convert(menuContext.sourceFrame, to: sourceView)
             let mask = UIView()
@@ -92,10 +93,8 @@ public final class MenuLayerView: UIView {
         if let hostingView {
             hostingView.removeFromSuperview()
         }
-        let date = Date()
         let hostingView = HostingView {
-            MenuContainer(menuContext: menuContext, content: menuContext.makeView)
-                .id(date)
+            MenuFullscreenContainer(menuContext: menuContext)
         }
         self.hostingView = hostingView
         hostingView.backgroundColor = .clear
@@ -125,9 +124,12 @@ public final class MenuLayerView: UIView {
             UIView.animate(withDuration: 0.2, delay: 0.1, options: []) {
                 self.blurredBackground.alpha = 0
             }
+            UIView.animate(withDuration: 0.2, delay: 0.15, options: []) {
+                self.portalView?.alpha = 0
+            }
         }
         isUserInteractionEnabled = false
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self, hostingView] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self, hostingView, menuContext] in
             if let self, self.hostingView === hostingView {
                 if let hostingView {
                     hostingView.removeFromSuperview()
@@ -137,6 +139,8 @@ public final class MenuLayerView: UIView {
                 if self.superview != nil {
                     self.removeFromSuperview()
                 }
+                menuContext?.submenuId = "0"
+                menuContext?.locations = [:]
             }
         }
     }

@@ -53,14 +53,9 @@ class ActionsWidgetConfigurationVC(
         view.apply {
             addView(stylesView, ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             addView(continueButton, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
-            stylesView.setPadding(
-                ViewConstants.HORIZONTAL_PADDINGS.dp,
-                0,
-                ViewConstants.HORIZONTAL_PADDINGS.dp,
-                0
-            )
             setConstraints {
                 topToBottom(stylesView, navigationBar!!, 16f)
+                toCenterX(stylesView, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
                 toCenterX(continueButton, 20f)
                 toBottomPx(
                     continueButton,

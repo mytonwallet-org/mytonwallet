@@ -1,13 +1,13 @@
 // GPU-Accelerated Particle System Library
 
-import { suppressStrict } from '../../lib/fasterdom/fasterdom';
-import { COLOR_COUNT, QUALITY } from '../../util/accentColor/constants';
-import generateUniqueId from '../../util/generateUniqueId';
-import { getCachedImageUrl } from '../../util/getCachedImageUrl';
-import { requestMediaWorker } from '../../util/launchMediaWorkers';
-import { logDebugError } from '../../util/logs';
+import { suppressStrict } from '../lib/fasterdom/fasterdom';
+import { COLOR_COUNT, QUALITY } from './accentColor/constants';
+import generateUniqueId from './generateUniqueId';
+import { getCachedImageUrl } from './getCachedImageUrl';
+import { requestMediaWorker } from './launchMediaWorkers';
+import { logDebugError } from './logs';
 
-import { getIsInBackground } from '../../hooks/useBackgroundMode';
+import { getIsInBackground } from '../hooks/useBackgroundMode';
 
 export interface ParticleConfig {
   width?: number;

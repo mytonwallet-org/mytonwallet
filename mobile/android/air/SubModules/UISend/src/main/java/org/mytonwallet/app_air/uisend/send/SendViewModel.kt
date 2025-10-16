@@ -30,12 +30,13 @@ import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.MFee
 import org.mytonwallet.app_air.walletcore.models.explainedFee.ExplainedTransferFee
+import org.mytonwallet.app_air.walletcore.moshi.ApiSubmitTransferResult
 import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
+import org.mytonwallet.app_air.walletcore.moshi.ApiTransferPayload
 import org.mytonwallet.app_air.walletcore.moshi.MApiAnyDisplayError
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftOptions
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferOptions
-import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferResult
 import org.mytonwallet.app_air.walletcore.moshi.MDieselStatus
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -80,7 +81,21 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
         val isMax: Boolean = false,
         val binary: String? = null,
         val stateInit: String? = null,
-    )
+    ) {
+        val payload: ApiTransferPayload? = when {
+            binary != null -> {
+                ApiTransferPayload.Base64(binary)
+            }
+
+            comment.isNotEmpty() -> {
+                ApiTransferPayload.Comment(comment, shouldEncrypt)
+            }
+
+            else -> {
+                null
+            }
+        }
+    }
 
     fun onInputToken(slug: String) {
         _inputStateFlow.value = _inputStateFlow.value.copy(
@@ -358,11 +373,11 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
                         toAddress = req.input.destination,
                         amount = req.amountEquivalent.tokenAmount.amountInteger,
                         tokenAddress = if (!req.token.isBlockchainNative) req.token.tokenAddress else null,
-                        data = req.input.binary ?: req.input.comment,
                         stateInit = req.input.stateInit,
-                        shouldEncrypt = req.input.shouldEncrypt && req.input.binary == null,
-                        isBase64Data = req.input.binary != null,
-                        allowGasless = true
+
+                        allowGasless = true,
+
+                        payload = req.input.payload,
                     )
                 )
             )
@@ -406,19 +421,19 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
         val request = data.request
         return MApiSubmitTransferOptions(
             accountId = request.wallet.accountId,
-            password = passcode,
             toAddress = data.resolvedAddress!!,
-            amount = request.amount.amountInteger,
             comment = request.input.binary ?: request.input.comment,
+            payload = request.input.payload,
+            stateInit = request.input.stateInit,
             tokenAddress = if (!request.token.isBlockchainNative) request.token.tokenAddress else null,
+            password = passcode,
+            amount = request.amount.amountInteger,
             fee = data.explainedFee?.fullFee?.nativeSum ?: data.fee,
+            noFeeCheck = true,
             realFee = data.explainedFee?.realFee?.nativeSum,
-            shouldEncrypt = request.input.shouldEncrypt && request.input.binary == null,
-            isBase64Data = request.input.binary != null,
-            withDiesel = data.explainedFee?.isGasless,
+            isGasless = data.explainedFee?.isGasless,
             dieselAmount = data.dieselAmount,
             isGaslessWithStars = data.dieselStatus == MDieselStatus.STARS_FEE,
-            stateInit = request.input.stateInit
         )
     }
 
@@ -430,7 +445,7 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
         return _inputStateFlow.value.shouldEncrypt && _inputStateFlow.value.binary == null
     }
 
-    suspend fun callSend(data: DraftResult.Result, passcode: String): MApiSubmitTransferResult {
+    suspend fun callSend(data: DraftResult.Result, passcode: String): ApiSubmitTransferResult {
         val request = data.request
 
         val options = getTransferOptions(data, passcode)

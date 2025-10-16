@@ -66,7 +66,6 @@ struct NftDetailsView: View {
         GeometryReader { geom in
             Color.red
                 .opacity(0.2)
-                .border(.red, width: 4)
                 .opacity(0)
                 .matchedGeometryEffect(id: "fullScreenTarget", in: ns, anchor: .top, isSource: true)
                 .frame(width: frame.width, height: frame.width)

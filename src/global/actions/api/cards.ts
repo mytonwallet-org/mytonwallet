@@ -1,4 +1,4 @@
-import type { ApiSubmitTransferOptions } from '../../../api/methods/types';
+import type { ApiSubmitTransferOptions } from '../../../api/types';
 import type { GlobalState } from '../../types';
 import { MintCardState } from '../../types';
 
@@ -43,7 +43,7 @@ function createTransferOptions(globalState: GlobalState, password?: string): Api
     password,
     toAddress: MINT_CARD_ADDRESS,
     amount: fromDecimal(cardInfo.price, TONCOIN.decimals),
-    comment: MINT_CARD_COMMENT,
+    payload: { type: 'comment', text: MINT_CARD_COMMENT },
   };
 }
 

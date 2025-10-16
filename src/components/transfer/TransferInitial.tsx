@@ -2,15 +2,14 @@ import type { TeactNode } from '../../lib/teact/teact';
 import React, { memo, useCallback, useEffect, useMemo, useRef } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
-import type { ApiFetchEstimateDieselResult } from '../../api/chains/ton/types';
-import type { ApiBaseCurrency, ApiNft } from '../../api/types';
+import type { ApiBaseCurrency, ApiFetchEstimateDieselResult, ApiNft } from '../../api/types';
 import type { Account, SavedAddress, UserToken } from '../../global/types';
 import type { LangFn } from '../../hooks/useLang';
 import type { ExplainedTransferFee } from '../../util/fee/transferFee';
 import type { FeePrecision, FeeTerms } from '../../util/fee/types';
 import { ScamWarningType, TransferState } from '../../global/types';
 
-import { DEFAULT_PRICE_CURRENCY, TONCOIN } from '../../config';
+import { DEFAULT_PRICE_CURRENCY, TONCOIN, UNKNOWN_TOKEN } from '../../config';
 import { getHelpCenterUrl } from '../../global/helpers/getHelpCenterUrl';
 import {
   selectCurrentAccountState,
@@ -169,9 +168,8 @@ function TransferInitial({
   const renderedScamWarningType = useCurrentOrPrev(scamWarningType, true);
   const amountInputRef = useRef<HTMLInputElement>();
   const isDisabledDebounce = useRef<boolean>(false);
-  const isToncoin = tokenSlug === TONCOIN.slug;
   const isAddressValid = chain ? isValidAddressOrDomain(toAddress, chain) : undefined;
-  const doesSupportComment = chain && getChainConfig(chain).isTransferCommentSupported;
+  const doesSupportComment = chain && getChainConfig(chain).isTransferPayloadSupported;
   const transitionKey = useTransitionActiveKey(nfts?.length ? nfts : [tokenSlug]);
 
   const handleAddressInput = useLastCallback((newToAddress?: string, isValueReplaced?: boolean) => {
@@ -230,15 +228,14 @@ function TransferInitial({
 
   useEffect(() => {
     if (
-      isToncoin
-      && balance && amount && fee
+      balance && amount && fee
       && amount < balance
       && fee < balance
       && amount + fee >= balance
     ) {
       setTransferAmount({ amount: balance - fee });
     }
-  }, [isToncoin, amount, balance, fee]);
+  }, [amount, balance, fee]);
 
   // Note: this effect doesn't watch amount changes mainly because it's tricky to program a fee recalculation avoidance
   // when the amount changes due to a fee change. And it's not needed because the fee doesn't depend on the amount.
@@ -393,7 +390,7 @@ function TransferInitial({
       binPayload,
       shouldEncrypt,
       nfts,
-      withDiesel: explainedFee.isGasless,
+      isGasless: explainedFee.isGasless,
       isGaslessWithStars: diesel?.status === 'stars-fee',
       stateInit,
     });
@@ -450,7 +447,7 @@ function TransferInitial({
     if (diesel?.status === 'pending-previous') {
       return lang('Awaiting Previous Fee');
     }
-    return lang('$send_token_symbol', isNftTransfer ? 'NFT' : symbol || 'TON');
+    return lang('$send_token_symbol', isNftTransfer ? 'NFT' : symbol || UNKNOWN_TOKEN.symbol);
   }
 
   function renderFee() {
@@ -542,7 +539,7 @@ function TransferInitial({
             />
           )}
 
-          <div className={buildClassName(styles.footer, isStatic && chain !== 'ton' && styles.footer_shifted)}>
+          <div className={buildClassName(styles.footer, isStatic && !doesSupportComment && styles.footer_shifted)}>
             {renderFee()}
 
             <div className={styles.buttons}>
