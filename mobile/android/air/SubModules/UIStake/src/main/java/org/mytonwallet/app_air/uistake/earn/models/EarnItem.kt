@@ -24,12 +24,15 @@ sealed class EarnItem(
 
     override fun isSame(comparing: WEquatable<*>): Boolean {
         return if (comparing is EarnItem && comparing::class == this::class) {
-            comparing.timestamp == timestamp && comparing.amount == amount
+            comparing.timestamp == timestamp && comparing.amount == amount && comparing.amountInBaseCurrency == amountInBaseCurrency
         } else false
     }
 
     override fun isChanged(comparing: WEquatable<*>): Boolean {
-        return false
+        return if (comparing is EarnItem && comparing::class == this::class) {
+            comparing.formattedAmount != formattedAmount ||
+            comparing.amountInBaseCurrency != amountInBaseCurrency
+        } else false
     }
 
     data class Profit(

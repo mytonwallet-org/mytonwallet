@@ -20,6 +20,7 @@ import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.core.widget.TextViewCompat
 import androidx.lifecycle.ViewModelProvider
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
@@ -54,6 +55,7 @@ import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.Passco
 import org.mytonwallet.app_air.uistake.confirm.ConfirmStakingHeaderView
 import org.mytonwallet.app_air.uistake.earn.cells.EarnItemCell
 import org.mytonwallet.app_air.uistake.earn.cells.EarnSpaceCell
+import org.mytonwallet.app_air.uistake.earn.models.EarnItem
 import org.mytonwallet.app_air.uistake.earn.views.EarnHeaderView
 import org.mytonwallet.app_air.uistake.helpers.StakingMessageHelpers
 import org.mytonwallet.app_air.uistake.staking.StakingVC
@@ -508,6 +510,31 @@ class EarnVC(
     }
 
     private var lastListState: HistoryListState? = null
+    private var previousHistoryItems: List<EarnItem> = emptyList()
+
+    private fun maybeUpdateRecyclerView(newItems: List<EarnItem>) {
+        val diffCallback = object : DiffUtil.Callback() {
+            override fun getOldListSize(): Int = previousHistoryItems.size
+            override fun getNewListSize(): Int = newItems.size
+
+            override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+                val oldItem = previousHistoryItems[oldItemPosition]
+                val newItem = newItems[newItemPosition]
+                return oldItem.isSame(newItem)
+            }
+
+            override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+                val oldItem = previousHistoryItems[oldItemPosition]
+                val newItem = newItems[newItemPosition]
+                return !oldItem.isChanged(newItem)
+            }
+        }
+
+        val diffResult = DiffUtil.calculateDiff(diffCallback)
+        previousHistoryItems = newItems.toList() // Store copy for next comparison
+        diffResult.dispatchUpdatesTo(rvAdapter)
+    }
+
     private fun updateView(viewState: EarnViewState) {
         // balance
         headerView.apply {
@@ -564,8 +591,7 @@ class EarnVC(
                 recyclerView.overScrollMode = RecyclerView.OVER_SCROLL_ALWAYS
                 noItemView.visibility = View.GONE
                 updateSkeletonState()
-                rvAdapter.reloadData()
-
+                maybeUpdateRecyclerView(viewState.historyListState.historyItems)
             }
         }
         lastListState = viewState.historyListState
