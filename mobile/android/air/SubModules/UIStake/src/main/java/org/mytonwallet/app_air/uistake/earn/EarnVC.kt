@@ -20,7 +20,6 @@ import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.core.widget.TextViewCompat
 import androidx.lifecycle.ViewModelProvider
-import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
@@ -69,6 +68,8 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
+import org.mytonwallet.app_air.walletcontext.utils.diff
+import org.mytonwallet.app_air.walletcontext.utils.WEquatable
 import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.USDE_SLUG
@@ -510,29 +511,13 @@ class EarnVC(
     }
 
     private var lastListState: HistoryListState? = null
-    private var previousHistoryItems: List<EarnItem> = emptyList()
+    private var previousHistoryItems: List<WEquatable<*>> = emptyList()
 
     private fun maybeUpdateRecyclerView(newItems: List<EarnItem>) {
-        val diffCallback = object : DiffUtil.Callback() {
-            override fun getOldListSize(): Int = previousHistoryItems.size
-            override fun getNewListSize(): Int = newItems.size
-
-            override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
-                val oldItem = previousHistoryItems[oldItemPosition]
-                val newItem = newItems[newItemPosition]
-                return oldItem.isSame(newItem)
-            }
-
-            override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
-                val oldItem = previousHistoryItems[oldItemPosition]
-                val newItem = newItems[newItemPosition]
-                return !oldItem.isChanged(newItem)
-            }
-        }
-
-        val diffResult = DiffUtil.calculateDiff(diffCallback)
+        // Use the built-in diff() extension function
+        val changes = previousHistoryItems.diff(newItems, section = 1)
+        rvAdapter.applyChanges(changes)
         previousHistoryItems = newItems.toList() // Store copy for next comparison
-        diffResult.dispatchUpdatesTo(rvAdapter)
     }
 
     private fun updateView(viewState: EarnViewState) {

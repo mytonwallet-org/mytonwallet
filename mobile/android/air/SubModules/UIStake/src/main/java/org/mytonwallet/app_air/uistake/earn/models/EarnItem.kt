@@ -24,7 +24,7 @@ sealed class EarnItem(
 
     override fun isSame(comparing: WEquatable<*>): Boolean {
         return if (comparing is EarnItem && comparing::class == this::class) {
-            comparing.timestamp == timestamp && comparing.amount == amount && comparing.amountInBaseCurrency == amountInBaseCurrency
+            comparing.timestamp == timestamp && comparing.amount == amount
         } else false
     }
 
