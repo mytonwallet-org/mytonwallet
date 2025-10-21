@@ -7,6 +7,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.core.net.toUri
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import org.mytonwallet.app_air.uibrowser.viewControllers.explore.ExploreVM
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.GapCell
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchDappCell
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchHistoryCell
@@ -30,9 +31,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
-import org.mytonwallet.app_air.walletcore.models.MExploreHistory
 import org.mytonwallet.app_air.walletcore.models.MExploreSite
-import org.mytonwallet.app_air.walletcore.moshi.IDapp
 import org.mytonwallet.app_air.walletcore.stores.ExploreHistoryStore
 import java.lang.ref.WeakReference
 
@@ -66,10 +65,6 @@ class SearchVC(context: Context) : WViewController(context),
 
     override val shouldDisplayTopBar = true
     override val shouldDisplayBottomBar = false
-
-    private val searchVM by lazy {
-        SearchVM()
-    }
 
     private val rvAdapter =
         WRecyclerViewAdapter(
@@ -145,26 +140,9 @@ class SearchVC(context: Context) : WViewController(context),
         super.viewWillDisappear()
     }
 
-    fun updateSites(sites: Array<MExploreSite>) {
-        searchVM.sites = sites
-        reloadData()
-    }
-
-    var keyword: String = ""
-    var matchedVisitedSite: MExploreHistory.VisitedSite? = null
-    var recentSearches: List<MExploreHistory.HistoryItem>? = null
-    var recentVisitedSites: List<MExploreHistory.VisitedSite>? = null
-    var dapps: List<IDapp>? = null
-    fun updateKeyword(keyword: String?) {
-        this.keyword = keyword ?: ""
-        reloadData()
-    }
-
-    private fun reloadData() {
-        matchedVisitedSite = searchVM.exactMatch(keyword)
-        recentSearches = searchVM.recentSearches(keyword)
-        recentVisitedSites = searchVM.visitedSites(keyword)
-        dapps = searchVM.filterDapps(keyword)
+    var searchResult: ExploreVM.SearchResult? = null
+    fun updateSearchResult(searchResult: ExploreVM.SearchResult?) {
+        this.searchResult = searchResult
         rvAdapter.reloadData()
     }
 
@@ -189,23 +167,23 @@ class SearchVC(context: Context) : WViewController(context),
     ): Int {
         return when (section) {
             SECTION_MATCH -> {
-                if (matchedVisitedSite == null) 0 else 2
+                if (searchResult?.matchedVisitedSite == null) 0 else 2
             }
 
             SECTION_RECENT_QUERIES -> {
-                if (keyword.isEmpty() && !recentSearches.isNullOrEmpty()) 2 + recentSearches!!.size else 0
+                if (searchResult?.keyword.isNullOrEmpty() && !searchResult?.recentSearches.isNullOrEmpty()) 2 + searchResult?.recentSearches!!.size else 0
             }
 
             SECTION_SUGGESTIONS -> {
-                if (matchedVisitedSite == null && keyword.isNotEmpty() && !recentSearches.isNullOrEmpty()) 2 + recentSearches!!.size else 0
+                if (searchResult?.matchedVisitedSite == null && !searchResult?.keyword.isNullOrEmpty() && !searchResult?.recentSearches.isNullOrEmpty()) 2 + searchResult?.recentSearches!!.size else 0
             }
 
             SECTION_DAPPS -> {
-                if (keyword.isNotEmpty() && !dapps.isNullOrEmpty()) 2 + dapps!!.size else 0
+                if (!searchResult?.keyword.isNullOrEmpty() && !searchResult?.dapps.isNullOrEmpty()) 2 + searchResult?.dapps!!.size else 0
             }
 
             SECTION_HISTORY -> {
-                if (keyword.isNotEmpty() && !recentVisitedSites.isNullOrEmpty()) 2 + recentVisitedSites!!.size else 0
+                if (!searchResult?.keyword.isNullOrEmpty() && !searchResult?.recentVisitedSites.isNullOrEmpty()) 2 + searchResult?.recentVisitedSites!!.size else 0
             }
 
             else -> {
@@ -372,7 +350,7 @@ class SearchVC(context: Context) : WViewController(context),
 
         when (indexPath.section) {
             SECTION_MATCH -> {
-                (cellHolder.cell as SearchMatchedCell).configure(matchedVisitedSite!!)
+                (cellHolder.cell as SearchMatchedCell).configure(searchResult?.matchedVisitedSite!!)
             }
 
             SECTION_RECENT_QUERIES -> {
@@ -384,8 +362,8 @@ class SearchVC(context: Context) : WViewController(context),
                     )
                 } else {
                     (cellHolder.cell as SearchItemCell).configure(
-                        recentSearches!![indexPath.row - 1].title,
-                        indexPath.row == recentSearches!!.size
+                        searchResult?.recentSearches!![indexPath.row - 1].title,
+                        indexPath.row == searchResult?.recentSearches!!.size
                     )
                 }
             }
@@ -398,10 +376,10 @@ class SearchVC(context: Context) : WViewController(context),
                         topRounding = if (rvAdapter.indexPathToPosition(indexPath) == 0) ViewConstants.TOP_RADIUS.dp else ViewConstants.BIG_RADIUS.dp
                     )
                 } else {
-                    val search = recentSearches!![indexPath.row - 1]
+                    val search = searchResult?.recentSearches!![indexPath.row - 1]
                     (cellHolder.cell as SearchHistoryCell).configure(
                         search,
-                        indexPath.row == recentSearches!!.size,
+                        indexPath.row == searchResult?.recentSearches!!.size,
                         onTap = {
                             val (isValidUrl, uri) = InAppBrowserVC.convertToUri(search.title)
                             openInAppBrowser(
@@ -425,8 +403,8 @@ class SearchVC(context: Context) : WViewController(context),
                     )
                 } else {
                     (cellHolder.cell as SearchDappCell).configure(
-                        dapps!![indexPath.row - 1],
-                        indexPath.row == dapps!!.size
+                        searchResult?.dapps!![indexPath.row - 1],
+                        indexPath.row == searchResult?.dapps!!.size
                     )
                 }
             }
@@ -439,10 +417,10 @@ class SearchVC(context: Context) : WViewController(context),
                         topRounding = if (rvAdapter.indexPathToPosition(indexPath) == 0) ViewConstants.TOP_RADIUS.dp else ViewConstants.BIG_RADIUS.dp
                     )
                 } else {
-                    val site = recentVisitedSites!![indexPath.row - 1]
+                    val site = searchResult?.recentVisitedSites!![indexPath.row - 1]
                     (cellHolder.cell as SearchHistoryCell).configure(
                         site,
-                        indexPath.row == recentVisitedSites!!.size,
+                        indexPath.row == searchResult?.recentVisitedSites!!.size,
                         onTap = {
                             openInAppBrowser(
                                 InAppBrowserConfig(

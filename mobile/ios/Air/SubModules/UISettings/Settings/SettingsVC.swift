@@ -202,9 +202,10 @@ public class SettingsVC: WViewController, Sendable {
             
         case .addAccount:
             AppActions.showAddWallet(showCreateWallet: true, showSwitchToOtherVersion: true)
-
+        case .notifications:
+            navigationController?.pushViewController(NotificationsSettingsVC(), animated: true)
         case .appearance:
-            navigationController?.pushViewController(AppearanceVC(), animated: true)
+            navigationController?.pushViewController(AppearanceSettingsVC(), animated: true)
         case .assetsAndActivity:
             navigationController?.pushViewController(AssetsAndActivityVC(), animated: true)
         case .connectedApps:
@@ -219,20 +220,17 @@ public class SettingsVC: WViewController, Sendable {
             }
         case .walletVersions:
             navigationController?.pushViewController(WalletVersionsVC(), animated: true)
-        case .questionAndAnswers:
-            let url = URL(string: "https://mytonwallet.io/privacy-policy")!
+        case .tips:
+            AppActions.openTipsChannel()
+        case .helpCenter:
+            let url = URL(string: HELP_CENTER_URL)!
             let title = lang("Help Center")
             navigationController?.pushPlainWebView(title: title, url: url)
-            
-        case .terms:
-            let url = URL(string: "https://mytonwallet.io/terms-of-use")!
-            let title = lang("Terms of Use")
-            navigationController?.pushPlainWebView(title: title, url: url)
-            
-        case .switchToCapacitor:
-            log.info("switchToCapacitor")
-            WalletContextManager.delegate?.switchToCapacitor()
-            
+        case .support:
+            UIApplication.shared.open(URL(string: "https://t.me/\(SUPPORT_USERNAME)")!)
+        case .about:
+            let vc = AboutVC(showLegalSection: true)
+            navigationController?.pushViewController(vc, animated: true)
         case .signout:
             if let accountId = AccountStore.accountId {
                 signoutPressed(removingAccountId: accountId, callback: { _ in })
@@ -349,6 +347,7 @@ extension SettingsVC: WalletCoreData.EventsObserver {
                     pauseReloadData = false
                     reloadData(animated: false)
                     configHeader()
+                    navigationController?.popToRootViewController(animated: false)
                 }
 
             case .accountNameChanged:

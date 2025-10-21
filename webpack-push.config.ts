@@ -28,6 +28,7 @@ const cspConnectSrcHosts = [
   'https://raw.githubusercontent.com/ton-blockchain/wallets-list/',
   'https://tonconnectbridge.mytonwallet.org/',
   PUSH_API_URL,
+  'https://mytonwalletorg--jwt-prover-v0-1-0-jwtprover-endpoint.modal.run',
 ].filter(Boolean).join(' ');
 
 const cspConnectSrcExtra = APP_ENV === 'development'
@@ -35,20 +36,27 @@ const cspConnectSrcExtra = APP_ENV === 'development'
   : '';
 
 const cspScriptSrcExtra = IS_TELEGRAM_APP ? 'https://telegram.org' : '';
+const scpScriptSrc = [
+  'https://accounts.google.com/gsi/client',
+  'https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/',
+  'https://alcdn.msauth.net/browser/',
+  cspScriptSrcExtra,
+].filter(Boolean).join(' ');
 
 const CSP = `
   default-src 'none';
   manifest-src 'self';
   connect-src 'self' blob: https: ${cspConnectSrcHosts} ${cspConnectSrcExtra};
-  script-src 'self' 'wasm-unsafe-eval' ${cspScriptSrcExtra};
-  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com/;
+  script-src 'self' 'wasm-unsafe-eval' ${scpScriptSrc};
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com/ https://accounts.google.com/gsi/style;
   img-src 'self' data: https:;
   media-src 'self' data:;
   object-src 'none';
   base-uri 'none';
   font-src 'self' https://fonts.gstatic.com/;
   form-action 'none';
-  frame-src 'self'`
+  frame-src 'self' https://accounts.google.com/;
+  worker-src 'self' blob:`
   .replace(/\s+/g, ' ').trim();
 
 export default function createConfig(
@@ -211,8 +219,12 @@ export default function createConfig(
       new EnvironmentPlugin({
         APP_ENV: 'production',
         IS_TELEGRAM_APP: 'false',
+        PUSH_APP_URL: '',
         PUSH_API_URL: '',
-        PUSH_SC_ADDRESS: '',
+        PUSH_GOOGLE_OAUTH_CLIENT_ID: '',
+        PUSH_APPLE_OAUTH_CLIENT_ID: '',
+        PUSH_MICROSOFT_OAUTH_CLIENT_ID: '',
+        PUSH_FACEBOOK_OAUTH_CLIENT_ID: '',
       }),
       new CopyWebpackPlugin({
         patterns: [

@@ -37,6 +37,7 @@ export function buildTokenTransferBody(params: TokenTransferBodyParams) {
     customPayload,
   } = params;
 
+  // Schema definition: https://github.com/ton-blockchain/TEPs/blob/0d7989fba6f2d9cb08811bf47263a9b314dc5296/text/0074-jettons-standard.md#1-transfer
   let builder = new Builder()
     .storeUint(JettonOpCode.Transfer, 32)
     .storeUint(queryId ?? generateQueryId(), 64)

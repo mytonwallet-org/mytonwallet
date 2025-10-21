@@ -34,7 +34,7 @@ import { vibrate } from '../../util/haptics';
 import { isValidAddressOrDomain } from '../../util/isValidAddressOrDomain';
 import { debounce } from '../../util/schedulers';
 import { trimStringByMaxBytes } from '../../util/text';
-import { getChainBySlug, getIsServiceToken, getNativeToken } from '../../util/tokens';
+import { getChainBySlug, getIsNativeToken, getIsServiceToken, getNativeToken } from '../../util/tokens';
 
 import useCurrentOrPrev from '../../hooks/useCurrentOrPrev';
 import useFlag from '../../hooks/useFlag';
@@ -73,8 +73,8 @@ interface StateProps {
   isActive: boolean;
   isLoading?: boolean;
   isComplete?: boolean;
-  fee?: bigint;
-  realFee?: bigint;
+  nativeFee?: bigint;
+  realNativeFee?: bigint;
   tokenSlug: string;
   tokens?: UserToken[];
   savedAddresses?: SavedAddress[];
@@ -113,8 +113,8 @@ function TransferInitial({
   comment = '',
   shouldEncrypt,
   tokens,
-  fee,
-  realFee,
+  nativeFee,
+  realNativeFee,
   savedAddresses,
   accounts,
   nativeTokenBalance,
@@ -192,9 +192,9 @@ function TransferInitial({
 
   const explainedFee = useMemo(
     () => explainApiTransferFee({
-      fee, realFee, diesel, tokenSlug,
+      fee: nativeFee, realFee: realNativeFee, diesel, tokenSlug,
     }),
-    [fee, realFee, diesel, tokenSlug],
+    [nativeFee, realNativeFee, diesel, tokenSlug],
   );
 
   // Note: this constant has 3 distinct meaningful values
@@ -226,16 +226,20 @@ function TransferInitial({
 
   useInterval(updateDieselState, authorizeDieselInterval);
 
+  const fullFee = useMemo(() => {
+    return getFullFee(explainedFee.fullFee?.terms, tokenSlug);
+  }, [explainedFee.fullFee, tokenSlug]);
+
   useEffect(() => {
     if (
-      balance && amount && fee
+      balance && amount && fullFee !== undefined
       && amount < balance
-      && fee < balance
-      && amount + fee >= balance
+      && fullFee < balance
+      && amount + fullFee >= balance
     ) {
-      setTransferAmount({ amount: balance - fee });
+      setTransferAmount({ amount: balance - fullFee });
     }
-  }, [amount, balance, fee]);
+  }, [amount, balance, fullFee]);
 
   // Note: this effect doesn't watch amount changes mainly because it's tricky to program a fee recalculation avoidance
   // when the amount changes due to a fee change. And it's not needed because the fee doesn't depend on the amount.
@@ -646,8 +650,8 @@ export default memo(
         amount,
         comment,
         shouldEncrypt,
-        fee,
-        realFee,
+        nativeFee: fee,
+        realNativeFee: realFee,
         nfts,
         tokenSlug,
         binPayload,
@@ -705,4 +709,12 @@ function getScamWarning(lang: LangFn, scamWarning: ScamWarningType | undefined) 
       </a>
     ),
   });
+}
+
+// Calculates fee in the token currency to keep abstraction from SDK native fee values
+function getFullFee(terms: FeeTerms<bigint> | undefined, tokenSlug: string): bigint | undefined {
+  if (!terms) return undefined;
+  const tokenPart = terms.token ?? 0n;
+  const nativePart = getIsNativeToken(tokenSlug) ? (terms.native ?? 0n) : 0n;
+  return tokenPart + nativePart;
 }

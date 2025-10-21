@@ -60,6 +60,8 @@ class TokenHeaderView(
 
     init {
         id = generateViewId()
+        clipChildren = false
+        clipToPadding = false
     }
 
     private val moreButton: WImageButton by lazy {
@@ -122,16 +124,25 @@ class TokenHeaderView(
 
     private val balanceContentView = WBalanceView(context, true, -1f).apply {
         setStyle(36f, 28f, WFont.NunitoExtraBold)
+        clipChildren = false
+        clipToPadding = false
     }
     private val balanceView = WSensitiveDataContainer(
-        AutoScaleContainerView(balanceContentView),
+        AutoScaleContainerView(balanceContentView).apply {
+            clipChildren = false
+            clipToPadding = false
+            maxAllowedWidth = navigationController.window.windowView.width - 34.dp
+        },
         WSensitiveDataContainer.MaskConfig(
             16,
             4,
             Gravity.CENTER,
             protectContentLayoutSize = false
         )
-    )
+    ).apply {
+        clipChildren = false
+        clipToPadding = false
+    }
 
     private val equivalentLabel = WSensitiveDataContainer(WLabel(context).apply {
         layoutDirection = LAYOUT_DIRECTION_LTR
@@ -197,7 +208,7 @@ class TokenHeaderView(
         val balanceLayoutParams = balanceView.layoutParams as LayoutParams
         balanceLayoutParams.topMargin = calculatedMinHeight +
             if (dy < 0) 126.dp - dy else
-                ((-76.5f).dp + (1 - collapseProgress) * 202.5f.dp).roundToInt()
+                ((-64.5f).dp + (1 - collapseProgress) * 190.5f.dp).roundToInt()
         balanceView.layoutParams = balanceLayoutParams
         balanceView.post {
             balanceContentView.setScale(
@@ -209,7 +220,7 @@ class TokenHeaderView(
             balanceView.setMaskScale(0.5f + (1 - collapseProgress) / 2f)
         }
         val equivalentLabelLayoutParams = equivalentLabel.layoutParams as LayoutParams
-        equivalentLabelLayoutParams.topMargin = (collapseProgress * (-7).dp).roundToInt()
+        equivalentLabelLayoutParams.topMargin = (collapseProgress * (-19).dp).roundToInt()
         equivalentLabel.scaleX = (14 + 8 * (1 - collapseProgress)) / 22f
         equivalentLabel.scaleY = equivalentLabel.scaleX
         equivalentLabel.setMaskPivotYPercent(0f)

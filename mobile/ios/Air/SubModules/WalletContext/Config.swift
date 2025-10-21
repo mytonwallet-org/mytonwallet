@@ -46,3 +46,12 @@ public let JVAULT_URL = "https://jvault.xyz"
 public let MAX_PRICE_IMPACT_VALUE = 5.0
 
 public let JSBRIDGE_IDENTIFIER = "jsbridge"
+
+public let SUPPORT_USERNAME = "mysupport"
+
+public let MTW_TIPS_CHANNEL_NAME = "MyTonWalletTips"
+public let MTW_TIPS_CHANNEL_NAME_RU = "MyTonWalletTipsRu"
+
+public let HELP_CENTER_URL = "https://help.mytonwallet.io"
+
+public let MTW_CARDS_COLLECTION = "EQCQE2L9hfwx1V8sgmF9keraHx1rNK9VmgR1ctVvINBGykyM"

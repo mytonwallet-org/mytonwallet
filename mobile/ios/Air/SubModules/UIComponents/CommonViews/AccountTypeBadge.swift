@@ -7,20 +7,29 @@ import WalletContext
 public struct AccountTypeBadge: View {
     
     var accountType: AccountType
+    public enum Style {
+        case card
+        case list
+    }
+    var style: Style
     
-    public init(_ accountType: AccountType) {
+    public init(_ accountType: AccountType, style: Style) {
         self.accountType = accountType
+        self.style = style
     }
     
     public var body: some View {
-        switch accountType {
-        case .mnemonic:
-            mnemonic
-        case .hardware:
-            hardware
-        case .view:
-            view
+        HStack {
+            switch accountType {
+            case .mnemonic:
+                mnemonic
+            case .hardware:
+                hardware
+            case .view:
+                view
+            }
         }
+        .foregroundStyle(foregroundStyle)
     }
     
     var mnemonic: some View {
@@ -46,10 +55,25 @@ public struct AccountTypeBadge: View {
         .background {
             ZStack {
                 BackgroundBlur(radius: 16)
-                Color.white.opacity(0.18)
+                switch style {
+                case .card:
+                    Color.primary.opacity(0.18)
+                case .list:
+                    Color(WTheme.secondaryLabel).opacity(0.12)
+                }
+                
             }
         }
         .clipShape(.rect(cornerRadius: 5))
+    }
+    
+    var foregroundStyle: Color {
+        switch style {
+        case .card:
+            Color.primary
+        case .list:
+            Color(WTheme.secondaryLabel)
+        }
     }
 }
 
@@ -62,9 +86,9 @@ public struct AccountTypeBadge: View {
         }
         
         VStack {
-            AccountTypeBadge(.mnemonic)
-            AccountTypeBadge(.hardware)
-            AccountTypeBadge(.view)
+            AccountTypeBadge(.mnemonic, style: .card)
+            AccountTypeBadge(.hardware, style: .card)
+            AccountTypeBadge(.view, style: .card)
         }
         .foregroundStyle(.white)
         .scaleEffect(4)

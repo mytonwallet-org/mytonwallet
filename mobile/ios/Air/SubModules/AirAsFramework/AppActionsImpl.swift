@@ -50,6 +50,11 @@ private class AppActionsImpl: AppActionsProtocol {
         InAppBrowserSupport.shared.openInBrowser(url, title: title, injectTonConnect: injectTonConnect)
     }
     
+    static func openTipsChannel() {
+        let channel = Language.current == .ru ? MTW_TIPS_CHANNEL_NAME_RU : MTW_TIPS_CHANNEL_NAME
+        UIApplication.shared.open(URL(string: "https://t.me/\(channel)")!)
+    }
+    
     static func pushTransactionSuccess(activity: ApiActivity) {
         let vc = ActivityVC(activity: activity)
         if let nc = topWViewController()?.navigationController {

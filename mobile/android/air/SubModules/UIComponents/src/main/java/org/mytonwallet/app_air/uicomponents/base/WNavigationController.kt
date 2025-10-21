@@ -357,7 +357,7 @@ class WNavigationController(
         }
 
     fun pop(animated: Boolean = true, onCompletion: (() -> Unit)? = null) {
-        if (viewControllers.lastOrNull()?.isDisappeared == true) {
+        if (viewControllers.lastOrNull()?.swipeTouchListener?.isPopInProgress == true) {
             // Pop is already in progress
             return
         }

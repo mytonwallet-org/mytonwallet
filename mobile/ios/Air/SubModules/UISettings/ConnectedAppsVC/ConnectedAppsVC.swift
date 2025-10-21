@@ -41,7 +41,7 @@ public class ConnectedAppsVC: WViewController {
     
     private var tableView: UITableView!
     private func setupViews() {
-        title = lang("Connected Dapps")
+        title = lang("Connected Apps")
         
         addNavigationBar(
             title: title,

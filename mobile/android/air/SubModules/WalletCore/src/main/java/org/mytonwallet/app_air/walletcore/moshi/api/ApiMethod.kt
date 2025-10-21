@@ -472,10 +472,22 @@ sealed class ApiMethod<T> {
 
                 @JsonClass(generateAdapter = true)
                 data class Request(
-                    val method: String = "sendTransaction",
+                    val method: String,
                     val params: List<String>,
                     val id: String
                 )
+            }
+
+            class TonConnectSignData(
+                dApp: DAppArg,
+                request: TonConnectSendTransaction.Request
+            ) : ApiMethod<JSONObject>() {
+                override val name: String = "tonConnect_signData"
+                override val type: Type = JSONObject::class.java
+                override val arguments: String = ArgumentsBuilder()
+                    .jsObject(dApp, DAppArg::class.java)
+                    .jsObject(request, TonConnectSendTransaction.Request::class.java)
+                    .build()
             }
         }
     }

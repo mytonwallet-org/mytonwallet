@@ -237,6 +237,7 @@ class SendConfirmVC(
             )
             id = View.generateViewId()
             overScrollMode = ScrollView.OVER_SCROLL_ALWAYS
+            isVerticalScrollBarEnabled = false
         }
     }
 

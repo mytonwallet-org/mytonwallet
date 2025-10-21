@@ -11,22 +11,19 @@ import UIComponents
 import WalletContext
 import WalletCore
 
-final class AboutVC: WViewController {
+public final class UseResponsiblyVC: WViewController {
     
-    let introModel: IntroModel
+    private var hostingController: UIHostingController<UseResponsiblyView>!
     
-    private var hostingController: UIHostingController<AboutView>!
-    
-    init(introModel: IntroModel) {
-        self.introModel = introModel
+    public init() {
         super.init(nibName: nil, bundle: nil)
     }
     
     @MainActor required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-
-    override func viewDidLoad() {
+    
+    override public func viewDidLoad() {
         super.viewDidLoad()
         setupViews()
     }
@@ -36,6 +33,7 @@ final class AboutVC: WViewController {
         addNavigationBar(
             addBackButton: { topWViewController()?.navigationController?.popViewController(animated: true) }
         )
+        navigationBarProgressiveBlurDelta = 32
         
         hostingController = addHostingController(makeView(), constraints: .fill)
         
@@ -44,11 +42,14 @@ final class AboutVC: WViewController {
         updateTheme()
     }
     
-    private func makeView() -> AboutView {
-        AboutView()
+    private func makeView() -> UseResponsiblyView {
+        UseResponsiblyView(
+            navigationBarInset: navigationBarHeight,
+            onScroll: { [weak self] y in self?.updateNavigationBarProgressiveBlur(y) }
+        )
     }
     
-    override func updateTheme() {
+    override public func updateTheme() {
         view.backgroundColor = WTheme.groupedBackground
     }
 }
@@ -56,5 +57,5 @@ final class AboutVC: WViewController {
 
 @available(iOS 18, *)
 #Preview {
-    AboutVC(introModel: IntroModel(password: nil))
+    UseResponsiblyVC()
 }

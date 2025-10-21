@@ -145,25 +145,25 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
                     isEmulation -> ApiTransactionType.TransactionTime.FUTURE
                     else -> ApiTransactionType.TransactionTime.PAST
                 }
-                return type?.getTitle(transactionTime, isIncoming) ?: if (isNft) {
+                return type?.getTitle(transactionTime, isIncoming) ?: (if (isNft) {
                     when {
                         isIncoming && transactionTime == ApiTransactionType.TransactionTime.PAST -> "Received"
                         isIncoming && transactionTime == ApiTransactionType.TransactionTime.PRESENT -> "Receiving"
-                        isIncoming -> "Receive"
+                        isIncoming -> "\$receive_action"
                         !isIncoming && transactionTime == ApiTransactionType.TransactionTime.PAST -> "Sent"
                         !isIncoming && transactionTime == ApiTransactionType.TransactionTime.PRESENT -> "Sending"
-                        else -> "Send"
+                        else -> "\$send_action"
                     }
                 } else {
                     when {
                         isIncoming && transactionTime == ApiTransactionType.TransactionTime.PAST -> "Received"
                         isIncoming && transactionTime == ApiTransactionType.TransactionTime.PRESENT -> "Receiving"
-                        isIncoming -> "Receive"
+                        isIncoming -> "\$receive_action"
                         !isIncoming && transactionTime == ApiTransactionType.TransactionTime.PAST -> "Sent"
                         !isIncoming && transactionTime == ApiTransactionType.TransactionTime.PRESENT -> "Sending"
-                        else -> "Send"
+                        else -> "\$send_action"
                     }
-                }.let { LocaleController.getString(it) }
+                }).let { LocaleController.getString(it) }
             }
 
         val token: MToken?
@@ -648,7 +648,7 @@ enum class ApiTransactionType {
                 "Calling Contract",
                 "\$call_contract_action"
             ),
-            EXCESS to Triple("Excess", "Processing Excess", "Process Excess"),
+            EXCESS to Triple("Excess", "Processing Excess", "Excess"),
             CONTRACT_DEPLOY to Triple("Contract Deployed", "Deploying Contract", "Deploy Contract"),
             BOUNCED to Triple("Bounced", "Bouncing", "Bounce"),
             MINT to Triple("Minted", "Minting", "Mint"),

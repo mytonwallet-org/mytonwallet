@@ -422,9 +422,11 @@ class ExploreVC(context: Context) : WViewController(context),
     var searchVC: SearchVC? = null
     var isShowingSearch = false
     fun search(query: String?, isFocused: Boolean) {
+        val searchResult = exploreVM.search(query ?: "")
         val shouldShowSearchScreen =
-            !query.isNullOrEmpty() ||
+            searchResult.hasResult ||
                 (isFocused &&
+                    query.isNullOrEmpty() &&
                     !ExploreHistoryStore.exploreHistory?.searchHistory.isNullOrEmpty())
         if (!shouldShowSearchScreen) {
             searchVC?.keepKeyboardOpenOnDismiss = true
@@ -436,11 +438,8 @@ class ExploreVC(context: Context) : WViewController(context),
             isShowingSearch = true
             searchVC = SearchVC(context)
             navigationController?.push(searchVC!!, false)
-            exploreVM.allSites?.let {
-                searchVC?.updateSites(it)
-            }
         }
-        searchVC?.updateKeyword(query?.lowercase())
+        searchVC?.updateSearchResult(searchResult)
     }
 
     private fun onDAppTap(it: ApiDapp?) {

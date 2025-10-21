@@ -19,6 +19,7 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
+import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
@@ -292,6 +293,7 @@ class SendVC(
                 }
             }
             overScrollMode = ScrollView.OVER_SCROLL_ALWAYS
+            isVerticalScrollBarEnabled = false
         }
     }
 
@@ -578,10 +580,14 @@ class SendVC(
         super.insetsUpdated()
         scrollView.setPadding(
             ViewConstants.HORIZONTAL_PADDINGS.dp,
-            24.dp,
+            0,
             ViewConstants.HORIZONTAL_PADDINGS.dp,
             0
         )
+        topGapView.updateLayoutParams {
+            height = (navigationController?.getSystemBars()?.top ?: 0) +
+                WNavigationBar.DEFAULT_HEIGHT.dp
+        }
         view.setConstraints {
             toBottomPx(
                 continueButton, 20.dp + max(

@@ -3,6 +3,8 @@ package org.mytonwallet.app_air.uicreatewallet.viewControllers.importWallet
 import android.app.Activity
 import android.os.Handler
 import android.os.Looper
+import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -10,8 +12,7 @@ import org.mytonwallet.app_air.walletcore.api.importWallet
 import org.mytonwallet.app_air.walletcore.api.validateMnemonic
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
-import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
-import org.mytonwallet.app_air.walletbasecontext.logger.Logger
+import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 import java.lang.ref.WeakReference
 
 
@@ -85,6 +86,7 @@ class ImportWalletVM(delegate: Delegate) {
                     importedAccount.tronAddress,
                     importedAt = importedAccount.importedAt
                 )
+                AirPushNotifications.subscribe(importedAccount, ignoreIfLimitReached = true)
                 if (biometricsActivated != null) {
                     if (biometricsActivated) {
                         WSecureStorage.setBiometricPasscode(window, passcode)

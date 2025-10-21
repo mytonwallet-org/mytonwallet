@@ -109,7 +109,12 @@ public class _TokenStore {
     
     private func process(newTokens: [String: ApiToken]) {
         assert(!Thread.isMainThread)
+        guard !newTokens.isEmpty else { return }
         var tokens = self.tokens
+        let removedSlugs =  Set(tokens.keys).subtracting(Set(newTokens.keys).union(Set(Self.defaultTokens.keys)))
+        for removedSlug in removedSlugs {
+            tokens[removedSlug] = nil
+        }
         for (slug, newToken) in newTokens {
             tokens[slug] = _merge(cached: self.tokens[slug], incoming: newToken)
         }
@@ -127,7 +132,7 @@ public class _TokenStore {
     private func _merge(cached: ApiToken?, incoming: ApiToken) -> ApiToken {
         guard let cached else { return incoming }
         
-        let priceIsInvalid: Bool = (incoming.priceUsd == 0 && !PRICELESS_TOKEN_HASHES.contains(incoming.codeHash) && !STAKED_TOKEN_SLUGS.contains(incoming.slug))
+        let priceIsInvalid: Bool = (incoming.priceUsd == 0 && [TONCOIN_SLUG, TON_USDT_SLUG, TON_USDE_SLUG, MYCOIN_SLUG, TRX_SLUG, TRON_USDT_SLUG].contains(incoming.slug))
             || (incoming.slug == TONCOIN_SLUG && incoming.priceUsd == 1.95)
 
         let merged = ApiToken(

@@ -240,9 +240,26 @@ public class WNavigationBar: WTouchPassView, WThemedView {
         if onBackPressed != nil {
             let backButton = UIButton(type: .system)
             self.backButton = backButton
+
+            let attributedString = NSMutableAttributedString()
+            let backArrowImage = UIImage(systemName: "chevron.backward")!
+            let imageAttachment = NSTextAttachment(image: backArrowImage)
+            let imageAttachmentString = NSMutableAttributedString(attachment: imageAttachment)
+            imageAttachmentString.addAttributes([
+                .font: UIFont.systemFont(ofSize: 23, weight: .medium),
+            ], range: NSRange(location: 0, length: imageAttachmentString.length))
+            attributedString.append(imageAttachmentString)
+            let titleString = NSAttributedString(string: " \(lang("Back"))", attributes: [
+                .font: UIFont.systemFont(ofSize: 17, weight: .regular),
+                .baselineOffset: 2
+            ])
+            attributedString.append(titleString)
+            backButton.setAttributedTitle(attributedString, for: .normal)
+
             backButton.setContentCompressionResistancePriority(.required, for: .horizontal)
             backButton.contentHorizontalAlignment = .leading
             backButton.addTarget(self, action: #selector(backButtonPressed), for: .touchUpInside)
+            backButton.translatesAutoresizingMaskIntoConstraints = false
             contentView.addSubview(backButton)
             NSLayoutConstraint.activate([
                 backButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 7),
@@ -264,26 +281,8 @@ public class WNavigationBar: WTouchPassView, WThemedView {
     }
     
     public func updateTheme() {
-        if let backButton {
-            backButton.translatesAutoresizingMaskIntoConstraints = false
-            let backArrowImage = UIImage(systemName: "chevron.backward",
-                                         withConfiguration: UIImage.SymbolConfiguration(pointSize: 23,
-                                                                                        weight: .medium))
-            let imageAttachment = NSTextAttachment()
-            imageAttachment.image = backArrowImage?.withTintColor(WTheme.tint).withRenderingMode(.alwaysTemplate)
-            let attributedString = NSMutableAttributedString()
-            if imageAttachment.image != nil {
-                let imageAttachmentString = NSAttributedString(attachment: imageAttachment)
-                attributedString.append(imageAttachmentString)
-            }
-            let titleString = NSAttributedString(string: " \(lang("Back"))", attributes: [
-                .foregroundColor: WTheme.tint,
-                .font: UIFont.systemFont(ofSize: 17, weight: .regular),
-                .baselineOffset: 2
-            ])
-            attributedString.append(titleString)
-            backButton.setAttributedTitle(attributedString, for: .normal)
-            backButton.tintColor = WTheme.tint
+        UIView.animate(withDuration: 0.3) {
+            self.backButton?.tintColor = WTheme.tint
         }
     }
     

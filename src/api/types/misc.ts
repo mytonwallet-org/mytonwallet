@@ -54,6 +54,11 @@ export type ApiTokenWithPrice = ApiToken & {
   percentChange24h: number;
 };
 
+export type ApiTokenWithMaybePrice = ApiToken & {
+  priceUsd: undefined | ApiTokenWithPrice['priceUsd'];
+  percentChange24h: undefined | ApiTokenWithPrice['percentChange24h'];
+};
+
 export type ApiKnownAddresses = Record<string, ApiAddressInfo>;
 
 export interface ApiAddressInfo {

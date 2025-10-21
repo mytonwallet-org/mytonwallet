@@ -120,18 +120,18 @@ private data class WALCharacter(
 
             val rect1 = WALCharacterRect(
                 leftOffset = currentLeftOffset,
-                yOffsetPercent = if (change == Change.INC) progress else -progress,
-                alpha = ((if (endWith0Alpha) 1 - progress else 1f) * (1 - progress)),
+                yOffsetPercent = if (change == Change.INC) easedProgress else -easedProgress,
+                alpha = ((if (endWith0Alpha) 1 - easedProgress else 1f) * (1 - easedProgress)),
                 color = color(startChar),
                 char = startChar
             )
             rects.add(rect1)
 
-            if (progress > 0) {
+            if (easedProgress > 0) {
                 val rect2 = WALCharacterRect(
                     leftOffset = currentLeftOffset,
-                    yOffsetPercent = if (change == Change.INC) -1 + progress else 1 - progress,
-                    alpha = ((if (endWith0Alpha) 1 - progress else 1f) * progress),
+                    yOffsetPercent = if (change == Change.INC) -1 + easedProgress else 1 - easedProgress,
+                    alpha = ((if (endWith0Alpha) 1 - easedProgress else 1f) * easedProgress),
                     color = color(endChar),
                     char = endChar
                 )
@@ -141,7 +141,7 @@ private data class WALCharacter(
             return rects
         }
 
-        val currentStep = progress * totalSteps
+        val currentStep = easedProgress * totalSteps
         val stepProgress = currentStep - floor(currentStep)
         val currentStepChar =
             (norm(startNum + (currentStep * if (change == Change.INC) 1 else -1).toInt()) % 10).toString()
@@ -154,18 +154,18 @@ private data class WALCharacter(
         val rect1 = WALCharacterRect(
             leftOffset = currentLeftOffset,
             yOffsetPercent = if (change == Change.INC) stepProgress else -stepProgress,
-            alpha = (if (endWith0Alpha) (1 - progress) else 1f) *
+            alpha = (if (endWith0Alpha) (1 - easedProgress) else 1f) *
                 (if (startFrom0Alpha && currentStep < 1) 0f else 1 - stepProgress),
             color = color(currentStepChar),
             char = currentStepChar
         )
         rects.add(rect1)
 
-        if (progress > 0) {
+        if (easedProgress > 0) {
             val rect2 = WALCharacterRect(
                 leftOffset = currentLeftOffset,
                 yOffsetPercent = if (change == Change.INC) -1 + stepProgress else 1 - stepProgress,
-                alpha = (if (endWith0Alpha) (1 - progress) else 1f) * stepProgress,
+                alpha = (if (endWith0Alpha) (1 - easedProgress) else 1f) * stepProgress,
                 color = color(nextStepChar),
                 char = nextStepChar
             )
@@ -481,7 +481,7 @@ class WAnimatedAmountLabel(
             canvas.drawText(
                 charRect.char,
                 charRect.leftOffset,
-                textSize / 15f + textSize + charRect.yOffsetPercent * charHeight,
+                textSize / 15f + textSize + charRect.yOffsetPercent * textSize,
                 paint
             )
         }

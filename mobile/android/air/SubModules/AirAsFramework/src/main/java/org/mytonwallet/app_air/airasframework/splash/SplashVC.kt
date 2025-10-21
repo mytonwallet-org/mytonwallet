@@ -349,6 +349,7 @@ class SplashVC(context: Context) : WViewController(context),
                     onCompletion = {
                         appIsUnlocked = true
                         handleDeeplinkIfRequired()
+                        window?.doPendingTasks()
                     })
             },
             allowedToCancel = false
@@ -372,6 +373,7 @@ class SplashVC(context: Context) : WViewController(context),
     override fun walletIsReady() {
         _isWalletReady = true
         handleDeeplinkIfRequired()
+        window?.doPendingTasks()
     }
 
     override fun isWalletReady(): Boolean {

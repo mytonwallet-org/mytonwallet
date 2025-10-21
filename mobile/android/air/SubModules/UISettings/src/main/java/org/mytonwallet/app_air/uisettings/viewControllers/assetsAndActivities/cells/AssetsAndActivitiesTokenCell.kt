@@ -5,17 +5,27 @@ import android.text.TextUtils
 import android.view.Gravity
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import androidx.appcompat.widget.AppCompatTextView
+import androidx.core.view.isGone
+import androidx.customview.widget.ViewDragHelper
 import androidx.recyclerview.widget.RecyclerView
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.ViewHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.swipeRevealLayout.SwipeRevealLayout
+import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WSwitch
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -32,12 +42,30 @@ class AssetsAndActivitiesTokenCell(
 ) : WCell(recyclerView.context, LayoutParams(MATCH_PARENT, 64.dp)),
     WThemedView {
 
-    private lateinit var token: MToken
-
-    private val separatorView: WBaseView by lazy {
-        val sw = WBaseView(context)
-        sw
+    companion object {
+        private const val MAIN_VIEW_RADIUS = 18f
     }
+
+    lateinit var token: MToken
+        private set
+    private val lastItemRadius = (ViewConstants.BIG_RADIUS - 1.5f).dp
+
+    private val redRipple = WRippleDrawable.create(0f).apply {
+        backgroundColor = WColor.Red.color
+        rippleColor = WColor.BackgroundRipple.color
+    }
+
+    private fun getRedRippleForLastItem() = WRippleDrawable.create(
+        0f,
+        0f,
+        ViewConstants.BIG_RADIUS.dp,
+        ViewConstants.BIG_RADIUS.dp
+    ).apply {
+        backgroundColor = WColor.Red.color
+        rippleColor = WColor.BackgroundRipple.color
+    }
+
+    private val separatorView = WBaseView(context)
 
     private val imageView: IconView by lazy {
         val img = IconView(context)
@@ -72,16 +100,109 @@ class AssetsAndActivitiesTokenCell(
         sw
     }
 
+    private val deleteLabel = AppCompatTextView(context).apply {
+        id = generateViewId()
+        setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 16f)
+        setLineHeight(android.util.TypedValue.COMPLEX_UNIT_SP, 24f)
+        includeFontPadding = false
+        ellipsize = TextUtils.TruncateAt.END
+        typeface = WFont.Medium.typeface
+        maxLines = 1
+        text = LocaleController.getString("Delete")
+    }
+
+    val secondaryView = WView(context).apply {
+        id = generateViewId()
+        layoutParams = LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
+        background = redRipple
+
+        addView(deleteLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        setConstraints {
+            toCenterY(deleteLabel)
+            toCenterX(deleteLabel, 20f)
+        }
+    }
+
+    val mainView = WView(context, LayoutParams(MATCH_PARENT, 64.dp))
+
+    val swipeRevealLayout = SwipeRevealLayout(context).apply {
+        id = generateViewId()
+        layoutParams = LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+        dragEdge = SwipeRevealLayout.DRAG_EDGE_RIGHT
+        isFullOpenEnabled = true
+        setSwipeListener(object : SwipeRevealLayout.SwipeListener {
+            override fun onClosed(view: SwipeRevealLayout?) {
+                mainView.background = ViewHelpers.roundedShapeDrawable(
+                    WColor.Background.color,
+                    0f,
+                    0f,
+                    if (isLast) lastItemRadius else 0f,
+                    if (isLast) lastItemRadius else 0f
+                )
+            }
+
+            override fun onOpened(view: SwipeRevealLayout?) {
+                mainView.background = ViewHelpers.roundedShapeDrawable(
+                    WColor.Background.color,
+                    0f,
+                    MAIN_VIEW_RADIUS,
+                    if (isLast) maxOf(
+                        MAIN_VIEW_RADIUS,
+                        lastItemRadius
+                    ) else MAIN_VIEW_RADIUS,
+                    0f
+                )
+            }
+
+            override fun onFullyOpened(view: SwipeRevealLayout?) {
+                onDeleteToken?.invoke()
+            }
+
+            override fun onSlide(view: SwipeRevealLayout?, slideOffset: Float) {
+                val multiplier = if (slideOffset < 0.02) 0f else slideOffset * 4f
+                val variableRadius =
+                    if (multiplier >= 1f) MAIN_VIEW_RADIUS else MAIN_VIEW_RADIUS * multiplier
+                val bottomRadius = if (isLast) lastItemRadius else 0f
+
+                mainView.background = ViewHelpers.roundedShapeDrawable(
+                    WColor.Background.color,
+                    0f,
+                    variableRadius,
+                    if (isLast) maxOf(variableRadius, bottomRadius) else variableRadius,
+                    bottomRadius
+                )
+            }
+
+        })
+        setViewDragHelperStateChangeListener {
+            when (it) {
+                ViewDragHelper.STATE_DRAGGING -> {
+                    parent.requestDisallowInterceptTouchEvent(true)
+                }
+
+                ViewDragHelper.STATE_IDLE -> {
+                    parent.requestDisallowInterceptTouchEvent(false)
+                }
+            }
+        }
+
+        addView(secondaryView)
+        addView(mainView)
+        initChildren()
+    }
+
+    private var onDeleteToken: (() -> Unit)? = null
+
     override fun setupViews() {
         super.setupViews()
 
-        addView(separatorView, LayoutParams(0, 1))
-        addView(imageView, ViewGroup.LayoutParams(48.dp, 48.dp))
-        addView(tokenNameLabel, LayoutParams(0, LayoutParams.WRAP_CONTENT))
-        addView(amountLabel)
-        addView(switchView)
-        setConstraints {
-            toTop(separatorView)
+        mainView.addView(separatorView, LayoutParams(0, 1))
+        mainView.addView(imageView, ViewGroup.LayoutParams(48.dp, 48.dp))
+        mainView.addView(tokenNameLabel, LayoutParams(0, LayoutParams.WRAP_CONTENT))
+        mainView.addView(amountLabel)
+        mainView.addView(switchView)
+        mainView.setConstraints {
+            toBottom(separatorView)
             toEnd(separatorView, 16f)
             toStart(separatorView, 72f)
             toCenterY(imageView)
@@ -95,37 +216,72 @@ class AssetsAndActivitiesTokenCell(
             toEnd(switchView, 20f)
         }
 
-        setOnClickListener {
+        mainView.setOnClickListener {
             switchView.isChecked = !switchView.isChecked
+        }
+
+        addView(swipeRevealLayout)
+        setConstraints {
+            allEdges(swipeRevealLayout)
+        }
+
+        post {
+            val secondaryViewLayoutParams = secondaryView.layoutParams
+            secondaryViewLayoutParams.height = mainView.height
+            secondaryView.layoutParams = secondaryViewLayoutParams
         }
 
         updateTheme()
     }
 
     override fun updateTheme() {
-        setBackgroundColor(
+        mainView.setBackgroundColor(
             WColor.Background.color,
             0f,
-            if (isLast) ViewConstants.BIG_RADIUS.dp else 0f
+            if (isLast) lastItemRadius else 0f
         )
-        addRippleEffect(
+        mainView.addRippleEffect(
             WColor.SecondaryBackground.color,
             0f,
-            if (isLast) ViewConstants.BIG_RADIUS.dp else 0f
+            if (isLast) lastItemRadius else 0f
         )
+
+        if (isLast) {
+            val lastItemRedRipple = getRedRippleForLastItem()
+            secondaryView.background = lastItemRedRipple
+            swipeRevealLayout.setBackgroundColor(
+                WColor.Red.color,
+                0f,
+                ViewConstants.BIG_RADIUS.dp
+            )
+        } else {
+            redRipple.backgroundColor = WColor.Red.color
+            redRipple.rippleColor = WColor.BackgroundRipple.color
+            secondaryView.background = redRipple
+            swipeRevealLayout.setBackgroundColor(WColor.Red.color)
+        }
+
         tokenNameLabel.setTextColor(WColor.PrimaryText.color)
         amountLabel.contentView.setTextColor(WColor.SecondaryText.color)
         separatorView.setBackgroundColor(WColor.Separator.color)
+        deleteLabel.setTextColor(WColor.TextOnTint.color)
     }
 
     private var isLast = false
     fun configure(
         token: MToken,
         balance: BigInteger,
-        isLast: Boolean
+        isLast: Boolean,
+        isSwipeEnabled: Boolean = true,
+        onDeleteToken: (() -> Unit)? = null
     ) {
         this.token = token
         this.isLast = isLast
+        this.onDeleteToken = onDeleteToken ?: {
+            setTokenVisibility(false)
+        }
+
+        swipeRevealLayout.setLockDrag(!isSwipeEnabled)
         imageView.config(token, AccountStore.activeAccount?.isMultichain == true)
         tokenNameLabel.text = token.name
         amountLabel.setMaskCols(4 + abs(token.slug.hashCode() % 8))
@@ -140,7 +296,16 @@ class AssetsAndActivitiesTokenCell(
         switchView.isChecked = !token.isHidden()
         skipSwitchChangeListener = false
 
+        secondaryView.setOnClickListener {
+            this.onDeleteToken?.invoke()
+        }
+        separatorView.isGone = isLast
+
         updateTheme()
+    }
+
+    fun closeSwipe() {
+        swipeRevealLayout.close(true)
     }
 
     private fun setTokenVisibility(visible: Boolean) {

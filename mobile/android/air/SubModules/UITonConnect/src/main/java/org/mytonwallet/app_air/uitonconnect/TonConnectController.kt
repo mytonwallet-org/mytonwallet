@@ -52,42 +52,46 @@ class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObse
                 if (AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW) {
                     return
                 }
-                val loadingVC = loadingConnectRequestViewController?.get()
-                if (loadingVC?.isDisappeared == false) {
-                    loadingVC.setDappUpdate(update)
-                    loadingConnectRequestViewController = null
-                } else {
-                    val navVC = WNavigationController(
-                        window, WNavigationController.PresentationConfig(
-                            overFullScreen = false,
-                            isBottomSheet = true
+                window.doOnWalletReady {
+                    val loadingVC = loadingConnectRequestViewController?.get()
+                    if (loadingVC?.isDisappeared == false) {
+                        loadingVC.setDappUpdate(update)
+                        loadingConnectRequestViewController = null
+                    } else {
+                        val navVC = WNavigationController(
+                            window, WNavigationController.PresentationConfig(
+                                overFullScreen = false,
+                                isBottomSheet = true
+                            )
                         )
-                    )
-                    navVC.setRoot(TonConnectRequestConnectVC(window, update))
-                    window.presentOnWalletReady(navVC)
+                        navVC.setRoot(TonConnectRequestConnectVC(window, update))
+                        window.present(navVC)
+                    }
                 }
             }
 
             is ApiUpdate.ApiUpdateDappSendTransactions -> {
                 WalletCore.ensureAccountActivated(update.accountId) { accountChanged ->
-                    val loadingVC = loadingSendRequestViewController?.get()
-                    if (accountChanged) {
-                        while (window.navigationControllers.size > 1 && window.navigationControllers[1].viewControllers.lastOrNull() != loadingVC)
-                            window.dismissNav(1)
-                    }
-                    if (loadingVC?.isDisappeared == false) {
-                        loadingVC.setUpdate(update)
-                        loadingSendRequestViewController = null
-                    } else {
-                        val navVC = WNavigationController(window)
-                        navVC.setRoot(
-                            TonConnectRequestSendVC(
-                                window,
-                                ApiConnectionType.SEND_TRANSACTION,
-                                update
+                    window.doOnWalletReady {
+                        val loadingVC = loadingSendRequestViewController?.get()
+                        if (accountChanged) {
+                            while (window.navigationControllers.size > 1 && window.navigationControllers[1].viewControllers.lastOrNull() != loadingVC)
+                                window.dismissNav(1)
+                        }
+                        if (loadingVC?.isDisappeared == false) {
+                            loadingVC.setUpdate(update)
+                            loadingSendRequestViewController = null
+                        } else {
+                            val navVC = WNavigationController(window)
+                            navVC.setRoot(
+                                TonConnectRequestSendVC(
+                                    window,
+                                    ApiConnectionType.SEND_TRANSACTION,
+                                    update
+                                )
                             )
-                        )
-                        window.presentOnWalletReady(navVC)
+                            window.presentOnWalletReady(navVC)
+                        }
                     }
                 }
             }

@@ -13,13 +13,18 @@ import WalletCore
 
 struct AboutView: View {
     
+    var showLegalSection: Bool
+    
     var body: some View {
         InsetList {
             header
                 .padding(.top, 42)
             longDescription
             resources
-                .padding(.bottom, 32)
+                .padding(.bottom, showLegalSection ? 0 : 32)
+            if showLegalSection {
+                legal
+            }
         }
         .backportScrollBounceBehaviorBasedOnSize()
     }
@@ -75,7 +80,7 @@ struct AboutView: View {
     }
     
     func onWatch() {
-        open("https://t.me/MyTonWalletTips")
+        AppActions.openTipsChannel()
     }
     
     func onBlog() {
@@ -83,7 +88,48 @@ struct AboutView: View {
     }
     
     func onLearn() {
-        open("https://help.mytonwallet.io")
+        open(HELP_CENTER_URL)
+    }
+    
+    @ViewBuilder
+    var legal: some View {
+        InsetSection(dividersInset: 46) {
+            Item(
+                icon: "ResponsibilityIcon30",
+                text: lang("Use Responsibly"),
+                onTap: onUseResponsibly
+            )
+        }
+        InsetSection(dividersInset: 46) {
+            Item(
+                icon: "TermsIcon",
+                text: lang("Terms of Use"),
+                onTap: onTerms
+            )
+            Item(
+                icon: "TermsIcon",
+                text: lang("Privacy Policy"),
+                onTap: onPrivacyPolicy
+            )
+        }
+        .padding(.bottom, 32)
+    }
+    
+    func onUseResponsibly() {
+        let vc = UseResponsiblyVC()
+        topWViewController()?.navigationController?.pushViewController(vc, animated: true)
+    }
+    
+    func onTerms() {
+        let url = URL(string: "https://mytonwallet.io/terms-of-use")!
+        let title = lang("Terms of Use")
+        topWViewController()?.navigationController?.pushPlainWebView(title: title, url: url)
+    }
+    
+    func onPrivacyPolicy() {
+        let url = URL(string: "https://mytonwallet.io/privacy-policy")!
+        let title = lang("Privacy Policy")
+        topWViewController()?.navigationController?.pushPlainWebView(title: title, url: url)
     }
     
     func open(_ string: String) {

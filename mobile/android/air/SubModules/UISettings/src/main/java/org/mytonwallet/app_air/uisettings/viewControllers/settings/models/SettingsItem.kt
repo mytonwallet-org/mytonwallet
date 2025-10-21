@@ -13,6 +13,7 @@ data class SettingsItem(
     enum class Identifier {
         ACCOUNT,
         ADD_ACCOUNT,
+        NOTIFICATION_SETTINGS,
         APPEARANCE,
         ASSETS_AND_ACTIVITY,
         CONNECTED_APPS,

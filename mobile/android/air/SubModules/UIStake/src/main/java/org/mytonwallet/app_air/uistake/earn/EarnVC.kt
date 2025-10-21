@@ -54,6 +54,7 @@ import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.Passco
 import org.mytonwallet.app_air.uistake.confirm.ConfirmStakingHeaderView
 import org.mytonwallet.app_air.uistake.earn.cells.EarnItemCell
 import org.mytonwallet.app_air.uistake.earn.cells.EarnSpaceCell
+import org.mytonwallet.app_air.uistake.earn.models.EarnItem
 import org.mytonwallet.app_air.uistake.earn.views.EarnHeaderView
 import org.mytonwallet.app_air.uistake.helpers.StakingMessageHelpers
 import org.mytonwallet.app_air.uistake.staking.StakingVC
@@ -66,7 +67,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
+import org.mytonwallet.app_air.walletcontext.utils.WEquatable
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
+import org.mytonwallet.app_air.walletcontext.utils.diff
 import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.USDE_SLUG
@@ -508,6 +511,13 @@ class EarnVC(
     }
 
     private var lastListState: HistoryListState? = null
+    private var previousHistoryItems: List<WEquatable<*>> = emptyList()
+    private fun updateItems(newItems: List<EarnItem>) {
+        val changes = previousHistoryItems.diff(newItems, section = 1)
+        rvAdapter.applyChanges(changes)
+        previousHistoryItems = newItems.toList()
+    }
+
     private fun updateView(viewState: EarnViewState) {
         // balance
         headerView.apply {
@@ -564,7 +574,7 @@ class EarnVC(
                 recyclerView.overScrollMode = RecyclerView.OVER_SCROLL_ALWAYS
                 noItemView.visibility = View.GONE
                 updateSkeletonState()
-                rvAdapter.reloadData()
+                updateItems(viewState.historyListState.historyItems)
 
             }
         }

@@ -1,9 +1,8 @@
-package org.mytonwallet.uihome.home.views.header
+package org.mytonwallet.app_air.uicomponents.commonViews
 
 import android.content.Context
 import android.graphics.drawable.Drawable
 import android.view.Gravity
-import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import androidx.appcompat.widget.AppCompatImageView
@@ -19,7 +18,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.solidColorWithAlpha
-import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.models.MAccount
 import kotlin.math.roundToInt
 
 class WalletTypeView(context: Context) : FrameLayout(context) {
@@ -36,8 +35,8 @@ class WalletTypeView(context: Context) : FrameLayout(context) {
         id = generateViewId()
     }
 
-    fun configure() {
-        val account = AccountStore.activeAccount ?: run {
+    fun configure(account: MAccount?) {
+        val account = account ?: run {
             isGone = true
             return
         }
@@ -69,7 +68,7 @@ class WalletTypeView(context: Context) : FrameLayout(context) {
         if (viewTagView == null) {
             eyeDrawable = ContextCompat.getDrawable(
                 context,
-                org.mytonwallet.uihome.R.drawable.ic_wallet_eye
+                org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_eye
             )?.apply {
                 setTint(color)
             }
@@ -89,7 +88,7 @@ class WalletTypeView(context: Context) : FrameLayout(context) {
                 addView(viewLabel)
                 setPadding(4.5f.dp.roundToInt(), 0, 4.5f.dp.roundToInt(), 0)
             }
-            addView(viewTagView, LayoutParams(WRAP_CONTENT, 20.dp))
+            addView(viewTagView, LayoutParams(LayoutParams.WRAP_CONTENT, 20.dp))
         } else {
             viewTagView?.isGone = false
         }
@@ -102,14 +101,19 @@ class WalletTypeView(context: Context) : FrameLayout(context) {
         if (hardwareTagView == null) {
             hardwareDrawable = ContextCompat.getDrawable(
                 context,
-                org.mytonwallet.uihome.R.drawable.ic_wallet_ledger
+                org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_ledger
             )?.apply {
                 setTint(color)
             }
             hardwareTagView = AppCompatImageView(context).apply {
                 setImageDrawable(hardwareDrawable)
             }
-            addView(hardwareTagView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+            addView(
+                hardwareTagView, LayoutParams(
+                    LayoutParams.WRAP_CONTENT,
+                    LayoutParams.WRAP_CONTENT
+                )
+            )
         } else {
             hardwareTagView?.isGone = false
         }

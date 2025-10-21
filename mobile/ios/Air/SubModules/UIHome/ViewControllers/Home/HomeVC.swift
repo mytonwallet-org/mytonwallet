@@ -97,6 +97,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
 
     public override func viewIsAppearing(_ animated: Bool) {
         tableView.contentInset.bottom = view.safeAreaInsets.bottom + 16 + homeBottomInset
+        self.scrollViewDidScroll(tableView)
     }
 
     func contentOffsetChanged(to y: CGFloat) {

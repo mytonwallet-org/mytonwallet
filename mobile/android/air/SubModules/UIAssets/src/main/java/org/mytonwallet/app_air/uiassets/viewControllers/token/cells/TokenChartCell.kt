@@ -278,7 +278,7 @@ class TokenChartCell(
         addView(containerView, LayoutParams(MATCH_PARENT, 64.dp))
 
         setConstraints {
-            toTop(containerView, 12f)
+            toTop(containerView)
             toBottom(containerView, ViewConstants.GAP.toFloat())
             toCenterX(containerView)
         }

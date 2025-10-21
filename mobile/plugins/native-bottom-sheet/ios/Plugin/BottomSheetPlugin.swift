@@ -31,7 +31,10 @@ public class BottomSheetPlugin: CAPPlugin, FloatingPanelControllerDelegate {
     }
 
     @objc func prepare(_ call: CAPPluginCall) {
-        ensureLocalOrigin()
+        guard ensureLocalOrigin() else {
+            call.resolve()
+            return
+        }
 
         isPrepared = true
 
@@ -69,7 +72,10 @@ public class BottomSheetPlugin: CAPPlugin, FloatingPanelControllerDelegate {
     }
 
     @objc func disable(_ call: CAPPluginCall) {
-        ensureLocalOrigin()
+        guard ensureLocalOrigin() else {
+            call.resolve()
+            return
+        }
         ensureDelegating()
 
         DispatchQueue.main.async { [self] in
@@ -86,7 +92,10 @@ public class BottomSheetPlugin: CAPPlugin, FloatingPanelControllerDelegate {
     }
 
     @objc func enable(_ call: CAPPluginCall) {
-        ensureLocalOrigin()
+        guard ensureLocalOrigin() else {
+            call.resolve()
+            return
+        }
         ensureDelegating()
 
         DispatchQueue.main.async { [self] in
@@ -154,7 +163,10 @@ public class BottomSheetPlugin: CAPPlugin, FloatingPanelControllerDelegate {
     }
 
     @objc func delegate(_ call: CAPPluginCall) {
-        ensureLocalOrigin()
+        guard ensureLocalOrigin() else {
+            call.resolve()
+            return
+        }
         ensureDelegating()
 
         resolveOpenCalls()
@@ -172,7 +184,10 @@ public class BottomSheetPlugin: CAPPlugin, FloatingPanelControllerDelegate {
     }
 
     @objc func release(_ call: CAPPluginCall) {
-        ensureLocalOrigin()
+        guard ensureLocalOrigin() else {
+            call.resolve()
+            return
+        }
         ensureDelegating()
 
         DispatchQueue.main.async { [self] in
@@ -186,7 +201,10 @@ public class BottomSheetPlugin: CAPPlugin, FloatingPanelControllerDelegate {
     }
 
     @objc func openSelf(_ call: CAPPluginCall) {
-        ensureLocalOrigin()
+        guard ensureLocalOrigin() else {
+            call.resolve()
+            return
+        }
         ensureDelegated()
 
         currentOpenSelfCall = call
@@ -224,7 +242,10 @@ public class BottomSheetPlugin: CAPPlugin, FloatingPanelControllerDelegate {
     }
 
     @objc func closeSelf(_ call: CAPPluginCall) {
-        ensureLocalOrigin()
+        guard ensureLocalOrigin() else {
+            call.resolve()
+            return
+        }
         ensureDelegated()
 
         call.resolve()
@@ -264,7 +285,10 @@ public class BottomSheetPlugin: CAPPlugin, FloatingPanelControllerDelegate {
     }
 
     @objc func toggleSelfFullSize(_ call: CAPPluginCall) {
-        ensureLocalOrigin()
+        guard ensureLocalOrigin() else {
+            call.resolve()
+            return
+        }
         ensureDelegated()
 
         call.resolve()
@@ -296,7 +320,10 @@ public class BottomSheetPlugin: CAPPlugin, FloatingPanelControllerDelegate {
 
 
     @objc func openInMain(_ call: CAPPluginCall) {
-        ensureLocalOrigin()
+        guard ensureLocalOrigin() else {
+            call.resolve()
+            return
+        }
         ensureDelegated()
 
         call.resolve()
@@ -315,18 +342,12 @@ public class BottomSheetPlugin: CAPPlugin, FloatingPanelControllerDelegate {
     }
 
     // Extra security level, potentially redundant
-    private func ensureLocalOrigin() {
+    private func ensureLocalOrigin() -> Bool {
         DispatchQueue.main.sync { [self] in
-            guard let bridge else {
-                preconditionFailure("ensureLocalOrigin: bridge not set")
+            guard let bridge, let webView = bridge.webView, let url = webView.url else {
+                return false
             }
-            guard let webView = bridge.webView else {
-                preconditionFailure("ensureLocalOrigin: webView not set")
-            }
-            guard let url = webView.url else {
-                preconditionFailure("ensureLocalOrigin: url not set")
-            }
-            precondition(url.absoluteString.hasPrefix(bridge.config.serverURL.absoluteString))
+            return url.absoluteString.hasPrefix(bridge.config.serverURL.absoluteString)
         }
     }
 

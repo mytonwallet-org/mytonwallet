@@ -46,9 +46,7 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
-import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
-import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import java.util.function.Consumer
 import kotlin.math.min
 
@@ -298,8 +296,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         navigationController: WNavigationController
     ): Boolean {
         if (WalletContextManager.delegate?.isWalletReady() != true ||
-            (WalletContextManager.delegate?.isAppUnlocked() != true &&
-                AccountStore.activeAccount?.accountType != MAccount.AccountType.VIEW)
+            WalletContextManager.delegate?.isAppUnlocked() != true
         ) {
             // Should not present anything over lock screen
             pendingPresentationNav = navigationController
@@ -309,6 +306,19 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         return true
     }
 
+    private var pendingTasks: MutableList<() -> Unit>? = null
+    fun doOnWalletReady(task: () -> Unit) {
+        if (WalletContextManager.delegate?.isWalletReady() != true ||
+            WalletContextManager.delegate?.isAppUnlocked() != true
+        ) {
+            if (pendingTasks == null)
+                pendingTasks = mutableListOf()
+            pendingTasks?.add(task)
+            return
+        }
+        task()
+    }
+
     fun presentPendingPresentationNav(): Boolean {
         val pendingPresentationNav = pendingPresentationNav ?: return false
         if (presentOnWalletReady(pendingPresentationNav)) {
@@ -316,6 +326,18 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
             return true
         }
         return false
+    }
+
+    fun doPendingTasks() {
+        if (WalletContextManager.delegate?.isWalletReady() != true ||
+            WalletContextManager.delegate?.isAppUnlocked() != true
+        ) {
+            return
+        }
+        pendingTasks?.forEach {
+            it()
+        }
+        pendingTasks = null
     }
 
     // Called to present a new stack on top of previous ones

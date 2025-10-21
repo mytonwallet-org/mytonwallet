@@ -29,10 +29,12 @@ import kotlin.math.roundToInt
 class WBalanceView(
     context: Context,
     private val isScaledLabel: Boolean,
-    private val decimalsVerticalOffset: Float = 0f
+    private val decimalsVerticalOffset: Float = 0f,
+    private val charSize: Int = 46.dp,
 ) : WView(context) {
 
     private val letterSpacing = 0f
+    private val topMultiplier = if (isScaledLabel) 4 else 3
 
     private val label1: WAnimatedAmountLabel by lazy {
         WAnimatedAmountLabel(context).apply {
@@ -57,7 +59,6 @@ class WBalanceView(
     }
 
     var decimalsAlpha = 1f
-    private val charSize = 46.dp
 
     override fun setupViews() {
         super.setupViews()
@@ -202,7 +203,6 @@ class WBalanceView(
             )
         } else {
             animateJob?.run()
-            requestLayout()
         }
     }
 
@@ -220,7 +220,11 @@ class WBalanceView(
     private var scale1 = 1f
     private var scale2 = 1f
     private var collapseProgress = 0f
-    fun setScale(scale1: Float, scale2: Float, collapseProgress: Float) {
+    fun setScale(
+        scale1: Float,
+        scale2: Float,
+        collapseProgress: Float,
+    ) {
         this.scale1 = scale1
         this.scale2 = scale2
         this.collapseProgress = collapseProgress
@@ -236,26 +240,32 @@ class WBalanceView(
     }
 
     private fun reposition() {
-        label1.pivotX = 0.toFloat()
-        label1.pivotY = height.toFloat()
-        label2.pivotX = (-label1.width).toFloat()
-        label2.pivotY = height.toFloat()
-        fullLabel.pivotX = width.toFloat() / 2
-        fullLabel.pivotY = height.toFloat()
+        label1.pivotX = 0f
+        label1.pivotY = label1.height / 2f
+        label2.pivotX = 0f
+        label2.pivotY = 0f
+        fullLabel.pivotX = fullLabel.width.toFloat() / 2
+        fullLabel.pivotY = fullLabel.height.toFloat() / 2
+
         label1.scaleX = scale1
-        label1.scaleY = label1.scaleX
+        label1.scaleY = scale1
         label2.scaleX = scale2
-        label2.scaleY = label2.scaleX
-        fullLabel.scaleX = label1.scaleX
-        fullLabel.scaleY = label1.scaleY
+        label2.scaleY = scale2
+        fullLabel.scaleX = scale1
+        fullLabel.scaleY = scale1
+
         label2.translationY =
-            decimalsVerticalOffset - collapseProgress * (label1.textSize - label2.textSize) / 12
-        val contentWidth = label1.width + label2.width
-        label1.translationX =
-            (width - contentWidth) / 2 + (contentWidth - (label2.width * scale2 + label1.width * scale1)) / 2
-        label2.translationX =
-            label1.translationX - label1.width * (1 - scale1) / 4 - (width - contentWidth) / 2 - 3 * collapseProgress
-        fullLabel.translationY = collapseProgress
+            decimalsVerticalOffset - collapseProgress * (label1.textSize - label2.textSize) / 12f
+
+        val scaledLabel1Width = label1.width * scale1
+        val scaledLabel2Width = label2.width * scale2
+        val totalWidth = scaledLabel1Width + scaledLabel2Width
+
+        val startX = (label1.width + label2.width - totalWidth) / 2f
+        label2.translationX = -label1.width + startX + scaledLabel1Width
+        label2.translationY =
+            topMultiplier * label2.top * (1 - scale2) + label2.baseline * (1 - scale2) - label1.baseline * (1 - scale1)
+        label1.translationX = label1.left + label2.x - scaledLabel1Width
     }
 
     var isLoading: Boolean = false
@@ -330,4 +340,9 @@ class WBalanceView(
             }
         }
     }
+
+    val scaledWidth: Int
+        get() {
+            return (label1.width * scale1 + label2.width * scale2).roundToInt()
+        }
 }

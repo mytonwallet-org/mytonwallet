@@ -1,7 +1,8 @@
 
 import Foundation
 import WalletContext
-
+import Kingfisher
+import OrderedCollections
 
 // Generated based on TypeScript definition. Do not edit manually.
 public struct ApiNft: Equatable, Hashable, Codable, Sendable {
@@ -128,6 +129,57 @@ public extension ApiNft {
     static let TON_DNS_COLLECTION_ADDRESS = "EQC3dNlesgVD8YbAazcauIrXBPfiVhMMr5YYk2in0Mtsz0Bz"
     var isTonDns: Bool { collectionAddress == ApiNft.TON_DNS_COLLECTION_ADDRESS }
     var isMtwCard: Bool { metadata?.mtwCardId != nil }
+}
+
+// MARK: Extract colors
+
+@concurrent public func getAccentColorsFromNfts(nftAddresses: [String], nftsByAddress: OrderedDictionary<String, ApiNft>) async -> [Int: [ApiNft]] {
+    let nftAddresses = Set(nftAddresses)
+    let candidateNfts: [ApiNft] = nftsByAddress.values
+        .filter { nftAddresses.contains($0.address) && $0.collectionAddress == MTW_CARDS_COLLECTION }
+    var nftsByColorIndex: [Int: [ApiNft]] = [:]
+    let result = await withTaskGroup { group in
+        for nft in candidateNfts {
+            group.addTask {
+                let index = await getAccentColorIndexFromNft(nft: nft)
+                return (index, nft)
+            }
+        }
+        for await (index, nft) in group {
+            if let index {
+                nftsByColorIndex[index, default: []].append(nft)
+            }
+        }
+        return nftsByColorIndex
+    }
+    return result
+}
+
+@concurrent public func getAccentColorIndexFromNft(nft: ApiNft) async -> Int? {
+    let mtwCardType = nft.metadata?.mtwCardType
+    let mtwCardBorderShineType = nft.metadata?.mtwCardBorderShineType
+    
+    if mtwCardBorderShineType == .radioactive {
+        return ACCENT_RADIOACTIVE_INDEX
+    }
+    if mtwCardType == .silver {
+        return ACCENT_SILVER_INDEX
+    }
+    if mtwCardType == .gold {
+        return ACCENT_GOLD_INDEX
+    }
+    if mtwCardType == .platinum || mtwCardType == .black {
+        return ACCENT_BNW_INDEX
+    }
+    if let url = nft.metadata?.mtwCardBackgroundUrl,
+        let image = try? await ImageDownloader.default.downloadImage(with: url).image,
+        let color = image.extractColor()
+    {
+        let closestColor = closestAccentColor(for: color)
+        let index = ACCENT_COLORS.firstIndex(of: closestColor)
+        return index
+    }
+    return nil
 }
 
 

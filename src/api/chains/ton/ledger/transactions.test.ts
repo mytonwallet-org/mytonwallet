@@ -375,7 +375,7 @@ describe('tonPayloadToLedgerPayload', () => {
       const fromAddress = mockTonAddresses[0];
       const toAddress = mockTonAddresses[1];
       return {
-        tonPayload: buildNftTransferPayload(fromAddress, toAddress, undefined, undefined, true),
+        tonPayload: buildNftTransferPayload({ fromAddress, toAddress, isLedger: true }),
         ledgerPayload: {
           type: 'nft-transfer',
           queryId: null, // eslint-disable-line no-null/no-null
@@ -392,7 +392,13 @@ describe('tonPayloadToLedgerPayload', () => {
       const payload = packBytesAsSnakeCell(commentToBytes('Hello, world'));
       const forwardAmount = 20n;
       return {
-        tonPayload: buildNftTransferPayload(mockTonAddresses[0], mockTonAddresses[1], payload, forwardAmount, true),
+        tonPayload: buildNftTransferPayload({
+          fromAddress: mockTonAddresses[0],
+          toAddress: mockTonAddresses[1],
+          payload,
+          forwardAmount,
+          isLedger: true,
+        }),
         ledgerPayload: expect.objectContaining({
           customPayload: null, // eslint-disable-line no-null/no-null
           forwardAmount,

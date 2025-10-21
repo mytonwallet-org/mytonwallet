@@ -198,7 +198,7 @@ function buildNftTransferMessage(
     && (toAddress === BURN_ADDRESS || NOTCOIN_EXCHANGERS.includes(toAddress as any));
   const payload = isNotcoinBurn
     ? buildNotcoinVoucherExchange(fromAddress, nft.address, nft.index, isLedger)
-    : buildNftTransferPayload(fromAddress, toAddress, comment, undefined, isLedger);
+    : buildNftTransferPayload({ fromAddress, toAddress, payload: comment, isLedger });
 
   return {
     payload,
@@ -221,19 +221,41 @@ function buildNotcoinVoucherExchange(
     .storeUint(nftIndex, 64)
     .endCell();
 
-  return buildNftTransferPayload(fromAddress, toAddress, payload, NOTCOIN_FORWARD_TON_AMOUNT, isLedger);
+  return buildNftTransferPayload({
+    fromAddress,
+    toAddress,
+    payload,
+    forwardAmount: NOTCOIN_FORWARD_TON_AMOUNT,
+    isLedger,
+  });
 }
 
-export function buildNftTransferPayload(
-  fromAddress: string,
-  toAddress: string,
-  payload?: string | Cell,
+interface NftTransferPayloadParams {
+  fromAddress: string;
+  toAddress: string;
+  payload?: string | Cell;
+  /**
+   * `payload` can be stored either at a tail of the root cell (i.e. inline) or as its ref.
+   * This option forbids the inline variant. This requires more gas but safer.
+   */
+  noInlinePayload?: boolean;
+  forwardAmount?: bigint;
+  /** todo: Remove when the Ledger TON App is fixed */
+  isLedger?: boolean;
+}
+
+export function buildNftTransferPayload({
+  fromAddress,
+  toAddress,
+  payload,
   forwardAmount = NFT_TRANSFER_FORWARD_AMOUNT,
-  isLedger?: boolean,
-) {
+  isLedger,
+  noInlinePayload,
+}: NftTransferPayloadParams) {
   // In ledger-app-ton v2.7.0 a queryId not equal to 0 is handled incorrectly.
   const queryId = isLedger ? 0n : generateQueryId();
 
+  // Schema definition: https://github.com/ton-blockchain/TEPs/blob/0d7989fba6f2d9cb08811bf47263a9b314dc5296/text/0062-nft-standard.md#1-transfer
   let builder = new Builder()
     .storeUint(NftOpCode.TransferOwnership, 32)
     .storeUint(queryId, 64)
@@ -252,7 +274,7 @@ export function buildNftTransferPayload(
     }
   }
 
-  builder = storeInlineOrRefCell(builder, forwardPayload, NFT_PAYLOAD_SAFE_MARGIN);
+  builder = storeInlineOrRefCell(builder, forwardPayload, NFT_PAYLOAD_SAFE_MARGIN, noInlinePayload);
 
   return builder.endCell();
 }

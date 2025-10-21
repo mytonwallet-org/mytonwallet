@@ -35,7 +35,7 @@
 		584B0F052DD390C000BDF9E7 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 584B0F042DD390C000BDF9E7 /* Lottie */; };
 		584B0F072DD393FD00BDF9E7 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 584B0F062DD393FD00BDF9E7 /* Lottie */; };
 		585AAEE42DDA298F0076975F /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 585AAEE32DDA298F0076975F /* Lottie */; };
-		5860FC952E6BCBFB00A23D61 /* Flow in Frameworks */ = {isa = PBXBuildFile; productRef = 5860FC942E6BCBFB00A23D61 /* Flow */; };
+		586DE0E92EA26F180055359D /* Flow in Frameworks */ = {isa = PBXBuildFile; productRef = 586DE0E82EA26F180055359D /* Flow */; };
 		587BBD092DDA312400E745A6 /* AirAsFramework.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A3FB2D8456E800535360 /* AirAsFramework.framework */; };
 		587BBD0A2DDA312400E745A6 /* AirAsFramework.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A3FB2D8456E800535360 /* AirAsFramework.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		587BBD0D2DDA312400E745A6 /* BigIntLib.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4022D8456E800535360 /* BigIntLib.framework */; };
@@ -1565,8 +1565,6 @@
 		27ABF4742CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UICreateWallet" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				UICreateWallet/About/AboutVC.swift,
-				UICreateWallet/About/AboutView.swift,
 				UICreateWallet/AccountTypePicker/AccountTypePickerVC.swift,
 				UICreateWallet/AccountTypePicker/AccountTypePickerView.swift,
 				UICreateWallet/AddViewWallet/AddViewWalletVC.swift,
@@ -1582,8 +1580,6 @@
 				UICreateWallet/Intro/IntroVC.swift,
 				UICreateWallet/Intro/IntroView.swift,
 				UICreateWallet/IntroModel.swift,
-				UICreateWallet/UseResponsibly/UseResponsiblyVC.swift,
-				UICreateWallet/UseResponsibly/UseResponsiblyView.swift,
 				UICreateWallet/WordCheck/WordCheckModel.swift,
 				UICreateWallet/WordCheck/WordCheckVC.swift,
 				UICreateWallet/WordCheck/WordCheckView.swift,
@@ -1689,12 +1685,13 @@
 		27ABF4792CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UISettings" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				UISettings/Appearance/AppearanceVC.swift,
-				UISettings/Appearance/Views/AppearanceAppIconView.swift,
-				UISettings/Appearance/Views/AppearanceAppThemeView/AppearanceAppThemeModeView.swift,
-				UISettings/Appearance/Views/AppearanceAppThemeView/AppearanceAppThemeView.swift,
-				UISettings/Appearance/Views/AppearanceColorThemeView.swift,
-				UISettings/Appearance/Views/AppearanceOtherSettingsView.swift,
+				UISettings/About/AboutVC.swift,
+				UISettings/About/AboutView.swift,
+				UISettings/Appearance/AppearanceSettingsVC.swift,
+				UISettings/Appearance/AppearanceSettingsView.swift,
+				UISettings/Appearance/Sections/OtherAppearanceSettingsSection.swift,
+				UISettings/Appearance/Sections/PaletteSection.swift,
+				UISettings/Appearance/Sections/ThemeSection.swift,
 				UISettings/AssetsAndActivity/AssetsAndActivityVC.swift,
 				UISettings/AssetsAndActivity/Cells/AssetsAndActivityBaseCurrencyCell.swift,
 				UISettings/AssetsAndActivity/Cells/AssetsAndActivityHideNoCostCell.swift,
@@ -1704,6 +1701,9 @@
 				UISettings/ConnectedAppsVC/Cells/DisconnectAllCell.swift,
 				UISettings/ConnectedAppsVC/ConnectedAppsVC.swift,
 				UISettings/Language/LanguageVC.swift,
+				UISettings/Notifications/NotificationsSettingsVC.swift,
+				UISettings/Notifications/NotificationsSettingsView.swift,
+				UISettings/Notifications/NotificationsSettingsViewModel.swift,
 				UISettings/PlainWebView/PlainWebView.swift,
 				UISettings/RecoveryPhrase/RecoveryPhraseVC.swift,
 				UISettings/Security/SecurityVC.swift,
@@ -1716,6 +1716,8 @@
 				UISettings/Settings/SettingsVC.swift,
 				UISettings/Settings/SettingsVM.swift,
 				UISettings/Settings/Views/SettingsHeaderView.swift,
+				UISettings/UseResponsibly/UseResponsiblyVC.swift,
+				UISettings/UseResponsibly/UseResponsiblyView.swift,
 				UISettings/WalletVersions/Cells/WalletVersionsHintCell.swift,
 				UISettings/WalletVersions/WalletVersionsVC.swift,
 			);
@@ -2640,6 +2642,7 @@
 				58BE2C722D33D8D000A71816 /* OrderedCollections in Frameworks */,
 				58AA03BB2DDBA87B00C970F4 /* SwiftUIIntrospect in Frameworks */,
 				58B913232DDC53910048FC65 /* Popovers in Frameworks */,
+				586DE0E92EA26F180055359D /* Flow in Frameworks */,
 				58D42FDB2D6DB4CD0070AE43 /* ColorThiefSwift in Frameworks */,
 				587C28462DE32F2400503E94 /* Popovers in Frameworks */,
 				584B0F072DD393FD00BDF9E7 /* Lottie in Frameworks */,
@@ -2687,7 +2690,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				5860FC952E6BCBFB00A23D61 /* Flow in Frameworks */,
 				580C42772DF4865300934F5A /* GRDBSQLite in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -7618,7 +7620,7 @@
 			package = 584B0F0A2DD3955600BDF9E7 /* XCRemoteSwiftPackageReference "lottie-spm" */;
 			productName = Lottie;
 		};
-		5860FC942E6BCBFB00A23D61 /* Flow */ = {
+		586DE0E82EA26F180055359D /* Flow */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 5860FC932E6BCBFB00A23D61 /* XCRemoteSwiftPackageReference "SwiftUI-Flow" */;
 			productName = Flow;

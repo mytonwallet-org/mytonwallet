@@ -72,6 +72,7 @@ class TonConnectRequestConnectVC(
 
     private val scrollView = ScrollView(context).apply {
         id = View.generateViewId()
+        isVerticalScrollBarEnabled = false
         addView(
             scrollingContentView, ConstraintLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,

@@ -15,7 +15,6 @@ import com.squareup.moshi.Moshi
 import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setAccentColor
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setNftAccentColor
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -31,7 +30,6 @@ import org.mytonwallet.app_air.walletcore.models.MAssetsAndActivityData
 import org.mytonwallet.app_air.walletcore.moshi.MoshiBuilder
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
-import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ActivityStore
 import org.mytonwallet.app_air.walletcore.stores.AddressStore
@@ -174,7 +172,6 @@ object WalletCore {
         }
         //WalletContextManager.delegate?.protectedModeChanged()
         notifyEvent(WalletEvent.AccountChanged(accountId = accountId))
-        AirPushNotifications.subscribe(activeAccount)
     }
 
     fun updateAccentColor(accountId: String?) {
@@ -184,7 +181,6 @@ object WalletCore {
                 return
             }
         }
-        setAccentColor(WGlobalStorage.getAccentColorId())
     }
 
     fun switchingToLegacy() {

@@ -21,12 +21,12 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uisettings.R
 import org.mytonwallet.app_air.uisettings.viewControllers.baseCurrency.BaseCurrencyVC
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
@@ -235,6 +235,8 @@ class AssetsAndActivitiesHeaderCell(
         v
     }
 
+    private val separatorView = WBaseView(context)
+
     override fun setupViews() {
         super.setupViews()
 
@@ -243,6 +245,7 @@ class AssetsAndActivitiesHeaderCell(
         addView(hideTokensWithNoCostRow, LayoutParams(MATCH_PARENT, 56.dp))
         addView(tokensOnHomeScreenView, LayoutParams(MATCH_PARENT, 48.dp))
         addView(addTokenView, LayoutParams(MATCH_PARENT, 56.dp))
+        addView(separatorView, LayoutParams(0, 1))
 
         setConstraints {
             toTop(baseCurrencyView)
@@ -260,6 +263,9 @@ class AssetsAndActivitiesHeaderCell(
             topToBottom(addTokenView, tokensOnHomeScreenView)
             toCenterX(addTokenView)
             toBottom(addTokenView)
+            toBottom(separatorView)
+            toEnd(separatorView, 16f)
+            toStart(separatorView, 72f)
         }
 
         updateTheme()
@@ -308,6 +314,7 @@ class AssetsAndActivitiesHeaderCell(
         addTokenView.setBackgroundColor(WColor.Background.color)
         addTokenView.addRippleEffect(WColor.SecondaryBackground.color)
         addTokenLabel.setTextColor(WColor.Tint.color)
+        separatorView.setBackgroundColor(WColor.Separator.color)
     }
 
     private lateinit var onHideNoCostTokensChanged: (hidden: Boolean) -> Unit

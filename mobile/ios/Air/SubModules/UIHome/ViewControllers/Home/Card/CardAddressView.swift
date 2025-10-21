@@ -50,7 +50,7 @@ struct _CardAddressView: View {
     
     var body: some View {
         HStack(spacing: 6) {
-            AccountTypeBadge(account.type)
+            AccountTypeBadge(account.type, style: .card)
             icons
             label
             chevronOrActions
@@ -60,7 +60,8 @@ struct _CardAddressView: View {
         .contentShape(.rect)
         .menuSource(isEnabled: !showActions, menuContext: menuContext)
         .padding(-10)
-        .foregroundStyle(preferrsDarkText ? .black : .white) // TODO: Gradient color
+        .foregroundStyle(Color.primary) // TODO: Gradient color
+        .environment(\.colorScheme, preferrsDarkText ? .light : .dark)
         .task(id: account) {
             menuContext.verticalOffset = -8
             menuContext.minWidth = 280

@@ -570,7 +570,7 @@ class PriceWidget : AppWidgetProvider() {
                     baseColor = baseColor,
                     chartWidth = width.dp,
                     chartHeight = height.dp - 130.dp,
-                    paddingBottom = if (isCompact) 77.dp else 68.dp
+                    paddingBottom = if (isCompact) 80.dp else 68.dp
                 )
             )
     }

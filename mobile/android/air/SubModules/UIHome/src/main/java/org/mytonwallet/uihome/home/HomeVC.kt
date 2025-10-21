@@ -350,7 +350,7 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
                             headerView.expandedContentHeight.toInt()
                         else
                             headerView.collapsedHeight) +
-                        (if (AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW) 0 else 86.dp) +
+                        (if (AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW) 0 else 80.dp) +
                         (if (ThemeManager.uiMode.hasRoundedCorners) 0 else ViewConstants.GAP.dp)
                 }
                 return
@@ -1252,6 +1252,7 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
                 }
             }
         } else {
+            rvSkeletonAdapter.reloadData()
             show()
         }
     }

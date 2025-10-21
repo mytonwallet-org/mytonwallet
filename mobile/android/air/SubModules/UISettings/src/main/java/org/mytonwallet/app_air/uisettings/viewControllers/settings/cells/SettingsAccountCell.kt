@@ -7,9 +7,9 @@ import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
+import org.mytonwallet.app_air.uicomponents.commonViews.WalletTypeView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
-import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -24,7 +24,6 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import kotlin.math.abs
-import kotlin.math.roundToInt
 
 class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell, WThemedView {
 
@@ -46,12 +45,8 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
         }
     }
 
-    private val badgeLabel: WLabel by lazy {
-        WLabel(context).apply {
-            setStyle(11f, WFont.Medium)
-            setTextColor(WColor.SecondaryText.color)
-            setPadding(4.5f.dp.roundToInt(), 0, 4.5f.dp.roundToInt(), 0)
-        }
+    private val badgeLabel: WalletTypeView by lazy {
+        WalletTypeView(context)
     }
 
     private val subtitleLabel: WLabel by lazy {
@@ -163,14 +158,18 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
                 ).apply {
                     updateDotsTypeface()
                 }
-            badgeLabel.text = item.account.accountType.badge
-            badgeLabel.isGone = badgeLabel.text.isNullOrEmpty()
+            badgeLabel.configure(item.account)
             contentView.setConstraints {
                 val badgeWidth =
                     if (badgeLabel.isGone)
                         0
-                    else
-                        badgeLabel.paint.measureText(badgeLabel.text.toString()).roundToInt()
+                    else {
+                        badgeLabel.measure(
+                            MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED),
+                            MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
+                        )
+                        badgeLabel.measuredWidth
+                    }
                 endToStartPx(titleLabel, valueLabel, 16.dp + badgeWidth)
             }
         }
@@ -215,8 +214,7 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
             if (isLast) ViewConstants.BIG_RADIUS.dp else 0f.dp
         )
         titleLabel.setTextColor(WColor.PrimaryText.color)
-        badgeLabel.setBackgroundColor(WColor.SecondaryBackground.color, 8f.dp)
-        badgeLabel.setTextColor(WColor.SecondaryText.color)
+        badgeLabel.setColor(WColor.SecondaryText.color)
         subtitleLabel.setTextColor(WColor.SecondaryText.color)
         valueLabel.contentView.setTextColor(WColor.SecondaryText.color)
         separatorView.setBackgroundColor(WColor.Separator.color)

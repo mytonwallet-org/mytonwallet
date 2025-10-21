@@ -18,6 +18,7 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiLedgerAccountInfo
 import org.mytonwallet.app_air.walletcore.moshi.MApiLedgerDriver
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.ledger.MLedgerWalletInfo
+import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 import java.lang.ref.WeakReference
 
 class LedgerWalletsVM(delegate: Delegate) {
@@ -73,6 +74,7 @@ class LedgerWalletsVM(delegate: Delegate) {
                         tonLedgerIndex = newWallet.wallet.index,
                     )
                     finalizedWallets.add(result.accountId)
+                    AirPushNotifications.subscribe(result.accountId, ignoreIfLimitReached = true)
                 } catch (_: Throwable) {
                 }
             }

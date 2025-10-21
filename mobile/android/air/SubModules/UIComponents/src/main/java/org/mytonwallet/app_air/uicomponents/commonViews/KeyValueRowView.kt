@@ -158,7 +158,7 @@ class KeyValueRowView(
     }
 
     private fun updateLoadingState() {
-        if (progressIndicator == null) {
+        if (isLoading && progressIndicator == null) {
             progressIndicator = CircularProgressIndicator(context).apply {
                 id = generateViewId()
                 isIndeterminate = true

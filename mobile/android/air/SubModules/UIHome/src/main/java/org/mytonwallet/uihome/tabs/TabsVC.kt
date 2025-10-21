@@ -665,6 +665,10 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
         when (walletEvent) {
+            is WalletEvent.AccountChanged -> {
+                navigationController?.popToRoot(false)
+            }
+
             WalletEvent.AccountChangedInApp, WalletEvent.AddNewWalletCompletion -> {
                 bottomNavigationView.selectedItemId = ID_HOME
                 dismissMinimized(false)

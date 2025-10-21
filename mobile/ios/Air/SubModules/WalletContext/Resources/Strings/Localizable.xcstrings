@@ -30501,6 +30501,23 @@
       },
       "extractionState": "manual"
     },
+    "Enable in Settings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enable in Settings"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включить в настройках"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
     "Enabling biometric confirmation will reset the password.": {
       "localizations": {
         "en": {
@@ -42388,6 +42405,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "通知和聲音"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "Notifications are disabled": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notifications are disabled"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Уведомления отключены"
           }
         }
       },

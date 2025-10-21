@@ -146,6 +146,7 @@ class InvoiceVC(context: Context) : WViewController(context) {
             }
             overScrollMode = ScrollView.OVER_SCROLL_ALWAYS
             clipToPadding = false
+            isVerticalScrollBarEnabled = false
         }
     }
 

@@ -9,6 +9,7 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
+import androidx.core.view.isGone
 import androidx.customview.widget.ViewDragHelper
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
@@ -19,6 +20,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.swipeRevealLayout.SwipeRevea
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
+import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
@@ -78,11 +80,14 @@ class ConnectedAppsCell(context: Context) :
         maxLines = 1
     }
 
+    private val separatorView = WBaseView(context)
+
     val mainView = WView(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)).apply {
 
         addView(imageView)
         addView(titleLabel, LayoutParams(0, WRAP_CONTENT))
         addView(subtitleLabel, LayoutParams(0, 22.dp))
+        addView(separatorView, LayoutParams(0, 1))
         setConstraints {
             toCenterY(imageView, 12f)
             toStart(imageView, 16f)
@@ -92,6 +97,9 @@ class ConnectedAppsCell(context: Context) :
             bottomToBottom(subtitleLabel, imageView, -2f)
             startToEnd(subtitleLabel, imageView, 12f)
             toEnd(subtitleLabel, 24f)
+            toStart(separatorView, 68f)
+            toEnd(separatorView)
+            toBottom(separatorView)
         }
     }
 
@@ -203,6 +211,10 @@ class ConnectedAppsCell(context: Context) :
         updateTheme()
     }
 
+    fun closeSwipe() {
+        swipeRevealLayout.close(true)
+    }
+
     override fun updateTheme() {
         mainView.setBackgroundColor(
             WColor.Background.color,
@@ -228,6 +240,7 @@ class ConnectedAppsCell(context: Context) :
         titleLabel.setTextColor(WColor.PrimaryText.color)
         subtitleLabel.setTextColor(WColor.SecondaryText.color)
         disconnectLabel.setTextColor(WColor.TextOnTint.color)
+        separatorView.setBackgroundColor(WColor.Separator.color)
     }
 
     private var isLast = false
@@ -249,6 +262,7 @@ class ConnectedAppsCell(context: Context) :
         titleLabel.text = exploreSite.name
         subtitleLabel.text = exploreSite.url?.toUri()?.host
         subtitleLabel.gravity = Gravity.CENTER_VERTICAL
+        separatorView.isGone = isLast
 
         if (exploreSite.isUrlEnsured != true) {
             val warningIcon = ContextCompat.getDrawable(
