@@ -2,6 +2,8 @@ package org.mytonwallet.app_air.uitonconnect.viewControllers.connect
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.text.SpannableStringBuilder
+import android.text.Spanned
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
@@ -15,6 +17,7 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.spans.WClickableSpan
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
@@ -31,6 +34,7 @@ import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.WalletEvent
 import kotlin.math.max
 
 @SuppressLint("ViewConstructor")
@@ -43,6 +47,9 @@ class TonConnectRequestConnectVC(
 
     private val requestView = ConnectRequestView(context).apply {
         configure(update.dapp)
+        onShowUnverifiedSourceWarning = {
+            showUnverifiedSourceWarning()
+        }
     }
 
     private val buttonView: WButton = WButton(context, WButton.Type.PRIMARY).apply {
@@ -237,6 +244,54 @@ class TonConnectRequestConnectVC(
                     reason = "user reject"
                 )
             )
+        }
+    }
+
+    private fun showUnverifiedSourceWarning() {
+        val warningText = SpannableStringBuilder()
+        val template = LocaleController.getString("\$reopen_in_iab")
+        val browserButtonText = LocaleController.getString("MyTonWallet Browser")
+        val browserButtonPlaceholder = "%browserButton%"
+
+        val placeholderStart = template.indexOf(browserButtonPlaceholder)
+        if (placeholderStart != -1) {
+            warningText.append(template.substring(0, placeholderStart))
+
+            val buttonStart = warningText.length
+            warningText.append(browserButtonText)
+            val buttonEnd = warningText.length
+
+            val clickableSpan = WClickableSpan(update.dapp.url ?: "", onClick = {
+                openDappInBrowser()
+            })
+            warningText.setSpan(
+                clickableSpan,
+                buttonStart,
+                buttonEnd,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+
+            val placeholderEnd = placeholderStart + browserButtonPlaceholder.length
+            if (placeholderEnd < template.length) {
+                warningText.append(template.substring(placeholderEnd))
+            }
+        } else {
+            warningText.append(template)
+        }
+
+        showAlert(
+            title = LocaleController.getString("Unverified Source"),
+            text = warningText,
+            allowLinkInText = true
+        )
+    }
+
+    private fun openDappInBrowser() {
+        update.dapp.url?.let { url ->
+            activeDialog?.dismiss()
+            window?.dismissLastNav(onCompletion = {
+                WalletCore.notifyEvent(WalletEvent.OpenUrl(url))
+            })
         }
     }
 
