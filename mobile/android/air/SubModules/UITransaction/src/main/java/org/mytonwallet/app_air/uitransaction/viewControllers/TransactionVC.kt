@@ -1047,7 +1047,9 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
             }
         }
 
-        window?.present(navVC)
+        window?.dismissLastNav(animated = false, onCompletion = {
+            window?.present(navVC)
+        })
     }
 
     private fun sharePressed() {
