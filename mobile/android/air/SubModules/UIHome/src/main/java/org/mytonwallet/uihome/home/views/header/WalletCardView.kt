@@ -25,6 +25,7 @@ import androidx.core.view.children
 import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WWindow
+import org.mytonwallet.app_air.uicomponents.commonViews.WalletTypeView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
@@ -112,7 +113,7 @@ class WalletCardView(
                 toCenterX(v1)
                 topToTop(v2, v1, 2.5f)
                 toCenterX(v2)
-                topToTop(v3, v2, 4.5f)
+                topToTop(v3, v2, 7.5f)
                 toCenterX(v3)
             }
         }
@@ -125,16 +126,23 @@ class WalletCardView(
         org.mytonwallet.app_air.icons.R.drawable.ic_arrow_bottom_rounded
     )
     val balanceViewContainer: WSensitiveDataContainer<AutoScaleContainerView> by lazy {
-        val linearLayout = LinearLayout(context)
-        linearLayout.layoutDirection = LAYOUT_DIRECTION_LTR
-        linearLayout.orientation = LinearLayout.HORIZONTAL
-        linearLayout.gravity = Gravity.CENTER
-        balanceView = WBalanceView(context, false)
-        balanceView.setStyle(52f, 38f, WFont.NunitoExtraBold)
-        balanceView.decimalsAlpha = 0.75f
+        val linearLayout = LinearLayout(context).apply {
+            clipChildren = false
+            clipToPadding = false
+            layoutDirection = LAYOUT_DIRECTION_LTR
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        balanceView = WBalanceView(context, false).apply {
+            clipChildren = false
+            clipToPadding = false
+            setStyle(52f, 38f, WFont.NunitoExtraBold)
+            decimalsAlpha = 0.75f
+        }
         linearLayout.addView(balanceView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
-        arrowImageView = AppCompatImageView(context)
-        arrowImageView.setImageDrawable(arrowDownDrawable)
+        arrowImageView = AppCompatImageView(context).apply {
+            setImageDrawable(arrowDownDrawable)
+        }
         linearLayout.addView(arrowImageView, LayoutParams(18.dp, 18.dp).apply {
             leftMargin = 2.dp
             topMargin = 7.dp
@@ -180,14 +188,22 @@ class WalletCardView(
             )
         }
         WSensitiveDataContainer(
-            AutoScaleContainerView(linearLayout),
+            AutoScaleContainerView(linearLayout).apply {
+                clipChildren = false
+                clipToPadding = false
+                maxAllowedWidth = window.windowView.width - 34.dp
+                minPadding = 11.dp
+            },
             WSensitiveDataContainer.MaskConfig(
                 9, 4, Gravity.CENTER,
                 skin = SensitiveDataMaskView.Skin.DARK_THEME,
                 cellSize = 14.dp,
                 protectContentLayoutSize = false
             )
-        )
+        ).apply {
+            clipChildren = false
+            clipToPadding = false
+        }
     }
 
     val balanceChangeLabel: WSensitiveDataContainer<WLabel> by lazy {
@@ -220,6 +236,8 @@ class WalletCardView(
         lbl
     }
 
+    val walletTypeView = WalletTypeView(context)
+
     val addressLabelContainer = WView(context).apply {
         setPaddingDp(4, 0, 4, 0)
         addView(addressChain, LayoutParams(16.dp, 16.dp))
@@ -230,6 +248,17 @@ class WalletCardView(
             startToEnd(addressLabel, addressChain, 6f)
             toEnd(addressLabel)
             toCenterY(addressLabel)
+        }
+    }
+    val bottomViewContainer = WView(context).apply {
+        addView(walletTypeView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        addView(addressLabelContainer, LayoutParams(WRAP_CONTENT, MATCH_PARENT))
+        setConstraints {
+            toStart(walletTypeView)
+            startToEnd(addressLabelContainer, walletTypeView)
+            toEnd(addressLabelContainer)
+            toCenterY(walletTypeView)
+            toCenterY(addressLabelContainer)
         }
     }
 
@@ -258,27 +287,27 @@ class WalletCardView(
         v.addView(miniPlaceholders)
         v.addView(balanceViewContainer, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         v.addView(balanceChangeLabel, LayoutParams(WRAP_CONTENT, 28.dp))
-        v.addView(addressLabelContainer, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        v.addView(bottomViewContainer, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         v.addView(mintIcon, LayoutParams(40.dp, 40.dp))
 
         v.setConstraints {
             allEdges(img)
             allEdges(radialGradientView, 1f)
             toCenterX(miniPlaceholders)
-            toTop(miniPlaceholders, -4f)
+            toTop(miniPlaceholders, 1f)
             toBottom(miniPlaceholders, 4f)
             toTop(balanceViewContainer)
             toCenterX(balanceViewContainer)
             toTop(balanceChangeLabel)
             toCenterX(balanceChangeLabel)
-            toCenterX(addressLabelContainer)
+            toCenterX(bottomViewContainer)
             toEnd(mintIcon, 4f)
         }
 
         v.post {
             val topOffset = (((parent as View).width - 32.dp) * ratio - 40.dp).roundToInt()
             v.setConstraints {
-                toTopPx(addressLabelContainer, topOffset)
+                toTopPx(bottomViewContainer, topOffset)
                 toTopPx(mintIcon, topOffset - 8)
                 constrainMaxWidth(balanceViewContainer.id, (parent as View).width - 34.dp)
             }
@@ -430,6 +459,14 @@ class WalletCardView(
             Color.WHITE.colorWithAlpha(25),
             20f.dp
         )
+        walletTypeView.configure(AccountStore.activeAccount)
+        bottomViewContainer.setConstraints {
+            startToEnd(
+                addressLabelContainer,
+                walletTypeView,
+                if (walletTypeView.isGone) 0f else 6f
+            )
+        }
     }
 
     private fun updateAddressLabel() {
@@ -447,9 +484,9 @@ class WalletCardView(
         )?.let { drawable ->
             drawable.mutate()
             drawable.setTint(addressLabel.currentTextColor)
-            val width = 16.dp
-            val height = 16.dp
-            drawable.setBounds(0, 1.dp - FontManager.activeFont.textOffset, width, height)
+            val width = 18.dp
+            val height = 18.dp
+            drawable.setBounds(1.dp, 1.dp - FontManager.activeFont.textOffset, width + 1.dp, height)
             val imageSpan = VerticalImageSpan(drawable)
             ss.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
@@ -607,10 +644,11 @@ class WalletCardView(
             Color.WHITE.colorWithAlpha(25),
             20f.dp
         )
+        walletTypeView.setColor(secondaryColor.colorWithAlpha(191))
     }
 
     val miniPlaceholdersMaxBottom = 28f.dp
-    fun updatePositions(balanceY: Float) {
+    fun updatePositions(balanceY: Float, expandProgress: Float) {
         balanceViewContainer.y = balanceY
         balanceChangeLabel.y = balanceY + 74.dp
 
@@ -621,6 +659,15 @@ class WalletCardView(
         } else {
             miniPlaceholders.translationY = 0f
         }
+
+        val scale2 = (28f + 10f * expandProgress) / 38f
+        balanceView.setScale(
+            (36f + 16f * expandProgress) / 52f,
+            scale2,
+            0f,
+        )
+        balanceView.translationX = 11f.dp * (1 - expandProgress)
+        balanceViewContainer.contentView.updateScale()
     }
 
     private var currentAlpha = 1f

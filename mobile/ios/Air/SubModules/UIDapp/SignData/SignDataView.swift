@@ -7,6 +7,27 @@ import UIComponents
 import WalletCore
 import WalletContext
 
+enum SignDataViewOrPlaceholderContent {
+    case placeholder(TonConnectPlaceholder)
+    case signData(SignDataView)
+}
+
+struct SignDataViewOrPlaceholder: View {
+    
+    var content: SignDataViewOrPlaceholderContent
+    
+    var body: some View {
+        switch content {
+        case .placeholder(let view):
+            view
+                .transition(.opacity.animation(.default))
+        case .signData(let view):
+            view
+                .transition(.opacity.animation(.default))
+        }
+    }
+}
+
 struct SignDataView: View {
 
     var update: ApiUpdate.DappSignData

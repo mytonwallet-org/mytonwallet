@@ -14,6 +14,7 @@ struct SettingsSection: Identifiable {
         case general
         case walletData
         case questionAndAnswers
+        case about
         case switchToCapacitor
         case signout
     }

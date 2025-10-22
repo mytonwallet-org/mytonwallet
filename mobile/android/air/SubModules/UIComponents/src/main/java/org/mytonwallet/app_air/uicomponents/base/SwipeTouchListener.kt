@@ -13,13 +13,13 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.constraintlayout.widget.ConstraintLayout
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
-import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
+import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import java.lang.ref.WeakReference
 import kotlin.math.abs
 import kotlin.math.max
@@ -234,6 +234,8 @@ class SwipeTouchListener
 
     val interpolator = WInterpolator.emphasizedAccelerate
 
+    var isPopInProgress = false
+
     /**
      * Is called from 'onSwipe()', and animates the View to the
      * correct alpha- and x levels based on the direction of the swipe.
@@ -253,6 +255,7 @@ class SwipeTouchListener
         if (fDismiss) {
             mViewParent.get()?.blockTouches()
             viewController.get()?.viewWillDisappear()
+            isPopInProgress = true
             behindView.get()?.let {
                 it.visibility = VISIBLE
                 it.alpha = 1f

@@ -4,7 +4,9 @@ import android.graphics.Canvas
 import android.graphics.ColorFilter
 import android.graphics.Paint
 import android.graphics.Paint.Style
+import android.graphics.Path
 import android.graphics.PixelFormat
+import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -32,17 +34,31 @@ class SeparatorBackgroundDrawable : Drawable() {
     var allowSeparator: Boolean = true
     var offsetStart = 0f
     var offsetEnd = 0f
+    var topRadius = 0f
 
     override fun draw(canvas: Canvas) {
         (backgroundWColor?.color ?: backgroundColor)?.let {
             backgroundPaint.color = it
-            canvas.drawRect(
-                left.toFloat(),
-                top.toFloat(),
-                right.toFloat(),
-                bottom.toFloat(),
-                backgroundPaint
-            )
+
+            if (topRadius > 0f) {
+                val rectF = RectF(left.toFloat(), top.toFloat(), right.toFloat(), bottom.toFloat())
+                val radii = floatArrayOf(
+                    topRadius, topRadius,
+                    topRadius, topRadius,
+                    0f, 0f,
+                    0f, 0f
+                )
+                val path = Path().apply { addRoundRect(rectF, radii, Path.Direction.CW) }
+                canvas.drawPath(path, backgroundPaint)
+            } else {
+                canvas.drawRect(
+                    left.toFloat(),
+                    top.toFloat(),
+                    right.toFloat(),
+                    bottom.toFloat(),
+                    backgroundPaint
+                )
+            }
         }
 
         if (forceSeparator || (!ThemeManager.isDark && allowSeparator)) {

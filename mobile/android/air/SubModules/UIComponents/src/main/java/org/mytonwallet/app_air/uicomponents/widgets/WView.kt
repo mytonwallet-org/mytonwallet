@@ -226,6 +226,21 @@ fun View.fadeInObjectAnimator(): ObjectAnimator? {
     return ObjectAnimator.ofFloat(this, "alpha", 0f, 1f);
 }
 
+fun View.setAlpha(
+    targetAlpha: Float,
+    animated: Boolean,
+    duration: Long = AnimationConstants.VERY_QUICK_ANIMATION
+) {
+    if (!animated || !WGlobalStorage.getAreAnimationsActive()) {
+        alpha = targetAlpha
+        return
+    }
+    animate()
+        .alpha(targetAlpha)
+        .setDuration(duration)
+        .start()
+}
+
 fun View.setBackgroundColor(color: Int, radius: Float, clipToBounds: Boolean = false) {
     background = ViewHelpers.roundedShapeDrawable(color, radius)
 

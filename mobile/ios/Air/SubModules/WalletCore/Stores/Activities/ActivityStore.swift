@@ -86,8 +86,6 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
             handleNewActivities(update: update)
         case .newLocalActivity(let update):
             await handleNewLocalActivities(update: update)
-//        case .applicationWillEnterForeground:
-//            await handleApplicationWillEnterForeground()
         default:
             break
         }
@@ -103,8 +101,8 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         log.info("handleInitialActivities \(update.accountId, .public) [done] mainIds=\(update.mainActivities.count)")
     }
     
-    private func handleNewActivities(update: ApiUpdate.NewActivities, forceReload: Bool = false) {
-        log.info("handleNewActivities \(update.accountId, .public) sinceForeground=\(timeSinceLastApplicationWillEnterForeground) forceReload=\(forceReload) mainIds=\(getAccountState(update.accountId).idsMain?.count ?? -1) inUpdate=\(update.activities.count)")
+    private func handleNewActivities(update: ApiUpdate.NewActivities) {
+        log.info("handleNewActivities \(update.accountId, .public) sinceForeground=\(timeSinceLastApplicationWillEnterForeground) mainIds=\(getAccountState(update.accountId).idsMain?.count ?? -1) inUpdate=\(update.activities.count)")
         
         let accountId = update.accountId
         let newConfirmedActivities = update.activities
@@ -154,19 +152,6 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         WalletCoreData.notify(event: .activitiesChanged(accountId: update.accountId, updatedIds: unique(activities.map(\.id)), replacedIds: [:]))
     }
 
-    private func handleApplicationWillEnterForeground() async {
-        self.lastApplicationWillEnterForeground = .now
-        log.info("handleApplicationWillEnterForeground \(lastApplicationWillEnterForeground, .public)")
-        do {
-            try await AccountStore.reactivateCurrentAccount()
-            await forceReload(dryRun: false)
-            try await Task.sleep(for: .seconds(0.5))
-            try await AccountStore.reactivateCurrentAccount()
-        } catch {
-            log.error("handleApplicationWillEnterForeground: \(error, .public)")
-        }
-    }
-    
     // MARK: - Fetch methods
     
     func fetchAllTransactions(accountId: String, limit: Int, shouldLoadWithBudget: Bool) async throws {
@@ -297,22 +282,6 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         }
     }
     
-    @available(*, deprecated, message: "shouldn't be needed")
-    private func forceReload(dryRun: Bool) async {
-        do {
-            if let accountId = AccountStore.accountId {
-                log.info("forceReload sinceForeground=\(timeSinceLastApplicationWillEnterForeground) ")
-                let result = try await Api.fetchPastActivities(accountId: accountId, limit: 60, tokenSlug: nil, toTimestamp: nil)
-                if !dryRun {
-                    handleNewActivities(update: .init(accountId: accountId, chain: nil, activities: result, pendingActivities: nil), forceReload: true)
-                }
-                log.info("forceReload [done] sinceForeground=\(timeSinceLastApplicationWillEnterForeground)")
-            }
-        } catch {
-            log.error("forceReload: \(error)")
-        }
-    }
-    
     // MARK: - Activity details
     
     public func getActivity(accountId: String, activityId: String) -> ApiActivity? {
@@ -405,6 +374,10 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         } catch {
             log.error("clean failed: \(error)")
         }
+    }
+    
+    public func debugOnly_clean() {
+        clean()
     }
     
     // MARK: - Impl

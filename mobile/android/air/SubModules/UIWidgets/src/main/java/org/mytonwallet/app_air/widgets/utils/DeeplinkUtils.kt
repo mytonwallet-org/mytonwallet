@@ -34,8 +34,10 @@ object DeeplinkUtils {
         viewId: Int,
         link: String,
         widgetClass: Class<*>,
-        appWidgetId: Int
+        appWidgetId: Int?
     ) {
+        val appWidgetId = appWidgetId ?: return
+
         val intent = Intent(context, widgetClass).apply {
             action = ACTION_UPDATE
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, intArrayOf(appWidgetId))

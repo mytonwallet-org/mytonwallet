@@ -30,39 +30,33 @@ enum SwapCexSupport {
             
             let toAddress = createResult.swap.cex?.payinAddress
             
-            guard let toAddress else {
+            guard let toAddress, let accountId = AccountStore.accountId else {
                 return nil
             }
             let checkOptions = ApiCheckTransactionDraftOptions(
-                accountId: AccountStore.accountId!,
+                accountId: accountId,
                 toAddress: toAddress,
                 amount: amount,
-                tokenAddress: sellingToken.tokenAddress,
-                data: nil,
+                payload: nil,
                 stateInit: nil,
-                shouldEncrypt: nil,
-                isBase64Data: nil,
-                forwardAmount: nil,
+                tokenAddress: sellingToken.tokenAddress,
                 allowGasless: false
             )
             let draft = try await Api.checkTransactionDraft(chain: sellingToken.chainValue, options: checkOptions)
             let options = ApiSubmitTransferOptions(
-                accountId: AccountStore.accountId!,
-                password: passcode,
-                toAddress: draft.resolvedAddress ?? toAddress,
+                accountId: accountId,
+                toAddress: toAddress,
                 amount: amount,
-                comment: nil,
-                tokenAddress: sellingToken.tokenAddress,
-                fee: draft.fee,
-                realFee: draft.realFee,
-                shouldEncrypt: nil,
-                isBase64Data: nil,
-                withDiesel: false,
-                dieselAmount: nil,
+                payload: nil,
                 stateInit: nil,
+                tokenAddress: sellingToken.tokenAddress,
+                realFee: draft.realFee,
+                isGasless: false,
+                dieselAmount: nil,
                 isGaslessWithStars: nil,
-                forwardAmount: nil,
-                noFeeCheck: nil,
+                password: passcode,
+                fee: draft.fee,
+                noFeeCheck: nil
             )
             _ = try await Api.swapCexSubmit(chain: sellingToken.chainValue, options: options, swapId: createResult.swap.id)
             return nil

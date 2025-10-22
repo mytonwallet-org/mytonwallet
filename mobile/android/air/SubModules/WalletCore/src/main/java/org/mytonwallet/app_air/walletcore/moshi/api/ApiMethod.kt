@@ -9,6 +9,7 @@ import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.ApiNotificationAddress
+import org.mytonwallet.app_air.walletcore.moshi.ApiSubmitTransferResult
 import org.mytonwallet.app_air.walletcore.moshi.ApiTonConnectProof
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransferToSign
 import org.mytonwallet.app_air.walletcore.moshi.DeviceInfo
@@ -18,7 +19,6 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftOptions
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiLedgerAccountInfo
 import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferOptions
-import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapEstimateRequest
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapEstimateResponse
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
@@ -206,35 +206,14 @@ sealed class ApiMethod<T> {
                 .build()
         }
 
-        fun SubmitTransfer(
+        class SubmitTransfer(
             chain: MBlockchain,
             options: MApiSubmitTransferOptions
-        ): ApiMethod<out MApiSubmitTransferResult> {
-            return when (chain) {
-                MBlockchain.ton -> SubmitTransferTON(options)
-                MBlockchain.tron -> SubmitTransferTRON(options)
-                else -> throw NotImplementedError()
-            }
-        }
-
-        class SubmitTransferTON(
-            options: MApiSubmitTransferOptions
-        ) : ApiMethod<MApiSubmitTransferResult.Ton>() {
+        ) : ApiMethod<ApiSubmitTransferResult>() {
             override val name: String = "submitTransfer"
-            override val type: Type = MApiSubmitTransferResult.Ton::class.java
+            override val type: Type = ApiSubmitTransferResult::class.java
             override val arguments: String = ArgumentsBuilder()
-                .string(MBlockchain.ton.name)
-                .jsObject(options, MApiSubmitTransferOptions::class.java)
-                .build()
-        }
-
-        class SubmitTransferTRON(
-            options: MApiSubmitTransferOptions
-        ) : ApiMethod<MApiSubmitTransferResult.Tron>() {
-            override val name: String = "submitTransfer"
-            override val type: Type = MApiSubmitTransferResult.Tron::class.java
-            override val arguments: String = ArgumentsBuilder()
-                .string(MBlockchain.tron.name)
+                .string(chain.name)
                 .jsObject(options, MApiSubmitTransferOptions::class.java)
                 .build()
         }
@@ -403,6 +382,7 @@ sealed class ApiMethod<T> {
 
         class DeleteDapp(
             accountId: String,
+            appClientId: String,
             origin: String
         ) : ApiMethod<Any>() {
             override val name: String = "deleteDapp"
@@ -410,7 +390,7 @@ sealed class ApiMethod<T> {
             override val arguments: String = ArgumentsBuilder()
                 .string(accountId)
                 .string(origin)
-                .string("jsbridge")
+                .string(appClientId)
                 .string(null)
                 .build()
         }
@@ -492,10 +472,22 @@ sealed class ApiMethod<T> {
 
                 @JsonClass(generateAdapter = true)
                 data class Request(
-                    val method: String = "sendTransaction",
+                    val method: String,
                     val params: List<String>,
                     val id: String
                 )
+            }
+
+            class TonConnectSignData(
+                dApp: DAppArg,
+                request: TonConnectSendTransaction.Request
+            ) : ApiMethod<JSONObject>() {
+                override val name: String = "tonConnect_signData"
+                override val type: Type = JSONObject::class.java
+                override val arguments: String = ArgumentsBuilder()
+                    .jsObject(dApp, DAppArg::class.java)
+                    .jsObject(request, TonConnectSendTransaction.Request::class.java)
+                    .build()
             }
         }
     }

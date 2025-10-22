@@ -10,7 +10,6 @@ import org.mytonwallet.app_air.walletbasecontext.WBaseStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setAccentColor
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setNftAccentColor
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
@@ -203,7 +202,6 @@ class AirAsFrameworkApplication {
                     return
                 }
             }
-            setAccentColor(WGlobalStorage.getAccentColorId())
         }
     }
 }

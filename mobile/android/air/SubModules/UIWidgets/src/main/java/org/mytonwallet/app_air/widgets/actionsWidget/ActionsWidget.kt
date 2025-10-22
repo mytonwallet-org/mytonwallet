@@ -149,8 +149,8 @@ class ActionsWidget : AppWidgetProvider() {
 
     fun generateRemoteViews(context: Context, config: Config, isPreview: Boolean): RemoteViews {
         if (isPreview) {
-            return RemoteViews(context.packageName, R.layout.actions_widget_mini).apply {
-                configure(context, this@apply, false, config, true)
+            return RemoteViews(context.packageName, R.layout.actions_widget_preview).apply {
+                configure(context, this@apply, true, config, true)
             }
         }
         val remoteViews = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {

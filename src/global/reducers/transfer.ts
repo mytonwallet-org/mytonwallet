@@ -1,4 +1,4 @@
-import type { ApiCheckTransactionDraftResult } from '../../api/chains/ton/types';
+import type { ApiCheckTransactionDraftResult } from '../../api/types';
 import type { GlobalState } from '../types';
 
 import { pick } from '../../util/iteratees';

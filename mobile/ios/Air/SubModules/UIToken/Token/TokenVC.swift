@@ -17,7 +17,7 @@ public class TokenVC: ActivitiesTableViewController, Sendable, WSensitiveDataPro
 
     private var tokenVM: TokenVM!
 
-    private let accountId: String
+    private var accountId: String
     private let token: ApiToken
     private let isInModal: Bool
     
@@ -218,7 +218,13 @@ extension TokenVC: TokenVMDelegate {
         }
     }
     func accountChanged() {
-        navigationController?.popViewController(animated: false)
+        guard let newAccountId = AccountStore.accountId else { return }
+        Task {
+            self.accountId = newAccountId
+            self._activityViewModel = await ActivityViewModel(accountId: newAccountId, token: token, delegate: self)
+            self.tokenVM = TokenVM(accountId: newAccountId, selectedToken: token, tokenVMDelegate: self)
+            self.tokenVM.refreshTransactions()
+        }
     }
     func cacheNotFound() {
     }

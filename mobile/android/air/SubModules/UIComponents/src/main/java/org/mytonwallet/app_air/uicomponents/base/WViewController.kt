@@ -365,6 +365,7 @@ open class WViewController(val context: Context) : WThemedView, WProtectedView {
 
     // Called when user pushes a new view controller, pops view controller (goes back) or finishes the window (activity)!
     var isDisappeared = false
+    var isDestroyed = false
     open fun viewWillDisappear() {
         view.hideKeyboard()
         isDisappeared = true
@@ -375,6 +376,7 @@ open class WViewController(val context: Context) : WThemedView, WProtectedView {
     open fun onViewDetachedFromWindow() {}
 
     open fun onDestroy() {
+        isDestroyed = true
         frameMonitor?.stopMonitoring()
         view.removeAllViews()
     }
@@ -659,8 +661,8 @@ fun WViewController.showAlert(
     preferPrimary: Boolean = true,
     primaryIsDanger: Boolean = false,
     allowLinkInText: Boolean = false,
-) {
-    WDialog(
+): WDialog {
+    val dialog = WDialog(
         customView = FrameLayout(context).apply {
             val messageLabel = object : WLabel(context), WThemedView {
                 init {
@@ -698,7 +700,9 @@ fun WViewController.showAlert(
                 style = WDialogButton.Config.Style.NORMAL
             ) else null
         )
-    ).presentOn(this)
+    )
+    dialog.presentOn(this)
+    return dialog
 }
 
 fun WViewController.executeWithLowPriority(block: () -> Unit) {

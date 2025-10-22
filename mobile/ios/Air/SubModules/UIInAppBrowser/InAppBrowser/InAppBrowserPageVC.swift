@@ -8,8 +8,6 @@ import WalletContext
 
 private var log = Log("InAppBrowserPageVC")
 
-private let IDENTIFIER = "jsbridge"
-
 protocol InAppBrowserPageDelegate: AnyObject {
     func inAppBrowserPageStateChanged(_ browserPageVC: InAppBrowserPageVC)
 }
@@ -280,7 +278,7 @@ extension InAppBrowserPageVC: WKScriptMessageHandler {
                 }
                 guard let accountId = AccountStore.accountId else { return }
                 let isUrlEnsured = self.webView?.hasOnlySecureContent
-                let dappArg = ApiDappRequest(url: origin, isUrlEnsured: isUrlEnsured, accountId: accountId, identifier: IDENTIFIER, sseOptions: nil)
+                let dappArg = ApiDappRequest(url: origin, isUrlEnsured: isUrlEnsured, accountId: accountId, identifier: JSBRIDGE_IDENTIFIER, sseOptions: nil)
                 
                 executeAndInjectResult(invocationId: invocationId) {
                     try await Api.tonConnect_connect(request: dappArg, message: tonConnectArgs)
@@ -292,7 +290,7 @@ extension InAppBrowserPageVC: WKScriptMessageHandler {
                 }
                 guard let accountId = AccountStore.accountId, let origin = config.url.origin else { return }
                 let isUrlEnsured = self.webView?.hasOnlySecureContent
-                let dappArg = ApiDappRequest(url: origin, isUrlEnsured: isUrlEnsured, accountId: accountId, identifier: IDENTIFIER, sseOptions: nil)
+                let dappArg = ApiDappRequest(url: origin, isUrlEnsured: isUrlEnsured, accountId: accountId, identifier: JSBRIDGE_IDENTIFIER, sseOptions: nil)
 
                 executeAndInjectResult(invocationId: invocationId) {
                     try await Api.tonConnect_reconnect(request: dappArg)
@@ -304,7 +302,7 @@ extension InAppBrowserPageVC: WKScriptMessageHandler {
                 }
                 guard let accountId = AccountStore.accountId, let origin = config.url.origin else { return }
                 let isUrlEnsured = self.webView?.hasOnlySecureContent
-                let dappArg = ApiDappRequest(url: origin, isUrlEnsured: isUrlEnsured, accountId: accountId, identifier: IDENTIFIER, sseOptions: nil)
+                let dappArg = ApiDappRequest(url: origin, isUrlEnsured: isUrlEnsured, accountId: accountId, identifier: JSBRIDGE_IDENTIFIER, sseOptions: nil)
 
                 executeAndInjectResult(invocationId: invocationId) {
                     try await Api.tonConnect_disconnect(request: dappArg)
@@ -324,7 +322,7 @@ extension InAppBrowserPageVC: WKScriptMessageHandler {
                         let request = try requests.first.orThrow() // only the first request is handled to match web version
                         
                         let isUrlEnsured = self?.webView?.hasOnlySecureContent
-                        let dapp = ApiDappRequest(url: origin, isUrlEnsured: isUrlEnsured, accountId: accountId, identifier: IDENTIFIER, sseOptions: nil)
+                        let dapp = ApiDappRequest(url: origin, isUrlEnsured: isUrlEnsured, accountId: accountId, identifier: JSBRIDGE_IDENTIFIER, sseOptions: nil)
                         
                         switch request.method {
                         case .sendTransaction:
@@ -340,7 +338,6 @@ extension InAppBrowserPageVC: WKScriptMessageHandler {
                         case .signData:
                             let response = try await Api.tonConnect_signData(request: dapp, params: request.params)
                             try await self?.injectTonConnectResult(invocationId: invocationId, result: response, error: nil)
-                            print(response)
                             
                         case .disconnect:
                             throw TonConnectError(code: .methodNotSupported)

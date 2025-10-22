@@ -5,7 +5,10 @@ import android.content.Context
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import androidx.core.view.isGone
+import androidx.core.view.isInvisible
 import androidx.core.view.setPadding
+import androidx.core.view.updateLayoutParams
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.image.Content
@@ -27,39 +30,39 @@ import kotlin.math.roundToInt
 @SuppressLint("ViewConstructor")
 class ExploreCategoryCell(
     context: Context,
-    cellWidth: Int,
+    private val cellWidth: Int,
     private val onSiteTap: (site: MExploreSite) -> Unit,
     private val onOpenCategoryTap: (category: MExploreCategory) -> Unit
 ) :
-    WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)), WThemedView {
+    WCell(context, LayoutParams(WRAP_CONTENT, WRAP_CONTENT)), WThemedView {
 
     private val imagesPadding = 4
 
     private val img1 = WCustomImageView(context).apply {
-        defaultRounding = Content.Rounding.Radius(14f.dp)
+        defaultRounding = Content.Rounding.Radius(18f.dp)
         setPadding(imagesPadding.dp)
     }
     private val img2 = WCustomImageView(context).apply {
-        defaultRounding = Content.Rounding.Radius(14f.dp)
+        defaultRounding = Content.Rounding.Radius(18f.dp)
         setPadding(imagesPadding.dp)
     }
     private val img3 = WCustomImageView(context).apply {
-        defaultRounding = Content.Rounding.Radius(14f.dp)
+        defaultRounding = Content.Rounding.Radius(18f.dp)
         setPadding(imagesPadding.dp)
     }
     private val otherImg1 = WCustomImageView(context).apply {
-        defaultRounding = Content.Rounding.Radius(5.5f.dp)
+        defaultRounding = Content.Rounding.Radius(7f.dp)
     }
     private val otherImg2 = WCustomImageView(context).apply {
-        defaultRounding = Content.Rounding.Radius(5.5f.dp)
+        defaultRounding = Content.Rounding.Radius(7f.dp)
     }
     private val otherImg3 = WCustomImageView(context).apply {
-        defaultRounding = Content.Rounding.Radius(5.5f.dp)
+        defaultRounding = Content.Rounding.Radius(7f.dp)
     }
     private val otherImg4 = WCustomImageView(context).apply {
-        defaultRounding = Content.Rounding.Radius(5.5f.dp)
+        defaultRounding = Content.Rounding.Radius(7f.dp)
     }
-    private val imageSize = (cellWidth - 62.dp) / 2 + 2 * imagesPadding.dp
+    private val imageSize = (cellWidth - 54.dp) / 2 + 2 * imagesPadding.dp
 
     private val otherSitesView = WView(context).apply {
         val smallImageSize = ((imageSize - 2 * imagesPadding.dp - 12f.dp) / 2).roundToInt()
@@ -103,18 +106,23 @@ class ExploreCategoryCell(
         setStyle(14f, WFont.Medium)
     }
 
-    override fun setupViews() {
-        super.setupViews()
-
+    private val outerContainerView = WView(context).apply {
         addView(containerView, ViewGroup.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(titleLabel)
         setConstraints {
-            toTop(containerView)
-            toCenterX(containerView)
+            toTop(containerView, 16f)
+            toCenterX(containerView, 8f)
             setDimensionRatio(containerView.id, "1:1")
             topToBottom(titleLabel, containerView, 8f)
             toCenterX(titleLabel)
+            toBottom(titleLabel, 4f)
         }
+    }
+
+    override fun setupViews() {
+        super.setupViews()
+
+        addView(outerContainerView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
 
         val allImages = listOf(img1, img2, img3)
         for (i in allImages.indices) {
@@ -133,38 +141,78 @@ class ExploreCategoryCell(
     }
 
     private var category: MExploreCategory? = null
-    fun configure(category: MExploreCategory) {
+    private var isTopLeft: Boolean = false
+    private var isTopRight: Boolean = false
+    private var isBottomLeft: Boolean = false
+    private var isBottomRight: Boolean = false
+    fun configure(
+        category: MExploreCategory?,
+        isLeft: Boolean,
+        isRight: Boolean,
+        isTopLeft: Boolean,
+        isTopRight: Boolean,
+        isBottomLeft: Boolean,
+        isBottomRight: Boolean
+    ) {
         this.category = category
+        this.isTopLeft = isTopLeft
+        this.isTopRight = isTopRight
+        this.isBottomLeft = isBottomLeft
+        this.isBottomRight = isBottomRight
 
-        titleLabel.text = category.name
-
-        val sites = category.sites.filter {
-            ConfigStore.isLimited != true || !it.canBeRestricted
+        setPadding(
+            if (isLeft) ViewConstants.HORIZONTAL_PADDINGS.dp else 0,
+            0,
+            if (isRight) ViewConstants.HORIZONTAL_PADDINGS.dp else 0,
+            0
+        )
+        outerContainerView.setPadding(
+            if (isLeft) 8.dp else 0,
+            0,
+            if (isRight) 8.dp else 0,
+            0,
+        )
+        updateLayoutParams {
+            width =
+                cellWidth +
+                    paddingLeft + paddingRight +
+                    outerContainerView.paddingLeft + outerContainerView.paddingRight
         }
+        containerView.isInvisible = category == null
+        titleLabel.isInvisible = category == null
+        category?.let {
+            titleLabel.text = category.name
 
-        if (sites.isNotEmpty()) img1.set(
-            Content.ofUrl(
-                sites.getOrNull(0)!!.icon ?: ""
-            )
-        ) else img1.clear()
-        if (sites.size > 1) img2.set(
-            Content.ofUrl(
-                sites.getOrNull(1)!!.icon ?: ""
-            )
-        ) else img2.clear()
-        if (sites.size > 2) img3.set(
-            Content.ofUrl(
-                sites.getOrNull(2)!!.icon ?: ""
-            )
-        ) else img3.clear()
+            val sites = category.sites.filter {
+                ConfigStore.isLimited != true || !it.canBeRestricted
+            }
 
-        val otherImages = listOf(otherImg1, otherImg2, otherImg3, otherImg4)
-        for (i in otherImages.indices) {
-            val site = sites.getOrNull(i + 3)
-            if (site != null) {
-                otherImages[i].set(Content.ofUrl(site.icon!!))
-            } else {
-                otherImages[i].visibility = GONE
+            if (sites.isNotEmpty()) img1.set(
+                Content.ofUrl(
+                    sites.getOrNull(0)!!.iconUrl ?: ""
+                )
+            ) else img1.clear()
+            if (sites.size > 1) img2.set(
+                Content.ofUrl(
+                    sites.getOrNull(1)!!.iconUrl ?: ""
+                )
+            ) else img2.clear()
+            if (sites.size > 2) img3.set(
+                Content.ofUrl(
+                    sites.getOrNull(2)!!.iconUrl ?: ""
+                )
+            ) else img3.clear()
+
+            val otherImages = listOf(otherImg1, otherImg2, otherImg3, otherImg4)
+            for (i in otherImages.indices) {
+                val site = sites.getOrNull(i + 3)
+                if (site != null) {
+                    otherImages[i].set(Content.ofUrl(site.iconUrl!!))
+                    otherImages[i].isGone = false
+                } else {
+                    otherImages[i].clear()
+                    otherImages[i].isGone = true
+                }
             }
         }
 
@@ -173,13 +221,20 @@ class ExploreCategoryCell(
 
     override fun updateTheme() {
         arrayOf(img1, img2, img3).forEach {
-            it.setBackgroundColor(WColor.GroupedBackground.color)
-            it.addRippleEffect(WColor.BackgroundRipple.color, 16f.dp)
+            it.setBackgroundColor(WColor.SecondaryBackground.color)
+            it.addRippleEffect(WColor.BackgroundRipple.color, 18f.dp)
         }
         containerView.setBackgroundColor(
-            WColor.GroupedBackground.color,
-            ViewConstants.STANDARD_ROUNDS.dp
+            WColor.SecondaryBackground.color,
+            26f.dp
         )
         titleLabel.setTextColor(WColor.PrimaryText.color)
+        outerContainerView.setBackgroundColor(
+            WColor.Background.color,
+            if (isTopLeft) ViewConstants.STANDARD_ROUNDS.dp else 0f,
+            if (isTopRight) ViewConstants.STANDARD_ROUNDS.dp else 0f,
+            if (isBottomRight) ViewConstants.STANDARD_ROUNDS.dp else 0f,
+            if (isBottomLeft) ViewConstants.STANDARD_ROUNDS.dp else 0f,
+        )
     }
 }

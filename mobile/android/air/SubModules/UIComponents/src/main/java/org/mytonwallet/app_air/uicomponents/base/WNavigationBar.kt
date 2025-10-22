@@ -299,4 +299,8 @@ class WNavigationBar(
         )
         currentTint = color
     }
+
+    fun setOnBackPressed(onBackPressed: OnClickListener) {
+        backButton.setOnClickListener(onBackPressed)
+    }
 }

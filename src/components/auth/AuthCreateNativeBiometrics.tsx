@@ -4,7 +4,7 @@ import { getActions } from '../../global';
 import renderText from '../../global/helpers/renderText';
 import { getIsFaceIdAvailable, getIsTouchIdAvailable } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
-import { PARTICLE_BURST_PARAMS, PARTICLE_PARAMS, setupParticles } from '../../push/util/particles';
+import { PARTICLE_BURST_PARAMS, PARTICLE_PARAMS, setupParticles } from '../../util/particles';
 
 import { useDeviceScreen } from '../../hooks/useDeviceScreen';
 import useHistoryBack from '../../hooks/useHistoryBack';

@@ -37,6 +37,7 @@ import {
 import {
   selectAccount,
   selectAccountNftByAddress,
+  selectAccountSettings,
   selectAccountState,
   selectVestingPartsReadyToUnfreeze,
 } from '../../selectors';
@@ -175,8 +176,10 @@ addActionHandler('apiUpdate', (global, actions, update) => {
 
       if (!IS_CORE_WALLET) {
         actions.checkCardNftOwnership();
-        // If a user received an NFT card from the MyTonWallet collection, it is applied immediately
-        if (nft.collectionAddress === MTW_CARDS_COLLECTION) {
+        const settings = selectAccountSettings(global, accountId);
+        // If a user received an NFT card from the MyTonWallet collection, it is applied immediately.
+        // But only if it is not already set.
+        if (nft.collectionAddress === MTW_CARDS_COLLECTION && !settings?.cardBackgroundNft) {
           actions.setCardBackgroundNft({ nft });
           actions.installAccentColorFromNft({ nft });
         }

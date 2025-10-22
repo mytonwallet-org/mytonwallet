@@ -97,6 +97,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
 
     public override func viewIsAppearing(_ animated: Bool) {
         tableView.contentInset.bottom = view.safeAreaInsets.bottom + 16 + homeBottomInset
+        self.scrollViewDidScroll(tableView)
     }
 
     func contentOffsetChanged(to y: CGFloat) {
@@ -232,11 +233,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
 
     func startMonitoring() {
         displayLink = CADisplayLink(target: self, selector: #selector(frameTick))
-        if #available(iOS 15.0, *) {
-            displayLink?.preferredFrameRateRange = CAFrameRateRange(minimum: 120, maximum: 120, preferred: 120)
-        } else {
-            displayLink?.preferredFramesPerSecond = 60
-        }
+        displayLink?.preferredFrameRateRange = CAFrameRateRange(minimum: 120, maximum: 120, preferred: 120)
         displayLink?.add(to: .main, forMode: .common)
     }
 
@@ -252,9 +249,6 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
 }
 
 extension HomeVC: HomeVMDelegate {
-    func forceReload() {
-    }
-    
     func update(state: UpdateStatusView.State, animated: Bool) {
         DispatchQueue.main.async {
             log.info("new state: \(state, .public) animted=\(animated)", fileOnly: true)

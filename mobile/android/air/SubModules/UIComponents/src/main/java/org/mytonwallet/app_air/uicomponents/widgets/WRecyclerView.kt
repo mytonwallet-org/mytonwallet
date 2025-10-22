@@ -18,6 +18,7 @@ import java.lang.ref.WeakReference
 open class WRecyclerView(context: Context) : RecyclerView(context) {
     init {
         id = generateViewId()
+        isVerticalScrollBarEnabled = false
     }
 
     private var viewControllerRef: WeakReference<WViewController>? = null

@@ -11,3 +11,12 @@ fun Int.colorWithAlpha(alpha: Int): Int {
         Color.blue(this)
     );
 }
+
+fun Int.solidColorWithAlpha(alpha: Int): Int {
+    return Color.argb(
+        alpha,
+        Color.red(this),
+        Color.green(this),
+        Color.blue(this)
+    );
+}

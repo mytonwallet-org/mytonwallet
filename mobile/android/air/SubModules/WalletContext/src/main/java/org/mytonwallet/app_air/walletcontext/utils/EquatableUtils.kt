@@ -23,7 +23,7 @@ fun List<WEquatable<*>>.diff(
     // Find deletions
     for ((index, element) in this.withIndex()) {
         if (newList.find { element.isSame(it) } == null) {
-            changes.add(EquatableChange.Delete(IndexPath(index, section)))
+            changes.add(EquatableChange.Delete(IndexPath(section, index)))
         }
     }
 
@@ -33,11 +33,11 @@ fun List<WEquatable<*>>.diff(
         if (oldIndex != -1) {
             if (index != oldIndex || element.isChanged(comparing = this[oldIndex])) {
                 // If the element exists in both lists but has moved or changed, consider it as an update
-                changes.add(EquatableChange.Update(IndexPath(oldIndex, section)))
+                changes.add(EquatableChange.Update(IndexPath(section, oldIndex)))
             }
         } else {
             // If the element exists only in the new list, consider it as an insertion
-            changes.add(EquatableChange.Insert(IndexPath(index, section)))
+            changes.add(EquatableChange.Insert(IndexPath(section, index)))
         }
     }
 

@@ -12,12 +12,14 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.appcompat.widget.AppCompatEditText
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.widget.doOnTextChanged
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListIconDualLineCell
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListTitleCell
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.AddressInputLayout
+import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
@@ -161,6 +163,12 @@ class SendNftVC(
         }
     }
 
+    private val bottomReversedCornerViewUpsideDown: ReversedCornerViewUpsideDown =
+        ReversedCornerViewUpsideDown(context, scrollView).apply {
+            if (ignoreSideGuttering)
+                setHorizontalPadding(0f)
+        }
+
     private val continueButton by lazy {
         WButton(context).apply {
             id = View.generateViewId()
@@ -178,11 +186,24 @@ class SendNftVC(
         setupNavBar(true)
 
         view.addView(scrollView, ViewGroup.LayoutParams(MATCH_PARENT, 0))
+        view.addView(
+            bottomReversedCornerViewUpsideDown,
+            ConstraintLayout.LayoutParams(
+                MATCH_PARENT,
+                MATCH_CONSTRAINT
+            )
+        )
         view.addView(continueButton, ViewGroup.LayoutParams(MATCH_PARENT, 50.dp))
         view.setConstraints {
             toCenterX(scrollView)
             topToBottom(scrollView, navigationBar!!)
             bottomToTop(scrollView, continueButton, 20f)
+            topToTop(
+                bottomReversedCornerViewUpsideDown,
+                continueButton,
+                -20f - ViewConstants.BIG_RADIUS
+            )
+            toBottom(bottomReversedCornerViewUpsideDown)
             toCenterX(continueButton, 20f)
             toBottomPx(
                 continueButton, 20.dp + max(

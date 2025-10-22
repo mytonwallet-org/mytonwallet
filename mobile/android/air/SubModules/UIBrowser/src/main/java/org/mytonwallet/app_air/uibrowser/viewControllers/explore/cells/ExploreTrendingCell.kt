@@ -62,7 +62,7 @@ class ExploreTrendingCell(
                 )
             )
         }
-        container.setPadding(10.dp, 0, 20.dp, 0)
+        container.setPadding(6.dp, 0, 6.dp, 0)
     }
 
     override fun updateTheme() {

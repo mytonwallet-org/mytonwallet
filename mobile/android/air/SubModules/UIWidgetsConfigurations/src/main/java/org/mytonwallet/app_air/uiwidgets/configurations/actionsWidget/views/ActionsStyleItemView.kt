@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.view.View
-import android.view.ViewGroup
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -27,7 +26,7 @@ class ActionsStyleItemView(
 
     private val previewView: View by lazy {
         ActionsWidget().generateRemoteViews(context, ActionsWidget.Config(style = identifier), true)
-            .apply(context, parent as ViewGroup)
+            .apply(context, this)
     }
 
     private val nameLabel: WLabel by lazy {
@@ -47,7 +46,7 @@ class ActionsStyleItemView(
     override fun setupViews() {
         super.setupViews()
 
-        addView(previewView, LayoutParams(110.dp, 110.dp))
+        addView(previewView, LayoutParams(155.dp, 155.dp))
         addView(nameLabel)
         setConstraints {
             toTop(previewView, 3f)
@@ -65,16 +64,16 @@ class ActionsStyleItemView(
     }
 
     override fun updateTheme() {
-        previewView.setBackgroundColor(WColor.Background.color, 12f.dp, true)
+        previewView.setBackgroundColor(WColor.Background.color, 20f.dp, true)
         setBackgroundColor(
             Color.TRANSPARENT,
-            12f.dp,
-            12f.dp,
+            20f.dp,
+            20f.dp,
             strokeColor = (if (isActive) WColor.Tint else WColor.Separator).color,
             strokeWidth = if (isActive) 3 else 2,
             clipToBounds = true
         )
-        addRippleEffect(WColor.BackgroundRipple.color, 12f.dp)
+        addRippleEffect(WColor.BackgroundRipple.color, 20f.dp)
         nameLabel.setTextColor((if (isActive) WColor.Tint else WColor.SecondaryText).color)
         nameLabel.setStyle(16f, if (isActive) WFont.Medium else WFont.Regular)
     }

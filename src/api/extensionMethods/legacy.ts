@@ -1,6 +1,6 @@
 import { Cell } from '@ton/core';
 
-import type { AnyPayload } from '../chains/ton/types';
+import type { AnyTonTransferPayload } from '../chains/ton/types';
 import type { OnApiUpdate } from '../types';
 import type { OnApiSiteUpdate } from '../types/dappUpdates';
 
@@ -91,35 +91,35 @@ export async function sendTransaction(params: {
   } = params;
   const amount = BigInt(value);
 
-  let processedData: AnyPayload | undefined;
+  let payload: AnyTonTransferPayload | undefined;
   if (data) {
     switch (dataType) {
       case 'hex':
-        processedData = hexToBytes(data);
+        payload = { type: 'binary', data: hexToBytes(data) };
         break;
       case 'base64':
-        processedData = base64ToBytes(data);
+        payload = { type: 'binary', data: base64ToBytes(data) };
         break;
       case 'boc':
-        processedData = Cell.fromBase64(data);
+        payload = Cell.fromBase64(data);
         break;
       default:
-        processedData = data;
+        payload = { type: 'comment', text: data };
     }
   }
-
-  const processedStateInit = stateInit ? Cell.fromBase64(stateInit) : undefined;
 
   await openPopupWindow();
   await waitLogin();
 
-  const checkResult = await ton.default.checkTransactionDraft({
+  const transferOptions = {
     accountId,
     toAddress,
     amount,
-    data: processedData,
+    payload,
     stateInit,
-  });
+  };
+
+  const checkResult = await ton.checkTransactionDraft(transferOptions);
 
   if ('error' in checkResult) {
     onPopupUpdate({
@@ -145,13 +145,9 @@ export async function sendTransaction(params: {
 
   const password: string | undefined = await promise;
 
-  const result = await ton.submitTransfer({
-    accountId,
+  const result = await ton.submitGasfullTransfer({
+    ...transferOptions,
     password,
-    toAddress,
-    amount,
-    data: processedData,
-    stateInit: processedStateInit,
   });
 
   if ('error' in result) {
@@ -160,13 +156,13 @@ export async function sendTransaction(params: {
 
   const { address: fromAddress } = await fetchStoredWallet(accountId, 'ton');
   const [localActivity] = createLocalTransactions(accountId, 'ton', [{
-    id: result.msgHashNormalized,
+    ...result.localActivityParams,
+    id: result.txId,
     amount,
     fromAddress,
     toAddress,
     fee: checkResult.realFee ?? checkResult.fee!,
     slug: TONCOIN.slug,
-    externalMsgHashNorm: result.msgHashNormalized,
     ...(dataType === 'text' && {
       comment: data,
     }),

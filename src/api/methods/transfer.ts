@@ -1,15 +1,18 @@
-import { Cell } from '@ton/core';
-
-import type { ApiSubmitTransferTonResult, ApiSubmitTransferWithDieselResult } from '../chains/ton/types';
-import type { ApiSubmitTransferTronResult } from '../chains/tron/types';
-import type { ApiActivity, ApiChain, ApiLocalTransactionParams, ApiTransactionActivity, OnApiUpdate } from '../types';
-import type { ApiSubmitTransferOptions, ApiSubmitTransferResult, CheckTransactionDraftOptions } from './types';
+import type {
+  ApiActivity,
+  ApiChain,
+  ApiCheckTransactionDraftOptions,
+  ApiLocalTransactionParams,
+  ApiSubmitGasfullTransferResult,
+  ApiSubmitGaslessTransferResult,
+  ApiSubmitTransferOptions,
+  OnApiUpdate,
+} from '../types';
 
 import { parseAccountId } from '../../util/account';
 import { buildLocalTxId } from '../../util/activities';
 import { getNativeToken } from '../../util/tokens';
 import chains from '../chains';
-import * as ton from '../chains/ton';
 import { fetchStoredAddress } from '../common/accounts';
 import { buildLocalTransaction } from '../common/helpers';
 import { FAKE_TX_ID } from '../constants';
@@ -21,113 +24,73 @@ export function initTransfer(_onUpdate: OnApiUpdate) {
   onUpdate = _onUpdate;
 }
 
-export function checkTransactionDraft(chain: ApiChain, options: CheckTransactionDraftOptions) {
+export function checkTransactionDraft(chain: ApiChain, options: ApiCheckTransactionDraftOptions) {
   return chains[chain].checkTransactionDraft(options);
 }
 
 export async function submitTransfer(
   chain: ApiChain,
   options: ApiSubmitTransferOptions,
-  shouldCreateLocalActivity = true,
-): Promise<ApiSubmitTransferResult> {
+): Promise<{ activityId: string } | { error: string }> {
+  const {
+    realFee,
+    isGasless,
+    dieselAmount = 0n,
+    isGaslessWithStars,
+    ...commonOptions
+  } = options;
   const {
     accountId,
-    password,
     toAddress,
     amount,
     tokenAddress,
-    comment,
-    fee,
-    realFee,
-    shouldEncrypt,
-    isBase64Data,
-    withDiesel,
-    dieselAmount,
-    isGaslessWithStars,
-    noFeeCheck,
+    payload,
   } = options;
-  const stateInit = typeof options.stateInit === 'string' ? Cell.fromBase64(options.stateInit) : options.stateInit;
 
   const fromAddress = await fetchStoredAddress(accountId, chain);
 
-  let result: ApiSubmitTransferTonResult | ApiSubmitTransferTronResult | ApiSubmitTransferWithDieselResult;
+  let result: ApiSubmitGasfullTransferResult | ApiSubmitGaslessTransferResult | { error: string };
 
-  if (withDiesel && chain === 'ton') {
-    result = await ton.submitTransferWithDiesel({
-      accountId,
-      password,
-      toAddress,
-      amount,
-      tokenAddress: tokenAddress!,
-      data: comment,
-      shouldEncrypt,
-      dieselAmount: dieselAmount!,
+  if (isGasless) {
+    if (tokenAddress === undefined) {
+      throw new Error('tokenAddress is required for gasless transfer');
+    }
+
+    result = await chains[chain].submitGaslessTransfer({
+      ...commonOptions,
+      tokenAddress,
+      dieselAmount,
       isGaslessWithStars,
     });
   } else {
-    result = await chains[chain].submitTransfer({
-      accountId,
-      password,
-      toAddress,
-      amount,
-      tokenAddress,
-      data: comment,
-      shouldEncrypt,
-      isBase64Data,
-      stateInit,
-      fee,
-      noFeeCheck,
-    });
+    result = await chains[chain].submitGasfullTransfer(commonOptions);
   }
 
   if ('error' in result) {
     return result;
   }
 
-  if (!shouldCreateLocalActivity) {
-    return result;
-  }
-
   const slug = tokenAddress
     ? buildTokenSlug(chain, tokenAddress)
     : getNativeToken(chain).slug;
+  const comment = payload?.type === 'comment' && !payload.shouldEncrypt ? payload.text : undefined;
 
-  let localActivity: ApiTransactionActivity;
+  const [localActivity] = createLocalTransactions(accountId, chain, [{
+    ...result.localActivityParams,
+    id: result.txId,
+    amount,
+    fromAddress,
+    toAddress,
+    comment,
+    fee: realFee ?? 0n,
+    slug,
+  }]);
 
-  if ('msgHash' in result) {
-    const { encryptedComment, msgHashNormalized } = result;
-    [localActivity] = createLocalTransactions(accountId, chain, [{
-      id: msgHashNormalized,
-      amount,
-      fromAddress,
-      toAddress,
-      comment: shouldEncrypt ? undefined : comment,
-      encryptedComment,
-      fee: realFee ?? 0n,
-      slug,
-      externalMsgHashNorm: msgHashNormalized,
-      extra: {
-        ...('withW5Gasless' in result && { withW5Gasless: result.withW5Gasless }),
-      },
-    }]);
-    if ('paymentLink' in result && result.paymentLink) {
-      onUpdate({ type: 'openUrl', url: result.paymentLink, isExternal: true });
-    }
-  } else {
-    const { txId } = result;
-    [localActivity] = createLocalTransactions(accountId, chain, [{
-      id: txId,
-      amount,
-      fromAddress,
-      toAddress,
-      comment,
-      fee: realFee ?? 0n,
-      slug,
-    }]);
+  if ('paymentLink' in result && result.paymentLink) {
+    onUpdate({ type: 'openUrl', url: result.paymentLink, isExternal: true });
   }
 
   return {
-    ...result,
     activityId: localActivity.id,
   };
 }
@@ -135,23 +98,18 @@ export async function submitTransfer(
 export function createLocalTransactions(
   accountId: string,
   chain: ApiChain,
-  params: ApiLocalTransactionParams[],
+  transactions: ApiLocalTransactionParams[],
 ) {
   const { network } = parseAccountId(accountId);
 
-  const localTransactions = params.map((subParams, index) => {
-    const { toAddress } = subParams;
+  const localTransactions = transactions.map((transaction, index) => {
+    const { toAddress, normalizedAddress } = transaction;
 
-    let normalizedAddress: string;
-    if (subParams.normalizedAddress) {
-      normalizedAddress = subParams.normalizedAddress;
-    } else if (chain === 'ton') {
-      normalizedAddress = ton.normalizeAddress(toAddress, network);
-    } else {
-      normalizedAddress = toAddress;
-    }
-
-    return buildLocalTransaction(subParams, normalizedAddress, index);
+    return buildLocalTransaction(
+      transaction,
+      normalizedAddress ?? chains[chain].normalizeAddress(toAddress, network),
+      index,
+    );
   });
 
   if (localTransactions.length) {
@@ -165,8 +123,8 @@ export function createLocalTransactions(
   return localTransactions;
 }
 
-export function fetchEstimateDiesel(accountId: string, tokenAddress: string) {
-  return ton.fetchEstimateDiesel(accountId, tokenAddress);
+export function fetchEstimateDiesel(accountId: string, chain: ApiChain, tokenAddress: string) {
+  return chains[chain].fetchEstimateDiesel(accountId, tokenAddress);
 }
 
 /**
@@ -175,7 +133,6 @@ export function fetchEstimateDiesel(accountId: string, tokenAddress: string) {
  */
 export function createLocalActivitiesFromEmulation(
   accountId: string,
-  chain: ApiChain,
   msgHashNormalized: string,
   emulationActivities: ApiActivity[],
 ): ApiActivity[] {
@@ -187,15 +144,14 @@ export function createLocalActivitiesFromEmulation(
       return;
     }
 
-    const localActivity = convertEmulationActivityToLocal(
-      activity,
-      msgHashNormalized,
-      localActivityIndex,
-      chain,
-      accountId,
-    );
-
-    localActivities.push(localActivity);
+    localActivities.push({
+      ...activity,
+      id: buildLocalTxId(msgHashNormalized, localActivityIndex),
+      timestamp: Date.now(),
+      externalMsgHashNorm: msgHashNormalized,
+      // Emulation activities are not trusted
+      status: 'pending',
+    });
 
     localActivityIndex++; // Increment only for visible activities
   });
@@ -209,43 +165,4 @@ export function createLocalActivitiesFromEmulation(
   }
 
   return localActivities;
-}
-
-/**
- * Converts an emulation activity to a local activity with proper ID and timestamp
- */
-function convertEmulationActivityToLocal(
-  activity: ApiActivity,
-  msgHashNormalized: string,
-  index: number,
-  chain: ApiChain,
-  accountId?: string,
-): ApiActivity {
-  const localTxId = buildLocalTxId(msgHashNormalized, index);
-  const commonFields = {
-    id: localTxId,
-    timestamp: Date.now(),
-    externalMsgHashNorm: msgHashNormalized,
-    // Emulation activities are not trusted
-    status: 'pending',
-  } satisfies Partial<ApiActivity>;
-
-  if (activity.kind === 'transaction') {
-    let normalizedAddress = activity.normalizedAddress;
-    if (!normalizedAddress && chain === 'ton' && accountId) {
-      const { network } = parseAccountId(accountId);
-      normalizedAddress = ton.normalizeAddress(activity.toAddress, network);
-    }
-
-    return {
-      ...activity,
-      ...commonFields,
-      normalizedAddress: normalizedAddress || activity.normalizedAddress,
-    };
-  } else {
-    return {
-      ...activity,
-      ...commonFields,
-    };
-  }
 }

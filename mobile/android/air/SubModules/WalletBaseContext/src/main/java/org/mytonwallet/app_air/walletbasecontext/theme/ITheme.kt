@@ -12,17 +12,20 @@ private fun create(colormap: Map<WColor, Int>): IntArray {
     }
 }
 
+const val DEFAULT_TINT_LIGHT = 0xFF0098EB.toInt()
+const val DEFAULT_TINT_DARK = 0xFF3C90D5.toInt()
+
 internal val THEME_LIGHT_PRESET
     get() = create(
         mapOf(
             WColor.Background to 0xFFFFFFFF.toInt(),
             WColor.PrimaryText to 0xFF000000.toInt(),
             WColor.PrimaryDarkText to 0xFF4D5053.toInt(),
-            WColor.PrimaryLightText to 0xFF717579.toInt(),
-            WColor.SecondaryText to 0xFF838C97.toInt(),
+            WColor.PrimaryLightText to 0xFF747C87.toInt(),
+            WColor.SecondaryText to 0xFF747C87.toInt(),
             WColor.SubtitleText to 0xFF8A8A8A.toInt(),
             WColor.Decimals to 0xFF99999E.toInt(),
-            WColor.Tint to 0xFF0098EB.toInt(),
+            WColor.Tint to DEFAULT_TINT_LIGHT,
             WColor.TextOnTint to 0xFFFFFFFF.toInt(),
             WColor.Separator to 0xFFDFE1E5.toInt(),
             WColor.SecondaryBackground to 0xFFF4F4F5.toInt(),
@@ -60,7 +63,7 @@ internal val THEME_DARK_PRESET
             WColor.SecondaryText to 0xFF8E8E93.toInt(),
             WColor.SubtitleText to 0xFF8E8E93.toInt(),
             WColor.Decimals to 0xFF8E8E93.toInt(),
-            WColor.Tint to 0xFF3C90D5.toInt(),
+            WColor.Tint to DEFAULT_TINT_DARK,
             WColor.TextOnTint to 0xFFFFFFFF.toInt(),
             WColor.Separator to 0xFF353537.toInt(),
             WColor.SecondaryBackground to 0xFF181818.toInt(),

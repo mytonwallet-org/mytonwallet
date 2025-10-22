@@ -103,7 +103,7 @@ const EMPTY_ARRAY: never[] = [];
 const EMPTY_OBJECT = {};
 
 function TokenSelector({
-  token,
+  token: tokenProp,
   userTokens: userTokensProp = EMPTY_ARRAY,
   swapTokens = EMPTY_ARRAY,
   popularTokens: popularTokensProp = EMPTY_ARRAY,
@@ -166,6 +166,8 @@ function TokenSelector({
   const filterTokens = useCallback((tokens: TokenType[]) => {
     return filterAndSortTokens(tokens, isMultichain, tokenInSlug, pairsBySlug, shouldShowAllPairs);
   }, [pairsBySlug, tokenInSlug, isMultichain, shouldShowAllPairs]);
+
+  const token = useMemo(() => tokenProp ? filterTokens([tokenProp])[0] : undefined, [tokenProp, filterTokens]);
 
   const userTokens = useMemo(
     () => filterSupportedTokens(userTokensProp, shouldHideNotSupportedTokens, availableChains, selectedChains),

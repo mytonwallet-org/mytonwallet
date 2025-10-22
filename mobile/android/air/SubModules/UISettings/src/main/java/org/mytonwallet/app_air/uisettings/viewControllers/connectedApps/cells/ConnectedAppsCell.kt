@@ -3,9 +3,13 @@ package org.mytonwallet.app_air.uisettings.viewControllers.connectedApps.cells
 import android.content.Context
 import android.text.TextUtils
 import android.util.TypedValue
+import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.appcompat.widget.AppCompatTextView
+import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
+import androidx.core.view.isGone
 import androidx.customview.widget.ViewDragHelper
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
@@ -16,6 +20,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.swipeRevealLayout.SwipeRevea
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
+import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
@@ -33,11 +38,22 @@ class ConnectedAppsCell(context: Context) :
         private const val MAIN_VIEW_RADIUS = 18f
     }
 
+    private val lastItemRadius = (ViewConstants.BIG_RADIUS - 1.5f).dp
+
     private val redRipple = WRippleDrawable.create(0f).apply {
         backgroundColor = WColor.Red.color
         rippleColor = WColor.BackgroundRipple.color
     }
 
+    private fun getRedRippleForLastItem() = WRippleDrawable.create(
+        0f,
+        0f,
+        ViewConstants.BIG_RADIUS.dp,
+        ViewConstants.BIG_RADIUS.dp
+    ).apply {
+        backgroundColor = WColor.Red.color
+        rippleColor = WColor.BackgroundRipple.color
+    }
 
     private val imageView = WCustomImageView(context).apply {
         layoutParams = LayoutParams(40.dp, 40.dp)
@@ -64,20 +80,26 @@ class ConnectedAppsCell(context: Context) :
         maxLines = 1
     }
 
+    private val separatorView = WBaseView(context)
+
     val mainView = WView(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)).apply {
 
         addView(imageView)
         addView(titleLabel, LayoutParams(0, WRAP_CONTENT))
-        addView(subtitleLabel, LayoutParams(0, WRAP_CONTENT))
+        addView(subtitleLabel, LayoutParams(0, 22.dp))
+        addView(separatorView, LayoutParams(0, 1))
         setConstraints {
             toCenterY(imageView, 12f)
             toStart(imageView, 16f)
             topToTop(titleLabel, imageView)
             startToEnd(titleLabel, imageView, 12f)
             toEnd(titleLabel, 24f)
-            bottomToBottom(subtitleLabel, imageView)
+            bottomToBottom(subtitleLabel, imageView, -2f)
             startToEnd(subtitleLabel, imageView, 12f)
             toEnd(subtitleLabel, 24f)
+            toStart(separatorView, 68f)
+            toEnd(separatorView)
+            toBottom(separatorView)
         }
     }
 
@@ -115,8 +137,8 @@ class ConnectedAppsCell(context: Context) :
                     WColor.Background.color,
                     0f,
                     0f,
-                    0f,
-                    0f
+                    if (isLast) lastItemRadius else 0f,
+                    if (isLast) lastItemRadius else 0f
                 )
             }
 
@@ -125,7 +147,10 @@ class ConnectedAppsCell(context: Context) :
                     WColor.Background.color,
                     0f,
                     MAIN_VIEW_RADIUS,
-                    MAIN_VIEW_RADIUS,
+                    if (isLast) maxOf(
+                        MAIN_VIEW_RADIUS,
+                        lastItemRadius
+                    ) else MAIN_VIEW_RADIUS,
                     0f
                 )
             }
@@ -138,13 +163,14 @@ class ConnectedAppsCell(context: Context) :
                 val multiplier = if (slideOffset < 0.02) 0f else slideOffset * 4f
                 val variableRadius =
                     if (multiplier >= 1f) MAIN_VIEW_RADIUS else MAIN_VIEW_RADIUS * multiplier
+                val bottomRadius = if (isLast) lastItemRadius else 0f
 
                 mainView.background = ViewHelpers.roundedShapeDrawable(
                     WColor.Background.color,
                     0f,
                     variableRadius,
-                    variableRadius,
-                    0f
+                    if (isLast) maxOf(variableRadius, bottomRadius) else variableRadius,
+                    bottomRadius
                 )
             }
 
@@ -160,7 +186,6 @@ class ConnectedAppsCell(context: Context) :
                 }
             }
         }
-        setBackgroundColor(WColor.Red.color)
 
         addView(secondaryView)
         addView(mainView)
@@ -186,25 +211,48 @@ class ConnectedAppsCell(context: Context) :
         updateTheme()
     }
 
+    fun closeSwipe() {
+        swipeRevealLayout.close(true)
+    }
+
     override fun updateTheme() {
         mainView.setBackgroundColor(
             WColor.Background.color,
             0f,
-            if (isLast) ViewConstants.BIG_RADIUS.dp else 0f
+            if (isLast) lastItemRadius else 0f
         )
-        redRipple.backgroundColor = WColor.Red.color
-        redRipple.rippleColor = WColor.BackgroundRipple.color
-        secondaryView.background = redRipple
+
+        if (isLast) {
+            val lastItemRedRipple = getRedRippleForLastItem()
+            secondaryView.background = lastItemRedRipple
+            swipeRevealLayout.setBackgroundColor(
+                WColor.Red.color,
+                0f,
+                ViewConstants.BIG_RADIUS.dp
+            )
+        } else {
+            redRipple.backgroundColor = WColor.Red.color
+            redRipple.rippleColor = WColor.BackgroundRipple.color
+            secondaryView.background = redRipple
+            swipeRevealLayout.setBackgroundColor(WColor.Red.color)
+        }
+
         titleLabel.setTextColor(WColor.PrimaryText.color)
         subtitleLabel.setTextColor(WColor.SecondaryText.color)
         disconnectLabel.setTextColor(WColor.TextOnTint.color)
-        swipeRevealLayout.setBackgroundColor(WColor.Red.color)
+        separatorView.setBackgroundColor(WColor.Separator.color)
     }
 
     private var isLast = false
     private var onDisconnectDApp: (() -> Unit)? = null
+    private var onWarningTapped: (() -> Unit)? = null
 
-    fun configure(exploreSite: ApiDapp, isLast: Boolean, onDisconnect: () -> Unit) {
+    fun configure(
+        exploreSite: ApiDapp,
+        isLast: Boolean,
+        onDisconnect: () -> Unit,
+        onWarning: (() -> Unit)? = null
+    ) {
         this.isLast = isLast
         exploreSite.iconUrl?.let { iconUrl ->
             imageView.set(Content(image = Content.Image.Url(iconUrl)))
@@ -212,8 +260,38 @@ class ConnectedAppsCell(context: Context) :
             imageView.clear()
         }
         titleLabel.text = exploreSite.name
-        subtitleLabel.text = exploreSite.url
+        subtitleLabel.text = exploreSite.url?.toUri()?.host
+        subtitleLabel.gravity = Gravity.CENTER_VERTICAL
+        separatorView.isGone = isLast
+
+        if (exploreSite.isUrlEnsured != true) {
+            val warningIcon = ContextCompat.getDrawable(
+                context,
+                org.mytonwallet.app_air.walletcontext.R.drawable.ic_warning
+            )
+            warningIcon?.let { drawable ->
+                drawable.setBounds(0, 0, 14.dp, 14.dp)
+                subtitleLabel.setCompoundDrawablesRelativeWithIntrinsicBounds(
+                    drawable, null, null, null
+                )
+                subtitleLabel.compoundDrawablePadding = 4.dp
+            }
+
+            subtitleLabel.setOnClickListener {
+                onWarning?.invoke()
+            }
+            onWarningTapped = onWarning
+        } else {
+            subtitleLabel.setCompoundDrawablesRelativeWithIntrinsicBounds(
+                null, null, null, null
+            )
+            subtitleLabel.setOnClickListener(null)
+            onWarningTapped = null
+        }
+
         onDisconnectDApp = onDisconnect
+
+        updateTheme()
     }
 
     private fun getContainerView() {

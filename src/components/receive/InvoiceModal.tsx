@@ -50,7 +50,7 @@ function InvoiceModal({
   const { changeInvoiceToken, closeInvoiceModal } = getActions();
 
   const selectedChain = tokenSlug ? getChainBySlug(tokenSlug) : DEFAULT_CHAIN;
-  const { isTransferCommentSupported, nativeToken, formatTransferUrl } = getChainConfig(selectedChain);
+  const { isTransferPayloadSupported, nativeToken, formatTransferUrl } = getChainConfig(selectedChain);
   const selectedToken = (tokenSlug && tokensBySlug?.[tokenSlug]) || nativeToken;
   const address = byChain?.[selectedChain]?.address;
 
@@ -101,7 +101,7 @@ function InvoiceModal({
                   onClick={openTokenSelector}
                 />
               </RichNumberInput>
-              {isTransferCommentSupported && (
+              {isTransferPayloadSupported && (
                 <Input
                   value={comment}
                   label={lang('Comment')}

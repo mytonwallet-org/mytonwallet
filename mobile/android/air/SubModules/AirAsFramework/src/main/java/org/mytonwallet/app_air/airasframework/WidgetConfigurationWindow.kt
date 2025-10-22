@@ -49,6 +49,7 @@ class WidgetConfigurationWindow : WWindow() {
         super.onCreate(savedInstanceState)
 
         if (!WGlobalStorage.isInitialized) {
+            finish()
             return
         }
 
@@ -64,7 +65,12 @@ class WidgetConfigurationWindow : WWindow() {
     }
 
     fun restartBridge(forcedRecreation: Boolean) {
-        WalletCore.setupBridge(this, windowView, forcedRecreation = forcedRecreation) {
+        WalletCore.setupBridge(
+            applicationContext,
+            windowView,
+            forcedRecreation = forcedRecreation,
+            isOnAirApp = false
+        ) {
             setAppFocusedState()
         }
     }

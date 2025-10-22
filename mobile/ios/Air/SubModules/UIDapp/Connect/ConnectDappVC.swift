@@ -15,11 +15,14 @@ import Ledger
 
 public class ConnectDappVC: WViewController, UISheetPresentationControllerDelegate {
     
-    var request: ApiUpdate.DappConnect
-    var onConfirm: (_ accountId: String, _ password: String) -> ()
-    var onCancel: () -> ()
+    var request: ApiUpdate.DappConnect?
+    var onConfirm: ((_ accountId: String, _ password: String) -> ())?
+    var onCancel: (() -> ())?
+    
+    var placeholderAccountId: String?
     
     private var didConfirm = false
+    var hostingController: UIHostingController<ConnectDappViewOrPlaceholder>?
     
     public init(
         request: ApiUpdate.DappConnect,
@@ -32,8 +35,29 @@ public class ConnectDappVC: WViewController, UISheetPresentationControllerDelega
         super.init(nibName: nil, bundle: nil)
     }
     
+    init(placeholderAccountId: String?) {
+        self.placeholderAccountId = placeholderAccountId
+        super.init(nibName: nil, bundle: nil)
+    }
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+    
+    func replacePlaceholder(
+        request: ApiUpdate.DappConnect,
+        onConfirm: @escaping (_ accountId: String, _ password: String) -> (),
+        onCancel: @escaping () -> ()
+    ) {
+        self.request = request
+        self.onConfirm = onConfirm
+        self.onCancel = onCancel
+        updateAccountView()
+        updateDappViews()
+        UIView.animate(withDuration: 0.3) {
+            self.hostingController?.view.alpha = 0
+            self.contentView.alpha = 1
+        }
     }
     
     public override func loadView() {
@@ -215,16 +239,38 @@ public class ConnectDappVC: WViewController, UISheetPresentationControllerDelega
         
         reportHeight()
         
+        hostingController = addHostingController(makeView(), constraints: .fill)
+        hostingController?.view.alpha = request != nil ? 0 : 1
+        contentView.alpha = request != nil ? 1 : 0
+        
         updateTheme()
     }
     
-    private func updateDappViews() {
-        titleLabel.text = request.dapp.name
-        if let url = URL(string: request.dapp.url) {
-            subtitleLabel.text = url.host(percentEncoded: false)
+    private func makeView() -> ConnectDappViewOrPlaceholder {
+        if let request {
+            return ConnectDappViewOrPlaceholder(content: .connectDapp(ConnectDappView()))
+        } else {
+            let account = placeholderAccountId.flatMap { AccountStore.accountsById[$0] }
+            return ConnectDappViewOrPlaceholder(content: .placeholder(TonConnectPlaceholder(
+                account: account,
+                connectionType: .connect,
+                navigationBarInset: navigationBarHeight
+            )))
         }
-        if let imageUrl = URL(string: request.dapp.iconUrl) {
-            appIconView.kf.setImage(with: imageUrl)
+    }
+    
+    private func updateDappViews() {
+        if let request {
+            titleLabel.text = request.dapp.name
+            if let url = URL(string: request.dapp.url) {
+                subtitleLabel.text = url.host(percentEncoded: false)
+            }
+            if let imageUrl = URL(string: request.dapp.iconUrl) {
+                appIconView.kf.setImage(with: imageUrl)
+            }
+        } else {
+            titleLabel.text = "Placeholder"
+            subtitleLabel.text = "placeholder"
         }
     }
     
@@ -264,6 +310,7 @@ public class ConnectDappVC: WViewController, UISheetPresentationControllerDelega
     }
     
     @objc func chooseWalletPressed() {
+        guard let request else { return }
         present(ChooseWalletVC(hint: "\(lang("Choose Wallet to Use On").uppercased()) \(URL(string: request.dapp.url)?.host?.uppercased() ?? "")",
                                selectedAccountId: selectedAccount?.id ?? "",
                                isModal: true,
@@ -292,10 +339,11 @@ public class ConnectDappVC: WViewController, UISheetPresentationControllerDelega
     }
     
     private func confirmMnemonic() {
+        guard let request else { return }
         UnlockVC.presentAuth(on: self,
                              title: lang("Confirm Connect"),
                              subtitle: URL(string: request.dapp.url)?.host, onDone: { [weak self] passcode in
-            guard let self, let passcode else {
+            guard let self, let passcode, let onConfirm else {
                 return
             }
             didConfirm = true
@@ -307,7 +355,9 @@ public class ConnectDappVC: WViewController, UISheetPresentationControllerDelega
     private func confirmLedger() async {
         guard
             let account = AccountStore.account,
-            let fromAddress = account.tonAddress?.nilIfEmpty
+            let fromAddress = account.tonAddress?.nilIfEmpty,
+            let request,
+            let onConfirm
         else { return }
         
         let signModel = await LedgerSignModel(
@@ -325,7 +375,7 @@ public class ConnectDappVC: WViewController, UISheetPresentationControllerDelega
         )
         vc.onDone = { vc in
             self.didConfirm = true
-            self.onConfirm(self.selectedAccount?.id ?? "", "")
+            onConfirm(self.selectedAccount?.id ?? "", "")
             self.dismiss(animated: true, completion: {
                 self.presentingViewController?.dismiss(animated: true)
             })
@@ -340,7 +390,7 @@ public class ConnectDappVC: WViewController, UISheetPresentationControllerDelega
     
     public func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
         if !didConfirm {
-            onCancel()
+            onCancel?()
         }
     }
 }

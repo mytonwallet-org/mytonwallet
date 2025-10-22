@@ -103,6 +103,7 @@ export async function encryptMessageComment(
 
   const payload = new Uint8Array(encryptedBytes.length + 4);
 
+  // https://docs.ton.org/v3/documentation/smart-contracts/message-management/internal-messages#encryption-algorithm
   const buffer = Buffer.alloc(4);
   buffer.writeUInt32BE(OpCode.Encrypted);
 

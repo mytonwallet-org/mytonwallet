@@ -23,6 +23,8 @@ class TonConnectRequestSendDetailsVC(
 ) : WViewController(context) {
     private val rvAdapter = Adapter()
 
+    override val shouldDisplayBottomBar = true
+
     private val recyclerView = RecyclerView(context).apply {
         id = View.generateViewId()
         adapter = rvAdapter

@@ -144,7 +144,6 @@ fileprivate struct OpenButtonStyle: PrimitiveButtonStyle {
 #if DEBUG
 #Preview {
     FeaturedDappCell(item: .sampleFeaturedTelegram, isHighlighted: false, openAction: {})
-        .border(.red)
         .padding(.horizontal, 20)
 }
 #endif

@@ -12,12 +12,6 @@ import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import org.mytonwallet.app_air.walletcore.stores.ActivityStore
-import org.mytonwallet.app_air.walletcore.stores.AddressStore
-import org.mytonwallet.app_air.walletcore.stores.BalanceStore
-import org.mytonwallet.app_air.walletcore.stores.DappsStore
-import org.mytonwallet.app_air.walletcore.stores.NftStore
-import org.mytonwallet.app_air.walletcore.stores.StakingStore
 
 fun WalletCore.createWallet(
     words: Array<String>,
@@ -220,13 +214,7 @@ fun WalletCore.resetAccounts(
             callback(null, error)
         } else {
             AirPushNotifications.unsubscribeAll()
-            AccountStore.clean()
-            ActivityStore.clean()
-            AddressStore.clean()
-            BalanceStore.clean()
-            DappsStore.clean()
-            NftStore.clean()
-            StakingStore.clean()
+            WalletCore.stores.forEach { it.wipeData() }
             WCacheStorage.clean(accountIds)
             WCacheStorage.setInitialScreen(WCacheStorage.InitialScreen.INTRO)
             callback(true, null)

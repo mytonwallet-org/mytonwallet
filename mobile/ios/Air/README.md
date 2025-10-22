@@ -8,7 +8,7 @@
 
 First, Make sure you've installed these on your system:
 
-- Xcode (recommended version: 16.3)
+- Xcode (recommended version: latest release version)
 - NodeJS (recommended version: 24)
 
 This repository is used as a Git submodule within [MyTonWallet](https://github.com/mytonwalletorg/mytonwallet).

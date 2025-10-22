@@ -118,6 +118,7 @@ struct SecurityView: View {
         InsetSection {
             InsetDetailCell(verticalPadding: 0) {
                 Text(lang("Lock the app after"))
+                    .padding(.vertical, 8)
             } value: {
                 Color.clear.frame(width: 150, height: 44)
                     .overlay(alignment: .trailing) {

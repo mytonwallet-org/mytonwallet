@@ -12,6 +12,7 @@ fun BigInteger.toAmountString(
         currency = token.symbol ?: "",
         decimals = token.decimals,
         currencyDecimals = this.smartDecimalsCount(token.decimals),
-        showPositiveSign = false
+        showPositiveSign = false,
+        roundUp = false
     )
 }

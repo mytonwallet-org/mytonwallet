@@ -18,15 +18,20 @@ import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.helpers.WDividerItemDecoration
+import org.mytonwallet.app_air.uicomponents.helpers.DappWarningPopupHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.WAnimationView
+import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WView
+import org.mytonwallet.app_air.uicomponents.widgets.dialog.WDialog
+import org.mytonwallet.app_air.uisettings.viewControllers.connectedApps.cells.ConnectedAppsCell
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.WalletEvent
 
 class ConnectedAppsVC(context: Context) : WViewControllerWithModelStore(context) {
 
@@ -45,7 +50,22 @@ class ConnectedAppsVC(context: Context) : WViewControllerWithModelStore(context)
         linearLayoutManager.isSmoothScrollbarEnabled = true
         layoutManager = linearLayoutManager
         clipToPadding = false
-        addItemDecoration(WDividerItemDecoration(context, 68f.dp, WColor.Background.color))
+        addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                super.onScrolled(recyclerView, dx, dy)
+                if (dx == 0 && dy == 0)
+                    return
+                updateBlurViews(recyclerView)
+            }
+
+            override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+                super.onScrollStateChanged(recyclerView, newState)
+                if (recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE) {
+                    updateBlurViews(recyclerView)
+                    closeAllSwipedCells()
+                }
+            }
+        })
     }
 
     private val animationView: WAnimationView by lazy {
@@ -96,6 +116,24 @@ class ConnectedAppsVC(context: Context) : WViewControllerWithModelStore(context)
 
             override fun onDisconnectClick(item: Item.DApp) {
                 connectedAppsViewModel.deleteConnectedApp(item.app)
+            }
+
+            override fun onWarningClick(item: Item.DApp) {
+                val dappUrl = item.app.url ?: return
+                lateinit var dialog: WDialog
+
+                val warningText = DappWarningPopupHelpers.reopenInIabWarningText {
+                    dialog.dismiss()
+                    connectedAppsViewModel.deleteConnectedApp(item.app)
+                    WalletCore.notifyEvent(WalletEvent.OpenUrl(dappUrl))
+                }
+
+                @Suppress("AssignedValueIsNeverRead")
+                dialog = showAlert(
+                    LocaleController.getString("Warning"),
+                    warningText,
+                    allowLinkInText = true
+                )
             }
         })
         recyclerView.setPadding(
@@ -162,5 +200,18 @@ class ConnectedAppsVC(context: Context) : WViewControllerWithModelStore(context)
     override fun scrollToTop() {
         super.scrollToTop()
         recyclerView.layoutManager?.smoothScrollToPosition(recyclerView, null, 0)
+    }
+
+    private fun closeAllSwipedCells() {
+        for (i in 0 until recyclerView.childCount) {
+            val child = recyclerView.getChildAt(i)
+            val viewHolder = recyclerView.getChildViewHolder(child)
+            if (viewHolder != null) {
+                val cell = (viewHolder as? WCell.Holder)?.cell
+                if (cell is ConnectedAppsCell) {
+                    cell.closeSwipe()
+                }
+            }
+        }
     }
 }

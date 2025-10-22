@@ -19,6 +19,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.widgets.SwapSearchEditText
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -26,7 +27,6 @@ import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import java.math.BigInteger
 import kotlin.math.max
 
@@ -86,7 +86,7 @@ class TokenSelectorVC(
         setupNavBar(true)
 
         searchContainer.addView(searchEditText, ViewGroup.LayoutParams(MATCH_PARENT, 48.dp))
-        searchContainer.setPaddingDp(20, 0, 20, 8)
+        searchContainer.setPaddingDp(10, 0, 10, 8)
 
         view.addView(recyclerView, ViewGroup.LayoutParams(MATCH_PARENT, 0))
         navigationBar?.addBottomView(searchContainer, 56.dp)
@@ -171,7 +171,7 @@ class TokenSelectorVC(
             if (tmpAssets.isNotEmpty()) {
                 tmpAssets[tmpAssets.size - 1] =
                     tmpAssets[tmpAssets.size - 1].copy(allowSeparator = false)
-                uiItems.add(TokenItem.Title(LocaleController.getString("MY")))
+                uiItems.add(TokenItem.Title(LocaleController.getString("My")))
                 uiItems.addAll(tmpAssets)
             }
             tmpAssets.clear()
@@ -185,7 +185,7 @@ class TokenSelectorVC(
         if (tmpAssets.isNotEmpty()) {
             tmpAssets[tmpAssets.size - 1] =
                 tmpAssets[tmpAssets.size - 1].copy(allowSeparator = false)
-            uiItems.add(TokenItem.Title(LocaleController.getString("POPULAR")))
+            uiItems.add(TokenItem.Title(LocaleController.getString("Popular")))
             uiItems.addAll(tmpAssets)
         }
         tmpAssets.clear()
@@ -195,11 +195,11 @@ class TokenSelectorVC(
             if (!used.add(asset.slug)) continue
             tmpAssets.add(asset(asset = asset, balance = null, separator = true))
         }
-        if (tmpAssets.isNotEmpty()) {
+        if (tmpAssets.isNotEmpty() && query?.isNotEmpty() == true) {
             tmpAssets[tmpAssets.size - 1] =
                 tmpAssets[tmpAssets.size - 1].copy(allowSeparator = false)
             if (uiItems.isNotEmpty()) {
-                uiItems.add(TokenItem.Title(LocaleController.getString("Other")))
+                uiItems.add(TokenItem.Title(LocaleController.getString("A ~ Z")))
             }
             uiItems.addAll(tmpAssets)
         }

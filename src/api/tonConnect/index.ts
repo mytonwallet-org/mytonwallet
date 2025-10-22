@@ -363,7 +363,6 @@ export async function sendTransaction(
       // Use rich emulation activities for optimistic UI
       createLocalActivitiesFromEmulation(
         accountId,
-        'ton',
         externalMsgHashNorm, // This is not always correct for Ledger, because in that case the messages are split into individual transactions which have different message hashes. Though, this appears not to cause problems.
         checkResult.emulation.activities,
       );

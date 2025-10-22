@@ -4,10 +4,10 @@ import React, { memo, useLayoutEffect, useMemo, useRef, useState } from '../../l
 import { PUSH_CHAIN } from '../config';
 import buildClassName from '../../util/buildClassName';
 import { toDecimal } from '../../util/decimals';
+import { PARTICLE_BURST_PARAMS, PARTICLE_COLORS, PARTICLE_PARAMS, setupParticles } from '../../util/particles';
 import { getTelegramApp } from '../../util/telegram';
 import { getExplorerAddressUrl } from '../../util/url';
 import { fetchAccountBalance } from '../util/check';
-import { PARTICLE_BURST_PARAMS, PARTICLE_COLORS, PARTICLE_PARAMS, setupParticles } from '../util/particles';
 import { extractAndPurgeToken, getSearchParameter } from '../util/searchParams';
 import { getWalletAddress } from '../util/tonConnect';
 import { connectWallet, fetchConnectedAddress } from '../util/wallet';

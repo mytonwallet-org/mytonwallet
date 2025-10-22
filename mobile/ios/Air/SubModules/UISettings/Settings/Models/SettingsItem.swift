@@ -13,19 +13,20 @@ import WalletContext
 struct SettingsItem: Equatable, Identifiable {
     
     enum Identifier: Equatable, Hashable {
-//        case changeAvatar
         case editWalletName
         case account(accountId: String)
         case addAccount
+        case notifications
         case appearance
         case assetsAndActivity
         case connectedApps
         case language
         case security
         case walletVersions
-        case questionAndAnswers
-        case terms
-        case switchToCapacitor
+        case tips
+        case helpCenter
+        case support
+        case about
         case signout
     }
     
@@ -46,7 +47,7 @@ extension SettingsItem.Identifier {
         case .editWalletName:
             return SettingsItem(
                 id: .editWalletName,
-                icon: UIImage(named: "EditWalletNameIcon", in: AirBundle, compatibleWith: nil)!.withRenderingMode(.alwaysTemplate),
+                icon: UIImage.airBundle("EditWalletNameIcon").withRenderingMode(.alwaysTemplate),
                 title: lang("Edit Wallet Name"),
                 hasPrimaryColor: true,
                 hasChild: false,
@@ -80,16 +81,25 @@ extension SettingsItem.Identifier {
         case .addAccount:
             return SettingsItem(
                 id: .addAccount,
-                icon: UIImage(named: "AddAccountIcon", in: AirBundle, compatibleWith: nil)!.withRenderingMode(.alwaysTemplate),
+                icon: UIImage.airBundle("AddAccountIcon").withRenderingMode(.alwaysTemplate),
                 title: lang("Add Account"),
                 hasPrimaryColor: true,
                 hasChild: false,
                 isDangerous: false
             )
+        case .notifications:
+            return SettingsItem(
+                id: .notifications,
+                icon: UIImage.airBundle("NotificationsSettingsIcon"),
+                title: lang("Notifications & Sounds"),
+                hasPrimaryColor: false,
+                hasChild: true,
+                isDangerous: false
+            )
         case .appearance:
             return SettingsItem(
                 id: .appearance,
-                icon: UIImage(named: "AppearanceIcon", in: AirBundle, compatibleWith: nil)!,
+                icon: UIImage.airBundle("AppearanceIcon"),
                 title: lang("Appearance"),
                 hasPrimaryColor: false,
                 hasChild: true,
@@ -98,7 +108,7 @@ extension SettingsItem.Identifier {
         case .assetsAndActivity:
             return SettingsItem(
                 id: .assetsAndActivity,
-                icon: UIImage(named: "AssetsAndActivityIcon", in: AirBundle, compatibleWith: nil)!,
+                icon: UIImage.airBundle("AssetsAndActivityIcon"),
                 title: lang("Assets & Activity"),
                 hasPrimaryColor: false,
                 hasChild: true,
@@ -107,8 +117,8 @@ extension SettingsItem.Identifier {
         case .connectedApps:
             return SettingsItem(
                 id: .connectedApps,
-                icon: UIImage(named: "DappsIcon", in: AirBundle, compatibleWith: nil)!,
-                title: lang("Connected Dapps"),
+                icon: UIImage.airBundle("DappsIcon"),
+                title: lang("Connected Apps"),
                 hasPrimaryColor: false,
                 hasChild: true,
                 isDangerous: false
@@ -135,38 +145,47 @@ extension SettingsItem.Identifier {
         case .walletVersions:
             return SettingsItem(
                 id: .walletVersions,
-                icon: UIImage(named: "WalletVersionsIcon", in: AirBundle, compatibleWith: nil)!,
+                icon: UIImage.airBundle("WalletVersionsIcon"),
                 title: lang("Wallet Versions"),
                 hasPrimaryColor: false,
                 hasChild: true,
                 isDangerous: false
             )
-        case .questionAndAnswers:
+        case .tips:
             return SettingsItem(
-                id: .questionAndAnswers,
-                icon: UIImage(named: "QuestionAnswersIcon", in: AirBundle, compatibleWith: nil)!,
+                id: .tips,
+                icon: UIImage.airBundle("TipsIcon30"),
+                title: lang("MyTonWallet Tips"),
+                hasPrimaryColor: false,
+                hasChild: true,
+                isDangerous: false
+            )
+        case .helpCenter:
+            return SettingsItem(
+                id: .helpCenter,
+                icon: UIImage.airBundle("BookIcon"),
                 title: lang("Help Center"),
                 hasPrimaryColor: false,
                 hasChild: true,
                 isDangerous: false
             )
-        case .terms:
+        case .support:
             return SettingsItem(
-                id: .terms,
-                icon: UIImage(named: "TermsIcon", in: AirBundle, compatibleWith: nil)!,
-                title: lang("Terms of Use"),
+                id: .support,
+                icon: UIImage.airBundle("SupportIcon30"),
+                title: lang("Get Support"),
+                hasPrimaryColor: false,
+                hasChild: false,
+                isDangerous: false
+            )
+        case .about:
+            return SettingsItem(
+                id: .about,
+                icon: UIImage.airBundle("TermsIcon"),
+                title: lang("About %app_name%", arg1: lang("MyTonWallet")),
                 hasPrimaryColor: false,
                 hasChild: true,
                 isDangerous: false
-            )
-        case .switchToCapacitor:
-            return SettingsItem(
-                id: .switchToCapacitor,
-                icon: nil,
-                title: lang("Switch to Legacy Version"),
-                hasPrimaryColor: true,
-                hasChild: false,
-                isDangerous: true
             )
         case .signout:
             return SettingsItem(

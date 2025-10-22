@@ -8,6 +8,8 @@
 import Foundation
 import WalletContext
 
+private let log = Log("SharedStore")
+
 public actor SharedStore {
     private let cache: SharedCache
 
@@ -32,7 +34,7 @@ public actor SharedStore {
                 tokens = try JSONDecoder().decode([ApiToken].self, from: data).dictionaryByKey(\.slug)
                 await cache.setTokens(tokens)
             } catch {
-                print(error)
+                log.error("\(error)")
             }
         }
         return tokens

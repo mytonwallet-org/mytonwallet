@@ -98,10 +98,19 @@ class ListIconDualLineCell(context: Context) : FrameLayout(context), WThemedView
     ) {
         if (imageRounding != null)
             tokenImage.defaultRounding = Content.Rounding.Radius(imageRounding)
+
         image?.let {
-            tokenImage.set(it)
+            tokenImage.set(image)
         } ?: run {
             tokenImage.clear()
+        }
+
+        val margin = if (image != null) 56.dp else 10.dp
+        listOf(tokenTitle, tokenSubtitle).forEach { view ->
+            (view.layoutParams as? MarginLayoutParams)?.apply {
+                marginStart = margin
+                view.layoutParams = this
+            }
         }
         tokenTitle.text = title
         tokenSubtitle.contentView.text = subtitle

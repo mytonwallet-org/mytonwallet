@@ -6,6 +6,7 @@ import WalletContext
     static func copyString(_ string: String?, toastMessage: String)
     static func lockApp(animated: Bool)
     static func openInBrowser(_ url: URL, title: String?, injectTonConnect: Bool)
+    static func openTipsChannel()
     static func pushTransactionSuccess(activity: ApiActivity)
     static func repeatActivity(_ activity: ApiActivity)
     static func scanQR() -> ()
@@ -41,6 +42,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func copyString(_ string: String?, toastMessage: String) { }
     static func lockApp(animated: Bool) { }
     static func openInBrowser(_ url: URL, title: String?, injectTonConnect: Bool) { }
+    static func openTipsChannel() { }
     static func pushTransactionSuccess(activity: ApiActivity) { }
     static func repeatActivity(_ activity: ApiActivity) { }
     static func scanQR() -> () { }

@@ -2,17 +2,19 @@
  * This file is meant to describe the interface of the chains exported from `src/api/chains`.
  */
 
-import type {
-  ApiCheckTransactionDraftResult,
-  ApiSubmitTransferOptions as ApiSubmitTonTransferOptions,
-  ApiSubmitTransferTonResult,
-} from '../chains/ton/types'; // todo: Eliminate the ton-specific import during the multichain send refactoring
-import type { ApiSubmitTransferTronResult } from '../chains/tron/types';
-import type { ApiSubmitTransferOptions, CheckTransactionDraftOptions } from '../methods/types';
 import type { ApiActivity, ApiDecryptCommentOptions, ApiFetchActivitySliceOptions } from './activities';
 import type { ApiAnyDisplayError, ApiAuthError } from './errors';
 import type { ApiActivityTimestamps, ApiChain, ApiNetwork, OnUpdatingStatusChange } from './misc';
 import type { ApiAccountWithChain, ApiWalletByChain } from './storage';
+import type {
+  ApiCheckTransactionDraftOptions,
+  ApiCheckTransactionDraftResult,
+  ApiFetchEstimateDieselResult,
+  ApiSubmitGasfullTransferOptions,
+  ApiSubmitGasfullTransferResult,
+  ApiSubmitGaslessTransferOptions,
+  ApiSubmitGaslessTransferResult,
+} from './transfer';
 import type { OnApiUpdate } from './updates';
 
 export interface ChainSdk<T extends ApiChain> {
@@ -27,6 +29,15 @@ export interface ChainSdk<T extends ApiChain> {
   fetchActivityDetails(accountId: string, activity: ApiActivity): MaybePromise<ApiActivity | undefined>;
 
   decryptComment(options: ApiDecryptCommentOptions): Promise<string | { error: ApiAnyDisplayError }>;
+
+  //
+  // Address
+  //
+
+  /**
+   * Converts an address to the normalized form (to fill the `normalizedAddress` field of `ApiTransactionActivity`).
+   */
+  normalizeAddress(address: string, network: ApiNetwork): string;
 
   //
   // Authentication
@@ -82,12 +93,24 @@ export interface ChainSdk<T extends ApiChain> {
   // Sending transfers
   //
 
-  checkTransactionDraft(options: CheckTransactionDraftOptions): Promise<ApiCheckTransactionDraftResult>;
+  checkTransactionDraft(options: ApiCheckTransactionDraftOptions): Promise<ApiCheckTransactionDraftResult>;
 
-  // todo: Make a universal argument and return types during the multichain send refactoring
-  submitTransfer(
-    options: ApiSubmitTransferOptions & ApiSubmitTonTransferOptions,
-  ): Promise<ApiSubmitTransferTonResult | ApiSubmitTransferTronResult>;
+  /** The goal of the function is acting like `checkTransactionDraft` but return only the diesel information */
+  fetchEstimateDiesel(accountId: string, tokenAddress: string): MaybePromise<ApiFetchEstimateDieselResult>;
+
+  /** Builds, signs and sends a transfer with the fee paid from the current wallet */
+  submitGasfullTransfer(
+    options: ApiSubmitGasfullTransferOptions,
+  ): Promise<ApiSubmitGasfullTransferResult | { error: string }>;
+
+  /**
+   * Builds, signs and sends a transfer with the fee paid by MyTonWallet in exchange to diesel, i.e. a small amount
+   * of the transferred token. If the chain doesn't support gasless transfers, it mustn't add `diesel` to the
+   * `checkTransactionDraft` result.
+   */
+  submitGaslessTransfer(
+    options: ApiSubmitGaslessTransferOptions,
+  ): Promise<ApiSubmitGaslessTransferResult | { error: string }>;
 
   //
   // Wallet info

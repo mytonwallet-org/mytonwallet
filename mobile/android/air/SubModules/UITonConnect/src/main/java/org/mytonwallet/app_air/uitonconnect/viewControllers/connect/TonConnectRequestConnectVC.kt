@@ -40,13 +40,13 @@ import kotlin.math.max
 @SuppressLint("ViewConstructor")
 class TonConnectRequestConnectVC(
     context: Context,
-    private val update: ApiUpdate.ApiUpdateDappConnect
+    private var update: ApiUpdate.ApiUpdateDappConnect? = null
 ) : WViewController(context) {
 
     override val shouldDisplayTopBar = false
 
     private val requestView = ConnectRequestView(context).apply {
-        configure(update.dapp)
+        configure(update?.dapp)
         onShowUnverifiedSourceWarning = {
             showUnverifiedSourceWarning()
         }
@@ -73,12 +73,13 @@ class TonConnectRequestConnectVC(
                 leftMargin = 20.dp
                 topMargin = 24.dp
                 rightMargin = 20.dp
-                bottomMargin = 20.dp
+                bottomMargin = 15.dp
             })
     }
 
     private val scrollView = ScrollView(context).apply {
         id = View.generateViewId()
+        isVerticalScrollBarEnabled = false
         addView(
             scrollingContentView, ConstraintLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -105,7 +106,11 @@ class TonConnectRequestConnectVC(
             allEdges(scrollView)
         }
 
+        updateButtonState()
+
         buttonView.setOnClickListener {
+            val update = update ?: return@setOnClickListener
+
             if (!update.permissions.proof) {
                 connectConfirm(
                     update.promiseId,
@@ -156,6 +161,7 @@ class TonConnectRequestConnectVC(
     }
 
     private fun confirmHardware() {
+        val update = update ?: return
         val account = AccountStore.activeAccount!!
         val ledgerConnectVC = LedgerConnectVC(
             context,
@@ -178,6 +184,7 @@ class TonConnectRequestConnectVC(
     }
 
     private fun confirmPasscode() {
+        val update = update ?: return
         val window = window ?: return
         val passcodeVC = PasscodeConfirmVC(
             context,
@@ -190,7 +197,7 @@ class TonConnectRequestConnectVC(
                     passcode,
                     { success ->
                         if (success) {
-                            window!!.dismissLastNav()
+                            window.dismissLastNav()
                         }
                     }
                 )
@@ -209,6 +216,7 @@ class TonConnectRequestConnectVC(
         passcode: String,
         onCompletion: (success: Boolean) -> Unit
     ) {
+        val update = update ?: return
         isConfirmed = true
         window!!.lifecycleScope.launch {
             try {
@@ -237,6 +245,7 @@ class TonConnectRequestConnectVC(
     }
 
     private fun connectReject() {
+        val update = update ?: return
         window!!.lifecycleScope.launch {
             WalletCore.call(
                 ApiMethod.DApp.CancelDappRequest(
@@ -248,6 +257,8 @@ class TonConnectRequestConnectVC(
     }
 
     private fun showUnverifiedSourceWarning() {
+        val update = update ?: return
+
         val warningText = SpannableStringBuilder()
         val template = LocaleController.getString("\$reopen_in_iab")
         val browserButtonText = LocaleController.getString("MyTonWallet Browser")
@@ -287,6 +298,8 @@ class TonConnectRequestConnectVC(
     }
 
     private fun openDappInBrowser() {
+        val update = update ?: return
+
         update.dapp.url?.let { url ->
             activeDialog?.dismiss()
             window?.dismissLastNav(onCompletion = {
@@ -300,5 +313,16 @@ class TonConnectRequestConnectVC(
 
         if (!isConfirmed)
             connectReject()
+    }
+
+    fun setDappUpdate(update: ApiUpdate.ApiUpdateDappConnect) {
+        this.update = update
+        requestView.configure(update.dapp)
+        updateButtonState()
+    }
+
+    private fun updateButtonState() {
+        buttonView.isEnabled = update != null
+        buttonView.alpha = if (update != null) 1.0f else 0.5f
     }
 }

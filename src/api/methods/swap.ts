@@ -1,6 +1,9 @@
+import { Cell } from '@ton/core';
+
 import type { TonTransferParams } from '../chains/ton/types';
 import type {
   ApiChain,
+  ApiSubmitGasfullTransferOptions,
   ApiSwapActivity,
   ApiSwapAsset,
   ApiSwapBuildRequest,
@@ -16,12 +19,12 @@ import type {
   ApiSwapTransfer,
   OnApiUpdate,
 } from '../types';
-import type { ApiSubmitTransferOptions } from './types';
 
 import { SWAP_API_VERSION, TONCOIN } from '../../config';
 import { parseAccountId } from '../../util/account';
 import { buildLocalTxId } from '../../util/activities';
 import { omitUndefined } from '../../util/iteratees';
+import chains from '../chains';
 import * as ton from '../chains/ton';
 import { fetchStoredChainAccount, fetchStoredWallet } from '../common/accounts';
 import { callBackendGet, callBackendPost } from '../common/backend';
@@ -36,7 +39,6 @@ import {
 import { ApiServerError } from '../errors';
 import { callHook } from '../hooks';
 import { getBackendAuthToken } from './other';
-import { submitTransfer } from './transfer';
 
 let onUpdate: OnApiUpdate;
 
@@ -57,11 +59,7 @@ export async function swapBuildTransfer(
 
   const { id, transfers } = await swapBuild(authToken, request);
 
-  const transferList = transfers.map((transfer) => ({
-    ...transfer,
-    amount: BigInt(transfer.amount),
-    isBase64Payload: true,
-  }));
+  const transferList = parseSwapTransfers(transfers);
 
   try {
     const account = await fetchStoredChainAccount(accountId, 'ton');
@@ -99,11 +97,7 @@ export async function swapSubmit(
   const authToken = await getBackendAuthToken(accountId, password);
 
   try {
-    const transferList: TonTransferParams[] = transfers.map((transfer) => ({
-      ...transfer,
-      amount: BigInt(transfer.amount),
-      isBase64Payload: true,
-    }));
+    const transferList = parseSwapTransfers(transfers);
 
     if (historyItem.from !== TONCOIN.symbol) {
       transferList[0] = await ton.insertMintlessPayload('mainnet', address, historyItem.from, transferList[0]);
@@ -274,15 +268,23 @@ export async function swapCexCreateTransaction(
   return { swap, activity };
 }
 
-export async function swapCexSubmit(chain: ApiChain, transferOptions: ApiSubmitTransferOptions, swapId: string) {
-  const result = await submitTransfer(chain, transferOptions, false);
+export async function swapCexSubmit(chain: ApiChain, transferOptions: ApiSubmitGasfullTransferOptions, swapId: string) {
+  const result = await chains[chain].submitGasfullTransfer(transferOptions);
 
-  if (chain === 'ton' && 'msgHash' in result) {
+  if (!('error' in result) && result.msgHashForCexSwap) {
     const { accountId, password } = transferOptions;
-    const { address } = await fetchStoredWallet(accountId, 'ton');
+    const { address } = await fetchStoredWallet(accountId, chain);
     const authToken = await getBackendAuthToken(accountId, password ?? '');
-    await patchSwapItem({ address, authToken, msgHash: result.msgHash, swapId });
+    await patchSwapItem({ address, authToken, msgHash: result.msgHashForCexSwap, swapId });
   }
 
   return result;
+}
+
+function parseSwapTransfers(transfers: ApiSwapTransfer[]): TonTransferParams[] {
+  return transfers.map((transfer) => ({
+    ...transfer,
+    amount: BigInt(transfer.amount),
+    payload: Cell.fromBase64(transfer.payload),
+  }));
 }

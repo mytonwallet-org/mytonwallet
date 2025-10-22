@@ -6,7 +6,7 @@ import org.mytonwallet.app_air.walletcore.api.verifyPassword
 
 class AuthCooldownError(val cooldownDate: Long) : Exception()
 
-object AuthStore {
+object AuthStore : IStore {
     private var failedLoginAttempts: Int
         get() {
             return WSecureStorage.getFailedLoginAttempts() ?: 0
@@ -83,5 +83,11 @@ object AuthStore {
     private fun submitFailedLogin() {
         failedLoginAttempts += 1
         lastFailedAttempt = System.currentTimeMillis()
+    }
+
+    override fun wipeData() {
+    }
+
+    override fun clearCache() {
     }
 }

@@ -157,9 +157,10 @@ export function buildTokenTransferBody(params: TokenTransferBodyParams) {
     toAddress,
     responseAddress,
     forwardAmount,
+    forwardPayload,
+    noInlineForwardPayload,
     customPayload,
   } = params;
-  let forwardPayload = params.forwardPayload;
 
   let builder = new Builder()
     .storeUint(JettonOpCode.Transfer, 32)
@@ -170,34 +171,17 @@ export function buildTokenTransferBody(params: TokenTransferBodyParams) {
     .storeMaybeRef(customPayload)
     .storeCoins(forwardAmount ?? 0n);
 
-  if (forwardPayload instanceof Uint8Array) {
-    const freeBytes = Math.round(builder.availableBits / 8);
-    forwardPayload = packBytesAsSnake(forwardPayload, freeBytes);
-  }
-
-  if (!forwardPayload) {
-    builder.storeBit(false);
-  } else if (typeof forwardPayload === 'string') {
-    builder = builder.storeBit(false)
-      .storeUint(0, 32)
-      .storeBuffer(Buffer.from(forwardPayload));
-  } else if (forwardPayload instanceof Uint8Array) {
-    builder = builder.storeBit(false)
-      .storeBuffer(Buffer.from(forwardPayload));
-  } else {
-    builder = builder.storeBit(true)
-      .storeRef(forwardPayload);
-  }
+  builder = storeInlineOrRefCell(builder, forwardPayload, 0, noInlineForwardPayload);
 
   return builder.endCell();
 }
 
-export function parseBase64(base64: string) {
+export function parseBase64(base64: string): Cell {
   try {
     return Cell.fromBase64(base64);
   } catch (err) {
     logDebugError('parseBase64', err);
-    return Uint8Array.from(Buffer.from(base64, 'base64'));
+    return packBytesAsSnakeCell(Buffer.from(base64, 'base64'));
   }
 }
 
@@ -211,15 +195,6 @@ export function commentToBytes(comment: string): Uint8Array {
   bytes.set(buffer, 4);
 
   return bytes;
-}
-
-export function packBytesAsSnake(bytes: Uint8Array, maxBytes = TON_MAX_COMMENT_BYTES): Uint8Array | Cell {
-  const buffer = Buffer.from(bytes);
-  if (buffer.length <= maxBytes) {
-    return bytes;
-  }
-
-  return packBytesAsSnakeCell(bytes);
 }
 
 export function packBytesAsSnakeCell(bytes: Uint8Array): Cell {
@@ -243,6 +218,7 @@ export function packBytesAsSnakeCell(bytes: Uint8Array): Cell {
 }
 
 export function packBytesAsSnakeForEncryptedData(data: Uint8Array): Cell {
+  // https://docs.ton.org/v3/documentation/smart-contracts/message-management/internal-messages#encryption-algorithm
   const ROOT_BUILDER_BYTES = 39;
   const MAX_CELLS_AMOUNT = 16;
 
@@ -411,4 +387,24 @@ export function isSeqnoMismatchError(error: string) {
 
 export function isExpiredTransactionError(error: string) {
   return error.match(/exitcode=(35|136)\D/);
+}
+
+/**
+ * Writes a cell to the builder in the `Either Cell ^Cell` TL-B format.
+ *
+ * @see https://docs.ton.org/v3/documentation/data-formats/tlb/types#either How Either is stored
+ */
+export function storeInlineOrRefCell(builder: Builder, cell?: Cell, marginBits = 0, noInline?: boolean) {
+  if (
+    cell
+    && !noInline
+    && cell.bits.length <= builder.availableBits - marginBits - 1 // 1 for `storeBit`
+    && cell.refs.length <= builder.availableRefs
+  ) {
+    return builder
+      .storeBit(0)
+      .storeSlice(cell.beginParse(true));
+  }
+
+  return builder.storeMaybeRef(cell);
 }

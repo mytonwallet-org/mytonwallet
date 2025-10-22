@@ -1,5 +1,14 @@
+import type { ApiFetchEstimateDieselResult } from '../types';
+
 import { randomBytes } from '../../util/random';
 import { storage } from '../storages';
+
+export const DIESEL_NOT_AVAILABLE: ApiFetchEstimateDieselResult = {
+  status: 'not-available',
+  nativeAmount: 0n,
+  remainingFee: 0n,
+  realFee: 0n,
+};
 
 let clientId: string | undefined;
 let referrer: string | undefined;

@@ -1,10 +1,10 @@
-import type { ApiCheckTransactionDraftResult, ApiFetchEstimateDieselResult } from '../../api/chains/ton/types';
+import type { ApiCheckTransactionDraftResult, ApiFetchEstimateDieselResult } from '../../api/types';
 import type { FeePrecision, FeeTerms } from './types';
 
-import { TONCOIN } from '../../config';
 import { Big } from '../../lib/big.js';
 import { bigintMax, bigintMin } from '../bigint';
-import { getIsNativeToken } from '../tokens';
+import { getChainConfig } from '../chain';
+import { getChainBySlug, getIsNativeToken } from '../tokens';
 
 type ApiFee = Pick<ApiCheckTransactionDraftResult, 'fee' | 'realFee' | 'diesel'> & {
   /** The slug of the token that is being transferred */
@@ -142,7 +142,8 @@ function shouldUseDiesel(input: ApiFee): input is ApiFeeWithDiesel {
 function explainGasfullTransferFee(input: ApiFee) {
   const result: ExplainedTransferFee = {
     isGasless: false,
-    canTransferFullBalance: input.tokenSlug === TONCOIN.slug,
+    canTransferFullBalance: getIsNativeToken(input.tokenSlug)
+      && getChainConfig(getChainBySlug(input.tokenSlug)).canTransferFullNativeBalance,
   };
 
   if (input.fee !== undefined) {

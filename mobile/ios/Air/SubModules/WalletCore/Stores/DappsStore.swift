@@ -32,9 +32,10 @@ public final class _DappsStore {
         }
     }
     
-    public func deleteDapp(url: String) async throws {
+    public func deleteDapp(dapp: ApiDapp) async throws {
         guard let accountId = AccountStore.accountId else { return }
-        _ = try await Api.deleteDapp(accountId: accountId, url: url, uniqueId: "jsbridge", dontNotifyDapp: nil)
+        let uniqueId = getDappConnectionUniqueId(dapp)
+        _ = try await Api.deleteDapp(accountId: accountId, url: dapp.url, uniqueId: uniqueId, dontNotifyDapp: nil)
         updateDappCount()
     }
 
@@ -43,4 +44,8 @@ public final class _DappsStore {
         _dappsCount.withLock { $0[accountId] = 0 }
         WalletCoreData.notify(event: .dappsCountUpdated, for: accountId)
     }
+}
+
+public func getDappConnectionUniqueId(_ dapp: ApiDapp) -> String {
+    dapp.sse?.appClientId ?? JSBRIDGE_IDENTIFIER
 }

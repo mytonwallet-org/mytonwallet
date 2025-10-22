@@ -75,6 +75,10 @@ class MoshiBuilder {
                             ApiUpdate.ApiUpdateCurrencyRates::class.java,
                             "updateCurrencyRates"
                         )
+                        .withSubtype(
+                            ApiUpdate.ApiUpdateUpdateAccount::class.java,
+                            "updateAccount"
+                        )
                         .withDefaultValue(null)
                 )
                 .add(
@@ -148,6 +152,13 @@ class MoshiBuilder {
                         .withSubtype(MSignDataPayload.SignDataPayloadText::class.java, "text")
                         .withSubtype(MSignDataPayload.SignDataPayloadBinary::class.java, "binary")
                         .withSubtype(MSignDataPayload.SignDataPayloadCell::class.java, "cell")
+                        .withDefaultValue(null)
+                )
+                .add(
+                    PolymorphicJsonAdapterFactory.of(ApiTransferPayload::class.java, "type")
+                        .withSubtype(ApiTransferPayload.Comment::class.java, "comment")
+                        .withSubtype(ApiTransferPayload.Binary::class.java, "binary")
+                        .withSubtype(ApiTransferPayload.Base64::class.java, "base64")
                         .withDefaultValue(null)
                 )
                 .add(KotlinJsonAdapterFactory())

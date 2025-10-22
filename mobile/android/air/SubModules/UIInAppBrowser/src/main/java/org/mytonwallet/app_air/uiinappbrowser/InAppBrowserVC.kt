@@ -39,8 +39,10 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.TonConnectHelper
 import org.mytonwallet.app_air.walletcore.helpers.TonConnectInjectedInterface
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
+import org.mytonwallet.app_air.walletcore.models.MExploreHistory
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.DappsStore
+import org.mytonwallet.app_air.walletcore.stores.ExploreHistoryStore
 import java.net.URL
 import java.net.URLEncoder
 import java.util.regex.Pattern
@@ -60,6 +62,8 @@ class InAppBrowserVC(
     override val topBarConfiguration = super.topBarConfiguration.copy(blurRootView = null)
     override val topBlurViewGuideline: View
         get() = topBar
+
+    private var savedInExploreVisitedHistory = false
 
     private val topBar: InAppBrowserTopBarView by lazy {
         InAppBrowserTopBarView(
@@ -134,6 +138,11 @@ class InAppBrowserVC(
                 // Prev method call may not work sometimes, so let's reset dark mode styles.
                 if (config.injectDarkModeStyles)
                     IABDarkModeStyleHelpers.applyOn(webView)
+
+                if (config.saveInVisitedHistory && !savedInExploreVisitedHistory) {
+                    savedInExploreVisitedHistory = true
+                    saveInExploreVisitedHistory()
+                }
             }
 
             private fun shouldOverride(url: String): Boolean {
@@ -338,6 +347,52 @@ class InAppBrowserVC(
         return false
     }
 
+    private fun saveInExploreVisitedHistory() {
+        val fetchFavIconUrl = """
+    (function() {
+        function absoluteUrl(url) {
+            try { return new URL(url, document.baseURI).href; }
+            catch (e) { return url; }
+        }
+
+        var links = Array.from(document.querySelectorAll(
+            'link[rel*="icon"], link[rel="mask-icon"], link[rel="apple-touch-icon"]'
+        ));
+        if (links.length === 0) {
+            return absoluteUrl('/favicon.ico');
+        }
+
+        var best = links.map(link => {
+            let sizes = link.getAttribute('sizes');
+            let size = 0;
+            if (sizes && /\d+x\d+/.test(sizes)) {
+                size = parseInt(sizes.split('x')[0]);
+            } else if (link.rel.includes('apple-touch-icon')) {
+                size = 180;
+            } else {
+                size = 16;
+            }
+            return { href: absoluteUrl(link.href), size };
+        }).sort((a, b) => b.size - a.size)[0];
+        return best ? best.href : null;
+    })();
+    """
+
+        webView.evaluateJavascript(fetchFavIconUrl) { result ->
+            val faviconUrl = result?.trim('"')?.takeIf { it.isNotEmpty() && it != "null" }
+            if (!isDisappeared && faviconUrl != null) {
+                ExploreHistoryStore.saveSiteVisit(
+                    MExploreHistory.VisitedSite(
+                        favicon = faviconUrl,
+                        lastTitle,
+                        config.url,
+                        System.currentTimeMillis()
+                    )
+                )
+            }
+        }
+    }
+
     private fun handlePermissionRequest(request: PermissionRequest) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             var requiresCamera = false
@@ -370,7 +425,7 @@ class InAppBrowserVC(
     companion object {
         const val GOOGLE_SEARCH_URL = "https://www.google.com/search?q="
 
-        fun convertToUri(input: String): Uri? {
+        fun convertToUri(input: String): Pair<Boolean, Uri?> {
             try {
                 val url = if (input.startsWith("https://") || input.startsWith("http://")) {
                     input
@@ -380,11 +435,14 @@ class InAppBrowserVC(
 
                 val uri = url.toUri()
                 if (!isValidDomain(uri.host ?: "")) {
-                    return (GOOGLE_SEARCH_URL + URLEncoder.encode(input, "UTF-8")).toUri()
+                    return Pair(
+                        false,
+                        (GOOGLE_SEARCH_URL + URLEncoder.encode(input, "UTF-8")).toUri()
+                    )
                 }
-                return uri
+                return Pair(true, uri)
             } catch (e: Exception) {
-                return null
+                return Pair(false, null)
             }
         }
 

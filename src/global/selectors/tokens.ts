@@ -147,11 +147,6 @@ export function selectAccountTokenBySlug(global: GlobalState, slug: string) {
   return accountTokens?.find((token) => token.slug === slug);
 }
 
-export function selectTokenAddress(global: GlobalState, slug: string) {
-  if (slug === TONCOIN.slug) return undefined;
-  return selectToken(global, slug).tokenAddress!;
-}
-
 export function selectToken(global: GlobalState, slug: string) {
   return global.tokenInfo.bySlug[slug];
 }

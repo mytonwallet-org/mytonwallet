@@ -7,6 +7,27 @@ import WalletCore
 import WalletContext
 
 
+enum SendDappViewOrPlaceholderContent {
+    case placeholder(TonConnectPlaceholder)
+    case sendDapp(SendDappContentView)
+}
+
+struct SendDappViewOrPlaceholder: View {
+    
+    var content: SendDappViewOrPlaceholderContent
+    
+    var body: some View {
+        switch content {
+        case .placeholder(let view):
+            view
+                .transition(.opacity.animation(.default))
+        case .sendDapp(let view):
+            view
+                .transition(.opacity.animation(.default))
+        }
+    }
+}
+
 struct SendDappContentView: View {
     
     var account: MAccount

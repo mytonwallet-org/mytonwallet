@@ -82,4 +82,9 @@ public extension Font {
         let font = UIFont(name: "Nunito-ExtraBold", size: size)!
         return Font(font)
     }
+    
+    static func compactMedium(size: CGFloat) -> Font {
+        let font = UIFont(name: "SFCompactDisplay-Medium", size: size)!
+        return Font(font)
+    }
 }

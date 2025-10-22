@@ -1,3 +1,4 @@
+import type { ApiCurrencyRates } from '../api/types';
 import type { GlobalState } from './types';
 import {
   AppState,
@@ -15,12 +16,12 @@ import {
 
 import {
   ANIMATION_LEVEL_DEFAULT,
+  CURRENCIES,
   DEFAULT_AUTOLOCK_OPTION,
   DEFAULT_PRICE_CURRENCY,
   DEFAULT_SLIPPAGE_VALUE,
   DEFAULT_STAKING_STATE,
   DEFAULT_TRANSFER_TOKEN_SLUG,
-  FALLBACK_BASE_CURRENCY_RATES,
   INIT_SWAP_ASSETS,
   IS_CORE_WALLET,
   SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY,
@@ -28,6 +29,7 @@ import {
   THEME_DEFAULT,
   TOKEN_INFO,
 } from '../config';
+import { mapValues } from '../util/iteratees';
 import { IS_IOS_APP, USER_AGENT_LANG_CODE } from '../util/windowEnvironment';
 
 export const STATE_VERSION = 47;
@@ -128,5 +130,5 @@ export const INITIAL_STATE: GlobalState = {
     enabledAccounts: {},
   },
 
-  currencyRates: FALLBACK_BASE_CURRENCY_RATES,
+  currencyRates: mapValues(CURRENCIES, (currency) => currency.fallbackRate) as ApiCurrencyRates,
 };

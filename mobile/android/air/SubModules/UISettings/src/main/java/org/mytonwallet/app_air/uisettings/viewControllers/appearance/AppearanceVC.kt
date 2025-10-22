@@ -15,17 +15,19 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SwitchCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.FontFamily
 import org.mytonwallet.app_air.uicomponents.helpers.FontManager
-import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WEditableItemView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uisettings.R
+import org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.palette.AppearancePaletteItemView
+import org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.palette.AppearancePaletteView
 import org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.theme.AppearanceAppThemeView
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.SettingsItemCell
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsItem
@@ -37,8 +39,10 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.stores.AccountStore
 
-class AppearanceVC(context: Context) : WViewController(context) {
+class AppearanceVC(context: Context) : WViewController(context), WalletCore.EventObserver {
 
     override val shouldDisplayBottomBar = true
 
@@ -65,9 +69,40 @@ class AppearanceVC(context: Context) : WViewController(context) {
         v
     }
 
-    private val spacer1: WBaseView by lazy {
-        val v = WBaseView(context)
-        v
+    private val appPaletteView: AppearancePaletteView by lazy {
+        AppearancePaletteView(context).apply {
+            updatePaletteView()
+            onPaletteSelected = { nftAccentId, state, nft ->
+                when (state) {
+                    AppearancePaletteItemView.State.LOCKED -> {
+                        showAlert(
+                            LocaleController.getString("Unlock New Palettes"),
+                            LocaleController.getString("Get a unique MyTonWallet Card to unlock new palettes.")
+                        )
+                    }
+
+                    AppearancePaletteItemView.State.AVAILABLE -> {
+                        nftAccentId?.let {
+                            WGlobalStorage.setNftAccentColor(
+                                AccountStore.activeAccountId!!,
+                                nftAccentId,
+                                nft?.toDictionary()
+                            )
+                        } ?: run {
+                            WGlobalStorage.setNftAccentColor(
+                                AccountStore.activeAccountId!!,
+                                null,
+                                null
+                            )
+                        }
+                        WalletContextManager.delegate?.themeChanged()
+                        appPaletteView.reloadViews()
+                    }
+
+                    else -> {}
+                }
+            }
+        }
     }
 
     private val appFontDropdownView = WEditableItemView(context).apply {
@@ -118,18 +153,8 @@ class AppearanceVC(context: Context) : WViewController(context) {
         }
     }
 
-    private val spacer2: WBaseView by lazy {
-        val v = WBaseView(context)
-        v
-    }
-
     /*private val appIconView: AppearanceAppIconView by lazy {
         val v = AppearanceAppIconView(window!!.applicationContext)
-        v
-    }
-
-    private val spacer2: WBaseView by lazy {
-        val v = WBaseView(context)
         v
     }*/
 
@@ -216,49 +241,37 @@ class AppearanceVC(context: Context) : WViewController(context) {
         context,
         title = LocaleController.getString("Enable Animations"),
         isChecked = WGlobalStorage.getAreAnimationsActive(),
+        isLast = true,
         onChange = { isChecked ->
             WGlobalStorage.setAreAnimationsActive(isChecked)
         }
     )
 
-    private val soundsRow = SwitchCell(
-        context,
-        title = LocaleController.getString("Sounds"),
-        isChecked = WGlobalStorage.getAreSoundsActive(),
-        isLast = true,
-        onChange = { isChecked ->
-            WGlobalStorage.setAreSoundsActive(isChecked)
-        })
-
     private val scrollingContentView: WView by lazy {
         val v = WView(context)
         v.addView(switchToLegacyCell, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.addView(appThemeView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        v.addView(spacer1, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
+        v.addView(appPaletteView, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
         v.addView(appFontView, ConstraintLayout.LayoutParams(0, 56.dp))
-        v.addView(spacer2, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
         v.addView(roundedToolbarsRow, ConstraintLayout.LayoutParams(0, 56.dp))
         v.addView(sideGuttersRow, ConstraintLayout.LayoutParams(0, 56.dp))
         v.addView(animationsRow, ConstraintLayout.LayoutParams(0, 56.dp))
-        v.addView(soundsRow, ConstraintLayout.LayoutParams(0, 56.dp))
         v.setConstraints {
             toTop(switchToLegacyCell)
             toCenterX(switchToLegacyCell)
             topToBottom(appThemeView, switchToLegacyCell, ViewConstants.GAP.toFloat())
             toCenterX(appThemeView)
-            topToBottom(spacer1, appThemeView)
-            topToBottom(appFontView, spacer1)
+            topToBottom(appPaletteView, appThemeView, ViewConstants.GAP.toFloat())
+            toCenterX(appPaletteView)
+            topToBottom(appFontView, appPaletteView, ViewConstants.GAP.toFloat())
             toCenterX(appFontView)
-            topToBottom(spacer2, appFontView)
-            topToBottom(roundedToolbarsRow, spacer2)
+            topToBottom(roundedToolbarsRow, appFontView, ViewConstants.GAP.toFloat())
             toCenterX(roundedToolbarsRow)
             topToBottom(sideGuttersRow, roundedToolbarsRow)
             toCenterX(sideGuttersRow)
             topToBottom(animationsRow, sideGuttersRow)
             toCenterX(animationsRow)
-            topToBottom(soundsRow, animationsRow)
-            toCenterX(soundsRow)
-            toBottomPx(soundsRow, (navigationController?.getSystemBars()?.bottom ?: 0))
+            toBottomPx(animationsRow, (navigationController?.getSystemBars()?.bottom ?: 0))
         }
         v
     }
@@ -266,6 +279,7 @@ class AppearanceVC(context: Context) : WViewController(context) {
     private val scrollView: ScrollView by lazy {
         ScrollView(context).apply {
             id = generateViewId()
+            isVerticalScrollBarEnabled = false
             addView(scrollingContentView, ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 setOnScrollChangeListener { _, _, scrollY, _, _ ->
@@ -295,6 +309,8 @@ class AppearanceVC(context: Context) : WViewController(context) {
             toBottom(scrollView)
         }
 
+        WalletCore.registerObserver(this)
+
         updateTheme()
     }
 
@@ -308,14 +324,7 @@ class AppearanceVC(context: Context) : WViewController(context) {
 
         appFontView.setBackgroundColor(WColor.Background.color, ViewConstants.BIG_RADIUS.dp)
 
-        if (ThemeManager.uiMode.hasRoundedCorners) {
-            view.setBackgroundColor(WColor.SecondaryBackground.color)
-        } else {
-            view.setBackgroundColor(WColor.SecondaryBackground.color)
-            val spacerBackground = WColor.SecondaryBackground.color
-            spacer1.setBackgroundColor(spacerBackground)
-            spacer2.setBackgroundColor(spacerBackground)
-        }
+        view.setBackgroundColor(WColor.SecondaryBackground.color)
     }
 
     override fun onDestroy() {
@@ -324,6 +333,19 @@ class AppearanceVC(context: Context) : WViewController(context) {
             scrollView.setOnScrollChangeListener(null)
         }
         animationsRow.setOnClickListener(null)
-        soundsRow.setOnClickListener(null)
+        appPaletteView.onPaletteSelected = null
+        WalletCore.unregisterObserver(this)
     }
+
+    override fun onWalletEvent(walletEvent: WalletEvent) {
+        when (walletEvent) {
+            WalletEvent.NftsUpdated, WalletEvent.ReceivedNewNFT -> {
+                appPaletteView.updatePaletteView()
+            }
+
+            else -> {}
+        }
+    }
+
+
 }

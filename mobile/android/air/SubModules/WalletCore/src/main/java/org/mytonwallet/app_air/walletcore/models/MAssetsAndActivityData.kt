@@ -124,4 +124,10 @@ data class MAssetsAndActivityData(
 
         return result.toTypedArray()
     }
+
+    fun isTokenRemovable(slug: String): Boolean {
+        return addedTokens.contains(slug) &&
+            BalanceStore.getBalances(AccountStore.activeAccountId)?.contains(slug) != true &&
+            slug != TON_USDT_SLUG
+    }
 }

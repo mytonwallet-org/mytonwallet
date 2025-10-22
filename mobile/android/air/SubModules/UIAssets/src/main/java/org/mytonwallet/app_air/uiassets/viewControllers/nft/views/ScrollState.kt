@@ -66,7 +66,7 @@ sealed class ScrollState() {
         override val titleTranslationY: Float
             get() {
                 with(headerView) {
-                    return lerp(topExtraPadding + 158f.dp, topExtraPadding - 53f.dp, percent)
+                    return lerp(topExtraPadding + 157f.dp, topExtraPadding - 53f.dp, percent)
                 }
             }
         override val subtitlePivotX: Float
@@ -78,12 +78,12 @@ sealed class ScrollState() {
         override val subtitleScale = titleScale
         override val subtitleTranslationX: Float
             get() {
-                return lerp(headerView.subtitleCompactTranslationX, 96f.dp, percent)
+                return lerp(headerView.subtitleCompactTranslationX, 102f.dp, percent)
             }
         override val subtitleTranslationY: Float
             get() {
                 with(headerView) {
-                    return lerp(topExtraPadding + 194f.dp, topExtraPadding - 31f.dp, percent)
+                    return lerp(topExtraPadding + 193f.dp, topExtraPadding - 31f.dp, percent)
                 }
             }
         override val subtitleAlpha = 1f
@@ -123,7 +123,7 @@ sealed class ScrollState() {
             get() {
                 with(headerView) {
                     return lerp(
-                        topExtraPadding + 158f.dp,
+                        topExtraPadding + 157f.dp,
                         viewWidth - TEXTS_FROM_BOTTOM.dp - (realScrollOffset - OVERSCROLL_OFFSET.dp),
                         percent * EXPAND_PERCENT
                     )
@@ -204,7 +204,7 @@ sealed class ScrollState() {
             get() {
                 return lerp(
                     headerView.subtitleCompactTranslationX * (1 - expandStartPercent),
-                    0f,
+                    0.5f.dp,
                     percent
                 )
             }
@@ -250,7 +250,7 @@ sealed class ScrollState() {
             }
         override val subtitlePivotX = 0f
         override val subtitleScale = 1f
-        override val subtitleTranslationX = 0f
+        override val subtitleTranslationX = 0.5f.dp
         override val subtitleTranslationY = titleTranslationY + 38.dp
         override val subtitleAlpha = 0.75f
     }

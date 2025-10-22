@@ -2,7 +2,6 @@ import type { ApiTonWalletVersion } from './api/chains/ton/types';
 import type {
   ApiBaseCurrency,
   ApiChain,
-  ApiCurrencyRates,
   ApiLiquidStakingState,
   ApiNftMarketplace,
   ApiNominatorsStakingState,
@@ -486,13 +485,45 @@ export const PORTRAIT_MIN_ASSETS_TAB_VIEW = 4;
 export const LANDSCAPE_MIN_ASSETS_TAB_VIEW = 6;
 
 export const DEFAULT_PRICE_CURRENCY = 'USD';
-export const CURRENCIES: Record<ApiBaseCurrency, { name: string; decimals: number; shortSymbol?: string }> = {
-  USD: { name: 'US Dollar', decimals: 2, shortSymbol: '$' },
-  EUR: { name: 'Euro', decimals: 2, shortSymbol: '€' },
-  RUB: { name: 'Russian Ruble', decimals: 2, shortSymbol: '₽' },
-  CNY: { name: 'Chinese Yuan', decimals: 2, shortSymbol: '¥' },
-  BTC: { name: 'Bitcoin', decimals: 9 },
-  [TONCOIN.symbol]: { name: 'Toncoin', decimals: 9 },
+export const CURRENCIES: Record<
+  ApiBaseCurrency,
+  // Get the fallback rates at https://api.mytonwallet.org/currency-rates
+  { name: string; decimals: number; shortSymbol?: string; fallbackRate: string }
+> = {
+  USD: {
+    name: 'US Dollar',
+    decimals: 2,
+    shortSymbol: '$',
+    fallbackRate: '1',
+  },
+  EUR: {
+    name: 'Euro',
+    decimals: 2,
+    shortSymbol: '€',
+    fallbackRate: '0.85233500',
+  },
+  RUB: {
+    name: 'Russian Ruble',
+    decimals: 2,
+    shortSymbol: '₽',
+    fallbackRate: '84.49824600',
+  },
+  CNY: {
+    name: 'Chinese Yuan',
+    decimals: 2,
+    shortSymbol: '¥',
+    fallbackRate: '7.11865000',
+  },
+  BTC: {
+    name: 'Bitcoin',
+    decimals: 9,
+    fallbackRate: '0.00000866',
+  },
+  [TONCOIN.symbol]: {
+    name: 'Toncoin',
+    decimals: 9,
+    fallbackRate: '0.31360000',
+  },
 };
 
 export const BURN_ADDRESS = 'UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ';
@@ -695,15 +726,5 @@ export const UNKNOWN_TOKEN = {
 } as const;
 
 export const PUSH_ADDRESS = 'EQBNl2Hnxgc-olNY_Qq9iB3Rd3P7GGrW2oUzLc47BW3EjHNy';
-
-// https://api.mytonwallet.org/currency-rates
-export const FALLBACK_BASE_CURRENCY_RATES: ApiCurrencyRates = {
-  USD: '1',
-  EUR: '0.85233500',
-  RUB: '84.49824600',
-  CNY: '7.11865000',
-  BTC: '0.00000866',
-  TON: '0.31360000',
-};
 
 export const DEFAULT_CHAIN: ApiChain = 'ton';

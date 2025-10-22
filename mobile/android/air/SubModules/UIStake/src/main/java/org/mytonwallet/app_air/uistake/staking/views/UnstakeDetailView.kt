@@ -84,8 +84,10 @@ class UnstakeDetailView(
                     listOf(instantlyAvailableAmount)
                 )
             )
+            receivingRow.setLast(false)
         } ?: run {
             instantWithdrawalRow.isGone = true
+            receivingRow.setLast(true)
         }
     }
 

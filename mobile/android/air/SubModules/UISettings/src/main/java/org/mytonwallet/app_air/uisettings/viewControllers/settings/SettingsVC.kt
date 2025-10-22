@@ -36,6 +36,7 @@ import org.mytonwallet.app_air.uisettings.viewControllers.appearance.AppearanceV
 import org.mytonwallet.app_air.uisettings.viewControllers.assetsAndActivities.AssetsAndActivitiesVC
 import org.mytonwallet.app_air.uisettings.viewControllers.connectedApps.ConnectedAppsVC
 import org.mytonwallet.app_air.uisettings.viewControllers.language.LanguageVC
+import org.mytonwallet.app_air.uisettings.viewControllers.notificationSettings.NotificationSettingsVC
 import org.mytonwallet.app_air.uisettings.viewControllers.security.SecurityVC
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.ISettingsItemCell
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.SettingsAccountCell
@@ -507,6 +508,12 @@ class SettingsVC(context: Context) : WViewController(context),
                         WalletCore.notifyEvent(WalletEvent.AccountChangedInApp)
                     }
                 }
+            }
+
+            SettingsItem.Identifier.NOTIFICATION_SETTINGS -> {
+                navigationController?.tabBarController?.navigationController?.push(
+                    NotificationSettingsVC(context)
+                )
             }
 
             SettingsItem.Identifier.APPEARANCE -> {

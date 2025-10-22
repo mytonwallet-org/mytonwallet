@@ -401,7 +401,8 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
                     throw Error()
                 }
             }
-        }
+        },
+        bottomPadding = 4.dp
     )
 
     private val transactionDetailsLabel: WLabel by lazy {
@@ -729,7 +730,7 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
     }
 
     override fun getModalHalfExpandedHeight(): Int? {
-        return innerContentView.top + actionsView.bottom
+        return innerContentView.top + actionsView.bottom + 36.dp
     }
 
     override fun onModalSlide(expandOffset: Int, expandProgress: Float) {

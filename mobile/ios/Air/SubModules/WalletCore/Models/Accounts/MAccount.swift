@@ -37,6 +37,13 @@ public struct AccountChain: Equatable, Hashable, Sendable, Codable {
     public var isMultisig: Bool?
     /** Is set only in hardware accounts */
     public var ledgerIndex: Int?
+    
+    public init(address: String, domain: String? = nil, isMultisig: Bool? = nil, ledgerIndex: Int? = nil) {
+        self.address = address
+        self.domain = domain
+        self.isMultisig = isMultisig
+        self.ledgerIndex = ledgerIndex
+    }
 }
 
 extension MAccount {
@@ -53,7 +60,9 @@ extension MAccount {
     }
     
     public var firstAddress: String? {
-        tonAddress ?? byChain.first?.value.address
+        ApiChain.allCases
+            .first(where: { self.supports(chain: $0.rawValue) })
+            .flatMap { addressByChain[$0.rawValue] }
     }
     
     public func supports(chain: String?) -> Bool {
@@ -61,6 +70,10 @@ extension MAccount {
             return byChain[chain] != nil
         }
         return false
+    }
+    
+    public var supportedChains: [ApiChain] {
+        ApiChain.allCases.filter { self.supports(chain: $0.rawValue) }
     }
     
     public var isMultichain: Bool {

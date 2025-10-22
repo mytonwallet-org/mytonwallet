@@ -9,7 +9,7 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MSavedAddress
 import java.util.concurrent.Executors
 
-object AddressStore {
+object AddressStore : IStore {
     private var executor = Executors.newSingleThreadExecutor()
 
     data class AddressData(
@@ -70,7 +70,11 @@ object AddressStore {
         }
     }
 
-    fun clean() {
+    override fun wipeData() {
+        clearCache()
+    }
+
+    override fun clearCache() {
         executor.shutdownNow()
         executor = Executors.newSingleThreadExecutor()
         addressData = null

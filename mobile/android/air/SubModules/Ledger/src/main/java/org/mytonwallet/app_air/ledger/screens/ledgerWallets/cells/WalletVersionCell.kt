@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.ledger.screens.ledgerWallets.cells
 
 import android.content.Context
+import android.text.SpannableStringBuilder
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.LinearLayout
 import androidx.appcompat.widget.AppCompatImageView
@@ -8,6 +9,7 @@ import androidx.core.view.isGone
 import org.mytonwallet.app_air.ledger.screens.ledgerWallets.LedgerWalletsVC
 import org.mytonwallet.app_air.uicomponents.drawable.CheckboxDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -83,7 +85,7 @@ class LedgerWalletCell(
             toEnd(rightLabel, 20f)
             toBottom(separator)
             toStart(separator, 72f)
-            toStart(separator, 20f)
+            toEnd(separator, 20f)
         }
 
         setOnClickListener {
@@ -107,6 +109,8 @@ class LedgerWalletCell(
         bottomLeftLabel.setTextColor(WColor.SecondaryText.color)
         rightLabel.setTextColor(WColor.SecondaryText.color)
         separator.setBackgroundColor(WColor.Separator.color)
+        checkboxDrawable.checkedColor = WColor.Tint.color
+        checkboxDrawable.uncheckedColor = WColor.SecondaryText.color
     }
 
     fun configure(
@@ -123,9 +127,17 @@ class LedgerWalletCell(
 
         checkboxDrawable.setChecked(item.isSelected, animated = false)
         topLeftLabel.text =
-            item.title ?: item.wallet.wallet.address.formatStartEndAddress()
+            item.title ?: SpannableStringBuilder(
+                item.wallet.wallet.address.formatStartEndAddress()
+            ).apply {
+                updateDotsTypeface()
+            }
         bottomLeftLabel.text =
-            if (item.title != null) item.wallet.wallet.address.formatStartEndAddress() else null
+            if (item.title != null) SpannableStringBuilder(
+                item.wallet.wallet.address.formatStartEndAddress()
+            ).apply {
+                updateDotsTypeface()
+            } else null
         bottomLeftLabel.isGone = bottomLeftLabel.text.isNullOrEmpty()
         val toncoin = TokenStore.getToken(TONCOIN_SLUG)
         toncoin?.price?.let { price ->

@@ -54,6 +54,7 @@ dependencies {
     implementation(project("$airSubModulePath:UIAssets"))
     implementation(project("$airSubModulePath:UIBrowser"))
     implementation(project("$airSubModulePath:UISettings"))
+    implementation(project("$airSubModulePath:UITonConnect"))
     implementation(project("$airSubModulePath:WalletContext"))
     implementation(project("$airSubModulePath:WalletBaseContext"))
     implementation(project("$airSubModulePath:WalletCore"))

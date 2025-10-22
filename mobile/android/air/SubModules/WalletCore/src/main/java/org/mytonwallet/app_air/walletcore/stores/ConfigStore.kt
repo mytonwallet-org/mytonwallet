@@ -3,7 +3,7 @@ package org.mytonwallet.app_air.walletcore.stores
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcore.WalletCore
 
-object ConfigStore {
+object ConfigStore : IStore {
     var isCopyStorageEnabled: Boolean? = null
     var supportAccountsCount: Double? = null
     var isLimited: Boolean? = null
@@ -23,5 +23,11 @@ object ConfigStore {
         countryCode = configMap["countryCode"] as? String
         isAppUpdateRequired = configMap["isAppUpdateRequired"] as? Boolean
         swapVersion = (configMap["swapVersion"] as? Number)?.toInt()
+    }
+
+    override fun wipeData() {
+    }
+
+    override fun clearCache() {
     }
 }

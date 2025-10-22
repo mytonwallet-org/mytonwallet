@@ -3,6 +3,8 @@ package org.mytonwallet.app_air.walletcore.moshi
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealed
+import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealedSubtype
 import java.math.BigInteger
 
 @JsonClass(generateAdapter = true)
@@ -30,12 +32,42 @@ data class MApiCheckTransactionDraftOptions(
     val toAddress: String,
     val amount: BigInteger,
     val tokenAddress: String?,
-    val data: String?, // Accepts String, ByteArray, or Cell
     val stateInit: String?,
-    val shouldEncrypt: Boolean?,
-    val isBase64Data: Boolean?,
-    val allowGasless: Boolean?
+    val allowGasless: Boolean?,
+    val payload: ApiTransferPayload?,
 )
+
+@JsonSealed("type")
+sealed class ApiTransferPayload {
+    @JsonSealedSubtype("comment")
+    @JsonClass(generateAdapter = true)
+    data class Comment(
+        val text: String,
+        val shouldEncrypt: Boolean? = null
+    ) : ApiTransferPayload()
+
+    @JsonSealedSubtype("binary")
+    @JsonClass(generateAdapter = true)
+    data class Binary(
+        val data: ByteArray
+    ) : ApiTransferPayload() {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other !is Binary) return false
+            return data.contentEquals(other.data)
+        }
+
+        override fun hashCode(): Int {
+            return data.contentHashCode()
+        }
+    }
+
+    @JsonSealedSubtype("base64")
+    @JsonClass(generateAdapter = true)
+    data class Base64(
+        val data: String
+    ) : ApiTransferPayload()
+}
 
 @JsonClass(generateAdapter = true)
 data class MApiCheckTransactionDraftResult(
@@ -69,7 +101,6 @@ data class MApiCheckStakeDraftResult(
 @JsonClass(generateAdapter = true)
 data class MTransferDiesel(
     override val status: MDieselStatus?,
-    override val shouldPrefer: Boolean?,
     override val realFee: BigInteger?,
     override val remainingFee: BigInteger?,
     override val nativeAmount: BigInteger?,
@@ -85,7 +116,6 @@ data class MTransferDiesel(
 @JsonClass(generateAdapter = true)
 data class MSwapDiesel(
     override val status: MDieselStatus?,
-    override val shouldPrefer: Boolean?,
     override val realFee: BigInteger?,
     override val remainingFee: BigInteger?,
     override val nativeAmount: BigInteger?,
@@ -100,7 +130,6 @@ data class MSwapDiesel(
 
 interface IDiesel {
     val status: MDieselStatus?
-    val shouldPrefer: Boolean?
     val realFee: BigInteger?
     val remainingFee: BigInteger?
     val nativeAmount: BigInteger?
@@ -117,44 +146,24 @@ data class MDieselAmount(
 @JsonClass(generateAdapter = true)
 data class MApiSubmitTransferOptions(
     val accountId: String,
-    val password: String,
     val toAddress: String,
-    val amount: BigInteger,
     val comment: String? = null,
+    val payload: ApiTransferPayload? = null,
+    val stateInit: String? = null,
     val tokenAddress: String? = null,
+
+    /** Required only for mnemonic accounts */
+    val password: String,
+    val amount: BigInteger,
     /** To cap the fee in TRON transfers */
     val fee: BigInteger? = null,
-    /** To show in the created local transaction */
+    val noFeeCheck: Boolean? = false,
+
     val realFee: BigInteger? = null,
-    val shouldEncrypt: Boolean? = null,
-    val isBase64Data: Boolean? = null,
-    val withDiesel: Boolean? = null,
+    val isGasless: Boolean? = null,
     val dieselAmount: BigInteger? = null,
-    val stateInit: String? = null,
     val isGaslessWithStars: Boolean? = null,
-    val noFeeCheck: Boolean? = false
 )
-
-sealed class MApiSubmitTransferResult {
-    abstract val toAddress: String?
-    abstract val amount: BigInteger
-
-    @JsonClass(generateAdapter = true)
-    data class Ton(
-        override val toAddress: String?,
-        override val amount: BigInteger,
-        val seqno: Int,
-        val msgHash: String,
-        val encryptedComment: String? = null
-    ) : MApiSubmitTransferResult()
-
-    @JsonClass(generateAdapter = true)
-    data class Tron(
-        override val toAddress: String?,
-        override val amount: BigInteger,
-        val txId: String
-    ) : MApiSubmitTransferResult()
-}
 
 @JsonClass(generateAdapter = false)
 enum class MDieselStatus {

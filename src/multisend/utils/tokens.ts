@@ -3,7 +3,7 @@ import { JettonMaster, TonClient } from '@ton/ton';
 
 import { safeExecAsync } from '../../util/safeExec';
 import { pause } from '../../util/schedulers';
-import { buildTokenTransferBody } from './tonCore';
+import { buildTokenTransferBody, commentToBytes, packBytesAsSnakeCell } from './tonCore';
 
 // Remote API token interface
 interface RemoteToken {
@@ -156,7 +156,7 @@ export function createJettonTransferPayload(
       tokenAmount: amount,
       toAddress,
       responseAddress: fromAddress,
-      forwardPayload: comment || undefined,
+      forwardPayload: comment ? packBytesAsSnakeCell(commentToBytes(comment)) : undefined,
     });
 
     return body.toBoc().toString('base64');

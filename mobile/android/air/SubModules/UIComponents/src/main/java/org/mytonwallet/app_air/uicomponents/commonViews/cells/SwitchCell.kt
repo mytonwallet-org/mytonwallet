@@ -82,4 +82,8 @@ class SwitchCell(
         addRippleEffect(WColor.SecondaryBackground.color)
         titleLabel.setTextColor(WColor.PrimaryText.color)
     }
+
+    fun setChecked(isChecked: Boolean) {
+        switchView.isChecked = isChecked
+    }
 }

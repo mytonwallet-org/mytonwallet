@@ -16,7 +16,7 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 
-object TokenStore {
+object TokenStore : IStore {
 
     // Observable Flow
     data class Tokens(
@@ -164,5 +164,11 @@ object TokenStore {
             tokenInfo.put(token.key, token.value.toDictionary())
         }
         return tokenInfo
+    }
+
+    override fun wipeData() {
+    }
+
+    override fun clearCache() {
     }
 }

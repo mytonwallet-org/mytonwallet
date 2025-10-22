@@ -19,7 +19,7 @@ class ExploreCategoryTitleCell(context: Context) :
     WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)), WThemedView {
     private val titleLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(17f, WFont.Medium)
+        lbl.setStyle(17f, WFont.SemiBold)
         lbl.maxLines = 1
         lbl
     }
@@ -43,9 +43,10 @@ class ExploreCategoryTitleCell(context: Context) :
         titleLabel.setTextColor(WColor.PrimaryText.color)
     }
 
-    fun configure(title: String, bottomPadding: Int) {
-        containerView.setPadding(24.dp, 16.dp, 24.dp, bottomPadding)
+    fun configure(title: String, topPadding: Int, bottomPadding: Int) {
+        containerView.setPadding(16.dp, topPadding, 16.dp, bottomPadding)
         titleLabel.text = title
+        titleLabel.letterSpacing = -0.031f
         updateTheme()
     }
 

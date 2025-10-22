@@ -1,25 +1,26 @@
 import { Cell, internal, SendMode } from '@ton/core';
 
 import type { DieselStatus } from '../../../global/types';
-import type { CheckTransactionDraftOptions } from '../../methods/types';
 import type {
   ApiAccountWithChain,
   ApiAnyDisplayError,
+  ApiCheckTransactionDraftOptions,
+  ApiCheckTransactionDraftResult,
+  ApiFetchEstimateDieselResult,
   ApiNetwork,
   ApiParsedPayload,
   ApiSignedTransfer,
+  ApiSubmitGasfullTransferOptions,
+  ApiSubmitGasfullTransferResult,
+  ApiSubmitGaslessTransferOptions,
+  ApiSubmitGaslessTransferResult,
   ApiToken,
 } from '../../types';
 import type {
-  AnyPayload,
+  AnyTonTransferPayload,
   ApiCheckMultiTransactionDraftResult,
-  ApiCheckTransactionDraftResult,
   ApiEmulationWithFallbackResult,
-  ApiFetchEstimateDieselResult,
   ApiSubmitMultiTransferResult,
-  ApiSubmitTransferOptions,
-  ApiSubmitTransferTonResult,
-  ApiSubmitTransferWithDieselResult,
   PreparedTransactionToSign,
   TonTransferParams,
 } from './types';
@@ -36,16 +37,16 @@ import { omit, pick, split } from '../../../util/iteratees';
 import { logDebug, logDebugError } from '../../../util/logs';
 import { pause } from '../../../util/schedulers';
 import { getMaxMessagesInTransaction } from '../../../util/ton/transfer';
-import { parsePayloadBase64 } from './util/metadata';
+import { parsePayloadSlice } from './util/metadata';
 import { sendExternal } from './util/sendExternal';
 import { getSigner } from './util/signer';
-import { isExpiredTransactionError, isSeqnoMismatchError } from './util/tonCore';
 import {
   commentToBytes,
   getOurFeePayload,
   getTonClient,
   getWalletPublicKey,
-  packBytesAsSnake,
+  isExpiredTransactionError,
+  isSeqnoMismatchError,
   packBytesAsSnakeCell,
   packBytesAsSnakeForEncryptedData,
   parseAddress,
@@ -54,20 +55,14 @@ import {
 } from './util/tonCore';
 import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/accounts';
 import { callBackendGet } from '../../common/backend';
+import { DIESEL_NOT_AVAILABLE } from '../../common/other';
 import { withoutTransferConcurrency } from '../../common/preventTransferConcurrency';
 import { getTokenByAddress } from '../../common/tokens';
-import { base64ToBytes } from '../../common/utils';
 import { MINUTE, SEC } from '../../constants';
 import { ApiServerError, handleServerError } from '../../errors';
 import { checkHasTransaction } from './activities';
 import { resolveAddress } from './address';
-import {
-  ATTEMPTS,
-  FEE_FACTOR,
-  LEDGER_VESTING_SUBWALLET_ID,
-  TOKEN_TRANSFER_FORWARD_AMOUNT,
-  TRANSFER_TIMEOUT_SEC,
-} from './constants';
+import { ATTEMPTS, FEE_FACTOR, LEDGER_VESTING_SUBWALLET_ID, TRANSFER_TIMEOUT_SEC } from './constants';
 import { emulateTransaction } from './emulation';
 import {
   buildTokenTransfer,
@@ -77,33 +72,31 @@ import {
 } from './tokens';
 import { getContractInfo, getTonWallet, getWalletBalance, getWalletInfo, getWalletSeqno } from './wallet';
 
+/** Transaction options only available in TON */
+type CustomTransactionOptions<T> = Omit<T, 'payload'> & {
+  payload?: AnyTonTransferPayload;
+  forwardAmount?: bigint;
+};
+
 const WAIT_TRANSFER_TIMEOUT = MINUTE;
 const WAIT_PAUSE = SEC;
 
 const MAX_BALANCE_WITH_CHECK_DIESEL = 100000000n; // 0.1 TON
 const PENDING_DIESEL_TIMEOUT_SEC = 15 * 60; // 15 min
 
-const DIESEL_NOT_AVAILABLE: ApiFetchEstimateDieselResult = {
-  status: 'not-available',
-  nativeAmount: 0n,
-  remainingFee: 0n,
-  realFee: 0n,
-};
-
 export async function checkTransactionDraft(
-  options: CheckTransactionDraftOptions,
+  options: CustomTransactionOptions<ApiCheckTransactionDraftOptions>,
 ): Promise<ApiCheckTransactionDraftResult> {
   const {
     accountId,
     amount = 0n,
     tokenAddress,
-    shouldEncrypt,
-    isBase64Data,
+    payload: rawPayload,
     stateInit: stateInitString,
     forwardAmount,
     allowGasless,
   } = options;
-  let { toAddress, data } = options;
+  let { toAddress } = options;
 
   const { network } = parseAccountId(accountId);
 
@@ -151,42 +144,27 @@ export async function checkTransactionDraft(
 
     const account = await fetchStoredChainAccount(accountId, 'ton');
     const wallet = getTonWallet(account.byChain.ton);
-
-    if (typeof data === 'string' && isBase64Data) {
-      data = base64ToBytes(data);
-    }
-
-    if (data && typeof data === 'string' && shouldEncrypt) {
-      const toPublicKey = await getWalletPublicKey(network, toAddress);
-      if (!toPublicKey) {
-        return {
-          ...result,
-          error: ApiTransactionDraftError.WalletNotInitialized,
-        };
-      }
-    }
-
     const { address, isInitialized: isWalletInitialized } = account.byChain.ton;
-
-    if (data && typeof data === 'string' && !isBase64Data) {
-      data = commentToBytes(data);
-    }
+    const signer = getSigner(accountId, account, undefined, true);
+    const { seqno, balance: toncoinBalance } = await getWalletInfo(network, wallet);
 
     let toncoinAmount: bigint;
-    const { seqno, balance: toncoinBalance } = await getWalletInfo(network, wallet);
     let balance: bigint;
     let fee: bigint;
     let realFee: bigint;
+    let payload: Cell | undefined;
+
+    const payloadResult = await convertPayloadToCell(rawPayload, network, toAddress, signer);
+    if ('error' in payloadResult) {
+      return { ...result, error: payloadResult.error };
+    }
+    payload = payloadResult.cell;
 
     if (!tokenAddress) {
       balance = toncoinBalance;
       toncoinAmount = amount;
       fee = 0n;
       realFee = 0n;
-
-      if (data instanceof Uint8Array) {
-        data = shouldEncrypt ? packBytesAsSnakeForEncryptedData(data) : packBytesAsSnake(data);
-      }
     } else {
       const tokenTransfer = await buildTokenTransfer({
         network,
@@ -194,11 +172,11 @@ export async function checkTransactionDraft(
         fromAddress: address,
         toAddress,
         amount,
-        payload: data,
+        payload,
         forwardAmount,
         isLedger: account.type === 'ledger',
       });
-      ({ amount: toncoinAmount, toAddress, payload: data } = tokenTransfer);
+      ({ amount: toncoinAmount, toAddress, payload } = tokenTransfer);
       const { realAmount: realToncoinAmount, isTokenWalletDeployed, mintlessTokenBalance } = tokenTransfer;
 
       // When the token is transferred, actually some TON is transferred, and the token sits inside the payload.
@@ -214,13 +192,12 @@ export async function checkTransactionDraft(
 
     const isFullTonTransfer = !tokenAddress && toncoinBalance === amount;
 
-    const signer = getSigner(accountId, account, undefined, true);
     const signingResult = await signTransaction({
       account,
       messages: [{
         toAddress,
         amount: toncoinAmount,
-        payload: data,
+        payload,
         stateInit,
         hints: {
           tokenAddress,
@@ -336,20 +313,20 @@ export async function checkToAddress(network: ApiNetwork, toAddress: string) {
   return result;
 }
 
-export async function submitTransfer(options: ApiSubmitTransferOptions): Promise<ApiSubmitTransferTonResult> {
+export async function submitGasfullTransfer(
+  options: CustomTransactionOptions<ApiSubmitGasfullTransferOptions>,
+): Promise<ApiSubmitGasfullTransferResult | { error: string }> {
   const {
     accountId,
     password,
     amount,
+    stateInit: stateInitBase64,
     tokenAddress,
-    shouldEncrypt,
-    isBase64Data,
-    forwardAmount = TOKEN_TRANSFER_FORWARD_AMOUNT,
+    payload: rawPayload,
+    forwardAmount,
     noFeeCheck,
   } = options;
-  let { stateInit } = options;
-
-  let { toAddress, data } = options;
+  let { toAddress } = options;
 
   const { network } = parseAccountId(accountId);
 
@@ -359,29 +336,21 @@ export async function submitTransfer(options: ApiSubmitTransferOptions): Promise
     const wallet = getTonWallet(account.byChain.ton);
     const signer = getSigner(accountId, account, password);
 
-    let encryptedComment: string | undefined;
+    const payloadResult = await convertPayloadToCell(rawPayload, network, toAddress, signer);
+    if ('error' in payloadResult) return payloadResult;
+    let payload = payloadResult.cell;
+    const { encryptedComment } = payloadResult;
 
-    if (typeof data === 'string') {
-      const result = await stringToPayload({
-        network, toAddress, data, signer, shouldEncrypt, isBase64Data,
-      });
-      if ('error' in result) return result;
-      ({ payload: data, encryptedComment } = result);
-    }
-
+    let stateInit = stateInitBase64 ? Cell.fromBase64(stateInitBase64) : undefined;
     let toncoinAmount: bigint;
 
     if (!tokenAddress) {
       toncoinAmount = amount;
-
-      if (data instanceof Uint8Array) {
-        data = shouldEncrypt ? packBytesAsSnakeForEncryptedData(data) : packBytesAsSnake(data);
-      }
     } else {
       ({
         amount: toncoinAmount,
         toAddress,
-        payload: data,
+        payload,
         stateInit,
       } = await buildTokenTransfer({
         network,
@@ -389,7 +358,7 @@ export async function submitTransfer(options: ApiSubmitTransferOptions): Promise
         fromAddress,
         toAddress,
         amount,
-        payload: data,
+        payload,
         forwardAmount,
         isLedger: account.type === 'ledger',
       }));
@@ -404,7 +373,7 @@ export async function submitTransfer(options: ApiSubmitTransferOptions): Promise
         messages: [{
           toAddress,
           amount: toncoinAmount,
-          payload: data,
+          payload,
           stateInit,
           hints: {
             tokenAddress,
@@ -435,13 +404,12 @@ export async function submitTransfer(options: ApiSubmitTransferOptions): Promise
       finalizeInBackground(() => retrySendBoc(network, fromAddress, boc, seqno));
 
       return {
-        amount,
-        seqno,
-        encryptedComment,
-        toAddress,
-        msgHash,
-        msgHashNormalized,
-        toncoinAmount,
+        txId: msgHashNormalized,
+        msgHashForCexSwap: msgHash,
+        localActivityParams: {
+          externalMsgHashNorm: msgHashNormalized,
+          encryptedComment,
+        },
       };
     });
   } catch (err: any) {
@@ -451,17 +419,9 @@ export async function submitTransfer(options: ApiSubmitTransferOptions): Promise
   }
 }
 
-export async function submitTransferWithDiesel(options: {
-  accountId: string;
-  password?: string;
-  toAddress: string;
-  amount: bigint;
-  data?: AnyPayload;
-  tokenAddress: string;
-  shouldEncrypt?: boolean;
-  dieselAmount: bigint;
-  isGaslessWithStars?: boolean;
-}): Promise<ApiSubmitTransferWithDieselResult> {
+export async function submitGaslessTransfer(
+  options: CustomTransactionOptions<ApiSubmitGaslessTransferOptions>,
+): Promise<ApiSubmitGaslessTransferResult | { error: string }> {
   try {
     const {
       toAddress,
@@ -469,28 +429,22 @@ export async function submitTransferWithDiesel(options: {
       accountId,
       password,
       tokenAddress,
-      shouldEncrypt,
+      payload: rawPayload,
+      forwardAmount,
+      noFeeCheck,
       dieselAmount,
       isGaslessWithStars,
     } = options;
-
-    let { data } = options;
 
     const { network } = parseAccountId(accountId);
 
     const account = await fetchStoredChainAccount(accountId, 'ton');
     const { address: fromAddress, version } = account.byChain.ton;
+    const signer = getSigner(accountId, account, password);
 
-    let encryptedComment: string | undefined;
-
-    if (typeof data === 'string') {
-      const signer = getSigner(accountId, account, password);
-      const result = await stringToPayload({
-        network, toAddress, data, signer, shouldEncrypt,
-      });
-      if ('error' in result) return result;
-      ({ payload: data, encryptedComment } = result);
-    }
+    const payloadResult = await convertPayloadToCell(rawPayload, network, toAddress, signer);
+    if ('error' in payloadResult) return payloadResult;
+    const { cell: payload, encryptedComment } = payloadResult;
 
     const messages: TonTransferParams[] = [
       await buildTokenTransfer({
@@ -499,7 +453,8 @@ export async function submitTransferWithDiesel(options: {
         fromAddress,
         toAddress,
         amount,
-        payload: data,
+        payload,
+        forwardAmount,
         isLedger: account.type === 'ledger',
       }),
     ];
@@ -524,12 +479,20 @@ export async function submitTransferWithDiesel(options: {
       password,
       messages,
       isGasless: true,
+      noFeeCheck,
     });
+    if ('error' in result) return result;
 
     return {
-      ...result,
-      encryptedComment,
-      withW5Gasless: version === 'W5',
+      txId: result.msgHashNormalized,
+      msgHashForCexSwap: result.msgHash,
+      localActivityParams: {
+        externalMsgHashNorm: result.msgHashNormalized,
+        encryptedComment,
+        extra: {
+          withW5Gasless: version === 'W5',
+        },
+      },
     };
   } catch (err) {
     logDebugError('submitTransferWithDiesel', err);
@@ -538,37 +501,56 @@ export async function submitTransferWithDiesel(options: {
   }
 }
 
-async function stringToPayload({
-  network, toAddress, data, shouldEncrypt, signer, isBase64Data,
-}: {
-  network: ApiNetwork;
-  data: string;
-  shouldEncrypt?: boolean;
-  toAddress: string;
-  signer: Signer;
-  isBase64Data?: boolean;
-}): Promise<{
-  payload?: Uint8Array | Cell;
-  encryptedComment?: string;
-} | { error: ApiAnyDisplayError }> {
-  let payload: Uint8Array | Cell | undefined;
-  let encryptedComment: string | undefined;
-
-  if (!data) {
-    payload = undefined;
-  } else if (isBase64Data) {
-    payload = parseBase64(data);
-  } else if (shouldEncrypt) {
-    const toPublicKey = (await getWalletPublicKey(network, toAddress))!;
-    const result = await signer.encryptComment(data, toPublicKey);
-    if ('error' in result) return result;
-    payload = result;
-    encryptedComment = result.subarray(4).toString('base64');
-  } else {
-    payload = commentToBytes(data);
+async function convertPayloadToCell(
+  payload: AnyTonTransferPayload | undefined,
+  network: ApiNetwork,
+  toAddress: string,
+  signer: Signer,
+): Promise<{ cell?: Cell; encryptedComment?: string } | { error: ApiAnyDisplayError }> {
+  if (!payload || payload instanceof Cell) {
+    return { cell: payload };
   }
 
-  return { payload, encryptedComment };
+  if (payload.type === 'comment') {
+    if (payload.shouldEncrypt) {
+      return makeEncryptedCommentPayload(payload.text, network, toAddress, signer);
+    }
+
+    // This is what @ton/core does under the hood when a string payload is passed to `internal()`
+    return { cell: packBytesAsSnakeCell(commentToBytes(payload.text)) };
+  }
+
+  if (payload.type === 'base64') {
+    return { cell: parseBase64(payload.data) };
+  }
+
+  if (payload.type === 'binary') {
+    return payload.data.length ? { cell: packBytesAsSnakeCell(payload.data) } : {};
+  }
+
+  throw new TypeError(`Unexpected payload type ${(payload as AnyTonTransferPayload).type}`);
+}
+
+async function makeEncryptedCommentPayload(
+  comment: string,
+  network: ApiNetwork,
+  toAddress: string,
+  signer: Signer,
+) {
+  const toPublicKey = await getWalletPublicKey(network, toAddress);
+  if (!toPublicKey) {
+    return { error: ApiTransactionDraftError.WalletNotInitialized };
+  }
+
+  const result = await signer.encryptComment(comment, toPublicKey);
+  if ('error' in result) {
+    return result;
+  }
+
+  return {
+    cell: packBytesAsSnakeForEncryptedData(result),
+    encryptedComment: result.subarray(4).toString('base64'),
+  };
 }
 
 export function resolveTransactionError(error: any): ApiAnyDisplayError | string {
@@ -589,7 +571,7 @@ export function resolveTransactionError(error: any): ApiAnyDisplayError | string
 export async function checkMultiTransactionDraft(
   accountId: string,
   messages: TonTransferParams[],
-  withDiesel?: boolean,
+  isGasless?: boolean,
 ): Promise<ApiCheckMultiTransactionDraftResult> {
   let totalAmount: bigint = 0n;
 
@@ -636,9 +618,9 @@ export async function checkMultiTransactionDraft(
     );
     const result = { emulation, parsedPayloads };
 
-    // TODO Should `totalAmount` be `0` for `withDiesel`?
+    // TODO Should `totalAmount` be `0` for `isGasless`?
     // Check for insufficient balance (both tokens and TON) and return error
-    const hasInsufficientTonBalance = !withDiesel && balance < totalAmount + result.emulation.networkFee;
+    const hasInsufficientTonBalance = !isGasless && balance < totalAmount + result.emulation.networkFee;
 
     if (hasInsufficientTokenBalance || hasInsufficientTonBalance) {
       return { ...result, error: ApiTransactionDraftError.InsufficientBalance };
@@ -663,8 +645,7 @@ async function isTokenBalanceInsufficient(
       if (!payload) return { tokenResult: undefined, parsedPayload: undefined };
 
       try {
-        const payloadAsString = getPayloadFromTransfer({ payload, isBase64Payload: true })!.toBoc().toString('base64');
-        const parsedPayload = await parsePayloadBase64(network, toAddress, payloadAsString);
+        const parsedPayload = await parsePayloadSlice(network, toAddress, payload.beginParse());
 
         if (parsedPayload?.type === 'tokens:transfer') {
           return {
@@ -753,11 +734,12 @@ interface SubmitMultiTransferOptions {
   messages: TonTransferParams[];
   expireAt?: number;
   isGasless?: boolean;
+  noFeeCheck?: boolean;
 }
 
 // todo: Support submitting multiple transactions (not only multiple messages). The signing already supports that. It will allow to: 1) send multiple NFTs with a single API call, 2) renew multiple domains in a single function call, 3) simplify the implementation of swapping with Ledger
 export async function submitMultiTransfer({
-  accountId, password, messages, expireAt, isGasless,
+  accountId, password, messages, expireAt, isGasless, noFeeCheck,
 }: SubmitMultiTransferOptions): Promise<ApiSubmitMultiTransferResult> {
   const { network } = parseAccountId(accountId);
 
@@ -792,7 +774,7 @@ export async function submitMultiTransfer({
       if ('error' in signingResult) return signingResult;
       const { transaction } = signingResult;
 
-      if (!isGasless) {
+      if (!noFeeCheck && !isGasless) {
         const { networkFee } = await emulateTransactionWithFallback(network, wallet, transaction, isInitialized);
         if (balance < totalAmount + networkFee) {
           return { error: ApiTransactionError.InsufficientBalance };
@@ -1049,9 +1031,6 @@ export async function sendSignedTransactions(accountId: string, transactions: Ap
   });
 }
 
-/**
- * The goal of the function is acting like `checkTransactionDraft` but return only the diesel information
- */
 export function fetchEstimateDiesel(
   accountId: string, tokenAddress: string,
 ): Promise<ApiFetchEstimateDieselResult> {
@@ -1180,11 +1159,11 @@ function makePreparedTransactionToSign(
     authType: shouldBeInternal ? 'internal' : undefined,
     seqno,
     messages: messages.map((message) => {
-      const { amount, toAddress, stateInit } = message;
+      const { amount, payload, toAddress, stateInit } = message;
       return internal({
         value: amount,
         to: toAddress,
-        body: getPayloadFromTransfer(message),
+        body: payload,
         bounce: parseAddress(toAddress).isBounceable,
         init: parseStateInitCell(stateInit),
       });
@@ -1196,31 +1175,4 @@ function makePreparedTransactionToSign(
     timeout: expireAt,
     hints: messages[0].hints, // Currently hints are used only by Ledger, which has only 1 message per transaction
   };
-}
-
-function getPayloadFromTransfer(
-  { payload, isBase64Payload }: Pick<TonTransferParams, 'payload' | 'isBase64Payload'>,
-): Cell | undefined {
-  if (payload === undefined) {
-    return undefined;
-  }
-
-  if (payload instanceof Cell) {
-    return payload;
-  }
-
-  if (typeof payload === 'string') {
-    if (isBase64Payload) {
-      return Cell.fromBase64(payload);
-    }
-
-    // This is what @ton/core does under the hood when a string payload is passed to `internal()`
-    return packBytesAsSnakeCell(commentToBytes(payload));
-  }
-
-  if (payload instanceof Uint8Array) {
-    return payload.length ? packBytesAsSnakeCell(payload) : undefined;
-  }
-
-  throw new TypeError(`Unexpected payload type ${typeof payload}`);
 }

@@ -66,6 +66,8 @@ class HomeHeaderView(
 
     init {
         id = generateViewId()
+        clipChildren = false
+        clipToPadding = false
     }
 
     // State variables /////////////////////////////////////////////////////////////////////////////
@@ -109,19 +111,30 @@ class HomeHeaderView(
 
     // Views ///////////////////////////////////////////////////////////////////////////////////////
     private val cardView = WalletCardView(window)
-    private val balanceView = WBalanceView(context, true, -1f).apply {
-        setStyle(36f, 28f, WFont.NunitoExtraBold)
+    private val balanceView = WBalanceView(context, false, -1f).apply {
+        setStyle(52f, 38f, WFont.NunitoExtraBold)
         setTextColor(WColor.PrimaryText.color, WColor.Decimals.color)
+        clipChildren = false
+        clipToPadding = false
     }
     private val balanceLabel = WSensitiveDataContainer(
-        AutoScaleContainerView(balanceView),
+        AutoScaleContainerView(balanceView).apply {
+            clipChildren = false
+            clipToPadding = false
+            maxAllowedWidth = window.windowView.width - 34.dp
+            minPadding = 11.dp
+            additionalRightPadding = 22f.dp.roundToInt()
+        },
         WSensitiveDataContainer.MaskConfig(
             16,
             4,
             Gravity.CENTER,
             protectContentLayoutSize = false
         )
-    )
+    ).apply {
+        clipChildren = false
+        clipToPadding = false
+    }
 
     private val walletNameLabel = WLabel(context).apply {
         setStyle(16f, WFont.Regular)
@@ -139,7 +152,7 @@ class HomeHeaderView(
     // Helpers /////////////////////////////////////////////////////////////////////////////////////
     val collapsedMinHeight =
         (window.systemBars?.top ?: 0) + navDefaultHeight
-    val collapsedHeight = 104.dp + NAV_SIZE_OFFSET
+    val collapsedHeight = 101.dp + NAV_SIZE_OFFSET
     private val smallCardWidth = 34.dp
     private val topInset = window.systemBars?.top ?: 0
     private val cardRatio = 208 / 358f
@@ -564,6 +577,7 @@ class HomeHeaderView(
             if (expandProgress <= 0.9f) 0f else
                 ((expandProgress - 0.9f) / 0.1f).coerceIn(0f, 1f)
         cardView.mintIcon.alpha = cardView.addressLabelContainer.alpha
+        cardView.walletTypeView.alpha = cardView.addressLabelContainer.alpha
     }
 
     private fun layoutBalance() {
@@ -572,19 +586,22 @@ class HomeHeaderView(
         val balanceExpandProgress = if (scrollY > 0) (1 - scrollY / 92f.dp).coerceIn(0f, 1f) else 1f
         balanceLabel.y =
             collapsedMinHeight -
-                76.dp + (balanceExpandProgress * 91.dp) -
+                75.dp + (balanceExpandProgress * 66.dp) -
                 min(scrollY, 0) -
-                (if (isExpandAllowed) (expandedContentHeight - collapsedHeight + 22f.dp - expandedBalanceY) * expandProgress.pow(
+                (if (isExpandAllowed) (expandedContentHeight - collapsedHeight - 2f.dp - expandedBalanceY) * expandProgress.pow(
                     2
                 ) else 0f)
         balanceLabel.visibility = if (expandProgress < 1f) VISIBLE else INVISIBLE
-        cardView.updatePositions(
-            balanceLabel.y - cardView.y
-        )
         balanceView.setScale(
-            (18 + 18 * balanceExpandProgress) / 36f,
-            (18 + 10 * balanceExpandProgress) / 28f,
-            1 - balanceExpandProgress
+            (18 + 18 * balanceExpandProgress + 16f * expandProgress) / 52f,
+            (18 + 10 * balanceExpandProgress + 10f * expandProgress) / 38f,
+            1 - balanceExpandProgress,
+        )
+        balanceLabel.contentView.updateScale()
+        balanceView.translationX = (-11).dp * expandProgress
+        cardView.updatePositions(
+            balanceLabel.y - cardView.y,
+            expandProgress
         )
         balanceLabel.setMaskPivotYPercent(1f)
         balanceLabel.setMaskScale(0.5f + balanceExpandProgress / 2f)
@@ -595,7 +612,7 @@ class HomeHeaderView(
 
         walletNameLabel.x = (width - walletNameLabel.width) / 2f
         walletNameLabel.y =
-            balanceLabel.y + balanceLabel.height - 8 + (11 * balanceExpandProgress).dp
+            balanceLabel.y + balanceLabel.height - 27.dp + (20 * balanceExpandProgress).dp
         updateWalletNameMargin(balanceExpandProgress)
 
         updateStatusView.alpha = balanceExpandProgress

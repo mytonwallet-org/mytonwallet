@@ -29,24 +29,31 @@ class SettingsVM {
         snapshot.appendItems([.addAccount])
         
         snapshot.appendSections([.general])
+        snapshot.appendItems([.notifications])
         snapshot.appendItems([.appearance])
         snapshot.appendItems([.assetsAndActivity])
-        if let count = DappsStore.dappsCount, count > 0 {
-            snapshot.appendItems([.connectedApps])
-        }
         snapshot.appendItems([.language])
 
         snapshot.appendSections([.walletData])
         if AuthSupport.accountsSupportAppLock {
             snapshot.appendItems([.security])
         }
+        if let count = DappsStore.dappsCount, count > 0 {
+            snapshot.appendItems([.connectedApps])
+        }
         if let count = AccountStore.walletVersionsData?.versions.count, count > 0 {
             snapshot.appendItems([.walletVersions])
         }
         
         snapshot.appendSections([.questionAndAnswers])
-        snapshot.appendItems([.questionAndAnswers])
-        snapshot.appendItems([.terms])
+        snapshot.appendItems([.tips])
+        snapshot.appendItems([.helpCenter])
+        if ConfigStore.shared.config?.supportAccountsCount ?? 1 > 0 {
+            snapshot.appendItems([.support])
+        }
+        
+        snapshot.appendSections([.about])
+        snapshot.appendItems([.about])
         
         snapshot.appendSections([.signout])
         snapshot.appendItems([.signout])
@@ -66,6 +73,8 @@ class SettingsVM {
             return AccountStore.walletVersionsData?.currentVersion
         case .connectedApps:
             return DappsStore.dappsCount != nil ? "\(DappsStore.dappsCount!)" : ""
+        case .support:
+            return "@\(SUPPORT_USERNAME)"
         default:
             return nil
         }

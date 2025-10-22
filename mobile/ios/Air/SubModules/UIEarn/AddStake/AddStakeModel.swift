@@ -109,7 +109,7 @@ final class AddStakeModel: ObservableObject, WalletCoreData.EventsObserver {
     var nativeTokenSlug: String { config.nativeTokenSlug }
     var tokenSlug: String { baseToken.slug }
     
-    @Published var draft: MTransactionDraft?
+    @Published var draft: ApiCheckTransactionDraftResult?
     
     var fee: MFee? {
         let stakeOperationFee = getStakeOperationFee(stakingType: stakingState.type, stakeOperation: .stake).real
@@ -171,7 +171,7 @@ final class AddStakeModel: ObservableObject, WalletCoreData.EventsObserver {
     func updateFee() async {
         if let accountId = AccountStore.accountId, let amount = amount {
             do {
-                let draft: MTransactionDraft =  try await Api.checkStakeDraft(accountId: accountId, amount: amount, state: stakingState)
+                let draft: ApiCheckTransactionDraftResult =  try await Api.checkStakeDraft(accountId: accountId, amount: amount, state: stakingState)
                 try handleDraftError(draft)
                 if Task.isCancelled {
                     if self.draft == nil {

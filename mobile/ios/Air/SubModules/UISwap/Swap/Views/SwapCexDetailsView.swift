@@ -63,26 +63,14 @@ struct SwapCexDetailsView: View {
     
     func fetchEstimate() async {
         do {
-            if let amnt = selectorsVM.sellingTokenAmount, let account = AccountStore.account {
-                let token = amnt.type
+            if let amnt = selectorsVM.sellingTokenAmount, let account = AccountStore.account, let tokenAddress = amnt.token.tokenAddress {
+                let token = amnt.token
                 let chain = token.chainValue
-                let draft: MTransactionDraft = try await Api.checkTransactionDraft(
-                    chain: chain,
-                    options: .init(
-                        accountId: account.id,
-                        toAddress: chain == .ton ? (AccountStore.account?.tonAddress ?? "") : "TW2LXSebZ7Br1zHaiA2W1zRojDkDwjGmpw",
-                        amount: BigInt(1),
-                        tokenAddress: token.tokenAddress,
-                        data: nil,
-                        stateInit: nil,
-                        shouldEncrypt: nil,
-                        isBase64Data: nil,
-                        forwardAmount: nil,
-                        allowGasless: nil
-                    )
-                )
-                let fee = TransferHelpers.explainApiTransferFee(chain: chain.rawValue, isNativeToken: token.isNative, input: draft)
-                self.fee = fee
+                let dieselEstimate = try await Api.fetchEstimateDiesel(accountId: account.id, chain: token.chainValue, tokenAddress: tokenAddress)
+                if let dieselEstimate {
+                    let fee = TransferHelpers.explainDieselEstimate(chain: chain.rawValue, isNativeToken: token.isNative, dieselEstimate: dieselEstimate)
+                    self.fee = fee
+                }
             }
         } catch {
             log.error("\(error)")
