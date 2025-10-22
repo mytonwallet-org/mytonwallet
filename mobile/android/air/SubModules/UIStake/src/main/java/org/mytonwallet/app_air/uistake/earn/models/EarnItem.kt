@@ -29,7 +29,10 @@ sealed class EarnItem(
     }
 
     override fun isChanged(comparing: WEquatable<*>): Boolean {
-        return false
+        return if (comparing is EarnItem && comparing::class == this::class) {
+            comparing.formattedAmount != formattedAmount ||
+                comparing.amountInBaseCurrency != amountInBaseCurrency
+        } else false
     }
 
     data class Profit(

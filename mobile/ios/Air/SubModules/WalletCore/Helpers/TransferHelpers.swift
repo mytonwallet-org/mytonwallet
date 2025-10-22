@@ -32,18 +32,22 @@ public class TransferHelpers {
         public let canTransferFullBalance: Bool
     };
 
-    public static func shouldUseDiesel(input: MTransactionDraft) -> Bool {
+    public static func shouldUseDiesel(input: ApiCheckTransactionDraftResult) -> Bool {
         return input.diesel != nil && input.diesel?.status != .notAvailable
     }
 
-    public static func explainApiTransferFee(chain: String, isNativeToken: Bool, input: MTransactionDraft) -> ExplainedTransferFee {
+    public static func explainApiTransferFee(chain: String, isNativeToken: Bool, input: ApiCheckTransactionDraftResult) -> ExplainedTransferFee {
         return shouldUseDiesel(input: input) ? explainGaslessTransferFee(diesel: input.diesel!) : explainGasfullTransferFee(chain: chain,
                                                                                                                             isNativeToken: isNativeToken,
                                                                                                                             input: input)
     }
     
+    public static func explainDieselEstimate(chain: String, isNativeToken: Bool, dieselEstimate: ApiFetchEstimateDieselResult) -> ExplainedTransferFee? {
+        return dieselEstimate.status != .notAvailable ? explainGaslessTransferFee(diesel: dieselEstimate) : nil
+    }
+
     // TODO: replace with normal impl without ?? 
-    private static func explainGaslessTransferFee(diesel: MDiesel) -> ExplainedTransferFee {
+    private static func explainGaslessTransferFee(diesel: ApiFetchEstimateDieselResult) -> ExplainedTransferFee {
         let isStarsDiesel = diesel.status == .starsFee
         let realFeeInDiesel = convertFee(amount: diesel.realFee, exampleFromAmount: diesel.nativeAmount, exampleToAmount: (isStarsDiesel ? diesel.starsAmount : diesel.tokenAmount) ?? 0);
         // Cover as much displayed real fee as possible with diesel, because in the excess it will return as the native token.
@@ -75,7 +79,7 @@ public class TransferHelpers {
         )
     }
     
-    private static func explainGasfullTransferFee(chain: String, isNativeToken: Bool, input: MTransactionDraft) -> ExplainedTransferFee {
+    private static func explainGasfullTransferFee(chain: String, isNativeToken: Bool, input: ApiCheckTransactionDraftResult) -> ExplainedTransferFee {
         let fullFee = MFee(precision: input.realFee == input.fee ? .exact : .lessThan,
                            terms: .init(token: nil,
                                         native: input.fee,

@@ -67,7 +67,7 @@ open class Item(
     ) : Item(Type.ACTIVITY.value)
 
     data class Alert(
-        val text: String,
+        val text: CharSequence,
     ) : Item(Type.ALERT.value)
 
     data object Gap : Item(Type.GAP.value)

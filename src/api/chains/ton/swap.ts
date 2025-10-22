@@ -10,7 +10,7 @@ import { DIESEL_ADDRESS, SWAP_FEE_ADDRESS, TONCOIN } from '../../../config';
 import { assert as originalAssert } from '../../../util/assert';
 import { fromDecimal } from '../../../util/decimals';
 import { getMaxMessagesInTransaction, isTokenTransferPayload } from '../../../util/ton/transfer';
-import { parsePayloadBase64 } from './util/metadata';
+import { parsePayloadSlice } from './util/metadata';
 import { resolveTokenWalletAddress, toBase64Address } from './util/tonCore';
 import { getTokenByAddress } from '../../common/tokens';
 import { getContractInfo } from './wallet';
@@ -89,7 +89,8 @@ export async function validateDexSwapTransfers(
     let sumTonAmount = 0n;
 
     const parsedPayloads = await Promise.all(mainTransfers.map(
-      async (transfer) => parsePayloadBase64(network, transfer.toAddress, transfer.payload as string),
+      async (transfer) => transfer.payload
+        && parsePayloadSlice(network, transfer.toAddress, transfer.payload.beginParse()),
     ));
     const contractInfos = await getContractInfos(
       network,
@@ -123,7 +124,8 @@ export async function validateDexSwapTransfers(
     assert(sumTonAmount <= maxTonAmount, 'Main transfers TON amount is too big');
 
     if (feeTransfer) {
-      const feePayload = await parsePayloadBase64(network, feeTransfer.toAddress, feeTransfer.payload as string);
+      const feePayload = feeTransfer.payload
+        && await parsePayloadSlice(network, feeTransfer.toAddress, feeTransfer.payload.beginParse());
 
       assert(feeTransfer.amount + sumTonAmount < maxTonAmount, 'Total TON amount is too big');
       assert(feeTransfer.toAddress === walletAddress, 'Fee transfer address is not the token wallet address');

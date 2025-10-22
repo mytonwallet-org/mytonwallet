@@ -3,7 +3,7 @@ import { getActions } from '../../global';
 
 import buildClassName from '../../util/buildClassName';
 import { SECOND } from '../../util/dateFormat';
-import { PARTICLE_BURST_PARAMS, PARTICLE_PARAMS, setupParticles } from '../../push/util/particles';
+import { PARTICLE_BURST_PARAMS, PARTICLE_PARAMS, setupParticles } from '../../util/particles';
 
 import useCurrentOrPrev from '../../hooks/useCurrentOrPrev';
 import { useDeviceScreen } from '../../hooks/useDeviceScreen';

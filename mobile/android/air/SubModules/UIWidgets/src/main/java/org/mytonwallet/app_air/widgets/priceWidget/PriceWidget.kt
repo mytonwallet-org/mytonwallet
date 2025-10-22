@@ -20,6 +20,7 @@ import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.MHistoryTimePeriod
 import org.mytonwallet.app_air.walletbasecontext.utils.formatDateAndTime
+import org.mytonwallet.app_air.walletbasecontext.utils.formatTime
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletsdk.methods.SDKApiMethod
 import org.mytonwallet.app_air.widgets.R
@@ -354,13 +355,13 @@ class PriceWidget : AppWidgetProvider() {
     }
 
     @SuppressLint("DefaultLocale")
-    private fun generateRemoteViews(
+    fun generateRemoteViews(
         context: Context,
         config: Config,
         width: Int?,
         height: Int?,
         image: Bitmap?,
-        appWidgetId: Int
+        appWidgetId: Int?
     ): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.price_widget)
         DeeplinkUtils.setOnClickDeeplinkWithWidgetUpdate(
@@ -402,7 +403,7 @@ class PriceWidget : AppWidgetProvider() {
         // BITMAPS /////////////////////////////////////////////////////////////////////////////////
         val forcedCompact = isCompact || priceChangePercent == null
         val sign = if ((priceChangePercent ?: 0.0) > 0) "+" else ""
-        val priceChangeBitmap = TextUtils.textToBitmap(
+        val priceChangeAndDateBitmap = if (priceChangePercent != null) TextUtils.textToBitmap(
             context,
             TextUtils.DrawableText(
                 "$sign${
@@ -410,19 +411,12 @@ class PriceWidget : AppWidgetProvider() {
                         "%.2f",
                         priceChangePercent
                     )
-                }% · ${
-                    priceChangeValue?.absoluteValue?.toString(
-                        decimals = 9,
-                        currency = baseCurrency?.sign ?: "",
-                        currencyDecimals = 9,
-                        smartDecimals = true
-                    )
-                }",
+                }% · ${Date(priceChartData.last()[0].toLong() * 1000).formatTime()}",
                 size = 15,
                 color = Color.WHITE.colorWithAlpha(191),
                 FontUtils.regular(context)
             )
-        )
+        ) else null
         val symbolBitmap = TextUtils.textToBitmap(
             context,
             TextUtils.DrawableText(
@@ -477,7 +471,7 @@ class PriceWidget : AppWidgetProvider() {
             )
         )
         val smallHeaderRowSize =
-            (symbolBitmap?.width ?: 0) + (priceChangeBitmap?.width ?: 0) + 74.dp
+            (symbolBitmap?.width ?: 0) + (priceChangeAndDateBitmap?.width ?: 0) + 74.dp
         val smallTopRowSize =
             (firstPriceSmallBitmap?.width ?: 0) + (currentPriceSmallBitmap?.width ?: 0) + 36.dp
         val smallBottomRowSize =
@@ -516,13 +510,35 @@ class PriceWidget : AppWidgetProvider() {
 
             // Price change below price
             priceChangePercent?.let {
-                views.setImageViewBitmap(R.id.text_bottom_left, priceChangeBitmap)
+                views.setImageViewBitmap(R.id.text_bottom_left, priceChangeAndDateBitmap)
             }
             views.setImageViewBitmap(R.id.text_right, null)
             views.setImageViewBitmap(R.id.text_bottom_right, null)
         } else {
             drawChart(context, views, priceChartData, baseColor, width, height, false)
-            views.setImageViewBitmap(R.id.text_change, priceChangeBitmap)
+            views.setImageViewBitmap(
+                R.id.text_change, TextUtils.textToBitmap(
+                    context,
+                    TextUtils.DrawableText(
+                        "$sign${
+                            String.format(
+                                "%.2f",
+                                priceChangePercent
+                            )
+                        }% · ${
+                            priceChangeValue?.absoluteValue?.toString(
+                                decimals = 9,
+                                currency = baseCurrency?.sign ?: "",
+                                currencyDecimals = 9,
+                                smartDecimals = true
+                            )
+                        }",
+                        size = 15,
+                        color = Color.WHITE.colorWithAlpha(191),
+                        FontUtils.regular(context)
+                    )
+                )
+            )
             views.setImageViewBitmap(
                 R.id.text_left, firstPriceSmallBitmap
             )
@@ -554,7 +570,7 @@ class PriceWidget : AppWidgetProvider() {
                     baseColor = baseColor,
                     chartWidth = width.dp,
                     chartHeight = height.dp - 130.dp,
-                    paddingBottom = if (isCompact) 77.dp else 68.dp
+                    paddingBottom = if (isCompact) 80.dp else 68.dp
                 )
             )
     }

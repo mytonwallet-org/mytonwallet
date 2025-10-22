@@ -8,8 +8,8 @@ import renderText from '../../global/helpers/renderText';
 import buildClassName from '../../util/buildClassName';
 import { getChainsSupportingLedger } from '../../util/chain';
 import { stopEvent } from '../../util/domEvents';
+import { PARTICLE_BURST_PARAMS, type ParticleConfig, setupParticles } from '../../util/particles';
 import { IS_LEDGER_SUPPORTED, REM } from '../../util/windowEnvironment';
-import { PARTICLE_BURST_PARAMS, type ParticleConfig, setupParticles } from '../../push/util/particles';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
 import useAppTheme from '../../hooks/useAppTheme';

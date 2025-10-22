@@ -35,13 +35,13 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiinappbrowser.span.InAppBrowserUrlSpan
 import org.mytonwallet.app_air.uiswap.views.SwapConfirmView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletcontext.helpers.SpanHelpers
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
+import org.mytonwallet.app_air.walletcontext.helpers.SpanHelpers
+import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import java.math.BigInteger
 import kotlin.math.max
@@ -72,6 +72,7 @@ class SwapSendAddressOutputVC(
     private val scrollView = ScrollView(context).apply {
         id = View.generateViewId()
         overScrollMode = ScrollView.OVER_SCROLL_ALWAYS
+        isVerticalScrollBarEnabled = false
         layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, 0)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             setOnScrollChangeListener { _, _, scrollY, _, _ ->

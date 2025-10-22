@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.walletcore.models
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.utils.WEquatable
 import org.mytonwallet.app_air.walletcore.ALWAYS_SHOWN_TOKENS
 import org.mytonwallet.app_air.walletcore.DEFAULT_SHOWN_TOKENS
 import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
@@ -31,7 +32,7 @@ val DIESEL_TOKENS = arrayOf(
     "EQAJ8uWd7EBqsmpSWaRdf_I-8R8-XHwh3gsNKhy-UrdrPcUo", // HAMSTER
 )
 
-class MToken(json: JSONObject) : IApiToken {
+class MToken(json: JSONObject) : IApiToken, WEquatable<MToken> {
 
     override val decimals: Int = json.optInt("decimals")
     override val slug: String = json.optString("slug")
@@ -161,7 +162,7 @@ class MToken(json: JSONObject) : IApiToken {
 
     val explorerUrl: String?
         get() {
-            if (tokenAddress.isNullOrEmpty())
+            if (tokenAddress.isNullOrEmpty() && cmcSlug != null)
                 return "https://coinmarketcap.com/currencies/${cmcSlug}/"
 
             val chain = MBlockchain.valueOf(chain)
@@ -207,4 +208,12 @@ class MToken(json: JSONObject) : IApiToken {
                 else -> null
             }
         }
+
+    override fun isSame(comparing: WEquatable<*>): Boolean {
+        return comparing is MToken && slug == comparing.slug
+    }
+
+    override fun isChanged(comparing: WEquatable<*>): Boolean {
+        return true
+    }
 }

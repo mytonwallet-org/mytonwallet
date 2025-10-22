@@ -84,4 +84,14 @@ public enum ApiAnyDisplayError: String, Codable, Error {
     case proofTooLarge = "ProofTooLarge"
     case connectionBroken = "ConnectionBroken"
     case wrongDevice = "WrongDevice"
+    
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let string = try? container.decode(String.self), let error = ApiAnyDisplayError(rawValue: string) {
+            self = error
+        } else {
+            assertionFailure("failed to parse any known type")
+            self = .unexpected
+        }
+    }
 }

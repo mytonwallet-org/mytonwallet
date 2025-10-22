@@ -7,7 +7,7 @@ export async function ungzip(input: BufferSource): Promise<Uint8Array> {
   }
 
   // Fflate is a polyfill, so we load it only if necessary.
-  // Note: it's import `gunzipSync` exactly this way, otherwise the tree-shaking won't work.
+  // Note: it's important to import `gunzipSync` exactly this way, otherwise the tree-shaking won't work.
   const { gunzipSync } = await import('fflate');
   return gunzipSync(bufferSourceToBytes(input));
 }

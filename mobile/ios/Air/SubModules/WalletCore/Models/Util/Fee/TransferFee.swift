@@ -4,10 +4,10 @@ import WalletContext
 public protocol ApiFee {
     var fee: BigInt? { get }
     var realFee: BigInt? { get }
-    var diesel: MDiesel? { get }
+    var diesel: ApiFetchEstimateDieselResult? { get }
 }
 
-extension MTransactionDraft: ApiFee {}
+extension ApiCheckTransactionDraftResult: ApiFee {}
 
 
 public struct ExplainedTransferFee: Equatable, Hashable, Codable, Sendable {
@@ -175,7 +175,7 @@ private func explainGasfullTransferFee(_ input: ApiFee, tokenSlug: String) -> Ex
  * Converts the diesel of semi-diesel transfer data
  */
 private func explainGaslessTransferFee(_ fee: ApiFee) -> ExplainedTransferFee {
-    let diesel = fee.diesel ?? MDiesel(status: .notAvailable, amount: nil, nativeAmount: 0, remainingFee: 0, realFee: 0)
+    let diesel = fee.diesel ?? ApiFetchEstimateDieselResult(status: .notAvailable, amount: nil, nativeAmount: 0, remainingFee: 0, realFee: 0)
     let isStarsDiesel = diesel.status == .starsFee
     let realFeeInDiesel = convertFee(amount: diesel.realFee, exampleFromAmount: diesel.nativeAmount, exampleToAmount: diesel.amount ?? .zero)
     // Cover as much displayed real fee as possible with diesel, because in the excess it will return as the native token.

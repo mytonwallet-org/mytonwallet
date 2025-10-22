@@ -1,5 +1,4 @@
 import type { ApiNft, OnApiUpdate } from '../types';
-import type { ApiSubmitNftTransferResult } from './types';
 
 import { TONCOIN } from '../../config';
 import { bigintDivideToNumber } from '../../util/bigint';
@@ -39,7 +38,7 @@ export async function submitNftTransfers(
   toAddress: string,
   comment?: string,
   totalRealFee = 0n,
-): Promise<ApiSubmitNftTransferResult> {
+): Promise<{ activityIds: string[] } | { error: string }> {
   const { address: fromAddress } = await fetchStoredWallet(accountId, 'ton');
 
   const result = await ton.submitNftTransfers({
@@ -66,7 +65,6 @@ export async function submitNftTransfers(
   })));
 
   return {
-    ...result,
     activityIds: extractKey(localActivities, 'id'),
   };
 }

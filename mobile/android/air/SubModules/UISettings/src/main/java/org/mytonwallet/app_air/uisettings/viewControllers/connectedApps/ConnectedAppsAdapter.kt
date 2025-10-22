@@ -18,6 +18,7 @@ class ConnectedAppsAdapter : BaseListAdapter() {
     interface OnClickListener {
         fun onDisconnectAllClick()
         fun onDisconnectClick(item: Item.DApp)
+        fun onWarningClick(item: Item.DApp)
     }
 
     fun setOnItemClickListener(listener: OnClickListener?) {
@@ -28,8 +29,11 @@ class ConnectedAppsAdapter : BaseListAdapter() {
         val onDisconnect: (Item.DApp) -> Unit = {
             onClickListener?.onDisconnectClick(it)
         }
+        val onWarning: (Item.DApp) -> Unit = {
+            onClickListener?.onWarningClick(it)
+        }
         return when (viewType) {
-            Item.Type.DAPP.value -> HolderConnectedAppsCell(parent, onDisconnect).apply {
+            Item.Type.DAPP.value -> HolderConnectedAppsCell(parent, onDisconnect, onWarning).apply {
                 itemView.setOnClickListener {}
 
                 cell.mainView.isClickable = true

@@ -27,8 +27,7 @@ public final class _AccountStore: @unchecked Sendable {
     private let _walletVersionsData: UnfairLock<MWalletVersionsData?> = .init(initialState: nil)
     private let _updatingActivities: UnfairLock<Bool> = .init(initialState: false)
     private let _updatingBalance: UnfairLock<Bool> = .init(initialState: false)
-    private let _isAccountInitialized: UnfairLock<Bool> = .init(initialState: false)
-
+    
     public var activeNetwork: ApiNetwork {
         if let account {
             return account.id.contains("mainnet") ? .mainnet  : .testnet
@@ -56,15 +55,11 @@ public final class _AccountStore: @unchecked Sendable {
         _accountId.withLock { $0 }
     }
 
-    public var isAccountInitialized: Bool {
-        get {
-            _isAccountInitialized.withLock { $0 }
-        }
-        set {
-            _isAccountInitialized.withLock { $0 = newValue }
-        }
+    public var orderedAccounts: [MAccount] {
+        accountsById.values
+            .sorted(by: { $0.id.localizedStandardCompare($1.id) == .orderedAscending })
     }
-
+    
     public internal(set) var walletVersionsData: MWalletVersionsData? {
         get { _walletVersionsData.withLock { $0 } }
         set { _walletVersionsData.withLock { $0 = newValue } }
@@ -158,7 +153,6 @@ public final class _AccountStore: @unchecked Sendable {
         }
 
         self._accountId.withLock { $0 = accountId }
-        self._isAccountInitialized.withLock { $0 = true }
         try await db.write { db in
             try db.execute(sql: "UPDATE common SET current_account_id = ?", arguments: [accountId])
         }
@@ -189,7 +183,7 @@ public final class _AccountStore: @unchecked Sendable {
         )
         try await _storeAccount(account: account)
         _ = try await self.activateAccount(accountId: result.accountId, isNew: true)
-        await _subscribeNotifications(account: account)
+        await subscribeNotificationsIfAvailable(account: account)
         return account
     }
 
@@ -203,7 +197,7 @@ public final class _AccountStore: @unchecked Sendable {
         )
         try await _storeAccount(account: account)
         _ = try await self.activateAccount(accountId: result.accountId, isNew: true)
-        await _subscribeNotifications(account: account)
+        await subscribeNotificationsIfAvailable(account: account)
         return account
     }
 
@@ -218,6 +212,7 @@ public final class _AccountStore: @unchecked Sendable {
             byChain: result.byChain,
         )
         try await _storeAccount(account: account)
+        await subscribeNotificationsIfAvailable(account: account)
         return result.accountId
     }
 
@@ -246,11 +241,10 @@ public final class _AccountStore: @unchecked Sendable {
             
             try await _storeAccount(account: account)
             _ = try await self.activateAccount(accountId: result.accountId, isNew: true)
-            await _subscribeNotifications(account: account)
+            await subscribeNotificationsIfAvailable(account: account)
             return account
             
         } else {
-            
             let account = try await self.activateAccount(accountId: result.accountId)
             return account
         }
@@ -272,7 +266,7 @@ public final class _AccountStore: @unchecked Sendable {
 
         try await _storeAccount(account: account)
         _ = try await self.activateAccount(accountId: result.accountId, isNew: true)
-        await _subscribeNotifications(account: account)
+        await subscribeNotificationsIfAvailable(account: account)
         return account
     }
 
@@ -347,6 +341,10 @@ public final class _AccountStore: @unchecked Sendable {
 
     // MARK: - Notifications
 
+    public var notificationsEnabledAccountIds: Set<String> {
+        Set((AppStorageHelper.pushNotifications?.enabledAccounts ?? [:]).keys)
+    }
+    
     public func didRegisterForPushNotifications(userToken: String) {
         let info = AppStorageHelper.pushNotifications
         if info == nil || info?.userToken != userToken {
@@ -358,10 +356,41 @@ public final class _AccountStore: @unchecked Sendable {
             )
         }
     }
+    
+    private func subscribeNotificationsIfAvailable(account: MAccount) async {
+        if let info = AppStorageHelper.pushNotifications, info.enabledAccounts.count < MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT {
+            await _subscribeNotifications(account: account)
+        }
+    }
+    
+    @MainActor public func selectedNotificationsAccounts(accounts: [MAccount]) async {
+        do {
+            let toEnableAccountIds = Set(accounts.map(\.id))
+            let oldEnabledAccountIds = Set((AppStorageHelper.pushNotifications?.enabledAccounts ?? [:]).keys)
+            if oldEnabledAccountIds == toEnableAccountIds {
+                return
+            }
+            let toUnsubscribeAccounts = oldEnabledAccountIds
+                .filter { !toEnableAccountIds.contains($0) }
+                .compactMap { accountsById[$0] }
+            for account in toUnsubscribeAccounts {
+                await _unsubscribeNotifications(account: account)
+            }
+            for account in accounts {
+                await _subscribeNotifications(account: account)
+            }
+            try await GlobalStorage.syncronize()
+        } catch {
+            log.info("selectedNotificationsAccounts: \(error)")
+        }
+    }
 
     private func _subscribeNotifications(account: MAccount) async {
         do {
-            if var info = AppStorageHelper.pushNotifications, let userToken = info.userToken, !info.enabledAccounts.keys.contains(account.id), info.enabledAccounts.count < 3, let tonAddress = account.tonAddress {
+            if var info = AppStorageHelper.pushNotifications,
+                let userToken = info.userToken,
+                let tonAddress = account.tonAddress
+            {
                 let result = try await Api.subscribeNotifications(props: ApiSubscribeNotificationsProps(
                     userToken: userToken,
                     platform: .ios,
@@ -373,15 +402,20 @@ public final class _AccountStore: @unchecked Sendable {
                 ))
                 info.enabledAccounts[account.id] = result.addressKeys.values.first
                 AppStorageHelper.pushNotifications = info
+            } else {
+                log.info("_subscribeNotifications: no info or token or ton address")
             }
         } catch {
-            log.info("\(error)")
+            log.info("_subscribeNotifications: \(error)")
         }
     }
 
     private func _unsubscribeNotifications(account: MAccount) async {
         do {
-            if var info = AppStorageHelper.pushNotifications, let userToken = info.userToken, info.enabledAccounts.keys.contains(account.id), let tonAddress = account.tonAddress {
+            if var info = AppStorageHelper.pushNotifications,
+                let userToken = info.userToken,
+                let tonAddress = account.tonAddress
+            {
                 let result = try await Api.unsubscribeNotifications(props: ApiUnsubscribeNotificationsProps(
                     userToken: userToken,
                     addresses: [ApiNotificationAddress(
@@ -393,6 +427,8 @@ public final class _AccountStore: @unchecked Sendable {
                 log.info("\(result as Any)")
                 info.enabledAccounts[account.id] = nil
                 AppStorageHelper.pushNotifications = info
+            } else {
+                log.info("_unsubscribeNotifications: no info or userToken or ton address")
             }
         } catch {
             log.info("\(error)")
@@ -477,46 +513,13 @@ public final class _AccountStore: @unchecked Sendable {
     }
 
     private func installAccentColorFromNft(accountId: String, nft: ApiNft?) {
-        DispatchQueue.global(qos: .default).async {
-            if nft == nil {
-                self.currentAccountAccentColorIndex = nil
-                return
-
-            } else if let metadata = nft?.metadata {
-                var accentColorIndex: Int?
-                if metadata.mtwCardBorderShineType == .radioactive {
-                    accentColorIndex = ACCENT_RADIOACTIVE_INDEX
-                } else if metadata.mtwCardType == .silver {
-                    accentColorIndex = ACCENT_SILVER_INDEX
-                } else if metadata.mtwCardType == .gold {
-                    accentColorIndex = ACCENT_GOLD_INDEX
-                } else if metadata.mtwCardType == .platinum || metadata.mtwCardType == .black {
-                    accentColorIndex = ACCENT_BNW_INDEX
-                }
-                if let index = accentColorIndex {
-                    self.currentAccountAccentColorIndex = index
-                    return
-                }
-
-                if let url = nft?.metadata?.mtwCardBackgroundUrl {
-                    ImageDownloader.default.downloadImage(with: url) { result in
-                        switch result {
-                        case .success(let success):
-                            let image = success.image
-                            DispatchQueue.global(qos: .default).async {
-                                if let color = image.extractColor() {
-                                    let closestColor = closestAccentColor(for: color)
-                                    let index = ACCENT_COLORS.firstIndex(of: closestColor)
-                                    self.currentAccountAccentColorIndex = index
-                                    return
-                                }
-                            }
-                        case .failure(let error):
-                            log.error("failer to download image: \(error, .public)")
-                        }
-                    }
-                }
+        Task.detached {
+            let color: Int? = if let nft {
+                await getAccentColorIndexFromNft(nft: nft)
+            } else {
+                nil
             }
+            self.currentAccountAccentColorIndex = color
         }
     }
 

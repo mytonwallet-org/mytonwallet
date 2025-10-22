@@ -1,4 +1,4 @@
-import type { ApiSubmitTransferOptions } from '../../../api/methods/types';
+import type { ApiSubmitTransferOptions } from '../../../api/types';
 import type { FormReducer } from '../../helpers/transfer';
 import { VestingUnfreezeState } from '../../types';
 
@@ -41,7 +41,7 @@ addActionHandler('submitClaimingVesting', async (global, actions, { password } =
     password,
     toAddress: CLAIM_ADDRESS,
     amount: CLAIM_AMOUNT,
-    comment: CLAIM_COMMENT,
+    payload: { type: 'comment', text: CLAIM_COMMENT },
   };
   const result = await callApi('submitTransfer', 'ton', options);
 

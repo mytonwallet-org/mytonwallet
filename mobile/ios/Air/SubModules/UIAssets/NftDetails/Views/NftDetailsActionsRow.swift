@@ -58,10 +58,36 @@ struct NftDetailsActionsRow: View {
                 Color.clear.contentShape(.rect)
             }
             .compositingGroup()
-            .menuSource(isEnabled: true, coordinateSpace: .global, menuContext: wearMenu)
+            .menuSource(menuContext: wearMenu)
             .task {
-                wearMenu.setMenu {
-                    WearMenuContent(nft: viewModel.nft, dismiss: { wearMenu.dismiss() })
+                wearMenu.makeConfig = {
+                    let nft = viewModel.nft
+                    var items: [MenuItem] = []
+                    if let mtwCardId = nft.metadata?.mtwCardId {
+                        let isCurrent = mtwCardId == AccountStore.currentAccountCardBackgroundNft?.metadata?.mtwCardId
+                        if isCurrent {
+                            items += .button(id: "0-card", title: lang("Reset Card"), trailingIcon: .air("MenuInstallCard26")) {
+                                AccountStore.currentAccountCardBackgroundNft = nil
+                                AccountStore.currentAccountAccentColorNft = nil
+                            }
+                        } else {
+                            items += .button(id: "0-card", title: lang("Install Card"), trailingIcon: .air("MenuInstallCard26")) {
+                                AccountStore.currentAccountCardBackgroundNft = nil
+                                AccountStore.currentAccountAccentColorNft = nil
+                            }
+                        }
+                        let isCurrentAccent = mtwCardId == AccountStore.currentAccountAccentColorNft?.metadata?.mtwCardId
+                        if isCurrentAccent {
+                            items += .button(id: "0-palette", title: lang("Reset Palette"), trailingIcon: .air("custom.paintbrush.badge.xmark")) {
+                                AccountStore.currentAccountAccentColorNft = nil
+                            }
+                        } else {
+                            items += .button(id: "0-palette", title: lang("Install Palette"), trailingIcon: .air("MenuBrush26")) {
+                                AccountStore.currentAccountAccentColorNft = nft
+                            }
+                        }
+                    }
+                    return MenuConfig(menuItems: items)
                 }
             }
         }
@@ -101,41 +127,26 @@ struct NftDetailsActionsRow: View {
             Color.clear.contentShape(.rect)
         }
         .compositingGroup()
-        .menuSource(isEnabled: true, coordinateSpace: .global, menuContext: moreMenu)
+        .menuSource(menuContext: moreMenu)
         .task {
-            self.moreMenu.setMenu {
-                ScrollableMenuContent {
-                    VStack(spacing: 0) {
-                        DividedVStack {
-                            WMenuButton(id: "0-hide", title: lang("Hide"), trailingIcon: "MenuHide26") {
-                                NftStore.setHiddenByUser(accountId: AccountStore.accountId ?? "", nftId: viewModel.nft.id, isHidden: true)
-                                moreMenu.dismiss()
-                            }
-                            WMenuButton(id: "0-burn", title: lang("Burn"), trailingIcon: "MenuBrush26") {
-                                AppActions.showSend(prefilledValues: .init(nfts: [viewModel.nft], nftSendMode: .burn))
-                                moreMenu.dismiss()
-                            }
-                            .foregroundStyle(.red)
-                            
-                        }
-                        WideSeparator()
-                        DividedVStack {
-                            WMenuButton(id: "0-getgems", title: "Getgems", trailingIcon: "MenuGetgems26") {
-                                let url = ExplorerHelper.nftUrl(viewModel.nft)
-                                AppActions.openInBrowser(url)
-                                moreMenu.dismiss()
-                            }
-                            WMenuButton(id: "0-tonscan", title: "Tonscan", trailingIcon: "MenuTonscan26") {
-                                let url = ExplorerHelper.tonscanNftUrl(viewModel.nft)
-                                AppActions.openInBrowser(url)
-                                moreMenu.dismiss()
-                            }
-                        }
-                        
-                    }
+            self.moreMenu.makeConfig = {
+                var items: [MenuItem] = []
+                items += .button(id: "0-hide", title: lang("Hide"), trailingIcon: .air("MenuHide26")) {
+                    NftStore.setHiddenByUser(accountId: AccountStore.accountId ?? "", nftId: viewModel.nft.id, isHidden: true)
                 }
-                .frame(minHeight: 200, alignment: .top)
-                .frame(maxWidth: 220)
+                items += .button(id: "0-burn", title: lang("Burn"), trailingIcon: .air("MenuBurn26"), isDangerous: true) {
+                    AppActions.showSend(prefilledValues: .init(nfts: [viewModel.nft], nftSendMode: .burn))
+                }
+                items += .wideSeparator()
+                items += .button(id: "0-getgems", title: "Getgems", trailingIcon: .air("MenuGetgems26")) {
+                    let url = ExplorerHelper.nftUrl(viewModel.nft)
+                    AppActions.openInBrowser(url)
+                }
+                items += .button(id: "0-tonscan", title: "Tonscan", trailingIcon: .air("MenuTonscan26")) {
+                    let url = ExplorerHelper.tonscanNftUrl(viewModel.nft)
+                    AppActions.openInBrowser(url)
+                }
+                return MenuConfig(menuItems: items)
             }
         }
     }
@@ -222,50 +233,6 @@ struct ActionButtonStyle: PrimitiveButtonStyle {
                     isHighlighted = false
                 }
             })
-    }
-}
-
-struct WearMenuContent: View {
-    
-    var nft: ApiNft
-    var dismiss: () -> ()
-    
-    var body: some View {
-        if let mtwCardId = nft.metadata?.mtwCardId {
-            ScrollableMenuContent {
-                DividedVStack {
-                    let isCurrent = mtwCardId == AccountStore.currentAccountCardBackgroundNft?.metadata?.mtwCardId
-                    if isCurrent {
-                        WMenuButton(id: "0-card", title: "Reset Card", trailingIcon: "MenuInstallCard26") {
-                            AccountStore.currentAccountCardBackgroundNft = nil
-                            AccountStore.currentAccountAccentColorNft = nil
-                            dismiss()
-                        }
-                    } else {
-                        WMenuButton(id: "0-card", title: "Install Card", trailingIcon: "MenuInstallCard26") {
-                            AccountStore.currentAccountCardBackgroundNft = nft
-                            AccountStore.currentAccountAccentColorNft = nft
-                            dismiss()
-                        }
-                    }
-                    
-                    let isCurrentAccent = mtwCardId == AccountStore.currentAccountAccentColorNft?.metadata?.mtwCardId
-                    if isCurrentAccent {
-                        WMenuButton(id: "0-palette", title: "Reset Palette", trailingIcon: "custom.paintbrush.badge.xmark") {
-                            AccountStore.currentAccountAccentColorNft = nil
-                            dismiss()
-                        }
-                    } else {
-                        WMenuButton(id: "0-palette", title: "Install Palette", trailingIcon: "MenuBrush26") {
-                            AccountStore.currentAccountAccentColorNft = nft
-                            dismiss()
-                        }
-                    }
-                }
-            }
-            .frame(minHeight: 200, alignment: .top)
-            .frame(maxWidth: 220)
-        }
     }
 }
 

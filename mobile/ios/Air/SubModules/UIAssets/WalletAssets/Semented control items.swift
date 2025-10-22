@@ -18,7 +18,6 @@ struct AllNftsItem: View {
     
     var body: some View {
         let distance = clamp(distance, min: 0, max: 1)
-        let accountId = AccountStore.accountId ?? ""
         
         HStack(spacing: 2.666) {
             Text(lang("Collectibles"))
@@ -31,138 +30,87 @@ struct AllNftsItem: View {
                 .frame(width: 12)
                 .padding(.trailing, -12 * distance)
         }
-        .menuSource(isEnabled: isTopLayer && isSelected, coordinateSpace: .global, menuContext: menuContext)
+        .menuSource(isEnabled: isTopLayer && isSelected, menuContext: menuContext)
         .task {
-            menuContext.setMenu {
-                PushNavigation { push in
-                    firstMenu(accountId: accountId, push: push)
-                } second: { pop in
-                    secondMenu(accountId: accountId, pop: pop)
-                }
-            }
-        }
-        .animation(.snappy, value: showAccessory)
-    }
-    
-    @ViewBuilder
-    func firstMenu(accountId: String, push: @escaping () -> ()) -> some View {
-        ScrollableMenuContent {
-            
-            let collections = NftStore.getCollections(accountId: accountId)
-            let gifts = collections.telegramGiftsCollections
-            let notGifts = collections.notTelegramGiftsCollections
-            let hasHidden = NftStore.currentAccountHasHiddenNfts
-            
-            VStack(spacing: 0) {
+            menuContext.makeConfig = {
+                var items: [MenuItem] = []
+                let accountId = AccountStore.accountId ?? ""
+                let collections = NftStore.getCollections(accountId: accountId)
+                let gifts = collections.telegramGiftsCollections
+                let notGifts = collections.notTelegramGiftsCollections
+                let hasHidden = NftStore.currentAccountHasHiddenNfts
+                
                 if !gifts.isEmpty {
-                    
-                    SelectableMenuItem(id: "0-gifts", action: { push() }) {
-                        HStack {
-                            Text(lang("Telegram Gifts"))
-                                .lineLimit(1)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .padding(.vertical, -4)
-
-                        }
-                    }
-                    WideSeparator()
+                    items += .button(
+                        id: "0-gifts",
+                        title: lang("Telegram Gifts"),
+                        trailingIcon: .system("chevron.right"),
+                        action: {
+                            menuContext.switchTo(submenuId: "1")
+                        },
+                        dismissOnSelect: false,
+                    )
+                    items += .wideSeparator()
                 }
                 
                 if !notGifts.isEmpty {
-                    DividedVStack {
-                        ForEach(notGifts) { collection in
-                            SelectableMenuItem(id: "0-" + collection.id, action: {
+                    items += notGifts.enumerated().map { (idx, collection) in
+                        .button(
+                            id: "0-" + collection.id,
+                            title: collection.name,
+                            action: {
                                 AppActions.showAssets(selectedTab: 1, collectionsFilter: .collection(collection))
-                                menuContext.dismiss()
-                            }) {
-                                Text(collection.name)
-                                    .lineLimit(1)
-                            }
-                        }
-                        
+                            },
+                            reportWidth: idx < 8
+                        )
                     }
-                    WideSeparator()
+                    items += .wideSeparator()
                 }
                 
                 if hasHidden {
-                    SelectableMenuItem(id: "0-hidden", action: {
+                    items += .button(id: "0-hidden", title: lang("Hidden NFTs"), trailingIcon: .air("MenuHidden26")) {
                         AppActions.showHiddenNfts()
-                        menuContext.dismiss()
-                    }) {
-                        Text(lang("Hidden NFTs"))
-                            .lineLimit(1)
                     }
-                    WideSeparator()
+                    items += .wideSeparator()
                 }
-
-                SelectableMenuItem(id: "0-reorder", action: {
-                    self.segmentedControl.startReordering()
-                    menuContext.dismiss()
-                }) {
-                    Text(lang("Reorder"))
-                        .lineLimit(1)
-                }
-
-            }
-            
-        }
-//        .frame(minHeight: 200, alignment: .top)
-        .frame(maxWidth: 250)
-    }
-    
-    @ViewBuilder
-    func secondMenu(accountId: String, pop: @escaping () -> ()) -> some View {
-        ScrollableMenuContent {
-            
-            let collections = NftStore.getCollections(accountId: accountId)
-            let gifts = collections.telegramGiftsCollections
-            
-            VStack(spacing: 0) {
-                SelectableMenuItem(id: "1-back", action: { pop() }) {
-                    HStack(spacing: 10) {
-                        Image.airBundle("MenuBack")
-                            .padding(.vertical, -4)
-                        Text(lang("Back"))
-                            .lineLimit(1)
-                    }
-                }
-
-                WideSeparator()
-
-                DividedVStack {
-                    SelectableMenuItem(id: "1-all-gifts", action: {
-                        AppActions.showAssets(selectedTab: 1, collectionsFilter: .telegramGifts)
-                        menuContext.dismiss()
-                    }) {
-                        HStack(spacing: 10) {
-                            Text(lang("All Telegram Gifts"))
-                                .lineLimit(1)
-                            Spacer()
-                            Image.airBundle("MenuGift")
-                                .padding(.vertical, -4)
-                        }
-                    }
                 
-                    ForEach(gifts) { collection in
-                        SelectableMenuItem(id: "1-" + collection.id, action: {
-                            AppActions.showAssets(selectedTab: 1, collectionsFilter: .collection(collection))
-                            menuContext.dismiss()
-                        }) {
-                            HStack(spacing: 10) {
-                                Text(collection.name)
-                                    .lineLimit(1)
-                                Spacer()
-//                                    Image.airBundle("MenuGift")
-//                                        .padding(.vertical, -4)
-                            }
-                        }
+                items += .button(id: "0-reorder", title: lang("Reorder"), trailingIcon: .air("MenuReorder26")) {
+                    self.segmentedControl.startReordering()
+                }
+                
+                return MenuConfig(menuItems: items)
+            }
+            menuContext.makeSubmenuConfig = {
+                var items: [MenuItem] = []
+                let accountId = AccountStore.accountId ?? ""
+                let collections = NftStore.getCollections(accountId: accountId)
+                let gifts = collections.telegramGiftsCollections
+                
+                items += .button(
+                    id: "1-back",
+                    title: lang("Back"),
+                    leadingIcon: .air("MenuBack"),
+                    action: {
+                        menuContext.switchTo(submenuId: "0")
+                    },
+                    dismissOnSelect: false,
+                )
+                items += .wideSeparator()
+                
+                items += .button(id: "1-all-gifts", title: lang("All Telegram Gifts"), trailingIcon: .air("MenuGift")) {
+                    AppActions.showAssets(selectedTab: 1, collectionsFilter: .telegramGifts)
+                }
+                
+                items += gifts.map { collection in
+                    .button(id: "1-" + collection.id, title: collection.name) {
+                        AppActions.showAssets(selectedTab: 1, collectionsFilter: .collection(collection))
                     }
                 }
+
+                return MenuConfig(submenuId: "1", menuItems: items)
             }
-            .frame(maxHeight: .infinity, alignment: .top)
         }
-        .frame(maxWidth: 250)
+        .animation(.snappy, value: showAccessory)
     }
 }
 
@@ -197,31 +145,20 @@ struct NftCollectionItem<Content: View>: View {
                 .frame(width: 12)
                 .padding(.trailing, -12 * distance)
         }
-        .menuSource(isEnabled: true, coordinateSpace: .global, menuContext: menuContext)
+        .menuSource(menuContext: menuContext)
         .task {
-            menuContext.setMenu {
-                ScrollableMenuContent {
-                    DividedVStack {
-                        SelectableMenuItem(id: "0-reorder", action: {
-                            self.segmentedControl.startReordering()
-                            menuContext.dismiss()
-                        }) {
-                            Text(lang("Reorder"))
-                                .lineLimit(1)
-                        }
-                        if let hideAction {
-                            SelectableMenuItem(id: "0-hide", action: {
-                                hideAction()
-                                menuContext.dismiss()
-                            }) {
-                                Text(lang("Hide tab"))
-                                    .lineLimit(1)
-                            }
-                        }
+            menuContext.makeConfig = {
+                var items: [MenuItem] = []
+                items += .button(id: "0-reorder", title: lang("Reorder"), trailingIcon: .air("MenuReorder26")) {
+                    self.segmentedControl.startReordering()
+                }
+                
+                if let hideAction {
+                    items += .button(id: "0-hide", title: lang("Hide tab"), trailingIcon: .system("pin.slash")) {
+                        hideAction()
                     }
                 }
-                .frame(minHeight: 200, alignment: .top)
-                .frame(maxWidth: 150)
+                return MenuConfig(menuItems: items)
             }
         }
     }
@@ -242,22 +179,14 @@ struct TokensItem<Content: View>: View {
     
     var body: some View {
         content()
-            .menuSource(isEnabled: true, coordinateSpace: .global, menuContext: menuContext)
+            .menuSource(menuContext: menuContext)
             .task {
-                menuContext.setMenu {
-                    ScrollableMenuContent {
-                        DividedVStack {
-                            SelectableMenuItem(id: "0-reorder", action: {
-                                self.segmentedControl.startReordering()
-                                menuContext.dismiss()
-                            }) {
-                                Text(lang("Reorder"))
-                                    .lineLimit(1)
-                            }
-                        }
+                menuContext.makeConfig = {
+                    var items: [MenuItem] = []
+                    items += .button(id: "0-reorder", title: lang("Reorder"), trailingIcon: .air("MenuReorder26")) {
+                        self.segmentedControl.startReordering()
                     }
-                    .frame(minHeight: 200, alignment: .top)
-                    .frame(maxWidth: 150)
+                    return MenuConfig(menuItems: items)
                 }
             }
     }

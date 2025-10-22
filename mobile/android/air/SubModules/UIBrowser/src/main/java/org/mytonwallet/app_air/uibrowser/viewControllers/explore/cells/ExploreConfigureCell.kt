@@ -42,13 +42,15 @@ class ExploreConfigureCell(
             allEdges(imageView)
         }
 
-        imageView.setOnClickListener {
+        setOnClickListener {
             onTap()
         }
+
+        updateTheme()
     }
 
     override fun updateTheme() {
-        setBackgroundColor(WColor.GroupedBackground.color, 10f.dp)
+        setBackgroundColor(WColor.Background.color, 10f.dp)
         addRippleEffect(WColor.BackgroundRipple.color, 10f.dp)
     }
 

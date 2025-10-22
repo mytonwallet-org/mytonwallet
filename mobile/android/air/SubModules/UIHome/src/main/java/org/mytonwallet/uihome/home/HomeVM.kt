@@ -3,6 +3,7 @@ package org.mytonwallet.uihome.home
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcore.STAKING_SLUGS
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -16,7 +17,6 @@ import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.uihome.home.views.UpdateStatusView
 import java.lang.ref.WeakReference
 import java.util.concurrent.Executors
@@ -181,26 +181,32 @@ class HomeVM(val context: Context, delegate: Delegate) : WalletCore.EventObserve
             return
         }
 
-        // update balance view
-        Executors.newSingleThreadExecutor().execute {
+        val computeAndUpdate: () -> Unit = {
             val walletTokens = AccountStore.assetsAndActivityData.getAllTokens()
-                .filter { !STAKING_SLUGS.contains(it.token) }.toMutableList()
+                .filter { !STAKING_SLUGS.contains(it.token) }
 
             val stakingData = AccountStore.stakingData
             val totalBalance =
                 walletTokens.sumOf { it.toBaseCurrency ?: 0.0 } +
                     (stakingData?.totalBalanceInBaseCurrency() ?: 0.0)
-            val totalBalanceYesterday = walletTokens.sumOf { it.toBaseCurrency24h ?: 0.0 } +
-                (stakingData?.totalBalanceInBaseCurrency24h() ?: 0.0)
+            val totalBalanceYesterday =
+                walletTokens.sumOf { it.toBaseCurrency24h ?: 0.0 } +
+                    (stakingData?.totalBalanceInBaseCurrency24h() ?: 0.0)
 
-            Handler(Looper.getMainLooper()).post {
-                // reload balance
-                delegate.get()?.updateBalance(
-                    balance = totalBalance,
-                    balance24h = totalBalanceYesterday,
-                    accountChanged
-                )
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                delegate.get()?.updateBalance(totalBalance, totalBalanceYesterday, accountChanged)
+            } else {
+                Handler(Looper.getMainLooper()).post {
+                    delegate.get()
+                        ?.updateBalance(totalBalance, totalBalanceYesterday, accountChanged)
+                }
             }
+        }
+
+        if (accountChanged) {
+            computeAndUpdate()
+        } else {
+            Executors.newSingleThreadExecutor().execute(computeAndUpdate)
         }
     }
 

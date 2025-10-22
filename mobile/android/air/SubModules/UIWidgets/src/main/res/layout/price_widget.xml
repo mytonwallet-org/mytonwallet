@@ -6,14 +6,14 @@
     android:background="@drawable/bg_widget_background_rounded"
     android:clipToOutline="true">
 
-    <ImageView
+    <android.widget.ImageView
         android:id="@+id/img_background"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:importantForAccessibility="no"
         android:scaleType="centerCrop" />
 
-    <ImageView
+    <android.widget.ImageView
         android:id="@+id/text_symbol"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -22,7 +22,7 @@
         android:paddingEnd="46dp"
         tools:ignore="ContentDescription" />
 
-    <ImageView
+    <android.widget.ImageView
         android:id="@+id/text_change"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -31,7 +31,7 @@
         android:layout_toEndOf="@+id/text_symbol"
         tools:ignore="ContentDescription" />
 
-    <ImageView
+    <android.widget.ImageView
         android:id="@+id/image_symbol"
         android:layout_width="32dp"
         android:layout_height="32dp"
@@ -41,7 +41,7 @@
         android:importantForAccessibility="no"
         android:scaleType="fitXY" />
 
-    <ImageView
+    <android.widget.ImageView
         android:id="@+id/chart"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -49,7 +49,7 @@
         android:scaleType="fitXY"
         tools:ignore="ContentDescription" />
 
-    <ImageView
+    <android.widget.ImageView
         android:id="@+id/text_left"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -59,7 +59,7 @@
         android:paddingBottom="41dp"
         tools:ignore="ContentDescription" />
 
-    <ImageView
+    <android.widget.ImageView
         android:id="@+id/text_bottom_left"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -69,7 +69,7 @@
         android:paddingBottom="18dp"
         tools:ignore="ContentDescription" />
 
-    <ImageView
+    <android.widget.ImageView
         android:id="@+id/text_right"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -79,7 +79,7 @@
         android:paddingBottom="41dp"
         tools:ignore="ContentDescription" />
 
-    <ImageView
+    <android.widget.ImageView
         android:id="@+id/text_bottom_right"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

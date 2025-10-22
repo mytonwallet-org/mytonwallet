@@ -656,6 +656,14 @@ class WClearSegmentedControl(
         val onRemove = items[indexPath.row].onRemove
         val cell = cellHolder.cell as WClearSegmentedControlItemView
         val isSelected = selectedItem == indexPath.row
+        // Workaround to handle first appearance ui glitches
+        if (item.arrowVisibility == null) {
+            item.arrowVisibility =
+                if (item.onClick != null &&
+                    !isInDragMode &&
+                    (!isAnimatingDragMode || item.onRemove != null)
+                ) 1f else 0f
+        }
         cell.configure(
             item,
             isInDragMode,
@@ -666,11 +674,6 @@ class WClearSegmentedControl(
                 onRemove?.invoke(cell)
             }
         )
-        // Workaround to handle first appearance ui glitches
-        if (item.arrowVisibility == null && isSelected) {
-            item.arrowVisibility = if (item.onClick != null && !isInDragMode) 1f else 0f
-            cell.arrowVisibility = item.arrowVisibility
-        }
     }
 
     private fun handleCellClick(

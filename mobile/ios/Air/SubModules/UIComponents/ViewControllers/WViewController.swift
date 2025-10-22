@@ -336,6 +336,7 @@ open class WViewController: UIViewController, WThemedView {
         lbl.font = .systemFont(ofSize: 13)
         lbl.textColor = .white
         lbl.text = message
+        lbl.numberOfLines = 0
         toastView!.addSubview(lbl)
         view.addSubview(toastView!)
         let bottomConstraint = toastView!.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12)
@@ -344,7 +345,7 @@ open class WViewController: UIViewController, WThemedView {
             lbl.leftAnchor.constraint(equalTo: animatedSticker?.rightAnchor ?? toastView!.leftAnchor, constant: animatedSticker?.rightAnchor == nil ? 12 : 8),
             lbl.rightAnchor.constraint(equalTo: toastView!.rightAnchor, constant: -12),
             lbl.bottomAnchor.constraint(equalTo: toastView!.bottomAnchor),
-            lbl.heightAnchor.constraint(equalToConstant: 49),
+            lbl.heightAnchor.constraint(greaterThanOrEqualToConstant: 49),
             bottomConstraint,
             toastView!.leftAnchor.constraint(equalTo: view.leftAnchor, constant: 12),
             toastView!.rightAnchor.constraint(equalTo: view.rightAnchor, constant: -12),

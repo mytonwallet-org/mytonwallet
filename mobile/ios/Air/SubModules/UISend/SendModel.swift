@@ -132,14 +132,14 @@ private let log = Log("SendModel")
         let tokenSlug: String?
         let amount: BigInt?
         let comment: String?
-        let transactionDraft: MTransactionDraft?
+        let transactionDraft: ApiCheckTransactionDraftResult?
         
         init(status: DraftStatus,
              address: String? = nil,
              tokenSlug: String? = nil,
              amount: BigInt? = nil,
              comment: String? = nil,
-             transactionDraft: MTransactionDraft?) {
+             transactionDraft: ApiCheckTransactionDraftResult?) {
             self.status = status
             self.address = address
             self.tokenSlug = tokenSlug
@@ -239,7 +239,7 @@ private let log = Log("SendModel")
         (amount ?? 0 > 0 || nfts?.count ?? 0 > 0)
     }
     
-    var toAddressDraft: MTransactionDraft? {
+    var toAddressDraft: ApiCheckTransactionDraftResult? {
         draftData.transactionDraft
     }
     
@@ -433,41 +433,30 @@ private let log = Log("SendModel")
         }
     }
     
-    func _prepareCommentOptions() -> (isBase64Data: Bool?, comment: String?, shouldEncrypt: Bool?) {
+    func _prepareCommentOptions() -> AnyTransferPayload? {
         let isBase64Data: Bool?
         let comment: String?
         let shouldEncrypt: Bool?
         if let binaryPayload = self.binaryPayload?.nilIfEmpty {
-            isBase64Data = true
-            comment = binaryPayload
-            shouldEncrypt = false
+            return .base64(data: binaryPayload)
         } else if let _comment = self.comment.nilIfEmpty {
-            isBase64Data = false
-            comment = _comment
-            shouldEncrypt = self.isMessageEncrypted
+            return .comment(text: _comment, shouldEncrypt: self.isMessageEncrypted)
         } else {
-            isBase64Data = nil
-            comment = nil
-            shouldEncrypt = nil
+            return nil
         }
-        return (isBase64Data: isBase64Data, comment: comment, shouldEncrypt: shouldEncrypt)
     }
     
     func makeCheckTransactionOptions(addressOrDomain: String, amount: BigInt?, comment: String?) -> ApiCheckTransactionDraftOptions? {
         guard let token = token else {
             return nil
         }
-        let (isBase64Data, comment, shouldEncrypt) = _prepareCommentOptions()
         return ApiCheckTransactionDraftOptions(
             accountId: AccountStore.accountId!,
             toAddress: addressOrDomain,
             amount: amount ?? 0,
-            tokenAddress: token.tokenAddress,
-            data: comment,
+            payload: _prepareCommentOptions(),
             stateInit: stateInit,
-            shouldEncrypt: shouldEncrypt,
-            isBase64Data: isBase64Data,
-            forwardAmount: nil,
+            tokenAddress: token.tokenAddress,
             allowGasless: true
         )
     }
@@ -476,25 +465,21 @@ private let log = Log("SendModel")
         guard let token = token else {
             return nil
         }
-        let (isBase64Data, comment, shouldEncrypt) = _prepareCommentOptions()
-        let account = AccountStore.account!
+        let accountId = AccountStore.accountId!
         let draft = draftData.transactionDraft
         return ApiSubmitTransferOptions(
-            accountId: account.id,
-            password: passcode,
+            accountId: accountId,
             toAddress: addressOrDomain,
             amount: amount ?? 0,
-            comment: comment,
-            tokenAddress: token.tokenAddress,
-            fee: explainedFee?.fullFee?.nativeSum,
-            realFee: explainedFee?.realFee?.nativeSum,
-            shouldEncrypt: shouldEncrypt,
-            isBase64Data: isBase64Data,
-            withDiesel: explainedFee?.isGasless,
-            dieselAmount: draftData.transactionDraft?.diesel?.tokenAmount,
+            payload: _prepareCommentOptions(),
             stateInit: stateInit,
+            tokenAddress: token.tokenAddress,
+            realFee: explainedFee?.realFee?.nativeSum,
+            isGasless: explainedFee?.isGasless,
+            dieselAmount: draftData.transactionDraft?.diesel?.tokenAmount,
             isGaslessWithStars: nil,
-            forwardAmount: nil,
+            password: passcode,
+            fee: explainedFee?.fullFee?.nativeSum,
             noFeeCheck: nil,
         )
     }

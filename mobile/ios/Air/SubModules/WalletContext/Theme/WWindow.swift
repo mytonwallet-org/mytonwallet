@@ -61,7 +61,7 @@ public final class WWindow: UIWindow, WThemedView, WSensitiveDataProtocol {
         // start theme update on root vc
         updateTheme(on: rootViewController)
         
-        NotificationCenter.default.post(name: NSNotification.Name(rawValue: "updateTheme"), object: self)
+        NotificationCenter.default.post(name: .updateTheme, object: self)
     }
 
     public func updateSensitiveData() {
@@ -103,4 +103,8 @@ public final class WWindow: UIWindow, WThemedView, WSensitiveDataProtocol {
             _updateViewController(rootViewController)
         }
     }
+}
+
+public extension Notification.Name {
+    static let updateTheme = Notification.Name("updateTheme")
 }

@@ -7,15 +7,18 @@ import { Address, Builder, Cell } from '@ton/core';
 import { JettonOpCode } from '../../api/chains/ton/constants';
 import { generateQueryId } from '../../api/chains/ton/util';
 
-export type AnyPayload = string | Cell | Uint8Array;
-
 interface TokenTransferBodyParams {
   queryId?: bigint;
   tokenAmount: bigint;
   toAddress: string;
   responseAddress: string;
   forwardAmount?: bigint;
-  forwardPayload?: AnyPayload;
+  forwardPayload?: Cell;
+  /**
+   * `forwardPayload` can be stored either at a tail of the root cell (i.e. inline) or as its ref.
+   * This option forbids the inline variant. This requires more gas but safer.
+   */
+  noInlineForwardPayload?: boolean;
   customPayload?: Cell;
 }
 
@@ -29,52 +32,60 @@ export function buildTokenTransferBody(params: TokenTransferBodyParams) {
     toAddress,
     responseAddress,
     forwardAmount,
+    forwardPayload,
+    noInlineForwardPayload,
     customPayload,
   } = params;
-  let forwardPayload = params.forwardPayload;
 
+  // Schema definition: https://github.com/ton-blockchain/TEPs/blob/0d7989fba6f2d9cb08811bf47263a9b314dc5296/text/0074-jettons-standard.md#1-transfer
   let builder = new Builder()
     .storeUint(JettonOpCode.Transfer, 32)
-    .storeUint(queryId || generateQueryId(), 64)
+    .storeUint(queryId ?? generateQueryId(), 64)
     .storeCoins(tokenAmount)
     .storeAddress(Address.parse(toAddress))
     .storeAddress(Address.parse(responseAddress))
     .storeMaybeRef(customPayload)
     .storeCoins(forwardAmount ?? 0n);
 
-  if (forwardPayload instanceof Uint8Array) {
-    const freeBytes = Math.round(builder.availableBits / 8);
-    forwardPayload = packBytesAsSnake(forwardPayload, freeBytes);
-  }
-
-  if (!forwardPayload) {
-    builder.storeBit(false);
-  } else if (typeof forwardPayload === 'string') {
-    builder = builder.storeBit(false)
-      .storeUint(0, 32)
-      .storeBuffer(Buffer.from(forwardPayload));
-  } else if (forwardPayload instanceof Uint8Array) {
-    builder = builder.storeBit(false)
-      .storeBuffer(Buffer.from(forwardPayload));
-  } else {
-    builder = builder.storeBit(true)
-      .storeRef(forwardPayload);
-  }
+  builder = storeInlineOrRefCell(builder, forwardPayload, 0, noInlineForwardPayload);
 
   return builder.endCell();
 }
 
-function packBytesAsSnake(bytes: Uint8Array, maxBytes = TON_MAX_COMMENT_BYTES): Uint8Array | Cell {
-  const buffer = Buffer.from(bytes);
-  if (buffer.length <= maxBytes) {
-    return bytes;
+/**
+ * Writes a cell to the builder in the `Either Cell ^Cell` TL-B format.
+ *
+ * @see https://docs.ton.org/v3/documentation/data-formats/tlb/types#either How Either is stored
+ */
+export function storeInlineOrRefCell(builder: Builder, cell?: Cell, marginBits = 0, noInline?: boolean) {
+  if (
+    cell
+    && !noInline
+    && cell.bits.length <= builder.availableBits - marginBits - 1 // 1 for `storeBit`
+    && cell.refs.length <= builder.availableRefs
+  ) {
+    return builder
+      .storeBit(0)
+      .storeSlice(cell.beginParse(true));
   }
 
-  return packBytesAsSnakeCell(bytes);
+  return builder.storeMaybeRef(cell);
+}
+
+export function commentToBytes(comment: string): Uint8Array {
+  const buffer = Buffer.from(comment);
+  const bytes = new Uint8Array(buffer.length + 4);
+
+  const startBuffer = Buffer.alloc(4);
+  startBuffer.writeUInt32BE(0);
+  bytes.set(startBuffer, 0);
+  bytes.set(buffer, 4);
+
+  return bytes;
 }
 
 // Copied from /src/api/chains/ton/util/tonCore.ts as tree shaking did not work for some reason
-function packBytesAsSnakeCell(bytes: Uint8Array): Cell {
+export function packBytesAsSnakeCell(bytes: Uint8Array): Cell {
   const bytesPerCell = TON_MAX_COMMENT_BYTES;
   const cellCount = Math.ceil(bytes.length / bytesPerCell);
   let headCell: Cell | undefined;

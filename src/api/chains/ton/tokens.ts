@@ -1,8 +1,14 @@
 import type { JettonBalance } from 'tonapi-sdk-js';
 import { Address, Cell } from '@ton/core';
 
-import type { ApiBalanceBySlug, ApiNetwork, ApiToken, ApiTokenWithPrice } from '../../types';
-import type { AnyPayload, JettonMetadata, TonTransferParams } from './types';
+import type { JettonMetadata, TonTransferParams } from './types';
+import {
+  type ApiBalanceBySlug,
+  type ApiNetwork,
+  type ApiToken,
+  type ApiTokenWithMaybePrice,
+  type ApiTokenWithPrice,
+} from '../../types';
 
 import { TON_USDT_MAINNET_SLUG, TON_USDT_TESTNET_SLUG } from '../../../config';
 import { fetchJsonWithProxy, fixIpfsUrl } from '../../../util/fetch';
@@ -105,6 +111,7 @@ export async function insertMintlessPayload(
     tokenAmount: parsedPayload.amount,
     forwardAmount: parsedPayload.forwardAmount,
     forwardPayload: Cell.fromBase64(parsedPayload.forwardPayload!),
+    noInlineForwardPayload: true, // Not sure whether it's necessary; setting true to be on the safe side
     responseAddress: parsedPayload.responseDestination,
     customPayload: Cell.fromBase64(customPayload!),
   });
@@ -113,7 +120,6 @@ export async function insertMintlessPayload(
     ...transfer,
     stateInit: stateInit ? Cell.fromBase64(stateInit) : undefined,
     payload: newPayload,
-    isBase64Payload: false,
   };
 }
 
@@ -123,7 +129,7 @@ export async function buildTokenTransfer(options: {
   fromAddress: string;
   toAddress: string;
   amount: bigint;
-  payload?: AnyPayload;
+  payload?: Cell;
   shouldSkipMintless?: boolean;
   forwardAmount?: bigint;
   isLedger?: boolean;
@@ -367,10 +373,10 @@ export async function loadTokenBalances(
   sendUpdateTokens: NoneToVoidFunction,
 ): Promise<ApiBalanceBySlug> {
   const tokenBalances = await getTokenBalances(network, address);
-  const tokens: ApiTokenWithPrice[] = tokenBalances.map(({ token }) => ({
+  const tokens: ApiTokenWithMaybePrice[] = tokenBalances.map(({ token }) => ({
     ...token,
-    priceUsd: 0,
-    percentChange24h: 0,
+    priceUsd: undefined,
+    percentChange24h: undefined,
   }));
   await updateTokens(tokens, sendUpdateTokens);
   await updateTokenHashes(network, tokens.map((token) => token.slug), sendUpdateTokens);

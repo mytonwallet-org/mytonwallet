@@ -102,7 +102,7 @@ public final class LedgerSignModel: LedgerBaseModel, @unchecked Sendable {
 
         case .signNftTransfer(accountId: let accountId, nft: let nft, toAddress: let toAddress, comment: let comment, realFee: let realFee):
             do {
-                let txId = try await Api.submitNftTransfers(
+                let result = try await Api.submitNftTransfers(
                     accountId: accountId,
                     password: nil,
                     nfts: [nft],
@@ -110,7 +110,9 @@ public final class LedgerSignModel: LedgerBaseModel, @unchecked Sendable {
                     comment: comment,
                     totalRealFee: realFee
                 )
-                log.info("\(txId)")
+                if let error = result.error {
+                    throw BridgeCallError(message: error, payload: nil)
+                }
             } catch {
                 throw error
             }

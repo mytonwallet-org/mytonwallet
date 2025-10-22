@@ -10,14 +10,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiNotificationAddress
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
-import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
-import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 
 object AirPushNotifications {
     const val MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT = 3
@@ -47,7 +47,9 @@ object AirPushNotifications {
                     }
                     val token = task.getResult() ?: return@OnCompleteListener
                     updateToken(token)
-                    resubscribeAll()
+                    WalletCore.doOnBridgeReady {
+                        resubscribeAll()
+                    }
                 }
             )
     }
@@ -121,7 +123,7 @@ object AirPushNotifications {
                 } else {
                     // Some accounts already exist, resubscribe those
                     newAccounts =
-                        prevAccounts.mapNotNull { acc -> allAccounts.find { it.accountId == acc } }
+                        prevAccounts.mapNotNull { acc -> allAccounts.find { it.accountId == acc && it.tonAddress != null } }
                 }
                 try {
                     val res = WalletCore.call(
@@ -139,20 +141,30 @@ object AirPushNotifications {
                         )
                     )
                     val resAddressKeys = res.optJSONObject("addressKeys") ?: return@withQueue
-                    var enabledAccounts = JSONObject()
+                    val enabledAccounts = JSONObject()
                     newAccounts.forEach {
                         val acc = resAddressKeys.optJSONObject(it.tonAddress)
                         if (acc != null)
                             enabledAccounts.put(it.accountId, acc)
                     }
                     WGlobalStorage.setPushNotificationAccounts(enabledAccounts)
-                } catch (_: Throwable) {
+                } catch (err: Throwable) {
+                    err.printStackTrace()
                 }
             }
         }
     }
 
-    fun subscribe(account: MAccount) {
+    fun subscribe(accountId: String, ignoreIfLimitReached: Boolean) {
+        WGlobalStorage.getAccount(accountId)?.let { accountObj ->
+            subscribe(
+                MAccount(accountId, accountObj),
+                ignoreIfLimitReached = ignoreIfLimitReached
+            )
+        }
+    }
+
+    fun subscribe(account: MAccount, ignoreIfLimitReached: Boolean) {
         notificationScope.launch {
             withQueue {
                 val token = WGlobalStorage.getPushNotificationsToken() ?: return@withQueue
@@ -161,6 +173,8 @@ object AirPushNotifications {
                 if (enabledAccounts?.contains(account.accountId) == true)
                     return@withQueue
                 if ((enabledAccounts?.size ?: 0) >= MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT) {
+                    if (ignoreIfLimitReached)
+                        return@withQueue
                     val removingAccount = enabledAccounts!!.last()
                     val removingTonAddress =
                         WGlobalStorage.getAccountTonAddress(removingAccount)
@@ -191,16 +205,17 @@ object AirPushNotifications {
         }
     }
 
-    fun unsubscribe(account: MAccount, onCompletion: (success: Boolean) -> Unit) {
+    fun unsubscribe(account: MAccount, onCompletion: ((success: Boolean) -> Unit)? = null) {
         notificationScope.launch {
             withQueue {
                 val token = WGlobalStorage.getPushNotificationsToken() ?: return@withQueue
                 val tonAddress = account.tonAddress
                 if (tonAddress == null) {
-                    onCompletion(true)
+                    onCompletion?.invoke(true)
                     return@withQueue
                 }
-                onCompletion(unsubscribeAsync(token, account.accountId, tonAddress))
+                val success = unsubscribeAsync(token, account.accountId, tonAddress)
+                onCompletion?.invoke(success)
             }
         }
     }
@@ -245,7 +260,8 @@ object AirPushNotifications {
                 accountId,
                 addressKey
             )
-        } catch (_: Throwable) {
+        } catch (err: Throwable) {
+            err.printStackTrace()
         }
     }
 

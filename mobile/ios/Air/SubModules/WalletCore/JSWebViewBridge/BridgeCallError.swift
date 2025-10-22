@@ -9,7 +9,7 @@ public enum BridgeCallError: Error {
     case unknown(baseError: Any? = nil)
     case apiReturnedError(error: String, data: Any)
     
-    init(message: String, payload: Any?) {
+    public init(message: String, payload: Any?) {
         if let known = BridgeCallErrorMessages(rawValue: message) {
             self = .message(known, payload)
         } else {

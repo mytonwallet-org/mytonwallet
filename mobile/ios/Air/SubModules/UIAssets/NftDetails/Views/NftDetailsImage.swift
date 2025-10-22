@@ -18,8 +18,8 @@ struct NftDetailsImage: View {
     @StateObject private var coverFlowViewModel = CoverFlowViewModel<ApiNft>(
         items: Array((NftStore.currentAccountShownNfts ?? [:]).values.map(\.nft)),
         selectedItem: "",
-        onTap: { print("tap") },
-        onLongTap: { print("long tap") }
+        onTap: { },
+        onLongTap: { }
     )
     
     @Namespace private var ns

@@ -1,6 +1,5 @@
 import { Address } from '@ton/core';
 
-import type { ApiSubmitTransferTonResult } from '../chains/ton/types';
 import type {
   ApiEthenaStakingState,
   ApiJettonStakingState,
@@ -8,10 +7,8 @@ import type {
   ApiStakingCommonResponse,
   ApiStakingHistory,
   ApiStakingState,
-  ApiTransactionActivity,
 } from '../types';
 
-import { TONCOIN } from '../../config';
 import { fromDecimal } from '../../util/decimals';
 import { logDebugError } from '../../util/logs';
 import * as ton from '../chains/ton';
@@ -51,67 +48,46 @@ export async function submitStake(
     return result;
   }
 
-  let localActivity: ApiTransactionActivity;
-
-  if (state.tokenSlug === TONCOIN.slug) {
-    [localActivity] = createLocalTransactions(accountId, 'ton', [{
-      id: result.msgHashNormalized,
-      amount,
-      fromAddress,
-      toAddress: result.toAddress,
-      fee: realFee ?? 0n,
-      type: 'stake',
-      slug: state.tokenSlug,
-      externalMsgHashNorm: result.msgHashNormalized,
-    }]);
-  } else {
-    [localActivity] = createLocalTransactions(accountId, 'ton', [{
-      id: result.msgHashNormalized,
-      amount,
-      fromAddress,
-      toAddress: result.toAddress,
-      fee: realFee ?? 0n,
-      type: 'stake',
-      slug: state.tokenSlug,
-      externalMsgHashNorm: result.msgHashNormalized,
-    }]);
-  }
+  const [localActivity] = createLocalTransactions(accountId, 'ton', [{
+    id: result.txId,
+    amount,
+    fromAddress,
+    fee: realFee ?? 0n,
+    type: 'stake',
+    slug: state.tokenSlug,
+    ...result.localActivityParams,
+  }]);
 
   return {
-    ...result,
-    txId: localActivity.id,
+    activityId: localActivity.id,
   };
 }
 
 export async function submitUnstake(
   accountId: string,
   password: string | undefined,
-  amount: bigint,
+  tokenAmount: bigint,
   state: ApiStakingState,
   realFee?: bigint,
 ) {
   const { address: fromAddress } = await fetchStoredWallet(accountId, 'ton');
 
-  const result = await ton.submitUnstake(accountId, password, amount, state);
+  const result = await ton.submitUnstake(accountId, password, tokenAmount, state);
   if ('error' in result) {
     return result;
   }
 
   const [localActivity] = createLocalTransactions(accountId, 'ton', [{
-    id: result.msgHashNormalized,
-    amount: result.toncoinAmount,
+    id: result.txId,
+    amount: 0n, // Always 0, because all the gas send for the unstaking is in the fee
     fromAddress,
-    toAddress: result.toAddress,
     fee: realFee ?? 0n,
     type: 'unstakeRequest',
-    slug: TONCOIN.slug,
-    externalMsgHashNorm: result.msgHashNormalized,
     ...result.localActivityParams,
   }]);
 
   return {
-    ...result,
-    txId: localActivity.id,
+    activityId: localActivity.id,
   };
 }
 
@@ -162,36 +138,22 @@ export async function submitStakingClaimOrUnlock(
 ) {
   const { address: walletAddress } = await fetchStoredWallet(accountId, 'ton');
 
-  let result: ApiSubmitTransferTonResult;
-
-  switch (state.type) {
-    case 'jetton': {
-      result = await ton.submitTokenStakingClaim(accountId, password, state);
-      break;
-    }
-    case 'ethena': {
-      result = await ton.submitUnstakeEthenaLocked(accountId, password, state);
-      break;
-    }
-  }
+  const result = state.type === 'ethena'
+    ? await ton.submitUnstakeEthenaLocked(accountId, password, state)
+    : await ton.submitTokenStakingClaim(accountId, password, state);
 
   if ('error' in result) {
     return result;
   }
 
   const [localActivity] = createLocalTransactions(accountId, 'ton', [{
-    id: result.msgHashNormalized,
-    amount: result.amount,
+    id: result.txId,
     fromAddress: walletAddress,
-    toAddress: result.toAddress,
     fee: realFee ?? 0n,
-    slug: TONCOIN.slug,
-    externalMsgHashNorm: result.msgHashNormalized,
     ...result.localActivityParams,
   }]);
 
   return {
-    ...result,
-    txId: localActivity.id,
+    activityId: localActivity.id,
   };
 }

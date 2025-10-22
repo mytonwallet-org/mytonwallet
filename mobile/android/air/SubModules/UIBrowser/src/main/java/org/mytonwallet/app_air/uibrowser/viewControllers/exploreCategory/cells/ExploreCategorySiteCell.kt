@@ -141,7 +141,7 @@ class ExploreCategorySiteCell(
         this.site = site
         this.isFirst = isFirst
         this.isLast = isLast
-        img.set(Content.ofUrl(site.icon ?: ""))
+        img.set(Content.ofUrl(site.iconUrl ?: ""))
         titleLabel.text = site.name
         titleLabel.isSelected = false
         Handler(Looper.getMainLooper()).postDelayed({

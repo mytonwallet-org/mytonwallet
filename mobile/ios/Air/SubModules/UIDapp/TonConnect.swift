@@ -6,7 +6,6 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-
 public let TonConnectErrorCodes: [Int: String] = [
     0: "unknownError",
     1: "badRequestError",
@@ -17,12 +16,14 @@ public let TonConnectErrorCodes: [Int: String] = [
     400: "methodNotSupported",
 ]
 
+private let log = Log("TonConnect")
 
-public final class TonConnect {
+
+public final class TonConnect: WalletCoreData.EventsObserver {
     
     public static let shared = TonConnect()
     
-    private let log = Log("TonConnect")
+    private weak var placeholderNc: WNavigationController?
     
     init() {
         WalletCoreData.add(eventObserver: self)
@@ -60,17 +61,61 @@ public final class TonConnect {
             }
         }
     }
+
+    public nonisolated func walletCore(event: WalletCore.WalletCoreData.Event) {
+        Task {
+            await handleEvent(event: event)
+        }
+    }
     
-    func presentConnect(request: ApiUpdate.DappConnect) {
-        Task { @MainActor in
+    func handleEvent(event: WalletCoreData.Event) async {
+        switch event {
+        case .dappLoading(let update):
+            await handleLoading(update: update)
+        case .dappConnect(let update):
+            await handleConnect(update: update)
+        case .dappSendTransactions(let update):
+            await handleSendTransactions(update: update)
+        case .dappSignData(let update):
+            await handleSignData(update: update)
+        default:
+            break
+        }
+    }
+    
+    @MainActor func handleLoading(update: ApiUpdate.DappLoading) async {
+        if let accountId = update.accountId {
+            await switchAccountIfNeeded(accountId: accountId)
+        }
+        let vc: UIViewController
+        switch update.connectionType {
+        case .connect:
+            vc = ConnectDappVC(placeholderAccountId: update.accountId)
+        case .sendTransaction:
+            vc = SendDappVC(placeholderAccountId: update.accountId)
+        case .signData:
+            vc = SignDataVC(placeholderAccountId: update.accountId)
+        }
+        let nc = WNavigationController(rootViewController: vc)
+        self.placeholderNc = nc
+        topViewController()?.present(nc, animated: true)
+    }
+    
+    @MainActor func handleConnect(update: ApiUpdate.DappConnect) async {
+        await switchAccountIfNeeded(accountId: update.accountId)
+        if let vc = placeholderNc?.visibleViewController as? ConnectDappVC {
+            vc.replacePlaceholder(
+                request: update,
+                onConfirm: { [weak self] accountId, password in self?.confirmConnect(request: update, accountId: accountId, passcode: password) },
+                onCancel: { [weak self] in self?.cancelConnect(request: update) }
+            )
+            self.placeholderNc = nil
+        } else {
             let vc = ConnectDappVC(
-                request: request,
-                onConfirm: { [weak self] accountId, password in
-                    self?.confirmConnect(request: request, accountId: accountId, passcode: password)
-                },
-                onCancel: { [weak self] in
-                    self?.cancelConnect(request: request)
-                })
+                request: update,
+                onConfirm: { [weak self] accountId, password in self?.confirmConnect(request: update, accountId: accountId, passcode: password) },
+                onCancel: { [weak self] in self?.cancelConnect(request: update) }
+            )
             topViewController()?.present(vc, animated: true)
         }
     }
@@ -109,17 +154,20 @@ public final class TonConnect {
         }
     }
     
-    func presentSendTransactions(request: MDappSendTransactions) {
-        Task { @MainActor in
+    @MainActor  func handleSendTransactions(update: MDappSendTransactions) async {
+        await switchAccountIfNeeded(accountId: update.accountId)
+        if let vc = placeholderNc?.visibleViewController as? SendDappVC {
+            vc.replacePlaceholder(
+                request: update,
+                onConfirm: { password in self.confirmSendTransactions(request: update, password: password) },
+                onCancel: { self.cancelSendTransactions(request: update) }
+            )
+            self.placeholderNc = nil
+        } else {
             let vc = SendDappVC(
-                request: request,
-                onConfirm: { password in
-                    if let password {
-                        self.confirmSendTransactions(request: request, password: password)
-                    } else {
-                        self.cancelSendTransactions(request: request)
-                    }
-                }
+                request: update,
+                onConfirm: { password in self.confirmSendTransactions(request: update, password: password) },
+                onCancel: { self.cancelSendTransactions(request: update) }
             )
             let nc = WNavigationController(rootViewController: vc)
             if let sheet = nc.sheetPresentationController {
@@ -129,7 +177,7 @@ public final class TonConnect {
         }
     }
     
-    func confirmSendTransactions(request: MDappSendTransactions, password: String) {
+    func confirmSendTransactions(request: MDappSendTransactions, password: String?) {
         Task {
             do {
                 let signedMessages = try await Api.signTransfers(
@@ -154,23 +202,27 @@ public final class TonConnect {
     func cancelSendTransactions(request: MDappSendTransactions) {
         Task {
             do {
-                try await Api.cancelDappRequest(promiseId: request.promiseId, reason: nil)
+                try await Api.cancelDappRequest(promiseId: request.promiseId, reason: lang("Canceled by the user"))
             } catch {
                 log.error("cancelSendTransactions \(error, .public)")
             }
         }
     }
     
-    func presentSignData(update: ApiUpdate.DappSignData) {
-        Task { @MainActor in
+    @MainActor func handleSignData(update: ApiUpdate.DappSignData) async {
+        await switchAccountIfNeeded(accountId: update.accountId)
+        if let vc = placeholderNc?.visibleViewController as? SignDataVC {
+            vc.replacePlaceholder(
+                update: update,
+                onConfirm: { password in self.confirmSignData(update: update, password: password) },
+                onCancel: { self.cancelSignData(update: update) }
+            )
+            self.placeholderNc = nil
+        } else {
             let vc = SignDataVC(
                 update: update,
-                onConfirm: { password in
-                    self.confirmSignData(update: update, password: password)
-                },
-                onCancel: {
-                    self.cancelSignData(update: update)
-                }
+                onConfirm: { password in self.confirmSignData(update: update, password: password) },
+                onCancel: { self.cancelSignData(update: update) }
             )
             let nc = WNavigationController(rootViewController: vc)
             topViewController()?.present(nc, animated: true)
@@ -198,20 +250,14 @@ public final class TonConnect {
             }
         }
     }
-}
-
-
-extension TonConnect: WalletCoreData.EventsObserver {
-    public nonisolated func walletCore(event: WalletCore.WalletCoreData.Event) {
-        switch event {
-        case .dappConnect(request: let request):
-            presentConnect(request: request)
-        case .dappSendTransactions(let request):
-            presentSendTransactions(request: request)
-        case .dappSignData(let update):
-            presentSignData(update: update)
-        default:
-            break
+    
+    func switchAccountIfNeeded(accountId: String) async {
+        do {
+            if AccountStore.accountId != accountId {
+                _ = try await AccountStore.activateAccount(accountId: accountId)
+            }
+        } catch {
+            log.fault("failed to switch to account \(accountId, .public) error:\(error, .public)")
         }
     }
 }

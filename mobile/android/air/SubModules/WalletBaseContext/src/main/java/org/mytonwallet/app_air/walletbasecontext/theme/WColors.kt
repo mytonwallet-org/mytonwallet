@@ -39,12 +39,6 @@ enum class WColor {
     White,
     Black;
 
-    data class Accent(
-        val id: Int,
-        val accent: Int,
-        val textOnAccent: Int,
-    )
-
     companion object {
         @Deprecated("use WColor.BackgroundRipple")
         val backgroundRippleColor: Int
@@ -143,18 +137,10 @@ object ThemeManager : ITheme {
         if (theme == THEME_DARK) {
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
             colors = THEME_DARK_PRESET
-            WAccentColors = darkAccentColors
         } else if (theme == THEME_LIGHT) {
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
             colors = THEME_LIGHT_PRESET
-            WAccentColors = lightAccentColors
         }
-
-        WAccentColors[WAccentColors.size - 1] = WColor.Accent(
-            BlackWhiteAccentId,
-            WColor.PrimaryText.color,
-            WColor.Background.color
-        )
 
         colors[WColor.BackgroundRipple.ordinal] = getColor(WColor.PrimaryText) and 0x10FFFFFF
         colors[WColor.TintRipple.ordinal] = getColor(WColor.Tint) and 0x18FFFFFF
@@ -168,12 +154,7 @@ object ThemeManager : ITheme {
         colors[WColor.Tint.ordinal] = accentColor.toColorInt()
         colors[WColor.TextOnTint.ordinal] =
             if (nftAccentId != 16 || !isDark) Color.WHITE else Color.BLACK
-    }
-
-    fun setAccentColor(accentColorId: Int) {
-        val accentColor = WAccentColors.find { it.id == accentColorId } ?: WAccentColors.first()
-        colors[WColor.Tint.ordinal] = accentColor.accent
-        colors[WColor.TextOnTint.ordinal] = accentColor.textOnAccent
+        colors[WColor.TintRipple.ordinal] = getColor(WColor.Tint) and 0x18FFFFFF
     }
 
     override fun getColor(color: WColor): Int = this.colors[color.ordinal]

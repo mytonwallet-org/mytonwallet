@@ -16,8 +16,10 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import androidx.appcompat.widget.AppCompatEditText
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
+import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
@@ -27,6 +29,7 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.commonViews.AddressInputLayout
+import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.commonViews.TokenAmountInputView
 import org.mytonwallet.app_air.uicomponents.commonViews.feeDetailsDialog.FeeDetailsDialog
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
@@ -62,6 +65,7 @@ import org.mytonwallet.app_air.walletcore.STAKE_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -289,6 +293,7 @@ class SendVC(
                 }
             }
             overScrollMode = ScrollView.OVER_SCROLL_ALWAYS
+            isVerticalScrollBarEnabled = false
         }
     }
 
@@ -297,6 +302,12 @@ class SendVC(
             id = View.generateViewId()
         }
     }
+
+    private val bottomReversedCornerViewUpsideDown: ReversedCornerViewUpsideDown =
+        ReversedCornerViewUpsideDown(context, scrollView).apply {
+            if (ignoreSideGuttering)
+                setHorizontalPadding(0f)
+        }
 
     private val onInputCommentTextWatcher = object : TextWatcher {
         override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -327,7 +338,7 @@ class SendVC(
         override fun afterTextChanged(s: Editable?) {}
     }
 
-    private var sentActivityConfig: SendViewModel.DraftResult.Result? = null
+    private var sentActivityId: String? = null
 
     override fun setupViews() {
         super.setupViews()
@@ -339,6 +350,13 @@ class SendVC(
         navigationBar?.addCloseButton()
 
         view.addView(scrollView, ViewGroup.LayoutParams(MATCH_PARENT, 0))
+        view.addView(
+            bottomReversedCornerViewUpsideDown,
+            ConstraintLayout.LayoutParams(
+                MATCH_PARENT,
+                MATCH_CONSTRAINT
+            )
+        )
         view.addView(continueButton, ViewGroup.LayoutParams(MATCH_PARENT, 50.dp))
         view.setConstraints {
             toCenterX(scrollView)
@@ -351,6 +369,12 @@ class SendVC(
                     (window?.imeInsets?.bottom ?: 0)
                 )
             )
+            topToTop(
+                bottomReversedCornerViewUpsideDown,
+                continueButton,
+                -20f - ViewConstants.BIG_RADIUS
+            )
+            toBottom(bottomReversedCornerViewUpsideDown)
         }
 
         initialTokenSlug?.let {
@@ -372,21 +396,17 @@ class SendVC(
                     viewModel.getTokenSlug()
                 )
                 val isHardware = AccountStore.activeAccount?.isHardware == true
-                if (isHardware)
-                    sentActivityConfig = config
                 vc.setNextTask { passcode ->
                     lifecycleScope.launch {
                         if (isHardware) {
                             // Sent using LedgerConnect
-                            // Wait for Pending Activity event...
                         } else {
                             // Send with passcode
                             try {
-                                sentActivityConfig = config
-                                viewModel.callSend(config, passcode!!)
+                                val id = viewModel.callSend(config, passcode!!).activityId
+                                sentActivityId = ActivityHelpers.getTxIdFromId(id)
                                 // Wait for Pending Activity event...
                             } catch (e: JSWebViewBridge.ApiError) {
-                                sentActivityConfig = null
                                 navigationController?.viewControllers[navigationController!!.viewControllers.size - 2]?.showError(
                                     e.parsed
                                 )
@@ -564,6 +584,10 @@ class SendVC(
             ViewConstants.HORIZONTAL_PADDINGS.dp,
             0
         )
+        topGapView.updateLayoutParams {
+            height = (navigationController?.getSystemBars()?.top ?: 0) +
+                WNavigationBar.DEFAULT_HEIGHT.dp
+        }
         view.setConstraints {
             toBottomPx(
                 continueButton, 20.dp + max(
@@ -647,17 +671,15 @@ class SendVC(
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
-        val sentActivityConfig = sentActivityConfig ?: return
+        val sentActivityId = sentActivityId ?: return
         when (walletEvent) {
             is WalletEvent.ReceivedPendingActivities -> {
                 val activity = walletEvent.pendingActivities?.firstOrNull { activity ->
                     activity is MApiTransaction.Transaction &&
-                        activity.amount.abs() == sentActivityConfig.request.amount.amountInteger &&
-                        activity.fromAddress == AccountStore.activeAccount?.addressByChain[sentActivityConfig.request.token.chain] &&
-                        activity.toAddress == sentActivityConfig.resolvedAddress
+                        sentActivityId == activity.getTxHash()
                 } ?: return
 
-                this.sentActivityConfig = null
+                this.sentActivityId = null
                 window?.dismissLastNav {
                     WalletCore.notifyEvent(WalletEvent.OpenActivity(activity))
                 }

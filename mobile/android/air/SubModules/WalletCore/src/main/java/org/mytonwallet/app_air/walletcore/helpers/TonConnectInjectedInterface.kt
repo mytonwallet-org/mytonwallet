@@ -144,16 +144,41 @@ class TonConnectInjectedInterface(
                     method = transaction.getString("method")
                 )
                 webView.lockTouch()
-                WalletCore.call(
-                    ApiMethod.DApp.Inject.TonConnectSendTransaction(
-                        dApp,
-                        request
-                    )
-                ) { res, _ ->
-                    webView.unlockTouch()
-                    if (res?.has("result") == true) {
-                        sendInvokeResult(invoke.invocationId, res)
-                    } else {
+                when (request.method) {
+                    "sendTransaction" -> {
+                        WalletCore.call(
+                            ApiMethod.DApp.Inject.TonConnectSendTransaction(
+                                dApp,
+                                request
+                            )
+                        ) { res, _ ->
+                            webView.unlockTouch()
+                            if (res?.has("result") == true) {
+                                sendInvokeResult(invoke.invocationId, res)
+                            } else {
+                                sendInvokeError(invoke.invocationId)
+                            }
+                        }
+                    }
+
+                    "signData" -> {
+                        WalletCore.call(
+                            ApiMethod.DApp.Inject.TonConnectSignData(
+                                dApp,
+                                request
+                            )
+                        ) { res, _ ->
+                            webView.unlockTouch()
+                            if (res?.has("result") == true) {
+                                sendInvokeResult(invoke.invocationId, res)
+                            } else {
+                                sendInvokeError(invoke.invocationId)
+                            }
+                        }
+                    }
+
+                    else -> {
+                        webView.unlockTouch()
                         sendInvokeError(invoke.invocationId)
                     }
                 }

@@ -49,6 +49,7 @@ class SwapReceiveAddressInputVC(
         layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, 0)
         background = SeparatorBackgroundDrawable()
         overScrollMode = ScrollView.OVER_SCROLL_ALWAYS
+        isVerticalScrollBarEnabled = false
         setPadding(ViewConstants.HORIZONTAL_PADDINGS.dp, 0, ViewConstants.HORIZONTAL_PADDINGS.dp, 0)
     }
 

@@ -18,12 +18,14 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.view.isGone
 import androidx.lifecycle.ViewModelProvider
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
 import org.mytonwallet.app_air.uicomponents.base.showAlert
+import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -60,6 +62,7 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import java.math.BigInteger
 import kotlin.math.max
+import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class SwapVC(
@@ -81,6 +84,7 @@ class SwapVC(
     private val scrollView = ScrollView(context).apply {
         id = View.generateViewId()
         overScrollMode = ScrollView.OVER_SCROLL_ALWAYS
+        isVerticalScrollBarEnabled = false
     }
     private val contentLayout = FrameLayout(context)
     private val linearLayout = LinearLayout(context)
@@ -96,6 +100,12 @@ class SwapVC(
     }
 
     private val continueButton = WButton(context)
+
+    private val bottomReversedCornerViewUpsideDown: ReversedCornerViewUpsideDown =
+        ReversedCornerViewUpsideDown(context, scrollView).apply {
+            if (ignoreSideGuttering)
+                setHorizontalPadding(0f)
+        }
 
     private val changellyView = SwapChangellyView(context)
 
@@ -183,7 +193,6 @@ class SwapVC(
         view.addView(scrollView, ViewGroup.LayoutParams(MATCH_PARENT, 0))
 
         continueButton.id = View.generateViewId()
-        view.addView(continueButton, ViewGroup.LayoutParams(MATCH_PARENT, 50.dp))
 
         scrollView.addView(contentLayout, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
 
@@ -234,10 +243,19 @@ class SwapVC(
         }
         linearLayout.addView(estOuterContainer)
 
+        view.addView(
+            bottomReversedCornerViewUpsideDown,
+            ConstraintLayout.LayoutParams(
+                MATCH_PARENT,
+                MATCH_CONSTRAINT
+            )
+        )
+        view.addView(continueButton, ViewGroup.LayoutParams(MATCH_PARENT, 50.dp))
+
         view.setConstraints {
             toCenterX(scrollView)
             toTop(scrollView)
-            bottomToTop(scrollView, continueButton, 20f)
+            toBottom(scrollView)
             toCenterX(continueButton, 20f)
             toBottomPx(
                 continueButton, 20.dp + max(
@@ -245,6 +263,12 @@ class SwapVC(
                     (window?.imeInsets?.bottom ?: 0)
                 )
             )
+            topToTop(
+                bottomReversedCornerViewUpsideDown,
+                continueButton,
+                -20f - ViewConstants.BIG_RADIUS
+            )
+            toBottom(bottomReversedCornerViewUpsideDown)
         }
 
         updateTheme()
@@ -496,8 +520,15 @@ class SwapVC(
             ViewConstants.HORIZONTAL_PADDINGS.dp,
             0,
             ViewConstants.HORIZONTAL_PADDINGS.dp,
-            0
+            20.dp +
+                ViewConstants.BIG_RADIUS.dp.roundToInt() +
+                continueButton.buttonHeight +
+                max(
+                    (navigationController?.getSystemBars()?.bottom ?: 0),
+                    (window?.imeInsets?.bottom ?: 0)
+                )
         )
+        scrollView.clipToPadding = false
         view.setConstraints {
             toBottomPx(
                 continueButton, 20.dp + max(

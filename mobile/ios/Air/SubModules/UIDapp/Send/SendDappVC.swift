@@ -9,22 +9,48 @@ import WalletContext
 
 public class SendDappVC: WViewController {
     
-    var request: MDappSendTransactions
-    var onConfirm: (String?) -> ()
+    var request: MDappSendTransactions?
+    var onConfirm: ((String?) -> ())?
+    var onCancel: (() -> ())?
     
-    var hostingController: UIHostingController<SendDappContentView>!
+    var placeholderAccountId: String?
+    
+    var hostingController: UIHostingController<SendDappViewOrPlaceholder>?
     
     public init(
         request: MDappSendTransactions,
-        onConfirm: @escaping (String?) -> ()
+        onConfirm: @escaping (String?) -> (),
+        onCancel: @escaping () -> (),
     ) {
         self.request = request
         self.onConfirm = onConfirm
+        self.onCancel = onCancel
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    init(placeholderAccountId: String?) {
+        self.placeholderAccountId = placeholderAccountId
         super.init(nibName: nil, bundle: nil)
     }
     
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+    
+    func replacePlaceholder(
+        request: MDappSendTransactions,
+        onConfirm: @escaping (String?) -> (),
+        onCancel: @escaping () -> (),
+    ) {
+        self.request = request
+        self.onConfirm = onConfirm
+        self.onCancel = onCancel
+        withAnimation {
+            self.hostingController?.rootView = makeView()
+        }
+        UIView.animate(withDuration: 0.3) {
+            self.sendButton.isEnabled = !request.combinedInfo.isScam && request.currentAccountHasSufficientBalance()
+        }
     }
 
     public override func viewDidLoad() {
@@ -36,7 +62,7 @@ public class SendDappVC: WViewController {
         let btn = WButton(style: .secondary)
         btn.translatesAutoresizingMaskIntoConstraints = false
         btn.setTitle(lang("Cancel"), for: .normal)
-        btn.addTarget(self, action: #selector(onCancel), for: .touchUpInside)
+        btn.addTarget(self, action: #selector(_onCancel), for: .touchUpInside)
         return btn
     }()
     
@@ -45,7 +71,6 @@ public class SendDappVC: WViewController {
         btn.translatesAutoresizingMaskIntoConstraints = false
         btn.setTitle(lang("Send"), for: .normal)
         btn.addTarget(self, action: #selector(onSend), for: .touchUpInside)
-        btn.isEnabled = !request.combinedInfo.isScam
         return btn
     }()
     
@@ -90,17 +115,30 @@ public class SendDappVC: WViewController {
         
         updateTheme()
         
-        sendButton.isEnabled = request.currentAccountHasSufficientBalance()
+        sendButton.isEnabled = if let request {
+            !request.combinedInfo.isScam && request.currentAccountHasSufficientBalance()
+        } else {
+            false
+        }
     }
     
-    private func makeView() -> SendDappContentView {
-        let account = AccountStore.account ?? .sampleMnemonic
-        return SendDappContentView(
-            account: account,
-            request: request,
-            onShowDetail: showDetail(_:),
-            onScroll: { [weak self] in self?.updateNavigationBarProgressiveBlur($0) }
-        )
+    private func makeView() -> SendDappViewOrPlaceholder {
+        if let request {
+            let account = AccountStore.accountsById[request.accountId] ?? DUMMY_ACCOUNT
+            return SendDappViewOrPlaceholder(content: .sendDapp(SendDappContentView(
+                account: account,
+                request: request,
+                onShowDetail: showDetail(_:),
+                onScroll: { [weak self] in self?.updateNavigationBarProgressiveBlur($0) }
+            )))
+        } else {
+            let account = placeholderAccountId.flatMap { AccountStore.accountsById[$0] }
+            return SendDappViewOrPlaceholder(content: .placeholder(TonConnectPlaceholder(
+                account: account,
+                connectionType: .sendTransaction,
+                navigationBarInset: 32
+            )))
+        }
     }
     
     private func showDetail(_ tx: ApiDappTransfer) {
@@ -122,12 +160,13 @@ public class SendDappVC: WViewController {
     }
     
     private func confirmMnemonic() {
+        guard let request else { return }
         UnlockVC.presentAuth(
             on: self,
             title: lang("Confirm Sending"),
             subtitle: request.dapp.url,
             onDone: { [weak self] passcode in
-                self?.onConfirm(passcode)
+                self?.onConfirm?(passcode)
                 self?.dismiss(animated: true)
             },
             cancellable: true
@@ -137,7 +176,8 @@ public class SendDappVC: WViewController {
     private func confirmLedger() async {
         guard
             let account = AccountStore.account,
-            let fromAddress = account.tonAddress?.nilIfEmpty
+            let fromAddress = account.tonAddress?.nilIfEmpty,
+            let request
         else { return }
         
         let signModel = await LedgerSignModel(
@@ -151,13 +191,13 @@ public class SendDappVC: WViewController {
             headerView: EmptyView()
         )
         vc.onDone = { vc in
-            self.onConfirm("ledger")
+            self.onConfirm?("ledger")
             self.dismiss(animated: true, completion: {
                 self.presentingViewController?.dismiss(animated: true)
             })
         }
         vc.onCancel = { vc in
-            self.onConfirm(nil)
+            self._onCancel()
             self.dismiss(animated: true, completion: {
                 self.presentingViewController?.dismiss(animated: true)
             })
@@ -165,8 +205,8 @@ public class SendDappVC: WViewController {
         present(vc, animated: true)
     }
     
-    @objc func onCancel() {
-        onConfirm(nil)
+    @objc func _onCancel() {
+        onCancel?()
         self.dismiss(animated: true)
     }
 }

@@ -2,15 +2,14 @@ import type { TeactNode } from '../../lib/teact/teact';
 import React, { memo, useCallback, useEffect, useMemo, useRef } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
-import type { ApiFetchEstimateDieselResult } from '../../api/chains/ton/types';
-import type { ApiBaseCurrency, ApiNft } from '../../api/types';
+import type { ApiBaseCurrency, ApiFetchEstimateDieselResult, ApiNft } from '../../api/types';
 import type { Account, SavedAddress, UserToken } from '../../global/types';
 import type { LangFn } from '../../hooks/useLang';
 import type { ExplainedTransferFee } from '../../util/fee/transferFee';
 import type { FeePrecision, FeeTerms } from '../../util/fee/types';
 import { ScamWarningType, TransferState } from '../../global/types';
 
-import { DEFAULT_PRICE_CURRENCY, TONCOIN } from '../../config';
+import { DEFAULT_PRICE_CURRENCY, TONCOIN, UNKNOWN_TOKEN } from '../../config';
 import { getHelpCenterUrl } from '../../global/helpers/getHelpCenterUrl';
 import {
   selectCurrentAccountState,
@@ -35,7 +34,7 @@ import { vibrate } from '../../util/haptics';
 import { isValidAddressOrDomain } from '../../util/isValidAddressOrDomain';
 import { debounce } from '../../util/schedulers';
 import { trimStringByMaxBytes } from '../../util/text';
-import { getChainBySlug, getIsServiceToken, getNativeToken } from '../../util/tokens';
+import { getChainBySlug, getIsNativeToken, getIsServiceToken, getNativeToken } from '../../util/tokens';
 
 import useCurrentOrPrev from '../../hooks/useCurrentOrPrev';
 import useFlag from '../../hooks/useFlag';
@@ -74,8 +73,8 @@ interface StateProps {
   isActive: boolean;
   isLoading?: boolean;
   isComplete?: boolean;
-  fee?: bigint;
-  realFee?: bigint;
+  nativeFee?: bigint;
+  realNativeFee?: bigint;
   tokenSlug: string;
   tokens?: UserToken[];
   savedAddresses?: SavedAddress[];
@@ -114,8 +113,8 @@ function TransferInitial({
   comment = '',
   shouldEncrypt,
   tokens,
-  fee,
-  realFee,
+  nativeFee,
+  realNativeFee,
   savedAddresses,
   accounts,
   nativeTokenBalance,
@@ -169,9 +168,8 @@ function TransferInitial({
   const renderedScamWarningType = useCurrentOrPrev(scamWarningType, true);
   const amountInputRef = useRef<HTMLInputElement>();
   const isDisabledDebounce = useRef<boolean>(false);
-  const isToncoin = tokenSlug === TONCOIN.slug;
   const isAddressValid = chain ? isValidAddressOrDomain(toAddress, chain) : undefined;
-  const doesSupportComment = chain && getChainConfig(chain).isTransferCommentSupported;
+  const doesSupportComment = chain && getChainConfig(chain).isTransferPayloadSupported;
   const transitionKey = useTransitionActiveKey(nfts?.length ? nfts : [tokenSlug]);
 
   const handleAddressInput = useLastCallback((newToAddress?: string, isValueReplaced?: boolean) => {
@@ -194,9 +192,9 @@ function TransferInitial({
 
   const explainedFee = useMemo(
     () => explainApiTransferFee({
-      fee, realFee, diesel, tokenSlug,
+      fee: nativeFee, realFee: realNativeFee, diesel, tokenSlug,
     }),
-    [fee, realFee, diesel, tokenSlug],
+    [nativeFee, realNativeFee, diesel, tokenSlug],
   );
 
   // Note: this constant has 3 distinct meaningful values
@@ -228,17 +226,20 @@ function TransferInitial({
 
   useInterval(updateDieselState, authorizeDieselInterval);
 
+  const fullFee = useMemo(() => {
+    return getFullFee(explainedFee.fullFee?.terms, tokenSlug);
+  }, [explainedFee.fullFee, tokenSlug]);
+
   useEffect(() => {
     if (
-      isToncoin
-      && balance && amount && fee
+      balance && amount && fullFee !== undefined
       && amount < balance
-      && fee < balance
-      && amount + fee >= balance
+      && fullFee < balance
+      && amount + fullFee >= balance
     ) {
-      setTransferAmount({ amount: balance - fee });
+      setTransferAmount({ amount: balance - fullFee });
     }
-  }, [isToncoin, amount, balance, fee]);
+  }, [amount, balance, fullFee]);
 
   // Note: this effect doesn't watch amount changes mainly because it's tricky to program a fee recalculation avoidance
   // when the amount changes due to a fee change. And it's not needed because the fee doesn't depend on the amount.
@@ -393,7 +394,7 @@ function TransferInitial({
       binPayload,
       shouldEncrypt,
       nfts,
-      withDiesel: explainedFee.isGasless,
+      isGasless: explainedFee.isGasless,
       isGaslessWithStars: diesel?.status === 'stars-fee',
       stateInit,
     });
@@ -450,7 +451,7 @@ function TransferInitial({
     if (diesel?.status === 'pending-previous') {
       return lang('Awaiting Previous Fee');
     }
-    return lang('$send_token_symbol', isNftTransfer ? 'NFT' : symbol || 'TON');
+    return lang('$send_token_symbol', isNftTransfer ? 'NFT' : symbol || UNKNOWN_TOKEN.symbol);
   }
 
   function renderFee() {
@@ -542,7 +543,7 @@ function TransferInitial({
             />
           )}
 
-          <div className={buildClassName(styles.footer, isStatic && chain !== 'ton' && styles.footer_shifted)}>
+          <div className={buildClassName(styles.footer, isStatic && !doesSupportComment && styles.footer_shifted)}>
             {renderFee()}
 
             <div className={styles.buttons}>
@@ -649,8 +650,8 @@ export default memo(
         amount,
         comment,
         shouldEncrypt,
-        fee,
-        realFee,
+        nativeFee: fee,
+        realNativeFee: realFee,
         nfts,
         tokenSlug,
         binPayload,
@@ -708,4 +709,12 @@ function getScamWarning(lang: LangFn, scamWarning: ScamWarningType | undefined) 
       </a>
     ),
   });
+}
+
+// Calculates fee in the token currency to keep abstraction from SDK native fee values
+function getFullFee(terms: FeeTerms<bigint> | undefined, tokenSlug: string): bigint | undefined {
+  if (!terms) return undefined;
+  const tokenPart = terms.token ?? 0n;
+  const nativePart = getIsNativeToken(tokenSlug) ? (terms.native ?? 0n) : 0n;
+  return tokenPart + nativePart;
 }

@@ -2,12 +2,14 @@
 import SwiftUI
 import WalletCore
 import WalletContext
-import Popovers
 
 public struct TappableTransactionId: View {
     
     var chain: ApiChain
     var txId: String
+    
+    @StateObject private var menuContext = MenuContext()
+    @State private var hover = false
     
     public init(chain: ApiChain, txId: String) {
         self.chain = chain
@@ -23,22 +25,40 @@ public struct TappableTransactionId: View {
             Image.airBundle("ChevronDown10")
         )
 
-        Templates.Menu {
-            TransactionIdActions(chain: chain, txId: txId)
-        } label: { hover in
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                tx
-                more
+        HStack(alignment: .firstTextBaseline, spacing: 2) {
+            tx
+            more
+        }
+        .menuSource(menuContext: menuContext)
+        .foregroundStyle(Color(WTheme.primaryLabel))
+        .opacity(hover ? 0.8 : 1)
+        .task {
+            menuContext.onAppear = { hover = true }
+            menuContext.onDismiss = { hover = false }
+            menuContext.makeConfig = {
+                MenuConfig(menuItems: [
+                    .button(id: "0-copy", title: lang("Copy"), trailingIcon: .air("SendCopy")) {
+                        UIPasteboard.general.string = txId
+                        topWViewController()?.showToast(animationName: "Copy", message: lang("Transaction ID was copied!"))
+                        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                    },
+                    .button(id: "0-explorer", title: lang("Open in Explorer"), trailingIcon: .air("SendGlobe")) {
+                        let url = ExplorerHelper.txUrl(chain: chain, txHash: txId)
+                        AppActions.openInBrowser(url)
+                    },
+                ])
             }
-            .foregroundStyle(Color(WTheme.primaryLabel))
-            .opacity(hover ? 0.8 : 1)
         }
     }
 }
 
+    
 public struct ChangellyTransactionId: View {
     
     var id: String
+    
+    @StateObject private var menuContext = MenuContext()
+    @State private var hover = false
     
     public init(id: String) {
         self.id = id
@@ -53,15 +73,28 @@ public struct ChangellyTransactionId: View {
             Image.airBundle("ChevronDown10")
         )
 
-        Templates.Menu {
-            ChangellyIdActions(id: id)
-        } label: { hover in
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                tx
-                more
+        HStack(alignment: .firstTextBaseline, spacing: 2) {
+            tx
+            more
+        }
+        .foregroundStyle(Color(WTheme.primaryLabel))
+        .opacity(hover ? 0.8 : 1)
+        .menuSource(menuContext: menuContext)
+        .task {
+            menuContext.onAppear = { hover = true }
+            menuContext.onDismiss = { hover = false }
+            menuContext.makeConfig = {
+                MenuConfig(menuItems: [
+                    .button(id: "0-copy", title: lang("Copy"), trailingIcon: .air("SendCopy")) {
+                        UIPasteboard.general.string = id
+                        topWViewController()?.showToast(animationName: "Copy", message: lang("Transaction ID was copied!"))
+                        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                    },
+                    .button(id: "0-explorer", title: lang("Open in Explorer"), trailingIcon: .air("SendGlobe")) {
+                        AppActions.openInBrowser(URL(string: "https://changelly.com/track/\(id)")!)
+                    },
+                ])
             }
-            .foregroundStyle(Color(WTheme.primaryLabel))
-            .opacity(hover ? 0.8 : 1)
         }
     }
 }

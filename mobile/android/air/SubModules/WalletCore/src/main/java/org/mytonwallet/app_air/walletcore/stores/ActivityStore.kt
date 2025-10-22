@@ -22,7 +22,7 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 
-object ActivityStore {
+object ActivityStore : IStore {
     // queue the tasks
     private val backgroundQueue = Executors.newSingleThreadExecutor()
 
@@ -61,8 +61,11 @@ object ActivityStore {
         }
     }
 
-    // Clean the entire cache when user removes all the wallets
-    fun clean() {
+    override fun wipeData() {
+        clearCache()
+    }
+
+    override fun clearCache() {
         _localTransactions = ConcurrentHashMap()
         _cachedTransactions = ConcurrentHashMap()
         _pendingTransactions = ConcurrentHashMap()

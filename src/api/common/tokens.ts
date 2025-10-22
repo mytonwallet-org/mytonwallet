@@ -1,4 +1,10 @@
-import type { ApiChain, ApiTokenDetails, ApiTokenWithPrice, OnApiUpdate } from '../types';
+import {
+  type ApiChain,
+  type ApiTokenDetails,
+  type ApiTokenWithMaybePrice,
+  type ApiTokenWithPrice,
+  type OnApiUpdate,
+} from '../types';
 
 import { TOKEN_INFO } from '../../config';
 import Deferred from '../../util/Deferred';
@@ -22,7 +28,7 @@ export async function loadTokensCache() {
 }
 
 export async function updateTokens(
-  tokens: ApiTokenWithPrice[],
+  tokens: ApiTokenWithMaybePrice[],
   sendUpdate?: NoneToVoidFunction,
   tokenDetails?: ApiTokenDetails[],
   shouldSendUpdate?: boolean,
@@ -62,7 +68,7 @@ export async function updateTokens(
 }
 
 function mergeTokenWithCache(
-  token: ApiTokenWithPrice,
+  token: ApiTokenWithMaybePrice,
   detailsBySlug: Record<string, ApiTokenDetails>,
   cachedToken?: ApiTokenWithPrice,
 ): ApiTokenWithPrice {
@@ -71,8 +77,8 @@ function mergeTokenWithCache(
     return {
       ...omitUndefined(token.isFromBackend ? cachedToken : token),
       ...omitUndefined(token.isFromBackend ? token : cachedToken),
-      priceUsd: token.priceUsd || cachedToken.priceUsd,
-      percentChange24h: token.percentChange24h || cachedToken.percentChange24h,
+      priceUsd: token.priceUsd ?? cachedToken.priceUsd,
+      percentChange24h: token.percentChange24h ?? cachedToken.percentChange24h,
     };
   } else if (token.slug in detailsBySlug) {
     return {
@@ -80,7 +86,11 @@ function mergeTokenWithCache(
       ...detailsBySlug[token.slug],
     };
   } else {
-    return token;
+    return {
+      ...token,
+      priceUsd: token.priceUsd ?? 0,
+      percentChange24h: token.percentChange24h ?? 0,
+    };
   }
 }
 

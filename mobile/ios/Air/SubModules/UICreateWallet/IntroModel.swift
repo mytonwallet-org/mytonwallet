@@ -13,6 +13,7 @@ import UIComponents
 import UIPasscode
 import Ledger
 import UIHome
+import UISettings
 
 private let log = Log("IntroActions")
 
@@ -37,11 +38,11 @@ private let log = Log("IntroActions")
     // MARK: - Navigation
     
     func onAbout() {
-        push(AboutVC(introModel: self))
+        push(AboutVC(showLegalSection: false))
     }
     
     func onUseResponsibly() {
-        push(UseResponsiblyVC(introModel: self))
+        push(UseResponsiblyVC())
     }
     
     func onCreateWallet() {

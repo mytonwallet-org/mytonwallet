@@ -8,6 +8,10 @@ import java.math.BigInteger
 
 class ActivityHelpers {
     companion object {
+        fun getTxIdFromId(id: String): String? {
+            return id.split(":").firstOrNull()
+        }
+
         fun isSuitableToGetTimestamp(activity: MApiTransaction): Boolean {
             return !activity.isLocal() && !activity.isBackendSwapId()
         }

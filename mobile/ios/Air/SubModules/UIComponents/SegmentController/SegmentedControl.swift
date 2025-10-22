@@ -51,7 +51,6 @@ public struct SegmentedControl: View {
 //                    .background(Color.red)
                 ScrollView(.horizontal) {
                     content
-                        .padding(.horizontal)
                 }
             }
         }

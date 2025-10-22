@@ -1,13 +1,12 @@
 import type { Cell } from '@ton/core';
 import type { WalletContractV5R1 } from '@ton/ton/dist/wallets/WalletContractV5R1';
 
-import type { DieselStatus } from '../../../global/types';
 import type {
   ApiAnyDisplayError,
   ApiEmulationResult,
-  ApiLocalTransactionParams,
   ApiParsedPayload,
   ApiTransaction,
+  ApiTransferPayload,
 } from '../../types';
 import type { ContractType } from './constants';
 import type { AddressBook, AnyAction, TraceDetail } from './toncenter/types';
@@ -22,7 +21,7 @@ export type ApiTonWalletVersion = 'simpleR1'
   | 'v4R2'
   | 'W5';
 
-export type AnyPayload = string | Cell | Uint8Array;
+export type AnyTonTransferPayload = ApiTransferPayload | Cell;
 
 export interface TokenTransferBodyParams {
   queryId?: bigint;
@@ -30,7 +29,12 @@ export interface TokenTransferBodyParams {
   toAddress: string;
   responseAddress: string;
   forwardAmount?: bigint;
-  forwardPayload?: AnyPayload;
+  forwardPayload?: Cell;
+  /**
+   * `forwardPayload` can be stored either at a tail of the root cell (i.e. inline) or as its ref.
+   * This option forbids the inline variant. This requires more gas but safer.
+   */
+  noInlineForwardPayload?: boolean;
   customPayload?: Cell;
 }
 
@@ -43,13 +47,12 @@ export type TonTransferHints = {
   tokenAddress?: string;
 };
 
-/** Ton transaction data in the simplest for constructing form */
+/** Ton transaction data in a simple for constructing form */
 export interface TonTransferParams {
   toAddress: string;
   amount: bigint;
-  payload?: AnyPayload;
+  payload?: Cell;
   stateInit?: Cell;
-  isBase64Payload?: boolean;
   /** Optional, to optimize the signing process */
   hints?: TonTransferHints;
 }
@@ -115,19 +118,6 @@ export type GetAddressInfoResponse = {
   state: 'uninitialized' | 'active';
 };
 
-export type ApiSubmitTransferTonResult = {
-  toAddress: string;
-  amount: bigint;
-  seqno: number;
-  msgHash: string;
-  msgHashNormalized: string;
-  toncoinAmount: bigint;
-  encryptedComment?: string;
-  localActivityParams?: Partial<ApiLocalTransactionParams>;
-} | {
-  error: string;
-};
-
 export type ApiSubmitMultiTransferResult = {
   messages: TonTransferParams[];
   amount: string;
@@ -139,85 +129,6 @@ export type ApiSubmitMultiTransferResult = {
   withW5Gasless?: boolean;
 } | {
   error: string;
-};
-
-export type ApiFetchEstimateDieselResult = {
-  status: DieselStatus;
-  /**
-   * The amount of the diesel itself. It will be sent together with the actual transfer. None of this will return back
-   * as the excess. Undefined means that
-   * gasless transfer is not available, and the diesel shouldn't be shown as the fee; nevertheless, the status should
-   * be displayed by the UI.
-   *
-   * - If the status is not 'stars-fee', the value is measured in the transferred token and charged on top of the
-   *   transferred amount.
-   * - If the status is 'stars-fee', the value is measured in Telegram stars, and the BigInt assumes 0 decimal places
-   *   (i.e. the number is equal to the visible number of stars).
-   */
-  amount?: bigint;
-  /**
-   * The native token amount covered by the diesel. Guaranteed to be > 0.
-   */
-  nativeAmount: bigint;
-  /**
-   * The remaining part of the fee (the first part is `nativeAmount`) that will be taken from the existing wallet
-   * balance. Guaranteed that this amount is available in the wallet. Measured in the native token.
-   */
-  remainingFee: bigint;
-  /**
-   * An approximate fee that will be actually spent. The difference between `nativeAmount+remainingFee` and this
-   * number is called "excess" and will be returned back to the wallet. Measured in the native token.
-   */
-  realFee: bigint;
-};
-
-export type ApiCheckTransactionDraftResult = {
-  /**
-   * The full fee that will be appended to the transaction. Measured in the native token. It's charged on top of the
-   * transferred amount, unless it's a full-TON transfer.
-   */
-  fee?: bigint;
-  /**
-   * An approximate fee that will be actually spent. The difference between `fee` and this number is called "excess" and
-   * will be returned back to the wallet. Measured in the native token. Undefined means that it can't be estimated.
-   * If the value is equal to `fee`, then it's known that there will be no excess.
-   */
-  realFee?: bigint;
-  addressName?: string;
-  isScam?: boolean;
-  resolvedAddress?: string;
-  isToAddressNew?: boolean;
-  isBounceable?: boolean;
-  isMemoRequired?: boolean;
-  error?: ApiAnyDisplayError;
-  /**
-   * Describes a possibility to use diesel for this transfer. The UI should prefer diesel when this field is defined,
-   * and the diesel status is not "not-available". When the diesel is available, and the UI decides to use it, the `fee`
-   * and `realFee` fields should be ignored, because they don't consider an extra transfer of the diesel to the
-   * MTW wallet.
-   */
-  diesel?: ApiFetchEstimateDieselResult;
-};
-
-export type ApiSubmitTransferWithDieselResult = ApiSubmitMultiTransferResult & {
-  encryptedComment?: string;
-  withW5Gasless?: boolean;
-};
-
-export type ApiSubmitTransferOptions = {
-  accountId: string;
-  /** Required only for mnemonic accounts */
-  password?: string;
-  toAddress: string;
-  amount: bigint;
-  data?: AnyPayload;
-  stateInit?: Cell;
-  shouldEncrypt?: boolean;
-  isBase64Data?: boolean;
-  noFeeCheck?: boolean;
-  // For token transfer
-  tokenAddress?: string;
-  forwardAmount?: bigint;
 };
 
 export type ApiEmulationWithFallbackResult = (

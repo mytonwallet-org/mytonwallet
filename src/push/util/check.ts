@@ -104,12 +104,13 @@ export async function processCreateCheck(check: ApiCheck, onSend: NoneToVoidFunc
     message = {
       address: nftInfo.address,
       amount: messageAmount,
-      payload: buildNftTransferPayload(
-        userAddress,
-        contractAddress,
+      payload: buildNftTransferPayload({
+        fromAddress: userAddress,
+        toAddress: contractAddress,
         payload,
-        NFT_FULL_FEE,
-      ).toBoc().toString('base64'),
+        forwardAmount: NFT_FULL_FEE,
+        noInlinePayload: true,
+      }).toBoc().toString('base64'),
     };
   } else {
     const messageAmount = String(amount + TON_FULL_FEE);

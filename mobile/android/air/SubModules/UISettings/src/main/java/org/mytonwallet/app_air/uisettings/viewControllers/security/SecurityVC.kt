@@ -3,7 +3,6 @@ package org.mytonwallet.app_air.uisettings.viewControllers.security
 import android.content.Context
 import android.os.Build
 import android.view.Gravity
-import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
@@ -244,7 +243,8 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
 
     private val scrollView: ScrollView by lazy {
         ScrollView(context).apply {
-            id = View.generateViewId()
+            id = generateViewId()
+            isVerticalScrollBarEnabled = false
             addView(scrollingContentView, ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 setOnScrollChangeListener { _, _, scrollY, _, _ ->

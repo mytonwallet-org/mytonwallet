@@ -13,6 +13,7 @@ object WCacheStorage {
 
     private const val CACHE_PREF_STAKING_DATA = "stakingData."
     private const val CACHE_PREF_NFTS = "nfts."
+    private const val CACHE_PREF_EXPLORE = "exploreHistory."
     private const val CACHE_INITIAL_SCREEN = "initialScreen"
 
     fun init(context: Context) {
@@ -61,6 +62,20 @@ object WCacheStorage {
         }
     }
 
+    fun getExploreHistory(accountId: String): String? {
+        return sharedPreferences.getString(CACHE_PREF_EXPLORE + accountId, null)
+    }
+
+    fun setExploreHistory(accountId: String, value: String?) {
+        sharedPreferences.edit {
+            value?.let {
+                putString(CACHE_PREF_EXPLORE + accountId, value)
+            } ?: run {
+                remove(CACHE_PREF_EXPLORE + accountId)
+            }
+        }
+    }
+
     enum class InitialScreen(val value: Int) {
         INTRO(0),
         HOME(1),
@@ -90,5 +105,6 @@ object WCacheStorage {
     fun clean(accountId: String) {
         setNfts(accountId, null)
         setStakingData(accountId, null)
+        setExploreHistory(accountId, null)
     }
 }

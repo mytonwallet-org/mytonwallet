@@ -9,7 +9,7 @@ import { getIsActiveStakingState, getIsLongUnstake } from '../../../util/staking
 import { IS_DELEGATED_BOTTOM_SHEET, IS_DELEGATING_BOTTOM_SHEET } from '../../../util/windowEnvironment';
 import { callApi } from '../../../api';
 import { closeAllOverlays } from '../../helpers/misc';
-import { handleTransferResult, prepareTransfer } from '../../helpers/transfer';
+import { handleTransferResult, isErrorTransferResult, prepareTransfer } from '../../helpers/transfer';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import {
   clearCurrentStaking,
@@ -93,7 +93,7 @@ addActionHandler('fetchStakingFee', async (global, actions, payload) => {
     amount,
     state,
   );
-  if (!result || 'error' in result) {
+  if (isErrorTransferResult(result)) {
     return;
   }
 

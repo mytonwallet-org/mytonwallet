@@ -103,37 +103,20 @@ struct TappableDepositLink: View {
         Text("\(link) \(more)")
             .lineLimit(nil)
             .multilineTextAlignment(.leading)
-            .menuSource(isEnabled: true, coordinateSpace: .global, menuContext: menuContext)
+            .menuSource(menuContext: menuContext)
             .task(id: depostitLink) {
-                menuContext.setMenu {
-                    DepositLinkMenuContent(link: depostitLink, dismiss: { menuContext.dismiss() })
-                }
-            }
-    }
-}
-
-
-struct DepositLinkMenuContent: View {
-    
-    var link: String
-    var dismiss: () -> ()
-    
-    var body: some View {
-        ScrollableMenuContent {
-            DividedVStack {
-                WMenuButton(id: "0-copy", title: lang("Copy"), trailingIcon: "SendCopy") {
-                    AppActions.copyString(link, toastMessage: "Link copied")
-                    dismiss()
-                }
-                if let url = URL(string: link) {
-                    WMenuButton(id: "0-share", title: lang("Share"), trailingIcon: "_") {
-                        AppActions.shareUrl(url)
-                        dismiss()
+                menuContext.makeConfig = {
+                    var items: [MenuItem] = []
+                    items += .button(id: "0-copy", title: lang("Copy"), trailingIcon: .air("SendCopy")) {
+                        AppActions.copyString(depostitLink, toastMessage: "Link copied")
                     }
+                    if let url = URL(string: depostitLink) {
+                        items += .button(id: "0-share", title: lang("Share"), trailingIcon: .system("square.and.arrow.up")) {
+                            AppActions.shareUrl(url)
+                        }
+                    }
+                    return MenuConfig(menuItems: items)
                 }
             }
-        }
-        .frame(maxWidth: 160)
     }
 }
-

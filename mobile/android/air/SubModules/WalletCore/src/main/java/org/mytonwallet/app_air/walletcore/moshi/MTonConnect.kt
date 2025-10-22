@@ -1,6 +1,6 @@
 package org.mytonwallet.app_air.walletcore.moshi
 
-import android.net.Uri
+import androidx.core.net.toUri
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import java.math.BigInteger
@@ -22,18 +22,24 @@ data class DeviceInfo(
     }
 }
 
+interface IDapp {
+    val url: String?
+    val name: String?
+    val iconUrl: String?
+}
+
 @JsonClass(generateAdapter = true)
 data class ApiDapp(
-    val url: String?,
-    val name: String?,
-    val iconUrl: String?,
+    override val url: String?,
+    override val name: String?,
+    override val iconUrl: String?,
     val manifestUrl: String?,
     val connectedAt: Long?,
     val isUrlEnsured: Boolean?,
     val sse: ApiSseOptions? = null
-) {
+) : IDapp {
     val host: String? = try {
-        Uri.parse(url).host
+        url?.toUri()?.host
     } catch (_: Throwable) {
         null
     }
@@ -83,7 +89,10 @@ enum class ApiConnectionType {
     CONNECT,
 
     @Json(name = "sendTransaction")
-    SEND_TRANSACTION
+    SEND_TRANSACTION,
+
+    @Json(name = "signData")
+    SIGN_DATA
 }
 
 sealed class ReturnStrategy {

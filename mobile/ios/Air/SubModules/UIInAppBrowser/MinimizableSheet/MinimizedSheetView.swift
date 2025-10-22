@@ -100,8 +100,8 @@ struct _MinimizedSheetView: View {
     @Previewable let viewModel = MinimizedSheetViewModel(
         title: "Fragment",
         iconUrl: "https://static.mytonwallet.org/explore-icons/mtwcards.webp",
-        titleTapAction: { print("title") },
-        closeAction: { print("close") }
+        titleTapAction: { },
+        closeAction: { }
     )
     
     _MinimizedSheetView(viewModel: viewModel)

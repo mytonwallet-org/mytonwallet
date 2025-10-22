@@ -108,6 +108,12 @@ class SettingsVM {
 
         val items = mutableListOf(
             SettingsItem(
+                identifier = SettingsItem.Identifier.NOTIFICATION_SETTINGS,
+                icon = R.drawable.ic_notifications,
+                title = LocaleController.getString("Notifications & Sounds"),
+                hasTintColor = false
+            ),
+            SettingsItem(
                 identifier = SettingsItem.Identifier.APPEARANCE,
                 icon = R.drawable.ic_appearance,
                 title = LocaleController.getString("Appearance"),

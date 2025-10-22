@@ -43,17 +43,17 @@ class ExploreTrendingItemCell(
     WThemedView {
 
     private val imageView = WCustomImageView(context).apply {
-        defaultRounding = Content.Rounding.Radius(16f.dp)
+        defaultRounding = Content.Rounding.Radius(22f.dp)
         set(
             Content.ofUrl(
-                site.extendedIcon.ifBlank { site.icon ?: "" }
+                site.extendedIcon.ifBlank { site.iconUrl ?: "" }
             )
         )
     }
 
     private val thumbImageView = WCustomImageView(context).apply {
-        defaultRounding = Content.Rounding.Radius(16f.dp)
-        site.icon?.let {
+        defaultRounding = Content.Rounding.Radius(22f.dp)
+        site.iconUrl?.let {
             set(Content.ofUrl(it))
         }
     }
@@ -107,7 +107,7 @@ class ExploreTrendingItemCell(
     }
 
     private val bottomView = WView(context).apply {
-        setBackgroundColor(Color.TRANSPARENT, 0f, 16f.dp, true)
+        setBackgroundColor(Color.TRANSPARENT, 0f, 22f.dp, true)
         addView(bottomBlurView, ViewGroup.LayoutParams(0, 0))
         if (site.extendedIcon.isNotBlank()) {
             addView(thumbImageView, ViewGroup.LayoutParams(48.dp, 48.dp))
@@ -190,8 +190,8 @@ class ExploreTrendingItemCell(
         if (site.withBorder) {
             val border = GradientDrawable()
             border.setColor(WColor.Tint.color)
-            border.setStroke(1, WColor.Tint.color)
-            border.cornerRadius = 16f.dp
+            border.setStroke(2, WColor.Tint.color)
+            border.cornerRadius = 22f.dp
             contentView.background = border
         }
         if (site.badgeText.isNotBlank()) {

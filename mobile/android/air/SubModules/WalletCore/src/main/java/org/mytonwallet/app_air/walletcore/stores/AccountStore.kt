@@ -11,7 +11,7 @@ import org.mytonwallet.app_air.walletcore.models.MAssetsAndActivityData
 import org.mytonwallet.app_air.walletcore.moshi.MUpdateStaking
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 
-object AccountStore {
+object AccountStore : IStore {
 
     // Observable Flow
     private val _activeAccountIdFlow = MutableStateFlow<String?>(null)
@@ -68,9 +68,17 @@ object AccountStore {
         return null
     }
 
-    fun clean() {
+    fun updateAccountData(update: ApiUpdate.ApiUpdateUpdateAccount) {
+        // TODO::
+    }
+
+    override fun wipeData() {
         WGlobalStorage.deleteAllWallets()
         WSecureStorage.deleteAllWalletValues()
+        clearCache()
+    }
+
+    override fun clearCache() {
         updateActiveAccount(null)
         updateAssetsAndActivityData(MAssetsAndActivityData(), notify = false)
         walletVersionsData = null

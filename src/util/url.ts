@@ -6,18 +6,44 @@ import { base64ToHex } from './base64toHex';
 import { getChainConfig } from './chain';
 import { logDebugError } from './logs';
 
-// Regexp from https://stackoverflow.com/a/3809435
-const URL_REGEX = /[-a-z0-9@:%._+~#=]{1,256}\.[a-z0-9()]{1,6}\b([-a-z0-9()@:%_+.~#?&/=]*)/gi;
 const VALID_PROTOCOLS = new Set(['http:', 'https:']);
+
+function isValidIp(ip: string) {
+  const parts = ip.split(/[.:]/);
+
+  if (parts.length === 4) {
+    // Check IPv4 parts
+    for (const part of parts) {
+      const num = parseInt(part);
+      if (isNaN(num) || num < 0 || num > 255) {
+        return false;
+      }
+    }
+    return true;
+  } else if (parts.length === 8) {
+    // Check IPv6 parts
+    for (const part of parts) {
+      if (!/^[0-9a-fA-F]{1,4}$/.test(part)) {
+        return false;
+      }
+    }
+    return true;
+  }
+  return false;
+}
 
 export function isValidUrl(url: string, validProtocols = VALID_PROTOCOLS) {
   try {
-    const match = url.match(URL_REGEX);
-    if (!match) return false;
-
     const urlObject = new URL(url);
+    const isValidProtocol = validProtocols.has(urlObject.protocol);
+    const isLocalhost = urlObject.hostname === 'localhost';
+    const isIp = isValidIp(urlObject.hostname);
 
-    return validProtocols.has(urlObject.protocol);
+    const parts = urlObject.hostname.split('.');
+    // http://data.iana.org/TLD/tlds-alpha-by-domain.txt
+    const hasValidTld = parts.length > 1 && parts[parts.length - 1].length > 1 && parts[parts.length - 1].length <= 24;
+
+    return isValidProtocol && (isLocalhost || isIp || hasValidTld);
   } catch (e) {
     logDebugError('isValidUrl', e);
     return false;

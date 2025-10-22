@@ -19,10 +19,10 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 
 @SuppressLint("ViewConstructor")
 class KeyValueRowView(
@@ -158,7 +158,7 @@ class KeyValueRowView(
     }
 
     private fun updateLoadingState() {
-        if (progressIndicator == null) {
+        if (isLoading && progressIndicator == null) {
             progressIndicator = CircularProgressIndicator(context).apply {
                 id = generateViewId()
                 isIndeterminate = true
@@ -225,6 +225,10 @@ class KeyValueRowView(
             separator.forceSeparator = false
             separator.allowSeparator = false
         }
+    }
+
+    fun setTopRadius(topRadius: Float) {
+        separator.topRadius = topRadius
     }
 
     fun setLast(isLast: Boolean) {

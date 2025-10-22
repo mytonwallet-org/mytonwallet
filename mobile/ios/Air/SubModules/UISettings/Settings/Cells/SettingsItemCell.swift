@@ -101,6 +101,10 @@ class SettingsItemCell: UICollectionViewCell, WThemedView {
         containerView.addSubview(valueContainer)
         containerView.addSubview(rightArrow)
         
+        iconImageView.layer.cornerRadius = 8
+        iconImageView.layer.cornerCurve = .continuous
+        iconImageView.clipsToBounds = true
+        
         valueContainer.isTapToRevealEnabled = false
         
         let titleLabelLeadingConstraint = labelStack.leadingAnchor.constraint(equalTo: leadingGuide.trailingAnchor)

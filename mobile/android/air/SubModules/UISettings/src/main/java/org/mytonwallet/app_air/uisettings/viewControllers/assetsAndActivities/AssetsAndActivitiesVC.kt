@@ -11,17 +11,19 @@ import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.LastItemPaddingDecoration
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
+import org.mytonwallet.app_air.uicomponents.helpers.swipeRevealLayout.ViewBinderHelper
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uisettings.viewControllers.assetsAndActivities.cells.AssetsAndActivitiesHeaderCell
 import org.mytonwallet.app_air.uisettings.viewControllers.assetsAndActivities.cells.AssetsAndActivitiesTokenCell
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.EquatableChange
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
+import org.mytonwallet.app_air.walletcontext.utils.diff
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MToken
@@ -43,42 +45,50 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
     override val shouldDisplayBottomBar = true
 
     private val rvAdapter =
-        WRecyclerViewAdapter(WeakReference(this), arrayOf(HEADER_CELL, TOKEN_CELL))
+        WRecyclerViewAdapter(WeakReference(this), arrayOf(HEADER_CELL, TOKEN_CELL)).apply {
+            setHasStableIds(true)
+        }
+
+    private val viewBinderHelper = ViewBinderHelper().apply {
+        setOpenOnlyOne(true)
+    }
 
     private var oldHiddenTokens = ArrayList<Boolean>()
-    private var allTokens = emptyArray<MToken>()
+    private var allTokens = emptyList<MToken>()
         set(value) {
             field = value
             oldHiddenTokens = value.map { it.isHidden() } as ArrayList<Boolean>
         }
 
     private val recyclerView: WRecyclerView by lazy {
-        val rv = WRecyclerView(this)
-        rv.adapter = rvAdapter
-        val layoutManager = LinearLayoutManagerAccurateOffset(context)
-        layoutManager.isSmoothScrollbarEnabled = true
-        rv.setLayoutManager(layoutManager)
-        rv.addItemDecoration(
-            LastItemPaddingDecoration(
-                navigationController?.getSystemBars()?.bottom ?: 0
+        WRecyclerView(this).apply {
+            adapter = rvAdapter
+            val layoutManager = LinearLayoutManagerAccurateOffset(context)
+            layoutManager.isSmoothScrollbarEnabled = true
+            setLayoutManager(layoutManager)
+            addItemDecoration(
+                LastItemPaddingDecoration(
+                    navigationController?.getSystemBars()?.bottom ?: 0
+                )
             )
-        )
-        rv.setItemAnimator(null)
-        rv.addOnScrollListener(object : RecyclerView.OnScrollListener() {
-            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                super.onScrolled(recyclerView, dx, dy)
-                if (dx == 0 && dy == 0)
-                    return
-                updateBlurViews(recyclerView)
-            }
-
-            override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
-                super.onScrollStateChanged(recyclerView, newState)
-                if (recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE)
+            setItemAnimator(null)
+            addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                    super.onScrolled(recyclerView, dx, dy)
+                    if (dx == 0 && dy == 0)
+                        return
                     updateBlurViews(recyclerView)
-            }
-        })
-        rv
+                }
+
+                override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+                    super.onScrollStateChanged(recyclerView, newState)
+                    if (recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE) {
+                        updateBlurViews(recyclerView)
+                        closeAllSwipedCells()
+                    }
+                }
+            })
+        }
     }
 
     override fun setupViews() {
@@ -124,7 +134,7 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
     private fun reloadTokens() {
         allTokens = AccountStore.assetsAndActivityData.getAllTokens().mapNotNull { tokenBalance ->
             TokenStore.getToken(tokenBalance.token)
-        }.toTypedArray()
+        }
     }
 
     override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
@@ -191,12 +201,58 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
 
             1 -> {
                 val token = allTokens[indexPath.row]
-                (cellHolder.cell as AssetsAndActivitiesTokenCell).configure(
+                val cell = cellHolder.cell as AssetsAndActivitiesTokenCell
+                val assetsAndActivityData = AccountStore.assetsAndActivityData
+
+                val isSwipeEnabled = assetsAndActivityData.isTokenRemovable(token.slug)
+
+                if (isSwipeEnabled) {
+                    viewBinderHelper.bind(
+                        cell.swipeRevealLayout,
+                        token.slug
+                    )
+                }
+
+                cell.configure(
                     token,
                     (BalanceStore.getBalances(AccountStore.activeAccountId!!)?.get(token.slug)
                         ?: BigInteger.valueOf(0)),
-                    indexPath.row == allTokens.size - 1
+                    indexPath.row == allTokens.size - 1,
+                    isSwipeEnabled = isSwipeEnabled,
+                    onDeleteToken = if (isSwipeEnabled) {
+                        {
+                            val assetsAndActivityData = AccountStore.assetsAndActivityData
+                            assetsAndActivityData.visibleTokens.removeAll { hiddenSlug ->
+                                hiddenSlug == token.slug
+                            }
+                            assetsAndActivityData.addedTokens.removeAll { hiddenSlug ->
+                                hiddenSlug == token.slug
+                            }
+                            AccountStore.updateAssetsAndActivityData(
+                                assetsAndActivityData,
+                                notify = true
+                            )
+
+                            cell.closeSwipe()
+                            val prevAllTokens = allTokens
+                            reloadTokens()
+                            rvAdapter.applyChanges(prevAllTokens.diff(allTokens, section = 1))
+                        }
+                    } else null
                 )
+            }
+        }
+    }
+
+    private fun closeAllSwipedCells() {
+        for (i in 0 until recyclerView.childCount) {
+            val child = recyclerView.getChildAt(i)
+            val viewHolder = recyclerView.getChildViewHolder(child)
+            if (viewHolder != null) {
+                val cell = (viewHolder as? WCell.Holder)?.cell
+                if (cell is AssetsAndActivitiesTokenCell) {
+                    cell.closeSwipe()
+                }
             }
         }
     }
@@ -214,14 +270,26 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
             }
 
             WalletEvent.AssetsAndActivityDataUpdated -> {
-                val allTokensCount = allTokens.size
+                val prevAllTokens = allTokens
                 reloadTokens()
-                if (allTokensCount != allTokens.size)
-                    rvAdapter.reloadData()
+                rvAdapter.applyChanges(prevAllTokens.diff(allTokens, section = 1))
             }
 
             else -> {}
         }
+    }
+
+    override fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? {
+        when (indexPath.section) {
+            0 -> {
+                return ""
+            }
+
+            1 -> {
+                return allTokens[indexPath.row].slug
+            }
+        }
+        return super.recyclerViewCellItemId(rv, indexPath)
     }
 
 }

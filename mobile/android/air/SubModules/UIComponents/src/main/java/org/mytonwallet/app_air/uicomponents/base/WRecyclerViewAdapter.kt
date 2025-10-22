@@ -172,7 +172,7 @@ class WRecyclerViewAdapter(
         return IndexPath(section, position - offset)
     }
 
-    private fun indexPathToPosition(indexPath: IndexPath): Int {
+    fun indexPathToPosition(indexPath: IndexPath): Int {
         if (_cachedNumberOfSections == null)
             _cachedNumberOfSections = datasource.get()?.recyclerViewNumberOfSections(recyclerView!!)
         var position = 0

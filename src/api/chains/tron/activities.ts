@@ -10,6 +10,7 @@ import isEmptyObject from '../../../util/isEmptyObject';
 import { buildCollectionByKey } from '../../../util/iteratees';
 import { getTokenSlugs } from './util/tokens';
 import { fetchStoredWallet } from '../../common/accounts';
+import { updateActivityMetadata } from '../../common/helpers';
 import { buildTokenSlug, getTokenBySlug } from '../../common/tokens';
 import { NETWORK_CONFIG } from './constants';
 
@@ -163,7 +164,7 @@ function parseRawTrxTransaction(address: string, rawTx: any): ApiTransactionActi
   const type = rawData.contract[0].type === 'TriggerSmartContract' ? 'callContract' : undefined;
   const shouldHide = rawData.contract[0].type === 'TransferAssetContract';
 
-  return {
+  return updateActivityMetadata({
     id: txId,
     kind: 'transaction',
     timestamp,
@@ -177,7 +178,7 @@ function parseRawTrxTransaction(address: string, rawTx: any): ApiTransactionActi
     type,
     shouldHide,
     status: 'completed',
-  };
+  });
 }
 
 async function getTrc20Transactions(
@@ -220,7 +221,7 @@ function parseRawTrc20Transaction(address: string, rawTx: any): ApiTransactionAc
   const normalizedAddress = isIncoming ? fromAddress : toAddress;
   const fee = 0n;
 
-  return {
+  return updateActivityMetadata({
     id: txId,
     kind: 'transaction',
     timestamp,
@@ -232,7 +233,7 @@ function parseRawTrc20Transaction(address: string, rawTx: any): ApiTransactionAc
     normalizedAddress,
     fee,
     status: 'completed',
-  };
+  });
 }
 
 export function mergeActivities(txsBySlug: Record<string, ApiActivity[]>): ApiActivity[] {

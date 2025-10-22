@@ -58,7 +58,6 @@ struct ExploreCategoryRow: View {
 @available(iOS 18, *)
 #Preview {
     ExploreCategoryRow(site: .sampleFeaturedTelegram, openAction: {})
-        .border(.red)
         .padding(20)
 }
 #endif

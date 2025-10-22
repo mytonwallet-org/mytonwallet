@@ -15,6 +15,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
@@ -22,6 +24,7 @@ import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.commonViews.AnimatedKeyValueRowView
 import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
+import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
@@ -92,7 +95,6 @@ class ConfirmNftVC(
             }
         )
         set(_) {}
-    override val shouldDisplayBottomBar = true
 
     private val separatorDrawable: Drawable by lazy {
         SeparatorBackgroundDrawable().apply {
@@ -292,6 +294,12 @@ class ConfirmNftVC(
         }
     }
 
+    private val bottomReversedCornerViewUpsideDown: ReversedCornerViewUpsideDown =
+        ReversedCornerViewUpsideDown(context, scrollView).apply {
+            if (ignoreSideGuttering)
+                setHorizontalPadding(0f)
+        }
+
     private val confirmButton by lazy {
         WButton(
             context,
@@ -310,11 +318,24 @@ class ConfirmNftVC(
         setupNavBar(true)
 
         view.addView(scrollView, ViewGroup.LayoutParams(MATCH_PARENT, 0))
+        view.addView(
+            bottomReversedCornerViewUpsideDown,
+            ConstraintLayout.LayoutParams(
+                MATCH_PARENT,
+                MATCH_CONSTRAINT
+            )
+        )
         view.addView(confirmButton, ViewGroup.LayoutParams(0, 50.dp))
         view.setConstraints {
             toCenterX(scrollView)
             topToBottom(scrollView, navigationBar!!)
             bottomToTop(scrollView, confirmButton, 20f)
+            topToTop(
+                bottomReversedCornerViewUpsideDown,
+                confirmButton,
+                -20f - ViewConstants.BIG_RADIUS
+            )
+            toBottom(bottomReversedCornerViewUpsideDown)
             toBottomPx(
                 confirmButton, 20.dp + max(
                     (navigationController?.getSystemBars()?.bottom ?: 0),

@@ -46,6 +46,10 @@ public extension Sequence {
     }
 }
 
+public func +=<T>(array: inout [T], element: T) {
+    array.append(element)
+}
+
 public extension Array where Element: Identifiable {
     
     func first(id: Element.ID) -> Element? {

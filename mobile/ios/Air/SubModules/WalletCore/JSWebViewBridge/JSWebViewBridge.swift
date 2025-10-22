@@ -604,21 +604,19 @@ extension JSWebViewBridge: WKScriptMessageHandler {
                     }
                     break
                 case "dappLoading":
+                    do {
+                        let update = try JSONSerialization.decode(ApiUpdate.DappLoading.self, from: data)
+                        WalletCoreData.notify(event: .dappLoading(update))
+                    } catch {
+                        log.error("dappLoading: \(error, .public)")
+                    }
                     break
                 case "dappConnect":
-                    guard let accountId = data["accountId"] as? String else {
-                        return
-                    }
-                    if AccountStore.accountId != accountId {
-                        return
-                    }
-                    DispatchQueue.global(qos: .background).async {
-                        do {
-                            let dappConnect = try JSONSerialization.decode(ApiUpdate.DappConnect.self, from: data)
-                            WalletCoreData.notify(event: .dappConnect(request: dappConnect), for: nil)
-                        } catch {
-                            assertionFailure()
-                        }
+                    do {
+                        let dappConnect = try JSONSerialization.decode(ApiUpdate.DappConnect.self, from: data)
+                        WalletCoreData.notify(event: .dappConnect(request: dappConnect))
+                    } catch {
+                        log.error("dappConnect: \(error, .public)")
                     }
                 case "dappConnectComplete":
                     DappsStore.updateDappCount()
@@ -670,6 +668,20 @@ extension JSWebViewBridge: WKScriptMessageHandler {
                     
                 case "incorrectTime":
                     break
+                    
+                case "openUrl":
+                    do {
+                        let update = try JSONSerialization.decode(ApiUpdate.OpenUrl.self, from: data)
+                        if update.isExternal == true && update.url == "tg://resolve" {
+                            DispatchQueue.main.async {
+                                UIApplication.shared.open(URL(string: "tg://resolve")!)
+                            }
+                        }
+                        #warning("TODO: openUrl")
+                        break
+                    } catch {
+                        log.error("openUrl: \(error, .public)")
+                    }
                     
                 default:
                     log.error("UNKNOWN UPDATE DATA TYPE: \(updateType, .public)")

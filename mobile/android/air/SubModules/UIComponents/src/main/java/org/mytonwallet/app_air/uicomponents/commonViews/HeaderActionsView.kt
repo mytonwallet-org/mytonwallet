@@ -37,6 +37,7 @@ class HeaderActionsView(
     context: Context,
     var tabs: List<Item>,
     var onClick: ((Identifier) -> Unit)?,
+    var bottomPadding: Int = 0
 ) : WCell(context), WThemedView {
 
     private var actionViews = HashMap<Identifier, View>()
@@ -45,7 +46,7 @@ class HeaderActionsView(
     private var itemViews = ArrayList<WView>()
 
     init {
-        layoutParams = LayoutParams(MATCH_PARENT, 86.dp).apply {
+        layoutParams = LayoutParams(MATCH_PARENT, 80.dp).apply {
             insetsUpdated()
         }
         layoutDirection = LAYOUT_DIRECTION_LTR
@@ -64,7 +65,7 @@ class HeaderActionsView(
         itemViews.clear()
         fun itemGenerator(item: Item): WView {
             val tabView = WView(context)
-            tabView.setPadding(0, 4.dp, 4, 4.dp)
+            tabView.setPadding(0, 4.dp, 2.dp, bottomPadding)
             val iconView = AppCompatImageView(context)
             iconView.id = generateViewId()
             iconView.setImageDrawable(item.icon)
@@ -77,7 +78,7 @@ class HeaderActionsView(
                     this,
                     8,
                     15,
-                    5,
+                    1,
                     TypedValue.COMPLEX_UNIT_SP
                 )
                 text = item.title
@@ -90,7 +91,7 @@ class HeaderActionsView(
                 toTop(iconView)
                 toStart(iconView)
                 toEnd(iconView)
-                bottomToTop(iconView, label, 6f)
+                bottomToTop(iconView, label, 4f)
             }
             return tabView
         }

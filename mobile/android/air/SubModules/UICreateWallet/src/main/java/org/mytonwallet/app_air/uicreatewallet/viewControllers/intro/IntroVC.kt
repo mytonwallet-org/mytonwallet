@@ -235,7 +235,6 @@ class IntroVC(
         moreInfoButton.addRippleEffect(WColor.BackgroundRipple.color, ViewConstants.BIG_RADIUS.dp)
         checkboxDrawable.checkedColor = WColor.Tint.color
         checkboxDrawable.uncheckedColor = WColor.SecondaryText.color
-        checkboxDrawable.checkmarkColor = Color.WHITE
         termsView.addRippleEffect(WColor.BackgroundRipple.color, 16f.dp)
         updateMoreInfoLabel()
         updateTermsLabel()

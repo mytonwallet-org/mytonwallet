@@ -54,12 +54,9 @@ struct TouchGesture: UIGestureRecognizerRepresentable {
     
     func makeUIGestureRecognizer(context: Context) -> UILongPressGestureRecognizer {
         let gestureRecognizer = UILongPressGestureRecognizer()
-        
-        // Configure the long press gesture
-        gestureRecognizer.minimumPressDuration = 0.0 // Immediate recognition
-        gestureRecognizer.allowableMovement = 40.0 // Allow movement
+        gestureRecognizer.minimumPressDuration = 0.0
+        gestureRecognizer.allowableMovement = 16.0
         gestureRecognizer.delegate = context.coordinator
-        
         return gestureRecognizer
     }
     
@@ -68,8 +65,16 @@ struct TouchGesture: UIGestureRecognizerRepresentable {
         case .began:
             onBegan()
             onChanged(gestureRecognizer)
+            context.coordinator.gestureStart = gestureRecognizer.location(in: nil)
         case .changed:
             onChanged(gestureRecognizer)
+            let position = gestureRecognizer.location(in: nil)
+            if let gestureStart = context.coordinator.gestureStart {
+                let translation = abs(position.x - gestureStart.x) + abs(position.y - gestureStart.y)
+                if translation > 16 {
+                    gestureRecognizer.state = .cancelled
+                }
+            }
         case .ended, .cancelled:
             onEnded()
         default:
@@ -86,6 +91,9 @@ struct TouchGesture: UIGestureRecognizerRepresentable {
     }
     
     class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        
+        var gestureStart: CGPoint?
+        
         // Key method for simultaneous recognition with ScrollView
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
             return true

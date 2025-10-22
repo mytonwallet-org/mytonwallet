@@ -2,6 +2,8 @@ package org.mytonwallet.app_air.uiwidgets.configurations.priceWidget
 
 import android.appwidget.AppWidgetManager
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.view.View.generateViewId
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
@@ -19,6 +21,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uicomponents.widgets.unlockView
 import org.mytonwallet.app_air.uiwidgets.configurations.WidgetConfigurationVC
+import org.mytonwallet.app_air.uiwidgets.configurations.views.WidgetPreviewView
 import org.mytonwallet.app_air.walletbasecontext.WBaseStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
@@ -35,6 +38,7 @@ import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.app_air.walletsdk.methods.SDKApiMethod
 import org.mytonwallet.app_air.widgets.priceWidget.PriceWidget
 import org.mytonwallet.app_air.widgets.priceWidget.PriceWidget.Config
+import org.mytonwallet.app_air.widgets.utils.ImageUtils
 
 class PriceWidgetConfigurationVC(
     context: Context,
@@ -44,6 +48,8 @@ class PriceWidgetConfigurationVC(
     WidgetConfigurationVC(context), WalletCore.EventObserver {
 
     override val shouldDisplayTopBar = false
+
+    private val previewView = WidgetPreviewView(context)
 
     var selectedToken = TokenStore.getToken(TONCOIN_SLUG)
     private val tokenView = object : WTokenSymbolIconView(context) {
@@ -66,7 +72,7 @@ class PriceWidgetConfigurationVC(
             LocaleController.getString("Token"),
             "",
             KeyValueRowView.Mode.PRIMARY,
-            isLast = true,
+            isLast = false,
         ).apply {
             setValueView(tokenView)
             setOnClickListener {
@@ -105,6 +111,7 @@ class PriceWidgetConfigurationVC(
                         ) {
                             selectedPeriod = it
                             periodView.setText(it.localizedLong)
+                            updateWidgetPreview()
                         }
                     },
                     popupWidth = WRAP_CONTENT,
@@ -164,14 +171,18 @@ class PriceWidgetConfigurationVC(
         navigationBar?.setTitleGravity(Gravity.CENTER)
 
         view.apply {
+            addView(previewView, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
             addView(tokenRow, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
             addView(periodViewRow, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
             addView(continueButton, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
+
             setConstraints {
-                topToBottom(tokenRow, navigationBar!!, 16f)
-                toCenterXPx(tokenRow, ViewConstants.HORIZONTAL_PADDINGS.dp)
+                topToBottom(previewView, navigationBar!!)
+                toCenterX(previewView, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
+                topToBottom(tokenRow, previewView, 16f)
+                toCenterX(tokenRow, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
                 topToBottom(periodViewRow, tokenRow)
-                toCenterXPx(periodViewRow, ViewConstants.HORIZONTAL_PADDINGS.dp)
+                toCenterX(periodViewRow, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
                 toCenterX(continueButton, 20f)
                 toBottomPx(
                     continueButton,
@@ -183,17 +194,22 @@ class PriceWidgetConfigurationVC(
         if (TokenStore.tokens.isEmpty()) {
             WalletCore.registerObserver(this)
         }
+
+        updateWidgetPreview()
     }
 
     override fun updateTheme() {
         super.updateTheme()
         view.setBackgroundColor(WColor.SecondaryBackground.color)
-        tokenRow.setBackgroundColor(
+        previewView.setBackgroundColor(
             WColor.Background.color,
-            ViewConstants.BAR_ROUNDS.dp,
-            0f
+            ViewConstants.TOP_RADIUS.dp,
+            ViewConstants.BIG_RADIUS.dp
         )
+        tokenRow.setTopRadius(ViewConstants.BIG_RADIUS.dp)
+        tokenRow.setBackgroundColor(WColor.Background.color)
         periodViewRow.setBackgroundColor(WColor.Background.color, 0f, ViewConstants.BIG_RADIUS.dp)
+        periodViewRow.addRippleEffect(WColor.SecondaryBackground.color)
     }
 
     override fun insetsUpdated() {
@@ -231,6 +247,7 @@ class PriceWidgetConfigurationVC(
                 setOnAssetSelectListener { asset ->
                     selectedToken = TokenStore.getToken(asset.slug)
                     tokenView.setAsset(asset)
+                    updateWidgetPreview()
                 }
             })
     }
@@ -248,5 +265,58 @@ class PriceWidgetConfigurationVC(
 
             else -> {}
         }
+    }
+
+    private fun updateWidgetPreview() {
+        previewView.setWidget(null)
+        val token = selectedToken?.slug
+        val config = Config(
+            selectedToken?.toDictionary()?.apply {
+                if (selectedToken?.slug == TRON_SLUG)
+                    put("color", "#FF3B30")
+            },
+            selectedPeriod,
+            appWidgetMinWidth = WidgetPreviewView.WIDTH,
+            appWidgetMinHeight = WidgetPreviewView.HEIGHT,
+            appWidgetMaxWidth = WidgetPreviewView.WIDTH,
+            appWidgetMaxHeight = WidgetPreviewView.HEIGHT
+        )
+        val baseCurrency = (WBaseStorage.getBaseCurrency() ?: MBaseCurrency.USD).currencyCode
+        SDKApiMethod.Token.PriceChart(
+            config.assetId ?: PriceWidget.DEFAULT_TOKEN,
+            selectedPeriod.value,
+            baseCurrency
+        )
+            .call(object : SDKApiMethod.ApiCallback<Array<Array<Double>>> {
+                override fun onSuccess(result: Array<Array<Double>>) {
+                    ImageUtils.loadBitmapFromUrl(
+                        context,
+                        config.token?.optString("image", ""),
+                        onBitmapReady = { image ->
+                            Handler(Looper.getMainLooper()).post {
+                                if (config.period != selectedPeriod || token != selectedToken?.slug)
+                                    return@post
+                                config.apply {
+                                    cachedChart = result.toList()
+                                    cachedChartDt = System.currentTimeMillis()
+                                    cachedChartCurrency = baseCurrency
+                                }
+                                previewView.setWidget(
+                                    PriceWidget().generateRemoteViews(
+                                        context,
+                                        config,
+                                        WidgetPreviewView.WIDTH,
+                                        WidgetPreviewView.HEIGHT,
+                                        null,
+                                        null
+                                    )
+                                )
+                            }
+                        })
+                }
+
+                override fun onError(error: Throwable) {
+                }
+            })
     }
 }

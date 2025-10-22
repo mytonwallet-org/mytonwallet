@@ -64,6 +64,9 @@ class CheckboxItemView(context: Context, val isEnabledInitially: Boolean) : WVie
     override fun updateTheme() {
         setBackgroundColor(WColor.Background.color, ViewConstants.BIG_RADIUS.dp)
         addRippleEffect(WColor.BackgroundRipple.color, ViewConstants.BIG_RADIUS.dp)
+
+        checkboxDrawable.checkedColor = WColor.Tint.color
+        checkboxDrawable.uncheckedColor = WColor.SecondaryText.color
     }
 
     fun setText(text: CharSequence) {

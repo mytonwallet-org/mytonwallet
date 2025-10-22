@@ -72,7 +72,7 @@ class ConnectedHeaderCell(context: Context) :
             toCenterY(imageView, 16f)
             toStart(imageView, 20f)
             toCenterY(subtitleLabel, 16f)
-            startToEnd(subtitleLabel, imageView, 25f)
+            startToEnd(subtitleLabel, imageView, 24f)
             toEnd(subtitleLabel, 24f)
         }
     }

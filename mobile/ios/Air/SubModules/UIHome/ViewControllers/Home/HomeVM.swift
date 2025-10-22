@@ -22,7 +22,6 @@ private let UPDATING_DELAY = 2
     func changeAccountTo(accountId: String, isNew: Bool) async
     func transactionsUpdated(accountChanged: Bool, isUpdateEvent: Bool)
     func tokensChanged()
-    func forceReload()
     func scrollToTop(animated: Bool)
 }
 
@@ -256,7 +255,6 @@ extension HomeVM: WalletCoreData.EventsObserver {
             break
         case .tokensChanged, .swapTokensChanged:
             dataUpdated()
-            homeVMDelegate?.forceReload()
             break
         case .baseCurrencyChanged:
             baseCurrencyChanged()
@@ -268,7 +266,6 @@ extension HomeVM: WalletCoreData.EventsObserver {
             break
         case .assetsAndActivityDataUpdated:
             dataUpdated()
-            homeVMDelegate?.forceReload()
         case .updatingStatusChanged:
             updateStatus()
         default:

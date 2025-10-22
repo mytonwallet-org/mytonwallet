@@ -25,6 +25,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.children
+import androidx.core.view.doOnLayout
 import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -45,9 +46,7 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
-import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
-import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import java.util.function.Consumer
 import kotlin.math.min
 
@@ -290,13 +289,14 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         })
     }
 
-    private var pendingPresentationNav: WNavigationController? = null
+    var pendingPresentationNav: WNavigationController? = null
+        private set
+
     fun presentOnWalletReady(
         navigationController: WNavigationController
     ): Boolean {
         if (WalletContextManager.delegate?.isWalletReady() != true ||
-            (WalletContextManager.delegate?.isAppUnlocked() != true &&
-                AccountStore.activeAccount?.accountType != MAccount.AccountType.VIEW)
+            WalletContextManager.delegate?.isAppUnlocked() != true
         ) {
             // Should not present anything over lock screen
             pendingPresentationNav = navigationController
@@ -306,6 +306,19 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         return true
     }
 
+    private var pendingTasks: MutableList<() -> Unit>? = null
+    fun doOnWalletReady(task: () -> Unit) {
+        if (WalletContextManager.delegate?.isWalletReady() != true ||
+            WalletContextManager.delegate?.isAppUnlocked() != true
+        ) {
+            if (pendingTasks == null)
+                pendingTasks = mutableListOf()
+            pendingTasks?.add(task)
+            return
+        }
+        task()
+    }
+
     fun presentPendingPresentationNav(): Boolean {
         val pendingPresentationNav = pendingPresentationNav ?: return false
         if (presentOnWalletReady(pendingPresentationNav)) {
@@ -313,6 +326,18 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
             return true
         }
         return false
+    }
+
+    fun doPendingTasks() {
+        if (WalletContextManager.delegate?.isWalletReady() != true ||
+            WalletContextManager.delegate?.isAppUnlocked() != true
+        ) {
+            return
+        }
+        pendingTasks?.forEach {
+            it()
+        }
+        pendingTasks = null
     }
 
     // Called to present a new stack on top of previous ones
@@ -352,7 +377,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         navigationController.y = windowView.bottom.toFloat()
         val wasAnimating = isAnimating
         isAnimating = true
-        navigationController.post {
+        windowView.doOnLayout {
             val shouldPresentFullScreen = !navigationController.presentationConfig.isBottomSheet ||
                 navigationController.viewControllers.firstOrNull()?.isExpandable == true
             val finalY =
@@ -367,7 +392,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
                 removePrevNavigationControllersFromHierarchy()
                 isAnimating = false
                 onCompletion?.invoke()
-                return@post
+                return@doOnLayout
             }
             activeAnimator?.cancel()
             activeAnimator = ValueAnimator.ofInt(

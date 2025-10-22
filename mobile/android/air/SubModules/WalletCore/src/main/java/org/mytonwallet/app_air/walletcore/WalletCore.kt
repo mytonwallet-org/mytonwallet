@@ -12,8 +12,9 @@ import android.os.Looper
 import android.view.ViewGroup
 import androidx.core.view.isVisible
 import com.squareup.moshi.Moshi
+import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setAccentColor
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setNftAccentColor
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -21,6 +22,7 @@ import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
+import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.api.requestDAppList
 import org.mytonwallet.app_air.walletcore.helpers.PoisoningCacheHelper
 import org.mytonwallet.app_air.walletcore.models.MAccount
@@ -28,10 +30,15 @@ import org.mytonwallet.app_air.walletcore.models.MAssetsAndActivityData
 import org.mytonwallet.app_air.walletcore.moshi.MoshiBuilder
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
-import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ActivityStore
 import org.mytonwallet.app_air.walletcore.stores.AddressStore
+import org.mytonwallet.app_air.walletcore.stores.AuthStore
+import org.mytonwallet.app_air.walletcore.stores.BalanceStore
+import org.mytonwallet.app_air.walletcore.stores.ConfigStore
+import org.mytonwallet.app_air.walletcore.stores.DappsStore
+import org.mytonwallet.app_air.walletcore.stores.ExploreHistoryStore
+import org.mytonwallet.app_air.walletcore.stores.IStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
@@ -97,6 +104,11 @@ object WalletCore {
         MoshiBuilder.build()
     }
 
+    val stores = listOf<IStore>(
+        AccountStore, ActivityStore, AddressStore, AuthStore, BalanceStore,
+        ConfigStore, DappsStore, ExploreHistoryStore, NftStore, StakingStore, TokenStore
+    )
+
     var bridge: JSWebViewBridge? = null
         private set
     var activeNetwork = "mainnet"
@@ -150,6 +162,7 @@ object WalletCore {
         PoisoningCacheHelper.clearPoisoningCache()
         AddressStore.loadFromCache(accountId)
         NftStore.loadCachedNfts(accountId)
+        ExploreHistoryStore.loadBrowserHistory(accountId)
         AccountStore.walletVersionsData = null
         AccountStore.updateAssetsAndActivityData(MAssetsAndActivityData(accountId), notify = false)
         val prevAccentColor = WColor.Tint.color
@@ -159,7 +172,6 @@ object WalletCore {
         }
         //WalletContextManager.delegate?.protectedModeChanged()
         notifyEvent(WalletEvent.AccountChanged(accountId = accountId))
-        AirPushNotifications.subscribe(activeAccount)
     }
 
     fun updateAccentColor(accountId: String?) {
@@ -169,7 +181,6 @@ object WalletCore {
                 return
             }
         }
-        setAccentColor(WGlobalStorage.getAccentColorId())
     }
 
     fun switchingToLegacy() {
@@ -183,6 +194,7 @@ object WalletCore {
         WCacheStorage.setInitialScreen(WCacheStorage.InitialScreen.INTRO)
         observers.clear()
         eventObservers.clear()
+        stores.forEach { it.clearCache() }
     }
 
     // Register to observers / Unregister
@@ -204,6 +216,7 @@ object WalletCore {
         context: Context,
         bridgeHostView: ViewGroup,
         forcedRecreation: Boolean,
+        isOnAirApp: Boolean = true,
         onReady: () -> Unit
     ) {
         if (forcedRecreation || bridge == null) {
@@ -217,7 +230,7 @@ object WalletCore {
                 onReady()
             }
         } else {
-            if (bridge!!.parent != bridgeHostView) {
+            if (bridge!!.parent != bridgeHostView && isOnAirApp) {
                 (bridge!!.parent as? ViewGroup)?.removeView(bridge)
                 bridgeHostView.addView(bridge)
             }
@@ -230,6 +243,8 @@ object WalletCore {
     fun destroyBridge() {
         bridge?.destroy()
         bridge = null
+        observers.clear()
+        eventObservers.clear()
     }
 
     val isBridgeReady: Boolean
@@ -414,6 +429,10 @@ object WalletCore {
                 TokenStore.updateCurrencyRates(update)
             }
 
+            is ApiUpdate.ApiUpdateUpdateAccount -> {
+                AccountStore.updateAccountData(update)
+            }
+
             else -> {}
         }
 
@@ -424,4 +443,28 @@ object WalletCore {
             }
     }
 
+    fun ensureAccountActivated(accountId: String, onCompletion: (accountChanged: Boolean) -> Unit) {
+        if (AccountStore.activeAccountId == accountId) {
+            onCompletion(false)
+            return
+        }
+        WalletCore.activateAccount(
+            accountId,
+            notifySDK = true
+        ) { res, err ->
+            if (res == null || err != null) {
+                // Should not happen!
+                Logger.e(
+                    Logger.LogTag.ACCOUNT,
+                    LogMessage.Builder()
+                        .append(
+                            "Activation failed: $err",
+                            LogMessage.MessagePartPrivacy.PUBLIC
+                        ).build()
+                )
+            } else {
+                onCompletion(true)
+            }
+        }
+    }
 }
