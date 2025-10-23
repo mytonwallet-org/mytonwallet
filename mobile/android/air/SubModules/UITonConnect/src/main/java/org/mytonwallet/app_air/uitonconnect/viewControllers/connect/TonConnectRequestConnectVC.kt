@@ -17,7 +17,7 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.helpers.spans.WClickableSpan
+import org.mytonwallet.app_air.uicomponents.helpers.DappWarningPopupHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
@@ -257,37 +257,8 @@ class TonConnectRequestConnectVC(
     }
 
     private fun showUnverifiedSourceWarning() {
-        val update = update ?: return
-
-        val warningText = SpannableStringBuilder()
-        val template = LocaleController.getString("\$reopen_in_iab")
-        val browserButtonText = LocaleController.getString("MyTonWallet Browser")
-        val browserButtonPlaceholder = "%browserButton%"
-
-        val placeholderStart = template.indexOf(browserButtonPlaceholder)
-        if (placeholderStart != -1) {
-            warningText.append(template.substring(0, placeholderStart))
-
-            val buttonStart = warningText.length
-            warningText.append(browserButtonText)
-            val buttonEnd = warningText.length
-
-            val clickableSpan = WClickableSpan(update.dapp.url ?: "", onClick = {
-                openDappInBrowser()
-            })
-            warningText.setSpan(
-                clickableSpan,
-                buttonStart,
-                buttonEnd,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-
-            val placeholderEnd = placeholderStart + browserButtonPlaceholder.length
-            if (placeholderEnd < template.length) {
-                warningText.append(template.substring(placeholderEnd))
-            }
-        } else {
-            warningText.append(template)
+        val warningText = DappWarningPopupHelpers.reopenInIabWarningText {
+            openDappInBrowser()
         }
 
         showAlert(

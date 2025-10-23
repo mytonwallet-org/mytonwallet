@@ -147,7 +147,6 @@ class ConnectRequestView(context: Context) : WView(context), WThemedView, Skelet
             }
             titleTextView.text = dApp.name
             updateLinkText(dApp)
-            linkTextView.text = dApp.host
             dApp.iconUrl?.let { iconUrl ->
                 imageView.set(Content.ofUrl(iconUrl))
             } ?: run {
