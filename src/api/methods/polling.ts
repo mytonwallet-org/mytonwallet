@@ -45,7 +45,7 @@ const INCORRECT_TIME_DIFF = 30 * SEC;
 
 const ACCOUNT_CONFIG_INTERVAL = { focused: MINUTE, notFocused: 10 * MINUTE };
 
-const MAX_POST_TOKENS = 1000;
+const MAX_POST_TOKENS = 1500;
 
 let onUpdate: OnApiUpdate;
 let stopCommonBackendPolling: NoneToVoidFunction | undefined;
@@ -119,8 +119,11 @@ async function tryUpdateTokens() {
     await tokensPreload.promise;
     const tokensCache = getTokensCache();
 
+    const backendReturnedSlugs = new Set(tokens.map((t) => t.slug));
     const nonBackendTokenAddresses = Object.values(tokensCache.bySlug).reduce((result, token) => {
-      if (!token.isFromBackend && token.tokenAddress) {
+      // Retrieve details for tokens that are not returned by /assets anymore
+      // (i.e. rug pulled and therefore disabled on the backend)
+      if ((!token.isFromBackend || !backendReturnedSlugs.has(token.slug)) && token.tokenAddress) {
         result.push(token.tokenAddress);
       }
       return result;

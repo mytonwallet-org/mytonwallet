@@ -13,6 +13,7 @@ import WalletContext
     static func setSensitiveDataIsHidden(_ newValue: Bool)
     static func shareUrl(_ url: URL)
     static func showActivityDetails(accountId: String, activity: ApiActivity)
+    static func showAddToken()
     static func showAddWallet(showCreateWallet: Bool, showSwitchToOtherVersion: Bool)
     static func showAssets(selectedTab: Int, collectionsFilter: NftCollectionFilter) -> ()
     static func showBuyWithCard(chain: ApiChain?, push: Bool?)
@@ -49,6 +50,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func setSensitiveDataIsHidden(_ newValue: Bool) { }
     static func shareUrl(_ url: URL) { }
     static func showActivityDetails(accountId: String, activity: ApiActivity) { }
+    static func showAddToken() { }
     static func showAddWallet(showCreateWallet: Bool, showSwitchToOtherVersion: Bool) { }
     static func showAssets(selectedTab: Int, collectionsFilter: NftCollectionFilter) -> () { }
     static func showBuyWithCard(chain: ApiChain?, push: Bool?) { }

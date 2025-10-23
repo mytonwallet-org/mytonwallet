@@ -152,19 +152,27 @@ class EarnHeaderCell: UITableViewCell, WThemedView {
     }
     
     private func updateUnstakingInfo() {
-        guard let unstakingAt else {return}
-        let unstakingAtString = lang("You will receive your unstaked deposit in %1$@.", arg1: unstakingAt.remainingFromNow)
-        yourBalanceHintLabel.text = lang("Your staking balance") + "\n" + unstakingAtString
+        guard let stakingConfig,
+              let stakingState = stakingConfig.stakingState,
+              let unstakingAt = stakingConfig.unstakeTime,
+              let amnt = stakingState.unstakeRequestAmount, amnt > 0 else { return }
+        let time = unstakingAt.remainingFromNow
+        if stakingState.type == .ethena {
+            let amount = TokenAmount(amnt, stakingConfig.baseToken).formatted(maxDecimals: 4)
+            yourBalanceHintLabel.text = lang("$unstaking_when_receive_with_amount_ethena", arg1: amount, arg2: time)
+        } else if stakingState.type == .nominators {
+            yourBalanceHintLabel.text = lang("$unstaking_when_receive", arg1: time)
+        }
         layoutIfNeeded()
     }
     
     private weak var earnVC: EarnVC? = nil
-    private var unstakingAt: Date? = nil
+    private var stakingConfig: StakingConfig? = nil
     private var timer: Timer? = nil
     
     func configure(config: StakingConfig, delegate: EarnVC) {
         let token = config.baseToken
-        if let state = config.stakingState {
+        if config.stakingState != nil {
             let stakingBalance = config.fullStakingBalance ?? 0
             amountLabel.attributedText = TokenAmount(stakingBalance, token).formatAttributed(
                 format: .init(maxDecimals: 4),
@@ -176,8 +184,8 @@ class EarnHeaderCell: UITableViewCell, WThemedView {
                 symbolColor: WTheme.secondaryLabel
             )
             unstakeButton.isHidden = stakingBalance == 0
-            self.unstakingAt = config.unstakeTime
-            if let amount = config.stakingState?.unstakeRequestAmount, amount > 0, let unstakingAt {
+            self.stakingConfig = config
+            if let amount = config.stakingState?.unstakeRequestAmount, amount > 0, let unstakingAt = config.unstakeTime {
                 if unstakingAt > Date() {
                     self.updateUnstakingInfo()
                     if timer == nil {

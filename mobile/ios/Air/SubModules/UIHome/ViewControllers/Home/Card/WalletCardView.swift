@@ -190,6 +190,7 @@ public class WalletCardView: WTouchPassView {
             Color.clear.contentShape(.rect)
                 .menuSource(isEnabled: true, menuContext: menuContext)
                 .task {
+                    self.menuContext.minWidth = 250
                     self.menuContext.makeConfig = { [menuContext = self.menuContext] in
                         currencyMenu(menuContext: menuContext)
                     }

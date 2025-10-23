@@ -561,6 +561,21 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         return true
     }
 
+    fun dismissToRoot() {
+        val prevNavigationControllers = ArrayList(navigationControllers)
+        for (i in 1 until prevNavigationControllers.size - 1) {
+            val nav = prevNavigationControllers[i]
+            if (nav.parent == null)
+                dismissNav(i)
+            else
+                break
+        }
+        if (navigationControllers.size > 1)
+            dismissLastNav {
+                dismissToRoot()
+            }
+    }
+
     // Detach a navigation controller from the window, to use somewhere else!
     fun detachLastNav() {
         val overlay = navigationControllerOverlays.lastOrNull()

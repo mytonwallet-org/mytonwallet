@@ -15,7 +15,6 @@ interface WalletContextManagerDelegate {
         mode: WordCheckMode
     ): Any
 
-    fun getTabsVC(): Any
     fun themeChanged()
     fun protectedModeChanged()
     fun lockScreen()

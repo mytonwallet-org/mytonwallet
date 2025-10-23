@@ -32,6 +32,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -239,6 +240,11 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
         val token = transaction.token
         val timeStr = transaction.dt.formatTime()
         val builder = SpannableStringBuilder()
+        if (transaction.status == ApiTransactionStatus.FAILED) {
+            builder.append(
+                LocaleController.getString("Failed · ")
+            )
+        }
         if (transaction.shouldShowTransactionAddress) {
             builder.append(
                 LocaleController.getString(

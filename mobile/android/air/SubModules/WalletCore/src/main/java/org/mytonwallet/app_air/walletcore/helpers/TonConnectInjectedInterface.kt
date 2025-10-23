@@ -8,15 +8,19 @@ import android.view.View.OnTouchListener
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.inject.DAppInject
+import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import java.security.SecureRandom
 
 class TonConnectInjectedInterface(
     val webView: WebView,
     val accountId: String,
-    val uri: Uri
+    val uri: Uri,
+    val showError: (error: String) -> Unit
 ) {
     val origin = uri.scheme + "://" + uri.host
     private val dApp =
@@ -93,6 +97,14 @@ class TonConnectInjectedInterface(
                 val version = args.getInt(0)
                 val request = args.getJSONObject(1)
                 if (version > TonConnectHelper.deviceInfo.maxProtocolVersion) {
+                    return
+                }
+                if (AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW) {
+                    LocaleController.getString("Action is not possible on a view-only wallet.")
+                        .let { error ->
+                            showError(error)
+                            sendInvokeError(error)
+                        }
                     return
                 }
 

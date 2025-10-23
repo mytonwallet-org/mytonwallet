@@ -72,6 +72,7 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MFee
+import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
@@ -255,8 +256,6 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
             } else {
                 commentLabel.text = transaction.comment
             }
-            v.background =
-                if (transaction.isIncoming) IncomingCommentDrawable() else OutgoingCommentDrawable()
             if (transaction.isIncoming)
                 v.setPaddingDpLocalized(18, 6, 12, 6)
             else
@@ -683,6 +682,7 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
         super.updateTheme()
 
         updateBackground()
+        reloadCommentView()
         if (ThemeManager.uiMode.hasRoundedCorners) {
             headerView.setBackgroundColor(WColor.Background.color, ViewConstants.BIG_RADIUS.dp)
             transactionDetails.setBackgroundColor(
@@ -754,6 +754,7 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
             transaction = this@TransactionVC.transaction
             reloadData()
         }
+        reloadCommentView()
         actionsView.resetTabs(generateActions())
         calcFee(transaction)?.let { fee ->
             feeRow?.setValue(
@@ -762,6 +763,21 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
             )
         } ?: run {
             loadActivityDetails()
+        }
+    }
+
+    private fun reloadCommentView() {
+        (transaction as? MApiTransaction.Transaction)?.let { transaction ->
+            if (!transaction.hasComment)
+                return@let
+            commentView.background =
+                (if (transaction.isIncoming) IncomingCommentDrawable() else OutgoingCommentDrawable()).apply {
+                    if (transaction.status == ApiTransactionStatus.FAILED)
+                        setBubbleColor(WColor.Red.color.colorWithAlpha(38))
+                }
+            commentLabel.setTextColor(
+                if (transaction.status == ApiTransactionStatus.FAILED) WColor.Red else WColor.White
+            )
         }
     }
 
@@ -1047,7 +1063,11 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
             }
         }
 
-        window?.present(navVC)
+        window?.present(navVC, onCompletion = {
+            window?.navigationControllers?.size?.let { size ->
+                window?.dismissNav(size - 2)
+            }
+        })
     }
 
     private fun sharePressed() {

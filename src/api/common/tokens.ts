@@ -79,11 +79,15 @@ function mergeTokenWithCache(
       ...omitUndefined(token.isFromBackend ? token : cachedToken),
       priceUsd: token.priceUsd ?? cachedToken.priceUsd,
       percentChange24h: token.percentChange24h ?? cachedToken.percentChange24h,
+      // For the scenario where the token was cached previously, but now it's disabled
+      ...omitUndefined((detailsBySlug[token.slug] as ApiTokenDetails | undefined) ?? {}),
+      ...(token.slug in detailsBySlug && { isFromBackend: undefined }),
     };
   } else if (token.slug in detailsBySlug) {
     return {
       ...token,
       ...detailsBySlug[token.slug],
+      isFromBackend: undefined,
     };
   } else {
     return {

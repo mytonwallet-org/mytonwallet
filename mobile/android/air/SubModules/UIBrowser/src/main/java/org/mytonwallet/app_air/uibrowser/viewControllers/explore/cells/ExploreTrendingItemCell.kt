@@ -5,26 +5,23 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.text.TextUtils
-import android.view.Gravity
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
+import org.mytonwallet.app_air.uicomponents.widgets.WFadedEdgeView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.models.MExploreSite
-
 
 @SuppressLint("ViewConstructor")
 class ExploreTrendingItemCell(
@@ -52,7 +49,7 @@ class ExploreTrendingItemCell(
     }
 
     private val thumbImageView = WCustomImageView(context).apply {
-        defaultRounding = Content.Rounding.Radius(22f.dp)
+        defaultRounding = Content.Rounding.Radius(12f.dp)
         site.iconUrl?.let {
             set(Content.ofUrl(it))
         }
@@ -68,7 +65,7 @@ class ExploreTrendingItemCell(
     }
 
     private val subtitleLabel = WLabel(context).apply {
-        setStyle(12f, WFont.Medium)
+        setStyle(13f, WFont.Medium)
         text = site.description
         maxLines = 2
         ellipsize = TextUtils.TruncateAt.END
@@ -86,49 +83,34 @@ class ExploreTrendingItemCell(
 
     private val bottomBlurView = WBlurryBackgroundView(
         context,
-        fadeSide = null,
+        fadeSide = WBlurryBackgroundView.Side.TOP,
         overrideBlurRadius = 30f
     ).apply {
         setupWith(this@ExploreTrendingItemCell)
-        setOverlayColor(WColor.Black, 130)
+        setOverlayColor(WColor.Transparent, 130)
     }
 
-    private val openButtonRipple = WRippleDrawable.create(16f.dp)
-    private val openButton = WLabel(context).apply {
-        setStyle(16f, WFont.SemiBold)
-        text =
-            LocaleController.getString("Open")
-        gravity = Gravity.CENTER
-        background = openButtonRipple
-        setPadding(12.dp, 0, 12.dp, 0)
-        setOnClickListener {
-            onSiteTap(site)
-        }
+    private val bottomBlurContainerView = WFadedEdgeView(context).apply {
+        id = generateViewId()
+        addView(bottomBlurView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
     }
 
     private val bottomView = WView(context).apply {
         setBackgroundColor(Color.TRANSPARENT, 0f, 22f.dp, true)
-        addView(bottomBlurView, ViewGroup.LayoutParams(0, 0))
+        addView(bottomBlurContainerView, ViewGroup.LayoutParams(0, 0))
         if (site.extendedIcon.isNotBlank()) {
             addView(thumbImageView, ViewGroup.LayoutParams(48.dp, 48.dp))
-            addView(openButton, ViewGroup.LayoutParams(WRAP_CONTENT, 32.dp))
         }
         addView(textsContainerView, ViewGroup.LayoutParams(0, WRAP_CONTENT))
 
         setConstraints {
-            allEdges(bottomBlurView)
-            toStart(thumbImageView, 20f)
+            allEdges(bottomBlurContainerView)
+            toStart(thumbImageView, 16f)
             toCenterY(thumbImageView)
             toCenterY(textsContainerView)
             toCenterX(textsContainerView)
-            toStart(textsContainerView, if (site.extendedIcon.isNotBlank()) 78f else 8f)
-            if (site.extendedIcon.isNotBlank()) {
-                toEnd(openButton, 20f)
-                toCenterY(openButton)
-                endToStart(textsContainerView, openButton, 4f)
-            } else {
-                toEnd(textsContainerView, 8f)
-            }
+            toStart(textsContainerView, if (site.extendedIcon.isNotBlank()) 75f else 12f)
+            toEnd(textsContainerView, 12f)
         }
     }
 
@@ -142,7 +124,7 @@ class ExploreTrendingItemCell(
 
     private val contentView = WView(context).apply {
         addView(imageView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
-        addView(bottomView, ViewGroup.LayoutParams(MATCH_PARENT, 60.dp))
+        addView(bottomView, ViewGroup.LayoutParams(MATCH_PARENT, 80.dp))
 
         setConstraints {
             allEdges(imageView)
@@ -182,11 +164,6 @@ class ExploreTrendingItemCell(
     override fun updateTheme() {
         titleLabel.setTextColor(Color.WHITE)
         subtitleLabel.setTextColor(Color.WHITE.colorWithAlpha(153))
-        openButton.setTextColor(WColor.White)
-        openButtonRipple.apply {
-            backgroundColor = Color.WHITE.colorWithAlpha(25)
-            rippleColor = Color.WHITE.colorWithAlpha(50)
-        }
         if (site.withBorder) {
             val border = GradientDrawable()
             border.setColor(WColor.Tint.color)

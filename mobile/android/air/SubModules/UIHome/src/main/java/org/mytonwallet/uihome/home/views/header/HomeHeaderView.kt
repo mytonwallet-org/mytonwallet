@@ -111,7 +111,7 @@ class HomeHeaderView(
 
     // Views ///////////////////////////////////////////////////////////////////////////////////////
     private val cardView = WalletCardView(window)
-    private val balanceView = WBalanceView(context, false, -1f).apply {
+    private val balanceView = WBalanceView(context, false).apply {
         setStyle(52f, 38f, WFont.NunitoExtraBold)
         setTextColor(WColor.PrimaryText.color, WColor.Decimals.color)
         clipChildren = false
@@ -578,6 +578,7 @@ class HomeHeaderView(
                 ((expandProgress - 0.9f) / 0.1f).coerceIn(0f, 1f)
         cardView.mintIcon.alpha = cardView.addressLabelContainer.alpha
         cardView.walletTypeView.alpha = cardView.addressLabelContainer.alpha
+        cardView.exploreButton.alpha = cardView.addressLabelContainer.alpha
     }
 
     private fun layoutBalance() {

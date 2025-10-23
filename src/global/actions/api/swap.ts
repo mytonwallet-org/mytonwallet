@@ -36,6 +36,7 @@ import { fromDecimal, roundDecimal, toDecimal } from '../../../util/decimals';
 import { canAffordSwapEstimateVariant, shouldSwapBeGasless } from '../../../util/fee/swapFee';
 import generateUniqueId from '../../../util/generateUniqueId';
 import { buildCollectionByKey, pick } from '../../../util/iteratees';
+import { logDebugError } from '../../../util/logs';
 import { callActionInMain, callActionInNative } from '../../../util/multitab';
 import { pause, waitFor } from '../../../util/schedulers';
 import { findNativeToken, getChainBySlug, getIsTonToken, getNativeToken } from '../../../util/tokens';
@@ -570,9 +571,18 @@ async function estimateDexSwap(global: GlobalState): Promise<SwapEstimateResult>
 
   global = getGlobal();
 
-  if (!estimate || 'error' in estimate) {
-    const errorType = SERVER_ERRORS_MAP[estimate?.error as keyof typeof SERVER_ERRORS_MAP]
+  if (!estimate || 'error' in estimate || 'errors' in estimate) {
+    const errorText = estimate === undefined
+      ? undefined
+      : 'error' in estimate
+        ? estimate.error
+        : 'errors' in estimate
+          ? (estimate.errors as { msg: string }[]).map(({ msg }) => msg).join(', ')
+          : undefined;
+    const errorType = SERVER_ERRORS_MAP[errorText as keyof typeof SERVER_ERRORS_MAP]
       ?? SwapErrorType.UnexpectedError;
+
+    logDebugError('estimateDexSwap', errorText, estimate);
 
     return {
       ...getSwapEstimateResetParams(global),

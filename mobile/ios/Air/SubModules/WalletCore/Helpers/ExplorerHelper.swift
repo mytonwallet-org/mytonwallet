@@ -76,11 +76,15 @@ public final class ExplorerHelper {
     }
     
     public static func websitesForToken(_ token: ApiToken) -> [Website] {
-        return [
-            Website(title: "CoinMarketCap", address: URL(string: "https://coinmarketcap.com/currencies/\(token.name.lowercased())")!),
+        var websites: [Website] = []
+        if let cmcSlug = token.cmcSlug {
+            websites += Website(title: "CoinMarketCap", address: URL(string: "https://coinmarketcap.com/currencies/\(cmcSlug)")!)
+        }
+        websites += [
             Website(title: "CoinGecko", address: URL(string: "https://www.coingecko.com/coins/\(token.name.lowercased())")!),
             Website(title: "GeckoTerminal", address: URL(string: "https://www.geckoterminal.com/?q=\(token.symbol.lowercased())")!),
             Website(title: "DEX Screener", address: URL(string: "https://dexscreener.com/search?q=\(token.name.lowercased())")!),
         ]
+        return websites
     }
 }

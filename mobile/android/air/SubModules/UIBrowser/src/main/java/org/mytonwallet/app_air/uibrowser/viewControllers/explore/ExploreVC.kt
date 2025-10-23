@@ -15,11 +15,11 @@ import androidx.recyclerview.widget.RecyclerView
 import org.mytonwallet.app_air.uibrowser.viewControllers.explore.cells.ExploreCategoryCell
 import org.mytonwallet.app_air.uibrowser.viewControllers.explore.cells.ExploreCategoryTitleCell
 import org.mytonwallet.app_air.uibrowser.viewControllers.explore.cells.ExploreConnectedCell
+import org.mytonwallet.app_air.uibrowser.viewControllers.explore.cells.ExploreTitleCell
 import org.mytonwallet.app_air.uibrowser.viewControllers.explore.cells.ExploreTrendingCell
 import org.mytonwallet.app_air.uibrowser.viewControllers.exploreCategory.ExploreCategoryVC
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchVC
 import org.mytonwallet.app_air.uicomponents.R
-import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -55,26 +55,21 @@ class ExploreVC(context: Context) : WViewController(context),
     override val ignoreSideGuttering: Boolean = true
 
     companion object {
-        val EXPLORE_TITLE_CELL = WCell.Type(1)
-        val EXPLORE_CONNECTED_ROW_CELL = WCell.Type(2)
-        val EXPLORE_TRENDING_CELL = WCell.Type(3)
-        val EXPLORE_CATEGORY_CELL = WCell.Type(4)
+        val EXPLORE_HEADER_CELL = WCell.Type(1)
+        val EXPLORE_TITLE_CELL = WCell.Type(2)
+        val EXPLORE_CONNECTED_ROW_CELL = WCell.Type(3)
+        val EXPLORE_TRENDING_CELL = WCell.Type(4)
+        val EXPLORE_CATEGORY_CELL = WCell.Type(5)
 
-        const val SECTION_CONNECTED = 0
-        const val SECTION_TRENDING = 1
-        const val SECTION_ALL = 2
+        const val SECTION_HEADER = 0
+        const val SECTION_CONNECTED = 1
+        const val SECTION_TRENDING = 2
+        const val SECTION_ALL = 3
 
         private const val PADDING = 4
     }
 
-    override var title: String?
-        get() {
-            return LocaleController.getString("Explore")
-        }
-        set(_) {
-        }
-
-    override val shouldDisplayTopBar = true
+    override val shouldDisplayTopBar = false
 
     private val exploreVM by lazy {
         ExploreVM(this)
@@ -84,6 +79,7 @@ class ExploreVC(context: Context) : WViewController(context),
         WRecyclerViewAdapter(
             WeakReference(this),
             arrayOf(
+                EXPLORE_HEADER_CELL,
                 EXPLORE_TITLE_CELL,
                 EXPLORE_CONNECTED_ROW_CELL,
                 EXPLORE_TRENDING_CELL,
@@ -130,6 +126,13 @@ class ExploreVC(context: Context) : WViewController(context),
                 if (dx == 0 && dy == 0)
                     return
                 updateBlurViews(recyclerView)
+                if (recyclerView.computeVerticalScrollOffset() > 40.dp) {
+                    setNavTitle(LocaleController.getString("Explore"))
+                    setTopBlur(true, animated = true)
+                } else {
+                    setNavTitle("")
+                    setTopBlur(false, animated = true)
+                }
             }
         })
         rv.clipToPadding = false
@@ -145,10 +148,10 @@ class ExploreVC(context: Context) : WViewController(context),
     override fun setupViews() {
         super.setupViews()
 
-        setNavTitle(LocaleController.getString("Explore"))
         setupNavBar(true)
-        navigationBar?.titleLabel?.setStyle(20f, WFont.SemiBold)
-        navigationBar?.setTitleGravity(Gravity.CENTER)
+        setTopBlur(visible = false, animated = false)
+        navigationBar?.titleLabel?.setStyle(22f, WFont.Medium)
+        navigationBar?.setTitleGravity(Gravity.START)
 
         view.addView(recyclerView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         view.setConstraints {
@@ -171,7 +174,7 @@ class ExploreVC(context: Context) : WViewController(context),
         val topPadding = (navigationController?.getSystemBars()?.top ?: 0)
         recyclerView.setPadding(
             0,
-            topPadding + WNavigationBar.DEFAULT_HEIGHT.dp,
+            topPadding,
             0,
             PADDING.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
         )
@@ -227,6 +230,12 @@ class ExploreVC(context: Context) : WViewController(context),
             return (view.width - 2 * ViewConstants.HORIZONTAL_PADDINGS.dp - 16.dp) / cols
         }
 
+    private val trendingCellWidth: Int
+        get() {
+            val cols = calculateNoOfColumns()
+            return (view.width - 22.dp) / cols
+        }
+
     override fun onBackPressed(): Boolean {
         (window?.window?.currentFocus as? SwapSearchEditText)?.let {
             it.clearFocus()
@@ -236,7 +245,7 @@ class ExploreVC(context: Context) : WViewController(context),
     }
 
     override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
-        return 3
+        return 4
     }
 
     val catsCount: Int
@@ -256,6 +265,10 @@ class ExploreVC(context: Context) : WViewController(context),
         if (exploreVM.showingExploreCategories == null)
             return 0
         when (section) {
+            SECTION_HEADER -> {
+                return 1
+            }
+
             SECTION_CONNECTED -> {
                 return if (exploreVM.connectedSites.isNullOrEmpty())
                     0
@@ -282,6 +295,8 @@ class ExploreVC(context: Context) : WViewController(context),
         indexPath: IndexPath
     ): WCell.Type {
         return when {
+            indexPath.section == 0 -> EXPLORE_HEADER_CELL
+
             indexPath.row == 0 -> EXPLORE_TITLE_CELL
 
             indexPath.section == SECTION_CONNECTED -> {
@@ -296,6 +311,10 @@ class ExploreVC(context: Context) : WViewController(context),
 
     override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
         return when (cellType) {
+            EXPLORE_HEADER_CELL -> {
+                ExploreTitleCell(context)
+            }
+
             EXPLORE_TITLE_CELL -> {
                 ExploreCategoryTitleCell(context)
             }
@@ -309,7 +328,7 @@ class ExploreVC(context: Context) : WViewController(context),
             }
 
             EXPLORE_TRENDING_CELL -> {
-                ExploreTrendingCell(context, cellWidth) {
+                ExploreTrendingCell(context, trendingCellWidth) {
                     onSiteTap(it)
                 }
             }
@@ -333,6 +352,14 @@ class ExploreVC(context: Context) : WViewController(context),
         indexPath: IndexPath
     ) {
         when (cellHolder.cell) {
+            is ExploreTitleCell -> {
+                (cellHolder.cell as ExploreTitleCell).configure(
+                    LocaleController.getString("Explore"),
+                    38.dp,
+                    48.dp
+                )
+            }
+
             is ExploreTrendingCell -> {
                 (cellHolder.cell as ExploreTrendingCell).configure(exploreVM.showingTrendingSites)
             }
@@ -424,7 +451,7 @@ class ExploreVC(context: Context) : WViewController(context),
     fun search(query: String?, isFocused: Boolean) {
         val searchResult = exploreVM.search(query ?: "")
         val shouldShowSearchScreen =
-            searchResult.hasResult ||
+            !query.isNullOrEmpty() ||
                 (isFocused &&
                     query.isNullOrEmpty() &&
                     !ExploreHistoryStore.exploreHistory?.searchHistory.isNullOrEmpty())

@@ -56,7 +56,7 @@ class ExploreLargeConnectedItemCell(
             toTop(imageView, imagePadding.toFloat())
             topToBottom(titleLabel, imageView, 6f)
             toBottom(titleLabel, 6f)
-            toCenterX(titleLabel, 6f)
+            toCenterX(titleLabel, 1f)
         }
 
         setOnClickListener {
@@ -76,7 +76,7 @@ class ExploreLargeConnectedItemCell(
             }
             titleLabel.text = dApp.name
         } ?: run {
-            imageView.setBackgroundColor(WColor.GroupedBackground.color, 16f.dp)
+            imageView.setBackgroundColor(WColor.Background.color, 16f.dp)
             imageView.scaleType = ImageView.ScaleType.CENTER_INSIDE
             val drawable = ContextCompat.getDrawable(
                 context,

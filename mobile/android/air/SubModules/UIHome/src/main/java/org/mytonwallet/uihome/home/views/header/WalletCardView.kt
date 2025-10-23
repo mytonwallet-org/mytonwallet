@@ -27,7 +27,7 @@ import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.commonViews.WalletTypeView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
 import org.mytonwallet.app_air.uicomponents.helpers.FontManager
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -69,6 +69,7 @@ import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.uihome.R
 import org.mytonwallet.uihome.home.views.UpdateStatusView
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
 @SuppressLint("ViewConstructor")
 class WalletCardView(
@@ -109,7 +110,7 @@ class WalletCardView(
             v3.alpha = 0.6f
             addView(v3)
             setConstraints {
-                toTop(v1, 4f)
+                toTop(v1, 6f)
                 toCenterX(v1)
                 topToTop(v2, v1, 2.5f)
                 toCenterX(v2)
@@ -239,7 +240,7 @@ class WalletCardView(
     val walletTypeView = WalletTypeView(context)
 
     val addressLabelContainer = WView(context).apply {
-        setPaddingDp(4, 0, 4, 0)
+        setPaddingDpLocalized(4, 0, 1, 0)
         addView(addressChain, LayoutParams(16.dp, 16.dp))
         addView(addressLabel, LayoutParams(WRAP_CONTENT, MATCH_PARENT))
         setConstraints {
@@ -250,15 +251,41 @@ class WalletCardView(
             toCenterY(addressLabel)
         }
     }
+
+    private val exploreDrawable =
+        ContextCompat.getDrawable(context, org.mytonwallet.app_air.icons.R.drawable.ic_world)
+    val exploreButton = AppCompatImageView(context).apply {
+        id = generateViewId()
+        setImageDrawable(exploreDrawable)
+        setOnClickListener {
+            val byChain = AccountStore.activeAccount?.byChain
+            val chain = byChain?.keys?.firstOrNull() ?: return@setOnClickListener
+            val blockchain = MBlockchain.valueOf(chain)
+            val address = byChain[chain]?.address
+            address?.let {
+                val walletEvent =
+                    WalletEvent.OpenUrl(
+                        blockchain.explorerUrl(address)
+                    )
+                WalletCore.notifyEvent(walletEvent)
+            }
+        }
+        translationX = (-1f).dp
+    }
+
     val bottomViewContainer = WView(context).apply {
         addView(walletTypeView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(addressLabelContainer, LayoutParams(WRAP_CONTENT, MATCH_PARENT))
+        addView(exploreButton, LayoutParams(17.dp, 17.dp))
         setConstraints {
             toStart(walletTypeView)
             startToEnd(addressLabelContainer, walletTypeView)
-            toEnd(addressLabelContainer)
+            startToEnd(exploreButton, addressLabelContainer)
+            toEnd(exploreButton)
             toCenterY(walletTypeView)
             toCenterY(addressLabelContainer)
+            toTop(exploreButton, 1f)
+            toBottom(exploreButton)
         }
     }
 
@@ -294,8 +321,7 @@ class WalletCardView(
             allEdges(img)
             allEdges(radialGradientView, 1f)
             toCenterX(miniPlaceholders)
-            toTop(miniPlaceholders, 1f)
-            toBottom(miniPlaceholders, 4f)
+            toTop(miniPlaceholders)
             toTop(balanceViewContainer)
             toCenterX(balanceViewContainer)
             toTop(balanceChangeLabel)
@@ -467,6 +493,8 @@ class WalletCardView(
                 if (walletTypeView.isGone) 0f else 6f
             )
         }
+        exploreButton.isGone = AccountStore.activeAccount?.isMultichain == true
+        bottomViewContainer.translationX = if (exploreButton.isGone) 0f else (-0.5f).dp
     }
 
     private fun updateAddressLabel() {
@@ -645,20 +673,25 @@ class WalletCardView(
             20f.dp
         )
         walletTypeView.setColor(secondaryColor.colorWithAlpha(191))
+        exploreDrawable?.setTint(Color.WHITE.colorWithAlpha(191))
+        addressLabelContainer.background = null
+        addressLabelContainer.addRippleEffect(
+            Color.WHITE.colorWithAlpha(25),
+            20f.dp
+        )
+        exploreButton.background = null
+        exploreButton.addRippleEffect(
+            Color.WHITE.colorWithAlpha(25),
+            20f.dp
+        )
     }
 
-    val miniPlaceholdersMaxBottom = 28f.dp
     fun updatePositions(balanceY: Float, expandProgress: Float) {
+        miniPlaceholders.scaleX = 1 + sqrt(expandProgress)
+        miniPlaceholders.scaleX = miniPlaceholders.scaleX
+
         balanceViewContainer.y = balanceY
         balanceChangeLabel.y = balanceY + 74.dp
-
-        val currentBottom = miniPlaceholders.top + miniPlaceholders.height
-        if (currentBottom > miniPlaceholdersMaxBottom) {
-            val offsetNeeded = currentBottom - miniPlaceholdersMaxBottom
-            miniPlaceholders.translationY = -offsetNeeded
-        } else {
-            miniPlaceholders.translationY = 0f
-        }
 
         val scale2 = (28f + 10f * expandProgress) / 38f
         balanceView.setScale(

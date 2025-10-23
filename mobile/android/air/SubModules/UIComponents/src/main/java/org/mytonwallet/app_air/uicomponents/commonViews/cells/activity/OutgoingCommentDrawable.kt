@@ -7,11 +7,11 @@ import android.graphics.Path
 import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 
-class OutgoingCommentDrawable : Drawable() {
+class OutgoingCommentDrawable : Drawable(), ICommentDrawable {
 
     private val paint = Paint().apply {
         color = WColor.OutgoingComment.color
@@ -86,4 +86,10 @@ class OutgoingCommentDrawable : Drawable() {
     }
 
     override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
+
+    override fun setBubbleColor(bubbleColor: Int) {
+        paint.color = bubbleColor
+        invalidateSelf()
+    }
+
 }

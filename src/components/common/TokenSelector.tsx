@@ -167,7 +167,12 @@ function TokenSelector({
     return filterAndSortTokens(tokens, isMultichain, tokenInSlug, pairsBySlug, shouldShowAllPairs);
   }, [pairsBySlug, tokenInSlug, isMultichain, shouldShowAllPairs]);
 
-  const token = useMemo(() => tokenProp ? filterTokens([tokenProp])[0] : undefined, [tokenProp, filterTokens]);
+  const token = useMemo(
+    () => shouldFilter
+      ? tokenProp ? filterTokens([tokenProp])[0] : undefined
+      : tokenProp,
+    [tokenProp, filterTokens, shouldFilter],
+  );
 
   const userTokens = useMemo(
     () => filterSupportedTokens(userTokensProp, shouldHideNotSupportedTokens, availableChains, selectedChains),

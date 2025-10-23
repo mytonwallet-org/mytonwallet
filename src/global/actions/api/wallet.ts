@@ -112,6 +112,10 @@ addActionHandler('addToken', (global, actions, { token }) => {
     deletedSlugs: accountSettings.deletedSlugs?.filter((slug) => slug !== token.slug),
   });
 
+  if (token.tokenAddress) {
+    void callApi('importToken', global.currentAccountId!, token.tokenAddress);
+  }
+
   return global;
 });
 

@@ -25,6 +25,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.moshi.ApiSwapStatus
+import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import java.math.BigInteger
@@ -102,6 +103,7 @@ class ActivityAmountView(context: Context) : FrameLayout(context), WThemedView, 
             if (transaction.type == null && transaction.isIncoming) SensitiveDataMaskView.Skin.GREEN else null
         amountLabel.contentView.setTextColor(
             when {
+                transaction.status == ApiTransactionStatus.FAILED -> WColor.Red.color
                 transaction.type == ApiTransactionType.STAKE -> WColor.Purple.color
                 transaction.type == ApiTransactionType.BURN -> WColor.Red.color
                 (transaction.amount > BigInteger.ZERO) -> WColor.Green.color

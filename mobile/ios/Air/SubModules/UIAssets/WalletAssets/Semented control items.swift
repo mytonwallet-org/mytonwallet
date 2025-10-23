@@ -30,7 +30,7 @@ struct AllNftsItem: View {
                 .frame(width: 12)
                 .padding(.trailing, -12 * distance)
         }
-        .menuSource(isEnabled: isTopLayer && isSelected, menuContext: menuContext)
+        .menuSource(isTapGestureEnabled: isSelected, menuContext: menuContext)
         .task {
             menuContext.makeConfig = {
                 var items: [MenuItem] = []
@@ -145,7 +145,7 @@ struct NftCollectionItem<Content: View>: View {
                 .frame(width: 12)
                 .padding(.trailing, -12 * distance)
         }
-        .menuSource(menuContext: menuContext)
+        .menuSource(isTapGestureEnabled: isSelected, menuContext: menuContext)
         .task {
             menuContext.makeConfig = {
                 var items: [MenuItem] = []
@@ -171,7 +171,8 @@ struct TokensItem<Content: View>: View {
     var content: () -> Content
     
     @EnvironmentObject private var segmentedControl: SegmentedControlModel
-    
+    @Environment(\.segmentedControlItemIsSelected) private var isSelected: Bool
+
     init(menuContext: MenuContext, @ViewBuilder content: @escaping () -> Content) {
         self.menuContext = menuContext
         self.content = content
@@ -179,10 +180,13 @@ struct TokensItem<Content: View>: View {
     
     var body: some View {
         content()
-            .menuSource(menuContext: menuContext)
+            .menuSource(isTapGestureEnabled: isSelected, menuContext: menuContext)
             .task {
                 menuContext.makeConfig = {
                     var items: [MenuItem] = []
+                    items += .button(id: "0-add", title: lang("Add Token"), trailingIcon: .system("plus")) {
+                        AppActions.showAddToken()
+                    }
                     items += .button(id: "0-reorder", title: lang("Reorder"), trailingIcon: .air("MenuReorder26")) {
                         self.segmentedControl.startReordering()
                     }

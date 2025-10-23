@@ -29,32 +29,27 @@ import kotlin.math.roundToInt
 class WBalanceView(
     context: Context,
     private val isScaledLabel: Boolean,
-    private val decimalsVerticalOffset: Float = 0f,
     private val charSize: Int = 46.dp,
 ) : WView(context) {
 
-    private val letterSpacing = 0f
-    private val topMultiplier = if (isScaledLabel) 4 else 3
+    private val topMultiplier = if (isScaledLabel) 4.2f else 3.1f
 
     private val label1: WAnimatedAmountLabel by lazy {
         WAnimatedAmountLabel(context).apply {
             gravity = Gravity.CENTER
-            letterSpacing = this@WBalanceView.letterSpacing
         }
     }
 
     private val label2: WAnimatedAmountLabel by lazy {
         WAnimatedAmountLabel(context).apply {
             gravity = Gravity.CENTER
-            letterSpacing = this@WBalanceView.letterSpacing
         }
     }
 
     private val fullLabel: GradientTextView by lazy {
         GradientTextView(context).apply {
             id = generateViewId()
-            letterSpacing = this@WBalanceView.letterSpacing
-            visibility = INVISIBLE
+            visibility = GONE
         }
     }
 
@@ -75,8 +70,6 @@ class WBalanceView(
             leftToRight(label2, label1)
             toRight(label2)
         }
-        label2.translationX = letterSpacing * 100.dp
-        label2.translationY = decimalsVerticalOffset.dp
     }
 
     fun setStyle(
@@ -254,9 +247,6 @@ class WBalanceView(
         fullLabel.scaleX = scale1
         fullLabel.scaleY = scale1
 
-        label2.translationY =
-            decimalsVerticalOffset - collapseProgress * (label1.textSize - label2.textSize) / 12f
-
         val scaledLabel1Width = label1.width * scale1
         val scaledLabel2Width = label2.width * scale2
         val totalWidth = scaledLabel1Width + scaledLabel2Width
@@ -334,15 +324,10 @@ class WBalanceView(
                 if (isLoading && !isAnimating) return@fadeOut
                 fullLabel.apply {
                     stopLoadingAnimation()
-                    visibility = INVISIBLE
+                    visibility = GONE
                 }
                 isShowingLoadingGradient = false
             }
         }
     }
-
-    val scaledWidth: Int
-        get() {
-            return (label1.width * scale1 + label2.width * scale2).roundToInt()
-        }
 }

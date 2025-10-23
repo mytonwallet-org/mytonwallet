@@ -15692,7 +15692,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Накопленные вознаграждения"
+            "value": "Доход"
           }
         }
       },
@@ -16784,17 +16784,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Все"
-          }
-        }
-      },
-      "extractionState": "manual"
-    },
-    "All Dapps": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "All Dapps"
           }
         }
       },
@@ -25706,17 +25695,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "連接您的 Ledger"
-          }
-        }
-      },
-      "extractionState": "manual"
-    },
-    "Connected": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connected"
           }
         }
       },
@@ -46713,23 +46691,6 @@
       },
       "extractionState": "manual"
     },
-    "Refresh": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Refresh"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Обновить"
-          }
-        }
-      },
-      "extractionState": "manual"
-    },
     "Refunded": {
       "localizations": {
         "en": {
@@ -49201,17 +49162,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "搜尋應用程式或輸入地址"
-          }
-        }
-      },
-      "extractionState": "manual"
-    },
-    "Search or enter address": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Search or enter address"
           }
         }
       },
@@ -64621,6 +64571,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "截至 %1$@"
+          }
+        }
+      },
+      "extractionState": "manual"
+    },
+    "up to %1$@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "up to %1$@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "до %1$@"
           }
         }
       },

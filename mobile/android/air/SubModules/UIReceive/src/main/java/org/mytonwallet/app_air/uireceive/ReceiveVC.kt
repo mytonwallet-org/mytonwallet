@@ -476,14 +476,25 @@ class ReceiveVC(
     }
 
     private fun openBuyWithCard(chain: String) {
-        val baseCurrency = if (ConfigStore.countryCode == "RU")
+        val baseCurrencies = listOfNotNull(
+            MBaseCurrency.USD,
+            MBaseCurrency.EUR,
+            if (chain == MBlockchain.ton.name) MBaseCurrency.RUB else null
+        )
+        val preferredBaseCurrency = if (ConfigStore.countryCode == "RU")
             MBaseCurrency.RUB
         else
             WalletCore.baseCurrency
+        val baseCurrency =
+            if (baseCurrencies.contains(preferredBaseCurrency))
+                preferredBaseCurrency
+            else
+                MBaseCurrency.USD
         receiveViewModel.buyWithCardUrl(chain, baseCurrency) { url ->
             url?.let {
                 openBuyWithCardWebView(
                     chain,
+                    baseCurrencies,
                     url,
                     baseCurrency
                 )
@@ -494,7 +505,12 @@ class ReceiveVC(
         }
     }
 
-    private fun openBuyWithCardWebView(chain: String, url: String, defaultCurrency: MBaseCurrency) {
+    private fun openBuyWithCardWebView(
+        chain: String,
+        baseCurrencies: List<MBaseCurrency>,
+        url: String,
+        defaultCurrency: MBaseCurrency
+    ) {
         val nav = WNavigationController(window!!)
         nav.setRoot(
             InAppBrowserVC(
@@ -505,11 +521,7 @@ class ReceiveVC(
                     title = LocaleController.getString("Buy with Card"),
                     injectTonConnectBridge = false,
                     forceCloseOnBack = true,
-                    options = listOf(
-                        MBaseCurrency.USD,
-                        MBaseCurrency.EUR,
-                        MBaseCurrency.RUB
-                    ).map { baseCurrency ->
+                    options = baseCurrencies.map { baseCurrency ->
                         InAppBrowserConfig.Option(
                             identifier = baseCurrency.currencyCode,
                             title = baseCurrency.currencyName,

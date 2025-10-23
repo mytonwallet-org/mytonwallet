@@ -2,8 +2,10 @@ package org.mytonwallet.app_air.uitonconnect
 
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
+import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uitonconnect.viewControllers.connect.TonConnectRequestConnectVC
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.requestSend.TonConnectRequestSendVC
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.helpers.TonConnectHelper
 import org.mytonwallet.app_air.walletcore.models.MAccount
@@ -35,6 +37,13 @@ class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObse
     }
 
     fun connectStart(link: String) {
+        if (AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW) {
+            window.topViewController?.showAlert(
+                LocaleController.getString("Error"),
+                LocaleController.getString("Action is not possible on a view-only wallet.")
+            )
+            return
+        }
         WalletCore.call(
             ApiMethod.DApp.StartSseConnection(
                 ApiMethod.DApp.StartSseConnection.Request(

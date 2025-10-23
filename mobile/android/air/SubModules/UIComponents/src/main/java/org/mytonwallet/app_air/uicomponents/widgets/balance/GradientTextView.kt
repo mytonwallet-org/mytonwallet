@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.uicomponents.widgets.balance
 import android.animation.ValueAnimator
 import android.animation.ValueAnimator.AnimatorUpdateListener
 import android.content.Context
+import android.graphics.Canvas
 import android.graphics.LinearGradient
 import android.graphics.Matrix
 import android.graphics.Shader
@@ -61,5 +62,13 @@ class GradientTextView(context: Context) : AppCompatTextView(context) {
     fun stopLoadingAnimation() {
         animator.cancel()
         paint.setShader(null)
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        linearGradient?.let {
+            if (paint.shader != it)
+                paint.shader = it
+        }
+        super.onDraw(canvas)
     }
 }

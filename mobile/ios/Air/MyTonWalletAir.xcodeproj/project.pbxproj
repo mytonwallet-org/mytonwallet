@@ -1671,9 +1671,9 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				UIBrowser/BrowserTab/BrowserTabVC.swift,
-				UIBrowser/Explore/Cells/Connected.swift,
-				UIBrowser/Explore/Cells/Featured.swift,
-				UIBrowser/Explore/Cells/Popular.swift,
+				UIBrowser/Explore/Cells/ConnectedDappCell.swift,
+				UIBrowser/Explore/Cells/DappCell.swift,
+				UIBrowser/Explore/Cells/FeaturedDappCell.swift,
 				UIBrowser/Explore/ExploreVC.swift,
 				UIBrowser/Explore/ExploreVM.swift,
 				UIBrowser/Explore/SearchSupport.swift,

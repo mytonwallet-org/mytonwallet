@@ -68,39 +68,33 @@ data class Content(
             showPercentBadge: Boolean = false
         ): Content {
             val blockchain = token.mBlockchain
-            val resId = blockchain?.icon ?: 0
-            val subImageRes = if (alwaysShowChain) resId else 0
+            val chainIconRes = blockchain?.icon ?: 0
+            val subImageRes = if (alwaysShowChain) chainIconRes else 0
+            val isTonOrStake = token.slug == TONCOIN_SLUG || token.slug == STAKE_SLUG
 
-            if (showPercentBadge) {
-                return Content(
-                    image = Image.Url(token.image),
-                    subImageRes = R.drawable.ic_percent,
-                )
-            } else if (token.slug == TONCOIN_SLUG || token.slug == STAKE_SLUG) {
-                return Content(
-                    image = Image.Res(R.drawable.ic_blockchain_ton_128),
-                    subImageRes = subImageRes,
-                )
-            } else if (token.image.isNotBlank()) {
-                return Content(
-                    image = Image.Url(token.image),
-                    subImageRes = subImageRes,
-                )
-            } else if (token.isUsdt) {
-                return Content(
-                    image = Image.Res(R.drawable.ic_coin_usdt_40),
-                    subImageRes = resId,
-                )
-            } else if (resId != 0 && token.slug == blockchain?.nativeSlug) {
-                return Content(
-                    image = Image.Res(resId),
-                    subImageRes = subImageRes,
-                )
-            } else {
-                return Content(
-                    image = Image.Empty,
-                )
+            val mainImage: Image = when {
+                showPercentBadge -> {
+                    if (isTonOrStake) Image.Res(R.drawable.ic_blockchain_ton_128)
+                    else Image.Url(token.image)
+                }
+
+                isTonOrStake -> Image.Res(R.drawable.ic_blockchain_ton_128)
+                token.image.isNotBlank() -> Image.Url(token.image)
+                token.isUsdt -> Image.Res(R.drawable.ic_coin_usdt_40)
+                chainIconRes != 0 && token.slug == blockchain?.nativeSlug -> Image.Res(chainIconRes)
+                else -> Image.Empty
             }
+
+            val finalSubImageRes = when {
+                showPercentBadge -> R.drawable.ic_percent
+                token.isUsdt -> chainIconRes
+                else -> subImageRes
+            }
+
+            return Content(
+                image = mainImage,
+                subImageRes = finalSubImageRes
+            )
         }
 
         fun chain(chain: MBlockchain) = Content(image = Image.Res(chain.icon))

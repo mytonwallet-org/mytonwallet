@@ -22,6 +22,7 @@ import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
+import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
@@ -43,6 +44,7 @@ class IconView(
     private val gradientDrawableCache = mutableMapOf<String, GradientDrawable>()
     private val transactionGradientCache = mutableMapOf<ApiTransactionType?, GradientDrawable>()
     private val swapGradientCache = mutableMapOf<MApiTransaction.UIStatus, GradientDrawable>()
+    private var failedTransactionDrawable: GradientDrawable? = null
 
     init {
         isFocusable = false
@@ -109,7 +111,12 @@ class IconView(
         activityImageView.set(
             Content(
                 image = Content.Image.Res(iconRes),
-                subImageRes = 0,
+                subImageRes = if (transaction.status == ApiTransactionStatus.FAILED) {
+                    if (ThemeManager.isDark)
+                        R.drawable.ic_failed_dark
+                    else
+                        R.drawable.ic_failed
+                } else 0,
                 subImageAnimation = subImageAnimation,
                 scaleType = ScalingUtils.ScaleType.FIT_X
             )
@@ -200,6 +207,12 @@ class IconView(
     }
 
     private fun getCachedTransactionGradientDrawable(transaction: MApiTransaction.Transaction): GradientDrawable {
+        if (transaction.status == ApiTransactionStatus.FAILED) {
+            if (failedTransactionDrawable == null) {
+                failedTransactionDrawable = GradientDrawables.redDrawable
+            }
+            return failedTransactionDrawable!!
+        }
         return transactionGradientCache.getOrPut(transaction.type) {
             getTransactionGradientDrawable(transaction.type, transaction.isIncoming)
         }
@@ -269,5 +282,6 @@ class IconView(
         gradientDrawableCache.clear()
         transactionGradientCache.clear()
         swapGradientCache.clear()
+        failedTransactionDrawable = null
     }
 }

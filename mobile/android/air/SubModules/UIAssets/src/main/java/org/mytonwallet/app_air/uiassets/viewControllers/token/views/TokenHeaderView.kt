@@ -122,7 +122,7 @@ class TokenHeaderView(
         chainSizeGap = 2f.dp
     }
 
-    private val balanceContentView = WBalanceView(context, true, -1f).apply {
+    private val balanceContentView = WBalanceView(context, true).apply {
         setStyle(36f, 28f, WFont.NunitoExtraBold)
         clipChildren = false
         clipToPadding = false
@@ -210,15 +210,13 @@ class TokenHeaderView(
             if (dy < 0) 126.dp - dy else
                 ((-64.5f).dp + (1 - collapseProgress) * 190.5f.dp).roundToInt()
         balanceView.layoutParams = balanceLayoutParams
-        balanceView.post {
-            balanceContentView.setScale(
-                (18 + 18 * (1 - collapseProgress)) / 36f,
-                (18 + 10 * (1 - collapseProgress)) / 28f,
-                collapseProgress
-            )
-            balanceView.setMaskPivotYPercent(1f)
-            balanceView.setMaskScale(0.5f + (1 - collapseProgress) / 2f)
-        }
+        balanceContentView.setScale(
+            (18 + 18 * (1 - collapseProgress)) / 36f,
+            (18 + 10 * (1 - collapseProgress)) / 28f,
+            collapseProgress
+        )
+        balanceView.setMaskPivotYPercent(1f)
+        balanceView.setMaskScale(0.5f + (1 - collapseProgress) / 2f)
         val equivalentLabelLayoutParams = equivalentLabel.layoutParams as LayoutParams
         equivalentLabelLayoutParams.topMargin = (collapseProgress * (-19).dp).roundToInt()
         equivalentLabel.scaleX = (14 + 8 * (1 - collapseProgress)) / 22f

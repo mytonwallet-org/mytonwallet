@@ -74,11 +74,17 @@ public final class SegmentedControlModel: ObservableObject {
     }
     
     public func startReordering() {
-        isReordering = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            withAnimation(.smooth(duration: 0.15)) {
+                self.isReordering = true
+            }
+        }
     }
     
     public func stopReordering() {
-        isReordering = false
+        withAnimation(.smooth(duration: 0.15)) {
+            self.isReordering = false
+        }
         Task { await onItemsReordered(self.items) }
     }
 }

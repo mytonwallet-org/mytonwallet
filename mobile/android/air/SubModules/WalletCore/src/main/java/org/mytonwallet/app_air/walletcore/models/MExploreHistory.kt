@@ -8,7 +8,7 @@ data class MExploreHistory(
     val visitedSites: MutableList<VisitedSite> = mutableListOf(),
 ) {
     @JsonClass(generateAdapter = true)
-    data class HistoryItem(val title: String, val visitDate: Long)
+    data class HistoryItem(val title: String, val visitDate: Long?)
 
     @JsonClass(generateAdapter = true)
     data class VisitedSite(

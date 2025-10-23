@@ -37,10 +37,12 @@ func currencyMenu(menuContext: MenuContext) -> MenuConfig {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(bc.name)
                                     .font(.system(size: 17))
+                                    .lineLimit(1)
                                 Text(amount.formatted())
                                     .font(.system(size: 15))
                                     .padding(.bottom, 1)
                                     .foregroundStyle(Color(WTheme.secondaryLabel))
+                                    .lineLimit(1)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             

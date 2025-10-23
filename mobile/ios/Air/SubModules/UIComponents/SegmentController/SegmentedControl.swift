@@ -128,13 +128,10 @@ struct SegmentedControlLayer: View {
                             ns: ns,
                             elementSizes: $elementSizes
                         )
-                        if !topLayer {
-                            Color.clear
-                                .contentShape(.capsule)
-                                .onTapGesture {
-                                    model.onSelect(item)
-                                }
-                        }
+                        .contentShape(.capsule)
+                        .simultaneousGesture(TapGesture().onEnded {
+                            model.onSelect(item)
+                        }, isEnabled: model.selectedItem?.id != item.id)
                     }
                 }
             }
@@ -171,6 +168,5 @@ struct SegmentedControlItemView: View {
         .environment(\.segmentedControlItemIsSelected, isSelected)
         .environment(\.segmentedControlItemDistanceToSelection, distanceToItem)
         .environment(\.segmentedControlItemSelectionIsClose, showAccessory)
-        .allowsHitTesting(isSelected)
     }
 }

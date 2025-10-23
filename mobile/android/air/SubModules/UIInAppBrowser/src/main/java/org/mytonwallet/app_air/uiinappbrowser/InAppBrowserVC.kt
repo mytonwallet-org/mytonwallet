@@ -27,11 +27,13 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
+import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.extensions.asImage
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uiinappbrowser.helpers.IABDarkModeStyleHelpers
 import org.mytonwallet.app_air.uiinappbrowser.views.InAppBrowserTopBarView
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -237,7 +239,13 @@ class InAppBrowserVC(
                 TonConnectInjectedInterface(
                     webView = webView,
                     accountId = AccountStore.activeAccountId!!,
-                    uri = Uri.parse(config.url)!!
+                    uri = Uri.parse(config.url)!!,
+                    showError = { error ->
+                        showAlert(
+                            LocaleController.getString("Error"),
+                            error
+                        )
+                    }
                 )
             } else null
         } catch (t: Throwable) {

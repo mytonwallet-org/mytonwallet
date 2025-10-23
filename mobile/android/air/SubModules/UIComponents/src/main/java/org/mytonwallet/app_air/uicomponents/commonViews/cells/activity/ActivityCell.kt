@@ -20,6 +20,8 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
+import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 
 @SuppressLint("ViewConstructor")
@@ -150,10 +152,20 @@ class ActivityCell(val parentView: View, val withoutTagAndComment: Boolean) :
             commentLabel.setPaddingDpLocalized(18, 6, 12, 6)
             commentLabel.maxWidth = recyclerWidth - 178.dp
         } else {
-            commentContainer.background = OutgoingCommentDrawable()
+            commentContainer.background = OutgoingCommentDrawable().apply {
+                if (transaction.status == ApiTransactionStatus.FAILED)
+                    setBubbleColor(WColor.Red.color.colorWithAlpha(38))
+            }
             commentLabel.setPaddingDpLocalized(12, 6, 18, 6)
             commentLabel.maxWidth = recyclerWidth - 118.dp
         }
+        (commentContainer.background as ICommentDrawable).apply {
+            if (transaction.status == ApiTransactionStatus.FAILED)
+                setBubbleColor(WColor.Red.color.colorWithAlpha(38))
+        }
+        commentLabel.setTextColor(
+            if (transaction.status == ApiTransactionStatus.FAILED) WColor.Red else WColor.White
+        )
 
         updateCommentConstraints(txn.isIncoming)
     }

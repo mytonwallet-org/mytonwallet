@@ -107,7 +107,7 @@ fileprivate struct UnstakeInfoSection: View {
                             .font17h22()
                             .foregroundStyle(Color(WTheme.secondaryLabel))
                         Spacer()
-                        Text("up to \(amnt.formatted(maxDecimals: 0))")
+                        Text(lang("up to %1$@", arg1: amnt.formatted(maxDecimals: 0)))
                     }
                     .padding(.top, -1)
                 }

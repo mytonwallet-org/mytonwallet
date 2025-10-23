@@ -298,10 +298,6 @@ class SplashVC(context: Context) : WViewController(context),
         return WordCheckVC(context, words, initialWordIndices, mode)
     }
 
-    override fun getTabsVC(): WViewController {
-        return TabsVC(context)
-    }
-
     override fun themeChanged() {
         animateThemeChange {
             AirAsFrameworkApplication.initTheme(window!!.applicationContext)
@@ -448,6 +444,11 @@ class SplashVC(context: Context) : WViewController(context),
         }
         handleWalletReadyDeeplinks(deeplink)
     }
+
+    private val tabsVC: TabsVC?
+        get() {
+            return window?.navigationControllers?.firstOrNull()?.viewControllers?.firstOrNull() as? TabsVC
+        }
 
     private fun handleInstantDeeplinks(deeplink: Deeplink) {
         when (deeplink) {
@@ -672,6 +673,10 @@ class SplashVC(context: Context) : WViewController(context),
                 val navVC = WNavigationController(window!!)
                 navVC.setRoot(EarnRootVC(context))
                 window?.present(navVC)
+            }
+
+            is Deeplink.Explore -> {
+                tabsVC?.switchToExplore()
             }
 
             is Deeplink.Url -> {

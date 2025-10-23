@@ -80,7 +80,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
 
     companion object {
         const val ID_HOME = 1
-        const val ID_BROWSER = 2
+        const val ID_EXPLORE = 2
         const val ID_SETTINGS = 3
 
         const val SEARCH_HEIGHT = 48
@@ -125,7 +125,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             .setIcon(R.drawable.ic_home)
         menu.add(
             Menu.NONE,
-            ID_BROWSER,
+            ID_EXPLORE,
             Menu.NONE,
             LocaleController.getString("Explore")
         )
@@ -157,7 +157,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             }
 
             val nav = getNavigationStack(item.itemId)
-            searchVisible.animatedValue = item.itemId == ID_BROWSER
+            searchVisible.animatedValue = item.itemId == ID_EXPLORE
             if (searchView.hasFocus() && !searchVisible.animatedValue)
                 searchView.clearFocus()
 
@@ -189,7 +189,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             }
         }.apply {
             hint =
-                LocaleController.getString("Search or enter address")
+                LocaleController.getString("Search app or enter address")
             isVisible = false
             isEnabled = false
             doOnTextChanged { text, start, before, count ->
@@ -370,7 +370,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             render()
             activeNavigationController?.insetsUpdated()
             // preload other tabs
-            getNavigationStack(ID_BROWSER)
+            getNavigationStack(ID_EXPLORE)
             getNavigationStack(ID_SETTINGS)
         }
 
@@ -487,7 +487,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
                         (window?.systemBars?.bottom ?: 0) -
                         BOTTOM_TABS_LAYOUT_HEIGHT.dp -
                         BOTTOM_TABS_BOTTOM_MARGIN.dp +
-                        (if (bottomNavigationView.selectedItemId == ID_BROWSER) SEARCH_TOP_MARGIN.dp else 0) -
+                        (if (bottomNavigationView.selectedItemId == ID_EXPLORE) SEARCH_TOP_MARGIN.dp else 0) -
                         (if (minimizedNav != null) 56.dp else 0)
                     ).toFloat(), 0f
             )
@@ -512,6 +512,12 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         }
     }
 
+    fun switchToExplore() {
+        navigationController?.popToRoot(false)
+        bottomNavigationView.selectedItemId = ID_EXPLORE
+        window?.dismissToRoot()
+    }
+
     private var cachedExploreVC: ExploreVC? = null
 
     private fun getNavigationStack(id: Int): WNavigationController {
@@ -526,7 +532,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
                     HomeVC(context)
                 }
 
-                ID_BROWSER -> {
+                ID_EXPLORE -> {
                     val b = ExploreVC(context)
                     cachedExploreVC = b
                     b
@@ -760,7 +766,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         val keyboard = keyboardHeight
         val minimizedNavHeight = minimizedNavHeight ?: 0f
         val additionalHeight =
-            ((if (bottomNavigationView.selectedItemId == ID_BROWSER) 56f.dp else 0f) + keyboard + minimizedNavHeight).roundToInt()
+            ((if (bottomNavigationView.selectedItemId == ID_EXPLORE) 56f.dp else 0f) + keyboard + minimizedNavHeight).roundToInt()
         return BOTTOM_TABS_LAYOUT_HEIGHT.dp + BOTTOM_TABS_BOTTOM_MARGIN.dp + BOTTOM_TABS_TOP_MARGIN.dp + additionalHeight +
             (navigationController?.getSystemBars()?.bottom ?: 0)
     }

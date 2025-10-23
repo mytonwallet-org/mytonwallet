@@ -136,6 +136,20 @@ private class AppActionsImpl: AppActionsProtocol {
         }
     }
     
+    static func showAddToken() {
+        let assets = AssetsAndActivityVC()
+        let add = TokenSelectionVC(
+            showMyAssets: false,
+            title: lang("Add Token"),
+            delegate: assets,
+            isModal: true,
+            onlyTonChain: true
+        )
+        let nc = WNavigationController()
+        nc.viewControllers = [assets, add]
+        topViewController()?.present(nc, animated: true)
+    }
+    
     static func showAddWallet(showCreateWallet: Bool, showSwitchToOtherVersion: Bool) {
         let vc = AccountTypePickerVC(showCreateWallet: showCreateWallet, showSwitchToOtherVersion: showSwitchToOtherVersion)
         topViewController()?.present(vc, animated: true)

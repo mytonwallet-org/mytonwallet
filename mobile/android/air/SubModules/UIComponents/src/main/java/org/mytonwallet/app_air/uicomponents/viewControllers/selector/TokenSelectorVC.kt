@@ -171,7 +171,7 @@ class TokenSelectorVC(
             if (tmpAssets.isNotEmpty()) {
                 tmpAssets[tmpAssets.size - 1] =
                     tmpAssets[tmpAssets.size - 1].copy(allowSeparator = false)
-                uiItems.add(TokenItem.Title(LocaleController.getString("My")))
+                uiItems.add(TokenItem.Title(LocaleController.getString("MY")))
                 uiItems.addAll(tmpAssets)
             }
             tmpAssets.clear()

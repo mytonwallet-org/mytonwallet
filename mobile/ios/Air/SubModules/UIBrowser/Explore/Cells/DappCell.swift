@@ -22,12 +22,6 @@ struct DappCell: View {
                 .loadDiskFileSynchronously(false)
                 .aspectRatio(contentMode: .fill)
         }
-        .overlay {
-            if item.withBorder == true {
-                ContainerRelativeShape()
-                    .stroke(Color(WTheme.tint), lineWidth: borderWidth)
-            }
-        }
         .highlightOverlay(isHighlighted)
         .clipShape(.rect(cornerRadius: 16))
         .containerShape(.rect(cornerRadius: 16))

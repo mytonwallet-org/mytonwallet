@@ -41,6 +41,7 @@ sealed class Deeplink {
     data class Receive(override val accountAddress: String?) : Deeplink()
     data class BuyWithCard(override val accountAddress: String?) : Deeplink()
     data class Stake(override val accountAddress: String?) : Deeplink()
+    data class Explore(override val accountAddress: String?) : Deeplink()
     data class Url(
         override val accountAddress: String?,
         val config: InAppBrowserConfig
@@ -204,6 +205,7 @@ class DeeplinkParser {
                 "receive" -> Deeplink.Receive(accountAddress = null)
                 "buy-with-card" -> Deeplink.BuyWithCard(accountAddress = null)
                 "stake" -> Deeplink.Stake(accountAddress = null)
+                "explore" -> Deeplink.Explore(accountAddress = null)
                 "giveaway" -> {
                     val giveawayId = extractId(uri.toString(), "giveaway/([^/]+)")
                     val urlString =

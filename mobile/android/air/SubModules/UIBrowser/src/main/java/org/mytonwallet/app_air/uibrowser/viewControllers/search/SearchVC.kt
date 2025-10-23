@@ -5,6 +5,7 @@ import android.content.Intent
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.core.net.toUri
+import androidx.core.view.isGone
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import org.mytonwallet.app_air.uibrowser.viewControllers.explore.ExploreVM
@@ -20,6 +21,7 @@ import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
@@ -54,6 +56,8 @@ class SearchVC(context: Context) : WViewController(context),
         const val SECTION_SUGGESTIONS = 2
         const val SECTION_DAPPS = 3
         const val SECTION_HISTORY = 4
+
+        const val CLEAR_ALL_BUTTON_TAG = "clearAll"
     }
 
     override var title: String?
@@ -171,11 +175,17 @@ class SearchVC(context: Context) : WViewController(context),
             }
 
             SECTION_RECENT_QUERIES -> {
-                if (searchResult?.keyword.isNullOrEmpty() && !searchResult?.recentSearches.isNullOrEmpty()) 2 + searchResult?.recentSearches!!.size else 0
+                if ((searchResult?.keyword.isNullOrEmpty() && !searchResult?.recentSearches.isNullOrEmpty()) ||
+                    (!searchResult?.keyword.isNullOrEmpty() && searchResult?.noResultsFound == true)
+                ) 2 + searchResult?.recentSearches!!.size else 0
             }
 
             SECTION_SUGGESTIONS -> {
-                if (searchResult?.matchedVisitedSite == null && !searchResult?.keyword.isNullOrEmpty() && !searchResult?.recentSearches.isNullOrEmpty()) 2 + searchResult?.recentSearches!!.size else 0
+                if (searchResult?.matchedVisitedSite == null &&
+                    !searchResult?.keyword.isNullOrEmpty() &&
+                    !searchResult?.recentSearches.isNullOrEmpty() &&
+                    searchResult?.noResultsFound != true
+                ) 2 + searchResult?.recentSearches!!.size else 0
             }
 
             SECTION_DAPPS -> {
@@ -275,6 +285,7 @@ class SearchVC(context: Context) : WViewController(context),
                             ExploreHistoryStore.clearAccountHistory()
                             navigationController?.pop()
                         }
+                        tag = CLEAR_ALL_BUTTON_TAG
                         updateTheme()
                     }
                     addView(clearAllButton)
@@ -355,8 +366,11 @@ class SearchVC(context: Context) : WViewController(context),
 
             SECTION_RECENT_QUERIES -> {
                 if (indexPath.row == 0) {
-                    (cellHolder.cell as HeaderCell).configure(
-                        LocaleController.getString("Recent Searches"),
+                    (cellHolder.cell as HeaderCell).apply {
+                        findViewWithTag<WButton>(CLEAR_ALL_BUTTON_TAG).isGone =
+                            searchResult?.noResultsFound == true
+                    }.configure(
+                        LocaleController.getString(if (searchResult?.noResultsFound == true) "Search in Google" else "Recent Searches"),
                         titleColor = WColor.Tint.color,
                         topRounding = if (rvAdapter.indexPathToPosition(indexPath) == 0) ViewConstants.TOP_RADIUS.dp else ViewConstants.BIG_RADIUS.dp
                     )

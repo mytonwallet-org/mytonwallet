@@ -19,11 +19,11 @@ extension Api {
     }
 
     public static func submitStake(accountId: String, password: String?, amount: BigInt, state: ApiStakingState, realFee: BigInt?) async throws -> String {
-        try await bridge.callApi("submitStake", accountId, password, amount, state, realFee, decoding: LocalTransactionResult.self).txId
+        try await bridge.callApi("submitStake", accountId, password, amount, state, realFee, decoding: ActivityIdResult.self).activityId
     }
     
     public static func submitUnstake(accountId: String, password: String?, amount: BigInt, state: ApiStakingState, realFee: BigInt?) async throws -> String {
-        try await bridge.callApi("submitUnstake", accountId, password, amount, state, realFee, decoding: LocalTransactionResult.self).txId
+        try await bridge.callApi("submitUnstake", accountId, password, amount, state, realFee, decoding: ActivityIdResult.self).activityId
     }
 
     public static func getStakingHistory(accountId: String) async throws -> [ApiStakingHistory] {
@@ -31,14 +31,14 @@ extension Api {
     }
     
     public static func submitStakingClaimOrUnlock(accountId: String, password: String?, state: ApiStakingState, realFee: BigInt?) async throws -> String {
-        try await bridge.callApi("submitStakingClaimOrUnlock", accountId, password, state, realFee, decoding: LocalTransactionResult.self).txId
+        try await bridge.callApi("submitStakingClaimOrUnlock", accountId, password, state, realFee, decoding: ActivityIdResult.self).activityId
     }
 }
 
 
 // MARK: - Types
 
-fileprivate struct LocalTransactionResult: Decodable {
-    let txId: String
+fileprivate struct ActivityIdResult: Decodable {
+    let activityId: String
 }
 

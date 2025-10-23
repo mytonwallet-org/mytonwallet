@@ -8,11 +8,12 @@ extension View {
     @ViewBuilder
     public func menuSource(
         isEnabled: Bool = true,
+        isTapGestureEnabled: Bool = true,
         coordinateSpace: CoordinateSpace = .global,
         menuContext: MenuContext
     ) -> some View {
         if isEnabled {
-            modifier(MenuSourceViewModifier(coordinateSpace: coordinateSpace, menuContext: menuContext))
+            modifier(MenuSourceViewModifier(coordinateSpace: coordinateSpace, menuContext: menuContext, isTapGestureEnabled: isTapGestureEnabled))
         } else {
             self
         }
@@ -23,18 +24,19 @@ struct MenuSourceViewModifier: ViewModifier {
     
     private var coordinateSpace: CoordinateSpace
     private var menuContext: MenuContext
-    private let target: CGFloat = 10
+    private var isTapGestureEnabled: Bool
     
-    init(coordinateSpace: CoordinateSpace, menuContext: MenuContext) {
+    init(coordinateSpace: CoordinateSpace, menuContext: MenuContext, isTapGestureEnabled: Bool) {
         self.coordinateSpace = coordinateSpace
         self.menuContext = menuContext
+        self.isTapGestureEnabled = isTapGestureEnabled
     }
     
     func body(content: Content) -> some View {
         content
             .padding(8)
             .contentShape(.rect)
-            .gesture(tapGesture)
+            .gesture(tapGesture, isEnabled: isTapGestureEnabled)
             .gesture(holdAndDragGesture)
             .padding(-8)
             .onGeometryChange(for: CGRect.self, of: { $0.frame(in: coordinateSpace) }, action: { menuContext.sourceFrame = $0 })

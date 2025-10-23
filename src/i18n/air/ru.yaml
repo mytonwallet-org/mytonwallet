@@ -5,9 +5,6 @@ No: Нет
 Skip: Пропустить
 at: в
 MyTonWallet: MyTonWallet
-Watch Video about Features: Советы и обучающее видео
-Enjoy Monthly Updates in Blog: Блог
-Learn New Things in Help Center: База знаний
 MyTonWallet Resources: Ресурсы MyTonWallet
 I agree to %term%: Я соглашаюсь %term%
 use the wallet responsibly: использовать кошелёк ответственно
@@ -142,11 +139,11 @@ Insufficient %1$@ Balance: Недостаточно %1$@ на балансе
 Instant Withdrawal: Мгновенный вывод
 Instantly: Мгновенно
 Up to %1$@: До %1$@
+up to %1$@: до %1$@
 Current APY: Текущий APY
 Est. earning per year: Ожидаемый доход в год
 in: в
 Enter URL: Введите URL
-Refresh: Обновить
 Error: Ошибка
 Canceled by the user: Отменено пользователем
 Network Error: Ошибка сети
@@ -216,7 +213,7 @@ Confirm Actions:
 " via ": " через "
 "%lld transfer": "%lld перевод"
 "A ~ Z": "А ~ Я"
-"Accumulated rewards": "Накопленные вознаграждения"
+"Accumulated rewards": "Доход"
 "An Error Occurred": "Произошла ошибка"
 Animations: Анимации
 "Best rate": "Лучший курс"
@@ -375,3 +372,4 @@ $ago: "%1$d назад"
 $visited_ago: "Посещено: %1$d назад"
 Notifications are disabled: Уведомления отключены
 Enable in Settings: Включить в настройках
+Search in Google: Поиск в Google

@@ -5,9 +5,6 @@ No: "No"
 Skip: Skip
 at: at
 MyTonWallet: MyTonWallet
-Watch Video about Features: Watch Video about Features
-Enjoy Monthly Updates in Blog: Enjoy Monthly Updates in Blog
-Learn New Things in Help Center: Learn New Things in Help Center
 MyTonWallet Resources: MyTonWallet Resources
 I agree to %term%: I agree to %term%
 use the wallet responsibly: use the wallet responsibly
@@ -143,11 +140,11 @@ Insufficient %1$@ Balance: "Insufficient %1$@ Balance"
 Instant Withdrawal: Instant Withdrawal
 Instantly: Instantly
 Up to %1$@: Up to %1$@
+up to %1$@: up to %1$@
 Current APY: Current APY
 Est. earning per year: Est. earning per year
 in: in
 Enter URL: Enter URL
-Refresh: Refresh
 Error: Error
 Canceled by the user: Canceled by the user
 Network Error: Network Error
@@ -370,3 +367,4 @@ $ago: "%1$d ago"
 $visited_ago: Visited %1$d ago
 Notifications are disabled: Notifications are disabled
 Enable in Settings: Enable in Settings
+Search in Google: Search in Google

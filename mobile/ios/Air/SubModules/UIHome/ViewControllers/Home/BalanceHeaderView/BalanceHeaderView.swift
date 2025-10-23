@@ -212,6 +212,7 @@ final class BalanceHeaderView: WTouchPassView, WThemedView {
         walletNameLabelSkeleton = UIView()
         walletNameLabelSkeleton.translatesAutoresizingMaskIntoConstraints = false
         walletNameLabelSkeleton.layer.cornerRadius = 8
+        walletNameLabelSkeleton.isUserInteractionEnabled = false
         addSubview(walletNameLabelSkeleton)
 
         // wallet name label
@@ -222,6 +223,7 @@ final class BalanceHeaderView: WTouchPassView, WThemedView {
         walletNameLabel.alpha = 0
         walletNameLabel.textAlignment = .center
         walletNameLabel.text = lang("My Wallet")
+        walletNameLabel.isUserInteractionEnabled = true
         addSubview(walletNameLabel)
         walletNameBelowBalanceConstraint = walletNameLabel.topAnchor.constraint(equalTo: balanceView.bottomAnchor, constant: 8)
         NSLayoutConstraint.activate([
@@ -236,6 +238,12 @@ final class BalanceHeaderView: WTouchPassView, WThemedView {
             walletNameLabel.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 40),
             walletNameLabelSkeleton.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 40)
         ])
+        
+        let tap = UITapGestureRecognizer(target: self, action: #selector(onWalletNameTap))
+        walletNameLabel.addGestureRecognizer(tap)
+        let longTap = UILongPressGestureRecognizer(target: self, action: #selector(onWalletNameLongTap))
+        longTap.minimumPressDuration = 0.25
+        walletNameLabel.addGestureRecognizer(longTap)
     }
     
     // MARK: -
@@ -268,6 +276,28 @@ final class BalanceHeaderView: WTouchPassView, WThemedView {
     @objc func onBalanceTap() {
         let isHidden = AppStorageHelper.isSensitiveDataHidden
         AppActions.setSensitiveDataIsHidden(!isHidden)
+    }
+    
+    @objc func onWalletNameTap() {
+        guard let account = AccountStore.account else { return }
+        let showMenu = account.isMultichain // TODO: or domain name is set
+        if showMenu {
+            let menuContext = MenuContext()
+            menuContext.sourceFrame = walletNameLabel.convert(walletNameLabel.bounds, to: nil)
+            menuContext.minWidth = 280
+            menuContext.makeConfig = makeAddressesMenuConfig
+            menuContext.present()
+        } else {
+            UIPasteboard.general.string = AccountStore.account?.firstAddress
+            topWViewController()?.showToast(animationName: "Copy", message: lang("Address was copied!"))
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+        }
+    }
+    
+    @objc func onWalletNameLongTap(_ gestureRecognizer: UILongPressGestureRecognizer) {
+        if gestureRecognizer.state == .began {
+            onWalletNameTap()
+        }
     }
 }
 

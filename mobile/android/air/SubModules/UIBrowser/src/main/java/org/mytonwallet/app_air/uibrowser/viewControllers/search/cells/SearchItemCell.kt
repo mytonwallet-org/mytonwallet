@@ -63,6 +63,7 @@ class SearchItemCell(context: Context, private val onTap: (keyword: String) -> U
             toCenterY(searchImageView)
             setHorizontalBias(titleLabel.id, 0f)
             toStart(titleLabel, 56f)
+            toEnd(titleLabel, 16f)
             toCenterY(titleLabel)
             toBottom(separatorView)
         }

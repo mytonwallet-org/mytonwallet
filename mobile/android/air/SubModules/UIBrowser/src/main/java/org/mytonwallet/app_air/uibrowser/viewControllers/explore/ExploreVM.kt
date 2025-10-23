@@ -108,28 +108,30 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
         val matchedVisitedSite: MExploreHistory.VisitedSite? = null,
         val recentSearches: List<MExploreHistory.HistoryItem>? = null,
         val recentVisitedSites: List<MExploreHistory.VisitedSite>? = null,
-        val dapps: List<IDapp>? = null
-    ) {
-        val hasResult: Boolean
-            get() {
-                return !keyword.isEmpty() &&
-                    (
-                        matchedVisitedSite != null ||
-                            !recentSearches.isNullOrEmpty() ||
-                            !recentVisitedSites.isNullOrEmpty() ||
-                            !recentVisitedSites.isNullOrEmpty() ||
-                            !dapps.isNullOrEmpty()
-                        )
-            }
-    }
+        val dapps: List<IDapp>? = null,
+        val noResultsFound: Boolean = false,
+    )
 
     fun search(keyword: String): SearchResult {
+        val matchedVisitedSite = exactMatch(keyword)
+        val recentSearches = recentSearches(keyword)
+        val recentVisitedSites = visitedSites(keyword)
+        val dapps = filterDapps(keyword)
+        val noResultsFound = !keyword.isEmpty() &&
+            matchedVisitedSite == null &&
+            recentSearches.isNullOrEmpty() &&
+            recentVisitedSites.isNullOrEmpty() &&
+            recentVisitedSites.isNullOrEmpty() &&
+            dapps.isEmpty()
         return SearchResult(
             keyword,
-            exactMatch(keyword),
-            recentSearches(keyword),
-            visitedSites(keyword),
-            filterDapps(keyword)
+            matchedVisitedSite,
+            if (noResultsFound) listOf(
+                MExploreHistory.HistoryItem(keyword, null)
+            ) else recentSearches,
+            recentVisitedSites,
+            dapps,
+            noResultsFound
         )
     }
 

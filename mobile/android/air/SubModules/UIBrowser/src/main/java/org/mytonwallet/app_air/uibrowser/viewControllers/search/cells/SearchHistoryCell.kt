@@ -115,7 +115,7 @@ class SearchHistoryCell(context: Context) :
         historyImageView.setImageDrawable(historyDrawable)
         titleLabel.setStyle(16f, WFont.Regular)
         titleLabel.text = site.title
-        subtitleLabel.text = Date(site.visitDate).timeAgo()
+        subtitleLabel.text = site.visitDate?.let { visitDate -> Date(visitDate).timeAgo() }
         separatorView.isGone = isLastItem
 
         updateTheme()
