@@ -4,12 +4,11 @@ import { getActions } from '../../global';
 import type { ApiNft } from '../../api/types';
 import type { Theme } from '../../global/types';
 
-import { IS_CORE_WALLET, MTW_CARDS_WEBSITE } from '../../config';
+import { IS_CORE_WALLET } from '../../config';
 import { ACCENT_COLORS } from '../../util/accentColor/constants';
 import buildClassName from '../../util/buildClassName';
 import getAccentColorsFromNfts from '../../util/getAccentColorsFromNfts';
 import { MEMO_EMPTY_ARRAY } from '../../util/memo';
-import { openUrl } from '../../util/openUrl';
 
 import useAppTheme from '../../hooks/useAppTheme';
 import useLang from '../../hooks/useLang';
@@ -24,10 +23,7 @@ interface OwnProps {
   nftAddresses?: string[];
   nftsByAddress?: Record<string, ApiNft>;
   theme: Theme;
-  isViewMode?: boolean;
-  isMintingCardsAvailable?: boolean;
   isNftBuyingDisabled?: boolean;
-  noUnlockButton?: boolean;
 }
 
 function AccentColorSelector({
@@ -35,13 +31,9 @@ function AccentColorSelector({
   nftAddresses,
   nftsByAddress,
   theme,
-  isViewMode,
-  isMintingCardsAvailable,
   isNftBuyingDisabled,
-  noUnlockButton,
 }: OwnProps) {
   const {
-    openMintCardModal,
     installAccentColorFromNft,
     clearAccentColorFromNft,
     showNotification,
@@ -92,14 +84,6 @@ function AccentColorSelector({
     }
   });
 
-  const handleUnlockNewPalettesClick = useLastCallback(() => {
-    if (!isViewMode && isMintingCardsAvailable) {
-      openMintCardModal();
-    } else {
-      void openUrl(MTW_CARDS_WEBSITE);
-    }
-  });
-
   function renderColorButton(color?: string, index?: number) {
     const isSelected = accentColorIndex === index;
     const isLocked = index !== undefined ? !availableAccentColorIds.includes(index) : false;
@@ -135,16 +119,6 @@ function AccentColorSelector({
         {renderColorButton()}
         {sortedColors.map(({ color, index }) => renderColorButton(color, index))}
       </div>
-      {!noUnlockButton && (
-        <div
-          className={styles.unlockButton}
-          role="button"
-          tabIndex={0}
-          onClick={handleUnlockNewPalettesClick}
-        >
-          {lang('Unlock New Palettes')}
-        </div>
-      )}
     </>
   );
 }

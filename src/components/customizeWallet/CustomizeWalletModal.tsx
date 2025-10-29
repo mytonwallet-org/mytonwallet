@@ -10,6 +10,7 @@ import {
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { openUrl } from '../../util/openUrl';
+import { IS_DELEGATED_BOTTOM_SHEET } from '../../util/windowEnvironment';
 
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
@@ -27,6 +28,8 @@ import WalletCardPreview from './WalletCardPreview';
 
 import modalStyles from '../ui/Modal.module.scss';
 import styles from './CustomizeWalletModal.module.scss';
+
+const NBS_CLOSING_DURATION = 100;
 
 interface OwnProps {
   isOpen?: boolean;
@@ -51,7 +54,6 @@ interface StateProps {
 
 function CustomizeWalletModal({
   isOpen,
-  accountId,
   account,
   nfts,
   orderedNftAddresses,
@@ -62,11 +64,11 @@ function CustomizeWalletModal({
   currencyRates,
   theme,
   isMintingCardsAvailable,
-  isViewMode,
   isNftBuyingDisabled,
   returnTo,
 }: OwnProps & StateProps) {
   const {
+    openCustomizeWalletModal,
     closeCustomizeWalletModal,
     setCardBackgroundNft,
     clearCardBackgroundNft,
@@ -114,10 +116,20 @@ function CustomizeWalletModal({
   });
 
   const handleGetMoreCards = useLastCallback(() => {
-    if (isMintingCardsAvailable && !isNftBuyingDisabled) {
-      openMintCardModal();
+    // Reset `returnTo` to avoid opening the previous modal above the browser
+    openCustomizeWalletModal({ returnTo: undefined });
+    closeCustomizeWalletModal();
+    const callback = () => {
+      if (isMintingCardsAvailable && !isNftBuyingDisabled) {
+        openMintCardModal();
+      } else {
+        void openUrl(MTW_CARDS_WEBSITE);
+      }
+    };
+    if (IS_DELEGATED_BOTTOM_SHEET) {
+      setTimeout(() => callback(), NBS_CLOSING_DURATION);
     } else {
-      void openUrl(MTW_CARDS_WEBSITE);
+      callback();
     }
   });
 
@@ -160,10 +172,7 @@ function CustomizeWalletModal({
             nftAddresses={orderedNftAddresses}
             nftsByAddress={nfts}
             theme={theme}
-            isViewMode={isViewMode}
-            isMintingCardsAvailable={isMintingCardsAvailable}
             isNftBuyingDisabled={isNftBuyingDisabled}
-            noUnlockButton
           />
           <p className={styles.helperTextOutside}>
             {lang('Get a unique MyTonWallet Card to unlock new palettes.')}
@@ -265,6 +274,8 @@ function CustomizeWalletModal({
         <Transition
           name="semiFade"
           activeKey={renderingKey}
+          slideClassName={styles.transitionSlide}
+          className={styles.transition}
         >
           {renderingKey === RenderingKey.Loading && renderLoading()}
           {renderingKey === RenderingKey.CardsSelector && renderCardsSelector()}

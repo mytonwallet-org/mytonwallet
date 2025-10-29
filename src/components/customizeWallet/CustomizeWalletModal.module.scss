@@ -40,6 +40,21 @@
   }
 }
 
+.transition {
+  // Values are in pixels here for easier changes in the future.
+  // This is a hack to prevent unnecessary y scroll because the top of the modal content
+  // is not a part of the transition
+  $rem: 16px;
+  $headerHeight: calc(62px / $rem * 0);
+  $threePreviewCardsHeight: calc(176px / $rem);
+  $threePreviewCardsPaddingTop: calc(24px / $rem);
+  $threePreviewCardsPaddingBottom: calc(32px / $rem);
+  $modalPaddingBottom: calc(16px / $rem);
+  $constantHeight: $headerHeight + $threePreviewCardsHeight + $threePreviewCardsPaddingTop + $threePreviewCardsPaddingBottom + $modalPaddingBottom;
+
+  height: calc(100% - $constantHeight * 1rem);
+}
+
 .section {
   margin-top: 2rem;
   padding: 0 1rem;
