@@ -52,7 +52,6 @@ struct SwapCexDetailsView: View {
         }
         .fixedSize(horizontal: false, vertical: true)
         .frame(maxHeight: isExpanded ? nil : 44, alignment: .top)
-        .clipShape(.rect(cornerRadius: 12))
         .frame(height: 400, alignment: .top)
         .tint(Color(WTheme.tint))
         .animation(.spring(duration: isExpanded ? 0.45 : 0.3), value: isExpanded)

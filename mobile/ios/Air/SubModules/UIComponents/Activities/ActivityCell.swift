@@ -12,9 +12,9 @@ public class ActivityCell: WHighlightCell {
         func onSelect(transaction: ApiActivity)
     }
     
-    class Layer: CALayer { // TODO: Do we still need this?
+    class Layer: CALayer {
         override var cornerRadius: CGFloat {
-            get { 16 }
+            get { S.homeInsetSectionCornerRadius }
             set { _ = newValue }
         }
     }

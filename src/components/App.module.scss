@@ -26,6 +26,10 @@
   &_fastTransition {
     animation-duration: 200ms !important;
   }
+
+  &:global(.app-slide-content) {
+    animation-duration: 350ms !important;
+  }
 }
 
 .appSlide.appSlideTransparent {

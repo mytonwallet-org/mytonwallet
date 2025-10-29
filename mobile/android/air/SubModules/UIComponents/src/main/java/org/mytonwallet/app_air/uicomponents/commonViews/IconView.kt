@@ -160,7 +160,13 @@ class IconView(
             val correctTokenToShow =
                 if (token.slug == STAKE_SLUG)
                     TokenStore.getToken(TONCOIN_SLUG) ?: token else token
-            activityImageView.set(Content.of(correctTokenToShow, alwaysShowChain, showPercentBadge))
+            activityImageView.set(
+                Content.of(
+                    correctTokenToShow,
+                    if (alwaysShowChain) Content.SHOW_CHAIN_ALWAYS else Content.SHOW_CHAIN_DEFAULT,
+                    showPercentBadge
+                )
+            )
         } else {
             activityImageView.clear()
         }

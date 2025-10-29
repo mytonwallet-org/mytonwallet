@@ -1,107 +1,49 @@
 package org.mytonwallet.app_air.uicomponents.widgets.balance
 
-import android.annotation.SuppressLint
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Paint
 import android.os.Handler
 import android.os.Looper
-import android.text.Spannable
-import android.text.SpannableStringBuilder
-import android.text.style.AbsoluteSizeSpan
-import android.view.Gravity
-import kotlinx.coroutines.Runnable
-import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import androidx.appcompat.widget.AppCompatTextView
+import androidx.core.graphics.withScale
+import androidx.core.graphics.withTranslation
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.getSpan
-import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.widgets.WView
-import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
-import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
-import org.mytonwallet.app_air.walletbasecontext.theme.WColor
-import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.uicomponents.extensions.getCenterAlignBaseline
+import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
+import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
+import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import java.math.BigInteger
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
 import kotlin.math.max
+import kotlin.math.pow
 import kotlin.math.roundToInt
 
-// TODO:: Optimize and unify all the labels
-@SuppressLint("ViewConstructor")
-class WBalanceView(
-    context: Context,
-    private val isScaledLabel: Boolean,
-    private val charSize: Int = 46.dp,
-) : WView(context) {
+class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
 
-    private val topMultiplier = if (isScaledLabel) 4.2f else 3.1f
+    // Properties //////////////////////////////////////////////////////////////////////////////////
+    var primaryColor: Int? = null
+    var secondaryColor: Int? = null
+    var currencySize = 46f
+    var primarySize = 52f
+    var decimalsSize = 38f
+    var decimalsAlpha = 255
+    var defaultHeight = 56.dp
+    var onTotalWidthChanged: ((value: Int) -> Unit)? = null
 
-    private val label1: WAnimatedAmountLabel by lazy {
-        WAnimatedAmountLabel(context).apply {
-            gravity = Gravity.CENTER
-        }
+    // Animating ///////////////////////////////////////////////////////////////////////////////////
+    companion object {
+        const val INITIAL_DELAY_IN_MS = 150
+        const val PREFERRED_MORPHING_DURATION = 1500
     }
 
-    private val label2: WAnimatedAmountLabel by lazy {
-        WAnimatedAmountLabel(context).apply {
-            gravity = Gravity.CENTER
-        }
-    }
-
-    private val fullLabel: GradientTextView by lazy {
-        GradientTextView(context).apply {
-            id = generateViewId()
-            visibility = GONE
-        }
-    }
-
-    var decimalsAlpha = 1f
-
-    override fun setupViews() {
-        super.setupViews()
-
-        layoutDirection = LAYOUT_DIRECTION_LTR
-
-        addView(label1)
-        addView(label2)
-        addView(fullLabel)
-        setConstraints {
-            toCenterY(label1)
-            toLeft(label1)
-            baseLineToBasLine(label2, label1)
-            leftToRight(label2, label1)
-            toRight(label2)
-        }
-    }
-
-    fun setStyle(
-        size: Float,
-        decimalsSize: Float,
-        font: WFont? = null
-    ) {
-        label1.setStyle(size, font)
-        label2.setStyle(decimalsSize, font)
-    }
-
-    private var primaryColor: Int? = null
-    private var secondaryColor: Int? = null
-    fun setTextColor(
-        color: Int,
-        secondaryColor: Int,
-        charColor: Int? = null,
-        secondaryCharColor: Int? = null
-    ) {
-        this.primaryColor = color
-        this.secondaryColor = secondaryColor
-        label1.setTextColor(color)
-        label1.charColor = charColor ?: secondaryColor
-        if (!isScaledLabel)
-            label1.charSize = charSize
-        label2.setTextColor(secondaryColor)
-        label2.charColor = secondaryCharColor ?: secondaryColor
-        label2.alpha = decimalsAlpha
-        label1.reset()
-        label2.reset()
-        fullLabel.setTextColor(secondaryColor)
-    }
+    var morphingDuration = PREFERRED_MORPHING_DURATION
 
     data class AnimateConfig(
         val amount: BigInteger?,
@@ -112,7 +54,12 @@ class WBalanceView(
     )
 
     private var _currentVal: BigInteger? = null
-    private var _text: String? = null
+    private var _prevText: List<WBalanceViewCharacter> = emptyList()
+    private var _text: List<WBalanceViewCharacter> = emptyList()
+    private var _str: String? = null
+    var balanceBaseline: Float = 0f
+        private set
+
     fun animateText(animateConfig: AnimateConfig) {
         if (isAnimating && animateConfig.animated) {
             // It's animating to a number, schedule the next value
@@ -122,14 +69,9 @@ class WBalanceView(
         runAnimateConfig(animateConfig)
     }
 
-    private var isAnimating = false
-        set(value) {
-            field = value
-            updateGradient()
-        }
-
     private var nextValue: AnimateConfig? = null
-    private var animateJob: Runnable? = null
+    private var isAnimating = false
+    private var morphFromTop = true
     private fun runAnimateConfig(animateConfig: AnimateConfig) {
         val text = animateConfig.amount?.toString(
             animateConfig.decimals,
@@ -140,63 +82,81 @@ class WBalanceView(
         ) ?: ""
         // Clear next value
         nextValue = null
-        if (this._text == text) {
+        if (this._str == text) {
             val shouldSetSameText = isAnimating && !animateConfig.animated
             if (!shouldSetSameText) {
                 return
             }
         }
+        _str = text
         val isIncreasing =
             (animateConfig.amount ?: BigInteger.ZERO) > (_currentVal ?: BigInteger.ZERO)
         _currentVal = animateConfig.amount
-        label1.morphFromTop = isIncreasing
-        label2.morphFromTop = isIncreasing
-        this._text = text
-        val parts = text.split(".")
-        isAnimating = true
-        animateJob = Runnable {
-            animateJob = null
-            label2.setTextColor(
-                (if ((animateConfig.amount
-                        ?: BigInteger.valueOf(0)) >= BigInteger.valueOf(10)
-                ) secondaryColor else primaryColor)
-                    ?: WColor.SecondaryText.color
-            )
-            label1.firstDelayInMs = label2.nextLabelDelay
-            label2.additionalCharacterCountForTiming =
-                max(label1.text?.length ?: 0, label1.prevText?.length ?: 0)
-            if (label1.text != parts[0] || !animateConfig.animated) {
-                label1.animateText(parts[0], animateConfig.animated && animateConfig.amount != null)
-                label2.forceMorphLeftCharacters = true
-            } else {
-                label2.forceMorphLeftCharacters = false
+        morphFromTop = isIncreasing
+        this._prevText = _text
+        var size = primarySize.dp
+        var color = primaryColor
+        var decimalsPart = false
+        var left = primarySize.dp * 0.03f
+        val textMeasureCache = mutableMapOf<Pair<Char, Float>, Float>()
+        prevIntegerPartWidth = integerPartWidth
+        integerPartWidth = 0f
+        elapsedTime = 0
+        val basePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            typeface = this.typeface
+        }
+        this._text = _str?.mapIndexed { i, character ->
+            if (!decimalsPart && !character.isDigit() && i > 0 && character != ' ') {
+                left += primarySize.dp * 0.03f
+                size = decimalsSize.dp
+                color = secondaryColor
+                decimalsPart = true
+                integerPartWidth = left
             }
-            label2.animateText(
-                if (parts.size > 1) ".${parts[1]}" else "",
-                animateConfig.animated && animateConfig.amount != null
+            val isBaseCurrency = i == 0 && !character.isDigit()
+            val charSize = if (isBaseCurrency) currencySize.dp else size
+            val key = Pair(character, charSize)
+            if (!textMeasureCache.containsKey(key)) {
+                basePaint.textSize = charSize
+                basePaint.measureText(character.toString()).let {
+                    textMeasureCache[key] = it
+                }
+            }
+            val charLeft = left
+            left += textMeasureCache[key]!! + charSize * 0.03f
+            WBalanceViewCharacter(
+                character,
+                charSize,
+                overrideColor = color,
+                decimalsPart,
+                isBaseCurrency,
+                charLeft
             )
-            setFullLabelText()
-            if (!animateConfig.animated)
+        } ?: emptyList()
+        balanceBaseline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            textSize = primarySize.dp
+            typeface = this@WBalanceView.typeface
+        }.fontMetrics.getCenterAlignBaseline(defaultHeight / 2f)
+        if (integerPartWidth == 0f)
+            integerPartWidth = left
+        prevWidth = totalWidth
+        totalWidth = left
+        isAnimating = true
+        if (!animateConfig.animated ||
+            _prevText.isEmpty() ||
+            _text.isEmpty()
+        ) {
+            isAnimating = false
+        } else
+            Handler(Looper.getMainLooper()).postDelayed({
+                if (this._str != text) {
+                    // Already a non-animated text is set, this job is outdated.
+                    return@postDelayed
+                }
                 isAnimating = false
-            else
-                Handler(Looper.getMainLooper()).postDelayed({
-                    if (this._text != text) {
-                        // Already a non-animated text is set, this job is outdated.
-                        return@postDelayed
-                    }
-                    isAnimating = false
-                    applyNextAnimation()
-                }, (1000 * (label1.morphingDuration) + label2.nextLabelDelay + 500).toLong())
-        }
-        if (isShowingLoadingGradient && animateConfig.animated) {
-            // Fade for gradient to hide before animating the new amount
-            Handler(Looper.getMainLooper()).postDelayed(
-                { animateJob?.run() },
-                AnimationConstants.QUICK_ANIMATION
-            )
-        } else {
-            animateJob?.run()
-        }
+                applyNextAnimation()
+            }, morphingDuration + 500L)
+        animateTextChange()
     }
 
     private fun applyNextAnimation() {
@@ -207,126 +167,288 @@ class WBalanceView(
 
     val text: String?
         get() {
-            return _text
+            return _str
         }
 
-    private var scale1 = 1f
+    override fun updateTheme() {
+        reposition(onBackground = false)
+    }
+
+    // SCALE ///////////////////////////////////////////////////////////////////////////////////////
+    var scale1 = 1f
+        private set
     private var scale2 = 1f
-    private var collapseProgress = 0f
+    var offset2 = (-1f).dp
+        private set
+
     fun setScale(
         scale1: Float,
         scale2: Float,
-        collapseProgress: Float,
+        offset2: Float,
     ) {
-        this.scale1 = scale1
-        this.scale2 = scale2
-        this.collapseProgress = collapseProgress
-        setFullLabelText()
-        reposition()
+        candidateScale1 = scale1
+        candidateScale2 = scale2
+        candidateOffset2 = offset2
+        if (animatingCharacters.isNotEmpty())
+            reposition(onBackground = true)
     }
 
-    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-        super.onSizeChanged(w, h, oldw, oldh)
-        if (w == 0 || !isScaledLabel)
-            return
-        reposition()
-    }
-
-    private fun reposition() {
-        label1.pivotX = 0f
-        label1.pivotY = label1.height / 2f
-        label2.pivotX = 0f
-        label2.pivotY = 0f
-        fullLabel.pivotX = fullLabel.width.toFloat() / 2
-        fullLabel.pivotY = fullLabel.height.toFloat() / 2
-
-        label1.scaleX = scale1
-        label1.scaleY = scale1
-        label2.scaleX = scale2
-        label2.scaleY = scale2
-        fullLabel.scaleX = scale1
-        fullLabel.scaleY = scale1
-
-        val scaledLabel1Width = label1.width * scale1
-        val scaledLabel2Width = label2.width * scale2
-        val totalWidth = scaledLabel1Width + scaledLabel2Width
-
-        val startX = (label1.width + label2.width - totalWidth) / 2f
-        label2.translationX = -label1.width + startX + scaledLabel1Width
-        label2.translationY =
-            topMultiplier * label2.top * (1 - scale2) + label2.baseline * (1 - scale2) - label1.baseline * (1 - scale1)
-        label1.translationX = label1.left + label2.x - scaledLabel1Width
-    }
-
-    var isLoading: Boolean = false
+    // PROCESS ANIMATIONS //////////////////////////////////////////////////////////////////////////
+    private val backgroundExecutor = Executors.newSingleThreadExecutor()
+    private var currentBackgroundTask: Future<*>? = null
+    private var animator: ValueAnimator? = null
+    private var elapsedTime: Int = 0
+    private var pendingUpdateRunnable: Runnable? = null
+    private var prevWidth = 0f
+    private var prevIntegerPartWidth = 0f
+    private var totalWidth: Float = 0f
         set(value) {
             field = value
-            setFullLabelText()
-            updateGradient()
+            onTotalWidthChanged?.invoke(value.roundToInt())
+        }
+    private var _width = 0
+    private var _widthOffset = 0f
+    private var integerPartWidth = 0f
+    private var animatingCharacters = mutableListOf<WBalanceViewAnimatingCharacter>()
+    private val drawingCharacterRects = mutableListOf<WBalanceViewDrawingCharacterRect>()
+    private val paintCache = mutableMapOf<Pair<Float, Int>, Paint>()
+
+    private fun animateTextChange() {
+        val newText = _text
+        val oldText = _prevText
+        val animatingCharacters = mutableListOf<WBalanceViewAnimatingCharacter>()
+
+        var ignoreMorphingYet = true
+        for (i in 0 until max(oldText.size, newText.size)) {
+            val oldChar = oldText.getOrNull(i)
+            val newChar = newText.getOrNull(i)
+
+            val change =
+                if (oldChar == newChar && ignoreMorphingYet) WBalanceViewAnimatingCharacter.Change.NONE
+                else if (morphFromTop) WBalanceViewAnimatingCharacter.Change.INC else WBalanceViewAnimatingCharacter.Change.DEC
+            if (ignoreMorphingYet && change != WBalanceViewAnimatingCharacter.Change.NONE) {
+                ignoreMorphingYet = false
+            }
+
+            animatingCharacters.add(
+                WBalanceViewAnimatingCharacter(
+                    oldChar,
+                    newChar,
+                    change
+                )
+            )
         }
 
-    private fun setFullLabelText() {
-        if (label1.mText.isNullOrEmpty()) {
-            fullLabel.text = null
-            return
+        val durationPlusInitial = (PREFERRED_MORPHING_DURATION + INITIAL_DELAY_IN_MS) / 1000f
+        var leadingNones = 0
+        for (i in 0 until animatingCharacters.size) {
+            if (animatingCharacters[i].change == WBalanceViewAnimatingCharacter.Change.NONE) {
+                leadingNones += 1
+                animatingCharacters[i].delay = 0
+                animatingCharacters[i].charAnimationDuration = 1
+            } else {
+                break
+            }
         }
-        val spannable = SpannableStringBuilder()
-        spannable.append(label1.getSpan(label1.mText?.toString()))
-        spannable.append(
-            label2.getSpan(
-                label2.mText.toString(),
-                (label2.textSize + collapseProgress * (label1.textSize - label2.textSize)).roundToInt()
-            )
-        )
-        if (!isScaledLabel &&
-            label1.mText?.toString()?.firstOrNull()?.toString()?.toIntOrNull() == null &&
-            label1.mText?.toString()?.firstOrNull()?.toString() != "." &&
-            spannable.isNotEmpty()
-        )
-            spannable.setSpan(
-                AbsoluteSizeSpan(charSize),
-                0,
-                1,
-                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-        fullLabel.text = spannable
+        for (i in animatingCharacters.size - 1 downTo leadingNones) {
+            animatingCharacters[i].delay =
+                (INITIAL_DELAY_IN_MS * durationPlusInitial * 2 * (1 - 0.5.pow((animatingCharacters.size - 1 - i).toDouble()))).roundToInt()
+            animatingCharacters[i].charAnimationDuration =
+                (1000 * durationPlusInitial - animatingCharacters[i].delay -
+                    INITIAL_DELAY_IN_MS * durationPlusInitial * 2 * (1 - 0.5.pow((i).toDouble()))).roundToInt()
+        }
+
+        synchronized(this@WBalanceView.animatingCharacters) {
+            this.animatingCharacters = animatingCharacters
+            currentBackgroundTask?.cancel(true)
+            drawingCharacterRects.clear()
+            this.animatingCharacters.forEach {
+                drawingCharacterRects.addAll(
+                    it.currentRectangles(
+                        0,
+                        scale1,
+                        scale2,
+                        offset2,
+                        prevIntegerPartWidth,
+                        integerPartWidth,
+                        decimalsAlpha
+                    )
+                )
+            }
+        }
+        animatingCharacters.firstOrNull { it.charAnimationDuration > 1 }?.let {
+            morphingDuration = it.delay + it.charAnimationDuration
+        }
+        start()
     }
 
-    private var isShowingLoadingGradient = false
-    private fun updateGradient() {
-        val shouldShowGradient = isLoading && !isAnimating
-        if (shouldShowGradient) {
-            if (!isShowingLoadingGradient) {
-                isShowingLoadingGradient = true
-                fullLabel.apply {
-                    setFullLabelText()
-                    visibility = VISIBLE
-                    alpha = 0f
-                    startLoadingAnimation()
-                    fadeIn()
+    private fun start() {
+        stop()
+
+        if (!isAnimating) {
+            elapsedTime = Int.MAX_VALUE
+            reposition(false)
+            return
+        }
+
+        val totalDuration = morphingDuration
+        elapsedTime = 0
+        reposition(onBackground = false)
+        animator = ValueAnimator.ofInt(0, totalDuration).apply {
+            duration = totalDuration.toLong()
+
+            addUpdateListener { animation ->
+                elapsedTime = lerp(
+                    0f,
+                    totalDuration.toFloat(),
+                    WInterpolator.easeOut(animation.animatedFraction)
+                ).roundToInt().coerceAtLeast(0)
+                reposition(onBackground = true)
+            }
+
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    isAnimating = false
+                    reposition(onBackground = true)
+                }
+            })
+
+            start()
+        }
+    }
+
+    private fun stop() {
+        animator?.cancel()
+        animator = null
+    }
+
+    var candidateScale1: Float? = null
+    var candidateScale2: Float? = null
+    var candidateOffset2: Float? = null
+    fun reposition(onBackground: Boolean) {
+        val action = {
+            val scale1Val = candidateScale1 ?: this.scale1
+            val scale2Val = candidateScale2 ?: this.scale2
+            val offset2Val = candidateOffset2 ?: this.offset2
+            val charactersList = synchronized(animatingCharacters) { animatingCharacters }
+            val newRects = mutableListOf<WBalanceViewDrawingCharacterRect>()
+            charactersList.forEachIndexed { i, char ->
+                if (Thread.interrupted()) {
+                    return@forEachIndexed
+                }
+                newRects.addAll(
+                    char.currentRectangles(
+                        elapsedTime,
+                        scale1Val,
+                        scale2Val,
+                        offset2Val,
+                        prevIntegerPartWidth,
+                        integerPartWidth,
+                        decimalsAlpha
+                    )
+                )
+            }
+
+            val updateUi = {
+                val progress = if (isAnimating)
+                    elapsedTime / morphingDuration.toFloat()
+                else 1f
+
+                val newWidth = lerp(
+                    prevIntegerPartWidth * scale1Val + (prevWidth - prevIntegerPartWidth) * scale2Val,
+                    integerPartWidth * scale1Val + (totalWidth - integerPartWidth) * scale2Val,
+                    progress
+                )
+
+                val sizeChanged = _width != newWidth.roundToInt()
+                val shouldUpdateRects = isAnimating || sizeChanged || !onBackground
+                if (shouldUpdateRects) {
+                    _width = newWidth.roundToInt()
+                    _widthOffset =
+                        newWidth - newWidth.roundToInt() + (if (_width % 2 == 1) -0.5f else 0f)
+                    drawingCharacterRects.clear()
+                    drawingCharacterRects.addAll(newRects)
+                    candidateScale1?.let {
+                        this.scale1 = it
+                        candidateScale1 = null
+                    }
+                    candidateScale2?.let {
+                        this.scale2 = it
+                        candidateScale2 = null
+                    }
+                    candidateOffset2?.let {
+                        this.offset2 = it
+                        candidateOffset2 = null
+                    }
+                    requestLayout()
+                }
+                invalidate()
+            }
+
+            if (!Thread.interrupted()) {
+                if (onBackground) {
+                    pendingUpdateRunnable?.let { removeCallbacks(it) }
+                    pendingUpdateRunnable = Runnable {
+                        if (charactersList == animatingCharacters)
+                            updateUi()
+                        pendingUpdateRunnable = null
+                    }
+                    post(pendingUpdateRunnable)
+                } else {
+                    updateUi()
                 }
             }
-            if (label1.alpha > 0f) {
-                label1.fadeOut()
-                label2.fadeOut()
-                fullLabel.fadeIn()
+        }
+
+        if (onBackground) {
+            currentBackgroundTask?.cancel(false)
+            currentBackgroundTask = backgroundExecutor?.submit {
+                action()
             }
-        } else if (isShowingLoadingGradient) {
-            label1.apply {
-                alpha = 1f
-                fadeIn()
+        } else {
+            currentBackgroundTask?.cancel(true)
+            currentBackgroundTask = null
+            action()
+        }
+    }
+
+    private fun getPaintForCharacter(characterRect: WBalanceViewDrawingCharacterRect): Paint {
+        val key = Pair(characterRect.textSize, characterRect.color)
+        val paint = paintCache.getOrPut(key) {
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                textSize = characterRect.textSize
+                typeface = this@WBalanceView.typeface
+                color = characterRect.color
             }
-            label2.apply {
-                alpha = decimalsAlpha
-                fadeIn(targetAlpha = decimalsAlpha)
-            }
-            fullLabel.fadeOut {
-                if (isLoading && !isAnimating) return@fadeOut
-                fullLabel.apply {
-                    stopLoadingAnimation()
-                    visibility = GONE
+        }
+        paint.alpha = ((characterRect.alpha) * alpha).roundToInt()
+        return paint
+    }
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        setMeasuredDimension(_width, defaultHeight)
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        drawingCharacterRects.forEach { charRect ->
+            charRect.char?.let { char ->
+                val paint = getPaintForCharacter(charRect)
+                val scale = lerp(scale1, scale2, charRect.scaleMultiplier)
+
+                val pivotX = charRect.leftOffset - _widthOffset
+                val pivotY = defaultHeight / 2f
+                val offsetY = defaultHeight * (1 - scale1) / 2 + charRect.offsetY
+
+                canvas.withTranslation(0f, offsetY) {
+                    withScale(scale, scale, pivotX, pivotY) {
+                        drawText(
+                            char.toString(),
+                            charRect.leftOffset - _widthOffset,
+                            (balanceBaseline + charRect.yOffsetPercent * charRect.textSize * 1.05f) * scale,
+                            paint
+                        )
+                    }
                 }
-                isShowingLoadingGradient = false
             }
         }
     }

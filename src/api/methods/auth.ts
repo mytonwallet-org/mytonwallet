@@ -263,7 +263,7 @@ export async function resetAccounts() {
 
 export async function removeAccount(
   accountId: string,
-  nextAccountId: string,
+  nextAccountId: string | undefined,
   newestActivityTimestamps?: ApiActivityTimestamps,
 ) {
   removePollingAccount(accountId);
@@ -273,7 +273,9 @@ export async function removeAccount(
     getEnvironment().isDappSupported && removeAccountDapps(accountId),
   ]);
 
-  await activateAccount(nextAccountId, newestActivityTimestamps);
+  if (nextAccountId !== undefined) {
+    await activateAccount(nextAccountId, newestActivityTimestamps);
+  }
 }
 
 export async function changePassword(oldPassword: string, password: string) {

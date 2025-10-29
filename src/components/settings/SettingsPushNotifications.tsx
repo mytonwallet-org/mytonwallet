@@ -1,10 +1,10 @@
-import React, { memo, useMemo } from '../../lib/teact/teact';
+import React, { memo } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import type { Account, AccountSettings, AccountType, GlobalState } from '../../global/types';
 
 import { MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT } from '../../config';
-import { selectNetworkAccounts } from '../../global/selectors';
+import { selectOrderedAccounts } from '../../global/selectors';
 import { getMainAccountAddress } from '../../util/account';
 import buildClassName from '../../util/buildClassName';
 import { isKeyCountGreater } from '../../util/isEmptyObject';
@@ -29,7 +29,7 @@ interface OwnProps {
 }
 
 interface StateProps {
-  accounts?: Record<string, Account>;
+  orderedAccounts: Array<[string, Account]>;
   canPlaySounds?: boolean;
   settingsByAccountId?: Record<string, AccountSettings>;
   pushNotifications: GlobalState['pushNotifications'];
@@ -38,7 +38,7 @@ interface StateProps {
 function SettingsPushNotifications({
   isActive,
   handleBackClick,
-  accounts,
+  orderedAccounts,
   canPlaySounds,
   pushNotifications: {
     enabledAccounts,
@@ -50,7 +50,6 @@ function SettingsPushNotifications({
   const lang = useLang();
 
   const { toggleNotifications, toggleNotificationAccount, toggleCanPlaySounds } = getActions();
-  const iterableAccounts = useMemo(() => Object.entries(accounts || {}), [accounts]);
   const arePushNotificationsEnabled = Boolean(Object.keys(enabledAccounts).length);
   const headerTitle = arePushNotificationsAvailable ? lang('Notifications & Sounds') : lang('Sounds');
 
@@ -91,14 +90,15 @@ function SettingsPushNotifications({
 
     return (
       <AccountButton
-        className={buildClassName(
-          styles.account,
-          isDisabled ? styles.accountDisabled : undefined,
-        )}
         key={accountId}
         accountId={accountId}
         address={address}
         title={title}
+        className={buildClassName(
+          styles.account,
+          isDisabled ? styles.accountDisabled : undefined,
+        )}
+        titleClassName={styles.pushAccountName}
         ariaLabel={lang('Switch Account')}
         accountType={accountType}
         withCheckbox
@@ -114,10 +114,10 @@ function SettingsPushNotifications({
   function renderAccounts() {
     return (
       <AccountButtonWrapper
-        accountLength={iterableAccounts.length}
+        accountLength={orderedAccounts.length}
         className={styles.settingsBlock}
       >
-        {iterableAccounts.map(
+        {orderedAccounts.map(
           ([accountId, { title, byChain, type }]) => {
             return renderAccount(accountId, byChain, type, title);
           },
@@ -188,9 +188,10 @@ function SettingsPushNotifications({
 }
 
 export default memo(withGlobal<OwnProps>((global): StateProps => {
-  const accounts = selectNetworkAccounts(global);
+  const orderedAccounts = selectOrderedAccounts(global);
+
   return {
-    accounts,
+    orderedAccounts,
     canPlaySounds: global.settings.canPlaySounds,
     pushNotifications: global.pushNotifications,
     settingsByAccountId: global.settings.byAccountId,

@@ -135,7 +135,7 @@ public class SwitchAccountVC: WViewController {
         NSLayoutConstraint.activate([
             tabBarIcon.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
             tabBarIcon.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.333),
-            tabBarIcon.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            tabBarIcon.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: IOS_26_MODE_ENABLED ? -50 : 0),
         ])
         
         feedbackGenerator = UIImpactFeedbackGenerator(style: .rigid)
@@ -188,6 +188,11 @@ public class SwitchAccountVC: WViewController {
     }
     
     public override func viewWillAppear(_ animated: Bool) {
+        if IOS_26_MODE_ENABLED {
+            tableView.transform = .init(translationX: 0, y: calculatedHeight/2 - 30).scaledBy(x: 0.25, y: 0.25)
+        } else {
+            tableView.transform = .init(translationX: 60.0, y: calculatedHeight/2 - 30).scaledBy(x: 0.25, y: 0.25)
+        }
         tableView.transform = .init(translationX: 60.0, y: calculatedHeight/2 - 30).scaledBy(x: 0.25, y: 0.25)
         //        tabBarIcon.transform = .identity.scaledBy(x: 0.9, y: 0.9) // matching real icon
         

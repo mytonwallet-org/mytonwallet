@@ -266,15 +266,37 @@ fun View.setBackgroundColor(
     strokeColor: Int? = null,
     strokeWidth: Int = 0
 ) {
+    setBackgroundColor(
+        color,
+        topRadius,
+        topRadius,
+        bottomRadius,
+        bottomRadius,
+        clipToBounds,
+        strokeColor,
+        strokeWidth
+    )
+}
+
+fun View.setBackgroundColor(
+    color: Int,
+    topLeftRadius: Float,
+    topRightRadius: Float,
+    bottomRightRadius: Float,
+    bottomLeftRadius: Float,
+    clipToBounds: Boolean = false,
+    strokeColor: Int? = null,
+    strokeWidth: Int = 0
+) {
     val gradientDrawable = GradientDrawable()
 
     gradientDrawable.setColor(color)
 
     gradientDrawable.cornerRadii = floatArrayOf(
-        topRadius, topRadius,
-        topRadius, topRadius,
-        bottomRadius, bottomRadius,
-        bottomRadius, bottomRadius
+        topLeftRadius, topLeftRadius,
+        topRightRadius, topRightRadius,
+        bottomRightRadius, bottomRightRadius,
+        bottomLeftRadius, bottomLeftRadius,
     )
 
     if (strokeColor != null && strokeWidth > 0) {
@@ -291,10 +313,10 @@ fun View.setBackgroundColor(
                         addRoundRect(
                             0f, 0f, view.width.toFloat(), view.height.toFloat(),
                             floatArrayOf(
-                                topRadius, topRadius,
-                                topRadius, topRadius,
-                                bottomRadius, bottomRadius,
-                                bottomRadius, bottomRadius
+                                topLeftRadius, topLeftRadius,
+                                topRightRadius, topRightRadius,
+                                bottomRightRadius, bottomRightRadius,
+                                bottomLeftRadius, bottomLeftRadius,
                             ),
                             Path.Direction.CW
                         )
@@ -306,7 +328,7 @@ fun View.setBackgroundColor(
                         0,
                         view.width,
                         view.height,
-                        maxOf(topRadius, bottomRadius)
+                        maxOf(topLeftRadius, topRightRadius, bottomLeftRadius, bottomRightRadius)
                     )
                 }
             }

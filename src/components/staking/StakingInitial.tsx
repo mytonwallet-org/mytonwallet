@@ -417,8 +417,6 @@ function StakingInitial({
   }
 
   function renderSafeInfoModal() {
-    if (IS_DELEGATED_BOTTOM_SHEET) return undefined;
-
     return (
       <Modal
         isCompact

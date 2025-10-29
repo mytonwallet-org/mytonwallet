@@ -18,7 +18,7 @@ interface OwnProps {
 
 function ImageComponent({
   url,
-  alt,
+  alt = '',
   loading,
   isSlow,
   className,

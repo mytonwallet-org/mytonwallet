@@ -79,19 +79,33 @@ open class WViewController: UIViewController, WThemedView {
     
     // MARK: - Navigation bar
     
-    @discardableResult
-    public func addNavigationBar(navHeight: CGFloat? = nil, topOffset: CGFloat = 0, centerYOffset: CGFloat = 0, title: String? = nil, subtitle: String? = nil, leadingItem: WNavigationBarButton? = nil, trailingItem: WNavigationBarButton? = nil, tintColor: UIColor? = nil, titleColor: UIColor? = nil, closeIcon: Bool = false, addBackButton: (() -> Void)? = nil) -> WNavigationBar {
-        let navHeight = navHeight ?? (isPresentationModal ? 60 : 44)
-        let navigationBar = WNavigationBar(navHeight: navHeight, topOffset: topOffset, centerYOffset: centerYOffset, title: title, subtitle: subtitle, leadingItem: leadingItem, trailingItem: trailingItem, tintColor: tintColor, titleColor: titleColor, closeIcon: closeIcon, addBackButton: addBackButton)
-        self.navigationBar = navigationBar
-        navigationBar.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(navigationBar)
-        NSLayoutConstraint.activate([
-            navigationBar.topAnchor.constraint(equalTo: view.topAnchor),
-            navigationBar.leftAnchor.constraint(equalTo: view.leftAnchor),
-            navigationBar.rightAnchor.constraint(equalTo: view.rightAnchor)
-        ])
-        return navigationBar
+    public func addNavigationBar(navHeight: CGFloat? = nil, topOffset: CGFloat = 0, centerYOffset: CGFloat = 0, title: String? = nil, subtitle: String? = nil, leadingItem: WNavigationBarButton? = nil, trailingItem: WNavigationBarButton? = nil, tintColor: UIColor? = nil, titleColor: UIColor? = nil, closeIcon: Bool = false, addBackButton: (() -> Void)? = nil, prefersHardEdge: Bool = false) {
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *), !prefersHardEdge {
+            if let title {
+                self.title = title
+            }
+            if let subtitle {
+                self.navigationItem.subtitle = subtitle
+            }
+            if closeIcon {
+                navigationItem.rightBarButtonItem = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { _ in topViewController()?.dismiss(animated: true) })
+            }
+            if let leadingItem {
+                // TODO: only cancel button is supported
+                navigationItem.leftBarButtonItem = UIBarButtonItem(systemItem: .cancel, primaryAction: UIAction { _ in leadingItem.onPress?() })
+            }
+        } else {
+            let navHeight = navHeight ?? (isPresentationModal ? 60 : 44)
+            let navigationBar = WNavigationBar(navHeight: navHeight, topOffset: topOffset, centerYOffset: centerYOffset, title: title, subtitle: subtitle, leadingItem: leadingItem, trailingItem: trailingItem, tintColor: tintColor, titleColor: titleColor, closeIcon: closeIcon, addBackButton: addBackButton)
+            self.navigationBar = navigationBar
+            navigationBar.translatesAutoresizingMaskIntoConstraints = false
+            view.addSubview(navigationBar)
+            NSLayoutConstraint.activate([
+                navigationBar.topAnchor.constraint(equalTo: view.topAnchor),
+                navigationBar.leftAnchor.constraint(equalTo: view.leftAnchor),
+                navigationBar.rightAnchor.constraint(equalTo: view.rightAnchor)
+            ])
+        }
     }
     
     public var isPresentationModal: Bool {
@@ -261,18 +275,21 @@ open class WViewController: UIViewController, WThemedView {
     // MARK: - Bottom bar blur
     
     public func addBottomBarBlur() {
-        let tabBarBlurView = WBlurView()
-        self.bottomBarBlurView = tabBarBlurView
-        tabBarBlurView.translatesAutoresizingMaskIntoConstraints = false
-        self.view.addSubview(tabBarBlurView)
-        let constraint = tabBarBlurView.heightAnchor.constraint(equalToConstant: view.safeAreaInsets.bottom)
-        self.bottomBarBlurConstraint = constraint
-        NSLayoutConstraint.activate([
-            tabBarBlurView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            tabBarBlurView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            constraint,
-            tabBarBlurView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-        ])
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+        } else {
+            let tabBarBlurView = WBlurView()
+            self.bottomBarBlurView = tabBarBlurView
+            tabBarBlurView.translatesAutoresizingMaskIntoConstraints = false
+            self.view.addSubview(tabBarBlurView)
+            let constraint = tabBarBlurView.heightAnchor.constraint(equalToConstant: view.safeAreaInsets.bottom)
+            self.bottomBarBlurConstraint = constraint
+            NSLayoutConstraint.activate([
+                tabBarBlurView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                tabBarBlurView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+                constraint,
+                tabBarBlurView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            ])
+        }
     }
     
     open override func viewSafeAreaInsetsDidChange() {

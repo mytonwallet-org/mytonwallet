@@ -3,6 +3,7 @@ import Kingfisher
 import SwiftUI
 import WalletCore
 import WalletContext
+import UIComponents
 
 struct FeaturedDappCell: View {
     
@@ -39,7 +40,7 @@ struct FeaturedDappCell: View {
         .contentShape(.containerRelative)
         .highlightOverlay(isHighlighted)
         .clipShape(.containerRelative)
-        .containerShape(.rect(cornerRadius: 14))
+        .containerShape(.rect(cornerRadius: S.featuredDappCornerRadius))
     }
     
     @ViewBuilder

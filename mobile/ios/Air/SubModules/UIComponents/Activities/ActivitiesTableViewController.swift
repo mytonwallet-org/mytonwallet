@@ -36,19 +36,28 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
     open var isInitializingCache = true
 
     open var headerPlaceholderHeight: CGFloat { fatalError("abstract") }
+    open var firstRowPlaceholderHeight: CGFloat { 0 }
+    open var firstRow: UITableViewCell.Type? { nil }
+    open func configureFirstRow(cell: UITableViewCell) {}
     open var isGeneralDataAvailable: Bool { true }
     open var account: MAccount? { AccountStore.account }
 
     open var activityViewModel: ActivityViewModel? { fatalError("abstract") }
-    
+
     private var reconfigureTokensWhenStopped: Bool = false
-    
+
     public let processorQueue = DispatchQueue(label: "activities.background_processor")
     public let processorQueueLock = DispatchSemaphore(value: 1)
 
     // MARK: - Misc
 
-    open override var hideNavigationBar: Bool { true }
+    open override var hideNavigationBar: Bool {
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+            false
+        } else {
+            true
+        }
+    }
 
     public func onSelect(transaction: ApiActivity) {
         tableView.beginUpdates()
@@ -94,6 +103,9 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
         tableView.showsVerticalScrollIndicator = false
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "HeaderPlaceholder")
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "BottomPlaceholder")
+        if let firstRow {
+            tableView.register(firstRow, forCellReuseIdentifier: "FirstRow")
+        }
         tableView.register(ActivityCell.self, forCellReuseIdentifier: "Transaction")
         tableView.register(ActivityCell.self, forCellReuseIdentifier: "LoadingMoreSkeleton")
         tableView.register(ActivityDateCell.self, forHeaderFooterViewReuseIdentifier: "Date")
@@ -106,10 +118,13 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
         tableView.sectionHeaderTopPadding = 0
         tableView.sectionHeaderHeight = 0
         tableView.sectionFooterHeight = 0
-        tableView.separatorColor = WTheme.separator
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+        } else {
+            tableView.separatorColor = WTheme.separator
+        }
         tableView.separatorInset.left = 62
         tableView.accessibilityIdentifier = "tableView"
-        
+
         skeletonTableView.translatesAutoresizingMaskIntoConstraints = false
         skeletonTableView.delegate = self
         skeletonTableView.showsVerticalScrollIndicator = false
@@ -124,7 +139,10 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
         skeletonTableView.sectionHeaderTopPadding = 0
         skeletonTableView.sectionHeaderHeight = 0
         skeletonTableView.sectionFooterHeight = 0
-        skeletonTableView.separatorColor = WTheme.separator
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+        } else {
+            skeletonTableView.separatorColor = WTheme.separator
+        }
         skeletonTableView.separatorInset.left = 62
         skeletonTableView.accessibilityIdentifier = "skeletonTableView"
 
@@ -157,6 +175,13 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
                 cell.tag = 123
                 return cell
 
+            case .firstRow:
+                let cell = tableView.dequeueReusableCell(withIdentifier: "FirstRow", for: indexPath)
+                cell.selectionStyle = .none
+                cell.backgroundColor = .clear
+                configureFirstRow(cell: cell)
+                return cell
+
             case .transaction(let transactionId):
                 let showingTransaction = activityViewModel?.activitiesById?[transactionId]
                 let cell = tableView.dequeueReusableCell(withIdentifier: "Transaction", for: indexPath) as! ActivityCell
@@ -186,7 +211,7 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
 
         return dataSource
     }
-    
+
     public func makeSnapshot() -> NSDiffableDataSourceSnapshot<Section, Row> {
         if let activityViewModel {
             return activityViewModel.snapshot
@@ -194,6 +219,10 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
             var snapshot = NSDiffableDataSourceSnapshot<Section, Row>()
             snapshot.appendSections([.headerPlaceholder])
             snapshot.appendItems([.headerPlaceholder])
+            if firstRow != nil {
+                snapshot.appendSections([.firstRow])
+                snapshot.appendItems([.firstRow])
+            }
             return snapshot
         }
     }
@@ -235,7 +264,7 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
     }
 
     // MARK: - Reload methods
-    
+
     open func applySnapshot(_ snapshot: NSDiffableDataSourceSnapshot<Section, Row>, animated: Bool, animatingDifferences: Bool? = nil) {
         let start = Date()
         defer { log.info("applySnapshot(\(animated), \(animatingDifferences as Any, .public)): \(Date().timeIntervalSince(start))s")}
@@ -261,6 +290,25 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
         guard dataSource != nil, skeletonDataSource != nil else { return }
         // force layout
         tableView.beginUpdates()
+        if skeletonState == .loading {
+            skeletonTableView.beginUpdates()
+            skeletonTableView.endUpdates()
+        }
+        tableView.endUpdates()
+        updateSkeletonViewsIfNeeded(animateAlondside: nil)
+    }
+
+    public func reconfigureFirstRowCell() {
+        guard dataSource != nil, skeletonDataSource != nil else { return }
+        tableView.beginUpdates()
+
+        if let snapshot = dataSource?.snapshot(),
+           snapshot.itemIdentifiers.contains(.firstRow) {
+            var updatedSnapshot = snapshot
+            updatedSnapshot.reconfigureItems([.firstRow])
+            dataSource?.apply(updatedSnapshot, animatingDifferences: false)
+        }
+
         if skeletonState == .loading {
             skeletonTableView.beginUpdates()
             skeletonTableView.endUpdates()
@@ -328,7 +376,7 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
             switch id {
             case .headerPlaceholder:
                 return headerPlaceholderHeight
-            case .transaction, .loadingMore:
+            case .firstRow, .transaction, .loadingMore:
                 return /*cellHeightsCache[id] ??*/ UITableView.automaticDimension
             case .emptyPlaceholder:
                 return 300
@@ -336,7 +384,7 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
         } else if tableView === self.skeletonTableView, let id = skeletonDataSource?.itemIdentifier(for: indexPath) {
             switch id {
             case .headerPlaceholder:
-                return headerPlaceholderHeight
+                return headerPlaceholderHeight + firstRowPlaceholderHeight
             case .transactionPlaceholder:
                 return 60
             }

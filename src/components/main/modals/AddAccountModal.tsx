@@ -33,6 +33,7 @@ interface StateProps {
   isPasswordPresent: boolean;
   withOtherWalletVersions?: boolean;
   forceAddingTonOnlyAccount?: boolean;
+  initialState?: RenderingState;
 }
 
 const enum RenderingState {
@@ -45,6 +46,9 @@ const enum RenderingState {
   ViewMode,
 }
 
+export const ADD_LEDGER_ACCOUNT = RenderingState.ConnectHardware;
+export const ADD_VIEW_ACCOUNT = RenderingState.ViewMode;
+
 function AddAccountModal({
   isOpen,
   isLoading,
@@ -52,6 +56,7 @@ function AddAccountModal({
   isPasswordPresent,
   withOtherWalletVersions,
   forceAddingTonOnlyAccount,
+  initialState = RenderingState.Initial,
 }: StateProps) {
   const {
     addAccount,
@@ -63,9 +68,30 @@ function AddAccountModal({
   } = getActions();
 
   const lang = useLang();
-  const [renderingKey, setRenderingKey] = useState<RenderingState>(RenderingState.Initial);
-
+  const [renderingKey, setRenderingKey] = useState<RenderingState>(initialState);
   const [isNewAccountImporting, setIsNewAccountImporting] = useState<boolean>(false);
+
+  const handleImportHardwareWalletClick = useLastCallback(() => {
+    resetHardwareWalletConnect({
+      chain: getChainsSupportingLedger()[0], // todo: Add a chain selector screen for Ledger auth
+      shouldLoadWallets: true,
+    });
+    setRenderingKey(RenderingState.ConnectHardware);
+  });
+
+  useEffect(() => {
+    // Initialize Ledger wallet flow if requested and supported
+    if (initialState === RenderingState.ConnectHardware) {
+      if (IS_LEDGER_SUPPORTED) {
+        handleImportHardwareWalletClick();
+      } else {
+        setRenderingKey(RenderingState.Initial);
+      }
+      return;
+    }
+
+    setRenderingKey(initialState);
+  }, [initialState]);
 
   const handleBackClick = useLastCallback(() => {
     setRenderingKey(RenderingState.Initial);
@@ -126,14 +152,6 @@ function AddAccountModal({
 
   const handleViewModeWalletClick = useLastCallback(() => {
     setRenderingKey(RenderingState.ViewMode);
-  });
-
-  const handleImportHardwareWalletClick = useLastCallback(() => {
-    resetHardwareWalletConnect({
-      chain: getChainsSupportingLedger()[0], // todo: Add a chain selector screen for Ledger auth
-      shouldLoadWallets: true,
-    });
-    setRenderingKey(RenderingState.ConnectHardware);
   });
 
   const handleHardwareWalletConnected = useLastCallback(() => {
@@ -289,7 +307,7 @@ export default memo(withGlobal((global): StateProps => {
   const versions = versionById?.[global.currentAccountId!];
   const withOtherWalletVersions = !!versions?.length;
 
-  const { auth: { forceAddingTonOnlyAccount } } = global;
+  const { auth: { forceAddingTonOnlyAccount, initialState } } = global;
 
   return {
     isOpen: global.isAddAccountModalOpen,
@@ -298,5 +316,6 @@ export default memo(withGlobal((global): StateProps => {
     isPasswordPresent,
     withOtherWalletVersions,
     forceAddingTonOnlyAccount,
+    initialState,
   };
 })(AddAccountModal));

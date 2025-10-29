@@ -708,9 +708,8 @@ class TokenVC(context: Context, var token: MToken) : WViewController(context),
                 (cellHolder.cell as EmptyCell).let { cell ->
                     cell.layoutParams = cell.layoutParams.apply {
                         height = (this@TokenVC.view.parent as View).height - (
-                            (navigationController?.getSystemBars()?.top ?: 0) +
-                                (navigationController?.getSystemBars()?.bottom ?: 0) +
-                                TokenHeaderView.navDefaultHeight
+                            (navigationController?.getSystemBars()?.bottom ?: 0) +
+                                headerView.contentHeight
                             )
                     }
                 }

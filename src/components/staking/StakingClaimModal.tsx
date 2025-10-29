@@ -175,7 +175,6 @@ function StakingClaimModal({
             onSubmit={handleSubmit}
             onCancel={cancelStakingClaim}
             onUpdate={clearStakingError}
-            skipAuthScreen
           >
             {renderInfo()}
           </PasswordForm>

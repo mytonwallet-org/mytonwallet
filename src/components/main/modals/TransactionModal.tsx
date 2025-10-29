@@ -586,6 +586,7 @@ function TransactionModal({
               withCloseButton={IS_CAPACITOR}
               containerClassName={IS_CAPACITOR ? styles.passwordFormContent : styles.passwordFormContentInModal}
               submitLabel={lang('Confirm')}
+              noAutoConfirm
               onSubmit={handlePasswordSubmit}
               onCancel={closePasswordSlide}
               onUpdate={clearPasswordError}

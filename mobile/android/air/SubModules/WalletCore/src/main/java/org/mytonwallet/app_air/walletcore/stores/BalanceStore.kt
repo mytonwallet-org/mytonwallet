@@ -68,7 +68,7 @@ object BalanceStore : IStore {
         accountId: String,
         accountBalances: HashMap<String, BigInteger>,
         removeOtherTokens: Boolean,
-        onCompletion: () -> Unit
+        onCompletion: (() -> Unit)? = null
     ) {
         processorQueue.execute {
             val newBalances: ConcurrentHashMap<String, BigInteger> =
@@ -90,7 +90,7 @@ object BalanceStore : IStore {
                 jsonObject.put(key, "bigint:${newBalances[key]}")
             }
             WGlobalStorage.setBalancesDict(accountId, jsonObject)
-            onCompletion()
+            onCompletion?.invoke()
         }
     }
 

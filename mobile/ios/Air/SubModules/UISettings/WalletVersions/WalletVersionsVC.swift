@@ -31,10 +31,6 @@ public class WalletVersionsVC: WViewController {
         setupViews()
     }
     
-    public override var hideNavigationBar: Bool {
-        true
-    }
-    
     private var tableView: UITableView!
     private var footerLabel: UILabel!
     private var walletVersionsData: MWalletVersionsData? = nil

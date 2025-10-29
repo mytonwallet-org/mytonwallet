@@ -35,6 +35,9 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
     var scanButton: WBaseButton!
     var lockButton: WBaseButton!
     var hideButton: WBaseButton!
+    lazy var lockItem: UIBarButtonItem = UIBarButtonItem(title: lang("Lock"), image: .airBundle("HomeLock24"), target: self, action: #selector(lockPressed))
+    lazy var hideItem: UIBarButtonItem = UIBarButtonItem(title: lang("Hide"), image: .airBundle("HomeHide24"), target: self, action: #selector(hidePressed))
+
 
     /// The header containing balance and other actions like send/receive/scan/settings and balance in other currencies.
     var balanceHeaderVC: BalanceHeaderVC!
@@ -42,6 +45,9 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
     var headerBlurView: WBlurView!
     var bottomSeparatorView: UIView!
 
+    var windowSafeAreaGuide = UILayoutGuide()
+    var windowSafeAreaGuideContraint: NSLayoutConstraint!
+    
     let actionsVC = ActionsVC()
     var actionsTopConstraint: NSLayoutConstraint!
     var walletAssetsVC = WalletAssetsVC()
@@ -111,11 +117,18 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
         bottomSeparatorView.alpha = progress
         headerBlurView.alpha = progress
     }
+    
+    public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if let window = view.window {
+            windowSafeAreaGuideContraint.constant = window.safeAreaInsets.top + S.bhvTopAdjustment
+        }
+    }
 
     // MARK: - Variable height
 
     var bhvHeight: CGFloat {
-        balanceHeaderView.calculatedHeight
+        balanceHeaderView.calculatedHeight + S.bhvTopAdjustment
     }
     var actionsHeight: CGFloat {
         actionsVC.calcilatedHeight
@@ -275,12 +288,30 @@ extension HomeVC: HomeVMDelegate {
             expandHeader()
         }
         scrollViewDidScroll(tableView)
-        lockButton.isHidden = !AuthSupport.accountsSupportAppLock
+        
+        let canLock = AuthSupport.accountsSupportAppLock
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+            navigationItem.trailingItemGroups = [
+                UIBarButtonItemGroup(barButtonItems: canLock ? [lockItem, hideItem] : [hideItem], representativeItem: nil)
+            ]
+        } else {
+            lockButton.isHidden = !canLock
+        }
     }
 }
 
 extension HomeVC: ActivityViewModelDelegate {
     public func activityViewModelChanged() {
         transactionsUpdated(accountChanged: false, isUpdateEvent: true)
+    }
+}
+
+extension S {
+    static var bhvTopAdjustment: CGFloat {
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+            6
+        } else {
+            0
+        }
     }
 }

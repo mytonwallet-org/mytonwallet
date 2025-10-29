@@ -164,8 +164,11 @@ public class HiddenNftsVC: WViewController {
         configuration.headerMode = .supplementary
         configuration.footerMode = .none
         configuration.separatorConfiguration.bottomSeparatorInsets.leading = 60
-        configuration.separatorConfiguration.color = WTheme.separator
-        configuration.backgroundColor = .clear 
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+        } else {
+            configuration.separatorConfiguration.color = WTheme.separator
+        }
+        configuration.backgroundColor = .clear
         let layout = UICollectionViewCompositionalLayout.list(using: configuration)
         return layout
     }

@@ -806,7 +806,7 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
 
             EMPTY_VIEW_SECTION -> {
                 return if (
-                    showingTransactions?.size == 0 &&
+                    showingTransactions?.isEmpty() == true &&
                     homeVM.isGeneralDataAvailable
                 ) 1 else 0
             }
@@ -1023,9 +1023,10 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
                         height = (this@HomeVC.view.parent as View).height - (
                             (navigationController?.getSystemBars()?.top ?: 0) +
                                 (navigationController?.getSystemBars()?.bottom ?: 0) +
+                                75.dp + // TabBar
                                 HomeHeaderView.navDefaultHeight +
-                                (ViewConstants.GAP.dp +
-                                    (homeAssetsCell?.height ?: 0))
+                                ViewConstants.GAP.dp +
+                                (homeAssetsCell?.height ?: 0)
                             )
                     }
                 }
@@ -1140,7 +1141,7 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
             stickyHeaderView.updateStatusView.state == UpdateStatusView.State.Updated
         if (accountNotLoadedYet)
             return
-        headerView.update(state)
+        headerView.update(state, animated)
         stickyHeaderView.update(headerView.mode, state, animated)
     }
 
@@ -1287,7 +1288,10 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
         if (stickyHeaderView.updateStatusView.state == UpdateStatusView.State.Updated)
             stickyHeaderView.updateStatusView.setState(
                 UpdateStatusView.State.Updated, false,
-                AccountStore.activeAccount?.name ?: ""
+                if (headerView.mode == HomeHeaderView.Mode.Expanded)
+                    (AccountStore.activeAccount?.name ?: "")
+                else
+                    ""
             )
     }
 

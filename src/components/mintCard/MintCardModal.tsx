@@ -85,7 +85,6 @@ function MintCardModal({
           onCancel={closeMintCardModal}
           onUpdate={clearMintCardError}
           operationType="mintCard"
-          skipAuthScreen
         >
           <TransactionBanner
             className={styles.mintCardBanner}

@@ -35,7 +35,7 @@ public class DisconnectAllCell: UITableViewCell, WThemedView {
         
         containerView = WHighlightView()
         containerView.translatesAutoresizingMaskIntoConstraints = false
-        containerView.layer.cornerRadius = 10
+        containerView.layer.cornerRadius = S.insetSectionCornerRadius
         containerView.layer.masksToBounds = true
         containerView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         containerView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(itemPressed)))

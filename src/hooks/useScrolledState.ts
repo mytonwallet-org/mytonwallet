@@ -1,30 +1,61 @@
-import { useState } from '../lib/teact/teact';
+import { useEffect, useRef, useState } from '../lib/teact/teact';
 
 import useLastCallback from './useLastCallback';
 
-const THRESHOLD = 1;
+const DEFAULT_THRESHOLD = 1;
 
-export default function useScrolledState(threshold = THRESHOLD) {
-  const [isAtBeginning, setIsAtBeginning] = useState(true);
-  const [isAtEnd, setIsAtEnd] = useState(true);
+/**
+ * Hook to track scroll position state (beginning/end detection)
+ * Optimized for high-frequency scroll events
+ *
+ * @param threshold - Distance in pixels from edge to consider as beginning/end
+ */
+export default function useScrolledState(threshold = DEFAULT_THRESHOLD) {
+  const [scrollState, setScrollState] = useState({
+    isAtBeginning: true,
+    isAtEnd: true,
+  });
+
+  const rafRef = useRef<number | undefined>(undefined);
 
   const update = useLastCallback((element?: HTMLElement | null) => {
     if (!element) return;
 
     const { scrollHeight, scrollTop, clientHeight } = element;
 
-    setIsAtBeginning(scrollTop < threshold);
-    setIsAtEnd(scrollHeight - scrollTop - clientHeight < threshold);
+    const newIsAtBeginning = scrollTop < threshold;
+    const newIsAtEnd = scrollHeight - scrollTop - clientHeight < threshold;
+
+    if (newIsAtBeginning !== scrollState.isAtBeginning || newIsAtEnd !== scrollState.isAtEnd) {
+      setScrollState({
+        isAtBeginning: newIsAtBeginning,
+        isAtEnd: newIsAtEnd,
+      });
+    }
   });
 
   const handleScroll = useLastCallback((e: React.UIEvent<HTMLElement>) => {
-    update(e.target as HTMLElement);
+    if (rafRef.current !== undefined) {
+      cancelAnimationFrame(rafRef.current);
+    }
+
+    rafRef.current = requestAnimationFrame(() => {
+      update(e.target as HTMLElement);
+    });
   });
 
+  useEffect(() => {
+    return () => {
+      if (rafRef.current !== undefined) {
+        cancelAnimationFrame(rafRef.current);
+      }
+    };
+  }, []);
+
   return {
-    isAtBeginning,
-    isAtEnd,
-    isScrolled: !isAtBeginning,
+    isAtBeginning: scrollState.isAtBeginning,
+    isAtEnd: scrollState.isAtEnd,
+    isScrolled: !scrollState.isAtBeginning,
     handleScroll,
     update,
   };

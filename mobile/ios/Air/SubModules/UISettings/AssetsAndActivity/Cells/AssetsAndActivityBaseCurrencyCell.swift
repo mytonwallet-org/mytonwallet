@@ -66,7 +66,7 @@ class AssetsAndActivityBaseCurrencyCell: UITableViewCell {
         v.addSubview(baseCurrencyValueView)
         v.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(baseCurrencyTapped)))
         NSLayoutConstraint.activate([
-            v.heightAnchor.constraint(equalToConstant: 44),
+            v.heightAnchor.constraint(equalToConstant: S.sectionItemHeight),
             baseCurrencyLabel.leadingAnchor.constraint(equalTo: v.leadingAnchor, constant: 16),
             baseCurrencyLabel.centerYAnchor.constraint(equalTo: v.centerYAnchor),
             baseCurrencyValueView.trailingAnchor.constraint(equalTo: v.trailingAnchor, constant: -20),
@@ -85,7 +85,7 @@ class AssetsAndActivityBaseCurrencyCell: UITableViewCell {
     private lazy var optionsView: UIView = {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.layer.cornerRadius = 10
+        view.layer.cornerRadius = S.insetSectionCornerRadius
         view.layer.masksToBounds = true
         view.addSubview(baseCurrencyView)
         view.addSubview(separatorView)
@@ -96,15 +96,16 @@ class AssetsAndActivityBaseCurrencyCell: UITableViewCell {
         view.addSubview(hideTinyTransfersLabel)
         view.addSubview(hideTinyTransfersSwitch)
         NSLayoutConstraint.activate([
-            separatorView.topAnchor.constraint(equalTo: view.topAnchor, constant: 44),
+            view.heightAnchor.constraint(equalToConstant: 2 * S.sectionItemHeight),
+            separatorView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
             separatorView.heightAnchor.constraint(equalToConstant: 0.33),
-            separatorView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -44),
             separatorView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             separatorView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             baseCurrencyView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             baseCurrencyView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             baseCurrencyView.topAnchor.constraint(equalTo: view.topAnchor),
-            hideTinyTransfersLabel.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -11),
+            hideTinyTransfersLabel.heightAnchor.constraint(equalToConstant: S.sectionItemHeight),
+            hideTinyTransfersLabel.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             hideTinyTransfersLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             hideTinyTransfersSwitch.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             hideTinyTransfersSwitch.centerYAnchor.constraint(equalTo: hideTinyTransfersLabel.centerYAnchor),

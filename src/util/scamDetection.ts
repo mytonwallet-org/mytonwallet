@@ -3,7 +3,7 @@ import type { Account, UserToken } from '../global/types';
 
 import { TRC20_USDT_MAINNET_SLUG, TRX } from '../config';
 
-const SCAM_DOMAIN_ADDRESS_REGEX = /^\w{26,}\./;
+const SCAM_DOMAIN_ADDRESS_REGEX = /^[-\w]{26,}\./;
 
 export function shouldShowSeedPhraseScamWarning(
   account: Account,

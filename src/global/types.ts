@@ -486,6 +486,14 @@ export interface SavedAddress {
   chain: ApiChain;
 }
 
+export interface AddressBookItemData {
+  name: string;
+  address: string;
+  chain: ApiChain | undefined;
+  isHardware?: boolean;
+  isSavedAddress?: boolean;
+}
+
 export interface NftTransfer {
   name?: string;
   address: string;
@@ -512,6 +520,7 @@ export type GlobalState = {
     firstNetworkAccount?: AuthAccount;
     secondNetworkAccount?: AuthAccount;
     forceAddingTonOnlyAccount?: boolean;
+    initialState?: number; // Initial rendering state for the `AddAccountModal` component
   };
 
   biometrics: {
@@ -774,16 +783,22 @@ export type GlobalState = {
     autolockValue?: AutolockValueType;
     isAutoConfirmEnabled?: boolean;
     isSensitiveDataHidden?: true;
+    orderedAccountIds?: string[];
   };
 
   dialogs: DialogType[];
   notifications: NotificationType[];
   currentAccountId?: string;
+  isAccountSelectorOpen?: boolean;
+  accountSelectorActiveTab?: number;
+  accountSelectorViewMode?: 'cards' | 'list';
   isAddAccountModalOpen?: boolean;
   isBackupWalletModalOpen?: boolean;
   isHardwareModalOpen?: boolean;
   isStakingInfoModalOpen?: boolean;
   isQrScannerOpen?: boolean;
+  isCustomizeWalletModalOpen?: boolean;
+  customizeWalletReturnTo?: 'accountSelector' | 'settings';
   areSettingsOpen?: boolean;
   isExploreOpen?: boolean;
   isAppUpdateAvailable?: boolean;
@@ -913,6 +928,8 @@ export interface ActionPayloads {
   setIsBackupRequired: { isMnemonicChecked: boolean };
   openHardwareWalletModal: { chain: ApiChain };
   closeHardwareWalletModal: undefined;
+  openCustomizeWalletModal: { returnTo?: 'accountSelector' | 'settings' };
+  closeCustomizeWalletModal: undefined;
   resetHardwareWalletConnect: { chain: ApiChain; shouldLoadWallets?: boolean };
   setTransferScreen: { state: TransferState };
   setTransferAmount: { amount?: bigint };
@@ -969,7 +986,7 @@ export interface ActionPayloads {
   dismissNotification: undefined;
   initLedgerPage: undefined;
   afterSignIn: undefined;
-  signOut: { level: SignOutLevel };
+  signOut: { level: SignOutLevel; accountId?: string };
   cancelCaching: undefined;
   afterSignOut: { shouldReset?: boolean } | undefined;
   addAccount: { method: AuthMethod; password: string; isAuthFlow?: boolean };
@@ -1029,8 +1046,12 @@ export interface ActionPayloads {
   removeFromSavedAddress: { address: string; chain: ApiChain };
   checkTransferAddress: { address?: string };
 
+  openAccountSelector: undefined;
+  closeAccountSelector: undefined;
+  setAccountSelectorTab: { tab: number };
+  setAccountSelectorViewMode: { mode: 'cards' | 'list' };
   setCurrentTokenPeriod: { period: TokenPeriod };
-  openAddAccountModal: { forceAddingTonOnlyAccount: boolean } | undefined;
+  openAddAccountModal: { forceAddingTonOnlyAccount?: boolean; initialState?: number } | undefined;
   closeAddAccountModal: undefined;
 
   setLandscapeActionsActiveTabIndex: { index: ActiveTab };
@@ -1093,6 +1114,8 @@ export interface ActionPayloads {
   addToken: { token: UserToken };
   deleteToken: { slug: string };
   importToken: { address: string; isSwap?: boolean };
+  updateOrderedAccountIds: { orderedAccountIds: string[] };
+  rebuildOrderedAccountIds: undefined;
   resetImportToken: undefined;
   closeBiometricSettings: undefined;
   openBiometricsTurnOn: undefined;

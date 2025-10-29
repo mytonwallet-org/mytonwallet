@@ -1,0 +1,251 @@
+@use "../../../../styles/mixins";
+
+$modalHeight: 36.5rem;
+$headerHeight: 4.5rem;
+$tabsHeight: 2.5rem;
+$footerButtonHeight: 3rem;
+$footerPaddingTop: 0.5rem;
+$footerPaddingBottom: 1rem;
+
+@mixin contentMargin() {
+  margin-top: calc($headerHeight + $tabsHeight);
+  margin-bottom: calc($footerPaddingTop + $footerPaddingBottom + #{$footerButtonHeight});
+
+  @include mixins.respond-below(xs) {
+    margin-bottom: calc(
+      #{$footerPaddingTop} + #{$footerButtonHeight} + max(0rem, $footerPaddingBottom - var(--safe-area-bottom, 0rem)) - var(--top-height-compensation)
+    );
+  }
+}
+
+.modalDialog {
+  --top-height-compensation: 0rem;
+
+  :global(html.is-android-app) & {
+    --top-height-compensation: var(--safe-area-top);
+  }
+
+  :global(html.is-mobile-telegram-app.is-fullscreen) & {
+    --top-height-compensation: var(--tg-safe-area-inset-top);
+  }
+
+  height: $modalHeight;
+
+  @supports (height: var(--safe-area-bottom)) {
+    height: calc($modalHeight + var(--safe-area-bottom));
+  }
+
+  :global(.is-native-bottom-sheet) & {
+    height: calc($modalHeight + var(--safe-area-bottom, 0rem));
+  }
+}
+
+.rootTransition,
+.modalContent {
+  overflow: hidden;
+}
+
+.headerWrapper {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 0;
+
+  width: 100%;
+  height: calc($headerHeight + $tabsHeight);
+  border-radius: var(--border-radius-default) var(--border-radius-default) 0 0;
+
+  background-color: var(--color-background-window);
+  backdrop-filter: saturate(180%) blur(20px);
+
+  :global(html.is-mobile-telegram-app.is-fullscreen) &,
+  :global(html.is-android-app) & {
+    box-sizing: content-box;
+    padding-top: var(--top-height-compensation);
+  }
+
+  @include mixins.respond-below(xs) {
+    :global(html.is-telegram-app) &,
+    :global(html.is-android) & {
+      border-radius: 0;
+    }
+
+    &::before {
+      border-radius: var(--border-radius-default) var(--border-radius-default) 0 0;
+
+      :global(html.is-telegram-app) &,
+      :global(html.is-android) & {
+        border-radius: 0;
+      }
+    }
+
+    @include mixins.backdropPatch('before');
+  }
+
+  &.withBorder {
+    background-color: var(--color-background-tab-bar);
+
+    @include mixins.separatorBottom();
+  }
+}
+
+.rootTransition {
+  z-index: 0;
+  border-radius: var(--border-radius-default);
+}
+
+.footer {
+  position: absolute;
+  z-index: calc(var(--z-menu-backdrop) + 2) !important;
+  right: 0;
+  bottom: 0;
+  left: 0;
+
+  box-sizing: content-box;
+  height: $footerButtonHeight;
+  padding: $footerPaddingTop 1rem $footerPaddingBottom;
+
+  background-color: var(--color-background-tab-bar);
+  backdrop-filter: saturate(180%) blur(20px);
+
+  @include mixins.respond-above(xs) {
+    border-radius: 0 0 var(--border-radius-default) var(--border-radius-default);
+  }
+
+  @include mixins.respond-below(xs) {
+    padding-bottom: max(var(--safe-area-bottom), $footerPaddingBottom);
+
+    @include mixins.backdropPatch();
+  }
+
+  &.withBorder {
+    @include mixins.separator();
+  }
+}
+
+.footerButton {
+  width: 100%;
+  max-width: 100% !important;
+}
+
+.plusIcon {
+  margin-inline-end: 0.25rem;
+  font-size: 1.25rem;
+}
+
+.tabsContainer {
+  position: absolute;
+  top: calc($headerHeight + var(--top-height-compensation));
+  left: 0;
+
+  width: 100%;
+  height: $tabsHeight;
+
+  text-align: center;
+}
+
+.tabs {
+  --tab-gap-size: 0.5rem;
+
+  display: inline-flex;
+
+  &.inactive {
+    pointer-events: none;
+  }
+}
+
+.emptyState {
+  display: flex;
+  flex-flow: column;
+  gap: 1rem;
+  align-items: center;
+  justify-content: center;
+
+  height: 100%;
+
+  font-size: 1rem;
+  color: var(--color-black);
+}
+
+.emptyStateTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.emptyStateDescription {
+  padding: 0 1rem;
+
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-gray-2);
+  text-align: center;
+}
+
+.contentSlide {
+  scrollbar-gutter: stable;
+
+  overflow: auto;
+  overscroll-behavior: contain;
+
+  padding: 0 0.75rem var(--safe-area-bottom);
+  border-radius: var(--border-radius-default) var(--border-radius-default) 0 0;
+
+  background: var(--color-background-window);
+
+  @include mixins.adapt-padding-to-scrollbar(0.75rem);
+
+  @include mixins.respond-below(xs) {
+    padding: 0 0.5rem var(--safe-area-bottom);
+
+    :global(html.is-telegram-app) &,
+    :global(html.is-android) & {
+      border-radius: 0;
+    }
+
+    @include mixins.adapt-padding-to-scrollbar(0.5rem);
+  }
+}
+
+.container {
+  scrollbar-width: none !important;
+
+  position: relative;
+
+  overflow: hidden;
+  overflow-y: scroll;
+  overscroll-behavior: contain;
+
+  &::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  @include contentMargin();
+}
+
+.gridContainer {
+  --main-text: var(--color-card-text);
+  --second-text: var(--color-card-second-text);
+
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  row-gap: 0.125rem;
+}
+
+.listContainer {
+  position: relative;
+
+  display: flex;
+  flex-direction: column;
+
+  min-height: calc(100% - ($footerPaddingTop + $footerPaddingBottom + $footerButtonHeight + $headerHeight + $tabsHeight));
+  border-radius: var(--border-radius-default);
+
+  background-color: var(--color-background-first);
+
+  @include mixins.respond-below(xs) {
+    min-height: calc(100% - (
+      $footerPaddingTop + max(0rem, $footerPaddingBottom - var(--safe-area-bottom, 0rem)) + $footerButtonHeight + $headerHeight + $tabsHeight - var(--top-height-compensation)
+    ));
+  }
+}

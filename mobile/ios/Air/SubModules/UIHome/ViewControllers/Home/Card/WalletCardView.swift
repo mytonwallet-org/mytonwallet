@@ -113,7 +113,7 @@ public class WalletCardView: WTouchPassView {
             balanceHeaderView.walletCardViewPreferredBottomConstraint.constant = state == .expanded ? 1000 : -28
             widthConstraint.constant = state == .expanded ? balanceHeaderView.frame.width - 32 : 34
             balanceTopConstraint.constant = state == .expanded ? balanceTopConstant : 1000
-            layer.cornerRadius = state == .expanded ? 16 : 3
+            layer.cornerRadius = state == .expanded ? S.homeInsetSectionCornerRadius : 3
             //        superview?.layoutIfNeeded()
         }
     }
@@ -246,6 +246,7 @@ public class WalletCardView: WTouchPassView {
         button.tintColor = .white
         button.alpha = 0.75
         button.backgroundColor = .clear
+        button.isHidden = true
         return button
     }()
 

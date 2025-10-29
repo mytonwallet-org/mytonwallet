@@ -150,7 +150,7 @@ private let log = Log("Home-WalletAssets")
 //            self?.nftsVC?.updateIsVisible(offset >= 0.2)
         }        
         
-        walletAssetsView.layer.cornerRadius = 16
+        walletAssetsView.layer.cornerRadius = S.homeInsetSectionCornerRadius
         walletAssetsView.layer.masksToBounds = true
         
         updateTheme()

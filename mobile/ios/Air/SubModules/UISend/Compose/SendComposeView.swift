@@ -135,7 +135,7 @@ fileprivate struct ToSection: View {
                 isFocused = true
             }
         } header: {
-            Text(lang("Send to"))
+            Text(lang("Recipient Address"))
         } footer: {
             footer
         }

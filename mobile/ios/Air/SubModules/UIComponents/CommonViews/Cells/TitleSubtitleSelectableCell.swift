@@ -39,7 +39,7 @@ public class TitleSubtitleSelectableCell: UITableViewCell, WThemedView {
         
         containerView = WHighlightView()
         containerView.translatesAutoresizingMaskIntoConstraints = false
-        containerView.layer.cornerRadius = 10
+        containerView.layer.cornerRadius = S.insetSectionCornerRadius
         containerView.layer.masksToBounds = true
         containerView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(itemSelected)))
         addSubview(containerView)

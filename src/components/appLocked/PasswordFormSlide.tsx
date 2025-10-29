@@ -74,6 +74,7 @@ function PasswordFormSlide({
         pinPadClassName={styles.pinPadContent}
         inputWrapperClassName={styles.passwordInputWrapper}
         submitLabel={lang('Unlock')}
+        noAutoConfirm
         onSubmit={handleSubmitPassword}
         onUpdate={handlePasswordChange}
       >

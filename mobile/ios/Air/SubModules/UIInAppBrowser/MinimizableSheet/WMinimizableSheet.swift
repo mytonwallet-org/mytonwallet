@@ -167,6 +167,9 @@ extension WMinimizableSheet: UISheetPresentationControllerDelegate {
             } else {
                 44
             }
+            if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+                sheet.preferredCornerRadius = 12
+            }
             sheet.detents = [.large(), .custom(identifier: .minimized, resolver: { _ in detentValue })]
             sheet.selectedDetentIdentifier  = detent
             sheet.largestUndimmedDetentIdentifier = .minimized

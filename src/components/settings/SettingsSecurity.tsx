@@ -590,6 +590,7 @@ function SettingsSecurity({
               forceBiometricsInMain={!isInsideModal}
               placeholder={lang('Enter your current password')}
               submitLabel={lang('Continue')}
+              noAutoConfirm
               onCancel={handleBackToSettingsClick}
               onSubmit={handlePasswordSubmit}
               onUpdate={clearPasswordError}

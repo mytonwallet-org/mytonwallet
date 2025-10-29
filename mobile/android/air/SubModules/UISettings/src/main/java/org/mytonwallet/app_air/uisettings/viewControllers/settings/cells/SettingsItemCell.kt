@@ -70,13 +70,13 @@ class SettingsItemCell(context: Context) : WCell(context), ISettingsItemCell, WT
             toCenterY(iconView)
             setHorizontalBias(titleLabel.id, 0f)
             constrainedWidth(titleLabel.id, true)
-            toStart(titleLabel, 72f)
+            toStart(titleLabel, 68f)
             toTop(titleLabel, 16f)
             endToStart(titleLabel, valueLabel, 8f)
             toEnd(valueLabel, 16f)
             toTop(valueLabel, 16f)
             toBottom(separatorView)
-            toStart(separatorView, 72f)
+            toStart(separatorView, 68f)
             toEnd(separatorView, 16f)
         }
     }

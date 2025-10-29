@@ -52,6 +52,7 @@ function TransferPassword({
         error={error}
         submitLabel={submitLabel}
         cancelLabel={lang('Back')}
+        noAutoConfirm
         onSubmit={onSubmit}
         onCancel={onCancel}
         onUpdate={clearTransferError}

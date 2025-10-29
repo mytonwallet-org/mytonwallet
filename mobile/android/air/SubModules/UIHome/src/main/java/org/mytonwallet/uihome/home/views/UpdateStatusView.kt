@@ -82,7 +82,9 @@ class UpdateStatusView(
         if (state == null)
             setLabelStyle(newState)
         else
-            if (state == newState && (state != State.Updated || customMessage == newCustomMessage)) return
+            if (state == newState && (state != State.Updated || customMessage == newCustomMessage)) {
+                return
+            }
 
         val prevAlpha = targetAlpha
 
@@ -93,7 +95,7 @@ class UpdateStatusView(
                     LocaleController.getString("Waiting for Network"),
                     isLoading = true,
                     animated = handleAnimation,
-                    beforeNewTextAppearance = {
+                    updateLabelAppearance = {
                         setLabelStyle(newState)
                     }
                 )
@@ -105,7 +107,7 @@ class UpdateStatusView(
                     LocaleController.getString("Updating"),
                     isLoading = true,
                     animated = handleAnimation,
-                    beforeNewTextAppearance = {
+                    updateLabelAppearance = {
                         setLabelStyle(newState)
                     }
                 )
@@ -120,8 +122,7 @@ class UpdateStatusView(
                         newCustomMessage,
                         isLoading = false,
                         animated = handleAnimation,
-                        wasHidden = state == State.Updated,
-                        beforeNewTextAppearance = {
+                        updateLabelAppearance = {
                             setLabelStyle(newState)
                         }
                     )
@@ -136,18 +137,17 @@ class UpdateStatusView(
         if (handleAnimation) {
             if (prevAlpha != targetAlpha) {
                 if (targetAlpha == 1f) {
-                    statusReplaceableLabel.alpha = 0f
                     statusReplaceableLabel.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
                 } else {
+                    statusReplaceableLabel.setTextRunnable = null
                     statusReplaceableLabel.fadeOut(AnimationConstants.VERY_QUICK_ANIMATION) {
                         if (state != newState || customMessage != newCustomMessage)
                             return@fadeOut // Status is already updated
-                        statusReplaceableLabel.alpha = 0f
                         statusReplaceableLabel.setText(
                             "",
                             isLoading = false,
                             animated = false,
-                            beforeNewTextAppearance = { setLabelStyle(newState) }
+                            updateLabelAppearance = { setLabelStyle(newState) }
                         )
                     }
                 }
@@ -158,8 +158,10 @@ class UpdateStatusView(
                     "",
                     isLoading = false,
                     animated = false,
-                    beforeNewTextAppearance = { setLabelStyle(newState) }
+                    updateLabelAppearance = { setLabelStyle(newState) }
                 )
+            } else {
+                statusReplaceableLabel.alpha = 1f
             }
         }
     }

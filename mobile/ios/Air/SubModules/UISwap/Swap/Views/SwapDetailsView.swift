@@ -118,7 +118,7 @@ struct SwapDetailsView: View {
         }
         .fixedSize(horizontal: false, vertical: true)
         .frame(maxHeight: model.isExpanded ? nil : 44, alignment: .top)
-        .clipShape(.rect(cornerRadius: 12))
+        .clipShape(.rect(cornerRadius: S.insetSectionCornerRadius))
         .frame(height: 400, alignment: .top)
         .tint(Color(WTheme.tint))
         .animation(.spring(duration: model.isExpanded ? 0.45 : 0.3), value: model.isExpanded)

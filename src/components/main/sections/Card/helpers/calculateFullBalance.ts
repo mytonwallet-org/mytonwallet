@@ -13,13 +13,13 @@ import { getFullStakingBalance } from '../../../../../util/staking';
 type ChangePrefix = 'up' | 'down' | undefined;
 
 export function calculateFullBalance(
-  tokens: UserToken[],
+  tokens?: UserToken[],
   stakingStates?: ApiStakingState[],
   baseCurrencyRate: string = '1',
 ) {
   const stakingStateBySlug = buildArrayCollectionByKey(stakingStates ?? [], 'tokenSlug');
 
-  const primaryValueUsd = tokens.reduce((acc, token) => {
+  const primaryValueUsd = (tokens ?? []).reduce((acc, token) => {
     if (STAKED_TOKEN_SLUGS.has(token.slug)) {
       // Cost of staked tokens is already taken into account
       return acc;
@@ -37,7 +37,7 @@ export function calculateFullBalance(
   const primaryValue = primaryValueUsd.mul(baseCurrencyRate);
 
   const [primaryWholePart, primaryFractionPart] = formatNumber(primaryValue).split('.');
-  const changeValue = tokens.reduce((acc, token) => {
+  const changeValue = (tokens ?? []).reduce((acc, token) => {
     return acc.plus(calcBigChangeValue(token.totalValue, token.change24h));
   }, Big(0)).round(4).toNumber();
 

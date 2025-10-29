@@ -29,6 +29,7 @@ public class SectionHeaderCell: UITableViewCell, WThemedView {
         lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
         lbl.font = .systemFont(ofSize: 13, weight: .regular)
+        lbl.numberOfLines = 0
         addSubview(lbl)
         topConstraint = lbl.topAnchor.constraint(equalTo: topAnchor, constant: 23)
         NSLayoutConstraint.activate([

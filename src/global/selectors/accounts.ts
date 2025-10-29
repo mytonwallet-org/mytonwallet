@@ -201,3 +201,41 @@ export function selectSelectedHardwareAccountsSlow(global: GlobalState): ApiLedg
       byChain: { [chain]: wallet },
     }));
 }
+
+/**
+ * Since the `orderedAccountIds` array may be incomplete (the user did not sort the accounts;
+ * added new ones after sorting, etc.), the function must first return all accounts
+ * from `orderedAccountIds`, and then all other accounts from `accounts`.
+ */
+export const selectOrderedAccountsMemoized = memoize((
+  orderedAccountIds: string[] | undefined,
+  accounts: Record<string, Account> | undefined,
+): Array<[string, Account]> => {
+  if (!accounts) return [];
+
+  const entries = Object.entries(accounts);
+  if (!orderedAccountIds?.length) return entries;
+
+  const accountsMap = new Map(entries);
+
+  return [
+    ...orderedAccountIds
+      .map((id) => {
+        const account = accountsMap.get(id);
+        accountsMap.delete(id);
+
+        return !account
+          ? undefined
+          : [id, account] as [string, Account];
+      })
+      .filter(Boolean),
+    ...accountsMap.entries(),
+  ];
+});
+
+export function selectOrderedAccounts(global: GlobalState) {
+  const { orderedAccountIds } = global.settings;
+  const accounts = selectNetworkAccounts(global);
+
+  return selectOrderedAccountsMemoized(orderedAccountIds, accounts);
+}

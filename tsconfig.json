@@ -2,7 +2,7 @@
   "compilerOptions": {
     // We don't care about this since Webpack runs Babel after TypeScript
     "target": "esnext",
-    "lib": ["dom", "dom.iterable", "webworker", "es2021"],
+    "lib": ["dom", "dom.iterable", "webworker", "es2021", "es2022"],
     "allowJs": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
@@ -19,7 +19,7 @@
   "include": [
     "src", "tests", "plugins", "webpack.config.ts", "webpack-electron.config.ts", "webpack-giveaways.config.ts",
     "webpack-multisend.config.ts", "webpack-air.config.ts",
-    "webpack-push.config.ts", "capacitor.config.ts", "eslint.config.mjs", ".fantasticonrc.js"
+    "webpack-push.config.ts", "capacitor.config.ts", "eslint.config.mjs", ".fantasticonrc.js", "svgo.config.mjs"
   ],
   "exclude": ["trash"]
 }

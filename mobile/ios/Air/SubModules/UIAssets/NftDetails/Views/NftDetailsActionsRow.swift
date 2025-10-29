@@ -72,8 +72,8 @@ struct NftDetailsActionsRow: View {
                             }
                         } else {
                             items += .button(id: "0-card", title: lang("Install Card"), trailingIcon: .air("MenuInstallCard26")) {
-                                AccountStore.currentAccountCardBackgroundNft = nil
-                                AccountStore.currentAccountAccentColorNft = nil
+                                AccountStore.currentAccountCardBackgroundNft = nft
+                                AccountStore.currentAccountAccentColorNft = nft
                             }
                         }
                         let isCurrentAccent = mtwCardId == AccountStore.currentAccountAccentColorNft?.metadata?.mtwCardId
@@ -214,13 +214,13 @@ struct ActionButtonStyle: PrimitiveButtonStyle {
                     }
                     .blendMode(.colorBurn)
 
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: S.actionButtonCornerRadius)
                         .fill(Color(WTheme.groupedItem))
                         .opacity(viewModel.isExpanded ? 0 : 1)
                 }
-                .clipShape(.rect(cornerRadius: 12))
+                .clipShape(.rect(cornerRadius: S.actionButtonCornerRadius))
             }
-            .contentShape(.rect(cornerRadius: 12))
+            .contentShape(.rect(cornerRadius: S.actionButtonCornerRadius))
             .onTapGesture {
                 configuration.trigger()
             }

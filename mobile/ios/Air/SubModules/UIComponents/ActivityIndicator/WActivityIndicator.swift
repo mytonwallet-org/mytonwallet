@@ -42,6 +42,7 @@ public class WActivityIndicator: UIView {
             imageView.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
         alpha = 0
+        isHidden = true
     }
     
     required init?(coder: NSCoder) {
@@ -112,6 +113,9 @@ public class WActivityIndicator: UIView {
             UIView.animate(withDuration: 0.3, delay: 0, options: [.curveEaseIn], animations: {
                 self.alpha = 0
             }, completion: { _ in
+                if self.isAnimating {
+                    return
+                }
                 action()
             })
         } else {

@@ -9,9 +9,9 @@ import UIKit
 import WalletContext
 
 public class WNavigationBarButton {
-    
+
     public let view: UIView
-    let onPress: (() -> Void)?
+    public var onPress: (() -> Void)?
 
     public init(text: String? = nil, icon: UIImage? = nil, tintColor: UIColor? = nil, onPress: (() -> Void)? = nil, menu: UIMenu? = nil, showsMenuAsPrimaryAction: Bool = false) {
         let btn = {
@@ -39,17 +39,17 @@ public class WNavigationBarButton {
             btn.addTarget(self, action: #selector(itemPressed), for: .touchUpInside)
         }
     }
-    
+
     public init(view: UIView, onPress: (() -> Void)? = nil) {
         self.view = view
         self.onPress = onPress
         view.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(itemPressed)))
     }
-    
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
     @objc private func itemPressed() {
         onPress?()
     }
@@ -66,8 +66,9 @@ public class WNavigationBar: WTouchPassView, WThemedView {
             _shouldPassTouches = newValue
         }
     }
-    
+
     public var navHeight: CGFloat
+    public var constraintToTopSafeArea: Bool
     public let topOffset: CGFloat
     public let centerYOffset: CGFloat
     public let blurView = WBlurView()
@@ -78,7 +79,7 @@ public class WNavigationBar: WTouchPassView, WThemedView {
     public var titleStackViewCenterYAnchor: NSLayoutConstraint!
     public var titleLabel: UILabel? = nil
     public var subtitleLabel: UILabel? = nil
-    
+
     private let title: String?
     private let subtitle: String?
     public let leadingItem: WNavigationBarButton?
@@ -88,9 +89,10 @@ public class WNavigationBar: WTouchPassView, WThemedView {
     private let closeIconColor: UIColor?
     private let closeIconFillColor: UIColor?
     private(set) public var backButton: UIButton? = nil
-    private let onBackPressed: (() -> Void)?
-    
+    public let onBackPressed: (() -> Void)?
+
     public init(navHeight: CGFloat = 56,
+                constraintToTopSafeArea: Bool = true,
                 topOffset: CGFloat = 0,
                 centerYOffset: CGFloat = 0,
                 title: String? = nil,
@@ -104,6 +106,7 @@ public class WNavigationBar: WTouchPassView, WThemedView {
                 closeIconFillColor: UIColor? = nil,
                 addBackButton: (() -> Void)? = nil) {
         self.navHeight = navHeight
+        self.constraintToTopSafeArea = constraintToTopSafeArea
         self.topOffset = topOffset
         self.centerYOffset = centerYOffset
         self.title = title
@@ -121,7 +124,7 @@ public class WNavigationBar: WTouchPassView, WThemedView {
         }
         setupViews()
     }
-    
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
@@ -140,7 +143,7 @@ public class WNavigationBar: WTouchPassView, WThemedView {
             blurView.rightAnchor.constraint(equalTo: rightAnchor),
             blurViewBottomConstraint
         ])
-        
+
         separatorView.translatesAutoresizingMaskIntoConstraints = false
         separatorView.translatesAutoresizingMaskIntoConstraints = false
         separatorView.backgroundColor = WTheme.separator
@@ -160,7 +163,8 @@ public class WNavigationBar: WTouchPassView, WThemedView {
         NSLayoutConstraint.activate([
             contentView.leftAnchor.constraint(equalTo: leftAnchor),
             contentView.rightAnchor.constraint(equalTo: rightAnchor),
-            contentView.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor, constant: topOffset),
+            contentView.topAnchor.constraint(equalTo: constraintToTopSafeArea ? safeAreaLayoutGuide.topAnchor : topAnchor,
+                                             constant: topOffset),
             contentView.bottomAnchor.constraint(equalTo: bottomAnchor).withPriority(.init(999)),
             contentView.heightAnchor.constraint(equalToConstant: navHeight - topOffset)
         ])
@@ -172,7 +176,7 @@ public class WNavigationBar: WTouchPassView, WThemedView {
         if navHeight >= 60 {
             titleStackView.spacing = 2
         }
-        
+
         if let title {
             titleLabel = UILabel()
             titleLabel?.text = title
@@ -193,7 +197,7 @@ public class WNavigationBar: WTouchPassView, WThemedView {
         }
 
         contentView.addSubview(titleStackView)
-        
+
         titleStackViewCenterYAnchor = titleStackView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor, constant: centerYOffset)
         NSLayoutConstraint.activate([
             titleStackView.centerXAnchor.constraint(equalTo: centerXAnchor),
@@ -203,8 +207,9 @@ public class WNavigationBar: WTouchPassView, WThemedView {
         if let leadingItem {
             contentView.addSubview(leadingItem.view)
             NSLayoutConstraint.activate([
-                leadingItem.view.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-                leadingItem.view.centerYAnchor.constraint(equalTo: contentView.centerYAnchor)
+                leadingItem.view.leadingAnchor.constraint(equalTo: leadingAnchor, constant: IOS_26_MODE_ENABLED ? 8 : 16),
+                leadingItem.view.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+                leadingItem.view.widthAnchor.constraint(greaterThanOrEqualTo: leadingItem.view.heightAnchor),
             ])
             leadingItem.view.setContentCompressionResistancePriority(.required, for: .horizontal)
         }
@@ -215,10 +220,11 @@ public class WNavigationBar: WTouchPassView, WThemedView {
                 trailingItem.view.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
                 trailingItem.view.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
                 trailingItem.view.leadingAnchor.constraint(greaterThanOrEqualTo: titleStackView.trailingAnchor, constant: 4),
+                trailingItem.view.widthAnchor.constraint(greaterThanOrEqualTo: trailingItem.view.heightAnchor),
             ])
             trailingItem.view.setContentCompressionResistancePriority(.required, for: .horizontal)
         }
-        
+
         if closeIcon {
             let closeButton = UIButton(type: .system)
             closeButton.translatesAutoresizingMaskIntoConstraints = false
@@ -236,7 +242,7 @@ public class WNavigationBar: WTouchPassView, WThemedView {
             closeButton.tintColor = closeIconColor ?? WTheme.secondaryLabel
             closeButton.addTarget(self, action: #selector(closeButtonPressed), for: .touchUpInside)
         }
-        
+
         if onBackPressed != nil {
             let backButton = UIButton(type: .system)
             self.backButton = backButton
@@ -268,24 +274,24 @@ public class WNavigationBar: WTouchPassView, WThemedView {
                 backButton.trailingAnchor.constraint(lessThanOrEqualTo: titleStackView.leadingAnchor, constant: -4),
             ])
         }
-        
+
         updateTheme()
     }
-    
+
     @objc func closeButtonPressed() {
         topViewController()?.dismiss(animated: true)
     }
-    
+
     @objc func backButtonPressed() {
         onBackPressed?()
     }
-    
+
     public func updateTheme() {
         UIView.animate(withDuration: 0.3) {
             self.backButton?.tintColor = WTheme.tint
         }
     }
-    
+
     public var showSeparator: Bool = false {
         didSet {
             if showSeparator, separatorView.alpha == 0 {
@@ -303,7 +309,7 @@ public class WNavigationBar: WTouchPassView, WThemedView {
             }
         }
     }
-    
+
     var newTitle: String? = nil
     public func set(title: String?, animated: Bool = true, titleColor: UIColor? = nil) {
         guard let titleLabel, newTitle != title else {
@@ -333,7 +339,7 @@ public class WNavigationBar: WTouchPassView, WThemedView {
             }
         }
     }
-    
+
     public func addSearchBar(_ searchBar: UISearchBar) {
         addSubview(searchBar)
         searchBar.backgroundColor = .clear

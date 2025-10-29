@@ -29,12 +29,17 @@ $iconGapSize: 1rem;
   justify-content: center;
 
   max-width: 100%;
+  border: none;
 
   font-size: 1.0625rem;
   font-weight: 700;
   line-height: 1.5rem;
   color: var(--color-black);
   text-align: center;
+
+  appearance: none;
+  background: none;
+  outline: none;
 
   &.withBalance {
     font-size: 0.8125rem;
@@ -66,11 +71,12 @@ $iconGapSize: 1rem;
   white-space: nowrap;
 }
 
-.arrowIcon {
+.expandIcon {
   position: relative;
   top: 0.3125rem;
+  left: -0.125rem;
 
-  font-size: 0.8125rem;
+  font-size: 1.25rem;
   line-height: 0.8125rem;
   vertical-align: 0;
 }
@@ -90,112 +96,4 @@ $iconGapSize: 1rem;
 
 .balanceCurrencyPrefix {
   margin-inline-end: 0.125rem;
-}
-
-.container {
-  position: absolute;
-  z-index: 3;
-  top: calc(var(--safe-area-top) + 2.8125rem);
-  right: 0.5rem;
-  left: 0.5rem;
-
-  &:global(.shown) .dialog {
-    transform: translateY(-1rem);
-    opacity: 0;
-  }
-
-  &:global(.shown.open) .dialog {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.backdrop {
-  position: fixed;
-  z-index: 1;
-  top: 0;
-  right: 0;
-  left: 0;
-
-  height: 100vh;
-}
-
-.dialog {
-  --main-text: var(--color-card-text);
-  --second-text: var(--color-card-second-text);
-
-  scrollbar-width: none !important;
-
-  position: relative;
-  z-index: 2;
-
-  overflow: hidden;
-  overflow-y: scroll;
-  overscroll-behavior: contain;
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 0.5rem;
-
-  width: 100%;
-  max-width: 19.625rem;
-  max-height: 16rem;
-  margin: 0 auto;
-  padding: 0.5rem !important;
-  border-radius: var(--border-radius-default);
-
-  background-color: var(--color-background-drop-down);
-  box-shadow: var(--default-shadow);
-
-  transition: var(--dropdown-transition), scrollbar-color 300ms !important;
-
-  &_compact {
-    grid-template-columns: 1fr 1fr;
-    max-width: 15rem;
-  }
-
-  .container:global(.closing) > & {
-    transition: var(--dropdown-transition-backwards) !important;
-  }
-
-  :global(html.animation-level-0) & {
-    transition: none !important;
-  }
-
-  &::-webkit-scrollbar {
-    display: none !important;
-  }
-}
-
-.createAccountButton {
-  flex-direction: column !important;
-  align-items: flex-start !important;
-
-  width: 100% !important;
-  min-width: auto !important;
-  max-width: 100% !important;
-  height: 3.75rem !important;
-  padding: 0.5rem !important;
-  border-radius: 0.5rem !important;
-
-  font-size: 0.75rem !important;
-  line-height: 1 !important;
-  color: var(--color-add-wallet-text) !important;
-
-  background-color: var(--color-add-wallet-background) !important;
-
-  &:focus-visible,
-  &:hover {
-    color: var(--color-add-wallet-text-hover) !important;
-    background-color: var(--color-add-wallet-background-hover) !important;
-  }
-
-  &:active {
-    // Optimization
-    transition: none;
-  }
-}
-
-.createAccountIcon {
-  margin-top: 0.375rem;
-  font-size: 1.5rem !important;
 }

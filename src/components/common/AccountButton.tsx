@@ -10,11 +10,9 @@ import { shortenAddress } from '../../util/shortenAddress';
 import { useCachedImage } from '../../hooks/useCachedImage';
 import useCardCustomization from '../../hooks/useCardCustomization';
 
-import { ACCOUNT_ADDRESS_SHIFT, ACCOUNT_WITH_ICON_ADDRESS_SHIFT } from '../main/sections/Header/AccountButton';
-
 import styles from './AccountButton.module.scss';
 
-interface StateProps {
+interface OwnProps {
   accountId: string;
   address: string;
   title?: string;
@@ -23,10 +21,14 @@ interface StateProps {
   isLoading?: boolean;
   ariaLabel?: string;
   className?: string;
+  titleClassName?: string;
   withCheckbox?: boolean;
   cardBackgroundNft?: ApiNft;
   onClick?: NoneToVoidFunction;
 }
+
+const ACCOUNT_WITH_ICON_ADDRESS_SHIFT = 3;
+const ACCOUNT_ADDRESS_SHIFT = 4;
 
 function AccountButton({
   accountId,
@@ -37,10 +39,11 @@ function AccountButton({
   isActive,
   isLoading,
   className,
+  titleClassName,
   withCheckbox,
   cardBackgroundNft,
   onClick,
-}: StateProps) {
+}: OwnProps) {
   const {
     backgroundImageUrl,
     withTextGradient,
@@ -68,7 +71,11 @@ function AccountButton({
       style={buildStyle(imageUrl && `--bg: url(${imageUrl})`)}
       aria-label={ariaLabel}
     >
-      {title && <span className={buildClassName(styles.accountName, withTextGradient && 'gradientText')}>{title}</span>}
+      {title && (
+        <span className={buildClassName(styles.accountName, titleClassName, withTextGradient && 'gradientText')}>
+          {title}
+        </span>
+      )}
       <div className={buildClassName(styles.accountFooter, withTextGradient && 'gradientText')}>
         {isViewMode && <i className={buildClassName('icon-eye-filled', styles.icon)} aria-hidden />}
         {isHardware && <i className={buildClassName('icon-ledger', styles.icon)} aria-hidden />}

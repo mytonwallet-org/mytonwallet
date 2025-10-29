@@ -144,6 +144,7 @@ function VestingPasswordModal({
             operationType="unfreeze"
             error={hasAmountError ? lang('Insufficient Balance for Fee') : error}
             submitLabel={lang('Confirm')}
+            noAutoConfirm
             onSubmit={handleSubmit}
             onCancel={cancelClaimingVesting}
             onUpdate={clearVestingError}

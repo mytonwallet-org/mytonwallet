@@ -27,14 +27,16 @@ export type BottomSheetKeys =
   | 'onramp-widget'
   | 'mint-card'
   | 'renew-domain'
-  | 'link-domain';
+  | 'link-domain'
+  | 'account-selector'
+  | 'customize-wallet';
 
 export interface BottomSheetPlugin {
   prepare(): Promise<void>;
 
-  applyScrollPatch(): Promise<void>;
+  applyScrollPatch(options?: { shouldFreeze?: boolean }): Promise<void>;
 
-  clearScrollPatch(): Promise<void>;
+  clearScrollPatch(options?: { shouldFreeze?: boolean }): Promise<void>;
 
   disable(): Promise<void>;
 
@@ -57,7 +59,7 @@ export interface BottomSheetPlugin {
   openInMain(options: { key: BottomSheetKeys }): Promise<void>;
 
   switchToAir(): Promise<void>;
-  
+
   isShown(): Promise<{ value: boolean }>;
 
   addListener(

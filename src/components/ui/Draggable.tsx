@@ -152,7 +152,7 @@ function Draggable({
     setInitialState(e);
 
     if (IS_DELEGATED_BOTTOM_SHEET) {
-      void BottomSheet.clearScrollPatch();
+      void BottomSheet.clearScrollPatch({ shouldFreeze: true });
     }
   });
 
@@ -206,7 +206,7 @@ function Draggable({
     }));
 
     if (IS_DELEGATED_BOTTOM_SHEET) {
-      void BottomSheet.applyScrollPatch();
+      void BottomSheet.applyScrollPatch({ shouldFreeze: true });
     }
 
     onDragEnd();

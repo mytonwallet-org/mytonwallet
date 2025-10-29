@@ -15,72 +15,74 @@ fileprivate let dateFormatter = DateFormatter()
 
 @MainActor
 final class TokenExpandableChartView: UIView, WThemedView {
-    
+
     static let collapsedHeight = CGFloat(60)
-    
+    static var expandedHeight: CGFloat {
+        30 + 16 + 76 + 0.36 * (UIScreen.main.bounds.width - 32 - 6)
+    }
+
     private let parentProcessorQueue: DispatchQueue
     private let locker = DispatchSemaphore(value: 1)
     private let onHeightChange: () -> Void
-    
+
     public init(parentProcessorQueue: DispatchQueue, onHeightChange: @escaping () -> Void) {
         self.parentProcessorQueue = parentProcessorQueue
         self.onHeightChange = onHeightChange
         super.init(frame: .zero)
         setupViews()
     }
-    
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
     private var token: ApiToken? = nil
     private var displayedPeriod: ApiPriceHistoryPeriod? = nil
     private var historyData: [[Double]]? = nil
-    
+
     private var collapsedChartData: LineChartData? = nil
     private var expandedChartData: LineChartData? = nil
     private var rangeChartData: LineChartData? = nil
-    
+
     private let processorQueue = DispatchQueue(label: "org.mytonwallet.app.token_chart_background_processor", attributes: .concurrent)
     private var onPeriodChange: ((ApiPriceHistoryPeriod) -> Void)? = nil
-    
+
     private var selectedRange: ClosedRange<CGFloat> = 0...1
-    
+
     func configure(token: ApiToken, historyData: [[Double]]?, onPeriodChange: @escaping (ApiPriceHistoryPeriod) -> Void) {
         self.token = token
         self.historyData = historyData
         self.onPeriodChange = onPeriodChange
-        
+
         fillLabels()
-        
+
         drawChart(period: nil, historyData: historyData, range: self.selectedRange, rangeOnly: false)
     }
-    
+
     func rangeChanged(_ range: ClosedRange<CGFloat>) {
         self.selectedRange  = range
         drawChart(period: self.displayedPeriod, historyData: historyData, range: range, rangeOnly: true)
         fillLabels()
     }
-    
+
     private var heightConstraint: NSLayoutConstraint!
     private var arrowRightConstraint: NSLayoutConstraint!
-    
+
     private var chartAnimationViewTopAnchor: NSLayoutConstraint!
     private var chartAnimationViewRightAnchor: NSLayoutConstraint!
     private var chartAnimationViewWidthAnchor: NSLayoutConstraint!
     private var chartAnimationViewHeightAnchor: NSLayoutConstraint!
     private var expandedChartRightConstraint: NSLayoutConstraint!
     private var expandedChartWidthConstraint: NSLayoutConstraint!
-    
+
     private var lastHighlight: Highlight?
-    
+
     var height: CGFloat { heightConstraint.constant }
     private var isExpanded = false
     private var isTogglingChart = false
-    private var expandedHeight: CGFloat { 30 + 16 + 76 + 0.36 * (UIScreen.main.bounds.width - 32 - 6) }
-    
+
     // MARK: - Views
-    
+
     private let priceTitleLabel: UILabel = {
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
@@ -88,32 +90,32 @@ final class TokenExpandableChartView: UIView, WThemedView {
         lbl.text = lang("Price")
         return lbl
     }()
-    
+
     private let priceValueLabel: UILabel = {
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
         return lbl
     }()
-    
+
     private let priceChangeLabel: UILabel = {
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
         return lbl
     }()
-    
+
     private let smallChartImageView: UIImageView = {
         let iv = UIImageView()
         iv.translatesAutoresizingMaskIntoConstraints = false
         return iv
     }()
-    
+
     private let largeChartImageView: UIImageView = {
         let iv = UIImageView()
         iv.translatesAutoresizingMaskIntoConstraints = false
         iv.alpha = 0
         return iv
     }()
-    
+
     private lazy var lineChartAnimationView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
@@ -133,14 +135,14 @@ final class TokenExpandableChartView: UIView, WThemedView {
         ])
         return v
     }()
-    
+
     private lazy var collapsedChart = {
         let lineChartView = WLineChartView()
         lineChartView.alpha = 0
         lineChartView.isUserInteractionEnabled = false
         return lineChartView
     }()
-    
+
     private lazy var expandedChart = {
         let lineChartView = WLineChartView(popupDateFormatter: { date in
             let dateObj = Date(timeIntervalSince1970: date)
@@ -162,13 +164,13 @@ final class TokenExpandableChartView: UIView, WThemedView {
         lineChartView.xAxis.valueFormatter = ChartTimeFormatter()
         return lineChartView
     }()
-    
+
     private lazy var loadingIndicator = {
         let indicator = WActivityIndicator()
         indicator.presentationDelay = 1
         return indicator
     }()
-    
+
     private lazy var noPriceDataLabel = {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -178,7 +180,7 @@ final class TokenExpandableChartView: UIView, WThemedView {
         label.alpha = 0
         return label
     }()
-    
+
     private let arrowImageView: UIImageView = {
         let arrowImageView = UIImageView(image: UIImage(systemName: "chevron.down",
                                                         withConfiguration: UIImage.SymbolConfiguration(pointSize: 10,
@@ -189,33 +191,33 @@ final class TokenExpandableChartView: UIView, WThemedView {
         arrowImageView.contentMode = .center
         return arrowImageView
     }()
-    
+
     private lazy var rangeChart: RangeChartView = {
         let v = RangeChartView()
         v.translatesAutoresizingMaskIntoConstraints = false
         v.alpha = 0
         return v
     }()
-    
+
     private let timePeriods: [ApiPriceHistoryPeriod] = ApiPriceHistoryPeriod.allCases.reversed()
-    
+
     private lazy var timeFrameSwitcherView = {
         let switcherView = WChartSegmentedControl(items: timePeriods.map { $0.localized })
         switcherView.translatesAutoresizingMaskIntoConstraints = false
         switcherView.alpha = 0
         return switcherView
     }()
-    
+
     private lazy var topBarView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
         v.backgroundColor = .clear
         return v
     }()
-    
+
     private func setupViews() {
         translatesAutoresizingMaskIntoConstraints = false
-        layer.cornerRadius = 12
+        layer.cornerRadius = S.homeInsetSectionCornerRadius
         layer.masksToBounds = true
         addSubview(priceTitleLabel)
         addSubview(priceValueLabel)
@@ -239,16 +241,16 @@ final class TokenExpandableChartView: UIView, WThemedView {
         chartAnimationViewTopAnchor = lineChartAnimationView.topAnchor.constraint(equalTo: topAnchor, constant: 11.33)
         chartAnimationViewWidthAnchor = lineChartAnimationView.widthAnchor.constraint(equalToConstant: 82)
         chartAnimationViewHeightAnchor = lineChartAnimationView.heightAnchor.constraint(equalToConstant: 40)
-        
+
         expandedChartRightConstraint = expandedChart.rightAnchor.constraint(equalTo: rightAnchor, constant: -16)
         expandedChartWidthConstraint = expandedChart.widthAnchor.constraint(equalTo: widthAnchor, constant: -6)
-        
+
         let loadingIndicatorXConstraint = loadingIndicator.centerXAnchor.constraint(equalTo: lineChartAnimationView.centerXAnchor)
         loadingIndicatorXConstraint.priority = .init(999)
-        
+
         let noPriceDataLabelXConstraint = noPriceDataLabel.centerXAnchor.constraint(equalTo: loadingIndicator.centerXAnchor)
         noPriceDataLabelXConstraint.priority = .defaultHigh
-        
+
         rangeChart.rangeDidChangeClosure = { [weak self] range in
             self?.rangeChanged(range)
         }
@@ -258,30 +260,30 @@ final class TokenExpandableChartView: UIView, WThemedView {
             topBarView.rightAnchor.constraint(equalTo: rightAnchor),
             topBarView.topAnchor.constraint(equalTo: topAnchor),
             topBarView.heightAnchor.constraint(equalToConstant: 60),
-            
+
             priceTitleLabel.leftAnchor.constraint(equalTo: leftAnchor, constant: 16),
             priceTitleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 10),
-            
+
             priceValueLabel.leftAnchor.constraint(equalTo: leftAnchor, constant: 16),
             priceValueLabel.topAnchor.constraint(equalTo: priceTitleLabel.bottomAnchor, constant: 1),
-            
+
             priceChangeLabel.firstBaselineAnchor.constraint(equalTo: priceValueLabel.firstBaselineAnchor),
             priceChangeLabel.leadingAnchor.constraint(equalTo: priceValueLabel.trailingAnchor, constant: 6),
-            
+
             collapsedChart.rightAnchor.constraint(equalTo: rightAnchor, constant: -33),
             collapsedChart.topAnchor.constraint(equalTo: topAnchor, constant: 11.33),
             collapsedChart.widthAnchor.constraint(equalToConstant: 82),
             collapsedChart.heightAnchor.constraint(equalToConstant: 40),
-            
+
             expandedChartRightConstraint,
             expandedChart.topAnchor.constraint(equalTo: topAnchor, constant: 35),
             expandedChartWidthConstraint,
             expandedChart.heightAnchor.constraint(equalTo: expandedChart.widthAnchor, multiplier: 0.36),
-            
+
             loadingIndicatorXConstraint,
             loadingIndicator.centerXAnchor.constraint(greaterThanOrEqualTo: centerXAnchor),
             loadingIndicator.centerYAnchor.constraint(equalTo: lineChartAnimationView.centerYAnchor),
-            
+
             noPriceDataLabelXConstraint,
             noPriceDataLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -46),
             noPriceDataLabel.centerYAnchor.constraint(equalTo: loadingIndicator.centerYAnchor),
@@ -290,27 +292,27 @@ final class TokenExpandableChartView: UIView, WThemedView {
             chartAnimationViewTopAnchor,
             chartAnimationViewWidthAnchor,
             chartAnimationViewHeightAnchor,
-            
+
             arrowRightConstraint,
             arrowImageView.topAnchor.constraint(equalTo: topAnchor, constant: 25),
-            
+
             rangeChart.leadingAnchor.constraint(equalTo: leadingAnchor),
             rangeChart.trailingAnchor.constraint(equalTo: trailingAnchor),
             rangeChart.bottomAnchor.constraint(equalTo: timeFrameSwitcherView.topAnchor, constant: -12),
             rangeChart.heightAnchor.constraint(equalToConstant: 30),
-            
+
             timeFrameSwitcherView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16),
             timeFrameSwitcherView.leftAnchor.constraint(equalTo: leftAnchor, constant: 16),
             timeFrameSwitcherView.rightAnchor.constraint(equalTo: rightAnchor, constant: -16),
             timeFrameSwitcherView.heightAnchor.constraint(equalToConstant: 28),
-            
+
             heightConstraint
         ])
-        
+
         topBarView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(toggleChart)))
-        
+
         updateTheme()
-        
+
         loadingIndicator.startAnimating(animated: true)
 
         if AppStorageHelper.isTokenChartExpanded {
@@ -319,15 +321,15 @@ final class TokenExpandableChartView: UIView, WThemedView {
             }
         }
     }
-    
+
     func updateTheme() {
         backgroundColor = WTheme.groupedItem
         priceTitleLabel.textColor = WTheme.secondaryLabel
         loadingIndicator.tintColor = WTheme.tint
     }
-    
+
     // MARK: - Data mehods
-    
+
     private func fillLabels() {
         guard let token, let price = token.price else {
             // TODO: No price available message
@@ -343,13 +345,13 @@ final class TokenExpandableChartView: UIView, WThemedView {
                 .foregroundColor: WTheme.primaryLabel
             ])
             priceValueLabel.attributedText = attr
-            
+
             let percent = NSAttributedString(string: "\(expandedChart.xAxis.valueFormatter?.stringForValue(lastHighlight.x, axis: collapsedChart.xAxis) ?? "")", attributes: [
                 .font: UIFont.systemFont(ofSize: 14),
                 .foregroundColor: WTheme.secondaryLabel
             ])
             priceChangeLabel.attributedText = percent
-            
+
         } else if selectedRange != 0...1 {
             let historyData = scope(data: self.historyData, range: selectedRange)
             let firstPriceInChart = historyData?.first(where: { val in val[1] != 0 })?[1]
@@ -362,7 +364,7 @@ final class TokenExpandableChartView: UIView, WThemedView {
                 .foregroundColor: WTheme.primaryLabel
             ])
             priceValueLabel.attributedText = attr
-            
+
             let percentChange: Double?
             if let firstPriceInChart, let lastPriceInChart {
                 percentChange = round(10000 * (lastPriceInChart - firstPriceInChart) / firstPriceInChart) / 100
@@ -378,7 +380,7 @@ final class TokenExpandableChartView: UIView, WThemedView {
             } else {
                 priceChangeLabel.attributedText = nil
             }
-            
+
         } else {
             let percentChange: Double?
             if let firstPriceInChart = historyData?.first(where: { val in
@@ -396,7 +398,7 @@ final class TokenExpandableChartView: UIView, WThemedView {
                 .foregroundColor: WTheme.primaryLabel
             ])
             priceValueLabel.attributedText = attr
-            
+
             if let percentChange {
                 let percent = NSAttributedString(string: "\(percentChange > 0 ? "+" : "")\(percentChange)%", attributes: [
                     .font: UIFont.systemFont(ofSize: 14),
@@ -411,7 +413,7 @@ final class TokenExpandableChartView: UIView, WThemedView {
             self.priceChangeLabel.alpha = self.priceChangeLabel.attributedText?.string.nilIfEmpty == nil ? 0 : 1
         }
     }
-    
+
     private func drawChart(period: ApiPriceHistoryPeriod?,
                            historyData data: [[Double]]?,
                            range: ClosedRange<CGFloat>,
@@ -420,14 +422,14 @@ final class TokenExpandableChartView: UIView, WThemedView {
         let historyData = reduceNumberOfPoints(data, to: 200)
         let scopedData = scope(data: data ?? [], range: range)
         _ = consume data
-        
+
         var periodChanged = false
         if let period, period != self.displayedPeriod {
             periodChanged = true
             lastHighlight = nil
             self.displayedPeriod = period
         }
-        
+
         if let historyData {
             UIView.animate(withDuration: 0.2) { [self] in
                 loadingIndicator.stopAnimating(animated: true)
@@ -449,11 +451,11 @@ final class TokenExpandableChartView: UIView, WThemedView {
             break
         }
         dateFormatter.dateFormat = dateFormat
-        
+
         processorQueue.async(flags: .barrier) { [self] in
             let allDataEntries: [ChartDataEntry] = (historyData ?? []).map { item in ChartDataEntry(x: item[0], y: item[1]) }
             let scopedDataEntries: [ChartDataEntry] = (scopedData ?? []).map { item in ChartDataEntry(x: item[0], y: item[1]) }
-            
+
             let collapsedDataSet = LineChartDataSet(entries: allDataEntries)
             collapsedDataSet.colors = [WTheme.tint]
             collapsedDataSet.drawCirclesEnabled = false
@@ -463,7 +465,7 @@ final class TokenExpandableChartView: UIView, WThemedView {
             collapsedDataSet.lineWidth = 1
             collapsedDataSet.highlightColor = WTheme.tint
             collapsedDataSet.mode = .cubicBezier
-            
+
             let gradientColors = [WTheme.tint.withAlphaComponent(0.2).cgColor, UIColor.clear.cgColor]
             let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
                                       colors: gradientColors as CFArray,
@@ -479,15 +481,15 @@ final class TokenExpandableChartView: UIView, WThemedView {
             let rangeDataSet = collapsedDataSet.copy() as! LineChartDataSet
             rangeDataSet.lineWidth = 2
             let rangeChartData = LineChartData(dataSet: rangeDataSet)
-            
+
             DispatchQueue.main.sync {
                 self.collapsedChartData = collapsedChartData
                 self.expandedChartData = expandedChartData
                 self.rangeChartData = rangeChartData
-                
+
                 self.expandedChartWidthConstraint.constant = -16 + (self.expandedChart.frame.width - self.expandedChart.viewPortHandler.contentWidth)
                 self.expandedChartRightConstraint.constant = -16 + (self.expandedChart.frame.width - self.expandedChart.viewPortHandler.contentRight)
-               
+
                 if !rangeOnly {
                     self.collapsedChart.data = self.collapsedChartData
                 }
@@ -511,7 +513,7 @@ final class TokenExpandableChartView: UIView, WThemedView {
             }
         }
     }
-    
+
     @objc private func handlePeriodChange() {
         let period = timePeriods[timeFrameSwitcherView.selectedSegmentIndex]
         let hasData = TokenStore.historyData(tokenSlug: token?.slug ?? "")?.data[period] != nil
@@ -535,7 +537,7 @@ final class TokenExpandableChartView: UIView, WThemedView {
         }
         onPeriodChange?(period)
     }
-    
+
     @objc private func toggleChart(instant: Bool) {
         if isTogglingChart {
             return
@@ -543,18 +545,18 @@ final class TokenExpandableChartView: UIView, WThemedView {
         isTogglingChart = true
         isExpanded = !isExpanded
         collapsedChart.isUserInteractionEnabled = isExpanded
-        
+
         parentProcessorQueue.async {
             self.locker.wait()
-            
+
             DispatchQueue.main.async {
                 self._toggleChartImpl(instant: instant)
             }
         }
     }
-    
+
     private func _toggleChartImpl(instant: Bool) {
-        let targetHeight = isExpanded ? expandedHeight : TokenExpandableChartView.collapsedHeight
+        let targetHeight = isExpanded ? TokenExpandableChartView.expandedHeight : TokenExpandableChartView.collapsedHeight
 
         let collapsedPoints: (CGFloat, CGFloat, CGFloat, CGFloat) = {
             let viewPortHandler = collapsedChart.viewPortHandler
@@ -562,22 +564,22 @@ final class TokenExpandableChartView: UIView, WThemedView {
             let contentTop = viewPortHandler.contentTop
             let contentRight = collapsedChart.frame.width - viewPortHandler.contentWidth - viewPortHandler.contentLeft
             let contentBottom = collapsedChart.frame.height - viewPortHandler.contentBottom
-            
+
             let endWidth = 82 - contentLeft - contentRight
             let endHeight = 40 - contentTop - contentBottom
             let endTop = 11.33 + contentTop
             let endRight = -33 - contentRight
-            
+
             return (endWidth, endHeight, endTop, endRight)
         }()
-        
+
         let expandedPoints: (CGFloat, CGFloat, CGFloat, CGFloat) = {
             let viewPortHandler = expandedChart.viewPortHandler
             let contentLeft = viewPortHandler.contentLeft - 4
             let contentTop = viewPortHandler.contentTop - 4
             let contentRight = expandedChart.frame.width - viewPortHandler.contentWidth - viewPortHandler.contentLeft - 4
             let contentBottom = expandedChart.frame.height - viewPortHandler.contentBottom - 4
-            
+
             let endWidth = expandedChart.frame.width - contentLeft - contentRight
             let endHeight = expandedChart.frame.height - contentTop - contentBottom
             let endTop = 35 + contentTop
@@ -593,24 +595,24 @@ final class TokenExpandableChartView: UIView, WThemedView {
             }
             return (endWidth, endHeight, endTop, endRight)
         }()
-        
+
         let (startWidth, startHeight, startTop, startRight) = isExpanded ? collapsedPoints : expandedPoints
         let (endWidth, endHeight, endTop, endRight) = isExpanded ? expandedPoints : collapsedPoints
-        
+
         let updateBlock: (CGFloat, CGFloat) -> () = { [self] (progress: CGFloat, value: CGFloat) in
             heightConstraint.constant = value
-            
+
             // Animate line charts
             let currentWidth = startWidth + (endWidth - startWidth) * CGFloat(progress)
             let currentHeight = startHeight + (endHeight - startHeight) * CGFloat(progress)
             let currentTop = startTop + (endTop - startTop) * CGFloat(progress)
             let currentRight = startRight + (endRight - startRight) * CGFloat(progress)
-            
+
             chartAnimationViewWidthAnchor.constant = currentWidth
             chartAnimationViewHeightAnchor.constant = currentHeight
             chartAnimationViewTopAnchor.constant = currentTop
             chartAnimationViewRightAnchor.constant = currentRight
-            
+
             if isExpanded {
                 largeChartImageView.alpha = progress
                 smallChartImageView.alpha = 1 - progress * 2
@@ -622,10 +624,10 @@ final class TokenExpandableChartView: UIView, WThemedView {
                 rangeChart.alpha = historyData?.isEmpty ?? true ? 0 : 1 - 2 * progress
                 timeFrameSwitcherView.alpha = 1 - 2 * progress
             }
-            
+
             onHeightChange()
         }
-        
+
         if instant {
             updateBlock(1, targetHeight)
             arrowImageView.transform = arrowImageView.transform.rotated(by: .pi)
@@ -701,7 +703,7 @@ private func scope(data: [[Double]]?, range:  ClosedRange<CGFloat>) -> [[Double]
 }
 
 class ChartTimeFormatter: AxisValueFormatter {
-    
+
     func stringForValue(_ value: Double, axis: AxisBase?) -> String {
         return dateFormatter.string(from: Date(timeIntervalSince1970: value))
     }

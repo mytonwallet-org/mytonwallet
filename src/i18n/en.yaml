@@ -950,3 +950,37 @@ Show More: Show More
 Search app or enter address: Search app or enter address
 Connected Apps: Connected Apps
 Popular Apps: Popular Apps
+$wallets_amount:
+  zeroValue: No wallets
+  oneValue: "%1$d wallet"
+  otherValue: "%1$d wallets"
+$total_balance: "%balance% total"
+No wallets: No wallets
+View as List: View as List
+View as Cards: View as Cards
+Reorder: Reorder
+Rename: Rename
+Customize: Customize
+i18n_dragToSort: Drag to sort
+My: My
+All: All
+$view_accounts: View
+Add your first one to begin.: Add your first one to begin.
+You don’t have any wallets yet: You don’t have any wallets yet
+Add New Wallet: Add New Wallet
+Add Ledger Wallet: Add Ledger Wallet
+Add View Wallet: Add View Wallet
+No Ledger wallets yet: No Ledger wallets yet
+No view wallets yet: No view wallets yet
+Add the first one to track balances and activity for any address.: Add the first one to track balances and activity for any address.
+Customize Wallet: Customize Wallet
+'Select the card stored in this wallet:': 'Select the card stored in this wallet:'
+This card will be installed for this wallet and will be displayed on the home screen and in the wallets list.: This card will be installed for this wallet and will be displayed on the home screen and in the wallets list.
+Get More Cards: Get More Cards
+Browse MyTonWallet Cards available for purchase.: Browse MyTonWallet Cards available for purchase.
+Apply Card: Apply Card
+You don't have any cards to customize yet: You don't have any cards to customize yet
+MyTonWallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: MyTonWallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.
+Get First Card: Get First Card
+Palette and Card: Palette and Card
+Customize the wallet's home screen and color accents the way you like.: Customize the wallet's home screen and color accents the way you like.

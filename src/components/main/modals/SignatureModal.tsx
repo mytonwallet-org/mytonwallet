@@ -107,6 +107,7 @@ function SignatureModal({
           error={error}
           submitLabel={lang('Sign')}
           cancelLabel={lang('Cancel')}
+          noAutoConfirm
           onSubmit={handlePasswordSubmit}
           onCancel={closeModal}
           onUpdate={clearSignatureError}

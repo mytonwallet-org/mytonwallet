@@ -101,6 +101,12 @@ export function getTelegramApp() {
   return webApp;
 }
 
+export function isInsideTelegram() {
+  const { platform } = getTelegramApp() || {};
+
+  return platform && platform !== 'unknown';
+}
+
 export function getTelegramAppAsync(): Promise<WebApp | undefined> {
   return new Promise((resolve) => {
     window.addEventListener('DOMContentLoaded', () => {

@@ -173,7 +173,11 @@ class SettingsAccountCell: UICollectionViewCell, WThemedView {
         titleLabel.text = title
         subtitleLabel.text = subtitle
         subtitleLabel.isHidden = subtitle?.nilIfEmpty == nil
-        heightConstraint.constant = subtitleLabel.isHidden ? 44 : 52
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+            heightConstraint.constant = subtitleLabel.isHidden ? 52 : 58
+        } else {
+            heightConstraint.constant = subtitleLabel.isHidden ? 44 : 52
+        }
         valueLabel.text = value
         titleCenterXConstraint.isActive = false
         titleLabel.textColor = WTheme.primaryLabel

@@ -80,9 +80,10 @@ public class TokenActionsView: WTouchPassStackView {
     
     public func set(actionsVisibleHeight: CGFloat) {
         let actionButtonAlpha = actionsVisibleHeight < 60 ? actionsVisibleHeight / 60 : 1
-        let actionButtonRadius = actionsVisibleHeight > 24 ? 12 : actionsVisibleHeight / 2
+        let maxRadius = S.actionButtonCornerRadius
+        let actionButtonRadius = min(maxRadius, actionsVisibleHeight / 2)
         for btn in arrangedSubviews {
-            guard let btn = btn as? WScalableButton else {continue}
+            guard let btn = btn as? WScalableButton else { continue }
             btn.innerButton.titleLabel?.alpha = actionButtonAlpha
             btn.innerButton.imageView?.alpha = actionButtonAlpha
             btn.layer.cornerRadius = actionButtonRadius

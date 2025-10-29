@@ -141,10 +141,10 @@ function ManageTransferPage({ isActive, onBack, onSubmit, onDelete, editingTrans
           <AddressInput
             label={lang('Recipient Address')}
             chain="ton"
+            withCurrentAccount
             value={toAddress}
             address={toAddress}
             addressName=""
-            currentAccountId=""
             onInput={handleAddressInput}
             onClose={onBack}
           />

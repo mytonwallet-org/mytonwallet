@@ -182,7 +182,7 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
 
     private fun configureTransactionEquivalentAmount() {
         val transaction = transaction as MApiTransaction.Transaction
-        if (transaction.isNft || transaction.type == ApiTransactionType.UNSTAKE_REQUEST) {
+        if (transaction.isNft || transaction.type?.noAmountTransaction == true) {
             bottomRightLabel.contentView.text = ""
             bottomRightLabel.setMaskCols(0)
             return

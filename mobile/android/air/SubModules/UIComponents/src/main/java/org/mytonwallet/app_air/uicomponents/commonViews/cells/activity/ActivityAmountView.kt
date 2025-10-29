@@ -76,13 +76,13 @@ class ActivityAmountView(context: Context) : FrameLayout(context), WThemedView, 
 
     fun configure(transaction: MApiTransaction.Transaction) {
         val amountCols =
-            if (transaction.isNft || transaction.type == ApiTransactionType.UNSTAKE_REQUEST) 0 else 4 + abs(
+            if (transaction.isNft || transaction.type?.noAmountTransaction == true) 0 else 4 + abs(
                 transaction.id.hashCode() % 8
             )
         amountLabel.setMaskCols(amountCols)
 
         val token = transaction.token
-        if (token == null || transaction.isNft || transaction.type == ApiTransactionType.UNSTAKE_REQUEST) {
+        if (token == null || transaction.isNft || transaction.type?.noAmountTransaction == true) {
             amountLabel.contentView.text = ""
             mainIconView.clear()
             secondIconView.clear()
@@ -110,7 +110,7 @@ class ActivityAmountView(context: Context) : FrameLayout(context), WThemedView, 
                 else -> WColor.PrimaryText.color
             }
         )
-        mainIconView.set(Content.of(token))
+        mainIconView.set(Content.of(token, showChainConfig = Content.SHOW_CHAIN_NEVER))
         secondIconView.visibility = GONE
         borderView.visibility = GONE
 
@@ -132,10 +132,10 @@ class ActivityAmountView(context: Context) : FrameLayout(context), WThemedView, 
         }
         val isFailed = swap.status == ApiSwapStatus.EXPIRED || swap.status == ApiSwapStatus.FAILED
 
-        mainIconView.set(Content.of(fromToken))
+        mainIconView.set(Content.of(fromToken, showChainConfig = Content.SHOW_CHAIN_NEVER))
         borderView.visibility = VISIBLE
         secondIconView.visibility = VISIBLE
-        secondIconView.set(Content.of(toToken))
+        secondIconView.set(Content.of(toToken, showChainConfig = Content.SHOW_CHAIN_NEVER))
         updateViewOrder()
 
         val builder = SpannableStringBuilder()

@@ -78,7 +78,7 @@ sealed class ScrollState() {
         override val subtitleScale = titleScale
         override val subtitleTranslationX: Float
             get() {
-                return lerp(headerView.subtitleCompactTranslationX, 102f.dp, percent)
+                return lerp(headerView.subtitleCompactTranslationX, 100.3f.dp, percent)
             }
         override val subtitleTranslationY: Float
             get() {

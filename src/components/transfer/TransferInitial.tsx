@@ -3,7 +3,7 @@ import React, { memo, useCallback, useEffect, useMemo, useRef } from '../../lib/
 import { getActions, withGlobal } from '../../global';
 
 import type { ApiBaseCurrency, ApiFetchEstimateDieselResult, ApiNft } from '../../api/types';
-import type { Account, SavedAddress, UserToken } from '../../global/types';
+import type { SavedAddress, UserToken } from '../../global/types';
 import type { LangFn } from '../../hooks/useLang';
 import type { ExplainedTransferFee } from '../../util/fee/transferFee';
 import type { FeePrecision, FeeTerms } from '../../util/fee/types';
@@ -19,7 +19,6 @@ import {
   selectIsHardwareAccount,
   selectIsMultichainAccount,
   selectIsMultisigAccount,
-  selectNetworkAccounts,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { getChainConfig } from '../../util/chain';
@@ -78,8 +77,6 @@ interface StateProps {
   tokenSlug: string;
   tokens?: UserToken[];
   savedAddresses?: SavedAddress[];
-  currentAccountId: string;
-  accounts?: Record<string, Account>;
   nativeTokenBalance: bigint;
   isEncryptedCommentSupported: boolean;
   isMemoRequired?: boolean;
@@ -116,9 +113,7 @@ function TransferInitial({
   nativeFee,
   realNativeFee,
   savedAddresses,
-  accounts,
   nativeTokenBalance,
-  currentAccountId,
   isEncryptedCommentSupported,
   isMemoRequired,
   isActive,
@@ -499,8 +494,6 @@ function TransferInitial({
             chain={chain}
             // NFT transfers are available only on the TON blockchain on this moment
             addressBookChain={isNftTransfer ? 'ton' : undefined}
-            currentAccountId={currentAccountId}
-            accounts={accounts}
             savedAddresses={savedAddresses}
             validateAddress={checkTransferAddress}
             isStatic={isStatic}
@@ -664,8 +657,6 @@ export default memo(
         isLoading: isLoading && isActive,
         isComplete: state === TransferState.Complete,
         baseCurrency,
-        currentAccountId: global.currentAccountId!,
-        accounts: selectNetworkAccounts(global),
         nativeTokenBalance: selectCurrentAccountTokenBalance(global, getNativeToken(chain).slug),
         diesel,
         isDieselAuthorizationStarted: accountState?.isDieselAuthorizationStarted,

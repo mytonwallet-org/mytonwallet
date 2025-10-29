@@ -964,3 +964,38 @@ Show More: Показать ещё
 Search app or enter address: Поиск или адрес
 Connected Apps: Подключённые приложения
 Popular Apps: Популярные приложения
+$wallets_amount:
+  zeroValue: Нет кошельков
+  oneValue: "%1$d кошелёк"
+  fewValue: "%1$d кошелька"
+  manyValue: "%1$d кошельков"
+$total_balance: "Всего: %balance%"
+No wallets: Нет кошельков
+View as List: Вид списком
+View as Cards: Вид картами
+Reorder: Изменить порядок
+Rename: Переименовать
+Customize: Настроить
+i18n_dragToSort: Перетащите для сортировки
+My: Мои
+All: Все
+$view_accounts: Просмотр
+Add your first one to begin.: Добавьте свой первый кошелек, чтобы начать.
+You don’t have any wallets yet: У вас ещё нет кошельков
+Add New Wallet: Добавить новый кошелёк
+Add Ledger Wallet: Добавить кошелёк Ledger
+Add View Wallet: Добавить кошелёк для просмотра
+No Ledger wallets yet: Кошельков Ledger пока нет
+No view wallets yet: Кошельков в режиме просмотра пока нет
+Add the first one to track balances and activity for any address.: Добавьте первый, чтобы отслеживать баланс и активность любого адреса.
+Customize Wallet: Настроить кошелёк
+'Select the card stored in this wallet:': 'Выберите карточку, сохранённую в этом кошельке:'
+This card will be installed for this wallet and will be displayed on the home screen and in the wallets list.: Эта карточка будет установлена для кошелька и отображаться на главном экране и в списке кошельков.
+Get More Cards: Получить больше карточек
+Browse MyTonWallet Cards available for purchase.: Просмотрите доступные для покупки карточки MyTonWallet.
+Apply Card: Применить карточку
+You don't have any cards to customize yet: У вас пока нет карточек для настройки.
+MyTonWallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: Карточки MyTonWallet можно устанавливать для кошельков и отображать на главном экране и в списке кошельков.
+Get First Card: Получить первую карточку
+Palette and Card: Палитра и карточка
+Customize the wallet's home screen and color accents the way you like.: Настройте главный экран кошелька и цветовые акценты по своему вкусу.

@@ -114,6 +114,7 @@ function DappTransferModal({
           withCloseButton={IS_CAPACITOR}
           submitLabel={lang('Confirm')}
           cancelLabel={lang('Back')}
+          noAutoConfirm
           onSubmit={handleTransferPasswordSubmit}
           onCancel={handleBackClick}
           onUpdate={clearDappTransferError}

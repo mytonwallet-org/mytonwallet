@@ -194,7 +194,7 @@ open class NftHeaderView(
         setSingleLine(true)
         marqueeRepeatLimit = -1
         isHorizontalFadingEdgeEnabled = true
-        setPaddingDp(12, 2, 6, 4)
+        setPaddingDp(12, 2, 12, 4)
         setOnClickListener {
             delegate.get()?.onCollectionTapped()
         }
@@ -202,11 +202,11 @@ open class NftHeaderView(
 
     private val subtitleArrowDrawable = ContextCompat.getDrawable(
         context,
-        org.mytonwallet.app_air.icons.R.drawable.ic_arrow_right_24
+        org.mytonwallet.app_air.icons.R.drawable.ic_arrow_right_16_24
     )!!.apply {
         mutate()
         setTint(WColor.PrimaryLightText.color)
-        val width = 18.dp
+        val width = 12.dp
         val height = 18.dp
         setBounds((-2).dp, 1.dp, width - 2.dp, height + 1.dp)
     }
@@ -561,7 +561,7 @@ open class NftHeaderView(
                 bottomGradientView.alpha = 0f
 
                 titleLabel.maxWidth =
-                    lerp(viewWidth.toFloat(), viewWidth - 120f.dp, percent).roundToInt()
+                    lerp(viewWidth.toFloat(), viewWidth - 56f.dp, percent).roundToInt()
                 subtitleLabel.maxWidth = titleLabel.maxWidth
             }
 
@@ -683,15 +683,20 @@ open class NftHeaderView(
     }
 
     private fun centerTitle() {
-        val textWidth = titleLabel.paint.measureText(titleLabel.text.toString())
-        val translationX = (viewWidth - textWidth - 32.dp) / 2f
+        val textWidth = titleLabel.calcWidth()
+        val translationX = (viewWidth - textWidth) / 2f - 16.dp
         titleCompactTranslationX = max(0f, translationX)
     }
 
     private fun centerSubtitle() {
-        val textWidth = subtitleLabel.paint.measureText(subtitleLabel.text.toString())
-        val translationX = (viewWidth - textWidth - 32.dp) / 2f
-        subtitleCompactTranslationX = max(0f, translationX)
+        val labelWidth =
+            subtitleLabel.calcWidth()
+        val translationX =
+            (viewWidth - labelWidth) / 2f - 16.dp
+        subtitleCompactTranslationX = max(
+            0f,
+            translationX
+        ) + subtitleLabel.paddingLeft // subtitle paddingLeft is later subtracted during the render()
     }
 
     private fun showActions() {

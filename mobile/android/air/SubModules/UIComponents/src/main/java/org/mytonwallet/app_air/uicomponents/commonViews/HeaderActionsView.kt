@@ -13,8 +13,8 @@ import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.content.ContextCompat
 import androidx.core.view.get
-import androidx.core.widget.TextViewCompat
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.sp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -74,13 +74,6 @@ class HeaderActionsView(
                 gravity = Gravity.CENTER
                 setSingleLine()
                 setStyle(15f, WFont.SemiBold)
-                TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
-                    this,
-                    8,
-                    15,
-                    1,
-                    TypedValue.COMPLEX_UNIT_SP
-                )
                 text = item.title
             }
 
@@ -103,6 +96,7 @@ class HeaderActionsView(
             arr.add(tabView)
         }
         itemViews = arr
+        updateTextSizes()
     }
 
     private fun configureViews() {
@@ -186,6 +180,28 @@ class HeaderActionsView(
                 if (ThemeManager.uiMode.hasRoundedCorners) WColor.Background.color else WColor.SecondaryBackground.color,
                 ViewConstants.BIG_RADIUS.dp
             )
+        }
+    }
+
+    fun updateTextSizes() {
+        post {
+            val labels = itemViews.map { it[1] as WLabel }
+            var finalSize = 15f
+            val minSize = 8f
+            val step = 1f
+            while (finalSize >= minSize) {
+                val fitsAll = labels.all { label ->
+                    label.paint.textSize = finalSize.sp
+                    val textWidth = label.paint.measureText(label.text.toString())
+                    label.width == 0 || textWidth <= label.width - 8.dp
+                }
+                if (fitsAll) break
+                finalSize -= step
+            }
+            labels.forEach { label ->
+                label.setTextSize(TypedValue.COMPLEX_UNIT_SP, finalSize)
+                label.requestLayout()
+            }
         }
     }
 

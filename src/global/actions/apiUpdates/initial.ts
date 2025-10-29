@@ -115,6 +115,11 @@ addActionHandler('apiUpdate', (global, actions, update) => {
     }
 
     case 'updateNfts': {
+      // `CustomizeWalletModal` is opened in a NBS before the nfts are updated, so we need to translate the update to the native side
+      // to prevent infinite loading
+      if (IS_DELEGATING_BOTTOM_SHEET) {
+        callActionInNative('apiUpdate', update);
+      }
       const { accountId, shouldAppend } = update;
       const nfts = buildCollectionByKey(update.nfts, 'address');
       const currentNfts = selectAccountState(global, accountId)?.nfts;

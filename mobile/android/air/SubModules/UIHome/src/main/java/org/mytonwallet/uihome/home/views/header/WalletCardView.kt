@@ -32,8 +32,10 @@ import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
 import org.mytonwallet.app_air.uicomponents.helpers.FontManager
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.textOffset
+import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.AutoScaleContainerView
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
+import org.mytonwallet.app_air.uicomponents.widgets.WGradientMaskView
 import org.mytonwallet.app_air.uicomponents.widgets.WImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -82,17 +84,16 @@ class WalletCardView(
     }
 
     private var cardNft: ApiNft? = null
-    var isShowingSkeleton = true
 
-    var statusViewState: UpdateStatusView.State = UpdateStatusView.State.Updated
-        set(value) {
-            // Check if the state has changed
-            if (field == value) return
-            field = value
-            updateContentAlpha()
-            balanceView.isLoading = value == UpdateStatusView.State.Updating
-        }
+    private var statusViewState: UpdateStatusView.State = UpdateStatusView.State.Updated
     val ratio = 208 / 358f
+
+    fun setStatusViewState(value: UpdateStatusView.State, animated: Boolean) {
+        if (statusViewState == value) return
+        statusViewState = value
+        updateContentAlpha(animated)
+        balanceViewMaskWrapper.isLoading = value == UpdateStatusView.State.Updating
+    }
 
     private val img = WImageView(context)
 
@@ -121,6 +122,7 @@ class WalletCardView(
     }
 
     lateinit var balanceView: WBalanceView
+    lateinit var balanceViewMaskWrapper: WGradientMaskView
     lateinit var arrowImageView: AppCompatImageView
     private val arrowDownDrawable = ContextCompat.getDrawable(
         context,
@@ -134,19 +136,22 @@ class WalletCardView(
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
-        balanceView = WBalanceView(context, false).apply {
+        balanceView = WBalanceView(context).apply {
             clipChildren = false
             clipToPadding = false
-            setStyle(52f, 38f, WFont.NunitoExtraBold)
-            decimalsAlpha = 0.75f
+            primaryColor = WColor.White.color
+            secondaryColor = WColor.White.color
+            decimalsAlpha = 191
+            typeface = WFont.NunitoExtraBold.typeface
         }
-        linearLayout.addView(balanceView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        balanceViewMaskWrapper = WGradientMaskView(balanceView)
+        linearLayout.addView(balanceViewMaskWrapper, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         arrowImageView = AppCompatImageView(context).apply {
             setImageDrawable(arrowDownDrawable)
         }
         linearLayout.addView(arrowImageView, LayoutParams(18.dp, 18.dp).apply {
             leftMargin = 2.dp
-            topMargin = 7.dp
+            topMargin = 5.dp
             rightMargin = 2.dp
         })
         linearLayout.setOnClickListener {
@@ -224,6 +229,13 @@ class WalletCardView(
                 protectContentLayoutSize = false
             )
         )
+    }
+
+    val balanceSkeletonView = WView(context).apply {
+        visibility = GONE
+    }
+    val balanceChangeSkeletonView = WView(context).apply {
+        visibility = GONE
     }
 
     private val addressChain = AppCompatImageView(context).apply {
@@ -307,13 +319,18 @@ class WalletCardView(
     }
 
     private val contentView: WView by lazy {
-        val v = WView(context)
+        val v = WView(context).apply {
+            clipChildren = false
+            clipToPadding = false
+        }
         v.addView(shiningView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
         v.addView(img, LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT))
         v.addView(radialGradientView, LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT))
         v.addView(miniPlaceholders)
         v.addView(balanceViewContainer, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         v.addView(balanceChangeLabel, LayoutParams(WRAP_CONTENT, 28.dp))
+        v.addView(balanceSkeletonView, LayoutParams(134.dp, 56.dp))
+        v.addView(balanceChangeSkeletonView, LayoutParams(134.dp, 28.dp))
         v.addView(bottomViewContainer, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         v.addView(mintIcon, LayoutParams(40.dp, 40.dp))
 
@@ -327,6 +344,8 @@ class WalletCardView(
             toTop(balanceChangeLabel)
             toCenterX(balanceChangeLabel)
             toCenterX(bottomViewContainer)
+            edgeToEdge(balanceSkeletonView, balanceViewContainer)
+            edgeToEdge(balanceChangeSkeletonView, balanceChangeLabel)
             toEnd(mintIcon, 4f)
         }
 
@@ -355,6 +374,13 @@ class WalletCardView(
             updateAccountData()
         }
 
+        balanceView.onTotalWidthChanged = { width ->
+            balanceViewMaskWrapper.setupLayout(
+                width = width,
+                height = 56.dp,
+                parentWidth = (this@WalletCardView.parent as HomeHeaderView).width
+            )
+        }
         addressLabelContainer.setOnClickListener {
             if (!WalletCore.isMultichain) {
                 val clipboard =
@@ -644,7 +670,15 @@ class WalletCardView(
             balanceView.alpha = 1f
             textShader = null
         }
-        balanceView.setTextColor(primaryColor, secondaryColor, secondaryColor.colorWithAlpha(191))
+        balanceViewMaskWrapper.setupColors(
+            intArrayOf(
+                primaryColor.colorWithAlpha(191),
+                primaryColor,
+                primaryColor.colorWithAlpha(191)
+            )
+        )
+        balanceView.primaryColor = primaryColor
+        balanceView.secondaryColor = secondaryColor.colorWithAlpha(191)
         arrowDownDrawable?.setTint(secondaryColor)
         addressLabel.setTextColor(secondaryColor.colorWithAlpha(204))
         if (textShader == null) {
@@ -673,7 +707,7 @@ class WalletCardView(
             20f.dp
         )
         walletTypeView.setColor(secondaryColor.colorWithAlpha(191))
-        exploreDrawable?.setTint(Color.WHITE.colorWithAlpha(191))
+        exploreDrawable?.setTint(secondaryColor.colorWithAlpha(191))
         addressLabelContainer.background = null
         addressLabelContainer.addRippleEffect(
             Color.WHITE.colorWithAlpha(25),
@@ -691,13 +725,15 @@ class WalletCardView(
         miniPlaceholders.scaleX = miniPlaceholders.scaleX
 
         balanceViewContainer.y = balanceY
-        balanceChangeLabel.y = balanceY + 74.dp
+        balanceSkeletonView.y = balanceY
+        balanceChangeLabel.y = balanceY + 64.dp
+        balanceChangeSkeletonView.y = balanceY + 64.dp
 
-        val scale2 = (28f + 10f * expandProgress) / 38f
+        val scale2 = (30f + 8f * expandProgress) / 38f
         balanceView.setScale(
             (36f + 16f * expandProgress) / 52f,
             scale2,
-            0f,
+            (-2.5f).dp + 1f.dp * expandProgress
         )
         balanceView.translationX = 11f.dp * (1 - expandProgress)
         balanceViewContainer.contentView.updateScale()
@@ -723,7 +759,6 @@ class WalletCardView(
                     if (currentAlpha < 1f) {
                         currentAlpha = 1f
                         if (animated) {
-                            contentView.alpha = 0f
                             contentView.fadeIn()
                         } else {
                             contentView.alpha = 1f
@@ -734,7 +769,6 @@ class WalletCardView(
             if (currentAlpha < 1f) {
                 currentAlpha = 1f
                 if (animated) {
-                    contentView.alpha = 0f
                     contentView.fadeIn()
                 } else {
                     contentView.alpha = 1f

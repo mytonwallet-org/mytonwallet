@@ -973,3 +973,38 @@ Show More: Pokaż więcej
 Search app or enter address: Wyszukaj aplikację lub wprowadź adres
 Connected Apps: Połączone aplikacje
 Popular Apps: Popularne aplikacje
+$wallets_amount:
+  zeroValue: Brak portfeli
+  oneValue: "%1$d portfel"
+  fewValue: "%1$d portfele"
+  manyValue: "%1$d portfeli"
+$total_balance: "%balance% łącznie"
+No wallets: Brak portfeli
+View as List: Wyświetl jako listę
+View as Cards: Wyświetl jako karty
+Reorder: Zmień kolejność
+Rename: Zmień nazwę
+Customize: Dostosuj
+i18n_dragToSort: Przeciągnij, aby posortować
+My: Mój
+All: Wszystkie
+$view_accounts: Zobacz
+Add your first one to begin.: Dodaj swój pierwszy portfel, aby rozpocząć.
+You don’t have any wallets yet: Nie masz jeszcze żadnych portfeli
+Add New Wallet: Dodaj nowy portfel
+Add Ledger Wallet: Dodaj portfel Ledger
+Add View Wallet: Dodaj portfel podglądu
+No Ledger wallets yet: Jeszcze brak portfeli Ledger
+No view wallets yet: Jeszcze brak portfeli podglądu
+Add the first one to track balances and activity for any address.: Dodaj pierwszy, aby śledzić salda i aktywność dla dowolnego adresu.
+Customize Wallet: Dostosuj portfel
+'Select the card stored in this wallet:': 'Wybierz kartę zapisaną w tym portfelu:'
+This card will be installed for this wallet and will be displayed on the home screen and in the wallets list.: Ta karta zostanie zainstalowana dla tego portfela i będzie wyświetlana na ekranie głównym oraz na liście portfeli.
+Get More Cards: Pobierz więcej kart
+Browse MyTonWallet Cards available for purchase.: Przeglądaj dostępne do zakupu karty MyTonWallet.
+Apply Card: Zastosuj kartę
+You don't have any cards to customize yet: Nie masz jeszcze żadnych kart do dostosowania.
+MyTonWallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: Karty MyTonWallet można instalować w portfelach i wyświetlać na ekranie głównym oraz w liście portfeli.
+Get First Card: Pobierz pierwszą kartę
+Palette and Card: Paleta i karta
+Customize the wallet's home screen and color accents the way you like.: Dostosuj ekran główny portfela i akcenty kolorów według własnego uznania.

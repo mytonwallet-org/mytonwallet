@@ -1,0 +1,155 @@
+@use "../../styles/scssVariables" as v;
+
+@use "../../styles/mixins";
+
+$nftCardItemHeight: 4.6875rem;
+$nftCardItemWidth: 6.875rem;
+
+.cardWrapper {
+  cursor: var(--custom-cursor, pointer);;
+  position: relative;
+  border-radius: 0.625rem;
+
+  @include mixins.transition('transform 0.15s, outline 0.15s ease-in-out');
+
+  &:hover {
+    transform: translateY(-2px);
+  }
+
+  &.selected {
+    outline: 2px solid var(--color-accent) !important;
+    outline-offset: 2px;
+  }
+}
+
+.card {
+  --main-text: var(--color-card-text);
+  --second-text: var(--color-card-second-text);
+
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  overflow: hidden;
+  // Aspect ratio is set here instead of height/width for small screens
+  aspect-ratio: calc($nftCardItemWidth / 1rem) / calc($nftCardItemHeight / 1rem);
+  width: 100%;
+  height: 100%;
+  border-radius: 0.625rem;
+
+  background-image: url("../../assets/cards/card.jpg"), linear-gradient(125deg, #{v.$defaultCardGradient});
+  background-clip: border-box, padding-box, padding-box;
+  background-origin: border-box;
+  background-size: cover, cover;
+
+  &:global(.tegro) {
+    background-image: url("../../assets/cards/card_tegro.jpg"), linear-gradient(125deg, #5E95DD 0, #4469D4 100%);
+  }
+
+  &:global(.red) {
+    background-image: url("../../assets/cards/card_red.jpg"), linear-gradient(125deg, #C46D63 0, #A54C4E 100%);
+  }
+
+  &:global(.orange) {
+    background-image: url("../../assets/cards/card_orange.jpg"), linear-gradient(125deg, #C49D5B 0, #B67C47 100%);
+  }
+
+  &:global(.green) {
+    background-image: url("../../assets/cards/card_green.jpg"), linear-gradient(125deg, #72AB78 0, #609554 100%);
+  }
+
+  &:global(.sea) {
+    background-image: url("../../assets/cards/card_sea.jpg"), linear-gradient(125deg, #6097C1 0, #4583A3 100%);
+  }
+
+  &:global(.purple) {
+    background-image: url("../../assets/cards/card_purple.jpg"), linear-gradient(125deg, #7A6DD8 0, #634CBB 100%);
+  }
+
+  &:global(.pink) {
+    background-image: url("../../assets/cards/card_pink.jpg"), linear-gradient(125deg, #AD6691 0, #A14F8F 100%);
+  }
+}
+
+.cardContent {
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 100%;
+  height: 100%;
+  padding: 0.5rem;
+
+  color: var(--main-text);
+
+  &:global(.MtwCard__darkText) {
+    --main-text: var(--color-card-text-dark);
+    --second-text: var(--color-card-second-text-dark);
+  }
+
+  &:global(.MtwCard__lightText) {
+    --main-text: var(--color-card-text);
+    --second-text: var(--color-card-second-text);
+  }
+}
+
+.balance {
+  display: flex;
+  gap: 0.0625rem;
+  align-items: baseline;
+}
+
+.balanceSymbol {
+  margin-bottom: 0.25rem;
+  font-size: calc(0.75rem * var(--font-size-scale-mini, 1));
+  font-weight: 850;
+  color: var(--second-text);
+}
+
+.balanceWhole {
+  font-size: calc(1.125rem * var(--font-size-scale-mini, 1));
+  font-weight: 850;
+  line-height: 1;
+  color: var(--main-text);
+  letter-spacing: -0.02rem;
+}
+
+.balanceFraction {
+  font-size: calc(0.875rem * var(--font-size-scale-mini, 1));
+  font-weight: 800;
+  color: var(--second-text);
+}
+
+.customCardManager, .cardWrapper {
+  // Aspect ratio is set here instead of height/width for small screens
+  aspect-ratio: calc($nftCardItemWidth / 1rem) / calc($nftCardItemHeight / 1rem);
+  min-width: unset;
+  height: unset;
+}
+
+.customCardManager > img, .customCardManager::before {
+  border-radius: 0.625rem !important;
+}
+
+.bar {
+  position: absolute;
+  bottom: 0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+
+  width: 2.875rem;
+  height: 0.3125rem;
+  border-radius: 0.1875rem;
+
+  &:not(:global(.gradientText)) {
+    background: var(--color-card-button);
+  }
+  &:global(.gradientText) {
+    opacity: 35%;
+    background-clip: border-box;
+  }
+}

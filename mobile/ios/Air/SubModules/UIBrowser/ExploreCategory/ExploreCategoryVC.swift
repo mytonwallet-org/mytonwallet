@@ -91,7 +91,7 @@ class ExploreCategoryVC: WViewController {
         shadowView.layer.shadowColor = UIColor.black.withAlphaComponent(0.1).cgColor
         shadowView.layer.shadowRadius = 32
         shadowView.layer.shadowOpacity = 1
-        shadowView.layer.cornerRadius = 16
+        shadowView.layer.cornerRadius = S.homeInsetSectionCornerRadius
         collectionView.insertSubview(shadowView, at: 0)
         
         dataSource = makeDataSource()
@@ -103,7 +103,7 @@ class ExploreCategoryVC: WViewController {
                 let frame = visibleCells
                     .map(\.frame)
                     .reduce(first.frame) { $0.union($1) }
-                shadowView.frame = frame
+                shadowView.frame = frame.insetBy(dx: 4, dy: 4)
                 collectionView.sendSubviewToBack(shadowView)
             }
         }
@@ -129,7 +129,10 @@ class ExploreCategoryVC: WViewController {
         var config = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
         config.headerMode = .supplementary
         config.backgroundColor = .clear
-        config.separatorConfiguration.color = WTheme.separator
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+        } else {
+            config.separatorConfiguration.color = WTheme.separator
+        }
         let layout = UICollectionViewCompositionalLayout.list(using: config)
         return layout
     }
@@ -155,7 +158,7 @@ class ExploreCategoryVC: WViewController {
                         }
                         .minSize(height: 80)
                     }
-                    cell.backgroundConfiguration?.cornerRadius = 16
+                    cell.backgroundConfiguration?.cornerRadius = S.homeInsetSectionCornerRadius
                 }
             }
         }

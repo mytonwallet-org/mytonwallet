@@ -1,5 +1,5 @@
 import type { ApiBalanceBySlug, ApiBaseCurrency, ApiChain, ApiCurrencyRates } from '../../api/types';
-import type { AccountSettings, GlobalState, UserToken } from '../types';
+import type { Account, AccountSettings, GlobalState, UserToken } from '../types';
 
 import {
   DEFAULT_ENABLED_TOKEN_COUNT,
@@ -19,16 +19,20 @@ import withCache from '../../util/withCache';
 import { selectAccountSettings, selectAccountState, selectCurrentAccountState } from './accounts';
 
 function getIsNewAccount(balancesBySlug: ApiBalanceBySlug, tokenInfo: GlobalState['tokenInfo']) {
-  return Object.keys(balancesBySlug).length === DEFAULT_ENABLED_TOKEN_COUNT && (
-    Object.entries(balancesBySlug).every(([slug, balance]) => {
-      const { decimals, priceUsd } = tokenInfo.bySlug[slug];
+  // Check if the number of balances equals the default token count
+  if (Object.keys(balancesBySlug).length !== DEFAULT_ENABLED_TOKEN_COUNT) {
+    return false;
+  }
 
-      const balanceBig = toBig(balance, decimals);
-      const hasCost = balanceBig.mul(priceUsd ?? 0).lt(TINY_TRANSFER_MAX_COST);
+  return Object.entries(balancesBySlug).every(([slug, balance]) => {
+    const info = tokenInfo.bySlug[slug];
 
-      return hasCost;
-    })
-  );
+    // If token info is missing, treat it as zero-value
+    if (!info) return true;
+
+    const balanceBig = toBig(balance, info.decimals);
+    return balanceBig.mul(info.priceUsd ?? 0).lt(TINY_TRANSFER_MAX_COST);
+  });
 }
 
 export const selectAccountTokensMemoizedFor = withCache((accountId: string) => memoize((
@@ -169,4 +173,39 @@ export function selectChainTokenWithMaxBalanceSlow(global: GlobalState, chain: A
 
       return currentBalance > maxBalance ? currentToken : maxToken;
     });
+}
+
+export function selectMultipleAccountsTokensSlow(
+  networkAccounts: Record<string, Account> | undefined,
+  byAccountId: GlobalState['byAccountId'],
+  tokenInfo: GlobalState['tokenInfo'],
+  settingsByAccountId: Record<string, AccountSettings>,
+  isSortByValueEnabled: boolean | undefined,
+  areTokensWithNoCostHidden: boolean | undefined,
+  baseCurrency: ApiBaseCurrency,
+  currencyRates: ApiCurrencyRates,
+) {
+  const result: Record<string, UserToken[] | undefined> = {};
+  if (!networkAccounts || !tokenInfo) return result;
+
+  for (const accountId in networkAccounts) {
+    const balancesBySlug = byAccountId[accountId]?.balances?.bySlug;
+    if (!balancesBySlug) {
+      result[accountId] = undefined;
+      continue;
+    }
+
+    const accountSettings = settingsByAccountId[accountId];
+    result[accountId] = selectAccountTokensMemoizedFor(accountId)(
+      balancesBySlug,
+      tokenInfo,
+      accountSettings,
+      isSortByValueEnabled,
+      areTokensWithNoCostHidden,
+      baseCurrency,
+      currencyRates,
+    );
+  }
+
+  return result;
 }

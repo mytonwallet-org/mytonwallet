@@ -309,7 +309,7 @@ addActionHandler('signOut', async (global, actions, payload) => {
     callActionInMain('signOut', payload);
   }
 
-  const { level } = payload;
+  const { level, accountId } = payload;
 
   const network = selectCurrentNetwork(global);
   const accounts = selectNetworkAccounts(global)!;
@@ -379,20 +379,27 @@ addActionHandler('signOut', async (global, actions, payload) => {
       actions.init();
     }
   } else {
-    const prevAccountId = global.currentAccountId!;
-    const nextAccountId = accountIds.find((id) => id !== prevAccountId)!;
-    const nextNewestActivityTimestamps = selectNewestActivityTimestamps(global, nextAccountId);
+    const removingAccountId = accountId ?? global.currentAccountId!;
+    const shouldSwitchAccount = removingAccountId === global.currentAccountId;
+    const nextAccountId = shouldSwitchAccount
+      ? accountIds.find((id) => id !== removingAccountId)!
+      : undefined;
+    const nextNewestActivityTimestamps = nextAccountId
+      ? selectNewestActivityTimestamps(global, nextAccountId)
+      : undefined;
 
-    await callApi('removeAccount', prevAccountId, nextAccountId, nextNewestActivityTimestamps);
-    actions.deleteNotificationAccount({ accountId: prevAccountId });
+    await callApi('removeAccount', removingAccountId, nextAccountId, nextNewestActivityTimestamps);
+    actions.deleteNotificationAccount({ accountId: removingAccountId });
 
     global = getGlobal();
 
-    const accountsById = omit(global.accounts!.byId, [prevAccountId]);
-    const byAccountId = omit(global.byAccountId, [prevAccountId]);
-    const settingsByAccountId = omit(global.settings.byAccountId, [prevAccountId]);
+    const accountsById = omit(global.accounts!.byId, [removingAccountId]);
+    const byAccountId = omit(global.byAccountId, [removingAccountId]);
+    const settingsByAccountId = omit(global.settings.byAccountId, [removingAccountId]);
 
-    global = updateCurrentAccountId(global, nextAccountId);
+    if (nextAccountId !== undefined) {
+      global = updateCurrentAccountId(global, nextAccountId);
+    }
 
     global = {
       ...global,

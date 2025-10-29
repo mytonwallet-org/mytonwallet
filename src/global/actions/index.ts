@@ -30,3 +30,5 @@ import './ui/shared';
 import './ui/notifications';
 import './ui/cards';
 import './ui/domains';
+import './ui/accounts';
+import './ui/customizeWallet';

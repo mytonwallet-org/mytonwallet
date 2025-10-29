@@ -25,6 +25,7 @@ type OwnProps = {
   className?: string;
   bubbleClassName?: string;
   type?: 'menu' | 'suggestion' | 'dropdown';
+  role?: 'listbox';
   autoClose?: boolean;
   shouldSkipTransition?: boolean;
   noBackdrop?: boolean;
@@ -47,6 +48,7 @@ const Menu: FC<OwnProps> = ({
   className,
   bubbleClassName,
   type = 'menu',
+  role,
   autoClose = false,
   shouldSkipTransition,
   noBackdrop = false,
@@ -123,6 +125,7 @@ const Menu: FC<OwnProps> = ({
       <div
         ref={bubbleRef}
         className={fullBubbleClassName}
+        role={role}
         onClick={autoClose ? onClose : undefined}
       >
         {children}

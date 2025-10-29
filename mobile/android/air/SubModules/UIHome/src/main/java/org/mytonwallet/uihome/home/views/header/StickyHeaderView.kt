@@ -19,10 +19,10 @@ import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.uihome.R
 import org.mytonwallet.uihome.home.views.UpdateStatusView
@@ -35,6 +35,8 @@ class StickyHeaderView(
 
     init {
         id = generateViewId()
+        clipChildren = false
+        clipToPadding = false
     }
 
     private var configured = false
@@ -47,8 +49,7 @@ class StickyHeaderView(
     }
 
     val updateStatusView: UpdateStatusView by lazy {
-        val v = UpdateStatusView(context)
-        v
+        UpdateStatusView(context)
     }
 
     private val lockButton: WImageButton by lazy {

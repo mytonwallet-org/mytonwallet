@@ -79,6 +79,7 @@ function TurnOn({
               operationType="turnOnBiometrics"
               help={lang('Enabling biometric confirmation will reset the password.')}
               submitLabel={lang('Continue')}
+              noAutoConfirm
               onSubmit={handleSubmit}
               onCancel={onClose}
               onUpdate={handleClearError}

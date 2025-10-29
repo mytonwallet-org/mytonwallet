@@ -1,3 +1,4 @@
+import type { ElementRef } from '../../lib/teact/teact';
 import React, { memo } from '../../lib/teact/teact';
 
 import buildClassName from '../../util/buildClassName';
@@ -6,15 +7,19 @@ import useLang from '../../hooks/useLang';
 
 import styles from './SuggestionList.module.scss';
 
-type OwnProps = {
+export const SUGGESTION_ITEM_CLASS_NAME = styles.suggestion;
+
+interface OwnProps {
+  listRef?: ElementRef<HTMLDivElement>;
   position?: 'top' | 'bottom';
   suggestions: string[];
   activeIndex?: number;
   isInModal?: boolean;
   onSelect: (suggest: string) => void;
-};
+}
 
 function SuggestionList({
+  listRef,
   position = 'bottom',
   suggestions,
   activeIndex,
@@ -31,24 +36,31 @@ function SuggestionList({
   };
 
   return suggestions.length ? (
-    <ul className={buildClassName(styles.suggestions, styles[position], isInModal && styles.embedded)}>
+    <div
+      ref={listRef}
+      role="listbox"
+      className={buildClassName(styles.suggestions, styles[position], isInModal && styles.embedded)}
+    >
       {suggestions.map((suggestion, index) => {
+        const isActive = index === activeIndex;
+
         return (
-          <li
+          <div
             key={suggestion}
-            role="button"
             tabIndex={0}
-            className={buildClassName(styles.suggestion, index === activeIndex && styles.active)}
+            role="option"
+            aria-selected={isActive}
+            className={buildClassName(styles.suggestion, isActive && styles.active)}
             onMouseDown={handleClick}
           >
             {suggestion}
-          </li>
+          </div>
         );
       })}
-    </ul>
+    </div>
   ) : (
     <div className={styles.suggestions}>
-      <li className={styles.suggestion}>{lang('No suggestions, you\'re on your own!')}</li>
+      <div className={styles.suggestion}>{lang('No suggestions, you\'re on your own!')}</div>
     </div>
   );
 }

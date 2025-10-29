@@ -1,5 +1,7 @@
 @use "../scssVariables" as v;
 
+@use "./transition" as t;
+
 @mixin _separator-base($position-offset, $inset: null) {
   content: '';
 
@@ -40,6 +42,47 @@
     height: 0.0625rem;
 
     box-shadow: inset 0 -0.03rem 0 0 var(--color-separator);
+  }
+}
+
+@mixin separatorList($left-offset: 0) {
+  &:not(:last-child)::after {
+    content: '';
+
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: $left-offset;
+
+    height: 0.0625rem;
+
+    box-shadow: inset 0 -0.03rem 0 0 var(--color-separator);
+  }
+}
+
+// Mixin is used to fix the background when it's necessary to cover a part of an element appearing above the backdrop.
+// For example, see `BottomBar` component.
+
+@mixin backdropPatch($pseudoElement: 'after') {
+  &::#{$pseudoElement} {
+    pointer-events: none;
+    content: '';
+
+    position: absolute;
+    z-index: 2;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+
+    opacity: 0;
+    background: var(--color-tint);
+
+    @include t.transition(opacity 200ms);
+  }
+
+  :global(html.with-menu-backdrop) &::#{$pseudoElement} {
+    opacity: 1;
   }
 }
 

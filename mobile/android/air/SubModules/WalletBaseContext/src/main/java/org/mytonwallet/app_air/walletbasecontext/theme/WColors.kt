@@ -157,5 +157,10 @@ object ThemeManager : ITheme {
         colors[WColor.TintRipple.ordinal] = getColor(WColor.Tint) and 0x18FFFFFF
     }
 
+    fun setDefaultAccentColor() {
+        colors[WColor.Tint.ordinal] = if (isDark) DEFAULT_TINT_DARK else DEFAULT_TINT_LIGHT
+        colors[WColor.TextOnTint.ordinal] = Color.WHITE
+    }
+
     override fun getColor(color: WColor): Int = this.colors[color.ordinal]
 }

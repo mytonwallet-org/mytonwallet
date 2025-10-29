@@ -1,5 +1,7 @@
 @use "../../styles/mixins";
 
+@use "../../styles/scssVariables" as v;
+
 .wrapper {
   height: 100%;
 
@@ -493,6 +495,10 @@
     pointer-events: none;
     cursor: not-allowed !important;
     opacity: 0.4;
+  }
+
+  &_with_fixed_height {
+    height: 3rem;
   }
 
   @media (hover: hover) {
@@ -1019,4 +1025,41 @@ a.item:hover {
 
 .accountDisabled {
   opacity: 0.5;
+}
+
+.pushAccountName {
+  margin-right: 1.125rem !important;
+}
+
+.palleteIcon {
+  position: relative;
+
+  width: 1.5625rem;
+  height: 1.5625rem;
+  border-radius: 50%;
+
+  background-color: var(--color-accent, var(--color-default-accent));
+}
+
+$internalRadius: 0.1875rem;
+$borderWidth: 0.0625rem;
+$externalRadius: $internalRadius + $borderWidth;
+
+.miniCard {
+  position: absolute;
+  top: 50%;
+  right: -25%;
+  transform: translateY(-50%) rotate(-10deg);
+
+  box-sizing: content-box;
+  width: 1.375rem;
+  height: 0.875rem;
+  border: $borderWidth solid var(--color-background-first);
+  border-radius: $externalRadius;
+
+  background-color: var(--color-background-first);
+}
+
+.miniCardPreview {
+  position: absolute;
 }

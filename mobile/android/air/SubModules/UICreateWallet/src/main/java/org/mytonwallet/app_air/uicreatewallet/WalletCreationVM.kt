@@ -11,6 +11,7 @@ import org.mytonwallet.app_air.walletcore.api.createWallet
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
+import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import java.lang.ref.WeakReference
 
 class WalletCreationVM(delegate: Delegate) {
@@ -61,6 +62,7 @@ class WalletCreationVM(delegate: Delegate) {
                     tronAddress = account.addressByChain["tron"],
                     importedAt = account.importedAt
                 )
+                BalanceStore.setBalances(createdAccountId, HashMap(), false)
                 AirPushNotifications.subscribe(account, ignoreIfLimitReached = true)
                 if (biometricsActivated != null) {
                     if (biometricsActivated) {

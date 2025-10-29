@@ -254,7 +254,9 @@ function Card({
         <div className={buildClassName(styles.containerInner, customCardClassName)}>
           {values ? renderBalance() : renderLoader()}
           <CardAddress withTextGradient={withTextGradient} />
-          {!IS_CORE_WALLET && !isNftBuyingDisabled && !isViewMode && <MintCardButton />}
+          {!IS_CORE_WALLET && !isNftBuyingDisabled && !isViewMode && (
+            <MintCardButton />
+          )}
         </div>
       </div>
 

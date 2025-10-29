@@ -171,7 +171,7 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
             belowSafeAreaHeightConstraint
         ])
         
-        addNavigationBar(title: nil, closeIcon: false)
+        addNavigationBar(title: nil, closeIcon: false, prefersHardEdge: true)
         NSLayoutConstraint.activate([
             tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
         ])

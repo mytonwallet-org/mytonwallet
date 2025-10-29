@@ -939,9 +939,9 @@ Open Wallet: Abrir billetera
 All Set!: ¡Todo listo!
 $wallet_create_done: ¡Listo! Has creado una billetera.
 $wallet_import_done:
-  zeroValue: ¡Listo! Has importado una cartera.
-  oneValue: ¡Listo! Has importado una cartera.
-  otherValue: ¡Listo! Has importado %1$d carteras.
+  zeroValue: ¡Listo! Has importado una billetera.
+  oneValue: ¡Listo! Has importado una billetera.
+  otherValue: ¡Listo! Has importado %1$d billeteras.
 $wallet_done_description: Ahora puedes almacenar, recibir y enviar monedas y otros activos digitales de forma segura.
 Security Warning: Advertencia de seguridad
 Go back to Words: Volver a palabras
@@ -959,3 +959,37 @@ Show More: Mostrar más
 Search app or enter address: Buscar aplicación o ingresar dirección
 Connected Apps: Aplicaciones conectadas
 Popular Apps: Aplicaciones populares
+$wallets_amount:
+  zeroValue: No hay billeteras
+  oneValue: "%1$d billetera"
+  otherValue: "%1$d billeteras"
+$total_balance: "%balance% en total"
+No wallets: No hay billeteras
+View as List: Ver como lista
+View as Cards: Ver como tarjetas
+Reorder: Reordenar
+Rename: Renombrar
+Customize: Personalizar
+i18n_dragToSort: Arrastrar para ordenar
+My: Mis
+All: Todos
+$view_accounts: Ver
+Add your first one to begin.: Agrega tu primera billetera para comenzar.
+You don’t have any wallets yet: Aún no tienes ninguna billetera
+Add New Wallet: Agregar nueva billetera
+Add Ledger Wallet: Agregar billetera Ledger
+Add View Wallet: Agregar billetera de visualización
+No Ledger wallets yet: Aún no hay billeteras Ledger
+No view wallets yet: Aún no hay billeteras de visualización
+Add the first one to track balances and activity for any address.: Agrega la primera para rastrear saldos y actividad de cualquier dirección.
+Customize Wallet: Personalizar billetera
+'Select the card stored in this wallet:': 'Selecciona la tarjeta almacenada en esta billetera:'
+This card will be installed for this wallet and will be displayed on the home screen and in the wallets list.: Esta tarjeta se instalará para esta billetera y se mostrará en la pantalla principal y en la lista de billeteras.
+Get More Cards: Obtener más tarjetas
+Browse MyTonWallet Cards available for purchase.: Explora las tarjetas MyTonWallet disponibles para comprar.
+Apply Card: Aplicar tarjeta
+You don't have any cards to customize yet: Aún no tienes tarjetas para personalizar.
+MyTonWallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: Las tarjetas MyTonWallet pueden instalarse para las billeteras y mostrarse en la pantalla principal y en la lista de billeteras.
+Get First Card: Obtener primera tarjeta
+Palette and Card: Paleta y tarjeta
+Customize the wallet's home screen and color accents the way you like.: Personaliza la pantalla principal y los acentos de color de la billetera a tu gusto.

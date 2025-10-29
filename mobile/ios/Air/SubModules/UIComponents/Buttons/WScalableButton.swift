@@ -30,7 +30,7 @@ public class WScalableButton: UIView, WThemedView {
     
     private func setupViews() {
         translatesAutoresizingMaskIntoConstraints = false
-        layer.cornerRadius = 12
+        layer.cornerRadius = S.actionButtonCornerRadius
         layer.masksToBounds = true
 
         innerButton = WButton(style: .accent)

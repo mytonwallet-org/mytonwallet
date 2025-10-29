@@ -68,8 +68,6 @@ public class NftsVC: WViewController, WSegmentedControllerContent, WalletAssetsV
     private var contextMenuExtraBlurView: UIView?
     private var navigationBarStarItem: WNavigationBarButton?
     
-    public override var hideNavigationBar: Bool { true }
-    
     var scrollingContext = ScrollingContext()
     
     public init(compactMode: Bool, filter: NftCollectionFilter, topInset: CGFloat = 0) {

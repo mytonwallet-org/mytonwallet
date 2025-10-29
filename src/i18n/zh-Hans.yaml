@@ -952,3 +952,37 @@ Show More: 显示更多
 Search app or enter address: 搜索应用或输入地址
 Connected Apps: 已连接的应用
 Popular Apps: 热门应用
+$wallets_amount:
+  zeroValue: 没有钱包
+  oneValue: "%1$d 个钱包"
+  otherValue: "%1$d 个钱包"
+$total_balance: "%balance% 总计"
+No wallets: 没有钱包
+View as List: 列表视图
+View as Cards: 卡片视图
+Reorder: 重新排序
+Rename: 重命名
+Customize: 自定义
+i18n_dragToSort: 拖动以排序
+My: 我的
+All: 全部
+$view_accounts: 查看
+Add your first one to begin.: 添加您的第一个钱包以开始。
+You don’t have any wallets yet: 您还没有任何钱包
+Add New Wallet: 添加新钱包
+Add Ledger Wallet: 添加 Ledger 钱包
+Add View Wallet: 添加查看钱包
+No Ledger wallets yet: 尚无 Ledger 钱包
+No view wallets yet: 尚无查看钱包
+Add the first one to track balances and activity for any address.: 添加第一个钱包以跟踪任何地址的余额和活动。
+Customize Wallet: 自定义钱包
+'Select the card stored in this wallet:': '选择此钱包中存储的卡片：'
+This card will be installed for this wallet and will be displayed on the home screen and in the wallets list.: 该卡片将安装到此钱包中，并显示在主屏幕和钱包列表中。
+Get More Cards: 获取更多卡片
+Browse MyTonWallet Cards available for purchase.: 浏览可购买的 MyTonWallet 卡片。
+Apply Card: 应用卡片
+You don't have any cards to customize yet: 您还没有可自定义的卡片。
+MyTonWallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: MyTonWallet 卡片可以安装到钱包中，并显示在主屏幕和钱包列表中。
+Get First Card: 获取第一张卡片
+Palette and Card: 调色板与卡片
+Customize the wallet's home screen and color accents the way you like.: 按照您的喜好自定义钱包主屏幕和颜色。

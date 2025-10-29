@@ -16,6 +16,8 @@ interface OwnProps {
   onClick?: OnClickHandler;
   clickArg?: string;
   isDestructive?: boolean;
+  role?: string;
+  isSelected?: boolean;
 }
 
 const MenuItem: FC<OwnProps> = (props) => {
@@ -26,6 +28,8 @@ const MenuItem: FC<OwnProps> = (props) => {
     onClick,
     clickArg,
     isDestructive,
+    role,
+    isSelected,
   } = props;
 
   const handleClick = useLastCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -70,8 +74,9 @@ const MenuItem: FC<OwnProps> = (props) => {
 
   return (
     <div
-      role="button"
-      tabIndex={0}
+      role={role || 'button'}
+      aria-selected={isSelected}
+      tabIndex={isSelected ? 0 : -1}
       className={fullClassName}
       onClick={handleClick}
       onKeyDown={handleKeyDown}

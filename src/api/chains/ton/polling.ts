@@ -247,13 +247,13 @@ function setupDomainPolling(accountId: string, address: string, onUpdate: OnApiU
         const { domain: newDomain = false } = await getWalletInfo(network, address);
 
         if (newDomain !== domain) {
+          domain = newDomain;
           onUpdate({
             type: 'updateAccount',
             accountId,
             chain: 'ton',
             domain,
           });
-          domain = newDomain;
         }
       } catch (err) {
         logDebugError('setupDomainPolling', err);

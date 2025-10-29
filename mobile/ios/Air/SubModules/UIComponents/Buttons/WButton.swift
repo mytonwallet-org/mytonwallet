@@ -9,9 +9,6 @@ import UIKit
 import SwiftUI
 import WalletContext
 
-fileprivate let _borderRadius = 12.0
-fileprivate let _font = UIFont.systemFont(ofSize: 17, weight: .semibold)
-fileprivate let _accentFont = UIFont.systemFont(ofSize: 12, weight: .regular)
 
 public enum WButtonStyle {
     case primary
@@ -25,23 +22,30 @@ public class WButton: WBaseButton, WThemedView {
 
     public static let defaultHeight = CGFloat(50.0)
     public static let defaultHeightAccent = CGFloat(60.0)
+    static let _borderRadius = 12.0
+    static let _font = UIFont.systemFont(ofSize: 17, weight: .semibold)
+    static let _accentFont = UIFont.systemFont(ofSize: 12, weight: .regular)
 
     private(set) public var style = WButtonStyle.primary
 
-    public convenience init(style: WButtonStyle = .primary, buttonType: UIButton.ButtonType = .system) {
-        self.init(type: buttonType)
+    public convenience init(style: WButtonStyle = .primary) {
+        self.init(type: .system)
         self.style = style
         self.setup()
     }
     
     private func setup() {
-        // disable default styling of iOS 15+ to prevent tint/font set conflict issues
-        // setting configuration to .none on interface builder makes text disappear
-        configuration = .none
-        
-        // set corner radius
-        layer.cornerRadius = _borderRadius
-        // set height anchor as default value
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *), style != .accent {
+            configuration = style == .primary ? .prominentGlass() : .glass()
+        } else {
+            // disable default styling of iOS 15+ to prevent tint/font set conflict issues
+            // setting configuration to .none on interface builder makes text disappear
+            configuration = .none
+            
+            // set corner radius
+            layer.cornerRadius = Self._borderRadius
+            // set height anchor as default value
+        }
         let _height: CGFloat
         switch style {
         case .accent:
@@ -59,11 +63,11 @@ public class WButton: WBaseButton, WThemedView {
         // set font
         switch style {
         case .accent:
-            titleLabel?.font = _accentFont
+            titleLabel?.font = Self._accentFont
         default:
-            titleLabel?.font = _font
+            titleLabel?.font = Self._font
         }
-        
+    
         // set theme colors
         updateTheme()
     }
@@ -77,39 +81,43 @@ public class WButton: WBaseButton, WThemedView {
     }
     
     public func updateTheme() {
-        switch style {
-        case .primary:
-            if !forcedBackgroundColor {
-                super.backgroundColor = isEnabled ? WTheme.primaryButton.background : WTheme.primaryButton.disabledBackground
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *), style != .accent {
+            tintColor = WTheme.tint
+        } else {
+            switch style {
+            case .primary:
+                if !forcedBackgroundColor {
+                    super.backgroundColor = isEnabled ? WTheme.primaryButton.background : WTheme.primaryButton.disabledBackground
+                }
+                if !forcedTintColor {
+                    super.tintColor = isEnabled ? primaryButtonTint : WTheme.primaryButton.disabledTint
+                }
+                
+            case .secondary:
+                if !forcedBackgroundColor {
+                    super.backgroundColor = isEnabled ? WTheme.tint.withAlphaComponent(0.15) : .clear
+                }
+                if !forcedTintColor {
+                    super.tintColor = isEnabled ? WTheme.tint : WTheme.tint.withAlphaComponent(0.5)
+                }
+                
+            case .clearBackground:
+                super.backgroundColor = .clear
+                if !forcedTintColor {
+                    super.tintColor = isEnabled ? WTheme.tint : WTheme.tint.withAlphaComponent(0.5)
+                }
+                
+            case .accent:
+                if !forcedBackgroundColor {
+                    super.backgroundColor = WTheme.accentButton.background
+                }
+                if !forcedTintColor {
+                    super.tintColor = WTheme.accentButton.tint
+                }
+                
+            default:
+                break
             }
-            if !forcedTintColor {
-                super.tintColor = isEnabled ? primaryButtonTint : WTheme.primaryButton.disabledTint
-            }
-
-        case .secondary:
-            if !forcedBackgroundColor {
-                super.backgroundColor = isEnabled ? WTheme.tint.withAlphaComponent(0.15) : .clear
-            }
-            if !forcedTintColor {
-                super.tintColor = isEnabled ? WTheme.tint : WTheme.tint.withAlphaComponent(0.5)
-            }
-
-        case .clearBackground:
-            super.backgroundColor = .clear
-            if !forcedTintColor {
-                super.tintColor = isEnabled ? WTheme.tint : WTheme.tint.withAlphaComponent(0.5)
-            }
-
-        case .accent:
-            if !forcedBackgroundColor {
-                super.backgroundColor = WTheme.accentButton.background
-            }
-            if !forcedTintColor {
-                super.tintColor = WTheme.accentButton.tint
-            }
-
-        default:
-            break
         }
     }
     
@@ -223,129 +231,3 @@ public class WButton: WBaseButton, WThemedView {
     }
 }
 
-
-public struct WUIButtonStyle: PrimitiveButtonStyle {
-    
-    public var style: WButtonStyle
-    public var loadingIndicatorDelay: CGFloat = 0.2
-    
-    public init(style: WButtonStyle) {
-        self.style = style
-    }
-    
-    @Environment(\.isEnabled) private var isEnabled
-    @Environment(\.isLoading) private var isLoading
-    @State private var isTouching: Bool = false
-    @State private var angle: Angle = .zero
-    @State private var isShowingLoadingIndicator = false
-    
-    var textColor: UIColor {
-        switch style {
-        case .primary:
-            UIColor.white // FIXME: Doesn't work for white theme color
-        case .secondary:
-            WTheme.tint
-        case .clearBackground:
-            WTheme.tint
-        default:
-            WTheme.tint
-        }
-    }
-    
-    var backgroundColor: UIColor {
-        switch style {
-        case .primary:
-            WTheme.tint
-        case .secondary:
-            WTheme.tint.withAlphaComponent(0.15)
-        case .clearBackground:
-            .clear
-        default:
-            .clear
-        }
-    }
-    
-    public func makeBody(configuration: Configuration) -> some View {
-        HStack  {
-            if !isShowingLoadingIndicator {
-                configuration.label
-                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
-            } else {
-                loadingIndicator
-                    .rotationEffect(angle)
-                    .onAppear {
-                        withAnimation(.linear(duration: 0.625).repeatForever(autoreverses: false)) {
-                            angle += .radians(2 * .pi)
-                        }
-                    }
-                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
-            }
-        }
-        .font(Font(_font))
-        .overlay {
-        }
-        .foregroundStyle(Color(textColor))
-        .opacity(isEnabled && isTouching ? 0.5 : 1)
-        .frame(height: 50)
-        .frame(maxWidth: .infinity)
-        .background(Color(backgroundColor), in: .rect(cornerRadius: _borderRadius))
-        .opacity(isEnabled ? 1 : 0.5)
-        .contentShape(.rect)
-        .onTapGesture {
-            configuration.trigger()
-        }
-        .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in
-            withAnimation(.spring(duration: 0.1)) {
-                isTouching = true
-            }
-        }.onEnded { _ in
-            withAnimation(.spring(duration: 0.5)) {
-                isTouching = false
-            }
-        })
-        .allowsHitTesting(!isLoading)
-        .onChange(of: isLoading) { isLoading in
-            withAnimation(.spring().delay(isLoading ? loadingIndicatorDelay : 0)) {
-                isShowingLoadingIndicator = isLoading
-            }
-        }
-    }
-    
-    var loadingIndicator: some View {
-        Image.airBundle("ActivityIndicator")
-            .renderingMode(.template)
-    }
-}
-
-public extension PrimitiveButtonStyle where Self == WUIButtonStyle {
-    static var airPrimary: WUIButtonStyle { WUIButtonStyle(style: .primary) }
-    static var airSecondary: WUIButtonStyle { WUIButtonStyle(style: .secondary) }
-    static var airClearBackground: WUIButtonStyle { WUIButtonStyle(style: .clearBackground) }
-}
-
-public extension EnvironmentValues {
-    @Entry var isLoading = false
-}
-
-#if DEBUG
-@available(iOS 17.0, *)
-#Preview {
-    @Previewable @State var isLoading = false
-    
-    Button(action: {}) {
-        Text("Helldo")
-    }
-    .buttonStyle(.airPrimary)
-    .environment(\.isLoading, isLoading)
-    .padding()
-    .task {
-        isLoading = false
-        try? await Task.sleep(for: .seconds(2))
-        isLoading = true
-        try? await Task.sleep(for: .seconds(2))
-        isLoading = false
-        try? await Task.sleep(for: .seconds(2))
-        isLoading = true
-    }
-}
-#endif

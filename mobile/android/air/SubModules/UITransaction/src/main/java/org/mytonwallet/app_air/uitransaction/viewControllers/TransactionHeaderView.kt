@@ -130,7 +130,7 @@ class TransactionHeaderView(
             val spannedString: SpannableStringBuilder
             if (transaction.isIncoming) {
                 val receivedFromString =
-                    "${LocaleController.getString("from")} "
+                    "${LocaleController.getString("Received from")} "
                 val text = receivedFromString + addressText
                 val textPaintToMeasure = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
                     typeface = WFont.Regular.typeface
@@ -159,7 +159,7 @@ class TransactionHeaderView(
                 )
             } else {
                 val sentToString =
-                    "${LocaleController.getString("to")} "
+                    "${LocaleController.getString("Sent to")} "
                 val text = sentToString + addressText
                 val startOffset = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
                     typeface = WFont.Regular.typeface

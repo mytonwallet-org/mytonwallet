@@ -442,7 +442,10 @@ public class ExploreVC: WViewController {
             var config = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
             config.headerMode = .none
             config.backgroundColor = .clear
-            config.separatorConfiguration.color = WTheme.separator
+            if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+            } else {
+                config.separatorConfiguration.color = WTheme.separator
+            }
             let section = NSCollectionLayoutSection.list(using: config, layoutEnvironment: env)
             section.contentInsets.top = 8
             return section

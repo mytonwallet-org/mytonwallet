@@ -10,6 +10,7 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.AutoScaleContainerView
@@ -122,8 +123,10 @@ class TokenHeaderView(
         chainSizeGap = 2f.dp
     }
 
-    private val balanceContentView = WBalanceView(context, true).apply {
-        setStyle(36f, 28f, WFont.NunitoExtraBold)
+    private val balanceContentView = WBalanceView(context).apply {
+        primarySize = 36f
+        decimalsSize = 30f
+        typeface = WFont.NunitoExtraBold.typeface
         clipChildren = false
         clipToPadding = false
     }
@@ -178,7 +181,9 @@ class TokenHeaderView(
 
     override fun updateTheme() {
         updateBackgroundColor()
-        balanceContentView.setTextColor(WColor.PrimaryText.color, WColor.Decimals.color)
+        balanceContentView.apply {
+            typeface = WFont.NunitoExtraBold.typeface
+        }
         equivalentLabel.contentView.setTextColor(WColor.SubtitleText.color)
         val moreDrawable =
             ContextCompat.getDrawable(
@@ -207,18 +212,19 @@ class TokenHeaderView(
             min(0f, -dy.toFloat())
         val balanceLayoutParams = balanceView.layoutParams as LayoutParams
         balanceLayoutParams.topMargin = calculatedMinHeight +
-            if (dy < 0) 126.dp - dy else
-                ((-64.5f).dp + (1 - collapseProgress) * 190.5f.dp).roundToInt()
+            if (dy < 0) 124.dp - dy else
+                ((-70.5f).dp + (1 - collapseProgress) * 194.5f.dp).roundToInt()
         balanceView.layoutParams = balanceLayoutParams
         balanceContentView.setScale(
             (18 + 18 * (1 - collapseProgress)) / 36f,
-            (18 + 10 * (1 - collapseProgress)) / 28f,
-            collapseProgress
+            (18 + 12 * (1 - collapseProgress)) / 30f,
+            (-1.5f).dp * collapseProgress
         )
         balanceView.setMaskPivotYPercent(1f)
         balanceView.setMaskScale(0.5f + (1 - collapseProgress) / 2f)
         val equivalentLabelLayoutParams = equivalentLabel.layoutParams as LayoutParams
-        equivalentLabelLayoutParams.topMargin = (collapseProgress * (-19).dp).roundToInt()
+        equivalentLabelLayoutParams.topMargin =
+            ((-2.5f).dp + (collapseProgress * (-14.5f).dp)).roundToInt()
         equivalentLabel.scaleX = (14 + 8 * (1 - collapseProgress)) / 22f
         equivalentLabel.scaleY = equivalentLabel.scaleX
         equivalentLabel.setMaskPivotYPercent(0f)

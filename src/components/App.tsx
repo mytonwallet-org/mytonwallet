@@ -38,6 +38,7 @@ import AppInactive from './AppInactive';
 import AppLocked from './appLocked/AppLocked';
 import Auth from './auth/Auth';
 import AuthImportWalletModal from './auth/AuthImportWalletModal';
+import CustomizeWalletModal from './customizeWallet/CustomizeWalletModal';
 import DappConnectModal from './dapps/DappConnectModal';
 import DappSignDataModal from './dapps/DappSignDataModal';
 import DappTransferModal from './dapps/DappTransferModal';
@@ -77,6 +78,7 @@ interface StateProps {
   isBackupWalletModalOpen?: boolean;
   isQrScannerOpen?: boolean;
   isHardwareModalOpen?: boolean;
+  isCustomizeWalletModalOpen?: boolean;
   isExploreOpen?: boolean;
   isFullscreen: boolean;
   areSettingsOpen?: boolean;
@@ -98,6 +100,7 @@ function App({
   accountId,
   isBackupWalletModalOpen,
   isHardwareModalOpen,
+  isCustomizeWalletModalOpen,
   isQrScannerOpen,
   isExploreOpen,
   isFullscreen,
@@ -258,6 +261,7 @@ function App({
             <>
               <SwapModal />
               <MintCardModal />
+              <CustomizeWalletModal isOpen={isCustomizeWalletModalOpen} />
             </>
           )}
           <SignatureModal />
@@ -298,6 +302,7 @@ export default memo(withGlobal((global): StateProps => {
     accountId: global.currentAccountId,
     isBackupWalletModalOpen: global.isBackupWalletModalOpen,
     isHardwareModalOpen: global.isHardwareModalOpen,
+    isCustomizeWalletModalOpen: global.isCustomizeWalletModalOpen,
     isExploreOpen: global.isExploreOpen,
     areSettingsOpen: global.areSettingsOpen,
     isQrScannerOpen: global.isQrScannerOpen,

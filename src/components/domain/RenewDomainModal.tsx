@@ -172,7 +172,6 @@ function RenewDomainModal({
           onSubmit={handlePasswordSubmit}
           onCancel={cancelDomainsRenewal}
           onUpdate={clearDomainsRenewalError}
-          skipAuthScreen
         >
           <TransactionBanner
             imageUrl={domainNftThumbnails}

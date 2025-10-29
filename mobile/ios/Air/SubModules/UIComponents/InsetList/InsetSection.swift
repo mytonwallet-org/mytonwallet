@@ -53,7 +53,7 @@ public struct InsetSection<Content: View, Header: View, Footer: View>: View {
                     content()
                 }
             }
-            .clipShape(.rect(cornerRadius: 10, style: .continuous))
+            .clipShape(.rect(cornerRadius: S.insetSectionCornerRadius, style: .continuous))
                 
             footer()
                 .font13()

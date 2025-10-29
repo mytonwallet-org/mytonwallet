@@ -1389,6 +1389,7 @@
 		276B5E072CD512D000235012 /* Exceptions for "SubModules" folder in "UIToken" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				UIToken/Token/Cells/TokenChartCell.swift,
 				UIToken/Token/Cells/TokenEmptyCell.swift,
 				UIToken/Token/Cells/TokenHeaderCell.swift,
 				UIToken/Token/TokenExpandableChartView.swift,
@@ -1670,7 +1671,6 @@
 		27ABF4782CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UIBrowser" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				UIBrowser/BrowserTab/BrowserTabVC.swift,
 				UIBrowser/Explore/Cells/ConnectedDappCell.swift,
 				UIBrowser/Explore/Cells/DappCell.swift,
 				UIBrowser/Explore/Cells/FeaturedDappCell.swift,
@@ -1679,6 +1679,8 @@
 				UIBrowser/Explore/SearchSupport.swift,
 				UIBrowser/ExploreCategory/ExploreCategoryVC.swift,
 				UIBrowser/ExploreCategory/Row.swift,
+				UIBrowser/ExploreTab/ExploreSearch.swift,
+				UIBrowser/ExploreTab/ExploreTabVC.swift,
 			);
 			target = 27F2448E2BB375F800F4FADE /* UIBrowser */;
 		};
@@ -1895,6 +1897,7 @@
 				UIComponents/Buttons/WButton.swift,
 				UIComponents/Buttons/WButtonConfig.swift,
 				UIComponents/Buttons/WScalableButton.swift,
+				UIComponents/Buttons/WUIButtonStyle.swift,
 				"UIComponents/CASpringAnimation+AnimationUtils.h",
 				"UIComponents/CASpringAnimation+AnimationUtils.m",
 				UIComponents/Chart/RangeChartView.swift,
@@ -2006,6 +2009,7 @@
 				UIComponents/Utils/AnimationUtils.swift,
 				UIComponents/Utils/CAAnimationUtils.swift,
 				UIComponents/Utils/InteractivePopRecognizer.swift,
+				UIComponents/Utils/iOS26Compatibility.swift,
 				UIComponents/Utils/SkeletonState.swift,
 				UIComponents/Utils/SwiftUIUtils.swift,
 				UIComponents/Utils/TouchGesture.swift,

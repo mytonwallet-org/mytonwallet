@@ -144,6 +144,7 @@ function BackupModal({
               withCloseButton={IS_CAPACITOR}
               submitLabel={lang('$back_up_auth')}
               cancelLabel={lang('Cancel')}
+              noAutoConfirm
               onSubmit={handlePasswordSubmit}
               onCancel={onClose}
               onUpdate={handleBackupErrorUpdate}

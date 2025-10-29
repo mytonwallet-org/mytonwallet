@@ -34,7 +34,7 @@ class AssetsAndActivityHideNoCostCell: UITableViewCell {
     private lazy var optionsView: UIView = {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.layer.cornerRadius = 10
+        view.layer.cornerRadius = S.insetSectionCornerRadius
         view.layer.masksToBounds = true
         let hideNoCostLabel = UILabel()
         hideNoCostLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -43,11 +43,11 @@ class AssetsAndActivityHideNoCostCell: UITableViewCell {
         view.addSubview(hideNoCostLabel)
         view.addSubview(hideNoCostSwitch)
         NSLayoutConstraint.activate([
-            hideNoCostLabel.topAnchor.constraint(equalTo: view.topAnchor, constant: 11),
-            hideNoCostLabel.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -11),
+            view.heightAnchor.constraint(equalToConstant: S.sectionItemHeight),
+            hideNoCostLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor),
             hideNoCostLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             hideNoCostSwitch.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            hideNoCostSwitch.centerYAnchor.constraint(equalTo: hideNoCostLabel.centerYAnchor),
+            hideNoCostSwitch.centerYAnchor.constraint(equalTo: view.centerYAnchor),
         ])
         return view
     }()

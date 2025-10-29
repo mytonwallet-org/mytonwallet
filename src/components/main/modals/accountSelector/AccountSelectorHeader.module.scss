@@ -1,0 +1,100 @@
+@use "../../../../styles/mixins";
+
+.header {
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  display: grid;
+  grid-template-areas: "menu title close";
+  grid-template-columns: 2rem 1fr 2rem;
+  align-items: center;
+
+  width: 100%;
+  padding: 1rem 1rem 1.25rem;
+
+  :global(html.is-mobile-telegram-app.is-fullscreen) &,
+  :global(html.is-android-app) & {
+    top: var(--top-height-compensation);
+  }
+}
+
+.headerButton {
+  position: relative;
+  top: -0.125rem;
+
+  width: 2rem !important;
+  max-width: none !important;
+  height: 2rem !important;
+  margin-left: auto;
+  padding: 0 !important;
+  border-radius: 50% !important;
+
+  color: var(--color-close-button-text) !important;
+
+  background-color: var(--color-close-button-background) !important;
+
+  @include mixins.transition("color 150ms, background-color 150ms");
+
+  &:hover,
+  &:focus-visible {
+    color: var(--color-close-button-text-hover) !important;
+    background-color: var(--color-close-button-background-hover) !important;
+  }
+
+  &:active {
+    // Optimization
+    transition: none;
+  }
+}
+
+.menuButton {
+  grid-area: menu;
+
+  :global(html.is-mobile-telegram-app) & {
+    position: absolute;
+    z-index: 1;
+    top: 3.375rem;
+  }
+}
+
+.filterIcon {
+  font-size: 1.5rem;
+}
+
+:global(html.is-mobile-telegram-app) .menu {
+  --offset-y-value: 4.5rem;
+}
+
+.titleWrapper {
+  grid-area: title;
+  height: 2.25rem;
+}
+
+.title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+  color: var(--color-black);
+}
+
+.totalBalance {
+  margin-top: 0.25rem;
+
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--color-gray-2);
+}
+
+.closeButton {
+  grid-area: close;
+
+  :global(html.is-mobile-telegram-app) & {
+    visibility: hidden;
+  }
+}

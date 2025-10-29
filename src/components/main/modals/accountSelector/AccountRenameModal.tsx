@@ -1,6 +1,9 @@
 import React, { memo, useEffect, useRef, useState } from '../../../../lib/teact/teact';
-import { getActions } from '../../../../global';
+import { getActions, withGlobal } from '../../../../global';
 
+import type { Account } from '../../../../global/types';
+
+import { selectAccount } from '../../../../global/selectors';
 import { stopEvent } from '../../../../util/domEvents';
 
 import useFocusAfterAnimation from '../../../../hooks/useFocusAfterAnimation';
@@ -15,25 +18,28 @@ import modalStyles from '../../../ui/Modal.module.scss';
 
 interface OwnProps {
   isOpen: boolean;
-  name: string;
-  currentAccountId: string;
+  accountId: string;
   onClose: NoneToVoidFunction;
+}
+
+interface StateProps {
+  account?: Account;
 }
 
 const ACCOUNT_NAME_MAX_LENGTH = 255;
 
-function AccountRenameModal({ isOpen, name, currentAccountId, onClose }: OwnProps) {
+function AccountRenameModal({ isOpen, accountId, account, onClose }: OwnProps & StateProps) {
   const { renameAccount } = getActions();
 
   const lang = useLang();
   const inputRef = useRef<HTMLInputElement>();
-  const [newName, setNewName] = useState<string>(name);
+  const [newName, setNewName] = useState<string>(account?.title ?? '');
 
   useEffect(() => {
-    if (isOpen) {
-      setNewName(name);
+    if (isOpen && account) {
+      setNewName(account.title ?? '');
     }
-  }, [isOpen, name]);
+  }, [isOpen, account]);
 
   useFocusAfterAnimation(inputRef, !isOpen);
 
@@ -42,7 +48,7 @@ function AccountRenameModal({ isOpen, name, currentAccountId, onClose }: OwnProp
 
     if (newName.trim().length === 0) return;
 
-    renameAccount({ accountId: currentAccountId, title: newName.trim() });
+    renameAccount({ accountId, title: newName.trim() });
     onClose();
   });
 
@@ -80,4 +86,8 @@ function AccountRenameModal({ isOpen, name, currentAccountId, onClose }: OwnProp
   );
 }
 
-export default memo(AccountRenameModal);
+export default memo(withGlobal<OwnProps>((global, { accountId }): StateProps => {
+  const account = selectAccount(global, accountId);
+
+  return { account };
+})(AccountRenameModal));

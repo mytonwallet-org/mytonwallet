@@ -44,7 +44,7 @@ public class ExpandableNavigationView: WTouchPassView, WThemedView {
         addSubview(navigationBar)
         addSubview(expandableStickyView)
 
-        stickyViewTopConstraint = expandableStickyView.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor)
+        stickyViewTopConstraint = expandableStickyView.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor, constant: S.headerTopAdjustment)
         stickyViewHeightConstraint = expandableStickyView.heightAnchor.constraint(equalToConstant: 100)
         let expandableContentViewBottomConstraint = expandableContentView.bottomAnchor.constraint(equalTo: bottomAnchor)
         expandableContentViewBottomConstraint.priority = .defaultHigh
@@ -67,6 +67,13 @@ public class ExpandableNavigationView: WTouchPassView, WThemedView {
             expandableContentViewBottomConstraint,
         ])
 
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+            navigationBar.blurView.isHidden = true
+            navigationBar.backButton?.isHidden = true
+            navigationBar.trailingItem?.view.isHidden = true
+            navigationBar.separatorView.isHidden = true
+        }
+        
         updateTheme()
     }
 

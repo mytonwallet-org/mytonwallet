@@ -37,15 +37,11 @@ public class ChooseWalletVC: WViewController {
     
     private var tableView: UITableView!
     private func setupViews() {
-        let navigationBar = WNavigationBar(title: lang("Choose Wallet"),
-                                           subtitle: nil,
-                                           closeIcon: true)
-        view.addSubview(navigationBar)
-        NSLayoutConstraint.activate([
-            navigationBar.topAnchor.constraint(equalTo: view.topAnchor),
-            navigationBar.leftAnchor.constraint(equalTo: view.leftAnchor),
-            navigationBar.rightAnchor.constraint(equalTo: view.rightAnchor)
-        ])
+        addNavigationBar(
+            title: lang("Choose Wallet"),
+            subtitle: nil,
+            closeIcon: true,
+        )
         
         tableView = UITableView()
         tableView.translatesAutoresizingMaskIntoConstraints = false
@@ -57,7 +53,7 @@ public class ChooseWalletVC: WViewController {
         tableView.delaysContentTouches = false
         view.addSubview(tableView)
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: navigationBar.bottomAnchor),
+            tableView.topAnchor.constraint(equalTo: navigationBarAnchor),
             tableView.leftAnchor.constraint(equalTo: view.leftAnchor),
             tableView.rightAnchor.constraint(equalTo: view.rightAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)

@@ -58,6 +58,17 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
             titleColor: titleIsRed ? WTheme.error : nil,
             closeIcon: true)
         navigationBarProgressiveBlurDelta = 10
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+            let appearance = UINavigationBarAppearance()
+            appearance.titleTextAttributes = [
+                .font: UIFont.systemFont(ofSize: 17, weight: .semibold)
+            ]
+            appearance.subtitleTextAttributes = [
+                .font: UIFont.systemFont(ofSize: 13, weight: .regular)
+            ]
+            navigationItem.standardAppearance = appearance
+            
+        }
         
         self.hostingController = addHostingController(makeView(), constraints: .fill)
         hostingController?.view.clipsToBounds = false

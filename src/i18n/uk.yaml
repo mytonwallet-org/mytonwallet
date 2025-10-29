@@ -970,3 +970,38 @@ Show More: Показати більше
 Search app or enter address: Пошук або адреса
 Connected Apps: Підключені додатки
 Popular Apps: Популярні додатки
+$wallets_amount:
+  zeroValue: Немає гаманців
+  oneValue: "%1$d гаманець"
+  fewValue: "%1$d гаманця"
+  manyValue: "%1$d гаманців"
+$total_balance: "Разом: %balance%"
+No wallets: Немає гаманців
+View as List: Перегляд списком
+View as Cards: Перегляд картками
+Reorder: Змінити порядок
+Rename: Перейменувати
+Customize: Налаштувати
+i18n_dragToSort: Перетягніть для сортування
+My: Мої
+All: Усі
+$view_accounts: Переглянути
+Add your first one to begin.: Додайте свій перший гаманець, щоб почати.
+You don’t have any wallets yet: У вас ще немає гаманців
+Add New Wallet: Додати новий гаманець
+Add Ledger Wallet: Додати гаманець Ledger
+Add View Wallet: Додати гаманець для перегляду
+No Ledger wallets yet: Гаманців Ledger поки немає
+No view wallets yet: Гаманців у режимі перегляду поки немає
+Додайте першу одну лінію балансів і діяльності для будь-якої адреси.: Додайте перший, щоб відстежувати баланс і активність будь-якої адреси.
+Customize Wallet: Налаштувати гаманець
+'Select the card stored in this wallet:': 'Виберіть картку, збережену в цьому гаманці:'
+This card will be installed for this wallet and will be displayed on the home screen and in the wallets list.: Цю картку буде встановлено для гаманця й відображено на головному екрані та в списку гаманців.
+Get More Cards: Отримати більше карток
+Browse MyTonWallet Cards available for purchase.: Перегляньте доступні для покупки картки MyTonWallet.
+Apply Card: Застосувати картку
+You don't have any cards to customize yet: У вас ще немає карток для налаштування.
+MyTonWallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: Картки MyTonWallet можна встановлювати для гаманців і відображати на головному екрані та у списку гаманців.
+Get First Card: Отримати першу картку
+Palette and Card: Палітра і картка
+Customize the wallet's home screen and color accents the way you like.: Налаштуйте головний екран гаманця та кольорові акценти так, як вам подобається.

@@ -954,3 +954,36 @@ Show More: แสดงเพิ่มเติม
 Search app or enter address: ค้นหาแอปหรือป้อนที่อยู่
 Connected Apps: แอปที่เชื่อมต่อ
 Popular Apps: แอปยอดนิยม
+$wallets_amount:
+  zeroValue: ไม่มีวอลเล็ต
+  otherValue: "%1$d วอลเล็ต"
+$total_balance: "%balance% ทั้งหมด"
+No wallets: ไม่มีวอลเล็ต
+View as List: ดูเป็นรายการ
+View as Cards: ดูเป็นการ์ด
+Reorder: จัดลำดับใหม่
+Rename: เปลี่ยนชื่อ
+Customize: ปรับแต่ง
+i18n_dragToSort: ลากเพื่อจัดเรียง
+My: ของฉัน
+All: ทั้งหมด
+$view_accounts: ดู
+Add your first one to begin.: เพิ่มวอลเล็ตแรกของคุณเพื่อเริ่มต้น
+You don’t have any wallets yet: คุณยังไม่มีวอลเล็ต
+Add New Wallet: เพิ่มวอลเล็ตใหม่
+Add Ledger Wallet: เพิ่มวอลเล็ต Ledger
+Add View Wallet: เพิ่มวอลเล็ตสำหรับดู
+No Ledger wallets yet: ยังไม่มีวอลเล็ต Ledger
+No view wallets yet: ยังไม่มีวอลเล็ตสำหรับดู
+Add the first one to track balances and activity for any address.: เพิ่มวอลเล็ตแรกเพื่อติดตามยอดเงินและกิจกรรมของที่อยู่ใด ๆ
+Customize Wallet: ปรับแต่งกระเป๋าเงิน
+'Select the card stored in this wallet:': 'เลือกการ์ดที่เก็บไว้ในกระเป๋าเงินนี้:'
+This card will be installed for this wallet and will be displayed on the home screen and in the wallets list.: การ์ดนี้จะถูกติดตั้งให้กับกระเป๋าเงินนี้และจะแสดงบนหน้าหลักและในรายการกระเป๋าเงิน
+Get More Cards: รับการ์ดเพิ่มเติม
+Browse MyTonWallet Cards available for purchase.: เรียกดูการ์ด MyTonWallet ที่มีให้ซื้อ
+Apply Card: ใช้การ์ด
+You don't have any cards to customize yet: คุณยังไม่มีการ์ดให้ปรับแต่ง
+MyTonWallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: การ์ด MyTonWallet สามารถติดตั้งให้กับกระเป๋าเงินและแสดงบนหน้าหลักและในรายการกระเป๋าเงินได้
+Get First Card: รับการ์ดแรก
+Palette and Card: พาเลตและการ์ด
+Customize the wallet's home screen and color accents the way you like.: ปรับแต่งหน้าหลักและโทนสีของกระเป๋าเงินในแบบที่คุณต้องการ

@@ -62,14 +62,17 @@ data class Content(
             }
         }
 
+        const val SHOW_CHAIN_ALWAYS = 2
+        const val SHOW_CHAIN_DEFAULT = 1
+        const val SHOW_CHAIN_NEVER = 0
         fun of(
             token: MToken,
-            alwaysShowChain: Boolean = false,
+            showChainConfig: Int = SHOW_CHAIN_DEFAULT,
             showPercentBadge: Boolean = false
         ): Content {
             val blockchain = token.mBlockchain
             val chainIconRes = blockchain?.icon ?: 0
-            val subImageRes = if (alwaysShowChain) chainIconRes else 0
+            val subImageRes = if (showChainConfig == SHOW_CHAIN_ALWAYS) chainIconRes else 0
             val isTonOrStake = token.slug == TONCOIN_SLUG || token.slug == STAKE_SLUG
 
             val mainImage: Image = when {
@@ -87,7 +90,7 @@ data class Content(
 
             val finalSubImageRes = when {
                 showPercentBadge -> R.drawable.ic_percent
-                token.isUsdt -> chainIconRes
+                showChainConfig != SHOW_CHAIN_NEVER && token.isUsdt -> chainIconRes
                 else -> subImageRes
             }
 

@@ -64,6 +64,13 @@ class BalanceHeaderVC: WViewController {
         balanceHeaderView.walletCardView.balanceCopyView.setLoading(isLoading)
     }
     
+    override func viewIsAppearing(_ animated: Bool) {
+        super.viewIsAppearing(animated)
+        UIView.performWithoutAnimation {
+            balanceHeaderView.walletCardView.updateWithCurrentNft(accountChanged: false)
+        }
+    }
+    
     public func addressCopy(address: String) {
         UIPasteboard.general.string = address
         showToast(animationName: "Copy", message: lang("Address was copied!"))

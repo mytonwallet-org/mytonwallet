@@ -29,7 +29,9 @@ final class BalanceHeaderView: WTouchPassView, WThemedView {
     static let minHeight = CGFloat(39.33)
     
     // main content height
-    private static let contentHeight = CGFloat(158)
+    private static var contentHeight: CGFloat {
+        158.0
+    }
     
     var prevWalletCardViewState = WalletCardView.defaultState
     
@@ -38,7 +40,7 @@ final class BalanceHeaderView: WTouchPassView, WThemedView {
         if walletCardView?.state == prevWalletCardViewState {
             return _cachedExpansionHeight
         }
-        _cachedExpansionHeight = walletCardView?.state ?? WalletCardView.defaultState == .expanded ? ((UIScreen.main.bounds.width - 32) * 208 / 358) - 95 : 0
+        _cachedExpansionHeight = walletCardView?.state ?? WalletCardView.defaultState == .expanded ? ((UIScreen.main.bounds.width - 32) * 208 / 358) - 95 + (IOS_26_MODE_ENABLED ? 6 : 0) : 0
         return _cachedExpansionHeight
     }
     var calculatedHeight: CGFloat {
@@ -53,6 +55,7 @@ final class BalanceHeaderView: WTouchPassView, WThemedView {
     weak var delegate: BalanceHeaderViewDelegate?
     
     var heightConstraint: NSLayoutConstraint!
+    var walletNameLeadingConstraint: NSLayoutConstraint!
     
     private var mainWidth: CGFloat = 0
     
@@ -226,6 +229,7 @@ final class BalanceHeaderView: WTouchPassView, WThemedView {
         walletNameLabel.isUserInteractionEnabled = true
         addSubview(walletNameLabel)
         walletNameBelowBalanceConstraint = walletNameLabel.topAnchor.constraint(equalTo: balanceView.bottomAnchor, constant: 8)
+        walletNameLeadingConstraint = walletNameLabel.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 40)
         NSLayoutConstraint.activate([
             walletNameLabel.centerXAnchor.constraint(equalTo: balanceView.centerXAnchor).withPriority(.init(999)),
             walletNameBelowBalanceConstraint,
@@ -235,7 +239,7 @@ final class BalanceHeaderView: WTouchPassView, WThemedView {
             walletNameLabelSkeleton.centerYAnchor.constraint(equalTo: walletNameLabel.centerYAnchor),
             walletNameLabelSkeleton.centerXAnchor.constraint(equalTo: walletNameLabel.centerXAnchor),
 
-            walletNameLabel.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 40),
+            walletNameLeadingConstraint,
             walletNameLabelSkeleton.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 40)
         ])
         

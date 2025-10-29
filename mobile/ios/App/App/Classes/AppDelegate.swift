@@ -60,6 +60,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @preconcurrency MTWAirTog
             LogStore.shared.syncronize()
             return false
         }
+        
+        congigureIOS26Compativility()
 
         return true
     }
@@ -127,5 +129,6 @@ func logAppStart() {
     let buildNumber = infoDict?["CFBundleVersion"] as? String ?? "unknown"
     let deviceModel = UIDevice.current.model
     let systemVersion = UIDevice.current.systemVersion
+    _ = appStart
     log.info("**** APP START **** \(Date().formatted(.iso8601), .public) version=\(appVersion, .public) build=\(buildNumber, .public) device=\(deviceModel, .public) iOS=\(systemVersion, .public)")
 }

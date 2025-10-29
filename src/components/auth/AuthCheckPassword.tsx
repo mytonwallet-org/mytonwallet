@@ -40,6 +40,7 @@ function AuthCheckPassword({
         containerClassName={styles.passwordForm}
         submitLabel={lang('Confirm')}
         cancelLabel={lang('Back')}
+        noAutoConfirm
         onSubmit={handleSubmit}
         onCancel={resetAuth}
         onUpdate={cleanAuthError}

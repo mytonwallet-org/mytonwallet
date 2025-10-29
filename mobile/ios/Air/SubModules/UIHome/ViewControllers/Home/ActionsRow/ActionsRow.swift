@@ -152,7 +152,8 @@ private let log = Log("Home-Actions")
     override func layoutSubviews() {
         let height = bounds.height
         let actionButtonAlpha = height < 60 ? height / 60 : 1
-        let actionButtonRadius = height > 24 ? 12 : height / 2
+        let maxRadius = S.actionButtonCornerRadius
+        let actionButtonRadius = min(maxRadius, height / 2)
         for btn in arrangedSubviews {
             guard let btn = btn as? WScalableButton else { continue }
             btn.innerButton.titleLabel?.alpha = actionButtonAlpha

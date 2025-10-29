@@ -14,8 +14,8 @@ npx cap sync
 <docgen-index>
 
 * [`prepare()`](#prepare)
-* [`applyScrollPatch()`](#applyscrollpatch)
-* [`clearScrollPatch()`](#clearscrollpatch)
+* [`applyScrollPatch(...)`](#applyscrollpatch)
+* [`clearScrollPatch(...)`](#clearscrollpatch)
 * [`disable()`](#disable)
 * [`enable()`](#enable)
 * [`hide()`](#hide)
@@ -48,20 +48,28 @@ prepare() => Promise<void>
 --------------------
 
 
-### applyScrollPatch()
+### applyScrollPatch(...)
 
 ```typescript
-applyScrollPatch() => Promise<void>
+applyScrollPatch(options?: { shouldFreeze?: boolean | undefined; } | undefined) => Promise<void>
 ```
+
+| Param         | Type                                     |
+| ------------- | ---------------------------------------- |
+| **`options`** | <code>{ shouldFreeze?: boolean; }</code> |
 
 --------------------
 
 
-### clearScrollPatch()
+### clearScrollPatch(...)
 
 ```typescript
-clearScrollPatch() => Promise<void>
+clearScrollPatch(options?: { shouldFreeze?: boolean | undefined; } | undefined) => Promise<void>
 ```
+
+| Param         | Type                                     |
+| ------------- | ---------------------------------------- |
+| **`options`** | <code>{ shouldFreeze?: boolean; }</code> |
 
 --------------------
 
@@ -263,6 +271,6 @@ addListener(eventName: 'openInMain', handler: (options: { key: BottomSheetKeys; 
 
 #### BottomSheetKeys
 
-<code>'initial' | 'receive' | 'invoice' | 'transfer' | 'swap' | 'stake' | 'unstake' | 'staking-info' | 'staking-claim' | 'vesting-info' | 'vesting-confirm' | 'transaction-info' | 'swap-activity' | 'backup' | 'add-account' | 'import-account' | 'settings' | 'qr-scanner' | 'dapp-connect' | 'dapp-transfer' | 'dapp-sign-data' | 'disclaimer' | 'backup-warning' | 'onramp-widget' | 'mint-card' | 'renew-domain' | 'link-domain'</code>
+<code>'initial' | 'receive' | 'invoice' | 'transfer' | 'swap' | 'stake' | 'unstake' | 'staking-info' | 'staking-claim' | 'vesting-info' | 'vesting-confirm' | 'transaction-info' | 'swap-activity' | 'backup' | 'add-account' | 'import-account' | 'settings' | 'qr-scanner' | 'dapp-connect' | 'dapp-transfer' | 'dapp-sign-data' | 'disclaimer' | 'backup-warning' | 'onramp-widget' | 'mint-card' | 'renew-domain' | 'link-domain' | 'account-selector' | 'customize-wallet'</code>
 
 </docgen-api>

@@ -171,7 +171,7 @@ class WSensitiveDataContainer<V : View>(
     fun setMaskPivotYPercent(yPercent: Float) {
         _maskPivotYPercent = yPercent
         maskView.pivotX = maskView.width / 2f
-        maskView.pivotY = maskView.height * 0.5f
+        maskView.pivotY = maskView.height.toFloat()
     }
 
     fun setMaskScale(scale: Float) {

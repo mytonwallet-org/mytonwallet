@@ -1,10 +1,7 @@
 package org.mytonwallet.app_air.walletcore.helpers
 
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
-import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
-import java.math.BigInteger
 
 class ActivityHelpers {
     companion object {
@@ -30,16 +27,7 @@ class ActivityHelpers {
             if (array == null)
                 return null
             var transactions = array.filter {
-                it.shouldHide != true &&
-                    /*
-                        Temporary workaround to fix a SDK bug (returning same identifier for different transactions!)
-                        Let's filter out contract call transactions on TRON chain
-                     */
-                    (it !is MApiTransaction.Transaction ||
-                        (it.type != ApiTransactionType.CONTRACT_DEPLOY &&
-                            it.type != ApiTransactionType.CALL_CONTRACT) ||
-                        it.amount != BigInteger.ZERO ||
-                        it.token?.chain == TONCOIN_SLUG)
+                it.shouldHide != true
             }
             if (checkSlug != null) {
                 transactions = transactions.filter { it ->

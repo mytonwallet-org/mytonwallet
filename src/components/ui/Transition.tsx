@@ -36,6 +36,7 @@ export type TransitionProps = {
   // Used by async components which are usually remounted during first animation
   shouldWrap?: boolean;
   wrapExceptionKey?: number;
+  isScrollOnWrap?: boolean;
   id?: string;
   className?: string;
   slideClassName?: string;
@@ -73,6 +74,7 @@ function Transition({
   cleanupExceptionKey,
   shouldWrap,
   wrapExceptionKey,
+  isScrollOnWrap,
   id,
   className,
   slideClassName,
@@ -359,14 +361,14 @@ function Transition({
       : render;
 
     return (shouldWrap && key !== wrapExceptionKey) || asFastList
-      ? <div key={key} teactOrderKey={key}>{rendered}</div>
+      ? <div key={key} teactOrderKey={key} onScroll={isScrollOnWrap ? onScroll : undefined}>{rendered}</div>
       : rendered;
   });
 
   return (
     <div
       ref={containerRef}
-      onScroll={onScroll}
+      onScroll={!isScrollOnWrap ? onScroll : undefined}
       onClick={onContainerClick}
       id={id}
       className={buildClassName('Transition', className)}

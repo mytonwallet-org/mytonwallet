@@ -12,22 +12,22 @@ import WalletCore
 import WalletContext
 
 public class AssetsTabVC: WViewController, WSegmentedController.Delegate, WalletCoreData.EventsObserver {
-    
+
     // MARK: - View Model and UI Components
     private var segmentedController: WSegmentedController!
     private let defaultTabIndex: Int
-    
+
     public init(defaultTabIndex: Int) {
         self.defaultTabIndex = defaultTabIndex
         super.init(nibName: nil, bundle: nil)
     }
-    
+
     var moreButton: UIButton?
-    
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
     public func walletCore(event: WalletCoreData.Event) {
         switch event {
         case .nftsChanged(let accountId):
@@ -38,32 +38,32 @@ public class AssetsTabVC: WViewController, WSegmentedController.Delegate, Wallet
             break
         }
     }
-    
+
     // MARK: - Load and SetupView Functions
     public override func loadView() {
         super.loadView()
         setupViews()
     }
-    
+
     public override func viewDidLoad() {
         super.viewDidLoad()
-        
+
         // listen for keyboard
         WKeyboardObserver.observeKeyboard(delegate: self)
     }
-    
+
     public override var hideNavigationBar: Bool {
-        true
+        !IOS_26_MODE_ENABLED
     }
 
     // MARK: - Setup browser views
     private var bottomViewBottomConstraint: NSLayoutConstraint!
     func setupViews() {
         let tokensVC = WalletTokensVC(compactMode: false)
-        let nftsVC = NftsVC(compactMode: false, filter: .none, topInset: 56)
+        let nftsVC = NftsVC(compactMode: false, filter: .none, topInset: IOS_26_MODE_ENABLED ? 0 : 56)
         addChild(tokensVC)
         addChild(nftsVC)
-        
+
         segmentedController = WSegmentedController(
             viewControllers: [tokensVC.tokensView, nftsVC],
             items: [
@@ -73,6 +73,7 @@ public class AssetsTabVC: WViewController, WSegmentedController.Delegate, Wallet
             defaultIndex: defaultTabIndex,
             barHeight: 56,
             animationSpeed: .slow,
+            constraintToTopSafeArea: !IOS_26_MODE_ENABLED,
             delegate: self
         )
         segmentedController(scrollOffsetChangedTo: 0)
@@ -85,7 +86,7 @@ public class AssetsTabVC: WViewController, WSegmentedController.Delegate, Wallet
             segmentedController.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
 
-        let navigationBar = WNavigationBar(closeIcon: true)
+        let navigationBar = WNavigationBar(constraintToTopSafeArea: !IOS_26_MODE_ENABLED, closeIcon: true)
         navigationBar.blurView.isHidden = true
         navigationBar.shouldPassTouches = true
         view.addSubview(navigationBar)
@@ -94,7 +95,7 @@ public class AssetsTabVC: WViewController, WSegmentedController.Delegate, Wallet
             navigationBar.leftAnchor.constraint(equalTo: view.leftAnchor),
             navigationBar.rightAnchor.constraint(equalTo: view.rightAnchor)
         ])
-        
+
         let moreButton = UIButton(type: .custom)
         self.moreButton = moreButton
         moreButton.setImage(UIImage(systemName: "ellipsis.circle.fill"), for: .normal)
@@ -112,25 +113,25 @@ public class AssetsTabVC: WViewController, WSegmentedController.Delegate, Wallet
 
         updateTheme()
     }
-    
+
     public override func updateTheme() {
         view.backgroundColor = WTheme.pickerBackground
         segmentedController?.updateTheme()
     }
-    
+
     public override func scrollToTop(animated: Bool) {
         segmentedController?.scrollToTop(animated: animated)
     }
-    
+
     public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         updateTheme()
     }
-    
+
     public func switchToTokensTab() {
         segmentedController?.switchTo(tabIndex: 0)
     }
-    
+
     func openContextMenu() {
         if let accountId = AccountStore.accountId {
             moreButton?.menu = NftStore.makeNftCollectionsMenu(accountId: accountId)
@@ -141,17 +142,17 @@ public class AssetsTabVC: WViewController, WSegmentedController.Delegate, Wallet
             }
         }
     }
-    
-    
+
+
     // MARK: - Segmented controller delegate
-    
+
     public func segmentedController(scrollOffsetChangedTo progress: CGFloat) {
         (children.last as? NftsVC)?.updateIsVisible(progress > 0.3)
     }
-    
+
     public func segmentedControllerDidStartDragging() {
     }
-    
+
     public func segmentedControllerDidEndScrolling() {
     }
 }
@@ -163,7 +164,7 @@ extension AssetsTabVC: WKeyboardObserverDelegate {
             view.layoutIfNeeded()
         }
     }
-    
+
     public func keyboardWillHide(info: WKeyboardDisplayInfo) {
         UIView.animate(withDuration: info.animationDuration) { [self] in
             bottomViewBottomConstraint?.constant = 0

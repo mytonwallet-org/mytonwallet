@@ -962,3 +962,37 @@ Show More: Mehr anzeigen
 Search app or enter address: App suchen oder Adresse eingeben
 Connected Apps: Verbundene Apps
 Popular Apps: Beliebte Apps
+$wallets_amount:
+  zeroValue: Keine Wallets
+  oneValue: "%1$d Wallet"
+  otherValue: "%1$d Wallets"
+$total_balance: "%balance% insgesamt"
+No wallets: Keine Wallets
+View as List: Als Liste anzeigen
+View as Cards: Als Karten anzeigen
+Reorder: Neu anordnen
+Rename: Umbenennen
+Customize: Anpassen
+i18n_dragToSort: Zum Sortieren ziehen
+My: Mein
+All: Alle
+$view_accounts: Anzeigen
+Add your first one to begin.: Fügen Sie Ihr erstes Wallet hinzu, um zu beginnen.
+You don’t have any wallets yet: Sie haben noch keine Wallets
+Add New Wallet: Neues Wallet hinzufügen
+Add Ledger Wallet: Ledger Wallet hinzufügen
+Add View Wallet: View Wallet hinzufügen
+No Ledger wallets yet: Noch keine Ledger Wallets
+No view wallets yet: Noch keine View Wallets
+Add the first one to track balances and activity for any address.: Fügen Sie das erste Wallet hinzu, um Kontostände und Aktivitäten für jede Adresse zu verfolgen.
+Customize Wallet: Wallet anpassen
+'Select the card stored in this wallet:': 'Wählen Sie die Karte aus, die in dieser Wallet gespeichert ist:'
+This card will be installed for this wallet and will be displayed on the home screen and in the wallets list.: Diese Karte wird für diese Wallet installiert und auf dem Startbildschirm sowie in der Wallet-Liste angezeigt.
+Get More Cards: Weitere Karten erhalten
+Browse MyTonWallet Cards available for purchase.: Durchsuchen Sie die verfügbaren MyTonWallet-Karten zum Kauf.
+Apply Card: Karte anwenden
+You don't have any cards to customize yet: Sie haben noch keine Karten zum Anpassen.
+MyTonWallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: MyTonWallet-Karten können für Wallets installiert und auf dem Startbildschirm sowie in der Wallet-Liste angezeigt werden.
+Get First Card: Erste Karte erhalten
+Palette and Card: Palette und Karte
+Customize the wallet's home screen and color accents the way you like.: Passen Sie den Startbildschirm und die Farbakzente Ihrer Wallet nach Ihrem Geschmack an.

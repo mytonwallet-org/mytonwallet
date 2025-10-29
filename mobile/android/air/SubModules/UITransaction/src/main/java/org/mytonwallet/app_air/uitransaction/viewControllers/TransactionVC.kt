@@ -241,11 +241,11 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
         val v = WView(context)
         v.addView(commentLabel, ConstraintLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         val transaction = transaction
+        val canDecrypt =
+            AccountStore.activeAccount?.accountType == MAccount.AccountType.MNEMONIC
         if (transaction is MApiTransaction.Transaction) {
             if (!transaction.encryptedComment.isNullOrEmpty()) {
                 commentLabel.text = SpannableHelpers.encryptedCommentSpan(context)
-                val canDecrypt =
-                    AccountStore.activeAccount?.accountType == MAccount.AccountType.MNEMONIC
                 if (canDecrypt) {
                     v.addView(
                         decryptButton,
@@ -267,7 +267,7 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
             toTop(commentLabel)
             toStart(commentLabel)
             toBottom(commentLabel)
-            if (transaction is MApiTransaction.Transaction && !transaction.encryptedComment.isNullOrEmpty()) {
+            if (transaction is MApiTransaction.Transaction && !transaction.encryptedComment.isNullOrEmpty() && canDecrypt) {
                 setHorizontalBias(decryptButton.id, 1f)
                 toCenterY(decryptButton)
                 endToStart(commentLabel, decryptButton, 8f)
@@ -1042,7 +1042,7 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
                                     transaction.amount.abs(),
                                     token.decimals
                                 ).toPlainString(),
-                                transaction.comment
+                                comment = transaction.comment
                             )
                         )
                     )

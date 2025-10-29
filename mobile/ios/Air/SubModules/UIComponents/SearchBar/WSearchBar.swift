@@ -34,7 +34,7 @@ public class WSearchBar: UISearchBar, UISearchBarDelegate, WThemedView {
         autocorrectionType = .no
         autocapitalizationType = .none
         spellCheckingType = .no
-        keyboardType = .URL
+        keyboardType = .webSearch
         returnKeyType = .go
 
         layer.shadowOffset = CGSize(width: 0, height: 1.333)

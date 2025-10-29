@@ -1,5 +1,5 @@
 import React, {
-  memo, useEffect, useMemo, useState,
+  memo, useEffect, useState,
 } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
@@ -8,7 +8,7 @@ import type { ApiDapp, ApiDappPermissions } from '../../api/types';
 import type { Account, AccountSettings, AccountType } from '../../global/types';
 import { DappConnectState } from '../../global/types';
 
-import { selectNetworkAccounts } from '../../global/selectors';
+import { selectNetworkAccounts, selectOrderedAccounts } from '../../global/selectors';
 import { getMainAccountAddress } from '../../util/account';
 import { getHasInMemoryPassword, getInMemoryPassword } from '../../util/authApi/inMemoryPasswordStore';
 import buildClassName from '../../util/buildClassName';
@@ -45,6 +45,7 @@ interface StateProps {
   requiredProof?: ApiTonConnectProof;
   currentAccountId: string;
   accounts?: Record<string, Account>;
+  orderedAccounts: Array<[string, Account]>;
   settingsByAccountId?: Record<string, AccountSettings>;
 }
 
@@ -56,6 +57,7 @@ function DappConnectModal({
   requiredPermissions,
   requiredProof,
   accounts,
+  orderedAccounts,
   currentAccountId,
   settingsByAccountId,
 }: StateProps) {
@@ -74,7 +76,6 @@ function DappConnectModal({
 
   const { renderingKey, nextKey } = useModalTransitionKeys(state ?? 0, isOpen);
 
-  const iterableAccounts = useMemo(() => Object.entries(accounts || {}), [accounts]);
   const isLoading = dapp === undefined;
 
   useEffect(() => {
@@ -166,10 +167,10 @@ function DappConnectModal({
   function renderAccounts() {
     return (
       <AccountButtonWrapper
-        accountLength={iterableAccounts.length}
+        accountLength={orderedAccounts.length}
         labelText={lang('Select wallet to use on this dapp')}
       >
-        {iterableAccounts.map(
+        {orderedAccounts.map(
           ([accountId, { title, byChain, type }]) => {
             return renderAccount(accountId, byChain, type, title);
           },
@@ -307,6 +308,7 @@ function DappConnectModal({
 
 export default memo(withGlobal((global): StateProps => {
   const accounts = selectNetworkAccounts(global);
+  const orderedAccounts = selectOrderedAccounts(global);
   const hasConnectRequest = global.dappConnectRequest?.state !== undefined;
 
   const {
@@ -324,6 +326,7 @@ export default memo(withGlobal((global): StateProps => {
     requiredProof: proof,
     currentAccountId,
     accounts,
+    orderedAccounts,
     settingsByAccountId: global.settings.byAccountId,
   };
 })(DappConnectModal));

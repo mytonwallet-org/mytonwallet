@@ -55,6 +55,8 @@ $listHorizontalPadding: 1rem;
 }
 
 .suggestion {
+  --color-interactive-popup-menu-hover: var(--color-interactive-item-hover);
+
   align-items: center;
   font-size: 1rem;
 }
@@ -147,6 +149,17 @@ $listHorizontalPadding: 1rem;
       .imageWrapperScalable {
         transform: scale(1.05);
       }
+    }
+  }
+
+  &[aria-selected="true"] {
+    --color-background-first: var(--color-interactive-item-hover);
+
+    background-color: var(--color-interactive-item-hover);
+
+    .featuredImage,
+    .imageWrapperScalable {
+      transform: scale(1.05);
     }
   }
 

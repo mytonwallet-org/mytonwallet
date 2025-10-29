@@ -311,7 +311,11 @@ public class ConnectDappVC: WViewController, UISheetPresentationControllerDelega
     
     @objc func chooseWalletPressed() {
         guard let request else { return }
-        present(ChooseWalletVC(hint: "\(lang("Choose Wallet to Use On").uppercased()) \(URL(string: request.dapp.url)?.host?.uppercased() ?? "")",
+        var hint = "\(lang("Choose Wallet to Use On")) \(URL(string: request.dapp.url)?.host ?? "")"
+        if !IOS_26_MODE_ENABLED {
+            hint = hint.uppercased()
+        }
+        present(ChooseWalletVC(hint: hint,
                                selectedAccountId: selectedAccount?.id ?? "",
                                isModal: true,
                                onSelect: { [weak self] newAccount in

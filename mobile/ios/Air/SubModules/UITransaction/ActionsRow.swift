@@ -87,7 +87,7 @@ struct ActionButtonStyle: PrimitiveButtonStyle {
             .opacity(isHighlighted ? 0.5 : 1)
             .foregroundStyle(Color(WTheme.tint))
             .background(Color(WTheme.groupedItem), in: .rect(cornerRadius: 12))
-            .contentShape(.rect(cornerRadius: 12))
+            .contentShape(.rect(cornerRadius: S.actionButtonCornerRadius))
             .onTapGesture {
                 configuration.trigger()
             }

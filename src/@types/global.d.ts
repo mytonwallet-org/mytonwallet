@@ -80,6 +80,7 @@ type AllEmojis = Record<string, Emoji | EmojiWithSkins>;
 // Declare supported for import formats as modules
 declare module '*.webp';
 declare module '*.png';
+declare module '*.jpg';
 declare module '*.avif';
 declare module '*.svg';
 declare module '*.tgs';

@@ -8,6 +8,8 @@ import { stopEvent } from '../../util/domEvents';
 import { shortenAddress } from '../../util/shortenAddress';
 import { IS_TOUCH_ENV } from '../../util/windowEnvironment';
 
+import useLang from '../../hooks/useLang';
+
 import styles from '../transfer/Transfer.module.scss';
 
 interface OwnProps {
@@ -16,10 +18,13 @@ interface OwnProps {
   chain?: ApiChain;
   isHardware?: boolean;
   isSavedAddress?: boolean;
+  isSelected?: boolean;
   deleteLabel?: string;
   onClick: (address: string) => void;
   onDeleteClick?: (address: string) => void;
 }
+
+export const SUGGESTION_ITEM_CLASS_NAME = styles.savedAddressItem;
 
 function AddressBookItem({
   address,
@@ -27,10 +32,13 @@ function AddressBookItem({
   chain,
   isHardware,
   isSavedAddress,
+  isSelected,
   deleteLabel,
   onClick,
   onDeleteClick,
 }: OwnProps) {
+  const lang = useLang();
+
   const handleClick = () => {
     onClick(address);
   };
@@ -44,7 +52,8 @@ function AddressBookItem({
   return (
     <div
       tabIndex={-1}
-      role="button"
+      role="option"
+      aria-selected={isSelected}
       onMouseDown={IS_TOUCH_ENV ? undefined : handleClick}
       onClick={IS_TOUCH_ENV ? handleClick : undefined}
       className={styles.savedAddressItem}
@@ -80,7 +89,7 @@ function AddressBookItem({
           tabIndex={-1}
           onMouseDown={handleDeleteClick}
           onClick={stopEvent}
-          aria-label={deleteLabel}
+          aria-label={lang('Delete')}
         >
           <i className="icon-trash" aria-hidden />
         </span>

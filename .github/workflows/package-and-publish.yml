@@ -31,6 +31,7 @@ jobs:
   electron-release:
     name: Build, package and publish Electron
     runs-on: macos-13
+    environment: production
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -107,6 +108,7 @@ jobs:
     name: Sign and re-publish Windows package
     needs: electron-release
     runs-on: windows-latest
+    environment: production
     timeout-minutes: 10
     if: vars.PUBLISH_REPO != ''
     env:
@@ -154,6 +156,7 @@ jobs:
   extensions-package:
     name: Build and package extensions
     runs-on: ubuntu-latest
+    environment: production
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -190,6 +193,7 @@ jobs:
     name: Publish Chrome extension
     needs: extensions-package
     runs-on: ubuntu-latest
+    environment: production
     timeout-minutes: 5
     if: vars.PUBLISH_REPO != ''
     steps:
@@ -224,6 +228,7 @@ jobs:
     name: Publish Firefox extension
     needs: extensions-package
     runs-on: ubuntu-latest
+    environment: production
     timeout-minutes: 5
     if: vars.PUBLISH_REPO != ''
     steps:
@@ -267,6 +272,7 @@ jobs:
     name: Publish Edge extension
     needs: extensions-package
     runs-on: ubuntu-latest
+    environment: production
     if: vars.PUBLISH_REPO != ''
     timeout-minutes: 5
     steps:
@@ -308,6 +314,7 @@ jobs:
       - extensions-package
       - android-release
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -327,6 +334,7 @@ jobs:
   android-release:
     name: Release Android app
     runs-on: ubuntu-latest
+    environment: production
     timeout-minutes: 30
     if: github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/master'
     steps:
@@ -410,6 +418,7 @@ jobs:
   ios-release:
     name: Release iOS app
     runs-on: macos-26
+    environment: production
     timeout-minutes: 30
     if: github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/master'
     steps:
@@ -493,6 +502,7 @@ jobs:
   publish-release:
     name: Publish GitHub release
     runs-on: ubuntu-latest
+    environment: production
     timeout-minutes: 30
     needs:
       - android-release

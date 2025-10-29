@@ -3,6 +3,9 @@ package org.mytonwallet.app_air.uicomponents.widgets
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
+import android.text.Layout
+import android.text.SpannedString
+import android.text.StaticLayout
 import android.util.TypedValue
 import android.view.Gravity
 import androidx.appcompat.widget.AppCompatTextView
@@ -22,6 +25,7 @@ import java.math.BigInteger
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 
 open class WLabel(context: Context) : AppCompatTextView(context), WThemedView {
     init {
@@ -160,5 +164,16 @@ open class WLabel(context: Context) : AppCompatTextView(context), WThemedView {
         } else {
             super.onDraw(canvas)
         }
+    }
+
+    fun calcWidth(): Int {
+        val textWidth = (text as? SpannedString)?.let { spannable ->
+            StaticLayout.Builder.obtain(spannable, 0, spannable.length, paint, Int.MAX_VALUE)
+                .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+                .build().getLineWidth(0)
+        } ?: run {
+            paint.measureText(text.toString())
+        }
+        return (textWidth + paddingLeft + paddingRight).roundToInt()
     }
 }

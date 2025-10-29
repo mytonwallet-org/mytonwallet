@@ -2,7 +2,7 @@ import React, { memo, useEffect, useMemo } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import type { ApiNft } from '../../api/types';
-import type { Account, GlobalState, SavedAddress } from '../../global/types';
+import type { GlobalState, SavedAddress } from '../../global/types';
 import { DomainLinkingState } from '../../global/types';
 
 import { TONCOIN } from '../../config';
@@ -10,7 +10,6 @@ import {
   selectCurrentAccount,
   selectCurrentAccountState,
   selectCurrentToncoinBalance,
-  selectNetworkAccounts,
   selectTonDnsLinkedAddress,
 } from '../../global/selectors';
 import { getDoesUsePinPad } from '../../util/biometrics';
@@ -46,7 +45,6 @@ interface StateProps {
   byAddress?: Record<string, ApiNft>;
   tonBalance: bigint;
   savedAddresses?: SavedAddress[];
-  accounts?: Record<string, Account>;
   currentTonAddress?: string;
   currentLinkedWalletAddress?: string;
 }
@@ -72,7 +70,6 @@ function LinkingDomainModal({
   isMediaViewerOpen,
   byAddress,
   tonBalance,
-  accounts,
   savedAddresses,
   currentTonAddress,
   currentLinkedWalletAddress,
@@ -146,13 +143,11 @@ function LinkingDomainModal({
 
             <AddressInput
               withQrScan
+              withCurrentAccount
               value={walletAddress}
-              // It is necessary to allow linking of current wallet address to the domain, so pass an empty string
-              currentAccountId=""
               // Domain linking is available only for TON blockchain
               addressBookChain="ton"
               chain="ton"
-              accounts={accounts}
               savedAddresses={savedAddresses}
               validateAddress={checkLinkingAddress}
               label={currentLinkedWalletAddress ? lang('Linked Wallet') : lang('Wallet')}
@@ -196,7 +191,6 @@ function LinkingDomainModal({
           onSubmit={handlePasswordSubmit}
           onCancel={cancelDomainLinking}
           onUpdate={clearDomainLinkingError}
-          skipAuthScreen
         >
           <TransactionBanner
             imageUrl={domainNft?.thumbnail}
@@ -309,7 +303,6 @@ export default memo(
       currentDomainLinking,
       byAddress,
       tonBalance: selectCurrentToncoinBalance(global),
-      accounts: selectNetworkAccounts(global),
       savedAddresses: accountState?.savedAddresses,
       currentLinkedWalletAddress,
       currentTonAddress: currentAccount?.byChain.ton?.address,

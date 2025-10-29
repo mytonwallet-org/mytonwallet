@@ -7,11 +7,13 @@ import android.os.Handler
 import android.os.Looper
 import android.text.TextUtils
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import androidx.core.view.isGone
 import androidx.core.view.isInvisible
+import androidx.core.view.isVisible
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WWindow
@@ -19,23 +21,24 @@ import org.mytonwallet.app_air.uicomponents.commonViews.SkeletonView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.AutoScaleContainerView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
+import org.mytonwallet.app_air.uicomponents.widgets.WGradientMaskView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.balance.WBalanceView
 import org.mytonwallet.app_air.uicomponents.widgets.balance.WBalanceView.AnimateConfig
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
+import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -103,22 +106,19 @@ class HomeHeaderView(
                 value
         }
     private val skeletonView = SkeletonView(context, isVertical = false, forcedLight = true)
-    val isShowingSkeletons: Boolean
-        get() {
-            return skeletonView.isAnimating
-        }
+    var isShowingSkeletons: Boolean = false
     ////////////////////////////////////////////////////////////////////////////////////////////////
 
     // Views ///////////////////////////////////////////////////////////////////////////////////////
     private val cardView = WalletCardView(window)
-    private val balanceView = WBalanceView(context, false).apply {
-        setStyle(52f, 38f, WFont.NunitoExtraBold)
-        setTextColor(WColor.PrimaryText.color, WColor.Decimals.color)
+    private val balanceView = WBalanceView(context).apply {
+        typeface = WFont.NunitoExtraBold.typeface
         clipChildren = false
         clipToPadding = false
     }
+    private val balanceViewMaskWrapper = WGradientMaskView(balanceView)
     private val balanceLabel = WSensitiveDataContainer(
-        AutoScaleContainerView(balanceView).apply {
+        AutoScaleContainerView(balanceViewMaskWrapper).apply {
             clipChildren = false
             clipToPadding = false
             maxAllowedWidth = window.windowView.width - 34.dp
@@ -142,6 +142,12 @@ class HomeHeaderView(
         isHorizontalFadingEdgeEnabled = true
         ellipsize = TextUtils.TruncateAt.MARQUEE
         isSelected = true
+    }
+    private val balanceSkeletonView = View(context).apply {
+        visibility = GONE
+    }
+    private val walletNameSkeletonView = View(context).apply {
+        visibility = GONE
     }
 
     /*private val separatorView = WBaseView(context).apply {
@@ -183,14 +189,15 @@ class HomeHeaderView(
         addView(walletNameLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
             gravity = Gravity.CENTER_HORIZONTAL
         })
+        addView(balanceSkeletonView, LayoutParams(134.dp, 56.dp).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+        })
+        addView(walletNameSkeletonView, LayoutParams(80.dp, 28.dp).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+        })
         addView(cardView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
         })
-        /*if (!ThemeManager.uiMode.hasRoundedCorners) {
-            addView(separatorView, LayoutParams(MATCH_PARENT, 1).apply {
-                gravity = Gravity.BOTTOM
-            })
-        }*/
         addView(skeletonView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
         render()
         updateTheme()
@@ -203,28 +210,40 @@ class HomeHeaderView(
             onHeaderPressed?.invoke()
         }
         isClickable = false
+        balanceView.onTotalWidthChanged = { width ->
+            balanceViewMaskWrapper.setupLayout(
+                width = width,
+                height = 56.dp,
+                parentWidth = this@HomeHeaderView.width
+            )
+        }
     }
 
     override fun updateTheme() {
-        balanceView.setTextColor(WColor.PrimaryText.color, WColor.Decimals.color)
+        balanceViewMaskWrapper.setupColors(
+            intArrayOf(
+                WColor.SecondaryBackground.color,
+                WColor.SecondaryText.color,
+                WColor.SecondaryBackground.color
+            )
+        )
         walletNameLabel.setTextColor(WColor.SubtitleText.color)
-        /*if (!ThemeManager.isDark)
-            separatorView.setBackgroundColor(WColor.Separator.color)
-        else
-            separatorView.background = null*/
-        if (walletNameLabel.text.isNullOrEmpty())
-            showSkeletons()
+        cardView.balanceChangeLabel.contentView.setBackgroundColor(
+            Color.WHITE.colorWithAlpha(25),
+            14f.dp
+        )
+
+        if (isShowingSkeletons)
+            updateSkeletonViewColors()
     }
 
-    override fun updateProtectedView() {
-        // Update skeleton layouts
-        if (isShowingSkeletons)
-            updateSkeletonMasks()
-    }
+    override fun updateProtectedView() {}
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         if (w - oldw > 2) {
+            balanceViewMaskWrapper.setupLayout(parentWidth = w)
+            cardView.balanceViewMaskWrapper.setupLayout(parentWidth = w)
             expandedContentHeight = NAV_SIZE_OFFSET + (w - 32.dp) * cardRatio + 8.dp
             diffPx = expandedContentHeight - collapsedHeight
             post {
@@ -317,9 +336,9 @@ class HomeHeaderView(
         }
     }
 
-    fun update(state: UpdateStatusView.State) {
-        cardView.statusViewState = state
-        balanceView.isLoading = state == UpdateStatusView.State.Updating
+    fun update(state: UpdateStatusView.State, animated: Boolean) {
+        cardView.setStatusViewState(state, animated)
+        balanceViewMaskWrapper.isLoading = state == UpdateStatusView.State.Updating
     }
 
     fun updateAccountData() {
@@ -331,23 +350,28 @@ class HomeHeaderView(
     }
 
     private var prevBalance: Double? = null
+    private var showBalanceChangePlace = false
 
     @SuppressLint("SetTextI18n")
     fun updateBalance(balance: Double?, balance24h: Double?, accountChanged: Boolean = false) {
         val animated = !accountChanged
+        val isBalanceLoaded = balance != null
+
         // Updating wallet name
-        if (balanceView.text.isNullOrEmpty() && balance != null) {
-            if (animated)
+        if (balanceView.text.isNullOrEmpty() && isBalanceLoaded) {
+            if (animated) {
+                walletNameLabel.alpha = 0f
                 walletNameLabel.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
-            else
+            } else
                 walletNameLabel.alpha = 1f
             walletNameLabel.setTextIfChanged(AccountStore.activeAccount?.name)
-        } else if (balance == null && accountChanged) {
+        } else if (!isBalanceLoaded && accountChanged) {
             walletNameLabel.setTextIfChanged("")
         }
-        val isBalanceLoaded = balance != null
+
         // Updating balance change
         var balanceChangeString: String? = null
+        showBalanceChangePlace = false
         balance?.let {
             balance24h?.let {
                 if (balance > 0) {
@@ -363,15 +387,22 @@ class HomeHeaderView(
                             if (balance24h == 0.0) "" else "${if (balance - balance24h >= 0) "+" else ""}${((balance - balance24h) / balance24h * 10000).roundToInt() / 100f}% · "
                         balanceChangeString =
                             "$balanceChangePercentString$balanceChangeValueString"
-                    } else {
-                        balanceChangeString = null
+                        showBalanceChangePlace = true
                     }
                 }
             }
+        } ?: run {
+            if (AccountStore.activeAccount?.isNew != true)
+                showBalanceChangePlace = true
+        }
+        if (cardView.balanceChangeLabel.contentView.text.isEmpty() && showBalanceChangePlace) {
+            cardView.balanceChangeLabel.alpha = 0f
+            cardView.balanceChangeLabel.fadeIn()
         }
         cardView.balanceChangeLabel.contentView.text = balanceChangeString
         cardView.balanceChangeLabel.visibility =
             if (cardView.balanceChangeLabel.contentView.text.isNullOrEmpty()) INVISIBLE else VISIBLE
+
         // Set items' visibility
         val wasEmpty = prevBalance == null
         prevBalance = balance
@@ -387,42 +418,21 @@ class HomeHeaderView(
         }
         if (isBalanceLoaded) {
             // Hide skeletons
-            balanceView.minWidth = 0
-            walletNameLabel.minWidth = 0
-            cardView.balanceView.minWidth = 0
-            cardView.balanceViewContainer.layoutParams =
-                cardView.balanceViewContainer.layoutParams.apply {
-                    width = 1000.dp
-                }
-            cardView.balanceChangeLabel.contentView.minWidth = 0
             if (cardView.arrowImageView.isInvisible) {
                 cardView.arrowImageView.visibility = VISIBLE
                 if (animated)
                     cardView.arrowImageView.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
             }
-            balanceLabel.contentView.setBackgroundColor(Color.TRANSPARENT)
-            walletNameLabel.setBackgroundColor(Color.TRANSPARENT)
-            cardView.balanceViewContainer.contentView.setBackgroundColor(Color.TRANSPARENT)
-            cardView.isShowingSkeleton = false
             hideSkeletons()
         }
-        // Show skeletons
-        if (!isBalanceLoaded) {
-            cardView.balanceChangeLabel.contentView.text = null
-            cardView.balanceViewContainer.layoutParams =
-                cardView.balanceViewContainer.layoutParams.apply {
-                    width = WRAP_CONTENT
-                }
-            cardView.isShowingSkeleton = true
-            showSkeletons()
-        }
+
         // Update balance labels
         balanceView.animateText(
             AnimateConfig(
                 balance?.toBigInteger(WalletCore.baseCurrency.decimalsCount),
                 WalletCore.baseCurrency.decimalsCount,
                 WalletCore.baseCurrency.sign,
-                !wasEmpty && animated,
+                animated,
                 forceCurrencyToRight = false
             )
         )
@@ -431,12 +441,20 @@ class HomeHeaderView(
                 balance?.toBigInteger(WalletCore.baseCurrency.decimalsCount),
                 WalletCore.baseCurrency.decimalsCount,
                 WalletCore.baseCurrency.sign,
-                !wasEmpty && animated,
+                animated,
                 forceCurrencyToRight = false
             )
         )
-        balanceLabel.post {
-            layoutBalance()
+        layoutBalance()
+
+        // Show skeletons
+        if (!isBalanceLoaded) {
+            cardView.balanceChangeLabel.contentView.text = null
+            cardView.balanceViewContainer.layoutParams =
+                cardView.balanceViewContainer.layoutParams.apply {
+                    width = WRAP_CONTENT
+                }
+            showSkeletons()
         }
     }
 
@@ -445,7 +463,7 @@ class HomeHeaderView(
         walletNameLabel.isSelected = true
     }
 
-    fun updateWalletNameMargin(balanceExpandProgress: Float) {
+    private fun updateWalletNameMargin(balanceExpandProgress: Float) {
         val walletNameLayoutParams = walletNameLabel.layoutParams as? MarginLayoutParams ?: return
         val maxLabelMargin =
             if (AccountStore.activeAccount?.accountType == MAccount.AccountType.MNEMONIC) 96.dp else 56.dp
@@ -474,28 +492,25 @@ class HomeHeaderView(
     }
 
     private fun showSkeletons() {
+        if (isShowingSkeletons)
+            return
+        isShowingSkeletons = true
+
         if (cardView.balanceViewContainer.layoutParams != null)
             cardView.balanceViewContainer.layoutParams =
                 cardView.balanceViewContainer.layoutParams.apply {
                     width = WRAP_CONTENT
                 }
-        balanceView.minWidth = 134.dp
-        walletNameLabel.minWidth = 80.dp
-        cardView.balanceView.minWidth = 134.dp
-        cardView.balanceChangeLabel.contentView.minWidth = 134.dp
 
-        val placeholderColor =
-            if (ThemeManager.uiMode.hasRoundedCorners) WColor.GroupedBackground.color else WColor.SecondaryBackground.color
-        balanceLabel.contentView.setBackgroundColor(placeholderColor, 8f.dp)
-        walletNameLabel.setBackgroundColor(placeholderColor, 8f.dp)
-        cardView.balanceViewContainer.contentView.setBackgroundColor(
-            Color.WHITE.colorWithAlpha(25),
-            8f.dp
-        )
-        cardView.balanceChangeLabel.contentView.setBackgroundColor(
-            Color.WHITE.colorWithAlpha(25),
-            14f.dp
-        )
+        balanceSkeletonView.visibility = VISIBLE
+        balanceSkeletonView.alpha = 1f
+        walletNameSkeletonView.visibility = VISIBLE
+        walletNameSkeletonView.alpha = 1f
+        cardView.balanceSkeletonView.visibility = VISIBLE
+        cardView.balanceSkeletonView.alpha = 1f
+        cardView.balanceChangeSkeletonView.isVisible = showBalanceChangePlace
+        cardView.balanceChangeSkeletonView.alpha = 1f
+        updateSkeletonViewColors()
         cardView.arrowImageView.visibility = INVISIBLE
 
         post {
@@ -504,29 +519,34 @@ class HomeHeaderView(
         }
     }
 
+    private fun updateSkeletonViewColors() {
+        balanceSkeletonView.setBackgroundColor(WColor.GroupedBackground.color, 8f.dp)
+        walletNameSkeletonView.setBackgroundColor(WColor.GroupedBackground.color, 8f.dp)
+
+        cardView.balanceSkeletonView.setBackgroundColor(
+            Color.WHITE.colorWithAlpha(25),
+            8f.dp
+        )
+        cardView.balanceChangeSkeletonView.setBackgroundColor(
+            Color.WHITE.colorWithAlpha(25),
+            14f.dp
+        )
+    }
+
     private fun updateSkeletonMasks() {
         if (mode == Mode.Expanded) {
             skeletonView.applyMask(
-                if (WGlobalStorage.getIsSensitiveDataProtectionOn())
-                    listOf(
-                        cardView.balanceViewContainer.maskView,
-                        cardView.balanceChangeLabel.maskView
-                    )
-                else
-                    listOf(
-                        cardView.balanceViewContainer.contentView,
-                        cardView.balanceChangeLabel.contentView
-                    ),
+                listOf(
+                    cardView.balanceSkeletonView,
+                    cardView.balanceChangeSkeletonView
+                ),
                 hashMapOf(0 to 8f.dp, 1 to 14f.dp)
             )
         } else {
             skeletonView.applyMask(
                 listOf(
-                    if (WGlobalStorage.getIsSensitiveDataProtectionOn())
-                        balanceLabel.maskView
-                    else
-                        balanceLabel.contentView,
-                    walletNameLabel
+                    balanceSkeletonView,
+                    walletNameSkeletonView
                 ),
                 hashMapOf(0 to 8f.dp, 1 to 8f.dp)
             )
@@ -534,9 +554,21 @@ class HomeHeaderView(
     }
 
     private fun hideSkeletons() {
-        post {
-            skeletonView.stopAnimating()
-        }
+        if (!isShowingSkeletons)
+            return
+        isShowingSkeletons = false
+        balanceSkeletonView.fadeOut()
+        walletNameSkeletonView.fadeOut()
+        cardView.balanceSkeletonView.fadeOut()
+        cardView.balanceChangeSkeletonView.fadeOut(onCompletion = {
+            if (!isShowingSkeletons) {
+                walletNameSkeletonView.visibility = GONE
+                walletNameSkeletonView.visibility = GONE
+                cardView.balanceSkeletonView.visibility = GONE
+                cardView.balanceChangeSkeletonView.visibility = GONE
+            }
+        })
+        skeletonView.stopAnimating()
     }
     ////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -587,7 +619,7 @@ class HomeHeaderView(
         val balanceExpandProgress = if (scrollY > 0) (1 - scrollY / 92f.dp).coerceIn(0f, 1f) else 1f
         balanceLabel.y =
             collapsedMinHeight -
-                75.dp + (balanceExpandProgress * 66.dp) -
+                74f.dp + (balanceExpandProgress * 76.5f.dp) -
                 min(scrollY, 0) -
                 (if (isExpandAllowed) (expandedContentHeight - collapsedHeight - 2f.dp - expandedBalanceY) * expandProgress.pow(
                     2
@@ -595,8 +627,8 @@ class HomeHeaderView(
         balanceLabel.visibility = if (expandProgress < 1f) VISIBLE else INVISIBLE
         balanceView.setScale(
             (18 + 18 * balanceExpandProgress + 16f * expandProgress) / 52f,
-            (18 + 10 * balanceExpandProgress + 10f * expandProgress) / 38f,
-            1 - balanceExpandProgress,
+            (18 + 12 * balanceExpandProgress + 8f * expandProgress) / 38f,
+            (-1f).dp - 2.5f.dp * balanceExpandProgress + 1f.dp * expandProgress
         )
         balanceLabel.contentView.updateScale()
         balanceView.translationX = (-11).dp * expandProgress
@@ -613,14 +645,27 @@ class HomeHeaderView(
 
         walletNameLabel.x = (width - walletNameLabel.width) / 2f
         walletNameLabel.y =
-            balanceLabel.y + balanceLabel.height - 27.dp + (20 * balanceExpandProgress).dp
+            balanceLabel.y + balanceLabel.height - 10.dp + (9.5f * balanceExpandProgress).dp
         updateWalletNameMargin(balanceExpandProgress)
 
         updateStatusView.alpha = balanceExpandProgress
         updateStatusView.isGone = balanceExpandProgress == 0f
+
+        balanceSkeletonView.pivotX = balanceSkeletonView.width.toFloat() / 2
+        balanceSkeletonView.pivotY = balanceView.balanceBaseline + balanceView.offset2 * 2
+        balanceSkeletonView.scaleX = balanceView.scale1
+        balanceSkeletonView.scaleY = balanceView.scale1
+        balanceSkeletonView.y = balanceLabel.y
+        walletNameSkeletonView.pivotX = walletNameSkeletonView.width.toFloat() / 2
+        walletNameSkeletonView.pivotY = walletNameSkeletonView.height.toFloat() / 2
+        walletNameSkeletonView.y = walletNameLabel.y
     }
 
     fun onDestroy() {
+        balanceView.onTotalWidthChanged = null
+        balanceViewMaskWrapper.onDestroy()
+        cardView.balanceView.onTotalWidthChanged = null
+        cardView.balanceViewMaskWrapper.onDestroy()
         onModeChange = null
         onExpandPressed = null
         onHeaderPressed = null

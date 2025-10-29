@@ -7,17 +7,23 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.view.isGone
+import kotlinx.coroutines.Runnable
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.drawable.RoundProgressDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 
 class WReplaceableLabel(
     context: Context,
 ) : WView(context) {
+
+    init {
+        clipChildren = false
+        clipToPadding = false
+    }
 
     val label: WLabel by lazy {
         val lbl = WLabel(context)
@@ -40,7 +46,6 @@ class WReplaceableLabel(
         layoutParams = LayoutParams(24.dp, 13.dp)
         setImageDrawable(roundDrawable)
         scaleType = ImageView.ScaleType.CENTER_INSIDE
-        clipChildren = false
         alpha = 0f
         visibility = GONE
     }
@@ -63,91 +68,82 @@ class WReplaceableLabel(
     private var animatingIsLoadingTo: Boolean? = null
 
     private fun updateProgressView() {
+        progressView.clearAnimation()
         progressView.isGone = !isLoading
         progressView.alpha = if (isLoading) 1f else 0f
     }
 
+    var setTextRunnable: Runnable? = null
     fun setText(
         text: String,
         isLoading: Boolean,
         animated: Boolean = true,
-        wasHidden: Boolean = false,
-        beforeNewTextAppearance: (() -> Unit)? = null
+        updateLabelAppearance: (() -> Unit)? = null
     ) {
         if (isLoading == this.isLoading && text == label.text) {
-            beforeNewTextAppearance?.invoke()
+            // Nothing changed, just update the appearance.
+            updateLabelAppearance?.invoke()
             return
         }
         if (isLoading == this.animatingIsLoadingTo && text == animatingTextTo) {
+            // The appearing (animating) state is same, just return.
             return
         }
 
         if (!animated) {
             animatingTextTo = null
             animatingIsLoadingTo = null
+            setTextRunnable = null
             translationX = 0f
             scaleX = 1f
             scaleY = 1f
             label.text = text
             this.isLoading = isLoading
-            beforeNewTextAppearance?.invoke()
+            updateLabelAppearance?.invoke()
             updateProgressView()
             return
         }
 
-        val isLonger = text.length > (label.text?.length ?: 0)
-
         animatingTextTo = text
         animatingIsLoadingTo = isLoading
 
-        fun setNewText() {
-            if (animatingTextTo != text)
-                return
-            beforeNewTextAppearance?.invoke()
-            if (isLoading && !this.isLoading) {
+        setTextRunnable = Runnable {
+            setTextRunnable = null
+            updateLabelAppearance?.invoke()
+            this.isLoading = animatingIsLoadingTo == true
+            if (progressView.alpha < 1f && this.isLoading) {
                 progressView.visibility = VISIBLE
                 progressView.fadeIn { }
+            } else if (!this.isLoading) {
+                updateProgressView()
             }
-            this.isLoading = isLoading
             animatingTextTo = null
             animatingIsLoadingTo = null
             label.text = text
             translationX = 0f
-            scaleX = 0.8f
-            scaleY = 0.8f
 
-            fun fadeInAndGrow() {
-                animate()
-                    .alpha(1f)
-                    .scaleX(1f)
-                    .scaleY(1f)
-                    .setDuration(300)
-                    .start()
-            }
-
-            if (isLonger && !wasHidden) {
-                animate()
-                    .setDuration(200)
-                    .withEndAction { fadeInAndGrow() }
-                    .start()
-            } else {
-                fadeInAndGrow()
-            }
+            animate()
+                .alpha(1f)
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(AnimationConstants.VERY_QUICK_ANIMATION)
+                .start()
         }
 
-        if (wasHidden) {
-            setNewText()
+        if (alpha == 0f) {
+            setTextRunnable?.run()
         } else {
-            if (!isLoading && this.isLoading) {
-                progressView.fadeOut {
-                    progressView.visibility = GONE
-                }
-            }
             animate()
                 .alpha(0f)
                 .translationX(-20f * LocaleController.rtlMultiplier)
                 .setDuration(AnimationConstants.QUICK_ANIMATION)
-                .withEndAction { setNewText() }
+                .withEndAction {
+                    setTextRunnable?.let {
+                        scaleX = 0.8f
+                        scaleY = 0.8f
+                        setTextRunnable?.run()
+                    }
+                }
                 .start()
         }
     }

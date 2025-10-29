@@ -1,0 +1,29 @@
+.container {
+  position: relative;
+
+  overflow: hidden;
+
+  width: 1.375rem;
+  height: 0.875rem;
+  border-radius: var(--border-radius-micro);
+}
+
+.image,
+.skeleton {
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  width: 100%;
+  height: 100%;
+
+  object-fit: cover;
+}
+
+.image {
+  z-index: 1;
+}
+
+.skeleton {
+  z-index: 2;
+}

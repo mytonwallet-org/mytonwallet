@@ -38,7 +38,7 @@ fileprivate struct ToSection: View {
         InsetSection {
             AddressCellView()
         } header: {
-            Text(lang("Send to"))
+            Text(lang("Recipient Address"))
         } footer: {}
     }
 }

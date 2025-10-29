@@ -31,10 +31,6 @@ open class RecoveryPhraseVC: WViewController {
         setupViews()
     }
     
-    public override var hideNavigationBar: Bool {
-        true
-    }
-    
     public var headerView: HeaderView!
     
     func setupViews() {

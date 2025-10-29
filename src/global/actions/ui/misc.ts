@@ -242,7 +242,7 @@ addActionHandler('clearAccountError', (global) => {
 });
 
 addActionHandler('openAddAccountModal', (global, _, props) => {
-  const { forceAddingTonOnlyAccount } = props || {};
+  const { forceAddingTonOnlyAccount, initialState } = props || {};
 
   if (IS_DELEGATED_BOTTOM_SHEET && !global.areSettingsOpen) {
     callActionInMain('openAddAccountModal', props);
@@ -251,8 +251,11 @@ addActionHandler('openAddAccountModal', (global, _, props) => {
 
   global = { ...global, isAddAccountModalOpen: true };
 
-  if (forceAddingTonOnlyAccount) {
-    global = updateAuth(global, { forceAddingTonOnlyAccount });
+  if (forceAddingTonOnlyAccount || initialState !== undefined) {
+    global = updateAuth(global, {
+      forceAddingTonOnlyAccount,
+      initialState,
+    });
   }
 
   setGlobal(global);
@@ -263,7 +266,10 @@ addActionHandler('closeAddAccountModal', (global, _, props) => {
     global = clearIsPinAccepted(global);
   }
 
-  global = updateAuth(global, { forceAddingTonOnlyAccount: undefined });
+  global = updateAuth(global, {
+    forceAddingTonOnlyAccount: undefined,
+    initialState: undefined,
+  });
   global = { ...global, isAddAccountModalOpen: undefined };
 
   return global;

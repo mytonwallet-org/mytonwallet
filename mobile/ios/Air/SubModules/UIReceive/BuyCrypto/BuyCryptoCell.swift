@@ -52,12 +52,13 @@ class BuyCryptoCell: UITableViewCell, WThemedView {
         stackView.translatesAutoresizingMaskIntoConstraints = false
         stackView.backgroundColor = .clear
         stackView.axis = .horizontal
-        stackView.layoutMargins = .init(top: 7, left: 16, bottom: 7, right: 16)
+        stackView.layoutMargins = .init(top: 0, left: 16, bottom: 0, right: 16)
         stackView.isLayoutMarginsRelativeArrangement = true
         stackView.distribution = .fillProportionally
         stackView.alignment = .center
         containerView.addSubview(stackView)
         NSLayoutConstraint.activate([
+            stackView.heightAnchor.constraint(equalToConstant: S.sectionItemHeight),
             stackView.topAnchor.constraint(equalTo: containerView.topAnchor),
             stackView.leftAnchor.constraint(equalTo: containerView.leftAnchor),
             stackView.rightAnchor.constraint(equalTo: containerView.rightAnchor),
@@ -107,7 +108,7 @@ class BuyCryptoCell: UITableViewCell, WThemedView {
         self.img.image = image
         self.lbl.text = title
         if position != .middle {
-            containerView.layer.cornerRadius = 10
+            containerView.layer.cornerRadius = S.insetSectionCornerRadius
             if position == .top {
                 containerView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
             } else {

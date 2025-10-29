@@ -21,6 +21,15 @@ public struct InsetCell<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, verticalPadding ?? 11)
             .padding(.horizontal, horizontalPadding ?? 16)
+            .frame(minHeight: resolvedMinHeight)
+    }
+    
+    var resolvedMinHeight: CGFloat? {
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+            52
+        } else {
+            nil
+        }
     }
 }
 

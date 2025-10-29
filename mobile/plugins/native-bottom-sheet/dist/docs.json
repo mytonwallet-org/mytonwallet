@@ -17,8 +17,14 @@
       },
       {
         "name": "applyScrollPatch",
-        "signature": "() => Promise<void>",
-        "parameters": [],
+        "signature": "(options?: { shouldFreeze?: boolean | undefined; } | undefined) => Promise<void>",
+        "parameters": [
+          {
+            "name": "options",
+            "docs": "",
+            "type": "{ shouldFreeze?: boolean | undefined; } | undefined"
+          }
+        ],
         "returns": "Promise<void>",
         "tags": [],
         "docs": "",
@@ -27,8 +33,14 @@
       },
       {
         "name": "clearScrollPatch",
-        "signature": "() => Promise<void>",
-        "parameters": [],
+        "signature": "(options?: { shouldFreeze?: boolean | undefined; } | undefined) => Promise<void>",
+        "parameters": [
+          {
+            "name": "options",
+            "docs": "",
+            "type": "{ shouldFreeze?: boolean | undefined; } | undefined"
+          }
+        ],
         "returns": "Promise<void>",
         "tags": [],
         "docs": "",
@@ -406,6 +418,14 @@
         },
         {
           "text": "'link-domain'",
+          "complexTypes": []
+        },
+        {
+          "text": "'account-selector'",
+          "complexTypes": []
+        },
+        {
+          "text": "'customize-wallet'",
           "complexTypes": []
         }
       ]

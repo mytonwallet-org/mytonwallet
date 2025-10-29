@@ -71,6 +71,9 @@ private let log = Log("BalanceHeaderView+update")
             // set wallet name scale
             let walletNameScale = interpolate(from: 13.0/17.0, to: 1.0, progress: progress)
             walletNameLabel.transform = CGAffineTransform(scaleX: walletNameScale, y: walletNameScale)
+            if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+                walletNameLeadingConstraint.constant = interpolate(from: 40, to: 96, progress: 1 - progress)
+            }
             let walletNameSkeletonScale = walletNameScale * walletNameScale
             walletNameLabelSkeleton.transform = CGAffineTransform(scaleX: walletNameSkeletonScale, y: walletNameSkeletonScale)
 

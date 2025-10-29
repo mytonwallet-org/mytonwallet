@@ -19,6 +19,8 @@ interface OwnProps {
   isFeatured?: boolean;
   isInList?: boolean;
   className?: string;
+  role?: string;
+  isSelected?: boolean;
 }
 
 function Site({
@@ -28,12 +30,21 @@ function Site({
   isFeatured,
   isInList,
   className,
+  role,
+  isSelected,
 }: OwnProps) {
   const lang = useLang();
 
   function handleClick() {
     void vibrate();
     void openUrl(url, { isExternal, title: name, subtitle: getHostnameFromUrl(url) });
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.code === 'Enter' || e.code === 'Space') {
+      e.preventDefault();
+      handleClick();
+    }
   }
 
   return (
@@ -45,9 +56,11 @@ function Site({
         !isInList && withBorder && styles.withBorder,
         className,
       )}
-      tabIndex={0}
-      role="button"
+      tabIndex={isSelected ? 0 : -1}
+      role={role || 'button'}
+      aria-selected={isSelected}
       onClick={handleClick}
+      onKeyDown={handleKeyDown}
     >
       <Image
         url={extendedIcon && isFeatured ? extendedIcon : icon}

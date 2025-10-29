@@ -46,7 +46,7 @@ public class InAppBrowserPageVC: WViewController {
     private var backObserver: NSKeyValueObservation?
     
     var isMinimized: Bool {
-        sheetPresentationController?.selectedDetentIdentifier == .init("min")
+        sheetPresentationController?.selectedDetentIdentifier == .minimized
     }
     
     public override func didMove(toParent parent: UIViewController?) {

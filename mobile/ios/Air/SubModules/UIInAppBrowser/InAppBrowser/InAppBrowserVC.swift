@@ -40,30 +40,41 @@ public class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
     private func setupViews() {
         view.backgroundColor = WTheme.background
         
-        let closeButton = WNavigationBarButton(text: lang("Close"), onPress: { [weak self] in
-            if let sheet = self?.parent as? WMinimizableSheet {
-                sheet.delegate?.minimizableSheetDidClose(sheet)
-            }
-            self?.presentingViewController?.dismiss(animated: true)
-        })
+        let closeButton = if IOS_26_MODE_ENABLED {
+            WNavigationBarButton(icon: UIImage(systemName: "xmark"), onPress: { [weak self] in
+                if let sheet = self?.parent as? WMinimizableSheet {
+                    sheet.delegate?.minimizableSheetDidClose(sheet)
+                }
+                self?.presentingViewController?.dismiss(animated: true)
+            })
+        } else {
+            WNavigationBarButton(text: lang("Close"), onPress: { [weak self] in
+                if let sheet = self?.parent as? WMinimizableSheet {
+                    sheet.delegate?.minimizableSheetDidClose(sheet)
+                }
+                self?.presentingViewController?.dismiss(animated: true)
+            })
+        }
         
-        let image = UIImage(named: "More22", in: AirBundle, with: nil)
+        let image = IOS_26_MODE_ENABLED ? UIImage(systemName: "ellipsis") : UIImage(named: "More22", in: AirBundle, with: nil)
         let moreButton = WNavigationBarButton(icon: image, tintColor: WTheme.tint, onPress: nil, menu: makeMenu(), showsMenuAsPrimaryAction: true)
         
-        let navigationBar = addNavigationBar(navHeight: 60, title: " ", subtitle: "", leadingItem: closeButton, trailingItem: moreButton, tintColor: nil, titleColor: nil, closeIcon: false, addBackButton: { [weak self] in
+        addNavigationBar(navHeight: 60, title: " ", subtitle: "", leadingItem: closeButton, trailingItem: moreButton, tintColor: nil, titleColor: nil, closeIcon: false, addBackButton: { [weak self] in
             self?.goBack()
-        })
-        navigationBar.showSeparator = true
-        if let title = navigationBar.titleLabel, let backButton = navigationBar.backButton, let leading = navigationBar.leadingItem?.view {
-            NSLayoutConstraint.activate([
-                title.leadingAnchor.constraint(greaterThanOrEqualTo: navigationBar.leadingAnchor, constant: 30),
-                title.leadingAnchor.constraint(greaterThanOrEqualTo: backButton.trailingAnchor, constant: 16),
-                title.leadingAnchor.constraint(greaterThanOrEqualTo: leading.trailingAnchor, constant: 16),
-                
-            ])
-            title.numberOfLines = 1
-            title.alpha = 0
-            title.transform = .identity.scaledBy(x: 0.4, y: 0.4)
+        }, prefersHardEdge: true)
+        if let navigationBar {
+            navigationBar.showSeparator = true
+            if let title = navigationBar.titleLabel, let backButton = navigationBar.backButton, let leading = navigationBar.leadingItem?.view {
+                NSLayoutConstraint.activate([
+                    title.leadingAnchor.constraint(greaterThanOrEqualTo: navigationBar.leadingAnchor, constant: 30),
+                    title.leadingAnchor.constraint(greaterThanOrEqualTo: backButton.trailingAnchor, constant: 16),
+                    title.leadingAnchor.constraint(greaterThanOrEqualTo: leading.trailingAnchor, constant: 16),
+                    
+                ])
+                title.numberOfLines = 1
+                title.alpha = 0
+                title.transform = .identity.scaledBy(x: 0.4, y: 0.4)
+            }
         }
         
         bringNavigationBarToFront()
@@ -143,8 +154,22 @@ public class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
                 navigationBar.subtitleLabel?.alpha = subtitleIsNil ? 0 : 1
                 
                 let canGoBack = page.webView?.canGoBack == true
-                navigationBar.backButton?.isHidden = !canGoBack
-                navigationBar.leadingItem?.view.isHidden = canGoBack
+                if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+                    navigationBar.backButton?.isHidden = true
+                    (navigationBar.leadingItem?.view as? WButton)?.setImage(
+                        UIImage(systemName: canGoBack ? "chevron.left" : "xmark"),
+                        for: .normal
+                    )
+                    navigationBar.leadingItem?.onPress = canGoBack ? navigationBar.onBackPressed : { [weak self] in
+                        if let sheet = self?.parent as? WMinimizableSheet {
+                            sheet.delegate?.minimizableSheetDidClose(sheet)
+                        }
+                        self?.presentingViewController?.dismiss(animated: true)
+                    }
+                } else {
+                    navigationBar.backButton?.isHidden = !canGoBack
+                    navigationBar.leadingItem?.view.isHidden = canGoBack
+                }
                 
                 delegate?.inAppBrowserTitleChanged(self)
             }

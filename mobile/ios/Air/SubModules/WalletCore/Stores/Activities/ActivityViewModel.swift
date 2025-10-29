@@ -10,14 +10,16 @@ private let log = Log("ActivityViewModel")
 }
 
 public actor ActivityViewModel: WalletCoreData.EventsObserver {
-    
+
     public enum Section: Equatable, Hashable, Sendable {
         case headerPlaceholder
+        case firstRow
         case transactions(Date)
         case emptyPlaceholder
     }
     public enum Row: Equatable, Hashable, Sendable {
         case headerPlaceholder
+        case firstRow
         case transaction(String)
         case loadingMore
         case emptyPlaceholder
@@ -25,18 +27,18 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
 
     public let accountId: String
     public let token: ApiToken?
-    
+
     @MainActor public var activitiesById: [String: ApiActivity]?
     @MainActor public var idsByDate: OrderedDictionary<Date, [String]>?
     @MainActor public var isEndReached: Bool?
     @MainActor public var snapshot: NSDiffableDataSourceSnapshot<Section, Row>!
-    
+
     public weak var delegate: ActivityViewModelDelegate?
-    
+
     private var activitiesStore: _ActivityStore = .shared
-    
+
     public private(set) var loadMoreTask: Task<Void, Never>?
-    
+
     public init(accountId: String, token: ApiToken?, delegate: any ActivityViewModelDelegate) async {
         self.accountId = accountId
         self.token = token
@@ -44,12 +46,12 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
         WalletCoreData.add(eventObserver: self)
         self.delegate = delegate // set delegate after getState so that it doesn't get notified on the initial load
     }
-    
+
     private func getState(updatedIds: [String]) async {
         let accountState = await activitiesStore.getAccountState(accountId)
-        
+
         let activitiesById = accountState.byId
-        
+
         var ids = if let slug = token?.slug {
             accountState.idsBySlug?[slug]
         } else {
@@ -80,9 +82,9 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
             }
             return false
         }
-        
+
         log.info("[inf] getState activitiesById: \(activitiesById?.count ?? -1)")
-        
+
         let idsByDate: OrderedDictionary<Date, [String]>?
         if let ids {
             let grouped = OrderedDictionary(grouping: ids) { id in
@@ -97,15 +99,18 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
         } else {
             idsByDate = nil
         }
-        
+
         let isEndReached = if let slug = token?.slug {
             accountState.isHistoryEndReachedBySlug?[slug]
         } else {
             accountState.isMainHistoryEndReached
         }
-        
-        let snapshot = await makeSnapshot(idsByDate: idsByDate, isEndReached: isEndReached, updatedIds: updatedIds)
-        
+
+        let snapshot = await makeSnapshot(idsByDate: idsByDate,
+                                          showFirstRow: token != nil,
+                                          isEndReached: isEndReached,
+                                          updatedIds: updatedIds)
+
         await MainActor.run {
             self.activitiesById = activitiesById
             self.idsByDate = idsByDate
@@ -114,14 +119,22 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
         }
         await delegate?.activityViewModelChanged()
     }
-    
-    private func makeSnapshot(idsByDate: OrderedDictionary<Date, [String]>?, isEndReached: Bool?, updatedIds: [String]) async -> NSDiffableDataSourceSnapshot<Section, Row> {
+
+    private func makeSnapshot(idsByDate: OrderedDictionary<Date, [String]>?,
+                              showFirstRow: Bool,
+                              isEndReached: Bool?,
+                              updatedIds: [String]) async -> NSDiffableDataSourceSnapshot<Section, Row> {
         let start = Date()
         defer { log.info("makeSnapshot: \(Date().timeIntervalSince(start))s")}
         var snapshot = NSDiffableDataSourceSnapshot<Section, Row>()
         snapshot.appendSections([.headerPlaceholder])
         snapshot.appendItems([.headerPlaceholder])
-        
+
+        if showFirstRow {
+            snapshot.appendSections([.firstRow])
+            snapshot.appendItems([.firstRow])
+        }
+
         if let idsByDate {
             for (date, ids) in idsByDate {
                 snapshot.appendSections([.transactions(date)])
@@ -135,7 +148,7 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
             snapshot.appendSections([.emptyPlaceholder])
             snapshot.appendItems([.emptyPlaceholder])
         }
-        
+
         let ids = Set(snapshot.itemIdentifiers.compactMap {
             if case .transaction(let id) = $0 {
                 return id
@@ -144,16 +157,16 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
         })
         let updatedIds = updatedIds.filter { ids.contains($0) }
         snapshot.reconfigureItems(updatedIds.map(Row.transaction))
-        
+
         return snapshot
     }
-    
+
     nonisolated public func walletCore(event: WalletCoreData.Event) {
         Task {
             await handleEvent(event)
         }
     }
-    
+
     private func handleEvent(_ event: WalletCoreData.Event) async {
         switch event {
         case .activitiesChanged(let accountId, let updatedIds, let replacedIds):
@@ -166,7 +179,7 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
             break
         }
     }
-    
+
     public func requestMoreIfNeeded() {
         guard loadMoreTask == nil else { return }
         loadMoreTask = Task {

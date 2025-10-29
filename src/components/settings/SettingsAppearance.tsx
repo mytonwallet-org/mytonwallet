@@ -1,5 +1,5 @@
 import React, {
-  memo, useEffect, useMemo, useState,
+  memo, useState,
 } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
@@ -11,33 +11,23 @@ import {
   ANIMATION_LEVEL_MIN,
   IS_CAPACITOR,
   IS_CORE_WALLET,
-  MTW_CARDS_WEBSITE,
 } from '../../config';
-import {
-  selectCurrentAccountSettings,
-  selectCurrentAccountState,
-  selectIsCurrentAccountViewMode,
-} from '../../global/selectors';
-import { ACCENT_COLORS } from '../../util/accentColor/constants';
+import { selectCurrentAccountSettings } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { switchToAir } from '../../util/capacitor';
-import getAccentColorsFromNfts from '../../util/getAccentColorsFromNfts';
-import { MEMO_EMPTY_ARRAY } from '../../util/memo';
-import { openUrl } from '../../util/openUrl';
 import { pause } from '../../util/schedulers';
 import switchAnimationLevel from '../../util/switchAnimationLevel';
 import switchTheme from '../../util/switchTheme';
 import { IS_ELECTRON, IS_WINDOWS } from '../../util/windowEnvironment';
 
-import useAppTheme from '../../hooks/useAppTheme';
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useScrolledState from '../../hooks/useScrolledState';
 
+import CustomCardPreview from '../main/modals/accountSelector/CustomCardPreview';
 import Button from '../ui/Button';
 import ModalHeader from '../ui/ModalHeader';
-import Spinner from '../ui/Spinner';
 import Switcher from '../ui/Switcher';
 
 import styles from './Settings.module.scss';
@@ -58,11 +48,7 @@ interface OwnProps {
 }
 
 interface StateProps {
-  isViewMode: boolean;
-  accentColorIndex?: number;
-  nftsByAddress?: Record<string, ApiNft>;
-  nftAddresses?: string[];
-  isMintingCardsAvailable?: boolean;
+  cardBackgroundNft?: ApiNft;
   isNftBuyingDisabled: boolean;
 }
 
@@ -86,13 +72,9 @@ function SettingsAppearance({
   isActive,
   theme,
   animationLevel,
-  accentColorIndex,
-  nftAddresses,
-  nftsByAddress,
+  cardBackgroundNft,
   isInsideModal,
-  isViewMode,
   isTrayIconEnabled,
-  isMintingCardsAvailable,
   isNftBuyingDisabled,
   onTrayIconEnabledToggle,
   handleBackClick,
@@ -100,16 +82,10 @@ function SettingsAppearance({
   const {
     setTheme,
     setAnimationLevel,
-    openMintCardModal,
-    installAccentColorFromNft,
-    clearAccentColorFromNft,
-    showNotification,
+    openCustomizeWalletModal,
   } = getActions();
 
   const lang = useLang();
-  const [isAvailableAccentLoading, setIsAvailableAccentLoading] = useState(false);
-  const [availableAccentColorIds, setAvailableAccentColorIds] = useState<number[]>(MEMO_EMPTY_ARRAY);
-  const [nftByColorIndexes, setNftsByColorIndex] = useState<Record<number, ApiNft>>({});
   const [isAirVersionEnabled, setIsAirVersionEnabled] = useState(false);
 
   useHistoryBack({
@@ -121,33 +97,6 @@ function SettingsAppearance({
     handleScroll: handleContentScroll,
     isScrolled,
   } = useScrolledState();
-
-  const appTheme = useAppTheme(theme);
-
-  useEffect(() => {
-    if (IS_CORE_WALLET) return;
-
-    void (async () => {
-      setIsAvailableAccentLoading(true);
-      const result = await getAccentColorsFromNfts(nftAddresses, nftsByAddress);
-      if (result) {
-        setAvailableAccentColorIds(result.availableAccentColorIds);
-        setNftsByColorIndex(result.nftsByColorIndex);
-      } else {
-        setAvailableAccentColorIds(MEMO_EMPTY_ARRAY);
-        setNftsByColorIndex({});
-      }
-      setIsAvailableAccentLoading(false);
-    })();
-  }, [nftsByAddress, nftAddresses]);
-
-  const sortedColors = useMemo(() => {
-    return ACCENT_COLORS[appTheme]
-      .map((color, index) => ({ color, index }))
-      .sort((a, b) => {
-        return Number(!availableAccentColorIds.includes(a.index)) - Number(!availableAccentColorIds.includes(b.index));
-      });
-  }, [appTheme, availableAccentColorIds]);
 
   const handleAirVersionSwitch = useLastCallback(async () => {
     setIsAirVersionEnabled(true);
@@ -172,24 +121,9 @@ function SettingsAppearance({
     switchAnimationLevel(level);
   });
 
-  function handleAccentColorClick(colorIndex?: number) {
-    const isLocked = colorIndex !== undefined ? !availableAccentColorIds.includes(colorIndex) : false;
-
-    if (isLocked) {
-      showNotification({ message: lang('Get a unique MyTonWallet Card to unlock new palettes.') });
-    } else if (colorIndex === undefined) {
-      clearAccentColorFromNft();
-    } else {
-      installAccentColorFromNft({ nft: nftByColorIndexes[colorIndex] });
-    }
-  }
-
-  const handleUnlockNewPalettesClick = useLastCallback(() => {
-    if (!isViewMode && isMintingCardsAvailable) {
-      openMintCardModal();
-    } else {
-      void openUrl(MTW_CARDS_WEBSITE);
-    }
+  const handleCustomizeWalletClick = useLastCallback(() => {
+    openCustomizeWalletModal({ returnTo: 'settings' });
+    return false;
   });
 
   function renderAirSwitcher() {
@@ -231,28 +165,13 @@ function SettingsAppearance({
     });
   }
 
-  function renderColorButton(color?: string, index?: number) {
-    const isSelected = accentColorIndex === index;
-    const isLocked = index !== undefined ? !availableAccentColorIds.includes(index) : false;
-
+  function renderPalleteIcon() {
     return (
-      <button
-        key={color || 'default'}
-        type="button"
-        disabled={isSelected}
-        style={color ? `--current-accent-color: ${color}` : undefined}
-        className={buildClassName(styles.colorButton, isSelected && styles.colorButtonCurrent)}
-        aria-label={lang('Change Palette')}
-        onClick={() => handleAccentColorClick(index)}
-      >
-        {isAvailableAccentLoading && isLocked && <Spinner color="white" />}
-        {!isAvailableAccentLoading && isLocked && (
-          <i
-            className={buildClassName(styles.iconLock, 'icon-lock', color === '#FFFFFF' && styles.iconLockInverted)}
-            aria-hidden
-          />
-        )}
-      </button>
+      <div className={styles.palleteIcon}>
+        <div className={styles.miniCard}>
+          <CustomCardPreview nft={cardBackgroundNft} className={styles.miniCardPreview} />
+        </div>
+      </div>
     );
   }
 
@@ -290,22 +209,23 @@ function SettingsAppearance({
 
         {!IS_CORE_WALLET && !isNftBuyingDisabled && (
           <>
-            <p className={styles.blockTitle}>{lang('Palette')}</p>
+            <p className={styles.blockTitle}>{lang('Palette and Card')}</p>
             <div className={buildClassName(styles.block, styles.settingsBlockWithDescription)}>
-              <div className={styles.colorList}>
-                {renderColorButton()}
-                {sortedColors.map(({ color, index }) => renderColorButton(color, index))}
-              </div>
-              <div
-                className={styles.subBlockAsButton}
+              <a
                 role="button"
                 tabIndex={0}
-                onClick={() => handleUnlockNewPalettesClick()}
+                className={buildClassName(styles.item, styles.itemWithFixedHeight)}
+                onClick={handleCustomizeWalletClick}
               >
-                {lang('Unlock New Palettes')}
-              </div>
+                {renderPalleteIcon()}
+                {lang('Customize Wallet')}
+
+                <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
+              </a>
             </div>
-            <p className={styles.blockDescription}>{lang('Get a unique MyTonWallet Card to unlock new palettes.')}</p>
+            <p className={styles.blockDescription}>
+              {lang('Customize the wallet\'s home screen and color accents the way you like.')}
+            </p>
           </>
         )}
 
@@ -338,19 +258,10 @@ function SettingsAppearance({
 }
 
 export default memo(withGlobal<OwnProps>((global): StateProps => {
-  const {
-    orderedAddresses: nftAddresses,
-    byAddress: nftsByAddress,
-  } = selectCurrentAccountState(global)?.nfts || {};
-
-  const { config: { cardsInfo } = {} } = selectCurrentAccountState(global) || {};
+  const accountSettings = selectCurrentAccountSettings(global);
 
   return {
-    isViewMode: selectIsCurrentAccountViewMode(global),
-    accentColorIndex: selectCurrentAccountSettings(global)?.accentColorIndex,
-    nftAddresses,
-    nftsByAddress,
-    isMintingCardsAvailable: Boolean(cardsInfo),
+    cardBackgroundNft: accountSettings?.cardBackgroundNft,
     isNftBuyingDisabled: global.restrictions.isNftBuyingDisabled,
   };
 })(SettingsAppearance));

@@ -147,6 +147,12 @@ public class BottomSheetPlugin: CAPPlugin, FloatingPanelControllerDelegate {
                 return
             }
             let topBottomSheetPlugin = topVc.bridge?.plugin(withName: "BottomSheet") as? BottomSheetPlugin
+
+            let shouldFreeze = call.getBool("shouldFreeze") ?? false
+            if shouldFreeze {
+                topBottomSheetPlugin?.fpc.panGestureRecognizer.isEnabled = true
+            }
+
             call.resolve()
         }
     }
@@ -158,6 +164,12 @@ public class BottomSheetPlugin: CAPPlugin, FloatingPanelControllerDelegate {
                 return
             }
             let topBottomSheetPlugin = topVc.bridge!.plugin(withName: "BottomSheet") as! BottomSheetPlugin
+
+            let shouldFreeze = call.getBool("shouldFreeze") ?? false
+            if shouldFreeze {
+                topBottomSheetPlugin.fpc.panGestureRecognizer.isEnabled = false
+            }
+
             call.resolve()
         }
     }
@@ -214,13 +226,13 @@ public class BottomSheetPlugin: CAPPlugin, FloatingPanelControllerDelegate {
                 assertionFailure("bridge or view controller is not set")
                 return
             }
-            
+
             if let colorString = call.getString("backgroundColor") {
                 parentFpc.surfaceView.backgroundColor = UIColor(hexString: colorString)
             } else {
                 assertionFailure("can't get backgroundColor argument")
             }
-            
+
             if let topVc = parentFpc.presentingViewController as? CAPBridgeViewController,
                let topBottomSheetPlugin = topVc.bridge?.plugin(withName: "BottomSheet") as? BottomSheetPlugin,
                let heightString = call.getString("height"),
@@ -232,7 +244,7 @@ public class BottomSheetPlugin: CAPPlugin, FloatingPanelControllerDelegate {
             } else {
                 assertionFailure("can't find parent plugin or height")
             }
-            
+
             if let webView = bridge.webView {
                 webView.becomeFirstResponder()
             } else {
@@ -426,7 +438,7 @@ public class BottomSheetPlugin: CAPPlugin, FloatingPanelControllerDelegate {
             assertionFailure("can't find view")
             return
         }
-        
+
         let y = fpc.surfaceView.frame.origin.y
         let offsetTop = view.safeAreaInsets.top + FULL_INSET
         let currentOffsetY = y - offsetTop

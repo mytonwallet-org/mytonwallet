@@ -385,7 +385,7 @@ extension ReceiveTableVC: UITableViewDelegate, UITableViewDataSource {
                 }
                 .background(content: {
                     Color(WTheme.groupedItem)
-                        .clipShape(.rect(cornerRadius: 12))
+                        .clipShape(.rect(cornerRadius: S.addressSectionCornerRadius))
                         .padding(.horizontal, 16)
                 })
                 return cell

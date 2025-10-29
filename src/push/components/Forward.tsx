@@ -82,12 +82,12 @@ function Forward({ isActive, check, address, setAddress, setDomain, onForward, o
         <AddressInput
           ref={inputRef}
           isStatic
+          withCurrentAccount
           label={INVISIBLE_LABEL}
           chain={CHAIN}
           value={address}
           address={address}
           addressName=""
-          currentAccountId=""
           error={error}
           onInput={handleInput}
           onClose={onBack}

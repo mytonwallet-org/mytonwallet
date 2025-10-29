@@ -43,6 +43,7 @@ function DappPassword({
         withCloseButton={IS_CAPACITOR}
         submitLabel={lang('Connect')}
         cancelLabel={lang('Cancel')}
+        noAutoConfirm
         onSubmit={onSubmit}
         onCancel={onCancel}
         onUpdate={clearDappConnectRequestError}

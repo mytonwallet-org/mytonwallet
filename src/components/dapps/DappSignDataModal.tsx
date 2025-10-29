@@ -73,6 +73,7 @@ function DappSignDataModal({
           withCloseButton={IS_CAPACITOR}
           submitLabel={lang('Sign')}
           cancelLabel={lang('Back')}
+          noAutoConfirm
           onSubmit={handlePasswordSubmit}
           onCancel={handleBackClick}
           onUpdate={clearDappSignDataError}

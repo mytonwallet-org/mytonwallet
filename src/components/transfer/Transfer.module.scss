@@ -143,6 +143,10 @@
     background-color: var(--color-interactive-drop-down-menu-hover);
   }
 
+  &[aria-selected="true"] {
+    background-color: var(--color-interactive-drop-down-menu-hover);
+  }
+
   @include mixins.separator();
 
   @media (pointer: coarse) {

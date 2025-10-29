@@ -130,7 +130,6 @@ function StakeModal({
           onSubmit={handleTransferSubmit}
           onCancel={handleBackClick}
           onUpdate={clearStakingError}
-          skipAuthScreen
         >
           {renderTransactionBanner()}
         </PasswordForm>

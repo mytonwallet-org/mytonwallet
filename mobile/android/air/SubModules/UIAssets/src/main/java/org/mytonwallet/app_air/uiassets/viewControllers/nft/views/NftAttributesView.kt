@@ -77,7 +77,8 @@ class NftAttributesView(
             titlesBackground,
             LayoutParams(MATCH_CONSTRAINT, LayoutParams.MATCH_PARENT)
         )
-        for (attribute in nft.metadata?.attributes ?: emptyList()) {
+        val attributes = nft.metadata?.attributes ?: emptyList()
+        for ((index, attribute) in attributes.withIndex()) {
             val titleLabel = WLabel(context).apply {
                 setStyle(15f, WFont.Medium)
                 text = attribute.traitType
@@ -89,7 +90,11 @@ class NftAttributesView(
                 text = attribute.value
                 setTextColor(WColor.PrimaryText)
             }
-            val separator = WBaseView(context)
+            val separator = WBaseView(context).apply {
+                if (index != attributes.lastIndex) {
+                    setBackground(WColor.Separator)
+                }
+            }
             val horizontalBarrier = Barrier(context).apply {
                 id = generateViewId()
                 type = Barrier.BOTTOM
@@ -149,15 +154,14 @@ class NftAttributesView(
     }
 
     override fun updateTheme() {
-        rowViews.forEach { rowView ->
-            rowView.separator.setBackgroundColor(WColor.Separator.color)
-        }
         setBackgroundColor(WColor.Background.color, 8f.dp, 8f.dp, true, WColor.Separator.color, 1)
         titlesBackground.setBackgroundColor(
             WColor.AttributesBackground.color,
-            topRadius = 0f,
+            topLeftRadius = 8f.dp,
+            topRightRadius = 0f.dp,
+            bottomRightRadius = 0f.dp,
+            bottomLeftRadius = 8f.dp,
             clipToBounds = true,
-            bottomRadius = 0f,
             strokeColor = WColor.Separator.color,
             strokeWidth = 1
         )

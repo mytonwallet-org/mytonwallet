@@ -1,5 +1,5 @@
 import type { ApiStakingState } from '../../api/types';
-import type { GlobalState } from '../types';
+import type { Account, GlobalState } from '../types';
 
 import { DEFAULT_NOMINATORS_STAKING_STATE, IS_STAKING_DISABLED, TONCOIN } from '../../config';
 import { buildCollectionByKey } from '../../util/iteratees';
@@ -52,4 +52,20 @@ export function selectAccountStakingTotalProfit(global: GlobalState, accountId: 
 
 export function selectIsStakingDisabled(global: GlobalState) {
   return Boolean(IS_STAKING_DISABLED || global.settings.isTestnet);
+}
+
+export function selectMultipleAccountsStakingStatesSlow(
+  networkAccounts: Record<string, Account> | undefined,
+  byAccountId: GlobalState['byAccountId'],
+  stakingDefault: ApiStakingState,
+) {
+  const result: Record<string, ApiStakingState[] | undefined> = {};
+  if (networkAccounts === undefined) return result;
+
+  for (const accountId in networkAccounts) {
+    const { stateById } = byAccountId[accountId]?.staking ?? {};
+    result[accountId] = selectAccountStakingStatesMemoizedFor(accountId)(stakingDefault, stateById);
+  }
+
+  return result;
 }

@@ -6,11 +6,16 @@ import React, {
   useRef,
   useState,
 } from '../../lib/teact/teact';
-import { getActions } from '../../global';
+import { getActions, withGlobal } from '../../global';
 
 import type { ApiChain } from '../../api/types';
 import type { Account, SavedAddress } from '../../global/types';
 
+import {
+  selectCurrentAccount,
+  selectCurrentAccountState,
+  selectNetworkAccounts,
+} from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { readClipboardContent } from '../../util/clipboard';
 import { isDnsDomain } from '../../util/dns';
@@ -26,13 +31,16 @@ import {
 
 import useEffectOnce from '../../hooks/useEffectOnce';
 import useFlag from '../../hooks/useFlag';
+import useKeyboardListNavigation from '../../hooks/useKeyboardListNavigation';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useQrScannerSupport from '../../hooks/useQrScannerSupport';
 import useUniqueId from '../../hooks/useUniqueId';
+import useAddressBookItems from './hooks/useAddressBookItems';
 
 import DeleteSavedAddressModal from '../main/modals/DeleteSavedAddressModal';
 import AddressBook from './AddressBook';
+import { SUGGESTION_ITEM_CLASS_NAME } from './AddressBookItem';
 import Button from './Button';
 import Input from './Input';
 import Transition from './Transition';
@@ -48,17 +56,24 @@ interface OwnProps {
   chain?: ApiChain;
   isStatic?: boolean;
   withQrScan?: boolean;
+  withCurrentAccount?: boolean;
   address: string;
   addressName: string;
   addressBookChain?: ApiChain;
-  accounts?: Record<string, Account>;
-  currentAccountId: string;
   savedAddresses?: SavedAddress[];
   validateAddress?: ({ address }: { address?: string }) => void;
   error?: string;
   onInput: (value: string, isValueReplaced?: boolean) => void;
   onPaste?: (value: string) => void;
   onClose: NoneToVoidFunction;
+}
+
+interface StateProps {
+  currentAccountId: string | undefined;
+  savedAddresses?: SavedAddress[];
+  accounts?: Record<string, Account>;
+  supportedChains?: Partial<Record<ApiChain, unknown>>;
+  orderedAccountIds?: string[];
 }
 
 const SHORT_ADDRESS_SHIFT = 4;
@@ -73,18 +88,21 @@ function AddressInput({
   chain,
   isStatic,
   withQrScan,
+  withCurrentAccount,
   address,
   addressName,
   addressBookChain,
   accounts,
-  currentAccountId,
+  currentAccountId = '',
   savedAddresses,
+  supportedChains,
+  orderedAccountIds,
   validateAddress,
   error,
   onInput,
   onPaste,
   onClose,
-}: OwnProps) {
+}: OwnProps & StateProps) {
   const {
     showNotification,
     requestOpenQrScanner,
@@ -107,8 +125,15 @@ function AddressInput({
   const localError = hasAddressError ? lang('Incorrect address') : undefined;
 
   const addressBookAccountIds = useMemo(() => {
-    return accounts ? Object.keys(accounts).filter((accountId) => accountId !== currentAccountId) : [];
-  }, [currentAccountId, accounts]);
+    if (!accounts) return [];
+
+    const allAccountIds = Object.keys(accounts);
+
+    return withCurrentAccount
+      ? allAccountIds
+      : allAccountIds.filter((accountId) => accountId !== currentAccountId);
+  }, [currentAccountId, accounts, withCurrentAccount]);
+
   const shouldUseAddressBook = useMemo(() => {
     return addressBookAccountIds.length > 0 || (savedAddresses && savedAddresses.length > 0);
   }, [addressBookAccountIds.length, savedAddresses]);
@@ -122,6 +147,38 @@ function AddressInput({
       accounts: accounts!,
     }) : undefined;
   }, [accounts, chain, currentAccountId, savedAddresses, value]);
+
+  const addressBookItems = useAddressBookItems({
+    savedAddresses,
+    accounts,
+    supportedChains,
+    otherAccountIds: addressBookAccountIds,
+    currentChain: addressBookChain,
+    searchValue: value,
+    orderedAccountIds,
+  });
+
+  const handleAddressBookItemSelect = useLastCallback((address: string) => {
+    onInput(address, true);
+    onPaste?.(address);
+    closeAddressBook();
+  });
+
+  const {
+    activeIndex,
+    listRef: menuRef,
+    handleKeyDown,
+    resetIndex,
+  } = useKeyboardListNavigation(
+    isAddressBookOpen,
+    (index) => {
+      const item = addressBookItems[index];
+      if (item) {
+        handleAddressBookItemSelect(item.address);
+      }
+    },
+    `.${SUGGESTION_ITEM_CLASS_NAME}`,
+  );
 
   const withPasteButton = shouldRenderPasteButton && !value;
   const withQrButton = withQrScan && isQrScannerSupported;
@@ -242,6 +299,7 @@ function AddressInput({
     if (!shouldUseAddressBook || !isAddressBookOpen) return;
 
     closeAddressBook();
+    resetIndex();
 
     if (addressBookTimeoutRef.current) {
       window.clearTimeout(addressBookTimeoutRef.current);
@@ -257,12 +315,6 @@ function AddressInput({
   const handleDeleteSavedAddressModalClose = useLastCallback(() => {
     setAddressForDeletion(undefined);
     setChainForDeletion(undefined);
-  });
-
-  const handleAddressBookItemSelect = useLastCallback((address: string) => {
-    onInput(address, true);
-    onPaste?.(address);
-    closeAddressBook();
   });
 
   function renderInputActions() {
@@ -324,6 +376,7 @@ function AddressInput({
         valueOverlay={!localError ? addressOverlay : undefined}
         onInput={onInput}
         onPaste={handleAddressPaste}
+        onKeyDown={handleKeyDown}
         onFocus={handleAddressFocus}
         onBlur={handleAddressBlur}
       >
@@ -333,9 +386,9 @@ function AddressInput({
         <>
           <AddressBook
             isOpen={isAddressBookOpen}
-            currentChain={addressBookChain}
-            currentAddress={value}
-            otherAccountIds={addressBookAccountIds}
+            items={addressBookItems}
+            menuRef={menuRef}
+            activeIndex={activeIndex}
             onAddressSelect={handleAddressBookItemSelect}
             onSavedAddressDelete={handleDeleteSavedAddressClick}
             onClose={closeAddressBook}
@@ -352,4 +405,15 @@ function AddressInput({
   );
 }
 
-export default memo(AddressInput);
+export default memo(withGlobal<OwnProps>((global): StateProps => {
+  const account = selectCurrentAccount(global);
+  const accountState = selectCurrentAccountState(global);
+
+  return {
+    savedAddresses: accountState?.savedAddresses,
+    supportedChains: account?.byChain,
+    accounts: selectNetworkAccounts(global),
+    currentAccountId: global.currentAccountId,
+    orderedAccountIds: global.settings.orderedAccountIds,
+  };
+})(AddressInput));

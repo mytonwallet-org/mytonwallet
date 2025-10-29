@@ -7,9 +7,10 @@ import captureKeyboardListeners from '../../util/captureKeyboardListeners';
 import { callApi } from '../../api';
 
 import useFlag from '../../hooks/useFlag';
+import useKeyboardListNavigation from '../../hooks/useKeyboardListNavigation';
 import useLastCallback from '../../hooks/useLastCallback';
 
-import SuggestionList from '../ui/SuggestionList';
+import SuggestionList, { SUGGESTION_ITEM_CLASS_NAME } from '../ui/SuggestionList';
 
 import styles from './InputMnemonic.module.scss';
 
@@ -34,14 +35,43 @@ function InputMnemonic({
   const [hasFocus, markFocus, unmarkFocus] = useFlag();
   const [hasError, setHasError] = useState<boolean>(false);
   const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
-  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState<number>(0);
   const [areSuggestionsShown, setAreSuggestionsShown] = useState<boolean>(false);
   const [wordlist, setWordlist] = useState<string[]>([]);
-  const shouldRenderSuggestions = areSuggestionsShown && value && filteredSuggestions.length > 0;
+  const shouldRenderSuggestions = Boolean(areSuggestionsShown && value && filteredSuggestions.length > 0);
 
   useEffect(() => {
     void callApi('getMnemonicWordList').then((words) => setWordlist(words ?? []));
   }, []);
+
+  const handleSelectWithEnter = useLastCallback((index: number) => {
+    const suggestedValue = filteredSuggestions[index];
+    if (!suggestedValue) return;
+
+    onInput(suggestedValue, inputArg);
+    setFilteredSuggestions([suggestedValue]);
+    setAreSuggestionsShown(false);
+
+    if (nextId) {
+      requestMeasure(() => {
+        requestMeasure(() => {
+          const nextInput = document.getElementById(nextId);
+          nextInput?.focus();
+          (nextInput as HTMLInputElement)?.select();
+        });
+      });
+    }
+  });
+
+  const {
+    activeIndex,
+    listRef: suggestionsRef,
+    handleKeyDown: handleKeyDownNavigation,
+    resetIndex,
+  } = useKeyboardListNavigation(
+    shouldRenderSuggestions,
+    handleSelectWithEnter,
+    `.${SUGGESTION_ITEM_CLASS_NAME}`,
+  );
 
   useEffect(() => {
     const noError = !value
@@ -58,8 +88,8 @@ function InputMnemonic({
 
     onInput(userInput, inputArg);
     setFilteredSuggestions(unLinked);
-    setActiveSuggestionIndex(0);
     setAreSuggestionsShown(true);
+    resetIndex();
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -76,63 +106,42 @@ function InputMnemonic({
     processSuggestions(pastedValue);
   };
 
-  const handleEnter = useLastCallback((e: KeyboardEvent) => {
-    if (!value) return;
-
-    if (onEnter && !areSuggestionsShown) {
+  const handleKeyDown = useLastCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Call `onEnter` when Enter button is pressed without suggestions
+    if (e.key === 'Enter' && !shouldRenderSuggestions && onEnter) {
       onEnter();
+      return;
     }
 
-    const suggestedValue = filteredSuggestions[activeSuggestionIndex];
-    if (!suggestedValue) return;
-    onInput(suggestedValue, inputArg);
-    setFilteredSuggestions([suggestedValue]);
-    setActiveSuggestionIndex(0);
-    setAreSuggestionsShown(false);
-
-    if (areSuggestionsShown) {
-      e.preventDefault();
-    }
-
-    if (nextId) {
-      requestMeasure(() => {
-        requestMeasure(() => {
-          const nextInput = document.getElementById(nextId);
-          nextInput?.focus();
-          (nextInput as HTMLInputElement)?.select();
-        });
-      });
-    }
+    handleKeyDownNavigation(e);
   });
 
+  // Handle Tab key separately for Enter-like behavior
   useEffect(() => {
-    return hasFocus ? captureKeyboardListeners({
-      onEnter: handleEnter,
+    if (!hasFocus || !shouldRenderSuggestions) return undefined;
+
+    return captureKeyboardListeners({
       onTab: (e: KeyboardEvent) => {
         if (!(e.shiftKey || e.ctrlKey || e.altKey || e.metaKey)) {
-          handleEnter(e);
+          e.preventDefault();
+
+          // If nothing is selected (activeIndex < 0), select the first item
+          const indexToSelect = activeIndex < 0 ? 0 : activeIndex;
+          handleSelectWithEnter(indexToSelect);
         }
       },
-      onUp: () => {
-        if (activeSuggestionIndex > 0) {
-          setActiveSuggestionIndex(activeSuggestionIndex - 1);
-        }
-      },
-      onDown: () => {
-        if (activeSuggestionIndex < filteredSuggestions.length - 1) {
-          setActiveSuggestionIndex(activeSuggestionIndex + 1);
-        }
-      },
-    }) : undefined;
-  });
+    });
+  }, [hasFocus, shouldRenderSuggestions, activeIndex, handleSelectWithEnter]);
 
   const handleClick = useLastCallback((suggestion: string) => {
     onInput(suggestion, inputArg);
     setAreSuggestionsShown(false);
-    setActiveSuggestionIndex(0);
     setFilteredSuggestions([]);
+    resetIndex();
 
     if (nextId) {
+      // During the first render, the value is set.
+      // During the second render, the component is re-rendered and ready for focus.
       requestMeasure(() => {
         requestMeasure(() => {
           const nextInput = document.getElementById(nextId);
@@ -169,8 +178,9 @@ function InputMnemonic({
     >
       {shouldRenderSuggestions && (
         <SuggestionList
+          listRef={suggestionsRef}
           suggestions={filteredSuggestions}
-          activeIndex={activeSuggestionIndex}
+          activeIndex={activeIndex}
           position={suggestionsPosition}
           isInModal={isInModal}
           onSelect={handleClick}
@@ -186,6 +196,7 @@ function InputMnemonic({
         autoCorrect={false}
         spellCheck={false}
         onChange={handleChange}
+        onKeyDown={handleKeyDown}
         onFocus={handleFocus}
         onBlur={handleBlur}
         onPaste={handlePaste}

@@ -41,9 +41,7 @@ public class AssetsAndActivityVC: WViewController {
         super.loadView()
         setupViews()
     }
-    
-    public override var hideNavigationBar: Bool { true }
-    
+        
     public override func viewDidLoad() {
         super.viewDidLoad()
         WalletCoreData.add(eventObserver: self)
@@ -313,7 +311,7 @@ public class AssetsAndActivityVC: WViewController {
         v.addSubview(addTokenLabel)
         v.addSubview(addTokenSeparator)
         v.translatesAutoresizingMaskIntoConstraints = false
-        v.layer.cornerRadius = 10
+        v.layer.cornerRadius = S.insetSectionCornerRadius
         v.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         NSLayoutConstraint.activate([
             addTokenIcon.leadingAnchor.constraint(equalTo: v.leadingAnchor, constant: 24),
@@ -324,7 +322,7 @@ public class AssetsAndActivityVC: WViewController {
             addTokenSeparator.bottomAnchor.constraint(equalTo: v.bottomAnchor),
             addTokenSeparator.trailingAnchor.constraint(equalTo: v.trailingAnchor),
             addTokenSeparator.leadingAnchor.constraint(equalTo: addTokenLabel.leadingAnchor),
-            v.heightAnchor.constraint(equalToConstant: 44)
+            v.heightAnchor.constraint(equalToConstant: S.sectionItemHeight)
         ])
         v.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(addTokenPressed)))
         return v
@@ -385,6 +383,14 @@ extension AssetsAndActivityVC: UITableViewDelegate {
             return 16
         case nil:
             fatalError()
+        }
+    }
+    public func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        switch dataSource.itemIdentifier(for: indexPath) {
+        case .hiddenNfts:
+            return S.sectionItemHeight
+        default:
+            return UITableView.automaticDimension
         }
     }
     

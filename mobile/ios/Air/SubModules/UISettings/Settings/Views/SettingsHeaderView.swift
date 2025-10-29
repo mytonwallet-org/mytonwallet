@@ -26,10 +26,15 @@ class SettingsHeaderView: WTouchPassView, WThemedView {
         fatalError("init(coder:) has not been implemented")
     }
     
+    private var walletNameLeadingConstraint: NSLayoutConstraint!
+
     private var qrButton: UIButton = {
         let btn = UIButton(type: .system)
         btn.translatesAutoresizingMaskIntoConstraints = false
         btn.setImage(UIImage(named: "QRIcon", in: AirBundle, compatibleWith: nil)?.withRenderingMode(.alwaysTemplate), for: .normal)
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+            btn.isHidden = true
+        }
         return btn
     }()
     
@@ -54,6 +59,9 @@ class SettingsHeaderView: WTouchPassView, WThemedView {
             qrButton.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             qrButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 6)
         ])
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+            blurView.isHidden = true
+        }
         return view
     }()
     
@@ -114,10 +122,11 @@ class SettingsHeaderView: WTouchPassView, WThemedView {
         view.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(walletNameLabel)
         view.addSubview(descriptionStackView)
+        walletNameLeadingConstraint = walletNameLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16)
         NSLayoutConstraint.activate([
             walletNameLabel.topAnchor.constraint(equalTo: view.topAnchor),
-            walletNameLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            walletNameLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            walletNameLeadingConstraint,
+            walletNameLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             descriptionStackView.topAnchor.constraint(equalTo: walletNameLabel.bottomAnchor, constant: 0),
             descriptionStackView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             descriptionStackView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
@@ -131,6 +140,9 @@ class SettingsHeaderView: WTouchPassView, WThemedView {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
         view.alpha = 0
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+            view.isHidden = true
+        }
         return view
     }()
 
@@ -141,7 +153,7 @@ class SettingsHeaderView: WTouchPassView, WThemedView {
     private var walletInfoViewXConstraint: NSLayoutConstraint!
     private var walletInfoViewTopConstraint: NSLayoutConstraint!
 
-    func setupViews() {
+    func setupViews(settingsVC: SettingsVC) {
         shouldAcceptTouchesOutside = true
 
         translatesAutoresizingMaskIntoConstraints = false
@@ -151,10 +163,12 @@ class SettingsHeaderView: WTouchPassView, WThemedView {
         addSubview(walletInfoView)
         addSubview(separatorView)
 
-        bottomConstraint = bottomAnchor.constraint(equalTo: superview!.safeAreaLayoutGuide.topAnchor, constant: defaultHeight)
-        avatarTopConstraint = avatarImageView.topAnchor.constraint(equalTo: superview!.safeAreaLayoutGuide.topAnchor, constant: 15)
+        let safeAreaGuide = settingsVC.windowSafeAreaGuide
+        
+        bottomConstraint = bottomAnchor.constraint(equalTo: safeAreaGuide.topAnchor, constant: defaultHeight)
+        avatarTopConstraint = avatarImageView.topAnchor.constraint(equalTo: safeAreaGuide.topAnchor, constant: 15)
         walletInfoViewTopConstraint = walletInfoView.topAnchor.constraint(equalTo: navBarView.bottomAnchor, constant: walletInfoTop)
-
+        
         NSLayoutConstraint.activate([
             avatarTopConstraint,
             avatarImageView.centerXAnchor.constraint(equalTo: centerXAnchor),
@@ -167,7 +181,7 @@ class SettingsHeaderView: WTouchPassView, WThemedView {
             navBarView.topAnchor.constraint(equalTo: topAnchor),
             navBarView.leftAnchor.constraint(equalTo: leftAnchor),
             navBarView.rightAnchor.constraint(equalTo: rightAnchor),
-            navBarView.bottomAnchor.constraint(equalTo: superview!.safeAreaLayoutGuide.topAnchor, constant: 40),
+            navBarView.bottomAnchor.constraint(equalTo: safeAreaGuide.topAnchor, constant: 40),
             
             walletInfoView.centerXAnchor.constraint(equalTo: centerXAnchor),
             walletInfoView.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -24),
@@ -258,7 +272,7 @@ class SettingsHeaderView: WTouchPassView, WThemedView {
             descriptionStackView.transform = .identity
         } else {
             let collapseProgress = min(1, scrollOffset / (defaultHeight - 50))
-            walletInfoViewTopConstraint.constant = interpolate(from: walletInfoTop, to: -32.5, progress: collapseProgress)
+            walletInfoViewTopConstraint.constant = interpolate(from: walletInfoTop, to: S.walletInfoTopCollapsedConstant, progress: collapseProgress)
             walletNameLabel.font = .systemFont(ofSize: interpolate(from: 28, to: 17, progress: collapseProgress), weight: .semibold)
             descriptionStackView.alpha = 1 - collapseProgress
             let scale = 0.75 + 0.25 * (1 - collapseProgress)
@@ -271,6 +285,13 @@ class SettingsHeaderView: WTouchPassView, WThemedView {
                     self.separatorView.alpha = targetAlpha
                 }
             }
+            let additionalSpacing: CGFloat
+            if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+                additionalSpacing = 36
+            } else {
+                additionalSpacing = 16
+            }
+            walletNameLeadingConstraint.constant = 16 + collapseProgress * additionalSpacing
         }
     }
     
@@ -279,3 +300,12 @@ class SettingsHeaderView: WTouchPassView, WThemedView {
     }
 }
 
+extension S {
+    static var walletInfoTopCollapsedConstant: CGFloat {
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+            -29
+        } else {
+            -32.5
+        }
+    }
+}

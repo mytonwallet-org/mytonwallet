@@ -360,7 +360,6 @@ function UnstakeModal({
           onSubmit={handleTransferSubmit}
           onCancel={handleBackClick}
           onUpdate={clearStakingError}
-          skipAuthScreen
         >
           {renderTransactionBanner()}
         </PasswordForm>

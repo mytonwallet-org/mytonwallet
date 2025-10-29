@@ -958,3 +958,37 @@ Show More: Daha fazla göster
 Search app or enter address: Uygulama ara veya adres gir
 Connected Apps: Bağlı Uygulamalar
 Popular Apps: Popüler Uygulamalar
+$wallets_amount:
+  zeroValue: Cüzdan yok
+  oneValue: "%1$d cüzdan"
+  otherValue: "%1$d cüzdan"
+$total_balance: "%balance% toplam"
+No wallets: Cüzdan yok
+View as List: Liste olarak görüntüle
+View as Cards: Kart olarak görüntüle
+Reorder: Yeniden sırala
+Rename: Yeniden adlandır
+Customize: Özelleştir
+i18n_dragToSort: Sıralamak için sürükle
+My: Benim
+All: Tümü
+$view_accounts: Görüntüle
+Add your first one to begin.: Başlamak için ilk cüzdanınızı ekleyin.
+You don’t have any wallets yet: Henüz hiç cüzdanınız yok
+Add New Wallet: Yeni Cüzdan Ekle
+Add Ledger Wallet: Ledger Cüzdanı Ekle
+Add View Wallet: Görüntüleme Cüzdanı Ekle
+No Ledger wallets yet: Henüz Ledger cüzdanı yok
+No view wallets yet: Henüz görüntüleme cüzdanı yok
+Add the first one to track balances and activity for any address.: Herhangi bir adresin bakiyelerini ve aktivitelerini takip etmek için ilk cüzdanı ekleyin.
+Customize Wallet: Cüzdanı özelleştir
+'Select the card stored in this wallet:': 'Bu cüzdanda saklanan kartı seçin:'
+This card will be installed for this wallet and will be displayed on the home screen and in the wallets list.: Bu kart bu cüzdan için yüklenecek ve ana ekranda ve cüzdanlar listesinde görüntülenecektir.
+Get More Cards: Daha fazla kart al
+Browse MyTonWallet Cards available for purchase.: Satın alınabilecek MyTonWallet Kartlarına göz atın.
+Apply Card: Kartı uygula
+You don't have any cards to customize yet: Henüz özelleştirebileceğiniz kartınız yok.
+MyTonWallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: MyTonWallet Kartları cüzdanlara yüklenebilir ve ana ekranda ile cüzdan listesinde görüntülenebilir.
+Get First Card: İlk kartı al
+Palette and Card: Palet ve Kart
+Customize the wallet's home screen and color accents the way you like.: Cüzdanın ana ekranını ve renk vurgularını istediğiniz gibi özelleştirin.

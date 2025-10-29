@@ -33,7 +33,7 @@ public class HomeTabBarController: UITabBarController, WThemedView {
     private var forwardedGestureRecognizer: ForwardedGestureRecognizer!
     private var blurView: WBlurView!
     private var blurSnapshotContainer: UIView!
-    private var tabBarBorder: UIView!
+    private var tabBarBorder: UIView?
     private var isSheetMinimized: Bool = false
     private var placeholderShown: Bool = false
     private var placeholder: UIView? = nil
@@ -54,28 +54,30 @@ public class HomeTabBarController: UITabBarController, WThemedView {
 
         delegate = self
         
-        tabBar.layer.borderWidth = 0
-        tabBar.clipsToBounds = true
-
         view.layer.cornerRadius = 10.667
         view.layer.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
         view.layer.masksToBounds = true
-
-        let appearance = UITabBarAppearance()
-        appearance.configureWithTransparentBackground()
-        tabBar.standardAppearance = appearance
-        tabBar.scrollEdgeAppearance = appearance
         
-        tabBarBorder = UIView()
-        tabBarBorder.translatesAutoresizingMaskIntoConstraints = false
-        tabBarBorder.backgroundColor = WTheme.separator
-        tabBar.addSubview(tabBarBorder)
-        NSLayoutConstraint.activate([
-            tabBarBorder.leadingAnchor.constraint(equalTo: tabBar.leadingAnchor),
-            tabBarBorder.trailingAnchor.constraint(equalTo: tabBar.trailingAnchor),
-            tabBarBorder.topAnchor.constraint(equalTo: tabBar.topAnchor),
-            tabBarBorder.heightAnchor.constraint(equalToConstant: 0.33)
-        ])
+        if IOS_26_MODE_ENABLED {
+        } else {
+            tabBar.layer.borderWidth = 0
+            tabBar.clipsToBounds = true
+            let appearance = UITabBarAppearance()
+            appearance.configureWithTransparentBackground()
+            tabBar.standardAppearance = appearance
+            tabBar.scrollEdgeAppearance = appearance
+            let tabBarBorder = UIView()
+            self.tabBarBorder = tabBarBorder
+            tabBarBorder.translatesAutoresizingMaskIntoConstraints = false
+            tabBarBorder.backgroundColor = WTheme.separator
+            tabBar.addSubview(tabBarBorder)
+            NSLayoutConstraint.activate([
+                tabBarBorder.leadingAnchor.constraint(equalTo: tabBar.leadingAnchor),
+                tabBarBorder.trailingAnchor.constraint(equalTo: tabBar.trailingAnchor),
+                tabBarBorder.topAnchor.constraint(equalTo: tabBar.topAnchor),
+                tabBarBorder.heightAnchor.constraint(equalToConstant: 0.33)
+            ])
+        }
         
         WalletCoreData.add(eventObserver: self)
         
@@ -84,7 +86,7 @@ public class HomeTabBarController: UITabBarController, WThemedView {
         
         let homeNav = WNavigationController(rootViewController: homeVC)
         let settingsViewController = SettingsVC()
-        let browserViewController = BrowserTabVC()
+        let browserViewController = ExploreTabVC()
         
         homeNav.tabBarItem.image = UIImage(named: "tab_home", in: AirBundle, compatibleWith: nil)
         homeNav.title = lang("Wallet")
@@ -201,7 +203,7 @@ public class HomeTabBarController: UITabBarController, WThemedView {
     }
     
     public func updateTheme() {
-        tabBarBorder.backgroundColor = WTheme.separator
+        tabBarBorder?.backgroundColor = WTheme.separator
         tabBar.tintColor = WTheme.tint
     }
     
@@ -218,7 +220,7 @@ public class HomeTabBarController: UITabBarController, WThemedView {
     }
     
     func tabChanged(to selectedIndex: Int) {
-        tabBarBorder.isHidden = selectedIndex == Tab.browser.rawValue
+        tabBarBorder?.isHidden = selectedIndex == Tab.browser.rawValue
     }
 
     public var currentTab: Tab {
@@ -282,22 +284,26 @@ public class HomeTabBarController: UITabBarController, WThemedView {
     
     func addGestureRecognizer() {
         for (index, view) in tabViews().enumerated() {
-            let highlightGesture = UILongPressGestureRecognizer()
-            highlightGesture.addTarget(self, action: #selector(onTouch))
-            highlightGesture.delegate = self
-            highlightGesture.minimumPressDuration = 0
-            highlightGesture.allowableMovement = 100
-            view.addGestureRecognizer(highlightGesture)
-            
-            let tapGesture = UITapGestureRecognizer()
-            tapGesture.addTarget(self, action: #selector(onSelect))
-            tapGesture.delegate = self
-            view.addGestureRecognizer(tapGesture)
+            if IOS_26_MODE_ENABLED {
+            } else {
+                let highlightGesture = UILongPressGestureRecognizer()
+                highlightGesture.addTarget(self, action: #selector(onTouch))
+                highlightGesture.delegate = self
+                highlightGesture.minimumPressDuration = 0
+                highlightGesture.allowableMovement = 100
+                view.addGestureRecognizer(highlightGesture)
+                
+                let tapGesture = UITapGestureRecognizer()
+                tapGesture.addTarget(self, action: #selector(onSelect))
+                tapGesture.delegate = self
+                view.addGestureRecognizer(tapGesture)
+            }
             
             if let viewControllers, index <= viewControllers.count, let nc = viewControllers[index] as? WNavigationController, nc.viewControllers.first is SettingsVC {
                 let gesture = UILongPressGestureRecognizer()
                 gesture.minimumPressDuration = 0.25
                 gesture.addTarget(self, action: #selector(onLongTap))
+                gesture.delegate = self
                 view.addGestureRecognizer(gesture)
             }
         }
@@ -528,37 +534,18 @@ extension HomeTabBarController: UITabBarControllerDelegate {
         if viewController === selectedViewController  {
             scrollToTop(tabVC: viewController)
         }
-        tabBarBorder.isHidden = selectedIndex == Tab.browser.rawValue
+        tabBarBorder?.isHidden = selectedIndex == Tab.browser.rawValue
         return true
     }
     
     public func tabBarController(_ tabBarController: UITabBarController, didSelect viewController: UIViewController) {
         blurView.isHidden = true
         blurView.alpha = 0
-//        let toBrowser = viewController is BrowserTabVC
-//        if !toBrowser {
-//            blurView.alpha = 0.5
-//        }
-//        UIView.animate(withDuration: 0.2, delay: toBrowser ? 0.25 : 0, options: [.allowAnimatedContent, .allowUserInteraction]) {
-//            self.blurView.alpha = toBrowser ?
-//        } completion: { <#Bool#> in
-//            <#code#>
-//        }
-//
-//        self.transitionCoordinator?.animate(alongsideTransition: { ctx in
-//        }, completion: { ctx in
-//            ctx.transitionDuration
-//            if toBrowser {
-//                self.blurView.alpha = 0.5
-//            } else {
-//                self.blurView.alpha = 1
-//            }
-//        })
     }
 }
 
 
-final class ForwardedGestureRecognizer: UIGestureRecognizer {
+final class ForwardedGestureRecognizer: UILongPressGestureRecognizer {
     
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
         state = .began

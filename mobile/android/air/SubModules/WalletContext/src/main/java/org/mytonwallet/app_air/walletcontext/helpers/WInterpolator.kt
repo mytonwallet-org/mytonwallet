@@ -16,14 +16,6 @@ class WInterpolator {
                 cubicTo(0.208333f, 0.82f, 0.25f, 1f, 1f, 1f)
             })
 
-        fun easeInOut(progress: Float): Float {
-            return if (progress < 0.5f) {
-                4 * progress * progress * progress
-            } else {
-                1 - (-2 * progress + 2).pow(3f) / 2
-            }
-        }
-
         fun easeOut(progress: Float): Float {
             return 1 - (1 - progress).pow(3f)
         }

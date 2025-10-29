@@ -32,6 +32,7 @@ class SettingsItemCell: UICollectionViewCell, WThemedView {
     }()
     
     private var iconImageView = IconView(size: 30)
+    private var gradintLayer = CAGradientLayer()
     
     private var titleLabel: UILabel = {
         let lbl = UILabel()
@@ -118,6 +119,18 @@ class SettingsItemCell: UICollectionViewCell, WThemedView {
         // This constraint will be deactivated, whenever rightArrow is not visible.
         valueToLeftOfArrowConstraint = valueLabel.trailingAnchor.constraint(equalTo: rightArrow.leadingAnchor, constant: -8)
         
+        layer.addSublayer(gradintLayer)
+        gradintLayer.colors = [
+            UIColor.white.withAlphaComponent(1).cgColor,
+            UIColor.white.withAlphaComponent(0).cgColor,
+        ]
+        gradintLayer.locations = [0, 1]
+        gradintLayer.startPoint = CGPoint(x: 0.5, y: 0)
+        gradintLayer.endPoint = CGPoint(x: 0.5, y: 1)
+        gradintLayer.opacity = 0.5
+        gradintLayer.cornerRadius = 8
+        gradintLayer.compositingFilter = "softLightBlendMode"
+        
         NSLayoutConstraint.activate([
             
             leadingGuide.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
@@ -174,7 +187,11 @@ class SettingsItemCell: UICollectionViewCell, WThemedView {
         titleLabel.text = item.title
         subtitleLabel.text = item.subtitle
         subtitleLabel.isHidden = item.subtitle?.nilIfEmpty == nil
-        heightConstraint.constant = subtitleLabel.isHidden ? 44 : 50
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+            heightConstraint.constant = subtitleLabel.isHidden ? 52 : 60
+        } else {
+            heightConstraint.constant = subtitleLabel.isHidden ? 44 : 50
+        }
         valueLabel.text = value
         if item.isDangerous {
             titleCenterXConstraint.isActive = true
@@ -187,5 +204,10 @@ class SettingsItemCell: UICollectionViewCell, WThemedView {
         }
         valueToLeftOfArrowConstraint.isActive = !rightArrow.isHidden
         containerView.backgroundColor = WTheme.groupedItem
+    }
+    
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        gradintLayer.frame = iconImageView.frame
     }
 }

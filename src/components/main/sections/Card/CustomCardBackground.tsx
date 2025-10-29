@@ -19,6 +19,7 @@ interface OwnProps {
   shouldHide?: boolean;
   onLoad?: (hasGradient: boolean, className?: string) => void;
   onTransitionEnd: NoneToVoidFunction;
+  className?: string;
 }
 
 function CustomCardBackground({
@@ -28,6 +29,7 @@ function CustomCardBackground({
   shouldHide,
   onLoad,
   onTransitionEnd,
+  className,
 }: OwnProps) {
   const { imageUrl } = useCachedImage(nft ? getCardNftImageUrl(nft) : undefined);
   const [isLoaded, markLoaded] = useFlag();
@@ -57,7 +59,7 @@ function CustomCardBackground({
   const withShadow = nft.metadata?.mtwCardType === 'standard';
 
   return (
-    <div ref={ref} className={rootClassName} onTransitionEnd={onTransitionEnd}>
+    <div ref={ref} className={buildClassName(rootClassName, className)} onTransitionEnd={onTransitionEnd}>
       {imageUrl && (
         <img
           src={imageUrl}

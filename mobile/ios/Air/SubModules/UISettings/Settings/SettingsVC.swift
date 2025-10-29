@@ -10,6 +10,7 @@ import UIPasscode
 import UIComponents
 import WalletCore
 import WalletContext
+import SwiftUI
 
 private let log = Log("SettingsVC")
 
@@ -26,8 +27,15 @@ public class SettingsVC: WViewController, Sendable {
     private var settingsHeaderView: SettingsHeaderView!
     private var pauseReloadData: Bool = false
     
+    var windowSafeAreaGuide = UILayoutGuide()
+    private var windowSafeAreaGuideContraint: NSLayoutConstraint!
+    
     public override var hideNavigationBar: Bool {
-        true
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+            false
+        } else {
+            true
+        }
     }
     
     public override func loadView() {
@@ -50,6 +58,30 @@ public class SettingsVC: WViewController, Sendable {
     // MARK: - Setup settings
     func setupViews() {
         
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+            addNavigationBar()
+            // set title to get blurred background
+            navigationItem.attributedTitle = AttributedString(lang("Settings"), attributes: AttributeContainer([.foregroundColor: UIColor.clear]))
+            navigationItem.leadingItemGroups = [
+                UIBarButtonItemGroup(
+                    barButtonItems: [
+                        UIBarButtonItem(
+                            title: lang("Receive"),
+                            image: UIImage.airBundle("QRIcon").withRenderingMode(.alwaysTemplate),
+                            primaryAction: UIAction { _ in
+                                AppActions.showReceive(chain: nil, showBuyOptions: false, title: lang("Your Address"))
+                            },
+                        )
+                    ],
+                    representativeItem: nil
+                )
+            ]
+        }
+        
+        view.addLayoutGuide(windowSafeAreaGuide)
+        windowSafeAreaGuideContraint = windowSafeAreaGuide.topAnchor.constraint(equalTo: view.topAnchor, constant: 0)
+        windowSafeAreaGuideContraint.isActive = true
+        
         var _configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
         _configuration.trailingSwipeActionsConfigurationProvider = { [weak self] indexPath in
             if case .account(let accountId) = self?.dataSource.itemIdentifier(for: indexPath) {
@@ -62,7 +94,10 @@ public class SettingsVC: WViewController, Sendable {
             }
             return nil
         }
-        _configuration.separatorConfiguration.color = WTheme.separator
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+        } else {
+            _configuration.separatorConfiguration.color = WTheme.separator
+        }
         _configuration.separatorConfiguration.bottomSeparatorInsets.leading = 60
         _configuration.headerMode = .none
         
@@ -83,7 +118,6 @@ public class SettingsVC: WViewController, Sendable {
         collectionView.delegate = self
         collectionView.delaysContentTouches = false
         collectionView.allowsSelection = true
-        collectionView.contentInset.top = defaultHeight
         
         dataSource = UICollectionViewDiffableDataSource<Section, Row>(collectionView: collectionView) { [weak self] (tableView, indexPath, itemIdentifier) -> UICollectionViewCell? in
             guard let self else {
@@ -136,8 +170,8 @@ public class SettingsVC: WViewController, Sendable {
         // Add header view
         settingsHeaderView = SettingsHeaderView(vc: self)
         settingsHeaderView.config()
-        collectionView.addSubview(settingsHeaderView)
-        settingsHeaderView.setupViews()
+        view.addSubview(settingsHeaderView)
+        settingsHeaderView.setupViews(settingsVC: self)
         NSLayoutConstraint.activate([
             settingsHeaderView.topAnchor.constraint(equalTo: view.topAnchor),
             settingsHeaderView.leftAnchor.constraint(equalTo: view.leftAnchor),
@@ -154,6 +188,14 @@ public class SettingsVC: WViewController, Sendable {
             view.backgroundColor = WTheme.groupedBackground
             collectionView.backgroundColor = WTheme.groupedBackground
             collectionView.reloadData()
+        }
+    }
+    
+    public override func viewIsAppearing(_ animated: Bool) {
+        super.viewIsAppearing(animated)
+        if let window = view.window {
+            windowSafeAreaGuideContraint.constant = window.safeAreaInsets.top
+            collectionView.contentInset.top = defaultHeight - window.safeAreaInsets.top
         }
     }
     

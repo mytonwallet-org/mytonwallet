@@ -125,7 +125,7 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
         @Json(name = "fee") val fee: BigInteger,
         @Json(name = "slug") val slug: String,
         @Json(name = "isIncoming") val isIncoming: Boolean,
-        @Json(name = "normalizedAddress") val normalizedAddress: String,
+        @Json(name = "normalizedAddress") val normalizedAddress: String?,
         @Json(name = "type") val type: ApiTransactionType? = null,
         @Json(name = "metadata") val metadata: ApiTransactionMetadata? = null,
         @Json(name = "nft") val nft: ApiNft? = null,
@@ -608,6 +608,11 @@ enum class ApiTransactionType {
     @Json(name = "liquidityWithdraw")
     LIQUIDITY_WITHDRAW;
 
+    companion object {
+        private val noAmountTransactionTypes =
+            setOf(UNSTAKE_REQUEST, CALL_CONTRACT, CONTRACT_DEPLOY)
+    }
+
     private val icons: Map<ApiTransactionType, Int> by lazy {
         mapOf(
             STAKE to R.drawable.ic_act_percent,
@@ -720,6 +725,12 @@ enum class ApiTransactionType {
     fun getIcon(): Int? {
         return icons[this]
     }
+
+
+    val noAmountTransaction: Boolean
+        get() {
+            return noAmountTransactionTypes.contains(this)
+        }
 }
 
 @JsonClass(generateAdapter = true)

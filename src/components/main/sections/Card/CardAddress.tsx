@@ -26,6 +26,10 @@ import styles from './Card.module.scss';
 
 import multichainIconSrc from '../../../../assets/multichain_account.svg';
 
+interface OwnProps {
+  isMinimized?: boolean;
+}
+
 interface StateProps {
   byChain?: Account['byChain'];
   isTestnet?: boolean;
@@ -35,7 +39,7 @@ interface StateProps {
 
 const MOUSE_LEAVE_TIMEOUT = 150;
 
-function CardAddress({ byChain, isTestnet, accountType, withTextGradient }: StateProps) {
+function CardAddress({ byChain, isTestnet, accountType, withTextGradient, isMinimized }: StateProps & OwnProps) {
   const { showNotification } = getActions();
 
   const lang = useLang();
@@ -197,7 +201,7 @@ function CardAddress({ byChain, isTestnet, accountType, withTextGradient }: Stat
     const buttonText = chains.length === 1 && domain ? domain : lang('Multichain');
 
     return (
-      <div ref={ref} className={styles.addressContainer}>
+      <div ref={ref} className={buildClassName(styles.addressContainer, isMinimized && styles.minimized)}>
         {isViewAccount && (
           <span className={styles.addressLabel}>
             <i className={buildClassName(styles.icon, 'icon-eye-filled')} aria-hidden />
@@ -219,9 +223,9 @@ function CardAddress({ byChain, isTestnet, accountType, withTextGradient }: Stat
           <span className={buildClassName(styles.itemName, 'itemName')}>
             {buttonText}
           </span>
-          <i className={buildClassName(styles.iconCaretSmall, 'icon-caret-down')} aria-hidden />
+          {!isMinimized && <i className={buildClassName(styles.iconCaretSmall, 'icon-caret-down')} aria-hidden />}
         </button>
-        {renderAddressMenu()}
+        {!isMinimized && renderAddressMenu()}
       </div>
     );
   }
@@ -233,8 +237,8 @@ function CardAddress({ byChain, isTestnet, accountType, withTextGradient }: Stat
   const displayText = domain || shortenAddress(address);
 
   return (
-    <div className={styles.addressContainer}>
-      {isViewAccount && (
+    <div className={buildClassName(styles.addressContainer, isMinimized && styles.minimized)}>
+      {!isMinimized && isViewAccount && (
         <span className={styles.addressLabel}>
           <i className={buildClassName(styles.icon, 'icon-eye-filled')} aria-hidden />
           {lang('$view_mode')}
@@ -249,19 +253,21 @@ function CardAddress({ byChain, isTestnet, accountType, withTextGradient }: Stat
       >
         <img src={getChainNetworkIcon(chain)} alt="" className={styles.chainIcon} />
         {displayText}
-        <i className={buildClassName(styles.icon, 'icon-copy')} aria-hidden />
+        {!isMinimized && <i className={buildClassName(styles.icon, 'icon-copy')} aria-hidden />}
       </button>
-      <a
-        href={getExplorerAddressUrl(chain, address, isTestnet)}
-        className={styles.explorerButton}
-        title={explorerTitle}
-        aria-label={explorerTitle}
-        target="_blank"
-        rel="noreferrer noopener"
-        onClick={handleUrlClick}
-      >
-        <i className={buildClassName(styles.icon, 'icon-tonexplorer-small')} aria-hidden />
-      </a>
+      {!isMinimized && (
+        <a
+          href={getExplorerAddressUrl(chain, address, isTestnet)}
+          className={styles.explorerButton}
+          title={explorerTitle}
+          aria-label={explorerTitle}
+          target="_blank"
+          rel="noreferrer noopener"
+          onClick={handleUrlClick}
+        >
+          <i className={buildClassName(styles.icon, 'icon-tonexplorer-small')} aria-hidden />
+        </a>
+      )}
     </div>
   );
 }
