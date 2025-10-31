@@ -189,34 +189,16 @@ public class NftsVC: WViewController, WSegmentedControllerContent, WalletAssetsV
         if !compactMode, filter != .none {
             
             let isFavorited = walletAssetsViewModel.isFavorited(filter: filter)
-            let starButton = WNavigationBarButton(icon: UIImage(systemName: isFavorited ? "star.fill" : "star"), onPress: { [weak self] in
-                if let self, filter != .none, let accountId = AccountStore.accountId {
-                    let filter = self.filter
-                    Task {
-                        do {
-                            let newIsFavorited = !self.walletAssetsViewModel.isFavorited(filter: filter)
-                            
-                            try await self.walletAssetsViewModel.setIsFavorited(filter: filter, isFavorited: newIsFavorited)
-                            
-                            //                    (self.navigationBarStarItem?.view as? WButton)?.setImage(UIImage(systemName: newIsFavorited ? "star.fill" : "star"), for: .normal)
-                            if newIsFavorited {
-                                UINotificationFeedbackGenerator().notificationOccurred(.success)
-                            } else {
-                                UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.7)
-                            }
-                        } catch {
-                            log.error("failed to favorite collection: \(filter, .public) \(accountId, .public)")
-                        }
-                    }
-                }
-            })
+            let starButton = WNavigationBarButton(icon: UIImage(systemName: isFavorited ? "star.fill" : "star"), onPress: { [weak self] in self?.onFavorite() })
             self.navigationBarStarItem = starButton
-            
             addNavigationBar(
                 title: title,
                 trailingItem: starButton,
                 addBackButton: { [weak self] in self?.navigationController?.popViewController(animated: true) }
             )
+            if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+                navigationItem.trailingItemGroups = makeToolbarItemGroups()
+            }
             collectionView.contentInset.top = navigationBarHeight
             collectionView.verticalScrollIndicatorInsets.top = navigationBarHeight
         }
@@ -410,6 +392,44 @@ public class NftsVC: WViewController, WSegmentedControllerContent, WalletAssetsV
 //            self.isVisible = isVisible
 //            self.reconfigureVisibleRows(animated: true)
 //        }
+    }
+    
+    @available(iOS 26, *)
+    func makeToolbarItemGroups() -> [UIBarButtonItemGroup] {
+        let isFavorited = walletAssetsViewModel.isFavorited(filter: filter)
+        return [
+            UIBarButtonItemGroup(
+                barButtonItems: [
+                    UIBarButtonItem(image: UIImage(systemName: isFavorited ? "star.fill" : "star"), primaryAction: UIAction { [weak self] _ in self?.onFavorite() })
+                ],
+                representativeItem: nil,
+            ),
+        ]
+    }
+    
+    func onFavorite() {
+        if filter != .none, let accountId = AccountStore.accountId {
+            Task {
+                do {
+                    let newIsFavorited = !self.walletAssetsViewModel.isFavorited(filter: filter)
+                    
+                    try await self.walletAssetsViewModel.setIsFavorited(filter: filter, isFavorited: newIsFavorited)
+                    
+                    (self.navigationBarStarItem?.view as? WButton)?.setImage(UIImage(systemName: newIsFavorited ? "star.fill" : "star"), for: .normal)
+                    if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+                        navigationItem.trailingItemGroups = makeToolbarItemGroups()
+                    }
+                    
+                    if newIsFavorited {
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    } else {
+                        UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.7)
+                    }
+                } catch {
+                    log.error("failed to favorite collection: \(filter, .public) \(accountId, .public)")
+                }
+            }
+        }
     }
 }
 

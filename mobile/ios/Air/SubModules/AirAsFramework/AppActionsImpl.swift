@@ -138,6 +138,7 @@ private class AppActionsImpl: AppActionsProtocol {
     
     static func showAddToken() {
         let assets = AssetsAndActivityVC()
+        _ = assets.view
         let add = TokenSelectionVC(
             showMyAssets: false,
             title: lang("Add Token"),

@@ -21,7 +21,7 @@ final class ActivityDetialsViewModel: ObservableObject {
     }
     
     func onDetailsExpanded() {
-            self.detailsExpanded.toggle()
-            onDetailsExpandedChanged()
-        }
+        self.detailsExpanded.toggle()
+        onDetailsExpandedChanged()
+    }
 }

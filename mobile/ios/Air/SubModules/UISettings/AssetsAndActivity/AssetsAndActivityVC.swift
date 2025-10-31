@@ -119,10 +119,11 @@ public class AssetsAndActivityVC: WViewController {
         addNavigationBar(navHeight: isModal ? 56 : 40,
                          topOffset: isModal ? 0 : -5,
                          title: title,
-                         closeIcon: isModal, addBackButton: isModal ? nil : { [weak self] in
-            guard let self else {return}
-            navigationController?.popViewController(animated: true)
-        })
+                         closeIcon: isModal,
+                         addBackButton: isModal ? nil : { [weak self] in
+                guard let self else {return}
+                navigationController?.popViewController(animated: true)
+            })
         tableView.contentInset.top = navigationBarHeight
         tableView.verticalScrollIndicatorInsets.top = navigationBarHeight
         tableView.contentOffset = .init(x: 0, y: -navigationBarHeight)

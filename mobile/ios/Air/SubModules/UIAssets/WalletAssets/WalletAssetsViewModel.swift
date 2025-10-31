@@ -16,13 +16,14 @@ public enum DisplayAssetTab: Hashable {
     case nftCollectionFilter(NftCollectionFilter)
 }
 
-public actor WalletAssetsViewModel: WalletCoreData.EventsObserver {
+@MainActor
+public final class WalletAssetsViewModel: WalletCoreData.EventsObserver {
     
     public static let shared = WalletAssetsViewModel()
     
-    @MainActor public var displayTabs: [DisplayAssetTab] = [.tokens, .nfts]
+    public var displayTabs: [DisplayAssetTab] = []
     
-    @MainActor public weak var delegate: WalletAssetsViewModelDelegate?
+    public weak var delegate: WalletAssetsViewModelDelegate?
     
     private var accountId: String
     private var _tabs: [WalletAssetsTab]?
@@ -36,9 +37,13 @@ public actor WalletAssetsViewModel: WalletCoreData.EventsObserver {
     public init() {
         self.accountId = AccountStore.accountId ?? DUMMY_ACCOUNT.id
         WalletCoreData.add(eventObserver: self)
-        Task {
-            await setupTabsObservation()
+        let snapshot = try? WalletCore.db?.read { db in
+            try AssetTabsSnapshot.fetchOne(db, key: accountId)
         }
+        self._tabs = snapshot?.tabs
+        self.isAutoTelegramGiftsHidden = snapshot?.auto_telegram_gifts_hidden ?? false
+        updateDisplayTabs()
+        setupTabsObservation()
     }
     
     nonisolated public func walletCore(event: WalletCoreData.Event) {
@@ -51,25 +56,25 @@ public actor WalletAssetsViewModel: WalletCoreData.EventsObserver {
         switch event {
         case .accountChanged(let accountId, _):
             self.accountId = accountId
-            await setupTabsObservation()
+            setupTabsObservation()
         case .nftsChanged(accountId: accountId):
             if self.accountId == accountId {
-                await updateDisplayTabs()
+                updateDisplayTabs()
             }
         default:
             break
         }
     }
     
-    private func setupTabsObservation() async {
+    private func setupTabsObservation() {
         let accountId = self.accountId
         if let db = self.db {
-            let snapshot = try? await db.read { db in
+            let snapshot = try? db.read { db in
                 try AssetTabsSnapshot.fetchOne(db, key: accountId)
             }
             self._tabs = snapshot?.tabs
             self.isAutoTelegramGiftsHidden = snapshot?.auto_telegram_gifts_hidden ?? false
-            await updateDisplayTabs()
+            updateDisplayTabs()
 
             observation?.cancel()
             
@@ -83,7 +88,7 @@ public actor WalletAssetsViewModel: WalletCoreData.EventsObserver {
                     for try await snapshot in o.values(in: db) {
                         self._tabs = snapshot?.tabs
                         self.isAutoTelegramGiftsHidden = snapshot?.auto_telegram_gifts_hidden ?? false
-                        await updateDisplayTabs()
+                        updateDisplayTabs()
                     }
                 } catch {
                 }
@@ -91,7 +96,7 @@ public actor WalletAssetsViewModel: WalletCoreData.EventsObserver {
         }
     }
     
-    private func updateDisplayTabs() async {
+    private func updateDisplayTabs() {
         let displayTabs: [DisplayAssetTab]
         if let _tabs {
             displayTabs = _tabs.compactMap(storedTabToDisplay)
@@ -100,10 +105,8 @@ public actor WalletAssetsViewModel: WalletCoreData.EventsObserver {
         } else {
             displayTabs = [.tokens, .nfts, .nftSuperCollection(TELEGRAM_GIFTS_SUPER_COLLECTION)].compactMap(storedTabToDisplay)
         }
-        await MainActor.run {
-            self.displayTabs = displayTabs
-            delegate?.displayTabsChanged()
-        }
+        self.displayTabs = displayTabs
+        delegate?.displayTabsChanged()
     }
     
     func storedTabToDisplay(_ tab: WalletAssetsTab) -> DisplayAssetTab? {
@@ -143,13 +146,13 @@ public actor WalletAssetsViewModel: WalletCoreData.EventsObserver {
         }
     }
     
-    @MainActor public func isFavorited(filter: NftCollectionFilter) -> Bool {
+    public func isFavorited(filter: NftCollectionFilter) -> Bool {
         displayTabs.contains {
             $0 == .nftCollectionFilter(filter)
         }
     }
     
-    @MainActor public func setIsFavorited(filter: NftCollectionFilter, isFavorited: Bool) async throws {
+    public func setIsFavorited(filter: NftCollectionFilter, isFavorited: Bool) async throws {
         var displayTabs = self.displayTabs
         if !displayTabs.contains(.nftCollectionFilter(filter)) && isFavorited {
             displayTabs.append(.nftCollectionFilter(filter))
@@ -157,15 +160,16 @@ public actor WalletAssetsViewModel: WalletCoreData.EventsObserver {
             displayTabs = displayTabs.filter { $0 != .nftCollectionFilter(filter) }
         }
         let stored = displayTabs.compactMap(displayTabToStored)
-        let accountId = await self.accountId
+        let accountId = self.accountId
+        self.displayTabs = displayTabs
         try await db?.write { db in
             try AssetTabsSnapshot(account_id: accountId, tabs: stored).upsert(db)
         }
     }
     
-    @MainActor public func setOrder(displayTabs: [DisplayAssetTab]) async throws {
+    public func setOrder(displayTabs: [DisplayAssetTab]) async throws {
         let stored = displayTabs.compactMap(displayTabToStored)
-        let accountId = await self.accountId
+        let accountId = self.accountId
         try await db?.write { db in
             try AssetTabsSnapshot(account_id: accountId, tabs: stored).upsert(db)
         }

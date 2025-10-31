@@ -1835,6 +1835,7 @@
 				UIDapp/SignData/SignDataVC.swift,
 				UIDapp/SignData/SignDataView.swift,
 				UIDapp/TonConnect.swift,
+				UIDapp/TonConnectOverlayView.swift,
 			);
 			target = 2744D0812C6BE18D0022EFEE /* UIDapp */;
 		};

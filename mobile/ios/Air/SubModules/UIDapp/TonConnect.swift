@@ -36,6 +36,7 @@ public final class TonConnect: WalletCoreData.EventsObserver {
     public func handleDeeplink(_ url: String) {
         Task { @MainActor in
             do {
+                showOverlay()
                 let identifier = "\(Date().timeIntervalSince1970)"
                 let returnStrategy = try await Api.startSseConnection(params: ApiSseConnectionParams(
                         url: url,
@@ -43,9 +44,13 @@ public final class TonConnect: WalletCoreData.EventsObserver {
                         identifier: identifier
                     )
                 )
+                
                 if returnStrategy == .empty {
                     return
-                } else if let returnStrategy, case .url(var str) = returnStrategy {
+                }
+                
+                dismissOverlayIfNeeded()
+                if let returnStrategy, case .url(var str) = returnStrategy {
                     if !str.contains("://") {
                         str = "https://" + str
                     }
@@ -57,6 +62,7 @@ public final class TonConnect: WalletCoreData.EventsObserver {
                 }
             } catch {
                 log.error("failed to handle deeplink: \(error, .public)")
+                dismissOverlayIfNeeded()
                 topViewController()?.showAlert(error: error)
             }
         }
@@ -83,7 +89,28 @@ public final class TonConnect: WalletCoreData.EventsObserver {
         }
     }
     
+    @MainActor func showOverlay() {
+        if let window = UIApplication.shared.sceneKeyWindow, !window.subviews.any({ $0 is TonConnectOverlayView }) {
+            let overlay = TonConnectOverlayView()
+            window.addSubview(overlay)
+            NSLayoutConstraint.activate([
+                overlay.topAnchor.constraint(equalTo: window.topAnchor),
+                overlay.bottomAnchor.constraint(equalTo: window.bottomAnchor),
+                overlay.leadingAnchor.constraint(equalTo: window.leadingAnchor),
+                overlay.trailingAnchor.constraint(equalTo: window.trailingAnchor),
+            ])
+        }
+    }
+    
+    @MainActor func dismissOverlayIfNeeded() {
+        if let window = UIApplication.shared.sceneKeyWindow, let overlay = window.subviews.compactMap({ $0 as? TonConnectOverlayView }).first {
+            overlay.isUserInteractionEnabled = false
+            overlay.dismissSelf()
+        }
+    }
+    
     @MainActor func handleLoading(update: ApiUpdate.DappLoading) async {
+        dismissOverlayIfNeeded()
         if let accountId = update.accountId {
             await switchAccountIfNeeded(accountId: accountId)
         }
@@ -102,6 +129,7 @@ public final class TonConnect: WalletCoreData.EventsObserver {
     }
     
     @MainActor func handleConnect(update: ApiUpdate.DappConnect) async {
+        dismissOverlayIfNeeded()
         await switchAccountIfNeeded(accountId: update.accountId)
         if let vc = placeholderNc?.visibleViewController as? ConnectDappVC {
             vc.replacePlaceholder(
@@ -155,6 +183,7 @@ public final class TonConnect: WalletCoreData.EventsObserver {
     }
     
     @MainActor  func handleSendTransactions(update: MDappSendTransactions) async {
+        dismissOverlayIfNeeded()
         await switchAccountIfNeeded(accountId: update.accountId)
         if let vc = placeholderNc?.visibleViewController as? SendDappVC {
             vc.replacePlaceholder(
@@ -210,6 +239,7 @@ public final class TonConnect: WalletCoreData.EventsObserver {
     }
     
     @MainActor func handleSignData(update: ApiUpdate.DappSignData) async {
+        dismissOverlayIfNeeded()
         await switchAccountIfNeeded(accountId: update.accountId)
         if let vc = placeholderNc?.visibleViewController as? SignDataVC {
             vc.replacePlaceholder(

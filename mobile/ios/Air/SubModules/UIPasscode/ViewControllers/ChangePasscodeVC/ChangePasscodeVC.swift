@@ -31,7 +31,9 @@ public class ChangePasscodeVC: WViewController {
 
     public override func loadView() {
         super.loadView()
-        navigationController?.navigationBar.tintColor = WTheme.primaryLabel
+        if !IOS_26_MODE_ENABLED {
+            navigationController?.navigationBar.tintColor = WTheme.primaryLabel
+        }
         setupViews()
     }
     

@@ -10,16 +10,6 @@ import UIKit
 import WalletCore
 import WalletContext
 
-fileprivate let popularTokenOrder = [
-  "TON",
-  "USD₮",
-  "USDT",
-  "BTC",
-  "ETH",
-  "jUSDT",
-  "jWBTC",
-]
-
 @MainActor public protocol TokenSelectionVCDelegate: AnyObject {
     func didSelect(token: MTokenBalance)
     func didSelect(token: ApiToken)
@@ -40,6 +30,7 @@ public class TokenSelectionVC: WViewController {
     var showingPopularTokens = [ApiToken]()
     var showingAllAssets = [ApiToken]()
     var keyword = String()
+    private var searchController: UISearchController? = nil
     
     public init(
         forceAvailable: String? = nil,
@@ -99,32 +90,34 @@ public class TokenSelectionVC: WViewController {
         }
     }
     
-    public override var hideNavigationBar: Bool { true }
-    
-    let searchBar = UISearchBar()
     var tableView: UITableView!
-    var tableViewBackgroundView: UIView!
     var activityIndicatorView: WActivityIndicator!
+    
     private func setupViews() {
-
-        let goBack = (navigationController?.viewControllers.count ?? 0) > 1
-        addNavigationBar(
-            title: self.title,
-            closeIcon: isModal,
-            addBackButton: goBack ? { [weak self] in self?.navigationController?.popViewController(animated: true) } : nil
-        )
-        navigationBar?.addSearchBar(searchBar)
         
-        searchBar.delegate = self
-        searchBar.searchBarStyle = .minimal
-        searchBar.autocorrectionType = .no
-        searchBar.spellCheckingType = .no
-        searchBar.setShowsCancelButton(false, animated: false)
-        searchBar.placeholder = "Search"
+        if isModal {
+            navigationItem.rightBarButtonItem = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { [weak self] _ in
+                self?.dismiss(animated: true)
+            })
+        }
+        let sc = UISearchController(searchResultsController: nil)
+        sc.searchResultsUpdater = self
+        sc.obscuresBackgroundDuringPresentation = false
+        sc.searchBar.autocorrectionType = .no
+        sc.searchBar.spellCheckingType = .no
+        sc.searchBar.placeholder = lang("Search")
+        navigationItem.searchController = sc
+        navigationItem.hidesSearchBarWhenScrolling = false
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+            navigationItem.searchBarPlacementAllowsToolbarIntegration = true
+            if !isModal {
+                navigationItem.preferredSearchBarPlacement = .integratedButton
+            }
+        }
+        definesPresentationContext = true
+        self.searchController = sc
         
         tableView = UITableView()
-        tableViewBackgroundView = UIView()
-        tableView.backgroundView = tableViewBackgroundView
         tableView.allowsSelection = false
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.register(TokenCell.self, forCellReuseIdentifier: "Token")
@@ -136,16 +129,13 @@ public class TokenSelectionVC: WViewController {
         tableView.rowHeight = 56
         tableView.delaysContentTouches = false
         tableView.sectionHeaderTopPadding = 0
-        tableView.contentInset.top = navigationBarHeight
-        tableView.verticalScrollIndicatorInsets.top = navigationBarHeight
-        tableView.contentOffset.y = -navigationBarHeight
         
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(hideKeyboard))
         tapGesture.cancelsTouchesInView = false
         tableView.addGestureRecognizer(tapGesture)
         view.addSubview(tableView)
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tableView.topAnchor.constraint(equalTo: view.topAnchor),
             tableView.leftAnchor.constraint(equalTo: view.leftAnchor),
             tableView.rightAnchor.constraint(equalTo: view.rightAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
@@ -165,28 +155,11 @@ public class TokenSelectionVC: WViewController {
     }
     
     public override func updateTheme() {
-        navigationController?.navigationBar.barTintColor = WTheme.sheetOpaqueBar
-        navigationController?.navigationBar.backgroundColor = WTheme.sheetOpaqueBar
-        view.backgroundColor = WTheme.pickerBackground
         tableView.backgroundColor = WTheme.pickerBackground
-        tableViewBackgroundView.backgroundColor = WTheme.pickerBackground
-    }
-    
-    public override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-    }
-    
-    public override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        searchBar.setCenteredPlaceholder()
-    }
-    
-    public override func closeButtonPressed() {
-        super.closeButtonPressed()
     }
     
     @objc func hideKeyboard() {
-        searchBar.endEditing(false)
+        view.endEditing(false)
     }
     
     func filterTokens() {
@@ -208,28 +181,10 @@ public class TokenSelectionVC: WViewController {
     }
 }
 
-extension TokenSelectionVC: UISearchBarDelegate {
-    
-    public func searchBarShouldBeginEditing(_ searchBar: UISearchBar) -> Bool {
-        searchBar.setPositionAdjustment(.init(horizontal: 8, vertical: 0), for: .search)
-        return true
-    }
-    
-    public func searchBarShouldEndEditing(_ searchBar: UISearchBar) -> Bool {
-        guard searchBar.text?.isEmpty != false else {
-            return true
-        }
-        searchBar.setCenteredPlaceholder()
-        return true
-    }
-    
-    public func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
-        keyword = searchBar.text ?? ""
+extension TokenSelectionVC: UISearchResultsUpdating {
+    public func updateSearchResults(for searchController: UISearchController) {
+        keyword = searchController.searchBar.text ?? ""
         filterTokens()
-    }
-    
-    public func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        updateNavigationBarProgressiveBlur(scrollView.contentOffset.y + scrollView.adjustedContentInset.top)
     }
 }
 

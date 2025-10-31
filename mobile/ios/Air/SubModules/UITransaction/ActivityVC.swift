@@ -38,11 +38,10 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
     public override func loadView() {
         super.loadView()
         setupViews()
+        WalletCoreData.add(eventObserver: self)
     }
         
     private func setupViews() {
-        WalletCoreData.add(eventObserver: self)
-        
         if let p = sheetPresentationController {
             p.delegate = self
         }
@@ -63,11 +62,16 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
             appearance.titleTextAttributes = [
                 .font: UIFont.systemFont(ofSize: 17, weight: .semibold)
             ]
+            let style = NSMutableParagraphStyle()
+            style.minimumLineHeight = 19
             appearance.subtitleTextAttributes = [
-                .font: UIFont.systemFont(ofSize: 13, weight: .regular)
+                .font: UIFont.systemFont(ofSize: 13, weight: .regular),
+                .paragraphStyle: style,
             ]
             navigationItem.standardAppearance = appearance
-            
+            if let sheet = sheetPresentationController {
+                sheet.prefersGrabberVisible = true
+            }
         }
         
         self.hostingController = addHostingController(makeView(), constraints: .fill)
@@ -133,7 +137,6 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
         )
     }
     
-    
     func onHeightChange() {
         
         guard model.collapsedHeight > 0 else { return }
@@ -170,7 +173,7 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
         var detents: [UISheetPresentationController.Detent] = []
         if model.activity.transaction?.nft == nil || !model.detailsExpanded {
             detents.append(.custom(identifier: .detailsCollapsed) { context in
-                if collapsedHeight >= 0.85 * context.maximumDetentValue { // not worth it
+                if collapsedHeight >= 0.95 * context.maximumDetentValue { // not worth it
                     return nil
                 }
                 return collapsedHeight
@@ -178,7 +181,7 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
         }
         if model.activity.transaction?.nft == nil {
             detents.append(.custom(identifier: .detailsExpanded) { context in
-                if expandedHeight >= 0.85 * context.maximumDetentValue { // not worth it
+                if expandedHeight >= 0.95 * context.maximumDetentValue { // not worth it
                     return nil
                 }
                 return expandedHeight
@@ -239,19 +242,35 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
     
     public func walletCore(event: WalletCoreData.Event) {
         switch event {
-        case .newActivities(let newActivitiesEvent):
-            if let activity = newActivitiesEvent.activities.first(where: { act in
-                act.id == self.activity.id ||
-                (self.activity.isLocal && doesLocalActivityMatch(localActivity: self.activity,
-                                                                 chainActivity: act))
-            }) {
-                model.activity = activity
-                let (title, titleIsRed) = makeTitle()
-                navigationBar?.set(title: title, titleColor: titleIsRed ? WTheme.error : .label)
+        case let .activitiesChanged(accountId, updatedIds, replacedIds):
+            Task {
+                await handleActivitiesChanged(accountId: accountId, updatedIds: updatedIds, replacedIds: replacedIds)
             }
-            break
+
         default:
             break
+        }
+    }
+    
+    func handleActivitiesChanged(accountId: String, updatedIds: [String], replacedIds: [String: String]) async {
+        let id = activity.id
+        var newActivity: ApiActivity?
+        if let replacementId = replacedIds[id], let replacementActivity = await ActivityStore.getActivity(accountId: accountId, activityId: replacementId) {
+            newActivity = replacementActivity
+        } else if updatedIds.contains(id), let updatedActivity = await ActivityStore.getActivity(accountId: accountId, activityId: id) {
+            newActivity = updatedActivity
+        }
+
+        if let newActivity {
+            withAnimation {
+                model.activity = newActivity
+                let (title, titleIsRed) = makeTitle()
+                navigationBar?.set(title: title, titleColor: titleIsRed ? WTheme.error : .label)
+                if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+                    navigationItem.title = title
+                    navigationItem.subtitle = activity.timestamp.dateTimeString
+                }
+            }
         }
     }
 }
