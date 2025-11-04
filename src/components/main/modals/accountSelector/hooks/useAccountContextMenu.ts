@@ -29,6 +29,8 @@ const items: DropdownItem<MenuHandler>[] = [{
   isDangerous: true,
 }];
 
+export const OPEN_CONTEXT_MENU_CLASS_NAME = 'open-context-menu';
+
 function useAccountContextMenu(ref: ElementRef<HTMLElement>, options: {
   isPortrait?: boolean;
   withContextMenu?: boolean;

@@ -41,7 +41,7 @@ private let log = Log("Home-Actions")
         }
     }
     
-    var calcilatedHeight: CGFloat {
+    var calculatedHeight: CGFloat {
         account.isView ? 0 : 60 + 16
     }
 

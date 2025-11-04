@@ -75,6 +75,7 @@ const config: CapacitorConfig = {
       // This setting, if set to true, add a workaround that resizes the WebView even
       // when the app is in full screen. Only available for Android
       // https://capacitorjs.com/docs/apis/keyboard#configuration
+      // This is necessary since Cap7, otherwise input will be hidden by the keyboard.
       resizeOnFullScreen: true,
     },
   },

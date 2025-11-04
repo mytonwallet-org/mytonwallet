@@ -296,6 +296,7 @@ class JSWebViewBridge: UIViewController {
     }
     
     func stop() {
+        webView?.removeFromSuperview()
         webView = nil
     }
 }

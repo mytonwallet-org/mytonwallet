@@ -14,7 +14,7 @@ import type {
   OnApiUpdate,
 } from '../types';
 
-import { IS_AIR_APP, IS_CORE_WALLET, IS_STAKING_DISABLED, TONCOIN } from '../../config';
+import { IS_CORE_WALLET, IS_STAKING_DISABLED, TONCOIN } from '../../config';
 import { parseAccountId } from '../../util/account';
 import { areDeepEqual } from '../../util/areDeepEqual';
 import { omit } from '../../util/iteratees';
@@ -50,7 +50,7 @@ const MAX_POST_TOKENS = 1500;
 let onUpdate: OnApiUpdate;
 let stopCommonBackendPolling: NoneToVoidFunction | undefined;
 let stopActiveAccountPolling: NoneToVoidFunction | undefined;
-const inactiveAccountPolling = IS_AIR_APP ? createInactiveAccountsPollingManager() : undefined;
+const inactiveAccountPolling = createInactiveAccountsPollingManager();
 const setUpdatingStatus = createUpdatingStatusManager();
 
 export function initPolling(_onUpdate: OnApiUpdate) {

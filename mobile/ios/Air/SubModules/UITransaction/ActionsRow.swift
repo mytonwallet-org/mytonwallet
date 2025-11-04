@@ -15,13 +15,18 @@ struct ActionsRow: View {
     var shouldShowRepeat: Bool {
         guard let account  = AccountStore.account, account.type != .view else { return false }
         
-        if activity.swap != nil {
+        switch activity {
+        case .transaction(let tx):
+            if tx.isStaking {
+                return account.supportsEarn
+            }
+            if tx.isIncoming || tx.type != nil || tx.nft != nil {
+                return false
+            }
+            return account.supportsSend
+        case .swap(let apiSwapActivity):
             return account.supportsSwap
         }
-        
-        guard let transaction = activity.transaction else { return false }
-        
-        return transaction.isStaking || (!transaction.isIncoming && transaction.nft == nil)
     }
     
     var body: some View {

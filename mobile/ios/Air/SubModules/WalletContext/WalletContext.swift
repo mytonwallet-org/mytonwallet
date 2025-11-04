@@ -16,6 +16,7 @@ public typealias UnfairLock = OSAllocatedUnfairLock
     func showDebugView()
     func switchToCapacitor()
     func switchToAir()
+    var canSwitchToCapacitor: Bool { get }
 }
 
 public protocol WalletContextDelegate: NSObject {

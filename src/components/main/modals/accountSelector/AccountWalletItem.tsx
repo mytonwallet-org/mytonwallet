@@ -13,7 +13,7 @@ import { getAvatarInitials } from './utils/getAvatarInitials';
 
 import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
 import useLastCallback from '../../../../hooks/useLastCallback';
-import useAccountContextMenu from './hooks/useAccountContextMenu';
+import useAccountContextMenu, { OPEN_CONTEXT_MENU_CLASS_NAME } from './hooks/useAccountContextMenu';
 
 import Draggable from '../../../ui/Draggable';
 import DropdownMenu from '../../../ui/DropdownMenu';
@@ -51,7 +51,6 @@ interface OwnProps {
   scrollRef?: ElementRef<HTMLDivElement>;
 }
 
-export const OPEN_CONTEXT_MENU_CLASS_NAME = 'open-context-menu';
 const CONTEXT_MENU_VERTICAL_SHIFT_PX = 4;
 
 function AccountWalletItem({

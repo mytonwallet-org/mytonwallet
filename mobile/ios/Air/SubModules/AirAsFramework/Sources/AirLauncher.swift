@@ -17,12 +17,29 @@ fileprivate let blurredUIEnabled = false
 private let log = Log("AirLauncher")
 
 
+@MainActor
 public class AirLauncher {
-
-    public static var isOnTheAir: Bool {
-        get { UserDefaults.standard.object(forKey: "isOnAir") as? Bool ?? DEFAULT_TO_AIR }
-        set { UserDefaults.standard.set(newValue, forKey: "isOnAir") }
+    
+    private static var canSwitchToCapacitor: Bool {
+        // shouldn't be force unwrapped because app delegate is different in previews or widgets
+        (UIApplication.shared.delegate as? MtwAppDelegateProtocol)?.canSwitchToCapacitor ?? true
     }
+    
+    public static var isOnTheAir: Bool {
+        get {
+            if canSwitchToCapacitor {
+                UserDefaults.standard.object(forKey: "isOnAir") as? Bool ?? DEFAULT_TO_AIR
+            } else {
+                true
+            }
+        }
+        set {
+            if canSwitchToCapacitor {
+                UserDefaults.standard.set(newValue, forKey: "isOnAir")
+            }
+        }
+    }
+    
     private static var window: WWindow!
     private static var startVC: SplashVC?
     
@@ -44,7 +61,7 @@ public class AirLauncher {
         AirLauncher.window = window
     }
     
-    @MainActor public static func soarIntoAir() async {
+    public static func soarIntoAir() async {
         log.info("soarIntoAir")
         
         do {
@@ -107,7 +124,7 @@ public class AirLauncher {
         UIApplication.shared.registerForRemoteNotifications()
     }
     
-    @MainActor public static func switchToCapacitor() async {
+    public static func switchToCapacitor() async {
         log.info("switchToCapacitor")
         isOnTheAir = false
         if let db {

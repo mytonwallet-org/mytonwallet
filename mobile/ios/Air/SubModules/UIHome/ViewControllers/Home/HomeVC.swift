@@ -19,10 +19,10 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
 
     // MARK: - View Model and UI Components
     lazy var homeVM = HomeVM(homeVMDelegate: self)
-    
+
     var _activityViewModel: ActivityViewModel?
     public override var activityViewModel: ActivityViewModel? { self._activityViewModel }
-    
+
     var calledReady = false
 
     var popRecognizer: InteractivePopRecognizer?
@@ -32,12 +32,12 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
     var headerContainerViewHeightConstraint: NSLayoutConstraint? = nil
 
     // navbar buttons
-    var scanButton: WBaseButton!
-    var lockButton: WBaseButton!
-    var hideButton: WBaseButton!
     lazy var lockItem: UIBarButtonItem = UIBarButtonItem(title: lang("Lock"), image: .airBundle("HomeLock24"), target: self, action: #selector(lockPressed))
-    lazy var hideItem: UIBarButtonItem = UIBarButtonItem(title: lang("Hide"), image: .airBundle("HomeHide24"), target: self, action: #selector(hidePressed))
-
+    lazy var hideItem: UIBarButtonItem = {
+        let isHidden = AppStorageHelper.isSensitiveDataHidden
+        let image = UIImage.airBundle(isHidden ? "HomeUnhide24" : "HomeHide24")
+        return UIBarButtonItem(title: lang("Hide"), image: image, target: self, action: #selector(hidePressed))
+    }()
 
     /// The header containing balance and other actions like send/receive/scan/settings and balance in other currencies.
     var balanceHeaderVC: BalanceHeaderVC!
@@ -47,7 +47,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
 
     var windowSafeAreaGuide = UILayoutGuide()
     var windowSafeAreaGuideContraint: NSLayoutConstraint!
-    
+
     let actionsVC = ActionsVC()
     var actionsTopConstraint: NSLayoutConstraint!
     var walletAssetsVC = WalletAssetsVC()
@@ -63,6 +63,8 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
         super.init(nibName: nil, bundle: nil)
     }
 
+    public override var hideNavigationBar: Bool { false }
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
@@ -77,7 +79,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
 
     public override func viewDidLoad() {
         super.viewDidLoad()
-        
+
         //startMonitoring()
     }
 
@@ -102,8 +104,21 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
     }
 
     public override func viewIsAppearing(_ animated: Bool) {
-        tableView.contentInset.bottom = view.safeAreaInsets.bottom + 16 + homeBottomInset
         self.scrollViewDidScroll(tableView)
+        updateSafeAreaInsets()
+    }
+
+    public override func viewSafeAreaInsetsDidChange() {
+        super.viewSafeAreaInsetsDidChange()
+        updateSafeAreaInsets()
+    }
+
+    private func updateSafeAreaInsets() {
+        tableView.contentInset.bottom = view.safeAreaInsets.bottom + 16 + homeBottomInset
+        let navBarHeight = navigationController!.navigationBar.frame.height
+        windowSafeAreaGuideContraint.constant = view.safeAreaInsets.top - navBarHeight
+        balanceHeaderView.updateStatusViewContainerTopConstraint.constant = (navBarHeight - 44) / 2 - S.updateStatusViewTopAdjustment
+        scrollViewDidScroll(tableView)
     }
 
     func contentOffsetChanged(to y: CGFloat) {
@@ -117,13 +132,6 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
         bottomSeparatorView.alpha = progress
         headerBlurView.alpha = progress
     }
-    
-    public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        if let window = view.window {
-            windowSafeAreaGuideContraint.constant = window.safeAreaInsets.top + S.bhvTopAdjustment
-        }
-    }
 
     // MARK: - Variable height
 
@@ -131,7 +139,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
         balanceHeaderView.calculatedHeight + S.bhvTopAdjustment
     }
     var actionsHeight: CGFloat {
-        actionsVC.calcilatedHeight
+        actionsVC.calculatedHeight
     }
     var assetsHeight: CGFloat {
         walletAssetsVC.computedHeight()
@@ -140,11 +148,13 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
         return bhvHeight + actionsHeight + assetsHeight
     }
     var headerHeightWithoutAssets: CGFloat {
-        bhvHeight + actionsHeight - 16 - scrollExtraOffset - tableView.contentInset.top
+        return bhvHeight - scrollExtraOffset +
+            (view.safeAreaInsets.top - (navigationController?.navigationBar.frame.height ?? 0)) - S.bhvTopAdjustment
     }
     public override var headerPlaceholderHeight: CGFloat {
-        return max(0, headerHeight - scrollExtraOffset - tableView.contentInset.top + 8) // TODO: where does this 8 come from?
+        return max(0, headerHeight - scrollExtraOffset + 8) // TODO: where does this 8 come from?
     }
+    private var appliedHeaderHeightWithoutAssets: CGFloat?
     private var appliedHeaderPlaceholderHeight: CGFloat?
 
     public override var navigationBarProgressiveBlurMinY: CGFloat {
@@ -153,13 +163,15 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
     }
 
     func updateTableViewHeaderFrame(animated: Bool = true) {
-        if headerPlaceholderHeight != appliedHeaderPlaceholderHeight {
+        if headerPlaceholderHeight != appliedHeaderPlaceholderHeight ||
+            headerHeightWithoutAssets != appliedHeaderHeightWithoutAssets {
 //            log.info("updateTableViewHeaderFrame reconfiguring height: \(appliedHeaderPlaceholderHeight as Any, .public) -> \(headerPlaceholderHeight) animated=\(animated)")
 //            log.info("headerPlaceholderHeight: \(headerHeight) - \(scrollExtraOffset) - \(tableView.contentInset.top) + 8")
 //            log.info("headerHeight: \(bhvHeight) + \(actionsHeight) + \(assetsHeight)")
             appliedHeaderPlaceholderHeight = headerPlaceholderHeight
+            appliedHeaderHeightWithoutAssets = headerHeightWithoutAssets
             let updates = { [self] in
-                actionsTopConstraint.constant = headerHeightWithoutAssets
+                actionsTopConstraint.constant = headerHeightWithoutAssets + (actionsHeight > 0 ? 0 : -76)
                 assetsHeightConstraint.constant = max(0, assetsHeight - 16)
                 reconfigureHeaderPlaceholder()
             }
@@ -182,14 +194,11 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
 
     public override func updateTheme() {
         view.backgroundColor = WTheme.balanceHeaderView.background
-        scanButton.tintColor = WTheme.balanceHeaderView.headIcons
-        lockButton.tintColor = WTheme.balanceHeaderView.headIcons
-        hideButton.tintColor = WTheme.balanceHeaderView.headIcons
     }
 
     public func updateSensitiveData() {
         let isHidden = AppStorageHelper.isSensitiveDataHidden
-        hideButton.setImage(.airBundle(isHidden ? "HomeUnhide24" : "HomeHide24"), for: .normal)
+        hideItem.image = .airBundle(isHidden ? "HomeUnhide24" : "HomeHide24")
         scrollViewDidScroll(tableView)
     }
 
@@ -239,7 +248,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
         }
         skeletonView.applyMask(with: skeletonViews)
     }
-    
+
     // MONITORING ////////////////////////////////////////////////////////////////////////////////////////////////////
     var lastTimestamp: CFTimeInterval?
     var displayLink: CADisplayLink?
@@ -288,15 +297,11 @@ extension HomeVC: HomeVMDelegate {
             expandHeader()
         }
         scrollViewDidScroll(tableView)
-        
+
         let canLock = AuthSupport.accountsSupportAppLock
-        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-            navigationItem.trailingItemGroups = [
-                UIBarButtonItemGroup(barButtonItems: canLock ? [lockItem, hideItem] : [hideItem], representativeItem: nil)
-            ]
-        } else {
-            lockButton.isHidden = !canLock
-        }
+        navigationItem.trailingItemGroups = [
+            UIBarButtonItemGroup(barButtonItems: canLock ? [lockItem, hideItem] : [hideItem], representativeItem: nil)
+        ]
     }
 }
 
@@ -310,6 +315,13 @@ extension S {
     static var bhvTopAdjustment: CGFloat {
         if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
             6
+        } else {
+            0
+        }
+    }
+    static var updateStatusViewTopAdjustment: CGFloat {
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+            3.33
         } else {
             0
         }

@@ -26,11 +26,11 @@ final class BalanceHeaderView: WTouchPassView, WThemedView {
     // MARK: View height
     
     // minimum height to show collapsed mode
-    static let minHeight = CGFloat(39.33)
+    static let minHeight = CGFloat(43.33)
     
     // main content height
     private static var contentHeight: CGFloat {
-        158.0
+        UIScreen.main.scale == 3 ? 165.0 : 167.0 // To fix card view position on iPad devices
     }
     
     var prevWalletCardViewState = WalletCardView.defaultState
@@ -40,7 +40,7 @@ final class BalanceHeaderView: WTouchPassView, WThemedView {
         if walletCardView?.state == prevWalletCardViewState {
             return _cachedExpansionHeight
         }
-        _cachedExpansionHeight = walletCardView?.state ?? WalletCardView.defaultState == .expanded ? ((UIScreen.main.bounds.width - 32) * 208 / 358) - 95 + (IOS_26_MODE_ENABLED ? 6 : 0) : 0
+        _cachedExpansionHeight = walletCardView?.state ?? WalletCardView.defaultState == .expanded ? ((UIScreen.main.bounds.width - 32) * 208 / 358) - (BalanceHeaderView.contentHeight - 63) + (IOS_26_MODE_ENABLED ? 13 : 0) : 0
         return _cachedExpansionHeight
     }
     var calculatedHeight: CGFloat {
@@ -62,6 +62,7 @@ final class BalanceHeaderView: WTouchPassView, WThemedView {
     // MARK: - Views
     var updateStatusViewContainer: UIView!
     var updateStatusView: UpdateStatusView!
+    var updateStatusViewContainerTopConstraint: NSLayoutConstraint!
     
     // top sticky content
     var balanceContainer: WSensitiveData<BalanceView> = .init(cols: 12, rows: 3, cellSize: 12, cornerRadius: 10, theme: .adaptive, alignment: .center)
@@ -198,8 +199,9 @@ final class BalanceHeaderView: WTouchPassView, WThemedView {
         updateStatusView = UpdateStatusView()
         updateStatusViewContainer.addSubview(updateStatusView)
 
+        updateStatusViewContainerTopConstraint = updateStatusViewContainer.topAnchor.constraint(equalTo: topAnchor)
         NSLayoutConstraint.activate([
-            updateStatusViewContainer.topAnchor.constraint(equalTo: topAnchor, constant: -5),
+            updateStatusViewContainerTopConstraint,
             updateStatusViewContainer.centerXAnchor.constraint(equalTo: centerXAnchor),
 
             updateStatusView.leftAnchor.constraint(equalTo: updateStatusViewContainer.leftAnchor),

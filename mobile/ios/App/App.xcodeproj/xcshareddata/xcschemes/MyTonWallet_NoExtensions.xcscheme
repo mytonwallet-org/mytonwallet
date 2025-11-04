@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1620"
+   LastUpgradeVersion = "2600"
    version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -15,9 +15,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "273751662D15F492006D07D1"
-               BuildableName = "MyTonWalletAir.app"
-               BlueprintName = "MyTonWalletAir"
+               BlueprintIdentifier = "58F6317A2EB8CD8D00A90B79"
+               BuildableName = "MyTonWallet_NoExtensions.app"
+               BlueprintName = "MyTonWallet_NoExtensions"
                ReferencedContainer = "container:App.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -31,7 +31,7 @@
       shouldAutocreateTestPlan = "YES">
    </TestAction>
    <LaunchAction
-      buildConfiguration = "Release"
+      buildConfiguration = "Debug"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       launchStyle = "0"
@@ -44,9 +44,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "273751662D15F492006D07D1"
-            BuildableName = "MyTonWalletAir.app"
-            BlueprintName = "MyTonWalletAir"
+            BlueprintIdentifier = "58F6317A2EB8CD8D00A90B79"
+            BuildableName = "MyTonWallet_NoExtensions.app"
+            BlueprintName = "MyTonWallet_NoExtensions"
             ReferencedContainer = "container:App.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -61,9 +61,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "273751662D15F492006D07D1"
-            BuildableName = "MyTonWalletAir.app"
-            BlueprintName = "MyTonWalletAir"
+            BlueprintIdentifier = "58F6317A2EB8CD8D00A90B79"
+            BuildableName = "MyTonWallet_NoExtensions.app"
+            BlueprintName = "MyTonWallet_NoExtensions"
             ReferencedContainer = "container:App.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

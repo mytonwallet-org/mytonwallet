@@ -10,6 +10,7 @@ const WINDOW_RESIZE_THROTTLE_MS = IS_TELEGRAM_APP ? 25 : 250;
 const WINDOW_ORIENTATION_CHANGE_THROTTLE_MS = IS_IOS ? 350 : 250;
 const SAFE_AREA_INITIALIZATION_DELAY = SECOND;
 
+const { documentElement } = document;
 const initialHeight = window.innerHeight;
 const virtualKeyboardOpenListeners: NoneToVoidFunction[] = [];
 
@@ -28,6 +29,10 @@ if (!IS_IOS) {
 if (IS_CAPACITOR) {
   void import('@capacitor/keyboard')
     .then(({ Keyboard }) => {
+      void Keyboard.addListener('keyboardWillShow', () => {
+        documentElement.classList.add('is-keyboard-open');
+      });
+
       void Keyboard.addListener('keyboardDidShow', async (info) => {
         // Due to a bug in Android, extra space is added to the bottom of the screen when the keyboard is opened only on iOS
         // https://capacitorjs.com/docs/apis/keyboard#configuration (resizeOnFullScreen)
@@ -40,11 +45,13 @@ if (IS_CAPACITOR) {
         }
       });
 
-      if (IS_IOS) {
-        void Keyboard.addListener('keyboardWillHide', () => {
+      void Keyboard.addListener('keyboardWillHide', () => {
+        documentElement.classList.remove('is-keyboard-open');
+
+        if (IS_IOS) {
           void adjustBodyPaddingForKeyboard(0);
-        });
-      }
+        }
+      });
     });
 }
 

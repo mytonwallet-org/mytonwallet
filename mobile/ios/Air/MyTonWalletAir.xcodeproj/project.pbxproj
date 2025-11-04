@@ -34,62 +34,7 @@
 		58315FA52E04477D00AC5C8E /* UIComponents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4002D8456E800535360 /* UIComponents.framework */; };
 		584B0F052DD390C000BDF9E7 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 584B0F042DD390C000BDF9E7 /* Lottie */; };
 		584B0F072DD393FD00BDF9E7 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 584B0F062DD393FD00BDF9E7 /* Lottie */; };
-		585AAEE42DDA298F0076975F /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 585AAEE32DDA298F0076975F /* Lottie */; };
 		586DE0E92EA26F180055359D /* Flow in Frameworks */ = {isa = PBXBuildFile; productRef = 586DE0E82EA26F180055359D /* Flow */; };
-		587BBD092DDA312400E745A6 /* AirAsFramework.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A3FB2D8456E800535360 /* AirAsFramework.framework */; };
-		587BBD0A2DDA312400E745A6 /* AirAsFramework.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A3FB2D8456E800535360 /* AirAsFramework.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		587BBD0D2DDA312400E745A6 /* BigIntLib.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4022D8456E800535360 /* BigIntLib.framework */; };
-		587BBD0E2DDA312400E745A6 /* BigIntLib.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4022D8456E800535360 /* BigIntLib.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		587BBD112DDA312400E745A6 /* GZip.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A3FC2D8456E800535360 /* GZip.framework */; };
-		587BBD122DDA312400E745A6 /* GZip.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A3FC2D8456E800535360 /* GZip.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		587BBD152DDA312400E745A6 /* Ledger.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58CC83242DA443DA00EB7DEB /* Ledger.framework */; };
-		587BBD162DDA312400E745A6 /* Ledger.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58CC83242DA443DA00EB7DEB /* Ledger.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		587BBD192DDA312400E745A6 /* RLottieBinding.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A3FD2D8456E800535360 /* RLottieBinding.framework */; };
-		587BBD1A2DDA312400E745A6 /* RLottieBinding.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A3FD2D8456E800535360 /* RLottieBinding.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		587BBD1D2DDA312400E745A6 /* SwiftSignalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A3FE2D8456E800535360 /* SwiftSignalKit.framework */; };
-		587BBD1E2DDA312400E745A6 /* SwiftSignalKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A3FE2D8456E800535360 /* SwiftSignalKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		587BBD212DDA312400E745A6 /* UIAssets.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A3FF2D8456E800535360 /* UIAssets.framework */; };
-		587BBD222DDA312400E745A6 /* UIAssets.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A3FF2D8456E800535360 /* UIAssets.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		587BBD252DDA312400E745A6 /* UIBrowser.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4102D8456E800535360 /* UIBrowser.framework */; };
-		587BBD262DDA312400E745A6 /* UIBrowser.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4102D8456E800535360 /* UIBrowser.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		587BBD292DDA312400E745A6 /* UICharts.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4042D8456E800535360 /* UICharts.framework */; };
-		587BBD2A2DDA312400E745A6 /* UICharts.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4042D8456E800535360 /* UICharts.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		587BBD2D2DDA312400E745A6 /* UIComponents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4002D8456E800535360 /* UIComponents.framework */; };
-		587BBD2E2DDA312400E745A6 /* UIComponents.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4002D8456E800535360 /* UIComponents.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		587BBD312DDA312400E745A6 /* UICreateWallet.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4122D8456E800535360 /* UICreateWallet.framework */; };
-		587BBD322DDA312400E745A6 /* UICreateWallet.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4122D8456E800535360 /* UICreateWallet.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		587BBD352DDA312400E745A6 /* UIDapp.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4062D8456E800535360 /* UIDapp.framework */; };
-		587BBD362DDA312400E745A6 /* UIDapp.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4062D8456E800535360 /* UIDapp.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		587BBD392DDA312400E745A6 /* UIEarn.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A40F2D8456E800535360 /* UIEarn.framework */; };
-		587BBD3A2DDA312400E745A6 /* UIEarn.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A40F2D8456E800535360 /* UIEarn.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		587BBD3D2DDA312400E745A6 /* UIHome.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4132D8456E800535360 /* UIHome.framework */; };
-		587BBD3E2DDA312400E745A6 /* UIHome.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4132D8456E800535360 /* UIHome.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		587BBD412DDA312400E745A6 /* UIInAppBrowser.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4052D8456E800535360 /* UIInAppBrowser.framework */; };
-		587BBD422DDA312400E745A6 /* UIInAppBrowser.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4052D8456E800535360 /* UIInAppBrowser.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		587BBD452DDA312400E745A6 /* UIPasscode.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4072D8456E800535360 /* UIPasscode.framework */; };
-		587BBD462DDA312400E745A6 /* UIPasscode.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4072D8456E800535360 /* UIPasscode.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		587BBD492DDA312400E745A6 /* UIQRScan.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A40C2D8456E800535360 /* UIQRScan.framework */; };
-		587BBD4A2DDA312400E745A6 /* UIQRScan.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A40C2D8456E800535360 /* UIQRScan.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		587BBD4D2DDA312400E745A6 /* UIReceive.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A40E2D8456E800535360 /* UIReceive.framework */; };
-		587BBD4E2DDA312400E745A6 /* UIReceive.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A40E2D8456E800535360 /* UIReceive.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		587BBD512DDA312400E745A6 /* UISend.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A40B2D8456E800535360 /* UISend.framework */; };
-		587BBD522DDA312400E745A6 /* UISend.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A40B2D8456E800535360 /* UISend.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		587BBD552DDA312400E745A6 /* UISettings.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4112D8456E800535360 /* UISettings.framework */; };
-		587BBD562DDA312400E745A6 /* UISettings.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4112D8456E800535360 /* UISettings.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		587BBD592DDA312400E745A6 /* UISwap.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A40D2D8456E800535360 /* UISwap.framework */; };
-		587BBD5A2DDA312400E745A6 /* UISwap.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A40D2D8456E800535360 /* UISwap.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		587BBD5D2DDA312400E745A6 /* UIToken.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4082D8456E800535360 /* UIToken.framework */; };
-		587BBD5E2DDA312400E745A6 /* UIToken.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4082D8456E800535360 /* UIToken.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		587BBD612DDA312400E745A6 /* UITransaction.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A40A2D8456E800535360 /* UITransaction.framework */; };
-		587BBD622DDA312400E745A6 /* UITransaction.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A40A2D8456E800535360 /* UITransaction.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		587BBD652DDA312400E745A6 /* WalletContext.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4012D8456E800535360 /* WalletContext.framework */; };
-		587BBD662DDA312400E745A6 /* WalletContext.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4012D8456E800535360 /* WalletContext.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		587BBD692DDA312400E745A6 /* WalletCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4032D8456E800535360 /* WalletCore.framework */; };
-		587BBD6A2DDA312400E745A6 /* WalletCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4032D8456E800535360 /* WalletCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		587BBD6D2DDA312400E745A6 /* WReachability.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4092D8456E800535360 /* WReachability.framework */; };
-		587BBD6E2DDA312400E745A6 /* WReachability.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4092D8456E800535360 /* WReachability.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		587BBD712DDA312400E745A6 /* YUVConversion.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4142D8456E800535360 /* YUVConversion.framework */; };
-		587BBD722DDA312400E745A6 /* YUVConversion.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4142D8456E800535360 /* YUVConversion.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		587BCB892DDB9DCA00E745A6 /* Popovers in Frameworks */ = {isa = PBXBuildFile; productRef = 587BCB882DDB9DCA00E745A6 /* Popovers */; };
 		587C28462DE32F2400503E94 /* Popovers in Frameworks */ = {isa = PBXBuildFile; productRef = 587C28452DE32F2400503E94 /* Popovers */; };
 		587EB31E2D82DAF6009F0CE2 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 587EB31D2D82DAF6009F0CE2 /* Kingfisher */; };
@@ -1052,195 +997,6 @@
 			remoteGlobalIDString = 2770D0012BD16F43005F0BA3;
 			remoteInfo = UISend;
 		};
-		587BBD0B2DDA312400E745A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 279104D12C89BAB20075D4B5;
-			remoteInfo = AirAsFramework;
-		};
-		587BBD0F2DDA312400E745A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 272B3CB12D2AD4360024658E;
-			remoteInfo = BigIntLib;
-		};
-		587BBD132DDA312400E745A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 27DCA9CD2BA5BA2B004F83C8;
-			remoteInfo = GZip;
-		};
-		587BBD172DDA312400E745A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 58CC831C2DA443DA00EB7DEB;
-			remoteInfo = Ledger;
-		};
-		587BBD1B2DDA312400E745A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 27DCA8C62BA5B5D6004F83C8;
-			remoteInfo = RLottieBinding;
-		};
-		587BBD1F2DDA312400E745A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 27DCA9F92BA5BBCD004F83C8;
-			remoteInfo = SwiftSignalKit;
-		};
-		587BBD232DDA312400E745A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 27F244752BB374F800F4FADE;
-			remoteInfo = UIAssets;
-		};
-		587BBD272DDA312400E745A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 27F2448E2BB375F800F4FADE;
-			remoteInfo = UIBrowser;
-		};
-		587BBD2B2DDA312400E745A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 276B5E452CD54C2F00235012;
-			remoteInfo = UICharts;
-		};
-		587BBD2F2DDA312400E745A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 27DCA8672BA5B40C004F83C8;
-			remoteInfo = UIComponents;
-		};
-		587BBD332DDA312400E745A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 27DCAAAC2BA5D60D004F83C8;
-			remoteInfo = UICreateWallet;
-		};
-		587BBD372DDA312400E745A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 2744D0812C6BE18D0022EFEE;
-			remoteInfo = UIDapp;
-		};
-		587BBD3B2DDA312400E745A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 27FC97AC2BF2057000F8F57D;
-			remoteInfo = UIEarn;
-		};
-		587BBD3F2DDA312400E745A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 27DCAABD2BA5D6B1004F83C8;
-			remoteInfo = UIHome;
-		};
-		587BBD432DDA312400E745A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 27BD61592C81C367005A4C82;
-			remoteInfo = UIInAppBrowser;
-		};
-		587BBD472DDA312400E745A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 27DCAA5B2BA5C252004F83C8;
-			remoteInfo = UIPasscode;
-		};
-		587BBD4B2DDA312400E745A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 273459D42BF2CFEB00FA7501;
-			remoteInfo = UIQRScan;
-		};
-		587BBD4F2DDA312400E745A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 2761BEB42CCC05F700376556;
-			remoteInfo = UIReceive;
-		};
-		587BBD532DDA312400E745A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 2770D0012BD16F43005F0BA3;
-			remoteInfo = UISend;
-		};
-		587BBD572DDA312400E745A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 27EA17752C2C74C9002892EC;
-			remoteInfo = UISettings;
-		};
-		587BBD5B2DDA312400E745A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 27DDF6EB2BEDF85800BB1977;
-			remoteInfo = UISwap;
-		};
-		587BBD5F2DDA312400E745A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 276B5DFB2CD512C700235012;
-			remoteInfo = UIToken;
-		};
-		587BBD632DDA312400E745A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 27CADC442C333A8500F06824;
-			remoteInfo = UITransaction;
-		};
-		587BBD672DDA312400E745A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 27DCA87E2BA5B439004F83C8;
-			remoteInfo = WalletContext;
-		};
-		587BBD6B2DDA312400E745A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 27DCAAE12BA5DDA7004F83C8;
-			remoteInfo = WalletCore;
-		};
-		587BBD6F2DDA312400E745A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 274EAD822BB4A1950025AB4C;
-			remoteInfo = WReachability;
-		};
-		587BBD732DDA312400E745A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 27DCAA432BA5BD86004F83C8;
-			remoteInfo = YUVConversion;
-		};
 		5894AF342D06FB7C005E90F8 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
@@ -1285,48 +1041,7 @@
 		};
 /* End PBXContainerItemProxy section */
 
-/* Begin PBXCopyFilesBuildPhase section */
-		587BBD752DDA312500E745A6 /* Embed Frameworks */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
-			files = (
-				587BBD5E2DDA312400E745A6 /* UIToken.framework in Embed Frameworks */,
-				587BBD622DDA312400E745A6 /* UITransaction.framework in Embed Frameworks */,
-				587BBD462DDA312400E745A6 /* UIPasscode.framework in Embed Frameworks */,
-				587BBD6E2DDA312400E745A6 /* WReachability.framework in Embed Frameworks */,
-				587BBD1A2DDA312400E745A6 /* RLottieBinding.framework in Embed Frameworks */,
-				587BBD262DDA312400E745A6 /* UIBrowser.framework in Embed Frameworks */,
-				587BBD522DDA312400E745A6 /* UISend.framework in Embed Frameworks */,
-				587BBD0A2DDA312400E745A6 /* AirAsFramework.framework in Embed Frameworks */,
-				587BBD3E2DDA312400E745A6 /* UIHome.framework in Embed Frameworks */,
-				587BBD2A2DDA312400E745A6 /* UICharts.framework in Embed Frameworks */,
-				587BBD662DDA312400E745A6 /* WalletContext.framework in Embed Frameworks */,
-				587BBD562DDA312400E745A6 /* UISettings.framework in Embed Frameworks */,
-				587BBD2E2DDA312400E745A6 /* UIComponents.framework in Embed Frameworks */,
-				587BBD122DDA312400E745A6 /* GZip.framework in Embed Frameworks */,
-				587BBD422DDA312400E745A6 /* UIInAppBrowser.framework in Embed Frameworks */,
-				587BBD1E2DDA312400E745A6 /* SwiftSignalKit.framework in Embed Frameworks */,
-				587BBD722DDA312400E745A6 /* YUVConversion.framework in Embed Frameworks */,
-				587BBD0E2DDA312400E745A6 /* BigIntLib.framework in Embed Frameworks */,
-				587BBD3A2DDA312400E745A6 /* UIEarn.framework in Embed Frameworks */,
-				587BBD222DDA312400E745A6 /* UIAssets.framework in Embed Frameworks */,
-				587BBD6A2DDA312400E745A6 /* WalletCore.framework in Embed Frameworks */,
-				587BBD162DDA312400E745A6 /* Ledger.framework in Embed Frameworks */,
-				587BBD4E2DDA312400E745A6 /* UIReceive.framework in Embed Frameworks */,
-				587BBD5A2DDA312400E745A6 /* UISwap.framework in Embed Frameworks */,
-				587BBD4A2DDA312400E745A6 /* UIQRScan.framework in Embed Frameworks */,
-				587BBD322DDA312400E745A6 /* UICreateWallet.framework in Embed Frameworks */,
-				587BBD362DDA312400E745A6 /* UIDapp.framework in Embed Frameworks */,
-			);
-			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
-
 /* Begin PBXFileReference section */
-		585AAECC2DDA27EC0076975F /* MTW Pure Air.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "MTW Pure Air.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		58CC83242DA443DA00EB7DEB /* Ledger.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Ledger.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		58D0A3FB2D8456E800535360 /* AirAsFramework.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = AirAsFramework.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		58D0A3FC2D8456E800535360 /* GZip.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = GZip.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -2457,13 +2172,6 @@
 			);
 			target = 274EAD822BB4A1950025AB4C /* WReachability */;
 		};
-		585AAEDD2DDA27ED0076975F /* Exceptions for "MTW Pure Air" folder in "MTW Pure Air" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = 585AAECB2DDA27EC0076975F /* MTW Pure Air */;
-		};
 		58CC83262DA4440200EB7DEB /* Exceptions for "SubModules" folder in "Ledger" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -2523,14 +2231,6 @@
 				58CC83262DA4440200EB7DEB /* Exceptions for "SubModules" folder in "Ledger" target */,
 			);
 			path = SubModules;
-			sourceTree = "<group>";
-		};
-		585AAECD2DDA27EC0076975F /* MTW Pure Air */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				585AAEDD2DDA27ED0076975F /* Exceptions for "MTW Pure Air" folder in "MTW Pure Air" target */,
-			);
-			path = "MTW Pure Air";
 			sourceTree = "<group>";
 		};
 		586D24AA2E47D36200A284A4 /* scripts */ = {
@@ -2762,41 +2462,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		585AAEC92DDA27EC0076975F /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				587BBD512DDA312400E745A6 /* UISend.framework in Frameworks */,
-				587BBD6D2DDA312400E745A6 /* WReachability.framework in Frameworks */,
-				587BBD592DDA312400E745A6 /* UISwap.framework in Frameworks */,
-				587BBD692DDA312400E745A6 /* WalletCore.framework in Frameworks */,
-				587BBD492DDA312400E745A6 /* UIQRScan.framework in Frameworks */,
-				587BBD712DDA312400E745A6 /* YUVConversion.framework in Frameworks */,
-				587BBD4D2DDA312400E745A6 /* UIReceive.framework in Frameworks */,
-				587BBD392DDA312400E745A6 /* UIEarn.framework in Frameworks */,
-				587BBD452DDA312400E745A6 /* UIPasscode.framework in Frameworks */,
-				587BBD252DDA312400E745A6 /* UIBrowser.framework in Frameworks */,
-				587BBD112DDA312400E745A6 /* GZip.framework in Frameworks */,
-				587BBD1D2DDA312400E745A6 /* SwiftSignalKit.framework in Frameworks */,
-				587BBD552DDA312400E745A6 /* UISettings.framework in Frameworks */,
-				587BBD3D2DDA312400E745A6 /* UIHome.framework in Frameworks */,
-				587BBD652DDA312400E745A6 /* WalletContext.framework in Frameworks */,
-				587BBD312DDA312400E745A6 /* UICreateWallet.framework in Frameworks */,
-				587BBD292DDA312400E745A6 /* UICharts.framework in Frameworks */,
-				587BBD0D2DDA312400E745A6 /* BigIntLib.framework in Frameworks */,
-				587BBD192DDA312400E745A6 /* RLottieBinding.framework in Frameworks */,
-				587BBD092DDA312400E745A6 /* AirAsFramework.framework in Frameworks */,
-				587BBD152DDA312400E745A6 /* Ledger.framework in Frameworks */,
-				585AAEE42DDA298F0076975F /* Lottie in Frameworks */,
-				587BBD212DDA312400E745A6 /* UIAssets.framework in Frameworks */,
-				587BBD352DDA312400E745A6 /* UIDapp.framework in Frameworks */,
-				587BBD5D2DDA312400E745A6 /* UIToken.framework in Frameworks */,
-				587BBD412DDA312400E745A6 /* UIInAppBrowser.framework in Frameworks */,
-				587BBD2D2DDA312400E745A6 /* UIComponents.framework in Frameworks */,
-				587BBD612DDA312400E745A6 /* UITransaction.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		58CC831F2DA443DA00EB7DEB /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -2841,10 +2506,8 @@
 				58D0A4122D8456E800535360 /* UICreateWallet.framework */,
 				58D0A4132D8456E800535360 /* UIHome.framework */,
 				58D0A4142D8456E800535360 /* YUVConversion.framework */,
-				585AAECD2DDA27EC0076975F /* MTW Pure Air */,
 				581B5B992D9305FC00F3C4CF /* Frameworks */,
 				58CC83242DA443DA00EB7DEB /* Ledger.framework */,
-				585AAECC2DDA27EC0076975F /* MTW Pure Air.app */,
 			);
 			sourceTree = "<group>";
 		};
@@ -3667,57 +3330,6 @@
 			productReference = 58D0A40F2D8456E800535360 /* UIEarn.framework */;
 			productType = "com.apple.product-type.framework";
 		};
-		585AAECB2DDA27EC0076975F /* MTW Pure Air */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 585AAEDE2DDA27ED0076975F /* Build configuration list for PBXNativeTarget "MTW Pure Air" */;
-			buildPhases = (
-				585AAEC82DDA27EC0076975F /* Sources */,
-				585AAEC92DDA27EC0076975F /* Frameworks */,
-				585AAECA2DDA27EC0076975F /* Resources */,
-				587BBD752DDA312500E745A6 /* Embed Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				587BBD0C2DDA312400E745A6 /* PBXTargetDependency */,
-				587BBD102DDA312400E745A6 /* PBXTargetDependency */,
-				587BBD142DDA312400E745A6 /* PBXTargetDependency */,
-				587BBD182DDA312400E745A6 /* PBXTargetDependency */,
-				587BBD1C2DDA312400E745A6 /* PBXTargetDependency */,
-				587BBD202DDA312400E745A6 /* PBXTargetDependency */,
-				587BBD242DDA312400E745A6 /* PBXTargetDependency */,
-				587BBD282DDA312400E745A6 /* PBXTargetDependency */,
-				587BBD2C2DDA312400E745A6 /* PBXTargetDependency */,
-				587BBD302DDA312400E745A6 /* PBXTargetDependency */,
-				587BBD342DDA312400E745A6 /* PBXTargetDependency */,
-				587BBD382DDA312400E745A6 /* PBXTargetDependency */,
-				587BBD3C2DDA312400E745A6 /* PBXTargetDependency */,
-				587BBD402DDA312400E745A6 /* PBXTargetDependency */,
-				587BBD442DDA312400E745A6 /* PBXTargetDependency */,
-				587BBD482DDA312400E745A6 /* PBXTargetDependency */,
-				587BBD4C2DDA312400E745A6 /* PBXTargetDependency */,
-				587BBD502DDA312400E745A6 /* PBXTargetDependency */,
-				587BBD542DDA312400E745A6 /* PBXTargetDependency */,
-				587BBD582DDA312400E745A6 /* PBXTargetDependency */,
-				587BBD5C2DDA312400E745A6 /* PBXTargetDependency */,
-				587BBD602DDA312400E745A6 /* PBXTargetDependency */,
-				587BBD642DDA312400E745A6 /* PBXTargetDependency */,
-				587BBD682DDA312400E745A6 /* PBXTargetDependency */,
-				587BBD6C2DDA312400E745A6 /* PBXTargetDependency */,
-				587BBD702DDA312400E745A6 /* PBXTargetDependency */,
-				587BBD742DDA312400E745A6 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				585AAECD2DDA27EC0076975F /* MTW Pure Air */,
-			);
-			name = "MTW Pure Air";
-			packageProductDependencies = (
-				585AAEE32DDA298F0076975F /* Lottie */,
-			);
-			productName = "MTW Pure Air";
-			productReference = 585AAECC2DDA27EC0076975F /* MTW Pure Air.app */;
-			productType = "com.apple.product-type.application";
-		};
 		58CC831C2DA443DA00EB7DEB /* Ledger */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 58CC83212DA443DA00EB7DEB /* Build configuration list for PBXNativeTarget "Ledger" */;
@@ -3842,9 +3454,6 @@
 						CreatedOnToolsVersion = 15.3;
 						LastSwiftMigration = 1530;
 					};
-					585AAECB2DDA27EC0076975F = {
-						CreatedOnToolsVersion = 16.2;
-					};
 				};
 			};
 			buildConfigurationList = 27DCA77E2BA5725C004F83C8 /* Build configuration list for PBXProject "MyTonWalletAir" */;
@@ -3901,7 +3510,6 @@
 				274EAD822BB4A1950025AB4C /* WReachability */,
 				272B3CB12D2AD4360024658E /* BigIntLib */,
 				58CC831C2DA443DA00EB7DEB /* Ledger */,
-				585AAECB2DDA27EC0076975F /* MTW Pure Air */,
 			);
 		};
 /* End PBXProject section */
@@ -4083,13 +3691,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		27FC97AB2BF2057000F8F57D /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		585AAECA2DDA27EC0076975F /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -4282,13 +3883,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		27FC97A92BF2057000F8F57D /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		585AAEC82DDA27EC0076975F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -5041,141 +4635,6 @@
 			isa = PBXTargetDependency;
 			target = 2770D0012BD16F43005F0BA3 /* UISend */;
 			targetProxy = 58375EDE2D5286A600DB78CD /* PBXContainerItemProxy */;
-		};
-		587BBD0C2DDA312400E745A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 279104D12C89BAB20075D4B5 /* AirAsFramework */;
-			targetProxy = 587BBD0B2DDA312400E745A6 /* PBXContainerItemProxy */;
-		};
-		587BBD102DDA312400E745A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 272B3CB12D2AD4360024658E /* BigIntLib */;
-			targetProxy = 587BBD0F2DDA312400E745A6 /* PBXContainerItemProxy */;
-		};
-		587BBD142DDA312400E745A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 27DCA9CD2BA5BA2B004F83C8 /* GZip */;
-			targetProxy = 587BBD132DDA312400E745A6 /* PBXContainerItemProxy */;
-		};
-		587BBD182DDA312400E745A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 58CC831C2DA443DA00EB7DEB /* Ledger */;
-			targetProxy = 587BBD172DDA312400E745A6 /* PBXContainerItemProxy */;
-		};
-		587BBD1C2DDA312400E745A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 27DCA8C62BA5B5D6004F83C8 /* RLottieBinding */;
-			targetProxy = 587BBD1B2DDA312400E745A6 /* PBXContainerItemProxy */;
-		};
-		587BBD202DDA312400E745A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 27DCA9F92BA5BBCD004F83C8 /* SwiftSignalKit */;
-			targetProxy = 587BBD1F2DDA312400E745A6 /* PBXContainerItemProxy */;
-		};
-		587BBD242DDA312400E745A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 27F244752BB374F800F4FADE /* UIAssets */;
-			targetProxy = 587BBD232DDA312400E745A6 /* PBXContainerItemProxy */;
-		};
-		587BBD282DDA312400E745A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 27F2448E2BB375F800F4FADE /* UIBrowser */;
-			targetProxy = 587BBD272DDA312400E745A6 /* PBXContainerItemProxy */;
-		};
-		587BBD2C2DDA312400E745A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 276B5E452CD54C2F00235012 /* UICharts */;
-			targetProxy = 587BBD2B2DDA312400E745A6 /* PBXContainerItemProxy */;
-		};
-		587BBD302DDA312400E745A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 27DCA8672BA5B40C004F83C8 /* UIComponents */;
-			targetProxy = 587BBD2F2DDA312400E745A6 /* PBXContainerItemProxy */;
-		};
-		587BBD342DDA312400E745A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 27DCAAAC2BA5D60D004F83C8 /* UICreateWallet */;
-			targetProxy = 587BBD332DDA312400E745A6 /* PBXContainerItemProxy */;
-		};
-		587BBD382DDA312400E745A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 2744D0812C6BE18D0022EFEE /* UIDapp */;
-			targetProxy = 587BBD372DDA312400E745A6 /* PBXContainerItemProxy */;
-		};
-		587BBD3C2DDA312400E745A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 27FC97AC2BF2057000F8F57D /* UIEarn */;
-			targetProxy = 587BBD3B2DDA312400E745A6 /* PBXContainerItemProxy */;
-		};
-		587BBD402DDA312400E745A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 27DCAABD2BA5D6B1004F83C8 /* UIHome */;
-			targetProxy = 587BBD3F2DDA312400E745A6 /* PBXContainerItemProxy */;
-		};
-		587BBD442DDA312400E745A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 27BD61592C81C367005A4C82 /* UIInAppBrowser */;
-			targetProxy = 587BBD432DDA312400E745A6 /* PBXContainerItemProxy */;
-		};
-		587BBD482DDA312400E745A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 27DCAA5B2BA5C252004F83C8 /* UIPasscode */;
-			targetProxy = 587BBD472DDA312400E745A6 /* PBXContainerItemProxy */;
-		};
-		587BBD4C2DDA312400E745A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 273459D42BF2CFEB00FA7501 /* UIQRScan */;
-			targetProxy = 587BBD4B2DDA312400E745A6 /* PBXContainerItemProxy */;
-		};
-		587BBD502DDA312400E745A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 2761BEB42CCC05F700376556 /* UIReceive */;
-			targetProxy = 587BBD4F2DDA312400E745A6 /* PBXContainerItemProxy */;
-		};
-		587BBD542DDA312400E745A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 2770D0012BD16F43005F0BA3 /* UISend */;
-			targetProxy = 587BBD532DDA312400E745A6 /* PBXContainerItemProxy */;
-		};
-		587BBD582DDA312400E745A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 27EA17752C2C74C9002892EC /* UISettings */;
-			targetProxy = 587BBD572DDA312400E745A6 /* PBXContainerItemProxy */;
-		};
-		587BBD5C2DDA312400E745A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 27DDF6EB2BEDF85800BB1977 /* UISwap */;
-			targetProxy = 587BBD5B2DDA312400E745A6 /* PBXContainerItemProxy */;
-		};
-		587BBD602DDA312400E745A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 276B5DFB2CD512C700235012 /* UIToken */;
-			targetProxy = 587BBD5F2DDA312400E745A6 /* PBXContainerItemProxy */;
-		};
-		587BBD642DDA312400E745A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 27CADC442C333A8500F06824 /* UITransaction */;
-			targetProxy = 587BBD632DDA312400E745A6 /* PBXContainerItemProxy */;
-		};
-		587BBD682DDA312400E745A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 27DCA87E2BA5B439004F83C8 /* WalletContext */;
-			targetProxy = 587BBD672DDA312400E745A6 /* PBXContainerItemProxy */;
-		};
-		587BBD6C2DDA312400E745A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 27DCAAE12BA5DDA7004F83C8 /* WalletCore */;
-			targetProxy = 587BBD6B2DDA312400E745A6 /* PBXContainerItemProxy */;
-		};
-		587BBD702DDA312400E745A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 274EAD822BB4A1950025AB4C /* WReachability */;
-			targetProxy = 587BBD6F2DDA312400E745A6 /* PBXContainerItemProxy */;
-		};
-		587BBD742DDA312400E745A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 27DCAA432BA5BD86004F83C8 /* YUVConversion */;
-			targetProxy = 587BBD732DDA312400E745A6 /* PBXContainerItemProxy */;
 		};
 		5894AF352D06FB7C005E90F8 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -7056,65 +6515,6 @@
 			};
 			name = Release;
 		};
-		585AAEDF2DDA27ED0076975F /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = Y54Z4K69Z9;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "MTW Pure Air/Info.plist";
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
-				INFOPLIST_KEY_UIMainStoryboardFile = Main;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "org.mytonwallet.app-air.dev";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
-		};
-		585AAEE02DDA27ED0076975F /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = Y54Z4K69Z9;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "MTW Pure Air/Info.plist";
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
-				INFOPLIST_KEY_UIMainStoryboardFile = Main;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "org.mytonwallet.app-air.dev";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Release;
-		};
 		58CC83222DA443DA00EB7DEB /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -7423,15 +6823,6 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		585AAEDE2DDA27ED0076975F /* Build configuration list for PBXNativeTarget "MTW Pure Air" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				585AAEDF2DDA27ED0076975F /* Debug */,
-				585AAEE02DDA27ED0076975F /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		58CC83212DA443DA00EB7DEB /* Build configuration list for PBXNativeTarget "Ledger" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -7618,11 +7009,6 @@
 		584B0F062DD393FD00BDF9E7 /* Lottie */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 584B0F032DD390C000BDF9E7 /* XCRemoteSwiftPackageReference "lottie-spm" */;
-			productName = Lottie;
-		};
-		585AAEE32DDA298F0076975F /* Lottie */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 584B0F0A2DD3955600BDF9E7 /* XCRemoteSwiftPackageReference "lottie-spm" */;
 			productName = Lottie;
 		};
 		586DE0E82EA26F180055359D /* Flow */ = {

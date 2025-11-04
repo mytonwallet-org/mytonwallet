@@ -13,6 +13,10 @@ struct AppearanceSettingsView: View {
     var navigationBarHeight: CGFloat
     var onScroll: (CGFloat) -> ()
     var tintColor: Color
+    var canSwitchToCapacitor: Bool {
+        // can't be force unwrapped because app delegate is different in previews
+        (UIApplication.shared.delegate as? MtwAppDelegateProtocol)?.canSwitchToCapacitor ?? true
+    }
     
     @Namespace private var ns
     
@@ -41,6 +45,8 @@ struct AppearanceSettingsView: View {
                     .padding(.vertical, 1)
                     .foregroundStyle(Color.accentColor)
             }
+            .allowsHitTesting(canSwitchToCapacitor)
+            .opacity(canSwitchToCapacitor ? 1 : 0.5)
         }
     }
     

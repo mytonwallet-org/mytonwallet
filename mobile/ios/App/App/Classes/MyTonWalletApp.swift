@@ -1,5 +1,7 @@
 import UIKit
+#if canImport(Capacitor)
 import Capacitor
+#endif
 
 class MyTonWalletApp: UIApplication {
 
@@ -17,12 +19,13 @@ class MyTonWalletApp: UIApplication {
         guard now >= lastTouchEventTimestamp + 5 else {
             return
         }
-
+        #if canImport(Capacitor)
         guard let vc = UIApplication.shared.sceneKeyWindow?.rootViewController as? CAPBridgeViewController else {
             return
         }
         lastTouchEventTimestamp = now
         vc.bridge?.triggerWindowJSEvent(eventName: "touch")
+        #endif
     }
 
 }

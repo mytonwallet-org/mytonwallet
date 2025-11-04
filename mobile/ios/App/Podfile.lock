@@ -16,14 +16,14 @@ PODS:
     - Capacitor
   - CapacitorHaptics (7.0.1):
     - Capacitor
-  - CapacitorKeyboard (7.0.1):
+  - CapacitorKeyboard (7.0.3):
     - Capacitor
   - CapacitorMlkitBarcodeScanning (7.2.1):
     - Capacitor
     - GoogleMLKit/BarcodeScanning (= 7.0.0)
   - CapacitorNativeSettings (7.0.1):
     - Capacitor
-  - CapacitorPluginSafeArea (4.0.0):
+  - CapacitorPluginSafeArea (4.0.2):
     - Capacitor
   - CapacitorPushNotifications (7.0.1):
     - Capacitor
@@ -253,10 +253,10 @@ SPEC CHECKSUMS:
   CapacitorDialog: 128228f7256464205eba2479629f2c00743f39a5
   CapacitorFilesystem: e6261c410436f54908c11f94336c5b58286b1db0
   CapacitorHaptics: 1f1e17041f435d8ead9ff2a34edd592c6aa6a8d6
-  CapacitorKeyboard: 09fd91dcde4f8a37313e7f11bde553ad1ed52036
+  CapacitorKeyboard: 62f36104f26d53d8b3a2a43f2a69fe714f1777d5
   CapacitorMlkitBarcodeScanning: 147c172f6e423618b156e050f715cfb963680ef4
   CapacitorNativeSettings: bef37b3c7e2184da7416a3f162c71de19fd27593
-  CapacitorPluginSafeArea: 22031c3436269ca80fac90ec2c94bc7c1e59a81d
+  CapacitorPluginSafeArea: d6b696287c91ab0e790d01213124a3cdba97dc43
   CapacitorPushNotifications: 6a2794788c583dd89215f1805ca4bced1b13dbdf
   CapacitorSecureStoragePlugin: 450d402026ee3bcc018fa206504d9c0572fee78d
   CapacitorShare: e573823f511f260f598d0423c33b1e3d7bbe5fd1
@@ -287,6 +287,6 @@ SPEC CHECKSUMS:
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   SwiftKeychainWrapper: 807ba1d63c33a7d0613288512399cd1eda1e470c
 
-PODFILE CHECKSUM: 0a3caec2eb3f27ddcfb10b51f255f8ba4cdd0da1
+PODFILE CHECKSUM: 927eb4ad02c9c5af2a8d504a74e284be3a323a5c
 
 COCOAPODS: 1.16.2

@@ -12,13 +12,13 @@ public struct InsetSection<Content: View, Header: View, Footer: View>: View {
     public var dividersInset: CGFloat
 
     @ViewBuilder
-    public var content: () -> Content
+    public var content: Content
     
     @ViewBuilder
-    public var header: () -> Header
+    public var header: Header
     
     @ViewBuilder
-    public var footer: () -> Footer
+    public var footer: Footer
     
     @Environment(\.insetListContext) private var insetListContext
     
@@ -33,14 +33,14 @@ public struct InsetSection<Content: View, Header: View, Footer: View>: View {
         self.addDividers = addDividers
         self.dividersInset = dividersInset
         self.horizontalPadding = horizontalPadding
-        self.content = content
-        self.header = header
-        self.footer = footer
+        self.content = content()
+        self.header = header()
+        self.footer = footer()
     }
     
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            header()
+            header
                 .font13()
                 .textCase(.uppercase)
                 .foregroundStyle(.secondary)
@@ -50,12 +50,12 @@ public struct InsetSection<Content: View, Header: View, Footer: View>: View {
             ZStack {
                 Color(resolvedBackgroundColor)
                 ContentContainer(addDividers: addDividers, dividersInset: dividersInset) {
-                    content()
+                    content
                 }
             }
             .clipShape(.rect(cornerRadius: S.insetSectionCornerRadius, style: .continuous))
                 
-            footer()
+            footer
                 .font13()
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 16)
@@ -127,9 +127,9 @@ extension InsetSection where Footer == EmptyView {
         self.addDividers = addDividers
         self.dividersInset = dividersInset
         self.horizontalPadding = horizontalPadding
-        self.content = content
-        self.header = header
-        self.footer = EmptyView.init
+        self.content = content()
+        self.header = header()
+        self.footer = EmptyView()
     }
 }
 
@@ -145,8 +145,8 @@ extension InsetSection where Header == EmptyView, Footer == EmptyView {
         self.addDividers = addDividers
         self.dividersInset = dividersInset
         self.horizontalPadding = horizontalPadding
-        self.content = content
-        self.header = EmptyView.init
-        self.footer = EmptyView.init
+        self.content = content()
+        self.header = EmptyView()
+        self.footer = EmptyView()
     }
 }
