@@ -90,7 +90,7 @@ class WNavigationBar(
     private val backButton: WImageButton by lazy {
         WImageButton(context).apply {
             setOnClickListener {
-                navigationController.pop()
+                navigationController.onBackPressed()
             }
             visibility = if (navigationController.isBackAllowed()) VISIBLE else GONE
             val arrowDrawable =
