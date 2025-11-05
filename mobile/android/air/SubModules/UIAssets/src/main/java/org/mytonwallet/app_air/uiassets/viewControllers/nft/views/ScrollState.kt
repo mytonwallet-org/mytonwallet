@@ -45,7 +45,9 @@ sealed class ScrollState() {
             }
         override val avatarTranslationY: Float
             get() {
-                return lerp(headerView.topExtraPadding.toFloat(), 10f.dp, percent)
+                return with(headerView) {
+                    lerp(topExtraPadding.toFloat(), topExtraPadding - 105f.dp, percent)
+                }
             }
         override val avatarScale: Float
             get() {
