@@ -52,6 +52,13 @@ target 'MyTonWalletAir' do
   pod 'FirebaseMessaging'
 end
 
+target 'MyTonWallet_NoExtensions' do
+  capacitor_pods
+  # Add your Pods here
+  pod 'FloatingPanel', :git => 'https://github.com/mytonwalletorg/FloatingPanel', :commit => '477fd70521abbb12eb7f069f0220660c172dc936'
+  pod 'FirebaseMessaging'
+end
+
 # Fix Xcode 14 warnings like:
 # warning: Run script build phase '[CP] Copy XCFrameworks' will be run during every build because it does not specify any outputs. To address this warning, either add output dependencies to the script phase, or configure it to run in every build by unchecking "Based on dependency analysis" in the script phase. (in target 'ATargetNameHere' from project 'YourProjectName')
 # Ref.: https://github.com/CocoaPods/CocoaPods/issues/11444

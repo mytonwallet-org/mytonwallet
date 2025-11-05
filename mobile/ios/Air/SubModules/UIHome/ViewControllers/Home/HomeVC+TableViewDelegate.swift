@@ -68,7 +68,7 @@ extension HomeVC {
                 tableView.contentOffset.y += top
             }
             UIView.performWithoutAnimation {
-                actionsTopConstraint.constant = headerHeightWithoutAssets
+                actionsTopConstraint.constant = headerHeightWithoutAssets + (actionsHeight > 0 ? 0 : -76)
                 self.applySnapshot(self.makeSnapshot(), animated: false)
                 tableView.layoutIfNeeded()
             }

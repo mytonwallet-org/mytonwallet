@@ -12,16 +12,18 @@ import {
   selectOrderedAccounts,
 } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
+import { captureEvents, SwipeDirection } from '../../../../util/captureEvents';
 import { vibrate } from '../../../../util/haptics';
 import { disableSwipeToClose, enableSwipeToClose } from '../../../../util/modalSwipeManager';
 import resolveSlideTransitionName from '../../../../util/resolveSlideTransitionName';
-import { IS_LEDGER_SUPPORTED } from '../../../../util/windowEnvironment';
+import { IS_LEDGER_SUPPORTED, IS_TOUCH_ENV } from '../../../../util/windowEnvironment';
 
 import useEffectOnce from '../../../../hooks/useEffectOnce';
 import useFlag from '../../../../hooks/useFlag';
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
 import useScrolledState from '../../../../hooks/useScrolledState';
+import { OPEN_CONTEXT_MENU_CLASS_NAME } from './hooks/useAccountContextMenu';
 import { useAccountsBalances } from './hooks/useAccountsBalances';
 import { useFilteredAccounts } from './hooks/useFilteredAccounts';
 import { useSortableAccounts } from './hooks/useSortableAccounts';
@@ -220,6 +222,40 @@ function AccountSelectorModal({
     setAccountSelectorTab({ tab: tabId });
   });
 
+  useEffect(() => {
+    if (!IS_TOUCH_ENV || !isOpen) return;
+
+    const node = contentRef.current;
+    if (!node) return;
+
+    function handleSwipe(e: Event, direction: SwipeDirection) {
+      if (
+        direction === SwipeDirection.Up
+        || direction === SwipeDirection.Down
+        || renderingKey === RenderingState.Reorder
+        || (e.target as HTMLElement | null)?.closest(`.${OPEN_CONTEXT_MENU_CLASS_NAME}`)
+
+      ) {
+        return false;
+      }
+
+      const nextIndex = direction === SwipeDirection.Left
+        ? Math.min(tabs.length - 1, currentTabIndex + 1)
+        : Math.max(0, currentTabIndex - 1);
+      if (nextIndex === currentTabIndex) return false;
+
+      const nextTab = tabs[nextIndex];
+      handleSwitchTab(nextTab.id);
+      return true;
+    }
+
+    return captureEvents(node, {
+      includedClosestSelector: '.swipe-container',
+      selectorToPreventScroll: '.custom-scroll',
+      onSwipe: handleSwipe,
+    });
+  }, [tabs, handleSwitchTab, currentTabIndex, renderingKey, isOpen]);
+
   const handleModalClose = useLastCallback(() => {
     setRenderingKey(initialRenderingKey);
   });
@@ -370,7 +406,11 @@ function AccountSelectorModal({
         <Transition
           ref={contentRef}
           name={resolveSlideTransitionName()}
-          className={buildClassName(modalStyles.transition, styles.rootTransition)}
+          className={buildClassName(
+            modalStyles.transition,
+            styles.rootTransition,
+            IS_TOUCH_ENV && 'swipe-container',
+          )}
           slideClassName={modalStyles.transitionSlide}
           activeKey={renderingKey}
         >

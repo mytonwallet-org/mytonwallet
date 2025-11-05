@@ -1,37 +1,50 @@
 import UIKit
-import Capacitor
 import AirAsFramework
+import WalletContext
+import UIComponents
+import WalletCore
+import WebKit
+#if canImport(Capacitor)
+import Capacitor
 import MytonwalletAirAppLauncher
 import MytonwalletNativeBottomSheet
 import FirebaseCore
 import FirebaseMessaging
-import WalletContext
-import UIComponents
 import SwiftKeychainWrapper
-import WalletCore
+#endif
 
 private let log = Log("AppDelegate")
 
 
-class AppDelegate: UIResponder, UIApplicationDelegate, @preconcurrency MTWAirToggleDelegate, MtwAppDelegateProtocol {
+class AppDelegate: UIResponder, UIApplicationDelegate, MtwAppDelegateProtocol {
+    
+    #if canImport(Capacitor)
+    public let canSwitchToCapacitor = true
+    #else
+    public let canSwitchToCapacitor = false
+    #endif
+
     
     private var isOnTheAir: Bool {
         return AirLauncher.isOnTheAir
     }
 
     private func clean(webView: WKWebView?) {
+        webView?.load(URLRequest(url: URL(string: "about:blank")!))
         webView?.navigationDelegate = nil
         webView?.uiDelegate = nil
         webView?.removeFromSuperview()
     }
     
     private func cleanWebViews() {
+         #if canImport(Capacitor)
         if let window = UIApplication.shared.connectedSceneDelegate?.window,
            let capBridgeVC = window.rootViewController as? CAPBridgeViewController,
            let bottomSheetPlugin = capBridgeVC.bridge?.plugin(withName: "BottomSheet") as? BottomSheetPlugin {
             self.clean(webView: bottomSheetPlugin.capWebView)
             self.clean(webView: capBridgeVC.webView)
         }
+        #endif
     }
 
     @MainActor func switchToAir() {
@@ -53,7 +66,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @preconcurrency MTWAirTog
             }
         }
         
+        #if canImport(Capacitor)
         FirebaseApp.configure()
+        #endif
         
         guard application.isProtectedDataAvailable else {
             log.error("application.isProtectedDataAvailable = false")
@@ -75,8 +90,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @preconcurrency MTWAirTog
             AirLauncher.handle(url: url)
             return true
         }
-        
+        #if canImport(Capacitor)
         return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
+        #else
+        fatalError()
+        #endif
     }
     
     func applicationWillTerminate(_ application: UIApplication) {
@@ -97,11 +115,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @preconcurrency MTWAirTog
             AirLauncher.handle(url: url)
             return true
         }
-
+        
+        #if canImport(Capacitor)
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
+        #else
+        fatalError()
+        #endif
     }
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        #if canImport(Capacitor)
         Messaging.messaging().apnsToken = deviceToken
         Messaging.messaging().token(completion: { (token, error) in
             if let error = error {
@@ -115,13 +138,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @preconcurrency MTWAirTog
                 }
             }
         })
+        #endif
     }
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        #if canImport(Capacitor)
         log.error("didFailToRegisterForRemoteNotificationsWithError \(error, .public)")
         NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+        #endif
     }
 }
+
+#if canImport(Capacitor)
+extension AppDelegate: @preconcurrency MTWAirToggleDelegate {
+}
+#endif
+
 
 func logAppStart() {
     let infoDict = Bundle.main.infoDictionary

@@ -18,19 +18,28 @@ extension HomeVC {
         if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
             // set title to get blurred background
             navigationItem.attributedTitle = AttributedString(lang("Home"), attributes: AttributeContainer([.foregroundColor: UIColor.clear]))
-            navigationItem.leadingItemGroups = [
-                UIBarButtonItemGroup(
-                    barButtonItems: [
-                        UIBarButtonItem(title: lang("Scan"), image: .airBundle("HomeScan24"), target: self, action: #selector(scanPressed))
-                    ],
-                    representativeItem: nil
-                )
-            ]
-            navigationItem.trailingItemGroups = [
-                UIBarButtonItemGroup(barButtonItems: [lockItem, hideItem], representativeItem: nil)
-            ]
         } else {
-            navigationController?.setNavigationBarHidden(true, animated: false)
+            title = nil
+        }
+        navigationItem.leadingItemGroups = [
+            UIBarButtonItemGroup(
+                barButtonItems: [
+                    UIBarButtonItem(title: lang("Scan"), image: .airBundle("HomeScan24"), target: self, action: #selector(scanPressed))
+                ],
+                representativeItem: nil
+            )
+        ]
+        navigationItem.trailingItemGroups = [
+            UIBarButtonItemGroup(barButtonItems: [lockItem, hideItem], representativeItem: nil)
+        ]
+        navigationController?.setNavigationBarHidden(false, animated: false)
+        if !IOS_26_MODE_ENABLED {
+            let appearance = UINavigationBarAppearance()
+            appearance.configureWithTransparentBackground()
+            appearance.backgroundColor = .clear
+            appearance.backgroundEffect = nil
+            navigationItem.standardAppearance = appearance
+            navigationItem.scrollEdgeAppearance = appearance
         }
         
         view.addLayoutGuide(windowSafeAreaGuide)
@@ -90,7 +99,7 @@ extension HomeVC {
             bottomSeparatorView.bottomAnchor.constraint(equalTo: headerBlurView.bottomAnchor),
         ])
         
-        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+        if IOS_26_MODE_ENABLED {
             headerBlurView.isHidden = true
             bottomSeparatorView.isHidden = true
         }
@@ -111,7 +120,8 @@ extension HomeVC {
             actionsTopConstraint,
             
             actionsContainerView.heightAnchor.constraint(equalToConstant: 60),
-            actionsView.topAnchor.constraint(greaterThanOrEqualTo: windowSafeAreaGuide.topAnchor, constant: 50).withPriority(.init(900)) // will be broken when assets push it from below and out of frame; button height constrain has priority = 800
+            actionsView.topAnchor.constraint(greaterThanOrEqualTo: windowSafeAreaGuide.topAnchor,
+                                             constant: 50).withPriority(.init(900)) // will be broken when assets push it from below and out of frame; button height constrain has priority = 800
         ])
         actionsVC.didMove(toParent: self)
         
@@ -119,7 +129,6 @@ extension HomeVC {
         let assetsView = walletAssetsVC.view!
         tableView.addSubview(assetsView)
         assetsHeightConstraint = assetsView.heightAnchor.constraint(equalToConstant: 0)
-        assetsHeightConstraint.isActive = true
 
         NSLayoutConstraint.activate([
             assetsView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
@@ -131,15 +140,9 @@ extension HomeVC {
         ])
         walletAssetsVC.didMove(toParent: self)
         
-        setupNavButtons()
-        let spacing: CGFloat
-        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-            spacing = 30
-        } else {
-            spacing = 4
-        }
+        let spacing: CGFloat = IOS_26_MODE_ENABLED ? -124 : -100
         NSLayoutConstraint.activate([
-            lockButton.leadingAnchor.constraint(greaterThanOrEqualTo: balanceHeaderView.updateStatusView.trailingAnchor,
+            balanceHeaderView.updateStatusView.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor,
                                                 constant: spacing)
         ])
         balanceHeaderView.updateStatusView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -164,49 +167,6 @@ extension HomeVC {
         updateTheme()
         
         walletAssetsVC.delegate = self
-    }
-    
-    func setupNavButtons() {
-        scanButton = WBaseButton(type: .system)
-        scanButton.translatesAutoresizingMaskIntoConstraints = false
-        scanButton.setImage(.airBundle("HomeScan24"), for: .normal)
-        scanButton.addTarget(self, action: #selector(scanPressed), for: .touchUpInside)
-        view.addSubview(scanButton)
-        
-        lockButton = WBaseButton(type: .system)
-        lockButton.translatesAutoresizingMaskIntoConstraints = false
-        lockButton.setImage(.airBundle("HomeLock24"), for: .normal)
-        lockButton.addTarget(self, action: #selector(lockPressed), for: .touchUpInside)
-        view.addSubview(lockButton)
-        
-        hideButton = WBaseButton(type: .system)
-        hideButton.translatesAutoresizingMaskIntoConstraints = false
-        hideButton.setImage(.airBundle("HomeHide24"), for: .normal)
-        hideButton.addTarget(self, action: #selector(hidePressed), for: .touchUpInside)
-        view.addSubview(hideButton)
-
-        NSLayoutConstraint.activate([
-            scanButton.topAnchor.constraint(equalTo: windowSafeAreaGuide.topAnchor, constant: -5),
-            scanButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 6), // 16 - 10
-            scanButton.widthAnchor.constraint(equalToConstant: 44),
-            scanButton.heightAnchor.constraint(equalToConstant: 44),
-            
-            lockButton.topAnchor.constraint(equalTo: windowSafeAreaGuide.topAnchor, constant: -5),
-            lockButton.trailingAnchor.constraint(equalTo: hideButton.leadingAnchor, constant: 6), // -(14 - 2*10)
-            lockButton.widthAnchor.constraint(equalToConstant: 44),
-            lockButton.heightAnchor.constraint(equalToConstant: 44),
-            
-            hideButton.topAnchor.constraint(equalTo: windowSafeAreaGuide.topAnchor, constant: -5),
-            hideButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -6),
-            hideButton.widthAnchor.constraint(equalToConstant: 44),
-            hideButton.heightAnchor.constraint(equalToConstant: 44),
-        ])
-        
-        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-            scanButton.isHidden = true
-            lockButton.isHidden = true
-            hideButton.isHidden = true
-        }
     }
     
     func appearedForFirstTime() {

@@ -11,12 +11,12 @@ public struct InsetList<Content: View>: View {
     public var spacing: CGFloat
     
     @ViewBuilder
-    public var content: () -> Content
+    public var content: Content
     
     public init(topPadding: CGFloat = 8, spacing: CGFloat = 24, @ViewBuilder content: @escaping () -> Content) {
         self.topPadding = topPadding
         self.spacing = spacing
-        self.content = content
+        self.content = content()
     }
     
     public var body: some View {
@@ -26,7 +26,7 @@ public struct InsetList<Content: View>: View {
                     .frame(height: topPadding)
 
                 VStack(spacing: spacing) {
-                    content()
+                    content
                 }
             }
         }

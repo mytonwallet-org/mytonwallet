@@ -7,16 +7,16 @@ public struct InsetCell<Content: View>: View {
     
     public var horizontalPadding: CGFloat?
     public var verticalPadding: CGFloat?
-    public var content: () -> Content
+    public var content: Content
     
     public init(horizontalPadding: CGFloat? = nil, verticalPadding: CGFloat? = nil, @ViewBuilder content: @escaping () -> Content) {
         self.horizontalPadding = horizontalPadding
         self.verticalPadding = verticalPadding
-        self.content = content
+        self.content = content()
     }
     
     public var body: some View {
-        content()
+        content
             .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, verticalPadding ?? 11)
@@ -39,23 +39,23 @@ public struct InsetDetailCell<Label: View, Value: View>: View {
     public var alignment: VerticalAlignment
     public var horizontalPadding: CGFloat?
     public var verticalPadding: CGFloat?
-    public var label: () -> Label
-    public var value: () -> Value
+    public var label: Label
+    public var value: Value
     
     public init(alignment: VerticalAlignment = .center, horizontalPadding: CGFloat? = nil, verticalPadding: CGFloat? = nil, @ViewBuilder label: @escaping () -> Label, @ViewBuilder value: @escaping () -> Value) {
         self.alignment = alignment
         self.horizontalPadding = horizontalPadding
         self.verticalPadding = verticalPadding
-        self.label = label
-        self.value = value
+        self.label = label()
+        self.value = value()
     }
     
     public var body: some View {
         InsetCell(horizontalPadding: horizontalPadding, verticalPadding: verticalPadding) {
             HStack(alignment: alignment, spacing: 0) {
-                label()
+                label
                 Spacer(minLength: 4)
-                value()
+                value
             }
         }
     }

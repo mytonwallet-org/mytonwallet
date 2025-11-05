@@ -10,8 +10,10 @@ import UIKit
 import UIComponents
 import WalletCore
 import WalletContext
-import Capacitor
 import WidgetKit
+#if canImport(Capacitor)
+import Capacitor
+#endif
 
 private let log = Log("SceneDelegate")
 
@@ -68,7 +70,9 @@ final class SceneDelegate: UIResponder, UISceneDelegate {
         if isOnTheAir {
             AirLauncher.handle(url: url)
         } else {
+            #if canImport(Capacitor)
             _ = ApplicationDelegateProxy.shared.application(UIApplication.shared, open: url)
+            #endif
         }
     }
     

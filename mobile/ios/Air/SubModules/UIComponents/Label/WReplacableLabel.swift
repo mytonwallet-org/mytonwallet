@@ -33,7 +33,7 @@ public class WReplacableLabel: UIView {
     private func setup() {
         addSubview(label)
         label.translatesAutoresizingMaskIntoConstraints = false
-
+        label.allowsDefaultTighteningForTruncation = true 
         NSLayoutConstraint.activate([
             label.centerXAnchor.constraint(equalTo: centerXAnchor),
             label.centerYAnchor.constraint(equalTo: centerYAnchor),

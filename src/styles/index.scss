@@ -76,6 +76,14 @@ html {
   &.with-bottombar {
     --bottombar-height: 3.25rem;
   }
+
+  // Due to a bug on Android
+  // https://github.com/ionic-team/capacitor/issues/8055
+  // https://github.com/ionic-team/capacitor/issues/8095
+  // it was decided to remove the bottom safe area to prevent an empty block from appearing above the keyboard
+  &.is-keyboard-open.is-android-app {
+    --safe-area-bottom: 0 !important;
+  }
 }
 
 #root,

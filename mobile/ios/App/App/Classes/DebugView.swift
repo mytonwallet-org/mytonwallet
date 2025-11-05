@@ -5,8 +5,10 @@ import UIKit
 import UIComponents
 import WalletContext
 import WalletCore
-import SwiftKeychainWrapper
 import GRDB
+#if canImport(Capacitor)
+import SwiftKeychainWrapper
+#endif
 
 private let log = Log("DebugView")
 

@@ -15,7 +15,7 @@ import useFontScale from '../../../../hooks/useFontScale';
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
 import useWindowSize from '../../../../hooks/useWindowSize';
-import useAccountContextMenu from './hooks/useAccountContextMenu';
+import useAccountContextMenu, { OPEN_CONTEXT_MENU_CLASS_NAME } from './hooks/useAccountContextMenu';
 
 import DropdownMenu from '../../../ui/DropdownMenu';
 import MenuBackdrop from '../../../ui/MenuBackdrop';
@@ -45,7 +45,6 @@ interface OwnProps {
   onLogOut: (accountId: string) => void;
 }
 
-export const OPEN_CONTEXT_MENU_CLASS_NAME = 'open-context-menu';
 const CONTEXT_MENU_VERTICAL_SHIFT_PX = 6;
 
 function AccountWalletCard({

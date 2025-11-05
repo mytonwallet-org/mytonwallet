@@ -58,7 +58,7 @@ private let log = Log("BalanceHeaderView+update")
                 balanceScale *= WAnimatedAmountLabelConfig.cardToBalanceHeaderRatio
             }
             // set balance view size
-            balanceTopConstraint.constant = -2 + progress * 54
+            balanceTopConstraint.constant = 3 + progress * 54
             balanceView.update(scale: balanceScale)
             balanceViewSkeleton.transform = CGAffineTransform(scaleX: balanceScale, y: balanceScale)
             balanceContainer.shyMask?.transform = CGAffineTransform(scaleX: balanceScale, y: balanceScale)

@@ -19,14 +19,13 @@ public actor SharedCache {
         var rates: [String: MDouble]
     }
 
-    private let url = appGroupContainerUrl.appending(component: "cache.json")
+    private let url = appGroupContainerUrl?.appending(component: "cache.json")
 
     public init() {
         Task { await loadFromDisk() }
     }
 
-    @discardableResult
-    public func reload() -> Bool {
+    public func reload() {
         loadFromDisk()
     }
 
@@ -72,21 +71,20 @@ public actor SharedCache {
         persist()
     }
 
-    @discardableResult
-    private func loadFromDisk() -> Bool {
+    private func loadFromDisk() {
         do {
+            guard let url else { return }
             let data = try Data(contentsOf: url)
             let snapshot = try JSONDecoder().decode(Snapshot.self, from: data)
             self.tokens = snapshot.tokens
             self.baseCurrency = snapshot.baseCurrency
             self.rates = snapshot.rates
-            return true
         } catch {
-            return false
         }
     }
 
     private func persist() {
+        guard let url else { return }
         let snapshot = Snapshot(tokens: tokens, baseCurrency: baseCurrency, rates: rates)
         do {
             let data = try JSONEncoder().encode(snapshot)

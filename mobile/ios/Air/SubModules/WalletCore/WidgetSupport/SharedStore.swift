@@ -17,8 +17,7 @@ public actor SharedStore {
         self.cache = cache
     }
 
-    @discardableResult
-    public func reloadCache() async -> Bool {
+    public func reloadCache() async {
         await cache.reload()
     }
 

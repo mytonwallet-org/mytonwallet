@@ -74,20 +74,22 @@ private class AppActionsImpl: AppActionsProtocol {
             topViewController()?.showAlert(error: BridgeCallError.customMessage(lang("Read-only account"), nil))
             return
         }
-        let vc: UIViewController? = if case .transaction(let transaction) = activity, !transaction.isIncoming {
+        var vc: UIViewController?
+        switch activity {
+        case .transaction(let transaction):
             if transaction.isStaking {
-                EarnRootVC(token: TokenStore.tokens[transaction.slug])
-            } else {
-                SendVC(prefilledValues: .init(
+                vc = EarnRootVC(token: TokenStore.tokens[transaction.slug])
+            } else if transaction.type == nil && transaction.nft == nil && !transaction.isIncoming {
+                vc = SendVC(prefilledValues: .init(
                     address: transaction.toAddress,
                     amount: transaction.amount == 0 ? nil : abs(transaction.amount),
                     token: transaction.slug,
                     commentOrMemo: transaction.comment
                 ))
             }
-        } else if case .swap(let swap) = activity {
-            SwapVC(defaultSellingToken: swap.from, defaultBuyingToken: swap.to, defaultSellingAmount: swap.fromAmount.value)
-        } else { nil }
+        case .swap(let swap):
+            vc = SwapVC(defaultSellingToken: swap.from, defaultBuyingToken: swap.to, defaultSellingAmount: swap.fromAmount.value)
+        }
         if let vc {
             topWViewController()?.presentingViewController?.dismiss(animated: true, completion: {
                 topViewController()?.present(vc, animated: true)

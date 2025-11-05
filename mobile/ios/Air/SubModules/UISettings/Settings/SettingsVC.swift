@@ -195,7 +195,12 @@ public class SettingsVC: WViewController, Sendable {
         super.viewIsAppearing(animated)
         if let window = view.window {
             windowSafeAreaGuideContraint.constant = window.safeAreaInsets.top
-            collectionView.contentInset.top = defaultHeight - window.safeAreaInsets.top
+            if IOS_26_MODE_ENABLED {
+                collectionView.contentInset.top = defaultHeight - window.safeAreaInsets.top
+            } else {
+                collectionView.contentInset.top = defaultHeight
+            }
+            
         }
     }
     

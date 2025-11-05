@@ -7,7 +7,9 @@
 
 import UIKit
 import WebKit
+#if canImport(Capacitor)
 import Capacitor
+#endif
 import AirAsFramework
 import WalletContext
 import UIComponents
@@ -15,7 +17,7 @@ import UIComponents
 private let log = Log("AppSwitcher")
 
 
-class AppSwitcher: NSObject {
+@MainActor class AppSwitcher: NSObject {
     
     let window: WWindow
 
@@ -34,13 +36,16 @@ class AppSwitcher: NSObject {
                 await AirLauncher.soarIntoAir()
             }
         } else {
+            #if canImport(Capacitor)
             let capBridgeVC = UIStoryboard(name: "Main", bundle: Bundle.main).instantiateViewController(withIdentifier: "capBridgeVC") as! CAPBridgeViewController
             addLongTapGesture(vc: capBridgeVC)
             window.rootViewController = capBridgeVC
             window.makeKeyAndVisible()
+            #endif
         }
     }
     
+    #if canImport(Capacitor)
     func addLongTapGesture(vc: CAPBridgeViewController) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
             if let webView = vc.webView {
@@ -64,4 +69,5 @@ class AppSwitcher: NSObject {
             _showDebugView()
         }
     }
+    #endif
 }
