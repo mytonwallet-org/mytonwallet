@@ -24,11 +24,17 @@ open class WFloatingHintEditText @JvmOverloads constructor(
     defStyle: Int = R.attr.editTextStyle,
 ) : AppCompatEditText(context, attrs, defStyle), WThemedView {
 
-    private var floatingHintGravity: Int = Gravity.CENTER_VERTICAL or Gravity.START
+    var floatingHintGravity: Int = Gravity.CENTER_VERTICAL or Gravity.START
+        set(value) {
+            if (field == value) {
+                return
+            }
+            field = value
+            invalidateHintLayout()
+            invalidate()
+        }
     private var floatingHintText: CharSequence? = null
-    private var floatingHintLayout: StaticLayout? = null
-    private var floatingHintLayoutWidth: Int = -1
-    private var floatingHintLayoutText: CharSequence? = null
+    private var floatingHintDrawState: FloatingHintDrawState? = null
 
     override fun updateTheme() {
         setHintTextColor(WColor.SecondaryText.color)
@@ -40,19 +46,11 @@ open class WFloatingHintEditText @JvmOverloads constructor(
         super.requestLayout()
     }
 
-    fun setFloatingHintGravity(gravity: Int) {
-        if (floatingHintGravity == gravity) {
+    private fun setFloatingHint(hint: CharSequence) {
+        super.setHint(null)
+        if (TextUtils.equals(floatingHintText, hint)) {
             return
         }
-        floatingHintGravity = gravity
-        invalidateHintLayout()
-        invalidate()
-    }
-
-    fun getFloatingHintGravity(): Int = floatingHintGravity
-
-    private fun setFloatingHint(hint: CharSequence?) {
-        super.setHint(null)
         floatingHintText = hint
         invalidateHintLayout()
     }
@@ -84,9 +82,7 @@ open class WFloatingHintEditText @JvmOverloads constructor(
     }
 
     private fun invalidateHintLayout() {
-        floatingHintLayout = null
-        floatingHintLayoutWidth = -1
-        floatingHintLayoutText = null
+        floatingHintDrawState = null
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -96,7 +92,28 @@ open class WFloatingHintEditText @JvmOverloads constructor(
             return
         }
 
-        val textForHint = floatingHintText ?: return
+        val floatingHintDrawState = obtainFloatingHintDrawState() ?: return
+
+        val save = canvas.save()
+        canvas.translate(floatingHintDrawState.x - scrollX, floatingHintDrawState.y - scrollY)
+
+        floatingHintDrawState.hintLayout.draw(canvas)
+        canvas.restoreToCount(save)
+    }
+
+    private fun shouldDrawHint(): Boolean {
+        if (!text.isNullOrEmpty() || floatingHintText.isNullOrEmpty()) {
+            return false
+        }
+        return alpha > 0f && visibility == VISIBLE
+    }
+
+    private fun obtainFloatingHintDrawState(): FloatingHintDrawState? {
+        if (floatingHintDrawState != null) {
+            return floatingHintDrawState
+        }
+
+        val textForHint = floatingHintText ?: return null
 
         val hintGravity = floatingHintGravity
         val isRtl = layoutDirection == LAYOUT_DIRECTION_RTL
@@ -133,10 +150,10 @@ open class WFloatingHintEditText @JvmOverloads constructor(
         val contentWidth = (contentRight - contentLeft).coerceAtLeast(0)
 
         if (contentWidth == 0) {
-            return
+            return null
         }
 
-        val layout = obtainHintLayout(textForHint, contentWidth) ?: return
+        val layout = createHintLayout(textForHint, contentWidth)
 
         val layoutWidth = layout.width
         val x = when (horizontalGravity) {
@@ -152,29 +169,12 @@ open class WFloatingHintEditText @JvmOverloads constructor(
             else -> contentTop
         }.toFloat()
 
-        val save = canvas.save()
-        canvas.translate(x - scrollX, y - scrollY)
-
-        layout.draw(canvas)
-        canvas.restoreToCount(save)
+        return FloatingHintDrawState(hintLayout = layout, x = x, y = y).also {
+            floatingHintDrawState = it
+        }
     }
 
-    private fun shouldDrawHint(): Boolean {
-        if (!text.isNullOrEmpty() || floatingHintText.isNullOrEmpty()) {
-            return false
-        }
-        return alpha > 0f && visibility == VISIBLE
-    }
-
-    private fun obtainHintLayout(hintText: CharSequence, availableWidth: Int): StaticLayout? {
-        if (floatingHintLayout != null && floatingHintLayoutWidth == availableWidth && TextUtils.equals(
-                floatingHintLayoutText,
-                hintText
-            )
-        ) {
-            return floatingHintLayout
-        }
-
+    private fun createHintLayout(hintText: CharSequence, availableWidth: Int): StaticLayout {
         val hintPaint = TextPaint(paint)
         hintPaint.color = (hintTextColors?.defaultColor ?: currentTextColor).let { color ->
             hintTextColors?.defaultColor ?: color
@@ -203,10 +203,6 @@ open class WFloatingHintEditText @JvmOverloads constructor(
             .setHyphenationFrequency(hyphenationFrequency)
             .setTextDirection(textDir)
             .build()
-
-        floatingHintLayout = layout
-        floatingHintLayoutWidth = availableWidth
-        floatingHintLayoutText = hintText
         return layout
     }
 
@@ -239,14 +235,24 @@ open class WFloatingHintEditText @JvmOverloads constructor(
 
     private fun resolveVerticalGravity(gravity: Int): Int {
         val vGravity = gravity and Gravity.VERTICAL_GRAVITY_MASK
-        return if (vGravity == 0) Gravity.TOP else vGravity
+        return if (vGravity == 0) {
+            Gravity.TOP
+        } else {
+            vGravity
+        }
     }
 
     override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection? {
         val inputConnection = super.onCreateInputConnection(outAttrs)
         if (outAttrs.hintText == null) {
-            outAttrs.hintText = floatingHintLayoutText
+            outAttrs.hintText = floatingHintText
         }
         return inputConnection
     }
+
+    private data class FloatingHintDrawState(
+        val hintLayout: StaticLayout,
+        val x: Float,
+        val y: Float
+    )
 }

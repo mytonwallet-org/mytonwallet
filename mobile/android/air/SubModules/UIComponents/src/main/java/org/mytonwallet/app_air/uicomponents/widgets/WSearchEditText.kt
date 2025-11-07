@@ -7,9 +7,9 @@ import android.graphics.drawable.ShapeDrawable
 import android.os.Build
 import android.util.AttributeSet
 import android.util.TypedValue
+import android.view.Gravity
 import androidx.appcompat.R
 import androidx.appcompat.content.res.AppCompatResources
-import androidx.appcompat.widget.AppCompatEditText
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.ViewHelpers
@@ -23,7 +23,7 @@ open class SwapSearchEditText @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyle: Int = R.attr.editTextStyle,
-) : AppCompatEditText(context, attrs, defStyle), WThemedView {
+) : WFloatingHintEditText(context, attrs, defStyle), WThemedView {
 
     private val backgroundDrawable: ShapeDrawable =
         ViewHelpers.roundedShapeDrawable(0, 24f.dp)
@@ -43,7 +43,8 @@ open class SwapSearchEditText @JvmOverloads constructor(
         isSingleLine = true
         isHorizontalFadingEdgeEnabled = true
 
-        setHint(LocaleController.getString("Search..."))
+        hint = LocaleController.getString("Search...")
+        floatingHintGravity = Gravity.CENTER_HORIZONTAL or Gravity.CENTER_VERTICAL
 
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
