@@ -17,6 +17,7 @@ import androidx.appcompat.widget.AppCompatEditText
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import kotlin.math.max
+import kotlin.math.min
 
 open class WFloatingHintEditText @JvmOverloads constructor(
     context: Context,
@@ -94,18 +95,30 @@ open class WFloatingHintEditText @JvmOverloads constructor(
 
         val floatingHintDrawState = obtainFloatingHintDrawState() ?: return
 
-        val save = canvas.save()
-        canvas.translate(floatingHintDrawState.x - scrollX, floatingHintDrawState.y - scrollY)
+        onDrawHint(
+            canvas = canvas,
+            hintX = floatingHintDrawState.x,
+            contextX = floatingHintDrawState.contextX,
+            hintY = floatingHintDrawState.y,
+            hintLayout = floatingHintDrawState.hintLayout
+        )
+    }
 
-        floatingHintDrawState.hintLayout.draw(canvas)
+    open fun onDrawHint(
+        canvas: Canvas,
+        hintX: Float,
+        contextX: Float,
+        hintY: Float,
+        hintLayout: StaticLayout
+    ) {
+        val save = canvas.save()
+        canvas.translate(hintX - scrollX, hintY - scrollY)
+        hintLayout.draw(canvas)
         canvas.restoreToCount(save)
     }
 
     private fun shouldDrawHint(): Boolean {
-        if (!text.isNullOrEmpty() || floatingHintText.isNullOrEmpty()) {
-            return false
-        }
-        return alpha > 0f && visibility == VISIBLE
+        return text.isNullOrEmpty() && !floatingHintText.isNullOrBlank()
     }
 
     private fun obtainFloatingHintDrawState(): FloatingHintDrawState? {
@@ -169,7 +182,12 @@ open class WFloatingHintEditText @JvmOverloads constructor(
             else -> contentTop
         }.toFloat()
 
-        return FloatingHintDrawState(hintLayout = layout, x = x, y = y).also {
+        var contextX: Float = layout.width.toFloat()
+        for (i in 0 until layout.lineCount) {
+            contextX = min(contextX, layout.getLineLeft(i))
+        }
+
+        return FloatingHintDrawState(hintLayout = layout, x = x, contextX = contextX, y = y).also {
             floatingHintDrawState = it
         }
     }
@@ -253,6 +271,7 @@ open class WFloatingHintEditText @JvmOverloads constructor(
     private data class FloatingHintDrawState(
         val hintLayout: StaticLayout,
         val x: Float,
-        val y: Float
+        val contextX: Float,
+        val y: Float,
     )
 }
