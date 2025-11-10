@@ -1,5 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.widgets
 
+import android.animation.Animator
+import android.animation.AnimatorSet
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
@@ -34,9 +36,10 @@ open class SwapSearchEditText @JvmOverloads constructor(
 
     private var viewState: ViewState? = ViewState()
     private var viewPropertiesState: ViewPropertiesState = ViewPropertiesState()
-    private var propertiesAnimator: ValueAnimator? = null
+    private var propertiesAnimator: Animator? = null
     private val backgroundDrawable: ShapeDrawable =
         ViewHelpers.roundedShapeDrawable(0, 24f.dp)
+    private val cursorDrawable: Drawable?
     private val searchDrawable: Drawable? =
         AppCompatResources.getDrawable(
             context,
@@ -62,6 +65,10 @@ open class SwapSearchEditText @JvmOverloads constructor(
         }
 
         updateTheme()
+        cursorDrawable = textCursorDrawable?.mutate()?.apply {
+            alpha = (viewPropertiesState.cursorAlpha * 255).roundToInt()
+        }
+        textCursorDrawable = cursorDrawable
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -163,7 +170,8 @@ open class SwapSearchEditText @JvmOverloads constructor(
                 iconAlpha = 0f,
                 iconTranslationX = 1f,
                 hintAlpha = 1f,
-                hintTranslationX = 1f
+                hintTranslationX = 1f,
+                cursorAlpha = 1f
             )
 
             // non-empty
@@ -171,22 +179,40 @@ open class SwapSearchEditText @JvmOverloads constructor(
                 iconAlpha = 0f,
                 iconTranslationX = 1f,
                 hintAlpha = 0f,
-                hintTranslationX = 1f
+                hintTranslationX = 1f,
+                cursorAlpha = 1f
             )
         }
         propertiesAnimator?.cancel()
-        propertiesAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+        val primaryAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = AnimationConstants.VERY_VERY_QUICK_ANIMATION
             interpolator = CubicBezierInterpolator.EASE_OUT
             addUpdateListener { animation ->
                 val animatedValue = animation.animatedValue as Float
-                viewPropertiesState.applyLerp(
+                viewPropertiesState.applyPrimaryLerp(
                     initialPropertiesState,
                     targetPropertiesState,
                     animatedValue
                 )
                 invalidate()
             }
+        }
+        val secondaryAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = AnimationConstants.SUPER_QUICK_ANIMATION
+            interpolator = CubicBezierInterpolator.EASE_OUT
+            addUpdateListener { animation ->
+                val animatedValue = animation.animatedValue as Float
+                viewPropertiesState.applySecondaryLerp(
+                    initialPropertiesState,
+                    targetPropertiesState,
+                    animatedValue
+                )
+                cursorDrawable?.alpha = (viewPropertiesState.cursorAlpha * 255).roundToInt()
+                invalidate()
+            }
+        }
+        propertiesAnimator = AnimatorSet().apply {
+            playSequentially(primaryAnimator, secondaryAnimator)
             start()
         }
     }
@@ -206,13 +232,18 @@ open class SwapSearchEditText @JvmOverloads constructor(
         var iconAlpha: Float = 1f,
         var iconTranslationX: Float = 0f,
         var hintAlpha: Float = 1f,
-        var hintTranslationX: Float = 0f
+        var hintTranslationX: Float = 0f,
+        var cursorAlpha: Float = 0f
     ) {
-        fun applyLerp(a: ViewPropertiesState, b: ViewPropertiesState, f: Float) {
+        fun applyPrimaryLerp(a: ViewPropertiesState, b: ViewPropertiesState, f: Float) {
             iconAlpha = lerp(a.iconAlpha, b.iconAlpha, f)
             iconTranslationX = lerp(a.iconTranslationX, b.iconTranslationX, f)
             hintAlpha = lerp(a.hintAlpha, b.hintAlpha, f)
             hintTranslationX = lerp(a.hintTranslationX, b.hintTranslationX, f)
+        }
+
+        fun applySecondaryLerp(a: ViewPropertiesState, b: ViewPropertiesState, f: Float) {
+            cursorAlpha = lerp(a.cursorAlpha, b.cursorAlpha, f)
         }
     }
 }
