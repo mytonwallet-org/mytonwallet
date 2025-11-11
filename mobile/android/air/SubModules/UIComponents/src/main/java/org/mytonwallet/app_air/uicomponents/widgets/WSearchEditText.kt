@@ -15,9 +15,11 @@ import android.util.TypedValue
 import android.view.Gravity
 import androidx.appcompat.R
 import androidx.appcompat.content.res.AppCompatResources
+import androidx.core.graphics.withSave
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.extensions.textCursorDrawableCompat
 import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.helpers.ViewHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -65,10 +67,10 @@ open class SwapSearchEditText @JvmOverloads constructor(
         }
 
         updateTheme()
-        cursorDrawable = textCursorDrawable?.mutate()?.apply {
+        cursorDrawable = textCursorDrawableCompat?.mutate()?.apply {
             alpha = (viewPropertiesState.cursorAlpha * 255).roundToInt()
         }
-        textCursorDrawable = cursorDrawable
+        textCursorDrawableCompat = cursorDrawable
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -84,14 +86,14 @@ open class SwapSearchEditText @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        canvas.save()
-        val tx = -viewPropertiesState.iconTranslationX * (12 + 24).dp
-        canvas.translate(tx + scrollX.toFloat(), 0f)
-        searchDrawable?.apply {
-            alpha = (viewPropertiesState.iconAlpha * 255).roundToInt()
-            draw(canvas)
+        canvas.withSave {
+            val tx = -viewPropertiesState.iconTranslationX * (12 + 24).dp
+            translate(tx + scrollX.toFloat(), 0f)
+            searchDrawable?.apply {
+                alpha = (viewPropertiesState.iconAlpha * 255).roundToInt()
+                draw(canvas)
+            }
         }
-        canvas.restore()
     }
 
     override fun onDrawHint(
