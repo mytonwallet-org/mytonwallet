@@ -98,7 +98,7 @@ open class WFloatingHintEditText @JvmOverloads constructor(
         onDrawHint(
             canvas = canvas,
             hintX = floatingHintDrawState.x,
-            contextX = floatingHintDrawState.contextX,
+            contextX = floatingHintDrawState.contentX,
             hintY = floatingHintDrawState.y,
             hintLayout = floatingHintDrawState.hintLayout
         )
@@ -182,12 +182,12 @@ open class WFloatingHintEditText @JvmOverloads constructor(
             else -> contentTop
         }.toFloat()
 
-        var contextX: Float = layout.width.toFloat()
+        var contentX: Float = layout.width.toFloat()
         for (i in 0 until layout.lineCount) {
-            contextX = min(contextX, layout.getLineLeft(i))
+            contentX = min(contentX, layout.getLineLeft(i))
         }
 
-        return FloatingHintDrawState(hintLayout = layout, x = x, contextX = contextX, y = y).also {
+        return FloatingHintDrawState(hintLayout = layout, x = x, contentX = contentX, y = y).also {
             floatingHintDrawState = it
         }
     }
@@ -271,7 +271,7 @@ open class WFloatingHintEditText @JvmOverloads constructor(
     private data class FloatingHintDrawState(
         val hintLayout: StaticLayout,
         val x: Float,
-        val contextX: Float,
+        val contentX: Float,
         val y: Float,
     )
 }
