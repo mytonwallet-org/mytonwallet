@@ -27,7 +27,7 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.uihome.R
 import org.mytonwallet.uihome.home.views.UpdateStatusView
 
-@SuppressLint("ViewConstructor")
+@SuppressLint("ViewConstructor", "ClickableViewAccessibility")
 class StickyHeaderView(
     context: Context,
     private val onActionClick: (HeaderActionsView.Identifier) -> Unit
@@ -49,7 +49,11 @@ class StickyHeaderView(
     }
 
     val updateStatusView: UpdateStatusView by lazy {
-        UpdateStatusView(context)
+        UpdateStatusView(context).apply {
+            onTap = {
+                onActionClick(HeaderActionsView.Identifier.WALLET_SETTINGS)
+            }
+        }
     }
 
     private val lockButton: WImageButton by lazy {
@@ -173,11 +177,12 @@ class StickyHeaderView(
         lockButton.visibility =
             if (WGlobalStorage.isPasscodeSet()) VISIBLE else GONE
         val statusViewMargin = if (lockButton.isVisible) 96.dp else 56.dp
-        updateStatusView.layoutParams =
-            (updateStatusView.layoutParams as MarginLayoutParams).apply {
+        (updateStatusView.layoutParams as? MarginLayoutParams)?.let { layoutParams ->
+            updateStatusView.layoutParams = layoutParams.apply {
                 marginStart = statusViewMargin
                 marginEnd = statusViewMargin
             }
+        }
     }
 
     val animationDuration = AnimationConstants.QUICK_ANIMATION / 2

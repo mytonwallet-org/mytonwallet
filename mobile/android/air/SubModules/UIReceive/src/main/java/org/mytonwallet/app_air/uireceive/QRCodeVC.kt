@@ -25,10 +25,10 @@ import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WQRCodeView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
-import org.mytonwallet.app_air.walletcontext.helpers.AddressHelpers
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.helpers.AddressHelpers
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 
@@ -41,7 +41,7 @@ class QRCodeVC(
     override val shouldDisplayTopBar = false
 
     private val tonIcon = MBlockchain.ton.icon
-    private val walletAddressTon = AccountStore.activeAccount?.tonAddress!!
+    private val walletAddressTon = AccountStore.activeAccount?.tonAddress
     private val tronIcon = MBlockchain.tron.icon
     private val walletAddressTron = AccountStore.activeAccount?.tronAddress
 
@@ -56,7 +56,7 @@ class QRCodeVC(
     val walletAddress: String
         get() {
             return when (chain) {
-                MBlockchain.ton -> walletAddressTon
+                MBlockchain.ton -> walletAddressTon!!
                 MBlockchain.tron -> walletAddressTron!!
                 else -> ""
             }
@@ -66,7 +66,7 @@ class QRCodeVC(
         val v = WQRCodeView(
             context,
             when (chain) {
-                MBlockchain.ton -> AddressHelpers.walletInvoiceUrl(walletAddressTon)
+                MBlockchain.ton -> AddressHelpers.walletInvoiceUrl(walletAddressTon!!)
                 MBlockchain.tron -> walletAddressTron!!
                 else -> ""
             },

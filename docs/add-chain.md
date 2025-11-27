@@ -15,6 +15,7 @@ Update all of the following in one PR:
 6. Register the SDK in the map `chains` in `src/api/chains/index.ts`.
 7. Add a font icon: `src/assets/font-icons/chain-<chain>.svg` (match size & baseline of existing chain icons).
 8. (Optional) Map the native token icon in `TOKEN_FONT_ICONS` in `src/config.ts` if a custom glyph is needed.
+9. (Optional) Map the native token color in `TOKEN_EXCEPTION_COLORS`.
 
 ## Minimum Viable Feature Set (Recommended Order)
 
@@ -57,26 +58,31 @@ Nice to have later:
 - Encrypted comment (if applicable)
 - Sending with a Ledger hardware wallet
 
-## UI Gating Basics
+## Client Architecture
 
-Only surface features that are actually supported:
-- If your chain has no `formatTransferUrl`, it must not appear in Deposit Link flows.
-- Use flags from `CHAIN_CONFIG` (e.g. `isTransferCommentSupported`, `isLedgerSupported`) instead of hard-coded `if (chain === ...)`.
+The UI should show only features that are actually supported by the chain.
+The users shouldn't see errors messages caused by unsupported features.
+For example, if your chain has no transfer deeplinks, it must not appear in Deposit Link flows.
+To achieve that, use flags from `CHAIN_CONFIG` (e.g. `isTransferCommentSupported`, `isLedgerSupported`).
+Don't hardcode conditions like `if (chain === ...)`.
 
-## Stubs & Unsupported Features
+It's not necessary to implement all `ChainSdk` methods, especially if a method is not needed for the minimum viable feature set.
+Provide throwing stubs (`function notSupported(): never`) for every method you cannot implement yet.
 
-Provide throwing stubs (`function notSupported(): never`) for every `ChainSdk` method you cannot implement yet.
+See [the multichain Cursor rule](../.cursor/rules/multichain.mdc) for more details.
 
 ## Backend & Infrastructure Coordination
 
-A new chain is not only a client concern. It also requires backend support:
+A new chain is not only a client concern. It also requires backend support.
 
 What you need from backend:
 - Access to a reliable node / RPC endpoint (or cluster) for the new chain
-- Indexing & enrichment for activity
+- Indexing for activity
+- CEX swap support on our backend
+- Add the popular tokens to the `GET https://api.mytonwallet.org/assets` response
 - Real-time activity notifications via our backend socket (set by `CHAIN_CONFIG[chain].doesBackendSocketSupport`)
 
-`doesBackendSocketSupport` flag:
+Note the `doesBackendSocketSupport` flag in `CHAIN_CONFIG`:
 - Set to `false` only temporarily while backend adds socket activity support.
 - Once backend provides notifications, switch it to `true` so the client receives push updates instead of relying solely on polling.
 - Do not leave it `false` long-term; stale value means unnecessary latency and extra battery consumption from polling.

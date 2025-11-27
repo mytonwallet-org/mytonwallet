@@ -8,7 +8,8 @@ import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import org.mytonwallet.app_air.walletbasecontext.theme.WColorGradients
-import kotlin.text.iterator
+import java.text.BreakIterator
+import java.util.Locale
 
 val String.gradientColors: IntArray
     get() {
@@ -198,4 +199,12 @@ fun String.coloredSubstring(target: String, color: Int): SpannableString {
         )
     }
     return spannable
+}
+
+fun String.firstGrapheme(): String {
+    val it = BreakIterator.getCharacterInstance(Locale.getDefault())
+    it.setText(this)
+    val start = it.first()
+    val end = it.next()
+    return if (end != BreakIterator.DONE) substring(start, end) else ""
 }

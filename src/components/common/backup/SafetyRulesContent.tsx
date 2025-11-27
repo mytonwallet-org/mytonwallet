@@ -1,4 +1,4 @@
-import type { ElementRef } from '../../../lib/teact/teact';
+import type { ElementRef, TeactNode } from '../../../lib/teact/teact';
 import React, { memo } from '../../../lib/teact/teact';
 
 import { ANIMATED_STICKER_MIDDLE_SIZE_PX } from '../../../config';
@@ -28,9 +28,9 @@ interface OwnProps {
   onFirstCheckboxClick: (isChecked: boolean) => void;
   onSecondCheckboxClick: (isChecked: boolean) => void;
   onThirdCheckboxClick: (isChecked: boolean) => void;
-  textFirst: string;
-  textSecond: string;
-  textThird: string;
+  textFirst: TeactNode;
+  textSecond: TeactNode;
+  textThird: TeactNode;
   onSubmit: () => void;
 }
 

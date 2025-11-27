@@ -4,10 +4,12 @@ public enum ApiCommonError: String, Error {
     case serverError = "ServerError"
     case debugError = "DebugError"
     case unsupportedVersion = "UnsupportedVersion"
+    case invalidAddress = "InvalidAddress"
 }
 
 public enum ApiAuthError: String, Error {
     case invalidMnemonic = "InvalidMnemonic"
+    case domainNotResolved = "DomainNotResolved"
 }
 
 public enum ApiTransactionDraftError: String, Error {
@@ -15,7 +17,6 @@ public enum ApiTransactionDraftError: String, Error {
     case invalidToAddress = "InvalidToAddress"
     case insufficientBalance = "InsufficientBalance"
     case invalidStateInit = "InvalidStateInit"
-    case stateInitWithoutBin = "StateInitWithoutBin"
     case domainNotResolved = "DomainNotResolved"
     case walletNotInitialized = "WalletNotInitialized"
     case invalidAddressFormat = "InvalidAddressFormat"
@@ -27,10 +28,9 @@ public enum ApiTransactionError: String, Error {
     case incorrectDeviceTime = "IncorrectDeviceTime"
     case insufficientBalance = "InsufficientBalance"
     case unsuccessfulTransfer = "UnsuccessfulTransfer"
-    case notSupportedHardwareOperation = "NotSupportedHardwareOperation"
-    case hardwareBlindSigningNotEnabled = "HardwareBlindSigningNotEnabled"
     case wrongAddress = "WrongAddress"
     case wrongNetwork = "WrongNetwork"
+    case concurrentTransaction = "ConcurrentTransaction"
 }
 
 public enum ApiHardwareError: String, Error {
@@ -43,47 +43,51 @@ public enum ApiHardwareError: String, Error {
   case wrongDevice = "WrongDevice"
 }
 
+public enum ApiTokenImportError: String, Error {
+  case addressDoesNotExist = "AddressDoesNotExist"
+  case notATokenAddress = "NotATokenAddress"
+}
 
 public enum ApiAnyDisplayError: String, Codable, Error {
-    // Common
+    // ApiCommonError
     case unexpected = "Unexpected"
     case serverError = "ServerError"
     case debugError = "DebugError"
     case unsupportedVersion = "UnsupportedVersion"
-
-    // Auth
+    case invalidAddress = "InvalidAddress"
+    
+    // ApiAuthError
     case invalidMnemonic = "InvalidMnemonic"
-
-    // TransactionDraft
+    case domainNotResolved = "DomainNotResolved"
+    
+    // ApiTransactionDraftError
     case invalidAmount = "InvalidAmount"
     case invalidToAddress = "InvalidToAddress"
+    case insufficientBalance = "InsufficientBalance"
     case invalidStateInit = "InvalidStateInit"
-    case stateInitWithoutBin = "StateInitWithoutBin"
-    case domainNotResolved = "DomainNotResolved"
     case walletNotInitialized = "WalletNotInitialized"
     case invalidAddressFormat = "InvalidAddressFormat"
     case inactiveContract = "InactiveContract"
-
-    // Transaction
+    
+    // ApiTransactionError
     case partialTransactionFailure = "PartialTransactionFailure"
     case incorrectDeviceTime = "IncorrectDeviceTime"
     case unsuccessfulTransfer = "UnsuccessfulTransfer"
-    case notSupportedHardwareOperation = "NotSupportedHardwareOperation"
-    case hardwareBlindSigningNotEnabled = "HardwareBlindSigningNotEnabled"
     case wrongAddress = "WrongAddress"
     case wrongNetwork = "WrongNetwork"
-
-    // TransactionDraft/Transaction
-    case insufficientBalance = "InsufficientBalance"
+    case concurrentTransaction = "ConcurrentTransaction"
     
-    // Hardware
-    /** Used when the chain's Ledger app needs to be updated to support this transaction */
+    // ApiHardwareError
     case hardwareOutdated = "HardwareOutdated"
     case blindSigningNotEnabled = "BlindSigningNotEnabled"
     case rejectedByUser = "RejectedByUser"
     case proofTooLarge = "ProofTooLarge"
     case connectionBroken = "ConnectionBroken"
     case wrongDevice = "WrongDevice"
+    
+    // ApiTokenImportError
+    case addressDoesNotExist = "AddressDoesNotExist"
+    case notATokenAddress = "NotATokenAddress"
     
     public init(from decoder: any Decoder) throws {
         let container = try decoder.singleValueContainer()

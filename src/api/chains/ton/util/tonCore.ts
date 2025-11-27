@@ -14,6 +14,8 @@ import { WalletContractV5R1 } from '@ton/ton/dist/wallets/WalletContractV5R1';
 
 import type { ApiNetwork } from '../../../types';
 import type { ApiTonWalletVersion, TokenTransferBodyParams } from '../types';
+import { ApiTokenImportError } from '../../../types';
+import { ApiCommonError } from '../../../types';
 
 import { DEFAULT_TIMEOUT } from '../../../../config';
 import { getDnsZoneByCollection } from '../../../../util/dns';
@@ -116,9 +118,29 @@ export const getJettonPoolStakeWallet = withCacheAsync(async (
   return tonClient.open(StakeWallet.createFromAddress(walletAddress));
 });
 
-export function getJettonMinterData(network: ApiNetwork, address: string) {
-  const contract = getTonClient(network).open(new JettonMinter(Address.parse(address)));
-  return contract.getJettonData();
+export async function getJettonMinterData(network: ApiNetwork, address: string) {
+  let parsedAddress: Address;
+  try {
+    parsedAddress = Address.parse(address);
+  } catch {
+    return { error: ApiCommonError.InvalidAddress };
+  }
+
+  const contract = getTonClient(network).open(new JettonMinter(parsedAddress));
+
+  try {
+    return await contract.getJettonData();
+  } catch (err) {
+    if (err instanceof Error) {
+      if (err.message.includes('exit_code: -13')) {
+        return { error: ApiTokenImportError.AddressDoesNotExist };
+      }
+      if (err.message.includes('exit_code: 11')) {
+        return { error: ApiTokenImportError.NotATokenAddress };
+      }
+    }
+    throw err;
+  }
 }
 
 export function toBase64Address(address: Address | string, isBounceable = DEFAULT_IS_BOUNCEABLE, network?: ApiNetwork) {

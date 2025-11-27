@@ -33,6 +33,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.material.bottomSheetBehavior.BottomSheetBehavior
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uicomponents.widgets.updateThemeForChildren
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
@@ -103,14 +104,10 @@ open class WViewController(val context: Context) : WThemedView, WProtectedView {
 
     @SuppressLint("ViewConstructor")
     class ContainerView(val viewController: WeakReference<WViewController>) :
-        WView(viewController.get()!!.context), WThemedView, WProtectedView {
+        WView(viewController.get()!!.context), WProtectedView {
         override fun setupViews() {
             super.setupViews()
             viewController.get()?.setupViews()
-        }
-
-        override fun updateTheme() {
-            viewController.get()?.updateTheme()
         }
 
         override fun updateProtectedView() {
@@ -335,6 +332,8 @@ open class WViewController(val context: Context) : WThemedView, WProtectedView {
         }
         if (isViewConfigured) {
             isDisappeared = false
+            if (pendingThemeChange)
+                notifyThemeChanged()
             return
         }
         isViewConfigured = true
@@ -352,7 +351,11 @@ open class WViewController(val context: Context) : WThemedView, WProtectedView {
     }
 
     open fun viewWillAppear() {
+        if (!isDisappeared)
+            return
         isDisappeared = false
+        if (pendingThemeChange)
+            notifyThemeChanged()
         insetsUpdated()
         bottomReversedCornerView?.resumeBlurring()
         isViewAppearanceAnimationInProgress = true
@@ -364,9 +367,11 @@ open class WViewController(val context: Context) : WThemedView, WProtectedView {
     }
 
     // Called when user pushes a new view controller, pops view controller (goes back) or finishes the window (activity)!
-    var isDisappeared = false
+    var isDisappeared = true
     var isDestroyed = false
     open fun viewWillDisappear() {
+        if (isDisappeared)
+            return
         view.hideKeyboard()
         isDisappeared = true
         frameMonitor?.stopMonitoring()
@@ -416,7 +421,15 @@ open class WViewController(val context: Context) : WThemedView, WProtectedView {
     }
     //////////////////////////////////////////////////
 
-    override fun updateTheme() {
+    private var pendingThemeChange = false
+    fun notifyThemeChanged() {
+        if (isDisappeared) {
+            pendingThemeChange = true
+            return
+        }
+        pendingThemeChange = false
+        updateTheme()
+        updateThemeForChildren(view)
         topReversedCornerView?.let { topReversedCornerView ->
             view.setConstraints {
                 toTop(
@@ -439,9 +452,12 @@ open class WViewController(val context: Context) : WThemedView, WProtectedView {
             }
     }
 
+    override fun updateTheme() {
+    }
+
     override fun updateProtectedView() {}
 
-    fun setupNavBar(shouldShow: Boolean, isThin: Boolean = false) {
+    fun setupNavBar(shouldShow: Boolean, defaultHeight: Int = WNavigationBar.DEFAULT_HEIGHT) {
         if (navigationController == null)
             throw Exception()
         if (shouldShow) {
@@ -449,7 +465,7 @@ open class WViewController(val context: Context) : WThemedView, WProtectedView {
                 navigationBar =
                     WNavigationBar(
                         this,
-                        if (isThin) WNavigationBar.DEFAULT_HEIGHT_THIN else WNavigationBar.DEFAULT_HEIGHT
+                        defaultHeight
                     )
                 view.addView(navigationBar, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             }
@@ -594,8 +610,8 @@ open class WViewController(val context: Context) : WThemedView, WProtectedView {
         return null
     }
 
-    var modalExpandOffset: Int? = null
-    var modalExpandProgress: Float? = null
+    protected var modalExpandOffset: Int? = null
+    protected var modalExpandProgress: Float? = null
     open fun onModalSlide(expandOffset: Int, expandProgress: Float) {
         modalExpandOffset = expandOffset
         modalExpandProgress = expandProgress

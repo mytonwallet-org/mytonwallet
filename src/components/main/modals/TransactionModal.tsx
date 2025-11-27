@@ -30,6 +30,7 @@ import { isErrorTransferResult } from '../../../global/helpers/transfer';
 import {
   selectAccounts,
   selectAccountStakingStates,
+  selectCurrentAccountId,
   selectCurrentAccountState,
   selectIsCurrentAccountViewMode,
   selectIsHardwareAccount,
@@ -621,7 +622,7 @@ function TransactionModal({
 
 export default memo(
   withGlobal((global): StateProps => {
-    const accountId = global.currentAccountId!;
+    const accountId = selectCurrentAccountId(global)!;
     const accountState = selectCurrentAccountState(global);
 
     const txId = accountState?.currentActivityId;

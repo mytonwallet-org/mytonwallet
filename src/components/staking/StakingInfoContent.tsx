@@ -19,6 +19,7 @@ import {
   selectAccountStakingState,
   selectAccountStakingStates,
   selectAccountStakingTotalProfit,
+  selectCurrentAccountId,
   selectCurrentAccountState,
   selectCurrentAccountTokens,
   selectIsCurrentAccountViewMode,
@@ -443,7 +444,7 @@ function StakingInfoContent({
 }
 
 export default memo(withGlobal<OwnProps>((global): StateProps => {
-  const accountId = global.currentAccountId;
+  const accountId = selectCurrentAccountId(global);
   const {
     settings: { theme, isSensitiveDataHidden },
     tokenInfo: { bySlug: tokenBySlug },

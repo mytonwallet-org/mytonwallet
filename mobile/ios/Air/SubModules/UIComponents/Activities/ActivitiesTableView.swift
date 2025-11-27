@@ -30,6 +30,10 @@ public final class ActivitiesTableView: UITableView, UIGestureRecognizerDelegate
     @objc func _parentScrollView() -> UIScrollView? {
         return nil
     }
+    
+    public override func endUpdates() {
+        super.endUpdates()
+    }
 
     public override func reconfigureRows(at indexPaths: [IndexPath]) {
         super.reconfigureRows(at: indexPaths)

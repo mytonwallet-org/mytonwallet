@@ -10,7 +10,11 @@ import type { DropdownItem } from '../../../ui/Dropdown';
 
 import { CURRENCIES, IS_CAPACITOR } from '../../../../config';
 import { Big } from '../../../../lib/big.js';
-import { selectAccountStakingStates, selectCurrentAccountTokens } from '../../../../global/selectors';
+import {
+  selectAccountStakingStates,
+  selectCurrentAccountId,
+  selectCurrentAccountTokens,
+} from '../../../../global/selectors';
 import { formatCurrency, getShortCurrencySymbol } from '../../../../util/formatNumber';
 import { calculateFullBalance } from './helpers/calculateFullBalance';
 
@@ -102,7 +106,7 @@ function CurrencySwitcherMenu({
   const getMenuElement = useLastCallback(() => menuRef.current);
   const getLayout = useLastCallback((): Layout => ({
     withPortal: true,
-    centerHorizontally: !menuPositionX,
+    isCenteredHorizontally: !menuPositionX,
     preferredPositionX: menuPositionX || 'left' as const,
     doNotCoverTrigger: true,
   }));
@@ -130,10 +134,12 @@ function CurrencySwitcherMenu({
 }
 
 export default memo(withGlobal<OwnProps>((global) => {
+  const currentAccountId = selectCurrentAccountId(global);
+
   return {
     currentCurrency: global.settings.baseCurrency,
     tokens: selectCurrentAccountTokens(global),
     currencyRates: global.currencyRates,
-    stakingStates: selectAccountStakingStates(global, global.currentAccountId!),
+    stakingStates: selectAccountStakingStates(global, currentAccountId!),
   };
 })(CurrencySwitcherMenu));

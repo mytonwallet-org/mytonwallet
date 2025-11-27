@@ -27,9 +27,9 @@ import {
   SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY,
   SWAP_API_VERSION,
   THEME_DEFAULT,
-  TOKEN_INFO,
 } from '../config';
-import { mapValues } from '../util/iteratees';
+import { getTokenInfo } from '../util/chain';
+import { buildCollectionByKey, mapValues } from '../util/iteratees';
 import { IS_IOS_APP, USER_AGENT_LANG_CODE } from '../util/windowEnvironment';
 
 export const STATE_VERSION = 47;
@@ -83,11 +83,11 @@ export const INITIAL_STATE: GlobalState = {
   stakingDefault: DEFAULT_STAKING_STATE,
 
   tokenInfo: {
-    bySlug: TOKEN_INFO,
+    bySlug: getTokenInfo(),
   },
 
   swapTokenInfo: {
-    bySlug: INIT_SWAP_ASSETS,
+    bySlug: buildCollectionByKey(Object.values(INIT_SWAP_ASSETS), 'slug'),
   },
 
   swapVersion: SWAP_API_VERSION,
@@ -117,10 +117,13 @@ export const INITIAL_STATE: GlobalState = {
   notifications: [],
 
   stateVersion: STATE_VERSION,
+  currentTemporaryViewAccountId: undefined,
+
   restrictions: {
     isLimitedRegion: false,
     isSwapDisabled: IS_IOS_APP || IS_CORE_WALLET,
     isOnRampDisabled: IS_IOS_APP || IS_CORE_WALLET,
+    isOffRampDisabled: IS_IOS_APP || IS_CORE_WALLET,
     isNftBuyingDisabled: IS_IOS_APP,
   },
 

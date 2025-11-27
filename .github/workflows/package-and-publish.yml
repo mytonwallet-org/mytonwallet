@@ -26,6 +26,9 @@ env:
   PROXY_HOSTS: ${{ vars.PROXY_HOSTS }}
   STAKING_POOLS: ${{ vars.STAKING_POOLS }}
   PUBLISH_REPO: ${{ vars.PUBLISH_REPO }}
+  BRILLIANT_API_BASE_URL: ${{ vars.BRILLIANT_API_BASE_URL }}
+  SWAP_FEE_ADDRESS: ${{ vars.SWAP_FEE_ADDRESS }}
+  DIESEL_ADDRESS: ${{ vars.DIESEL_ADDRESS }}
 
 jobs:
   electron-release:
@@ -169,6 +172,7 @@ jobs:
 
       - name: Build and package
         run: |
+          export APP_COMMIT_HASH=${{ github.sha }}
           if [ -z "$PUBLISH_REPO" ]; then
             npm run extension-chrome:package:staging
             npm run extension-firefox:package:staging
@@ -263,6 +267,7 @@ jobs:
           unzip ${{ env.FIREFOX_FILE_NAME }} -d $UNZIP_DIR
           npx web-ext-submit --source-dir=$UNZIP_DIR
           echo "APP_NAME=\"${APP_NAME}\"
+          APP_COMMIT_HASH=${{ github.sha }}
           PROXY_HOSTS=\"${PROXY_HOSTS}\"
           STAKING_POOLS=\"${STAKING_POOLS}\"" >.env
           bash deploy/firefox_pack_sources.sh
@@ -483,8 +488,8 @@ jobs:
           IOS_AUTH_KEY_BASE64: ${{ secrets.IOS_AUTH_KEY_BASE64 }}
           FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: 300
         run: |
-          sudo xcode-select --switch /Applications/Xcode_26.0.app/Contents/Developer
-          export DEVELOPER_DIR=/Applications/Xcode_26.0.app/Contents/Developer
+          sudo xcode-select --switch /Applications/Xcode_26.1.app/Contents/Developer
+          export DEVELOPER_DIR=/Applications/Xcode_26.1.app/Contents/Developer
           xcodebuild -version
           xcodebuild -showsdks
           xcodebuild -downloadPlatform iOS || true

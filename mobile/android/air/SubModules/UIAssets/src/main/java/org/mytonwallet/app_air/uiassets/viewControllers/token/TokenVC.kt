@@ -588,7 +588,7 @@ class TokenVC(context: Context, var token: MToken) : WViewController(context),
                     }
                 )
                 actionsView?.setPadding(0, 0, 0, 16.dp)
-                actionsView?.updateActions()
+                actionsView?.updateActions(AccountStore.activeAccount)
                 if (AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW)
                     actionsView?.updateLayoutParams {
                         height = 0
@@ -812,7 +812,7 @@ class TokenVC(context: Context, var token: MToken) : WViewController(context),
         if (isDisappeared)
             return
         navigationController?.pop(animated = false)
-        actionsView?.updateActions()
+        actionsView?.updateActions(AccountStore.activeAccount)
     }
 
     override fun cacheNotFound() {

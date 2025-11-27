@@ -38,6 +38,7 @@ class SkeletonHeaderCell(
         }
 
         updateTheme()
+        setOnClickListener { }
     }
 
     override fun updateTheme() {

@@ -52,8 +52,21 @@ public class ReceiveVC: WViewController, WSegmentedController.Delegate {
         addChild(tonVC)
         addChild(tronVC)
         
-        segmentedController = WSegmentedController(viewControllers: [tonVC, tronVC],
-                                                   defaultIndex: 0,
+        let items: [SegmentedControlItem] = [
+            SegmentedControlItem(
+                id: tonVC.chain.rawValue,
+                title: tonVC.chain.symbol,
+                viewController: tonVC
+            ),
+            SegmentedControlItem(
+                id: tronVC.chain.rawValue,
+                title: tronVC.chain.symbol,
+                viewController: tronVC
+            ),
+            
+        ]
+        
+        segmentedController = WSegmentedController(items: items,
                                                    barHeight: 56.333,
                                                    animationSpeed: .slow,
                                                    primaryTextColor: .white,
@@ -72,7 +85,7 @@ public class ReceiveVC: WViewController, WSegmentedController.Delegate {
         segmentedController.backgroundColor = .clear
         segmentedController.blurView.isHidden = true
         segmentedController.separator.isHidden = true
-        segmentedController.newSegmentedControl.isHidden = !twoTabs
+        segmentedController.segmentedControl.isHidden = !twoTabs
         segmentedController.scrollView.isScrollEnabled = twoTabs
 
         self.hostingController = addHostingController(makeHeader()) { hv in
@@ -254,9 +267,9 @@ struct _QRCodeView: UIViewRepresentable {
 
 // MARK: - Table
 
-private class ReceiveTableVC: WViewController, WSegmentedControllerContent {
+class ReceiveTableVC: WViewController, WSegmentedControllerContent {
     
-    private let chain: ApiChain
+    let chain: ApiChain
     
     private let showBuyOptions: Bool
     public init(chain: ApiChain, showBuyOptions: Bool, customTitle: String? = nil) {
@@ -326,7 +339,7 @@ extension ReceiveTableVC: UITableViewDelegate, UITableViewDataSource {
     public func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch section {
         case 0:
-            return 3
+            return 2
         case 1:
             var count = 2
             if shouldShowDepositLink {
@@ -390,16 +403,6 @@ extension ReceiveTableVC: UITableViewDelegate, UITableViewDataSource {
                 })
                 return cell
                 
-            case 2:
-                let cell = tableView.dequeueReusableCell(withIdentifier: "Footer")!
-                var config = UIListContentConfiguration.groupedFooter()
-                
-                config.text = chain == .ton ? lang("$send_only_ton") : lang("$send_only_tron")
-                cell.contentConfiguration = config
-                cell.layoutMargins = .init(top: 2, left: 32, bottom: 0, right: 32)
-                cell.backgroundConfiguration = .listGroupedHeaderFooter()
-                return cell
-            
             default:
                 fatalError()
             }

@@ -15,6 +15,7 @@ struct SettingsItem: Equatable, Identifiable {
     enum Identifier: Equatable, Hashable {
         case editWalletName
         case account(accountId: String)
+        case walletSettings
         case addAccount
         case notifications
         case appearance
@@ -66,8 +67,8 @@ extension SettingsItem.Identifier {
             }
             let balanceAmount = BalanceStore.getTotalBalanceInBaseCurrency(for: accountId)
             let balance = balanceAmount != nil ? formatAmountText(amount: balanceAmount!,
-                                                                  currency: TokenStore.baseCurrency?.sign,
-                                                                  decimalsCount: TokenStore.baseCurrency?.decimalsCount) : nil
+                                                                  currency: TokenStore.baseCurrency.sign,
+                                                                  decimalsCount: TokenStore.baseCurrency.decimalsCount) : nil
             return SettingsItem(
                 id: .account(accountId: accountId),
                 icon: .avatar(for: account, withSize: 30) ?? UIImage(),
@@ -75,6 +76,15 @@ extension SettingsItem.Identifier {
                 subtitle: subtitle,
                 value: balance,
                 hasPrimaryColor: false,
+                hasChild: false,
+                isDangerous: false
+            )
+        case .walletSettings:
+            return SettingsItem(
+                id: .walletSettings,
+                icon: UIImage(systemName: "ellipsis"),
+                title: lang("Show All Wallets"),
+                hasPrimaryColor: true,
                 hasChild: false,
                 isDangerous: false
             )
@@ -182,7 +192,7 @@ extension SettingsItem.Identifier {
             return SettingsItem(
                 id: .about,
                 icon: UIImage.airBundle("TermsIcon"),
-                title: lang("About %app_name%", arg1: lang("MyTonWallet")),
+                title: lang("About %app_name%", arg1: APP_NAME),
                 hasPrimaryColor: false,
                 hasChild: true,
                 isDangerous: false

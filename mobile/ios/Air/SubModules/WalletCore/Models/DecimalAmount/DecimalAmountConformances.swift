@@ -32,11 +32,9 @@ extension DecimalAmount where Backing == MBaseCurrency {
 }
 
 extension DecimalAmount where Backing == MBaseCurrency {
-    public static func baseCurrency(_ amount: BigInt) -> DecimalAmount? {
-        if let baseCurrency = TokenStore.baseCurrency {
-            return DecimalAmount(amount, baseCurrency)
-        }
-        return nil
+    public static func baseCurrency(_ amount: BigInt) -> DecimalAmount? {        
+        let baseCurrency = TokenStore.baseCurrency
+        return DecimalAmount(amount, baseCurrency)
     }
 }
 

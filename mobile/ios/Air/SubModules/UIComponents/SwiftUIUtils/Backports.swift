@@ -12,6 +12,15 @@ public extension View {
     }
     
     @ViewBuilder
+    func backportSafeAreaPadding(_ edges: Edge.Set, _ length: CGFloat) -> some View {
+        if #available(iOS 17, *) {
+            self.safeAreaPadding(edges, length)
+        } else {
+            self
+        }
+    }
+    
+    @ViewBuilder
     func backportScrollBounceBehaviorBasedOnSize() -> some View {
         if #available(iOS 16.4, *) {
             self.scrollBounceBehavior(.basedOnSize)

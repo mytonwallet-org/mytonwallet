@@ -66,6 +66,7 @@ class SkeletonCell(
 
         background = backgroundDrawable
         updateTheme()
+        setOnClickListener { }
     }
 
     private var isFirst: Boolean = false

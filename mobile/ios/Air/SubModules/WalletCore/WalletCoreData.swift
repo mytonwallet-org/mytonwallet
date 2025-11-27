@@ -9,6 +9,7 @@ import Foundation
 import WalletContext
 import UIKit
 import GRDB
+import Dependencies
 
 public struct WalletCoreData {
     public enum Event: @unchecked Sendable {
@@ -52,6 +53,7 @@ public struct WalletCoreData {
         case newActivities(ApiUpdate.NewActivities)
         case newLocalActivity(ApiUpdate.NewLocalActivities)
         case initialActivities(ApiUpdate.InitialActivities)
+        case updateAccount(ApiUpdate.UpdateAccount)
         case updateBalances(ApiUpdate.UpdateBalances)
         case updateCurrencyRates(ApiUpdate.UpdateCurrencyRates)
         case updateStaking(ApiUpdate.UpdateStaking)
@@ -120,12 +122,14 @@ public struct WalletCoreData {
     }
 
     public static func notifyAccountChanged(to account: MAccount, isNew: Bool) {
+        @Dependency(\.accountSettings) var _accountSettings
+        let accountSettings = _accountSettings.for(accountId: account.id)
         DispatchQueue.main.async {
             AccountStore.walletVersionsData = nil
             AccountStore.setAssetsAndActivityData(accountId: account.id, value: MAssetsAndActivityData(dictionary: AppStorageHelper.assetsAndActivityData(for: account.id)))
             DappsStore.updateDappCount()
-            changeThemeColors(to: AccountStore.currentAccountAccentColorIndex)
-            (UIApplication.shared.sceneKeyWindow as? WThemedView)?.updateTheme()
+            changeThemeColors(to: accountSettings.accentColorIndex)
+            UIApplication.shared.sceneKeyWindow?.updateTheme()
             for observer in WalletCoreData.eventObservers {
                 observer.value?.walletCore(event: .accountChanged(accountId: account.id, isNew: isNew))
             }
@@ -139,9 +143,10 @@ public struct WalletCoreData {
         AccountStore.use(db: db)
         let accountIds = Set(AccountStore.accountsById.keys)
         TokenStore.loadFromCache()
-        await StakingStore.use(db: db)
+        StakingStore.use(db: db)
         BalanceStore.loadFromCache(accountIds: accountIds)
         NftStore.loadFromCache(accountIds: accountIds)
+        _ = AccountSettingsStore.liveValue
         _ = AutolockStore.shared
     }
 

@@ -14,7 +14,6 @@ export { getIsHeavyAnimating, beginHeavyAnimation, onFullyIdle } from './heavyAn
 
 export type Props = AnyLiteral;
 export type FC<P extends Props = any> = (props: P) => any;
-
 export type FC_withDebug =
   FC
   & { DEBUG_contentComponentName?: string };
@@ -149,7 +148,7 @@ export type Context<T> = {
   Provider: FC<{ value: T; children: TeactNode }>;
 };
 
-const Fragment = Symbol('Fragment');
+const Fragment = Symbol('Fragment') as unknown as FC<{ children: TeactNode }>;
 
 const DEBUG_RENDER_THRESHOLD = 7;
 const DEBUG_EFFECT_THRESHOLD = 7;
@@ -284,7 +283,6 @@ function buildChildElement(child: any): VirtualElement {
 }
 
 const DEBUG_components: AnyLiteral = { TOTAL: { name: 'TOTAL', renders: 0 } };
-
 const DEBUG_memos: Record<string, { key: string; calls: number; misses: number; hitRate: number }> = {};
 const DEBUG_MEMOS_CALLS_THRESHOLD = 20;
 
@@ -597,8 +595,8 @@ function forceUpdateComponent(componentInstance: ComponentInstance) {
 }
 
 export function useState<T>(): [T | undefined, StateHookSetter<T | undefined>];
-export function useState<T>(initial: T, debugKey?: string): [T, StateHookSetter<T>];
-export function useState<T>(initial?: T, debugKey?: string): [T, StateHookSetter<T>] {
+export function useState<T>(initial: T | (() => T), debugKey?: string): [T, StateHookSetter<T>];
+export function useState<T>(initial?: T | (() => T), debugKey?: string): [T, StateHookSetter<T>] {
   if (!renderingInstance.hooks) {
     renderingInstance.hooks = {};
   }
@@ -610,9 +608,10 @@ export function useState<T>(initial?: T, debugKey?: string): [T, StateHookSetter
   const componentInstance = renderingInstance;
 
   if (byCursor[cursor] === undefined) {
+    const initValue = typeof initial === 'function' ? (initial as () => T)() : initial;
     byCursor[cursor] = {
-      value: initial,
-      nextValue: initial,
+      value: initValue,
+      nextValue: initValue,
       setter: (newValue: ((current: T) => T) | T) => {
         if (componentInstance.mountState === MountState.Unmounted) {
           return;
@@ -935,9 +934,7 @@ export function useCallback<F extends AnyFunction>(newCallback: F, dependencies:
 
 export function useRef<T>(initial: T): RefObject<T>;
 export function useRef<T>(): RefObject<T | undefined>; // TT way (empty is `undefined`)
-export function useRef<T>(initial: null): RefObject<T | null>; // React way (empty is `null`)
-
-export function useRef<T>(initial?: T | null) {
+export function useRef<T>(initial?: T) {
   if (!renderingInstance.hooks) {
     renderingInstance.hooks = {};
   }
@@ -1031,3 +1028,5 @@ export default {
   createElement,
   Fragment,
 };
+
+export { createElement, Fragment };

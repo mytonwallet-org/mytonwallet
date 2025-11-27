@@ -22,7 +22,13 @@ class DirectionalTouchHandler(
     private var isVerticalScroll = false
     private var lastDownEvent: MotionEvent? = null
 
+    private var activeScroller: View? = null
     fun dispatchTouch(view: View, event: MotionEvent): Boolean? {
+        if (activeScroller != null && activeScroller != view)
+            return null
+        activeScroller =
+            if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) null else view
+
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> handleActionDown(event)
 

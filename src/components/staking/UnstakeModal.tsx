@@ -17,6 +17,7 @@ import {
 import renderText from '../../global/helpers/renderText';
 import {
   selectAccountStakingState,
+  selectCurrentAccountId,
   selectCurrentAccountTokens,
   selectIsCurrentAccountViewMode,
   selectIsMultichainAccount,
@@ -459,7 +460,7 @@ function UnstakeModal({
 }
 
 export default memo(withGlobal((global): StateProps => {
-  const accountId = global.currentAccountId!;
+  const accountId = selectCurrentAccountId(global)!;
   const tokens = selectCurrentAccountTokens(global);
   const { baseCurrency = DEFAULT_PRICE_CURRENCY, isSensitiveDataHidden } = global.settings;
   const isMultichainAccount = selectIsMultichainAccount(global, accountId);

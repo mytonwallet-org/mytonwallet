@@ -26,10 +26,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletcore.MAIN_NETWORK
-import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
-import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
@@ -159,7 +156,8 @@ class HeaderActionsView(
         SCROLL_TO_TOP,
         DETAILS,
         REPEAT,
-        SHARE
+        SHARE,
+        WALLET_SETTINGS
     }
 
     fun insetsUpdated() {
@@ -214,7 +212,7 @@ class HeaderActionsView(
                 (17 - ViewConstants.HORIZONTAL_PADDINGS).dp,
                 (px60 * (1 - value)).toInt(),
                 (17 - ViewConstants.HORIZONTAL_PADDINGS).dp,
-                16.dp
+                paddingBottom
             )
             itemViews.forEach {
                 it.alpha = (value - 0.4f) * 5 / 3
@@ -225,11 +223,11 @@ class HeaderActionsView(
         onClick = null
     }
 
-    fun updateActions() {
-        val isMainNet = WalletCore.activeNetwork == MAIN_NETWORK
-        setSendVisibility(AccountStore.activeAccount?.accountType != MAccount.AccountType.VIEW)
+    fun updateActions(account: MAccount?) {
+        val isMainNet = account?.isMainnet == true
+        setSendVisibility(account?.accountType != MAccount.AccountType.VIEW)
         setEarnVisibility(isMainNet)
-        setSwapVisibility(isMainNet && AccountStore.activeAccount?.accountType == MAccount.AccountType.MNEMONIC)
+        setSwapVisibility(isMainNet && account.accountType == MAccount.AccountType.MNEMONIC)
     }
 
     private fun setSendVisibility(visible: Boolean) {

@@ -178,4 +178,13 @@ public enum ApiChain: String, Equatable, Hashable, Codable, Comparable, Sendable
             false
         }
     }
+    
+    public var supportsSwap: Bool {
+        switch self {
+        case .ton:
+            true
+        case .tron:
+            false
+        }
+    }
 }

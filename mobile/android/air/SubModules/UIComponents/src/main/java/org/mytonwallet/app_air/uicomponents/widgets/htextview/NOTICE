@@ -1,0 +1,12 @@
+This product includes code derived from:
+
+HTextView — Animation effects with custom font support to TextView
+Copyright (c) 2015 Hanks (https://github.com/hanks-zyh)
+Licensed under the Apache License, Version 2.0.
+
+Modifications made by MyTonWallet team:
+- Changed Android package names
+- Removed unnecessary files
+- Modified by implementing `stopAnimator` method to make `setProgress` work even if animating
+
+A copy of the original Apache License, Version 2.0 is included in this distribution (see `LICENSE`).

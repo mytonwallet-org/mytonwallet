@@ -1,3 +1,4 @@
+import './dev/loadEnv';
 import 'webpack-dev-server';
 
 import WatchFilePlugin from '@mytonwallet/webpack-watch-file-plugin';
@@ -5,7 +6,6 @@ import StatoscopeWebpackPlugin from '@statoscope/webpack-plugin';
 // @ts-ignore
 import PreloadWebpackPlugin from '@vue/preload-webpack-plugin';
 import CopyWebpackPlugin from 'copy-webpack-plugin';
-import dotenv from 'dotenv';
 import fs from 'fs';
 import { GitRevisionPlugin } from 'git-revision-webpack-plugin';
 import HtmlPlugin from 'html-webpack-plugin';
@@ -16,14 +16,23 @@ import { EnvironmentPlugin, IgnorePlugin, ProvidePlugin } from 'webpack';
 
 import { convertI18nYamlToJson } from './dev/locales/convertI18nYamlToJson';
 import {
+  APP_COMMIT_HASH,
+  APP_ENV,
   APP_NAME,
+  BASE_URL,
   BRILLIANT_API_BASE_URL,
   EXTENSION_DESCRIPTION,
   EXTENSION_NAME,
   IFRAME_WHITELIST,
   IPFS_GATEWAY_BASE_URL,
+  IS_CAPACITOR,
+  IS_CORE_WALLET,
+  IS_EXTENSION,
+  IS_FIREFOX_EXTENSION,
+  IS_OPERA_EXTENSION,
+  IS_PACKAGED_ELECTRON,
+  IS_TELEGRAM_APP,
   MTW_STATIC_BASE_URL,
-  PRODUCTION_URL,
   PROXY_API_BASE_URL,
   SSE_BRIDGE_URL,
   SUBPROJECT_URL_MASK,
@@ -35,22 +44,8 @@ import {
   TRON_TESTNET_API_URL,
 } from './src/config';
 
-dotenv.config();
-
-// GitHub workflow uses an empty string as the default value if it's not in repository variables, so we cannot define a default value here
-process.env.BASE_URL = process.env.BASE_URL || PRODUCTION_URL;
-
-const { APP_ENV = 'production', BASE_URL } = process.env;
-const IS_CORE_WALLET = process.env.IS_CORE_WALLET === '1';
-const IS_CAPACITOR = process.env.IS_CAPACITOR === '1';
-const IS_EXTENSION = process.env.IS_EXTENSION === '1';
-const IS_TELEGRAM_APP = process.env.IS_TELEGRAM_APP === '1';
-const IS_PACKAGED_ELECTRON = process.env.IS_PACKAGED_ELECTRON === '1';
-const IS_FIREFOX_EXTENSION = process.env.IS_FIREFOX_EXTENSION === '1';
-const IS_OPERA_EXTENSION = process.env.IS_OPERA_EXTENSION === '1';
-
 const destinationDir = path.resolve(__dirname, 'dist');
-const appCommitHash = new GitRevisionPlugin().commithash();
+const appCommitHash = APP_COMMIT_HASH || new GitRevisionPlugin().commithash();
 const isStatoscopeBuild = process.env.IS_STATOSCOPE === '1'; // "Statoscope build" is a special mode where all the entries are used. It is used for comprehensive code size comparison in PRs.
 const isWebApp = !(IS_EXTENSION || IS_PACKAGED_ELECTRON || IS_CAPACITOR);
 const canUseStatoscope = isStatoscopeBuild || isWebApp;
@@ -61,6 +56,9 @@ const cspScriptSrcExtra = IS_TELEGRAM_APP ? 'https://telegram.org' : '';
 const cspFrameSrcExtra = IS_CORE_WALLET ? '' : [
   'https://buy-sandbox.moonpay.com/',
   'https://buy.moonpay.com/',
+  'https://sell.moonpay.com/',
+  'https://sell-sandbox.moonpay.com/',
+  'https://*.onetrust.com/', // This is a GDPR cookie consent widget from Moonpay
   'https://dreamwalkers.io/',
   'https://avanchange.com/',
   ...IFRAME_WHITELIST,

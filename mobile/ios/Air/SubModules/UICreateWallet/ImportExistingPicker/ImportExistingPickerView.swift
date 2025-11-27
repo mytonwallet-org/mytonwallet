@@ -20,15 +20,9 @@ struct ImportExistingPickerView: View {
     
     var body: some View {
         VStack(spacing: 24) {
-//            Text(lang("$import_hint"))
-//                .padding(.horizontal, 32)
-//                .padding(.bottom, 8)
-//                .multilineTextAlignment(.center)
-
             InsetSection(dividersInset: 50) {
                 Item(icon: "KeyIcon30", text: lang("12/24 Secret Words"), onTap: onImport)
-//                Item(icon: "QrIcon30", text: lang("Other Device"), onTap: onScan)
-                Item(icon: "LedgerIcon30", text: lang("Ledger"), onTap: onLedger)
+                Item(icon: "LedgerIcon30", text: "Ledger", onTap: onLedger)
             }
 
             InsetSection(dividersInset: 50) {

@@ -135,12 +135,12 @@ public class PasscodeScreenView: UIView {
             let hintText: String
             if AppStorageHelper.isBiometricActivated() {
                 if BiometricHelper.biometricType() == .touch {
-                    hintText = lang("Enter passcode or use Touch ID")
+                    hintText = lang("Enter code or use Touch ID")
                 } else {
-                    hintText = lang("Enter passcode or use Face ID")
+                    hintText = lang("Enter code or use Face ID")
                 }
             } else {
-                hintText = lang("Enter passcode")
+                hintText = lang("Enter code")
             }
             enterPasscodeLabel.label.text = hintText
             enterPasscodeLabel.label.textColor = WTheme.secondaryLabel

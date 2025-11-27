@@ -12,6 +12,7 @@ import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.Path
+import android.graphics.RectF
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.graphics.drawable.ShapeDrawable
@@ -33,7 +34,7 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 @SuppressLint("ViewConstructor")
 open class WView(
     context: Context,
-    layoutParams: LayoutParams = LayoutParams(MATCH_PARENT, MATCH_PARENT)
+    layoutParams: ViewGroup.LayoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
 ) :
     ConstraintLayout(context) {
     init {
@@ -76,7 +77,7 @@ open class WView(
     ) {
         val currentDrawable = this.background as? GradientDrawable
 
-        if (!WGlobalStorage.getAreAnimationsActive()) {
+        if (!WGlobalStorage.getAreAnimationsActive() || duration == 0L) {
             val gradientDrawable = (currentDrawable ?: GradientDrawable()).apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = radius
@@ -84,6 +85,7 @@ open class WView(
                 setStroke(borderWidth, newBorderColor)
             }
             this.background = gradientDrawable
+            currentBackgroundColor = newBackgroundColor
             onCompletion?.invoke()
             return
         }
@@ -456,11 +458,22 @@ fun View.animateHeight(newValue: Int) {
     }
 }
 
+fun View.frameAsRectF(padding: Float): RectF {
+    val location = IntArray(2)
+    getLocationOnScreen(location)
+    return RectF(
+        location[0].toFloat() - padding,
+        location[1].toFloat() - padding,
+        (location[0] + width).toFloat() + padding,
+        (location[1] + height).toFloat() + padding
+    )
+}
+
 fun updateThemeForChildren(parentView: ViewGroup) {
     for (child in parentView.children) {
         if (child is WThemedView)
             child.updateTheme()
-        if (child is ViewGroup)
+        if (child is ViewGroup && child !is WRecyclerView) // RecyclerViews are handler per-case in vc
             updateThemeForChildren(child)
         if (child is WSegmentedController) {
             child.items.forEach {

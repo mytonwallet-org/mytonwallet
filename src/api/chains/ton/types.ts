@@ -2,6 +2,7 @@ import type { Cell } from '@ton/core';
 import type { WalletContractV5R1 } from '@ton/ton/dist/wallets/WalletContractV5R1';
 
 import type {
+  ApiActivity,
   ApiAnyDisplayError,
   ApiEmulationResult,
   ApiParsedPayload,
@@ -155,9 +156,10 @@ export type ApiTransactionExtended = ApiTransaction & {
   hash: string;
   msgHash: string;
   opCode?: number;
+  body?: string;
 };
 
-export type ParsedTracePart = {
+export type TraceOutput = {
   hashes: Set<string>;
   sent: bigint;
   /** How much TON will be received as a result of the transaction (the sent amount is not deducted) */
@@ -166,6 +168,22 @@ export type ParsedTracePart = {
   networkFee: bigint;
   /** Whether the transaction has succeeded */
   isSuccess: boolean;
+  walletActions: ParsedAction[];
+  /** The total real fee of `walletActions` */
+  realFee: bigint;
+  /** The total excess of `walletActions` */
+  excess: bigint;
+};
+
+/**
+ * This is an object with action that is associated with a wallet, the activity of this action and Toncoin
+ */
+export type ParsedAction = {
+  action: AnyAction;
+  activities: ApiActivity[];
+  // Explicit incoming or outgoing Toncoin (deposit, send, staking withdrawal, sending or receiving in swap, etc.)
+  // This is the Toncoin amount shown to the user in the displayed transaction/activity
+  toncoinChange?: bigint;
 };
 
 export type ParsedTrace = {
@@ -173,7 +191,7 @@ export type ParsedTrace = {
   traceDetail: TraceDetail;
   addressBook: AddressBook;
   // Parsed
-  byTransactionIndex: ParsedTracePart[];
+  traceOutputs: TraceOutput[];
   totalSent: bigint;
   totalReceived: bigint;
   totalNetworkFee: bigint;

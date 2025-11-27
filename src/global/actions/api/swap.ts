@@ -61,6 +61,7 @@ import {
   selectAccount,
   selectAccountState,
   selectCurrentAccount,
+  selectCurrentAccountId,
   selectCurrentAccountTokenBalance,
   selectCurrentSwapTokenIn,
   selectCurrentSwapTokenOut,
@@ -106,7 +107,8 @@ function buildSwapBuildRequest(global: GlobalState): ApiSwapBuildRequest {
   const to = resolveSwapAssetId(tokenOut);
   const fromAmount = amountIn!;
   const toAmount = amountOut!;
-  const account = selectAccount(global, global.currentAccountId!);
+  const currentAccountId = selectCurrentAccountId(global)!;
+  const account = selectAccount(global, currentAccountId);
   const nativeTokenIn = findNativeToken(getChainBySlug(tokenIn.slug));
   const nativeTokenInBalance = nativeTokenIn ? selectCurrentAccountTokenBalance(global, nativeTokenIn.slug) : undefined;
   const swapType = selectSwapType(global);
@@ -175,7 +177,7 @@ function processNativeMaxSwap(global: GlobalState) {
 }
 
 function getSupportedChains(global: GlobalState) {
-  return Object.keys(selectAccount(global, global.currentAccountId!)?.byChain || { ton: true }) as ApiChain[];
+  return Object.keys(selectCurrentAccount(global)?.byChain || { ton: true }) as ApiChain[];
 }
 
 addActionHandler('startSwap', async (global, actions, payload) => {
@@ -272,7 +274,7 @@ addActionHandler('submitSwap', async (global, actions, { password }) => {
 
   const swapBuildRequest = buildSwapBuildRequest(global);
   const buildResult = await callApi(
-    'swapBuildTransfer', global.currentAccountId!, password, swapBuildRequest,
+    'swapBuildTransfer', selectCurrentAccountId(global)!, password, swapBuildRequest,
   );
 
   if (!handleTransferResult(buildResult, updateCurrentSwap)) {
@@ -285,6 +287,7 @@ addActionHandler('submitSwap', async (global, actions, { password }) => {
     timestamp: Date.now(),
     status: 'pendingTrusted',
     from: swapBuildRequest.from,
+    fromAddress: swapBuildRequest.fromAddress,
     fromAmount: swapBuildRequest.fromAmount,
     to: swapBuildRequest.to,
     toAmount: swapBuildRequest.toAmount,
@@ -305,7 +308,7 @@ addActionHandler('submitSwap', async (global, actions, { password }) => {
 
   const result = await callApi(
     'swapSubmit',
-    global.currentAccountId!,
+    selectCurrentAccountId(global)!,
     password,
     buildResult.transfers,
     swapHistoryItem,
@@ -333,7 +336,8 @@ addActionHandler('submitSwapCex', async (global, actions, { password }) => {
   global = getGlobal();
   setGlobal(updateCurrentSwap(global, { shouldResetOnClose: undefined }));
 
-  const isMutlichainAccount = selectIsMultichainAccount(global, global.currentAccountId!);
+  const currentAccountId = selectCurrentAccountId(global)!;
+  const isMutlichainAccount = selectIsMultichainAccount(global, currentAccountId);
   const account = selectCurrentAccount(global);
   const supportedChains = getSupportedChains(global);
   const tokenIn = global.swapTokenInfo.bySlug[global.currentSwap.tokenInSlug!];
@@ -357,7 +361,7 @@ addActionHandler('submitSwapCex', async (global, actions, { password }) => {
 
   const swapItem = await callApi(
     'swapCexCreateTransaction',
-    global.currentAccountId!,
+    selectCurrentAccountId(global)!,
     password,
     swapTransactionRequest,
   );
@@ -381,7 +385,7 @@ addActionHandler('submitSwapCex', async (global, actions, { password }) => {
   if (shouldSendTransaction) {
     const transferOptions: ApiSubmitGasfullTransferOptions = {
       password,
-      accountId: global.currentAccountId!,
+      accountId: selectCurrentAccountId(global)!,
       fee: fromDecimal(swapItem.swap.networkFee, tokenIn.decimals),
       amount: fromDecimal(swapItem.swap.fromAmount, tokenIn.decimals),
       toAddress: swapItem.swap.cex!.payinAddress,
@@ -558,7 +562,7 @@ async function estimateDexSwap(global: GlobalState): Promise<SwapEstimateResult>
   const toncoinBalance = selectCurrentToncoinBalance(global);
   const shouldTryDiesel = toncoinBalance < fromDecimal(global.currentSwap.networkFee ?? '0', nativeTokenIn.decimals);
 
-  const estimate = await callApi('swapEstimate', global.currentAccountId!, {
+  const estimate = await callApi('swapEstimate', selectCurrentAccountId(global)!, {
     ...estimateAmount,
     from,
     to,
@@ -663,7 +667,7 @@ async function estimateCexSwap(global: GlobalState, shouldStop: () => boolean): 
     };
   }
 
-  const account = global.accounts?.byId[global.currentAccountId!];
+  const account = global.accounts?.byId[selectCurrentAccountId(global)!];
   let networkFee: string | undefined;
   let realNetworkFee: string | undefined;
   let amountIn = estimate.fromAmount;
@@ -679,7 +683,7 @@ async function estimateCexSwap(global: GlobalState, shouldStop: () => boolean): 
     }[tokenIn.chain];
 
     const txDraft = await callApi('checkTransactionDraft', tokenIn.chain, {
-      accountId: global.currentAccountId!,
+      accountId: selectCurrentAccountId(global)!,
       toAddress,
       tokenAddress: tokenIn.tokenAddress,
     });
@@ -802,7 +806,7 @@ addActionHandler('setSwapCexAddress', (global, actions, { toAddress }) => {
 });
 
 addActionHandler('updatePendingSwaps', async (global) => {
-  const accountId = global.currentAccountId;
+  const accountId = selectCurrentAccountId(global);
   if (!accountId) return;
 
   let { activities } = selectAccountState(global, accountId) ?? {};
@@ -823,7 +827,7 @@ addActionHandler('updatePendingSwaps', async (global) => {
   const { swaps, nonExistentIds } = result;
 
   global = getGlobal();
-  if (global.currentAccountId !== accountId) return;
+  if (selectCurrentAccountId(global) !== accountId) return;
 
   ({ activities } = selectAccountState(global, accountId) ?? {});
 

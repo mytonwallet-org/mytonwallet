@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.walletcore
 
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
+import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 
 sealed class WalletEvent {
@@ -26,15 +27,24 @@ sealed class WalletEvent {
     ) : WalletEvent()
 
     data object NftsUpdated : WalletEvent()
+    data class CollectionNftsReceived(
+        val accountId: String,
+        val collectionAddress: String,
+        val nfts: List<ApiNft>
+    ) : WalletEvent()
+
     data object ReceivedNewNFT : WalletEvent()
     data class AccountChanged(
-        val accountId: String? = null
+        val accountId: String? = null,
+        val fromHome: Boolean = false
     ) : WalletEvent()
 
     data object AccountNameChanged : WalletEvent()
+    data object AccountsReordered : WalletEvent()
     data object AccountSavedAddressesChanged : WalletEvent()
     data object AddNewWalletCompletion : WalletEvent()
-    data object AccountChangedInApp : WalletEvent()
+    data class AccountChangedInApp(val accountsModified: Boolean) : WalletEvent()
+    data object AccountWillChange : WalletEvent()
     data object DappsCountUpdated : WalletEvent()
     data class DappRemoved(val dapp: ApiDapp) : WalletEvent()
     data object StakingDataUpdated : WalletEvent()

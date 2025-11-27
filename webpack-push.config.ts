@@ -1,7 +1,8 @@
+import './dev/loadEnv';
+
 import WatchFilePlugin from '@mytonwallet/webpack-watch-file-plugin';
 import StatoscopeWebpackPlugin from '@statoscope/webpack-plugin';
 import CopyWebpackPlugin from 'copy-webpack-plugin';
-import dotenv from 'dotenv';
 import fs from 'fs';
 import HtmlPlugin from 'html-webpack-plugin';
 import MiniCssExtractPlugin from 'mini-css-extract-plugin';
@@ -10,15 +11,8 @@ import type { Compiler, Configuration } from 'webpack';
 import { EnvironmentPlugin, NormalModuleReplacementPlugin, ProvidePlugin } from 'webpack';
 
 import { convertI18nYamlToJson } from './dev/locales/convertI18nYamlToJson';
-
-dotenv.config();
-
-const {
-  PUSH_API_URL,
-} = process.env;
-
-const { APP_ENV = 'production' } = process.env;
-const IS_TELEGRAM_APP = process.env.IS_TELEGRAM_APP === '1';
+import { APP_ENV, IS_TELEGRAM_APP } from './src/config';
+import { PUSH_API_URL } from './src/push/config';
 
 const destinationDir = path.resolve(__dirname, 'dist-push');
 const defaultI18nFilename = path.resolve(__dirname, './src/push/i18n/en.json');

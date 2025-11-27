@@ -1,26 +1,21 @@
-import React, { type ElementRef, useMemo, useRef } from '../../../../lib/teact/teact';
+import React, { type ElementRef, useRef } from '../../../../lib/teact/teact';
 
 import type { ApiNft } from '../../../../api/types';
 import type { Account, AccountType } from '../../../../global/types';
 import type { Layout } from '../../../../hooks/useMenuPosition';
 
 import buildClassName from '../../../../util/buildClassName';
-import buildStyle from '../../../../util/buildStyle';
-import { formatAccountAddresses } from '../../../../util/formatAccountAddress';
-import getPseudoRandomNumber from '../../../../util/getPseudoRandomNumber';
-import { getAvatarGradientColors } from './utils/getAvatarGradientColor';
-import { getAvatarInitials } from './utils/getAvatarInitials';
 
 import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
 import useLastCallback from '../../../../hooks/useLastCallback';
 import useAccountContextMenu, { OPEN_CONTEXT_MENU_CLASS_NAME } from './hooks/useAccountContextMenu';
 
+import AccountRowInner from '../../../common/AccountRowInner';
 import Draggable from '../../../ui/Draggable';
 import DropdownMenu from '../../../ui/DropdownMenu';
 import MenuBackdrop from '../../../ui/MenuBackdrop';
-import SensitiveData from '../../../ui/SensitiveData';
-import CustomCardPreview from './CustomCardPreview';
 
+import accountRowStyles from '../../../common/AccountRowContent.module.scss';
 import styles from './AccountWalletItem.module.scss';
 
 interface OwnProps {
@@ -79,13 +74,6 @@ function AccountWalletItem({
   const menuRef = useRef<HTMLDivElement>();
   const { isPortrait } = useDeviceScreen();
 
-  const isHardware = accountType === 'hardware';
-  const isViewMode = accountType === 'view';
-  const formattedAddress = formatAccountAddresses(byChain, 'list');
-
-  const amountCols = useMemo(() => getPseudoRandomNumber(4, 12, title || ''), [title]);
-  const fiatAmountCols = 5 + (amountCols % 6);
-
   const getTriggerElement = useLastCallback(() => contentRef.current);
   const getRootElement = useLastCallback(() => document.body);
   const getMenuElement = useLastCallback(() => menuRef.current);
@@ -101,7 +89,7 @@ function AccountWalletItem({
     onRename(accountId);
   });
 
-  const handleLogOutClick = useLastCallback(() => {
+  const handleRemoveClick = useLastCallback(() => {
     onLogOut(accountId);
   });
 
@@ -122,15 +110,12 @@ function AccountWalletItem({
     accountId,
     onReorderClick: onReorder,
     onRenameClick: handleRenameClick,
-    onLogOutClick: handleLogOutClick,
+    onRemoveClick: handleRemoveClick,
   });
 
-  const initials = getAvatarInitials(title);
-  const gradientColors = getAvatarGradientColors(accountId);
-
-  const itemClassName = buildClassName(
+  const rowClassName = buildClassName(
     styles.item,
-    isSelected && styles.selected,
+    isSelected && accountRowStyles.selected,
     isContextMenuOpen && OPEN_CONTEXT_MENU_CLASS_NAME,
     isReorder && styles.draggableItem,
   );
@@ -167,55 +152,23 @@ function AccountWalletItem({
       />
       <div
         ref={contentRef}
-        className={itemClassName}
+        className={buildClassName(accountRowStyles.row, rowClassName)}
         role="button"
         tabIndex={isSelected ? -1 : 0}
         onKeyDown={handleKeyDown}
         onMouseDown={handleBeforeContextMenu}
         onContextMenu={handleContextMenu}
       >
-        <div
-          className={styles.avatar}
-          style={buildStyle(`--start-color: ${gradientColors[0]}; --end-color: ${gradientColors[1]}`)}
-        >
-          {initials}
-        </div>
-
-        <div className={styles.info}>
-          <div className={styles.titleRow}>
-            <span className={styles.title}>{title}</span>
-            {cardBackgroundNft && (
-              <CustomCardPreview nft={cardBackgroundNft} className={styles.nftIndicator} />
-            )}
-          </div>
-          <div className={styles.address}>
-            {isTestnet && <i className={buildClassName(styles.icon, 'icon-testnet')} aria-hidden />}
-            {isHardware && <i className={buildClassName(styles.icon, 'icon-ledger')} aria-hidden />}
-            {isViewMode && <i className={buildClassName(styles.icon, 'icon-eye-filled')} aria-hidden />}
-            {formattedAddress}
-          </div>
-        </div>
-
-        {balanceData && (
-          <SensitiveData
-            isActive={isSensitiveDataHidden}
-            rows={2}
-            cols={fiatAmountCols}
-            cellSize={8}
-            align="right"
-          >
-            <div className={buildClassName(styles.balance, 'rounded-font')}>
-              {balanceData.currencySymbol.length === 1 && balanceData.currencySymbol}
-              {balanceData.wholePart}
-              {balanceData.fractionPart && (
-                <>.{balanceData.fractionPart}</>
-              )}
-              {balanceData.currencySymbol.length > 1 && (
-                <>&nbsp;{balanceData.currencySymbol}</>
-              )}
-            </div>
-          </SensitiveData>
-        )}
+        <AccountRowInner
+          accountId={accountId}
+          byChain={byChain}
+          accountType={accountType}
+          title={title}
+          isTestnet={isTestnet}
+          balanceData={balanceData}
+          cardBackgroundNft={cardBackgroundNft}
+          isSensitiveDataHidden={isSensitiveDataHidden}
+        />
       </div>
 
       {withContextMenu && isContextMenuShown && (

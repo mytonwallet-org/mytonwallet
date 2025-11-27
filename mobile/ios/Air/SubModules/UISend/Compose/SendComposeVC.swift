@@ -52,10 +52,10 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
                                        draftStatus.address == model.addressOrDomain, !model.addressOrDomain.isEmpty {
                     lang("Invalid address")
                 } else if insufficientFunds {
-                    WStrings.InsufficientBalance_Text(symbol: model.token?.symbol ?? "TON")
+                    lang("Insufficient Balance")
                 } else {
                     if model.toAddressDraft?.diesel?.status == .notAuthorized {
-                        WStrings.Swap_AuthorizeDiesel_Text(symbol: model.token?.symbol.uppercased() ?? "")
+                        lang("Authorize %token% Fee", arg1: model.token?.symbol ?? "")
                     } else {
                         lang("Continue")
                     }

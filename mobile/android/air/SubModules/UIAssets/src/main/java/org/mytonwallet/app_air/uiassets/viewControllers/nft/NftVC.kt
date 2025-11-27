@@ -53,12 +53,12 @@ import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uisend.sendNft.SendNftVC
 import org.mytonwallet.app_air.uisend.sendNft.sendNftConfirm.ConfirmNftVC
-import org.mytonwallet.app_air.walletcontext.WalletContextManager
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.WalletContextManager
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -529,6 +529,10 @@ class NftVC(
         super.scrollToTop()
         if (wasTracking || !headerView.targetIsCollapsed)
             return
+        performScrollToTop()
+    }
+
+    private fun performScrollToTop() {
         recyclerView.smoothScrollBy(
             0,
             headerView.collapsedOffset - recyclerView.computeVerticalScrollOffset(),
@@ -767,6 +771,14 @@ class NftVC(
         } else {
             onPreviewTapped()
         }
+    }
+
+    override fun onBackPressed(): Boolean {
+        if (!headerView.targetIsCollapsed) {
+            performScrollToTop()
+            return false
+        }
+        return super.onBackPressed()
     }
 
     override fun onPreviewTapped() {

@@ -180,7 +180,7 @@ class TonConnectRequestSendVC(
             topToTop(
                 bottomReversedCornerViewUpsideDown,
                 cancelButtonView,
-                -20f - ViewConstants.BIG_RADIUS
+                -ViewConstants.GAP - ViewConstants.BIG_RADIUS
             )
             toBottom(bottomReversedCornerViewUpsideDown)
             toLeft(cancelButtonView, 20f)

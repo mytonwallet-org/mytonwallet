@@ -116,7 +116,6 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
                             }
                         }
                     }
-                    .environment(\.isSensitiveDataHidden, AppStorageHelper.isSensitiveDataHidden)
                     .padding(.bottom, 2)
                 }
                 .background(Color.clear)

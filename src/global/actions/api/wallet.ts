@@ -1,4 +1,4 @@
-import type { ApiChain, ApiSwapAsset, ApiToken, ApiTokenWithPrice } from '../../../api/types';
+import type { ApiAnyDisplayError, ApiChain, ApiSwapAsset, ApiToken, ApiTokenWithPrice } from '../../../api/types';
 import { ApiHardwareError } from '../../../api/types';
 
 import { getChainTitle } from '../../../util/chain';
@@ -8,6 +8,7 @@ import { logDebugError } from '../../../util/logs';
 import { pause } from '../../../util/schedulers';
 import { buildUserToken } from '../../../util/tokens';
 import { callApi } from '../../../api';
+import { errorCodeToMessage } from '../../helpers/errors';
 import { isErrorTransferResult } from '../../helpers/transfer';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import {
@@ -21,6 +22,7 @@ import { updateTokenInfo } from '../../reducers/tokens';
 import {
   selectAccount,
   selectAccountState,
+  selectCurrentAccountId,
   selectCurrentAccountSettings,
   selectCurrentAccountState,
 } from '../../selectors';
@@ -113,37 +115,40 @@ addActionHandler('addToken', (global, actions, { token }) => {
   });
 
   if (token.tokenAddress) {
-    void callApi('importToken', global.currentAccountId!, token.tokenAddress);
+    void callApi('importToken', selectCurrentAccountId(global)!, token.chain, token.tokenAddress);
   }
 
   return global;
 });
 
-addActionHandler('importToken', async (global, actions, { address }) => {
-  const { currentAccountId } = global;
+addActionHandler('importToken', async (global, actions, { chain, address }) => {
+  const accountId = selectCurrentAccountId(global)!;
+
   global = updateSettings(global, {
     importToken: {
       isLoading: true,
       token: undefined,
+      error: undefined,
     },
   });
   setGlobal(global);
 
-  const slug = (await callApi('buildTokenSlug', 'ton', address))!;
+  const slug = (await callApi('buildTokenSlug', chain, address))!;
   global = getGlobal();
 
-  let token: ApiTokenWithPrice | ApiToken | undefined = global.tokenInfo.bySlug?.[slug];
+  let token: ApiTokenWithPrice | ApiToken | { error: ApiAnyDisplayError } | undefined = global.tokenInfo.bySlug?.[slug];
 
   if (!token) {
-    token = await callApi('fetchToken', global.currentAccountId!, address);
+    token = await callApi('fetchToken', accountId, chain, address);
     await pause(IMPORT_TOKEN_PAUSE);
-
     global = getGlobal();
-    if (!token) {
+
+    if (isErrorTransferResult(token)) {
       global = updateSettings(global, {
         importToken: {
           isLoading: false,
           token: undefined,
+          error: errorCodeToMessage(token?.error),
         },
       });
       setGlobal(global);
@@ -159,7 +164,7 @@ addActionHandler('importToken', async (global, actions, { address }) => {
     }
   }
 
-  const balances = selectAccountState(global, currentAccountId!)?.balances?.bySlug ?? {};
+  const balances = selectAccountState(global, accountId)?.balances?.bySlug ?? {};
   const shouldUpdateBalance = !(token.slug in balances);
 
   const userToken = buildUserToken(token);
@@ -169,10 +174,11 @@ addActionHandler('importToken', async (global, actions, { address }) => {
     importToken: {
       isLoading: false,
       token: userToken,
+      error: undefined,
     },
   });
   if (shouldUpdateBalance) {
-    global = changeBalance(global, global.currentAccountId!, token.slug, 0n);
+    global = changeBalance(global, accountId, token.slug, 0n);
   }
   setGlobal(global);
 });
@@ -182,13 +188,14 @@ addActionHandler('resetImportToken', (global) => {
     importToken: {
       isLoading: false,
       token: undefined,
+      error: undefined,
     },
   });
   setGlobal(global);
 });
 
 addActionHandler('verifyHardwareAddress', async (global, actions, { chain }) => {
-  const accountId = global.currentAccountId!;
+  const accountId = selectCurrentAccountId(global)!;
   const currentAddress = selectAccount(global, accountId)?.byChain[chain]?.address;
 
   if (!(await connectLedger(chain))) {
@@ -263,7 +270,7 @@ addActionHandler('addSwapToken', (global, actions, { token }) => {
     tokenAddress: token.tokenAddress,
     keywords: token.keywords,
     isPopular: false,
-    priceUsd: 0,
+    priceUsd: token.priceUsd,
   };
 
   setGlobal({

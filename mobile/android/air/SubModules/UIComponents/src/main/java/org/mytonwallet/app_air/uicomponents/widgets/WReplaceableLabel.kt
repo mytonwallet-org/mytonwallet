@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.widgets
 
 import android.content.Context
+import android.graphics.drawable.Drawable
 import android.view.Gravity
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
@@ -18,7 +19,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 class WReplaceableLabel(
     context: Context,
-) : WView(context) {
+) : WView(context), WThemedView {
 
     init {
         clipChildren = false
@@ -63,63 +64,86 @@ class WReplaceableLabel(
         }
     }
 
-    private var animatingTextTo: String? = null
-    private var isLoading: Boolean = false
-    private var animatingIsLoadingTo: Boolean? = null
+    override fun updateTheme() {
+        label.setCompoundDrawables(null, null, config?.trailingDrawable?.apply {
+            setTint(WColor.PrimaryText.color)
+        }, null)
+    }
+
+    data class Config(
+        val text: String,
+        val isLoading: Boolean,
+        val trailingDrawable: Drawable? = null
+    )
+
+    private var animatingConfig: Config? = null
+    private var config: Config? = null
 
     private fun updateProgressView() {
-        progressView.clearAnimation()
-        progressView.isGone = !isLoading
-        progressView.alpha = if (isLoading) 1f else 0f
+        progressView.animate().cancel()
+        progressView.isGone = config?.isLoading != true
+        progressView.alpha = if (config?.isLoading == true) 1f else 0f
     }
 
     var setTextRunnable: Runnable? = null
     fun setText(
-        text: String,
-        isLoading: Boolean,
+        config: Config,
         animated: Boolean = true,
         updateLabelAppearance: (() -> Unit)? = null
     ) {
-        if (isLoading == this.isLoading && text == label.text) {
+        if (animatingConfig == null &&
+            config.isLoading == this.config?.isLoading &&
+            config.text == label.text
+        ) {
             // Nothing changed, just update the appearance.
             updateLabelAppearance?.invoke()
             return
         }
-        if (isLoading == this.animatingIsLoadingTo && text == animatingTextTo) {
+        if (animated &&
+            config.isLoading == this.animatingConfig?.isLoading &&
+            config.text == this.animatingConfig?.text
+        ) {
             // The appearing (animating) state is same, just return.
             return
         }
+        config.trailingDrawable?.apply {
+            setBounds(
+                0,
+                0,
+                config.trailingDrawable.intrinsicWidth,
+                config.trailingDrawable.intrinsicHeight
+            )
+        }
 
         if (!animated) {
-            animatingTextTo = null
-            animatingIsLoadingTo = null
+            animatingConfig = null
             setTextRunnable = null
             translationX = 0f
             scaleX = 1f
             scaleY = 1f
-            label.text = text
-            this.isLoading = isLoading
+            label.text = config.text
+            label.setCompoundDrawables(null, null, config.trailingDrawable, null)
+            this.config = config
             updateLabelAppearance?.invoke()
             updateProgressView()
             return
         }
 
-        animatingTextTo = text
-        animatingIsLoadingTo = isLoading
+        animatingConfig = config
 
         setTextRunnable = Runnable {
             setTextRunnable = null
             updateLabelAppearance?.invoke()
-            this.isLoading = animatingIsLoadingTo == true
-            if (progressView.alpha < 1f && this.isLoading) {
+            this.animatingConfig = null
+            this.config = config
+            if (progressView.alpha < 1f && config.isLoading) {
                 progressView.visibility = VISIBLE
                 progressView.fadeIn { }
-            } else if (!this.isLoading) {
+            } else if (!config.isLoading) {
                 updateProgressView()
             }
-            animatingTextTo = null
-            animatingIsLoadingTo = null
-            label.text = text
+            label.text = config.text
+            label.setCompoundDrawables(null, null, config.trailingDrawable, null)
             translationX = 0f
 
             animate()

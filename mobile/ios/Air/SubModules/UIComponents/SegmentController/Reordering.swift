@@ -2,6 +2,7 @@
 import SwiftUI
 import UIKit
 import WalletContext
+import Perception
 
 extension SegmentedControlItem: DragulaItem {
     public func getItemProvider() -> NSItemProvider {
@@ -11,24 +12,38 @@ extension SegmentedControlItem: DragulaItem {
 
 struct SegmentedControlReordering: View {
     
-    @ObservedObject var model: SegmentedControlModel
+    let model: SegmentedControlModel
     
     var body: some View {
+        WithPerceptionTracking {
+            if model.isReordering {
+                ZStack {
+                    Color(WTheme.groupedItem)
+                        .padding(.vertical, -2) // fully hide main content
+                    content
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    var content: some View {
+        @Perception.Bindable var model = model
         ScrollView(.horizontal) {
             HStack(spacing: 10) {
                 DragulaView(items: $model.items) { item in
                     ZStack {
-                        item.content
+                        Text(item.title)
                             .padding(.horizontal, 3)
                             .padding(.vertical, 2)
                             .allowsHitTesting(false)
                             .shake()
-                            
+                        
                         Color.clear.contentShape(.rect)
                     }
                 } dropView: { item in
                     ZStack {
-                        item.content
+                        Text(item.title)
                             .padding(.horizontal, 3)
                             .padding(.vertical, 2)
                             .allowsHitTesting(false)
@@ -51,7 +66,7 @@ struct SegmentedControlReordering: View {
                     .padding(.trailing, 6)
                     .padding(.leading, 12)
                     .foregroundStyle(Color(WTheme.tint))
-                    .frame(height: 24)
+                    .frame(height: SegmentedControlConstants.height)
                     .contentShape(.rect)
                     .background(
                         Rectangle()

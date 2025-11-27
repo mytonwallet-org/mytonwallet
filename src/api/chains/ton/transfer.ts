@@ -278,27 +278,19 @@ function estimateDiesel(
 }
 
 export async function checkToAddress(network: ApiNetwork, toAddress: string) {
-  const result: {
-    addressName?: string;
-    isScam?: boolean;
-    resolvedAddress?: string;
-    isToAddressNew?: boolean;
-    isBounceable?: boolean;
-    isMemoRequired?: boolean;
-  } = {};
-
   const resolved = await resolveAddress(network, toAddress);
-  if (resolved === 'dnsNotResolved') return { ...result, error: ApiTransactionDraftError.DomainNotResolved };
-  if (resolved === 'invalidAddress') return { ...result, error: ApiTransactionDraftError.InvalidToAddress };
-  result.addressName = resolved.name;
-  result.resolvedAddress = resolved.address;
-  result.isMemoRequired = resolved.isMemoRequired;
-  result.isScam = resolved.isScam;
+  if ('error' in resolved) return resolved;
   toAddress = resolved.address;
 
   const { isUserFriendly, isTestOnly, isBounceable } = parseAddress(toAddress);
 
-  result.isBounceable = isBounceable;
+  const result = {
+    addressName: resolved.name,
+    resolvedAddress: resolved.address,
+    isMemoRequired: resolved.isMemoRequired,
+    isScam: resolved.isScam,
+    isBounceable,
+  };
 
   const regex = /[+=/]/;
   const isUrlSafe = !regex.test(toAddress);
@@ -1140,8 +1132,8 @@ function applyFeeFactorToEmulationResult(estimation: ApiEmulationWithFallbackRes
     networkFee: bigintMultiplyToNumber(estimation.networkFee, FEE_FACTOR),
   };
 
-  if ('byTransactionIndex' in estimation) {
-    estimation.byTransactionIndex = estimation.byTransactionIndex.map((transaction) => ({
+  if ('traceOutputs' in estimation) {
+    estimation.traceOutputs = estimation.traceOutputs.map((transaction) => ({
       ...transaction,
       networkFee: bigintMultiplyToNumber(transaction.networkFee, FEE_FACTOR),
     }));

@@ -242,8 +242,8 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
         val builder = SpannableStringBuilder()
         if (transaction.status == ApiTransactionStatus.FAILED) {
             builder.append(
-                LocaleController.getString("Failed · ")
-            )
+                LocaleController.getString("Failed")
+            ).append(" · ")
         }
         if (transaction.shouldShowTransactionAddress) {
             builder.append(

@@ -86,7 +86,7 @@ struct WordDisplayView: View {
                 Text(lang("Security Warning")),
                 isPresented: $showScreenshotWarning,
                 actions: {
-                    Button("See Words", role: .cancel) { }
+                    Button(lang("Cancel"), role: .cancel) { }
                 },
                 message: {
                     let normal = Text(langMd("$secret_words_warning", arg1: lang("screenshot")))
@@ -108,7 +108,7 @@ struct WordDisplayView: View {
             Text(lang("Security Warning")),
             isPresented: $showCopyWarning,
             actions: {
-                Button(lang("See Words"), role: .cancel) { }
+                Button(lang("Cancel"), role: .cancel) { }
                 Button(lang("Copy Anyway"), role: .destructive) { onCopyToClipboard() }
             },
             message: {
@@ -136,7 +136,7 @@ struct WordDisplayView: View {
             Text(lang("Security Warning")),
             isPresented: $showContinueWithoutCheckingWarning,
             actions: {
-                Button(lang("See Words"), role: .cancel) { }
+                Button(lang("Go back to Words"), role: .cancel) { }
                 Button(lang("Continue"), role: .destructive) { onOpenWithoutCheckingConfirm() }
             },
             message: {

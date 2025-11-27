@@ -153,7 +153,7 @@ final class TokenExpandableChartView: UIView, WThemedView {
                 return ""
             }
             return formatAmountText(amount: amount,
-                                    currency: TokenStore.baseCurrency?.sign,
+                                    currency: TokenStore.baseCurrency.sign,
                                     decimalsCount: tokenDecimals(for: doubleToBigInt(amount, decimals: 9), tokenDecimals: 9))
         }, onHighlightChange: { [weak self] highlight in
             self?.lastHighlight = highlight
@@ -235,7 +235,7 @@ final class TokenExpandableChartView: UIView, WThemedView {
         timeFrameSwitcherView.selectedSegmentIndex = timePeriods.firstIndex(where: { it in
             it.rawValue == AppStorageHelper.selectedCurrentTokenPeriod()
         }) ?? 0
-        heightConstraint = heightAnchor.constraint(equalToConstant: TokenExpandableChartView.collapsedHeight)
+        heightConstraint = heightAnchor.constraint(equalToConstant: AppStorageHelper.isTokenChartExpanded ? TokenExpandableChartView.expandedHeight : TokenExpandableChartView.collapsedHeight)
         arrowRightConstraint = arrowImageView.rightAnchor.constraint(equalTo: rightAnchor, constant: -18)
         chartAnimationViewRightAnchor = lineChartAnimationView.rightAnchor.constraint(equalTo: rightAnchor, constant: -33)
         chartAnimationViewTopAnchor = lineChartAnimationView.topAnchor.constraint(equalTo: topAnchor, constant: 11.33)
@@ -338,7 +338,7 @@ final class TokenExpandableChartView: UIView, WThemedView {
         }
         if let lastHighlight {
             let priceString = formatAmountText(amount: lastHighlight.y,
-                                               currency: TokenStore.baseCurrency?.sign,
+                                               currency: TokenStore.baseCurrency.sign,
                                                decimalsCount: tokenDecimals(for: token.price ?? 0, tokenDecimals: token.decimals))
             let attr = NSAttributedString(string: priceString, attributes: [
                 .font: UIFont.systemFont(ofSize: 16, weight: .medium),
@@ -357,7 +357,7 @@ final class TokenExpandableChartView: UIView, WThemedView {
             let firstPriceInChart = historyData?.first(where: { val in val[1] != 0 })?[1]
             let lastPriceInChart = historyData?.last(where: { val in val[1] != 0 })?[1]
             let priceString = formatAmountText(amount: lastPriceInChart ?? price,
-                                               currency: TokenStore.baseCurrency?.sign,
+                                               currency: TokenStore.baseCurrency.sign,
                                                decimalsCount: tokenDecimals(for: lastPriceInChart ?? token.price ?? 0, tokenDecimals: token.decimals))
             let attr = NSAttributedString(string: priceString, attributes: [
                 .font: UIFont.systemFont(ofSize: 16, weight: .medium),
@@ -391,7 +391,7 @@ final class TokenExpandableChartView: UIView, WThemedView {
                 percentChange = nil
             }
             let priceString = formatAmountText(amount: token.price ?? 0,
-                                               currency: TokenStore.baseCurrency?.sign,
+                                               currency: TokenStore.baseCurrency.sign,
                                                decimalsCount: tokenDecimals(for: token.price ?? 0, tokenDecimals: token.decimals))
             let attr = NSAttributedString(string: priceString, attributes: [
                 .font: UIFont.systemFont(ofSize: 16, weight: .medium),

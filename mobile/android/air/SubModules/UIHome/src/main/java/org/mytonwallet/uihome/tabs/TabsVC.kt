@@ -155,6 +155,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             bottomNavigationView.post {
                 hideTooltips()
             }
+            (contentView[0] as? WNavigationController)?.viewWillDisappear()
 
             val nav = getNavigationStack(item.itemId)
             searchVisible.animatedValue = item.itemId == ID_EXPLORE
@@ -405,23 +406,10 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         bottomNavigationView.itemTextColor = colorStateList
         bottomNavigationView.itemActiveIndicatorColor = indicatorColorStateList
 
-        view.alpha = 0f
-        view.post {
-            view.fadeIn()
-        }
-
         for (navView in stackNavigationControllers.values) {
             if (navView.parent != null)
                 continue
-            fun updateThemeForChildren(parentView: ViewGroup) {
-                for (child in parentView.children) {
-                    if (child is WThemedView)
-                        child.updateTheme()
-                    if (child is ViewGroup)
-                        updateThemeForChildren(child)
-                }
-            }
-            updateThemeForChildren(navView)
+            navView.updateTheme()
         }
 
         updateFloatingButtonBackground?.apply {
@@ -430,8 +418,6 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
 
         searchView.highlightColor = WColor.Tint.color.colorWithAlpha(51)
         checkForMatchingUrl(searchKeyword)
-
-        render()
     }
 
     override fun viewWillAppear() {
@@ -675,7 +661,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
                 navigationController?.popToRoot(false)
             }
 
-            WalletEvent.AccountChangedInApp, WalletEvent.AddNewWalletCompletion -> {
+            is WalletEvent.AccountChangedInApp, WalletEvent.AddNewWalletCompletion -> {
                 bottomNavigationView.selectedItemId = ID_HOME
                 dismissMinimized(false)
             }

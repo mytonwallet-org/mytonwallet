@@ -1,4 +1,4 @@
-import type { ApiAddressInfo, ApiKnownAddresses, ApiNftSuperCollection } from '../types';
+import type { ApiKnownAddresses, ApiKnownAddressInfo, ApiNftSuperCollection } from '../types';
 
 import { RE_LINK_TEMPLATE, RE_TG_BOT_MENTION } from '../../config';
 import { cleanText } from '../../lib/confusables';
@@ -56,7 +56,7 @@ export function getScamMarkers() {
   return scamMarkers;
 }
 
-export function getKnownAddressInfo(address: string): ApiAddressInfo | undefined {
+export function getKnownAddressInfo(address: string): ApiKnownAddressInfo | undefined {
   return knownAddresses[address];
 }
 

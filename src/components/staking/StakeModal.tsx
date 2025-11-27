@@ -8,6 +8,7 @@ import { StakingState } from '../../global/types';
 import { IS_CAPACITOR } from '../../config';
 import {
   selectAccountStakingState,
+  selectCurrentAccountId,
   selectIsMultichainAccount,
 } from '../../global/selectors';
 import { getDoesUsePinPad } from '../../util/biometrics';
@@ -228,7 +229,7 @@ function StakeModal({
 }
 
 export default memo(withGlobal((global): StateProps => {
-  const accountId = global.currentAccountId!;
+  const accountId = selectCurrentAccountId(global)!;
   const isMultichainAccount = selectIsMultichainAccount(global, accountId);
   const stakingState = selectAccountStakingState(global, accountId);
   const tokenBySlug = global.tokenInfo.bySlug;

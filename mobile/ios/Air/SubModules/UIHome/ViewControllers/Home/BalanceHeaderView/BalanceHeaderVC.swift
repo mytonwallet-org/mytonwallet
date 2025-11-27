@@ -35,33 +35,11 @@ class BalanceHeaderVC: WViewController {
     }
     
     private func setupViews() {
-        balanceHeaderView.walletCardView.expandHeader = { [weak self] in
-            self?.delegate?.expandHeader()
-        }
-        balanceHeaderView.walletCardView.makeMenu = { address in
-            let copyAction = UIAction(
-                title: lang("Copy"),
-                image: UIImage(named: "SendCopy", in: AirBundle, with: nil)
-            ) { [weak self] _ in
-                self?.addressCopy(address: address)
-            }
-            let openInExplorerAction = UIAction(
-                title: lang("Open in Explorer"),
-
-                image: UIImage(named: "SendGlobe", in: AirBundle, with: nil)
-            ) { [weak self] _ in
-                self?.addressOpenInExplorer(address: address)
-            }
-            return UIMenu(
-                children: [copyAction, openInExplorerAction]
-            )
-        }
+        balanceHeaderView.walletCardView.isHidden = true
     }
     
     func setLoading(_ isLoading: Bool) {
         self.isLoading = isLoading
-        balanceHeaderView.balanceView.setLoading(isLoading)
-        balanceHeaderView.walletCardView.balanceCopyView.setLoading(isLoading)
     }
     
     override func viewIsAppearing(_ animated: Bool) {

@@ -10,7 +10,7 @@ import {
   type ApiTokenWithPrice,
 } from '../../types';
 
-import { TON_USDT_MAINNET_SLUG, TON_USDT_TESTNET_SLUG } from '../../../config';
+import { TON_USDT_MAINNET, TON_USDT_TESTNET } from '../../../config';
 import { fetchJsonWithProxy, fixIpfsUrl } from '../../../util/fetch';
 import { logDebugError } from '../../../util/logs';
 import { fetchJettonMetadata, fixBase64ImageData, parsePayloadBase64 } from './util/metadata';
@@ -300,6 +300,7 @@ async function fetchMintlessTokenWalletData(customPayloadApiUrl: string, address
 
 export async function fetchToken(network: ApiNetwork, address: string) {
   const metadata = await fetchJettonMetadata(network, address);
+  if ('error' in metadata) return metadata;
 
   return buildTokenByMetadata(address, metadata);
 }
@@ -337,7 +338,7 @@ export function getToncoinAmountForTransfer(token: ApiToken, willClaimMintless: 
   let amount = 0n;
   let realAmount = 0n;
 
-  if (token.slug === TON_USDT_MAINNET_SLUG || token.slug === TON_USDT_TESTNET_SLUG) {
+  if (token.slug === TON_USDT_MAINNET.slug || token.slug === TON_USDT_TESTNET.slug) {
     amount += TINY_TOKEN_TRANSFER_AMOUNT;
     realAmount += TINIEST_TOKEN_TRANSFER_REAL_AMOUNT;
   } else if (token.isTiny) {
@@ -358,6 +359,11 @@ export function getToncoinAmountForTransfer(token: ApiToken, willClaimMintless: 
 
 export async function importToken(network: ApiNetwork, address: string, sendUpdateTokens: NoneToVoidFunction) {
   const rawToken = await fetchToken(network, address);
+  if ('error' in rawToken) {
+    logDebugError(`${address} is not a token address`, rawToken);
+    return;
+  }
+
   const token: ApiTokenWithPrice = {
     ...rawToken,
     priceUsd: 0,

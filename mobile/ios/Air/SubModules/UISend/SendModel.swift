@@ -367,8 +367,8 @@ private let log = Log("SendModel")
             return
         }
         self.amount = maxToSend
-        self.amountInBaseCurrency = if let token, let baseCurrency = TokenStore.baseCurrency {
-            convertAmount(maxToSend, price: token.price ?? 0, tokenDecimals: token.decimals, baseCurrencyDecimals: baseCurrency.decimalsCount)
+        self.amountInBaseCurrency = if let token {
+            convertAmount(maxToSend, price: token.price ?? 0, tokenDecimals: token.decimals, baseCurrencyDecimals: TokenStore.baseCurrency.decimalsCount)
         } else {
             0
         }
@@ -399,8 +399,8 @@ private let log = Log("SendModel")
     
     func updateBaseCurrencyAmount(_ amount: BigInt?) {
         guard let amount else { return }
-        self.amountInBaseCurrency = if let token, let baseCurrency = TokenStore.baseCurrency {
-            convertAmount(amount, price: token.price ?? 0, tokenDecimals: token.decimals, baseCurrencyDecimals: baseCurrency.decimalsCount)
+        self.amountInBaseCurrency = if let token {
+            convertAmount(amount, price: token.price ?? 0, tokenDecimals: token.decimals, baseCurrencyDecimals: TokenStore.baseCurrency.decimalsCount)
         } else {
             0
         }
@@ -410,7 +410,7 @@ private let log = Log("SendModel")
     func updateAmountFromBaseCurrency(_ baseCurrency: BigInt) {
         guard let token else { return }
         let price = token.price ?? 0
-        let baseCurrencyDecimals = TokenStore.baseCurrency?.decimalsCount ?? 2
+        let baseCurrencyDecimals = TokenStore.baseCurrency.decimalsCount ?? 2
         if price > 0 {
             self.amount = convertAmountReverse(baseCurrency, price: price, tokenDecimals: token.decimals, baseCurrencyDecimals: baseCurrencyDecimals)
         } else {

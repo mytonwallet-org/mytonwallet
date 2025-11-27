@@ -195,11 +195,7 @@ extension ConnectedAppsVC: UITableViewDelegate, UITableViewDataSource {
     }
     
     public func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-        if IOS_26_MODE_ENABLED {
-            lang("Logged in with MyTonWallet")
-        } else {
-            lang("Logged in with MyTonWallet").uppercased()
-        }
+        lang("Logged in with %app_name%", arg1: APP_NAME)    
     }
     
     public func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {

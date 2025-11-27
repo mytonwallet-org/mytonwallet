@@ -32,7 +32,7 @@ public final class LedgerSelectWalletsVC: WViewController {
             subtitle: "",
             closeIcon: self.navigationController?.sheetPresentationController != nil,
         )
-        self.navigationBar?.subtitleLabel?.text = lang("$n_wallets_selected", arg1: model.selectedCount)
+        self.navigationBar?.subtitleLabel?.text = lang("%1$d Selected", arg1: model.selectedCount)
         self.navigationBar?.subtitleLabel?.isHidden = !model.canContinue
         
         

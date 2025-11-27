@@ -4,10 +4,12 @@ import UIComponents
 import WalletCore
 import WalletContext
 
+let actionsRowHeight: CGFloat = IOS_26_MODE_ENABLED ? 70 : 60
+
 @MainActor
 class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableContent, WThemedView {
 
-    public static let requiredScrollOffset: CGFloat = 139 + 40 + 16 + 60 // after actions section
+    public static let requiredScrollOffset: CGFloat = 139 + 40 + 16 + actionsRowHeight // after actions section
 
     private let navHeight = CGFloat(1048)
     private var token: ApiToken? = nil
@@ -21,7 +23,7 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
     let equivalentCollapsedSpacing: CGFloat = -13
     var belowNavbarPadding: CGFloat { (IOS_26_MODE_ENABLED ? (isInModal ? 16 : 10) : 0) }
     var actionsOffset: CGFloat { 139 + 40 + 16 }
-    var expandedHeight: CGFloat { actionsOffset + 60 + 16 }
+    var expandedHeight: CGFloat { actionsOffset + actionsRowHeight + 16 }
 
     let iconScrollModifier = 0.85
     let balanceScrollModifier = 0.8
@@ -153,12 +155,20 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
             iconBlurView.topAnchor.constraint(equalTo: iconView.topAnchor, constant: -50),
             iconBlurView.bottomAnchor.constraint(equalTo: iconView.bottomAnchor, constant: 50),
 
-            actionsStackView.leftAnchor.constraint(equalTo: v.leftAnchor, constant: S.insetSectionHorizontalMargin),
-            actionsStackView.rightAnchor.constraint(equalTo: v.rightAnchor, constant: -S.insetSectionHorizontalMargin),
             actionsTopConstraint!,
-            actionsStackView.heightAnchor.constraint(equalToConstant: TokenActionsView.defaultHeight),
+            actionsStackView.heightAnchor.constraint(equalToConstant: actionsRowHeight),
             actionsStackView.bottomAnchor.constraint(equalTo: v.bottomAnchor, constant: -16),
         ])
+        if IOS_26_MODE_ENABLED {
+            NSLayoutConstraint.activate([
+                actionsStackView.centerXAnchor.constraint(equalTo: v.centerXAnchor),
+            ])
+        } else {
+            NSLayoutConstraint.activate([
+                actionsStackView.leftAnchor.constraint(equalTo: v.leftAnchor, constant: S.insetSectionHorizontalMargin),
+                actionsStackView.rightAnchor.constraint(equalTo: v.rightAnchor, constant: -S.insetSectionHorizontalMargin),
+            ])
+        }
         return v
     }()
 
@@ -204,7 +214,7 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
                                 decimalsCount: tokenDecimals(for: walletToken?.balance ?? 0, tokenDecimals: token.decimals),
                                 animated: nil)
                 equivalentLabel.text = formatAmountText(amount: walletToken?.toBaseCurrency ?? 0,
-                                                        currency: TokenStore.baseCurrency?.sign,
+                                                        currency: TokenStore.baseCurrency.sign,
                                                         decimalsCount: tokenDecimals(for: walletToken?.toBaseCurrency ?? 0, tokenDecimals: 9))
             }
         }
@@ -235,7 +245,7 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
         // actions
         let actionsTopMargin = actionsOffset - scrollOffset
         actionsTopConstraint?.constant = navHeight + max(belowNavbarPadding, actionsTopMargin)
-        let actionsVisibleHeight = min(TokenActionsView.defaultHeight, max(0, TokenActionsView.defaultHeight + actionsTopMargin - belowNavbarPadding))
+        let actionsVisibleHeight = min(actionsRowHeight, max(0, actionsRowHeight + actionsTopMargin - belowNavbarPadding))
         actionsStackView.set(
             actionsVisibleHeight: actionsVisibleHeight
         )

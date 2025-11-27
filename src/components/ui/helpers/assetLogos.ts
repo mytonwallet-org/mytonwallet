@@ -9,5 +9,6 @@ export const ASSET_LOGO_PATHS = {
   btc,
   trx,
   usdt,
+  'usd₮': usdt,
   my,
 };

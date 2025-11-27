@@ -29,7 +29,6 @@ public class ActivateBiometricVC: WViewController {
 
     var headerView: HeaderView!
     var passcodeInputView: PasscodeInputView?
-    var passcodeOptionsView: PasscodeOptionsView?
     var bottomConstraint: NSLayoutConstraint?
     var bottomActionsView: BottomActionsView?
     
@@ -44,24 +43,6 @@ public class ActivateBiometricVC: WViewController {
         navigationItem.hidesBackButton = true
 
         _ = addHostingController(makeView(), constraints: .fill)
-        
-//        let biometricType = BiometricHelper.biometricType()
-//        
-//        let topImage: UIImage
-//        let titleString, descriptionString, enableString, skipString: String
-//        if biometricType == .face {
-//            topImage = UIImage(named: "FaceIDIcon", in: AirBundle, compatibleWith: nil)!
-//            titleString = lang("Enable Face ID")
-//            descriptionString = lang("Face ID allows you to open your wallet faster without having to enter your password.")
-//            enableString = lang("Enable Face ID")
-//            skipString = lang("Skip")
-//        } else {
-//            topImage = UIImage(named: "TouchIDIcon", in: AirBundle, compatibleWith: nil)!
-//            titleString = lang("Enable Touch ID")
-//            descriptionString = lang("Touch ID allows you to open your wallet faster without having to enter your password.")
-//            enableString = lang("Enable Touch ID")
-//            skipString = lang("Skip")
-//        }
     }
     
     func makeView() -> ActivateBiometricView {

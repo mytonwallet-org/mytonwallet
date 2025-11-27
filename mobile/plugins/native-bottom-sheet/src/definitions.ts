@@ -25,6 +25,7 @@ export type BottomSheetKeys =
   | 'disclaimer'
   | 'backup-warning'
   | 'onramp-widget'
+  | 'offramp-widget'
   | 'mint-card'
   | 'renew-domain'
   | 'link-domain'

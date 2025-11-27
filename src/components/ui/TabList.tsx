@@ -21,6 +21,8 @@ export type TabWithProperties = {
   title: string;
   className?: string;
   menuItems?: DropdownItem[];
+  menuClassName?: string;
+  menuPositionX?: 'left' | 'right';
   onMenuItemClick?: (value: string) => void;
 };
 
@@ -81,6 +83,8 @@ function TabList({
           isActive={i === activeTab}
           className={tab?.className}
           menuItems={tab?.menuItems}
+          menuClassName={tab?.menuClassName}
+          menuPositionX={tab?.menuPositionX}
           onMenuItemClick={tab?.onMenuItemClick}
           onActiveClick={onActiveTabClick}
           onClick={onSwitchTab}
@@ -100,6 +104,8 @@ function TabList({
             isActive={i === activeTab}
             className={buildClassName(tab?.className, i === activeTab && 'current-tab')}
             menuItems={tab?.menuItems}
+            menuClassName={tab?.menuClassName}
+            menuPositionX={tab?.menuPositionX}
             onActiveClick={onActiveTabClick}
             onMenuItemClick={tab?.onMenuItemClick}
             onClick={onSwitchTab}

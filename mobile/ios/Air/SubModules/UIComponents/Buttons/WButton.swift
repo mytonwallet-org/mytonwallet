@@ -23,7 +23,7 @@ public class WButton: WBaseButton, WThemedView {
     public static let defaultHeight = CGFloat(50.0)
     public static let defaultHeightAccent = CGFloat(60.0)
     static let _borderRadius = 12.0
-    static let _font = UIFont.systemFont(ofSize: 17, weight: .semibold)
+    public static let font = UIFont.systemFont(ofSize: 17, weight: .semibold)
     static let _accentFont = UIFont.systemFont(ofSize: 12, weight: .regular)
 
     private(set) public var style = WButtonStyle.primary
@@ -65,7 +65,7 @@ public class WButton: WBaseButton, WThemedView {
         case .accent:
             titleLabel?.font = Self._accentFont
         default:
-            titleLabel?.font = Self._font
+            titleLabel?.font = Self.font
         }
     
         // set theme colors

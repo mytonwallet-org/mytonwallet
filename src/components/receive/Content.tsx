@@ -6,7 +6,11 @@ import type { Account } from '../../global/types';
 import type { TabWithProperties } from '../ui/TabList';
 
 import { DEFAULT_CHAIN } from '../../config';
-import { selectAccount, selectCurrentAccountState } from '../../global/selectors';
+import {
+  selectCurrentAccount,
+  selectCurrentAccountId,
+  selectCurrentAccountState,
+} from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { getChainTitle, getSupportedChains } from '../../util/chain';
 import { swapKeysAndValues } from '../../util/iteratees';
@@ -108,7 +112,7 @@ function Content({
 
 export default memo(
   withGlobal<OwnProps>((global): StateProps => {
-    const account = selectAccount(global, global.currentAccountId!);
+    const account = selectCurrentAccount(global);
     const { receiveModalChain } = selectCurrentAccountState(global) || {};
 
     return {
@@ -117,7 +121,7 @@ export default memo(
       chain: receiveModalChain ?? DEFAULT_CHAIN,
     };
   },
-  (global, _, stickToFirst) => stickToFirst(global.currentAccountId))(Content),
+  (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)))(Content),
 );
 
 function getChainTabs(accountChains: Partial<Record<ApiChain, unknown>>) {

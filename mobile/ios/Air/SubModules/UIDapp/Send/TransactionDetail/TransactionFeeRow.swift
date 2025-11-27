@@ -43,7 +43,7 @@ struct TransactionFeeRow: View {
     @ViewBuilder
     var subtitle: some View {
         let toncoin = ApiToken.toncoin
-        let baseCurrency = TokenStore.baseCurrency ?? .USD
+        let baseCurrency = TokenStore.baseCurrency
         let amount = TokenAmount(transfer.networkFee, .toncoin).convertTo(baseCurrency, exchangeRate: toncoin.price ?? 0)
         AmountText(
             amount: amount,

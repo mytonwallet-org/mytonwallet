@@ -34,7 +34,6 @@ class SkeletonView(
         isFocusable = false
         visibility = INVISIBLE
         updateTheme()
-        setOnClickListener { }
     }
 
     private val topCornerRadius = ViewConstants.BIG_RADIUS.dp

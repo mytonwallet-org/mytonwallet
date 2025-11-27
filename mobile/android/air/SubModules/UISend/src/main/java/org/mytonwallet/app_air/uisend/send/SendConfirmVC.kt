@@ -298,7 +298,7 @@ class SendConfirmVC(
             topToTop(
                 bottomReversedCornerViewUpsideDown,
                 cancelButton,
-                -20f - ViewConstants.BIG_RADIUS
+                -ViewConstants.GAP - ViewConstants.BIG_RADIUS
             )
             toBottom(bottomReversedCornerViewUpsideDown)
             topToTop(confirmButton, cancelButton)

@@ -12,6 +12,7 @@ import WalletCore
 import WalletContext
 import OrderedCollections
 import Kingfisher
+import Dependencies
 
 private let log = Log("NftsVC")
 
@@ -502,9 +503,12 @@ extension NftsVC: UICollectionViewDelegate {
     }
     
     private func makeMenu(accountId: String, nft: ApiNft) -> UIMenu {
-//        let selectAction = UIAction(title: "Select", image: UIImage(systemName: "checkmark.circle")) { _ in
-//            // Handle select action
-//        }
+
+        @Dependency(\.accountStore.currentAccountId) var currentAccountId
+        @Dependency(\.accountSettings) var _accountSettings
+        let accountSettings = _accountSettings.for(accountId: currentAccountId)
+        
+        
         let detailsAction = UIAction(title: lang("Details"), image: UIImage(systemName: "info.circle")) { [filter] _ in
             let assetVC = NftDetailsVC(nft: nft, listContext: filter)
             self.navigationController?.pushViewController(assetVC, animated: true)
@@ -523,27 +527,26 @@ extension NftsVC: UICollectionViewDelegate {
         
         var section2Items: [UIAction] = []
         if let mtwCardId = nft.metadata?.mtwCardId {
-            let isCurrent = mtwCardId == AccountStore.currentAccountCardBackgroundNft?.metadata?.mtwCardId
+            let isCurrent = mtwCardId == accountSettings.backgroundNft?.metadata?.mtwCardId
             if isCurrent {
                 section2Items.append(UIAction(title: lang("Reset Card"), image: UIImage(systemName: "xmark.rectangle")) { _ in
-                    AccountStore.currentAccountCardBackgroundNft = nil
-                    AccountStore.currentAccountAccentColorNft = nil
+                    accountSettings.setBackgroundNft(nil)
                 })
             } else {
                 section2Items.append(UIAction(title: lang("Install Card"), image: UIImage(systemName: "checkmark.rectangle")) { _ in
-                    AccountStore.currentAccountCardBackgroundNft = nft
-                    AccountStore.currentAccountAccentColorNft = nft
+                    accountSettings.setBackgroundNft(nft)
+                    accountSettings.setAccentColorNft(nft)
                 })
             }
             
-            let isCurrentAccent = mtwCardId == AccountStore.currentAccountAccentColorNft?.metadata?.mtwCardId
+            let isCurrentAccent = mtwCardId == accountSettings.accentColorNft?.metadata?.mtwCardId
             if isCurrentAccent {
                 section2Items.append(UIAction(title: lang("Reset Palette"), image: .airBundle("custom.paintbrush.badge.xmark")) { _ in
-                    AccountStore.currentAccountAccentColorNft = nil
+                    accountSettings.setAccentColorNft(nil)
                 })
             } else {
-                section2Items.append(UIAction(title: lang("Install Palette"), image: .airBundle("custom.paintbrush.badge.checkmark")) { _ in
-                    AccountStore.currentAccountAccentColorNft = nft
+                section2Items.append(UIAction(title: lang("Apply Palette"), image: .airBundle("custom.paintbrush.badge.checkmark")) { _ in
+                    accountSettings.setAccentColorNft(nft)
                 })
             }
         }

@@ -7,11 +7,14 @@
 
 import Foundation
 import WalletContext
+import Perception
+import Dependencies
 
 public var TokenStore: _TokenStore { _TokenStore.shared }
 private let HISTORY_DATA_STALENESS = 120.0
 private let log = Log("TokenStore")
 
+@Perceptible
 public class _TokenStore {
 
     public static let shared = _TokenStore()
@@ -24,12 +27,13 @@ public class _TokenStore {
 
     private let sharedCache = SharedCache()
 
+    @PerceptionIgnored
     private var updateTokensTask: Task<Void, Never>?
     
     private init() {}
 
-    public private(set) var baseCurrency: MBaseCurrency? {
-        get { _baseCurrency.withLock { $0 } }
+    public private(set) var baseCurrency: MBaseCurrency {
+        get { _baseCurrency.withLock { $0 } ?? DEFAULT_PRICE_CURRENCY }
         set { _baseCurrency.withLock { $0 = newValue } }
     }
     
@@ -40,7 +44,16 @@ public class _TokenStore {
     
     public private(set) var tokens: [String: ApiToken] {
         get { _tokens.withLock { $0 } }
-        set { _tokens.withLock { $0 = newValue } }
+        set {
+            withMutation(keyPath: \._tokens) {
+                _tokens.withLock { $0 = newValue }
+            }
+        }
+    }
+    
+    public subscript(_ slug: String) -> ApiToken? {
+        access(keyPath: \._tokens)
+        return _tokens.withLock { $0[slug] }
     }
 
     public private(set) var swapAssets: [ApiToken]? {
@@ -61,12 +74,11 @@ public class _TokenStore {
     }
     
     public var baseCurrencyRate: Double {
-        let bc = self.baseCurrency ?? .USD
-        return currencyRates[bc.rawValue]?.value ?? 1.0
+        return currencyRates[baseCurrency.rawValue]?.value ?? 1.0
     }
     
     private func loadTokensFromCache() {
-        self.baseCurrency = AppStorageHelper.tokensCurrency() ?? .USD
+        self.baseCurrency = AppStorageHelper.tokensCurrency() ?? DEFAULT_PRICE_CURRENCY
         if let ratesDict = AppStorageHelper.currencyRatesDict() {
             self.currencyRates = ratesDict
         }
@@ -110,6 +122,9 @@ public class _TokenStore {
     private func process(newTokens: [String: ApiToken]) {
         assert(!Thread.isMainThread)
         guard !newTokens.isEmpty else { return }
+        if let toncoin = newTokens[TONCOIN_SLUG], toncoin.priceUsd == 3.1 {
+            return
+        }
         var tokens = self.tokens
         let removedSlugs =  Set(tokens.keys).subtracting(Set(newTokens.keys).union(Set(Self.defaultTokens.keys)))
         for removedSlug in removedSlugs {
@@ -121,9 +136,9 @@ public class _TokenStore {
         _applyFixups(tokens: &tokens)
         self.tokens = tokens
         WalletCoreData.notify(event: .tokensChanged)
-        if let baseCurrency = self.baseCurrency, tokens.count > 0 {
+        if tokens.count > 0 {
             DispatchQueue.global(qos: .background).async {
-                AppStorageHelper.save(baseCurrency: baseCurrency, tokens: tokens, currencyRates: self.currencyRates)
+                AppStorageHelper.save(baseCurrency: self.baseCurrency, tokens: tokens, currencyRates: self.currencyRates)
             }
         }
         scheduleSharedCacheUpdate(tokens: tokens, baseCurrency: self.baseCurrency, rates: self.currencyRates)
@@ -210,7 +225,6 @@ public class _TokenStore {
     // MARK: -
     
     public func clean() {
-        self.baseCurrency = nil
         self.tokens = Self.defaultTokens
         self.swapAssets = nil
         self.swapPairs = [:]
@@ -236,7 +250,7 @@ public class _TokenStore {
         public var data: [ApiPriceHistoryPeriod : [[Double]]?]
     }
     
-    private var _historyData: UnfairLock<[String: HistoryData]> = .init(initialState: [:])
+    private let _historyData: UnfairLock<[String: HistoryData]> = .init(initialState: [:])
     public func historyData(tokenSlug: String) -> HistoryData? {
         if let data = _historyData.withLock({ $0[tokenSlug] }), abs(data.lastUpdated.timeIntervalSinceNow) < HISTORY_DATA_STALENESS {
             return data
@@ -318,6 +332,17 @@ extension _TokenStore: WalletCoreData.EventsObserver {
         default:
             break
         }
+    }
+}
+
+extension _TokenStore: DependencyKey {
+    public static var liveValue: _TokenStore { shared }
+}
+
+extension DependencyValues {
+    public var tokenStore: _TokenStore {
+        get { self[_TokenStore.self] }
+        set { self[_TokenStore.self] = newValue }
     }
 }
 

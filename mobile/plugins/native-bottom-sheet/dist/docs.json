@@ -409,6 +409,10 @@
           "complexTypes": []
         },
         {
+          "text": "'offramp-widget'",
+          "complexTypes": []
+        },
+        {
           "text": "'mint-card'",
           "complexTypes": []
         },

@@ -24,6 +24,7 @@ type OwnProps = {
   emoji?: EmojiIcon;
   size?: 'small' | 'medium';
   type?: 'hint' | 'warning';
+  direction?: 'top' | 'bottom';
   iconClassName?: string;
   tooltipClassName?: string;
 };
@@ -37,6 +38,7 @@ const IconWithTooltip: FC<OwnProps> = ({
   emoji,
   size = 'medium',
   type = 'hint',
+  direction = 'top',
   iconClassName,
   tooltipClassName,
 }) => {
@@ -73,7 +75,9 @@ const IconWithTooltip: FC<OwnProps> = ({
   useEffect(() => {
     if (!iconRef.current || !tooltipRef.current) return;
 
-    const { top, left, width } = iconRef.current.getBoundingClientRect();
+    const {
+      top, left, width, height: iconHeight,
+    } = iconRef.current.getBoundingClientRect();
     const {
       width: tooltipWidth,
       height: tooltipHeight,
@@ -83,14 +87,22 @@ const IconWithTooltip: FC<OwnProps> = ({
     const arrowPosition = left - tooltipCenter + width / 2 - ARROW_WIDTH / 2;
     const horizontalOffset = arrowPosition < GAP ? GAP - arrowPosition : 0;
 
-    const tooltipVerticalStyle = `top: ${top - tooltipHeight - ARROW_WIDTH}px;`;
+    const isTop = direction === 'top';
+    const tooltipTop = isTop
+      ? top - tooltipHeight - ARROW_WIDTH
+      : top + iconHeight + ARROW_WIDTH;
+    const arrowTop = isTop
+      ? tooltipHeight - ARROW_WIDTH / 2 - 1
+      : -ARROW_WIDTH / 2 + 1;
+
+    const tooltipVerticalStyle = `top: ${tooltipTop}px;`;
     const tooltipHorizontalStyle = `left: ${tooltipCenter - horizontalOffset}px;`;
     const arrowHorizontalStyle = `left: ${arrowPosition + horizontalOffset}px;`;
-    const arrowVerticalStyle = `top: ${tooltipHeight - ARROW_WIDTH / 2 - 1}px;`;
+    const arrowVerticalStyle = `top: ${arrowTop}px;`;
 
     tooltipStyle.current = `${tooltipVerticalStyle} ${tooltipHorizontalStyle}`;
     arrowStyle.current = `${arrowVerticalStyle} ${arrowHorizontalStyle}`;
-  }, [shouldRender]);
+  }, [shouldRender, direction]);
 
   function renderIcon() {
     const commonClassName = buildClassName(styles.icon, iconClassName, styles[size], colorClassName);
@@ -133,7 +145,7 @@ const IconWithTooltip: FC<OwnProps> = ({
         <Portal>
           <div
             ref={tooltipContainerRef}
-            className={styles.container}
+            className={buildClassName(styles.container, styles[direction])}
             onClick={stopEvent}
             style={tooltipStyle.current}
           >

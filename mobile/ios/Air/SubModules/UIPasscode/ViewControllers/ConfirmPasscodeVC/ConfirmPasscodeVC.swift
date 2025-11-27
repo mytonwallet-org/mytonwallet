@@ -40,7 +40,6 @@ public class ConfirmPasscodeVC: WViewController, PasscodeScreenViewDelegate {
 
     var headerView: HeaderView!
     var passcodeInputView: PasscodeInputView!
-    var passcodeOptionsView: PasscodeOptionsView!
     var passcodeScreenView: PasscodeScreenView!
     
     var bottomConstraint: NSLayoutConstraint!
@@ -117,16 +116,6 @@ public class ConfirmPasscodeVC: WViewController, PasscodeScreenViewDelegate {
 
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-    }
-
-    @objc func passcodeOptionsPressed() {
-        passcodeOptionsView.toggle()
-    }
-    
-    @objc func backgroundPressed() {
-        if passcodeOptionsView.visibility {
-            passcodeOptionsView.toggle()
-        }
     }
 }
 

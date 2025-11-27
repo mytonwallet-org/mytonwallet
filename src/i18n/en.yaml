@@ -36,14 +36,14 @@ $mnemonic_warning: |
   Do not send or show it to anyone,
   do not enter it anywhere.
 View Secret Words: View Secret Words
-View TON Private Key: View TON Private Key
-Can be imported to non-multichain wallets for TON.: Can be imported to non-multichain wallets for TON.
-Can be imported to any multichain wallet supporting TON.: Can be imported to any multichain wallet supporting TON.
+View %chain% Private Key: View %chain% Private Key
+Can be imported to non-multichain wallets for %chain%.: Can be imported to non-multichain wallets for %chain%.
+Can be imported to any multichain wallet supporting %chain%.: Can be imported to any multichain wallet supporting %chain%.
 Let's Check: Let’s Check
 Let's Check!: Let’s Check!
 Safety Rules: Safety Rules
 $safety_rules_private_key_one: |
-  On the next screen you will see the **TON private key**. Save it correctly and **store in a secure place**.
+  On the next screen you will see the **%chain% private key**. Save it correctly and **store in a secure place**.
 $safety_rules_private_key_two: It allows to **open your wallet** if you lose your password or access to this device.
 $safety_rules_private_key_three: If anybody else sees this private key, your funds **may be stolen**. **Do not send or show it to anyone**, not even developers or technical support.
 $safety_rules_one: |
@@ -95,7 +95,6 @@ Are you sure you want to remove this address from your saved ones?: Are you sure
 You will be able to save it again via Transaction Info with this address.: You will be able to save it again via Transaction Info with this address.
 Address removed from saved: Address removed from saved
 Warning!: Warning!
-Log Out: Log Out
 $logout_without_backup_warning: You have not backed up this wallet. If you remove it now, you will lose access to your tokens and NFTs.
 $logout_accounts_without_backup_warning: You have not backed up %links%. If you proceed, you will lose access to your tokens and NFTs.
 $logout_warning: This will remove the current wallet from the app. Make sure you have your **secret words** backed up.
@@ -120,7 +119,6 @@ Toggle Hide Tiny Transfers: Toggle Hide Tiny Transfers
 Network: Network
 Developer Options: Developer Options
 All Wallet Versions: All Wallet Versions
-Add TON-Only Wallet: Add TON-Only Wallet
 Confirmation: Confirmation
 Signing Data: Signing Data
 Contract Initialization Data: Contract Initialization Data
@@ -141,7 +139,7 @@ Address was copied!: Address was copied!
 Repeat: Repeat
 Switch Account: Switch Account
 Copy wallet address: Copy wallet address
-View address on %ton_explorer_name%: View address on %ton_explorer_name%
+View address on %explorer_name%: View address on %explorer_name%
 You have just created a new wallet: You have just created a new wallet
 You can now transfer your tokens from another wallet or exchange.: You can now transfer your tokens from another wallet or exchange.
 Assets: Assets
@@ -195,7 +193,6 @@ No suggestions, you're on your own!: No suggestions, you're on your own!
 Play Sounds: Play Sounds
 Focus on asset value rather than current balance: Focus on asset value rather than current balance
 $logout_confirm: Remove **all** wallets
-$logout_warning2: Wallets are located in the decentralized TON Blockchain. If you want the wallet to be deleted simply transfer all the TON from it and leave it empty.
 $tiny_transfers_help: "Hide transfers worth less than $%value%. Keep in mind: small amounts are often sent by spammers and scammers."
 Today: Today
 Yesterday: Yesterday
@@ -211,7 +208,7 @@ Earn from your tokens while holding them: Earn from your tokens while holding th
 Why this is safe: Why this is safe
 Why is staking safe?: Why is staking safe?
 $safe_staking_description1: Staking is **fully decentralized** and operated by the **official TON Liquid Staking** smart contracts.
-$safe_staking_description2: The deposited stake will be used for the TON network validation as part of its **proof-of-stake** essence.
+$safe_staking_description2: The deposited stake will be used for the %chain% network validation as part of its **proof-of-stake** essence.
 $safe_staking_description3: You can withdraw your stake at **any time** and it will be deposited back to your account within **two days**.
 $safe_staking_description_jetton1: Token staking is **fully decentralized** and operated by the **open-source** smart contracts developed by %jvault_link% and passed **security audits**.
 $safe_staking_description_jetton2: You can withdraw your stake at **any time** and it will be deposited back to your account **instantly**.
@@ -255,17 +252,15 @@ Unexpected: Unexpected error
 You can save this address for quick access while sending.: You can save this address for quick access while sending.
 Stake Again: Stake Again
 Earned: Earned
-Connect Dapp: Connect Dapp
 Select wallet to use on this dapp: Select wallet to use on this dapp
 Connect: Connect
 Dapp Permissions: Dapp Permissions
 $dapp_can_view_balance: "%dappname% will be able to view wallet address and balance."
-Send Transaction: Send Transaction
 Payload: Payload
 $many_transactions:
-  zeroValue: No Transactions
-  oneValue: "%1$d Transaction"
-  otherValue: "%1$d Transactions"
+  zeroValue: No Transfers
+  oneValue: "%1$d Transfer"
+  otherValue: "%1$d Transfers"
 Total Amount: Total Amount
 $unstaking_short: Unstaking
 Handle ton:// links: Handle ton:// links
@@ -442,7 +437,6 @@ Euro: Euro
 Russian Ruble: Russian Ruble
 Chinese Yuan: Chinese Yuan
 Bitcoin: Bitcoin
-Toncoin: Toncoin
 $max_balance: "Max: %balance%"
 $unstake_information_instantly: You will get your deposit instantly
 Select Token: Select Token
@@ -475,6 +469,7 @@ Scan your fingerprint: Scan your fingerprint
 Incorrect code, please try again.: Incorrect code, please try again.
 Correct: Correct
 Confirm Action: Confirm Action
+$classic_confirm_actions: Confirm Actions
 Confirm Swap: Confirm Swap
 Confirm Rewards Claim: Confirm Rewards Claim
 "%amount% to %address%": "%amount% to %address%"
@@ -500,7 +495,7 @@ $all_balance: "All: %balance%"
 $unstaking_not_enough_balance: You need to have %value% on your main balance to proceed with unstaking.
 $ledger_verify_address_on_device: Please, verify the address on your Ledger.
 Wallet Versions: Wallet Versions
-$read_more_about_wallet_version: Read more about types of wallet contracts on %ton_link%.
+$read_more_about_wallet_version: Read more about types of wallet contracts on %link%.
 $current_wallet_version: Your current wallet version is %version%.
 You have tokens on other versions of your wallet. You can import them from here.: You have tokens on other versions of your wallet. You can import them from here.
 $wallet_switch_version_1: You can also %action%.
@@ -529,7 +524,7 @@ $dapp_token_bridge_pay_swap_payload: Confirmation of exchange via cross-chain br
 $dapp_liquid_staking_deposit_payload: Deposit to liquid staking
 $dapp_liquid_staking_vote_payload: Voting "%vote%" for proposal %votingAddress%
 $dapp_single_nominator_change_validator_payload: Changing address of SingleNominator staking contract validator to %address%
-$dapp_single_nominator_withdraw_payload: Withdrawal of %amount% TON from SingleNominator staking contract
+$dapp_single_nominator_withdraw_payload: Withdrawal of %amount% from SingleNominator staking contract
 $dapp_vesting_add_whitelist_payload: Adding %address% to vesting wallet whitelist
 Connecting dapps is not yet supported by Ledger.: Connecting dapps is not yet supported by Ledger.
 Time synchronization issue. Please ensure your device's time settings are correct.: Time synchronization issue. Please ensure your device's time settings are correct.
@@ -537,13 +532,13 @@ Data was copied!: Data was copied!
 Open NFT Collection: Open NFT Collection
 Previous: Previous
 Next: Next
-Insufficient TON for fee.: Insufficient TON for fee.
+Insufficient %token% for fee.: Insufficient %token% for fee.
 Send NFT: Send NFT
 NFT has been sent!: NFT has been sent!
 Cannot be sent: Cannot be sent
 NFT is for sale: NFT is for sale
 More actions: More actions
-Open on %ton_explorer_name%: Open on %ton_explorer_name%
+Open on %explorer_name%: Open on %explorer_name%
 Swap is not supported in Testnet.: Swap is not supported in Testnet.
 Swap is not yet supported by Ledger.: Swap is not yet supported by Ledger.
 Buying with card is not supported in Testnet.: Buying with card is not supported in Testnet.
@@ -576,6 +571,7 @@ Send All: Send All
 Burn All: Burn All
 Select All: Select All
 Collection: Collection
+Unnamed Collection: Unnamed Collection
 Transaction ID was copied!: Transaction ID was copied!
 $swap_changelly_support: "If there are any problems, please contact %livechat% or %email% and provide **Transaction ID**:"
 Changelly Live Chat: Changelly Live Chat
@@ -646,7 +642,7 @@ Multichain: Multichain
 $swap_too_small_amount: Too small amount
 Not enough %symbol%: Not enough %symbol%
 You have just created a new multichain wallet: You have just created a new multichain wallet
-Now you can transfer tokens from your TON and TRON wallets.: Now you can transfer tokens from your TON and TRON wallets.
+Now you can transfer tokens from your %chains% wallets.: Now you can transfer tokens from your %chains% wallets.
 Enter Secret Words: Enter Secret Words
 Turn this off so you can manually download updates and verify signatures.: Turn this off so you can manually download updates and verify signatures.
 InvalidMnemonic: Your mnemonic words are invalid
@@ -796,10 +792,10 @@ View Any Address: View Any Address
 12/24 Secret Words: 12/24 Secret Words
 24 Secret Words: 24 Secret Words
 Wallet Address or Domain: Wallet Address or Domain
-$import_view_account_note: Enter **any address** on TON or TRON network to open it in **View Mode**.
+$import_view_account_note: Enter **any address** on %chains% network to open it in **View Mode**.
 $view_mode: View
 Import Wallet: Import Wallet
-Please top up your TON balance.: Please top up your TON balance.
+Please top up your %token% balance.: Please top up your %token% balance.
 Remember Passcode: Remember Passcode
 Remember Password: Remember Password
 Not available with biometrics.: Not available with biometrics.
@@ -808,8 +804,10 @@ Remember for %1$d minutes: Remember for %1$d minutes
 Preview: Preview
 $preview_not_guaranteed: Preview result **is not guaranteed** and **can be forged** by the service.
 Unverified Source: Unverified Source
-$reopen_in_iab: For your safety, please re-open this dapp in %browserButton%.
+$reopen_in_iab: Please, use MyTonWallet %mobileAppButton% or %browserExtensionButton% to avoid this warning.
 MyTonWallet Browser: MyTonWallet Browser
+mobile app: mobile app
+browser extension: browser extension
 Exit all wallets: Exit all wallets
 Can't confirm?: Can't confirm?
 $safe_staking_ethena_description1: Staking is fully decentralized and operated by **Ethena’s official** audited liquid staking **smart contracts**.
@@ -974,13 +972,34 @@ No Ledger wallets yet: No Ledger wallets yet
 No view wallets yet: No view wallets yet
 Add the first one to track balances and activity for any address.: Add the first one to track balances and activity for any address.
 Customize Wallet: Customize Wallet
-'Select the card stored in this wallet:': 'Select the card stored in this wallet:'
+"Select the card stored in this wallet:": "Select the card stored in this wallet:"
 This card will be installed for this wallet and will be displayed on the home screen and in the wallets list.: This card will be installed for this wallet and will be displayed on the home screen and in the wallets list.
 Get More Cards: Get More Cards
 Browse MyTonWallet Cards available for purchase.: Browse MyTonWallet Cards available for purchase.
-Apply Card: Apply Card
 You don't have any cards to customize yet: You don't have any cards to customize yet
 MyTonWallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: MyTonWallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.
 Get First Card: Get First Card
 Palette and Card: Palette and Card
 Customize the wallet's home screen and color accents the way you like.: Customize the wallet's home screen and color accents the way you like.
+Address doesn't exist: Address doesn't exist
+The address is not a token minter address: The address is not a token minter address
+$joining_comma: ", "
+$joining_and: " and "
+$joining_or: " or "
+View in App: View in App
+Save Account: Save Account
+$invalid_address_format: Invalid address format
+$no_valid_view_addresses: No valid addresses to view
+Account saved successfully!: Account saved successfully!
+Share Wallet Link: Share Wallet Link
+Remove: Remove
+$missing_offramp_deposit_address: Missing deposit address for off-ramp.
+Buy: Buy
+Sell: Sell
+Sell on Card: Sell on Card
+$connect_dapp_description: Connected apps can only see your wallet address and will not be able to move your assets without permission.
+$connect_dapp_title: Connect to %name%?
+Choose Wallet: Choose Wallet
+Wallet to use on %host%: Wallet to use on %host%
+Selected Wallet: Selected Wallet
+Connect Wallet: Connect Wallet

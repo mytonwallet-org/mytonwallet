@@ -15,27 +15,24 @@ import {
   type AssetPairs, SettingsState, type UserSwapToken, type UserToken,
 } from '../../global/types';
 
-import {
-  ANIMATED_STICKER_MIDDLE_SIZE_PX,
-  TON_USDT_MAINNET_SLUG,
-  TON_USDT_TESTNET_SLUG,
-  TRC20_USDT_MAINNET_SLUG,
-  TRC20_USDT_TESTNET_SLUG,
-} from '../../config';
+import { ANIMATED_STICKER_MIDDLE_SIZE_PX } from '../../config';
 import {
   selectAvailableUserForSwapTokens,
   selectCurrentAccount,
+  selectCurrentAccountId,
   selectIsMultichainAccount,
   selectPopularTokens,
   selectSwapTokens,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
+import { getChainConfig, getSupportedChains, getTrustedUsdtSlugs } from '../../util/chain';
 import { toDecimal } from '../../util/decimals';
 import { formatCurrency, getShortCurrencySymbol } from '../../util/formatNumber';
 import getPseudoRandomNumber from '../../util/getPseudoRandomNumber';
-import { isValidAddressOrDomain } from '../../util/isValidAddressOrDomain';
+import { getChainFromAddress } from '../../util/isValidAddress';
 import { disableSwipeToClose, enableSwipeToClose } from '../../util/modalSwipeManager';
 import getChainNetworkName from '../../util/swap/getChainNetworkName';
+import { getChainBySlug } from '../../util/tokens';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
 import useFocusAfterAnimation from '../../hooks/useFocusAfterAnimation';
@@ -86,6 +83,7 @@ interface StateProps {
   shouldShowAllPairs?: boolean;
   baseCurrency: ApiBaseCurrency;
   isLoading?: boolean;
+  error?: string;
   isMultichain: boolean;
   availableChains?: Partial<Record<ApiChain, unknown>>;
   isSensitiveDataHidden?: true;
@@ -116,6 +114,7 @@ function TokenSelector({
   shouldShowAllPairs,
   isActive,
   isLoading,
+  error,
   shouldHideMyTokens,
   shouldHideNotSupportedTokens = false,
   isMultichain,
@@ -251,12 +250,15 @@ function TokenSelector({
         factors.nameMatchLength = lowerCaseSearchValue.length;
       }
 
-      if (searchResultToken.slug === TON_USDT_MAINNET_SLUG || searchResultToken.slug === TON_USDT_TESTNET_SLUG) {
-        factors.specialOrder = 2;
-      }
-
-      if (searchResultToken.slug === TRC20_USDT_MAINNET_SLUG || searchResultToken.slug === TRC20_USDT_TESTNET_SLUG) {
-        factors.specialOrder = 1;
+      if (getTrustedUsdtSlugs().has(searchResultToken.slug)) {
+        const chain = getChainBySlug(searchResultToken.slug);
+        const supportedChains = getSupportedChains();
+        const chainPriority = supportedChains.indexOf(chain);
+        if (chainPriority !== -1) {
+          // Subtracting, because the lower chain index should have higher priority, and `specialOrder` expects higher
+          // numbers for higher priority.
+          factors.specialOrder = supportedChains.length - chainPriority;
+        }
       }
 
       acc[searchResultToken.slug] = factors;
@@ -281,7 +283,7 @@ function TokenSelector({
   useSyncEffect(() => {
     setIsResetButtonVisible(Boolean(searchValue.length));
 
-    const isValidAddress = isValidAddressOrDomain(searchValue, 'ton');
+    const isValidAddress = !!getImportChainByAddress(searchValue, availableChains);
     let newRenderingKey = SearchState.Initial;
 
     if (isLoading && isValidAddress) {
@@ -299,11 +301,12 @@ function TokenSelector({
     if (newRenderingKey !== SearchState.Initial) {
       setSearchTokenList(filteredTokenList);
     }
-  }, [searchTokenList.length, isLoading, searchValue, token, filteredTokenList]);
+  }, [searchTokenList.length, isLoading, searchValue, token, filteredTokenList, availableChains]);
 
   useEffect(() => {
-    if ('ton' in availableChains && isValidAddressOrDomain(searchValue, 'ton')) {
-      importToken({ address: searchValue, isSwap: true });
+    const chain = getImportChainByAddress(searchValue, availableChains);
+    if (chain) {
+      importToken({ chain, address: searchValue });
       setRenderingKey(SearchState.Loading);
     } else {
       resetImportToken();
@@ -447,7 +450,7 @@ function TokenSelector({
           noLoop={false}
           nonInteractive
         />
-        <span className={styles.tokenNotFoundTitle}>{lang('Not Found')}</span>
+        <span className={styles.tokenNotFoundTitle}>{lang(error ?? 'Not Found')}</span>
         <span className={styles.tokenNotFoundDesc}>{lang('Try another keyword or address.')}</span>
       </div>
     );
@@ -523,19 +526,20 @@ function TokenSelector({
 
 export default memo(withGlobal<OwnProps>((global, ownProps): StateProps => {
   const { baseCurrency, isSensitiveDataHidden } = global.settings;
-  const { isLoading, token } = global.settings.importToken ?? {};
+  const { isLoading, token, error } = global.settings.importToken ?? {};
   const { tokenInSlug, shouldShowAllPairs } = global.currentSwap ?? {};
   const pairsBySlug = global.swapPairs?.bySlug;
   const userTokens = selectAvailableUserForSwapTokens(global, ownProps.isSwapOut);
   const popularTokens = selectPopularTokens(global);
   const swapTokens = selectSwapTokens(global);
-  const isMultichain = selectIsMultichainAccount(global, global.currentAccountId!);
+  const isMultichain = selectIsMultichainAccount(global, selectCurrentAccountId(global)!);
   const availableChains = selectCurrentAccount(global)?.byChain;
 
   return {
     baseCurrency,
     isLoading,
     token,
+    error,
     pairsBySlug,
     shouldShowAllPairs,
     tokenInSlug,
@@ -676,4 +680,14 @@ function filterSupportedTokens<T extends TokenType>(
 
     return !selectedChains || selectedChains.has(token.chain as ApiChain);
   });
+}
+
+function getImportChainByAddress(address: string, availableChains: Partial<Record<ApiChain, unknown>>) {
+  const availableChainsSupportingImport = Object.fromEntries(
+    (Object.keys(availableChains) as ApiChain[])
+      .filter((chain) => getChainConfig(chain).canImportTokens)
+      .map((chain) => [chain, undefined]),
+  ) as Record<ApiChain, unknown>;
+
+  return getChainFromAddress(address, availableChainsSupportingImport);
 }

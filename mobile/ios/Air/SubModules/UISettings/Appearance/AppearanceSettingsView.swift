@@ -5,6 +5,7 @@ import UIKit
 import UIComponents
 import WalletContext
 import WalletCore
+import Perception
 
 private let log = Log("AppearanceSettingsView")
 
@@ -21,19 +22,21 @@ struct AppearanceSettingsView: View {
     @Namespace private var ns
     
     var body: some View {
-        InsetList(topPadding: 16, spacing: 24) {
-            switchToClassicSection
-                .scrollPosition(ns: ns, offset: navigationBarHeight + 16, callback: onScroll)
-            themeSection
-            paletteSection
-            OtherAppearanceSettingsSection()
-                .padding(.bottom, 48)
+        WithPerceptionTracking {
+            InsetList(topPadding: 16, spacing: 24) {
+                switchToClassicSection
+                    .scrollPosition(ns: ns, offset: navigationBarHeight + 16, callback: onScroll)
+                themeSection
+                PaletteAndCardSection()
+                OtherAppearanceSettingsSection()
+                    .padding(.bottom, 48)
+            }
+            .navigationBarInset(navigationBarHeight)
+            .coordinateSpace(name: ns)
+            .animation(.default, value: tintColor)
+            .tint(tintColor)
         }
-        .navigationBarInset(navigationBarHeight)
-        .coordinateSpace(name: ns)
-        .animation(.default, value: tintColor)
-        .tint(tintColor)
-    }    
+    }
     
     var switchToClassicSection: some View {
         InsetSection {
@@ -57,16 +60,6 @@ struct AppearanceSettingsView: View {
             }
         } header: {
             Text(lang("Theme"))
-        }
-    }
-    
-    var paletteSection: some View {
-        InsetSection {
-            PaletteSection()
-        } header: {
-            Text(lang("Palette"))
-        } footer: {
-            Text(lang("Get a unique MyTonWallet Card to unlock new palettes."))
         }
     }
 }

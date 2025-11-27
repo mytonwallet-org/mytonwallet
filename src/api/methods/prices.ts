@@ -2,8 +2,7 @@ import type { ApiBaseCurrency, ApiHistoryList, ApiPriceHistoryPeriod } from '../
 
 import { DEFAULT_PRICE_CURRENCY, TONCOIN } from '../../config';
 import { callBackendGet } from '../common/backend';
-import { tokensPreload } from '../common/tokens';
-import { getTokenBySlug } from './tokens';
+import { getTokenBySlug, tokensPreload } from '../common/tokens';
 
 export async function fetchPriceHistory(
   slug: string,

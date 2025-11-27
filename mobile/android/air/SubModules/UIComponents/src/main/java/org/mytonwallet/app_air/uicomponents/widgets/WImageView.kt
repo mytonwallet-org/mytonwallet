@@ -6,7 +6,7 @@ import android.animation.ObjectAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.drawable.Drawable
-import android.net.Uri
+import androidx.core.net.toUri
 import com.facebook.drawee.backends.pipeline.Fresco
 import com.facebook.drawee.generic.GenericDraweeHierarchyBuilder
 import com.facebook.drawee.generic.RoundingParams
@@ -40,7 +40,7 @@ class WImageView(
     fun loadUrl(imageUrl: String) {
         hierarchy.actualImageScaleType =
             com.facebook.drawee.drawable.ScalingUtils.ScaleType.CENTER_CROP
-        val imageRequest = ImageRequestBuilder.newBuilderWithSource(Uri.parse(imageUrl))
+        val imageRequest = ImageRequestBuilder.newBuilderWithSource(imageUrl.toUri())
             .build()
         val draweeController: DraweeController = Fresco.newDraweeControllerBuilder()
             .setImageRequest(imageRequest)
@@ -50,7 +50,7 @@ class WImageView(
 
     fun loadRes(resId: Int) {
         hierarchy.actualImageScaleType =
-            com.facebook.drawee.drawable.ScalingUtils.ScaleType.CENTER
+            com.facebook.drawee.drawable.ScalingUtils.ScaleType.CENTER_CROP
         val imageRequest =
             ImageRequestBuilder.newBuilderWithResourceId(resId)
                 .build()

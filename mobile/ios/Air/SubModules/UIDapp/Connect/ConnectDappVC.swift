@@ -99,7 +99,7 @@ public class ConnectDappVC: WViewController, UISheetPresentationControllerDelega
         lbl.translatesAutoresizingMaskIntoConstraints = false
         lbl.font = UIFont.systemFont(ofSize: 17, weight: .regular)
         lbl.textAlignment = .center
-        lbl.text = lang("Connected apps can only see your wallet and will not be able to move your assets without permission.")
+        lbl.text = lang("Connected apps can only see your wallet address and will not be able to move your assets without permission.")
         lbl.numberOfLines = 0
         return lbl
     }()

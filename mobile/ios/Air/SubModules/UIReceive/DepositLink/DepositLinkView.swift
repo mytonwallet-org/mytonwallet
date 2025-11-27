@@ -90,7 +90,7 @@ struct TappableDepositLink: View {
     
     var depostitLink: String
     var ns: Namespace.ID
-    @StateObject private var menuContext = MenuContext()
+    @State private var menuContext = MenuContext()
     
     var body: some View {
         let link = Text(depostitLink.map { "\($0)\u{200B}" }.joined() )

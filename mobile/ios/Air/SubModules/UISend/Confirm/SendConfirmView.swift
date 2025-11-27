@@ -106,9 +106,9 @@ fileprivate struct AmountSection: View {
                 Text(lang("Amount"))
             } footer: {
                 HStack(alignment: .firstTextBaseline) {
-                    if let amount = model.amountInBaseCurrency, let baseCurrency = TokenStore.baseCurrency {
+                    if let amount = model.amountInBaseCurrency {
                         Text(
-                            amount: DecimalAmount(amount, baseCurrency),
+                            amount: DecimalAmount(amount, TokenStore.baseCurrency),
                             format: .init()
                         )
                     }
@@ -159,7 +159,7 @@ fileprivate struct CommentSection: View {
             } header: {
                 Text(lang("Signing Data"))
             } footer: {
-                WarningView(text: "Signing custom data is very dangerous. Use it only if you trust the source of it.")
+                WarningView(text: lang("$signature_warning"))
                     .padding(.vertical, 11)
                     .padding(.horizontal, -16)
             }

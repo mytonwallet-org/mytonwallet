@@ -160,7 +160,7 @@ struct ClaimRewardsConfirmContent: View {
             EmptyView()
         } footer: {
             HStack(alignment: .firstTextBaseline) {
-                let currency = TokenStore.baseCurrency ?? .USD
+                let currency = TokenStore.baseCurrency
                 let rate = viewModel.amount.token.price ?? 1
                 let balance = BalanceStore.currentAccountBalances[TONCOIN_SLUG] ?? 0
                 let fees = getFee(.claimJettons)

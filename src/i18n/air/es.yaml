@@ -1,0 +1,298 @@
+More: Más
+at: en
+MyTonWallet: MyTonWallet
+MyTonWallet Resources: Recursos de MyTonWallet
+I agree to %term%: Acepto %term%
+See Words: Ver palabras
+Wrong Phrase: Frase incorrecta
+Permission Denied: Permiso denegado
+USB: USB
+Bluetooth: Bluetooth
+Locked: Bloqueado
+Enter Passcode: Introduce el código
+Enter passcode or use fingerprint: Introduce el código o usa la huella
+Use PIN: Usar PIN
+Try again in %1$@: Vuelve a intentarlo en %1$@
+Try again in %1$@ and %2$@: Vuelve a intentarlo en %1$@ y %2$@
+Screen Recording Detected: Se detectó grabación de pantalla
+$screen_recording_info: |
+  Ahora mismo estás grabando la pantalla.
+  Esta pantalla puede contener información sensible o privada.
+  Asegúrate de conocer lo que se va a compartir.
+I Understand, Proceed: Entiendo, continuar
+Waiting for Network: Esperando la red
+Updating: Actualizando
+My Wallet: Mi cartera
+$no_activity_history: |
+  Aún no hay historial
+  de actividades en esta cartera.
+Standalone: Independiente
+Processing Excess: Procesando excedente
+Bidding Auction: Subasta de pujas
+"Enter wallet name:": "Introduce el nombre de la cartera:"
+All Telegram Gifts: Todos los regalos de Telegram
+Add Crypto: Añadir cripto
+Share QR Code: Compartir código QR
+$send_only_ton: Envía solo Toncoin (TON) o activos de la red TON a esta dirección. Enviar otros tokens ocasionará su pérdida.
+$send_only_tron: Envía solo TRON (TRX) o activos de la red TRON a esta dirección. Enviar otros tokens ocasionará su pérdida.
+Buying with card is not supported for this account.: Esta cuenta no admite compras con tarjeta.
+Swapped at: Intercambiado a las
+Price per: Precio por
+Transaction Details: Detalles de la transacción
+From: De
+To: Para
+Changelly ID: ID de Changelly
+Copy Changelly ID: Copiar ID de Changelly
+Changelly ID Copied!: ¡ID de Changelly copiado!
+from: de
+to: a
+Currency: Moneda
+Choose Currency to Send: Elige la moneda a enviar
+Send to: Enviar a
+Add a message, if needed: Añade un mensaje si lo necesitas
+Sending To: Enviando a
+Show All Collectibles: Mostrar todos los coleccionables
+You have no NFT in this wallet yet: |
+  Aún no tienes NFT
+  en esta cartera.
+Collapse: Contraer
+Standalone NFT: NFT independiente
+Linked Address: Dirección vinculada
+Enter Address: Introduce la dirección
+Show All Assets: Mostrar todos los activos
+Price: Precio
+D: D
+W: S
+M: M
+3M: 3M
+Y: A
+No price data: Sin datos de precio
+Happening Now: Tendencias ahora
+No Dapps Found!: ¡No se encontraron dApps!
+Open: Abrir
+Edit Wallet Name: Editar nombre de la cartera
+Add Account: Añadir cuenta
+Questions and Answers: Preguntas y respuestas
+Wallet Name: Nombre de la cartera
+"MyTonWallet Air v%1$@ (%2$@)": "MyTonWallet Air v%1$@ (%2$@)"
+App Icon: Icono de la app
+App Font: Fuente de la app
+Rounded Toolbars: Barras de herramientas redondeadas
+Side Gutters: Márgenes laterales
+Tokens on Home Screen: Tokens en la pantalla principal
+Current Wallet Version: Versión actual de la cartera
+Tokens on Other Versions: Tokens en otras versiones
+Show Recovery Phrase: Mostrar frase de recuperación
+Passcode: Código
+Lock the app after: Bloquear la app tras
+Never: Nunca
+"%1$@ seconds": "%1$@ segundos"
+"%1$@ minutes": "%1$@ minutos"
+Unstake Request: Solicitud de retiro de staking
+Add Stake: Añadir al staking
+History: Historial
+Earn up to %1$@ per year from your tokens: Gana hasta %1$@ al año con tus tokens
+Insufficient %1$@ Balance: "%1$@ insuficiente"
+Instant Withdrawal: Retiro instantáneo
+Instantly: Al instante
+Up to %1$@: Hasta %1$@
+up to %1$@: hasta %1$@
+Current APY: APY actual
+Est. earning per year: Ganancia anual estimada
+in: en
+Error: Error
+Network Error: Error de red
+Buy: Comprar
+Sell: Vender
+Enter Amount: Introduce el importe
+"Swap %1$@ to %2$@": "Cambiar %1$@ por %2$@"
+"%1$@ to %2$@": "%1$@ → %2$@"
+"Max %1$@": "Máx. %1$@"
+"Authorize %1$@ fee": "Autorizar comisión de %1$@"
+Pending previous fee: Comisión anterior pendiente
+Cross-chain swap by %1$@: Intercambio entre cadenas por %1$@
+AML/KYC: AML/KYC
+Receive to: Recibir en
+Enter %1$@ address: "Introduce la dirección de %1$@"
+"Send %1$@ this address:": "Enviar %1$@ a esta dirección:"
+Swap is not supported on this account.: Esta cuenta no admite intercambios.
+"%1$@ will be returned": "%1$@ será devuelto"
+Connecting your wallet: Conectando tu cartera
+Action is not possible on a view-only wallet.: Esta acción no es posible en una cartera de solo lectura.
+Logged in with MyTonWallet: Sesión iniciada con MyTonWallet
+You have no apps connected to this wallet.: No tienes apps conectadas a esta cartera.
+Asset: Activo
+Sent to: Enviado a
+via %agg%: mediante %agg%
+Switch to Legacy Version: Cambiar a la versión clásica
+Hide tab: Ocultar pestaña
+Received from: Recibido de
+Your Recovery Phrase: Tu frase de recuperación
+day:
+  zeroValue: "%1$d días"
+  oneValue: "%1$d día"
+  otherValue: "%1$d días"
+hour:
+  zeroValue: "%1$d horas"
+  oneValue: "%1$d hora"
+  otherValue: "%1$d horas"
+minute:
+  zeroValue: "%1$d minutos"
+  oneValue: "%1$d minuto"
+  otherValue: "%1$d minutos"
+second:
+  zeroValue: "%1$d segundos"
+  oneValue: "%1$d segundo"
+  otherValue: "%1$d segundos"
+transfer:
+  zeroValue: "%1$d transferencias"
+  oneValue: "%1$d transferencia"
+  otherValue: "%1$d transferencias"
+Confirm Actions:
+  zeroValue: "Confirmar %1$d acciones"
+  oneValue: Confirmar acción
+  otherValue: Confirmar acciones
+"%lld transfer": "%lld transferencia"
+"A ~ Z": A ~ Z
+"Accumulated rewards": Recompensas acumuladas
+"Biometric authentication not available.": La autenticación biométrica no está disponible.
+"Changelly Payment Address": Dirección de pago de Changelly
+"Choose Currency": Elige la moneda
+"Choose Wallet": Elige la cartera
+"Choose Wallet to Use On": Elige la cartera a usar
+"Wallet to use on": Cartera que se usará
+"Clipboard empty": El portapapeles está vacío
+"Confirm Connect": Confirmar conexión
+"Connect Wallet": Conectar cartera
+"Connected apps can only see your wallet address and will not be able to move your assets without permission.": Las apps conectadas solo pueden ver la dirección de tu cartera y no podrán mover tus activos sin permiso.
+"Connect to %1$@?": ¿Conectar con %1$@?
+"Don’t show tokens on your account with value less than $0.01. You can also selectively enable and disable particular tokens using the list below.": No mostrar tokens en tu cuenta con un valor menor a 0,01 $. También puedes activar o desactivar tokens concretos en la lista inferior.
+"Don’t show transactions of less than $0.01. Such small transactions are often used for spam and scam.": No mostrar transacciones inferiores a 0,01 $. Estas operaciones pequeñas suelen usarse para spam o estafas.
+"Enter passcode or use Touch ID": Introduce el código o usa Touch ID
+"Enter your Wallet Passcode": Introduce el código de tu cartera
+"Estimated APY": APY estimado
+"Expired swap": Intercambio caducado
+"Failed swap": Intercambio fallido
+"Import failed": Error al importar
+"Install Palette": Instalar paleta
+Ledger: Ledger
+"Main Currency": Moneda principal
+"Moving to staking balance": Moviendo al saldo de staking
+"My assets": Mis activos
+MyTonWallet uses biometric authentication to unlock and authorize transactions: MyTonWallet usa autenticación biométrica para desbloquear y autorizar transacciones
+"Network error": Error de red
+"No Camera Access": Sin acceso a la cámara
+"No transactions yet.": Todavía no hay transacciones.
+"Not all transactions were sent successfully.": No todas las transacciones se enviaron correctamente.
+OK: Aceptar
+"Open Collection": Abrir colección
+"Open in Explorer": Abrir en el explorador
+"Passcode changed": Código modificado
+"Please make sure your internet connection is working and try again.": Asegúrate de que tu conexión a Internet funciona y vuelve a intentarlo.
+"Please set a passcode on your device, and then try to use biometric authentication.": Configura un código en tu dispositivo y vuelve a intentar usar la autenticación biométrica.
+Please try again: Vuelve a intentarlo
+"Please wait...": Espera...
+Popular: Popular
+"Preview is currently unavailable.": La vista previa no está disponible en este momento.
+Read-only account: Cuenta de solo lectura
+Receiving address: Dirección de recepción
+Remove: Eliminar
+"Request for unstaking": Solicitud de retiro de staking
+"Save to Favorites": Guardar en favoritos
+Set a passcode: Configurar un código
+"Show All %1$@": "Mostrar todos los %1$@"
+"Staking Details": Detalles del staking
+"TON Wallet Versions": Versiones de la cartera TON
+"Tap to reveal": Toca para mostrar
+"The current version of Ledger only supports English-language comments without special characters.": La versión actual de Ledger solo admite comentarios en inglés sin caracteres especiales.
+"The time on your device is incorrect, sync it and try again.": La hora de tu dispositivo es incorrecta, sincronízala y vuelve a intentarlo.
+"There is no activity history for this wallet yet.": Aún no hay historial de actividad para esta cartera.
+"This is how the TON Blockchain works.": Así funciona la cadena de bloques TON.
+"This type of transaction is not yet supported by Ledger.": Ledger aún no admite este tipo de transacción.
+"Transaction to this smart contract is not yet supported by Ledger.": Ledger aún no admite transacciones a este contrato inteligente.
+Transfer Details: Detalles de la transferencia
+"Transferring NFT is not yet supported by Ledger.": Ledger aún no admite la transferencia de NFT.
+Unavailable: No disponible
+"Updating…": Actualizando…
+"Waiting for network…": Esperando la red…
+Wallet is Locked: La cartera está bloqueada
+Warning: Advertencia
+Wear: Aplicar
+Your Address: Tu dirección
+Passcodes don't match. Please try again.: Los códigos no coinciden. Inténtalo de nuevo.
+Secret phrase was copied to clipboard: La frase de recuperación se copió al portapapeles
+clipboard: portapapeles
+screenshot: captura de pantalla
+Copy Anyway: Copiar de todos modos
+12 Words: 12 palabras
+24 Words: 24 palabras
+"Words don’t match, please try again.": Las palabras no coinciden, inténtalo de nuevo.
+Load 5 More Wallets: Cargar 5 carteras más
+$n_wallets_selected:
+  zeroValue: "Seleccionados %1$d"
+  oneValue: "Seleccionado %1$d"
+  otherValue: "Seleccionados %1$d"
+"Are you sure you want to unpin %tab%?": ¿Seguro que quieres desanclar %tab%?
+add: añadir
+send: enviar
+swap: intercambiar
+earn: staking
+Actions: Acciones
+$actions_description: Accede rápido a las acciones que más utilizas.
+Rate: Cotización
+$rate_description: Consulta la cotización actual de cualquier token seleccionado.
+Rate with Chart: Cotización con gráfico
+$rate_with_chart_description: Consulta la cotización actual y sigue la evolución del token seleccionado.
+Style: Estilo
+Neutral: Neutro
+Vivid: Intenso
+Chart Period: Periodo del gráfico
+$period_all: Todo el tiempo
+$period_day: 1 día
+$period_week: 1 semana
+$period_month: 1 mes
+$period_3months: 3 meses
+$period_year: 1 año
+Token: Token
+All Tokens: Todos los tokens
+Customize Widget: Personalizar widget
+$accumulated_rewards: Recompensas acumuladas
+Recent Searches: Búsquedas recientes
+Clear All: Limpiar todo
+Suggestions: Sugerencias
+Popular and connected apps: Apps populares y conectadas
+Connected Dapp: dApp conectada
+$ago: "hace %1$d"
+$visited_ago: "visitado hace %1$d"
+Notifications are disabled: Las notificaciones están desactivadas
+Enable in Settings: Activar en Ajustes
+Search in Google: Buscar en Google
+$remove_wallets:
+  zeroValue: Eliminar cartera
+  oneValue: Eliminar cartera
+  otherValue: Eliminar %1$d carteras
+Contract Initialization Data was copied!: ¡Datos de inicialización del contrato copiados!
+Encryption is not possible. The recipient is not a wallet or has no outgoing transactions.: No es posible cifrar. El destinatario no es una cartera o no tiene transacciones salientes.
+just now: ahora mismo
+"No": No
+Search: Buscar
+Show All Wallets: Mostrar todas las carteras
+Sign Out: Cerrar sesión
+State init supplied without message body: Inicialización de estado enviada sin cuerpo de mensaje
+Swap Failed: Intercambio fallido
+The wallet is ready: La cartera está lista
+Unexpected error. Please let the support know.: Error inesperado. Contacta con soporte.
+Unlock it and open the TON App: Desbloquéala y abre la app TON
+Use 4-digit Passcode: Usar código de 4 dígitos
+Use 6-digit Passcode: Usar código de 6 dígitos
+You don’t have any cards to customize yet: Aún no tienes tarjetas para personalizar
+Authorize %token% Fee: Autorizar comisión de %token%
+Awaiting Previous Fee: Esperando la comisión anterior
+Lock: Bloquear
+MyTonWallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.: Las tarjetas de MyTonWallet pueden instalarse en las carteras y mostrarse en la pantalla principal y en la lista de carteras.
+Receive: Recibir
+Scan: Escanear
+Search or enter address: Buscar o introducir dirección
+View as Grid: Ver en cuadrícula
+$secret_words_warning: Guardar palabras en un entorno digital, incluido **%1$d**, no es seguro. Asegúrate de almacenar la frase de recuperación en un lugar protegido.
+

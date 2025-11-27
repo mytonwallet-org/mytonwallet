@@ -44,6 +44,7 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
     }
 
     var morphingDuration = PREFERRED_MORPHING_DURATION
+    var changeDelay = 500L
 
     data class AnimateConfig(
         val amount: BigInteger?,
@@ -53,7 +54,7 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
         val forceCurrencyToRight: Boolean
     )
 
-    private var _currentVal: BigInteger? = null
+    private var _currentVal: AnimateConfig? = null
     private var _prevText: List<WBalanceViewCharacter> = emptyList()
     private var _text: List<WBalanceViewCharacter> = emptyList()
     private var _str: String? = null
@@ -90,8 +91,8 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
         }
         _str = text
         val isIncreasing =
-            (animateConfig.amount ?: BigInteger.ZERO) > (_currentVal ?: BigInteger.ZERO)
-        _currentVal = animateConfig.amount
+            (animateConfig.amount ?: BigInteger.ZERO) > (_currentVal?.amount ?: BigInteger.ZERO)
+        _currentVal = animateConfig
         morphFromTop = isIncreasing
         this._prevText = _text
         var size = primarySize.dp
@@ -119,7 +120,10 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
             if (!textMeasureCache.containsKey(key)) {
                 basePaint.textSize = charSize
                 basePaint.measureText(character.toString()).let {
-                    textMeasureCache[key] = it
+                    if (character == ' ')
+                        textMeasureCache[key] = it / 2
+                    else
+                        textMeasureCache[key] = it
                 }
             }
             val charLeft = left
@@ -155,7 +159,7 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
                 }
                 isAnimating = false
                 applyNextAnimation()
-            }, morphingDuration + 500L)
+            }, morphingDuration + changeDelay)
         animateTextChange()
     }
 
@@ -307,9 +311,16 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
             }
 
             addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationCancel(animation: Animator) {
+                    super.onAnimationCancel(animation)
+                    elapsedTime = totalDuration
+                    onAnimationEnd(animation)
+                }
+
                 override fun onAnimationEnd(animation: Animator) {
                     isAnimating = false
                     reposition(onBackground = true)
+                    animator = null
                 }
             })
 
@@ -412,6 +423,18 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
         }
     }
 
+    fun updateColors(primaryColor: Int, secondaryColor: Int) {
+        if (this.primaryColor == primaryColor && this.secondaryColor == secondaryColor)
+            return
+        this.primaryColor = primaryColor
+        this.secondaryColor = secondaryColor
+        stop()
+        _currentVal?.copy(animated = false)?.let { it ->
+            this._str = null
+            animateText(it)
+        }
+    }
+
     private fun getPaintForCharacter(characterRect: WBalanceViewDrawingCharacterRect): Paint {
         val key = Pair(characterRect.textSize, characterRect.color)
         val paint = paintCache.getOrPut(key) {
@@ -450,6 +473,24 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
                     }
                 }
             }
+        }
+    }
+
+    private var interruptedAnimation = false
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        if (interruptedAnimation) {
+            interruptedAnimation = false
+            elapsedTime = morphingDuration
+            reposition(false)
+        }
+    }
+
+    fun interruptAnimation() {
+        if (isAnimating) {
+            stop()
+            isAnimating = false
+            interruptedAnimation = true
         }
     }
 }

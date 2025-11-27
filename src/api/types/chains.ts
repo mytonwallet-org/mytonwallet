@@ -3,8 +3,8 @@
  */
 
 import type { ApiActivity, ApiDecryptCommentOptions, ApiFetchActivitySliceOptions } from './activities';
-import type { ApiAnyDisplayError, ApiAuthError } from './errors';
-import type { ApiActivityTimestamps, ApiChain, ApiNetwork, OnUpdatingStatusChange } from './misc';
+import type { ApiAnyDisplayError } from './errors';
+import type { ApiActivityTimestamps, ApiChain, ApiNetwork, ApiToken, OnUpdatingStatusChange } from './misc';
 import type { ApiAccountWithChain, ApiWalletByChain } from './storage';
 import type {
   ApiCheckTransactionDraftOptions,
@@ -16,6 +16,7 @@ import type {
   ApiSubmitGaslessTransferResult,
 } from './transfer';
 import type { OnApiUpdate } from './updates';
+import type { ApiAddressInfo } from './wallet';
 
 export interface ChainSdk<T extends ApiChain> {
   //
@@ -37,7 +38,7 @@ export interface ChainSdk<T extends ApiChain> {
   /**
    * Converts an address to the normalized form (to fill the `normalizedAddress` field of `ApiTransactionActivity`).
    */
-  normalizeAddress(address: string, network: ApiNetwork): string;
+  normalizeAddress(network: ApiNetwork, address: string): string;
 
   //
   // Authentication
@@ -48,7 +49,7 @@ export interface ChainSdk<T extends ApiChain> {
   getWalletFromAddress(
     network: ApiNetwork,
     addressOrDomain: string,
-  ): MaybePromise<{ title?: string; wallet: ApiWalletByChain[T] } | { error: ApiAuthError }>;
+  ): MaybePromise<{ title?: string; wallet: ApiWalletByChain[T] } | { error: ApiAnyDisplayError }>;
 
   /**
    * Loads wallets with the given indices from the Ledger device and fetches their balances.
@@ -69,6 +70,7 @@ export interface ChainSdk<T extends ApiChain> {
    *  - balance
    *  - staking
    *  - NFT
+   *  - is multisig
    *  - etc...
    *
    * Returns a function that permanently stops updating the data when called.
@@ -88,6 +90,16 @@ export interface ChainSdk<T extends ApiChain> {
    * Returns a function that permanently stops updating the data when called.
    */
   setupInactivePolling(accountId: string, account: ApiAccountWithChain<T>, onUpdate: OnApiUpdate): NoneToVoidFunction;
+
+  //
+  // Tokens
+  //
+
+  /** Fetches the token info and only returns it */
+  fetchToken(network: ApiNetwork, tokenAddress: string): Promise<ApiToken | { error: ApiAnyDisplayError }>;
+
+  /** Fetches the token info, puts it into the SDK cache and calls `sendTokensUpdate` if the token list changes */
+  importToken(network: ApiNetwork, tokenAddress: string, sendTokensUpdate: NoneToVoidFunction): Promise<void>;
 
   //
   // Sending transfers
@@ -115,6 +127,12 @@ export interface ChainSdk<T extends ApiChain> {
   //
   // Wallet info
   //
+
+  /** Validates the given address and fetches information about it */
+  getAddressInfo(
+    network: ApiNetwork,
+    addressOrDomain: string,
+  ): MaybePromise<ApiAddressInfo | { error: ApiAnyDisplayError }>;
 
   /**
    * Opens the verification screen of the chain's app on the Ledger device.

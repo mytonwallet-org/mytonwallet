@@ -62,7 +62,7 @@ struct DappSendTransactionDetailView: View {
                 InsetSection {
                     InsetExpandableCell(content: stateInit)
                 } header: {
-                    Text(lang("StateInit"))
+                    Text("StateInit")
                 }
             }
             

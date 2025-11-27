@@ -89,7 +89,7 @@ function AccountWalletCard({
     onRename(accountId);
   });
 
-  const handleLogOutClick = useLastCallback(() => {
+  const handleRemoveClick = useLastCallback(() => {
     onLogOut(accountId);
   });
 
@@ -102,7 +102,7 @@ function AccountWalletCard({
     // The shift is needed to prevent the mouse cursor from highlighting the first menu item
     topShiftY: !isPortrait ? CONTEXT_MENU_VERTICAL_SHIFT_PX : undefined,
     preferredPositionX: 'left',
-    centerHorizontally: true,
+    isCenteredHorizontally: true,
   }));
 
   const {
@@ -122,7 +122,7 @@ function AccountWalletCard({
     accountId,
     onReorderClick: onReorder,
     onRenameClick: handleRenameClick,
-    onLogOutClick: handleLogOutClick,
+    onRemoveClick: handleRemoveClick,
   });
 
   const handleKeyDown = useLastCallback((e: React.KeyboardEvent<HTMLDivElement>) => {

@@ -1,5 +1,6 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.palette
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
@@ -22,14 +23,20 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
-import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import org.mytonwallet.app_air.walletcore.stores.NftStore
 
+@SuppressLint("ViewConstructor")
 class AppearancePaletteView(
     context: Context,
+    private val showUnlockButton: Boolean
 ) : WView(context), WThemedView {
     var onPaletteSelected:
-        ((nftAccentId: Int?, state: AppearancePaletteItemView.State, nft: ApiNft?) -> Unit)? = null
+        ((
+            accountId: String,
+            nftAccentId: Int?,
+            state: AppearancePaletteItemView.State, nft: ApiNft?
+        ) -> Unit)? = null
+
+    var overrideTintColor: Int? = null
 
     private val titleLabel: WLabel by lazy {
         val lbl = WLabel(context)
@@ -57,7 +64,9 @@ class AppearancePaletteView(
         (listOf(null) + (0 until NftAccentColors.light.size).toList()).forEachIndexed { index, nftAccentId ->
             val itemView =
                 AppearancePaletteItemView(context, nftAccentId, onTap = { nftAccentId, state ->
+                    val accountId = accountId ?: return@AppearancePaletteItemView
                     onPaletteSelected?.invoke(
+                        accountId,
                         nftAccentId,
                         state,
                         nftsByColorIndex[nftAccentId]?.firstOrNull()
@@ -76,7 +85,6 @@ class AppearancePaletteView(
 
     private val unlockButton = WLabel(context).apply {
         setPaddingDp(20, 16, 20, 16)
-        setTextColor(WColor.Tint)
         setStyle(16f)
         text = LocaleController.getString("Unlock New Palettes")
         setOnClickListener {
@@ -89,18 +97,24 @@ class AppearancePaletteView(
 
         addView(titleLabel)
         addView(palettesView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
-        addView(separatorView, LayoutParams(MATCH_PARENT, 1))
-        addView(unlockButton, LayoutParams(MATCH_PARENT, 56.dp))
+        if (showUnlockButton) {
+            addView(separatorView, LayoutParams(MATCH_PARENT, 1))
+            addView(unlockButton, LayoutParams(MATCH_PARENT, 56.dp))
+        }
 
         setConstraints {
             toTop(titleLabel, 16f)
             toStart(titleLabel, 20f)
             topToBottom(palettesView, titleLabel, 17f)
             toCenterX(palettesView)
-            topToBottom(separatorView, palettesView, 16f)
-            toCenterX(separatorView, 20f)
-            topToBottom(unlockButton, separatorView)
-            toBottom(unlockButton)
+            if (showUnlockButton) {
+                topToBottom(separatorView, palettesView, 16f)
+                toCenterX(separatorView, 20f)
+                topToBottom(unlockButton, separatorView)
+                toBottom(unlockButton)
+            } else {
+                toBottom(palettesView, 16f)
+            }
         }
 
         updateTheme()
@@ -111,8 +125,11 @@ class AppearancePaletteView(
             WColor.Background.color,
             ViewConstants.BIG_RADIUS.dp
         )
-        titleLabel.setTextColor(WColor.Tint.color)
-        separatorView.setBackgroundColor(WColor.Separator.color)
+        titleLabel.setTextColor(overrideTintColor ?: WColor.Tint.color)
+        if (showUnlockButton) {
+            unlockButton.setTextColor(overrideTintColor ?: WColor.Tint.color)
+            separatorView.setBackgroundColor(WColor.Separator.color)
+        }
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -129,21 +146,25 @@ class AppearancePaletteView(
         }
     }
 
+    private var accountId: String? = null
     val nftsByColorIndex = mutableMapOf<Int, MutableList<ApiNft>>()
-    fun updatePaletteView() {
-        paletteItemViews.forEach { item ->
-            item.configure(AppearancePaletteItemView.State.LOADING)
+    fun updatePaletteView(accountId: String, mtwNfts: List<ApiNft>?) {
+        this.accountId = accountId
+        if (mtwNfts == null) {
+            paletteItemViews.forEach { item ->
+                item.configure(AppearancePaletteItemView.State.LOADING)
+            }
+            return
         }
-        val mtwNfts = NftStore.nftData?.cachedNfts?.filter { it.isMtwCard }
+        var pendingExtractions = mtwNfts.size
 
-        var pendingExtractions = mtwNfts?.size ?: 0
+        nftsByColorIndex.clear()
 
-        if (mtwNfts.isNullOrEmpty()) {
+        if (mtwNfts.isEmpty()) {
             reloadViews()
             return
         }
 
-        nftsByColorIndex.clear()
         mtwNfts.forEach { nft ->
             ImagePaletteHelpers.extractPaletteFromNft(nft) { colorIndex ->
                 colorIndex?.let {
@@ -172,7 +193,7 @@ class AppearancePaletteView(
     }
 
     fun reloadViews() {
-        val accountId = AccountStore.activeAccountId ?: return
+        val accountId = accountId ?: return
         val selectedIndex = WGlobalStorage.getNftAccentColorIndex(accountId)
         if (nftsByColorIndex.isEmpty()) {
             paletteItemViews.forEach { item ->

@@ -55,8 +55,8 @@ extension Api {
         try await bridge.callApi("getWalletBalance", chain, network, address, decoding: BigInt.self)
     }
     
-    public static func getAddressInfo(network: ApiNetwork, toAddress: String) async throws -> ApiGetAddressInfoResult {
-        try await bridge.callApi("getAddressInfo", network, toAddress, decoding: ApiGetAddressInfoResult.self)
+    public static func getAddressInfo(chain: ApiChain, network: ApiNetwork, address: String) async throws -> ApiGetAddressInfoResult {
+        try await bridge.callApi("getAddressInfo", chain, network, address, decoding: ApiGetAddressInfoResult.self)
     }
 }
 

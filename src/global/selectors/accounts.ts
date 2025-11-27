@@ -31,8 +31,13 @@ export function selectCurrentNetwork(global: GlobalState) {
   return global.settings.isTestnet ? 'testnet' : 'mainnet';
 }
 
+export function selectCurrentAccountId(global: GlobalState) {
+  return global.currentTemporaryViewAccountId ?? global.currentAccountId;
+}
+
 export function selectCurrentAccount(global: GlobalState) {
-  return selectAccount(global, global.currentAccountId!);
+  const accountId = selectCurrentAccountId(global);
+  return accountId ? selectAccount(global, accountId) : undefined;
 }
 
 export function selectAccount(global: GlobalState, accountId: string) {
@@ -55,7 +60,8 @@ export function selectAccountOrAuthAccount(global: GlobalState, accountId: strin
 }
 
 export function selectCurrentAccountState(global: GlobalState) {
-  return selectAccountState(global, global.currentAccountId!);
+  const accountId = selectCurrentAccountId(global);
+  return accountId ? selectAccountState(global, accountId) : undefined;
 }
 
 export function selectAccountState(global: GlobalState, accountId: string): AccountState | undefined {
@@ -67,7 +73,8 @@ export function selectAccountSettings(global: GlobalState, accountId: string): A
 }
 
 export function selectCurrentAccountSettings(global: GlobalState) {
-  return selectAccountSettings(global, global.currentAccountId!);
+  const accountId = selectCurrentAccountId(global);
+  return accountId ? selectAccountSettings(global, accountId) : undefined;
 }
 
 function isHardwareAccount(account: Account) {
@@ -77,7 +84,12 @@ function isHardwareAccount(account: Account) {
 export function selectIsHardwareAccount(global: GlobalState): boolean; // To prevent passing accountId=undefined by accident
 export function selectIsHardwareAccount(global: GlobalState, accountId: string): boolean;
 export function selectIsHardwareAccount(global: GlobalState, accountId?: string) {
-  const account = selectAccount(global, accountId ?? global.currentAccountId!);
+  const resolvedAccountId = accountId ?? selectCurrentAccountId(global);
+  if (!resolvedAccountId) {
+    return false;
+  }
+
+  const account = selectAccount(global, resolvedAccountId);
   return Boolean(account) && isHardwareAccount(account);
 }
 
@@ -140,7 +152,8 @@ export function selectVestingPartsReadyToUnfreeze(global: GlobalState, accountId
 }
 
 export function selectCurrentAccountNftByAddress(global: GlobalState, nftAddress: string) {
-  return selectAccountNftByAddress(global, global.currentAccountId!, nftAddress);
+  const accountId = selectCurrentAccountId(global);
+  return accountId ? selectAccountNftByAddress(global, accountId, nftAddress) : undefined;
 }
 
 export function selectAccountNftByAddress(global: GlobalState, accountId: string, nftAddress: string) {
@@ -152,13 +165,18 @@ export function selectIsMultichainAccount(global: GlobalState, accountId: string
   return Boolean(byChain) && isKeyCountGreater(byChain, 1);
 }
 
-export function selectIsMultisigAccount(global: GlobalState, accountId: string, chain: ApiChain) {
+export function selectIsMultisigAccount(global: GlobalState, accountId: string) {
+  const account = selectAccount(global, accountId);
+  return Object.values(account?.byChain ?? {}).some((wallet) => wallet.isMultisig);
+}
+
+export function selectIsMultisigWallet(global: GlobalState, accountId: string, chain: ApiChain) {
   const account = selectAccount(global, accountId);
   return Boolean(account?.byChain[chain]?.isMultisig);
 }
 
 export function selectHasSession(global: GlobalState) {
-  return Boolean(global.currentAccountId);
+  return Boolean(selectCurrentAccountId(global));
 }
 
 export function selectIsBiometricAuthEnabled(global: GlobalState) {
@@ -213,7 +231,7 @@ export const selectOrderedAccountsMemoized = memoize((
 ): Array<[string, Account]> => {
   if (!accounts) return [];
 
-  const entries = Object.entries(accounts);
+  const entries = Object.entries(accounts).filter(([, account]) => !account.isTemporary);
   if (!orderedAccountIds?.length) return entries;
 
   const accountsMap = new Map(entries);
@@ -224,7 +242,7 @@ export const selectOrderedAccountsMemoized = memoize((
         const account = accountsMap.get(id);
         accountsMap.delete(id);
 
-        return !account
+        return !account || account.isTemporary
           ? undefined
           : [id, account] as [string, Account];
       })

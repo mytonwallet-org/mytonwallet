@@ -372,7 +372,7 @@ class SendVC(
             topToTop(
                 bottomReversedCornerViewUpsideDown,
                 continueButton,
-                -20f - ViewConstants.BIG_RADIUS
+                -ViewConstants.GAP - ViewConstants.BIG_RADIUS
             )
             toBottom(bottomReversedCornerViewUpsideDown)
         }
@@ -617,7 +617,7 @@ class SendVC(
                 showAlert(
                     LocaleController.getString("Warning!"),
                     ScamDetectionHelpers.scamWarningMessage(),
-                    button = LocaleController.getString("Got it"),
+                    button = LocaleController.getString("Got It"),
                     primaryIsDanger = true,
                     allowLinkInText = true
                 )
@@ -638,7 +638,7 @@ class SendVC(
             showAlert(
                 LocaleController.getString("Warning!"),
                 LocaleController.getString("\$service_token_transfer_warning"),
-                button = LocaleController.getString("Got it"),
+                button = LocaleController.getString("Got It"),
                 primaryIsDanger = true
             )
     }

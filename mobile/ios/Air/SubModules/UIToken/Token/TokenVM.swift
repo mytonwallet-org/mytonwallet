@@ -106,7 +106,7 @@ class TokenVM: @unchecked Sendable {
             await tokenVMDelegate?.priceDataUpdated()
         }
         do {
-            let historyData = try await Api.fetchPriceHistory(slug: selectedToken.slug, period: period, baseCurrency: TokenStore.baseCurrency ?? .USD)
+            let historyData = try await Api.fetchPriceHistory(slug: selectedToken.slug, period: period, baseCurrency: TokenStore.baseCurrency)
             self.allHistoryData.withLock { $0[period] = historyData }
             let allHistoryData = self.allHistoryData.withLock { $0 }
             TokenStore.setHistoryData(tokenSlug: selectedToken.slug, data: allHistoryData)

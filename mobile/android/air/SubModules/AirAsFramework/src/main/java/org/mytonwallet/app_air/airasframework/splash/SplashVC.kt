@@ -14,6 +14,7 @@ import androidx.core.graphics.createBitmap
 import androidx.core.net.toUri
 import org.mytonwallet.app_air.airasframework.AirAsFrameworkApplication
 import org.mytonwallet.app_air.airasframework.MainWindow
+import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.sqscan.screen.QrScannerDialog
 import org.mytonwallet.app_air.uiassets.viewControllers.token.TokenVC
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
@@ -26,6 +27,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.addAccountOptions.AddAccountOptionsVC
+import org.mytonwallet.app_air.uicreatewallet.viewControllers.importViewWallet.ImportViewWalletVC
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.intro.IntroVC
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.walletAdded.WalletAddedVC
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.wordCheck.WordCheckVC
@@ -53,6 +55,7 @@ import org.mytonwallet.app_air.walletcontext.helpers.AutoLockHelper
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
 import org.mytonwallet.app_air.walletcontext.helpers.LaunchConfig
 import org.mytonwallet.app_air.walletcontext.helpers.WordCheckMode
+import org.mytonwallet.app_air.walletcontext.models.MWalletSettingsViewMode
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.MAIN_NETWORK
@@ -82,6 +85,7 @@ import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.uihome.tabs.TabsVC
+import org.mytonwallet.uihome.walletsTabs.WalletsTabsVC
 import java.io.UnsupportedEncodingException
 import java.net.URLEncoder
 
@@ -298,10 +302,33 @@ class SplashVC(context: Context) : WViewController(context),
         return WordCheckVC(context, words, initialWordIndices, mode)
     }
 
-    override fun themeChanged() {
-        animateThemeChange {
-            AirAsFrameworkApplication.initTheme(window!!.applicationContext)
+    override fun getImportLedgerVC(): Any {
+        return LedgerConnectVC(context, LedgerConnectVC.Mode.AddAccount)
+    }
+
+    override fun getAddViewAccountVC(): Any {
+        return ImportViewWalletVC(context, false)
+    }
+
+    override fun getWalletsTabsVC(viewMode: MWalletSettingsViewMode): Any {
+        return WalletsTabsVC(
+            context,
+            viewMode
+        )
+    }
+
+    override fun themeChanged(animated: Boolean) {
+        val context = window?.applicationContext ?: return
+
+        val applyTheme = {
+            AirAsFrameworkApplication.initTheme(context)
             window?.updateTheme()
+        }
+
+        if (animated) {
+            animateThemeChange { applyTheme() }
+        } else {
+            applyTheme()
         }
     }
 
@@ -312,11 +339,14 @@ class SplashVC(context: Context) : WViewController(context),
     override fun lockScreen() {
         if (!appIsUnlocked || !WGlobalStorage.isPasscodeSet())
             return
-        PopupHelpers.dismissAllPopups()
         presentLockScreen()
     }
 
     private fun presentLockScreen() {
+        // Make sure to dismiss all popups or dialogs when presenting lock screen
+        PopupHelpers.dismissAllPopups()
+        activeDialog?.dismiss()
+        window?.topViewController?.activeDialog?.dismiss()
         view.hideKeyboard()
         appIsUnlocked = false
         val passcodeConfirmVC = PasscodeConfirmVC(
@@ -528,11 +558,15 @@ class SplashVC(context: Context) : WViewController(context),
                                     )
                                     throw Exception("Switch-Back Account Failure")
                                 }
-                                WalletCore.notifyEvent(WalletEvent.AccountChangedInApp)
+                                WalletCore.notifyEvent(
+                                    WalletEvent.AccountChangedInApp(
+                                        accountsModified = false
+                                    )
+                                )
                             }
                         }
                     } else {
-                        WalletCore.notifyEvent(WalletEvent.AccountChangedInApp)
+                        WalletCore.notifyEvent(WalletEvent.AccountChangedInApp(accountsModified = false))
                     }
                 }
                 return

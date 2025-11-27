@@ -2,6 +2,7 @@ import React, { memo, useEffect, useRef } from '../../lib/teact/teact';
 
 import type { ApiDappTransfer, ApiToken } from '../../api/types';
 
+import { TONCOIN } from '../../config';
 import renderText from '../../global/helpers/renderText';
 import { BIGINT_PREFIX } from '../../util/bigint';
 import buildClassName from '../../util/buildClassName';
@@ -103,7 +104,7 @@ function DappTransactionPayload({ transaction, tokensBySlug }: OwnProps) {
 
       case 'single-nominator:withdraw': {
         return lang('$dapp_single_nominator_withdraw_payload', {
-          amount: toDecimal(payload.amount),
+          amount: formatCurrency(toDecimal(payload.amount, TONCOIN.decimals), TONCOIN.symbol, TONCOIN.decimals),
         });
       }
 

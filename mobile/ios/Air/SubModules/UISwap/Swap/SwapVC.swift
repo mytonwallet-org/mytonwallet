@@ -117,7 +117,7 @@ public class SwapVC: WViewController, WSensitiveDataProtocol {
         
         _ = addBottomButton(bottomConstraint: false)
         continueButton.isEnabled = false
-        continueButton.setTitle(lang("Enter Amounts"), for: .normal)
+        continueButton.configureTitle(sellingToken: tokensSelectorVM.sellingToken, buyingToken: tokensSelectorVM.buyingToken)
         continueButton.addTarget(self, action: #selector(continuePressed), for: .touchUpInside)
         
         let c = startWithKeyboardActive ? -max(WKeyboardObserver.keyboardHeight, 291) + 50 : -34
@@ -154,15 +154,15 @@ public class SwapVC: WViewController, WSensitiveDataProtocol {
     @objc func continuePressed() {
         view.endEditing(true)
         
-        if let account = AccountStore.account, swapVM.swapType != .inChain, account.supports(chain: self.tokensSelectorVM.sellingToken.chain), account.supports(chain: self.tokensSelectorVM.buyingToken.chain) {
+        if let account = AccountStore.account, swapVM.swapType != .onChain, account.supports(chain: self.tokensSelectorVM.sellingToken.chain), account.supports(chain: self.tokensSelectorVM.buyingToken.chain) {
             continueCrossChainImmediate()
         } else {
             switch swapVM.swapType {
-            case .inChain:
+            case .onChain:
                 warnIfNeededAndContinueInChain()
-            case .crossChainFromTon:
+            case .crosschainFromWallet:
                 continueChainFromTon()
-            case .crossChainToTon:
+            case .crosschainToWallet:
                 continueChainToTon()
             @unknown default:
                 break
@@ -455,12 +455,14 @@ extension SwapVC: SwapSelectorsDelegate {
 
         self.enqueueTask?()
         
-        // if all are 0, just show enter amounts!
         if (swapSide == .selling && selling.amount <= 0) || (swapSide == .buying && buying.amount <= 0) {
             continueButton.isEnabled = false
             continueButton.showLoading = false
-            continueButton.setTitle(swapVM.isValidPair ? lang("Enter Amounts") : lang("Invalid Pair"),
-                                    for: .normal)
+            if swapVM.isValidPair {
+                continueButton.configureTitle(sellingToken: tokensSelectorVM.sellingToken, buyingToken: tokensSelectorVM.buyingToken)
+            } else {
+                continueButton.configureTitleInvalidPair()
+            }
             return
         }
     }
@@ -475,7 +477,7 @@ extension SwapVC: SwapSelectorsDelegate {
         if feeData?.isNativeIn == true {
             maxAmount -= feeData!.fee
             
-            if (swapVM.swapType == .inChain) {
+            if (swapVM.swapType == .onChain) {
                 let amountForNextSwap = feeData?.chain?.gas.maxSwap ?? 0
                 let amountIn = tokensSelectorVM.sellingAmount ?? 0
                 let shouldIgnoreNextSwap = amountIn > 0 && (maxAmount - amountIn) <= amountForNextSwap
@@ -509,17 +511,11 @@ extension SwapVC: SwapVMDelegate {
     @MainActor
     func updateIsValidPair() {
         if !swapVM.isValidPair {
-            continueButton.setTitle(lang("Invalid Pair"), for: .normal)
+            continueButton.configureTitleInvalidPair()
             continueButton.isEnabled = false
             continueButton.showLoading = false
         } else {
-            continueButton.setTitle(
-                WStrings.Swap_Submit_Text(
-                    from: tokensSelectorVM.sellingToken.symbol,
-                    to: tokensSelectorVM.buyingToken.symbol
-                ),
-                for: .normal
-            )
+            continueButton.configureTitle(sellingToken: tokensSelectorVM.sellingToken, buyingToken: tokensSelectorVM.buyingToken)
         }
     }
     
@@ -528,7 +524,7 @@ extension SwapVC: SwapVMDelegate {
     func receivedEstimateData(swapEstimate: ApiSwapEstimateResponse?, selectedDex: ApiSwapDexLabel?, lateInit: ApiSwapCexEstimateResponse.LateInitProperties?) {
         
         guard swapVM.isValidPair else {
-            continueButton.setTitle(lang("Invalid Pair"), for: .normal)
+            continueButton.configureTitleInvalidPair()
             continueButton.isEnabled = false
             continueButton.showLoading = false
             return
@@ -550,25 +546,19 @@ extension SwapVC: SwapVMDelegate {
         let swapError = swapVM.checkDexSwapError(swapEstimate: swapEstimate, lateInit: lateInit)
         continueButton.showLoading = false
         if let swapError {
-            continueButton.setTitle(swapError, for: .normal)
+            continueButton.configureTitle(swapError: swapError)
         } else {
             if lateInit.isDiesel == true {
                 if swapEstimate.dieselStatus == .notAuthorized {
-                    continueButton.setTitle(WStrings.Swap_AuthorizeDiesel_Text(symbol: tokensSelectorVM.sellingToken.symbol.uppercased()), for: .normal)
+                    continueButton.configureTitleAuthorizeDiesel(sellingToken: tokensSelectorVM.sellingToken)
                     continueButton.isEnabled = true
                     return
                 }
             }
-            if swapVM.swapType == .crossChainFromTon && AccountStore.account?.supports(chain: tokensSelectorVM.buyingToken.chain) == false {
-                continueButton.setTitle(lang("Continue"), for: .normal)
+            if swapVM.swapType == .crosschainFromWallet && AccountStore.account?.supports(chain: tokensSelectorVM.buyingToken.chain) == false {
+                continueButton.configureTitleContinue()
             } else {
-                continueButton.setTitle(
-                    WStrings.Swap_Submit_Text(
-                        from: tokensSelectorVM.sellingToken.symbol,
-                        to: tokensSelectorVM.buyingToken.symbol
-                    ),
-                    for: .normal
-                )
+                continueButton.configureTitle(sellingToken: tokensSelectorVM.sellingToken, buyingToken: tokensSelectorVM.buyingToken)
             }
         }
         continueButton.isEnabled = swapError == nil
@@ -578,7 +568,7 @@ extension SwapVC: SwapVMDelegate {
     func receivedCexEstimate(swapEstimate: ApiSwapCexEstimateResponse) {
         
         if !swapVM.isValidPair {
-            continueButton.setTitle(lang("Invalid Pair"), for: .normal)
+            continueButton.configureTitleInvalidPair()
             continueButton.isEnabled = false
             continueButton.showLoading = false
         }
@@ -591,29 +581,63 @@ extension SwapVC: SwapVMDelegate {
             let swapError = swapVM.checkCexSwapError(swapEstimate: swapEstimate)
             continueButton.showLoading = false
             if let swapError {
-                continueButton.setTitle(swapError, for: .normal)
+                continueButton.configureTitle(swapError: swapError)
+                continueButton.isEnabled = false
             } else {
                 if swapEstimate.isDiesel == true {
                     if swapEstimate.dieselStatus == .notAuthorized {
-                        continueButton.setTitle(WStrings.Swap_AuthorizeDiesel_Text(symbol: tokensSelectorVM.sellingToken.symbol.uppercased()), for: .normal)
+                        continueButton.configureTitleAuthorizeDiesel(sellingToken: tokensSelectorVM.sellingToken)
                         continueButton.isEnabled = true
                         return
                     }
                 }
-                if swapVM.swapType == .crossChainFromTon && AccountStore.account?.supports(chain: tokensSelectorVM.buyingToken.chain) == false {
-                    continueButton.setTitle(lang("Continue"), for: .normal)
+                if swapVM.swapType == .crosschainFromWallet && AccountStore.account?.supports(chain: tokensSelectorVM.buyingToken.chain) == false {
+                    continueButton.configureTitleContinue()
                 } else {
-                    continueButton.setTitle(
-                        WStrings.Swap_Submit_Text(
-                            from: tokensSelectorVM.sellingToken.symbol,
-                            to: tokensSelectorVM.buyingToken.symbol
-                        ),
-                        for: .normal
-                    )
+                    continueButton.configureTitle(sellingToken: tokensSelectorVM.sellingToken, buyingToken: tokensSelectorVM.buyingToken)
                 }
+                continueButton.isEnabled = true
             }
-            continueButton.isEnabled = swapError == nil
         }
     }
 }
 
+internal extension WButton {
+    func configureTitle(sellingToken: ApiToken, buyingToken: ApiToken) {
+        let s = lang("$swap_from_to", arg1: sellingToken.symbol, arg2: "{{chevron}}", arg3: buyingToken.symbol)
+        let a = s.split(separator: "{{chevron}}")
+        let attr = NSMutableAttributedString()
+        attr.append(NSAttributedString(string: String(a[0])))
+        let config = UIImage.SymbolConfiguration(font: WButton.font, scale: .small)
+        let image = UIImage(systemName: "chevron.forward", withConfiguration: config)!
+        let attachment = NSTextAttachment(image: image)
+        attr.append(NSAttributedString(attachment: attachment))
+        attr.append(NSAttributedString(string: String(a[1])))
+        attr.addAttribute(.font, value: WButton.font, range: NSRange(location: 0, length: attr.length))
+        setAttributedTitle(attr, for: .normal)
+    }
+    
+    func configureTitleContinue() {
+        let attr = NSMutableAttributedString(string: lang("Continue"))
+        attr.addAttribute(.font, value: WButton.font, range: NSRange(location: 0, length: attr.length))
+        setAttributedTitle(attr, for: .normal)
+    }
+    
+    func configureTitleAuthorizeDiesel(sellingToken: ApiToken) {
+        let attr = NSMutableAttributedString(string: lang("Authorize %token% Fee", arg1: sellingToken.symbol))
+        attr.addAttribute(.font, value: WButton.font, range: NSRange(location: 0, length: attr.length))
+        setAttributedTitle(attr, for: .normal)
+    }
+    
+    func configureTitleInvalidPair() {
+        let attr = NSMutableAttributedString(string: lang("Invalid Pair"))
+        attr.addAttribute(.font, value: WButton.font, range: NSRange(location: 0, length: attr.length))
+        setAttributedTitle(attr, for: .normal)
+    }
+    
+    func configureTitle(swapError: String) {
+        let attr = NSMutableAttributedString(string: swapError)
+        attr.addAttribute(.font, value: WButton.font, range: NSRange(location: 0, length: attr.length))
+        setAttributedTitle(attr, for: .normal)
+    }
+}

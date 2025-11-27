@@ -19,15 +19,19 @@ import WalletContext
     static func showBuyWithCard(chain: ApiChain?, push: Bool?)
     static func showConnectedDapps(push: Bool)
     static func showCrossChainSwapVC(_ transaction: ApiActivity)
+    static func showCustomizeWallet(accountId: String?)
+    static func showDeleteAccount(accountId: String)
     static func showEarn(token: ApiToken?)
     static func showError(error: Error?)
     static func showHiddenNfts() -> ()
     static func showImportWalletVersion() -> ()
     static func showReceive(chain: ApiChain?, showBuyOptions: Bool?, title: String?)
+    static func showRenameAccount(accountId: String)
     static func showSend(prefilledValues: SendPrefilledValues?)
     static func showSwap(defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, push: Bool?)
     static func showToken(token: ApiToken, isInModal: Bool)
     static func showUpgradeCard()
+    static func showWalletSettings()
     static func transitionToNewRootViewController(_ newRootController: UIViewController, animationDuration: Double?)
 }
 
@@ -56,14 +60,18 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showBuyWithCard(chain: ApiChain?, push: Bool?) { }
     static func showConnectedDapps(push: Bool) { }
     static func showCrossChainSwapVC(_ transaction: ApiActivity) { }
+    static func showCustomizeWallet(accountId: String?) { }
+    static func showDeleteAccount(accountId: String) { }
     static func showEarn(token: ApiToken?) { }
     static func showError(error: Error?) { }
     static func showHiddenNfts() -> () { }
     static func showImportWalletVersion() -> () { }
     static func showReceive(chain: ApiChain?, showBuyOptions: Bool?, title: String?) { }
+    static func showRenameAccount(accountId: String) { }
     static func showSend(prefilledValues: SendPrefilledValues?) { }
     static func showSwap(defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, push: Bool?) { }
     static func showToken(token: ApiToken, isInModal: Bool) { }
     static func showUpgradeCard() { }
+    static func showWalletSettings() { }
     static func transitionToNewRootViewController(_ newRootController: UIViewController, animationDuration: Double?) { }
 }

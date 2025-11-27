@@ -1,6 +1,7 @@
 import React, { memo } from '../../../lib/teact/teact';
 
 import buildClassName from '../../../util/buildClassName';
+import { getChainTitle } from '../../../util/chain';
 
 import useHistoryBack from '../../../hooks/useHistoryBack';
 import useLang from '../../../hooks/useLang';
@@ -81,7 +82,7 @@ function Backup({
             </div>
             {isMultichainAccount && (
               <p className={styles.blockDescription}>
-                {lang('Can be imported to any multichain wallet supporting TON.')}
+                {lang('Can be imported to any multichain wallet supporting %chain%.', { chain: getChainTitle('ton') })}
               </p>
             )}
           </>
@@ -91,14 +92,18 @@ function Backup({
           <>
             <div className={buildClassName(styles.block, styles.settingsBlockWithDescription)}>
               <div className={buildClassName(styles.item)} onClick={onOpenPrivateKeySafetyRules}>
-                <img className={styles.menuIcon} src={privateKeyImg} alt={lang('View TON Private Key')} />
-                {lang('View TON Private Key')}
+                <img
+                  className={styles.menuIcon}
+                  src={privateKeyImg}
+                  alt={lang('View %chain% Private Key').replace('%chain%', getChainTitle('ton'))}
+                />
+                {lang('View %chain% Private Key', { chain: getChainTitle('ton') })}
 
                 <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
               </div>
             </div>
             <p className={styles.blockDescription}>
-              {lang('Can be imported to non-multichain wallets for TON.')}
+              {lang('Can be imported to non-multichain wallets for %chain%.', { chain: getChainTitle('ton') })}
             </p>
           </>
         )}

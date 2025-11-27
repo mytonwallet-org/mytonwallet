@@ -716,7 +716,7 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
     }
 
     private fun updateBackground() {
-        val expandProgress = 10 / 3 * (((modalExpandProgress ?: 0f) - 0.7f).coerceIn(0f, 1f))
+        val expandProgress = 10f / 3f * (((modalExpandProgress ?: 0f) - 0.7f).coerceIn(0f, 1f))
         innerContentView.setBackgroundColor(
             WColor.SecondaryBackground.color,
             (1 - expandProgress) * ViewConstants.BIG_RADIUS.dp,

@@ -28,11 +28,7 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
     public let emptyWalletView = EmptyWalletView()
 
     public var wasShowingSkeletons: Bool = false
-    public private(set) var skeletonState: SkeletonState? {
-        didSet {
-            log.info("skeletonState: \(skeletonState as Any, .public)")
-        }
-    }
+    public private(set) var skeletonState: SkeletonState?
     open var isInitializingCache = true
 
     open var headerPlaceholderHeight: CGFloat { fatalError("abstract") }
@@ -49,14 +45,12 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
     public let processorQueue = DispatchQueue(label: "activities.background_processor")
     public let processorQueueLock = DispatchSemaphore(value: 1)
 
+    private let queue = DispatchQueue(label: "ActivitiesTableView", qos: .userInteractive)
+
     // MARK: - Misc
 
     open override var hideNavigationBar: Bool {
-        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-            false
-        } else {
-            true
-        }
+        !IOS_26_MODE_ENABLED
     }
 
     public func onSelect(transaction: ApiActivity) {
@@ -66,7 +60,7 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
                 self.tableView.endUpdates()
             }
         }
-        if case .swap(let swap) = transaction, (swap.status == .pending || swap.status == .pendingTrusted), swap.swapType == .crossChainToTon, swap.cex?.status.uiStatus == .pending {
+        if case .swap(let swap) = transaction, (swap.status == .pending || swap.status == .pendingTrusted), swap.swapType == .crosschainToWallet, swap.cex?.status.uiStatus == .pending {
             AppActions.showCrossChainSwapVC(transaction)
         } else {
             if let accountId = AccountStore.accountId {
@@ -269,57 +263,56 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
         let start = Date()
         defer { log.info("applySnapshot(\(animated), \(animatingDifferences as Any, .public)): \(Date().timeIntervalSince(start))s")}
         guard dataSource != nil else { return }
-        if animated {
-            dataSource?.apply(snapshot, animatingDifferences: animatingDifferences ?? true)
-        } else {
-            UIView.performWithoutAnimation {
-                dataSource?.apply(snapshot, animatingDifferences: animatingDifferences ?? false)
-            }
+        queue.async { [self] in
+            dataSource?.apply(snapshot, animatingDifferences: animatingDifferences ?? animated)
         }
-        updateSkeletonViewsIfNeeded(animateAlondside: nil)
-    }
-
-    public func reconfigureHeaderPlaceholder() {
-        let start = Date()
-        defer {
-            let t = Date().timeIntervalSince(start)
-            if t > 0.004 {
-                log.info("reconfigureHeaderPlaceholder: \(t)s \t[!]")
-            }
-        }
-        guard dataSource != nil, skeletonDataSource != nil else { return }
-        // force layout
-        tableView.beginUpdates()
         if skeletonState == .loading {
             skeletonTableView.beginUpdates()
             skeletonTableView.endUpdates()
         }
-        tableView.endUpdates()
+        updateSkeletonViewsIfNeeded(animateAlondside: nil)
+    }
+
+    public func reconfigureHeaderPlaceholder(animated: Bool) {
+        guard dataSource != nil, skeletonDataSource != nil, activityViewModel != nil else { return }
+        if var snapshot = activityViewModel?.snapshot {
+            queue.async { [weak dataSource] in
+                snapshot.reconfigureItems([.headerPlaceholder])
+                dataSource?.apply(snapshot, animatingDifferences: animated)
+            }
+        }
+        if skeletonState == .loading {
+            let updates = {
+                self.skeletonTableView.beginUpdates()
+                self.skeletonTableView.endUpdates()
+            }
+            if animated {
+                updates()
+            } else {
+                UIView.performWithoutAnimation { updates() }
+            }
+        }
         updateSkeletonViewsIfNeeded(animateAlondside: nil)
     }
 
     public func reconfigureFirstRowCell() {
         guard dataSource != nil, skeletonDataSource != nil else { return }
-        tableView.beginUpdates()
-
-        if let snapshot = dataSource?.snapshot(),
-           snapshot.itemIdentifiers.contains(.firstRow) {
-            var updatedSnapshot = snapshot
-            updatedSnapshot.reconfigureItems([.firstRow])
-            dataSource?.apply(updatedSnapshot, animatingDifferences: false)
+        if var snapshot = activityViewModel?.snapshot {
+            queue.async { [self] in
+                if snapshot.itemIdentifiers.contains(.firstRow) {
+                    snapshot.reconfigureItems([.firstRow])
+                    dataSource?.apply(snapshot)
+                }
+            }
         }
-
         if skeletonState == .loading {
             skeletonTableView.beginUpdates()
             skeletonTableView.endUpdates()
         }
-        tableView.endUpdates()
         updateSkeletonViewsIfNeeded(animateAlondside: nil)
     }
 
     public func reconfigureVisibleRows() {
-//        let start = Date()
-//        defer { log.info("reconfigureVisibleRows: \(Date().timeIntervalSince(start))s")}
         if tableView.isDecelerating || tableView.isTracking {
             self.reconfigureTokensWhenStopped = true
         } else {
@@ -337,7 +330,7 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
         updateEmptyView()
         let wasEmpty = if let dataSource, dataSource.snapshot().numberOfSections >= 3 { false } else { true }
         let newSnapshot = self.makeSnapshot()
-        applySnapshot(newSnapshot, animated: !accountChanged, animatingDifferences: !wasEmpty)
+        applySnapshot(newSnapshot, animated: true, animatingDifferences: !accountChanged && !wasEmpty)
         self.updateSkeletonState()
         updateEmptyView()
     }

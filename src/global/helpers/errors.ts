@@ -1,8 +1,8 @@
 import {
   type ApiAnyDisplayError,
-  ApiAuthError,
   ApiCommonError,
   ApiHardwareError,
+  ApiTokenImportError,
   ApiTransactionDraftError,
   ApiTransactionError,
 } from '../../api/types';
@@ -29,7 +29,7 @@ export function errorCodeToMessage(error: ApiAnyDisplayError | string = ApiCommo
     case ApiTransactionDraftError.InvalidAmount:
       return 'Invalid amount';
 
-    case ApiAuthError.InvalidAddress:
+    case ApiCommonError.InvalidAddress:
     case ApiTransactionDraftError.InvalidToAddress:
       return 'Invalid address';
 
@@ -39,8 +39,7 @@ export function errorCodeToMessage(error: ApiAnyDisplayError | string = ApiCommo
     case ApiTransactionDraftError.InsufficientBalance:
       return 'Insufficient balance';
 
-    case ApiAuthError.DomainNotResolved:
-    case ApiTransactionDraftError.DomainNotResolved:
+    case ApiCommonError.DomainNotResolved:
       return 'Domain is not connected to a wallet';
 
     case ApiTransactionDraftError.WalletNotInitialized:
@@ -95,6 +94,12 @@ export function errorCodeToMessage(error: ApiAnyDisplayError | string = ApiCommo
 
     case ApiCommonError.InvalidPassword:
       return 'Wrong password, please try again.';
+
+    case ApiTokenImportError.AddressDoesNotExist:
+      return 'Address doesn\'t exist';
+
+    case ApiTokenImportError.NotATokenAddress:
+      return 'The address is not a token minter address';
 
     default:
       return error;

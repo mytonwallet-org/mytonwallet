@@ -10,15 +10,19 @@ private let log = Log("Home-WalletTokens")
 @MainActor public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserver, WalletTokensViewDelegate, Sendable {
 
     private let compactMode: Bool
-    private var topInset: CGFloat { compactMode || IOS_26_MODE_ENABLED ? 0 : 56 }
 
     public var tokensView: WalletTokensView { view as! WalletTokensView }
     public var onHeightChanged: ((_ animated: Bool) -> ())?
 
-    private var currentAccountId: String?
+    private var currentAccountId: String {
+        get { tokensView.accountId }
+        set { tokensView.accountId = newValue }
+    }
+    public var accountId: String
 
     public init(compactMode: Bool) {
         self.compactMode = compactMode
+        self.accountId = AccountStore.accountId ?? ""
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -32,9 +36,6 @@ private let log = Log("Home-WalletTokens")
 
     public override func viewDidLoad() {
         super.viewDidLoad()
-        tokensView.contentInset.top = topInset
-        tokensView.verticalScrollIndicatorInsets.top = topInset
-        tokensView.contentOffset.y = -topInset
         updateTheme()
         WalletCoreData.add(eventObserver: self)
     }
@@ -51,11 +52,12 @@ private let log = Log("Home-WalletTokens")
         MainActor.assumeIsolated {
             switch event {
             case .accountChanged:
+                self.accountId = AccountStore.accountId ?? ""
                 updateWalletTokens(animated: true)
                 tokensView.reloadStakeCells(animated: false)
 
             case .stakingAccountData(let data):
-                if data.accountId == AccountStore.accountId {
+                if data.accountId == self.accountId {
                     stakingDataUpdated()
                 }
 
@@ -70,6 +72,11 @@ private let log = Log("Home-WalletTokens")
             }
         }
     }
+    
+    public func switchAcccountTo(accountId: String) {
+        self.accountId = accountId
+        updateWalletTokens(animated: false)
+    }
 
     private func stakingDataUpdated() {
         tokensView.reloadStakeCells(animated: true)
@@ -80,36 +87,32 @@ private let log = Log("Home-WalletTokens")
     }
 
     private func updateWalletTokens(animated: Bool) {
-        var animated = animated
-        if let account = AccountStore.account {
-            let accountId = account.id
-            if accountId != currentAccountId {
-                animated = false
-                currentAccountId = accountId
-            }
-
-            if let data = BalanceStore.currentAccountBalanceData {
-                var allTokens = data.walletStaked + data.walletTokens
-                let count = allTokens.count
-                if compactMode {
-                    allTokens = Array(allTokens.prefix(5))
-                }
-                tokensView.set(
-                    walletTokens: allTokens,
-                    allTokensCount: count,
-                    placeholderCount: 0,
-                    animated: animated
-                )
-            } else {
-                tokensView.set(
-                    walletTokens: nil,
-                    allTokensCount: 0,
-                    placeholderCount: 4,
-                    animated: animated
-                )
-            }
-            self.onHeightChanged?(animated)
+        let accountChanged = accountId != currentAccountId
+        if accountChanged {
+            currentAccountId = accountId
         }
+
+        if let data = BalanceStore.accountBalanceData[accountId] {
+            var allTokens = data.walletStaked + data.walletTokens
+            let count = allTokens.count
+            if compactMode {
+                allTokens = Array(allTokens.prefix(5))
+            }
+            tokensView.set(
+                walletTokens: allTokens,
+                allTokensCount: count,
+                placeholderCount: 0,
+                animated: animated
+            )
+        } else {
+            tokensView.set(
+                walletTokens: nil,
+                allTokensCount: 0,
+                placeholderCount: 4,
+                animated: animated
+            )
+        }
+        self.onHeightChanged?(animated)
     }
 
     public func didSelect(slug: String?) {

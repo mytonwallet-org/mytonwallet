@@ -1,13 +1,17 @@
 package org.mytonwallet.app_air.walletcore.api
 
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toJSONString
+import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.MAIN_NETWORK
 import org.mytonwallet.app_air.walletcore.POPULAR_WALLET_VERSIONS
 import org.mytonwallet.app_air.walletcore.TEST_NETWORK
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
@@ -142,18 +146,25 @@ fun WalletCore.validateMnemonic(
 fun WalletCore.activateAccount(
     accountId: String,
     notifySDK: Boolean,
+    fromHome: Boolean = false,
     callback: (MAccount?, MBridgeError?) -> Unit
 ) {
+    if (nextAccountId == accountId)
+        return
+    val prevNextAccountId = nextAccountId
+    nextAccountId = accountId
     val newestActivitiesTimestampBySlug = WGlobalStorage.getNewestActivitiesBySlug(accountId)
     fun fetch() {
         fetchAccount(accountId) { account, err ->
+            if (nextAccountId != accountId)
+                return@fetchAccount
             if (account == null || err != null) {
                 callback(null, err)
             } else {
                 activeNetwork =
                     if (accountId.split("-")[1] == MAIN_NETWORK) MAIN_NETWORK else TEST_NETWORK
                 isMultichain = account.isMultichain
-                notifyAccountChanged(account)
+                notifyAccountChanged(account, fromHome)
                 callback(account, null)
                 WCacheStorage.setInitialScreen(
                     if (WGlobalStorage.isPasscodeSet())
@@ -163,6 +174,17 @@ fun WalletCore.activateAccount(
                 )
             }
         }
+    }
+
+    val prevAccentColor = WColor.Tint.color
+    updateAccentColor(accountId = accountId)
+    if (WColor.Tint.color != prevAccentColor) {
+        WalletContextManager.delegate?.themeChanged(animated = false)
+    }
+    if (AccountStore.activeAccountId != null &&
+        (prevNextAccountId ?: AccountStore.activeAccountId) != accountId
+    ) {
+        WalletCore.notifyEvent(WalletEvent.AccountWillChange)
     }
     if (notifySDK) {
         bridge?.callApi(
@@ -224,17 +246,20 @@ fun WalletCore.resetAccounts(
 
 fun WalletCore.removeAccount(
     accountId: String,
-    nextAccountId: String,
+    nextAccountId: String?,
     callback: (Boolean?, MBridgeError?) -> Unit
 ) {
-    AccountStore.updateActiveAccount(null)
+    if (nextAccountId != null)
+        AccountStore.updateActiveAccount(null)
     val quotedAccountId = JSONObject.quote(accountId)
-    val quotedNextAccountId = JSONObject.quote(nextAccountId)
-    val newestActivitiesTimestampBySlug = WGlobalStorage.getNewestActivitiesBySlug(nextAccountId)
+    val quotedNextAccountId = nextAccountId?.let { JSONObject.quote(nextAccountId) }
+    val newestActivitiesTimestampBySlug =
+        nextAccountId?.let { WGlobalStorage.getNewestActivitiesBySlug(nextAccountId) }
 
     bridge?.callApi(
         "removeAccount",
-        "[$quotedAccountId, $quotedNextAccountId, $newestActivitiesTimestampBySlug]"
+        nextAccountId?.let { "[$quotedAccountId, $quotedNextAccountId, $newestActivitiesTimestampBySlug]" }
+            ?: "[$quotedAccountId]"
     ) { result, error ->
         if (error != null || result == null) {
             callback(null, error)

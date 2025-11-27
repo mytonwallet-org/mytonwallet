@@ -42,7 +42,11 @@ public class WalletTokensView: UITableView, WSegmentedControllerContent, WThemed
     private var allTokensCount = 0
     private var placeholderCount = 4
     
+    var accountId: String = ""
+    
     private var _dataSource: UITableViewDiffableDataSource<Section, Item>!
+    
+    private let queue = DispatchQueue(label: "WalletTokensView", qos: .userInitiated)
     
     private var shouldShowSeeAll: Bool {
         if let walletTokens {
@@ -67,7 +71,6 @@ public class WalletTokensView: UITableView, WSegmentedControllerContent, WThemed
         backgroundColor = .clear
         delegate = self
         if compactMode {
-            showsVerticalScrollIndicator = false
             bounces = false
             isScrollEnabled = false
         }
@@ -76,6 +79,8 @@ public class WalletTokensView: UITableView, WSegmentedControllerContent, WThemed
         register(ActivityCell.self, forCellReuseIdentifier: "Placeholder")
         register(WalletSeeAllCell.self, forCellReuseIdentifier: "SeeAll")
         delaysContentTouches = false
+        showsVerticalScrollIndicator = false
+        contentInsetAdjustmentBehavior = .scrollableAxes
         
         _dataSource = makeDataSource()
         _dataSource.defaultRowAnimation = .fade
@@ -91,7 +96,7 @@ public class WalletTokensView: UITableView, WSegmentedControllerContent, WThemed
                     log.fault("inconsistent state")
                     return cell
                 }
-                let badgeContent = badgeContent(slug: slug, isStaking: walletToken.isStaking)
+                let badgeContent = badgeContent(accountId: accountId, slug: slug, isStaking: walletToken.isStaking)
                 
                 let walletTokensCount = walletTokens?.count ?? 0
                 cell.configure(with: walletToken,
@@ -141,12 +146,9 @@ public class WalletTokensView: UITableView, WSegmentedControllerContent, WThemed
     private func applySnapshot(_ snapshot: NSDiffableDataSourceSnapshot<Section, Item>, animated: Bool, animatingDifferences: Bool) {
         var snapshot = snapshot
         snapshot.reconfigureItems(snapshot.itemIdentifiers(inSection: .main))
-        if animated && !animatingDifferences {
-            UIView.transition(with: self, duration: 0.2) { [self] in
-                _dataSource.apply(snapshot, animatingDifferences: false)
-            }
-        } else {
-            _dataSource.apply(snapshot, animatingDifferences: animated && animatingDifferences)
+        queue.async {
+//            self._dataSource.apply(snapshot, animatingDifferences: animated && animatingDifferences)
+            self._dataSource.apply(snapshot, animatingDifferences: false)
         }
     }
     
@@ -161,7 +163,7 @@ public class WalletTokensView: UITableView, WSegmentedControllerContent, WThemed
     func reloadStakeCells(animated: Bool) {
         for cell in visibleCells {
             if let cell = cell as? WalletTokenCell, let walletToken = cell.walletToken {
-                let badgeContent = badgeContent(slug: walletToken.tokenSlug, isStaking: walletToken.isStaking)
+                let badgeContent = badgeContent(accountId: accountId, slug: walletToken.tokenSlug, isStaking: walletToken.isStaking)
                 cell.configureBadge(badgeContent: badgeContent)
             }
         }
@@ -170,12 +172,8 @@ public class WalletTokensView: UITableView, WSegmentedControllerContent, WThemed
     internal func reconfigureAllRows(animated: Bool) {
         var snapshot = _dataSource.snapshot()
         snapshot.reconfigureItems(snapshot.itemIdentifiers(inSection: .main))
-        if animated {
-            _dataSource.apply(snapshot)
-        } else {
-            UIView.performWithoutAnimation {
-                _dataSource.apply(snapshot)
-            }
+        queue.async {
+            self._dataSource.apply(snapshot, animatingDifferences: animated)
         }
     }
     

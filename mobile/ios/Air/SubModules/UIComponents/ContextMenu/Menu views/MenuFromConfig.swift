@@ -176,7 +176,7 @@ public struct MenuViewFromConfig: View {
 
 @available(iOS 18, *)
 #Preview {
-    @Previewable @StateObject var menuContext = MenuContext()
+    @Previewable @State var menuContext = MenuContext()
     
     MenuViewFromConfig(menuConfig: MenuConfig(menuItems: [
         MenuItem.button(id: "0-0", title: "Item 0000", action: {}, reportWidth: true),
@@ -194,6 +194,6 @@ public struct MenuViewFromConfig: View {
 //        MenuItem.button(id: "0-10", title: "Item 10"),
     ]), width: 200)
         .environment(\.containerSize, CGSize(width: 300, height: 500))
-        .environmentObject(menuContext)
+        .environment(menuContext)
         .padding()
 }

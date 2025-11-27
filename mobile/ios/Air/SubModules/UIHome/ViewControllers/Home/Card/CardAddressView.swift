@@ -44,7 +44,7 @@ struct _CardAddressView: View {
     
     var account: MAccount { viewModel.account }
     
-    @StateObject private var menuContext = MenuContext()
+    @State private var menuContext = MenuContext()
     
     var preferrsDarkText: Bool { viewModel.nft?.metadata?.mtwCardTextType == .dark }
     

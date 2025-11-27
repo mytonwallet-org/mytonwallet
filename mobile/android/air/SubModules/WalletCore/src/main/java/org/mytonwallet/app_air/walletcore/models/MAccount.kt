@@ -19,6 +19,12 @@ class MAccount(
     var importedAt: Long?,
 ) {
 
+    override fun equals(other: Any?): Boolean {
+        return other is MAccount && other.accountId == this.accountId
+    }
+
+    override fun hashCode(): Int = accountId.hashCode()
+
     @JsonClass(generateAdapter = true)
     data class AccountChain(
         val address: String,
@@ -36,15 +42,6 @@ class MAccount(
         companion object {
             fun fromValue(value: String): AccountType? = entries.find { it.value == value }
         }
-
-        val badge: String?
-            get() {
-                return when (this) {
-                    MNEMONIC -> null
-                    HARDWARE -> "LEDGER"
-                    VIEW -> "VIEW"
-                }
-            }
     }
 
     val isViewOnly: Boolean
@@ -160,5 +157,15 @@ class MAccount(
                 return@filter token.priceUsd *
                     it.value.doubleAbsRepresentation(token.decimals) >= 0.01
             }.isEmpty()
+        }
+
+    val isMainnet: Boolean
+        get() {
+            return accountId.endsWith("mainnet")
+        }
+
+    val firstChain: MBlockchain?
+        get() {
+            return MBlockchain.supportedChains.firstOrNull { addressByChain.contains(it.name) }
         }
 }

@@ -6,6 +6,7 @@ import type { Account, UserToken } from '../../../../global/types';
 
 import {
   selectAccountStakingStates,
+  selectCurrentAccountId,
   selectCurrentAccountTokens,
   selectNetworkAccounts,
 } from '../../../../global/selectors';
@@ -128,9 +129,8 @@ export default memo(withGlobal<OwnProps>(
     } = global;
 
     const accounts = selectNetworkAccounts(global);
-    const currentAccountId = global.currentAccountId!;
+    const currentAccountId = selectCurrentAccountId(global)!;
     const currentAccount = accounts?.[currentAccountId];
-
     const stakingStates = selectAccountStakingStates(global, currentAccountId);
 
     return {
@@ -142,5 +142,5 @@ export default memo(withGlobal<OwnProps>(
       isSensitiveDataHidden,
     };
   },
-  (global, _, stickToFirst) => stickToFirst(global.currentAccountId),
+  (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),
 )(AccountSelector));

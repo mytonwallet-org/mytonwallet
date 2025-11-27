@@ -47,7 +47,7 @@ public class ChangePasscodeVC: WViewController {
         let title: String
         switch step {
         case .currentPasscode:
-            title = lang("Enter your current passcode")
+            title = lang("Enter your current password")
             addCloseToNavBar()
             break
         case .newPasscode(_):

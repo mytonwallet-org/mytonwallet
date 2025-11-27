@@ -6,6 +6,7 @@ import type { Account, AccountSettings, GlobalState } from '../../../../global/t
 import type { TabWithProperties } from '../../../ui/TabList';
 
 import {
+  selectCurrentAccountId,
   selectMultipleAccountsStakingStatesSlow,
   selectMultipleAccountsTokensSlow,
   selectNetworkAccounts,
@@ -454,7 +455,7 @@ export default memo(withGlobal(
     } = global;
 
     const orderedAccounts = selectOrderedAccounts(global);
-    const currentAccountId = global.currentAccountId!;
+    const currentAccountId = selectCurrentAccountId(global)!;
     const networkAccounts = selectNetworkAccounts(global);
 
     return {
@@ -476,5 +477,5 @@ export default memo(withGlobal(
       isTestnet,
     };
   },
-  (global, _, stickToFirst) => stickToFirst(global.currentAccountId),
+  (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),
 )(AccountSelectorModal));

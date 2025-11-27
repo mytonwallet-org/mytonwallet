@@ -36,14 +36,14 @@ $mnemonic_warning: |
   不要发送或向任何人展示，
   不要在任何地方输入。
 View Secret Words: 查看密语
-View TON Private Key: 查看TON私钥
-Can be imported to non-multichain wallets for TON.: 可以导入到不支持多链的TON钱包。
-Can be imported to any multichain wallet supporting TON.: 可以导入到任何支持TON的多链钱包。
+View %chain% Private Key: 查看%chain%私钥
+Can be imported to non-multichain wallets for %chain%.: 可以导入到不支持多链的%chain%钱包。
+Can be imported to any multichain wallet supporting %chain%.: 可以导入到任何支持%chain%的多链钱包。
 Let's Check: 再确认一次。
 Let's Check!: 请再确认一次！
 Safety Rules: 安全守则
 $safety_rules_private_key_one: |
-  在下一个屏幕中，您将看到**TON 私钥**。请正确保存并存放在**安全的地方**。
+  在下一个屏幕中，您将看到 **%chain% 私钥**。请正确保存并存放在**安全的地方**。
 $safety_rules_private_key_two: 如果您忘记密码或无法访问此设备，它可以让您**打开钱包**。
 $safety_rules_private_key_three: 如果其他人看到此私钥，您的资金可能会**被盗**。**不要发送或显示给任何人**，包括开发者或技术支持。
 $safety_rules_one: |
@@ -96,7 +96,6 @@ Are you sure you want to remove this address from your saved ones?: 您确定要
 You will be able to save it again via Transaction Info with this address.: 您也可以通过交易记录再次保存此地址。
 Address removed from saved: 地址已从列表中删除
 Warning!: 警告！
-Log Out: 退出登录
 $logout_without_backup_warning: 您尚未备份钱包！如果您注销，您将永远丧失您的代币和 NFT ！
 $logout_accounts_without_backup_warning: 您还没有备份此账户 %links%。 如果您注销，您将永远丧失您的代币和 NFT ！
 $logout_warning: 这将从应用中移除当前钱包。请确保已备份您的**密语**。
@@ -141,7 +140,7 @@ Address was copied!: 地址已被复制!
 Repeat: 重复
 Switch Account: 切换账户
 Copy wallet address: 复制钱包地址
-View address on %ton_explorer_name%: 在 %ton_explorer_name% 上查看此地址
+View address on %explorer_name%: 在 %explorer_name% 上查看此地址
 You have just created a new wallet: 您刚刚创建了一个新钱包
 You can now transfer your tokens from another wallet or exchange.: 您现在可以从另一个钱包或交易所转移您的代币
 Assets: 资产
@@ -199,7 +198,6 @@ No suggestions, you're on your own!: 没有建议，请靠自己！
 Play Sounds: 播放声音
 Focus on asset value rather than current balance: 关注资产价值而非当前余额。
 $logout_confirm: 登出**所有**钱包
-$logout_warning2: 钱包位于去中心化的 TON 区块链中。如果您只是想弃用钱包，只需将所有TON转移出去即可。
 $tiny_transfers_help: 关闭此功能以显示少于 $%value% 的交易。 请注意，此类交易通常用于垃圾信息和诈骗目的。
 Today: 今天
 Yesterday: 昨天
@@ -215,7 +213,7 @@ Earn from your tokens while holding them: 从您持有的代币身上赚一笔�
 Why this is safe: 为什么这很安全
 Why is staking safe?: 为什么质押是安全的？
 $safe_staking_description1: TON 质押是**完全去中心化的**，由官方 TON Liquid Staking 智能合约运营。
-$safe_staking_description2: 作为其 **权益证明** 的一部分，您存入的 TON 将用于 TON 区块网络验证。
+$safe_staking_description2: 作为其 **权益证明** 的一部分，您存入的 TON 将用于 %chain% 区块网络验证。
 $safe_staking_description3: 您可以在 **任何时候** 解除您 TON 的质押，它会在 **36小时** 内存入您的账户。
 $safe_staking_description_jetton1: 代币质押是 **完全去中心化的**，由 %jvault_link% 开发的 **开源** 智能合约操作，并已通过 **安全审计**。
 $safe_staking_description_jetton2: 您可以在 **任何时候** 提取您的质押，并会 **立即** 存入您的账户。
@@ -258,14 +256,12 @@ Earning: 赚取中
 You can save this address for quick access while sending.: 您可以保存此地址以便在发送时快速访问。
 Stake Again: 再次质押
 Earned: 获得
-Connect Dapp: 连接Dapp
 Select wallet to use on this dapp: 选择在此 dapp 上使用的钱包
 Connect: 连接
 Dapp Permissions: Dapp 权限
 $dapp_can_view_balance: "%dappname% 将能够查看钱包地址和余额。"
-Send Transaction: 发送交易
 Payload: 有效载荷
-$many_transactions: "%1$d 笔交易"
+$many_transactions: "%1$d 笔转账"
 Total Amount: 总金额
 $unstaking_short: 解除质押
 Handle ton:// links: 处理 ton:// 链接
@@ -474,6 +470,7 @@ Scan your fingerprint: 扫描您的指纹
 Incorrect code, please try again.: 不正确的代码，请重试。
 Correct: 正确
 Confirm Action: 确认操作
+$classic_confirm_actions: 确认所有操作
 Confirm Swap: 确认兑换
 Confirm Rewards Claim: 确认奖励提取
 "%amount% to %address%": "%amount% 至 %address%"
@@ -499,7 +496,7 @@ $all_balance: "全部: %balance%"
 $unstaking_not_enough_balance: 您需要在主要余额中有 %value% 才能继续解押。
 $ledger_verify_address_on_device: 请验证您的 Ledger 上的地址。
 Wallet Versions: 钱包版本
-$read_more_about_wallet_version: 在%ton_link%上阅读更多关于钱包合约类型的信息。
+$read_more_about_wallet_version: 在%link%上阅读更多关于钱包合约类型的信息。
 $current_wallet_version: 您当前的钱包版本是%version%。
 You have tokens on other versions of your wallet. You can import them from here.: 您在钱包的其他版本上有代币。您可以从这里导入它们。
 $wallet_switch_version_1: 您也可以%action%。
@@ -530,7 +527,7 @@ $dapp_token_bridge_pay_swap_payload: 通过跨链桥确认交易
 $dapp_liquid_staking_deposit_payload: 存款到流动质押
 $dapp_liquid_staking_vote_payload: 对提案 %votingAddress% 投票“%vote%”
 $dapp_single_nominator_change_validator_payload: 将 SingleNominator 质押合约验证者的地址更改为 %address%
-$dapp_single_nominator_withdraw_payload: 从 SingleNominator 质押合约中提取 %amount% TON
+$dapp_single_nominator_withdraw_payload: 从 SingleNominator 质押合约中提取 %amount%
 $dapp_vesting_add_whitelist_payload: 将 %address% 添加到归属钱包白名单
 Connecting dapps is not yet supported by Ledger.: Ledger 尚不支持连接 dapp。
 Time synchronization issue. Please ensure your device's time settings are correct.: 时间同步问题。 请确保您设备的时间设置正确。
@@ -538,13 +535,13 @@ Data was copied!: 数据被复制！
 Open NFT Collection: 打开 NFT 收藏
 Previous: 上一页
 Next: 下一页
-Insufficient TON for fee.: TON 不足以支付费用。
+Insufficient %token% for fee.: "%token% 不足以支付费用。"
 Send NFT: 发送 NFT
 NFT has been sent!: NFT已发送！
 Cannot be sent: 无法发送
 NFT is for sale: NFT 正在出售
 More actions: 更多操作
-Open on %ton_explorer_name%: 在 %ton_explorer_name% 上打开
+Open on %explorer_name%: 在 %explorer_name% 上打开
 Swap is not supported in Testnet.: 测试网不支持共享。
 Swap is not yet supported by Ledger.: Ledger 尚不支持该交易所。
 Buying with card is not supported in Testnet.: 测试网不支持刷卡购买。
@@ -574,6 +571,7 @@ Send All: 全部发送
 Burn All: 全部烧掉
 Select All: 全选
 Collection: 集合
+Unnamed Collection: 未命名集合
 Transaction ID was copied!: 交易ID已被复制！
 $swap_changelly_support: 如果有任何问题，请联系%livechat%或%email%并提供**交易ID**：
 Changelly Live Chat: Changelly 实时聊天
@@ -644,7 +642,7 @@ Multichain: 多链
 $swap_too_small_amount: 金额太小
 Not enough %symbol%: "%symbol% 不足"
 You have just created a new multichain wallet: 您刚刚创建了一个新的多链钱包
-Now you can transfer tokens from your TON and TRON wallets.: 现在您可以从您的 TON 和 TRON 钱包中转移代币。
+Now you can transfer tokens from your %chains% wallets.: 现在您可以从您的 %chains% 钱包中转移代币。
 Enter Secret Words: 输入密语
 Turn this off so you can manually download updates and verify signatures.: 关闭此功能以便手动下载更新并验证签名。
 InvalidMnemonic: 您的助记词无效
@@ -794,10 +792,10 @@ View Any Address: 查看任意地址
 12/24 Secret Words: 12/24个助记词
 24 Secret Words: 24个助记词
 Wallet Address or Domain: 钱包地址或域名
-$import_view_account_note: 输入TON或TRON网络上的**任意地址**以**查看模式**打开。
+$import_view_account_note: 输入 %chains% 网络上的**任意地址**以**查看模式**打开。
 $view_mode: 查看
 Import Wallet: 导入钱包
-Please top up your TON balance.: 请充值您的TON余额。
+Please top up your %token% balance.: 请充值您的%token%余额。
 Remember Passcode: 记住验证码
 Remember Password: 记住密码
 Not available with biometrics.: 生物识别不可用。
@@ -806,8 +804,10 @@ Remember for %1$d minutes: 记住 %1$d 分钟
 Preview: 预览
 $preview_not_guaranteed: 预览结果**不受保证**，且**可能被服务伪造**。
 Unverified Source: 未经验证的来源
-$reopen_in_iab: 为了您的安全，请在%browserButton%中重新打开此DApp。
+$reopen_in_iab: 请使用 MyTonWallet %mobileAppButton% 或 %browserExtensionButton% 以避免此警告。
 MyTonWallet Browser: MyTonWallet 浏览器
+mobile app: 移动应用
+browser extension: 浏览器扩展
 Exit all wallets: 退出所有钱包
 Can't confirm?: 无法登录？
 $safe_staking_ethena_description1: 质押完全去中心化，由**Ethena官方**审计的流动性质押**智能合约**运营。
@@ -976,13 +976,34 @@ No Ledger wallets yet: 尚无 Ledger 钱包
 No view wallets yet: 尚无查看钱包
 Add the first one to track balances and activity for any address.: 添加第一个钱包以跟踪任何地址的余额和活动。
 Customize Wallet: 自定义钱包
-'Select the card stored in this wallet:': '选择此钱包中存储的卡片：'
+"Select the card stored in this wallet:": 选择此钱包中存储的卡片：
 This card will be installed for this wallet and will be displayed on the home screen and in the wallets list.: 该卡片将安装到此钱包中，并显示在主屏幕和钱包列表中。
 Get More Cards: 获取更多卡片
 Browse MyTonWallet Cards available for purchase.: 浏览可购买的 MyTonWallet 卡片。
-Apply Card: 应用卡片
 You don't have any cards to customize yet: 您还没有可自定义的卡片。
 MyTonWallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: MyTonWallet 卡片可以安装到钱包中，并显示在主屏幕和钱包列表中。
 Get First Card: 获取第一张卡片
 Palette and Card: 调色板与卡片
 Customize the wallet's home screen and color accents the way you like.: 按照您的喜好自定义钱包主屏幕和颜色。
+Address doesn't exist: 地址不存在
+The address is not a token minter address: 该地址不是代币铸造者地址
+$joining_comma: 、
+$joining_and: " 和 "
+$joining_or: " 或 "
+View in App: 在应用中查看
+Save Account: 保存账户
+$invalid_address_format: 地址格式无效
+$no_valid_view_addresses: 没有可查看的有效地址
+Account saved successfully!: 账户已成功保存！
+Share Wallet Link: 分享钱包链接
+Remove: 移除
+$missing_offramp_deposit_address: 缺少 off-ramp 的充值地址。
+Buy: 购买
+Sell: 出售
+Sell on Card: 出售到卡
+$connect_dapp_description: 已连接的应用只能看到你的钱包地址，未经你的许可无法转移你的资产。
+$connect_dapp_title: 连接到 %name%？
+Choose Wallet: 选择钱包
+Wallet to use on %host%: 用于 %host% 的钱包
+Selected Wallet: 已选钱包
+Connect Wallet: 连接钱包

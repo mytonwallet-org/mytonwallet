@@ -62,13 +62,13 @@ extension HomeVC {
             let top = tableView.contentInset.top
             tableView.contentInset.top = 0
             // Check if header is visible, and prevent jump glitch.
-            if tableView.contentOffset.y > 0, tableView.visibleCells.contains(where: { cell in
-                cell.tag == 123
-            }) {
-                tableView.contentOffset.y += top
-            }
+//            if tableView.contentOffset.y > 0, tableView.visibleCells.contains(where: { cell in
+//                cell.tag == 123
+//            }) {
+//                tableView.contentOffset.y += top
+//            }
             UIView.performWithoutAnimation {
-                actionsTopConstraint.constant = headerHeightWithoutAssets + (actionsHeight > 0 ? 0 : -76)
+                actionsTopConstraint.constant = headerHeightWithoutAssets + (actionsHeight > 0 ? 0 : -(actionsRowHeight + 16))
                 self.applySnapshot(self.makeSnapshot(), animated: false)
                 tableView.layoutIfNeeded()
             }

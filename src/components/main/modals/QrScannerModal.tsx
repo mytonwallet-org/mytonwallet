@@ -1,5 +1,5 @@
 import type { StartScanOptions } from '@capacitor-mlkit/barcode-scanning';
-import { BarcodeFormat, BarcodeScanner } from '@capacitor-mlkit/barcode-scanning';
+import { BarcodeFormat, BarcodeScanner, Resolution } from '@capacitor-mlkit/barcode-scanning';
 import React, { memo, useRef, useState } from '../../../lib/teact/teact';
 import { addExtraClass, removeExtraClass } from '../../../lib/teact/teact-dom';
 import { getActions } from '../../../global';
@@ -62,6 +62,7 @@ function QrScannerModal({ isOpen, onClose }: OwnProps) {
   const startScan = useLastCallback(async () => {
     const options: StartScanOptions = {
       formats: [BarcodeFormat.QrCode],
+      resolution: Resolution['3840x2160'],
     };
 
     const scanAreaCoordinates = getDomNodeDimensions(scanSquareRef.current);

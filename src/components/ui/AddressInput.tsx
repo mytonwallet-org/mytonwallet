@@ -13,14 +13,15 @@ import type { Account, SavedAddress } from '../../global/types';
 
 import {
   selectCurrentAccount,
+  selectCurrentAccountId,
   selectCurrentAccountState,
   selectNetworkAccounts,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { readClipboardContent } from '../../util/clipboard';
-import { isDnsDomain } from '../../util/dns';
+import { isTonChainDns } from '../../util/dns';
 import { getLocalAddressName } from '../../util/getLocalAddressName';
-import { isValidAddressOrDomain } from '../../util/isValidAddressOrDomain';
+import { isValidAddressOrDomain } from '../../util/isValidAddress';
 import { shortenAddress } from '../../util/shortenAddress';
 import {
   getIsMobileTelegramApp,
@@ -61,7 +62,7 @@ interface OwnProps {
   addressName: string;
   addressBookChain?: ApiChain;
   savedAddresses?: SavedAddress[];
-  validateAddress?: ({ address }: { address?: string }) => void;
+  validateAddress?: ({ address }: { address?: string; chain?: ApiChain }) => void;
   error?: string;
   onInput: (value: string, isValueReplaced?: boolean) => void;
   onPaste?: (value: string) => void;
@@ -241,7 +242,7 @@ function AddressInput({
     if (!validateAddress) return;
 
     if ((address && chain && isValidAddressOrDomain(address, chain)) || !address) {
-      validateAddress({ address });
+      validateAddress({ address, chain });
     }
   });
 
@@ -269,7 +270,7 @@ function AddressInput({
     }
 
     let addressToCheck = value;
-    if (isDnsDomain(value) && value !== value.toLowerCase()) {
+    if (isTonChainDns(value) && value !== value.toLowerCase()) {
       addressToCheck = value.toLowerCase().trim();
       onInput(addressToCheck);
     } else if (value !== value.trim()) {
@@ -406,6 +407,7 @@ function AddressInput({
 }
 
 export default memo(withGlobal<OwnProps>((global): StateProps => {
+  const currentAccountId = selectCurrentAccountId(global);
   const account = selectCurrentAccount(global);
   const accountState = selectCurrentAccountState(global);
 
@@ -413,7 +415,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     savedAddresses: accountState?.savedAddresses,
     supportedChains: account?.byChain,
     accounts: selectNetworkAccounts(global),
-    currentAccountId: global.currentAccountId,
+    currentAccountId,
     orderedAccountIds: global.settings.orderedAccountIds,
   };
 })(AddressInput));

@@ -8,7 +8,7 @@ public struct TappableTransactionId: View {
     var chain: ApiChain
     var txId: String
     
-    @StateObject private var menuContext = MenuContext()
+    @State private var menuContext = MenuContext()
     @State private var hover = false
     
     public init(chain: ApiChain, txId: String) {
@@ -57,7 +57,7 @@ public struct ChangellyTransactionId: View {
     
     var id: String
     
-    @StateObject private var menuContext = MenuContext()
+    @State private var menuContext = MenuContext()
     @State private var hover = false
     
     public init(id: String) {

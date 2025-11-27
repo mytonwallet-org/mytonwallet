@@ -18,8 +18,7 @@ public class CrossChainSwapVC: WViewController {
     var crossChainSwapVM: CrossChainSwapVM!
     
     public convenience init(transaction: ApiActivity) {
-        let swapType: SwapType = (transaction.swap?.fromToken?.isOnChain == false) ? .crossChainToTon :
-            ((transaction.swap?.toToken?.isOnChain == false) ? .crossChainFromTon : .inChain)
+        let swapType = transaction.swap?.swapType ?? .crosschainToWallet
 
         self.init(sellingToken: (transaction.swap?.fromToken, transaction.swap?.fromAmountInt64 ?? 0),
                   buyingToken: (transaction.swap?.toToken, transaction.swap?.toAmountInt64 ?? 0),
@@ -77,10 +76,10 @@ public class CrossChainSwapVC: WViewController {
     private func setupViews() {
         navigationItem.hidesBackButton = true
 
-        title = crossChainSwapVM.swapType == .crossChainToTon ? lang("Swapping") : lang("Swap") 
-        let subtitle: String? = crossChainSwapVM.swapType == .crossChainToTon ? lang("Waiting for Payment").lowercased() : nil
+        title = crossChainSwapVM.swapType == .crosschainToWallet ? lang("Swapping") : lang("Swap") 
+        let subtitle: String? = crossChainSwapVM.swapType == .crosschainToWallet ? lang("Waiting for Payment").lowercased() : nil
         addNavigationBar(
-            centerYOffset: crossChainSwapVM.swapType == .crossChainToTon ? 0 : 1,
+            centerYOffset: crossChainSwapVM.swapType == .crosschainToWallet ? 0 : 1,
             title: title,
             subtitle: subtitle,
             closeIcon: true
@@ -135,15 +134,14 @@ public class CrossChainSwapVC: WViewController {
         
         // MARK: CrossChain FromTon View
         switch crossChainSwapVM.swapType {
-        case .crossChainFromTon:
+        case .onChain, .crosschainInsideWallet:
+            break
+            
+        case .crosschainFromWallet:
             crossChainFromTonView = CrossChainFromTonView(buyingToken: crossChainSwapVM.buyingToken.0!,
                                                           onAddressChanged: { [weak self] address in
-                guard let self else {return}
+                guard let self else { return }
                 crossChainSwapVM.addressInputString = address
-                let swapText = WStrings.Swap_ConfirmSubtitle_Text(from: crossChainSwapVM.sellingToken.0?.name ?? "",
-                                                                  to: crossChainSwapVM.buyingToken.0?.name ?? "")
-                continueButton.setTitle(address.isEmpty ? lang("Enter Receiving Address") : swapText,
-                                        for: .normal)
                 continueButton.isEnabled = !address.isEmpty
             })
             scrollView.addSubview(crossChainFromTonView!)
@@ -156,7 +154,7 @@ public class CrossChainSwapVC: WViewController {
             // MARK: Continue button
             continueButton.translatesAutoresizingMaskIntoConstraints = false
             continueButton.isEnabled = false
-            continueButton.setTitle(lang("Enter Receiving Address"), for: .normal)
+            continueButton.configureTitle(sellingToken: crossChainSwapVM.sellingToken.0!, buyingToken: crossChainSwapVM.buyingToken.0!)
             continueButton.addTarget(self, action: #selector(continuePressed), for: .touchUpInside)
             
             mainContainerView.addSubview(continueButton)
@@ -167,7 +165,7 @@ public class CrossChainSwapVC: WViewController {
                 continueButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16)
             ])
 
-        case .crossChainToTon:
+        case .crosschainToWallet:
             let toTonVC = UIHostingController(rootView: CrossChainToTonView(
                 sellingToken: crossChainSwapVM.sellingToken.0!,
                 amount: crossChainSwapVM.sellingToken.1.doubleAbsRepresentation(decimals: crossChainSwapVM.sellingToken.0?.decimals),
@@ -189,9 +187,6 @@ public class CrossChainSwapVC: WViewController {
                 toTonView.bottomAnchor.constraint(lessThanOrEqualTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -16)
             ])
             toTonVC.didMove(toParent: self)
-            
-        default:
-            break
         }
         
         bringNavigationBarToFront()

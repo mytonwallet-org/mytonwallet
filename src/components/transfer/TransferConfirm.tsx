@@ -16,7 +16,7 @@ import {
   TONCOIN,
 } from '../../config';
 import renderText from '../../global/helpers/renderText';
-import { selectNetworkAccounts } from '../../global/selectors';
+import { selectCurrentAccountId, selectNetworkAccounts } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { toDecimal } from '../../util/decimals';
 import { explainApiTransferFee } from '../../util/fee/transferFee';
@@ -294,7 +294,7 @@ function TransferConfirm({
 
 export default memo(withGlobal<OwnProps>((global): StateProps => {
   return {
-    currentAccountId: global.currentAccountId!,
+    currentAccountId: selectCurrentAccountId(global)!,
     currentTransfer: global.currentTransfer,
     accounts: selectNetworkAccounts(global),
   };

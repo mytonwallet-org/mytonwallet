@@ -170,10 +170,6 @@ func makeMigrator() -> DatabaseMigrator {
         for newAccount in newAccounts {
             try newAccount.update(db)
         }
-        #if DEBUG
-//        let accounts = try! MAccount.fetchAll(db)
-//        print(accounts)
-        #endif
     }
     return migrator
 }

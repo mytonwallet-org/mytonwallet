@@ -1,0 +1,304 @@
+More: Більше
+at: о
+MyTonWallet: MyTonWallet
+MyTonWallet Resources: Ресурси MyTonWallet
+I agree to %term%: Погоджуюся з %term%
+See Words: Переглянути слова
+Wrong Phrase: Неправильна фраза
+Permission Denied: Доступ заборонено
+USB: USB
+Bluetooth: Bluetooth
+Locked: Заблоковано
+Enter Passcode: Введіть код
+Enter passcode or use fingerprint: Введіть код або використайте відбиток пальця
+Use PIN: Використати PIN
+Try again in %1$@: Спробуйте знову за %1$@
+Try again in %1$@ and %2$@: Спробуйте знову за %1$@ та %2$@
+Screen Recording Detected: Виявлено запис екрана
+$screen_recording_info: |
+  Ви зараз записуєте екран.
+  На ньому може бути конфіденційна інформація.
+  Переконайтеся, що ви розумієте, що буде оприлюднено.
+I Understand, Proceed: Розумію, продовжити
+Waiting for Network: Очікування мережі
+Updating: Оновлення
+My Wallet: Мій гаманець
+$no_activity_history: |
+  Історія операцій у цьому гаманці
+  поки що порожня.
+Standalone: Окремий
+Processing Excess: Оброблення надлишку
+Bidding Auction: Ставка на аукціоні
+"Enter wallet name:": "Введіть назву гаманця:"
+All Telegram Gifts: Усі подарунки Telegram
+Add Crypto: Додати криптовалюту
+Share QR Code: Поділитися QR-кодом
+$send_only_ton: Надсилайте на цю адресу лише Toncoin (TON) або активи мережі TON. Надсилання інших токенів призведе до їх втрати.
+$send_only_tron: Надсилайте на цю адресу лише TRON (TRX) або активи мережі TRON. Надсилання інших токенів призведе до їх втрати.
+Buying with card is not supported for this account.: Придбання карткою не підтримується для цього облікового запису.
+Swapped at: Обмін виконано о
+Price per: Ціна за
+Transaction Details: Деталі транзакції
+From: Від
+To: Кому
+Changelly ID: ID Changelly
+Copy Changelly ID: Скопіювати ID Changelly
+Changelly ID Copied!: ID Changelly скопійовано!
+from: від
+to: до
+Currency: Валюта
+Choose Currency to Send: Виберіть валюту для надсилання
+Send to: Надіслати на
+Add a message, if needed: Додайте повідомлення за потреби
+Sending To: Надсилаємо на
+Show All Collectibles: Показати всі колекційні активи
+You have no NFT in this wallet yet: |
+  У цьому гаманці ще немає
+  NFT.
+Collapse: Згорнути
+Standalone NFT: Окремий NFT
+Linked Address: Пов’язана адреса
+Enter Address: Введіть адресу
+Show All Assets: Показати всі активи
+Price: Ціна
+D: Д
+W: Т
+M: М
+3M: 3М
+Y: Р
+No price data: Немає даних про ціну
+Happening Now: Актуальне
+No Dapps Found!: dApp не знайдено!
+Open: Відкрити
+Edit Wallet Name: Змінити назву гаманця
+Add Account: Додати обліковий запис
+Questions and Answers: Питання та відповіді
+Wallet Name: Назва гаманця
+"MyTonWallet Air v%1$@ (%2$@)": "MyTonWallet Air v%1$@ (%2$@)"
+App Icon: Значок застосунку
+App Font: Шрифт застосунку
+Rounded Toolbars: Заокруглені панелі інструментів
+Side Gutters: Бічні відступи
+Tokens on Home Screen: Токени на головному екрані
+Current Wallet Version: Поточна версія гаманця
+Tokens on Other Versions: Токени в інших версіях
+Show Recovery Phrase: Показати фразу відновлення
+Passcode: Код
+Lock the app after: Блокувати застосунок через
+Never: Ніколи
+"%1$@ seconds": "%1$@ сек."
+"%1$@ minutes": "%1$@ хв"
+Unstake Request: Запит на вихід зі стейкінгу
+Add Stake: Додати до стейкінгу
+History: Історія
+Earn up to %1$@ per year from your tokens: Заробляйте до %1$@ на рік на своїх токенах
+Insufficient %1$@ Balance: Недостатньо %1$@ на балансі
+Instant Withdrawal: Миттєве виведення
+Instantly: Миттєво
+Up to %1$@: До %1$@
+up to %1$@: до %1$@
+Current APY: Поточний APY
+Est. earning per year: Орієнтовний річний дохід
+in: у
+Error: Помилка
+Network Error: Помилка мережі
+Buy: Купити
+Sell: Продати
+Enter Amount: Введіть суму
+"Swap %1$@ to %2$@": "Обміняти %1$@ на %2$@"
+"%1$@ to %2$@": "%1$@ на %2$@"
+"Max %1$@": "Макс. %1$@"
+"Authorize %1$@ fee": "Підтвердити комісію %1$@"
+Pending previous fee: Очікування попередньої комісії
+Cross-chain swap by %1$@: Міжланцюговий обмін через %1$@
+AML/KYC: AML/KYC
+Receive to: Отримати на
+Enter %1$@ address: Введіть адресу %1$@
+"Send %1$@ this address:": "Надіслати %1$@ на цю адресу:"
+Swap is not supported on this account.: Обмін не підтримується для цього облікового запису.
+"%1$@ will be returned": "%1$@ буде повернено"
+Connecting your wallet: З’єднання з гаманцем
+Action is not possible on a view-only wallet.: Дія недоступна в гаманці лише для перегляду.
+Logged in with MyTonWallet: Увійшли через MyTonWallet
+You have no apps connected to this wallet.: До цього гаманця не підключено застосунки.
+Asset: Актив
+Sent to: Надіслано на
+via %agg%: через %agg%
+Switch to Legacy Version: Перемкнутися на класичну версію
+Hide tab: Приховати вкладку
+Received from: Отримано від
+Your Recovery Phrase: Ваша фраза відновлення
+day:
+  zeroValue: "%1$d днів"
+  oneValue: "%1$d день"
+  fewValue: "%1$d дні"
+  manyValue: "%1$d днів"
+hour:
+  zeroValue: "%1$d годин"
+  oneValue: "%1$d година"
+  fewValue: "%1$d години"
+  manyValue: "%1$d годин"
+minute:
+  zeroValue: "%1$d хвилин"
+  oneValue: "%1$d хвилина"
+  fewValue: "%1$d хвилини"
+  manyValue: "%1$d хвилин"
+second:
+  zeroValue: "%1$d секунд"
+  oneValue: "%1$d секунда"
+  fewValue: "%1$d секунди"
+  manyValue: "%1$d секунд"
+transfer:
+  zeroValue: "%1$d переказів"
+  oneValue: "%1$d переказ"
+  fewValue: "%1$d перекази"
+  manyValue: "%1$d переказів"
+Confirm Actions:
+  zeroValue: "Підтвердити %1$d дій"
+  oneValue: Підтвердити дію
+  otherValue: Підтвердити дії
+"%lld transfer": "%lld переказ"
+"A ~ Z": "А ~ Я"
+"Accumulated rewards": "Накопичені винагороди"
+"Biometric authentication not available.": "Біометрична автентифікація недоступна."
+"Changelly Payment Address": "Платіжна адреса Changelly"
+"Choose Currency": "Виберіть валюту"
+"Choose Wallet": "Виберіть гаманець"
+"Choose Wallet to Use On": "Виберіть гаманець для використання"
+"Wallet to use on": "Гаманець для використання в"
+"Clipboard empty": "Буфер обміну порожній"
+"Confirm Connect": "Підтвердити підключення"
+"Connect Wallet": "Підключити гаманець"
+"Connected apps can only see your wallet address and will not be able to move your assets without permission.": "Підключені застосунки бачать лише адресу вашого гаманця і не можуть переміщати активи без дозволу."
+"Connect to %1$@?": "Підключитися до %1$@?"
+"Don’t show tokens on your account with value less than $0.01. You can also selectively enable and disable particular tokens using the list below.": "Не показуйте токени на вашому рахунку вартістю менше 0,01 $. Ви також можете вибірково вмикати та вимикати потрібні токени у списку нижче."
+"Don’t show transactions of less than $0.01. Such small transactions are often used for spam and scam.": "Не показуйте транзакції менше 0,01 $. Такі невеликі транзакції часто використовуються для спаму та шахрайства."
+"Enter passcode or use Touch ID": "Введіть код або використайте Touch ID"
+"Enter your Wallet Passcode": "Введіть код гаманця"
+"Estimated APY": "Розрахунковий APY"
+"Expired swap": "Обмін завершився"
+"Failed swap": "Обмін не вдався"
+"Import failed": "Імпорт не вдався"
+"Install Palette": "Встановити палітру"
+Ledger: Ledger
+"Main Currency": "Основна валюта"
+"Moving to staking balance": "Перенесення до балансу стейкінгу"
+"My assets": "Мої активи"
+MyTonWallet uses biometric authentication to unlock and authorize transactions: MyTonWallet використовує біометрію для розблокування та підтвердження транзакцій
+"Network error": "Помилка мережі"
+"No Camera Access": "Немає доступу до камери"
+"No transactions yet.": "Ще немає транзакцій."
+"Not all transactions were sent successfully.": "Не всі транзакції були надіслані успішно."
+OK: OK
+"Open Collection": "Відкрити колекцію"
+"Open in Explorer": "Відкрити в оглядачі"
+"Passcode changed": "Код змінено"
+"Please make sure your internet connection is working and try again.": "Переконайтеся, що з’єднання з інтернетом працює, і спробуйте ще раз."
+"Please set a passcode on your device, and then try to use biometric authentication.": "Установіть код на пристрої, а потім знову спробуйте використати біометрію."
+Please try again: Спробуйте ще раз
+"Please wait...": "Зачекайте..."
+Popular: Популярне
+"Preview is currently unavailable.": "Попередній перегляд зараз недоступний."
+Read-only account: Обліковий запис лише для перегляду
+Receiving address: Адреса для отримання
+Remove: Видалити
+"Request for unstaking": "Запит на виведення зі стейкінгу"
+"Save to Favorites": "Зберегти в обране"
+Set a passcode: Установіть код
+"Show All %1$@": "Показати всі %1$@"
+"Staking Details": "Деталі стейкінгу"
+"TON Wallet Versions": "Версії гаманця TON"
+"Tap to reveal": "Торкніться, щоб показати"
+"The current version of Ledger only supports English-language comments without special characters.": "Поточна версія Ledger підтримує лише англомовні коментарі без спеціальних символів."
+"The time on your device is incorrect, sync it and try again.": "Неправильний час на пристрої, синхронізуйте його та спробуйте ще раз."
+"There is no activity history for this wallet yet.": "Історія активності для цього гаманця ще відсутня."
+"This is how the TON Blockchain works.": "Так працює блокчейн TON."
+"This type of transaction is not yet supported by Ledger.": "Цей тип транзакції ще не підтримується Ledger."
+"Transaction to this smart contract is not yet supported by Ledger.": "Транзакції до цього смартконтракту ще не підтримуються Ledger."
+Transfer Details: Деталі переказу
+"Transferring NFT is not yet supported by Ledger.": "Передавання NFT ще не підтримується Ledger."
+Unavailable: Недоступно
+"Updating…": "Оновлення…"
+"Waiting for network…": "Очікування мережі…"
+Wallet is Locked: Гаманець заблоковано
+Warning: Попередження
+Wear: Надіти
+Your Address: Ваша адреса
+Passcodes don't match. Please try again.: Коди не збігаються. Спробуйте ще раз.
+Secret phrase was copied to clipboard: Фразу відновлення скопійовано до буфера обміну
+clipboard: буфер обміну
+screenshot: знімок екрана
+Copy Anyway: Копіювати все одно
+12 Words: 12 слів
+24 Words: 24 слова
+"Words don’t match, please try again.": "Слова не збігаються, спробуйте ще раз."
+Load 5 More Wallets: Завантажити ще 5 гаманців
+$n_wallets_selected:
+  zeroValue: "Вибрано %1$d"
+  oneValue: "Вибрано %1$d"
+  otherValue: "Вибрано %1$d"
+"Are you sure you want to unpin %tab%?": "Ви впевнені, що хочете відкріпити вкладку %tab%?"
+add: додати
+send: надіслати
+swap: обміняти
+earn: заробляти
+Actions: Дії
+$actions_description: Швидкий доступ до найпоширеніших дій.
+Rate: Курс
+$rate_description: Перегляд поточного курсу будь-якого вибраного токена.
+Rate with Chart: Курс із графіком
+$rate_with_chart_description: Перегляд поточного курсу та відстеження динаміки вибраного токена.
+Style: Стиль
+Neutral: Нейтральний
+Vivid: Яскравий
+Chart Period: Період графіка
+$period_all: Увесь час
+$period_day: 1 день
+$period_week: 1 тиждень
+$period_month: 1 місяць
+$period_3months: 3 місяці
+$period_year: 1 рік
+Token: Токен
+All Tokens: Усі токени
+Customize Widget: Налаштувати віджет
+$accumulated_rewards: Накопичені винагороди
+Recent Searches: Останні пошуки
+Clear All: Очистити все
+Suggestions: Пропозиції
+Popular and connected apps: Популярні та підключені застосунки
+Connected Dapp: Підключена dApp
+$ago: "%1$d тому"
+$visited_ago: "Відвідано: %1$d тому"
+Notifications are disabled: Сповіщення вимкнено
+Enable in Settings: Увімкніть у налаштуваннях
+Search in Google: Шукати в Google
+$remove_wallets:
+  zeroValue: "Видалити гаманець"
+  oneValue: "Видалити гаманець"
+  fewValue: "Видалити %1$d гаманці"
+  otherValue: "Видалити %1$d гаманців"
+Contract Initialization Data was copied!: Дані ініціалізації контракту скопійовано!
+Encryption is not possible. The recipient is not a wallet or has no outgoing transactions.: Шифрування неможливе. Одержувач не є гаманцем або не має вихідних транзакцій.
+just now: щойно
+"No": "Ні"
+Search: Пошук
+Show All Wallets: Показати всі гаманці
+Sign Out: Вийти
+State init supplied without message body: Ініціалізацію стану передано без тіла повідомлення
+Swap Failed: Обмін не виконано
+The wallet is ready: Гаманець готовий
+Unexpected error. Please let the support know.: Неочікувана помилка. Повідомте службу підтримки.
+Unlock it and open the TON App: Розблокуйте його та відкрийте застосунок TON
+Use 4-digit Passcode: Використати 4-значний код
+Use 6-digit Passcode: Використати 6-значний код
+You don’t have any cards to customize yet: У вас ще немає карток для налаштування
+Authorize %token% Fee: Підтвердити комісію %token%
+Awaiting Previous Fee: Очікування попередньої комісії
+Lock: Заблокувати
+MyTonWallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.: Картки MyTonWallet можна встановлювати для гаманців і показувати на головному екрані та у списку гаманців.
+Receive: Отримати
+Scan: Сканувати
+Search or enter address: Знайдіть або введіть адресу
+View as Grid: Показати у вигляді сітки
+$secret_words_warning: Зберігання слів у цифровому середовищі, зокрема **%1$d**, небезпечне. Переконайтеся, що фразу відновлення збережено в безпечному місці.
+

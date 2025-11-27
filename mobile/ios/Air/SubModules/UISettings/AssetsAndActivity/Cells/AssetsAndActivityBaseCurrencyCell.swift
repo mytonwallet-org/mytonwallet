@@ -35,7 +35,7 @@ class AssetsAndActivityBaseCurrencyCell: UITableViewCell {
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
         lbl.font = .systemFont(ofSize: 17)
-        lbl.text = TokenStore.baseCurrency?.rawValue
+        lbl.text = TokenStore.baseCurrency.rawValue
         return lbl
     }()
 

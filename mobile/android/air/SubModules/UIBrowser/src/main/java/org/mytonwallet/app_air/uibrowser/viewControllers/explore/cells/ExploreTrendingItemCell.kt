@@ -8,6 +8,7 @@ import android.text.TextUtils
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.widget.FrameLayout
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.image.Content
@@ -34,7 +35,7 @@ class ExploreTrendingItemCell(
         context,
         LayoutParams(
             if (site.extendedIcon.isNotBlank()) cellWidth * 2 else cellWidth,
-            cellWidth
+            cellWidth + 12.dp
         )
     ),
     WThemedView {
@@ -46,6 +47,11 @@ class ExploreTrendingItemCell(
                 site.extendedIcon.ifBlank { site.iconUrl ?: "" }
             )
         )
+    }
+
+    private val imageViewContainer = FrameLayout(context).apply {
+        id = generateViewId()
+        addView(imageView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
     }
 
     private val thumbImageView = WCustomImageView(context).apply {
@@ -86,7 +92,7 @@ class ExploreTrendingItemCell(
         fadeSide = WBlurryBackgroundView.Side.TOP,
         overrideBlurRadius = 30f
     ).apply {
-        setupWith(this@ExploreTrendingItemCell)
+        setupWith(imageViewContainer)
         setOverlayColor(WColor.Transparent, 130)
     }
 
@@ -123,11 +129,11 @@ class ExploreTrendingItemCell(
     }
 
     private val contentView = WView(context).apply {
-        addView(imageView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        addView(imageViewContainer, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         addView(bottomView, ViewGroup.LayoutParams(MATCH_PARENT, 80.dp))
 
         setConstraints {
-            allEdges(imageView)
+            allEdges(imageViewContainer)
             toCenterX(bottomView)
             toBottom(bottomView)
         }

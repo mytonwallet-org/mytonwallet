@@ -95,7 +95,7 @@ struct WordCheckView: View {
     var description: some View {
         let ids = model.tests.map { String($0.id + 1) }
         let line1 = lang("$check_words_description").replacingOccurrences(of: "\n", with: " ")
-        let line2 = lang("Please choose the correct words **%1$@**, **%2$@**, **%3$@**:", arg1: ids[0], arg2: ids[1], arg3: ids[2])
+        let line2 = lang("$mnemonic_check_words_list", arg1: ids.joined(separator: ", "))
         Text(LocalizedStringKey(line1 + "\n\n" + line2))
             .multilineTextAlignment(.center)
             .contentTransition(.numericText())
@@ -131,7 +131,7 @@ struct WordCheckView: View {
     @ViewBuilder
     var error: some View {
         if model.showTryAgain {
-            Text(lang("Words don’t match, please try again."))
+            Text(lang("$mnemonic_check_error"))
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.red)
                 .font(.system(size: 16, weight: .medium))

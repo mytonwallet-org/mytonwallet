@@ -333,7 +333,7 @@ class ConfirmNftVC(
             topToTop(
                 bottomReversedCornerViewUpsideDown,
                 confirmButton,
-                -20f - ViewConstants.BIG_RADIUS
+                -ViewConstants.GAP - ViewConstants.BIG_RADIUS
             )
             toBottom(bottomReversedCornerViewUpsideDown)
             toBottomPx(

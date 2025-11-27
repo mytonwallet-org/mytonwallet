@@ -191,7 +191,8 @@ class AirAsFrameworkApplication {
                     }
                 }
             }
-            val accountId = AccountStore.activeAccountId ?: WGlobalStorage.getActiveAccountId()
+            val accountId = WalletCore.nextAccountId ?: AccountStore.activeAccountId
+            ?: WGlobalStorage.getActiveAccountId()
             updateAccentColor(accountId)
         }
 

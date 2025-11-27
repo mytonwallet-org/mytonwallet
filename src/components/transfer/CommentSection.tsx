@@ -61,7 +61,6 @@ function CommentSection({
         items={dropdownItems}
         selectedValue={COMMENT_DROPDOWN_ITEMS[shouldEncrypt ? 1 : 0].value}
         theme="inherit"
-        disabled={chain === 'tron'}
         menuPositionX="left"
         shouldTranslateOptions
         onChange={handleCommentOptionsChange}
@@ -109,7 +108,6 @@ function CommentSection({
       placeholder={isCommentRequired ? lang('Required') : lang('Optional')}
       value={comment}
       isMultiline
-      isDisabled={chain === 'tron'}
       onInput={onCommentChange}
       isRequired={isCommentRequired}
     />

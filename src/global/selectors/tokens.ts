@@ -1,26 +1,31 @@
-import type { ApiBalanceBySlug, ApiBaseCurrency, ApiChain, ApiCurrencyRates } from '../../api/types';
+import type { ApiBalanceBySlug, ApiBaseCurrency, ApiChain, ApiCurrencyRates, ApiNetwork } from '../../api/types';
 import type { Account, AccountSettings, GlobalState, UserToken } from '../types';
 
 import {
-  DEFAULT_ENABLED_TOKEN_COUNT,
-  DEFAULT_ENABLED_TOKEN_SLUGS,
-  MYCOIN,
+  MYCOIN_MAINNET,
   MYCOIN_TESTNET,
   PRICELESS_TOKEN_HASHES,
   PRIORITY_TOKEN_SLUGS,
   TINY_TRANSFER_MAX_COST,
   TONCOIN,
 } from '../../config';
+import { parseAccountId } from '../../util/account';
 import { calculateTokenPrice } from '../../util/calculatePrice';
+import { getDefaultEnabledSlugs } from '../../util/chain';
 import { toBig } from '../../util/decimals';
 import memoize from '../../util/memoize';
 import { round } from '../../util/round';
 import withCache from '../../util/withCache';
-import { selectAccountSettings, selectAccountState, selectCurrentAccountState } from './accounts';
+import {
+  selectAccountSettings,
+  selectAccountState,
+  selectCurrentAccountId,
+  selectCurrentAccountState,
+} from './accounts';
 
-function getIsNewAccount(balancesBySlug: ApiBalanceBySlug, tokenInfo: GlobalState['tokenInfo']) {
+function getIsNewAccount(balancesBySlug: ApiBalanceBySlug, tokenInfo: GlobalState['tokenInfo'], network: ApiNetwork) {
   // Check if the number of balances equals the default token count
-  if (Object.keys(balancesBySlug).length !== DEFAULT_ENABLED_TOKEN_COUNT) {
+  if (Object.keys(balancesBySlug).length !== getDefaultEnabledSlugs(network).size) {
     return false;
   }
 
@@ -44,15 +49,16 @@ export const selectAccountTokensMemoizedFor = withCache((accountId: string) => m
   baseCurrency: ApiBaseCurrency,
   currencyRates: ApiCurrencyRates,
 ) => {
-  const isNewAccount = getIsNewAccount(balancesBySlug, tokenInfo);
+  const { network } = parseAccountId(accountId);
+  const isNewAccount = getIsNewAccount(balancesBySlug, tokenInfo, network);
 
   return Object
     .entries(balancesBySlug)
     .filter(([slug]) => (slug in tokenInfo.bySlug && !accountSettings.deletedSlugs?.includes(slug)))
-    .map(([slug, balance]) => {
+    .map(([slug, balance]): UserToken => {
       const {
         symbol, name, image, decimals, cmcSlug, color, chain, tokenAddress, codeHash,
-        type, percentChange24h = 0, priceUsd,
+        type, label, percentChange24h = 0, priceUsd,
       } = tokenInfo.bySlug[slug];
 
       const price = calculateTokenPrice(priceUsd ?? 0, baseCurrency, currencyRates);
@@ -62,7 +68,7 @@ export const selectAccountTokensMemoizedFor = withCache((accountId: string) => m
       const isPricelessTokenWithBalance = PRICELESS_TOKEN_HASHES.has(codeHash!) && balance > 0n;
 
       const isEnabled = (
-        (isNewAccount && Object.values(DEFAULT_ENABLED_TOKEN_SLUGS).some((tokenSlugs) => tokenSlugs.includes(slug)))
+        (isNewAccount && getDefaultEnabledSlugs(network).has(slug))
         || !areTokensWithNoCostHidden
         || (areTokensWithNoCostHidden && hasCost)
         || isPricelessTokenWithBalance
@@ -89,7 +95,8 @@ export const selectAccountTokensMemoizedFor = withCache((accountId: string) => m
         tokenAddress,
         codeHash,
         type,
-      } satisfies UserToken as UserToken;
+        label,
+      };
     })
     .sort((tokenA, tokenB) => {
       if (isSortByValueEnabled || !accountSettings.orderedSlugs) {
@@ -115,7 +122,8 @@ export const selectAccountTokensMemoizedFor = withCache((accountId: string) => m
 }));
 
 export function selectCurrentAccountTokens(global: GlobalState) {
-  return selectAccountTokens(global, global.currentAccountId!);
+  const accountId = selectCurrentAccountId(global);
+  return accountId ? selectAccountTokens(global, accountId) : undefined;
 }
 
 export function selectCurrentAccountTokenBalance(global: GlobalState, slug: string) {
@@ -155,9 +163,25 @@ export function selectToken(global: GlobalState, slug: string) {
   return global.tokenInfo.bySlug[slug];
 }
 
+export const selectUserTokenMemoized = memoize((global: GlobalState, slug: string): UserToken | undefined => {
+  const apiToken = selectToken(global, slug);
+  if (!apiToken) return undefined;
+
+  const amount = selectCurrentAccountTokenBalance(global, slug);
+  const price = calculateTokenPrice(apiToken.priceUsd ?? 0, global.settings.baseCurrency, global.currencyRates);
+
+  return {
+    ...apiToken,
+    amount,
+    price,
+    change24h: round(apiToken.percentChange24h / 100, 4),
+    totalValue: toBig(amount, apiToken.decimals).mul(price).toString(),
+  };
+});
+
 export function selectMycoin(global: GlobalState) {
   const { isTestnet } = global.settings;
-  return selectToken(global, isTestnet ? MYCOIN_TESTNET.slug : MYCOIN.slug);
+  return selectToken(global, isTestnet ? MYCOIN_TESTNET.slug : MYCOIN_MAINNET.slug);
 }
 
 export function selectTokenByMinterAddress(global: GlobalState, minter: string) {

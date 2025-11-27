@@ -291,7 +291,11 @@ export async function changePassword(oldPassword: string, password: string) {
   }
 }
 
-export async function importViewAccount(network: ApiNetwork, addressByChain: ApiImportAddressByChain) {
+export async function importViewAccount(
+  network: ApiNetwork,
+  addressByChain: ApiImportAddressByChain,
+  isTemporary?: true,
+) {
   try {
     const account: ApiViewAccount = {
       type: 'view',
@@ -321,6 +325,7 @@ export async function importViewAccount(network: ApiNetwork, addressByChain: Api
       accountId,
       title,
       byChain: getAccountChains(account),
+      ...(isTemporary && { isTemporary: true }),
     };
   } catch (err) {
     return handleServerError(err);

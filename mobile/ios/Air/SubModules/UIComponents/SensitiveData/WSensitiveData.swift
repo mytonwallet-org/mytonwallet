@@ -3,6 +3,8 @@ import SwiftUI
 import UIKit
 import WalletCore
 import WalletContext
+import Dependencies
+import Perception
 
 public final class WSensitiveData<Content: UIView>: WTouchPassView, WSensitiveDataProtocol {
     
@@ -158,22 +160,6 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView, WSensitiveDa
 
 // MARK: - SwiftUI support
 
-public extension EnvironmentValues {
-    
-    private struct IsSensitiveDataHiddenKey: EnvironmentKey {
-        static var defaultValue: Bool { AppStorageHelper.isSensitiveDataHidden }
-    }
-    
-    var isSensitiveDataHidden: Bool {
-        get {
-            self[IsSensitiveDataHiddenKey.self]
-        }
-        set {
-            self[IsSensitiveDataHiddenKey.self] = newValue
-        }
-    }
-}
-
 public struct SensitiveDataViewModifier: ViewModifier {
     
     private var alignment: Alignment
@@ -183,7 +169,7 @@ public struct SensitiveDataViewModifier: ViewModifier {
     private var theme: ShyMask.Theme
     private var cornerRadius: CGFloat
     
-    @Environment(\.isSensitiveDataHidden) var isSensitiveDataHidden
+    @Dependency(\.sensitiveData.isHidden) private var isSensitiveDataHidden
     
     public init(alignment: Alignment, cols: Int, rows: Int, cellSize: CGFloat?, theme: ShyMask.Theme = .adaptive, cornerRadius: CGFloat) {
         self.alignment = alignment
@@ -196,27 +182,29 @@ public struct SensitiveDataViewModifier: ViewModifier {
     
     @ViewBuilder
     public func body(content: Content) -> some View {
-        HStack {
-            if isSensitiveDataHidden {
-                content
-                    .opacity(0)
-                    .overlay {
-                        GeometryReader { geom in
-                            Color.clear.overlay(alignment: alignment) {
-                                WUIShyMask(cols: cols, rows: rows, cellSize: cellSize ?? (geom.size.height / Double(rows)), theme: theme)
-                                    .fixedSize()
-                                    .clipShape(.rect(cornerRadius: cornerRadius))
-                                    .onTapGesture {
-                                        AppActions.setSensitiveDataIsHidden(false)
-                                    }
+        WithPerceptionTracking {
+            HStack {
+                if isSensitiveDataHidden {
+                    content
+                        .opacity(0)
+                        .overlay {
+                            GeometryReader { geom in
+                                Color.clear.overlay(alignment: alignment) {
+                                    WUIShyMask(cols: cols, rows: rows, cellSize: cellSize ?? (geom.size.height / Double(rows)), theme: theme)
+                                        .fixedSize()
+                                        .clipShape(.rect(cornerRadius: cornerRadius))
+                                        .onTapGesture {
+                                            AppActions.setSensitiveDataIsHidden(false)
+                                        }
+                                }
                             }
                         }
-                    }
-            } else {
-                content
+                } else {
+                    content
+                }
             }
+            .animation(.default, value: isSensitiveDataHidden)
         }
-        .animation(.default, value: isSensitiveDataHidden)
     }
     
 }
@@ -229,7 +217,7 @@ public struct SensitiveDataInPlaceViewModifier: ViewModifier {
     private var theme: ShyMask.Theme
     private var cornerRadius: CGFloat
     
-    @Environment(\.isSensitiveDataHidden) var isSensitiveDataHidden
+    @Dependency(\.sensitiveData.isHidden) private var isSensitiveDataHidden
     
     public init(cols: Int, rows: Int, cellSize: CGFloat, theme: ShyMask.Theme = .adaptive, cornerRadius: CGFloat) {
         self.cols = cols
@@ -241,19 +229,21 @@ public struct SensitiveDataInPlaceViewModifier: ViewModifier {
     
     @ViewBuilder
     public func body(content: Content) -> some View {
-        HStack {
-            if isSensitiveDataHidden {
-                WUIShyMask(cols: cols, rows: rows, cellSize: cellSize, theme: theme)
-                    .fixedSize()
-                    .clipShape(.rect(cornerRadius: cornerRadius))
-                    .onTapGesture {
-                        AppActions.setSensitiveDataIsHidden(false)
-                    }
-            } else {
-                content
+        WithPerceptionTracking {
+            HStack {
+                if isSensitiveDataHidden {
+                    WUIShyMask(cols: cols, rows: rows, cellSize: cellSize, theme: theme)
+                        .fixedSize()
+                        .clipShape(.rect(cornerRadius: cornerRadius))
+                        .onTapGesture {
+                            AppActions.setSensitiveDataIsHidden(false)
+                        }
+                } else {
+                    content
+                }
             }
+            .animation(.default, value: isSensitiveDataHidden)
         }
-        .animation(.default, value: isSensitiveDataHidden)
     }
     
 }

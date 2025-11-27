@@ -14,23 +14,30 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
+import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
+import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.SettingsAccountCell
+import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsItem
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.commonViews.ConnectRequestConfirmView
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.commonViews.ConnectRequestView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.toString
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import kotlin.math.max
 
 @SuppressLint("ViewConstructor")
@@ -41,12 +48,17 @@ class TonConnectRequestConnectVC(
 
     override val shouldDisplayTopBar = false
 
+
     private val requestView = ConnectRequestView(context).apply {
         configure(update?.dapp)
     }
 
+    private val headerView = HeaderCell(context)
+
+    private val accountView = SettingsAccountCell(context)
+
     private val buttonView: WButton = WButton(context, WButton.Type.PRIMARY).apply {
-        text = LocaleController.getString("Confirm")
+        text = LocaleController.getString("Connect Wallet")
     }
 
     private val scrollingContentView = LinearLayout(context).apply {
@@ -59,12 +71,31 @@ class TonConnectRequestConnectVC(
             )
         )
         addView(
+            headerView, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                48.dp
+            ).apply {
+                leftMargin = 10.dp
+                rightMargin = 10.dp
+            }
+        )
+        addView(
+            accountView, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = 0.dp
+                leftMargin = 10.dp
+                rightMargin = 10.dp
+            }
+        )
+        addView(
             buttonView, ConstraintLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
                 leftMargin = 20.dp
-                topMargin = 24.dp
+                topMargin = 8.dp
                 rightMargin = 20.dp
                 bottomMargin = 15.dp
             })
@@ -100,9 +131,21 @@ class TonConnectRequestConnectVC(
         }
 
         updateButtonState()
+        updateHeaderView()
+        updateAccountView()
 
         buttonView.setOnClickListener {
             val update = update ?: return@setOnClickListener
+
+            val account = AccountStore.accountById(update.accountId)
+
+            if (account?.accountType == MAccount.AccountType.VIEW) {
+                showAlert(
+                    LocaleController.getString("Error"),
+                    LocaleController.getString("Action is not possible on a view-only wallet.")
+                )
+                return@setOnClickListener
+            }
 
             if (!update.permissions.proof) {
                 connectConfirm(
@@ -115,14 +158,8 @@ class TonConnectRequestConnectVC(
                 }
                 return@setOnClickListener
             }
-            if (AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW) {
-                showAlert(
-                    LocaleController.getString("Error"),
-                    LocaleController.getString("Action is not possible on a view-only wallet.")
-                )
-                return@setOnClickListener
-            }
-            if (AccountStore.activeAccount?.isHardware == true) {
+
+            if (account?.isHardware == true) {
                 confirmHardware()
             } else {
                 confirmPasscode()
@@ -136,7 +173,7 @@ class TonConnectRequestConnectVC(
     override fun updateTheme() {
         super.updateTheme()
         view.setBackgroundColor(
-            WColor.Background.color,
+            WColor.SecondaryBackground.color,
             ViewConstants.STANDARD_ROUNDS.dp,
             0f,
             true
@@ -146,7 +183,7 @@ class TonConnectRequestConnectVC(
     override fun insetsUpdated() {
         super.insetsUpdated()
         scrollView.setPadding(
-            0, WNavigationBar.Companion.DEFAULT_HEIGHT.dp, 0, max(
+            0, (WNavigationBar.Companion.DEFAULT_HEIGHT - 28).dp, 0, max(
                 (navigationController?.getSystemBars()?.bottom ?: 0),
                 (window?.imeInsets?.bottom ?: 0)
             )
@@ -211,28 +248,43 @@ class TonConnectRequestConnectVC(
     ) {
         val update = update ?: return
         isConfirmed = true
-        window!!.lifecycleScope.launch {
-            try {
-                val signResult = if (update.proof != null) WalletCore.call(
-                    ApiMethod.DApp.SignTonProof(
-                        update.accountId,
-                        update.proof,
-                        passcode
-                    )
-                ) else null
-                WalletCore.call(
-                    ApiMethod.DApp.ConfirmDappRequestConnect(
-                        promiseId,
-                        ApiMethod.DApp.ConfirmDappRequestConnect.Request(
-                            update.accountId,
-                            signResult?.signature
+
+
+        fun callback(activatedAccount: MAccount?) {
+            window!!.lifecycleScope.launch {
+                try {
+                    val signResult = if (update.proof != null) WalletCore.call(
+                        ApiMethod.DApp.SignTonProof(
+                            activatedAccount!!.accountId,
+                            update.proof,
+                            passcode
+                        )
+                    ) else null
+                    WalletCore.call(
+                        ApiMethod.DApp.ConfirmDappRequestConnect(
+                            promiseId,
+                            ApiMethod.DApp.ConfirmDappRequestConnect.Request(
+                                activatedAccount!!.accountId,
+                                signResult?.signature
+                            )
                         )
                     )
-                )
-                onCompletion(true)
-            } catch (err: JSWebViewBridge.ApiError) {
-                isConfirmed = false
-                onCompletion(false)
+                    onCompletion(true)
+                } catch (err: JSWebViewBridge.ApiError) {
+                    isConfirmed = false
+                    onCompletion(false)
+                }
+            }
+        }
+
+        if (AccountStore.activeAccount?.accountId == update.accountId) {
+            callback(AccountStore.activeAccount!!);
+        } else {
+            WalletCore.activateAccount(
+                accountId = update.accountId,
+                notifySDK = true
+            ) { activatedAccount, error ->
+                callback(activatedAccount);
             }
         }
     }
@@ -260,10 +312,70 @@ class TonConnectRequestConnectVC(
         this.update = update
         requestView.configure(update.dapp)
         updateButtonState()
+        updateHeaderView()
+        updateAccountView()
     }
 
     private fun updateButtonState() {
         buttonView.isEnabled = update != null
         buttonView.alpha = if (update != null) 1.0f else 0.5f
+    }
+
+    private fun updateHeaderView() {
+        headerView.configure(
+            LocaleController.getString("Selected Wallet"),
+            titleColor = WColor.Tint.color,
+            topRounding = ViewConstants.BIG_RADIUS.dp
+        )
+    }
+
+    private fun updateAccountView() {
+        val accountId = update?.accountId ?: return
+        val accountData = WGlobalStorage.getAccount(accountId) ?: return
+        val account = MAccount(accountId, accountData)
+
+        val balanceAmount = BalanceStore.totalBalanceInBaseCurrency(account.accountId)
+        val balance = balanceAmount?.toString(
+            WalletCore.baseCurrency.decimalsCount,
+            WalletCore.baseCurrency.sign,
+            WalletCore.baseCurrency.decimalsCount,
+            true
+        )
+
+
+        accountView.configure(
+            item = SettingsItem(
+                identifier = SettingsItem.Identifier.ACCOUNT,
+                title = account.name,
+                accounts = listOf(account),
+                hasTintColor = false,
+                icon = null,
+                value = balance
+            ),
+            value = balance,
+            isFirst = false,
+            isLast = true,
+            showSeparator = true,
+            onTap = {
+                openWalletSelection()
+            }
+        )
+    }
+
+    private fun openWalletSelection() {
+        val dappHost = update?.dapp?.host ?: ""
+        val walletSelectionVC = WalletSelectionVC(context, dappHost)
+
+        walletSelectionVC.setOnWalletSelectListener { selectedAccount ->
+            update?.let { currentUpdate ->
+                update = currentUpdate.copy(accountId = selectedAccount.accountId)
+            }
+            updateAccountView()
+        }
+
+        // Open as regular modal (not bottom sheet) so push works inside it
+        val navVC = WNavigationController(window!!)
+        navVC.setRoot(walletSelectionVC)
+        window!!.present(navVC)
     }
 }

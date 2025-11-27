@@ -6,6 +6,7 @@ import android.text.TextUtils
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
+import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -38,6 +39,8 @@ class UpdateStatusView(
         rLabel
     }
 
+    var onTap: (() -> Unit)? = null
+
     init {
         clipChildren = false
         clipToPadding = false
@@ -47,10 +50,13 @@ class UpdateStatusView(
         })
 
         updateTheme()
+
+        setOnClickListener {
+            onTap?.invoke()
+        }
     }
 
     override fun updateTheme() {
-        statusReplaceableLabel.label.setTextColor(WColor.PrimaryText.color)
     }
 
     var state: State? = null
@@ -69,7 +75,7 @@ class UpdateStatusView(
                 WFont.Medium
             )
         }
-        statusReplaceableLabel.label.setTextColor(if (state != State.Updated) WColor.SecondaryText.color else WColor.PrimaryText.color)
+        statusReplaceableLabel.label.setTextColor(if (state != State.Updated) WColor.SecondaryText else WColor.PrimaryText)
     }
 
     @SuppressLint("SetTextI18n")
@@ -92,8 +98,10 @@ class UpdateStatusView(
             State.WaitingForNetwork -> {
                 targetAlpha = 1f
                 statusReplaceableLabel.setText(
-                    LocaleController.getString("Waiting for Network"),
-                    isLoading = true,
+                    WReplaceableLabel.Config(
+                        text = LocaleController.getString("Waiting for Network"),
+                        isLoading = true,
+                    ),
                     animated = handleAnimation,
                     updateLabelAppearance = {
                         setLabelStyle(newState)
@@ -104,8 +112,10 @@ class UpdateStatusView(
             State.Updating -> {
                 targetAlpha = 1f
                 statusReplaceableLabel.setText(
-                    LocaleController.getString("Updating"),
-                    isLoading = true,
+                    WReplaceableLabel.Config(
+                        text = LocaleController.getString("Updating"),
+                        isLoading = true,
+                    ),
                     animated = handleAnimation,
                     updateLabelAppearance = {
                         setLabelStyle(newState)
@@ -119,8 +129,16 @@ class UpdateStatusView(
                 } else {
                     targetAlpha = 1f
                     statusReplaceableLabel.setText(
-                        newCustomMessage,
-                        isLoading = false,
+                        WReplaceableLabel.Config(
+                            text = newCustomMessage,
+                            isLoading = false,
+                            trailingDrawable = ContextCompat.getDrawable(
+                                context,
+                                org.mytonwallet.uihome.R.drawable.ic_expand
+                            )!!.apply {
+                                setTint(WColor.PrimaryText.color)
+                            }
+                        ),
                         animated = handleAnimation,
                         updateLabelAppearance = {
                             setLabelStyle(newState)
@@ -144,8 +162,10 @@ class UpdateStatusView(
                         if (state != newState || customMessage != newCustomMessage)
                             return@fadeOut // Status is already updated
                         statusReplaceableLabel.setText(
-                            "",
-                            isLoading = false,
+                            WReplaceableLabel.Config(
+                                text = "",
+                                isLoading = false,
+                            ),
                             animated = false,
                             updateLabelAppearance = { setLabelStyle(newState) }
                         )
@@ -155,8 +175,10 @@ class UpdateStatusView(
         } else {
             if (targetAlpha == 0f) {
                 statusReplaceableLabel.setText(
-                    "",
-                    isLoading = false,
+                    WReplaceableLabel.Config(
+                        text = "",
+                        isLoading = false,
+                    ),
                     animated = false,
                     updateLabelAppearance = { setLabelStyle(newState) }
                 )

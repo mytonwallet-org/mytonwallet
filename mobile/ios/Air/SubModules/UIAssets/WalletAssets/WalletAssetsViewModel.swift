@@ -66,6 +66,11 @@ public final class WalletAssetsViewModel: WalletCoreData.EventsObserver {
         }
     }
     
+    public func changAccountTo(accountId: String) {
+        self.accountId = accountId
+        setupTabsObservation()
+    }
+    
     private func setupTabsObservation() {
         let accountId = self.accountId
         if let db = self.db {
@@ -105,8 +110,10 @@ public final class WalletAssetsViewModel: WalletCoreData.EventsObserver {
         } else {
             displayTabs = [.tokens, .nfts, .nftSuperCollection(TELEGRAM_GIFTS_SUPER_COLLECTION)].compactMap(storedTabToDisplay)
         }
-        self.displayTabs = displayTabs
-        delegate?.displayTabsChanged()
+        if self.displayTabs != displayTabs {
+            self.displayTabs = displayTabs
+            delegate?.displayTabsChanged()
+        }
     }
     
     func storedTabToDisplay(_ tab: WalletAssetsTab) -> DisplayAssetTab? {

@@ -46,11 +46,10 @@ class EarnHeaderCell: UITableViewCell, WThemedView {
     
     private lazy var yourBalanceHintLabel = {
         let lbl = UILabel()
-        lbl.text = lang("Your staking balance")
         lbl.font = .systemFont(ofSize: 16)
         lbl.numberOfLines = 0
         lbl.textAlignment = .center
-        lbl.text = lang("Your staking balance") + "\n"
+        lbl.text = "\n"
         return lbl
     }()
     
@@ -195,11 +194,11 @@ class EarnHeaderCell: UITableViewCell, WThemedView {
                     }
                 } else {
                     timer?.invalidate()
-                    yourBalanceHintLabel.text = lang("Your staking balance") + "\n"
+                    yourBalanceHintLabel.text = "\n"
                 }
             } else {
                 timer?.invalidate()
-                yourBalanceHintLabel.text = lang("Your staking balance") + "\n"
+                yourBalanceHintLabel.text = "\n"
             }
             self.earnVC = delegate
             if stackView.alpha == 0 {

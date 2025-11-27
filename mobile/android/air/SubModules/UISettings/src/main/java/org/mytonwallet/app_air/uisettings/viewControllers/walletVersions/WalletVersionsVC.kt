@@ -121,7 +121,7 @@ class WalletVersionsVC(context: Context) : WViewController(context),
                     WalletCore.activateAccount(accountId, notifySDK = true) { res, err ->
                         if (res != null && err == null) {
                             navigationController?.popToRoot()
-                            WalletCore.notifyEvent(WalletEvent.AccountChangedInApp)
+                            WalletCore.notifyEvent(WalletEvent.AccountChangedInApp(accountsModified = false))
                         }
                     }
                     return

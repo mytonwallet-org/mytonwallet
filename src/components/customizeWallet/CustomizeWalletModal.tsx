@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useState } from '../../lib/teact/teact';
+import React, { memo, useEffect, useMemo, useState } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import type { ApiBaseCurrency, ApiCurrencyRates, ApiNft } from '../../api/types';
@@ -6,18 +6,22 @@ import type { Account, Theme, UserToken } from '../../global/types';
 
 import { MTW_CARDS_COLLECTION, MTW_CARDS_WEBSITE } from '../../config';
 import {
-  selectAccount, selectAccountSettings, selectAccountState, selectCurrentAccountTokens,
+  selectAccount,
+  selectAccountSettings,
+  selectAccountState,
+  selectCurrentAccountId,
+  selectCurrentAccountTokens,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { openUrl } from '../../util/openUrl';
 import { IS_DELEGATED_BOTTOM_SHEET } from '../../util/windowEnvironment';
+import { DEFAULT_CARD_ADDRESS } from './constants';
 
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useScrolledState from '../../hooks/useScrolledState';
 
 import AccentColorSelector from '../common/AccentColorSelector';
-import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 import ModalHeader from '../ui/ModalHeader';
 import Spinner from '../ui/Spinner';
@@ -50,10 +54,12 @@ interface StateProps {
   isViewMode?: boolean;
   isNftBuyingDisabled: boolean;
   returnTo?: 'settings' | 'accountSelector';
+  areCardsLoading?: boolean;
 }
 
 function CustomizeWalletModal({
   isOpen,
+  accountId,
   account,
   nfts,
   orderedNftAddresses,
@@ -66,6 +72,7 @@ function CustomizeWalletModal({
   isMintingCardsAvailable,
   isNftBuyingDisabled,
   returnTo,
+  areCardsLoading,
 }: OwnProps & StateProps) {
   const {
     openCustomizeWalletModal,
@@ -73,46 +80,81 @@ function CustomizeWalletModal({
     setCardBackgroundNft,
     clearCardBackgroundNft,
     openMintCardModal,
+    fetchNftsFromCollection,
+    clearNftCollectionLoading,
   } = getActions();
 
   const lang = useLang();
-  const [selectedCardAddress, setSelectedCardAddress] = useState<string | undefined>(currentCardNft?.address);
+  const [selectedCardAddress, setSelectedCardAddress] = useState<string>(DEFAULT_CARD_ADDRESS);
 
   const {
     handleScroll: handleContentScroll,
     isScrolled,
   } = useScrolledState();
 
-  const availableCardNfts = useMemo(() => {
-    if (!orderedNftAddresses || !nfts) return undefined;
+  useEffect(() => {
+    if (isOpen && accountId) {
+      fetchNftsFromCollection({ collectionAddress: MTW_CARDS_COLLECTION });
+    }
+    return () => {
+      clearNftCollectionLoading({ collectionAddress: MTW_CARDS_COLLECTION });
+    };
+  }, [isOpen, accountId]);
 
-    return orderedNftAddresses
-      .map((address) => nfts[address])
-      .filter((nft) => nft && nft.collectionAddress === MTW_CARDS_COLLECTION && !nft.isHidden);
-  }, [orderedNftAddresses, nfts]);
+  useEffect(() => {
+    if (isOpen && accountId) {
+      setSelectedCardAddress(currentCardNft?.address ?? DEFAULT_CARD_ADDRESS); // Update selected card address to the current card when switching wallets
+    }
+    return () => {
+      setSelectedCardAddress(DEFAULT_CARD_ADDRESS);
+    };
+  }, [isOpen, accountId, currentCardNft?.address]);
 
-  const isLoading = availableCardNfts === undefined;
+  const { availableCardNfts, cardsByAddress, cardsAddresses } = useMemo(() => {
+    if (!nfts || !orderedNftAddresses || areCardsLoading) {
+      return {
+        availableCardNfts: undefined,
+        cardsByAddress: undefined,
+        cardsAddresses: undefined,
+      };
+    };
+
+    const cardsAddresses = orderedNftAddresses.filter(
+      (address) => nfts[address]?.collectionAddress === MTW_CARDS_COLLECTION && !nfts[address]?.isHidden,
+    );
+
+    const cardsByAddress = cardsAddresses.reduce<Record<string, ApiNft>>((result, address) => {
+      result[address] = nfts[address];
+      return result;
+    }, {});
+
+    return {
+      cardsAddresses,
+      cardsByAddress,
+      availableCardNfts: Object.values(cardsByAddress || {}),
+    };
+  }, [nfts, orderedNftAddresses, areCardsLoading]);
+
+  const isLoading = areCardsLoading || availableCardNfts === undefined;
   const hasCards = availableCardNfts && availableCardNfts.length > 0;
 
   const selectedCard = useMemo(() => {
-    if (selectedCardAddress === 'default') return undefined;
+    if (selectedCardAddress === DEFAULT_CARD_ADDRESS) return undefined;
     return selectedCardAddress ? nfts?.[selectedCardAddress] : undefined;
   }, [selectedCardAddress, nfts]);
 
-  const previewCard = selectedCardAddress === 'default' ? undefined : (selectedCard || currentCardNft);
-  const isDefaultSelected = selectedCardAddress === 'default';
+  const previewCard = selectedCardAddress === DEFAULT_CARD_ADDRESS ? undefined : (selectedCard || currentCardNft);
 
   const handleCardSelect = useLastCallback((address: string) => {
     setSelectedCardAddress(address);
-  });
-
-  const handleApplyCard = useLastCallback(() => {
-    if (isDefaultSelected) {
+    if (address === DEFAULT_CARD_ADDRESS) {
       clearCardBackgroundNft();
-    } else if (selectedCard) {
-      setCardBackgroundNft({ nft: selectedCard });
+    } else {
+      const card = nfts![address];
+      if (card) {
+        setCardBackgroundNft({ nft: card });
+      }
     }
-    closeCustomizeWalletModal();
   });
 
   const handleGetMoreCards = useLastCallback(() => {
@@ -132,9 +174,6 @@ function CustomizeWalletModal({
       callback();
     }
   });
-
-  const isApplyButtonDisabled = !isDefaultSelected
-    && (!selectedCard || selectedCard.address === currentCardNft?.address);
 
   function renderCardsSelector() {
     return (
@@ -169,8 +208,8 @@ function CustomizeWalletModal({
           </h3>
           <AccentColorSelector
             accentColorIndex={accentColorIndex}
-            nftAddresses={orderedNftAddresses}
-            nftsByAddress={nfts}
+            nftAddresses={cardsAddresses}
+            nftsByAddress={cardsByAddress}
             theme={theme}
             isNftBuyingDisabled={isNftBuyingDisabled}
           />
@@ -186,16 +225,6 @@ function CustomizeWalletModal({
           <p className={styles.helperTextOutside}>
             {lang('Browse MyTonWallet Cards available for purchase.')}
           </p>
-        </div>
-        <div className={styles.section}>
-          <Button
-            className={styles.applyButton}
-            isPrimary
-            isDisabled={isApplyButtonDisabled}
-            onClick={handleApplyCard}
-          >
-            {isDefaultSelected ? lang('Reset Card') : lang('Apply Card')}
-          </Button>
         </div>
       </>
     );
@@ -248,7 +277,6 @@ function CustomizeWalletModal({
             tokens={tokens}
             baseCurrency={baseCurrency}
             currencyRates={currencyRates}
-            previewCardNft={previewCard}
             variant="left"
           />
 
@@ -266,7 +294,6 @@ function CustomizeWalletModal({
             tokens={tokens}
             baseCurrency={baseCurrency}
             currencyRates={currencyRates}
-            previewCardNft={previewCard}
             variant="right"
           />
         </div>
@@ -287,7 +314,7 @@ function CustomizeWalletModal({
 }
 
 export default memo(withGlobal<OwnProps>((global): StateProps => {
-  const accountId = global.currentAccountId;
+  const accountId = selectCurrentAccountId(global);
   if (!accountId) {
     return {
       theme: global.settings.theme,
@@ -300,6 +327,8 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
   const accountSettings = selectAccountSettings(global, accountId);
   const tokens = selectCurrentAccountTokens(global);
   const { config: { cardsInfo } = {} } = accountState || {};
+
+  const areCardsLoading = !accountState?.nfts?.isLoadedByAddress?.[MTW_CARDS_COLLECTION];
 
   return {
     accountId,
@@ -316,5 +345,6 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     isViewMode: global.accounts?.byId[accountId]?.type === 'view',
     isNftBuyingDisabled: global.restrictions.isNftBuyingDisabled,
     returnTo: global.customizeWalletReturnTo,
+    areCardsLoading,
   };
 })(CustomizeWalletModal));

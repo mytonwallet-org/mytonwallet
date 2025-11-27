@@ -1,0 +1,99 @@
+@use "../../../styles/mixins";
+
+.modalDialog {
+  overflow: hidden;
+  height: 38.5rem;
+
+  @supports (height: var(--safe-area-bottom)) {
+    height: calc(38.5rem + var(--safe-area-bottom));
+  }
+
+  :global(.is-native-bottom-sheet) & {
+    height: 100% !important;
+    padding-bottom: var(--safe-area-bottom);
+  }
+}
+
+.header {
+  padding: 1rem 1rem 0.75rem !important;
+}
+
+.title {
+  --offset-x-value: 50%;
+  --translate-x: -50%;
+
+  overflow: visible !important;
+}
+
+.dropdown {
+  margin: -0.5rem 0 -1rem;
+}
+
+.dropdownValue {
+  font-size: 0.75rem !important;
+}
+
+.closeButton {
+  position: relative;
+  top: -0.125rem;
+}
+
+.content {
+  position: relative;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 100%;
+  height: 100%;
+}
+
+.iframe {
+  border: none !important;
+}
+
+.loaderContainer {
+  position: absolute;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 100%;
+  height: 100%;
+
+  background-color: var(--color-background-second);
+}
+
+.fadeOut {
+  opacity: 1;
+  animation: fade-out-opacity 0.15s ease forwards;
+}
+
+.fadeIn {
+  opacity: 0;
+  animation: fade-in-opacity 0.15s ease forwards;
+}
+
+.inactive {
+  display: none;
+}
+
+@keyframes fade-in-opacity {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-out-opacity {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}

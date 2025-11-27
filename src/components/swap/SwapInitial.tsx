@@ -18,11 +18,11 @@ import {
   CHANGELLY_AML_KYC,
   CHANGELLY_PRIVACY_POLICY,
   CHANGELLY_TERMS_OF_USE,
-  DEFAULT_SWAP_SECOND_TOKEN_SLUG,
-  TONCOIN,
+  INIT_SWAP_ASSETS,
 } from '../../config';
 import {
   selectCurrentAccount,
+  selectCurrentAccountId,
   selectIsMultichainAccount,
   selectSwapTokens,
   selectSwapType,
@@ -119,8 +119,8 @@ function SwapInitial({
   const inputInRef = useRef<HTMLDivElement>();
   const inputOutRef = useRef<HTMLDivElement>();
 
-  const currentTokenInSlug = tokenInSlug ?? TONCOIN.slug;
-  const currentTokenOutSlug = tokenOutSlug ?? DEFAULT_SWAP_SECOND_TOKEN_SLUG;
+  const currentTokenInSlug = tokenInSlug ?? INIT_SWAP_ASSETS.in.slug;
+  const currentTokenOutSlug = tokenOutSlug ?? INIT_SWAP_ASSETS.out.slug;
 
   const tokenIn = useMemo(
     () => tokens?.find((token) => token.slug === currentTokenInSlug),
@@ -528,20 +528,21 @@ function SwapInitial({
 export default memo(
   withGlobal<OwnProps>(
     (global): StateProps => {
+      const currentAccountId = selectCurrentAccountId(global);
       const account = selectCurrentAccount(global);
 
       return {
         currentSwap: global.currentSwap,
         tokens: selectSwapTokens(global),
         accountChains: account?.byChain,
-        isMultichainAccount: selectIsMultichainAccount(global, global.currentAccountId!),
+        isMultichainAccount: selectIsMultichainAccount(global, currentAccountId!),
         swapType: selectSwapType(global),
         isSensitiveDataHidden: global.settings.isSensitiveDataHidden,
         pairsBySlug: global.swapPairs?.bySlug,
         isComplete: global.currentSwap.state === SwapState.Complete,
       };
     },
-    (global, _, stickToFirst) => stickToFirst(global.currentAccountId),
+    (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),
   )(SwapInitial),
 );
 

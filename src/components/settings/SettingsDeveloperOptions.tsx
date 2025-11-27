@@ -6,7 +6,7 @@ import type { Account } from '../../global/types';
 import type { DropdownItem } from '../ui/Dropdown';
 
 import { APP_COMMIT_HASH, APP_ENV, APP_VERSION, IS_CORE_WALLET, IS_EXTENSION, IS_TELEGRAM_APP } from '../../config';
-import { selectIsMultichainAccount } from '../../global/selectors';
+import { selectCurrentAccountId, selectIsMultichainAccount } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { copyTextToClipboard } from '../../util/clipboard';
 import { getBuildPlatform, getFlagsValue } from '../../util/getBuildPlatform';
@@ -182,7 +182,7 @@ function SettingsDeveloperOptions({
 }
 
 export default memo(withGlobal<OwnProps>((global): StateProps => {
-  const currentAccountId = global.currentAccountId;
+  const currentAccountId = selectCurrentAccountId(global);
   const accountsById = global.accounts?.byId;
   const canViewAllWalletVersions = !selectIsMultichainAccount(global, currentAccountId!);
 

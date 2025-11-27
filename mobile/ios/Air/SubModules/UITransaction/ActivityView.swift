@@ -6,6 +6,8 @@ import WalletContext
 import WalletCore
 import Kingfisher
 import UIPasscode
+import Dependencies
+import Perception
 
 struct ActivityView: View {
 
@@ -30,61 +32,62 @@ struct ActivityView: View {
         }
         return false
     }
+    
+    @Dependency(\.tokenStore) private var tokens
+    
+    var token: ApiToken? { tokens[activity.slug] }
 
-    private var token: ApiToken? {
-        TokenStore.tokens[activity.slug]
-    }
     private var chain: ApiChain {
         token?.chainValue ?? .ton
     }
 
     var body: some View {
-        InsetList(spacing: 16) {
-            
-            VStack(spacing: 20) {
-                Group {
-                    if activity.transaction?.nft != nil {
-                        nftHeader
-                        
-                    } else {
-                        header
-                            .padding(.horizontal, 16)
+        WithPerceptionTracking {
+            InsetList(spacing: 16) {
+                
+                VStack(spacing: 20) {
+                    Group {
+                        if activity.transaction?.nft != nil {
+                            nftHeader
+                        } else {
+                            header
+                                .padding(.horizontal, 16)
+                        }
                     }
+                    .scrollPosition(ns: ns, offset: 8, callback: onScroll)
+                    
+                    commentSection
+                    
+                    encryptedCommentSection
+                    
+                    actionsRow
                 }
-                .scrollPosition(ns: ns, offset: 8, callback: onScroll)
-                
-                commentSection
-                
-                encryptedCommentSection
-                
-                actionsRow
-            }
-            .onGeometryChange(for: CGFloat.self, of: { $0.frame(in: .named(ns)).height }, action: { maxY in
-                model.collapsedHeight = maxY + 24
-                model.onHeightChange()
-            })
-            .onGeometryChange(for: CGFloat.self, of: { $0.frame(in: .global).maxY }, action: { maxY in
-                let y = maxY - UIScreen.main.bounds.height + 32.0
-                detailsOpacity = clamp(-y / 70, to: 0...1)
-            })
-
-            transactionDetailsSection
-                
-            Color.clear.frame(width: 0, height: 0)
-                .padding(.bottom, 34 - 16)
-                .onGeometryChange(for: CGFloat.self, of: { $0.frame(in: .named(ns)).maxY }, action: { maxY in
-                    model.expandedHeight = maxY
+                .onGeometryChange(for: CGFloat.self, of: { $0.frame(in: .named(ns)).height }, action: { maxY in
+                    model.collapsedHeight = maxY + 24
                     model.onHeightChange()
                 })
+                .onGeometryChange(for: CGFloat.self, of: { $0.frame(in: .global).maxY }, action: { maxY in
+                    let y = maxY - UIScreen.main.bounds.height + 32.0
+                    detailsOpacity = clamp(-y / 70, to: 0...1)
+                })
+                
+                transactionDetailsSection
+                
+                Color.clear.frame(width: 0, height: 0)
+                    .padding(.bottom, 34 - 16)
+                    .onGeometryChange(for: CGFloat.self, of: { $0.frame(in: .named(ns)).maxY }, action: { maxY in
+                        model.expandedHeight = maxY
+                        model.onHeightChange()
+                    })
+            }
+            .environment(\.insetListContext, .elevated)
+            .coordinateSpace(name: ns)
+            .navigationBarInset(navigationBarInset)
+            .animation(.default, value: activity)
+            .animation(.default, value: decryptedComment)
+            .scrollDisabled(model.scrollingDisabled)
+            .backportScrollClipDisabled()
         }
-        .environment(\.insetListContext, .elevated)
-        .environment(\.isSensitiveDataHidden, isSensitiveDataHidden)
-        .coordinateSpace(name: ns)
-        .navigationBarInset(navigationBarInset)
-        .animation(.default, value: activity)
-        .animation(.default, value: decryptedComment)
-        .scrollDisabled(model.scrollingDisabled)
-        .backportScrollClipDisabled()
     }
 
     @ViewBuilder
@@ -196,7 +199,7 @@ struct ActivityView: View {
             transactionId
             changellyId
         } header: {
-            Text(lang("Transaction Details"))
+            Text(lang("Details"))
                 .padding(.bottom, 1)
         }
         .padding(.top, -8)
@@ -262,7 +265,7 @@ struct ActivityView: View {
                 let amount = TokenAmount(transaction.amount, token)
                 let inToken = amount
                     .formatted(showPlus: false, showMinus: false)
-                let curr = TokenStore.baseCurrency ?? .USD
+                let curr = TokenStore.baseCurrency
                 let token = TokenStore.getToken(slug: activity.slug)
                 Text(token?.price != nil ? "\(inToken) (\(amount.convertTo(curr, exchangeRate: token!.price!).formatted(showPlus: false, showMinus: false)))" : inToken)
                     .sensitiveDataInPlace(cols: 10, rows: 2, cellSize: 9, theme: .adaptive, cornerRadius: 5)
@@ -274,7 +277,7 @@ struct ActivityView: View {
     var swapRate: some View {
         if let swap = activity.swap, let ex = ExchangeRateHelpers.getSwapRate(fromAmount: swap.fromAmount.value, toAmount: swap.toAmount.value, fromToken: swap.fromToken, toToken: swap.toToken) {
             InsetDetailCell {
-                Text("\(lang("Price per")) 1 \(ex.toToken.symbol)")
+                Text(lang("Exchange Rate"))
                     .foregroundStyle(Color(WTheme.secondaryLabel))
             } value: {
                 let exchangeAmount = TokenAmount.fromDouble(ex.price, ex.fromToken)
@@ -285,7 +288,7 @@ struct ActivityView: View {
                     roundUp: false,
                     precision: swap.status == .pending || swap.status == .pendingTrusted ? .approximate : .exact
                 )
-                Text(exchangeRateString)
+                Text("\(ex.toToken.symbol) ≈ \(exchangeRateString)")
             }
         }
     }
@@ -369,7 +372,7 @@ struct ActivityView: View {
     var changellyId: some View {
         if let id = activity.swap?.cex?.transactionId {
             InsetDetailCell {
-                Text(lang("Changelly ID"))
+                Text("Changelly ID")
                     .foregroundStyle(Color(WTheme.secondaryLabel))
                     .fixedSize()
             } value: {

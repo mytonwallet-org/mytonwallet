@@ -67,7 +67,7 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
                     .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
         }
-        .font(Font(WButton._font))
+        .font(Font(WButton.font))
         .foregroundStyle(Color(textColor))
         .opacity(isEnabled && isTouching ? 0.5 : 1)
         .frame(height: 50)

@@ -67,9 +67,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
-import org.mytonwallet.app_air.walletcontext.utils.WEquatable
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
-import org.mytonwallet.app_air.walletcontext.utils.diff
 import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.USDE_SLUG
@@ -430,7 +428,7 @@ class EarnVC(
             elevation = 4f.dp
             val titleLabel = WLabel(context).apply {
                 text =
-                    LocaleController.getString("\$accumulated_rewards")
+                    LocaleController.getString("Accumulated Rewards")
                 setStyle(16f, WFont.Medium)
                 setTextColor(WColor.PrimaryText)
                 setSingleLine()
@@ -511,11 +509,16 @@ class EarnVC(
     }
 
     private var lastListState: HistoryListState? = null
-    private var previousHistoryItems: List<WEquatable<*>> = emptyList()
+    private var previousHistoryItems: List<EarnItem> = emptyList()
     private fun updateItems(newItems: List<EarnItem>) {
-        val changes = previousHistoryItems.diff(newItems, section = 1)
-        rvAdapter.applyChanges(changes)
-        previousHistoryItems = newItems.toList()
+        val previousHistoryItems = previousHistoryItems
+        this.previousHistoryItems = newItems.toList()
+        rvAdapter.applyChanges(
+            previousHistoryItems,
+            newItems,
+            1,
+            true
+        )
     }
 
     private fun updateView(viewState: EarnViewState) {

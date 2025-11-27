@@ -13,7 +13,7 @@ import {
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { getCountDaysToDate } from '../../util/dateFormat';
-import { getTonDnsExpirationDate } from '../../util/dns';
+import { getDnsExpirationDate } from '../../util/dns';
 
 import useFlag from '../../hooks/useFlag';
 import useLang from '../../hooks/useLang';
@@ -144,7 +144,7 @@ export default memo(withGlobal<OwnProps>((global, { mediaId }): StateProps => {
 
   const { blacklistedNftAddresses, whitelistedNftAddresses } = selectCurrentAccountState(global) || {};
   const { cardBackgroundNft, accentColorNft } = selectCurrentAccountSettings(global) || {};
-  const tonDnsExpiration = getTonDnsExpirationDate(nft, dnsExpiration);
+  const tonDnsExpiration = getDnsExpirationDate(nft, dnsExpiration);
   const linkedAddress = selectTonDnsLinkedAddress(global, nft);
 
   return {

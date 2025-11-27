@@ -2,13 +2,13 @@ package org.mytonwallet.app_air.uicomponents.base
 
 import android.annotation.SuppressLint
 import android.view.ViewGroup
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListUpdateCallback
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.RecyclerView.NO_POSITION
-import org.mytonwallet.app_air.uicomponents.AnimationConstants
-import org.mytonwallet.app_air.uicomponents.helpers.WDefaultItemAnimator
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
-import org.mytonwallet.app_air.walletcontext.utils.EquatableChange
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
+import org.mytonwallet.app_air.walletcontext.utils.WEquatable
 import java.lang.ref.WeakReference
 
 /*
@@ -86,69 +86,91 @@ class WRecyclerViewAdapter(
         notifyItemRangeChanged(start, count)
     }
 
-    fun reloadDataWithAnimation(positionStart: Int, itemCount: Int) {
-        if (rvAnimator == null) rvAnimator = recyclerView?.itemAnimator // Store initial state
+    class OffsetUpdateCallback(
+        private val adapter: WRecyclerViewAdapter,
+        private val section: Int
+    ) : ListUpdateCallback {
+        val itemsAbove = adapter.indexPathToPosition(IndexPath(section, 0))
 
-        _cachedNumberOfSections = null
-        _cachedSectionItemCount = HashMap()
-        _cachedTotalCount = null
-
-        recyclerView?.itemAnimator = WDefaultItemAnimator()
-            .apply {
-                revealDelayDuration = 20L
-                changeDuration = AnimationConstants.SUPER_QUICK_ANIMATION
-                addDuration = AnimationConstants.SUPER_QUICK_ANIMATION
-                moveDuration = AnimationConstants.SUPER_QUICK_ANIMATION
-                removeDuration = AnimationConstants.SUPER_QUICK_ANIMATION
+        override fun onInserted(position: Int, count: Int) {
+            adapter.apply {
+                if (_cachedTotalCount != null)
+                    _cachedTotalCount = _cachedTotalCount!! + count
+                if (_cachedSectionItemCount.containsKey(section))
+                    _cachedSectionItemCount[section] =
+                        _cachedSectionItemCount[section]!! + count
+                notifyItemRangeInserted(position + itemsAbove, count)
             }
-        notifyItemRangeInserted(positionStart, itemCount)
-    }
+        }
 
-    fun applyChanges(changes: List<EquatableChange<IndexPath>>) {
-        changes.forEach { change ->
-            when (change) {
-                is EquatableChange.Insert -> {
-                    val position = indexPathToPosition(change.item)
-                    if (_cachedTotalCount != null)
-                        _cachedTotalCount = _cachedTotalCount!! + 1
-                    if (_cachedSectionItemCount.containsKey(change.item.section))
-                        _cachedSectionItemCount[change.item.section] =
-                            _cachedSectionItemCount[change.item.section]!! + 1
-                    notifyItemInserted(position)
-                }
-
-                is EquatableChange.Delete -> {
-                    val position = indexPathToPosition(change.item)
-                    if (_cachedTotalCount != null)
-                        _cachedTotalCount = _cachedTotalCount!! - 1
-                    if (_cachedSectionItemCount.containsKey(change.item.section))
-                        _cachedSectionItemCount[change.item.section] =
-                            _cachedSectionItemCount[change.item.section]!! - 1
-                    notifyItemRemoved(position)
-                }
-
-                is EquatableChange.Update -> {
-                    val position = indexPathToPosition(change.item)
-                    notifyItemChanged(position)
-                }
+        override fun onRemoved(position: Int, count: Int) {
+            adapter.apply {
+                if (_cachedTotalCount != null)
+                    _cachedTotalCount = _cachedTotalCount!! - count
+                if (_cachedSectionItemCount.containsKey(section))
+                    _cachedSectionItemCount[section] =
+                        _cachedSectionItemCount[section]!! - count
+                notifyItemRangeRemoved(position + itemsAbove, count)
             }
+        }
+
+        override fun onMoved(fromPosition: Int, toPosition: Int) {
+            adapter.notifyItemMoved(fromPosition + itemsAbove, toPosition + itemsAbove)
+        }
+
+        override fun onChanged(position: Int, count: Int, payload: Any?) {
+            adapter.notifyItemRangeChanged(position + itemsAbove, count, payload)
         }
     }
 
-    fun updateVisibleCells() {
+    fun applyChanges(
+        oldList: List<WEquatable<*>>,
+        newList: List<WEquatable<*>>,
+        section: Int,
+        forceReloadFirstAndLast: Boolean
+    ) {
+        val diffCallback = object : DiffUtil.Callback() {
+
+            override fun getOldListSize(): Int = oldList.size
+            override fun getNewListSize(): Int = newList.size
+
+            override fun areItemsTheSame(oldPos: Int, newPos: Int): Boolean {
+                return oldList[oldPos].isSame(newList[newPos])
+            }
+
+            override fun areContentsTheSame(oldPos: Int, newPos: Int): Boolean {
+                if (forceReloadFirstAndLast && (oldPos == 0 || oldPos == oldList.size - 1))
+                    return false
+                return !oldList[oldPos].isChanged(newList[newPos])
+            }
+        }
+
+        val diffResult = DiffUtil.calculateDiff(diffCallback, false)
+        diffResult.dispatchUpdatesTo(OffsetUpdateCallback(this, section))
+    }
+
+    fun updateVisibleCells(customOperator: ((cell: WCell) -> Unit)? = null) {
         val recyclerView = recyclerView ?: return
         for (i in 0 until recyclerView.childCount) {
             val child = recyclerView.getChildAt(i)
-            val position = recyclerView.getChildAdapterPosition(child)
-            if (position != NO_POSITION) {
-                val viewHolder = recyclerView.getChildViewHolder(child)
-                datasource.get()?.recyclerViewConfigureCell(
-                    recyclerView,
-                    viewHolder as WCell.Holder,
-                    positionToIndexPath(position)
-                )
+            val viewHolder = recyclerView.getChildViewHolder(child)
+            customOperator?.let {
+                customOperator((viewHolder as WCell.Holder).cell)
+            } ?: run {
+                val position = recyclerView.getChildAdapterPosition(child)
+                if (position != NO_POSITION) {
+                    datasource.get()?.recyclerViewConfigureCell(
+                        recyclerView,
+                        viewHolder as WCell.Holder,
+                        positionToIndexPath(position)
+                    )
+                }
             }
         }
+    }
+
+    fun updateTheme() {
+        reloadData()
     }
 
     // Function to map position into index path

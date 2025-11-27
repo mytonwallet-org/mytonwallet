@@ -102,10 +102,14 @@ function DappTransferModal({
   });
 
   function renderPassword(isActive: boolean) {
+    const title = (transactions?.length ?? 0) > 1
+      ? '$classic_confirm_actions'
+      : 'Confirm Action';
+
     return (
       <>
         {!getDoesUsePinPad() && (
-          <ModalHeader title={lang('Confirm Action')} onClose={closeDappTransfer} />
+          <ModalHeader title={lang(title)} onClose={closeDappTransfer} />
         )}
         <PasswordForm
           isActive={isActive}

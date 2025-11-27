@@ -22,13 +22,7 @@ private let log = Log("IntroActions")
     private var password: String?
     private var words: [String]?
     
-    var allowOpenWithoutChecking: Bool {
-#if DEBUG
-        return true
-#else
-        return Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt"
-#endif
-    }
+    let allowOpenWithoutChecking: Bool = IS_DEBUG_OR_TESTFLIGHT
     
     public init(password: String?, words: [String]? = nil) {
         self.password = password

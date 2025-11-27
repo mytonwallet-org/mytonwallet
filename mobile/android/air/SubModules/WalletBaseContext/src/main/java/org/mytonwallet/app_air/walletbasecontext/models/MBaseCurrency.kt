@@ -28,12 +28,12 @@ enum class MBaseCurrency(val currencyCode: String) {
 
     val currencySymbol: String
         get() = when (this) {
-            USD -> LocaleController.getString("USD")
-            EUR -> LocaleController.getString("EUR")
-            RUB -> LocaleController.getString("RUB")
-            CNY -> LocaleController.getString("CNY")
-            BTC -> LocaleController.getString("BTC")
-            TON -> LocaleController.getString("TON")
+            USD -> "USD"
+            EUR -> "EUR"
+            RUB -> "RUB"
+            CNY -> "CNY"
+            BTC -> "BTC"
+            TON -> "TON"
         }
 
     val currencyName: String

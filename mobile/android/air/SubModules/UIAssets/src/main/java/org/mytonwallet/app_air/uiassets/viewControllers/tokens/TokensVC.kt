@@ -39,6 +39,7 @@ class TokensVC(
     context: Context,
     private val mode: Mode,
     private val onHeightChanged: (() -> Unit)? = null,
+    private val onAssetsShown: (() -> Unit)? = null,
     private val onScroll: ((rv: RecyclerView) -> Unit)? = null
 ) : WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource, WalletCore.EventObserver {
@@ -68,7 +69,9 @@ class TokensVC(
     private var thereAreMoreToShow: Boolean = false
 
     private val rvAdapter =
-        WRecyclerViewAdapter(WeakReference(this), arrayOf(TOKEN_CELL))
+        WRecyclerViewAdapter(WeakReference(this), arrayOf(TOKEN_CELL)).apply {
+            setHasStableIds(true)
+        }
 
     private val scrollListener = object : RecyclerView.OnScrollListener() {
         override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
@@ -165,8 +168,9 @@ class TokensVC(
     }
 
     var prevSize = -1
+    private val executor = Executors.newSingleThreadExecutor()
     private fun dataUpdated() {
-        Executors.newSingleThreadExecutor().execute {
+        executor.execute {
             val allWalletTokens =
                 AccountStore.assetsAndActivityData.getAllTokens(addVirtualStakingTokens = true)
             val filteredWalletTokens = allWalletTokens.filter {
@@ -183,6 +187,7 @@ class TokensVC(
                     onHeightChanged?.invoke()
                 }
                 rvAdapter.reloadData()
+                onAssetsShown?.invoke()
             }
         }
     }
@@ -256,8 +261,15 @@ class TokensVC(
         )
     }
 
+    override fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? {
+        walletTokens[indexPath.row].apply {
+            return "${isVirtualStakingRow}_$token"
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        WalletCore.unregisterObserver(this)
         recyclerView.onDestroy()
         recyclerView.adapter = null
         recyclerView.removeAllViews()

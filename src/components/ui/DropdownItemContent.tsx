@@ -47,6 +47,25 @@ function DropdownItemContent<T extends string>({
     className,
   );
 
+  function renderIcon() {
+    if (typeof item.icon !== 'string') {
+      return item.icon;
+    }
+
+    return (
+      <span className={buildClassName('icon', styles.itemIcon, iconClassName)}>
+        <img src={item.icon} alt="" className={styles.itemMainIcon} />
+        {item.overlayIcon && (
+          <img
+            src={item.overlayIcon}
+            alt=""
+            className={buildClassName('icon', styles.itemOverlayIcon, iconOverlayClassName)}
+          />
+        )}
+      </span>
+    );
+  }
+
   return (
     <button
       type="button"
@@ -55,21 +74,15 @@ function DropdownItemContent<T extends string>({
       onClick={onClick && ((e) => onClick(e, item.value))}
     >
       {prefix}
-      {item.icon && (
-        <span className={buildClassName('icon', styles.itemIcon, iconClassName)}>
-          <img src={item.icon} alt="" className={styles.itemMainIcon} />
-          {item.overlayIcon && (
-            <img
-              src={item.overlayIcon}
-              alt=""
-              className={buildClassName('icon', styles.itemOverlayIcon, iconOverlayClassName)}
-            />
-          )}
-        </span>
-      )}
+      {Boolean(item.icon) && renderIcon()}
       {item.fontIcon && (
         <i
-          className={buildClassName(`icon icon-${item.fontIcon}`, styles.fontIcon, fontIconClassName)}
+          className={buildClassName(
+            `icon icon-${item.fontIcon}`,
+            styles.fontIcon,
+            fontIconClassName,
+            item.fontIconClassName,
+          )}
           aria-hidden
         />
       )}

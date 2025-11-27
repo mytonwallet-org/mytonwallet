@@ -11,26 +11,28 @@ import UIComponents
 import WalletCore
 import WalletContext
 import UIAssets
-
+import SwiftUI
 
 extension HomeVC: BalanceHeaderViewDelegate, WalletAssetsDelegate {
     
     public func headerIsAnimating() {
         if !isExpandingProgrammatically {
-            if balanceHeaderView.walletCardView.state == .expanded {
-                scrollExtraOffset += WalletCardView.expansionOffset
-            } else {
-                scrollExtraOffset -= WalletCardView.collapseOffset
-            }
+//            if balanceHeaderView.walletCardView.state == .expanded {
+//                scrollExtraOffset += WalletCardView.expansionOffset
+//            } else {
+//                scrollExtraOffset -= WalletCardView.collapseOffset
+//            }
         }
 
         let duration = isExpandingProgrammatically ? 0.2 : 0.3
         UIView.animateAdaptive(duration: duration) { [self] in
-            view.layoutIfNeeded()
-            updateTableViewHeaderFrame()
-            // reset status view to show wallet name in expanded mode and hide in collpased mode
-            balanceHeaderView.update(status: balanceHeaderView.updateStatusView.state,
-                                     animatedWithDuration: duration)
+            withAnimation(.interactiveSpring(duration: 0.3)) {
+                updateTableViewHeaderFrame(animated: true)
+                // reset status view to show wallet name in expanded mode and hide in collpased mode
+                balanceHeaderView.update(status: balanceHeaderView.updateStatusView.state,
+                                         animatedWithDuration: duration)
+                headerViewModel.state = balanceHeaderView.walletCardView.state
+            }
         } completion: { [weak self] _ in
             guard let self else { return }
             scrollViewDidScroll(tableView)

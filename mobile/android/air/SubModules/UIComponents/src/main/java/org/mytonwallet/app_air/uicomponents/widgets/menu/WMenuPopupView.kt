@@ -23,7 +23,8 @@ import kotlin.math.roundToInt
 class WMenuPopupView(
     context: Context,
     val items: List<WMenuPopup.Item>,
-    private val onDismiss: () -> Unit
+    private val onWillDismiss: (() -> Unit)?,
+    private val onDismiss: () -> Unit,
 ) : FrameLayout(context) {
 
     var popupWindow: WPopupWindow? = null
@@ -76,11 +77,15 @@ class WMenuPopupView(
                     if (!item.getSubItems().isNullOrEmpty()) {
                         val window = popupWindow
                         window?.push(
-                            WMenuPopupView(context, item.getSubItems()!!.toMutableList().apply {
-                                add(0, WMenuPopup.Item(Config.Back, true))
-                            }, onDismiss = {
-                                popupWindow?.dismiss()
-                            }).apply {
+                            WMenuPopupView(
+                                context, item.getSubItems()!!.toMutableList().apply {
+                                    add(0, WMenuPopup.Item(Config.Back, true))
+                                }, onWillDismiss = {
+                                    onWillDismiss?.invoke()
+                                },
+                                onDismiss = {
+                                    popupWindow?.dismiss()
+                                }).apply {
                                 popupWindow = window
                             }
                         )
@@ -141,6 +146,7 @@ class WMenuPopupView(
     }
 
     fun dismiss() {
+        onWillDismiss?.invoke()
         (parent as FrameLayout).animate().setDuration(AnimationConstants.MENU_DISMISS)
             .setInterpolator(AccelerateDecelerateInterpolator())
             .alpha(0f)

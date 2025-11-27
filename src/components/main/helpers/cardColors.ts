@@ -1,15 +1,8 @@
 import type { UserToken } from '../../../global/types';
 import type { RGBColor } from '../../../util/colors';
 
-import {
-  STAKED_TON_SLUG,
-  TON_USDT_MAINNET_SLUG,
-  TON_USDT_TESTNET_SLUG,
-  TONCOIN,
-  TRC20_USDT_MAINNET_SLUG,
-  TRC20_USDT_TESTNET_SLUG,
-  TRX,
-} from '../../../config';
+import { STAKED_TON_SLUG, TONCOIN, TRX } from '../../../config';
+import { getTrustedUsdtSlugs } from '../../../util/chain';
 import { deltaE, hex2rgb } from '../../../util/colors';
 
 const TOKEN_CARD_COLORS: Record<string, RGBColor> = {
@@ -26,10 +19,6 @@ const TOKEN_CARD_COLORS: Record<string, RGBColor> = {
 export const TOKEN_EXCEPTION_COLORS: Record<string, string> = {
   [TONCOIN.slug]: 'blue',
   [TRX.slug]: 'red',
-  [TON_USDT_MAINNET_SLUG]: 'sea',
-  [TON_USDT_TESTNET_SLUG]: 'sea',
-  [TRC20_USDT_MAINNET_SLUG]: 'sea',
-  [TRC20_USDT_TESTNET_SLUG]: 'sea',
   [STAKED_TON_SLUG]: 'green',
 };
 
@@ -40,6 +29,10 @@ export function calculateTokenCardColor(token?: UserToken): string {
   let smallestDistance = Infinity;
 
   if (!token) return closestColor;
+
+  if (getTrustedUsdtSlugs().has(token.slug)) {
+    return 'sea';
+  }
 
   if (TOKEN_EXCEPTION_COLORS[token.slug]) {
     return TOKEN_EXCEPTION_COLORS[token.slug];

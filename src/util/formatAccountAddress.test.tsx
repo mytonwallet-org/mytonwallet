@@ -82,10 +82,10 @@ describe('formatAccountAddresses', () => {
         expect(icons).toHaveLength(1);
         expect(icons[0].props.className).toBe('icon-chain-ton');
 
-        // Check domain format (3 chars left, 4 chars right)
+        // Check domain format (maxLength=8 for card variant)
+        // 'mywalletverylong.ton' (20 chars) -> 'm···.ton' (8 chars)
         const text = getTextContent(result);
-        expect(text).toContain('myw');
-        expect(text).toContain('.ton');
+        expect(text).toBe('m···.ton');
         expect(text).not.toContain('UQA');
       });
 
@@ -125,9 +125,12 @@ describe('formatAccountAddresses', () => {
       test('mixed: one with domain, one with address', () => {
         const result = formatAccountAddresses(multiChainDomainAccount);
 
-        // Check domain format for TON (3 chars left, 2 chars right)
+        // Check domain format for TON (maxLength=8 for card variant)
+        // 'wallet.ton' (10 chars) -> 'w···.ton' (8 chars)
         const text = getTextContent(result);
-        expect(text).toContain('wal···on');
+        expect(text).toContain('w');
+        expect(text).toContain('···');
+        expect(text).toContain('.ton');
 
         // Check address format for TRON (0 chars left, 3 chars right)
         expect(text).toContain('···j6t');
@@ -178,10 +181,12 @@ describe('formatAccountAddresses', () => {
         expect(icons).toHaveLength(1);
         expect(icons[0].props.className).toBe('icon-chain-ton');
 
-        // Check domain format (6 chars left, 6 chars right)
+        // Check domain format (maxLength=12 for list variant)
+        // 'mywalletverylong.ton' (20 chars) -> 'mywal···.ton' (12 chars)
         const text = getTextContent(result);
-        expect(text).toContain('mywall');
-        expect(text).toContain('ng.ton');
+        expect(text).toContain('mywal');
+        expect(text).toContain('···');
+        expect(text).toContain('.ton');
         expect(text).not.toContain('UQA');
       });
 

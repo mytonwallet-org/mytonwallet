@@ -31,7 +31,7 @@ function CardPros({ type, price, balance, isAvailable }: OwnProps) {
     if (!isEnoughBalance) {
       showDialog({
         title: lang('Insufficient Balance'),
-        message: lang('Please top up your TON balance.'),
+        message: lang('Please top up your %token% balance.', { token: TONCOIN.symbol }),
       });
 
       return;

@@ -17,12 +17,16 @@ import UIEarn
 import UIToken
 import UIInAppBrowser
 import UniformTypeIdentifiers
+import Dependencies
 
 @MainActor func configureAppActions() {
     AppActions = AppActionsImpl.self
 }
 
 private class AppActionsImpl: AppActionsProtocol {
+    
+    @Dependency(\.sensitiveData) private static var sensitiveData
+    
     static func copyString(_ string: String?, toastMessage: String) {
         if let string {
             UIPasteboard.general.setItems([[
@@ -120,7 +124,7 @@ private class AppActionsImpl: AppActionsProtocol {
     }
     
     static func setSensitiveDataIsHidden(_ newValue: Bool) {
-        AppStorageHelper.isSensitiveDataHidden = newValue
+        sensitiveData.isHidden = newValue
         let window = UIApplication.shared.sceneKeyWindow
         window?.updateSensitiveData()
     }
@@ -191,6 +195,22 @@ private class AppActionsImpl: AppActionsProtocol {
         topViewController()?.present(WNavigationController(rootViewController: vc), animated: true)
     }
     
+    static func showCustomizeWallet(accountId: String?) {
+        let vc = CustomizeWalletVC(accountId: accountId)
+        if let settingsVC = topWViewController() as? AppearanceSettingsVC, let nc = settingsVC.navigationController {
+            nc.pushViewController(vc, animated: true)
+        } else {
+            let nc = WNavigationController(rootViewController: vc)
+            topViewController()?.present(nc, animated: true)
+        }
+    }
+    
+    static func showDeleteAccount(accountId: String) {
+        if let account = AccountStore.accountsById[accountId] {
+            showDeleteAccountAlert(accountToDelete: account, isCurrentAccount: AccountStore.accountId == account.id)
+        }
+    }
+    
     static func showEarn(token: ApiToken?) {
         if AccountStore.account?.supportsEarn != true {
             topViewController()?.showAlert(error: BridgeCallError.customMessage(lang("Staking is not supported in Testnet."), nil))
@@ -237,6 +257,13 @@ private class AppActionsImpl: AppActionsProtocol {
         topViewController()?.present(WNavigationController(rootViewController: receiveVC), animated: true)
     }
     
+    static func showRenameAccount(accountId: String) {
+        if let account = AccountStore.accountsById[accountId] {
+            let alert = makeRenameAccountAlertController(account: account)
+            topViewController()?.present(alert, animated: true)
+        }
+    }
+    
     static func showSend(prefilledValues: SendPrefilledValues?) {
         if AccountStore.account?.supportsSend != true {
             topViewController()?.showAlert(error: BridgeCallError.customMessage(lang("Read-only account"), nil))
@@ -264,6 +291,13 @@ private class AppActionsImpl: AppActionsProtocol {
     
     static func showUpgradeCard() {
         AppActions.openInBrowser(URL(string:  "https://getgems.io/collection/EQCQE2L9hfwx1V8sgmF9keraHx1rNK9VmgR1ctVvINBGykyM")!, title: "MyTonWallet NFT Cards", injectTonConnect: true)
+    }
+    
+    static func showWalletSettings() {
+        guard IS_DEBUG_OR_TESTFLIGHT else { return }
+        let vc = WalletSettingsVC()
+        let nc = WNavigationController(rootViewController: vc)
+        topViewController()?.present(nc, animated: true)
     }
     
     static func transitionToNewRootViewController(_ newRootViewController: UIViewController, animationDuration: Double?) {

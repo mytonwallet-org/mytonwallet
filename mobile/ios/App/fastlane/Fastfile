@@ -103,7 +103,8 @@ platform :ios do
           $app_identifier => $profile_name,
           $app_identifier_widget => $profile_name_widget,
         }
-      }
+      },
+      xcargs: "-skipMacroValidation",
     )
 
     changelog_from_git_commits(merge_commit_filtering: "exclude_merges", commits_count: 3)
@@ -133,7 +134,8 @@ platform :ios do
           $app_identifier => $profile_name,
           $app_identifier_widget => $profile_name_widget,
         }
-      }
+      },
+      xcargs: "-skipMacroValidation",
     )
 
     upload_to_app_store(

@@ -19,6 +19,7 @@ open class WRecyclerView(context: Context) : RecyclerView(context) {
     init {
         id = generateViewId()
         isVerticalScrollBarEnabled = false
+        setHasFixedSize(true)
     }
 
     private var viewControllerRef: WeakReference<WViewController>? = null
@@ -115,6 +116,12 @@ open class WRecyclerView(context: Context) : RecyclerView(context) {
         overscrollListener?.let { it ->
             removeOnItemTouchListener(it)
         }
+        adapter = null
+    }
+
+    fun cancelActiveGesture() {
+        suppressLayout(true)
+        suppressLayout(false)
     }
 
     // OVERSCROLL //////////////////////////////////////////////////////////////////////////////////

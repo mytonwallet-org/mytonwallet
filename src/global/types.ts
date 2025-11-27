@@ -237,6 +237,7 @@ export enum SwapType {
 
 export enum DappConnectState {
   Info,
+  SelectAccount,
   Password,
   ConnectHardware,
   ConfirmHardware,
@@ -342,6 +343,8 @@ export type UserToken = {
   type?: ApiTokenType;
   color?: string;
   codeHash?: string;
+  /** A small dim label to show in the UI right after the token name */
+  label?: string;
 };
 
 export type UserSwapToken = Omit<UserToken, 'change24h' | 'chain'> & {
@@ -369,6 +372,7 @@ export interface Account {
   title?: string;
   type: AccountType;
   byChain: Partial<Record<ApiChain, AccountChain>>;
+  isTemporary?: true;
 }
 
 export type AssetPairs = Record<string, {
@@ -410,6 +414,7 @@ export interface AccountState {
     linkedAddressByAddress?: Record<string, string>;
     collectionTabs?: string[];
     wasTelegramGiftsAutoAdded?: boolean;
+    isLoadedByAddress?: Record<string, true>;
   };
   blacklistedNftAddresses?: string[];
   whitelistedNftAddresses?: string[];
@@ -776,6 +781,7 @@ export type GlobalState = {
     importToken?: {
       isLoading?: boolean;
       token?: UserToken | UserSwapToken;
+      error?: string;
     };
     authConfig?: AuthConfig;
     baseCurrency: ApiBaseCurrency;
@@ -789,6 +795,7 @@ export type GlobalState = {
   dialogs: DialogType[];
   notifications: NotificationType[];
   currentAccountId?: string;
+  currentTemporaryViewAccountId?: string;
   isAccountSelectorOpen?: boolean;
   accountSelectorActiveTab?: number;
   accountSelectorViewMode?: 'cards' | 'list';
@@ -807,6 +814,7 @@ export type GlobalState = {
   confettiRequestedAt?: number;
   isPinAccepted?: boolean;
   chainForOnRampWidgetModal?: ApiChain;
+  chainForOffRampWidgetModal?: ApiChain;
   isInvoiceModalOpen?: boolean;
   isReceiveModalOpen?: boolean;
   isVestingModalOpen?: boolean;
@@ -837,6 +845,7 @@ export type GlobalState = {
     isLimitedRegion: boolean;
     isSwapDisabled: boolean;
     isOnRampDisabled: boolean;
+    isOffRampDisabled: boolean;
     isNftBuyingDisabled: boolean;
     isCopyStorageEnabled?: boolean;
     supportAccountsCount?: number;
@@ -921,6 +930,8 @@ export interface ActionPayloads {
   checkAppVersion: undefined;
   importAccountByVersion: { version: ApiTonWalletVersion; isTestnetSubwalletId?: boolean };
   importViewAccount: { addressByChain: ApiImportAddressByChain };
+  openTemporaryViewAccount: { addressByChain: Partial<Record<ApiChain, string>> };
+  saveTemporaryAccount: undefined;
 
   selectToken: { slug?: string } | undefined;
   openBackupWalletModal: undefined;
@@ -1009,6 +1020,7 @@ export interface ActionPayloads {
   closeActivityInfo: { id: string };
   fetchActivityDetails: { id: string };
   fetchNftsFromCollection: { collectionAddress: string };
+  clearNftCollectionLoading: { collectionAddress: string };
   openNftCollection: { address: string };
   closeNftCollection: undefined;
   selectNfts: { addresses: string[] };
@@ -1044,7 +1056,7 @@ export interface ActionPayloads {
 
   addSavedAddress: { address: string; name: string; chain: ApiChain };
   removeFromSavedAddress: { address: string; chain: ApiChain };
-  checkTransferAddress: { address?: string };
+  checkTransferAddress: { address?: string; chain?: ApiChain };
 
   openAccountSelector: undefined;
   closeAccountSelector: undefined;
@@ -1113,7 +1125,7 @@ export interface ActionPayloads {
   toggleTokenVisibility: { slug: string; shouldShow: boolean };
   addToken: { token: UserToken };
   deleteToken: { slug: string };
-  importToken: { address: string; isSwap?: boolean };
+  importToken: { chain: ApiChain; address: string };
   updateOrderedAccountIds: { orderedAccountIds: string[] };
   rebuildOrderedAccountIds: undefined;
   resetImportToken: undefined;
@@ -1226,6 +1238,9 @@ export interface ActionPayloads {
 
   openOnRampWidgetModal: { chain: ApiChain };
   closeOnRampWidgetModal: undefined;
+
+  openOffRampWidgetModal: undefined;
+  closeOffRampWidgetModal: undefined;
 
   // MediaViewer
   openMediaViewer: {

@@ -86,7 +86,7 @@ public class AssetsAndActivityVC: WViewController {
         return Array(tokens)
     }
     
-    private var baseCurrency: MBaseCurrency { TokenStore.baseCurrency ?? .USD }
+    private var baseCurrency: MBaseCurrency { TokenStore.baseCurrency }
     
     private func setupViews() {
         title = lang("Assets & Activity")

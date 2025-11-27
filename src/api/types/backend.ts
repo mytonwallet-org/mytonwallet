@@ -123,6 +123,8 @@ export type ApiSwapAsset = {
   tokenAddress?: string;
   keywords?: string[];
   color?: string;
+  /** A small dim label to show in the UI right after the token name */
+  label?: string;
 };
 
 export type ApiSwapPairAsset = {
@@ -138,6 +140,7 @@ export type ApiSwapHistoryItem = {
   lt?: number;
   from: string;
   fromAmount: string;
+  fromAddress: string;
   to: string;
   toAmount: string;
   /** The real fee in the chain's native token */

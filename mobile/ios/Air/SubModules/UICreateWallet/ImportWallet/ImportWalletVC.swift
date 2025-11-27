@@ -227,8 +227,8 @@ public class ImportWalletVC: WViewController {
 
     private func showMnemonicAlert() {
         // a word is incorrect.
-        showAlert(title: lang("Wrong Phrase"),
-                  text: lang("Looks like you entered an invalid mnemonic phrase."),
+        showAlert(title: nil,
+                  text: lang("InvalidMnemonic"),
                   button: lang("OK"))
     }
 

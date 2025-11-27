@@ -1,6 +1,6 @@
 {
   "name": "mytonwallet",
-  "version": "4.3.3",
+  "version": "4.4.0",
   "description": "The most feature-rich web wallet and browser extension for TON – with support of multi-accounts, tokens (jettons), NFT, TON DNS, TON Sites, TON Proxy, and TON Magic.",
   "main": "index.js",
   "scripts": {
@@ -28,7 +28,7 @@
     "extension-opera:package": "cross-env IS_OPERA_EXTENSION=1 IS_EXTENSION=1 webpack && bash ./deploy/package_extension.sh opera",
     "extension-opera:package:staging": "cross-env APP_ENV=staging npm run extension-opera:package",
     "extension-opera:package:production": "npm run extension-opera:package",
-    "electron:dev": "npm run electron:webpack && IS_PACKAGED_ELECTRON=1 concurrently --ks SIGKILL -n main,renderer,electron \"npm run electron:webpack -- --watch\" \"npm run dev\" \"electronmon dist/electron\"",
+    "electron:dev": "ENV=development npm run electron:webpack && IS_PACKAGED_ELECTRON=1 ENV=development concurrently --ks SIGKILL -n main,renderer,electron \"npm run electron:webpack -- --watch\" \"npm run dev\" \"electronmon dist/electron\"",
     "electron:webpack": "cross-env APP_ENV=$ENV webpack --config ./webpack-electron.config.ts",
     "electron:build": "IS_PACKAGED_ELECTRON=1 npm run build:$ENV && electron-builder install-app-deps && ENV=$ENV npm run electron:webpack",
     "electron:package": "npm run electron:build && npx rimraf dist-electron && electron-builder build --win --mac --linux --config src/electron/config.yml",
@@ -190,7 +190,7 @@
     "@awesome-cordova-plugins/core": "6.16.0",
     "@awesome-cordova-plugins/in-app-browser": "6.16.0",
     "@capacitor-community/bluetooth-le": "github:mytonwallet-org/capacitor-bluetooth-le#f378a4b4e16562de6b5342b27ecf376193eb0ecc",
-    "@capacitor-mlkit/barcode-scanning": "7.2.1",
+    "@capacitor-mlkit/barcode-scanning": "7.3.0",
     "@capacitor/android": "7.2.0",
     "@capacitor/app": "7.0.1",
     "@capacitor/app-launcher": "7.0.1",

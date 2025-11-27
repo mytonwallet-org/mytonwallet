@@ -263,9 +263,8 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
             title: lang("Confirm Sending"),
             headerView: SendingHeaderView().environmentObject(self.model)
         )
-        vc.onDone = { [model] vc in
-            let sentVC = SentVC(model: model, transferOptions: transferOptions)
-            vc.navigationController?.pushViewController(sentVC, animated: true)
+        vc.onDone = { _ in
+            // handled by observer
         }
         navigationController?.pushViewController(vc, animated: true)
     }
@@ -297,9 +296,8 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
             title: lang("Confirm Sending"),
             headerView: SendingHeaderView().environmentObject(self.model)
         )
-        vc.onDone = { [model] vc in
-            let sentVC = SentVC(model: model, transferOptions: nil)
-            vc.navigationController?.pushViewController(sentVC, animated: true)
+        vc.onDone = { _ in
+            // handled by observer
         }
         navigationController?.pushViewController(vc, animated: true)
     }

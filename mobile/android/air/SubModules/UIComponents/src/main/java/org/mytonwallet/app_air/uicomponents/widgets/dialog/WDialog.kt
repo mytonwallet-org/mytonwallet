@@ -16,7 +16,9 @@ import androidx.core.view.children
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.widgets.IPopup
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
@@ -31,7 +33,7 @@ import java.lang.ref.WeakReference
 import kotlin.math.max
 import kotlin.math.min
 
-class WDialog(private val customView: ViewGroup, private val config: Config) {
+class WDialog(private val customView: ViewGroup, private val config: Config): IPopup {
 
     data class Config(
         val title: String? = null,
@@ -162,6 +164,7 @@ class WDialog(private val customView: ViewGroup, private val config: Config) {
             throw Exception("WDialog can't be presented more than once")
         isPresented = true
         viewController.setActiveDialog(this)
+        PopupHelpers.popupShown(this)
         parentViewController = WeakReference(viewController)
         val parentView = viewController.navigationController?.parent as WView
         parentView.hideKeyboard()
@@ -248,7 +251,7 @@ class WDialog(private val customView: ViewGroup, private val config: Config) {
         }
     }
 
-    fun dismiss() {
+    override fun dismiss() {
         if (isAnimating)
             return
         if (!isPresented)
@@ -270,6 +273,7 @@ class WDialog(private val customView: ViewGroup, private val config: Config) {
                     removeView(contentView)
                 }
                 onDismissListener?.invoke()
+                PopupHelpers.popupDismissed(this@WDialog)
             }
             start()
         }

@@ -22,6 +22,8 @@ private let log = Log("Home-WalletAssets")
     private var nftsVC: NftsVC?
     private var currentAccountId: String?
     
+    @AppStorage("debug_hideSegmentedControls") private var hideSegmentedControls = false
+    
     var tabsViewModel: WalletAssetsViewModel
     
     var tabViewControllers: [DisplayAssetTab: any WSegmentedControllerContent] = [:]
@@ -33,6 +35,19 @@ private let log = Log("Home-WalletAssets")
             return ctx
         } else {
             let ctx = MenuContext()
+            ctx.sourceView = self.walletAssetsView.segmentedController.segmentedControl
+            switch tab {
+            case .tokens:
+                configureTokensMenu(menuContext: ctx, onReorder: { self.onReorder() })
+            case .nfts:
+                configureCollectiblesMenu(menuContext: ctx, onReorder: { self.onReorder() })
+            case .nftCollectionFilter(let filter):
+                configureNftCollectionMenu(menuContext: ctx, onReorder: { self.onReorder() }, onHide: { [weak self] in
+                    Task {
+                        try? await self?.tabsViewModel.setIsFavorited(filter: filter, isFavorited: false)
+                    }
+                })
+            }
             menuContexts[tab] = ctx
             return ctx
         }
@@ -48,6 +63,32 @@ private let log = Log("Home-WalletAssets")
         fatalError("init(coder:) has not been implemented")
     }
     
+    private var changeAccountTask: Task<Void, any Error>?
+    
+    public func interactivelySwitchAccountTo(accountId: String) {
+        UIView.animate(withDuration: 0.2) { [self] in
+            walletAssetsView.segmentedController.scrollView.alpha = 0
+            walletAssetsView.segmentedController.segmentedControl.alpha = 0
+        }
+        changeAccountTask?.cancel()
+        changeAccountTask = Task {
+            try await Task.sleep(for: .seconds(0.2))
+            tabsViewModel.changAccountTo(accountId: accountId)
+            if let first = tabsViewModel.displayTabs.first, let vc = tabViewControllers[first] {
+                if let vc = vc as? WalletTokensView {
+                    tokensVC?.switchAcccountTo(accountId: accountId)
+                }
+            }
+            try await Task.sleep(for: .seconds(0.03))
+            walletAssetsView.segmentedController.switchTo(tabIndex: 0)
+            walletAssetsView.segmentedController.handleSegmentChange(to: 0, animated: false)
+            UIView.animate(withDuration: 0.2) { [self] in
+                walletAssetsView.segmentedController.scrollView.alpha = 1
+                walletAssetsView.segmentedController.segmentedControl.alpha = 1
+            }
+        }
+    }
+    
     public func displayTabsChanged() {
         _displayTabsChanged(force: false)
     }
@@ -60,7 +101,7 @@ private let log = Log("Home-WalletAssets")
                 addChild(vc)
                 _ = vc.view
                 tabViewControllers[tab] = vc
-                vc.didMove(toParent: vc)
+                vc.didMove(toParent: self)
             }
         }
         let vcs = displayTabs.map { tabViewControllers[$0]! }
@@ -69,42 +110,29 @@ private let log = Log("Home-WalletAssets")
             return switch tab {
             case .tokens:
                 SegmentedControlItem(
-                    index: index,
                     id: "tokens",
-                    content: AnyView(
-                        TokensItem(menuContext: menuContext) {
-                            Text(lang("Assets"))
-                        }
-                    )
+                    title: lang("Assets"),
+                    menuContext: menuContext,
+                    hidesMenuIcon: true,
+                    viewController: vcs[index],
                 )
             case .nfts:
                 SegmentedControlItem(
-                    index: index,
                     id: "nfts",
-                    content: AnyView(
-                        AllNftsItem(menuContext: menuContext)
-                    )
+                    title: lang("Collectibles"),
+                    menuContext: menuContext,
+                    viewController: vcs[index],
                 )
             case .nftCollectionFilter(let filter):
                 SegmentedControlItem(
-                    index: index,
                     id: filter.stringValue,
-                    content: AnyView(
-                        NftCollectionItem(
-                            menuContext: menuContext,
-                            hideAction: { [weak self] in
-                                Task {
-                                    try? await self?.tabsViewModel.setIsFavorited(filter: filter, isFavorited: false)
-                                }
-                            }) {
-                                Text(filter.displayTitle)
-                            }
-                    )
+                    title: filter.displayTitle,
+                    menuContext: menuContext,
+                    viewController: vcs[index],
                 )
             }
         }
         walletAssetsView.segmentedController.replace(
-            viewControllers: vcs,
             items: items,
             force: force
         )
@@ -146,7 +174,7 @@ private let log = Log("Home-WalletAssets")
             self?.headerHeightChanged(animated: animated)
         }
         walletAssetsView.onScrollingOffsetChanged = { [weak self] offset in
-            self?.delegate?.headerHeightChanged(animated: false)
+            self?.delegate?.headerHeightChanged(animated: true)
 //            self?.nftsVC?.updateIsVisible(offset >= 0.2)
         }        
         
@@ -191,8 +219,6 @@ private let log = Log("Home-WalletAssets")
             switch event {
             case .accountChanged:
                 walletAssetsView.selectedIndex = 0
-//            case .nftsChanged(let accountId):
-//            case .nftFeaturedCollectionChanged(let accountId):
             case .applicationWillEnterForeground:
                 view.setNeedsLayout()
                 view.setNeedsDisplay()
@@ -208,17 +234,14 @@ private let log = Log("Home-WalletAssets")
     
     public override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        for ctx in menuContexts.values { // reference type
-            ctx.sourceView = self.walletAssetsView.segmentedController.newSegmentedControl
-        }
     }
     
     public func computedHeight() -> CGFloat {
         let progress = walletAssetsView.scrollProgress
         
         var newItemsHeight: CGFloat
-        guard let vcs = walletAssetsView.segmentedController.viewControllers else { return 0 }
         
+        let vcs = walletAssetsView.segmentedController.viewControllers ?? []
         let lo = max(0, min(vcs.count - 2, Int(progress)))
         newItemsHeight = 44 + interpolate(
             from: vcs[lo].calculatedHeight,
@@ -233,5 +256,9 @@ private let log = Log("Home-WalletAssets")
     
     public var skeletonViewCandidates: [UIView] {
         walletAssetsView.walletTokensView.visibleCells
+    }
+    
+    func onReorder() {
+        walletAssetsView.segmentedController.model.startReordering()
     }
 }

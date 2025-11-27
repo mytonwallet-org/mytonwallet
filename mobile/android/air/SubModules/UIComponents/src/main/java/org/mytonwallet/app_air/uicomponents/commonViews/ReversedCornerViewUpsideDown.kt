@@ -11,21 +11,20 @@ import android.os.Build
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
-import android.widget.FrameLayout
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
-import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 
 @SuppressLint("ViewConstructor")
 class ReversedCornerViewUpsideDown(
     context: Context,
     private var blurRootView: ViewGroup?,
-) : FrameLayout(context), WThemedView {
+) : BaseReversedCornerView(context), WThemedView {
 
     init {
         id = generateViewId()
@@ -68,12 +67,11 @@ class ReversedCornerViewUpsideDown(
     private var isPlaying = false
     private var lastWidth = -1
     private var lastHeight = -1
-    private var pathDirty = true
 
     fun setShowSeparator(visible: Boolean) {
         if (visible == showSeparator) return
         showSeparator = visible
-        invalidate()
+        postInvalidateOnAnimation()
     }
 
     fun setBlurOverlayColor(color: WColor) {
@@ -141,13 +139,6 @@ class ReversedCornerViewUpsideDown(
         canvas.restore()
     }
 
-    private var horizontalPadding = ViewConstants.HORIZONTAL_PADDINGS.dp.toFloat()
-    fun setHorizontalPadding(padding: Float) {
-        horizontalPadding = padding
-        pathDirty = true
-        invalidate()
-    }
-
     override fun updateTheme() {
         if (blurryBackgroundView == null) {
             backgroundView.setBackgroundColor(
@@ -170,7 +161,7 @@ class ReversedCornerViewUpsideDown(
             resumeBlurring()
             post { pauseBlurring() }
         } else {
-            invalidate()
+            postInvalidateOnAnimation()
         }
     }
 
@@ -178,7 +169,7 @@ class ReversedCornerViewUpsideDown(
         if (!isPlaying) return
         isPlaying = false
         blurryBackgroundView?.setBlurAutoUpdate(false)
-        invalidate()
+        postInvalidateOnAnimation()
     }
 
     fun resumeBlurring() {
@@ -196,6 +187,6 @@ class ReversedCornerViewUpsideDown(
                 addView(backgroundView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
         }
 
-        invalidate()
+        postInvalidateOnAnimation()
     }
 }

@@ -103,7 +103,7 @@ public struct TokenAmountEntrySection: View {
     
     private var decimals: Int {
         if switchedToBaseCurrencyInput {
-            TokenStore.baseCurrency?.decimalsCount ?? 2
+            TokenStore.baseCurrency.decimalsCount ?? 2
         } else {
             token?.decimals ?? 9
         }
@@ -124,14 +124,13 @@ public struct TokenAmountEntrySection: View {
                 
             } else {
                 let amount = amountInBaseCurrency ?? 0
-                if let baseCurrency = TokenStore.baseCurrency {
-                    Text(
-                        amount: DecimalAmount(amount, baseCurrency),
-                        format: .init()
-                    )
-                    if allowSwitchingToBaseCurrency {
-                        Image("SendInCurrency", bundle: AirBundle)
-                    }
+                let baseCurrency = TokenStore.baseCurrency
+                Text(
+                    amount: DecimalAmount(amount, baseCurrency),
+                    format: .init()
+                )
+                if allowSwitchingToBaseCurrency {
+                    Image("SendInCurrency", bundle: AirBundle)
                 }
             }
         }
@@ -178,7 +177,7 @@ public struct TokenAmountEntry: View {
 
     private var decimals: Int {
         if inBaseCurrency {
-            TokenStore.baseCurrency?.decimalsCount ?? 2
+            TokenStore.baseCurrency.decimalsCount
         } else {
             token?.decimals ?? 9
         }
@@ -194,7 +193,8 @@ public struct TokenAmountEntry: View {
 
     @ViewBuilder
     var symbol: some View {
-        if inBaseCurrency, let sign = TokenStore.baseCurrency?.sign {
+        if inBaseCurrency {
+            let sign = TokenStore.baseCurrency.sign
             Text(verbatim: sign)
                 .foregroundStyle(Color((amount ?? 0) == 0 ? UIColor.placeholderText : insufficientFunds ? WTheme.error : WTheme.primaryLabel))
                 .font(.system(size: 24, weight: .medium))

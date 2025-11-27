@@ -41,6 +41,7 @@ class HomeAssetsCell(
     private val window: WWindow,
     private val navigationController: WNavigationController,
     private val heightChanged: () -> Unit,
+    private val onAssetsShown: () -> Unit,
     // Allows home screen to know we are in editing mode, and get the end decision
     private val onReorderingRequested: () -> Unit,
     private val onForceEndReorderingRequested: () -> Unit,
@@ -51,7 +52,8 @@ class HomeAssetsCell(
             context, TokensVC.Mode.HOME,
             onHeightChanged = {
                 updateHeight()
-            }
+            },
+            onAssetsShown = onAssetsShown
         ) {
             updateHeight()
         }
@@ -394,7 +396,9 @@ class HomeAssetsCell(
             animateHeight(nextHeight)
         }
         val removedItem = segmentedController.removeItem(itemToRemoveIndex, onCompletion = {
-            (segmentedController.currentItem as? AssetsVC)?.startSorting()
+            if (isInDragMode) {
+                (segmentedController.currentItem as? AssetsVC)?.startSorting()
+            }
         })
         (removedItem?.viewController as? AssetsVC)?.reloadList()
     }

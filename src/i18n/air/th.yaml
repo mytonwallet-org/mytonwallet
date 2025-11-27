@@ -1,0 +1,298 @@
+More: เพิ่มเติม
+at: เวลา
+MyTonWallet: MyTonWallet
+MyTonWallet Resources: แหล่งข้อมูล MyTonWallet
+I agree to %term%: ฉันยอมรับ %term%
+See Words: ดูคำ
+Wrong Phrase: วลีไม่ถูกต้อง
+Permission Denied: ปฏิเสธการอนุญาต
+USB: USB
+Bluetooth: Bluetooth
+Locked: ล็อกแล้ว
+Enter Passcode: ใส่รหัสผ่าน
+Enter passcode or use fingerprint: ใส่รหัสผ่านหรือใช้ลายนิ้วมือ
+Use PIN: ใช้รหัส PIN
+Try again in %1$@: ลองอีกครั้งใน %1$@
+Try again in %1$@ and %2$@: ลองอีกครั้งใน %1$@ และ %2$@
+Screen Recording Detected: ตรวจพบการบันทึกหน้าจอ
+$screen_recording_info: |
+  คุณกำลังบันทึกหน้าจออยู่
+  หน้าจอนี้อาจมีข้อมูลที่ละเอียดอ่อนหรือเป็นความลับ
+  โปรดตรวจสอบให้แน่ใจว่าคุณทราบสิ่งที่จะถูกเผยแพร่
+I Understand, Proceed: เข้าใจแล้ว ดำเนินการต่อ
+Waiting for Network: กำลังรอสัญญาณเครือข่าย
+Updating: กำลังอัปเดต
+My Wallet: กระเป๋าของฉัน
+$no_activity_history: |
+  กระเป๋านี้ยังไม่มี
+  ประวัติการทำรายการ
+Standalone: แยกเดี่ยว
+Processing Excess: ประมวลผลยอดส่วนเกิน
+Bidding Auction: การประมูลแบบเสนอราคา
+"Enter wallet name:": "ใส่ชื่อกระเป๋า:"
+All Telegram Gifts: ของขวัญ Telegram ทั้งหมด
+Add Crypto: เพิ่มคริปโต
+Share QR Code: แชร์ QR โค้ด
+$send_only_ton: ส่ง Toncoin (TON) หรือสินทรัพย์บน TON เท่านั้นไปยังที่อยู่นี้ การส่งโทเคนอื่นจะทำให้สูญหาย
+$send_only_tron: ส่ง TRON (TRX) หรือสินทรัพย์บน TRON เท่านั้นไปยังที่อยู่นี้ การส่งโทเคนอื่นจะทำให้สูญหาย
+Buying with card is not supported for this account.: บัญชีนี้ไม่รองรับการซื้อด้วยบัตร
+Swapped at: แลกเปลี่ยนเมื่อ
+Price per: ราคาต่อ
+Transaction Details: รายละเอียดธุรกรรม
+From: จาก
+To: ไปยัง
+Changelly ID: Changelly ID
+Copy Changelly ID: คัดลอก Changelly ID
+Changelly ID Copied!: คัดลอก Changelly ID แล้ว!
+from: จาก
+to: ถึง
+Currency: สกุลเงิน
+Choose Currency to Send: เลือกสกุลเงินที่จะส่ง
+Send to: ส่งไปยัง
+Add a message, if needed: เพิ่มข้อความได้หากต้องการ
+Sending To: กำลังส่งไปยัง
+Show All Collectibles: แสดงคอลเล็กชันทั้งหมด
+You have no NFT in this wallet yet: |
+  คุณยังไม่มี NFT
+  ในกระเป๋านี้
+Collapse: ย่อ
+Standalone NFT: NFT แยกเดี่ยว
+Linked Address: ที่อยู่ที่เชื่อมโยง
+Enter Address: ใส่ที่อยู่
+Show All Assets: แสดงสินทรัพย์ทั้งหมด
+Price: ราคา
+D: วัน
+W: สัปดาห์
+M: เดือน
+3M: 3 เดือน
+Y: ปี
+No price data: ไม่มีข้อมูลราคา
+Happening Now: กำลังเป็นกระแส
+No Dapps Found!: ไม่พบ dApp!
+Open: เปิด
+Edit Wallet Name: แก้ไขชื่อกระเป๋า
+Add Account: เพิ่มบัญชี
+Questions and Answers: คำถามและคำตอบ
+Wallet Name: ชื่อกระเป๋า
+"MyTonWallet Air v%1$@ (%2$@)": "MyTonWallet Air v%1$@ (%2$@)"
+App Icon: ไอคอนแอป
+App Font: ฟอนต์แอป
+Rounded Toolbars: แถบเครื่องมือโค้งมน
+Side Gutters: ขอบด้านข้าง
+Tokens on Home Screen: โทเคนบนหน้าจอหลัก
+Current Wallet Version: เวอร์ชันกระเป๋าปัจจุบัน
+Tokens on Other Versions: โทเคนบนเวอร์ชันอื่น
+Show Recovery Phrase: แสดงวลีกู้คืน
+Passcode: รหัสผ่าน
+Lock the app after: ล็อกแอปหลังจาก
+Never: ไม่เลย
+"%1$@ seconds": "%1$@ วินาที"
+"%1$@ minutes": "%1$@ นาที"
+Unstake Request: คำขอถอนสเตก
+Add Stake: เพิ่มสเตก
+History: ประวัติ
+Earn up to %1$@ per year from your tokens: รับผลตอบแทนสูงสุด %1$@ ต่อปีจากโทเคนของคุณ
+Insufficient %1$@ Balance: ยอด %1$@ ไม่เพียงพอ
+Instant Withdrawal: ถอนทันที
+Instantly: ทันที
+Up to %1$@: สูงสุด %1$@
+up to %1$@: สูงสุด %1$@
+Current APY: APY ปัจจุบัน
+Est. earning per year: ประมาณการรายได้ต่อปี
+in: ใน
+Error: ข้อผิดพลาด
+Network Error: ข้อผิดพลาดของเครือข่าย
+Buy: ซื้อ
+Sell: ขาย
+Enter Amount: ใส่จำนวน
+"Swap %1$@ to %2$@": "แลก %1$@ เป็น %2$@"
+"%1$@ to %2$@": "%1$@ เป็น %2$@"
+"Max %1$@": "สูงสุด %1$@"
+"Authorize %1$@ fee": "อนุมัติค่าธรรมเนียม %1$@"
+Pending previous fee: รอค่าธรรมเนียมก่อนหน้า
+Cross-chain swap by %1$@: การแลกข้ามเชนโดย %1$@
+AML/KYC: AML/KYC
+Receive to: รับที่
+Enter %1$@ address: ใส่ที่อยู่ %1$@
+"Send %1$@ this address:": "ส่ง %1$@ ไปยังที่อยู่นี้:"
+Swap is not supported on this account.: บัญชีนี้ไม่รองรับการแลก
+"%1$@ will be returned": จะคืน %1$@
+Connecting your wallet: กำลังเชื่อมต่อกระเป๋าของคุณ
+Action is not possible on a view-only wallet.: ไม่สามารถทำรายการนี้ในกระเป๋าแบบดูข้อมูลเท่านั้น
+Logged in with MyTonWallet: เข้าสู่ระบบด้วย MyTonWallet
+You have no apps connected to this wallet.: ยังไม่มีแอปที่เชื่อมกับกระเป๋านี้
+Asset: สินทรัพย์
+Sent to: ส่งไปยัง
+via %agg%: ผ่าน %agg%
+Switch to Legacy Version: สลับไปใช้เวอร์ชันเดิม
+Hide tab: ซ่อนแท็บ
+Received from: ได้รับจาก
+Your Recovery Phrase: วลีกู้คืนของคุณ
+day:
+  zeroValue: "%1$d วัน"
+  oneValue: "%1$d วัน"
+  otherValue: "%1$d วัน"
+hour:
+  zeroValue: "%1$d ชั่วโมง"
+  oneValue: "%1$d ชั่วโมง"
+  otherValue: "%1$d ชั่วโมง"
+minute:
+  zeroValue: "%1$d นาที"
+  oneValue: "%1$d นาที"
+  otherValue: "%1$d นาที"
+second:
+  zeroValue: "%1$d วินาที"
+  oneValue: "%1$d วินาที"
+  otherValue: "%1$d วินาที"
+transfer:
+  zeroValue: "%1$d การโอน"
+  oneValue: "%1$d การโอน"
+  otherValue: "%1$d การโอน"
+Confirm Actions:
+  zeroValue: "ยืนยัน %1$d การทำรายการ"
+  oneValue: ยืนยันการทำรายการ
+  otherValue: ยืนยันการทำรายการ
+"%lld transfer": "%lld การโอน"
+"A ~ Z": A ~ Z
+"Accumulated rewards": รางวัลที่สะสม
+"Biometric authentication not available.": ไม่สามารถใช้การยืนยันตัวตนด้วยชีวมิติได้
+"Changelly Payment Address": ที่อยู่ชำระเงินของ Changelly
+"Choose Currency": เลือกสกุลเงิน
+"Choose Wallet": เลือกกระเป๋า
+"Choose Wallet to Use On": เลือกกระเป๋าที่จะใช้
+"Wallet to use on": กระเป๋าที่จะใช้ใน
+"Clipboard empty": คลิปบอร์ดว่าง
+"Confirm Connect": ยืนยันการเชื่อมต่อ
+"Connect Wallet": เชื่อมต่อกระเป๋า
+"Connected apps can only see your wallet address and will not be able to move your assets without permission.": แอปที่เชื่อมต่อจะเห็นเพียงที่อยู่กระเป๋าของคุณและไม่สามารถย้ายสินทรัพย์ได้หากไม่ได้รับอนุญาต
+"Connect to %1$@?": ต้องการเชื่อมต่อกับ %1$@ หรือไม่?
+"Don’t show tokens on your account with value less than $0.01. You can also selectively enable and disable particular tokens using the list below.": ไม่แสดงโทเคนที่มีมูลค่าต่ำกว่า 0.01 ดอลลาร์ในบัญชี คุณยังสามารถเปิดหรือปิดโทเคนที่ต้องการในรายการด้านล่างได้
+"Don’t show transactions of less than $0.01. Such small transactions are often used for spam and scam.": ไม่แสดงธุรกรรมที่ต่ำกว่า 0.01 ดอลลาร์ ธุรกรรมเล็ก ๆ มักถูกใช้เพื่อสแปมหรือหลอกลวง
+"Enter passcode or use Touch ID": ใส่รหัสผ่านหรือใช้ Touch ID
+"Enter your Wallet Passcode": ใส่รหัสผ่านกระเป๋า
+"Estimated APY": ประมาณการ APY
+"Expired swap": การแลกหมดอายุแล้ว
+"Failed swap": การแลกไม่สำเร็จ
+"Import failed": นำเข้าไม่สำเร็จ
+"Install Palette": ติดตั้งพาเลต
+Ledger: Ledger
+"Main Currency": สกุลเงินหลัก
+"Moving to staking balance": กำลังย้ายไปยังยอดสเตก
+"My assets": สินทรัพย์ของฉัน
+MyTonWallet uses biometric authentication to unlock and authorize transactions: MyTonWallet ใช้การยืนยันตัวตนด้วยชีวมิติเพื่อปลดล็อกและอนุมัติธุรกรรม
+"Network error": ข้อผิดพลาดของเครือข่าย
+"No Camera Access": ไม่มีสิทธิ์ใช้กล้อง
+"No transactions yet.": ยังไม่มีธุรกรรม
+"Not all transactions were sent successfully.": ธุรกรรมบางรายการส่งไม่สำเร็จ
+OK: ตกลง
+"Open Collection": เปิดคอลเล็กชัน
+"Open in Explorer": เปิดในบล็อกเชนเอ็กซ์พลอเรอร์
+"Passcode changed": เปลี่ยนรหัสผ่านแล้ว
+"Please make sure your internet connection is working and try again.": โปรดตรวจสอบให้อินเทอร์เน็ตเชื่อมต่ออยู่แล้วลองอีกครั้ง
+"Please set a passcode on your device, and then try to use biometric authentication.": โปรดตั้งรหัสผ่านในอุปกรณ์ จากนั้นลองใช้การยืนยันตัวตนด้วยชีวมิติอีกครั้ง
+Please try again: โปรดลองอีกครั้ง
+"Please wait...": โปรดรอสักครู่...
+Popular: ยอดนิยม
+"Preview is currently unavailable.": ไม่สามารถแสดงตัวอย่างได้ในขณะนี้
+Read-only account: บัญชีสำหรับดูอย่างเดียว
+Receiving address: ที่อยู่รับเงิน
+Remove: ลบ
+"Request for unstaking": คำขอถอนสเตก
+"Save to Favorites": บันทึกในรายการโปรด
+Set a passcode: ตั้งรหัสผ่าน
+"Show All %1$@": "แสดง %1$@ ทั้งหมด"
+"Staking Details": รายละเอียดการสเตก
+"TON Wallet Versions": เวอร์ชันกระเป๋า TON
+"Tap to reveal": แตะเพื่อแสดง
+"The current version of Ledger only supports English-language comments without special characters.": Ledger เวอร์ชันปัจจุบันรองรับเฉพาะข้อความภาษาอังกฤษที่ไม่มีอักขระพิเศษ
+"The time on your device is incorrect, sync it and try again.": เวลาบนอุปกรณ์ไม่ถูกต้อง โปรดซิงค์แล้วลองอีกครั้ง
+"There is no activity history for this wallet yet.": กระเป๋านี้ยังไม่มีประวัติการใช้งาน
+"This is how the TON Blockchain works.": บล็อกเชน TON ทำงานเช่นนี้
+"This type of transaction is not yet supported by Ledger.": Ledger ยังไม่รองรับธุรกรรมประเภทนี้
+"Transaction to this smart contract is not yet supported by Ledger.": Ledger ยังไม่รองรับการทำธุรกรรมกับสมาร์ตคอนแทรกต์นี้
+Transfer Details: รายละเอียดการโอน
+"Transferring NFT is not yet supported by Ledger.": Ledger ยังไม่รองรับการโอน NFT
+Unavailable: ไม่พร้อมใช้งาน
+"Updating…": กำลังอัปเดต...
+"Waiting for network…": กำลังรอสัญญาณเครือข่าย...
+Wallet is Locked: กระเป๋าถูกล็อก
+Warning: คำเตือน
+Wear: ใช้งาน
+Your Address: ที่อยู่ของคุณ
+Passcodes don't match. Please try again.: รหัสผ่านไม่ตรงกัน โปรดลองอีกครั้ง
+Secret phrase was copied to clipboard: คัดลอกวลีกู้คืนไปยังคลิปบอร์ดแล้ว
+clipboard: คลิปบอร์ด
+screenshot: ภาพหน้าจอ
+Copy Anyway: คัดลอกต่อไป
+12 Words: 12 คำ
+24 Words: 24 คำ
+"Words don’t match, please try again.": คำไม่ตรงกัน โปรดลองอีกครั้ง
+Load 5 More Wallets: โหลดกระเป๋าเพิ่มอีก 5 กระเป๋า
+$n_wallets_selected:
+  zeroValue: "เลือก %1$d รายการ"
+  oneValue: "เลือก %1$d รายการ"
+  otherValue: "เลือก %1$d รายการ"
+"Are you sure you want to unpin %tab%?": ต้องการยกเลิกปักหมุด %tab% ใช่ไหม?
+add: เพิ่ม
+send: ส่ง
+swap: แลก
+earn: รับผลตอบแทน
+Actions: การทำรายการ
+$actions_description: เข้าถึงการทำรายการที่ใช้บ่อยได้อย่างรวดเร็ว
+Rate: อัตรา
+$rate_description: ดูอัตราปัจจุบันของโทเคนที่เลือก
+Rate with Chart: อัตราพร้อมกราฟ
+$rate_with_chart_description: ดูอัตราปัจจุบันและติดตามแนวโน้มของโทเคนที่เลือก
+Style: สไตล์
+Neutral: กลาง
+Vivid: สดใส
+Chart Period: ช่วงของกราฟ
+$period_all: ตลอดเวลา
+$period_day: 1 วัน
+$period_week: 1 สัปดาห์
+$period_month: 1 เดือน
+$period_3months: 3 เดือน
+$period_year: 1 ปี
+Token: โทเคน
+All Tokens: โทเคนทั้งหมด
+Customize Widget: ปรับแต่งวิดเจ็ต
+$accumulated_rewards: รางวัลที่สะสม
+Recent Searches: การค้นหาล่าสุด
+Clear All: ล้างทั้งหมด
+Suggestions: คำแนะนำ
+Popular and connected apps: แอปยอดนิยมและที่เชื่อมต่อ
+Connected Dapp: dApp ที่เชื่อมต่อ
+$ago: "%1$d ที่แล้ว"
+$visited_ago: "เข้าชมเมื่อ %1$d ที่แล้ว"
+Notifications are disabled: ปิดการแจ้งเตือนอยู่
+Enable in Settings: เปิดในเมนูตั้งค่า
+Search in Google: ค้นหาใน Google
+$remove_wallets:
+  zeroValue: ลบกระเป๋า
+  oneValue: ลบกระเป๋า
+  otherValue: ลบ %1$d กระเป๋า
+Contract Initialization Data was copied!: คัดลอกข้อมูลตั้งค่าเริ่มต้นของสัญญาแล้ว!
+Encryption is not possible. The recipient is not a wallet or has no outgoing transactions.: ไม่สามารถเข้ารหัสได้ ผู้รับไม่ใช่กระเป๋าหรือไม่มีธุรกรรมขาออก
+just now: เมื่อครู่
+"No": ไม่
+Search: ค้นหา
+Show All Wallets: แสดงกระเป๋าทั้งหมด
+Sign Out: ออกจากระบบ
+State init supplied without message body: ส่งการตั้งค่าสถานะโดยไม่มีเนื้อหาข้อความ
+Swap Failed: การแลกไม่สำเร็จ
+The wallet is ready: กระเป๋าพร้อมใช้งานแล้ว
+Unexpected error. Please let the support know.: เกิดข้อผิดพลาดที่ไม่คาดคิด โปรดแจ้งฝ่ายสนับสนุน
+Unlock it and open the TON App: ปลดล็อกและเปิดแอป TON
+Use 4-digit Passcode: ใช้รหัส 4 หลัก
+Use 6-digit Passcode: ใช้รหัส 6 หลัก
+You don’t have any cards to customize yet: คุณยังไม่มีการ์ดให้ปรับแต่ง
+Authorize %token% Fee: อนุมัติค่าธรรมเนียม %token%
+Awaiting Previous Fee: กำลังรอค่าธรรมเนียมก่อนหน้า
+Lock: ล็อก
+MyTonWallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.: การ์ด MyTonWallet สามารถติดตั้งสำหรับกระเป๋าและแสดงบนหน้าจอหลักรวมถึงรายการกระเป๋า
+Receive: รับ
+Scan: สแกน
+Search or enter address: ค้นหาหรือใส่ที่อยู่
+View as Grid: ดูแบบตาราง
+$secret_words_warning: การเก็บคำในรูปแบบดิจิทัล รวมถึง **%1$d** ไม่ปลอดภัย โปรดตรวจสอบให้แน่ใจว่าคุณเก็บวลีกู้คืนไว้ในที่ปลอดภัย
+

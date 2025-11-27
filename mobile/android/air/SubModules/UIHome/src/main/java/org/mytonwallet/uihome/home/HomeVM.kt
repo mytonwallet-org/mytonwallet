@@ -4,11 +4,8 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
-import org.mytonwallet.app_air.walletcore.STAKING_SLUGS
-import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.api.fetchAccount
 import org.mytonwallet.app_air.walletcore.api.requestDAppList
 import org.mytonwallet.app_air.walletcore.api.swapGetAssets
 import org.mytonwallet.app_air.walletcore.helpers.ActivityLoader
@@ -19,14 +16,13 @@ import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.uihome.home.views.UpdateStatusView
 import java.lang.ref.WeakReference
-import java.util.concurrent.Executors
 
 class HomeVM(val context: Context, delegate: Delegate) : WalletCore.EventObserver,
     IActivityLoader.Delegate {
 
     interface Delegate {
         fun update(state: UpdateStatusView.State, animated: Boolean)
-        fun updateBalance(balance: Double?, balance24h: Double?, accountChanged: Boolean)
+        fun updateBalance(accountChangedFromOtherScreens: Boolean)
         fun reloadCard()
 
         // instant update list
@@ -45,8 +41,9 @@ class HomeVM(val context: Context, delegate: Delegate) : WalletCore.EventObserve
 
         fun updateActionsView()
         fun reloadTabs(accountChanged: Boolean)
-        fun accountNameChanged()
+        fun accountNameChanged(accountName: String, animated: Boolean)
         fun accountConfigChanged()
+        fun accountWillChange()
     }
 
     val delegate: WeakReference<Delegate> = WeakReference(delegate)
@@ -102,21 +99,30 @@ class HomeVM(val context: Context, delegate: Delegate) : WalletCore.EventObserve
                 !BalanceStore.getBalances(AccountStore.activeAccountId).isNullOrEmpty()
         }
 
+    var assetsShown = false
+
     // Called on start or account change
     fun initWalletInfo() {
         // fetch all data
         val accountId = AccountStore.activeAccountId ?: return
-        WalletCore.fetchAccount(accountId) { account, err ->
-            accountCode = System.currentTimeMillis()
-            activityLoaderHelper?.clean()
-            activityLoaderHelper =
-                ActivityLoader(context, accountId, null, WeakReference(this))
-            activityLoaderHelper?.askForActivities()
-        }
+        accountCode = System.currentTimeMillis()
+        activityLoaderHelper?.clean()
+        activityLoaderHelper =
+            ActivityLoader(context, accountId, null, WeakReference(this))
+        activityLoaderHelper?.askForActivities()
+        assetsShown = false
         // Load staking data
         delegate.get()?.loadStakingData()
+        delegate.get()?.updateActionsView()
 
         WalletCore.requestDAppList()
+    }
+
+    fun changingAccount() {
+        delegate.get()?.accountWillChange()
+        activityLoaderHelper?.clean()
+        activityLoaderHelper = null
+        delegate.get()?.transactionsLoaded()
     }
 
     // called on pull to refresh / selected slug change / after network reconnection / when retrying failed tries
@@ -125,7 +131,7 @@ class HomeVM(val context: Context, delegate: Delegate) : WalletCore.EventObserve
         initWalletInfo()
     }
 
-    private fun dataUpdated() {
+    private fun dataUpdated(updateBalance: Boolean = true) {
         // make sure balances are loaded
         if (!balancesLoaded) {
             Logger.i(Logger.LogTag.HomeVM, "Balances not loaded yet")
@@ -163,55 +169,26 @@ class HomeVM(val context: Context, delegate: Delegate) : WalletCore.EventObserve
             Handler(Looper.getMainLooper()).postDelayed({
                 if (TokenStore.swapAssets == null) {
                     WalletCore.swapGetAssets(true) { assets, err ->
-                        dataUpdated()
+                        dataUpdated(updateBalance)
                     }
                 }
             }, 5000)
             return
         }
 
-        updateBalanceView(false)
+        if (updateBalance)
+            updateBalanceView(false)
 
         delegate.get()?.transactionsLoaded()
     }
 
-    private fun updateBalanceView(accountChanged: Boolean) {
-        if (!balancesLoaded || TokenStore.getToken(TONCOIN_SLUG)?.price == null) {
-            delegate.get()?.updateBalance(null, null, accountChanged)
-            return
-        }
-
-        val computeAndUpdate: () -> Unit = {
-            val walletTokens = AccountStore.assetsAndActivityData.getAllTokens()
-                .filter { !STAKING_SLUGS.contains(it.token) }
-
-            val stakingData = AccountStore.stakingData
-            val totalBalance =
-                walletTokens.sumOf { it.toBaseCurrency ?: 0.0 } +
-                    (stakingData?.totalBalanceInBaseCurrency() ?: 0.0)
-            val totalBalanceYesterday =
-                walletTokens.sumOf { it.toBaseCurrency24h ?: 0.0 } +
-                    (stakingData?.totalBalanceInBaseCurrency24h() ?: 0.0)
-
-            if (Looper.myLooper() == Looper.getMainLooper()) {
-                delegate.get()?.updateBalance(totalBalance, totalBalanceYesterday, accountChanged)
-            } else {
-                Handler(Looper.getMainLooper()).post {
-                    delegate.get()
-                        ?.updateBalance(totalBalance, totalBalanceYesterday, accountChanged)
-                }
-            }
-        }
-
-        if (accountChanged) {
-            computeAndUpdate()
-        } else {
-            Executors.newSingleThreadExecutor().execute(computeAndUpdate)
-        }
+    private fun updateBalanceView(accountChangedFromOtherScreens: Boolean) {
+        delegate.get()?.updateBalance(accountChangedFromOtherScreens)
+        return
     }
 
     private fun baseCurrencyChanged() {
-        delegate.get()?.updateBalance(null, null, false)
+        delegate.get()?.updateBalance(false)
         // reload tableview to make it clear as the tokens are not up to date
         delegate.get()?.transactionsLoaded()
         // make header empty like initialization view
@@ -235,7 +212,7 @@ class HomeVM(val context: Context, delegate: Delegate) : WalletCore.EventObserve
         delegate.get()?.update(UpdateStatusView.State.WaitingForNetwork, true)
     }
 
-    private fun accountChanged() {
+    private fun accountChanged(fromHome: Boolean) {
         calledReady = false
 
         activityLoaderHelper?.clean()
@@ -245,17 +222,17 @@ class HomeVM(val context: Context, delegate: Delegate) : WalletCore.EventObserve
         // get all data again
         initWalletInfo()
         // make header empty like initialization view
-        updateBalanceView(true)
+        updateBalanceView(!fromHome)
         delegate.get()?.instantScrollToTop()
-        updateStatus(false)
+        updateStatus(animated = fromHome)
 
         // update actions view
-        delegate.get()?.updateActionsView()
         delegate.get()?.reloadTabs(true)
-        delegate.get()?.accountNameChanged()
+        delegate.get()?.accountNameChanged(AccountStore.activeAccount?.name ?: "", false)
         delegate.get()?.accountConfigChanged()
+        delegate.get()?.updateActionsView()
 
-        dataUpdated()
+        dataUpdated(updateBalance = false)
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
@@ -268,12 +245,16 @@ class HomeVM(val context: Context, delegate: Delegate) : WalletCore.EventObserve
                 baseCurrencyChanged()
             }
 
+            is WalletEvent.AccountWillChange -> {
+                changingAccount()
+            }
+
             is WalletEvent.AccountChanged -> {
-                accountChanged()
+                accountChanged(walletEvent.fromHome)
             }
 
             WalletEvent.AccountNameChanged -> {
-                delegate.get()?.accountNameChanged()
+                delegate.get()?.accountNameChanged(AccountStore.activeAccount?.name ?: "", false)
                 dataUpdated()
             }
 

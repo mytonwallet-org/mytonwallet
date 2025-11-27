@@ -9,6 +9,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.commonViews.AddressInputLayout
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -59,8 +60,17 @@ class ImportViewWalletVC(context: Context, private val isOnIntro: Boolean) :
 
     val subtitleLabel = WLabel(context).apply {
         setStyle(17f, WFont.Regular)
-        text = LocaleController.getString("\$import_view_account_note")
-            .toProcessedSpannableStringBuilder()
+        text = LocaleController.getStringWithKeyValues(
+            "\$import_view_account_note", listOf(
+                Pair(
+                    "%chains%",
+                    LocaleController.getFormattedEnumeration(
+                        MBlockchain.supportedChains.map { it.displayName },
+                        "or"
+                    )
+                )
+            )
+        ).toProcessedSpannableStringBuilder()
         gravity = Gravity.CENTER
         setTextColor(WColor.PrimaryText)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 26f)
@@ -123,6 +133,7 @@ class ImportViewWalletVC(context: Context, private val isOnIntro: Boolean) :
             constrainMaxHeight(addressInputView.id, 80.dp)
             toCenterX(continueButton, 20f)
             topToTop(continueButton, addressInputView, 112f)
+            toBottomPx(continueButton, 16.dp + (navigationController?.getSystemBars()?.bottom ?: 0))
         }
 
         addressInputView.addTextChangedListener(onInputTextWatcher)
@@ -188,8 +199,17 @@ class ImportViewWalletVC(context: Context, private val isOnIntro: Boolean) :
                     view.unlockView()
                     continueButton.isLoading = false
                     continueButton.isEnabled = false
-                    continueButton.text =
-                        error?.parsed?.toShortLocalized ?: LocaleController.getString("Continue")
+                    error?.parsed?.toShortLocalized?.let { it ->
+                        continueButton.text = error.parsed.toShortLocalized
+                    } ?: run {
+                        continueButton.text = LocaleController.getString("Continue")
+                        error?.parsed?.toLocalized?.let { it ->
+                            showAlert(
+                                title = LocaleController.getString("Error"),
+                                text = it
+                            )
+                        }
+                    }
                     return@call
                 }
                 Logger.d(

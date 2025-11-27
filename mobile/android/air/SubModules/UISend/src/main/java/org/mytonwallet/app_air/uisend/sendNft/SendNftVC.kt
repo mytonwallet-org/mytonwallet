@@ -201,7 +201,7 @@ class SendNftVC(
             topToTop(
                 bottomReversedCornerViewUpsideDown,
                 continueButton,
-                -20f - ViewConstants.BIG_RADIUS
+                -ViewConstants.GAP - ViewConstants.BIG_RADIUS
             )
             toBottom(bottomReversedCornerViewUpsideDown)
             toCenterX(continueButton, 20f)

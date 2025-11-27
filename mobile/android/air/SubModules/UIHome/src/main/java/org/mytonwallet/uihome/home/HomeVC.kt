@@ -1,5 +1,6 @@
 package org.mytonwallet.uihome.home
 
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.view.MotionEvent
@@ -10,8 +11,10 @@ import android.view.View.VISIBLE
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.view.animation.DecelerateInterpolator
 import android.webkit.URLUtil
 import android.widget.Toast
+import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.ViewModelProvider
@@ -19,6 +22,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import me.everything.android.ui.overscroll.IOverScrollState
 import org.mytonwallet.app_air.sqscan.screen.QrScannerDialog
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.ISortableView
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
@@ -41,8 +45,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
-import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
-import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uireceive.ReceiveVC
 import org.mytonwallet.app_air.uisend.send.SendVC
 import org.mytonwallet.app_air.uistake.earn.EarnRootVC
@@ -61,6 +63,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.isSameDayAs
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.models.MWalletSettingsViewMode
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
@@ -75,7 +78,10 @@ import org.mytonwallet.uihome.home.cells.HomeAssetsCell
 import org.mytonwallet.uihome.home.views.UpdateStatusView
 import org.mytonwallet.uihome.home.views.header.HomeHeaderView
 import org.mytonwallet.uihome.home.views.header.StickyHeaderView
+import org.mytonwallet.uihome.walletsTabs.WalletsTabsVC
 import java.lang.ref.WeakReference
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
 
 class HomeVC(context: Context) : WViewControllerWithModelStore(context),
@@ -116,6 +122,7 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
     }
 
     private var rvMode = HomeHeaderView.DEFAULT_MODE
+    private var showActions = false
 
     private val earnToncoinViewModel by lazy {
         ViewModelProvider(
@@ -159,6 +166,12 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
     private var ignoreScrolls = false
     private var expandingProgrammatically = false
     private var headerCell: HeaderSpaceCell? = null
+    private var swipeItemsOffset = 0
+    private var skeletonEmptyHeaderCell: WCell? = null
+    private var skeletonAlphaMinValue = 0f
+    private var skeletonAlphaFromLoadValue = 0f
+    private var swipeFadeOutPercent = 1f
+    private var actionsLayoutFadeOutPercent = 0f
     private var scrollListener = object : RecyclerView.OnScrollListener() {
         override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
             super.onScrolled(recyclerView, dx, dy)
@@ -229,6 +242,8 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
     }
     private val recyclerView: WRecyclerView by lazy {
         val rv = WRecyclerView(this)
+        rv.clipChildren = false
+        rv.clipToPadding = false
         rv.adapter = rvAdapter
         rv.setLayoutManager(rvLayoutManager)
         rv.addOnScrollListener(scrollListener)
@@ -324,7 +339,8 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
         override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
             return when (cellType) {
                 HEADER_CELL -> {
-                    WCell(context)
+                    skeletonEmptyHeaderCell = WCell(context)
+                    skeletonEmptyHeaderCell!!
                 }
 
                 SKELETON_HEADER_CELL -> {
@@ -343,16 +359,7 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
             indexPath: IndexPath
         ) {
             if (indexPath.section == 0) {
-                cellHolder.cell.layoutParams = cellHolder.cell.layoutParams.apply {
-                    height = (navigationController?.getSystemBars()?.top ?: 0) +
-                        HomeHeaderView.navDefaultHeight +
-                        (if (rvMode == HomeHeaderView.Mode.Expanded)
-                            headerView.expandedContentHeight.toInt()
-                        else
-                            headerView.collapsedHeight) +
-                        (if (AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW) 0 else 80.dp) +
-                        (if (ThemeManager.uiMode.hasRoundedCorners) 0 else ViewConstants.GAP.dp)
-                }
+                updateSkeletonHeaderCellHeight()
                 return
             }
             when (cellHolder.cell) {
@@ -392,14 +399,17 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
         rv.setLayoutManager(LinearLayoutManager(context))
         rv.setItemAnimator(null)
         rv.alpha = 0f
+        rv.isGone = true
         rv
     }
 
     private val stickyHeaderView = StickyHeaderView(context) { onClick(it) }
 
     private val headerView: HomeHeaderView by lazy {
-        val v =
-            HomeHeaderView(window!!, stickyHeaderView.updateStatusView, onModeChange = { animated ->
+        val v = HomeHeaderView(
+            window!!,
+            stickyHeaderView.updateStatusView,
+            onModeChange = { animated ->
                 if (animated) {
                     recyclerView.setBounceBackSkipValue(if (rvMode == headerView.mode) 0 else headerView.diffPx.toInt())
                 } else {
@@ -410,11 +420,24 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
                     stickyHeaderView.updateStatusView.state ?: UpdateStatusView.State.Updated,
                     true
                 )
-            }, onExpandPressed = {
+            },
+            onExpandPressed = {
                 expand()
                 recyclerView.removeOverScroll()
-            }, onHeaderPressed = {
+            },
+            onHeaderPressed = {
                 scrollToTop()
+            },
+            onHorizontalScrollListener = { contentAlpha, verticalOffset, actionsFadeOutPercent ->
+                this.skeletonAlphaMinValue = 1 - contentAlpha
+                this.swipeFadeOutPercent = actionsFadeOutPercent
+                if (skeletonAlphaMinValue < 0.02)
+                    skeletonAlphaMinValue = 0f
+                swipeItemsOffset = verticalOffset
+                updateHeaderCellHeight()
+                updateSkeletonHeaderCellHeight()
+                applySkeletonAlpha()
+                actionsView?.fadeOutPercent = actionsFadeOutPercent
             })
         v.apply {
             if (!ThemeManager.uiMode.hasRoundedCorners)
@@ -438,7 +461,12 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
 
             HeaderActionsView.Identifier.RECEIVE -> {
                 val navVC = WNavigationController(window!!)
-                navVC.setRoot(ReceiveVC(context))
+                navVC.setRoot(
+                    ReceiveVC(
+                        context,
+                        AccountStore.activeAccount?.firstChain ?: MBlockchain.ton
+                    )
+                )
                 window?.present(navVC)
             }
 
@@ -455,6 +483,8 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
             }
 
             HeaderActionsView.Identifier.SCAN_QR -> {
+                if (skeletonVisible)
+                    return
                 QrScannerDialog.build(context) { qr ->
                     for (blockchain in MBlockchain.supportedChains) {
                         if (blockchain.isValidAddress(qr)) {
@@ -497,6 +527,22 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
                 scrollToTop()
             }
 
+            HeaderActionsView.Identifier.WALLET_SETTINGS -> {
+                val navVC = WNavigationController(
+                    window!!, WNavigationController.PresentationConfig(
+                        overFullScreen = false,
+                        isBottomSheet = true
+                    )
+                )
+                navVC.setRoot(
+                    WalletsTabsVC(
+                        context,
+                        WGlobalStorage.getAccountSelectorViewMode() ?: MWalletSettingsViewMode.GRID
+                    )
+                )
+                window?.present(navVC)
+            }
+
             else -> {
                 throw Error()
             }
@@ -508,6 +554,7 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
     ).apply {
         if (!ThemeManager.uiMode.hasRoundedCorners)
             alpha = 0f
+        isGone = true
     }
 
     private val skeletonView = SkeletonView(context)
@@ -561,6 +608,11 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
         homeAssetsCell?.configure()
     }
 
+    override fun viewWillDisappear() {
+        super.viewWillDisappear()
+        headerView.viewWillDisappear()
+    }
+
     override fun didSetupViews() {
         super.didSetupViews()
         setBottomBlurSeparator(false)
@@ -569,6 +621,7 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
     private fun expand() {
         expandingProgrammatically = true
         topBlurReversedCornerView.pauseBlurring(false)
+        topBlurReversedCornerView.isGone = true
         recyclerView.scrollToOverScroll(
             (headerView.expandedContentHeight -
                 headerView.collapsedHeight).toInt()
@@ -637,8 +690,9 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
                     }
                 }
             }
-            if (headerView.mode == HomeHeaderView.Mode.Collapsed)
+            if (headerView.mode == HomeHeaderView.Mode.Collapsed) {
                 resumeBlurViews()
+            }
         } else {
             if (rvMode == HomeHeaderView.Mode.Expanded &&
                 headerView.parent == view &&
@@ -687,9 +741,9 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
         }
         headerHeightChanged()
 
-        val actionsLayoutFadeOutPercent =
+        actionsLayoutFadeOutPercent =
             (if (scrollY > px92) (scrollY - px92) / px92.toFloat() else 0f).coerceIn(0f, 1f)
-        actionsView?.fadeOutPercent = 1 - actionsLayoutFadeOutPercent
+        updateActionsAlpha()
     }
 
     override fun scrollToTop() {
@@ -702,6 +756,8 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
     }
 
     override fun instantScrollToTop() {
+        if (recyclerView.computeVerticalScrollOffset() == 0)
+            return
         (recyclerView.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(0, 0)
         updateScroll(0)
         rvAdapter.reloadData()
@@ -738,6 +794,7 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
         if (rvMode == HomeHeaderView.Mode.Expanded ||
             headerView.mode == HomeHeaderView.Mode.Expanded
         ) {
+            topBlurReversedCornerView.isGone = true
             topBlurReversedCornerView.pauseBlurring(false)
             bottomReversedCornerView?.pauseBlurring()
             navigationController?.tabBarController?.pauseBlurring()
@@ -745,6 +802,7 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
     }
 
     private fun resumeBlurViews() {
+        topBlurReversedCornerView.isGone = false
         topBlurReversedCornerView.resumeBlurring()
         resumeBottomBlurViews()
     }
@@ -797,7 +855,16 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
 
     override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
         return when (section) {
-            HEADER_SECTION -> if (AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW) 1 else 2
+            HEADER_SECTION -> {
+                val newShowActions =
+                    headerView.centerAccount?.accountType != MAccount.AccountType.VIEW
+                if (showActions != newShowActions) {
+                    showActions = newShowActions
+                    updateHeaderCellHeight()
+                }
+                if (showActions) 2 else 1
+            }
+
             ASSETS_SECTION -> if (homeVM.isGeneralDataAvailable) 2 else 0
 
             TRANSACTION_SECTION -> if (homeVM.isGeneralDataAvailable && (showingTransactions?.size
@@ -876,10 +943,12 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
                     context,
                     HeaderActionsView.headerTabs(context, true),
                     onClick = {
+                        if (skeletonVisible)
+                            return@HeaderActionsView
                         onClick(it)
                     })
                 actionsView?.setPadding(0, 0, 0, 16.dp)
-                actionsView?.updateActions()
+                actionsView?.updateActions(headerView.centerAccount ?: AccountStore.activeAccount)
                 actionsView!!
             }
 
@@ -890,6 +959,10 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
                     navigationController = navigationController!!,
                     heightChanged = {
                         resumeBottomBlurViews()
+                    },
+                    onAssetsShown = {
+                        homeVM.assetsShown = true
+                        updateSkeletonState()
                     },
                     onReorderingRequested = {
                         startSorting()
@@ -967,16 +1040,6 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
                     }
 
                     1 -> {
-                        val cell = cellHolder.cell as HeaderActionsView
-                        if (ThemeManager.uiMode.hasRoundedCorners) {
-                            cell.background = null
-                        } else {
-                            cell.setBackgroundColor(
-                                WColor.Background.color,
-                                0f,
-                                ViewConstants.BIG_RADIUS.dp
-                            )
-                        }
                     }
                 }
                 (cellHolder.cell as? WThemedView)?.updateTheme()
@@ -1046,9 +1109,26 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
     }
 
     private fun updateHeaderCellHeight() {
+        val newHeight = headerView.collapsedMinHeight +
+            headerView.collapsedHeight +
+            newTopPadding +
+            swipeItemsOffset
         headerCell?.layoutParams = headerCell!!.layoutParams.apply {
+            height = newHeight
+        }
+    }
+
+    private fun updateSkeletonHeaderCellHeight() {
+        skeletonEmptyHeaderCell?.layoutParams = skeletonEmptyHeaderCell?.layoutParams?.apply {
             height =
-                headerView.collapsedMinHeight + headerView.collapsedHeight + newTopPadding
+                (window?.systemBars?.top ?: 0) + HomeHeaderView.navDefaultHeight +
+                    (if (rvMode == HomeHeaderView.Mode.Expanded)
+                        headerView.expandedContentHeight.toInt()
+                    else
+                        headerView.collapsedHeight) +
+                    swipeItemsOffset +
+                    (if (headerView.centerAccount?.accountType == MAccount.AccountType.VIEW) 0 else 80.dp) +
+                    (if (ThemeManager.uiMode.hasRoundedCorners) 0 else ViewConstants.GAP.dp)
         }
     }
 
@@ -1065,8 +1145,8 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
         headerHeightChanged(themeChanged = true)
         view.setBackgroundColor(WColor.SecondaryBackground.color)
         updateSkeletonState()
-        rvAdapter.reloadData()
-        rvSkeletonAdapter.reloadData()
+        rvAdapter.updateTheme()
+        rvSkeletonAdapter.updateTheme()
         updateTopReversedCornerViewHeight()
         homeAssetsCell?.updateSegmentItemsTheme()
     }
@@ -1145,14 +1225,17 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
         stickyHeaderView.update(headerView.mode, state, animated)
     }
 
-    override fun updateBalance(balance: Double?, balance24h: Double?, accountChanged: Boolean) {
-        if (accountChanged) {
-            headerView.updateAccountData()
+    override fun updateBalance(accountChangedFromOtherScreens: Boolean) {
+        if (accountChangedFromOtherScreens) {
+            AccountStore.activeAccount?.let {
+                headerView.updateAccountData(it)
+                headerView.layoutCardView()
+            }
             scrollToTop()
         }
         if (!homeVM.isGeneralDataAvailable && headerView.isShowingSkeletons)
             return
-        headerView.updateBalance(balance, balance24h, accountChanged)
+        headerView.updateBalance(!accountChangedFromOtherScreens)
     }
 
     override fun reloadCard() {
@@ -1190,8 +1273,11 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
     override fun loadStakingData() {
         if (!homeVM.isGeneralDataAvailable) return
 
-        earnToncoinViewModel.loadOrRefreshStakingData()
-        earnMycoinViewModel.loadOrRefreshStakingData()
+        if (AccountStore.activeAccount?.isViewOnly == false)
+            executeWithLowPriority {
+                earnToncoinViewModel.loadOrRefreshStakingData()
+                earnMycoinViewModel.loadOrRefreshStakingData()
+            }
     }
 
     override fun cacheNotFound() {
@@ -1211,6 +1297,7 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
         newTopPadding =
             (if (rvMode == HomeHeaderView.Mode.Expanded) headerView.expandedContentHeight - headerView.collapsedHeight else 0f).roundToInt()
         updateHeaderCellHeight()
+        updateSkeletonHeaderCellHeight()
         skeletonRecyclerView.post {
             rvSkeletonAdapter.notifyItemChanged(0)
         }
@@ -1220,9 +1307,16 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
         }
     }
 
-    private var skeletonVisible = false
+    private val skeletonVisible: Boolean
+        get() {
+            return skeletonAlphaFromLoadValue > 0 && hideSkeletonAnimation?.isRunning != true
+        }
+
     private fun updateSkeletonState() {
-        if (skeletonVisible && showingTransactions != null && homeVM.isGeneralDataAvailable &&
+        if (skeletonAlphaFromLoadValue > 0 &&
+            showingTransactions != null &&
+            homeVM.isGeneralDataAvailable &&
+            homeVM.assetsShown &&
             ((showingTransactions?.size ?: 0) > 0 ||
                 homeVM.activityLoaderHelper?.loadedAll == true)
         ) {
@@ -1234,16 +1328,13 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
 
     private var skeletonsShownOnce = false
     private fun showSkeletons() {
-        skeletonVisible = true
         fun show() {
             if (!skeletonVisible)
                 return
-            skeletonRecyclerView.visibility = VISIBLE
-            skeletonRecyclerView.alpha = 1f
-            updateSkeletonViews()
-            skeletonView.animate().cancel()
-            skeletonView.startAnimating()
+            applySkeletonAlpha()
         }
+        hideSkeletonAnimation?.cancel()
+        skeletonAlphaFromLoadValue = 1f
         if (!skeletonsShownOnce) {
             view.post {
                 rvSkeletonAdapter.reloadData()
@@ -1258,38 +1349,65 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
         }
     }
 
+    private var hideSkeletonAnimation: ValueAnimator? = null
     private fun hideSkeletons() {
-        skeletonVisible = false
-        skeletonView.fadeOut(onCompletion = {
-            if (skeletonVisible)
-                return@fadeOut
+        if (skeletonAlphaFromLoadValue == 0f || hideSkeletonAnimation?.isRunning == true)
+            return
+        hideSkeletonAnimation = ValueAnimator.ofFloat(skeletonAlphaFromLoadValue, 0f).apply {
+            duration = AnimationConstants.QUICK_ANIMATION
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { animation ->
+                skeletonAlphaFromLoadValue = animation.animatedValue as Float
+                applySkeletonAlpha()
+            }
+            start()
+        }
+    }
+
+    private fun applySkeletonAlpha() {
+        val finalAlpha = max(skeletonAlphaFromLoadValue, skeletonAlphaMinValue)
+        skeletonRecyclerView.alpha = finalAlpha
+        skeletonView.alpha = finalAlpha
+
+        if (finalAlpha > 0 && skeletonRecyclerView.isGone) {
+            skeletonRecyclerView.isGone = false
+            updateSkeletonViews()
+            skeletonView.animate().cancel()
+            skeletonView.startAnimating()
+        } else if (finalAlpha == 0f && !skeletonRecyclerView.isGone) {
             if (skeletonView.isAnimating)
                 skeletonView.stopAnimating()
             else
                 skeletonView.visibility = GONE
-        })
-        skeletonRecyclerView.fadeOut {
-            if (!skeletonVisible)
-                skeletonRecyclerView.visibility = GONE
+            skeletonRecyclerView.visibility = GONE
         }
+    }
+
+    private fun updateActionsAlpha() {
+        actionsView?.fadeOutPercent =
+            min(
+                swipeFadeOutPercent,
+                if (headerView.centerAccount?.isViewOnly == true) 0f else 1 - actionsLayoutFadeOutPercent
+            )
     }
 
     override fun updateActionsView() {
         stickyHeaderView.updateActions()
-        actionsView?.updateActions()
+        actionsView?.updateActions(headerView.centerAccount ?: AccountStore.activeAccount)
+        updateActionsAlpha()
     }
 
     override fun reloadTabs(accountChanged: Boolean) {
         homeAssetsCell?.reloadTabs(resetSelection = accountChanged)
     }
 
-    override fun accountNameChanged() {
-        headerView.updateAccountName()
+    override fun accountNameChanged(accountName: String, animated: Boolean) {
+        headerView.updateAccountName(accountName)
         if (stickyHeaderView.updateStatusView.state == UpdateStatusView.State.Updated)
             stickyHeaderView.updateStatusView.setState(
-                UpdateStatusView.State.Updated, false,
+                UpdateStatusView.State.Updated, animated,
                 if (headerView.mode == HomeHeaderView.Mode.Expanded)
-                    (AccountStore.activeAccount?.name ?: "")
+                    accountName
                 else
                     ""
             )
@@ -1297,6 +1415,15 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
 
     override fun accountConfigChanged() {
         headerView.updateMintIconVisibility()
+    }
+
+    override fun accountWillChange() {
+        showSkeletons()
+        accountNameChanged(headerView.centerAccount?.name ?: "", true)
+        updateActionsView()
+        if (headerView.changingAccountTo == null)
+            swipeFadeOutPercent =
+                1f // Account will change from another screen, invalidate swipeFadeOutPercent
     }
 
     override fun startSorting() {

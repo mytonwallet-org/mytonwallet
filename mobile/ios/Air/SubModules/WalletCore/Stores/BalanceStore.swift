@@ -7,17 +7,19 @@
 
 import Foundation
 import WalletContext
+import Perception
+import Dependencies
 
 private let log = Log("BalanceStore")
 
 public var BalanceStore: _BalanceStore { _BalanceStore.shared }
 
-
+@Perceptible
 public final class _BalanceStore {
 
     public static let shared = _BalanceStore()
     
-    private var _balances: UnfairLock<[String: [String: BigInt]]> = .init(initialState: [:])
+    private let _balances: UnfairLock<[String: [String: BigInt]]> = .init(initialState: [:])
     private var balances: [String: [String: BigInt]] {
         _balances.withLock { $0 }
     }
@@ -28,15 +30,16 @@ public final class _BalanceStore {
         getAccountBalances(accountId: AccountStore.accountId ?? "")
     }
 
-    private var _accountBalanceData: UnfairLock<[String: MAccountBalanceData]> = .init(initialState: [:])
+    private let _accountBalanceData: UnfairLock<[String: MAccountBalanceData]> = .init(initialState: [:])
     public var accountBalanceData: [String: MAccountBalanceData] {
-        _accountBalanceData.withLock { $0 }
+        access(keyPath: \._accountBalanceData)
+        return _accountBalanceData.withLock { $0 }
     }
     public var currentAccountBalanceData: MAccountBalanceData? {
         _accountBalanceData.withLock { $0[AccountStore.accountId ?? ""] }
     }
 
-    private var _balancesEventCalledOnce: UnfairLock<[String: Bool]> = .init(initialState: [:])
+    private let _balancesEventCalledOnce: UnfairLock<[String: Bool]> = .init(initialState: [:])
     public var balancesEventCalledOnce: [String: Bool] {
         _balancesEventCalledOnce.withLock { $0 }
     }
@@ -45,7 +48,7 @@ public final class _BalanceStore {
         StakingStore.currentAccount
     }
     
-    private var _accountsToSave: UnfairLock<Set<String>> = .init(initialState: [])
+    private let _accountsToSave: UnfairLock<Set<String>> = .init(initialState: [])
     private var accountsToSave: Set<String> {
         get { _accountsToSave.withLock { $0 } }
         set { _accountsToSave.withLock { $0 = newValue } }
@@ -67,6 +70,22 @@ public final class _BalanceStore {
     
     public func getTotalBalanceInBaseCurrency(for accountId: String) -> Double? {
         accountBalanceData[accountId]?.totalBalance
+    }
+    
+    public func totalBalance(ofWalletsWithType type: AccountType?) -> Double {
+        let accounts = AccountStore.accountsById
+        var data = accountBalanceData
+        data = data.filter { data in
+            if let account = accounts[data.key], account.network == .mainnet {
+                return if let type {
+                    account.type == type
+                } else {
+                    true
+                }
+            }
+            return false
+        }
+        return data.map { $1.totalBalance }.reduce(0, +)
     }
     
     // MARK: - Lifecycle
@@ -257,8 +276,10 @@ public final class _BalanceStore {
             totalBalance: totalBalance,
             totalBalanceYesterday: totalBalanceYesterday
         )
-        self._accountBalanceData.withLock {
-            $0[accountId] = balanceData
+        withMutation(keyPath: \._accountBalanceData) {
+            self._accountBalanceData.withLock {
+                $0[accountId] = balanceData
+            }
         }
         WalletCoreData.notify(event: .balanceChanged(isFirstUpdate: false), for: accountId)
     }
@@ -289,11 +310,6 @@ public final class _BalanceStore {
 extension _BalanceStore: WalletCoreData.EventsObserver {
     public func walletCore(event: WalletCoreData.Event) {
         switch event {
-        case .accountChanged(isNew: _):
-            Task.detached {
-                self.updateAccountBalanceData()
-            }
-            
         case .accountDeleted(let accountId):
             _balances.withLock { $0[accountId] = nil }
             _accountBalanceData.withLock { $0[accountId] = nil }
@@ -319,7 +335,6 @@ extension _BalanceStore: WalletCoreData.EventsObserver {
             }
 
         case .updateBalances(let update):
-//            log.debug("updateBalances")
             Task.detached {
                 let accountId = update.accountId
                 let firstUpdate = self.balancesEventCalledOnce[accountId] != true
@@ -346,4 +361,99 @@ extension _BalanceStore: WalletCoreData.EventsObserver {
     }
 }
 
+extension _BalanceStore: DependencyKey {
+    
+    public static var liveValue: _BalanceStore { _BalanceStore.shared }
+    
+    public static let previewValue: _BalanceStore = {
+        let balanceStore = _BalanceStore()
+        balanceStore._accountBalanceData.withLock {
+            $0 = [
+                "0-mainnet": MAccountBalanceData(
+                    walletTokens: [
+                        MTokenBalance(tokenSlug: TONCOIN_SLUG, balance: BigInt("85000000000000000"), isStaking: false), // ~85,000 TON
+                        MTokenBalance(tokenSlug: TRX_SLUG, balance: BigInt("1500000000000"), isStaking: false), // ~1.5M TRX
+                    ],
+                    walletStaked: [],
+                    totalBalance: 523123.52,
+                    totalBalanceYesterday: 497850.0
+                ),
+                "1-mainnet": MAccountBalanceData(
+                    walletTokens: [
+                        MTokenBalance(tokenSlug: TONCOIN_SLUG, balance: BigInt("42000000000000000"), isStaking: false), // ~42,000 TON
+                        MTokenBalance(tokenSlug: TON_USDT_SLUG, balance: BigInt("35000000000000"), isStaking: false), // ~35,000 USDT
+                    ],
+                    walletStaked: [],
+                    totalBalance: 245089.70,
+                    totalBalanceYesterday: 238000.0
+                ),
+                "2-mainnet": MAccountBalanceData(
+                    walletTokens: [
+                        MTokenBalance(tokenSlug: TONCOIN_SLUG, balance: BigInt("18000000000000000"), isStaking: false), // ~18,000 TON
+                    ],
+                    walletStaked: [],
+                    totalBalance: 95000.0,
+                    totalBalanceYesterday: 91200.0
+                ),
+                "3-testnet": MAccountBalanceData(
+                    walletTokens: [
+                        MTokenBalance(tokenSlug: TONCOIN_SLUG, balance: BigInt("0"), isStaking: false), // ~12,000 TON
+                    ],
+                    walletStaked: [],
+                    totalBalance: 6252000009.59,
+                    totalBalanceYesterday: 60120.0
+                ),
+                "4-mainnet": MAccountBalanceData(
+                    walletTokens: [
+                        MTokenBalance(tokenSlug: TONCOIN_SLUG, balance: BigInt("58000000000000000"), isStaking: false), // ~58,000 TON
+                        MTokenBalance(tokenSlug: TRX_SLUG, balance: BigInt("800000000000"), isStaking: false), // ~800K TRX
+                    ],
+                    walletStaked: [],
+                    totalBalance: 348000.0,
+                    totalBalanceYesterday: 331200.0
+                ),
+                "5-mainnet": MAccountBalanceData(
+                    walletTokens: [
+                        MTokenBalance(tokenSlug: TONCOIN_SLUG, balance: BigInt("32000000000000000"), isStaking: false), // ~32,000 TON
+                    ],
+                    walletStaked: [],
+                    totalBalance: 168000.0,
+                    totalBalanceYesterday: 159600.0
+                ),
+                "6-mainnet": MAccountBalanceData(
+                    walletTokens: [
+                        MTokenBalance(tokenSlug: TONCOIN_SLUG, balance: BigInt("95000000000000000"), isStaking: false), // ~95,000 TON
+                    ],
+                    walletStaked: [],
+                    totalBalance: 498000.0,
+                    totalBalanceYesterday: 473100.0
+                ),
+                "7-mainnet": MAccountBalanceData(
+                    walletTokens: [
+                        MTokenBalance(tokenSlug: TONCOIN_SLUG, balance: BigInt("26000000000000000"), isStaking: false), // ~26,000 TON
+                        MTokenBalance(tokenSlug: TRON_USDT_SLUG, balance: BigInt("25000000000000"), isStaking: false), // ~25,000 USDT
+                    ],
+                    walletStaked: [],
+                    totalBalance: 201000.0,
+                    totalBalanceYesterday: 190950.0
+                ),
+                "8-mainnet": MAccountBalanceData(
+                    walletTokens: [
+                        MTokenBalance(tokenSlug: TONCOIN_SLUG, balance: BigInt("15000000000000000"), isStaking: false), // ~15,000 TON
+                    ],
+                    walletStaked: [],
+                    totalBalance: 78500.0,
+                    totalBalanceYesterday: 75360.0
+                ),
+            ]
+        }
+        return balanceStore
+    }()
+}
 
+extension DependencyValues {
+    public var balanceStore: _BalanceStore {
+        get { self[_BalanceStore.self] }
+        set { self[_BalanceStore.self] = newValue }
+    }
+}

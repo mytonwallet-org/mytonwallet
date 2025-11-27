@@ -85,16 +85,6 @@ $nftCardItemWidth: 6.875rem;
   padding: 0.5rem;
 
   color: var(--main-text);
-
-  &:global(.MtwCard__darkText) {
-    --main-text: var(--color-card-text-dark);
-    --second-text: var(--color-card-second-text-dark);
-  }
-
-  &:global(.MtwCard__lightText) {
-    --main-text: var(--color-card-text);
-    --second-text: var(--color-card-second-text);
-  }
 }
 
 .balance {
@@ -133,6 +123,10 @@ $nftCardItemWidth: 6.875rem;
 
 .customCardManager > img, .customCardManager::before {
   border-radius: 0.625rem !important;
+}
+
+.customCardShadow {
+  border-radius: 0.625rem 0 0 0.625rem !important;
 }
 
 .bar {

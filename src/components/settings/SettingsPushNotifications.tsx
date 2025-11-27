@@ -5,7 +5,6 @@ import type { Account, AccountSettings, AccountType, GlobalState } from '../../g
 
 import { MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT } from '../../config';
 import { selectOrderedAccounts } from '../../global/selectors';
-import { getMainAccountAddress } from '../../util/account';
 import buildClassName from '../../util/buildClassName';
 import { isKeyCountGreater } from '../../util/isEmptyObject';
 
@@ -82,7 +81,6 @@ function SettingsPushNotifications({
     };
 
     const { cardBackgroundNft } = settingsByAccountId?.[accountId] || {};
-    const address = getMainAccountAddress(byChain) ?? '';
 
     const isDisabled = enabledAccounts
       && !enabledAccounts[accountId]
@@ -92,7 +90,7 @@ function SettingsPushNotifications({
       <AccountButton
         key={accountId}
         accountId={accountId}
-        address={address}
+        byChain={byChain}
         title={title}
         className={buildClassName(
           styles.account,

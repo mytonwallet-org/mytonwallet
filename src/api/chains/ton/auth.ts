@@ -5,7 +5,6 @@ import nacl from 'tweetnacl';
 import type { ApiAccountWithMnemonic, ApiAnyDisplayError, ApiNetwork, ApiTonWallet } from '../../types';
 import type { ApiTonWalletVersion } from './types';
 import type { TonWallet } from './util/tonCore';
-import { ApiAuthError } from '../../types';
 
 import { DEFAULT_WALLET_VERSION } from '../../../config';
 import * as HDKey from '../../../lib/ed25519-hd-key';
@@ -161,10 +160,9 @@ export function getOtherVersionWallet(
 export async function getWalletFromAddress(
   network: ApiNetwork,
   addressOrDomain: string,
-): Promise<{ title?: string; wallet: ApiTonWallet } | { error: ApiAuthError }> {
+): Promise<{ title?: string; wallet: ApiTonWallet } | { error: ApiAnyDisplayError }> {
   const resolvedAddress = await resolveAddress(network, addressOrDomain, true);
-  if (resolvedAddress === 'dnsNotResolved') return { error: ApiAuthError.DomainNotResolved };
-  if (resolvedAddress === 'invalidAddress') return { error: ApiAuthError.InvalidAddress };
+  if ('error' in resolvedAddress) return resolvedAddress;
   const rawAddress = resolvedAddress.address;
 
   const [walletInfo, publicKey] = await Promise.all([

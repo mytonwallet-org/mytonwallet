@@ -83,7 +83,7 @@ class EmptyCollectionsView(window: WWindow) : WView(window), WThemedView {
     private fun setExploreText() {
         val attr = SpannableStringBuilder()
         attr.append(
-            SpannableString("${LocaleController.getString("\$nft_explore_offer")} ").apply {
+            SpannableString("${LocaleController.getString("\$nft_explore_offer").trim()} ").apply {
                 setSpan(
                     WFont.Regular,
                     0,

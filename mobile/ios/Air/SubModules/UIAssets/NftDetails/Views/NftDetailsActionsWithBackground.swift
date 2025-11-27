@@ -12,6 +12,8 @@ struct ActionsWithBackground: View {
     
     var body: some View {
         NftDetailsActionsRow(viewModel: viewModel)
+            .fixedSize(horizontal: IOS_26_MODE_ENABLED, vertical: false)
+            .frame(maxWidth: IOS_26_MODE_ENABLED ? .infinity : nil)
             .offset(y: viewModel.isFullscreenPreviewOpen ? 100 : 0)
             .background(alignment: .bottom) {
                 darkenAndBlurBackground

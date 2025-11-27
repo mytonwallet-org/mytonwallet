@@ -1,15 +1,13 @@
+import './dev/loadEnv';
+
 import WatchFilePlugin from '@mytonwallet/webpack-watch-file-plugin';
-import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import type { Configuration } from 'webpack';
 import { BannerPlugin, EnvironmentPlugin, ProvidePlugin } from 'webpack';
 
 import { convertI18nYamlToJson } from './dev/locales/convertI18nYamlToJson';
-
-dotenv.config();
-
-const { APP_ENV = 'production' } = process.env;
+import { APP_ENV } from './src/config';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const appVersion = require('./package.json').version;
@@ -80,19 +78,21 @@ export default function createConfig(
         APP_VERSION: appVersion,
         IS_CAPACITOR: '1',
         IS_AIR_APP: '1',
-        TONHTTPAPI_MAINNET_URL: '',
-        TONHTTPAPI_MAINNET_API_KEY: '',
-        TONHTTPAPI_TESTNET_URL: '',
-        TONHTTPAPI_TESTNET_API_KEY: '',
+        TONCENTER_MAINNET_URL: '',
+        TONCENTER_MAINNET_KEY: '',
+        TONCENTER_TESTNET_URL: '',
+        TONCENTER_TESTNET_KEY: '',
         TONAPIIO_MAINNET_URL: '',
         TONAPIIO_TESTNET_URL: '',
-        TONHTTPAPI_V3_MAINNET_API_KEY: '',
-        TONHTTPAPI_V3_TESTNET_API_KEY: '',
         BRILLIANT_API_BASE_URL: '',
         TRON_MAINNET_API_URL: '',
         TRON_TESTNET_API_URL: '',
         PROXY_HOSTS: '',
         STAKING_POOLS: '',
+        BOT_USERNAME: '',
+        SWAP_FEE_ADDRESS: '',
+        DIESEL_ADDRESS: '',
+        PROXY_API_BASE_URL: '',
       }),
       new WatchFilePlugin({
         rules: [

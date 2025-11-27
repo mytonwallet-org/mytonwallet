@@ -1,0 +1,20 @@
+$avatarSize: 2.625rem;
+
+.avatar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+
+  width: #{$avatarSize};
+  height: #{$avatarSize};
+  border-radius: 50%;
+
+  font-size: 1.0625rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--color-activity-icon);
+  white-space: nowrap;
+
+  background: linear-gradient(to bottom, var(--start-color) 0%, var(--end-color) 100%);
+}

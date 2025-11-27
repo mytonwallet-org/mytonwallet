@@ -11,7 +11,7 @@ import {
   IS_CORE_WALLET,
   MTW_CARDS_COLLECTION,
 } from '../../../config';
-import { isTonDnsNft } from '../../../util/dns';
+import { isDotTonDomainNft, isLinkableDnsNft, isRenewableDnsNft } from '../../../util/dns';
 import { compact } from '../../../util/iteratees';
 import { openUrl } from '../../../util/openUrl';
 import { getExplorerName, getExplorerNftUrl } from '../../../util/url';
@@ -30,7 +30,7 @@ const ON_SALE_ITEM: DropdownItem<NftMenuHandler> = {
   description: 'NFT is for sale',
   isDisabled: true,
 };
-const TON_DNS_ITEM: DropdownItem<NftMenuHandler> = {
+const TON_DOMAIN_ITEM: DropdownItem<NftMenuHandler> = {
   name: 'Configure DNS',
   value: 'tondns',
   fontIcon: 'external',
@@ -290,18 +290,20 @@ export default function useNftMenu({
     const {
       collectionAddress, isOnSale, isOnFragment, isScam,
     } = nft;
-    const isTonDns = isTonDnsNft(nft);
+    const isDotTon = isDotTonDomainNft(nft);
+    const isRenewable = isRenewableDnsNft(nft);
+    const isLinkable = isLinkableDnsNft(nft);
     const isCard = !IS_CORE_WALLET && nft.collectionAddress === MTW_CARDS_COLLECTION;
 
     return compact([
       !isViewMode && (isOnSale ? ON_SALE_ITEM : SEND_ITEM),
-      !isViewMode && isTonDns && !isOnSale && dnsExpireInDays !== undefined && {
+      !isViewMode && isRenewable && !isOnSale && dnsExpireInDays !== undefined && {
         ...RENEW_ITEM,
         description: dnsExpireInDays < 0
           ? 'Expired'
           : lang('$expires_in %days%', { days: lang('$in_days', dnsExpireInDays) }, undefined, 1),
       },
-      !isViewMode && isTonDns && !isOnSale && (linkedAddress ? CHANGE_LINKED_ADDRESS : LINK_TO_ADDRESS),
+      !isViewMode && isLinkable && !isOnSale && (linkedAddress ? CHANGE_LINKED_ADDRESS : LINK_TO_ADDRESS),
       !IS_CORE_WALLET && ((!isScam && !isNftBlacklisted) || isNftWhitelisted) && HIDE_ITEM,
       !IS_CORE_WALLET && isScam && !isNftWhitelisted && NOT_SCAM,
       !IS_CORE_WALLET && !isScam && isNftBlacklisted && UNHIDE,
@@ -310,7 +312,7 @@ export default function useNftMenu({
         SELECT_ITEM,
       ] : []),
       collectionAddress && COLLECTION_ITEM,
-      isTonDns && !isViewMode && TON_DNS_ITEM,
+      isDotTon && !isViewMode && TON_DOMAIN_ITEM,
       ...(isCard ? [!isNftInstalled ? INSTALL_CARD : RESET_CARD] : []),
       ...(isCard ? [!isNftAccentColorInstalled ? INSTALL_ACCENT_COLOR : RESET_ACCENT_COLOR] : []),
 

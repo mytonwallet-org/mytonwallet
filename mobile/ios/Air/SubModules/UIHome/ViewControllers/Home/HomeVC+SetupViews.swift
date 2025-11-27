@@ -9,18 +9,21 @@ import UIKit
 import UIComponents
 import WalletContext
 import WalletCore
+import SwiftUI
+import Perception
 
 extension HomeVC {
     // MARK: - Setup home views
     func setupViews() {
         view.backgroundColor = WTheme.groupedItem
 
-        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-            // set title to get blurred background
-            navigationItem.attributedTitle = AttributedString(lang("Home"), attributes: AttributeContainer([.foregroundColor: UIColor.clear]))
-        } else {
-            title = nil
-        }
+        headerTouchTarget.translatesAutoresizingMaskIntoConstraints = false
+        headerTouchTarget.text = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        headerTouchTarget.textColor = .clear
+        headerTouchTarget.isUserInteractionEnabled = true
+        headerTouchTarget.accessibilityElementsHidden = true
+        navigationItem.titleView = headerTouchTarget
+        
         navigationItem.leadingItemGroups = [
             UIBarButtonItemGroup(
                 barButtonItems: [
@@ -85,7 +88,6 @@ extension HomeVC {
 
         headerBlurView.alpha = 0
 
-        // reversed bottom corner radius for balance header view!
         bottomSeparatorView = UIView()
         bottomSeparatorView.translatesAutoresizingMaskIntoConstraints = false
         bottomSeparatorView.isUserInteractionEnabled = false
@@ -104,6 +106,10 @@ extension HomeVC {
             bottomSeparatorView.isHidden = true
         }
         
+        if #available(iOS 26, *) {
+            skeletonTableView.topEdgeEffect.isHidden = true
+        }
+        
         navigationBarProgressiveBlurDelta = 16
         
         // activate swipe back for presenting views on navigation controller (with hidden navigation bar)
@@ -119,7 +125,7 @@ extension HomeVC {
             actionsContainerView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             actionsTopConstraint,
             
-            actionsContainerView.heightAnchor.constraint(equalToConstant: 60),
+            actionsContainerView.heightAnchor.constraint(equalToConstant: actionsRowHeight),
             actionsView.topAnchor.constraint(greaterThanOrEqualTo: windowSafeAreaGuide.topAnchor,
                                              constant: 50).withPriority(.init(900)) // will be broken when assets push it from below and out of frame; button height constrain has priority = 800
         ])
@@ -158,13 +164,42 @@ extension HomeVC {
         NSLayoutConstraint.activate([
             emptyWalletView.topAnchor.constraint(equalTo: walletAssetsVC.view.bottomAnchor, constant: 8)
         ])
-
+        
         isInitializingCache = false
         applySnapshot(makeSnapshot(), animated: false)
         applySkeletonSnapshot(makeSkeletonSnapshot(), animated: false)
         updateSkeletonState()        
 
         updateTheme()
+        
+        headerContainer.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(headerContainer)
+        NSLayoutConstraint.activate([
+            headerContainer.heightAnchor.constraint(equalToConstant: 500),
+            headerContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            headerContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            headerContainer.bottomAnchor.constraint(equalTo: balanceHeaderView.bottomAnchor).withPriority(.defaultHigh),
+            headerContainer.bottomAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.topAnchor),
+        ])
+        
+        let hostingController = UIHostingController(rootView: HomeHeader(homeHeaderViewModel: headerViewModel), ignoreSafeArea: true)
+        self.headerHostingController = hostingController
+        addChild(hostingController)
+        headerContainer.addSubview(hostingController.view)
+        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            hostingController.view.leadingAnchor.constraint(equalTo: headerContainer.leadingAnchor),
+            hostingController.view.trailingAnchor.constraint(equalTo: headerContainer.trailingAnchor),
+            hostingController.view.topAnchor.constraint(equalTo: headerContainer.topAnchor),
+            hostingController.view.bottomAnchor.constraint(greaterThanOrEqualTo: headerContainer.bottomAnchor),
+        ])
+        hostingController.didMove(toParent: self)
+        hostingController.view.backgroundColor = .clear
+        
+        headerViewModel.onSelect = { [weak self] in
+            guard let self else { return }
+            interactivelySwitchAccountTo(accountId: $0)
+        }
         
         walletAssetsVC.delegate = self
     }
@@ -191,5 +226,4 @@ extension HomeVC {
         popRecognizer = InteractivePopRecognizer(controller: controller)
         controller.interactivePopGestureRecognizer?.delegate = popRecognizer
     }
-
 }

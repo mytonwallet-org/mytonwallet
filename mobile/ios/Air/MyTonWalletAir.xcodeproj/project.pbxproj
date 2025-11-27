@@ -32,8 +32,11 @@
 		58315F9B2E04474200AC5C8E /* WReachability.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4092D8456E800535360 /* WReachability.framework */; };
 		58315FA02E04477400AC5C8E /* WReachability.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4092D8456E800535360 /* WReachability.framework */; };
 		58315FA52E04477D00AC5C8E /* UIComponents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4002D8456E800535360 /* UIComponents.framework */; };
+		5831B4C92EC209E000336A91 /* UIKitNavigation in Frameworks */ = {isa = PBXBuildFile; productRef = 5831B4C82EC209E000336A91 /* UIKitNavigation */; };
 		584B0F052DD390C000BDF9E7 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 584B0F042DD390C000BDF9E7 /* Lottie */; };
 		584B0F072DD393FD00BDF9E7 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 584B0F062DD393FD00BDF9E7 /* Lottie */; };
+		585C72C22EB6284A00949B7A /* Dependencies in Frameworks */ = {isa = PBXBuildFile; productRef = 585C72C12EB6284A00949B7A /* Dependencies */; };
+		585C72C52EB6287700949B7A /* Perception in Frameworks */ = {isa = PBXBuildFile; productRef = 585C72C42EB6287700949B7A /* Perception */; };
 		586DE0E92EA26F180055359D /* Flow in Frameworks */ = {isa = PBXBuildFile; productRef = 586DE0E82EA26F180055359D /* Flow */; };
 		587BCB892DDB9DCA00E745A6 /* Popovers in Frameworks */ = {isa = PBXBuildFile; productRef = 587BCB882DDB9DCA00E745A6 /* Popovers */; };
 		587C28462DE32F2400503E94 /* Popovers in Frameworks */ = {isa = PBXBuildFile; productRef = 587C28452DE32F2400503E94 /* Popovers */; };
@@ -1311,19 +1314,25 @@
 				UIHome/ViewControllers/Home/BalanceHeaderView/BalanceHeaderVC.swift,
 				UIHome/ViewControllers/Home/BalanceHeaderView/BalanceHeaderView.swift,
 				"UIHome/ViewControllers/Home/BalanceHeaderView/BHV+UpdateMethods.swift",
-				UIHome/ViewControllers/Home/Card/AddressesMenuContent.swift,
 				UIHome/ViewControllers/Home/Card/CardAddressView.swift,
 				UIHome/ViewControllers/Home/Card/CardBackground.swift,
 				UIHome/ViewControllers/Home/Card/CardBorder.swift,
 				UIHome/ViewControllers/Home/Card/CardMiniPlaceholders.swift,
-				UIHome/ViewControllers/Home/Card/CurrencyMenu.swift,
 				UIHome/ViewControllers/Home/Card/WalletCardView.swift,
 				"UIHome/ViewControllers/Home/Card/WalletCardView+Nft.swift",
+				UIHome/ViewControllers/Home/HomeHeader/HomeAccountSelector.swift,
+				UIHome/ViewControllers/Home/HomeHeader/HomeCard.swift,
+				UIHome/ViewControllers/Home/HomeHeader/HomeContainer.swift,
+				UIHome/ViewControllers/Home/HomeHeader/HomeHeader.swift,
+				UIHome/ViewControllers/Home/HomeHeader/HomeHeaderCollapsedContent.swift,
+				UIHome/ViewControllers/Home/HomeHeader/HomeHeaderViewModel.swift,
 				UIHome/ViewControllers/Home/HomeVC.swift,
 				"UIHome/ViewControllers/Home/HomeVC+BHVDelegate.swift",
 				"UIHome/ViewControllers/Home/HomeVC+SetupViews.swift",
 				"UIHome/ViewControllers/Home/HomeVC+TableViewDelegate.swift",
 				UIHome/ViewControllers/Home/HomeVM.swift,
+				UIHome/ViewControllers/Home/Menus/AddressesMenu.swift,
+				UIHome/ViewControllers/Home/Menus/BaseCurrencyMenu.swift,
 				UIHome/ViewControllers/Home/UpdateStatusView/UpdateStatusView.swift,
 				UIHome/ViewControllers/HomeTabBarController/HomeTabBarController.swift,
 				UIHome/ViewControllers/SwitchAccount/Cells/AccountCell.swift,
@@ -1407,7 +1416,7 @@
 				UISettings/Appearance/AppearanceSettingsVC.swift,
 				UISettings/Appearance/AppearanceSettingsView.swift,
 				UISettings/Appearance/Sections/OtherAppearanceSettingsSection.swift,
-				UISettings/Appearance/Sections/PaletteSection.swift,
+				UISettings/Appearance/Sections/PaletteAndCardSection.swift,
 				UISettings/Appearance/Sections/ThemeSection.swift,
 				UISettings/AssetsAndActivity/AssetsAndActivityVC.swift,
 				UISettings/AssetsAndActivity/Cells/AssetsAndActivityBaseCurrencyCell.swift,
@@ -1417,24 +1426,44 @@
 				UISettings/ConnectedAppsVC/Cells/DappCell.swift,
 				UISettings/ConnectedAppsVC/Cells/DisconnectAllCell.swift,
 				UISettings/ConnectedAppsVC/ConnectedAppsVC.swift,
+				UISettings/CustomizeWallet/CustomizeWalletVC.swift,
+				UISettings/CustomizeWallet/CustomizeWalletView.swift,
+				UISettings/CustomizeWallet/CustomizeWalletViewModel.swift,
+				UISettings/CustomizeWallet/Views/AccountSelector.swift,
+				UISettings/CustomizeWallet/Views/AccountSelectorCell.swift,
+				UISettings/CustomizeWallet/Views/PaletteSection.swift,
+				UISettings/CustomizeWallet/Views/SelectCardSection.swift,
+				UISettings/DeleteAccount/DeleteAccount.swift,
 				UISettings/Language/LanguageVC.swift,
 				UISettings/Notifications/NotificationsSettingsVC.swift,
 				UISettings/Notifications/NotificationsSettingsView.swift,
 				UISettings/Notifications/NotificationsSettingsViewModel.swift,
 				UISettings/PlainWebView/PlainWebView.swift,
 				UISettings/RecoveryPhrase/RecoveryPhraseVC.swift,
+				UISettings/RenameAccount/RenameAccount.swift,
 				UISettings/Security/SecurityVC.swift,
 				UISettings/Security/SecurityView.swift,
 				UISettings/Settings/Cells/FooterView.swift,
-				UISettings/Settings/Cells/SettingsAccountCell.swift,
 				UISettings/Settings/Cells/SettingsItemCell.swift,
 				UISettings/Settings/Models/SettingsItem.swift,
 				UISettings/Settings/Models/SettingsSection.swift,
 				UISettings/Settings/SettingsVC.swift,
-				UISettings/Settings/SettingsVM.swift,
 				UISettings/Settings/Views/SettingsHeaderView.swift,
 				UISettings/UseResponsibly/UseResponsiblyVC.swift,
 				UISettings/UseResponsibly/UseResponsiblyView.swift,
+				UISettings/WalletSettings/Cells/CardMiniature.swift,
+				UISettings/WalletSettings/Cells/WalletSettingsEmptyCell.swift,
+				UISettings/WalletSettings/Cells/WalletSettingsGridCell.swift,
+				UISettings/WalletSettings/Cells/WalletSettingsListCell.swift,
+				UISettings/WalletSettings/Model/WalletFilter.swift,
+				UISettings/WalletSettings/Model/WalletListLayout.swift,
+				UISettings/WalletSettings/Model/WalletSettingsItem.swift,
+				UISettings/WalletSettings/Model/WalletSettingsViewModel.swift,
+				UISettings/WalletSettings/SharedUI/CellBaclgroundHighlight.swift,
+				UISettings/WalletSettings/WalletSettingsAddButton.swift,
+				UISettings/WalletSettings/WalletSettingsListVC.swift,
+				UISettings/WalletSettings/WalletSettingsNavigationHeader.swift,
+				UISettings/WalletSettings/WalletSettingsVC.swift,
 				UISettings/WalletVersions/Cells/WalletVersionsHintCell.swift,
 				UISettings/WalletVersions/WalletVersionsVC.swift,
 			);
@@ -1463,8 +1492,6 @@
 				UISend/Sending/SendingHeaderView.swift,
 				UISend/SendModel.swift,
 				UISend/SendVC.swift,
-				UISend/Sent/SentVC.swift,
-				UISend/Sent/SentView.swift,
 			);
 			target = 2770D0012BD16F43005F0BA3 /* UISend */;
 		};
@@ -1558,7 +1585,6 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				UIPasscode/CommonViews/PasscodeInputView.swift,
-				UIPasscode/CommonViews/PasscodeOptionsView.swift,
 				UIPasscode/CommonViews/PasscodeScreenView.swift,
 				UIPasscode/Helpers/BiometricHelper.swift,
 				UIPasscode/ViewControllers/ActivateBiometricVC/ActivateBiometricVC.swift,
@@ -1608,6 +1634,7 @@
 				UIComponents/AnimatedSticker/WAnimatedSticker.swift,
 				UIComponents/Buttons/Checkmark.swift,
 				UIComponents/Buttons/EarnGradient.swift,
+				UIComponents/Buttons/GlassActionButton.swift,
 				UIComponents/Buttons/OpenButtonStyle.swift,
 				UIComponents/Buttons/WBaseButton.swift,
 				UIComponents/Buttons/WButton.swift,
@@ -1646,6 +1673,7 @@
 				UIComponents/CommonViews/WarningView.swift,
 				UIComponents/CommonViews/WordListItemView.swift,
 				UIComponents/CommonViews/WordListView.swift,
+				UIComponents/ContextMenu/CustomTapGesture.swift,
 				"UIComponents/ContextMenu/Environment and preferences/ContainerSize.swift",
 				"UIComponents/ContextMenu/Environment and preferences/HasScrollPreference.swift",
 				"UIComponents/ContextMenu/Environment and preferences/SizePreference.swift",
@@ -1663,6 +1691,8 @@
 				UIComponents/DecimalAmount/AmountCell.swift,
 				UIComponents/DecimalAmount/AmountText.swift,
 				UIComponents/ExpandableNavigationView/ExpandableNavigationView.swift,
+				UIComponents/Gestures/HoldAndDragGesture.swift,
+				UIComponents/Gestures/LongTapGesture.swift,
 				UIComponents/HighlightView/WHighlightCell.swift,
 				UIComponents/HighlightView/WHighlightStackView.swift,
 				UIComponents/HighlightView/WHighlightView.swift,
@@ -1691,6 +1721,17 @@
 				UIComponents/Label/WGradientLabel.swift,
 				UIComponents/Label/WNotSelectableTappableTextView.swift,
 				UIComponents/Label/WReplacableLabel.swift,
+				UIComponents/MtwCard/MtwAddressLineView.swift,
+				UIComponents/MtwCard/MtwCard.swift,
+				UIComponents/MtwCard/MtwCardBackground.swift,
+				UIComponents/MtwCard/MtwCardBalanceView.swift,
+				UIComponents/MtwCard/MtwCardBorder.swift,
+				UIComponents/MtwCard/MtwCardForegroundStyle.swift,
+				UIComponents/MtwCard/MtwCardHighlight.swift,
+				UIComponents/MtwCard/MtwCardMiniPlaceholders.swift,
+				UIComponents/MtwCard/MtwCardSelection.swift,
+				UIComponents/Navigation/NavigationBarBackground.swift,
+				UIComponents/Navigation/NavigationHeader.swift,
 				UIComponents/Navigation/TabItemTappedProtocol.swift,
 				UIComponents/Navigation/WNavigationBar.swift,
 				UIComponents/NFT/NftImage.swift,
@@ -1711,7 +1752,10 @@
 				UIComponents/SegmentController/Model/SegmentedControlModel.swift,
 				UIComponents/SegmentController/Model/SegmentedControlSelection.swift,
 				UIComponents/SegmentController/Reordering.swift,
-				UIComponents/SegmentController/SegmentedControl.swift,
+				UIComponents/SegmentController/Views/SegmentedControl.swift,
+				UIComponents/SegmentController/Views/SegmentedControlItemView.swift,
+				UIComponents/SegmentController/Views/SegmentedControlLayer.swift,
+				UIComponents/SegmentController/Views/WSegmentedControl.swift,
 				UIComponents/SegmentController/WSegmentedController.swift,
 				UIComponents/SensitiveData/ShyMask.swift,
 				UIComponents/SensitiveData/WSensitiveData.swift,
@@ -1729,6 +1773,7 @@
 				UIComponents/Utils/SkeletonState.swift,
 				UIComponents/Utils/SwiftUIUtils.swift,
 				UIComponents/Utils/TouchGesture.swift,
+				UIComponents/Utils/UICollectionViewUtils.swift,
 				UIComponents/Utils/UIFontUtils.swift,
 				UIComponents/Utils/UIImageUtils.swift,
 				UIComponents/Utils/UIKitUtils.swift,
@@ -1790,6 +1835,7 @@
 				"WalletCore/Database/Database+SwitchToCapacitor.swift",
 				WalletCore/Helpers/ExchangeRateHelpers.swift,
 				WalletCore/Helpers/ExplorerHelper.swift,
+				WalletCore/Helpers/ExternalChain.swift,
 				WalletCore/Helpers/FeeEstimationHelpers.swift,
 				WalletCore/Helpers/RecentAddressesHelper.swift,
 				WalletCore/Helpers/TransferHelpers.swift,
@@ -1884,7 +1930,10 @@
 				WalletCore/Models/Transfer/ApiSubmitTransferResult.swift,
 				WalletCore/Models/Transfer/ApiTransactionCommonOptions.swift,
 				WalletCore/Models/Util/Fee/TransferFee.swift,
-				WalletCore/Stores/AccountStore.swift,
+				WalletCore/Stores/Accounts/AccountSettingsStore.swift,
+				WalletCore/Stores/Accounts/AccountStore.swift,
+				WalletCore/Stores/Accounts/AccountViewModel.swift,
+				WalletCore/Stores/Accounts/CurrentAccountViewModel.swift,
 				WalletCore/Stores/Activities/ActivityStore.swift,
 				WalletCore/Stores/Activities/ActivityUtils.swift,
 				WalletCore/Stores/Activities/ActivityViewModel.swift,
@@ -1893,7 +1942,9 @@
 				WalletCore/Stores/BalanceStore.swift,
 				WalletCore/Stores/ConfigStore.swift,
 				WalletCore/Stores/DappsStore.swift,
-				WalletCore/Stores/NftStore.swift,
+				WalletCore/Stores/Nfts/AccountMtwCardStore.swift,
+				WalletCore/Stores/Nfts/NftStore.swift,
+				WalletCore/Stores/SensitiveData.swift,
 				WalletCore/Stores/Staking/StakingHelpers.swift,
 				WalletCore/Stores/Staking/TonOperationFees.swift,
 				WalletCore/Stores/StakingStore.swift,
@@ -1906,6 +1957,7 @@
 				WalletCore/Updates/NewActivities.swift,
 				WalletCore/Updates/NewLocalActivities.swift,
 				WalletCore/Updates/OpenUrl.swift,
+				WalletCore/Updates/UpdateAccount.swift,
 				WalletCore/Updates/UpdateBalances.swift,
 				WalletCore/Updates/UpdateConfig.swift,
 				WalletCore/Updates/UpdateCurrencyRates.swift,
@@ -1941,7 +1993,6 @@
 				WalletContext/Localization/Lang.swift,
 				WalletContext/Localization/Language.swift,
 				WalletContext/Localization/LocalizationSupport.swift,
-				WalletContext/Localization/WStrings.swift,
 				WalletContext/Logging/Log.swift,
 				WalletContext/Resources/Animations/animation_bill.tgs,
 				WalletContext/Resources/Animations/animation_guard.tgs,
@@ -1949,6 +2000,7 @@
 				WalletContext/Resources/Animations/animation_snitch.tgs,
 				WalletContext/Resources/Animations/Congratulations.tgs,
 				WalletContext/Resources/Animations/Copy.tgs,
+				"WalletContext/Resources/Animations/duck_no-data.tgs",
 				WalletContext/Resources/Animations/Main.tgs,
 				WalletContext/Resources/Animations/NoResults.tgs,
 				WalletContext/Resources/Animations/Password.tgs,
@@ -2344,11 +2396,14 @@
 				580CDB8F2DF46DA90078F79E /* GRDB in Frameworks */,
 				587EB31E2D82DAF6009F0CE2 /* Kingfisher in Frameworks */,
 				587BCB892DDB9DCA00E745A6 /* Popovers in Frameworks */,
+				585C72C52EB6287700949B7A /* Perception in Frameworks */,
 				58BE2C722D33D8D000A71816 /* OrderedCollections in Frameworks */,
 				58AA03BB2DDBA87B00C970F4 /* SwiftUIIntrospect in Frameworks */,
 				58B913232DDC53910048FC65 /* Popovers in Frameworks */,
+				5831B4C92EC209E000336A91 /* UIKitNavigation in Frameworks */,
 				586DE0E92EA26F180055359D /* Flow in Frameworks */,
 				58D42FDB2D6DB4CD0070AE43 /* ColorThiefSwift in Frameworks */,
+				585C72C22EB6284A00949B7A /* Dependencies in Frameworks */,
 				587C28462DE32F2400503E94 /* Popovers in Frameworks */,
 				584B0F072DD393FD00BDF9E7 /* Lottie in Frameworks */,
 			);
@@ -3477,6 +3532,9 @@
 				587C28442DE32F2400503E94 /* XCRemoteSwiftPackageReference "Popovers" */,
 				580CDB8D2DF46DA90078F79E /* XCRemoteSwiftPackageReference "GRDB" */,
 				5860FC932E6BCBFB00A23D61 /* XCRemoteSwiftPackageReference "SwiftUI-Flow" */,
+				585C72C02EB6284A00949B7A /* XCRemoteSwiftPackageReference "swift-dependencies" */,
+				585C72C32EB6287700949B7A /* XCRemoteSwiftPackageReference "swift-perception" */,
+				5831B4C72EC209E000336A91 /* XCRemoteSwiftPackageReference "swift-navigation" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 27DCA77A2BA5725C004F83C8;
@@ -5438,7 +5496,6 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -5503,7 +5560,6 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -6843,6 +6899,14 @@
 				minimumVersion = 7.5.0;
 			};
 		};
+		5831B4C72EC209E000336A91 /* XCRemoteSwiftPackageReference "swift-navigation" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/pointfreeco/swift-navigation";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.6.0;
+			};
+		};
 		584B0F032DD390C000BDF9E7 /* XCRemoteSwiftPackageReference "lottie-spm" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/airbnb/lottie-spm.git";
@@ -6857,6 +6921,22 @@
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 4.5.1;
+			};
+		};
+		585C72C02EB6284A00949B7A /* XCRemoteSwiftPackageReference "swift-dependencies" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/pointfreeco/swift-dependencies";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.10.0;
+			};
+		};
+		585C72C32EB6287700949B7A /* XCRemoteSwiftPackageReference "swift-perception" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/pointfreeco/swift-perception";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.9;
 			};
 		};
 		5860FC932E6BCBFB00A23D61 /* XCRemoteSwiftPackageReference "SwiftUI-Flow" */ = {
@@ -7001,6 +7081,11 @@
 			package = 580CDB8D2DF46DA90078F79E /* XCRemoteSwiftPackageReference "GRDB" */;
 			productName = GRDB;
 		};
+		5831B4C82EC209E000336A91 /* UIKitNavigation */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5831B4C72EC209E000336A91 /* XCRemoteSwiftPackageReference "swift-navigation" */;
+			productName = UIKitNavigation;
+		};
 		584B0F042DD390C000BDF9E7 /* Lottie */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 584B0F032DD390C000BDF9E7 /* XCRemoteSwiftPackageReference "lottie-spm" */;
@@ -7010,6 +7095,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 584B0F032DD390C000BDF9E7 /* XCRemoteSwiftPackageReference "lottie-spm" */;
 			productName = Lottie;
+		};
+		585C72C12EB6284A00949B7A /* Dependencies */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 585C72C02EB6284A00949B7A /* XCRemoteSwiftPackageReference "swift-dependencies" */;
+			productName = Dependencies;
+		};
+		585C72C42EB6287700949B7A /* Perception */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 585C72C32EB6287700949B7A /* XCRemoteSwiftPackageReference "swift-perception" */;
+			productName = Perception;
 		};
 		586DE0E82EA26F180055359D /* Flow */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -13,7 +13,7 @@ public let DUMMY_ACCOUNT = MAccount(id: "dummy-mainnet", title: " ", type: .view
 
 // see src/global/types.ts > Account
 
-public struct MAccount: Equatable, Hashable, Sendable, Codable, FetchableRecord, PersistableRecord {
+public struct MAccount: Equatable, Hashable, Sendable, Codable, Identifiable, FetchableRecord, PersistableRecord {
     
     public let id: String
     
@@ -110,6 +110,15 @@ extension MAccount {
             return tonDict["version"] as? String
         }
         return nil
+    }
+    
+    public var orderedChains: [(ApiChain, AccountChain)] {
+        ApiChain.allCases.compactMap { chain  in
+            if let info = byChain[chain.rawValue] {
+                return (chain, info)
+            }
+            return nil
+        }
     }
 }
 

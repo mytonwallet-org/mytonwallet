@@ -19,10 +19,22 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate {
     private var segmentedController: WSegmentedController!
     private var progress: CGFloat = 0
     
-    private let segmentedControlItems: [SegmentedControlItem] = [
-        SegmentedControlItem(index: 0, id: "TON", content: AnyView(Text("TON"))),
-        SegmentedControlItem(index: 1, id: "MY", content: AnyView(Text("MY"))),
-        SegmentedControlItem(index: 2, id: "USDe", content: AnyView(Text("USDe"))),
+    private lazy var segmentedControlItems: [SegmentedControlItem] = [
+        SegmentedControlItem(
+            id: "TON",
+            title: "TON",
+            viewController: tonVC,
+        ),
+        SegmentedControlItem(
+            id: "MY",
+            title: "MY",
+            viewController: mycoinVC,
+        ),
+        SegmentedControlItem(
+            id: "USDe",
+            title: "USDe",
+            viewController: ethenaVC,
+        ),
     ]
     
     public init(token: ApiToken? = nil, title: String? = nil) {
@@ -52,8 +64,8 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate {
         addChild(ethenaVC)
         
         let capsuleColor = UIColor { WTheme.secondaryLabel.withAlphaComponent($0.userInterfaceStyle == .dark ? 0.2 : 0.12 ) }
-        segmentedController = WSegmentedController(viewControllers: [tonVC, mycoinVC, ethenaVC],
-                                                   defaultIndex: onlyToken?.slug == STAKED_MYCOIN_SLUG ? 1 : 0,
+        segmentedController = WSegmentedController(items: segmentedControlItems,
+                                                   defaultItemId: onlyToken?.slug,
                                                    barHeight: 56.333,
                                                    animationSpeed: .slow,
                                                    capsuleFillColor: capsuleColor,
@@ -108,7 +120,7 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate {
             vcs.append(ethenaVC)
             items.append(segmentedControlItems[2])
         }
-        segmentedController.replace(viewControllers: vcs, items: items)
+        segmentedController.replace(items: items)
     }
     
     public override func updateTheme() {

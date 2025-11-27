@@ -19,7 +19,7 @@ struct SwapView: View {
                 
                 SwapWarning(displayImpactWarning: detailsVM.displayImpactWarning)
                 
-                if swapType == .inChain {
+                if swapType == .onChain {
                     SwapDetailsView(
                         swapVM: swapVM,
                         selectorsVM: selectorsVM,
@@ -41,6 +41,5 @@ struct SwapView: View {
             .padding(.horizontal, 16)
             .animation(.snappy, value: swapEstimate)
         }
-        .environment(\.isSensitiveDataHidden, isSensitiveDataHidden)
     }
 }

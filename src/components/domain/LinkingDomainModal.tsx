@@ -14,7 +14,7 @@ import {
 } from '../../global/selectors';
 import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
-import { isValidAddressOrDomain } from '../../util/isValidAddressOrDomain';
+import { isValidAddressOrDomain } from '../../util/isValidAddress';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 

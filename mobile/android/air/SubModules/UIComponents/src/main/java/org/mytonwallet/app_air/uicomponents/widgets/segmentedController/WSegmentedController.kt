@@ -34,7 +34,6 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletcontext.utils.EquatableChange
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import java.lang.ref.WeakReference
 import kotlin.math.abs
@@ -49,6 +48,7 @@ class WSegmentedController(
     private val isFullScreen: Boolean = true,
     private val isTransparent: Boolean = false,
     private val applySideGutters: Boolean = true,
+    private val navTopPadding: Int = 0,
     val navHeight: Int = WNavigationBar.DEFAULT_HEIGHT.dp,
     private var onOffsetChange: ((position: Int, currentOffset: Float) -> Unit)? = null,
     // Lets parent know the view items are reordered
@@ -176,7 +176,7 @@ class WSegmentedController(
         v
     }
 
-    private val reversedCornerView: ReversedCornerView by lazy {
+    val reversedCornerView: ReversedCornerView by lazy {
         ReversedCornerView(
             context,
             ReversedCornerView.Config(
@@ -194,7 +194,7 @@ class WSegmentedController(
         v.setConstraints {
             toTopPx(
                 clearSegmentedControl,
-                (if (isFullScreen) navigationController.getSystemBars().top else 6)
+                (if (isFullScreen) navigationController.getSystemBars().top + navTopPadding else 6)
             )
             toCenterX(clearSegmentedControl)
         }
@@ -207,7 +207,7 @@ class WSegmentedController(
         applyItems()
 
         val topHeaderHeight =
-            navHeight + (if (isFullScreen) navigationController.getSystemBars().top else 6)
+            navHeight + (if (isFullScreen) navigationController.getSystemBars().top + navTopPadding else 6)
         addView(viewPager, ViewGroup.LayoutParams(MATCH_PARENT, 0))
         if (isFullScreen && !isTransparent)
             addView(reversedCornerView, LayoutParams(MATCH_PARENT, 0))
@@ -233,6 +233,8 @@ class WSegmentedController(
         if (!isFullScreen)
             viewPager.increaseDragSensitivity()
         setActiveIndex(defaultSelectedIndex)
+        if (!applySideGutters)
+            reversedCornerView.setHorizontalPadding(0f)
 
         contentView.setOnClickListener {
             scrollToTop()
@@ -332,7 +334,7 @@ class WSegmentedController(
         val removedItem = items.getOrNull(index) ?: return null
         (items[index].viewController as ISortableView).endSorting()
         items.removeAt(index)
-        vpAdapter.applyChanges(listOf(EquatableChange.Delete(IndexPath(0, index))))
+        vpAdapter.notifyItemRemoved(index)
         val nextSelectedIndex = getNextSelectedIndex(viewPager.currentItem, index)
         clearSegmentedControl.removeItem(index, nextSelectedIndex, onCompletion = {
             removingItem = false
@@ -369,7 +371,7 @@ class WSegmentedController(
             toTopPx(
                 closeButton,
                 (navHeight - 40.dp) / 2 +
-                    (navigationController.getSystemBars().top)
+                    (navigationController.getSystemBars().top + navTopPadding)
             )
             toEnd(closeButton, 8f)
             toEnd(clearSegmentedControl, if (items.size < 3 || forceCenterTabs) 0f else 56f)
@@ -384,6 +386,11 @@ class WSegmentedController(
     val currentItem: WViewController?
         get() {
             return items.getOrNull(viewPager.currentItem)?.viewController
+        }
+
+    val currentIndex: Int
+        get() {
+            return viewPager.currentItem
         }
 
     fun updateBlurViews(recyclerView: RecyclerView) {
@@ -415,6 +422,20 @@ class WSegmentedController(
 
     fun setDragAllowed(enabled: Boolean) {
         clearSegmentedControl.isDragAllowed = enabled
+    }
+
+    private var isTabLocked = false
+
+    fun lockTab() {
+        isTabLocked = true
+        clearSegmentedControl.isEnabled = false
+        viewPager.isUserInputEnabled = false
+    }
+
+    fun unlockTab() {
+        isTabLocked = false
+        clearSegmentedControl.isEnabled = true
+        viewPager.isUserInputEnabled = true
     }
 
     override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {

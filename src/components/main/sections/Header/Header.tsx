@@ -2,7 +2,11 @@ import React, { memo } from '../../../../lib/teact/teact';
 import { withGlobal } from '../../../../global';
 
 import { IS_CORE_WALLET, IS_EXTENSION, IS_TELEGRAM_APP } from '../../../../config';
-import { selectIsCurrentAccountViewMode, selectIsPasswordPresent } from '../../../../global/selectors';
+import {
+  selectCurrentAccountId,
+  selectIsCurrentAccountViewMode,
+  selectIsPasswordPresent,
+} from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
 import { IS_ELECTRON } from '../../../../util/windowEnvironment';
 
@@ -11,6 +15,7 @@ import useQrScannerSupport from '../../../../hooks/useQrScannerSupport';
 
 import AccountSelector from './AccountSelector';
 import AppLockButton from './actionButtons/AppLockButton';
+import BackButton from './actionButtons/BackButton';
 import QrScannerButton from './actionButtons/QrScannerButton';
 import SettingsButton from './actionButtons/SettingsButton';
 import ToggleFullscreenButton from './actionButtons/ToggleFullscreenButton';
@@ -32,6 +37,7 @@ interface StateProps {
   isAppLockEnabled?: boolean;
   isSensitiveDataHidden: boolean;
   isFullscreen: boolean;
+  isTemporaryAccount: boolean;
 }
 
 function Header({
@@ -42,6 +48,7 @@ function Header({
   isAppLockEnabled,
   isSensitiveDataHidden,
   isFullscreen,
+  isTemporaryAccount,
 }: OwnProps & StateProps) {
   const { isPortrait } = useDeviceScreen();
   const canToggleAppLayout = IS_EXTENSION || IS_ELECTRON;
@@ -58,7 +65,7 @@ function Header({
     return (
       <div className={fullClassName}>
         <div className={styles.headerInner} style={`--icons-amount: ${iconsAmount}`}>
-          <QrScannerButton isViewMode={isViewMode} />
+          {isTemporaryAccount ? <BackButton /> : <QrScannerButton isViewMode={isViewMode} />}
           <AccountSelector withBalance={withBalance} withAccountSelector={!IS_CORE_WALLET} />
 
           <div className={styles.portraitActions}>
@@ -73,7 +80,7 @@ function Header({
   }
 
   const buttonsAmount = Math.max(
-    1 + (isAppLockEnabled ? 1 : 0) + (isQrScannerSupported ? 1 : 0),
+    1 + (isTemporaryAccount ? 1 : 0) + (isAppLockEnabled ? 1 : 0) + (isQrScannerSupported ? 1 : 0),
     1 + (canToggleAppLayout ? 1 : 0) + (IS_TELEGRAM_APP ? 1 : 0),
   );
 
@@ -86,6 +93,7 @@ function Header({
           styles.landscapeActionsStart,
         )}
         >
+          {isTemporaryAccount && <BackButton isIconOnly />}
           <ToggleSensitiveDataButton isSensitiveDataHidden={isSensitiveDataHidden} />
           <QrScannerButton isViewMode={isViewMode} />
           {isAppLockEnabled && <AppLockButton />}
@@ -112,6 +120,7 @@ export default memo(withGlobal<OwnProps>(
   (global): StateProps => {
     const {
       isFullscreen,
+      currentTemporaryViewAccountId,
       settings: {
         isAppLockEnabled,
         isSensitiveDataHidden,
@@ -126,7 +135,8 @@ export default memo(withGlobal<OwnProps>(
       isAppLockEnabled: isAppLockEnabled && isPasswordPresent,
       isFullscreen: Boolean(isFullscreen),
       isSensitiveDataHidden: Boolean(isSensitiveDataHidden),
+      isTemporaryAccount: Boolean(currentTemporaryViewAccountId),
     };
   },
-  (global, _, stickToFirst) => stickToFirst(global.currentAccountId),
+  (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),
 )(Header));

@@ -11,6 +11,7 @@ import UIComponents
 import WalletCore
 import WalletContext
 import GRDB
+import Dependencies
 
 fileprivate let blurredUIEnabled = false
 
@@ -100,7 +101,10 @@ public class AirLauncher {
         }
         
         // Load theme
-        let activeColorTheme = AccountStore.currentAccountAccentColorIndex
+        let accountId = AccountStore.accountId ?? ""
+        @Dependency(\.accountSettings) var _accountSettings
+        let accountSettings = _accountSettings.for(accountId: accountId)
+        let activeColorTheme = accountSettings.accentColorIndex
         changeThemeColors(to: activeColorTheme)
         
         // Set animations enabled or not
@@ -142,24 +146,17 @@ public class AirLauncher {
     }
     
     public static func setAppIsFocused(_ isFocused: Bool) {
-        if !isOnTheAir {
-            return
-        }
+        guard isOnTheAir else { return }
         Task {
-            do {
-                try await Api.setIsAppFocused(isFocused)
-            } catch {
-                log.error("setIsAppFocused: \(error, .public)")
-            }
+            // may fail at launch, which is ok
+            try? await Api.setIsAppFocused(isFocused)
         }
     }
     
     public static func handle(url: URL) {
-        if !isOnTheAir {
-            return
-        }
+        guard isOnTheAir else { return }
         if let deeplinkHandler {
-            deeplinkHandler.handle(url)
+            _ = deeplinkHandler.handle(url)
         } else {
             pendingDeeplinkURL = url
         }

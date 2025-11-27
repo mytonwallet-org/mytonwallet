@@ -211,21 +211,8 @@ private let UPDATING_DELAY = 2
         self.account = AccountStore.account
         self.setUpdatingAfterDelayTask?.cancel()
         self.setUpdatingAfterDelayTask = nil
-        homeVMDelegate?.update(state: waitingForNetwork == true ? .waitingForNetwork : .updated, animated: false)
+        homeVMDelegate?.update(state: waitingForNetwork == true ? .waitingForNetwork : .updated, animated: true)
         
-        let accountBalanceData = BalanceStore.currentAccountBalanceData
-        if let walletTokens = BalanceStore.currentAccountBalanceData?.walletTokens, walletTokens.count > 0 {
-            DispatchQueue.main.async { [self] in
-                // reload transaction prices
-                homeVMDelegate?.transactionsUpdated(accountChanged: true, isUpdateEvent: false)
-                // reload balance
-                homeVMDelegate?.updateBalance(balance: accountBalanceData?.totalBalance,
-                                              balance24h: accountBalanceData?.totalBalanceYesterday,
-                                              walletTokens: walletTokens)
-            }
-        } else {
-            homeVMDelegate?.updateBalance(balance: nil, balance24h: nil, walletTokens: [])
-        }
         Task {
             await homeVMDelegate?.changeAccountTo(accountId: account.id, isNew: isNew)
         }

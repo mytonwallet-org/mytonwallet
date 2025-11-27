@@ -1,7 +1,8 @@
 import type { ApiChain } from '../api/types';
 import type { Account, UserToken } from '../global/types';
 
-import { TRC20_USDT_MAINNET_SLUG, TRX } from '../config';
+import { getChainConfig } from './chain';
+import { getIsNativeToken } from './tokens';
 
 const SCAM_DOMAIN_ADDRESS_REGEX = /^[-\w]{26,}\./;
 
@@ -15,15 +16,20 @@ export function shouldShowSeedPhraseScamWarning(
     return true;
   }
 
-  // Only show when trying to transfer TRON tokens
-  if (transferTokenChain !== 'tron') {
+  const {
+    shouldShowScamWarningIfNotEnoughGas,
+    usdtSlug: { mainnet: usdtSlug },
+  } = getChainConfig(transferTokenChain);
+
+  // Only show when trying to transfer in some chains
+  if (!shouldShowScamWarningIfNotEnoughGas) {
     return false;
   }
 
-  // Check if account has TRON tokens (like USDT)
+  // Check if account has that chain tokens (like USDT)
   return accountTokens.some((token) =>
-    token.slug === TRC20_USDT_MAINNET_SLUG
-    || (token.chain === 'tron' && token.amount > 0n && token.slug !== TRX.slug),
+    token.slug === usdtSlug
+    || (token.chain === transferTokenChain && token.amount > 0n && !getIsNativeToken(token.slug)),
   );
 }
 

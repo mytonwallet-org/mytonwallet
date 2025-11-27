@@ -29,6 +29,7 @@ import { getTranslation } from '../../../util/langProvider';
 import { callActionInMain, callActionInNative } from '../../../util/multitab';
 import { openUrl } from '../../../util/openUrl';
 import { getTelegramApp } from '../../../util/telegram';
+import { getChainBySlug } from '../../../util/tokens';
 import {
   getIsMobileTelegramApp,
   IS_ANDROID_APP,
@@ -58,6 +59,7 @@ import {
 } from '../../reducers';
 import {
   selectCurrentAccount,
+  selectCurrentAccountId,
   selectCurrentAccountSettings,
   selectCurrentAccountState,
   selectIsPasswordPresent,
@@ -307,7 +309,7 @@ addActionHandler('setSettingsState', (global, actions, { state }) => {
 });
 
 addActionHandler('closeSettings', (global) => {
-  if (!global.currentAccountId) {
+  if (!selectCurrentAccountId(global)) {
     return global;
   }
 
@@ -600,6 +602,21 @@ addActionHandler('openOnRampWidgetModal', (global, actions, { chain }) => {
 
 addActionHandler('closeOnRampWidgetModal', (global) => {
   setGlobal({ ...global, chainForOnRampWidgetModal: undefined });
+});
+
+addActionHandler('openOffRampWidgetModal', (global) => {
+  if (IS_DELEGATED_BOTTOM_SHEET) {
+    callActionInMain('openOffRampWidgetModal');
+    return;
+  }
+
+  const { tokenSlug } = global.currentTransfer;
+  const chain = tokenSlug ? getChainBySlug(tokenSlug) : 'ton';
+  setGlobal({ ...global, chainForOffRampWidgetModal: chain });
+});
+
+addActionHandler('closeOffRampWidgetModal', (global) => {
+  setGlobal({ ...global, chainForOffRampWidgetModal: undefined });
 });
 
 addActionHandler('openMediaViewer', (global, actions, {

@@ -76,6 +76,30 @@ export async function getMoonpayOnrampUrl(chain: ApiChain, address: string, them
   }
 }
 
+export async function getMoonpayOfframpUrl(
+  chain: ApiChain,
+  address: string,
+  theme: Theme,
+  currency: ApiBaseCurrency,
+  amount: string,
+  baseUrl: string,
+) {
+  try {
+    return await callBackendGet<{ url: string }>('/offramp-url', {
+      chain,
+      address,
+      theme,
+      currency: currency.toLowerCase(),
+      amount,
+      baseUrl,
+    });
+  } catch (err) {
+    logDebugError('getMoonpayOfframpUrl', err);
+
+    return handleServerError(err);
+  }
+}
+
 export function waitForLedgerApp(chain: ApiChain, options: {
   timeout?: number;
   attemptPause?: number;

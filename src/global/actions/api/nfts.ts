@@ -1,17 +1,30 @@
 import { BURN_ADDRESS, NOTCOIN_EXCHANGERS, NOTCOIN_VOUCHERS_ADDRESS, TONCOIN } from '../../../config';
-import { findDifference } from '../../../util/iteratees';
+import { findDifference, omit } from '../../../util/iteratees';
 import { IS_DELEGATING_BOTTOM_SHEET } from '../../../util/windowEnvironment';
 import { callApi } from '../../../api';
-import { addActionHandler } from '../../index';
-import { updateCurrentAccountState } from '../../reducers';
-import { selectCurrentAccountState } from '../../selectors';
+import { addActionHandler, setGlobal } from '../../index';
+import { updateAccountState, updateCurrentAccountState } from '../../reducers';
+import { selectAccountState, selectCurrentAccountId, selectCurrentAccountState } from '../../selectors';
 
 import { getIsPortrait } from '../../../hooks/useDeviceScreen';
 
 const NBS_INIT_TIMEOUT = IS_DELEGATING_BOTTOM_SHEET ? 100 : 0;
 
 addActionHandler('fetchNftsFromCollection', (global, actions, { collectionAddress }) => {
-  void callApi('fetchNftsFromCollection', global.currentAccountId!, collectionAddress);
+  actions.clearNftCollectionLoading({ collectionAddress });
+  void callApi('fetchNftsFromCollection', selectCurrentAccountId(global)!, collectionAddress);
+});
+
+addActionHandler('clearNftCollectionLoading', (global, actions, { collectionAddress }) => {
+  const currentAccountId = selectCurrentAccountId(global)!;
+  const accountState = selectAccountState(global, currentAccountId);
+  global = updateAccountState(global, currentAccountId, {
+    nfts: {
+      ...accountState!.nfts,
+      isLoadedByAddress: omit(accountState!.nfts?.isLoadedByAddress ?? {}, [collectionAddress]),
+    },
+  });
+  setGlobal(global);
 });
 
 addActionHandler('burnNfts', (global, actions, { nfts }) => {

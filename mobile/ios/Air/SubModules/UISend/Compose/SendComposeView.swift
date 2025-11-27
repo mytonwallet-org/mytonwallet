@@ -42,7 +42,6 @@ public struct SendComposeView: View {
         }
 
         .navigationTitle(Text(lang("Send")))
-        .environment(\.isSensitiveDataHidden, isSensitiveDataHidden)
         .environmentObject(model)
 
         .onChange(of: addressFocused) { focus in
@@ -254,7 +253,7 @@ private struct CommentOrMemoSection: View {
         InsetSection {
             InsetCell {
                 TextField(
-                    model.isCommentRequired ? lang("Add comment or memo") : lang("Add a message, if needed"),
+                    model.isCommentRequired ? lang("Required") : lang("Optional"),
                     text: $commentOrMemo,
                     axis: .vertical
                 )
@@ -294,7 +293,6 @@ private struct CommentOrMemoSection: View {
                     .contentShape(.rect)
                     .foregroundStyle(.secondary)
                     .tint(.primary)
-                    .font(.footnote)
                     .padding(.vertical, 2)
                 }
                 .padding(.vertical, -2)

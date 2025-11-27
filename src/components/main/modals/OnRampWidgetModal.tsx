@@ -7,7 +7,7 @@ import type { ApiBaseCurrency, ApiChain, ApiCountryCode } from '../../../api/typ
 import type { Theme } from '../../../global/types';
 
 import { CURRENCIES } from '../../../config';
-import { selectAccount } from '../../../global/selectors';
+import { selectAccount, selectCurrentAccountId } from '../../../global/selectors';
 import buildClassName from '../../../util/buildClassName';
 import { callApi } from '../../../api';
 
@@ -217,7 +217,7 @@ function OnRampWidgetModal({
 }
 
 export default memo(withGlobal((global): StateProps => {
-  const { byChain } = selectAccount(global, global.currentAccountId!) || {};
+  const { byChain } = selectAccount(global, selectCurrentAccountId(global)!) || {};
   const {
     chainForOnRampWidgetModal: chain,
     restrictions: { countryCode },

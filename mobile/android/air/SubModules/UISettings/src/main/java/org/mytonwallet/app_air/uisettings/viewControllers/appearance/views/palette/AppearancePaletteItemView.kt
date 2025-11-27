@@ -6,7 +6,6 @@ import android.graphics.Color
 import android.graphics.drawable.Drawable
 import android.view.Gravity
 import android.view.View
-import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
@@ -143,8 +142,8 @@ class AppearancePaletteItemView(
             }
             addView(
                 progressIndicator,
-                ViewGroup.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-                    Gravity.CENTER
+                LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                    gravity = Gravity.CENTER
                 }
             )
         }

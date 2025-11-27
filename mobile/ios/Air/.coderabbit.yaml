@@ -1,4 +1,9 @@
-estimate_code_review_effort: false
-in_progress_fortune: false
-poem: false
-
+reviews:
+  estimate_code_review_effort: false
+  in_progress_fortune: false
+  poem: false
+  finishing_touches:
+    docstrings:
+      enabled: false
+    unit_tests:
+      enabled: false

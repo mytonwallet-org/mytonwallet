@@ -313,6 +313,7 @@ class WClearSegmentedControl(
                 super.dispatchDraw(canvas)
                 return
             }
+            isNestedScrollingEnabled = true
             drawOutOfThumb(canvas)
             drawThumbBackground(canvas)
             drawInThumb(canvas)
@@ -577,6 +578,8 @@ class WClearSegmentedControl(
     }
 
     fun updateOnMenuPressed(index: Int, onMenuPressed: ((v: View) -> Unit)?) {
+        if (!isEnabled)
+            return
         if (isValidIndex(index)) {
             items[index].onClick = onMenuPressed
             Handler(Looper.getMainLooper()).post {
@@ -680,7 +683,7 @@ class WClearSegmentedControl(
         row: Int,
         cell: WClearSegmentedControlItemView
     ) {
-        if (isInDragMode)
+        if (isInDragMode || !isEnabled)
             return
         if (selectedItem == row) {
             items[row].onClick?.invoke(cell)

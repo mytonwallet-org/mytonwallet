@@ -234,8 +234,8 @@ class SettingsHeaderView: WTouchPassView, WThemedView {
         
         if let totalBalanceInBaseCurrency = BalanceStore.totalBalanceInBaseCurrency {
             let totalBalanceString = formatAmountText(amount: totalBalanceInBaseCurrency,
-                                                      currency: currency?.sign,
-                                                      decimalsCount: currency?.decimalsCount)
+                                                      currency: currency.sign,
+                                                      decimalsCount: currency.decimalsCount)
             balanceLabel.text = totalBalanceString
             separatorDotLabel.isHidden = false
             walletBalanceContainer.isDisabled = false

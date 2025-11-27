@@ -18,6 +18,7 @@ import { TONCOIN, UNKNOWN_TOKEN } from '../../config';
 import renderText from '../../global/helpers/renderText';
 import {
   selectAccountStakingStatesBySlug,
+  selectCurrentAccountId,
   selectCurrentAccountState,
   selectCurrentDappTransferTotals,
   selectDappTransferInsufficientTokens,
@@ -230,6 +231,8 @@ function DappTransferInitial({
 
     const { activities, realFee } = emulation;
 
+    const visibleActivities = activities.filter((activity) => !activity.shouldHide);
+
     return (
       <>
         <p className={styles.label}>
@@ -238,12 +241,12 @@ function DappTransferInitial({
           <IconWithTooltip message={renderText(lang('$preview_not_guaranteed'))} type="warning" size="small" />
         </p>
         <div className={buildClassName(styles.transactionList, styles.emulation)}>
-          {activities.map((activity, index) => (
+          {visibleActivities.map((activity, index) => (
             <Activity
               key={activity.id}
               activity={activity}
               isFuture
-              isLast={index === activities.length - 1}
+              isLast={index === visibleActivities.length - 1}
               tokensBySlug={tokensBySlug}
               swapTokensBySlug={swapTokensBySlug}
               appTheme={appTheme}
@@ -272,7 +275,13 @@ function DappTransferInitial({
   return (
     <Transition name="semiFade" activeKey={isDappLoading ? 0 : 1} slideClassName={styles.skeletonTransitionWrapper}>
       <ModalHeader
-        title={lang(isNftTransferPayload(renderingTransactions?.[0]?.payload) ? 'Send NFT' : 'Send Transaction')}
+        title={lang(
+          isNftTransferPayload(renderingTransactions?.[0]?.payload)
+            ? 'Send NFT'
+            : (renderingTransactions?.length ?? 0) > 1
+              ? '$classic_confirm_actions'
+              : 'Confirm Action',
+        )}
         onClose={closeDappTransfer}
       />
       {isDappLoading ? <DappSkeletonWithContent rows={skeletonRows} /> : renderContent()}
@@ -283,7 +292,7 @@ function DappTransferInitial({
 export default memo(withGlobal<OwnProps>((global): StateProps => {
   const { isLoading, dapp, transactions, emulation } = global.currentDappTransfer;
 
-  const accountId = global.currentAccountId!;
+  const accountId = selectCurrentAccountId(global)!;
   const accountState = selectCurrentAccountState(global);
   const accounts = selectNetworkAccounts(global);
 

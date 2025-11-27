@@ -4,7 +4,7 @@ import { getActions, withGlobal } from '../../../global';
 import { SettingsState } from '../../../global/types';
 
 import { IS_CORE_WALLET } from '../../../config';
-import { selectIsPasswordPresent } from '../../../global/selectors';
+import { selectCurrentAccountId, selectIsPasswordPresent } from '../../../global/selectors';
 import { getHasInMemoryPassword, getInMemoryPassword } from '../../../util/authApi/inMemoryPasswordStore';
 import buildClassName from '../../../util/buildClassName';
 import { getChainsSupportingLedger } from '../../../util/chain';
@@ -304,7 +304,8 @@ function AddAccountModal({
 export default memo(withGlobal((global): StateProps => {
   const isPasswordPresent = selectIsPasswordPresent(global);
   const { byId: versionById } = global.walletVersions ?? {};
-  const versions = versionById?.[global.currentAccountId!];
+  const currentAccountId = selectCurrentAccountId(global);
+  const versions = currentAccountId ? versionById?.[currentAccountId] : undefined;
   const withOtherWalletVersions = !!versions?.length;
 
   const { auth: { forceAddingTonOnlyAccount, initialState } } = global;

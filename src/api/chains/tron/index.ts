@@ -5,6 +5,7 @@ import { normalizeAddress } from './address';
 import { getWalletFromAddress, getWalletFromBip39Mnemonic } from './auth';
 import { setupActivePolling, setupInactivePolling } from './polling';
 import { checkTransactionDraft, fetchEstimateDiesel, submitGasfullTransfer } from './transfer';
+import { getAddressInfo } from './wallet';
 
 function notSupported(): never {
   throw new Error('Not supported in Tron');
@@ -24,10 +25,13 @@ const tronSdk: ChainSdk<'tron'> = {
   getWalletsFromLedgerAndLoadBalance: notSupported,
   setupActivePolling,
   setupInactivePolling,
+  fetchToken: notSupported,
+  importToken: notSupported,
   checkTransactionDraft,
   fetchEstimateDiesel,
   submitGasfullTransfer,
   submitGaslessTransfer: notSupported,
+  getAddressInfo,
   verifyLedgerWalletAddress: notSupported,
   getIsLedgerAppOpen: notSupported,
 };

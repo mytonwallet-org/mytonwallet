@@ -109,3 +109,44 @@ extension View {
             .animation(isHighlighted ? .smooth(duration: 0.3) : .smooth(duration: 0.25), value: isHighlighted)
     }
 }
+
+
+enum WindowSizeKey: EnvironmentKey {
+    static var defaultValue: CGSize {
+        MainActor.assumeIsolated {
+            UIApplication.shared.sceneWindows.first?.bounds.size ?? .zero
+        }
+    }
+}
+
+public extension EnvironmentValues {
+    var windowSize: CGSize {
+        get { self[WindowSizeKey.self] }
+        set { self[WindowSizeKey.self] = newValue }
+    }
+}
+
+public extension View {
+    func sourceAtop<FS: ShapeStyle>(_ style: FS) -> some View {
+        self
+            .overlay {
+                Rectangle()
+                    .fill()
+                    .foregroundStyle(style)
+                    .blendMode(.sourceAtop)
+                    .padding(-8)
+            }
+            .compositingGroup()
+
+    }
+    
+    @_disfavoredOverload func sourceAtop<V: View>(_ stylingView: V) -> some View {
+        self
+            .overlay {
+                stylingView
+                    .blendMode(.sourceAtop)
+            }
+            .compositingGroup()
+        
+    }
+}

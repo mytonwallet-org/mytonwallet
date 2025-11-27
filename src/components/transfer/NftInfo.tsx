@@ -32,8 +32,8 @@ function NftInfo({
   const lang = useLang();
 
   const tonExplorerTitle = useMemo(() => {
-    return (lang('Open on %ton_explorer_name%', {
-      ton_explorer_name: getExplorerName('ton'),
+    return (lang('Open on %explorer_name%', {
+      explorer_name: getExplorerName('ton'),
     }) as string[]
     ).join('');
   }, [lang]);

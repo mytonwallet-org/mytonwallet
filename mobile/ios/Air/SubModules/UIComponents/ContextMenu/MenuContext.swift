@@ -1,31 +1,42 @@
 
 import UIKit
 import SwiftUI
+import Perception
 
 let MENU_EDGE_PADDING: CGFloat = 4
 private let distanceFromAnchor: CGFloat = 8
 
-public final class MenuContext: ObservableObject, @unchecked Sendable {
+@Perceptible
+public final class MenuContext: @unchecked Sendable {
     
-    @Published public var sourceView: UIView? = nil
-    @Published public var sourceFrame: CGRect = .zero
-    @Published var anchor: Alignment = .bottom
-    @Published var locations: [String: CGRect] = [:]
-    @Published var currentLocation: CGPoint?
-    @Published var currentItem: String?
-    @Published public var menuShown: Bool = false
-    @Published var submenuId = "0"
-    @Published var visibleSubmenus: Set<String> = []
-    @Published public var minWidth: CGFloat? = 180.0
-    @Published public var maxWidth: CGFloat? = 280.0
-    @Published public var verticalOffset: CGFloat = 0
+    @PerceptionIgnored
+    public var sourceView: UIView? = nil
+    @PerceptionIgnored
+    public var sourceFrame: CGRect = .zero
+    @PerceptionIgnored
+    var anchor: Alignment = .bottom
     
+    var locations: [String: CGRect] = [:]
+    var currentLocation: CGPoint?
+    var currentItem: String?
+    public var menuShown: Bool = false
+    var submenuId = "0"
+    var visibleSubmenus: Set<String> = []
+    public var minWidth: CGFloat? = 180.0
+    public var maxWidth: CGFloat? = 280.0
+    public var verticalOffset: CGFloat = 0
+    
+    @PerceptionIgnored
     public var makeConfig: () -> MenuConfig = { MenuConfig(menuItems: []) }
+    @PerceptionIgnored
     public var makeSubmenuConfig: (() -> MenuConfig)?
     
+    @PerceptionIgnored
     var actions: [String: () -> ()] = [:]
     
+    @PerceptionIgnored
     public var onAppear: (() -> ())?
+    @PerceptionIgnored
     public var onDismiss: (() -> ())?
     
     public init() {}

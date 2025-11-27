@@ -762,10 +762,9 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
         try {
             if (request.isCex) {
                 val firstTransactionFee: BigInteger
-                val balance = request.wallet.balances[request.tokenToSend.slug] ?: BigInteger.ZERO
                 val needEstFee = request.wallet.isSupportedChain(request.tokenToSend.mBlockchain)
 
-                if (needEstFee && balance > BigInteger.ZERO) {
+                if (needEstFee) { // Must call even when balance is 0 for proper fee estimation
                     val estFeeAddress = when (request.tokenToSend.mBlockchain) {
                         MBlockchain.ton -> request.wallet.tonAddress
                         MBlockchain.tron -> "TW2LXSebZ7Br1zHaiA2W1zRojDkDwjGmpw"    // random address for estimate

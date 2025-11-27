@@ -105,7 +105,7 @@ class SettingsHeaderView(
     }
 
     fun viewWillDisappear() {
-        walletNameLabel.isSelected = true
+        walletNameLabel.isSelected = false
     }
 
     @SuppressLint("SetTextI18n")

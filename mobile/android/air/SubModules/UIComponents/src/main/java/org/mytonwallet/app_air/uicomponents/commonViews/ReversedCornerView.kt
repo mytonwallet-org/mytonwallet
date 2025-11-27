@@ -15,7 +15,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.animation.AccelerateDecelerateInterpolator
-import android.widget.FrameLayout
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
@@ -24,18 +23,18 @@ import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
-import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class ReversedCornerView(
     context: Context,
     private val initialConfig: Config,
-) : FrameLayout(context), WThemedView {
+) : BaseReversedCornerView(context), WThemedView {
 
     data class Config(
         val blurRootView: ViewGroup? = null,
@@ -83,7 +82,6 @@ class ReversedCornerView(
 
     private var lastWidth = -1
     private var lastHeight = -1
-    private var pathDirty = true
 
     var cornerRadius: Float =
         if (ThemeManager.uiMode.hasRoundedCorners)
@@ -121,7 +119,7 @@ class ReversedCornerView(
         if (showSeparator == visible) return
         showSeparator = visible
         _desiredShowSeparator = visible
-        invalidate()
+        postInvalidateOnAnimation()
     }
 
     override fun onAttachedToWindow() {
@@ -198,7 +196,7 @@ class ReversedCornerView(
                 translationY =
                     (if (to > from) 1f else -1f) * ((animatedFraction - 1) * 24.dp).roundToInt()
 
-                invalidate()
+                postInvalidateOnAnimation()
             }
 
             addListener(object : AnimatorListenerAdapter() {
@@ -235,15 +233,8 @@ class ReversedCornerView(
             resumeBlurring()
             post { pauseBlurring(showSeparator == true) }
         } else {
-            invalidate()
+            postInvalidateOnAnimation()
         }
-    }
-
-    private var horizontalPadding = ViewConstants.HORIZONTAL_PADDINGS.dp.toFloat()
-    fun setHorizontalPadding(padding: Float) {
-        horizontalPadding = padding
-        pathDirty = true
-        invalidate()
     }
 
     fun pauseBlurring(keepBlurAsImage: Boolean) {
@@ -257,7 +248,7 @@ class ReversedCornerView(
             backgroundView.alpha = 1f
         }
         showSeparator = keepBlurAsImage
-        invalidate()
+        postInvalidateOnAnimation()
     }
 
     fun resumeBlurring() {
@@ -276,7 +267,7 @@ class ReversedCornerView(
             }
         }
         showSeparator = _desiredShowSeparator
-        invalidate()
+        postInvalidateOnAnimation()
     }
 
     private var currentAlpha = 1f
@@ -293,6 +284,6 @@ class ReversedCornerView(
             blurryBackgroundView.alpha = targetAlpha
             backgroundView.alpha = 1 - targetAlpha
         }
-        invalidate()
+        postInvalidateOnAnimation()
     }
 }

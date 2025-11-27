@@ -71,6 +71,9 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
             navigationItem.standardAppearance = appearance
             if let sheet = sheetPresentationController {
                 sheet.prefersGrabberVisible = true
+                if #available(iOS 26.1, *) {
+                    sheet.backgroundEffect = UIColorEffect(color: WTheme.sheetBackground)
+                }
             }
         }
         

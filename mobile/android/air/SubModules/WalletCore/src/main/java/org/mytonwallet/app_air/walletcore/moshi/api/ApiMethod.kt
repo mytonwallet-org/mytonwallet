@@ -605,6 +605,18 @@ sealed class ApiMethod<T> {
                 .string(nftAddress)
                 .build()
         }
+
+        class FetchNftsFromCollection(
+            accountId: String,
+            collectionAddress: String,
+        ) : ApiMethod<Any>() {
+            override val name: String = "fetchNftsFromCollection"
+            override val type: Type = Boolean::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .string(collectionAddress)
+                .build()
+        }
     }
 
     /* Staking */

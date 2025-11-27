@@ -6,7 +6,6 @@ import android.graphics.drawable.ColorDrawable
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import android.widget.PopupWindow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.lockView
@@ -195,15 +194,19 @@ class WMenuPopup {
             offset: Int = 0,
             verticalOffset: Int = 0,
             aboveView: Boolean,
-            centerHorizontally: Boolean = false
-        ): PopupWindow {
+            centerHorizontally: Boolean = false,
+            onWillDismiss: (() -> Unit)? = null,
+        ): WPopupWindow {
             view.lockView()
 
-            lateinit var popupWindow: PopupWindow
+            lateinit var popupWindow: WPopupWindow
 
-            val popupView = WMenuPopupView(view.context, items, onDismiss = {
-                popupWindow.dismiss()
-            })
+            val popupView = WMenuPopupView(
+                view.context, items,
+                onWillDismiss = onWillDismiss,
+                onDismiss = {
+                    popupWindow.dismiss()
+                })
 
             popupWindow = WPopupWindow(popupView, popupWidth).apply {
                 isOutsideTouchable = true
@@ -220,7 +223,7 @@ class WMenuPopup {
             val location = IntArray(2)
             view.getLocationOnScreen(location)
 
-            val offset = if (centerHorizontally) {
+            val offset = offset + if (centerHorizontally) {
                 val popupMeasuredWidth = if (popupWidth == WRAP_CONTENT) {
                     popupView.measure(
                         View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
@@ -232,7 +235,7 @@ class WMenuPopup {
                 }
                 (view.width - popupMeasuredWidth) / 2
             } else {
-                offset
+                0
             }
 
             popupWindow.showAtLocation(

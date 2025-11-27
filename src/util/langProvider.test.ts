@@ -1,4 +1,4 @@
-import { processTemplateJsx } from './langProvider';
+import { formatEnumeration, processTemplateJsx } from './langProvider';
 
 // Create a mock React element for testing
 const createMockElement = (type: string, props: any = {}, children?: any) => ({
@@ -155,5 +155,49 @@ describe('processTemplateJsx', () => {
         expect(result).toEqual(expected);
       });
     });
+  });
+
+  describe('formatEnumeration', () => {
+    it('returns empty array for empty array', () => {
+      expect(formatEnumeration(mockLang, [], 'and')).toBe('');
+    });
+
+    it('returns single item as string', () => {
+      expect(formatEnumeration(mockLang, ['A'], 'and')).toBe('A');
+    });
+
+    it('joins two items with "or"', () => {
+      expect(formatEnumeration(mockLang, ['A', 'B'], 'or')).toBe('A 又は B');
+    });
+
+    it('joins three items with "and"', () => {
+      expect(formatEnumeration(mockLang, ['A', 'B', 'C'], 'and')).toBe('A、B そして C');
+    });
+
+    it('joins many items', () => {
+      expect(formatEnumeration(mockLang, ['A', 'B', 'C', 'D', 'E', 'F'], 'and')).toBe('A、B、C、D、E そして F');
+    });
+
+    it('joins Teact nodes', () => {
+      const nodeA = createMockElement('span', {}, 'A');
+      const nodeB = createMockElement('span', {}, 'B');
+      const nodeC = createMockElement('span', {}, 'C');
+      const result = formatEnumeration(mockLang, [nodeA, nodeB, nodeC], 'and');
+      expect(result).toEqual([nodeA, '、', nodeB, ' そして ', nodeC]);
+    });
+
+    it('joins mixed items', () => {
+      const nodeA = createMockElement('span', {}, 'A');
+      const nodeB = 'B';
+      const result = formatEnumeration(mockLang, [nodeA, nodeB], 'or');
+      expect(result).toEqual([nodeA, ' 又は ', nodeB]);
+    });
+
+    const mockLang = (key: string) => {
+      if (key === '$joining_comma') return '、';
+      if (key === '$joining_and') return ' そして ';
+      if (key === '$joining_or') return ' 又は ';
+      return key;
+    };
   });
 });

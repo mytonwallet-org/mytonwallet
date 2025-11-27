@@ -9,10 +9,12 @@ import { ActiveTab, ContentTab, type Theme } from '../../global/types';
 import { IS_CORE_WALLET } from '../../config';
 import {
   selectAccountStakingState,
+  selectCurrentAccountId,
   selectCurrentAccountSettings,
   selectCurrentAccountState,
   selectIsCurrentAccountViewMode,
   selectIsHardwareAccount,
+  selectIsOffRampAllowed,
   selectIsStakingDisabled,
   selectIsSwapDisabled,
 } from '../../global/selectors';
@@ -71,6 +73,7 @@ type StateProps = {
   isSwapDisabled?: boolean;
   isStakingDisabled?: boolean;
   isOnRampDisabled?: boolean;
+  isOffRampAllowed?: boolean;
   isMediaViewerOpen?: boolean;
   theme: Theme;
   accentColorIndex?: number;
@@ -90,6 +93,7 @@ function Main({
   isSwapDisabled,
   isStakingDisabled,
   isOnRampDisabled,
+  isOffRampAllowed,
   isMediaViewerOpen,
   theme,
   accentColorIndex,
@@ -210,6 +214,7 @@ function Main({
               isStakingDisabled={isStakingDisabled}
               isSwapDisabled={isSwapDisabled}
               isOnRampDisabled={isOnRampDisabled}
+              isOffRampDisabled={!isOffRampAllowed}
               onEarnClick={handleEarnClick}
             />
           )}
@@ -238,6 +243,7 @@ function Main({
               containerRef={landscapeContainerRef}
               stakingStatus={stakingStatus}
               isLedger={isLedger}
+              isOffRampDisabled={!isOffRampAllowed}
               theme={theme}
             />
           )}
@@ -273,13 +279,14 @@ export default memo(
   withGlobal<OwnProps>(
     (global): StateProps => {
       const isLedger = selectIsHardwareAccount(global);
+      const currentAccountId = selectCurrentAccountId(global);
       const accountState = selectCurrentAccountState(global);
       const { currentTokenSlug } = accountState ?? {};
 
       const { isOnRampDisabled } = global.restrictions;
 
-      const stakingState = global.currentAccountId
-        ? selectAccountStakingState(global, global.currentAccountId)
+      const stakingState = currentAccountId
+        ? selectAccountStakingState(global, currentAccountId)
         : undefined;
 
       return {
@@ -293,10 +300,11 @@ export default memo(
         isSwapDisabled: selectIsSwapDisabled(global),
         isStakingDisabled: selectIsStakingDisabled(global),
         isOnRampDisabled,
+        isOffRampAllowed: selectIsOffRampAllowed(global),
         theme: global.settings.theme,
         accentColorIndex: selectCurrentAccountSettings(global)?.accentColorIndex,
       };
     },
-    (global, _, stickToFirst) => stickToFirst(global.currentAccountId),
+    (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),
   )(Main),
 );

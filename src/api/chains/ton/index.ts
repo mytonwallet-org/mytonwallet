@@ -5,7 +5,14 @@ import { normalizeAddress } from './address';
 import { getWalletFromAddress, getWalletFromBip39Mnemonic, getWalletsFromLedgerAndLoadBalance } from './auth';
 import { getIsLedgerAppOpen } from './other';
 import { setupActivePolling, setupInactivePolling } from './polling';
-import { checkTransactionDraft, fetchEstimateDiesel, submitGasfullTransfer, submitGaslessTransfer } from './transfer';
+import { fetchToken, importToken } from './tokens';
+import {
+  checkToAddress,
+  checkTransactionDraft,
+  fetchEstimateDiesel,
+  submitGasfullTransfer,
+  submitGaslessTransfer,
+} from './transfer';
 import { verifyLedgerWalletAddress } from './wallet';
 
 const tonSdk: ChainSdk<'ton'> = {
@@ -18,10 +25,13 @@ const tonSdk: ChainSdk<'ton'> = {
   getWalletsFromLedgerAndLoadBalance,
   setupActivePolling,
   setupInactivePolling,
+  fetchToken,
+  importToken,
   checkTransactionDraft,
   fetchEstimateDiesel,
   submitGasfullTransfer,
   submitGaslessTransfer,
+  getAddressInfo: checkToAddress,
   verifyLedgerWalletAddress,
   getIsLedgerAppOpen,
 };
@@ -55,7 +65,6 @@ export {
   checkTransactionDraft,
   submitGasfullTransfer,
   checkMultiTransactionDraft,
-  checkToAddress,
   submitMultiTransfer,
   signTransfers,
 } from './transfer';
@@ -74,9 +83,7 @@ export {
   submitUnstakeEthenaLocked,
 } from './staking';
 export {
-  fetchToken,
   insertMintlessPayload,
-  importToken,
 } from './tokens';
 export {
   validateDexSwapTransfers,

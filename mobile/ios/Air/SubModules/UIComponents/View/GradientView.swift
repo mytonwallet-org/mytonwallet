@@ -10,4 +10,6 @@ import WalletContext
 
 public final class GradientView: UIView {
     public override class var layerClass: AnyClass { CAGradientLayer.self }
+    
+    public var gradientLayer: CAGradientLayer { layer as! CAGradientLayer }
 }

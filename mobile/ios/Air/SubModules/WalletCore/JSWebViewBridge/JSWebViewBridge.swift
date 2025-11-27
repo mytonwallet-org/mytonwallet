@@ -462,8 +462,13 @@ extension JSWebViewBridge: WKScriptMessageHandler {
                 #endif
                 switch updateType {
                 case "updateAccount":
-                    #warning("TODO: updateAccount")
-                    break
+                    do {
+                        let update = try JSONSerialization.decode(ApiUpdate.UpdateAccount.self, from: data)
+                        WalletCoreData.notify(event: .updateAccount(update))
+                    } catch {
+                        log.fault("failed to decode updateAccount \(error, .public)")
+                    }
+
                 case "updateAccountConfig":
                     #warning("TODO: updateAccountConfig")
                     break

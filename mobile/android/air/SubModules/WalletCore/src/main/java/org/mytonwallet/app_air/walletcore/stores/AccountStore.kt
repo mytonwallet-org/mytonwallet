@@ -68,6 +68,15 @@ object AccountStore : IStore {
         return null
     }
 
+    fun accountById(accountId: String?): MAccount? {
+        val accountId = accountId ?: return null
+        val accountObj = WGlobalStorage.getAccount(accountId)
+        accountObj?.let {
+            return MAccount(accountId, accountObj)
+        }
+        return null
+    }
+
     fun updateAccountData(update: ApiUpdate.ApiUpdateUpdateAccount) {
         // TODO::
     }

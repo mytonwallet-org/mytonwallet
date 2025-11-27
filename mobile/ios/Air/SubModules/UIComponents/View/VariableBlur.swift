@@ -8,6 +8,7 @@ import QuartzCore
 public enum VariableBlurDirection {
     case blurredTopClearBottom
     case blurredBottomClearTop
+    case custom(CGImage)
 }
 
 
@@ -45,7 +46,8 @@ open class VariableBlurUIView: UIVisualEffectView {
         guard let Cls = NSClassFromString(String("retliFAC".reversed()))! as? NSObject.Type else {
             return
         }
-        guard let variableBlur = Cls.perform(NSSelectorFromString(String("epyThtiWretlif".reversed())), with: "variableBlur").takeUnretainedValue() as? NSObject else {
+        let sel = NSSelectorFromString(String(":epyThtiWretlif".reversed()))
+        guard Cls.responds(to: sel), let variableBlur = Cls.perform(sel, with: "variableBlur").takeUnretainedValue() as? NSObject else {
             return
         }
 
@@ -84,14 +86,25 @@ open class VariableBlurUIView: UIVisualEffectView {
         // `super.traitCollectionDidChange(previousTraitCollection)` crashes the app
     }
     
-    private func makeGradientImage(width: CGFloat = 100, height: CGFloat = 100, startOffset: CGFloat, direction: VariableBlurDirection) -> CGImage { // much lower resolution might be acceptable
+    private func makeGradientImage(startOffset: CGFloat, direction: VariableBlurDirection) -> CGImage {
+        switch direction {
+        case .blurredTopClearBottom:
+            _makeGradientImage(startOffset: startOffset, flip: false)
+        case .blurredBottomClearTop:
+            _makeGradientImage(startOffset: startOffset, flip: true)
+        case .custom(let image):
+            image
+        }
+    }
+    
+    private func _makeGradientImage(width: CGFloat = 100, height: CGFloat = 100, startOffset: CGFloat, flip: Bool) -> CGImage { // much lower resolution might be acceptable
         let ciGradientFilter =  CIFilter.linearGradient()
 //        let ciGradientFilter =  CIFilter.smoothLinearGradient()
         ciGradientFilter.color0 = CIColor.black
         ciGradientFilter.color1 = CIColor.clear
         ciGradientFilter.point0 = CGPoint(x: 0, y: height)
         ciGradientFilter.point1 = CGPoint(x: 0, y: startOffset * height) // small negative value looks better with vertical lines
-        if case .blurredBottomClearTop = direction {
+        if flip {
             ciGradientFilter.point0.y = 0
             ciGradientFilter.point1.y = height - ciGradientFilter.point1.y
         }

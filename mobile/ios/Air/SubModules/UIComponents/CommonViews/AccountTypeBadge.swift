@@ -29,7 +29,6 @@ public struct AccountTypeBadge: View {
                 view
             }
         }
-        .foregroundStyle(foregroundStyle)
     }
     
     var mnemonic: some View {
@@ -41,6 +40,7 @@ public struct AccountTypeBadge: View {
             .opacity(0.75)
     }
     
+    @ViewBuilder
     var view: some View {
         HStack(spacing: 2) {
             Image.airBundle("ViewBadge")
@@ -53,27 +53,11 @@ public struct AccountTypeBadge: View {
         .padding(.horizontal, 3)
         .frame(height: 18)
         .background {
-            ZStack {
-                BackgroundBlur(radius: 16)
-                switch style {
-                case .card:
-                    Color.primary.opacity(0.18)
-                case .list:
-                    Color(WTheme.secondaryLabel).opacity(0.12)
-                }
-                
-            }
+            Rectangle()
+                .opacity(0.18)
         }
         .clipShape(.rect(cornerRadius: 5))
-    }
-    
-    var foregroundStyle: Color {
-        switch style {
-        case .card:
-            Color.primary
-        case .list:
-            Color(WTheme.secondaryLabel)
-        }
+        .padding(.vertical, -3)
     }
 }
 

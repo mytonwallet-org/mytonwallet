@@ -76,7 +76,7 @@ class WalletTypeView(context: Context) : FrameLayout(context) {
                 setImageDrawable(eyeDrawable)
             }
             viewLabel = WLabel(context).apply {
-                text = LocaleController.getString("View")
+                text = LocaleController.getString("\$view_mode")
                 setStyle(12f, WFont.SemiBold)
                 setTextColor(color)
                 setPaddingLocalized(2.dp, 0, 0, 0)

@@ -166,7 +166,7 @@ class ExploreVC(context: Context) : WViewController(context),
     override fun updateTheme() {
         super.updateTheme()
         view.setBackgroundColor(WColor.SecondaryBackground.color)
-        rvAdapter.reloadData()
+        rvAdapter.updateTheme()
     }
 
     override fun insetsUpdated() {
@@ -188,6 +188,7 @@ class ExploreVC(context: Context) : WViewController(context),
     }
 
     override fun viewWillDisappear() {
+        // We don't want to hide keyboard on search, so super.viewWillDisappear is not called here.
         isDisappeared = true
     }
 

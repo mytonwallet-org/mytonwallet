@@ -99,14 +99,6 @@ class TonConnectInjectedInterface(
                 if (version > TonConnectHelper.deviceInfo.maxProtocolVersion) {
                     return
                 }
-                if (AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW) {
-                    LocaleController.getString("Action is not possible on a view-only wallet.")
-                        .let { error ->
-                            showError(error)
-                            sendInvokeError(error)
-                        }
-                    return
-                }
 
                 webView.lockTouch()
                 WalletCore.call(

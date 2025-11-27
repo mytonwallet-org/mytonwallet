@@ -29,6 +29,7 @@ import androidx.core.view.doOnLayout
 import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.TiltSensorManager
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -36,7 +37,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedController
-import org.mytonwallet.app_air.uicomponents.widgets.updateThemeForChildren
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -168,6 +168,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
     public override fun onPause() {
         if (PROTECT_PAUSED_APP_VIEW)
             window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        TiltSensorManager.onAppPause()
         super.onPause()
         isPaused = true
     }
@@ -176,6 +177,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         super.onResume()
         if (PROTECT_PAUSED_APP_VIEW)
             window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        TiltSensorManager.onAppResume()
         isPaused = false
         navigationControllers.lastOrNull()?.viewWillAppear()
     }
@@ -185,10 +187,8 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         forceBottomBarLight = null
         updateStatusBarColors()
         updateBottomBarColors()
-
         navigationControllers.forEach {
             it.updateTheme()
-            updateThemeForChildren(it)
         }
     }
 

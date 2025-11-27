@@ -47,9 +47,13 @@ export async function fetchTransactions(options: {
     return [];
   }
 
-  return rawTransactions
-    .map((rawTx) => parseRawTransaction(network, rawTx, addressBook))
-    .flat();
+  return parseRawTransactions(network, rawTransactions, addressBook)
+    .flat()
+    .map(({ body, ...tx }) => tx);
+}
+
+export function parseRawTransactions(network: ApiNetwork, rawTxs: Transaction[], addressBook: AddressBook) {
+  return rawTxs.map((rawTx) => parseRawTransaction(network, rawTx, addressBook)).flat();
 }
 
 export function parseRawTransaction(
@@ -99,6 +103,7 @@ export function parseRawTransaction(
     const toAddress = addressBook[destination].user_friendly;
     const normalizedAddress = toBase64Address(isIncoming ? source! : destination, true, network);
     const fee = oneMsgFee + BigInt(fwdFee ?? 0);
+    const body = getRawBody(msg);
 
     const tx: ApiTransactionExtended = omitUndefined({
       timestamp,
@@ -116,12 +121,17 @@ export function parseRawTransaction(
       msgHash,
       type: bounced ? 'bounced' : undefined,
       status: 'completed',
+      body,
     });
 
     transactions.push(tx);
   });
 
   return transactions;
+}
+
+function getRawBody(msg: any): string | undefined {
+  return msg.message_content?.body || undefined;
 }
 
 export async function fetchLatestTxLt(network: ApiNetwork, address: string): Promise<number | undefined> {

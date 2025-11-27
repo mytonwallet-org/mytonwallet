@@ -7,9 +7,10 @@ import type { ApiImportAddressByChain } from '../../api/types';
 
 import renderText from '../../global/helpers/renderText';
 import buildClassName from '../../util/buildClassName';
-import { getSupportedChains } from '../../util/chain';
+import { getChainTitle, getSupportedChains } from '../../util/chain';
 import { stopEvent } from '../../util/domEvents';
-import { isValidAddressOrDomain } from '../../util/isValidAddressOrDomain';
+import { isValidAddressOrDomain } from '../../util/isValidAddress';
+import { formatEnumeration } from '../../util/langProvider';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
 import useFocusAfterAnimation from '../../hooks/useFocusAfterAnimation';
@@ -112,7 +113,11 @@ function AuthImportViewAccount({
           onInput={handleChange}
         />
 
-        <p className={styles.info}>{renderText(lang('$import_view_account_note'))}</p>
+        <p className={styles.info}>
+          {renderText(lang('$import_view_account_note', {
+            chains: formatEnumeration(lang, getSupportedChains().map(getChainTitle), 'or'),
+          }))}
+        </p>
 
         <div className={styles.buttons}>
           <Button

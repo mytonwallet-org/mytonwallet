@@ -11,7 +11,7 @@ import {
   IS_CAPACITOR,
   IS_CORE_WALLET,
 } from '../config';
-import { selectCurrentAccountSettings } from '../global/selectors';
+import { selectCurrentAccountId, selectCurrentAccountSettings } from '../global/selectors';
 import { useAccentColor } from '../util/accentColor';
 import { setActiveTabChangeListener } from '../util/activeTabMonitor';
 import buildClassName from '../util/buildClassName';
@@ -50,6 +50,7 @@ import Main from './main/Main';
 import AddAccountModal from './main/modals/AddAccountModal';
 import BackupModal from './main/modals/BackupModal';
 import NftAttributesModal from './main/modals/NftAttributesModal';
+import OffRampWidgetModal from './main/modals/OffRampWidgetModal';
 import OnRampWidgetModal from './main/modals/OnRampWidgetModal';
 import QrScannerModal from './main/modals/QrScannerModal';
 import SignatureModal from './main/modals/SignatureModal';
@@ -272,6 +273,7 @@ function App({
           <DappTransferModal />
           <AddAccountModal />
           <OnRampWidgetModal />
+          <OffRampWidgetModal />
           <UnhideNftModal />
           <NftAttributesModal />
           {IS_CAPACITOR && (
@@ -299,7 +301,7 @@ function App({
 export default memo(withGlobal((global): StateProps => {
   return {
     appState: global.appState,
-    accountId: global.currentAccountId,
+    accountId: selectCurrentAccountId(global),
     isBackupWalletModalOpen: global.isBackupWalletModalOpen,
     isHardwareModalOpen: global.isHardwareModalOpen,
     isCustomizeWalletModalOpen: global.isCustomizeWalletModalOpen,

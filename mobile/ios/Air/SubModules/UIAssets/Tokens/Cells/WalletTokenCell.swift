@@ -186,7 +186,7 @@ public class WalletTokenCell: WHighlightCell {
         if let price = token?.price {
             let attr = NSMutableAttributedString(string: formatAmountText(
                 amount: price,
-                currency: TokenStore.baseCurrency?.sign,
+                currency: TokenStore.baseCurrency.sign,
                 decimalsCount: tokenDecimals(for: price, tokenDecimals: 9)
             ), attributes: [
                 .font: regular14Font,
@@ -217,7 +217,7 @@ public class WalletTokenCell: WHighlightCell {
         // amount in base currency
         var amount = walletToken.toBaseCurrency
         if let amount {
-            baseCurrencyAmountLabel.text = formatAmountText(amount: amount, currency: TokenStore.baseCurrency?.sign ?? "", decimalsCount: TokenStore.baseCurrency?.decimalsCount)
+            baseCurrencyAmountLabel.text = formatAmountText(amount: amount, currency: TokenStore.baseCurrency.sign ?? "", decimalsCount: TokenStore.baseCurrency.decimalsCount)
         } else {
             baseCurrencyAmountLabel.text = " "
         }

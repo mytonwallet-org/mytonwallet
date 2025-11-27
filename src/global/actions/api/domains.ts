@@ -4,10 +4,16 @@ import type { GlobalState } from '../../types';
 import { DomainLinkingState, DomainRenewalState } from '../../types';
 
 import { callApi } from '../../../api';
+import { isErrorTransferResult } from '../../helpers/transfer';
 import { handleTransferResults, prepareTransfer } from '../../helpers/transfer';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import { updateCurrentDomainLinking, updateCurrentDomainRenewal } from '../../reducers';
-import { selectCurrentAccount, selectCurrentAccountState, selectCurrentNetwork } from '../../selectors';
+import {
+  selectCurrentAccount,
+  selectCurrentAccountId,
+  selectCurrentAccountState,
+  selectCurrentNetwork,
+} from '../../selectors';
 
 type DomainOperationResultSuccess = string;
 type DomainOperationResult = Array<DomainOperationResultSuccess | ErrorTransferResult>;
@@ -41,7 +47,7 @@ function handleDomainOperationResult<T extends DomainOperationType>(
 }
 
 addActionHandler('checkDomainsRenewalDraft', async (global, actions, { nfts }) => {
-  const accountId = global.currentAccountId!;
+  const accountId = selectCurrentAccountId(global)!;
 
   const result = await callApi('checkDnsRenewalDraft', accountId, nfts);
   if (!result || 'error' in result) {
@@ -55,7 +61,7 @@ addActionHandler('checkDomainsRenewalDraft', async (global, actions, { nfts }) =
 });
 
 addActionHandler('submitDomainsRenewal', async (global, actions, { password } = {}) => {
-  const accountId = global.currentAccountId!;
+  const accountId = selectCurrentAccountId(global)!;
   const nftsByAddress = selectCurrentAccountState(global)?.nfts?.byAddress;
   if (!nftsByAddress) return;
 
@@ -83,7 +89,7 @@ addActionHandler('submitDomainsRenewal', async (global, actions, { password } = 
 });
 
 addActionHandler('checkDomainLinkingDraft', async (global, actions, { nft }) => {
-  const accountId = global.currentAccountId!;
+  const accountId = selectCurrentAccountId(global)!;
   const currentAddress = selectCurrentAccount(global)!.byChain.ton!.address;
 
   const result = await callApi('checkDnsChangeWalletDraft', accountId, nft, currentAddress);
@@ -98,24 +104,23 @@ addActionHandler('checkDomainLinkingDraft', async (global, actions, { nft }) => 
 });
 
 addActionHandler('submitDomainLinking', async (global, actions, { password } = {}) => {
-  const accountId = global.currentAccountId!;
+  const accountId = selectCurrentAccountId(global)!;
   const network = selectCurrentNetwork(global);
   const nftsByAddress = selectCurrentAccountState(global)?.nfts?.byAddress;
   const nftAddress = global.currentDomainLinking.address!;
   const realFee = global.currentDomainLinking.realFee!;
   const nft = nftsByAddress?.[nftAddress];
   const currentAddress = global.currentDomainLinking.walletAddress!;
-  const checkAddressResult = await callApi('getAddressInfo', network, currentAddress);
+  const checkAddressResult = await callApi('getAddressInfo', 'ton', network, currentAddress);
 
-  if (checkAddressResult && 'error' in checkAddressResult) {
-    actions.showError({ error: checkAddressResult.error });
+  if (isErrorTransferResult(checkAddressResult)) {
+    actions.showError({ error: checkAddressResult?.error });
     return;
   }
 
-  if (!nft
-    || !checkAddressResult
-    || ('resolvedAddress' in checkAddressResult && !checkAddressResult.resolvedAddress)
-  ) return;
+  if (!nft) {
+    return;
+  }
 
   if (!await prepareTransfer(DomainLinkingState.ConfirmHardware, updateCurrentDomainLinking, password)) {
     return;
@@ -126,7 +131,7 @@ addActionHandler('submitDomainLinking', async (global, actions, { password } = {
     accountId,
     password,
     nft,
-    checkAddressResult.resolvedAddress!,
+    checkAddressResult.resolvedAddress,
     realFee,
   );
 
@@ -146,10 +151,10 @@ addActionHandler('checkLinkingAddress', async (global, actions, { address }) => 
   }
 
   const network = selectCurrentNetwork(global);
-  const result = await callApi('getAddressInfo', network, address);
+  const result = await callApi('getAddressInfo', 'ton', network, address);
 
   global = getGlobal();
-  if (!result || 'error' in result) {
+  if (isErrorTransferResult(result)) {
     global = updateCurrentDomainLinking(global, { walletAddressName: undefined, resolvedWalletAddress: undefined });
   } else {
     global = updateCurrentDomainLinking(global, {

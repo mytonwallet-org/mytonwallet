@@ -6,8 +6,13 @@ import { getActions, withGlobal } from '../../../../global';
 import type { ApiBaseCurrency, ApiStakingState } from '../../../../api/types';
 import type { IAnchorPosition, PriceHistoryPeriods, TokenPeriod, UserToken } from '../../../../global/types';
 
-import { DEFAULT_PRICE_CURRENCY, HISTORY_PERIODS, IS_CORE_WALLET } from '../../../../config';
-import { selectAccountStakingStates, selectCurrentAccountState } from '../../../../global/selectors';
+import { DEFAULT_PRICE_CURRENCY, HISTORY_PERIODS, IS_CORE_WALLET, TONCOIN } from '../../../../config';
+import {
+  selectAccountStakingStates,
+  selectCurrentAccountId,
+  selectCurrentAccountState,
+  selectUserTokenMemoized,
+} from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
 import { calcBigChangeValue } from '../../../../util/calcChangeValue';
 import { formatShortDay, SECOND } from '../../../../util/dateFormat';
@@ -41,7 +46,7 @@ import styles from './Card.module.scss';
 
 interface OwnProps {
   ref?: ElementRef<HTMLDivElement>;
-  token: UserToken;
+  tokenSlug?: string;
   classNames?: string;
   isUpdating?: boolean;
   onYieldClick?: (stakingId?: string) => void;
@@ -49,6 +54,7 @@ interface OwnProps {
 }
 
 interface StateProps {
+  token?: UserToken;
   period?: TokenPeriod;
   baseCurrency: ApiBaseCurrency;
   historyPeriods?: PriceHistoryPeriods;
@@ -88,7 +94,7 @@ function TokenCard({
   const [currencyMenuAnchor, setCurrencyMenuAnchor] = useState<IAnchorPosition>();
   const [isHistoryMenuOpen, openHistoryMenu, closeHistoryMenu] = useFlag(false);
 
-  const shouldUseDefaultCurrency = baseCurrency === undefined || baseCurrency === token.symbol;
+  const shouldUseDefaultCurrency = baseCurrency === token?.symbol;
   const chartCurrency = shouldUseDefaultCurrency ? DEFAULT_PRICE_CURRENCY : baseCurrency;
 
   const currencySymbol = getShortCurrencySymbol(chartCurrency);
@@ -105,7 +111,7 @@ function TokenCard({
 
   const {
     slug, symbol, amount, name, price: lastPrice, decimals,
-  } = token;
+  } = token ?? {};
 
   const { annualYield, yieldType, id: stakingId } = useMemo(() => {
     if (IS_CORE_WALLET) return undefined;
@@ -119,11 +125,11 @@ function TokenCard({
   }, [stakingStates, slug]) ?? {};
 
   const refreshHistory = useLastCallback((newPeriod?: TokenPeriod) => {
-    loadPriceHistory({ slug, period: newPeriod ?? period });
+    if (slug) loadPriceHistory({ slug, period: newPeriod ?? period });
   });
 
   const handleCurrencyChange = useLastCallback((currency: ApiBaseCurrency) => {
-    loadPriceHistory({ slug, period, currency });
+    if (slug) loadPriceHistory({ slug, period, currency });
   });
 
   const openCurrencyMenu = () => {
@@ -142,12 +148,10 @@ function TokenCard({
   const tokenLastUpdatedAt = history?.length ? history[history.length - 1][0] * 1000 : undefined;
   const tokenLastHistoryPrice = history?.length ? history[history.length - 1][1] : lastPrice;
   const selectedHistoryPoint = history?.[selectedHistoryIndex];
-  const price = selectedHistoryPoint?.[1]
-    ?? (shouldUseDefaultCurrency ? tokenLastHistoryPrice : undefined)
-    ?? lastPrice;
+  const price = selectedHistoryPoint?.[1] ?? tokenLastHistoryPrice;
   // To prevent flickering with spoiler
   const tokenChangePrice = isSensitiveDataHidden ? lastPrice : price;
-  const isLoading = !tokenLastUpdatedAt || (Date.now() - tokenLastUpdatedAt > OFFLINE_TIMEOUT);
+  const isLoading = !token || !tokenLastUpdatedAt || (Date.now() - tokenLastUpdatedAt > OFFLINE_TIMEOUT);
   const dateStr = selectedHistoryPoint
     ? formatShortDay(lang.code!, selectedHistoryPoint[0] * 1000, true, true)
     : (isLoading && tokenLastUpdatedAt ? formatShortDay(lang.code!, tokenLastUpdatedAt, true, false) : lang('Now'));
@@ -158,11 +162,13 @@ function TokenCard({
     return history?.find(([, value]) => Boolean(value))?.[1];
   }, [history]);
 
-  const valueBig = toBig(amount, decimals).mul(price);
-  const value = valueBig.toString();
+  const valueBig = token ? toBig(amount!, decimals).mul(price!) : undefined;
+  const value = valueBig ? valueBig.toString() : '0';
   const change = initialPrice && price ? price - initialPrice : 0;
   const changeFactor = initialPrice && tokenChangePrice ? tokenChangePrice / initialPrice - 1 : 0;
-  const amountChange = initialPrice && tokenChangePrice ? calcBigChangeValue(valueBig, changeFactor).toNumber() : 0;
+  const amountChange = initialPrice && tokenChangePrice && valueBig
+    ? calcBigChangeValue(valueBig, changeFactor).toNumber()
+    : 0;
   const changePrefix = change === undefined ? change : change > 0 ? '↑' : change < 0 ? '↓' : 0;
 
   const changeValue = amountChange ? Math.abs(round(amountChange, 4)) : 0;
@@ -170,18 +176,20 @@ function TokenCard({
 
   const withChange = Boolean(change !== undefined);
   const historyStartDay = history?.length ? new Date(history[0][0] * 1000) : undefined;
-  const withExplorerButton = Boolean(token.cmcSlug || tokenAddress);
-  const shouldHideChartPeriodSwitcher = !history?.length && token.priceUsd === 0;
+  const withExplorerButton = Boolean(token?.cmcSlug || tokenAddress);
+  const shouldHideChartPeriodSwitcher = !history?.length && token?.priceUsd === 0;
 
   const color = useMemo(() => calculateTokenCardColor(token), [token]);
 
   function renderExplorerLink() {
+    if (!token) return undefined;
+
     const url = getExplorerTokenUrl(token.chain, token.cmcSlug, tokenAddress, isTestnet);
     if (!url) return undefined;
 
     const title = (lang(
-      'Open on %ton_explorer_name%',
-      { ton_explorer_name: getExplorerName(token.chain) },
+      'Open on %explorer_name%',
+      { explorer_name: getExplorerName(token.chain) },
     ) as string[]).join('');
 
     return (
@@ -209,7 +217,7 @@ function TokenCard({
           <i className="icon-chevron-left" aria-hidden />
         </Button>
         <TokenIcon
-          token={token}
+          token={token ?? TONCOIN}
           size="x-large"
           className={styles.tokenLogo}
         />
@@ -222,7 +230,7 @@ function TokenCard({
               rows={2}
               cellSize={8}
             >
-              {formatCurrency(toDecimal(amount, token.decimals), symbol)}
+              {token ? formatCurrency(toDecimal(amount!, token.decimals), symbol!) : undefined}
             </SensitiveData>
           </b>
           {withChange && (
@@ -244,7 +252,7 @@ function TokenCard({
                   triggerRef={amountRef}
                   anchor={currencyMenuAnchor}
                   menuPositionX="right"
-                  excludedCurrency={token.symbol}
+                  excludedCurrency={token?.symbol}
                   onClose={closeCurrencyMenu}
                   onChange={handleCurrencyChange}
                 />
@@ -327,7 +335,7 @@ function TokenCard({
       </span>
 
       <div className={styles.tokenCurrentPrice}>
-        {formatCurrency(price, currencySymbol, selectedHistoryIndex === -1 ? 2 : 4, true)}
+        {price ? formatCurrency(price, currencySymbol, selectedHistoryIndex === -1 ? 2 : 4, true) : undefined}
         <div className={styles.tokenPriceDate}>
           {dateStr}
           {withExplorerButton && renderExplorerLink()}
@@ -339,16 +347,18 @@ function TokenCard({
 
 export default memo(
   withGlobal<OwnProps>((global, ownProps): StateProps => {
-    const slug = ownProps.token.slug;
+    const slug = ownProps.tokenSlug ?? '';
+    const currentAccountId = selectCurrentAccountId(global);
     const accountState = selectCurrentAccountState(global);
     const tokenAddress = global.tokenInfo.bySlug[slug]?.tokenAddress;
-    const stakingStates = selectAccountStakingStates(global, global.currentAccountId!);
+    const stakingStates = selectAccountStakingStates(global, currentAccountId!);
 
     return {
+      token: slug ? selectUserTokenMemoized(global, slug) : undefined,
       isTestnet: global.settings.isTestnet,
       period: accountState?.currentTokenPeriod,
       baseCurrency: global.settings.baseCurrency,
-      historyPeriods: global.tokenPriceHistory.bySlug[ownProps.token.slug],
+      historyPeriods: global.tokenPriceHistory.bySlug[slug],
       tokenAddress,
       stakingStates,
       isSensitiveDataHidden: global.settings.isSensitiveDataHidden,

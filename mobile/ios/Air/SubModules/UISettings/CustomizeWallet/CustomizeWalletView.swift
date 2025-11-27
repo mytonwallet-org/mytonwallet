@@ -1,0 +1,58 @@
+//
+//  WalletSettingsVC.swift
+//  UISettings
+//
+//  Created by nikstar on 02.11.2025.
+//
+
+import UIKit
+import WalletCore
+import WalletContext
+import UIComponents
+import SwiftUI
+import Dependencies
+import Perception
+import OrderedCollections
+import UIKitNavigation
+
+struct CustomizeWalletView: View {
+    
+    let viewModel: CustomizeWalletViewModel
+    
+    var body: some View {
+        InsetList(topPadding: 24, spacing: 16) {
+            AccountSelectorView(viewModel: viewModel, onSelect: { accountId in
+                withAnimation {
+                    viewModel.selectedAccountId = accountId
+                }
+            })
+            SelectCardSection(viewModel: viewModel)
+            PaletteSection(viewModel: viewModel.palletteSettingsViewModel)
+            GetMoreCardsSection()
+                
+        }
+        .backportSafeAreaPadding(.bottom, 32)
+        .scrollIndicators(.hidden)
+        .background(Color.air.sheetBackground)
+    }
+}
+
+struct GetMoreCardsSection: View {
+    var body: some View {
+        InsetSection {
+            InsetButtonCell(action: onUnlockNew) {
+                HStack(spacing: 10) {
+                    Image(systemName: "plus.circle")
+                    Text(lang("Get More Cards"))
+                        .foregroundStyle(Color.accentColor)
+                }
+            }
+        } header: {} footer: {
+            Text(lang("Browse MyTonWallet Cards available for purchase."))
+        }
+    }
+    
+    func onUnlockNew() {
+        AppActions.showUpgradeCard()
+    }
+}

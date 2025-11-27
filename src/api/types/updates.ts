@@ -210,7 +210,7 @@ export type ApiUpdateNfts = {
   type: 'updateNfts';
   accountId: string;
   nfts: ApiNft[];
-  shouldAppend?: boolean;
+  collectionAddress?: string;
 };
 
 export type ApiUpdateNftReceived = {

@@ -44,6 +44,7 @@ import { errorCodeToMessage } from '../../helpers/errors';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import { updateCurrentAccountId, updateCurrentAccountState } from '../../reducers';
 import {
+  selectCurrentAccountId,
   selectCurrentNetwork,
   selectNetworkAccounts,
   selectNetworkAccountsMemoized,
@@ -188,7 +189,10 @@ addActionHandler('selectToken', (global, actions, { slug } = {}) => {
       actions.changeTransferToken({ tokenSlug: slug });
     }
   } else {
-    const currentActivityToken = global.byAccountId[global.currentAccountId!].currentTokenSlug;
+    const currentAccountId = selectCurrentAccountId(global);
+    if (!currentAccountId) return;
+
+    const currentActivityToken = global.byAccountId[currentAccountId].currentTokenSlug;
 
     const isDefaultFirstTokenOutSwap = global.currentSwap.tokenOutSlug === DEFAULT_SWAP_FIRST_TOKEN_SLUG
       && global.currentSwap.tokenInSlug === DEFAULT_SWAP_SECOND_TOKEN_SLUG;
@@ -379,8 +383,9 @@ addActionHandler('signOut', async (global, actions, payload) => {
       actions.init();
     }
   } else {
-    const removingAccountId = accountId ?? global.currentAccountId!;
-    const shouldSwitchAccount = removingAccountId === global.currentAccountId;
+    const currentAccountId = selectCurrentAccountId(global)!;
+    const removingAccountId = accountId ?? currentAccountId;
+    const shouldSwitchAccount = removingAccountId === currentAccountId;
     const nextAccountId = shouldSwitchAccount
       ? accountIds.find((id) => id !== removingAccountId)!
       : undefined;
@@ -403,6 +408,7 @@ addActionHandler('signOut', async (global, actions, payload) => {
 
     global = {
       ...global,
+      currentTemporaryViewAccountId: undefined,
       accounts: {
         ...global.accounts!,
         byId: accountsById,

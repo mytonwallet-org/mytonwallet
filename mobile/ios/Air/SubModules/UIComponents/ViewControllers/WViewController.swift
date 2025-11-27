@@ -114,6 +114,14 @@ open class WViewController: UIViewController, WThemedView {
         }
         return false
     }
+
+    public func addCloseNavigationItemIfNeeded() {
+        if isPresentationModal {
+            navigationItem.rightBarButtonItem = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { _ in
+                topViewController()?.dismiss(animated: true)
+            })
+        }
+    }
     
     public func bringNavigationBarToFront() {
         if let navigationBar {

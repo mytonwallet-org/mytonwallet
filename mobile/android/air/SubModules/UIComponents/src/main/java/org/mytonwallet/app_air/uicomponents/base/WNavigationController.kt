@@ -17,7 +17,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.material.bottomSheetBehavior.BottomSheetBehavior
 import org.mytonwallet.app_air.uicomponents.widgets.material.bottomSheetBehavior.BottomSheetBehavior.BottomSheetCallback
-import org.mytonwallet.app_air.uicomponents.widgets.updateThemeForChildren
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
@@ -97,8 +96,8 @@ class WNavigationController(
 
     var isDismissed = false
     fun willBeDismissed() {
+        viewWillDisappear()
         lockView()
-        viewControllers.last().viewWillDisappear()
         hideKeyboard()
         isDismissed = true
     }
@@ -166,16 +165,29 @@ class WNavigationController(
         addView(viewController.view, LayoutParams(MATCH_PARENT, MATCH_PARENT))
         if (presentationConfig.isBottomSheet) {
             // Presented as modal. Should setup bottom sheet behaviour.
-            setupBottomSheetBehaviour(viewController)
             if (viewController.isExpandable)
                 viewController.view.post {
                     setupBottomSheetBehaviour(viewController)
                 }
+            else
+                setupBottomSheetBehaviour(viewController)
         }
     }
 
+    private var isDisappeared = true
     fun viewWillAppear() {
+        if (!isDisappeared)
+            return
+        isDisappeared = false
+        unblockTouches()
         viewControllers.lastOrNull()?.viewWillAppear()
+    }
+
+    fun viewWillDisappear() {
+        if (isDisappeared)
+            return
+        isDisappeared = true
+        viewControllers.last().viewWillDisappear()
     }
 
     fun viewDidAppear() {
@@ -184,8 +196,7 @@ class WNavigationController(
 
     override fun updateTheme() {
         viewControllers.forEach {
-            it.updateTheme()
-            updateThemeForChildren(it.view)
+            it.notifyThemeChanged()
         }
     }
 

@@ -26,13 +26,6 @@ class CrossChainFromTonView: UIStackView, WThemedView {
         fatalError("init(coder:) has not been implemented")
     }
     
-    private let titleLabel = {
-        let lbl = UILabel()
-        lbl.text = lang("Receive to")
-        lbl.font = .systemFont(ofSize: 13)
-        return lbl
-    }()
-    
     private lazy var addressTextField = {
         let textField = WAddressInput()
         textField.textChanged = { [weak self] str in
@@ -44,9 +37,9 @@ class CrossChainFromTonView: UIStackView, WThemedView {
         return textField
     }()
     
-    private var descriptionLabel = {
+    private lazy var descriptionLabel = {
         let lbl = UILabel()
-        lbl.text = lang("Please provide an address of your wallet in another blockchain to receive bought tokens.")
+        lbl.text = lang("Please provide an address of your wallet in %blockchain% blockchain to receive bought tokens.", arg1: getChainName(buyingToken.chain))
         lbl.font = .systemFont(ofSize: 13)
         lbl.numberOfLines = 0
         lbl.textColor = WTheme.secondaryLabel
@@ -57,17 +50,15 @@ class CrossChainFromTonView: UIStackView, WThemedView {
         translatesAutoresizingMaskIntoConstraints = false
         axis = .vertical
         alignment = .fill
-        addArrangedSubview(titleLabel, margin: .init(top: 5, left: 16, bottom: 0, right: 16))
-        addArrangedSubview(addressTextField, margin: .init(top: 5, left: 0, bottom: 8, right: 0))
+        addArrangedSubview(addressTextField, margin: .init(top: 12, left: 0, bottom: 8, right: 0))
         addArrangedSubview(descriptionLabel, margin: .init(top: 0, left: 16, bottom: 0, right: 16))
         updateTheme()
     }
     
     public func updateTheme() {
-        titleLabel.textColor = WTheme.secondaryLabel
         addressTextField.backgroundColor = WTheme.background
         addressTextField.attributedPlaceholder = NSAttributedString(
-            string: WStrings.CrossChainSwap_EnterChainAddress_Text(symbol: buyingToken.chain.uppercased()),
+            string: lang("Your address on another blockchain"),
             attributes: [
                 .font: UIFont.systemFont(ofSize: 17),
                 .foregroundColor: WTheme.secondaryLabel

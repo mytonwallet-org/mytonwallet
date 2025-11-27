@@ -11,8 +11,9 @@ import {
   IS_TELEGRAM_APP,
   MNEMONIC_CHECK_COUNT,
   MNEMONIC_COUNT,
+  TEMPORARY_ACCOUNT_NAME,
 } from '../../../config';
-import { parseAccountId } from '../../../util/account';
+import { generateAccountTitle, parseAccountId } from '../../../util/account';
 import authApi from '../../../util/authApi';
 import { verifyIdentity as verifyTelegramBiometricIdentity } from '../../../util/authApi/telegram';
 import webAuthn from '../../../util/authApi/webAuthn';
@@ -27,13 +28,16 @@ import { callActionInMain, callActionInNative } from '../../../util/multitab';
 import { clearPoisoningCache, updatePoisoningCacheFromGlobalState } from '../../../util/poisoningHash';
 import { pause } from '../../../util/schedulers';
 import {
+  IS_ANDROID,
   IS_BIOMETRIC_AUTH_SUPPORTED,
   IS_DELEGATED_BOTTOM_SHEET,
   IS_DELEGATING_BOTTOM_SHEET,
   IS_ELECTRON,
+  IS_IOS,
 } from '../../../util/windowEnvironment';
 import { callApi } from '../../../api';
 import { addActionHandler, getActions, getGlobal, setGlobal } from '../..';
+import { removeTemporaryAccount } from '../../helpers/auth';
 import { INITIAL_STATE } from '../../initialState';
 import {
   clearIsPinAccepted,
@@ -41,6 +45,7 @@ import {
   createAccountsFromGlobal,
   setIsPinAccepted,
   switchAccountAndClearGlobal,
+  updateAccount,
   updateAccounts,
   updateAuth,
   updateBiometrics,
@@ -51,19 +56,25 @@ import {
 import {
   selectAccount,
   selectAccounts,
+  selectCurrentAccountId,
   selectCurrentNetwork,
   selectIsOneAccount,
   selectIsPasswordPresent,
+  selectNetworkAccounts,
   selectNetworkAccountsMemoized,
   selectNewestActivityTimestamps,
   selectSelectedHardwareAccountsSlow,
 } from '../../selectors';
 
+import { getIsPortrait } from '../../../hooks/useDeviceScreen';
+
 const CREATING_DURATION = 3300;
 const NATIVE_BIOMETRICS_PAUSE_MS = 750;
+const SWITHCHING_ACCOUNT_DURATION_MS = IS_IOS ? 450 : IS_ANDROID ? 350 : 300;
 
 export async function switchAccount(global: GlobalState, accountId: string, newNetwork?: ApiNetwork) {
-  if (accountId === global.currentAccountId) {
+  const currentActiveAccountId = selectCurrentAccountId(global);
+  if (accountId === currentActiveAccountId) {
     return;
   }
 
@@ -87,12 +98,12 @@ export async function switchAccount(global: GlobalState, accountId: string, newN
 }
 
 addActionHandler('resetAuth', (global) => {
-  if (global.currentAccountId) {
+  if (selectCurrentAccountId(global)) {
     global = { ...global, appState: AppState.Main };
 
     // Restore the network when refreshing the page during the switching networks
     global = updateSettings(global, {
-      isTestnet: parseAccountId(global.currentAccountId!).network === 'testnet',
+      isTestnet: parseAccountId(selectCurrentAccountId(global)!).network === 'testnet',
     });
   }
 
@@ -420,7 +431,7 @@ addActionHandler('addHardwareAccounts', (global, actions, { accounts }) => {
   setGlobal(global);
 });
 
-addActionHandler('afterCheckMnemonic', (global, actions) => {
+addActionHandler('afterCheckMnemonic', (global) => {
   global = createAccountsFromGlobal(global);
   global = updateAuth(global, { state: AuthState.congratulations });
   global = updateCurrentAccountId(global, global.auth.firstNetworkAccount!.accountId);
@@ -591,6 +602,11 @@ addActionHandler('switchAccount', async (global, actions, payload) => {
   }
 
   const { accountId, newNetwork } = payload;
+  if (global.currentTemporaryViewAccountId) {
+    await removeTemporaryAccount(global.currentTemporaryViewAccountId);
+    global = getGlobal();
+  }
+
   await switchAccount(global, accountId, newNetwork);
 });
 
@@ -906,7 +922,7 @@ addActionHandler('importAccountByVersion', async (global, actions, { version, is
     return;
   }
 
-  const accountId = global.currentAccountId!;
+  const accountId = selectCurrentAccountId(global)!;
 
   const wallet = (await callApi('importNewWalletVersion', accountId, version, isTestnetSubwalletId))!;
   global = getGlobal();
@@ -1005,6 +1021,96 @@ addActionHandler('importViewAccount', async (global, actions, { addressByChain }
   } else {
     actions.closeAddAccountModal();
   }
+  void vibrateOnSuccess();
+});
+
+addActionHandler('openTemporaryViewAccount', async (global, actions, { addressByChain }) => {
+  if (IS_DELEGATED_BOTTOM_SHEET) {
+    callActionInMain('openTemporaryViewAccount', { addressByChain });
+    return;
+  }
+
+  if (!Object.keys(addressByChain).length) {
+    actions.showError({ error: '$no_valid_view_addresses' });
+    return;
+  }
+
+  if (global.currentTemporaryViewAccountId) {
+    await removeTemporaryAccount(global.currentTemporaryViewAccountId);
+    global = getGlobal();
+  }
+
+  const network = selectCurrentNetwork(global);
+  global = updateAccounts(global, { isLoading: true });
+  setGlobal(global);
+
+  const result = await callApi('importViewAccount', network, addressByChain, true);
+
+  global = getGlobal();
+  global = updateAccounts(global, { isLoading: undefined });
+  setGlobal(global);
+
+  if (!result || 'error' in result) {
+    actions.showError({ error: result?.error });
+    return;
+  }
+
+  global = getGlobal();
+  global = createAccount({
+    global,
+    accountId: result.accountId,
+    byChain: result.byChain,
+    type: 'view',
+    partial: {
+      title: result.title || getTranslation(TEMPORARY_ACCOUNT_NAME),
+      isTemporary: true,
+    },
+  });
+  global = { ...global, currentTemporaryViewAccountId: result.accountId };
+  setGlobal(global);
+
+  if (getGlobal().areSettingsOpen) {
+    actions.closeSettings();
+  }
+
+  if (getIsPortrait()) {
+    window.setTimeout(() => {
+      actions.switchToWallet();
+    }, SWITHCHING_ACCOUNT_DURATION_MS);
+  }
+});
+
+addActionHandler('saveTemporaryAccount', (global, actions) => {
+  if (IS_DELEGATED_BOTTOM_SHEET) {
+    callActionInMain('saveTemporaryAccount');
+    return;
+  }
+
+  const newAccountId = global.currentTemporaryViewAccountId!;
+  const network = selectCurrentNetwork(global);
+  const accounts = selectNetworkAccounts(global) || {};
+  const account = accounts[newAccountId];
+  const title = account?.title && account.title !== getTranslation(TEMPORARY_ACCOUNT_NAME)
+    ? account.title
+    : generateAccountTitle({
+      accounts,
+      accountType: 'view',
+      network,
+    });
+
+  global = updateAccount(global, newAccountId, {
+    isTemporary: undefined,
+    title,
+  });
+  global = updateCurrentAccountId(global, newAccountId);
+  global = {
+    ...global,
+    currentTemporaryViewAccountId: undefined,
+  };
+  setGlobal(global);
+
+  actions.tryAddNotificationAccount({ accountId: newAccountId });
+  actions.showNotification({ message: getTranslation('Account saved successfully!'), icon: 'icon-check' });
   void vibrateOnSuccess();
 });
 

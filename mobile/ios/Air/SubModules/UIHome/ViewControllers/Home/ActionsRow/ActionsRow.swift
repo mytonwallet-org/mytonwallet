@@ -6,6 +6,7 @@ import WalletContext
 
 private let log = Log("Home-Actions")
 
+let actionsRowHeight: CGFloat = IOS_26_MODE_ENABLED ? 70 : 60
 
 @MainActor final class ActionsVC: WViewController, WalletCoreData.EventsObserver {
     
@@ -22,10 +23,6 @@ private let log = Log("Home-Actions")
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        actionsView.addButton.addTarget(self, action: #selector(addPressed))
-        actionsView.sendButton.addTarget(self, action: #selector(sendPressed))
-        actionsView.swapButton.addTarget(self, action: #selector(swapPressed))
-        actionsView.earnButton.addTarget(self, action: #selector(earnPressed))
         hideUnsupportedActions()
         WalletCoreData.add(eventObserver: self)
     }
@@ -42,7 +39,7 @@ private let log = Log("Home-Actions")
     }
     
     var calculatedHeight: CGFloat {
-        account.isView ? 0 : 60 + 16
+        account.isView ? 0 : actionsRowHeight + 16
     }
 
     nonisolated func walletCore(event: WalletCore.WalletCoreData.Event) {
@@ -57,24 +54,6 @@ private let log = Log("Home-Actions")
             }
         }
     }
-
-    // MARK: - Actions
-
-    @objc func addPressed() {
-        AppActions.showReceive(chain: nil, showBuyOptions: nil, title: nil)
-    }
-
-    @objc func sendPressed() {
-        AppActions.showSend(prefilledValues: nil)
-    }
-
-    @objc func earnPressed() {
-        AppActions.showEarn(token: nil)
-    }
-
-    @objc func swapPressed() {
-        AppActions.showSwap(defaultSellingToken: nil, defaultBuyingToken: nil, defaultSellingAmount: nil, push: nil)
-    }
 }
 
 
@@ -86,12 +65,21 @@ private let log = Log("Home-Actions")
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         addSubview(actionsView)
-        NSLayoutConstraint.activate([
-            actionsView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            actionsView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            actionsView.topAnchor.constraint(equalTo: topAnchor).withPriority(.defaultLow), // will be broken when pushed against the top
-            actionsView.bottomAnchor.constraint(equalTo: bottomAnchor),
-        ])
+        if IOS_26_MODE_ENABLED {
+            NSLayoutConstraint.activate([
+                actionsView.centerXAnchor.constraint(equalTo: centerXAnchor),
+                actionsView.topAnchor.constraint(equalTo: topAnchor).withPriority(.defaultLow), // will be broken when pushed against the top
+                actionsView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            ])
+
+        } else {
+            NSLayoutConstraint.activate([
+                actionsView.leadingAnchor.constraint(equalTo: leadingAnchor),
+                actionsView.trailingAnchor.constraint(equalTo: trailingAnchor),
+                actionsView.topAnchor.constraint(equalTo: topAnchor).withPriority(.defaultLow), // will be broken when pushed against the top
+                actionsView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            ])
+        }
         setContentHuggingPriority(.required, for: .vertical)
     }
     
@@ -120,46 +108,51 @@ private let log = Log("Home-Actions")
     
     func setup() {
         translatesAutoresizingMaskIntoConstraints = false
-        spacing = 8
-        distribution = .fillEqually
-        layer.masksToBounds = true
+        spacing = IOS_26_MODE_ENABLED ? 16 : 8
+        distribution = IOS_26_MODE_ENABLED ? .equalSpacing : .fillEqually
+        clipsToBounds = false
+        if IOS_26_MODE_ENABLED {
+            widthAnchor.constraint(equalToConstant: 304).isActive = true
+        }
         
-        addButton = WScalableButton(title: lang("Add").lowercased(),
-                                        image: UIImage(named: "AddIcon",
-                                                       in: AirBundle, compatibleWith: nil)?.withRenderingMode(.alwaysTemplate),
-                                        onTap: nil)
+        addButton = WScalableButton(
+            title: IOS_26_MODE_ENABLED ? lang("Add / Buy") : lang("Add").lowercased(),
+            image: IOS_26_MODE_ENABLED ? .airBundle("AddIconBold") : .airBundle("AddIcon"),
+            onTap: { AppActions.showReceive(chain: nil, showBuyOptions: nil, title: nil) }
+        )
         addArrangedSubview(addButton)
         
-        sendButton = WScalableButton(title: lang("Send").lowercased(),
-                        image: UIImage(named: "SendIcon",
-                                       in: AirBundle, compatibleWith: nil)?.withRenderingMode(.alwaysTemplate),
-                        onTap: nil)
+        sendButton = WScalableButton(
+            title: IOS_26_MODE_ENABLED ? lang("Send") : lang("Send").lowercased(),
+            image: IOS_26_MODE_ENABLED ? .airBundle("SendIconBold") : .airBundle("SendIcon"),
+            onTap: { AppActions.showSend(prefilledValues: nil) }
+        )
         addArrangedSubview(sendButton)
         
-        swapButton = WScalableButton(title: lang("Swap").lowercased(),
-                                         image: UIImage(named: "SwapIcon",
-                                                        in: AirBundle, compatibleWith: nil)?.withRenderingMode(.alwaysTemplate),
-                                         onTap: nil)
+        swapButton = WScalableButton(
+            title: IOS_26_MODE_ENABLED ? lang("Swap") : lang("Swap").lowercased(),
+            image: IOS_26_MODE_ENABLED ? .airBundle("SwapIconBold") : .airBundle("SwapIcon"),
+            onTap: { AppActions.showEarn(token: nil) }
+        )
         addArrangedSubview(swapButton)
         
-        earnButton = WScalableButton(title: lang("Earn").lowercased(),
-                                         image: UIImage(named: "EarnIcon",
-                                                        in: AirBundle, compatibleWith: nil)?.withRenderingMode(.alwaysTemplate),
-                                         onTap: nil)
+        earnButton = WScalableButton(
+            title: IOS_26_MODE_ENABLED ? lang("Earn") : lang("Earn").lowercased(),
+            image: IOS_26_MODE_ENABLED ? .airBundle("EarnIconBold") : .airBundle("EarnIcon"),
+            onTap: { AppActions.showSwap(defaultSellingToken: nil, defaultBuyingToken: nil, defaultSellingAmount: nil, push: nil) }
+        )
         addArrangedSubview(earnButton)
+        
     }
     
     override func layoutSubviews() {
         let height = bounds.height
-        let actionButtonAlpha = height < 60 ? height / 60 : 1
+        let actionButtonAlpha = height < actionsRowHeight ? height / actionsRowHeight : 1
         let maxRadius = S.actionButtonCornerRadius
         let actionButtonRadius = min(maxRadius, height / 2)
         for btn in arrangedSubviews {
             guard let btn = btn as? WScalableButton else { continue }
-            btn.innerButton.titleLabel?.alpha = actionButtonAlpha
-            btn.innerButton.imageView?.alpha = actionButtonAlpha
-            btn.layer.cornerRadius = actionButtonRadius
-            btn.set(scale: actionButtonAlpha)
+            btn.set(scale: actionButtonAlpha, radius: actionButtonRadius)
         }
         super.layoutSubviews()
     }

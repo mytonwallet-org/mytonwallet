@@ -13,11 +13,11 @@ import WalletContext
 
 private let log = Log("AppearanceSettingsVC")
 
-final class AppearanceSettingsVC: WViewController {
+public final class AppearanceSettingsVC: WViewController {
     
     var hostingController: UIHostingController<AppearanceSettingsView>?
     
-    override func viewDidLoad() {
+    public override func viewDidLoad() {
         super.viewDidLoad()
         
         addNavigationBar(
@@ -40,7 +40,7 @@ final class AppearanceSettingsVC: WViewController {
         )
     }
     
-    override func updateTheme() {
+    public  override func updateTheme() {
         view.backgroundColor = WTheme.groupedBackground
         withAnimation {
             hostingController?.rootView = makeView()

@@ -163,8 +163,8 @@ class EarnHistoryCell: WHighlightCell {
             let amnt = price * earnHistoryItem.amount.doubleAbsRepresentation(decimals: token.decimals)
             amount2Label.text = formatAmountText(
                 amount: amnt,
-                currency: TokenStore.baseCurrency?.sign,
-                decimalsCount: amnt < 0.0001 ? 6 : amnt < 0.01 ? 4 : TokenStore.baseCurrency?.decimalsCount
+                currency: TokenStore.baseCurrency.sign,
+                decimalsCount: amnt < 0.0001 ? 6 : amnt < 0.01 ? 4 : TokenStore.baseCurrency.decimalsCount
             )
         } else {
             amount2Label.text = " "
@@ -208,8 +208,8 @@ class EarnHistoryCell: WHighlightCell {
             let amnt = price * earnHistoryItem.amount.doubleAbsRepresentation(decimals: token.decimals)
             amount2Label.text = formatAmountText(
                 amount: amnt,
-                currency: TokenStore.baseCurrency?.sign,
-                decimalsCount: amnt < 0.0001 ? 6 : amnt < 0.01 ? 4 : TokenStore.baseCurrency?.decimalsCount
+                currency: TokenStore.baseCurrency.sign,
+                decimalsCount: amnt < 0.0001 ? 6 : amnt < 0.01 ? 4 : TokenStore.baseCurrency.decimalsCount
             )
         } else {
             amount2Label.text = " "

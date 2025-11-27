@@ -155,6 +155,22 @@ object LocaleController {
         return result
     }
 
+    fun getFormattedEnumeration(
+        items: List<String>,
+        joiner: String = "and"
+    ): String {
+        val middleJoiner = getString("\$joining_comma")
+        val lastJoiner = getString(if (joiner == "and") "\$joining_and" else "\$joining_or")
+        return buildString {
+            items.forEachIndexed { i, item ->
+                if (i > 0) {
+                    append(if (i == items.lastIndex) lastJoiner else middleJoiner)
+                }
+                append(item)
+            }
+        }
+    }
+
     val isRTL: Boolean
         get() {
             return activeLanguage.isRTL

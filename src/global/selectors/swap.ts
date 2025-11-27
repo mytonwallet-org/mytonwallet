@@ -10,6 +10,7 @@ import { getChainBySlug } from '../../util/tokens';
 import withCache from '../../util/withCache';
 import {
   selectCurrentAccount,
+  selectCurrentAccountId,
   selectCurrentAccountSettings,
   selectCurrentAccountState,
   selectIsHardwareAccount,
@@ -29,8 +30,8 @@ function createTokenList(
     .map(([slug, {
       symbol, name, image,
       decimals, keywords, chain,
-      tokenAddress, isPopular, color, priceUsd = 0,
-    }]) => {
+      tokenAddress, isPopular, color, priceUsd = 0, label,
+    }]): UserSwapToken => {
       const amount = balancesBySlug[slug] ?? 0n;
       const price = calculateTokenPrice(priceUsd, baseCurrency, currencyRates);
       const totalValue = toBig(amount, decimals).mul(price).toString();
@@ -52,7 +53,8 @@ function createTokenList(
         color,
         chain,
         tokenAddress,
-      } satisfies UserSwapToken;
+        label,
+      };
     })
     .sort(sortFn);
 }
@@ -147,6 +149,7 @@ export function selectAvailableUserForSwapTokens(global: GlobalState, isSwapOut 
     return undefined;
   }
 
+  const accountId = selectCurrentAccountId(global)!;
   const accountSettings = selectCurrentAccountSettings(global) ?? {};
   const { areTokensWithNoCostHidden, isSortByValueEnabled } = global.settings;
 
@@ -154,7 +157,7 @@ export function selectAvailableUserForSwapTokens(global: GlobalState, isSwapOut 
     ? selectAccountTokensForSwapOutMemoizedFor
     : selectAccountTokensForSwapInMemoizedFor;
 
-  return selectAccountTokens(global.currentAccountId!)(
+  return selectAccountTokens(accountId)(
     balancesBySlug,
     global.tokenInfo,
     global.swapTokenInfo,
@@ -172,7 +175,9 @@ export function selectPopularTokens(global: GlobalState) {
     return undefined;
   }
 
-  return selectPopularTokensMemoizedFor(global.currentAccountId!)(
+  const accountId = selectCurrentAccountId(global)!;
+
+  return selectPopularTokensMemoizedFor(accountId)(
     balancesBySlug,
     global.swapTokenInfo,
     global.settings.baseCurrency,
@@ -186,7 +191,9 @@ export function selectSwapTokens(global: GlobalState) {
     return undefined;
   }
 
-  return selectSwapTokensMemoizedFor(global.currentAccountId!)(
+  const accountId = selectCurrentAccountId(global)!;
+
+  return selectSwapTokensMemoizedFor(accountId)(
     balancesBySlug,
     global.swapTokenInfo,
     global.settings.baseCurrency,

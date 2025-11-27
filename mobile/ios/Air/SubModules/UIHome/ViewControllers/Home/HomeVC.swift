@@ -10,12 +10,15 @@ import UIComponents
 import WalletCore
 import WalletContext
 import UIAssets
+import UISettings
+import Perception
+import SwiftUI
 
 private let log = Log("HomeVC")
 let homeBottomInset: CGFloat = 200
 
 @MainActor
-public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
+public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, HomeVMDelegate {
 
     // MARK: - View Model and UI Components
     lazy var homeVM = HomeVM(homeVMDelegate: self)
@@ -30,6 +33,10 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
     var headerContainerView: WTouchPassView!
     /// `headerContainerViewHeightConstraint` is used to animate the header background on the first load's animation.
     var headerContainerViewHeightConstraint: NSLayoutConstraint? = nil
+    
+    let headerViewModel = HomeHeaderViewModel()
+    var headerContainer: HeaderContainer = HeaderContainer()
+    var headerHostingController: UIHostingController<HomeHeader>?
 
     // navbar buttons
     lazy var lockItem: UIBarButtonItem = UIBarButtonItem(title: lang("Lock"), image: .airBundle("HomeLock24"), target: self, action: #selector(lockPressed))
@@ -44,7 +51,8 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
     var balanceHeaderView: BalanceHeaderView { balanceHeaderVC.balanceHeaderView }
     var headerBlurView: WBlurView!
     var bottomSeparatorView: UIView!
-
+    let headerTouchTarget = UILabel()
+    
     var windowSafeAreaGuide = UILayoutGuide()
     var windowSafeAreaGuideContraint: NSLayoutConstraint!
 
@@ -52,7 +60,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
     var actionsTopConstraint: NSLayoutConstraint!
     var walletAssetsVC = WalletAssetsVC()
     var assetsHeightConstraint: NSLayoutConstraint!
-
+    
     // Temporary set to true when user taps on wallet card icon to expand it!
     var isExpandingProgrammatically: Bool = false
     var scrollExtraOffset = CGFloat(0)
@@ -107,6 +115,14 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
         self.scrollViewDidScroll(tableView)
         updateSafeAreaInsets()
     }
+    
+    public override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        if headerTouchTarget.gestureRecognizers?.nilIfEmpty == nil {
+            let g = UITapGestureRecognizer(target: self, action: #selector(onHeaderTap))
+            headerTouchTarget.addGestureRecognizer(g)
+        }
+    }
 
     public override func viewSafeAreaInsetsDidChange() {
         super.viewSafeAreaInsetsDidChange()
@@ -118,6 +134,8 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
         let navBarHeight = navigationController!.navigationBar.frame.height
         windowSafeAreaGuideContraint.constant = view.safeAreaInsets.top - navBarHeight
         balanceHeaderView.updateStatusViewContainerTopConstraint.constant = (navBarHeight - 44) / 2 - S.updateStatusViewTopAdjustment
+        headerViewModel.topSafeAreaInset = view.safeAreaInsets.top
+        headerViewModel.width = view.bounds.width
         scrollViewDidScroll(tableView)
     }
 
@@ -171,9 +189,9 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
             appliedHeaderPlaceholderHeight = headerPlaceholderHeight
             appliedHeaderHeightWithoutAssets = headerHeightWithoutAssets
             let updates = { [self] in
-                actionsTopConstraint.constant = headerHeightWithoutAssets + (actionsHeight > 0 ? 0 : -76)
+                actionsTopConstraint.constant = headerHeightWithoutAssets + (actionsHeight > 0 ? 0 :  -(actionsRowHeight + 16))
                 assetsHeightConstraint.constant = max(0, assetsHeight - 16)
-                reconfigureHeaderPlaceholder()
+                reconfigureHeaderPlaceholder(animated: true)
             }
             if animated && skeletonState != .loading {
                 UIView.animateAdaptive(duration: isExpandingProgrammatically == true ? 0.2 : 0.3) { [self] in
@@ -249,6 +267,10 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
         skeletonView.applyMask(with: skeletonViews)
     }
 
+    @objc func onHeaderTap() {
+        AppActions.showWalletSettings()
+    }
+    
     // MONITORING ////////////////////////////////////////////////////////////////////////////////////////////////////
     var lastTimestamp: CFTimeInterval?
     var displayLink: CADisplayLink?
@@ -268,24 +290,15 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol {
         }
         lastTimestamp = link.timestamp
     }
-}
 
-extension HomeVC: HomeVMDelegate {
+    // MARK: HomeVMDelegate
     func update(state: UpdateStatusView.State, animated: Bool) {
         DispatchQueue.main.async {
-            log.info("new state: \(state, .public) animted=\(animated)", fileOnly: true)
             self.balanceHeaderView.update(status: state, animatedWithDuration: animated ? 0.3 : nil)
         }
     }
 
     func updateBalance(balance: Double?, balance24h: Double?, walletTokens: [MTokenBalance]) {
-            let assetsAnimated = balance != nil && skeletonState != .loading && !wasShowingSkeletons
-            balanceHeaderView.update(balance: balance,
-                                     balance24h: balance24h,
-                                     animated: true,
-                                     onCompletion: { [weak self] in
-                guard let self else { return }
-            })
     }
 
     func changeAccountTo(accountId: String, isNew: Bool) async {
@@ -302,6 +315,53 @@ extension HomeVC: HomeVMDelegate {
         navigationItem.trailingItemGroups = [
             UIBarButtonItemGroup(barButtonItems: canLock ? [lockItem, hideItem] : [hideItem], representativeItem: nil)
         ]
+    }
+    
+    
+    private var activateAccountTask: Task<Void, any Error>?
+    private var switchActivitiesTask: Task<Void, any Error>?
+    
+    func interactivelySwitchAccountTo(accountId: String) {
+        
+        let account = AccountStore.account ?? DUMMY_ACCOUNT
+        let nextAccount = AccountStore.accountsById[accountId] ?? DUMMY_ACCOUNT
+        let actionsChanged = account.isView != nextAccount.isView
+        
+        walletAssetsVC.interactivelySwitchAccountTo(accountId: accountId)
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0) { [self] in
+            UIView.animate(withDuration: 0.20) { [self] in
+                for subview in tableView.subviews {
+                    if subview === walletAssetsVC.view || subview == actionsVC.view {
+                        continue
+                    }
+                    subview.alpha = 0
+                }
+            }
+            balanceHeaderView.updateStatusView.accountId = accountId
+            balanceHeaderView.updateStatusView.setState(newState: balanceHeaderView.updateStatusView.state, animatedWithDuration: 0.2)
+        }
+        
+        if switchActivitiesTask?.isCancelled == false {
+            print("Cancelling!")
+        }
+        switchActivitiesTask?.cancel()
+        switchActivitiesTask = Task {
+            try await Task.sleep(for: .seconds(0.20))
+            _activityViewModel = await ActivityViewModel(accountId: accountId, token: nil, delegate: self)
+            transactionsUpdated(accountChanged: true, isUpdateEvent: false)
+
+            try await Task.sleep(for: .seconds(0.3))
+            _ = try await AccountStore.activateAccount(accountId: accountId)
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+            UIView.animate(withDuration: 0.22) { [self] in
+                for subview in tableView.subviews {
+                    subview.alpha = 1
+                }
+            }
+        }
     }
 }
 

@@ -9,10 +9,10 @@ import { callApi } from '../../../api';
 import { handleTransferResult, prepareTransfer } from '../../helpers/transfer';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import { updateAccountSettings, updateAccountState, updateMintCards } from '../../reducers';
-import { selectAccountState } from '../../selectors';
+import { selectAccountState, selectCurrentAccountId } from '../../selectors';
 
 addActionHandler('submitMintCard', async (global, actions, { password } = {}) => {
-  const accountId = global.currentAccountId!;
+  const accountId = selectCurrentAccountId(global)!;
 
   if (!await prepareTransfer(MintCardState.ConfirmHardware, updateMintCards, password)) {
     return;

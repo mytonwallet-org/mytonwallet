@@ -9,6 +9,7 @@ import { ACCENT_COLORS } from '../../util/accentColor/constants';
 import buildClassName from '../../util/buildClassName';
 import getAccentColorsFromNfts from '../../util/getAccentColorsFromNfts';
 import { MEMO_EMPTY_ARRAY } from '../../util/memo';
+import { DEFAULT_CARD_ADDRESS } from '../customizeWallet/constants';
 
 import useAppTheme from '../../hooks/useAppTheme';
 import useLang from '../../hooks/useLang';
@@ -90,7 +91,7 @@ function AccentColorSelector({
 
     return (
       <button
-        key={color || 'default'}
+        key={color || DEFAULT_CARD_ADDRESS}
         type="button"
         disabled={isSelected}
         style={color ? `--current-accent-color: ${color}` : undefined}
