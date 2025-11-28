@@ -37,7 +37,7 @@ public final class WalletSettingsVC: WViewController, WSegmentedController.Deleg
         ),
         SegmentedControlItem(
             id: "view",
-            title: lang("View"),
+            title: lang("$view_accounts"),
             viewController: tabViewControllers[3],
         ),
     ]

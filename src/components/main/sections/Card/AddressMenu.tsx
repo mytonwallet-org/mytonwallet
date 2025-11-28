@@ -42,7 +42,7 @@ interface OwnProps {
   items: MenuItem[];
   menuRef: ElementRef<HTMLDivElement>;
   onClose: NoneToVoidFunction;
-  onExplorerClick: (e: React.MouseEvent, chain: ApiChain, address: string) => void;
+  onExplorerClick: (chain: ApiChain, address: string) => void;
   onMouseEnter?: NoneToVoidFunction;
   onMouseLeave?: NoneToVoidFunction;
   getTriggerElement: () => HTMLElement | undefined | null;
@@ -72,10 +72,11 @@ function AddressMenu({
   getLayout,
   byChain,
 }: OwnProps & StateProps) {
-  const lang = useLang();
   const { showNotification } = getActions();
 
-  const handleItemClick = useLastCallback((e: React.MouseEvent, value: string, kind: 'address' | 'domain') => {
+  const lang = useLang();
+
+  const handleItemClick = useLastCallback((value: string, kind: 'address' | 'domain') => {
     showNotification({
       message: lang(kind === 'domain' ? 'Domain was copied!' : 'Address was copied!'),
       icon: 'icon-copy',
@@ -120,6 +121,7 @@ function AddressMenu({
           index={index}
           onItemClick={handleItemClick}
           onExplorerClick={onExplorerClick}
+          onMenuClose={onClose}
         />
       ))}
       <ShareButton onClick={handleShareClick} lang={lang} />
@@ -155,98 +157,18 @@ function getAddressByChain(byChain: Account['byChain'] | undefined): Partial<Rec
   }, {} as Partial<Record<ApiChain, string>>);
 }
 
-function MenuItemName({
-  item,
-  hasDomain,
-  onItemClick,
-}: {
-  item: MenuItem;
-  hasDomain: boolean;
-  onItemClick: (e: React.MouseEvent, value: string, kind: 'address' | 'domain') => void;
-}) {
-  const copyIconClassName = buildClassName(
-    `icon icon-${item.fontIcon}`,
-    menuStyles.fontIcon,
-    styles.menuFontIcon,
-  );
-
-  if (hasDomain) {
-    return (
-      <div className={buildClassName(menuStyles.itemName, styles.menuItemName)}>
-        <span
-          tabIndex={0}
-          role="button"
-          className={styles.domainText}
-          onClick={(event) => onItemClick(event, item.domain!, 'domain')}
-        >
-          {shortenDomain(item.domain!, FULL_DOMAIN_LENGTH)}
-        </span>
-        <i
-          className={copyIconClassName}
-          aria-hidden
-          onClick={(event) => onItemClick(event, item.value, 'domain')}
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div className={buildClassName(menuStyles.itemName, styles.menuItemName)}>
-      <span
-        tabIndex={0}
-        role="button"
-        onClick={(event) => onItemClick(event, item.value, 'address')}
-      >
-        {item.address}
-      </span>
-      <i
-        className={copyIconClassName}
-        aria-hidden
-        onClick={(event) => onItemClick(event, item.value, 'address')}
-      />
-    </div>
-  );
-}
-
-function ChainName({
-  item,
-  hasDomain,
-  onItemClick,
-}: {
-  item: MenuItem;
-  hasDomain: boolean;
-  onItemClick: (e: React.MouseEvent, value: string, kind: 'address' | 'domain') => void;
-}) {
-  if (!hasDomain) {
-    return <div className={styles.chainName}>{item.chain.toUpperCase()}</div>;
-  }
-
-  return (
-    <div className={styles.chainName}>
-      <span
-        tabIndex={0}
-        role="button"
-        className={styles.addressText}
-        onClick={(event) => onItemClick(event, item.value, 'address')}
-      >
-        {item.address}
-      </span>
-      <span className={styles.separator}>·</span>
-      {item.chain.toUpperCase()}
-    </div>
-  );
-}
-
 function MenuItem({
   item,
   index,
   onItemClick,
   onExplorerClick,
+  onMenuClose,
 }: {
   item: MenuItem;
   index: number;
-  onItemClick: (e: React.MouseEvent, value: string, kind: 'address' | 'domain') => void;
-  onExplorerClick: (e: React.MouseEvent, chain: ApiChain, address: string) => void;
+  onItemClick: (address: string, kind: 'address' | 'domain') => void;
+  onExplorerClick: (chain: ApiChain, address: string) => void;
+  onMenuClose: NoneToVoidFunction;
 }) {
   const hasDomain = !!item.domain;
   const itemClassName = buildClassName(
@@ -254,28 +176,73 @@ function MenuItem({
     index > 0 && menuStyles.separator,
     styles.menuItem,
   );
+  const copyIconClassName = buildClassName(
+    `icon icon-${item.fontIcon}`,
+    menuStyles.fontIcon,
+    styles.menuFontIcon,
+  );
+
+  const handleItemClick = (e: React.MouseEvent) => {
+    if (hasDomain) {
+      onItemClick(item.domain!, 'domain');
+    } else {
+      onItemClick(item.value, 'address');
+    }
+  };
+
+  const handleAddressClick = (e: React.MouseEvent) => {
+    stopEvent(e);
+    onItemClick(item.value, 'address');
+  };
+
+  const handleExplorerClick = (e: React.MouseEvent) => {
+    stopEvent(e);
+    onMenuClose();
+    onExplorerClick(item.chain, item.value);
+  };
 
   return (
-    <div className={itemClassName}>
+    <div role="button" tabIndex={0} onClick={handleItemClick} className={itemClassName}>
       <img
         src={item.icon}
         alt=""
         className={buildClassName('icon', menuStyles.itemIcon, styles.menuIcon)}
       />
       <div className={styles.menuItemContent}>
-        <MenuItemName
-          item={item}
-          hasDomain={hasDomain}
-          onItemClick={onItemClick}
-        />
-        <ChainName item={item} hasDomain={hasDomain} onItemClick={onItemClick} />
+        <div className={buildClassName(menuStyles.itemName, styles.menuItemName)}>
+          {hasDomain ? (
+            <span className={styles.domainText}>
+              {shortenDomain(item.domain!, FULL_DOMAIN_LENGTH)}
+            </span>
+          ) : (<span>{item.address}</span>)}
+          <i className={copyIconClassName} aria-hidden />
+        </div>
+
+        <div className={styles.chainRow}>
+          {hasDomain ? (
+            <>
+              <span
+                tabIndex={0}
+                role="button"
+                className={styles.addressText}
+                onClick={handleAddressClick}
+              >
+                {item.address}
+              </span>
+              <span className={styles.separator}>·</span>
+              {item.chain.toUpperCase()}
+            </>
+          ) : (
+            item.chain.toUpperCase()
+          )}
+        </div>
       </div>
       <i
         tabIndex={0}
         role="button"
         className={buildClassName('icon icon-tonexplorer-small', styles.menuExplorerIcon)}
         aria-label={item.label}
-        onClick={(event) => onExplorerClick(event, item.chain, item.value)}
+        onClick={handleExplorerClick}
       />
     </div>
   );

@@ -222,12 +222,16 @@ extension InAppBrowserPageVC: WKNavigationDelegate, WKUIDelegate {
             return decisionHandler(.cancel)
         }
         
-        let allowedSchemes = ["itms-appss", "itms-apps", "tel", "sms", "mailto", "geo", "tg"]
+        let allowedSchemes = ["itms-appss", "itms-apps", "tel", "sms", "mailto", "geo", "tg", "mtw"]
         var shouldStart = true
         
         if let scheme = url.scheme, allowedSchemes.contains(scheme) {
             webView.stopLoading()
             openSystemUrl(url)
+            shouldStart = false
+        }
+        
+        if WalletContextManager.delegate?.handleDeeplink(url: url) ?? false {
             shouldStart = false
         }
         
@@ -354,6 +358,9 @@ extension InAppBrowserPageVC: WKScriptMessageHandler {
                 }
             case "window:open":
                 if let args = dict["args"] as? [String: Any], let urlString = args["url"] as? String, let url = URL(string: urlString) {
+                    if WalletContextManager.delegate?.handleDeeplink(url: url) ?? false {
+                        return
+                    }
                     AppActions.openInBrowser(url, title: nil, injectTonConnect: self.config.injectTonConnectBridge)
                 }
             case "window:close":

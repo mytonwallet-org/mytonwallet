@@ -132,14 +132,14 @@ let actionsRowHeight: CGFloat = IOS_26_MODE_ENABLED ? 70 : 60
         swapButton = WScalableButton(
             title: IOS_26_MODE_ENABLED ? lang("Swap") : lang("Swap").lowercased(),
             image: IOS_26_MODE_ENABLED ? .airBundle("SwapIconBold") : .airBundle("SwapIcon"),
-            onTap: { AppActions.showEarn(token: nil) }
+            onTap: { AppActions.showSwap(defaultSellingToken: nil, defaultBuyingToken: nil, defaultSellingAmount: nil, push: nil) }
         )
         addArrangedSubview(swapButton)
         
         earnButton = WScalableButton(
             title: IOS_26_MODE_ENABLED ? lang("Earn") : lang("Earn").lowercased(),
             image: IOS_26_MODE_ENABLED ? .airBundle("EarnIconBold") : .airBundle("EarnIcon"),
-            onTap: { AppActions.showSwap(defaultSellingToken: nil, defaultBuyingToken: nil, defaultSellingAmount: nil, push: nil) }
+            onTap: { AppActions.showEarn(token: nil) }
         )
         addArrangedSubview(earnButton)
         

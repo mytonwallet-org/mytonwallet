@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
+import android.os.Message
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -36,6 +37,7 @@ import org.mytonwallet.app_air.uiinappbrowser.views.InAppBrowserTopBarView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.TonConnectHelper
@@ -113,6 +115,7 @@ class InAppBrowserVC(
         wv.id = View.generateViewId()
         wv.settings.javaScriptEnabled = true
         wv.settings.domStorageEnabled = true
+        wv.settings.setSupportMultipleWindows(true)
         wv.setWebViewClient(object : WebViewClient() {
             override fun shouldOverrideUrlLoading(
                 view: WebView,
@@ -191,6 +194,10 @@ class InAppBrowserVC(
                         return true
                     } catch (_: android.content.ActivityNotFoundException) {
                     }
+                } else {
+                    val isValidDeeplink = WalletContextManager.delegate?.handleDeeplink(url)
+                    if (isValidDeeplink == true)
+                        return true
                 }
 
                 if (!url.startsWith("http://") &&
@@ -208,6 +215,20 @@ class InAppBrowserVC(
         })
         wv.setBackgroundColor(0)
         wv.setWebChromeClient(object : WebChromeClient() {
+            override fun onCreateWindow(
+                view: WebView?,
+                isDialog: Boolean,
+                isUserGesture: Boolean,
+                resultMsg: Message?
+            ): Boolean {
+                val href = view?.handler?.obtainMessage()
+                view?.requestFocusNodeHref(href)
+                href?.data?.getString("url")?.let { url ->
+                    webView.loadUrl(url)
+                }
+                return true
+            }
+
             override fun onPermissionRequest(request: PermissionRequest?) {
                 request?.let {
                     handlePermissionRequest(it)

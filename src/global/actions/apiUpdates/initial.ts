@@ -244,7 +244,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
         isLimitedRegion,
         isSwapDisabled: shouldRestrictSwapsAndOnOffRamp,
         isOnRampDisabled: shouldRestrictSwapsAndOnOffRamp,
-        isOffRampDisabled: true, // TODO Fix support and switch to server-side key
+        isOffRampDisabled: shouldRestrictSwapsAndOnOffRamp,
         isNftBuyingDisabled: shouldRestrictSwapsAndOnOffRamp,
         isCopyStorageEnabled,
         supportAccountsCount,

@@ -128,7 +128,7 @@ function DropdownButton({ lang, onMultisendClick }: { lang: LangFn; onMultisendC
   return (
     <div className={styles.headerWrapper}>
       <Button ref={contentRef} isText className={styles.headerButton} onClick={openMenu}>
-        {lang('Sell')}
+        {lang('Send')}
         <i className="icon-caret-down" aria-hidden />
       </Button>
       <DropdownMenu

@@ -84,7 +84,7 @@ function CardAddress({
     });
   }, [byChain, chains, lang]);
 
-  const handleExplorerClick = useLastCallback((e: React.MouseEvent, chain: ApiChain, address: string) => {
+  const handleExplorerClick = useLastCallback((chain: ApiChain, address: string) => {
     void openUrl(getExplorerAddressUrl(chain, address, isTestnet)!);
     closeMenu();
   });
