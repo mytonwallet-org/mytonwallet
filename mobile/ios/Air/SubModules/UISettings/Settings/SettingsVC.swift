@@ -101,7 +101,7 @@ public class SettingsVC: WViewController, Sendable, WalletCoreData.EventsObserve
         } else {
             _configuration.separatorConfiguration.color = WTheme.separator
         }
-        _configuration.separatorConfiguration.bottomSeparatorInsets.leading = 60
+        _configuration.separatorConfiguration.bottomSeparatorInsets.leading = 62
         _configuration.headerMode = .none
         
         let layout = UICollectionViewCompositionalLayout(sectionProvider: { [weak self] sectionIdx, env in
@@ -121,7 +121,7 @@ public class SettingsVC: WViewController, Sendable, WalletCoreData.EventsObserve
         collectionView.delaysContentTouches = false
         collectionView.allowsSelection = true
         
-        let listCellRegistration = WalletSettingsListCell.makeRegistration()
+        let listCellRegistration = AccountListCell.makeRegistration()
         
         dataSource = UICollectionViewDiffableDataSource<Section, Row>(collectionView: collectionView) { [weak self] (tableView, indexPath, itemIdentifier) -> UICollectionViewCell? in
             guard let self else { fatalError() }
@@ -213,6 +213,7 @@ public class SettingsVC: WViewController, Sendable, WalletCoreData.EventsObserve
             Task {
                 do {
                     _ = try await AccountStore.activateAccount(accountId: accountId)
+                    AppActions.showHome()
                 } catch {
                     fatalError("failed to activate account: \(accountId)")
                 }

@@ -12,11 +12,18 @@ import WalletCore
 import WalletContext
 import SwiftUI
 
-public class LanguageVC: WViewController {
+public class LanguageVC: WViewController, UICollectionViewDelegate {
     
-    private let isModal: Bool
-    public init(isModal: Bool = false) {
-        self.isModal = isModal
+    let languages = Language.supportedLanguages
+    
+    private var collectionView: UICollectionView!
+    private var dataSource: UICollectionViewDiffableDataSource<Section, String>?
+    
+    enum Section: Hashable {
+        case main
+    }
+    
+    public init() {
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -24,73 +31,79 @@ public class LanguageVC: WViewController {
         fatalError("init(coder:) has not been implemented")
     }
     
-    let languages = Language.supportedLanguages
-    
-    // MARK: - Load and SetupView Functions
-    public override func loadView() {
-        super.loadView()
+    public override func viewDidLoad() {
+        super.viewDidLoad()
         setupViews()
     }
     
-    private var tableView: UITableView!
     private func setupViews() {
-        title = lang("Language")
         
-        tableView = UITableView()
-        tableView.translatesAutoresizingMaskIntoConstraints = false
-        tableView.delegate = self
-        tableView.dataSource = self
-        tableView.register(SectionHeaderCell.self, forCellReuseIdentifier: "Header")
-        tableView.register(TitleSubtitleSelectableCell.self, forCellReuseIdentifier: "CurrencyCell")
-        tableView.separatorStyle = .none
-        tableView.delaysContentTouches = false
+        view.backgroundColor = WTheme.groupedBackground
         
-        view.addSubview(tableView)
+        navigationItem.title = lang("Language")
+        
+        var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
+        configuration.headerTopPadding = 24
+        let layout = UICollectionViewCompositionalLayout.list(using: configuration)
+        collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
+        collectionView.backgroundColor = WTheme.sheetBackground
+        collectionView.delegate = self
+        collectionView.delaysContentTouches = false
+        
+        collectionView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(collectionView)
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: view.topAnchor),
-            tableView.leftAnchor.constraint(equalTo: view.leftAnchor),
-            tableView.rightAnchor.constraint(equalTo: view.rightAnchor),
-            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+            collectionView.topAnchor.constraint(equalTo: view.topAnchor),
+            collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         
-        updateTheme()
-    }
-    
-    public override func updateTheme() {
-        view.backgroundColor = isModal ? WTheme.groupedBackground : WTheme.groupedBackground
-        tableView.backgroundColor = view.backgroundColor
+        let cellRegistration = LanguageCell.makeRegistration(languages: languages)
+        
+        let dataSource = UICollectionViewDiffableDataSource<Section, String>(collectionView: collectionView) { collectionView, indexPath, itemIdentifier in
+            return collectionView.dequeueConfiguredReusableCell(using: cellRegistration, for: indexPath, item: itemIdentifier)
+        }
+        self.dataSource = dataSource
+        dataSource.apply(makeSnapshot(), animatingDifferences: false)
     }
 
-    public override func scrollToTop(animated: Bool) {
-        tableView?.setContentOffset(CGPoint(x: 0, y: -tableView.adjustedContentInset.top), animated: animated)
+    func makeSnapshot() -> NSDiffableDataSourceSnapshot<Section, String> {
+        var snapshot = NSDiffableDataSourceSnapshot<Section, String>()
+        snapshot.appendSections([.main])
+        snapshot.appendItems(languages.map(\.id))
+        return snapshot
+    }
+
+    public func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
+        if let id = dataSource?.itemIdentifier(for: indexPath), id != LocalizationSupport.shared.langCode {
+            return true
+        }
+        return false
+    }
+    
+    public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        if let id = dataSource?.itemIdentifier(for: indexPath) {
+            LocalizationSupport.shared.setLanguageCode(id)
+            // do we need this?
+            UserDefaults.standard.set([id], forKey: "AppleLanguages")
+            UserDefaults.standard.synchronize()
+            WalletContextManager.delegate?.restartApp()
+        }
+    }
+    
+    public override func viewWillLayoutSubviews() {
+        // prevent unwanted animation on iOS 26
+        UIView.performWithoutAnimation {
+            collectionView.frame = view.bounds
+        }
+        super.viewWillLayoutSubviews()
     }
 }
 
-extension LanguageVC: UITableViewDelegate, UITableViewDataSource {
-    public func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return 1 + languages.count
-    }
-    public func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        if indexPath.row == 0 {
-            let cell = tableView.dequeueReusableCell(withIdentifier: "Header", for: indexPath) as! SectionHeaderCell
-            cell.configure(title: lang("Language").uppercased())
-            return cell
-        }
-        let language = languages[indexPath.row - 1]
-        let cell = tableView.dequeueReusableCell(withIdentifier: "CurrencyCell", for: indexPath) as! TitleSubtitleSelectableCell
-        cell.configure(title: language.name,
-                       subtitle: language.nativeName,
-                       isSelected: LocalizationSupport.shared.langCode == language.langCode,
-                       isFirst: indexPath.row == 1,
-                       isLast: indexPath.row == languages.count,
-                       isInModal: isModal,
-                       onSelect: {
-            LocalizationSupport.shared.setLanguageCode(language.langCode)
-            // do we need this?
-            UserDefaults.standard.set([language.id], forKey: "AppleLanguages")
-            UserDefaults.standard.synchronize()
-            WalletContextManager.delegate?.restartApp()
-        })
-        return cell
-    }
+
+@available(iOS 26, *)
+#Preview {
+    let vc = LanguageVC()
+    UINavigationController(rootViewController: vc)
 }

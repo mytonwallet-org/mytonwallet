@@ -16,4 +16,8 @@ extension Api {
     public static func importToken(accountId: String, chain: ApiChain, tokenAddress: String) async throws {
         try await bridge.callApiVoid("importToken", accountId, chain, tokenAddress)
     }
+
+    public static func buildTokenSlug(chain: ApiChain, tokenAddress: String) async throws -> String {
+        try await bridge.callApi("buildTokenSlug", chain, tokenAddress, decoding: String.self)
+    }
 }

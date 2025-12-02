@@ -30,20 +30,20 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
         case .primary:
             UIColor.white // FIXME: Doesn't work for white theme color
         case .secondary:
-            WTheme.tint
+            .tintColor
         case .clearBackground:
-            WTheme.tint
+            .tintColor
         default:
-            WTheme.tint
+            .tintColor
         }
     }
     
     var backgroundColor: UIColor {
         switch style {
         case .primary:
-            WTheme.tint
+            .tintColor
         case .secondary:
-            WTheme.tint.withAlphaComponent(0.15)
+            .tintColor.withAlphaComponent(0.15)
         case .clearBackground:
             .clear
         default:
@@ -52,33 +52,12 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
     }
     
     public func makeBody(configuration: Configuration) -> some View {
-        let commonContent = HStack  {
-            if !isShowingLoadingIndicator {
-                configuration.label
-                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
-            } else {
-                loadingIndicator
-                    .rotationEffect(angle)
-                    .onAppear {
-                        withAnimation(.linear(duration: 0.625).repeatForever(autoreverses: false)) {
-                            angle += .radians(2 * .pi)
-                        }
-                    }
-                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
-            }
-        }
-        .font(Font(WButton.font))
-        .foregroundStyle(Color(textColor))
-        .opacity(isEnabled && isTouching ? 0.5 : 1)
-        .frame(height: 50)
-        .frame(maxWidth: .infinity)
-
         Group {
             if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-                commonContent
+                content(configuration: configuration)
                     .glassEffect(Glass.regular.tint(Color(backgroundColor)).interactive(isEnabled), in: .capsule)
             } else {
-                commonContent
+                content(configuration: configuration)
                     .background(Color(backgroundColor), in: .rect(cornerRadius: WButton._borderRadius))
             }
         }
@@ -104,6 +83,29 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
         }
     }
     
+    func content(configuration: Configuration) -> some View {
+        HStack  {
+            if !isShowingLoadingIndicator {
+                configuration.label
+                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
+            } else {
+                loadingIndicator
+                    .rotationEffect(angle)
+                    .onAppear {
+                        withAnimation(.linear(duration: 0.625).repeatForever(autoreverses: false)) {
+                            angle += .radians(2 * .pi)
+                        }
+                    }
+                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
+            }
+        }
+        .font(Font(WButton.font))
+        .foregroundStyle(Color(textColor))
+        .opacity(isEnabled && isTouching ? 0.5 : 1)
+        .frame(height: IOS_26_MODE_ENABLED ? 52 : 50)
+        .frame(maxWidth: .infinity)
+    }
+    
     var loadingIndicator: some View {
         Image.airBundle("ActivityIndicator")
             .renderingMode(.template)
@@ -126,7 +128,7 @@ public extension EnvironmentValues {
     @Previewable @State var isLoading = false
     
     Button(action: {}) {
-        Text("Helldo")
+        Text("Hello")
     }
     .buttonStyle(.airPrimary)
     .environment(\.isLoading, isLoading)

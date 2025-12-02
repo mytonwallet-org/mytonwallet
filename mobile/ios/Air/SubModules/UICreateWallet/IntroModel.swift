@@ -151,6 +151,7 @@ private let log = Log("IntroActions")
         Task { @MainActor in
             if WalletContextManager.delegate?.isWalletReady == true {
                 topWViewController()?.dismiss(animated: true)
+                AppActions.showHome()
             } else {
                 let homeVC = HomeTabBarController()
                 AppActions.transitionToNewRootViewController(homeVC, animationDuration: 0.35)
