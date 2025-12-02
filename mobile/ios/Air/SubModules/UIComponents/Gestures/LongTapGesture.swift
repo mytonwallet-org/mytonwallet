@@ -5,7 +5,7 @@ import SwiftUI
 
 extension View {
     @ViewBuilder
-    public func longTapGesture(
+    public func longTapGesture_ios18(
         isEnabled: Bool,
         onLongTap: @escaping () -> (),
     ) -> some View {
@@ -14,13 +14,7 @@ extension View {
                 CustomLongTapGesture(isEnabled: isEnabled, onLongTap: onLongTap)
             )
         } else {
-            simultaneousGesture(
-                LongPressGesture(minimumDuration: 0.25, maximumDistance: 10)
-                    .onEnded { _ in
-                        onLongTap()
-                    },
-                isEnabled: isEnabled
-            )
+            self
         }
     }
 }

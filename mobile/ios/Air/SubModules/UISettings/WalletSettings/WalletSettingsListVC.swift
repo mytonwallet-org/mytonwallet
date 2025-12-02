@@ -120,7 +120,7 @@ final class WalletSettingsListVC: WViewController, WSegmentedControllerContent, 
                 .margins(.all, 0)
             }
         }
-        let listCellRegistration = WalletSettingsListCell.makeRegistration()
+        let listCellRegistration = AccountListCell.makeRegistration()
         let emptyCellRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, Void> { [filter, viewModel] cell, _, _ in
             cell.configurationUpdateHandler = { cell, state in
                 cell.contentConfiguration = UIHostingConfiguration {
@@ -226,6 +226,7 @@ final class WalletSettingsListVC: WViewController, WSegmentedControllerContent, 
                 Task {
                     _ = try await accountStore.activateAccount(accountId: accountId)
                     topViewController()?.dismiss(animated: true)
+                    AppActions.showHome()
                 }
             } else {
                 topViewController()?.dismiss(animated: true)

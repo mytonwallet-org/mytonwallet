@@ -11,8 +11,9 @@ public extension MAccount {
             formatStartEndAddress(firstAddress ?? "")
         }
         #if DEBUG
-        let id = id.split(separator: "-")[0]
-        return "[\(id)] \(displayName)"
+//        let id = id.split(separator: "-")[0]
+//        return "[\(id)] \(displayName)"
+        return displayName
         #else
         return displayName
         #endif

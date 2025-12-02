@@ -138,9 +138,6 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
         view.backgroundColor = viewModel.isFullscreenPreviewOpen ? .black : WTheme.sheetBackground
     }
     
-//    public override var prefersStatusBarHidden: Bool {
-//        viewModel.isExpanded
-//    }
     
     public override func viewSafeAreaInsetsDidChange() {
         super.viewSafeAreaInsetsDidChange()

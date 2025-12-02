@@ -24,7 +24,7 @@ public class HomeTabBarController: UITabBarController, WThemedView {
     
     public enum Tab: Int {
         case home
-        case browser
+        case explore
         case settings
     }
 
@@ -220,7 +220,7 @@ public class HomeTabBarController: UITabBarController, WThemedView {
     }
     
     func tabChanged(to selectedIndex: Int) {
-        tabBarBorder?.isHidden = selectedIndex == Tab.browser.rawValue
+        tabBarBorder?.isHidden = selectedIndex == Tab.explore.rawValue
     }
 
     public var currentTab: Tab {
@@ -237,6 +237,14 @@ public class HomeTabBarController: UITabBarController, WThemedView {
         }
     }
     
+    public func switchToHome() {
+        selectedIndex = Tab.home.rawValue
+    }
+    
+    public func switchToExplore() {
+        selectedIndex = Tab.explore.rawValue
+    }
+
     private func addBlurEffectBackground() {
         blurView = WBlurView()
         tabBar.insertSubview(blurView, at: 0)
@@ -268,9 +276,6 @@ public class HomeTabBarController: UITabBarController, WThemedView {
     }
     
     private func accountChanged() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.025) {
-            self.selectedIndex = Tab.home.rawValue
-        }
         if let presentedViewController, presentedViewController.description.contains("UIInAppBrowser"), isSheetMinimized {
             dismiss(animated: true)
         }
@@ -534,7 +539,7 @@ extension HomeTabBarController: UITabBarControllerDelegate {
         if viewController === selectedViewController  {
             scrollToTop(tabVC: viewController)
         }
-        tabBarBorder?.isHidden = selectedIndex == Tab.browser.rawValue
+        tabBarBorder?.isHidden = selectedIndex == Tab.explore.rawValue
         return true
     }
     

@@ -155,7 +155,7 @@ private struct ItemView: View {
             }
         }
         .contentShape(.rect)
-        .longTapGesture(isEnabled: true, onLongTap: onCopy)
+        .longTapGesture_ios18(isEnabled: true, onLongTap: onCopy)
     }
     
     func onCopy() {

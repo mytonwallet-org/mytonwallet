@@ -270,6 +270,14 @@ public class AssetsAndActivityVC: WViewController {
         addTokenView.backgroundColor = WTheme.groupedItem
     }
     
+    public override func viewWillLayoutSubviews() {
+        // prevent unwanted animation on iOS 26
+        UIView.performWithoutAnimation {
+            tableView.frame = view.bounds
+        }
+        super.viewWillLayoutSubviews()
+    }
+    
     public override func scrollToTop(animated: Bool) {
         tableView?.setContentOffset(CGPoint(x: 0, y: -tableView.adjustedContentInset.top), animated: animated)
     }

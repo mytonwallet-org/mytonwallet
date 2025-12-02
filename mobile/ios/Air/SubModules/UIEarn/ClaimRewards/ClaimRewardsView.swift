@@ -78,8 +78,10 @@ struct ClaimRewardsButtonContent: View {
         HStack(spacing: 10) {
             icon
             labels
-            claimButton
-                .padding(.trailing, 5)
+            if (AccountStore.account?.supportsEarn == true) {
+                claimButton
+                    .padding(.trailing, 5)
+            }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 10)

@@ -60,7 +60,7 @@ public struct InsetButtonCell<Label: View>: View {
     public var horizontalPadding: CGFloat?
     public var verticalPadding: CGFloat?
     public var action: () -> ()
-    public var label: () -> Label
+    public var label: Label
     
     @State private var isTouching = false
     
@@ -69,13 +69,13 @@ public struct InsetButtonCell<Label: View>: View {
         self.horizontalPadding = horizontalPadding
         self.verticalPadding = verticalPadding
         self.action = action
-        self.label = label
+        self.label = label()
     }
     
     public var body: some View {
         Button(action: action) {
             InsetCell(horizontalPadding: horizontalPadding, verticalPadding: verticalPadding) {
-                label()
+                label
                     .frame(maxWidth: .infinity, alignment: alignment)
                     .foregroundStyle(Color(WTheme.tint))
                     .tint(Color(WTheme.tint))

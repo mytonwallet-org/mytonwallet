@@ -301,6 +301,15 @@ extension SplashVC: DeeplinkNavigator {
                 
             case .receive:
                 AppActions.showReceive(chain: nil, showBuyOptions: nil, title: nil)
+
+            case .explore:
+                AppActions.showExplore()
+
+            case .tokenSlug(slug: let slug):
+                AppActions.showTokenBySlug(slug)
+
+            case .tokenAddress(chain: let chain, tokenAddress: let tokenAddress):
+                AppActions.showTokenByAddress(chain: chain, tokenAddress: tokenAddress)
             }
             
         } else {
