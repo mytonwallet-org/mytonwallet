@@ -209,7 +209,7 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
             DispatchQueue.main.async { [weak self] in
                 guard let self else {return}
                 balanceView.set(balance: walletToken?.balance ?? 0,
-                                currency: walletToken?.token?.symbol,
+                                currency: token.symbol,
                                 tokenDecimals: token.decimals,
                                 decimalsCount: tokenDecimals(for: walletToken?.balance ?? 0, tokenDecimals: token.decimals),
                                 animated: nil)

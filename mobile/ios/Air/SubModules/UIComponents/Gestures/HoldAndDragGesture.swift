@@ -16,7 +16,7 @@ extension View {
                 HoldAndDragGesture(isEnabled: isEnabled, onBegan: onBegan, onChanged: onChanged, onEnded: onEnded)
             )
         } else {
-            self.simultaneousGesture(
+            self.gesture(
                 LongPressGesture(minimumDuration: 0.25, maximumDistance: 10)
                     .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .global))
                     .onChanged { v in

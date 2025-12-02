@@ -57,6 +57,7 @@ class EarnHeaderCell: UITableViewCell, WThemedView {
         let btn = WButton(style: .primary)
         btn.setTitle(lang("Add Stake"), for: .normal)
         btn.addTarget(self, action: #selector(addStakePressed), for: .touchUpInside)
+        btn.isEnabled = AccountStore.account?.supportsEarn == true
         return btn
     }()
     
@@ -64,6 +65,7 @@ class EarnHeaderCell: UITableViewCell, WThemedView {
         let btn = WButton(style: .secondary)
         btn.setTitle(lang("Unstake"), for: .normal)
         btn.addTarget(self, action: #selector(unstakePressed), for: .touchUpInside)
+        btn.isEnabled = AccountStore.account?.supportsEarn == true
         return btn
     }()
     

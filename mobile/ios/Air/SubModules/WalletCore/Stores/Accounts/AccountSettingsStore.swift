@@ -16,10 +16,10 @@ private let log = Log("AccountSettings")
 @Perceptible
 public final class AccountSettingsStore {
     
-    var _byAccountId: [String: AccountSettings] = [:]
+    private var _byAccountId: UnfairLock<[String: AccountSettings]> = .init(initialState: [:])
     
     @PerceptionIgnored
-    @Dependency(\.accountStore) var accountStore
+    @Dependency(\.accountStore) private var accountStore
     
     init() {
         Task {
@@ -28,25 +28,20 @@ public final class AccountSettingsStore {
     }
     
     @concurrent func preload() async {
-        let start = Date()
-        defer {
-            let t = Date().timeIntervalSince(start)
-            if t > 0.00001 {
-                print("init", t, t > 0.001 ? "!!!" : t > 0.0001 ? "!" : "")
-            }
-        }
         for accountId in accountStore.accountsById.keys {
             _ = `for`(accountId: accountId)
         }
     }
     
     public func `for`(accountId: String) -> AccountSettings {
-        if let s = _byAccountId[accountId] {
-            return s
-        } else {
-            let s = AccountSettings(accountId: accountId)
-            _byAccountId[accountId] = s
-            return s
+        access(keyPath: \.__byAccountId)
+        return _byAccountId.withLock { _byAccountId in
+            if let settings = _byAccountId[accountId] {
+                return settings
+            }
+            let settings = AccountSettings(accountId: accountId)
+            _byAccountId[accountId] = settings
+            return settings
         }
     }
 }

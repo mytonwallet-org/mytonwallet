@@ -23,6 +23,9 @@ enum Deeplink {
     case switchToClassic
     case transfer
     case receive
+    case explore
+    case tokenSlug(slug: String)
+    case tokenAddress(chain: String, tokenAddress: String)
 }
 
 protocol DeeplinkNavigator: AnyObject {
@@ -187,6 +190,23 @@ class DeeplinkHandler {
         case "receive":
             deeplinkNavigator?.handle(deeplink: .receive)
             
+        case "explore":
+            deeplinkNavigator?.handle(deeplink: .explore)
+
+        case "token":
+            // Supports: mtw://token/{slug} or mtw://token/{chain}/{tokenAddress}
+            let pathComponents = url.pathComponents.filter { $0 != "/" }
+            if pathComponents.count >= 2 {
+                // mtw://token/{chain}/{tokenAddress}
+                let chain = pathComponents[0]
+                let tokenAddress = pathComponents[1]
+                deeplinkNavigator?.handle(deeplink: .tokenAddress(chain: chain, tokenAddress: tokenAddress))
+            } else if pathComponents.count == 1 {
+                // mtw://token/{slug}
+                let slug = pathComponents[0]
+                deeplinkNavigator?.handle(deeplink: .tokenSlug(slug: slug))
+            }
+
         default:
             break
         }

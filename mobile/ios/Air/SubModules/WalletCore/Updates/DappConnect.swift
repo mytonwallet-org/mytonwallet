@@ -17,3 +17,16 @@ extension ApiUpdate {
         public let proof: ApiTonConnectProof?
     }
 }
+
+#if DEBUG
+extension  ApiUpdate.DappConnect {
+    public static let sample = ApiUpdate.DappConnect(
+        identifier: "identifier",
+        promiseId: "promiseId",
+        accountId: "2-mainnet",
+        dapp: .sample,
+        permissions: ApiUpdate.DappConnect.Permissions(address: true, proof: true),
+        proof: ApiTonConnectProof(timestamp: 1717171717, domain: "domain", payload: "payload"),
+    )
+}
+#endif

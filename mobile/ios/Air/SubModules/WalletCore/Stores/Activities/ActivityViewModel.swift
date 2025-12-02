@@ -31,6 +31,7 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
     @MainActor public var activitiesById: [String: ApiActivity]?
     @MainActor public var idsByDate: OrderedDictionary<Date, [String]>?
     @MainActor public var isEndReached: Bool?
+    @MainActor public var isEmpty: Bool?
     @MainActor public var snapshot: NSDiffableDataSourceSnapshot<Section, Row>!
 
     public weak var delegate: ActivityViewModelDelegate?
@@ -115,6 +116,7 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
             self.activitiesById = activitiesById
             self.idsByDate = idsByDate
             self.isEndReached = isEndReached
+            self.isEmpty = isEndReached == true && idsByDate?.isEmpty != false
             self.snapshot = snapshot
         }
         await delegate?.activityViewModelChanged()

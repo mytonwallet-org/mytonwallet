@@ -73,13 +73,13 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         set { _walletVersionsData.withLock { $0 = newValue } }
     }
     
-    /// Observable
+    // MARK: Observable
+    
     public var currentAccountId: String {
         access(keyPath: \._accountId)
         return accountId ?? DUMMY_ACCOUNT.id
     }
     
-    /// Observable
     public private(set) var orderedAccountIds: OrderedSet<String> {
         get {
             access(keyPath: \._orderedAccountIds)
@@ -92,11 +92,15 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         }
     }
         
-    /// Observable
     public var orderedAccounts: [MAccount] {
         access(keyPath: \._accountsById)
         let accountsById = accountsById
         return orderedAccountIds.compactMap { accountsById[$0] }
+    }
+    
+    public func get(accountId: String) -> MAccount {
+        access(keyPath: \._accountsById)
+        return accountsById[accountId] ?? DUMMY_ACCOUNT
     }
 
     // MARK: - Database

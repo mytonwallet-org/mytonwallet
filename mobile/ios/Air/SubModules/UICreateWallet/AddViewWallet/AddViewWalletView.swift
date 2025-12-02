@@ -59,7 +59,7 @@ struct AddViewWalletView: View {
     
     @ViewBuilder
     var description: some View {
-        Text(langMd("$import_view_account_note"))
+        Text(langMd("$import_view_account_note", arg1: langFormattedEnumeration(items: ApiChain.allCases.map({ $0.symbol }), joiner: "or")))
             .font(.system(size: 17))
             .multilineTextAlignment(.center)
             .fixedSize(horizontal: false, vertical: true)

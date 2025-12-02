@@ -110,7 +110,7 @@ struct SignDataView: View {
     var warningView: some View {
         WarningView(
             text: lang("The binary data content is unclear. Sign it only if you trust the service."),
-            color: .orange,
+            kind: .warning,
         )
         .padding(.horizontal, 16)
     }

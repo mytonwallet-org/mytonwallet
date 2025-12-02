@@ -28,3 +28,14 @@ public extension UIApplication {
             .compactMap { $0 as? WWindow }
     }
 }
+
+public extension UIViewController {
+    func configureSheetWithOpaqueBackground(color: UIColor) {
+        if let sheet = sheetPresentationController {
+            if #available(iOS 26.1, *) {
+                sheet.backgroundEffect = UIColorEffect(color: color)
+            }
+        }
+        view.backgroundColor = color
+    }
+}

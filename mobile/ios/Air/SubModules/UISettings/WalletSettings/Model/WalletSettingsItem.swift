@@ -48,3 +48,26 @@ final class WalletSettingsItemViewModel {
         return nil
     }
 }
+
+@Perceptible
+final class AccountCurrentMtwCardProvider {
+    
+    let accountId: String
+    var imageUrl: URL?
+    
+    init(accountId: String) {
+        self.accountId = accountId
+        if let nft, let url = nft.metadata?.mtwCardBackgroundUrl {
+            imageUrl = url
+        } else  {
+            imageUrl = nil
+        }
+    }
+    
+    var nft: ApiNft? {
+        if let data = GlobalStorage["settings.byAccountId.\(accountId).cardBackgroundNft"], let nft = try? JSONSerialization.decode(ApiNft.self, from: data) {
+            return nft
+        }
+        return nil
+    }
+}

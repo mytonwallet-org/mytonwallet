@@ -23,7 +23,10 @@ public struct MStakingData: Equatable, Hashable, Codable, Sendable, FetchableRec
 
 extension MStakingData {
     public var tonState: ApiStakingState? {
-        stateById.values.first { $0.tokenSlug == TONCOIN_SLUG }
+        stateById.values.first { state in
+            state.tokenSlug == TONCOIN_SLUG &&
+            (shouldUseNominators == true ? state.type == .nominators : state.type == .liquid)
+        }
     }
     public var tonLiquid: ApiStakingStateLiquid? {
         for state in stateById.values {

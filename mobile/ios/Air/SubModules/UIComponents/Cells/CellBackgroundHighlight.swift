@@ -8,11 +8,15 @@
 import SwiftUI
 import WalletContext
 
-struct CellBaclgroundHighlight: View {
+public struct CellBackgroundHighlight: View {
     
     var isHighlighted: Bool
     
-    var body: some View {
+    public init(isHighlighted: Bool) {
+        self.isHighlighted = isHighlighted
+    }
+    
+    public var body: some View {
         Rectangle()
             .fill(isHighlighted ? Color.air.highlight : Color.air.groupedItem)
             .animation(.linear(duration: isHighlighted ? 0.1 : 0.5), value: isHighlighted)

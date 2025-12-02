@@ -246,6 +246,7 @@ public class SwitchAccountVC: WViewController {
             do {
                 _ = try await AccountStore.activateAccount(accountId: account.id)
                 self.dismiss(animated: false)
+                AppActions.showHome()
             } catch {
                 fatalError("failed to activate account: \(account.id)")
             }

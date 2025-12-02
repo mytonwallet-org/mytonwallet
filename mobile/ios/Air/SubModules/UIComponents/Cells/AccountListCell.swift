@@ -1,5 +1,5 @@
 //
-//  WalletSettingsListCell.swift
+//  AccountListCell.swift
 //  MyTonWalletAir
 //
 //  Created by nikstar on 04.11.2025.
@@ -8,29 +8,36 @@
 import UIKit
 import WalletCore
 import WalletContext
-import UIComponents
 import SwiftUI
 import Dependencies
 import Perception
 import OrderedCollections
 import Kingfisher
 
-struct WalletSettingsListCell: View {
+let borderWidth = 1.5
+let avatarSize = 40.0
+
+public struct AccountListCell: View {
     
-    let viewModel: WalletSettingsItemViewModel
+    let viewModel: AccountViewModel
     var isReordering: Bool
+    var showCurrentAccountHighlight: Bool
     
     @State private var _isReordering = false
     
-    private let avatarSize: CGFloat = 40
+    public init(viewModel: AccountViewModel, isReordering: Bool, showCurrentAccountHighlight: Bool) {
+        self.viewModel = viewModel
+        self.isReordering = isReordering
+        self.showCurrentAccountHighlight = showCurrentAccountHighlight
+    }
     
-    var body: some View {
+    public var body: some View {
         WithPerceptionTracking {
-            HStack(alignment: .center, spacing: 12) {
+            HStack(alignment: .center, spacing: 10) {
                 selectionCircle
                     .frame(width: avatarSize, height: avatarSize)
                 HStack(spacing: 4) {
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 0) {
                         HStack(alignment: .center, spacing: 6) {
                             Text(viewModel.account.displayName)
                                 .font(.system(size: 16, weight: .medium))
@@ -38,11 +45,13 @@ struct WalletSettingsListCell: View {
                                 .allowsTightening(true)
                                 .foregroundStyle(Color.air.primaryLabel)
                                 .layoutPriority(1)
-                            CardMiniature(viewModel: viewModel.cardProvider)
+                            CardMiniature(viewModel: viewModel)
                         }
-                         ListAddressLine(addressLine: viewModel.account.addressLine)
+                        .frame(height: 22)
+                        ListAddressLine(addressLine: viewModel.account.addressLine)
                             .lineLimit(1)
                             .foregroundStyle(Color.air.secondaryLabel)
+                            .frame(height: 18)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     
@@ -55,6 +64,7 @@ struct WalletSettingsListCell: View {
                         ListBalanceView(viewModel: viewModel)
                             .fixedSize()
                             .transition(.opacity.combined(with: .offset(x: -16)))
+                            .frame(height: 22)
                     }
                 }
                 .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
@@ -72,14 +82,14 @@ struct WalletSettingsListCell: View {
     private var selectionCircle: some View {
         AccountIcon(account: viewModel.account)
             .overlay {
-                if viewModel.isCurrent {
+                if showCurrentAccountHighlight && viewModel.isCurrent {
                     Circle()
                         .strokeBorder(lineWidth: borderWidth)
                         .blendMode(.destinationOut)
                 }
             }
             .background {
-                if viewModel.isCurrent {
+                if showCurrentAccountHighlight && viewModel.isCurrent {
                     Circle()
                         .strokeBorder(lineWidth: borderWidth)
                         .foregroundStyle(Color.air.tint)
@@ -92,8 +102,7 @@ struct WalletSettingsListCell: View {
 
 private struct ListBalanceView: View {
     
-    var viewModel: WalletSettingsItemViewModel
-    @State private var cols = (6...12).randomElement()!
+    var viewModel: AccountViewModel
     
     var body: some View {
         WithPerceptionTracking {
@@ -106,24 +115,8 @@ private struct ListBalanceView: View {
             }
         }
     }
-}
-
-extension WalletSettingsListCell {
-    static func makeRegistration() -> UICollectionView.CellRegistration<UICollectionViewListCell, String> {
-        UICollectionView.CellRegistration<UICollectionViewListCell, String> { cell, _, accountId in
-            let viewModel = WalletSettingsItemViewModel(accountId: accountId)
-            cell.configurationUpdateHandler = { cell, state in
-                cell.contentConfiguration = UIHostingConfiguration {
-                    WalletSettingsListCell(viewModel: viewModel, isReordering: state.isEditing)
-                }
-                .background {
-                    CellBaclgroundHighlight(isHighlighted: state.isHighlighted)
-                }
-                .margins(.horizontal, 12)
-                .margins(.vertical, 10)
-            }
-        }
-    }
+    
+    var cols: Int { 6 + (abs(viewModel.accountId.hashValue) % 6) }
 }
 
 private struct ListAddressLine: View {
@@ -132,5 +125,23 @@ private struct ListAddressLine: View {
     
     var body: some View {
         MtwCardAddressLine(addressLine: addressLine, style: .list)
+    }
+}
+
+public extension AccountListCell {
+    static func makeRegistration() -> UICollectionView.CellRegistration<UICollectionViewListCell, String> {
+        UICollectionView.CellRegistration<UICollectionViewListCell, String> { cell, _, accountId in
+            let viewModel = AccountViewModel(accountId: accountId)
+            cell.configurationUpdateHandler = { cell, state in
+                cell.contentConfiguration = UIHostingConfiguration {
+                    AccountListCell(viewModel: viewModel, isReordering: state.isEditing, showCurrentAccountHighlight: true)
+                }
+                .background {
+                    CellBackgroundHighlight(isHighlighted: state.isHighlighted)
+                }
+                .margins(.horizontal, 12)
+                .margins(.vertical, 10)
+            }
+        }
     }
 }

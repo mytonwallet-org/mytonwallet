@@ -32,13 +32,14 @@ struct SettingsItem: Equatable, Identifiable {
     }
     
     let id: Identifier
-    let icon: UIImage?
-    let title: String
+    var icon: UIImage?
+    var highlightIcon: Bool = true
+    var title: String
     var subtitle: String? = nil
     var value: String? = nil
-    let hasPrimaryColor: Bool
-    let hasChild: Bool
-    let isDangerous: Bool
+    var hasPrimaryColor: Bool
+    var hasChild: Bool
+    var isDangerous: Bool
 }
 
 
@@ -49,6 +50,7 @@ extension SettingsItem.Identifier {
             return SettingsItem(
                 id: .editWalletName,
                 icon: UIImage.airBundle("EditWalletNameIcon").withRenderingMode(.alwaysTemplate),
+                highlightIcon: false,
                 title: lang("Edit Wallet Name"),
                 hasPrimaryColor: true,
                 hasChild: false,
@@ -83,6 +85,7 @@ extension SettingsItem.Identifier {
             return SettingsItem(
                 id: .walletSettings,
                 icon: UIImage(systemName: "ellipsis"),
+                highlightIcon: false,
                 title: lang("Show All Wallets"),
                 hasPrimaryColor: true,
                 hasChild: false,
@@ -92,6 +95,7 @@ extension SettingsItem.Identifier {
             return SettingsItem(
                 id: .addAccount,
                 icon: UIImage.airBundle("AddAccountIcon").withRenderingMode(.alwaysTemplate),
+                highlightIcon: false,
                 title: lang("Add Account"),
                 hasPrimaryColor: true,
                 hasChild: false,

@@ -8,7 +8,6 @@
 import UIKit
 import WalletCore
 import WalletContext
-import UIComponents
 import SwiftUI
 import Dependencies
 import Perception
@@ -17,13 +16,13 @@ import Kingfisher
 
 struct CardMiniature: View {
     
-    let viewModel: AccountCurrentMtwCardProvider
+    let viewModel: AccountViewModel
     
     private let cardPreviewSize = CGSize(width: 22, height: 14)
     
     var body: some View {
         WithPerceptionTracking {
-            if let imageUrl = viewModel.imageUrl {
+            if let imageUrl = viewModel.nft?.metadata?.mtwCardBackgroundUrl {
                 ZStack {
                     Color.clear
                     KFImage(source: .network(imageUrl))
@@ -44,27 +43,3 @@ struct CardMiniature: View {
         }
     }
 }
-
-@Perceptible
-final class AccountCurrentMtwCardProvider {
-    
-    let accountId: String
-    var imageUrl: URL?
-    
-    init(accountId: String) {
-        self.accountId = accountId
-        if let nft, let url = nft.metadata?.mtwCardBackgroundUrl {
-            imageUrl = url
-        } else  {
-            imageUrl = nil
-        }
-    }
-    
-    var nft: ApiNft? {
-        if let data = GlobalStorage["settings.byAccountId.\(accountId).cardBackgroundNft"], let nft = try? JSONSerialization.decode(ApiNft.self, from: data) {
-            return nft
-        }
-        return nil
-    }
-}
-

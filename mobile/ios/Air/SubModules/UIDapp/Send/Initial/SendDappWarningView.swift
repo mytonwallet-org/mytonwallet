@@ -10,7 +10,7 @@ import Kingfisher
 struct SendDappWarningView: View {
     
     var body: some View {
-        WarningView(text: lang("$hardware_payload_warning"), color: .orange)
+        WarningView(text: lang("$hardware_payload_warning"), kind: .warning)
             .fontWeight(.medium)
     }
 }

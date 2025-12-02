@@ -517,7 +517,7 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
     }
 
     public func updateEmptyView() {
-        if activityViewModel?.activitiesById?.isEmpty == true {
+        if activityViewModel?.isEmpty == true {
             emptyWalletView.set(state: .empty(address: account?.firstAddress ?? ""), animated: true)
         } else {
             emptyWalletView.set(state: .hidden, animated: true)

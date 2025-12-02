@@ -47,9 +47,20 @@ extension View {
     public func font17h22() -> some View {
         self
             .font(.body)
-            .lineSpacing(2)
-            .padding(.top, 1)
-            .padding(.bottom, 1)
+            .lineSpacing(1)
+            .frame(minHeight: 22)
+    }
+    
+    public func airFont15h18(weight: Font.Weight) -> some View {
+        self
+            .font(.system(size: 15, weight: weight))
+            .frame(minHeight: 18)
+    }
+    
+    public func airFont24h32(weight: Font.Weight) -> some View {
+        self
+            .font(.system(size: 24, weight: weight))
+            .frame(minHeight: 32)
     }
     
     public func navigationBarInset(_ inset: CGFloat?) -> some View {

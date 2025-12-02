@@ -27,6 +27,11 @@ private class AppActionsImpl: AppActionsProtocol {
     
     @Dependency(\.sensitiveData) private static var sensitiveData
     
+    static var tabVC: HomeTabBarController? {
+        let windows = UIApplication.shared.sceneWindows
+        return windows.compactMap { $0.rootViewController as? HomeTabBarController }.first
+    }
+    
     static func copyString(_ string: String?, toastMessage: String) {
         if let string {
             UIPasteboard.general.setItems([[
@@ -43,8 +48,6 @@ private class AppActionsImpl: AppActionsProtocol {
     }
     
     static func lockApp(animated: Bool) {
-        let windows = UIApplication.shared.sceneWindows
-        let tabVC = windows.compactMap { $0.rootViewController as? HomeTabBarController }.first
         if let tabVC {
             tabVC._showLock(animated: animated)
         }
@@ -212,10 +215,6 @@ private class AppActionsImpl: AppActionsProtocol {
     }
     
     static func showEarn(token: ApiToken?) {
-        if AccountStore.account?.supportsEarn != true {
-            topViewController()?.showAlert(error: BridgeCallError.customMessage(lang("Staking is not supported in Testnet."), nil))
-            return
-        }
         let earnVC = EarnRootVC(token: token)
         topViewController()?.present(WNavigationController(rootViewController: earnVC), animated: true)
     }
@@ -224,6 +223,10 @@ private class AppActionsImpl: AppActionsProtocol {
         if let error {
             topViewController()?.showAlert(error: error)
         }
+    }
+    
+    static func showExplore() {
+        tabVC?.switchToExplore()
     }
     
     static func showHiddenNfts() {
@@ -241,9 +244,11 @@ private class AppActionsImpl: AppActionsProtocol {
         }
     }
     
+    static func showHome() {
+        tabVC?.switchToHome()
+    }
+
     static func showImportWalletVersion() -> () {
-        let windows = UIApplication.shared.sceneWindows
-        let tabVC = windows.compactMap { $0.rootViewController as? HomeTabBarController }.first
         let settingsVC = tabVC?.viewControllers?
             .compactMap { $0 as? UINavigationController}
             .first { nc in nc.viewControllers.first is SettingsVC }
@@ -288,13 +293,59 @@ private class AppActionsImpl: AppActionsProtocol {
             topWViewController()?.navigationController?.pushViewController(tokenVC, animated: true)
         }
     }
+
+    static func showTokenByAddress(chain: String, tokenAddress: String) {
+        guard let accountId = AccountStore.accountId else { return }
+        guard let apiChain = ApiChain(rawValue: chain) else { return }
+
+        Task {
+            do {
+                let slug = try await Api.buildTokenSlug(chain: apiChain, tokenAddress: tokenAddress)
+                guard let token = TokenStore.getToken(slug: slug) else {
+                    await MainActor.run {
+                        topViewController()?.showAlert(error: BridgeCallError.customMessage(lang("$unknown_token_address"), nil))
+                    }
+                    return
+                }
+                await MainActor.run {
+                    presentOrPushToken(accountId: accountId, token: token)
+                }
+            } catch {
+                await MainActor.run {
+                    topViewController()?.showAlert(error: BridgeCallError.customMessage(lang("$unknown_token_address"), nil))
+                }
+            }
+        }
+    }
+
+    static func showTokenBySlug(_ slug: String) {
+        guard let accountId = AccountStore.accountId else { return }
+        guard let token = TokenStore.getToken(slug: slug) else {
+            topViewController()?.showAlert(error: BridgeCallError.customMessage(lang("$unknown_token_address"), nil))
+            return
+        }
+        presentOrPushToken(accountId: accountId, token: token)
+    }
+
+    private static func presentOrPushToken(accountId: String, token: ApiToken) {
+        Task {
+            let tokenVC: TokenVC = await TokenVC(accountId: accountId,
+                                                 token: token,
+                                                 isInModal: tabVC?.selectedViewController?.children.first is HomeVC != true)
+            if let nav = (topViewController() as? HomeTabBarController)?.selectedViewController as? UINavigationController,
+               nav.viewControllers.first is HomeVC {
+                nav.pushViewController(tokenVC, animated: true)
+            } else {
+                topViewController()?.present(WNavigationController(rootViewController: tokenVC), animated: true)
+            }
+        }
+    }
     
     static func showUpgradeCard() {
         AppActions.openInBrowser(URL(string:  "https://getgems.io/collection/EQCQE2L9hfwx1V8sgmF9keraHx1rNK9VmgR1ctVvINBGykyM")!, title: "MyTonWallet NFT Cards", injectTonConnect: true)
     }
     
     static func showWalletSettings() {
-        guard IS_DEBUG_OR_TESTFLIGHT else { return }
         let vc = WalletSettingsVC()
         let nc = WNavigationController(rootViewController: vc)
         topViewController()?.present(nc, animated: true)
