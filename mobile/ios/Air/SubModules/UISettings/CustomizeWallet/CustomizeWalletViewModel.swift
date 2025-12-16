@@ -74,10 +74,7 @@ struct AccountInfo {
     }
     
     var balance: BaseCurrencyAmount? {
-        if let totalBalance = balanceData[selectedAccountId]?.totalBalance {
-            return BaseCurrencyAmount.fromDouble(totalBalance, baseCurrency)
-        }
-        return nil
+        balanceData[selectedAccountId]?.totalBalance
     }
 }
 

@@ -57,7 +57,7 @@ public class WLineChartView: LineChartView {
             let point = gestureRecognizer.location(in: gestureRecognizer.view)
             guard let highlight = getHighlightByTouchPoint(point) else { return }
             if highlighted.first?.x != highlight.x {
-                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                Haptics.play(.selection)
             }
             highlightValue(highlight)
             onHighlightChange?(highlight)

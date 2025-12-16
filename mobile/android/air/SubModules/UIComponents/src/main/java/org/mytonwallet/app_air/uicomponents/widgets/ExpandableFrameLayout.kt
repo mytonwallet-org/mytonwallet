@@ -8,6 +8,8 @@ import androidx.core.view.children
 import me.vkryl.android.animatorx.BoolAnimator
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.exactly
+import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 
 open class ExpandableFrameLayout @JvmOverloads constructor(
@@ -52,13 +54,10 @@ open class ExpandableFrameLayout @JvmOverloads constructor(
     var internalHeight: Int = 0
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val child = children.first()
-        child.measure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED))
+        child.measure(widthMeasureSpec, 0.unspecified)
 
         val expansion = animator.floatValue
         internalHeight = child.measuredHeight
-        super.onMeasure(
-            widthMeasureSpec,
-            MeasureSpec.makeMeasureSpec((internalHeight * expansion).toInt(), MeasureSpec.EXACTLY)
-        )
+        super.onMeasure(widthMeasureSpec, (internalHeight * expansion).toInt().exactly)
     }
 }

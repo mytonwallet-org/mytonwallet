@@ -48,43 +48,10 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
     
     private func setupViews() {
         
-        let title = switch model.nftSendMode {
-        case .burn:
-            lang("Burn")
-        default:
-            lang("Is it all ok?")
-        }
-        var backButtonAction: (() -> ())? = nil 
-        if model.nftSendMode != .burn {
-            backButtonAction = { [weak self] in
-                self?.navigationController?.popViewController(animated: true)
-            }
-        }
-        addNavigationBar(
-            centerYOffset: 1,
-            title: title,
-            closeIcon: true,
-            addBackButton: backButtonAction)
-        navigationBarProgressiveBlurDelta = 12
+        navigationItem.title = model.nftSendMode == .burn ? lang("Burn") : lang("Is it all ok?")
+        addCloseNavigationItemIfNeeded()
         
-        let hostingController = UIHostingController(
-            rootView: SendConfirmView(
-                model: model,
-                navigationBarInset: navigationBarHeight,
-                onScrollPositionChange: { [weak self] y in self?.updateNavigationBarProgressiveBlur(y) }
-            )
-        )
-        hostingController.view.backgroundColor = .clear
-        addChild(hostingController)
-        view.addSubview(hostingController.view)
-        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            hostingController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            hostingController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            hostingController.view.topAnchor.constraint(equalTo: view.topAnchor),
-            hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-        ])
-        hostingController.didMove(toParent: self)
+        _ = addHostingController(SendConfirmView(model: model), constraints: .fill)
 
         continueButton.translatesAutoresizingMaskIntoConstraints = false
         let continueTitle = switch model.nftSendMode {
@@ -123,8 +90,6 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
             goBackButton.bottomAnchor.constraint(equalTo: continueButton.bottomAnchor),
             goBackButton.widthAnchor.constraint(equalTo: continueButton.widthAnchor),
         ])
-        
-        bringNavigationBarToFront()
         
         updateTheme()
     }

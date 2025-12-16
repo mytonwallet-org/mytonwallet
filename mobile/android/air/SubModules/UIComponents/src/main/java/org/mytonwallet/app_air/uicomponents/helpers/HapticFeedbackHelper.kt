@@ -5,7 +5,16 @@ import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 
+/**
+ * @deprecated Use [Haptics] instead for consistent haptic feedback across the app.
+ *
+ * Migration guide:
+ * - `HapticFeedbackHelper(context).provideHapticFeedback()` → `Haptics.play(view, HapticType.LIGHT_TAP)`
+ * - `HapticFeedbackHelper(context).provideErrorFeedback()` → `Haptics.play(view, HapticType.ERROR)`
+ */
+@Deprecated("Use Haptics object instead", ReplaceWith("Haptics.play(view, HapticType.LIGHT_TAP)"))
 class HapticFeedbackHelper(val context: Context) {
+    @Deprecated("Use Haptics.play(view, HapticType.LIGHT_TAP)", ReplaceWith("Haptics.play(view, HapticType.LIGHT_TAP)"))
     fun provideHapticFeedback(duration: Long = 35) {
         try {
             val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
@@ -20,6 +29,7 @@ class HapticFeedbackHelper(val context: Context) {
         }
     }
 
+    @Deprecated("Use Haptics.play(view, HapticType.ERROR)", ReplaceWith("Haptics.play(view, HapticType.ERROR)"))
     fun provideErrorFeedback() {
         try {
             val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator

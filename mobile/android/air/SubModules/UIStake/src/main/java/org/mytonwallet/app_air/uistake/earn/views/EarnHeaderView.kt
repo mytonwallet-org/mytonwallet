@@ -62,6 +62,7 @@ class EarnHeaderView(
 
     private val sizeSpan = RelativeSizeSpan(28f / 36f)
     private val colorSpan = WForegroundColorSpan()
+    private val fractionalColorSpan = WForegroundColorSpan()
 
     private val separatorBackgroundDrawable: SeparatorBackgroundDrawable by lazy {
         SeparatorBackgroundDrawable().apply {
@@ -114,7 +115,7 @@ class EarnHeaderView(
     }
 
     private val unstakeButton: WButton by lazy {
-        val wButton = WButton(context, WButton.Type.PRIMARY).apply {
+        val wButton = WButton(context, WButton.Type.SECONDARY_WITH_BACKGROUND).apply {
             text = LocaleController.getString("Unstake")
             isEnabled = AccountStore.activeAccount?.accountType != MAccount.AccountType.VIEW
             setOnClickListener {
@@ -200,6 +201,7 @@ class EarnHeaderView(
         }
         amountTextView.contentView.setTextColor(WColor.PrimaryText.color)
         colorSpan.color = WColor.SecondaryText.color
+        fractionalColorSpan.color = WColor.SecondaryText.color
         messageLabel.setTextColor(WColor.SecondaryText.color)
         amountSkeletonView.setBackgroundColor(
             if (ThemeManager.uiMode.hasRoundedCorners) WColor.SecondaryText.color
@@ -226,7 +228,8 @@ class EarnHeaderView(
         unstakeButton.alpha = 0f
     }
 
-    fun showInnerViews(shouldShowStakeButton: Boolean, shouldShowUnstakeButton: Boolean) {
+    fun showInnerViews(shouldShowStakeButton: Boolean, shouldShowUnstakeButton: Boolean,
+                       shouldShowBiggerUnstakeButton: Boolean) {
         amountTextView.visibility = VISIBLE
         messageLabel.visibility = VISIBLE
         addStakeButton.visibility = VISIBLE
@@ -241,6 +244,12 @@ class EarnHeaderView(
             })
         }
 
+        addStakeButton.layoutParams.width =
+            if (shouldShowBiggerUnstakeButton)
+                ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+            else
+                150.dp
+
         if (addStakeButton.alpha == 1f)
             return
         Handler(Looper.getMainLooper()).postDelayed({
@@ -251,10 +260,13 @@ class EarnHeaderView(
     }
 
     @SuppressLint("SetTextI18n")
-    fun setStakingBalance(balance: String, tokenSymbol: String) {
+    fun setStakingBalance(balance: String, tokenSymbol: String, isLargeAmount: Boolean) {
         amountTextView.contentView.text = "$balance $tokenSymbol".let {
             val ssb = SpannableStringBuilder(it)
             CoinUtils.setSpanToFractionalPart(ssb, sizeSpan)
+            if (isLargeAmount) {
+                CoinUtils.setSpanToFractionalPart(ssb, fractionalColorSpan)
+            }
             CoinUtils.setSpanToSymbolPart(ssb, colorSpan)
             ssb
         }

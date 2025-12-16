@@ -103,7 +103,7 @@ public struct TokenAmountEntrySection: View {
     
     private var decimals: Int {
         if switchedToBaseCurrencyInput {
-            TokenStore.baseCurrency.decimalsCount ?? 2
+            TokenStore.baseCurrency.decimalsCount
         } else {
             token?.decimals ?? 9
         }

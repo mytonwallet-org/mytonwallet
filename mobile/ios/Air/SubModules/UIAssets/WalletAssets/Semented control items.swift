@@ -4,15 +4,19 @@ import UIKit
 import UIComponents
 import WalletCore
 import WalletContext
+import Dependencies
 
-@MainActor func configureCollectiblesMenu(menuContext: MenuContext, onReorder: @escaping () -> ()) {
+@MainActor func configureCollectiblesMenu(accountSource: AccountSource, menuContext: MenuContext, onReorder: @escaping () -> ()) {
     menuContext.makeConfig = {
         var items: [MenuItem] = []
-        let accountId = AccountStore.accountId ?? ""
+        
+        @Dependency(\.accountStore) var accountStore
+        
+        let accountId = accountStore.resolveAccountId(source: accountSource)
         let collections = NftStore.getCollections(accountId: accountId)
         let gifts = collections.telegramGiftsCollections
         let notGifts = collections.notTelegramGiftsCollections
-        let hasHidden = NftStore.currentAccountHasHiddenNfts
+        let hasHidden = NftStore.getAccountHasHiddenNfts(accountId: accountId)
         
         if !gifts.isEmpty {
             items += .button(
@@ -33,7 +37,7 @@ import WalletContext
                         id: "0-" + collection.id,
                         title: collection.name,
                         action: {
-                            AppActions.showAssets(selectedTab: 1, collectionsFilter: .collection(collection))
+                            AppActions.showAssets(accountSource: accountSource, selectedTab: 1, collectionsFilter: .collection(collection))
                         },
                         reportWidth: idx < 8
                     )
@@ -43,7 +47,7 @@ import WalletContext
         
         if hasHidden {
             items += .button(id: "0-hidden", title: lang("Hidden NFTs"), trailingIcon: .air("MenuHidden26")) {
-                AppActions.showHiddenNfts()
+                AppActions.showHiddenNfts(accountSource: accountSource)
             }
             items += .wideSeparator()
         }
@@ -56,7 +60,10 @@ import WalletContext
     }
     menuContext.makeSubmenuConfig = {
         var items: [MenuItem] = []
-        let accountId = AccountStore.accountId ?? ""
+        
+        @Dependency(\.accountStore) var accountStore
+        
+        let accountId = accountStore.resolveAccountId(source: accountSource)
         let collections = NftStore.getCollections(accountId: accountId)
         let gifts = collections.telegramGiftsCollections
         
@@ -72,13 +79,13 @@ import WalletContext
         items += .wideSeparator()
         
         items += .button(id: "1-all-gifts", title: lang("All Telegram Gifts"), trailingIcon: .air("MenuGift")) {
-            AppActions.showAssets(selectedTab: 1, collectionsFilter: .telegramGifts)
+            AppActions.showAssets(accountSource: accountSource, selectedTab: 1, collectionsFilter: .telegramGifts)
         }
         
         items += gifts.map { collection in
-                .button(id: "1-" + collection.id, title: collection.name) {
-                    AppActions.showAssets(selectedTab: 1, collectionsFilter: .collection(collection))
-                }
+            .button(id: "1-" + collection.id, title: collection.name) {
+                AppActions.showAssets(accountSource: accountSource, selectedTab: 1, collectionsFilter: .collection(collection))
+            }
         }
         
         return MenuConfig(submenuId: "1", menuItems: items)

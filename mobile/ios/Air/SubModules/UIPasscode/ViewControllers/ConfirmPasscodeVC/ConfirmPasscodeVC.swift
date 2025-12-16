@@ -154,10 +154,11 @@ extension ConfirmPasscodeVC: PasscodeInputViewDelegate {
 @available(iOS 18.0, *)
 #Preview {
     let _ = UIFont.registerAirFonts()
+    let setVC = SetPasscodeVC(onCompletion: { _, _, _ in})
     UINavigationController(
         rootViewController: ConfirmPasscodeVC(
             onCompletion: { _, _, _ in },
-            setPasscodeVC: SetPasscodeVC(onCompletion: { _, _, _ in}),
+            setPasscodeVC: setVC,
             selectedPasscode: "1111")
     )
 }

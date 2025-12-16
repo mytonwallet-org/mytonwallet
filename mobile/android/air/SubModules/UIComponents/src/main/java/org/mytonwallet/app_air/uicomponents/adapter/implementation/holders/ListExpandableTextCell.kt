@@ -14,14 +14,15 @@ import org.mytonwallet.app_air.uicomponents.adapter.BaseListHolder
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.Item
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.CopyTextView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 
 class ListExpandableTextCell @JvmOverloads constructor(
     context: Context,
@@ -107,7 +108,7 @@ class ListExpandableTextCell @JvmOverloads constructor(
         val textWidth = width - paddingLeft - paddingRight
 
         moreButtonView.measure(0, 0)
-        textViewFull.measure(MeasureSpec.makeMeasureSpec(textWidth, MeasureSpec.EXACTLY), 0)
+        textViewFull.measure(textWidth.exactly, 0)
 
         /*if (textViewFull.text != mLastKey) {
             mLastKey = textViewFull.text
@@ -115,12 +116,7 @@ class ListExpandableTextCell @JvmOverloads constructor(
                 textViewHidden.text = TextUtils.ellipsize(t, textViewFull.paint, textViewFull.measuredWidth - moreButtonView.measuredWidth - 8f.dp, TextUtils.TruncateAt.END)
             }
         }*/
-        textViewHidden.measure(
-            MeasureSpec.makeMeasureSpec(
-                textWidth - moreButtonView.measuredWidth - 8.dp,
-                MeasureSpec.EXACTLY
-            ), 0
-        )
+        textViewHidden.measure((textWidth - moreButtonView.measuredWidth - 8.dp).exactly, 0)
 
         val currentHeight = fromTo(
             textViewHidden.measuredHeight,

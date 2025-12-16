@@ -7,7 +7,7 @@ let MENU_EDGE_PADDING: CGFloat = 4
 private let distanceFromAnchor: CGFloat = 8
 
 @Perceptible
-public final class MenuContext: @unchecked Sendable {
+@MainActor public final class MenuContext: Sendable {
     
     @PerceptionIgnored
     public var sourceView: UIView? = nil
@@ -22,8 +22,12 @@ public final class MenuContext: @unchecked Sendable {
     public var menuShown: Bool = false
     var submenuId = "0"
     var visibleSubmenus: Set<String> = []
+    
+    @PerceptionIgnored
     public var minWidth: CGFloat? = 180.0
+    @PerceptionIgnored
     public var maxWidth: CGFloat? = 280.0
+    @PerceptionIgnored
     public var verticalOffset: CGFloat = 0
     
     @PerceptionIgnored
@@ -43,18 +47,22 @@ public final class MenuContext: @unchecked Sendable {
     
     func update(location: CGPoint) {
         currentLocation = location
+        let previousItem = currentItem
         for (id, frame) in locations {
             if id.hasPrefix(submenuId) && frame.contains(location) {
                 if id != currentItem {
                     currentItem = id
-                    UISelectionFeedbackGenerator().selectionChanged()
+                    // Only play haptic when changing FROM one item to another (not on initial touch)
+                    if previousItem != nil {
+                        Haptics.play(.selection)
+                    }
                 }
                 return
             }
         }
         if currentItem != nil {
             currentItem = nil
-            UISelectionFeedbackGenerator().selectionChanged()
+            Haptics.play(.selection)
         }
     }
     

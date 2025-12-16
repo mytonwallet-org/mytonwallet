@@ -11,7 +11,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.animation.doOnEnd
@@ -31,6 +30,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.asImage
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -50,6 +50,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.MHistoryTimePeriod
 import org.mytonwallet.app_air.walletbasecontext.utils.formatDateAndTime
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
+import org.mytonwallet.app_air.walletbasecontext.utils.thinSpace
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
@@ -198,8 +199,7 @@ class TokenChartCell(
         setSelectedIndex(MHistoryTimePeriod.allPeriods.indexOf(activePeriod))
     }
 
-    private val segmentedControlGroupContainer = FrameLayout(context).apply {
-        id = generateViewId()
+    private val segmentedControlGroupContainer = WFrameLayout(context).apply {
         setPadding(8.dp, 8.dp, 8.dp, 20.dp)
         addView(segmentedControlGroup, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         setOnClickListener {}
@@ -488,8 +488,8 @@ class TokenChartCell(
                     if (priceChangeLabel.alpha == 0f)
                         priceChangeLabel.fadeIn()
                     priceChangeLabel.text =
-                        (if (percentChange!! > 0) "+" else "").plus(
-                            percentChange.toString().plus("%")
+                        (if (percentChange!! > 0) "+$thinSpace" else if (percentChange!! < 0) "-$thinSpace" else "").plus(
+                            kotlin.math.abs(percentChange!!).toString().plus("%")
                         )
                     priceChangeLabel.setTextColor(if (percentChange!! > 0) WColor.Green.color else if (percentChange!! < 0) WColor.Red.color else WColor.SecondaryText.color)
                 } else {

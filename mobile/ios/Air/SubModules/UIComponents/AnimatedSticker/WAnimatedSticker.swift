@@ -81,7 +81,7 @@ public class WAnimatedSticker: UIView {
     }
     
     public func playOnce() {
-        animatedSticker?.playIfNeeded()
+        _ = animatedSticker?.playIfNeeded()
     }
 }
 

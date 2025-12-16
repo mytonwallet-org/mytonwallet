@@ -1,5 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.base
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.graphics.Color
@@ -18,6 +20,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.material.bottomSheetBehavior.BottomSheetBehavior
 import org.mytonwallet.app_air.uicomponents.widgets.material.bottomSheetBehavior.BottomSheetBehavior.BottomSheetCallback
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import java.lang.ref.WeakReference
@@ -174,24 +177,34 @@ class WNavigationController(
         }
     }
 
-    private var isDisappeared = true
+    var isDisappeared = true
+        private set
+
     fun viewWillAppear() {
-        if (!isDisappeared)
-            return
-        isDisappeared = false
-        unblockTouches()
+        Logger.i(Logger.LogTag.SCREEN, "NavWillAppear: ${hashCode()}")
+        if (isDisappeared) {
+            isDisappeared = false
+            unblockTouches()
+        }
         viewControllers.lastOrNull()?.viewWillAppear()
     }
 
     fun viewWillDisappear() {
-        if (isDisappeared)
-            return
+        Logger.i(Logger.LogTag.SCREEN, "NavWillDisappear: ${hashCode()}")
         isDisappeared = true
         viewControllers.last().viewWillDisappear()
     }
 
     fun viewDidAppear() {
-        viewControllers.lastOrNull()?.viewDidAppear()
+        viewControllers.lastOrNull()?.apply {
+            if (isDisappeared)
+                viewWillAppear()
+            viewDidAppear()
+        }
+    }
+
+    fun viewDidEnterForeground() {
+        viewControllers.lastOrNull()?.viewDidEnterForeground()
     }
 
     override fun updateTheme() {
@@ -259,17 +272,23 @@ class WNavigationController(
             viewController.view.alpha = 0f
             viewController.view.translationX = 48f * LocaleController.rtlMultiplier
 
+            var ended = false
             val animation = viewController.view.animate()
                 .alpha(1f)
                 .translationX(0f)
                 .setDuration(AnimationConstants.NAV_PUSH)
                 .setInterpolator(WInterpolator.emphasized)
-                .withEndAction {
-                    isAnimating = false
-                    WGlobalStorage.decDoNotSynchronize()
-                    unblockTouches()
-                    onEnd()
-                }
+                .setListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        if (ended)
+                            return
+                        ended = true
+                        isAnimating = false
+                        WGlobalStorage.decDoNotSynchronize()
+                        unblockTouches()
+                        onEnd()
+                    }
+                })
             viewController.view.post {
                 isAnimating = true
                 WGlobalStorage.incDoNotSynchronize()
@@ -451,6 +470,23 @@ class WNavigationController(
         if (keptFirstViewControllers > 0) {
             viewControllers[keptFirstViewControllers].swipeTouchListener?.behindView =
                 WeakReference(viewControllers[keptFirstViewControllers - 1].view)
+        }
+    }
+
+    fun removeViewController(removingVC: WViewController) {
+        if (viewControllers.lastOrNull() == removingVC) {
+            pop()
+        } else {
+            removingVC.viewWillDisappear()
+            if (removingVC.view.parent == this)
+                removeView(removingVC.view)
+            removingVC.onDestroy()
+            val index = viewControllers.indexOf(removingVC)
+            if (index > 0) {
+                viewControllers.getOrNull(index + 1)?.swipeTouchListener?.behindView =
+                    WeakReference(viewControllers[index - 1].view)
+            }
+            viewControllers.remove(removingVC)
         }
     }
 

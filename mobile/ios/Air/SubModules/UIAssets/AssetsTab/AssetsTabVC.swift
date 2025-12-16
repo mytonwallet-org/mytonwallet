@@ -18,11 +18,15 @@ public class AssetsTabVC: WViewController, WSegmentedController.Delegate, Wallet
         case nfts
     }
     
-    // MARK: - View Model and UI Components
+    private let accountIdProvider: AccountIdProvider
+    
+    var accountId: String { accountIdProvider.accountId }
+    
     private var segmentedController: WSegmentedController!
     private let defaultTabIndex: Int
 
-    public init(defaultTabIndex: Int) {
+    public init(accountSource: AccountSource, defaultTabIndex: Int) {
+        self.accountIdProvider = AccountIdProvider(source: accountSource)
         self.defaultTabIndex = defaultTabIndex
         super.init(nibName: nil, bundle: nil)
     }
@@ -46,12 +50,14 @@ public class AssetsTabVC: WViewController, WSegmentedController.Delegate, Wallet
 
     func setupViews() {
         
-        navigationItem.rightBarButtonItem = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { _ in
-            topViewController()?.dismiss(animated: true)
-        })
-        
-        let tokensVC = WalletTokensVC(compactMode: false)
-        let nftsVC = NftsVC(compactMode: false, filter: .none, topInset: 0)
+        if let sheet = self.sheetPresentationController {
+            sheet.setValue(true, forKey: "wantsFullScreen")
+            sheet.setValue(true, forKey: "allowsInteractiveDismissWhenFullScreen")
+            sheet.prefersGrabberVisible = true
+        }
+                
+        let tokensVC = WalletTokensVC(accountSource: accountIdProvider.source, compactMode: false)
+        let nftsVC = NftsVC(accountSource: accountIdProvider.source, compactMode: false, filter: .none, topInset: 0)
         addChild(tokensVC)
         addChild(nftsVC)
         tokensVC.didMove(toParent: self)
@@ -88,14 +94,25 @@ public class AssetsTabVC: WViewController, WSegmentedController.Delegate, Wallet
         segmentedController.separator.isHidden = true
         segmentedController.blurView.isHidden = true
         
-        if let segmentedControl = segmentedController.segmentedControl {
-            segmentedControl.removeFromSuperview()
-            navigationItem.titleView = segmentedControl
-        }
+        addCloseNavigationItemIfNeeded()
+        configureNavigationItemWithTransparentBackground()
+        addCustomNavigationBarBackground()
+        
+        let segmentedControl = segmentedController.segmentedControl!
+        segmentedControl.removeFromSuperview()
+        navigationItem.titleView = segmentedControl
+        segmentedControl.widthAnchor.constraint(equalToConstant: 200).isActive = true
         
         updateTheme()
     }
 
+    public override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        if let sheet = self.sheetPresentationController {
+            sheet.setValue(true, forKey: "allowsInteractiveDismissWhenFullScreen")
+        }
+    }
+    
     public override func updateTheme() {
         view.backgroundColor = WTheme.pickerBackground
         segmentedController?.updateTheme()

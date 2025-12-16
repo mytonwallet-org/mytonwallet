@@ -25,7 +25,7 @@ interface OwnProps {
 
 function Site({
   site: {
-    url, icon, name, description, isExternal, isVerified, extendedIcon, withBorder, badgeText,
+    url, icon, name, description, isExternal, isVerified, extendedIcon, withBorder, badgeText, borderColor,
   },
   isFeatured,
   isInList,
@@ -47,42 +47,51 @@ function Site({
     }
   }
 
-  return (
-    <div
-      className={buildClassName(
-        styles.item,
-        (extendedIcon && isFeatured) && styles.extended,
-        isFeatured && styles.featured,
-        !isInList && withBorder && styles.withBorder,
-        className,
-      )}
-      tabIndex={isSelected ? 0 : -1}
-      role={role || 'button'}
-      aria-selected={isSelected}
-      onClick={handleClick}
-      onKeyDown={handleKeyDown}
-    >
-      <Image
-        url={extendedIcon && isFeatured ? extendedIcon : icon}
-        className={buildClassName(styles.imageWrapper, !isFeatured && styles.imageWrapperScalable)}
-        imageClassName={buildClassName(styles.image, isFeatured && styles.featuredImage)}
-      />
-      <div className={buildClassName(styles.infoWrapper, !isFeatured && styles.wide)}>
-        <b className={styles.title}>
-          {name}
+  const borderStyle = !isInList && withBorder && borderColor
+    ? `--color-site-border: linear-gradient(270deg, ${borderColor.join(', ')})`
+    : undefined;
 
-          {!isFeatured && isTelegramUrl(url) && (
-            <i className={buildClassName(styles.titleIcon, 'icon-telegram-filled')} aria-hidden />
-          )}
-          {isFeatured && isVerified && (
-            <i className={buildClassName(styles.titleIcon, 'icon-verification')} aria-hidden />
-          )}
-          {isInList && badgeText && <div className={styles.badgeLabel}>{badgeText}</div>}
-        </b>
-        <div className={styles.description}>{renderText(description, ['simple_markdown'])}</div>
+  return (
+    <div className={styles.itemWrapper} style={borderStyle}>
+      <div
+        className={buildClassName(
+          styles.item,
+          (extendedIcon && isFeatured) && styles.extended,
+          isFeatured && styles.featured,
+          !isInList && withBorder && styles.withBorder,
+          className,
+        )}
+        tabIndex={isSelected ? 0 : -1}
+        role={role || 'button'}
+        aria-selected={isSelected}
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
+      >
+        <Image
+          url={extendedIcon && isFeatured ? extendedIcon : icon}
+          className={buildClassName(styles.imageWrapper, !isFeatured && styles.imageWrapperScalable)}
+          imageClassName={buildClassName(styles.image, isFeatured && styles.featuredImage)}
+        />
+        <div className={buildClassName(styles.infoWrapper, !isFeatured && styles.wide)}>
+          <b className={styles.title}>
+            {name}
+
+            {!isFeatured && isTelegramUrl(url) && (
+              <i className={buildClassName(styles.titleIcon, 'icon-telegram-filled')} aria-hidden />
+            )}
+            {isFeatured && isVerified && (
+              <i className={buildClassName(styles.titleIcon, 'icon-verification')} aria-hidden />
+            )}
+            {isInList && badgeText && <div className={styles.badgeLabel}>{badgeText}</div>}
+          </b>
+          <div className={styles.description}>{renderText(description, ['simple_markdown'])}</div>
+        </div>
+        {isInList && <div className={styles.button}>{lang('Open')}</div>}
       </div>
-      {isInList && <div className={styles.button}>{lang('Open')}</div>}
-      {!isInList && badgeText && <div className={styles.badge}>{badgeText}</div>}
+
+      {!isInList && badgeText && (
+        <div className={buildClassName(styles.badge, isFeatured && styles.featuredBadge)}>{badgeText}</div>
+      )}
     </div>
   );
 }

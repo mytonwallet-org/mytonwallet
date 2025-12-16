@@ -37,7 +37,8 @@ enum class WColor {
     SearchFieldBackground,
     Transparent,
     White,
-    Black;
+    Black,
+    Icon;
 
     companion object {
         @Deprecated("use WColor.BackgroundRipple")

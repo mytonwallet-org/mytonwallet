@@ -14,13 +14,13 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
     public enum Section: Equatable, Hashable, Sendable {
         case headerPlaceholder
         case firstRow
-        case transactions(Date)
+        case transactions(String, Date)
         case emptyPlaceholder
     }
     public enum Row: Equatable, Hashable, Sendable {
         case headerPlaceholder
         case firstRow
-        case transaction(String)
+        case transaction(String, String)
         case loadingMore
         case emptyPlaceholder
     }
@@ -139,8 +139,8 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
 
         if let idsByDate {
             for (date, ids) in idsByDate {
-                snapshot.appendSections([.transactions(date)])
-                snapshot.appendItems(ids.map(Row.transaction))
+                snapshot.appendSections([.transactions(accountId, date)])
+                snapshot.appendItems(ids.map { Row.transaction(accountId, $0) } )
             }
         }
         if let idsByDate, !idsByDate.isEmpty, isEndReached != true {
@@ -152,13 +152,13 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
         }
 
         let ids = Set(snapshot.itemIdentifiers.compactMap {
-            if case .transaction(let id) = $0 {
+            if case .transaction(_, let id) = $0 {
                 return id
             }
             return nil
         })
         let updatedIds = updatedIds.filter { ids.contains($0) }
-        snapshot.reconfigureItems(updatedIds.map(Row.transaction))
+        snapshot.reconfigureItems(updatedIds.map { Row.transaction(accountId, $0) })
 
         return snapshot
     }
@@ -171,7 +171,7 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
 
     private func handleEvent(_ event: WalletCoreData.Event) async {
         switch event {
-        case .activitiesChanged(let accountId, let updatedIds, let replacedIds):
+        case .activitiesChanged(let accountId, let updatedIds, _):
             if accountId == self.accountId {
                 await getState(updatedIds: updatedIds)
             }

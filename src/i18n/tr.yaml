@@ -28,7 +28,7 @@ Change: Değiştir
 "%1$d Secret Words": "%1$d Gizli Kelime"
 Secret Words: Gizli Kelimelerden
 $auth_import_mnemonic_description: |
-  Cüzdanınıza erişimi, cüzdanı oluştururken not ettiğiniz **12 veya 24 gizli kelimeyi** girerek geri yükleyebilirsiniz.
+  Cüzdanınıza erişimi, cüzdanı oluştururken not ettiğiniz **%counts% gizli kelimeyi** girerek geri yükleyebilirsiniz.
 Let’s make sure your secrets words are recorded correctly.: Gizli kelimelerinizin doğru kaydedildiğinden emin olun.
 $check_words_description: Şimdi, gizli kelimelerinizi doğru yazıp yazmadığınızı kontrol edelim.
 $mnemonic_list_description: Bu kelimeleri **doğru sırayla** yazın ve **güvenli bir yerde** saklayın.
@@ -86,6 +86,8 @@ Is there a community?: Topluluğunuz var mı?
 $about_wallet_community: Elbette, topluluğumuza %community_link% üzerinden erişebilirsiniz.
 $about_community_link_text: "**Telegram kanalı**"
 Currency History: Para birimi geçmişi
+Net Worth: Net Değer
+Price: Fiyat
 Enter Password: Şifre girin
 Send: Gönder
 Add Wallet: Cüzdan ekleyin
@@ -133,6 +135,10 @@ Sign: İmzala
 Done!: Tamamlandı!
 Signing was confirmed!: İmza onaylandı!
 Transaction Info: İşlem bilgileri
+Activity Details: Aktivite Detayları
+No activities found: Aktivite bulunamadı
+Transaction not found: İşlem bulunamadı
+Failed to fetch transaction: İşlem getirilemedi
 Transaction in progress: İşlem devam ediyor
 Comment was copied!: Açıklama kopyalandı!
 Sender: Gönderici
@@ -388,7 +394,7 @@ Your address on another blockchain: Başka bir blockchaindeki adresiniz
 Please provide an address of your wallet in %blockchain% blockchain to receive bought tokens.: Satın alınan jetonları almak için lütfen %blockchain% blockchain'deki cüzdanınızın adresini girin.
 The time for sending coins is over.: Coin'leri gönderme süresi sona erdi.
 You have not sent the coins to the specified address.: Coin'leri belirtilen adrese göndermediniz.
-$swap_changelly_to_ton_description1: "%value% tutarını %time% içinde %blockchain% blok zincirindeki bu adrese göndermelisiniz"
+$swap_changelly_to_wallet_description1: "%value% tutarını %time% içinde %blockchain% blok zincirindeki bu adrese göndermelisiniz"
 Exchange failed and coins were refunded to your wallet.: Takas başarısız oldu ve işlem tutarı cüzdanınıza iade edildi.
 $swap_changelly_kyc_security: "Lütfen **%email%** ile iletişime geçin ve KYC prosedürünü geçmek için **İşlem Kimliğini** sağlayın:"
 Swap Expired: Takas işleminin süresi doldu
@@ -399,7 +405,7 @@ $swap_changelly_terms_of_use: kullanım şartları
 $swap_changelly_privacy_policy: gizlilik politikası
 Password must contain %length% digits.: Parola %length% hane içermelidir.
 Deposit Link: Para yatırma bağlantısı
-$swap_changelly_from_ton_description: "Yakında %blockchain% blockchain'deki adresinize jetonlar gönderilecek:"
+$swap_changelly_from_wallet_description: "Yakında %blockchain% blockchain'deki adresinize jetonlar gönderilecek:"
 Please note that it may take up to a few hours for tokens to appear in your wallet.: Lütfen, token'ların cüzdanınızda görünmesinin birkaç saat sürebileceğini unutmayın.
 Minimum amount: Minimum %value%
 Maximum amount: Maksimum %value%
@@ -708,8 +714,6 @@ Request is sent!: İstek gönderildi!
 Transaction ID: İşlem Kimliği
 Help Center: Yardım Merkezi
 MyTonWallet Tips: MyTonWallet İpuçları
-$auth_import_24_mnemonic_description: |
-  Cüzdanınıza erişimi, cüzdanı oluştururken not ettiğiniz **24 gizli kelimeyi** girerek geri yükleyebilirsiniz.
 Open %nft_marketplace%: "%nft_marketplace%'ı aç"
 Link was copied!: Bağlantı kopyalandı!
 Share Link: Bağlantıyı Paylaş
@@ -787,14 +791,13 @@ Transferable: Aktarılabilir
 Easily send your upgraded card to any of your friends.: Yükseltilmiş kartınızı kolayca herhangi bir arkadaşınıza gönderin.
 Tradable: Ticaret Yapılabilir
 Sell or auction your card on third-party NFT marketplaces.: Kartınızı üçüncü taraf NFT pazarlarında satın veya açık artırmaya çıkarın.
-Upgrade for %currency% %amount%: "%currency% %amount% karşılığında yükseltme"
+Upgrade for %amount% %currency%: "%amount% %currency% karşılığında yükseltme"
 "%amount% left": "%amount% kaldı"
 "%amount% sold": "%amount% satıldı"
 This card has been sold out: Bu kart tükendi
 Import Existing Wallet: Mevcut Cüzdanı İçe Aktar
 View Any Address: Herhangi Bir Adresi Görüntüle
-12/24 Secret Words: 12/24 Gizli Kelime
-24 Secret Words: 24 Gizli Kelime
+"%counts% Secret Words": "%counts% Gizli Kelime"
 Wallet Address or Domain: Cüzdan Adresi veya Alan Adı
 $import_view_account_note: "%chains% ağındaki **herhangi bir adresi** **Görüntüleme Modu**'nda açmak için girin."
 $view_mode: Görüntüle
@@ -1012,3 +1015,4 @@ Choose Wallet: Cüzdan seç
 Wallet to use on %host%: '%host% için cüzdan'
 Selected Wallet: Seçili cüzdan
 Connect Wallet: Cüzdanı bağla
+Insufficient Fee: Yetersiz ücret

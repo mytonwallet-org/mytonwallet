@@ -27,7 +27,7 @@ Change: Change
 "%1$d Secret Words": "%1$d Secret Words"
 Secret Words: Secret Words
 $auth_import_mnemonic_description: |
-  You can restore access to your wallet by entering the **12 or 24 secret words** that you wrote down when creating the wallet.
+  You can restore access to your wallet by entering the **%counts% secret words** that you wrote down when creating the wallet.
 Let’s make sure your secrets words are recorded correctly.: Let’s make sure your secrets words are recorded correctly.
 $check_words_description: Now let’s check that you wrote your secret words correctly.
 $mnemonic_list_description: Write down these words in the **correct order** and store them in a **secure place**.
@@ -85,6 +85,8 @@ Is there a community?: Is there a community?
 $about_wallet_community: Sure, welcome to our %community_link%.
 $about_community_link_text: "**Telegram channel**"
 Currency History: Currency History
+Net Worth: Net Worth
+Price: Price
 Enter Password: Enter Password
 Send: Send
 Add Wallet: Add Wallet
@@ -131,6 +133,10 @@ Sign: Sign
 Done!: Done!
 Signing was confirmed!: Signing was confirmed!
 Transaction Info: Transaction Info
+Activity Details: Activity Details
+No activities found: No activities found
+Transaction not found: Transaction not found
+Failed to fetch transaction: Failed to fetch transaction
 Transaction in progress: Transaction in progress
 Comment was copied!: Comment was copied!
 Sender: Sender
@@ -384,7 +390,7 @@ Your address on another blockchain: Your address on another blockchain
 Please provide an address of your wallet in %blockchain% blockchain to receive bought tokens.: Please provide an address of your wallet in %blockchain% blockchain to receive bought tokens.
 The time for sending coins is over.: The time for sending coins is over.
 You have not sent the coins to the specified address.: You have not sent the coins to the specified address.
-$swap_changelly_to_ton_description1: Send %value% to this address in %blockchain% blockchain within %time%
+$swap_changelly_to_wallet_description1: Send %value% to this address in %blockchain% blockchain within %time%
 Exchange failed and coins were refunded to your wallet.: Exchange failed and coins were refunded to your wallet.
 $swap_changelly_kyc_security: "Please contact **%email%** and provide **Transaction ID** to pass the KYC procedure:"
 Swap Expired: Swap Expired
@@ -395,7 +401,7 @@ $swap_changelly_terms_of_use: terms of use
 $swap_changelly_privacy_policy: privacy policy
 Password must contain %length% digits.: Password must contain %length% digits.
 Deposit Link: Deposit Link
-$swap_changelly_from_ton_description: "Tokens will be sent to your address in %blockchain% blockchain soon:"
+$swap_changelly_from_wallet_description: "Tokens will be sent to your address in %blockchain% blockchain soon:"
 Please note that it may take up to a few hours for tokens to appear in your wallet.: Please note that it may take up to a few hours for tokens to appear in your wallet.
 Minimum amount: Minimum %value%
 Maximum amount: Maximum %value%
@@ -704,8 +710,6 @@ Request is sent!: Request is sent!
 Transaction ID: Transaction ID
 Help Center: Help Center
 MyTonWallet Tips: MyTonWallet Tips
-$auth_import_24_mnemonic_description: |
-  You can restore access to your wallet by entering the **24 secret words** that you wrote down when creating the wallet.
 Open %nft_marketplace%: Open %nft_marketplace%
 Link was copied!: Link was copied!
 Share Link: Share Link
@@ -783,14 +787,13 @@ Transferable: Transferable
 Easily send your upgraded card to any of your friends.: Easily send your upgraded card to any of your friends.
 Tradable: Tradable
 Sell or auction your card on third-party NFT marketplaces.: Sell or auction your card on third-party NFT marketplaces.
-Upgrade for %currency% %amount%: Upgrade for %currency% %amount%
+Upgrade for %amount% %currency%: Upgrade for %amount% %currency%
 "%amount% left": "%amount% left"
 "%amount% sold": "%amount% sold"
 This card has been sold out: This card has been sold out
 Import Existing Wallet: Import Existing Wallet
 View Any Address: View Any Address
-12/24 Secret Words: 12/24 Secret Words
-24 Secret Words: 24 Secret Words
+"%counts% Secret Words": "%counts% Secret Words"
 Wallet Address or Domain: Wallet Address or Domain
 $import_view_account_note: Enter **any address** on %chains% network to open it in **View Mode**.
 $view_mode: View
@@ -1003,3 +1006,4 @@ Choose Wallet: Choose Wallet
 Wallet to use on %host%: Wallet to use on %host%
 Selected Wallet: Selected Wallet
 Connect Wallet: Connect Wallet
+Insufficient Fee: Insufficient Fee

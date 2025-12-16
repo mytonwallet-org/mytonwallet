@@ -20,7 +20,7 @@ struct LanguageCell: View {
             .offset(y: -1)
             .frame(maxWidth: .infinity, alignment: .leading)
             if isCurrent {
-                Image.airBundle("Checkmark")
+                Image.airBundle("AirCheckmark")
                     .foregroundStyle(.tint)
             }
         }

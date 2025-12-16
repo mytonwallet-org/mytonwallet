@@ -5,10 +5,10 @@ import android.annotation.SuppressLint
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import android.widget.FrameLayout
 import androidx.core.animation.doOnEnd
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeInObjectAnimator
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOutObjectAnimator
@@ -18,7 +18,7 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 class WSensitiveDataContainer<V : View>(
     val contentView: V,
     private val maskConfig: MaskConfig
-) : FrameLayout(contentView.context), WProtectedView {
+) : WFrameLayout(contentView.context), WProtectedView {
 
     var isSensitiveData = true
         set(value) {
@@ -55,7 +55,6 @@ class WSensitiveDataContainer<V : View>(
     private var isShowingMask: Boolean = false
 
     init {
-        id = generateViewId()
         addView(contentView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
             gravity = maskConfig.gravity
         })

@@ -337,9 +337,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                             TokenStore.isLoadingSwapAssets = false
                             WalletCore.notifyEvent(WalletEvent.TokensChanged)
                         }
-                    } catch (e: Error) {
-                        Handler(Looper.getMainLooper()).post {
-                        }
+                    } catch (_: Error) {
                     }
                 }
 
@@ -515,6 +513,25 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                     }
                 }
 
+                "updateAccount" -> {
+                    val accountId = objectJSONObject.optString("accountId") ?: return
+                    val chain = objectJSONObject.optString("chain") ?: return
+                    val domain: String? =
+                        when (val value = objectJSONObject.opt("domain")) {
+                            is String -> value
+                            else -> null
+                        }
+                    val account = AccountStore.accountById(accountId) ?: return
+                    val byChain = account.byChain.toMutableMap()
+                    val accountChain = byChain[chain] ?: return
+                    byChain[chain] = accountChain.copy(domain = domain)
+                    val activeAccount = AccountStore.activeAccount
+                    if (activeAccount?.accountId == accountId) {
+                        activeAccount.byChain = byChain.toMap()
+                    }
+                    AccountStore.updateAccountByChain(accountId, byChain)
+                }
+
                 else -> {}
             }
         }
@@ -619,11 +636,11 @@ class JSWebViewBridge(context: Context) : WebView(context) {
     ) : Error("ApiError: $methodName-$raw")
 
     suspend fun <T> callApiAsync(methodName: String, args: String, clazz: Type): T {
-        val result = callApiAsyncRaw<T>(methodName, args, clazz)
+        val result = callApiAsyncRaw(methodName, args, clazz)
         return parseResult(methodName, args, result, clazz)
     }
 
-    private suspend fun <T> callApiAsyncRaw(methodName: String, args: String, clazz: Type): String =
+    private suspend fun callApiAsyncRaw(methodName: String, args: String, clazz: Type): String =
         suspendCancellableCoroutine { continuation ->
             continuation.invokeOnCancellation { }
             Handler(Looper.getMainLooper()).post {
@@ -638,7 +655,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                                         parsed = err,
                                         parsedResult = try {
                                             parseResult(methodName, args, res!!, clazz)
-                                        } catch (eee: Throwable) {
+                                        } catch (_: Throwable) {
                                             null
                                         }
                                     )

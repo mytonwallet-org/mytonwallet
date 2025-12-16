@@ -54,6 +54,7 @@ class ImportWalletVC(
     private val passedPasscode: String?
 ) :
     WViewController(context), WThemedView, ImportWalletVM.Delegate, WEditText.Delegate {
+    override val TAG = "ImportWallet"
 
     override val shouldDisplayTopBar = false
     override val ignoreSideGuttering = true
@@ -92,7 +93,17 @@ class ImportWalletVC(
         WLabel(context).apply {
             setStyle(16f)
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
-            text = LocaleController.getString("\$auth_import_mnemonic_description")
+            text = LocaleController.getStringWithKeyValues(
+                "\$auth_import_mnemonic_description",
+                listOf(
+                    Pair(
+                        "%counts%", LocaleController.getFormattedEnumeration(
+                            listOf("12", "24"),
+                            "or"
+                        )
+                    )
+                )
+            )
                 .toProcessedSpannableStringBuilder()
             textAlignment = TEXT_ALIGNMENT_CENTER
         }

@@ -106,7 +106,7 @@ private let log = Log("ExploreVM")
             do {
                 if let accountId = AccountStore.accountId {
                     let dapps = try await Api.getDapps(accountId: accountId)
-                    await self.updateDapps(dapps: dapps)
+                    self.updateDapps(dapps: dapps)
                 }
             } catch {
                 try? await Task.sleep(for: .seconds(3))

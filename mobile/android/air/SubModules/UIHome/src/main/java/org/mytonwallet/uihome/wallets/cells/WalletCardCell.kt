@@ -36,7 +36,7 @@ class WalletCardCell(
     WCell(context, LayoutParams(cellWidth, WRAP_CONTENT)), WThemedView, IWalletCardCell {
 
     private var account: MAccount? = null
-    private val miniCardView = MiniCardView(context)
+    private val miniCardView = MiniCardView(context, cellWidth)
 
     private val walletName = WLabel(context).apply {
         setStyle(13f, WFont.SemiBold)

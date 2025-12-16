@@ -53,6 +53,7 @@ import kotlin.math.roundToInt
 
 class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) :
     WViewController(context), WalletCore.EventObserver {
+    override val TAG = "WalletCustomization"
 
     override val shouldDisplayBottomBar = true
     override var title: String? = LocaleController.getString("Customize Wallet")
@@ -245,70 +246,67 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
     private val contentView by lazy {
         LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            post {
-                if (isDestroyed) return@post
-                addView(
-                    cardsView,
-                    LinearLayout.LayoutParams(
-                        MATCH_PARENT,
-                        17.dp + if (width > 138.dp) {
-                            ((width - 138.dp) / WalletCustomizationCardCell.RATIO).roundToInt()
-                        } else {
-                            0
-                        }
-                    ).apply {
-                        topMargin = 17.dp
-                    })
-                addView(
-                    availableCardsView,
-                    LinearLayout.LayoutParams(MATCH_PARENT, availableCardsHeight).apply {
-                        topMargin = (-3).dp
-                        leftMargin = ViewConstants.HORIZONTAL_PADDINGS.dp
-                        rightMargin = ViewConstants.HORIZONTAL_PADDINGS.dp
-                    })
-                addView(
-                    hintLabel, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
-                        topMargin = 4.dp
-                        leftMargin = ViewConstants.HORIZONTAL_PADDINGS.dp + 16.dp
-                        rightMargin = ViewConstants.HORIZONTAL_PADDINGS.dp + 16.dp
-                    })
-                addView(
-                    appPaletteView,
-                    LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
-                        topMargin = ViewConstants.GAP.dp
-                        leftMargin = ViewConstants.HORIZONTAL_PADDINGS.dp
-                        rightMargin = ViewConstants.HORIZONTAL_PADDINGS.dp
-                    })
-                addView(
-                    WLabel(context).apply {
-                        text =
-                            LocaleController.getString("Get a unique MyTonWallet Card to unlock new palettes.")
-                        setTextColor(WColor.SecondaryText)
-                        setStyle(14f)
-                        setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
-                    }, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
-                        topMargin = 4.dp
-                        leftMargin = ViewConstants.HORIZONTAL_PADDINGS.dp + 16.dp
-                        rightMargin = ViewConstants.HORIZONTAL_PADDINGS.dp + 16.dp
-                    })
-                addView(getMoreCardsButton, LinearLayout.LayoutParams(MATCH_PARENT, 56.dp).apply {
+            addView(
+                cardsView,
+                LinearLayout.LayoutParams(
+                    MATCH_PARENT,
+                    17.dp + if (window!!.windowView.width > 138.dp) {
+                        ((window!!.windowView.width - 138.dp) / WalletCustomizationCardCell.RATIO).roundToInt()
+                    } else {
+                        0
+                    }
+                ).apply {
+                    topMargin = 17.dp
+                })
+            addView(
+                availableCardsView,
+                LinearLayout.LayoutParams(MATCH_PARENT, availableCardsHeight).apply {
+                    topMargin = (-3).dp
+                    leftMargin = ViewConstants.HORIZONTAL_PADDINGS.dp
+                    rightMargin = ViewConstants.HORIZONTAL_PADDINGS.dp
+                })
+            addView(
+                hintLabel, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                    topMargin = 4.dp
+                    leftMargin = ViewConstants.HORIZONTAL_PADDINGS.dp + 16.dp
+                    rightMargin = ViewConstants.HORIZONTAL_PADDINGS.dp + 16.dp
+                })
+            addView(
+                appPaletteView,
+                LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
                     topMargin = ViewConstants.GAP.dp
                     leftMargin = ViewConstants.HORIZONTAL_PADDINGS.dp
                     rightMargin = ViewConstants.HORIZONTAL_PADDINGS.dp
                 })
-                addView(
-                    WLabel(context).apply {
-                        text =
-                            LocaleController.getString("Browse MyTonWallet Cards available for purchase.")
-                        setTextColor(WColor.SecondaryText)
-                        setStyle(14f)
-                        setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
-                    }, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
-                        topMargin = 4.dp
-                        leftMargin = ViewConstants.HORIZONTAL_PADDINGS.dp + 16.dp
-                        rightMargin = ViewConstants.HORIZONTAL_PADDINGS.dp + 16.dp
-                    })
-            }
+            addView(
+                WLabel(context).apply {
+                    text =
+                        LocaleController.getString("Get a unique MyTonWallet Card to unlock new palettes.")
+                    setTextColor(WColor.SecondaryText)
+                    setStyle(14f)
+                    setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
+                }, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                    topMargin = 4.dp
+                    leftMargin = ViewConstants.HORIZONTAL_PADDINGS.dp + 16.dp
+                    rightMargin = ViewConstants.HORIZONTAL_PADDINGS.dp + 16.dp
+                })
+            addView(getMoreCardsButton, LinearLayout.LayoutParams(MATCH_PARENT, 56.dp).apply {
+                topMargin = ViewConstants.GAP.dp
+                leftMargin = ViewConstants.HORIZONTAL_PADDINGS.dp
+                rightMargin = ViewConstants.HORIZONTAL_PADDINGS.dp
+            })
+            addView(
+                WLabel(context).apply {
+                    text =
+                        LocaleController.getString("Browse MyTonWallet Cards available for purchase.")
+                    setTextColor(WColor.SecondaryText)
+                    setStyle(14f)
+                    setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
+                }, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                    topMargin = 4.dp
+                    leftMargin = ViewConstants.HORIZONTAL_PADDINGS.dp + 16.dp
+                    rightMargin = ViewConstants.HORIZONTAL_PADDINGS.dp + 16.dp
+                })
         }
     }
 

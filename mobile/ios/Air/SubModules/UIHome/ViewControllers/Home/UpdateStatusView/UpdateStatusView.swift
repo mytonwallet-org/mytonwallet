@@ -12,14 +12,18 @@ import WalletCore
 import Dependencies
 
 @MainActor
-public class UpdateStatusView: UIStackView, WThemedView {
+
+class UpdateStatusView: UIStackView, WThemedView {
     
-    public init() {
-        super.init(frame: CGRect.zero)
+    var accountId: String?
+    
+    init(accountId: String?) {
+        self.accountId = accountId
+        super.init(frame: .zero)
         setupViews()
     }
     
-    override public init(frame: CGRect) {
+    override init(frame: CGRect) {
         fatalError()
     }
     
@@ -35,7 +39,7 @@ public class UpdateStatusView: UIStackView, WThemedView {
     
     @Dependency(\.accountStore) private var accountStore
     
-    public var accountId = AccountStore.accountId ?? ""
+    var account: MAccount { accountStore.get(accountId: accountId ?? accountStore.currentAccountId) }
     
     private func setupViews() {
         translatesAutoresizingMaskIntoConstraints = false
@@ -84,9 +88,10 @@ public class UpdateStatusView: UIStackView, WThemedView {
     private(set) var state: State = .updated
     private(set) var title: String = ""
     private var currentAnimator: UIViewPropertyAnimator?
+    private var animationCompletionHandler: (() -> Void)?
 
     func setState(newState: State, animatedWithDuration duration: TimeInterval?) {
-        let currentDisplayName = accountStore.accountsById[accountId]?.displayName ?? ""
+        let currentDisplayName = account.displayName
         if state == newState &&
            (state != .updated || title == currentDisplayName) {
             return
@@ -115,22 +120,29 @@ public class UpdateStatusView: UIStackView, WThemedView {
             }
         }
 
-        currentAnimator?.stopAnimation(true)
-        currentAnimator = nil
-
         if let d = duration, d > 0 {
+            animationCompletionHandler = {
+                applyNewTextIfCurrent()
+                self.animationCompletionHandler = nil
+            }
+
+            if currentAnimator?.isRunning == true {
+                return
+            }
+
             let animator = UIViewPropertyAnimator(duration: d, curve: .easeInOut) {
                 self.transform = CGAffineTransform(translationX: 0, y: -12)
                 self.alpha = 0
             }
             currentAnimator = animator
-
-            animator.addCompletion { _ in
-                applyNewTextIfCurrent()
+            animator.addCompletion { [weak self] _ in
+                self?.animationCompletionHandler?()
             }
             animator.startAnimation()
-
         } else {
+            animationCompletionHandler = nil
+            currentAnimator?.stopAnimation(true)
+            currentAnimator = nil
             applyNewTextIfCurrent()
         }
     }
@@ -164,6 +176,7 @@ public class UpdateStatusView: UIStackView, WThemedView {
         })
     }
     
-    public nonisolated func updateTheme() {
+    
+    nonisolated func updateTheme() {
     }
 }

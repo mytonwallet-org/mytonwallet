@@ -12,10 +12,12 @@ public struct AccountTypeBadge: View {
         case list
     }
     var style: Style
+    var increasedOpacity: Bool
     
-    public init(_ accountType: AccountType, style: Style) {
+    public init(_ accountType: AccountType, style: Style, increasedOpacity: Bool = false) {
         self.accountType = accountType
         self.style = style
+        self.increasedOpacity = increasedOpacity
     }
     
     public var body: some View {
@@ -37,7 +39,7 @@ public struct AccountTypeBadge: View {
     
     var hardware: some View {
         Image.airBundle("LedgerBadge")
-            .opacity(0.75)
+            .opacity(increasedOpacity ? 1 : 0.75)
     }
     
     @ViewBuilder
@@ -49,7 +51,7 @@ public struct AccountTypeBadge: View {
                 .font(.system(size: 12, weight: .semibold))
         }
         .offset(y: -0.333)
-        .opacity(0.75)
+        .opacity(increasedOpacity ? 1 : 0.75)
         .padding(.horizontal, 3)
         .frame(height: 18)
         .background {

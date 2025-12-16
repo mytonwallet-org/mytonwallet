@@ -59,6 +59,7 @@ import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.DApp.ConfirmDappRe
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Transfer.SignTransfers
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Transfer.SignTransfers.Options
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
+import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.app_air.walletcore.toAmountString
 import java.math.BigDecimal
@@ -362,6 +363,7 @@ class TonConnectRequestSendViewModel private constructor(
                                 activity = activity.apply {
                                     isEmulation = true
                                 },
+                                accountId = AccountStore.activeAccountId!!,
                                 isFirst = index == 0,
                                 isLast = index == previewActivities.lastIndex
                             )

@@ -21,7 +21,7 @@ public actor LogStore {
     private init() {
         _ = appStart
         NotificationCenter.default.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: nil) { [weak self] _ in
-            Task { await self?.syncronize() }
+            Task { self?.syncronize() }
         }
     }
     

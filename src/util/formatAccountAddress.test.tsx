@@ -118,8 +118,8 @@ describe('formatAccountAddresses', () => {
         expect(text).toContain('···1V2');
         expect(text).toContain('···j6t');
 
-        // Check comma separator
-        expect(text).toContain(', ');
+        // Check space separator for card variant
+        expect(text).toMatch(/···1V2\s+···j6t/);
       });
 
       test('mixed: one with domain, one with address', () => {

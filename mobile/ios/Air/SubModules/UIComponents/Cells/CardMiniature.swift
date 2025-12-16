@@ -36,7 +36,7 @@ struct CardMiniature: View {
                 .clipShape(RoundedRectangle(cornerRadius: 3))
                 .overlay {
                     MtwCardMiniPlaceholders()
-                        .foregroundStyle(MtwCardForegroundStyle(nft: viewModel.nft))
+                        .sourceAtop { MtwCardInverseCenteredGradient(nft: viewModel.nft) }
                         .scaleEffect(0.8)
                 }
             }

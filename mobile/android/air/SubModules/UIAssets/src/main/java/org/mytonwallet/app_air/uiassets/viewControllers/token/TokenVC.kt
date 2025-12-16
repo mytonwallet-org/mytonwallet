@@ -65,14 +65,19 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
-class TokenVC(context: Context, var token: MToken) : WViewController(context),
+class TokenVC(context: Context, private var account: MAccount, var token: MToken) :
+    WViewController(context),
     WRecyclerViewDataSource, TokenVM.Delegate, WThemedView, WProtectedView {
+    override val TAG = "Token"
 
     override val shouldDisplayTopBar = false
     override val shouldDisplayBottomBar: Boolean
         get() {
             return navigationController?.tabBarController == null
         }
+
+    override val displayedAccount =
+        DisplayedAccount(account.accountId, AccountStore.isPushedTemporary)
 
     private val px232 = 232.dp
     private val px116 = 116.dp
@@ -99,7 +104,7 @@ class TokenVC(context: Context, var token: MToken) : WViewController(context),
     private var tokenChartCell: TokenChartCell? = null
 
     private val tokenVM by lazy {
-        TokenVM(context, token, this)
+        TokenVM(context, account.accountId, token, this)
     }
 
     @Volatile
@@ -195,6 +200,7 @@ class TokenVC(context: Context, var token: MToken) : WViewController(context),
         rv.setLayoutManager(LinearLayoutManager(context))
         rv.setItemAnimator(null)
         rv.alpha = 0f
+        rv.visibility = GONE
         rv
     }
 
@@ -293,7 +299,7 @@ class TokenVC(context: Context, var token: MToken) : WViewController(context),
             navBar.setTitleGravity(Gravity.CENTER)
             navBar
         }
-        TokenHeaderView(navigationController!!, navigationBar!!, token)
+        TokenHeaderView(navigationController!!, navigationBar!!, account.accountId, token)
     }
 
     private val skeletonView = SkeletonView(context)
@@ -455,7 +461,7 @@ class TokenVC(context: Context, var token: MToken) : WViewController(context),
             1f,
             max(
                 0f,
-                (244.dp - dy + (if (AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW) 0 else 92.dp)) / ViewConstants.GAP.dp.toFloat() - 1
+                (244.dp - dy + (if (account.accountType == MAccount.AccountType.VIEW) 0 else 92.dp)) / ViewConstants.GAP.dp.toFloat() - 1
             )
         )
         topBlurReversedCornerView.alpha = 1 - alpha
@@ -588,8 +594,8 @@ class TokenVC(context: Context, var token: MToken) : WViewController(context),
                     }
                 )
                 actionsView?.setPadding(0, 0, 0, 16.dp)
-                actionsView?.updateActions(AccountStore.activeAccount)
-                if (AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW)
+                actionsView?.updateActions(account)
+                if (account.accountType == MAccount.AccountType.VIEW)
                     actionsView?.updateLayoutParams {
                         height = 0
                     }
@@ -689,6 +695,7 @@ class TokenVC(context: Context, var token: MToken) : WViewController(context),
                     val transaction = showingTransactions!![indexPath.row]
                     homeTransactionCell.configure(
                         transaction,
+                        account.accountId,
                         indexPath.row == 0,
                         indexPath.row == 0 || !transaction.dt.isSameDayAs(showingTransactions!![indexPath.row - 1].dt),
                         (indexPath.row == showingTransactions!!.size - 1) || !transaction.dt.isSameDayAs(
@@ -809,10 +816,14 @@ class TokenVC(context: Context, var token: MToken) : WViewController(context),
     }
 
     override fun accountChanged() {
-        if (isDisappeared)
+        if (isDestroyed)
             return
-        navigationController?.pop(animated = false)
-        actionsView?.updateActions(AccountStore.activeAccount)
+        if (!AccountStore.isPushedTemporary && AccountStore.activeAccountId != account.accountId)
+            navigationController?.pop(animated = false)
+    }
+
+    override fun accountRemoved() {
+        navigationController?.removeViewController(this)
     }
 
     override fun cacheNotFound() {
@@ -820,6 +831,7 @@ class TokenVC(context: Context, var token: MToken) : WViewController(context),
         view.post {
             updateSkeletonViews()
             skeletonAlpha = 1f
+            skeletonRecyclerView.visibility = VISIBLE
             skeletonRecyclerView.alpha = 1f
             skeletonView.startAnimating()
         }

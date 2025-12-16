@@ -14,15 +14,17 @@ public struct MtwCardBackground: View {
     
     var nft: ApiNft?
     var hideBorder: Bool
+    var borderWidthMultiplier: CGFloat
     
-    public init(nft: ApiNft?, hideBorder: Bool = false) {
+    public init(nft: ApiNft?, hideBorder: Bool = false, borderWidthMultiplier: CGFloat = 1) {
         self.nft = nft
         self.hideBorder = hideBorder
+        self.borderWidthMultiplier = borderWidthMultiplier
     }
     
     public var body: some View {
-        Color.clear
-            .background {
+        Color.air.groupedBackground
+            .overlay {
                 ZStack {
                     if let imageUrl = nft?.metadata?.mtwCardBackgroundUrl {
                         KFImage(source: .network(imageUrl))
@@ -42,10 +44,9 @@ public struct MtwCardBackground: View {
             .overlay {
                 MtwCardHighlight(nft: nft)
             }
-//            .backportGeometryGroup()
             .overlay {
                 if !hideBorder {
-                    MtwCardBorder(nft: nft)
+                    MtwCardBorder(nft: nft, borderWidthMultiplier: borderWidthMultiplier)
                 }
             }
     }

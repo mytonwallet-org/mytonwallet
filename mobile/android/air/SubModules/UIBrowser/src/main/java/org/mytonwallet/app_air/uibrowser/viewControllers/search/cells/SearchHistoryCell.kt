@@ -68,7 +68,7 @@ class SearchHistoryCell(context: Context) :
         addView(historyImageView, LayoutParams(24.dp, 24.dp))
         addView(titleLabel, LayoutParams(0, WRAP_CONTENT))
         addView(subtitleLabel, LayoutParams(0, WRAP_CONTENT))
-        addView(separatorView, LayoutParams(0, 1))
+        addView(separatorView, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
         setConstraints {
             toStart(historyImageView, 18f)
             toCenterY(historyImageView)

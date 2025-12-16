@@ -124,20 +124,6 @@ sealed class ApiMethod<T> {
 
     /* Wallet Data */
     object WalletData {
-        class GetWalletBalance(
-            chain: String,
-            network: String,
-            address: String,
-        ) : ApiMethod<BigInteger>() {
-            override val name: String = "getWalletBalance"
-            override val type: Type = BigInteger::class.java
-            override val arguments: String = ArgumentsBuilder()
-                .string(chain)
-                .string(network)
-                .string(address)
-                .build()
-        }
-
         class DecryptComment(
             accountId: String,
             activity: MApiTransaction,
@@ -161,6 +147,38 @@ sealed class ApiMethod<T> {
             override val arguments: String = ArgumentsBuilder()
                 .string(accountId)
                 .jsObject(activity, MApiTransaction::class.java)
+                .build()
+        }
+
+        class FetchTransactionById(
+            chain: String,
+            network: String,
+            txHash: String,
+            walletAddress: String,
+        ) : ApiMethod<List<MApiTransaction>>() {
+            override val name: String = "fetchTransactionById"
+            override val type: Type =
+                Types.newParameterizedType(List::class.java, MApiTransaction::class.java)
+            override val arguments: String = ArgumentsBuilder()
+                .string(chain)
+                .string(network)
+                .string(txHash)
+                .string(walletAddress)
+                .build()
+        }
+    }
+
+    /* Tokens */
+    object Tokens {
+        class BuildTokenSlug(
+            chain: String,
+            address: String,
+        ) : ApiMethod<String>() {
+            override val name: String = "buildTokenSlug"
+            override val type: Type = String::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(chain)
+                .string(address)
                 .build()
         }
     }

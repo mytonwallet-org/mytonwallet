@@ -73,7 +73,6 @@ public final class WalletSettingsVC: WViewController, WSegmentedController.Deleg
             sheet.prefersGrabberVisible = true
             sheet.detents = [
                 .custom(identifier: .init("twoThirds")) { $0.maximumDetentValue * 0.667 },
-//                .custom(identifier: .init("almostLarge")) { $0.maximumDetentValue * 0.98 },
                 .large(),
             ]
             sheet.selectedDetentIdentifier = .init("twoThirds")
@@ -127,17 +126,7 @@ public final class WalletSettingsVC: WViewController, WSegmentedController.Deleg
         segmentedController.blurView.isHidden = true
         segmentedController.separator.isHidden = true
         
-        let customBlur = HostingView {
-            NavigationBarBackground()
-        }
-        customBlur.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(customBlur)
-        NSLayoutConstraint.activate([
-            customBlur.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            customBlur.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            customBlur.topAnchor.constraint(equalTo: view.topAnchor),
-            customBlur.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 6),
-        ])
+        addCustomNavigationBarBackground()
         
         let bottomButton = HostingView {
             WalletSettingsAddButton(viewModel: viewModel)
@@ -217,10 +206,5 @@ public final class WalletSettingsVC: WViewController, WSegmentedController.Deleg
 @available(iOS 26, *)
 #Preview {
     let _ = UIFont.registerAirFonts()
-    let vc = UIViewController()
-    let nc = UINavigationController(rootViewController: WalletSettingsVC())
-    let _ = DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
-        let _ = vc.present(nc, animated: false)
-    }
-    vc
+    sheetPreview(WalletSettingsVC())
 }

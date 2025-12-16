@@ -174,7 +174,7 @@ public class WAnimatedAmountLabel: UIView, WThemedView {
             fractionFont: config.secondaryFont,
             symbolFont: config.currencyFont,
             integerColor: config.primaryTextColor,
-            fractionColor: config.secondaryTextColor,
+            fractionColor: fadeDecimals ? config.secondaryTextColor : config.primaryTextColor,
             symbolColor: config.secondaryTextColor
         )
         if prevFormattedString?.string == formattedString.string && !force {

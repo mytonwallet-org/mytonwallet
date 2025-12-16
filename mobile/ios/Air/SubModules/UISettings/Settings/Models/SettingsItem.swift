@@ -57,26 +57,11 @@ extension SettingsItem.Identifier {
                 isDangerous: false
             )
         case .account(let accountId):
-            let account = AccountStore.accountsById[accountId]
-            let title: String
-            let subtitle: String?
-            if let t = account?.title?.nilIfEmpty {
-                title = t
-                subtitle = formatStartEndAddress(account?.firstAddress ?? "")
-            } else {
-                title = formatStartEndAddress(account?.firstAddress ?? "")
-                subtitle = nil
-            }
-            let balanceAmount = BalanceStore.getTotalBalanceInBaseCurrency(for: accountId)
-            let balance = balanceAmount != nil ? formatAmountText(amount: balanceAmount!,
-                                                                  currency: TokenStore.baseCurrency.sign,
-                                                                  decimalsCount: TokenStore.baseCurrency.decimalsCount) : nil
             return SettingsItem(
                 id: .account(accountId: accountId),
-                icon: .avatar(for: account, withSize: 30) ?? UIImage(),
-                title: title,
-                subtitle: subtitle,
-                value: balance,
+                icon: nil,
+                title: "",
+                subtitle: "",
                 hasPrimaryColor: false,
                 hasChild: false,
                 isDangerous: false

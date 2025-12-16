@@ -44,7 +44,10 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
     }
 
     public private(set) var accountsById: OrderedDictionary<String, MAccount> {
-        get { _accountsById.withLock { $0 } }
+        get {
+            access(keyPath: \._accountsById)
+            return _accountsById.withLock { $0 }
+        }
         set {
             withMutation(keyPath: \._accountsById) {
                 _accountsById.withLock { $0 = newValue }
@@ -80,6 +83,7 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         return accountId ?? DUMMY_ACCOUNT.id
     }
     
+    /// Excludes temporary view accounts
     public private(set) var orderedAccountIds: OrderedSet<String> {
         get {
             access(keyPath: \._orderedAccountIds)
@@ -92,6 +96,7 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         }
     }
         
+    /// Excludes temporary view accounts
     public var orderedAccounts: [MAccount] {
         access(keyPath: \._accountsById)
         let accountsById = accountsById
@@ -177,7 +182,7 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         accountsById.sort { a1, a2 in
             a1.value.id.compare(a2.value.id, options: [.numeric], range: nil, locale: nil) == .orderedAscending
         }
-        let accountIds = accountsById.keys
+        let accountIds = accountsById.compactMap { $1.isTemporaryView ? nil : $0 }
         self.accountsById = accountsById
 
         let orderedAccountIds = orderedAccountIds.intersection(accountIds).union(accountIds)
@@ -189,7 +194,8 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
     
     // MARK: - Current account
 
-    public func activateAccount(accountId: String, isNew: Bool = false) async throws -> MAccount {
+    @discardableResult
+    public func activateAccount(accountId: String, isNew: Bool = false, updateCurrentAccountId: Bool = true) async throws -> MAccount {
         let timestamps = await ActivityStore.getNewestActivityTimestamps(accountId: accountId)
         if timestamps?.nilIfEmpty == nil {
             Log.api.info("No newestTransactionsBySlug for \(accountId, .public), loading will be slow")
@@ -200,14 +206,17 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
             throw BridgeCallError.unknown()
         }
 
-        self.accountId = accountId
-        try await db.write { db in
-            try db.execute(sql: "UPDATE common SET current_account_id = ?", arguments: [accountId])
+        if updateCurrentAccountId {
+            self.accountId = accountId
+            try await db.write { db in
+                try db.execute(sql: "UPDATE common SET current_account_id = ?", arguments: [accountId])
+            }
+            
+            Task.detached {
+                WalletCoreData.notifyAccountChanged(to: account, isNew: isNew)
+            }
         }
-
-        Task.detached {
-            WalletCoreData.notifyAccountChanged(to: account, isNew: isNew)
-        }
+        
         return account
     }
     
@@ -218,25 +227,20 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
             try await Api.activateAccount(accountId: accountId, newestActivityTimestamps: timestamps)
         }
     }
+    
+    public func resolveAccountId(source: AccountSource) -> String {
+        switch source {
+        case .accountId(let accountId):
+            accountId
+        case .current:
+            self.currentAccountId
+        }
+    }
 
     // MARK: - Account management
 
-    public func createWallet(network: ApiNetwork, words: [String], passcode: String, version: ApiTonWalletVersion?) async throws -> MAccount {
-        let result = try await Api.createWallet(network: network, mnemonic: words, password: passcode, version: version)
-        let account = MAccount(
-            id: result.accountId,
-            title: _defaultTitle(),
-            type: .mnemonic,
-            byChain: result.byChain,
-        )
-        try await _storeAccount(account: account)
-        _ = try await self.activateAccount(accountId: result.accountId, isNew: true)
-        await subscribeNotificationsIfAvailable(account: account)
-        return account
-    }
-
     public func importMnemonic(network: ApiNetwork, words: [String], passcode: String, version: ApiTonWalletVersion?) async throws -> MAccount {
-        let result = try await Api.importMnemonic(network: network, mnemonic: words, password: passcode, version: version)
+        let result = try await Api.importMnemonic(networks: [network], mnemonic: words, password: passcode, version: version).first.orThrow()
         let account = MAccount(
             id: result.accountId,
             title: _defaultTitle(),
@@ -282,7 +286,6 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
                 byChain: [
                     ApiChain.ton.rawValue: AccountChain(
                         address: result.address.orThrow("Address missing for new wallet version"),
-                        ledgerIndex: result.ledger?.index
                     ),
                 ],
             )
@@ -304,10 +307,11 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         addressByChain[ApiChain.tron.rawValue] = tronAddress?.nilIfEmpty
         if addressByChain.isEmpty { throw NilError("At least one address needed") }
 
-        let result = try await Api.importViewAccount(network: network, addressByChain: addressByChain)
+        let result = try await Api.importViewAccount(network: network, addressByChain: addressByChain, isTemporary: nil)
+        let viewCount = AccountStore.accountsById.values.filter { $0.type == .view }.count
         let account = MAccount(
             id: result.accountId,
-            title: result.title ?? "View Wallet \(AccountStore.accountsById.count + 1)",
+            title: result.title ?? "\(lang("Wallet")) \(viewCount + 1)",
             type: .view,
             byChain: result.byChain,
         )
@@ -318,9 +322,13 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         return account
     }
 
-    private func _defaultTitle() -> String{
-        let accountsCount = AccountStore.accountsById.count + 1
-        return accountsCount < 2 ? APP_NAME : "\(lang("Wallet")) \(accountsCount)"
+    private func _defaultTitle() -> String {
+        let totalCount = AccountStore.accountsById.count
+        if totalCount == 0 {
+            return APP_NAME
+        }
+        let mnemonicCount = AccountStore.accountsById.values.filter { $0.type == .mnemonic }.count
+        return "\(lang("My Wallet")) \(mnemonicCount + 1)"
     }
 
     private func _storeAccount(account: MAccount) async throws {
@@ -334,7 +342,78 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
             account.title = newTitle?.nilIfEmpty
             accountsById[accountId] = account
             try await _storeAccount(account: account)
-            WalletCoreData.notify(event: .accountNameChanged, for: nil)
+            WalletCoreData.notify(event: .accountNameChanged)
+        }
+    }
+    
+    // MARK: - Temporary wallets
+    
+    public func importTemporaryViewAccountOrActivateFirstMatching(network: ApiNetwork, addressOrDomainByChain: [String: String]) async throws -> MAccount {
+        if let account = firstAccountContainingChainAddresses(addressOrDomainByChain) {
+            try await activateAccount(accountId: account.id, updateCurrentAccountId: false)
+            return account
+        } else {
+            return try await importTemporaryViewAccount(network: network, addressOrDomainByChain: addressOrDomainByChain)
+        }
+    }
+    
+    private func importTemporaryViewAccount(network: ApiNetwork, addressOrDomainByChain: [String: String]) async throws -> MAccount {
+        let result = try await Api.importViewAccount(network: network, addressByChain: addressOrDomainByChain, isTemporary: true)
+        let account = MAccount(
+            id: result.accountId,
+            title: result.title ?? lang("Wallet"),
+            type: .view,
+            byChain: result.byChain,
+            isTemporary: true,
+        )
+        accountsById[account.id] = account
+        try await _storeAccount(account: account)
+        return account
+    }
+
+    public func saveTemporaryViewAccount(accountId: String) async throws {
+        if var account = accountsById[accountId] {
+            account.isTemporary = nil
+            var nameChanged = false
+            if account.title == lang("Wallet") {
+                let viewCount = AccountStore.accountsById.values.filter { $0.type == .view }.count
+                account.title = "\(lang("Wallet")) \(viewCount + 1)"
+                nameChanged = true
+            }
+            try await _storeAccount(account: account)
+            accountsById[accountId] = account
+            _ = try await self.activateAccount(accountId: accountId, isNew: false)
+            await subscribeNotificationsIfAvailable(account: account)
+            if nameChanged {
+                WalletCoreData.notify(event: .accountNameChanged)
+            }
+        }
+    }
+    
+    private func firstAccountContainingChainAddresses(_ addressOrDomainByChain: [String: String]) -> MAccount? {
+        accountLoop: for account in orderedAccounts {
+            for (chain, addressOrDomain) in addressOrDomainByChain {
+                if account.byChain[chain]?.address != addressOrDomain && account.byChain[chain]?.domain != addressOrDomain {
+                    continue accountLoop
+                }
+            }
+            return account
+        }
+        return nil
+    }
+    
+    public func removeAccountIfTemporary(accountId: String) async throws {
+        let account = get(accountId: accountId)
+        if account.isTemporaryView {
+            try await AccountStore.removeAccount(accountId: accountId, nextAccountId: self.currentAccountId)
+        }
+    }
+    
+    public func removeAllTemporaryAccounts() async throws {
+        for account in accountsById.values {
+            if account.isTemporaryView {
+                try await AccountStore.removeAccount(accountId: account.id, nextAccountId: self.currentAccountId)
+            }
         }
     }
 
@@ -369,6 +448,7 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         WalletContextManager.delegate?.restartApp()
     }
 
+    @discardableResult
     public func removeAccount(accountId: String, nextAccountId: String) async throws -> MAccount {
         if let account = accountsById[accountId] {
             await _unsubscribeNotifications(account: account)
@@ -548,7 +628,7 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
     public func setAssetsAndActivityData(accountId: String, value: MAssetsAndActivityData) {
         _assetsAndActivityData.withLock { $0[accountId] = value }
         AppStorageHelper.save(accountId: accountId, assetsAndActivityData: value.toDictionary)
-        WalletCoreData.notify(event: .assetsAndActivityDataUpdated, for: accountId)
+        WalletCoreData.notify(event: .assetsAndActivityDataUpdated)
     }
 
     public internal(set) var updatingActivities: Bool {

@@ -21,7 +21,7 @@ struct SelectCardSection: View {
     
     var body: some View {
         WithPerceptionTracking {
-            InsetSection(backgroundColor: .clear,  horizontalPadding: 12) {
+            InsetSection(backgroundColor: .clear,  horizontalPadding: 16) {
                 HStack {
                     if viewModel.selectedAccountInfo.availableCards.count > 0 {
                         VStack(spacing: 14) {
@@ -117,18 +117,28 @@ fileprivate struct CardView: View {
             MtwCard(aspectRatio: MEDIUM_CARD_RATIO)
                 .overlay {
                     MtwCardBalanceView(balance: viewModel.balance, style: .grid)
-                        .sourceAtop(MtwCardForegroundStyle(nft: nft))
+                        .padding(10)
+                        .sourceAtop {
+                            MtwCardBalanceGradient(nft: nft)
+                        }
+                        .padding(-10)
                         .padding(.horizontal, 8)
+                        .padding(.bottom, 7)
+                        .transition(.opacity)
+                        .id(viewModel.selectedAccountId)
                 }
                 .overlay(alignment: .bottom) {
                     Capsule()
+                        .fill(.white.opacity(0.75))
                         .frame(height: 5)
-                        .foregroundStyle(.white.opacity(0.75))
+                        .sourceAtop {
+                            MtwCardInverseCenteredGradient(nft: nft)
+                        }
                         .padding(.horizontal, 32)
                         .padding(.bottom, 8)
                 }
                 .background {
-                    MtwCardBackground(nft: nft)
+                    MtwCardBackground(nft: nft, borderWidthMultiplier: 0.5)
                 }
                 .clipShape(.containerRelative)
                 .containerShape(.rect(cornerRadius: 12))

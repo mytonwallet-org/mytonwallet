@@ -20,10 +20,7 @@ public final class AppearanceSettingsVC: WViewController {
     public override func viewDidLoad() {
         super.viewDidLoad()
         
-        addNavigationBar(
-            title: lang("Appearance"),
-            addBackButton: weakifyGoBack(),
-        )
+        navigationItem.title = lang("Appearance")
         
         hostingController = addHostingController(makeView(), constraints: .fill)
         
@@ -34,8 +31,6 @@ public final class AppearanceSettingsVC: WViewController {
     
     func makeView() -> AppearanceSettingsView {
         AppearanceSettingsView(
-            navigationBarHeight: navigationBarHeight,
-            onScroll: weakifyUpdateProgressiveBlur(),
             tintColor: Color.air.tint,
         )
     }

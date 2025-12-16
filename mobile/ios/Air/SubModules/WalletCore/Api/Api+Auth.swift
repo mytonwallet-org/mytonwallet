@@ -14,20 +14,19 @@ extension Api {
         try await bridge.callApi("generateMnemonic", isBip39, decoding: [String].self)
     }
     
-    /// - Important: Do not call this method directly, use **AccountStore** instead
-    internal static func createWallet(network: ApiNetwork, mnemonic: [String], password: String, version: ApiTonWalletVersion?) async throws -> ApiAddWalletResult {
-        try await bridge.callApi("createWallet", network, mnemonic, password, version, decoding: ApiAddWalletResult.self)
-    }
-    
     public static func validateMnemonic(mnemonic: [String]) async throws -> Bool {
         try await bridge.callApi("validateMnemonic", mnemonic, decoding: Bool.self)
     }
     
     /// - Important: Do not call this method directly, use **AccountStore** instead
-    internal static func importMnemonic(network: ApiNetwork, mnemonic: [String], password: String, version: ApiTonWalletVersion?) async throws -> ApiAddWalletResult {
-        try await bridge.callApi("importMnemonic", network, mnemonic, password, version, decoding: ApiAddWalletResult.self)
+    internal static func importMnemonic(networks: [ApiNetwork], mnemonic: [String], password: String, version: ApiTonWalletVersion?) async throws -> [ApiAddWalletResult] {
+        try await bridge.callApi("importMnemonic", networks, mnemonic, password, version, decoding: [ApiAddWalletResult].self)
     }
     
+    internal static func importPrivateKey(chain: ApiChain, networks: [ApiNetwork], privateKey: String, password: String) async throws -> [ApiAddWalletResult] {
+        try await bridge.callApi("importPrivateKey", chain, networks, privateKey, password, decoding: [ApiAddWalletResult].self)
+    }
+
     public static func addressFromPublicKey(publicKey: [UInt8], network: ApiNetwork, version: ApiTonWalletVersion?) async throws -> ApiTonWallet {
         try await bridge.callApi("addressFromPublicKey", publicKey, network, version, decoding: ApiTonWallet.self)
     }
@@ -59,8 +58,8 @@ extension Api {
     }
 
     /// - Important: Do not call this methods directly, use **AccountStore** instead
-    internal static func importViewAccount(network: ApiNetwork, addressByChain: ApiImportAddressByChain) async throws -> ApiImportViewAccountResult {
-        try await bridge.callApi("importViewAccount", network, addressByChain, decoding: ApiImportViewAccountResult.self)
+    internal static func importViewAccount(network: ApiNetwork, addressByChain: ApiImportAddressByChain, isTemporary: Bool?) async throws -> ApiImportViewAccountResult {
+        try await bridge.callApi("importViewAccount", network, addressByChain, isTemporary, decoding: ApiImportViewAccountResult.self)
     }
     
     /// - Important: Do not call this methods directly, use **AccountStore** instead
@@ -90,10 +89,4 @@ public struct ApiImportNewWalletVersionResult: Decodable, Sendable {
     public var isNew: Bool
     public var accountId: String
     public var address: String?
-    public var ledger: Ledger?
-    
-    public struct Ledger: Equatable, Hashable, Decodable, Sendable {
-        public var index: Int
-        public var driver: ApiLedgerDriver
-    }
 }

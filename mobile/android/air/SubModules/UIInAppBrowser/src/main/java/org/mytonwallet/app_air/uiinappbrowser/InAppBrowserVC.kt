@@ -18,7 +18,6 @@ import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.FrameLayout
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat.checkSelfPermission
@@ -31,6 +30,7 @@ import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.extensions.asImage
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uiinappbrowser.helpers.IABDarkModeStyleHelpers
 import org.mytonwallet.app_air.uiinappbrowser.views.InAppBrowserTopBarView
@@ -58,6 +58,7 @@ class InAppBrowserVC(
     private val tabBarController: WNavigationController.ITabBarController?,
     val config: InAppBrowserConfig
 ) : WViewController(context), WalletCore.EventObserver {
+    override val TAG = "InAppBrowser"
 
     private var lastTitle: String = config.title ?: URL(config.url).host
 
@@ -202,7 +203,7 @@ class InAppBrowserVC(
 
                 if (!url.startsWith("http://") &&
                     !url.startsWith("https://") &&
-                    canHandleExternalUrl(url)
+                    return canHandleExternalUrl(url)
                 ) {
                     val intent = Intent(Intent.ACTION_VIEW)
                     intent.setData(Uri.parse(url))
@@ -274,8 +275,7 @@ class InAppBrowserVC(
         }
     }
 
-    private val webViewContainer = FrameLayout(context).apply {
-        id = View.generateViewId()
+    private val webViewContainer = WFrameLayout(context).apply {
         addView(webView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
     }
 
@@ -342,6 +342,11 @@ class InAppBrowserVC(
         super.insetsUpdated()
         topReversedCornerView?.setHorizontalPadding(0f)
         bottomReversedCornerView?.setHorizontalPadding(0f)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        webView.destroy()
     }
 
     private fun addWebView() {

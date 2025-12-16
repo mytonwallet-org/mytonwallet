@@ -42,17 +42,23 @@ class SkeletonView(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
+        // To properly calculate coordinates when SkeletonView is not rooted to 0,0 of the screen
+        val myLocation = IntArray(2)
+        getLocationOnScreen(myLocation)
+
         canvas.save()
         for ((index, view) in maskViews.withIndex()) {
             val location = IntArray(2)
             view.getLocationOnScreen(location)
 
-            val left = location[0].toFloat() - x
-            val top = location[1].toFloat() - y
+            if (location[0] == 0 && location[1] == 0)
+                continue
+
+            val left = location[0].toFloat() - myLocation[0]
+            val top = location[1].toFloat() - myLocation[1]
+
             val right = left + view.width
             val bottom = top + view.height
-            if (top == 0f)
-                continue
 
             val itemRadius = maskCornerRadius?.get(index)
             if (index == 0 || itemRadius != null) {

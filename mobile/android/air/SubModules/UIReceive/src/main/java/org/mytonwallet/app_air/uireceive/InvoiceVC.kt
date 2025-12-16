@@ -29,6 +29,8 @@ import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.TokenAmountInputView
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.HapticType
+import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
@@ -57,6 +59,7 @@ import java.math.BigInteger
 import kotlin.math.max
 
 class InvoiceVC(context: Context) : WViewController(context) {
+    override val TAG = "Invoice"
 
     override val shouldDisplayBottomBar = true
 
@@ -380,6 +383,7 @@ class InvoiceVC(context: Context) : WViewController(context) {
                                 context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                             val clip = ClipData.newPlainText("", shareLink)
                             clipboard.setPrimaryClip(clip)
+                            Haptics.play(context, HapticType.LIGHT_TAP)
                             Toast.makeText(context, "Invoice link was copied!", Toast.LENGTH_SHORT)
                                 .show()
                         },

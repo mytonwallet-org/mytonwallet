@@ -13,7 +13,7 @@ import Dependencies
 
 public struct WalletCoreData {
     public enum Event: @unchecked Sendable {
-        case balanceChanged(isFirstUpdate: Bool)
+        case balanceChanged(accountId: String, isFirstUpdate: Bool)
         case notActiveAccountBalanceChanged
         case tokensChanged
         case swapTokensChanged
@@ -40,7 +40,7 @@ public struct WalletCoreData {
         
         case updateDapps
         case activeDappLoaded(dapp: ApiDapp)
-        case dappsCountUpdated
+        case dappsCountUpdated(accountId: String)
         case dappConnect(request: ApiUpdate.DappConnect)
         case dappSendTransactions(MDappSendTransactions)
         case dappSignData(ApiUpdate.DappSignData)
@@ -106,10 +106,7 @@ public struct WalletCoreData {
         }
     }
 
-    public static func notify(event: WalletCoreData.Event, for accountId: String? = nil) {
-        guard accountId == nil || accountId == AccountStore.account?.id else {
-            return
-        }
+    public static func notify(event: WalletCoreData.Event) {
         DispatchQueue.main.async {
             WalletCoreData.eventObservers = WalletCoreData.eventObservers.compactMap { observer in
                 if let observerInstance = observer.value {

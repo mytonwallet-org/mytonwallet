@@ -269,20 +269,6 @@ $labelSidePadding: 0.5rem;
   color: var(--color-gray-1);
 }
 
-.dappHostWarningButton {
-  padding: 0 0.25rem;
-  border-radius: 0.25rem;
-
-  font-weight: bold;
-  color: white;
-
-  background-color: var(--color-accent);
-
-  :global(html.theme-dark.is-white-accent) & {
-    color: var(--color-background-drop-down);
-  }
-}
-
 .dappName {
   margin-bottom: 0.25rem;
 

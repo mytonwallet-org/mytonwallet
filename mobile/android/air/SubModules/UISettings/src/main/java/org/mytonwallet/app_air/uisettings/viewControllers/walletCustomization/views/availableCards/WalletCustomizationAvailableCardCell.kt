@@ -74,6 +74,7 @@ class WalletCustomizationAvailableCardCell(context: Context, val cellWidth: Int)
         primarySize = 18f
         decimalsSize = 13f
         typeface = WFont.NunitoExtraBold.typeface
+        containerWidth = cellWidth
     }
 
     private val balanceContainerView = WSensitiveDataContainer(
@@ -138,10 +139,10 @@ class WalletCustomizationAvailableCardCell(context: Context, val cellWidth: Int)
         borderPaint.color = tintColor
         cardNft?.let {
             val colors = cardNft?.metadata?.mtwCardColors ?: return@let
-            setLabelColors(colors.first, colors.second)
+            setLabelColors(colors.first, colors.second, drawGradient = true)
             return
         }
-        setLabelColors(Color.WHITE, Color.WHITE)
+        setLabelColors(Color.WHITE, Color.WHITE.colorWithAlpha(191), drawGradient = false)
     }
 
     private var accountId: String? = null
@@ -199,13 +200,13 @@ class WalletCustomizationAvailableCardCell(context: Context, val cellWidth: Int)
         imageView.loadUrl(cardNft?.metadata?.cardImageUrl(false) ?: "")
     }
 
-    private fun setLabelColors(primaryColor: Int, secondaryColor: Int) {
+    private fun setLabelColors(primaryColor: Int, secondaryColor: Int, drawGradient: Boolean) {
         cardNft?.let {
             balanceView.alpha = 0.95f
         } ?: run {
             balanceView.alpha = 1f
         }
-        balanceView.updateColors(primaryColor, secondaryColor.colorWithAlpha(191))
+        balanceView.updateColors(primaryColor, secondaryColor, drawGradient)
         bottomViewContainer.setBackgroundColor(secondaryColor.colorWithAlpha(191), 2.5f.dp)
     }
 

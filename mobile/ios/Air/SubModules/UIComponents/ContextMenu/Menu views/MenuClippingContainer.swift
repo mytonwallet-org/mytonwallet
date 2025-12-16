@@ -45,12 +45,12 @@ struct MenuClippingContainer: View {
                             }
                         }
                         .simultaneousGesture(gesture)
-                        .clipShape(.rect(cornerRadius: 12))
+                        .clipShape(.rect(cornerRadius: S.menuCornerRadius))
                         .transition(.scale(scale: 0.2, anchor: showBelowSource ? .top : .bottom).combined(with: .opacity))
                     }
                 }
                 .frame(width: effectiveWidth, height: effectiveHeight, alignment: showBelowSource ? .top : .bottom)
-                .clipShape(.rect(cornerRadius: 12))
+                .clipShape(.rect(cornerRadius: S.menuCornerRadius))
                 .shadow(color: menuContext.showShadow ? .black.opacity(0.25) : .clear, radius: 40, x: 0, y: 4)
                 .frame(rect: CGRect(
                     x: xOffset,

@@ -57,6 +57,7 @@ class StakingVC(
     tokenSlug: String,
     mode: StakingViewModel.Mode,
 ) : WViewControllerWithModelStore(context) {
+    override val TAG = "Staking"
 
     private val viewmodelFactory = AddStakeViewModelFactory(tokenSlug, mode)
     private val stakingViewModel by lazy {

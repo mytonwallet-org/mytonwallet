@@ -5,13 +5,15 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffXfermode
 import android.graphics.RadialGradient
 import android.graphics.Shader
 import android.util.AttributeSet
 import android.view.View
-import org.mytonwallet.app_air.uicomponents.extensions.dp
+import androidx.core.graphics.withClip
+import androidx.core.view.isGone
+import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardTextType
+import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardType
+import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 
 class RadialGradientView @JvmOverloads constructor(
     context: Context,
@@ -21,13 +23,19 @@ class RadialGradientView @JvmOverloads constructor(
 
     companion object {
         private val GRADIENT_COLORS_LIGHT_TEXT = intArrayOf(
+            Color.argb(255, 0, 0, 0),
+            Color.argb(204, 0, 0, 0),
             Color.argb(128, 0, 0, 0),
+            Color.argb(51, 0, 0, 0),
             Color.argb(0, 0, 0, 0)
         )
 
         private val GRADIENT_COLORS_DARK_TEXT = intArrayOf(
-            Color.argb(191, 255, 255, 255),
-            Color.argb(0, 255, 255, 255)
+            Color.argb(255, 255, 255, 255),
+            Color.argb(204, 255, 255, 255),
+            Color.argb(128, 255, 255, 255),
+            Color.argb(51, 255, 255, 255),
+            Color.argb(0, 255, 255, 255),
         )
     }
 
@@ -36,13 +44,8 @@ class RadialGradientView @JvmOverloads constructor(
     }
 
     private val radialPaint = Paint().apply {
-        alpha = 40
+        alpha = 102
         isAntiAlias = true
-    }
-
-    private val overlayPaint = Paint().apply {
-        isAntiAlias = true
-        xfermode = PorterDuffXfermode(PorterDuff.Mode.OVERLAY)
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -65,7 +68,7 @@ class RadialGradientView @JvmOverloads constructor(
         }
 
     private fun update() {
-        val gradientWidth = width.coerceAtMost(204.dp)
+        val gradientWidth = width
         val gradientHeight = height
         if (gradientWidth == 0 || gradientHeight == 0) return
 
@@ -74,19 +77,10 @@ class RadialGradientView @JvmOverloads constructor(
 
         radialPaint.shader = RadialGradient(
             0.5f * gradientWidth,
-            0.5f * height,
-            1.61f * gradientWidth,
-            colors,
-            floatArrayOf(0.35f, 1.0f),
-            Shader.TileMode.CLAMP
-        )
-
-        overlayPaint.shader = RadialGradient(
-            0.5f * gradientWidth,
             0.5f * gradientHeight,
-            1.61f * gradientWidth,
+            gradientHeight.toFloat() * 1.33f,
             colors,
-            floatArrayOf(0.35f, 1.0f),
+            floatArrayOf(0f, 0.25f, 0.5f, 0.75f, 1f),
             Shader.TileMode.CLAMP
         )
 
@@ -102,10 +96,22 @@ class RadialGradientView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        canvas.save()
-        canvas.clipPath(path)
-        canvas.drawPaint(radialPaint)
-        canvas.drawPaint(overlayPaint)
-        canvas.restore()
+        canvas.withClip(path) {
+            drawPaint(radialPaint)
+        }
+    }
+
+    fun configure(nft: ApiNft?) {
+        isTextLight =
+            nft?.metadata?.mtwCardTextType == ApiMtwCardTextType.LIGHT
+        isGone = when (nft?.metadata?.mtwCardType) {
+            ApiMtwCardType.STANDARD -> {
+                false
+            }
+
+            else -> {
+                true
+            }
+        }
     }
 }

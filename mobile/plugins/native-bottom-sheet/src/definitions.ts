@@ -12,6 +12,7 @@ export type BottomSheetKeys =
   | 'staking-claim'
   | 'vesting-info'
   | 'vesting-confirm'
+  | 'transaction'
   | 'transaction-info'
   | 'swap-activity'
   | 'backup'

@@ -4,32 +4,49 @@ import SwiftUI
 import UIComponents
 import WalletCore
 import WalletContext
+import Dependencies
 
 struct AddressesMenuContentRow: Identifiable {
     var chain: ApiChain
-    var address: String
+    var accountChain: AccountChain
     var id: String { "0-" + chain.tokenSlug }
 }
 
-func makeAddressesMenuConfig() -> MenuConfig {
-    
-    let rows: [AddressesMenuContentRow] = (AccountStore.account?.addressByChain ?? [:])
-        .sorted(by: { $0.key < $1.key })
-        .map { (chain, address) in
-            AddressesMenuContentRow(chain: ApiChain(rawValue: chain)!, address: address)
-        }
-    let items: [MenuItem] = rows.map { row in
-        .customView(
-            id: row.id,
-            view: {
-                AnyView(
-                    AddressRowView(row: row)
+nonisolated func makeAddressesMenuConfig(accountId: String) -> () -> MenuConfig {
+    return {
+        @Dependency(\.accountStore) var accountStore
+        let account = accountStore.get(accountId: accountId)
+        
+        let rows: [AddressesMenuContentRow] = account.orderedChains
+            .map { (chain, info) in
+                AddressesMenuContentRow(chain: chain, accountChain: info)
+            }
+        var items: [MenuItem] = rows.map { row in
+                .customView(
+                    id: row.id,
+                    view: {
+                        AnyView(
+                            AddressRowView(row: row)
+                        )
+                    },
+                    height: 60
                 )
+        }
+        items += .wideSeparator()
+        items += .button(
+            id: "0-share-link",
+            title: lang("Share Wallet Link"),
+            trailingIcon: .air("MenuShare28"),
+            action: {
+                MainActor.assumeIsolated {
+                    UIPasteboard.general.url = account.shareLink
+                    topWViewController()?.showToast(animationName: "Copy", message: lang("Link was copied!"))
+                    Haptics.play(.lightTap)
+                }
             },
-            height: 60
         )
+        return MenuConfig(menuItems: items)
     }
-    return MenuConfig(menuItems: items)
 }
 
 fileprivate struct AddressRowView: View {
@@ -47,16 +64,34 @@ fileprivate struct AddressRowView: View {
             Button(action: onCopy) {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 5) {
-                        Text(formatStartEndAddress(row.address, prefix: 6, suffix: 6))
+                        let line1 = if let domain = row.accountChain.domain {
+                            domain
+                        } else {
+                            formatStartEndAddress(row.accountChain.address, prefix: 6, suffix: 6)
+                        }
+                        Text(line1)
                             .font(.system(size: 17))
                             .fixedSize()
                         Image("HomeCopy", bundle: AirBundle)
                             .foregroundStyle(Color(WTheme.secondaryLabel))
                     }
-                    Text(row.chain.symbol)
-                        .font(.system(size: 15))
-                        .foregroundStyle(Color(WTheme.secondaryLabel))
-                        .padding(.bottom, 1)
+                    .frame(height: 20)
+                    
+                    HStack(alignment: .firstTextBaseline, spacing: 0) {
+                        if row.accountChain.domain != nil {
+                            let address = formatStartEndAddress(row.accountChain.address, prefix: 4, suffix: 4)
+                            Text(address + " · ")
+                                .truncationMode(.middle)
+                                .onLongPressGesture(minimumDuration: 0.25) {
+                                    onCopySecondary()
+                                }
+                        }
+                        Text(row.chain.symbol)
+//                            .fixedSize()
+                    }
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(Color(WTheme.secondaryLabel))
+                    .frame(height: 18)
                 }
                 .padding(.trailing, 16)
                 .padding(2)
@@ -73,6 +108,7 @@ fileprivate struct AddressRowView: View {
                     .contentShape(.circle)
             }
             .padding(-10)
+            .padding(.trailing, 2)
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 16)
@@ -80,14 +116,25 @@ fileprivate struct AddressRowView: View {
     }
     
     func onCopy() {
-        UIPasteboard.general.string = row.address
-        topWViewController()?.showToast(animationName: "Copy", message: lang("Address was copied!"))
-        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+        if let domain = row.accountChain.domain {
+            UIPasteboard.general.string = domain
+            topWViewController()?.showToast(animationName: "Copy", message: lang("Domain was copied!"))
+            Haptics.play(.lightTap)
+            menuContext.dismiss()
+        } else {
+            onCopySecondary()
+        }
+    }
+    
+    func onCopySecondary() {
+        UIPasteboard.general.string = row.accountChain.address
+        topWViewController()?.showToast(animationName: "Copy", message: lang("Your address was copied!"))
+        Haptics.play(.lightTap)
         menuContext.dismiss()
     }
     
     func onOpenExplorer() {
-        let url = ExplorerHelper.addressUrl(chain: row.chain, address: row.address)
+        let url = ExplorerHelper.addressUrl(chain: row.chain, address: row.accountChain.address)
         AppActions.openInBrowser(url)
         menuContext.dismiss()
     }

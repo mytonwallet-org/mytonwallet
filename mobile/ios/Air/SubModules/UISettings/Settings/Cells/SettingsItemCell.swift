@@ -121,9 +121,9 @@ class SettingsItemCell: UICollectionViewCell, WThemedView {
         
         gradeintView.translatesAutoresizingMaskIntoConstraints = false
         iconImageView.addSubview(gradeintView)
-        gradeintView.gradientLayer.colors = [
-            UIColor.white.withAlphaComponent(1).cgColor,
-            UIColor.white.withAlphaComponent(0).cgColor,
+        gradeintView.colors = [
+            UIColor.white.withAlphaComponent(1),
+            UIColor.white.withAlphaComponent(0),
         ]
         gradeintView.gradientLayer.locations = [0, 1]
         gradeintView.gradientLayer.startPoint = CGPoint(x: 0.5, y: 0)

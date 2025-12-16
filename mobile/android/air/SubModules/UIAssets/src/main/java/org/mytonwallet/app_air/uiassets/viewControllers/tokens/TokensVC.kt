@@ -28,6 +28,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.models.MScreenMode
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
@@ -37,12 +38,14 @@ import java.util.concurrent.Executors
 @SuppressLint("ViewConstructor")
 class TokensVC(
     context: Context,
+    private val screenMode: MScreenMode,
     private val mode: Mode,
     private val onHeightChanged: (() -> Unit)? = null,
     private val onAssetsShown: (() -> Unit)? = null,
     private val onScroll: ((rv: RecyclerView) -> Unit)? = null
 ) : WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource, WalletCore.EventObserver {
+    override val TAG = "Tokens"
 
     enum class Mode {
         HOME,
@@ -125,7 +128,13 @@ class TokensVC(
         v.onTap = {
             val window = this.window!!
             val navVC = WNavigationController(window)
-            navVC.setRoot(AssetsTabVC(context, defaultSelectedIdentifier = AssetsTabVC.TAB_COINS))
+            navVC.setRoot(
+                AssetsTabVC(
+                    context,
+                    screenMode = screenMode,
+                    defaultSelectedIdentifier = AssetsTabVC.TAB_COINS
+                )
+            )
             window.present(navVC)
         }
         v.visibility = View.GONE
@@ -171,6 +180,8 @@ class TokensVC(
     private val executor = Executors.newSingleThreadExecutor()
     private fun dataUpdated() {
         executor.execute {
+            if (!screenMode.isScreenActive)
+                return@execute
             val allWalletTokens =
                 AccountStore.assetsAndActivityData.getAllTokens(addVirtualStakingTokens = true)
             val filteredWalletTokens = allWalletTokens.filter {
@@ -237,7 +248,8 @@ class TokensVC(
                             window?.present(navVC)
                             return@let
                         }
-                        val tokenVC = TokenVC(context, it)
+                        val account = AccountStore.activeAccount ?: return@let
+                        val tokenVC = TokenVC(context, account, it)
                         navigationController?.push(tokenVC)
                     }
                 }

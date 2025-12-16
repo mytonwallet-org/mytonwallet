@@ -10,8 +10,8 @@ import WalletContext
 
 extension Api {
     
-    public static func fetchPrivateKey(accountId: String, password: String) async throws -> String {
-        try await bridge.callApi("fetchPrivateKey", accountId, password, decoding: String.self)
+    public static func fetchPrivateKey(accountId: String, chain: ApiChain, password: String) async throws -> String {
+        try await bridge.callApi("fetchPrivateKey", accountId, chain, password, decoding: String.self)
     }
 
     public static func fetchMnemonic(accountId: String, password: String) async throws -> [String] {

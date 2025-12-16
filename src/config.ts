@@ -8,6 +8,7 @@ import type {
   ApiSwapAsset,
   ApiSwapDexLabel,
 } from './api/types';
+import type { TOKEN_CARD_COLORS } from './components/main/helpers/cardColors';
 import type { AutolockValueType, LangCode, LangItem, TokenPeriod } from './global/types';
 
 export const APP_ENV = process.env.APP_ENV || 'production';
@@ -64,9 +65,11 @@ export const PIN_LENGTH = 4;
 export const NATIVE_BIOMETRICS_USERNAME = IS_CORE_WALLET ? 'TonWallet' : 'MyTonWallet';
 export const NATIVE_BIOMETRICS_SERVER = IS_CORE_WALLET ? 'https://wallet.ton.org' : 'https://mytonwallet.app';
 
-export const IS_BIP39_MNEMONIC_ENABLED = !IS_CORE_WALLET;
+/** If `true`, the app supports only TON-specific mnemonics */
+export const IS_TON_MNEMONIC_ONLY = IS_CORE_WALLET;
+
 export const MNEMONIC_COUNT = 24;
-export const MNEMONIC_COUNTS = IS_BIP39_MNEMONIC_ENABLED ? [12, 24] : [24];
+export const MNEMONIC_COUNTS = IS_TON_MNEMONIC_ONLY ? [24] : [12, 24];
 
 export const PRIVATE_KEY_HEX_LENGTH = 64;
 export const MNEMONIC_CHECK_COUNT = 3;
@@ -105,7 +108,7 @@ export const ANIMATION_LEVEL_DEFAULT = ANIMATION_LEVEL_MAX;
 export const THEME_DEFAULT = 'system';
 
 export const MAIN_ACCOUNT_ID = '0-ton-mainnet';
-export const TEMPORARY_ACCOUNT_NAME = 'Temporary View';
+export const TEMPORARY_ACCOUNT_NAME = 'Wallet';
 
 export const TONCENTER_MAINNET_URL = process.env.TONCENTER_MAINNET_URL || 'https://toncenter.mytonwallet.org';
 export const TONCENTER_MAINNET_KEY = process.env.TONCENTER_MAINNET_KEY;
@@ -175,7 +178,7 @@ export const PROXY_HOSTS = process.env.PROXY_HOSTS;
 export const TINY_TRANSFER_MAX_COST = 0.01;
 
 export const IMAGE_CACHE_NAME = 'mtw-image';
-export const LANG_CACHE_NAME = 'mtw-lang-258';
+export const LANG_CACHE_NAME = 'mtw-lang-262';
 
 export const LANG_LIST: LangItem[] = [{
   langCode: 'en',
@@ -296,14 +299,8 @@ export const MYCOIN_TESTNET = {
   image: undefined,
 } as const;
 
-export const TOKEN_FONT_ICONS = {
-  [TONCOIN.slug]: 'icon-chain-ton',
-  [TRX.slug]: 'icon-chain-tron',
-};
-
 export const STAKED_TON_SLUG = 'ton-eqcqc6ehrj';
 export const STAKED_MYCOIN_SLUG = 'ton-eqcbzvsfwq';
-export const TRX_SWAP_COUNT_FEE_ADDRESS = 'TW2LXSebZ7Br1zHaiA2W1zRojDkDwjGmpw';
 export const MYCOIN_STAKING_POOL = 'EQC3roTiRRsoLzfYVK7yVVoIZjTEqAjQU3ju7aQ7HWTVL5o5';
 
 export const ETHENA_STAKING_VAULT = 'EQChGuD1u0e7KUWHH5FaYh_ygcLXhsdG2nSHPXHW8qqnpZXW';
@@ -374,6 +371,24 @@ export const TON_TSUSDE = {
   // eslint-disable-next-line @stylistic/max-len
   image: 'https://cache.tonapi.io/imgproxy/vGZJ7erwsWPo7DpVG_V7ygNn7VGs0szZXcNLHB_l0ms/rs:fill:200:200:1/g:no/aHR0cHM6Ly9tZXRhZGF0YS5sYXllcnplcm8tYXBpLmNvbS9hc3NldHMvdHNVU0RlLnBuZw.webp',
 } as const;
+
+/** The properties not returned by the backend, and therefore not stored in token objects */
+export const TOKEN_CUSTOM_STYLES: Partial<Record<string, {
+  fontIcon?: string;
+  cardColor?: keyof typeof TOKEN_CARD_COLORS;
+}>> = {
+  [TONCOIN.slug]: {
+    fontIcon: 'icon-chain-ton',
+    cardColor: 'blue',
+  },
+  [TRX.slug]: {
+    fontIcon: 'icon-chain-tron',
+    cardColor: 'red',
+  },
+  [STAKED_TON_SLUG]: {
+    cardColor: 'green',
+  },
+};
 
 export const ALL_STAKING_POOLS = [
   LIQUID_POOL,

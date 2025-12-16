@@ -27,6 +27,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcore.models.MScreenMode
 import org.mytonwallet.app_air.walletcore.models.NftCollection
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
@@ -40,6 +41,7 @@ class HomeAssetsCell(
     context: Context,
     private val window: WWindow,
     private val navigationController: WNavigationController,
+    private val screenMode: MScreenMode,
     private val heightChanged: () -> Unit,
     private val onAssetsShown: () -> Unit,
     // Allows home screen to know we are in editing mode, and get the end decision
@@ -49,7 +51,9 @@ class HomeAssetsCell(
 
     private val tokensVC: TokensVC by lazy {
         val vc = TokensVC(
-            context, TokensVC.Mode.HOME,
+            context,
+            screenMode,
+            TokensVC.Mode.HOME,
             onHeightChanged = {
                 updateHeight()
             },
@@ -61,13 +65,18 @@ class HomeAssetsCell(
     }
 
     private val collectiblesVC: AssetsVC by lazy {
-        val vc = AssetsVC(context, AssetsVC.Mode.THUMB, injectedWindow = window, onHeightChanged = {
-            updateHeight()
-        }, onScroll = {
-            updateHeight()
-        }, onReorderingRequested = {
-            onReorderingRequested()
-        }, isShowingSingleCollection = false)
+        val vc = AssetsVC(
+            context, screenMode,
+            AssetsVC.Mode.THUMB,
+            injectedWindow = window,
+            onHeightChanged = {
+                updateHeight()
+            }, onScroll = {
+                updateHeight()
+            }, onReorderingRequested = {
+                onReorderingRequested()
+            }, isShowingSingleCollection = false
+        )
         vc
     }
 
@@ -133,6 +142,8 @@ class HomeAssetsCell(
     }
 
     fun reloadTabs(resetSelection: Boolean) {
+        if (!screenMode.isScreenActive)
+            return
         val oldSegmentItems = segmentedController.items
         val newSegmentItems = segmentItems
         val itemsChanged =
@@ -183,6 +194,7 @@ class HomeAssetsCell(
                         onMenuPressed = if (showCollectionsMenu) {
                             { v ->
                                 CollectionsMenuHelpers.presentCollectionsMenuOn(
+                                    screenMode,
                                     v,
                                     navigationController,
                                     onReorderTapped = {
@@ -213,6 +225,7 @@ class HomeAssetsCell(
                                 identifier = AssetsTabVC.TAB_COLLECTIBLES,
                                 onMenuPressed = if (showCollectionsMenu) { v ->
                                     CollectionsMenuHelpers.presentCollectionsMenuOn(
+                                        screenMode,
                                         v,
                                         navigationController,
                                         onReorderTapped = {
@@ -233,6 +246,7 @@ class HomeAssetsCell(
                             if (collectionMode != null) {
                                 val vc = AssetsVC(
                                     context,
+                                    screenMode,
                                     AssetsVC.Mode.THUMB,
                                     injectedWindow = window,
                                     collectionMode = collectionMode,
@@ -311,6 +325,7 @@ class HomeAssetsCell(
                 onMenuPressed = if (showCollectionsMenu) {
                     { v ->
                         CollectionsMenuHelpers.presentCollectionsMenuOn(
+                            screenMode,
                             v,
                             navigationController,
                             onReorderTapped = {

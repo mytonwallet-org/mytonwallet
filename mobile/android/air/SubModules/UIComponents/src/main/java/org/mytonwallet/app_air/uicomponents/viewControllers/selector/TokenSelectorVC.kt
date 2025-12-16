@@ -2,10 +2,8 @@ package org.mytonwallet.app_air.uicomponents.viewControllers.selector
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
-import android.widget.FrameLayout
 import androidx.core.widget.doOnTextChanged
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -17,6 +15,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.viewControllers.selector.cells.TokenSelectorCell
 import org.mytonwallet.app_air.uicomponents.widgets.SwapSearchEditText
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
@@ -27,8 +26,8 @@ import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
-import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
+import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.lang.ref.WeakReference
@@ -41,7 +40,9 @@ class TokenSelectorVC(
     private val titleToShow: String,
     private val assets: List<IApiToken>,
     private val showMyAssets: Boolean = true
-) : WViewController(context), WThemedView, WRecyclerViewAdapter.WRecyclerViewDataSource, WalletCore.EventObserver {
+) : WViewController(context), WThemedView, WRecyclerViewAdapter.WRecyclerViewDataSource,
+    WalletCore.EventObserver {
+    override val TAG = "TokenSelector"
 
     companion object {
         val TOKEN_SELECTOR_CELL = WCell.Type(1)
@@ -88,9 +89,7 @@ class TokenSelectorVC(
         rv
     }
 
-    private val searchContainer = FrameLayout(context).apply {
-        id = View.generateViewId()
-    }
+    private val searchContainer = WFrameLayout(context)
 
     private val searchEditText = SwapSearchEditText(context)
     private var query: String? = null
@@ -213,7 +212,8 @@ class TokenSelectorVC(
                     val token = sectionData.tokens[tokenIndex]
                     val isLastInSection = indexPath.row == sectionData.tokens.size
 
-                    val isLastOverall = rvAdapter.indexPathToPosition(indexPath) == rvAdapter.itemCount - 1
+                    val isLastOverall =
+                        rvAdapter.indexPathToPosition(indexPath) == rvAdapter.itemCount - 1
 
                     cell.configure(
                         token,
@@ -311,8 +311,10 @@ class TokenSelectorVC(
             val symbolA = TokenStore.getToken(a.token)?.symbol
             val symbolB = TokenStore.getToken(b.token)?.symbol
 
-            val orderA = MBlockchain.POPULAR_TOKEN_ORDER_MAP[symbolA] ?: MBlockchain.POPULAR_TOKEN_ORDER.size
-            val orderB = MBlockchain.POPULAR_TOKEN_ORDER_MAP[symbolB] ?: MBlockchain.POPULAR_TOKEN_ORDER.size
+            val orderA =
+                MBlockchain.POPULAR_TOKEN_ORDER_MAP[symbolA] ?: MBlockchain.POPULAR_TOKEN_ORDER.size
+            val orderB =
+                MBlockchain.POPULAR_TOKEN_ORDER_MAP[symbolB] ?: MBlockchain.POPULAR_TOKEN_ORDER.size
 
             orderA.compareTo(orderB)
         }
@@ -326,6 +328,7 @@ class TokenSelectorVC(
             is WalletEvent.BaseCurrencyChanged -> {
                 buildTokenItems()
             }
+
             else -> {}
         }
     }

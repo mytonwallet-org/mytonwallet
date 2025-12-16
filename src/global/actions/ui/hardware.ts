@@ -56,7 +56,7 @@ addActionHandler('initializeHardwareWalletModal', async (global, actions) => {
         },
       });
     } else {
-      actions.showNotification({
+      actions.showToast({
         message: 'Ledger is not supported on this device.',
       });
     }

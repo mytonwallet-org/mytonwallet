@@ -47,6 +47,8 @@ enum class MBaseCurrency(val currencyCode: String) {
         }
 
     companion object {
+        val forcedToRight = setOf(RUB, BTC, TON).map { it.sign }
+
         fun parse(value: String) = try {
             valueOf(value)
         } catch (_: Throwable) {

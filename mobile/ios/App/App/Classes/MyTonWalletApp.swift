@@ -27,5 +27,4 @@ class MyTonWalletApp: UIApplication {
         vc.bridge?.triggerWindowJSEvent(eventName: "touch")
         #endif
     }
-
 }

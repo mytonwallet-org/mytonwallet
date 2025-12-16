@@ -65,7 +65,7 @@ export function formatAccountAddresses(
     const displayText = getShortText(account.domain ?? account.address, variant, isDomain ? 'domain' : 'address');
 
     if (index > 0) {
-      elements.push(', ');
+      elements.push(variant === 'card' ? ' ' : ', ');
     }
     elements.push(renderIcon(chain), displayText);
   });

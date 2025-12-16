@@ -10,7 +10,7 @@ import {
   type ApiTokenWithPrice,
 } from '../../types';
 
-import { TON_USDT_MAINNET, TON_USDT_TESTNET } from '../../../config';
+import { getToncoinAmountForTransfer } from '../../../util/fee/getTonOperationFees';
 import { fetchJsonWithProxy, fixIpfsUrl } from '../../../util/fetch';
 import { logDebugError } from '../../../util/logs';
 import { fetchJettonMetadata, fixBase64ImageData, parsePayloadBase64 } from './util/metadata';
@@ -24,16 +24,7 @@ import {
   toBase64Address, toRawAddress,
 } from './util/tonCore';
 import { buildTokenSlug, getTokenByAddress, updateTokens } from '../../common/tokens';
-import {
-  CLAIM_MINTLESS_AMOUNT,
-  DEFAULT_DECIMALS,
-  TINIEST_TOKEN_TRANSFER_REAL_AMOUNT,
-  TINY_TOKEN_TRANSFER_AMOUNT,
-  TINY_TOKEN_TRANSFER_REAL_AMOUNT,
-  TOKEN_TRANSFER_AMOUNT,
-  TOKEN_TRANSFER_FORWARD_AMOUNT,
-  TOKEN_TRANSFER_REAL_AMOUNT,
-} from './constants';
+import { DEFAULT_DECIMALS, TOKEN_TRANSFER_FORWARD_AMOUNT } from './constants';
 import { updateTokenHashes } from './priceless';
 import { isActiveSmartContract } from './wallet';
 
@@ -325,36 +316,6 @@ function buildTokenByMetadata(address: string, metadata: JettonMetadata): ApiTok
     image: (image && fixIpfsUrl(image)) || (imageData && fixBase64ImageData(imageData)) || undefined,
     customPayloadApiUrl,
   };
-}
-
-/**
- * A pure function guessing the "fee" that needs to be attached to the token transfer.
- * In contrast to the blockchain fee, this fee is a part of the transfer itself.
- *
- * `amount` is what should be attached (acts as a fee for the user);
- * `realAmount` is approximately what will be actually spent (the rest will return in the excess).
- */
-export function getToncoinAmountForTransfer(token: ApiToken, willClaimMintless: boolean) {
-  let amount = 0n;
-  let realAmount = 0n;
-
-  if (token.slug === TON_USDT_MAINNET.slug || token.slug === TON_USDT_TESTNET.slug) {
-    amount += TINY_TOKEN_TRANSFER_AMOUNT;
-    realAmount += TINIEST_TOKEN_TRANSFER_REAL_AMOUNT;
-  } else if (token.isTiny) {
-    amount += TINY_TOKEN_TRANSFER_AMOUNT;
-    realAmount += TINY_TOKEN_TRANSFER_REAL_AMOUNT;
-  } else {
-    amount += TOKEN_TRANSFER_AMOUNT;
-    realAmount += TOKEN_TRANSFER_REAL_AMOUNT;
-  }
-
-  if (willClaimMintless) {
-    amount += CLAIM_MINTLESS_AMOUNT;
-    realAmount += CLAIM_MINTLESS_AMOUNT;
-  }
-
-  return { amount, realAmount };
 }
 
 export async function importToken(network: ApiNetwork, address: string, sendUpdateTokens: NoneToVoidFunction) {

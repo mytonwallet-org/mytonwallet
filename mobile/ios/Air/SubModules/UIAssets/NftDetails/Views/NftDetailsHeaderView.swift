@@ -20,8 +20,6 @@ struct NftDetailsHeaderView: View {
     var nft: ApiNft { viewModel.nft }
     var isExpanded: Bool { viewModel.isExpanded }
     
-    @Environment(\.colorScheme) private var colorScheme
-        
     var body: some View {
         let layout = isExpanded ? AnyLayout(ZStackLayout(alignment: .bottom)) : AnyLayout(VStackLayout(spacing: 8))
         
@@ -78,7 +76,7 @@ fileprivate struct Labels: View {
                 .font(.system(size: viewModel.isExpanded ? 22 : 29, weight: .medium))
             if let collection = nft.collection {
                 NftCollectionButton(name: collection.name, onTap: {
-                    AppActions.showAssets(selectedTab: 1, collectionsFilter: .collection(collection))
+                    AppActions.showAssets(accountSource: .accountId(viewModel.accountId), selectedTab: 1, collectionsFilter: .collection(collection))
                 })
             } else {
                 Text(lang("Standalone NFT"))
@@ -102,7 +100,7 @@ fileprivate struct Labels: View {
 #if DEBUG
 @available(iOS 18, *)
 #Preview {
-    @Previewable var viewModel = NftDetailsViewModel(isExpanded: true, isFullscreenPreviewOpen: true, nft: .sampleMtwCard, listContext: .none, navigationBarInset: 0)
+    @Previewable var viewModel = NftDetailsViewModel(accountId: "0-mainnet", isExpanded: true, isFullscreenPreviewOpen: true, nft: .sampleMtwCard, listContext: .none, navigationBarInset: 0)
     @Previewable @Namespace var ns
     NftDetailsHeaderView(viewModel: viewModel, ns: ns)
         .background(Color.blue.opacity(0.2))

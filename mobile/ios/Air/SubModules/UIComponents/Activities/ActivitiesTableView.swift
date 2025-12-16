@@ -6,10 +6,6 @@ import WalletContext
 
 public final class ActivitiesTableView: UITableView, UIGestureRecognizerDelegate {
 
-    var animatingRowsInsertion: Set<IndexPath> = []
-    var animatingRowsDeletion: Set<IndexPath> = []
-    var deleteSnapshot: UIView?
-
     public override init(frame: CGRect, style: UITableView.Style) {
         super.init(frame: frame, style: style)
         delaysContentTouches = false
@@ -41,37 +37,14 @@ public final class ActivitiesTableView: UITableView, UIGestureRecognizerDelegate
 
     public override func insertRows(at indexPaths: [IndexPath], with animation: UITableView.RowAnimation) {
         super.insertRows(at: indexPaths, with: .fade)
-//        self.animatingRowsInsertion = Set(indexPaths)
     }
 
     public override func insertSections(_ sections: IndexSet, with animation: UITableView.RowAnimation) {
         super.insertSections(sections, with: .fade)
-//        super.insertSections(sections, with: sections.contains(1) && sections.count >= 3 ? .fade : animation)
     }
 
     public override func deleteRows(at indexPaths: [IndexPath], with animation: UITableView.RowAnimation) {
         super.deleteRows(at: indexPaths, with: .fade)
-        //        if indexPaths.count == 1, let idx = indexPaths.first, idx.section == 1, let cell = cellForRow(at: idx) {
-//            if let snapshot = cell.snapshotView(afterScreenUpdates: false), let sv = cell.superview {
-//                sv.addSubview(snapshot)
-//                snapshot.frame = cell.frame
-//                snapshot.layer.cornerRadius = cell.layer.cornerRadius
-//                snapshot.layer.maskedCorners = cell.layer.maskedCorners
-//                self.deleteSnapshot = snapshot
-//                UIView.animate(withDuration: 0.2) {
-//                    snapshot.alpha = 0
-//                } completion: { _ in
-//                    snapshot.removeFromSuperview()
-//                    if self.deleteSnapshot === snapshot {
-//                        self.deleteSnapshot = nil
-//                    }
-//                }
-//            }
-//            self.animatingRowsDeletion = Set(indexPaths)
-//            super.deleteRows(at: indexPaths, with: .none)
-//        } else {
-//            super.deleteRows(at: indexPaths, with: .fade)
-//        }
     }
 
     public override func deleteSections(_ sections: IndexSet, with animation: UITableView.RowAnimation) {

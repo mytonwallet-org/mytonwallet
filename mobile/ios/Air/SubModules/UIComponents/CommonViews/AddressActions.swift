@@ -1,5 +1,5 @@
 //
-//  BaseCurrencyValueText.swift
+//  AddressActions.swift
 //  MyTonWalletAir
 //
 //  Created by nikstar on 22.11.2024.
@@ -9,57 +9,69 @@ import SwiftUI
 import WalletCore
 import WalletContext
 
+public func makeTappableAddressMenu(displayName: String?, chain: String, address: String) -> () -> MenuConfig {
+    return {
+        MenuConfig(menuItems: [
+            .customView(id: "0-view-account", view: {
+                AnyView(ViewAccountMenuItem(displayName: displayName, chain: chain, address: address))
+            }, height: 60, width: 250),
+            .wideSeparator(),
+            .button(id: "0-copy", title: lang("Copy"), trailingIcon: .air("SendCopy")) {
+                UIPasteboard.general.string = address
+                topWViewController()?.showToast(animationName: "Copy", message: lang("Address was copied!"))
+                Haptics.play(.lightTap)
+            },
+            .button(id: "0-open-explorer", title: lang("Open in Explorer"), trailingIcon: .air("SendGlobe")) {
+                if let chain = ApiChain(rawValue: chain) {
+                    let url = ExplorerHelper.addressUrl(chain: chain, address: address)
+                    AppActions.openInBrowser(url)
+                }
+            },
+        ])
+    }
+}
 
-public struct AddressActions: View {
-    
+
+struct ViewAccountMenuItem: View {
+    var displayName: String?
+    var chain: String
     var address: String
-    var showSaveToFavorites: Bool
-    
-    public init(address: String, showSaveToFavorites: Bool) {
-        self.address = address
-        self.showSaveToFavorites = showSaveToFavorites
-    }
-    
+
+    @Environment(MenuContext.self) var menuContext
+
     public var body: some View {
-        Button(action: onCopy) {
-            Label {
-                Text(lang("Copy"))
-            } icon: {
-                Image("SendCopy", bundle: AirBundle)
+        SelectableMenuItem(id: "0-view-account", action: {
+            topViewController()?.dismiss(animated: true) {
+                AppActions.showTemporaryViewAccount(addressOrDomainByChain: [chain : address])
             }
-        }
-        Button(action: onOpenExplorer) {
-            Label {
-                Text(lang("Open in Explorer"))
-            } icon: {
-                Image("SendGlobe", bundle: AirBundle)
+        }, dismissOnSelect: true) {
+            HStack(spacing: 8) {
+                AccountIcon(account: account)
+                
+                VStack(alignment: .leading) {
+                    if let displayName, displayName.count < 20 {
+                        Text(displayName)
+                            .font(.system(size: 17))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Text(formatStartEndAddress(address, prefix: 6, suffix: 6))
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    } else {
+                        Text(formatStartEndAddress(address, prefix: 6, suffix: 6))
+                            .font(.system(size: 17))
+                            .lineLimit(1)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Image.airBundle("DetailsChevronRight")
             }
+            .padding(.horizontal, 4)
         }
-//        if showSaveToFavorites" {
-//            Button(action: onSaveToFavorites) {
-//                Label {
-//                    Text(lang("Save to Favorites"))
-//                } icon: {
-//                    Image("SendFavorites", bundle: AirBundle)
-//                }
-//            }
-//        }"
     }
     
-    func onCopy() {
-        UIPasteboard.general.string = address
-        topWViewController()?.showToast(animationName: "Copy", message: lang("Address was copied!"))
-        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-    }
-    
-    func onOpenExplorer() {
-        let chain = availableChains.first(where: { $0.validate(address: address) }) ?? ApiChain.ton
-        let url = ExplorerHelper.addressUrl(chain: chain, address: address)
-        AppActions.openInBrowser(url)
-    }
-    
-    func onSaveToFavorites() {
-        topWViewController()?.showToast(message: "Not implemented")
-        UINotificationFeedbackGenerator().notificationOccurred(.error)
+    var account: MAccount {
+        MAccount(id: "", title: displayName, type: .view, byChain: [chain: AccountChain(address: address)], isTemporary: true)
     }
 }

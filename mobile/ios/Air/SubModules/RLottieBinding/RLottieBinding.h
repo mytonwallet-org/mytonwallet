@@ -15,4 +15,4 @@ FOUNDATION_EXPORT const unsigned char RLottieBindingVersionString[];
 
 // In this header, you should import all the public headers of your framework using statements like #import <RLottieBinding/PublicHeader.h>
 
-#import "LottieInstance.h"
+#import <RLottieBinding/LottieInstance.h>

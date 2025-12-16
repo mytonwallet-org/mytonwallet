@@ -119,6 +119,7 @@ object WalletCore {
     var activeNetwork = "mainnet"
     var isMultichain = false
     var nextAccountId: String? = null
+    var nextAccountIsPushedTemporary: Boolean? = null
 
     var baseCurrency = MBaseCurrency.valueOf(WGlobalStorage.getBaseCurrency())
 
@@ -163,9 +164,13 @@ object WalletCore {
 
     fun notifyAccountChanged(activeAccount: MAccount, fromHome: Boolean) {
         val accountId = activeAccount.accountId
+        if (nextAccountIsPushedTemporary == true)
+            WGlobalStorage.setTemporaryAccountId(accountId)
+        else
+            WGlobalStorage.setActiveAccountId(accountId)
+        nextAccountIsPushedTemporary = null
         nextAccountId = null
         AccountStore.updateActiveAccount(accountId)
-        WGlobalStorage.setActiveAccountId(accountId)
         PoisoningCacheHelper.clearPoisoningCache()
         AddressStore.loadFromCache(accountId)
         NftStore.loadCachedNfts(accountId)
@@ -187,6 +192,7 @@ object WalletCore {
     }
 
     fun switchingToLegacy() {
+        AccountStore.removeTemporaryAccounts()
         destroyBridge()
         WSecureStorage.clearCache()
         WGlobalStorage.setTokenInfo(TokenStore.getTokenInfo())

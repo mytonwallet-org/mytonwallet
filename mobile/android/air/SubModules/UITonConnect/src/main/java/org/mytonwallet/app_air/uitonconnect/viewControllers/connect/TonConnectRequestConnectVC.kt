@@ -45,6 +45,7 @@ class TonConnectRequestConnectVC(
     context: Context,
     private var update: ApiUpdate.ApiUpdateDappConnect? = null
 ) : WViewController(context) {
+    override val TAG = "TonConnectRequestConnect"
 
     override val shouldDisplayTopBar = false
 

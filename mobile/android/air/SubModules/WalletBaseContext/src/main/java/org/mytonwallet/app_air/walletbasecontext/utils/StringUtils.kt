@@ -10,6 +10,9 @@ import android.text.style.StyleSpan
 import org.mytonwallet.app_air.walletbasecontext.theme.WColorGradients
 import java.text.BreakIterator
 import java.util.Locale
+import kotlin.math.max
+
+private const val dots = "···"
 
 val String.gradientColors: IntArray
     get() {
@@ -34,16 +37,55 @@ val String.shortChars: String
         return shortText
     }
 
-fun String.formatStartEndAddress(prefix: Int = 4, suffix: Int = 4): String {
+fun String.formatStartEndAddress(prefix: Int = 6, suffix: Int = 6): String {
     if (length < prefix + suffix + 3) {
         return this
     }
     val start = this.take(prefix)
     val end = this.takeLast(suffix)
-    return "$start···$end"
+    return "$start$dots$end"
 }
 
-fun String.insertGroupingSeparator(separator: Char = ' ', everyNthPosition: Int = 3): String {
+fun String.trimAddress(keepCount: Int): String {
+    if (keepCount <= 0) {
+        return ""
+    }
+    if (keepCount >= length) {
+        return this
+    }
+    if (keepCount <= 6) {
+        return formatStartEndAddress(0, keepCount)
+    }
+    val prefixCount = keepCount / 2
+    val postfixCount = keepCount - prefixCount
+    return formatStartEndAddress(prefixCount, postfixCount)
+}
+
+fun String.trimDomain(keepCount: Int, keepTopLevelDomain: Boolean = true): String {
+    if (keepCount <= 0) {
+        return ""
+    }
+    if (length < 2 || keepCount >= length) {
+        return this
+    }
+    val dotIndex = indexOf(".")
+    if (dotIndex <= 0 || !keepTopLevelDomain) {
+        val postfixCount = keepCount / 2
+        val prefixCount = keepCount - postfixCount
+        return formatStartEndAddress(prefixCount, postfixCount)
+    }
+    if (dotIndex <= 3) {
+        return this
+    }
+    val minorSubdomain = take(dotIndex)
+    val majorSubdomain = substring(dotIndex)
+    val requestedTrimCount = length - keepCount
+    val minorSubdomainKeepCount = max(1, minorSubdomain.length - requestedTrimCount)
+    val prefix = "${minorSubdomain.take(minorSubdomainKeepCount)}$dots"
+    return "$prefix$majorSubdomain"
+}
+
+fun String.insertGroupingSeparator(separator: Char = thinSpace, everyNthPosition: Int = 3): String {
     var result = StringBuilder()
     var count = 0
     var hasDot = this.contains(".")

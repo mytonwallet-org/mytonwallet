@@ -2,7 +2,6 @@ package org.mytonwallet.app_air.walletcore.moshi
 
 import android.graphics.Color
 import android.net.Uri
-import androidx.core.graphics.toColorInt
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import org.json.JSONObject
@@ -100,24 +99,30 @@ data class ApiNftMetadata(
             return when (mtwCardType) {
                 SILVER -> {
                     Pair(
-                        "#272727".toColorInt(),
-                        "#272727".toColorInt()
+                        Color.rgb(39, 39, 39),
+                        Color.rgb(152, 152, 152),
                     )
                 }
 
                 GOLD -> {
                     Pair(
-                        "#34270A".toColorInt(),
-                        "#272727".toColorInt()
+                        Color.rgb(76, 52, 3),
+                        Color.rgb(176, 125, 29),
                     )
                 }
 
                 PLATINUM -> {
-                    Pair(Color.WHITE, Color.WHITE)
+                    Pair(
+                        Color.rgb(255, 255, 255),
+                        Color.rgb(119, 119, 127),
+                    )
                 }
 
                 BLACK -> {
-                    Pair(Color.WHITE, Color.WHITE)
+                    Pair(
+                        Color.rgb(206, 206, 207),
+                        Color.rgb(68, 69, 70),
+                    )
                 }
 
                 else -> {
@@ -126,6 +131,31 @@ data class ApiNftMetadata(
                     } else {
                         Pair(Color.BLACK, Color.BLACK)
                     }
+                }
+            }
+        }
+
+    val overlayLabelBackground: Int?
+        get() {
+            return when (mtwCardType) {
+                SILVER -> {
+                    Color.rgb(68, 68, 68)
+                }
+
+                GOLD -> {
+                    Color.rgb(101, 71, 10)
+                }
+
+                PLATINUM -> {
+                    Color.rgb(222, 222, 224)
+                }
+
+                BLACK -> {
+                    Color.rgb(171, 172, 173)
+                }
+
+                else -> {
+                    return null
                 }
             }
         }

@@ -213,7 +213,7 @@ public class SettingsVC: WViewController, Sendable, WalletCoreData.EventsObserve
             Task {
                 do {
                     _ = try await AccountStore.activateAccount(accountId: accountId)
-                    AppActions.showHome()
+                    AppActions.showHome(popToRoot: true)
                 } catch {
                     fatalError("failed to activate account: \(accountId)")
                 }
@@ -259,7 +259,6 @@ public class SettingsVC: WViewController, Sendable, WalletCoreData.EventsObserve
     }
     
     private func signoutPressed(removingAccountId: String, callback: @escaping (Bool) -> ()) {
-        let accountToDelete = AccountStore.accountsById[removingAccountId]
         let isCurrentAccount = removingAccountId == AccountStore.accountId
         var logoutWarning = lang("$logout_warning")
         logoutWarning = logoutWarning.replacingOccurrences(of: "**", with: "")

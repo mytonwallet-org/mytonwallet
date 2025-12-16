@@ -20,6 +20,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSens
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.thinSpace
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
@@ -126,7 +127,7 @@ class SwapHeaderView(
                 forceCurrencyToRight = true
             )
             tokenToSendTextView.contentView.text = sendAmount.let {
-                val ssb = SpannableStringBuilder("-$it")
+                val ssb = SpannableStringBuilder("-$thinSpace$it")
                 CoinUtils.setSpanToFractionalPart(ssb, colorSpan)
                 ssb
             }

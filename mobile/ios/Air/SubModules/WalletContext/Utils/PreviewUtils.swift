@@ -9,3 +9,7 @@ public func sheetPreview(_ vc: UIViewController, inNavigationController: Bool  =
     }
     return host
 }
+
+public func ncPreview(_ vc: UIViewController) -> UINavigationController {
+    UINavigationController(rootViewController: vc)
+}

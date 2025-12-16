@@ -37,6 +37,7 @@ import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.Passco
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.NftAccentColors
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
@@ -102,6 +103,8 @@ class PasscodeScreenView(
         context,
         null,
         forceLightScreen = if (passcodeViewState is PasscodeViewState.Default) passcodeViewState.light == true else false,
+        forceDarkScreen = if (passcodeViewState is PasscodeViewState.Default && passcodeViewState.isUnlockScreen)
+            NftAccentColors.veryBrightColors.contains(WColor.Tint.color) else false,
         margins = 8,
         showKeyboardOnFocus = false
     ).apply {
@@ -278,7 +281,7 @@ class PasscodeScreenView(
     }
 
     private fun setupAsCustomHeader() {
-        addView(gapView2, LayoutParams(WRAP_CONTENT, 8.dp))
+        addView(gapView2, LayoutParams(WRAP_CONTENT, ViewConstants.GAP.dp))
         bottomLayout.addView(
             subTitleTextView,
             LayoutParams(MATCH_PARENT, WRAP_CONTENT)

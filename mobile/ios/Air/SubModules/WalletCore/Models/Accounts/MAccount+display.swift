@@ -31,7 +31,7 @@ public extension MAccount {
         }
     }
     
-    struct AddressLine {
+    struct AddressLine: Equatable, Hashable {
         public var isTestnet: Bool
         public enum LeadingIcon {
             case ledger, view
@@ -45,7 +45,7 @@ public extension MAccount {
             }
         }
         public var leadingIcon: LeadingIcon?
-        public struct Item: Identifiable {
+        public struct Item: Equatable, Hashable, Identifiable {
             public var chain: String
             public var text: String
             public var textToCopy: String
@@ -61,7 +61,7 @@ public extension MAccount {
     
     var addressLine: AddressLine {
         let isTestnet = network == .testnet
-        let leadingIcon: AddressLine.LeadingIcon? = isView ? .view : isHardware ? .ledger : nil
+        let leadingIcon: AddressLine.LeadingIcon? = isTemporary == true ? nil : isView ? .view : isHardware ? .ledger : nil
         var items: [AddressLine.Item] = []
         let orderedChains = orderedChains
         for (idx, chainInfo) in orderedChains.enumerated() {

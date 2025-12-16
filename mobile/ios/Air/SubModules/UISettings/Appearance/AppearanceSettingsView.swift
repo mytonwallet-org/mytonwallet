@@ -11,28 +11,21 @@ private let log = Log("AppearanceSettingsView")
 
 struct AppearanceSettingsView: View {
     
-    var navigationBarHeight: CGFloat
-    var onScroll: (CGFloat) -> ()
     var tintColor: Color
     var canSwitchToCapacitor: Bool {
         // can't be force unwrapped because app delegate is different in previews
         (UIApplication.shared.delegate as? MtwAppDelegateProtocol)?.canSwitchToCapacitor ?? true
     }
     
-    @Namespace private var ns
-    
     var body: some View {
         WithPerceptionTracking {
             InsetList(topPadding: 16, spacing: 24) {
                 switchToClassicSection
-                    .scrollPosition(ns: ns, offset: navigationBarHeight + 16, callback: onScroll)
                 themeSection
                 PaletteAndCardSection()
                 OtherAppearanceSettingsSection()
                     .padding(.bottom, 48)
             }
-            .navigationBarInset(navigationBarHeight)
-            .coordinateSpace(name: ns)
             .animation(.default, value: tintColor)
             .tint(tintColor)
         }

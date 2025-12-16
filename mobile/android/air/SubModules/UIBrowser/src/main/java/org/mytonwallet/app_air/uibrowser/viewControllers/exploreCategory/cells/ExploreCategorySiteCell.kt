@@ -103,7 +103,7 @@ class ExploreCategorySiteCell(
         addView(img, LayoutParams(48.dp, 48.dp))
         addView(contentView, LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
         addView(openButton, LayoutParams(WRAP_CONTENT, 32.dp))
-        addView(separator, LayoutParams(0, 1))
+        addView(separator, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
 
         if (site?.badgeText?.isNotBlank() == true)
             addView(badgeLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))

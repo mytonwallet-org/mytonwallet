@@ -7,7 +7,7 @@ import me.vkryl.android.animator.CounterAnimator
 import me.vkryl.android.animator.ListAnimator
 import me.vkryl.android.animatorx.BoolAnimator
 import me.vkryl.android.animatorx.BoolAnimatorListener
-import kotlin.math.ceil
+import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
 import kotlin.math.max
 import kotlin.math.min
 
@@ -67,7 +67,7 @@ class Counter(
         }
 
         requiredWidth = if (count > 0) {
-            ceil(right - left).toInt()
+            (right - left).ceilToInt()
         } else 0
         targetWidth = targetTotalWidth
         if (isHidden.value) {

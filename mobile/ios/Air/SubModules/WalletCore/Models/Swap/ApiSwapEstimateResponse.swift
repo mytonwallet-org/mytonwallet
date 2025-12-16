@@ -6,7 +6,7 @@
 //
 
 
-public struct ApiSwapEstimateResponse: Equatable, Codable, Sendable {
+public struct ApiSwapEstimateResponse: Equatable, Codable {
     
     public var from: String
     public var to: String

@@ -169,7 +169,7 @@ class AssetsAndActivityBaseCurrencyCell: UITableViewCell {
 
     @objc private func hideTinyTransfersSwitched() {
         AppStorageHelper.hideTinyTransfers = hideTinyTransfersSwitch.isOn
-        WalletCoreData.notify(event: .hideTinyTransfersChanged, for: nil)
+        WalletCoreData.notify(event: .hideTinyTransfersChanged)
     }
     
     @objc private func baseCurrencyTapped() {

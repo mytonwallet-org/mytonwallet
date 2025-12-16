@@ -18,6 +18,9 @@ import androidx.core.content.ContextCompat
 import androidx.core.widget.addTextChangedListener
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
+import org.mytonwallet.app_air.uicomponents.helpers.HapticType
+import org.mytonwallet.app_air.uicomponents.helpers.Haptics
+import org.mytonwallet.app_air.uicomponents.commonViews.TemporaryAccountItemView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WEditText
 import org.mytonwallet.app_air.uicomponents.widgets.dialog.WDialog
@@ -25,6 +28,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.dialog.WDialogButton
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
@@ -34,7 +38,6 @@ import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MSavedAddress
 import org.mytonwallet.app_air.walletcore.stores.AddressStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import java.lang.ref.WeakReference
 
 class AddressPopupHelpers {
@@ -43,13 +46,15 @@ class AddressPopupHelpers {
 
         fun configSpannableAddress(
             viewController: WeakReference<WViewController>,
+            title: CharSequence?,
             spannedString: SpannableStringBuilder,
             startIndex: Int,
             length: Int,
             addressTokenSlug: String,
             address: String,
             popupXOffset: Int,
-            color: Int? = null
+            color: Int? = null,
+            showTemporaryViewOption: Boolean,
         ) {
             val context = viewController.get()!!.view.context
             ContextCompat.getDrawable(
@@ -71,9 +76,11 @@ class AddressPopupHelpers {
                             presentMenu(
                                 viewController,
                                 widget,
+                                title,
                                 blockchain,
                                 address,
-                                popupXOffset
+                                popupXOffset,
+                                showTemporaryViewOption
                             )
                         }
                     }
@@ -92,14 +99,25 @@ class AddressPopupHelpers {
         fun presentMenu(
             viewController: WeakReference<WViewController>,
             view: View,
+            title: CharSequence?,
             blockchain: MBlockchain,
             address: String,
-            xOffset: Int
+            xOffset: Int,
+            showTemporaryViewOption: Boolean,
         ) {
             val context = viewController.get()!!.view.context
             WMenuPopup.present(
                 view,
-                listOf(
+                listOfNotNull(
+                    if (showTemporaryViewOption)
+                        WMenuPopup.Item(
+                            config = WMenuPopup.Item.Config.CustomView(
+                                TemporaryAccountItemView(context, title, blockchain, address, true)
+                            ),
+                            hasSeparator = true
+                        ) {
+
+                        } else null,
                     WMenuPopup.Item(
                         org.mytonwallet.app_air.icons.R.drawable.ic_copy,
                         LocaleController.getString("Copy Address"),
@@ -111,6 +129,7 @@ class AddressPopupHelpers {
                             address
                         )
                         clipboard.setPrimaryClip(clip)
+                        Haptics.play(context, HapticType.LIGHT_TAP)
                         Toast.makeText(
                             context,
                             LocaleController.getString("Address was copied!"),

@@ -66,7 +66,7 @@ public class ImportWalletVC: WViewController {
             animationName: "animation_snitch",
             animationPlaybackMode: .once,
             title: lang("Enter Secret Words"),
-            description: lang("$auth_import_mnemonic_description"),
+            description: lang("$auth_import_mnemonic_description", arg1: langJoin(["12", "24"], .or)),
             animationSize: 96,
         )
         scrollView.addSubview(headerView)
@@ -190,7 +190,7 @@ public class ImportWalletVC: WViewController {
         if UIPasteboard.general.hasStrings, let value = UIPasteboard.general.string, !value.isEmpty {
             let words = value.split(omittingEmptySubsequences: true, whereSeparator: { $0.isWhitespace }).map(String.init)
             if words.count != 24 && words.count != 12 {
-                UINotificationFeedbackGenerator().notificationOccurred(.error)
+                Haptics.play(.error)
                 if #available(iOS 17.0, *), let target = wordInputs.first?.frame(in: scrollView) {
                      scrollView.scrollRectToVisible(target, animated: true)
                 }
@@ -198,7 +198,7 @@ public class ImportWalletVC: WViewController {
             wordInputs.first?.textField.distributeWords(words)
             textChanged()
         } else {
-            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            Haptics.play(.lightTap)
             showToast(message: lang("Clipboard empty"))
         }
         

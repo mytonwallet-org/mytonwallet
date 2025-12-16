@@ -8,7 +8,6 @@ import android.graphics.Shader
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
-import android.view.View.MeasureSpec
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -18,6 +17,7 @@ import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.CopyTextView
@@ -37,6 +37,7 @@ class QRCodeVC(
     context: Context,
     val chain: MBlockchain,
 ) : WViewController(context) {
+    override val TAG = "QRCode"
 
     override val shouldDisplayTopBar = false
 
@@ -188,10 +189,7 @@ class QRCodeVC(
             toCenterX(addressView)
         }
 
-        addressView.measure(
-            MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED),
-            MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
-        )
+        addressView.measure(0.unspecified, 0.unspecified)
         updateTheme()
     }
 

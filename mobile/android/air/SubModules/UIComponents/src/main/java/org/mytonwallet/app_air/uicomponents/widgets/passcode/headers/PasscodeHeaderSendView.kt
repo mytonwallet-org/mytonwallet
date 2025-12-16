@@ -19,11 +19,11 @@ import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
-import org.mytonwallet.app_air.walletbasecontext.theme.WColor
-import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
-import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
-import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
+import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
+import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
 import java.lang.ref.WeakReference
 import kotlin.math.roundToInt
 
@@ -160,12 +160,14 @@ class PasscodeHeaderSendView(
             append(" $a")
             AddressPopupHelpers.configSpannableAddress(
                 viewController,
+                title = null,
                 this,
                 length - a.length,
                 a.length,
                 token.slug,
                 resolvedAddress ?: "",
-                textWidth.roundToInt()
+                textWidth.roundToInt(),
+                showTemporaryViewOption = false
             )
             updateDotsTypeface()
             setSpan(

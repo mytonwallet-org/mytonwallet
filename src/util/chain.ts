@@ -43,6 +43,8 @@ export interface ChainConfig {
   canImportTokens: boolean;
   /** If `true`, the Send form UI will show a scam warning if the wallet has tokens but not enough gas to sent them */
   shouldShowScamWarningIfNotEnoughGas: boolean;
+  /** A random but valid address for checking transfer fees */
+  feeCheckAddress: string;
   /** A swap configuration used to buy the native token in this chain */
   buySwap: {
     tokenInSlug: string;
@@ -53,7 +55,7 @@ export interface ChainConfig {
   usdtSlug: Record<ApiNetwork, string | undefined>;
   /** The token slugs of this chain added to new accounts by default. */
   defaultEnabledSlugs: Record<ApiNetwork, string[]>;
-  /** The token slugs of this chain supported by the crosschain swap mechanism. */
+  /** The token slugs of this chain supported by the crosschain (CEX) swap mechanism. */
   crosschainSwapSlugs: string[];
   /**
    * The tokens to fill the token cache until it's loaded from the backend.
@@ -75,6 +77,8 @@ export interface ChainConfig {
     transaction: string;
     doConvertHashFromBase64: boolean;
   };
+  /** Whether the chain supports net worth details */
+  isNetWorthSupported: boolean;
   /** Builds a link to transfer assets in this chain. If not set, the chain won't have the Deposit Link modal. */
   formatTransferUrl?(address: string, amount?: bigint, text?: string, jettonAddress?: string): string;
 }
@@ -93,6 +97,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     doesBackendSocketSupport: true,
     canImportTokens: true,
     shouldShowScamWarningIfNotEnoughGas: false,
+    feeCheckAddress: 'UQBE5NzPPnfb6KAy7Rba2yQiuUnihrfcFw96T-p5JtZjAl_c',
     buySwap: {
       tokenInSlug: TRC20_USDT_MAINNET.slug,
       amountIn: '100',
@@ -126,6 +131,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
       transaction: '{base}tx/{hash}',
       doConvertHashFromBase64: true,
     },
+    isNetWorthSupported: true,
     formatTransferUrl: formatTonTransferUrl,
   },
   tron: {
@@ -141,6 +147,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     doesBackendSocketSupport: true,
     canImportTokens: false,
     shouldShowScamWarningIfNotEnoughGas: true,
+    feeCheckAddress: 'TW2LXSebZ7Br1zHaiA2W1zRojDkDwjGmpw',
     buySwap: {
       tokenInSlug: TONCOIN.slug,
       amountIn: '10',
@@ -170,6 +177,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
       transaction: '{base}transaction/{hash}',
       doConvertHashFromBase64: false,
     },
+    isNetWorthSupported: false,
   },
 };
 

@@ -41,6 +41,7 @@ class LedgerWalletsVC(
 ) :
     WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource, LedgerWalletsVM.Delegate {
+    override val TAG = "LedgerWallets"
 
     data class Item(
         val title: String?,

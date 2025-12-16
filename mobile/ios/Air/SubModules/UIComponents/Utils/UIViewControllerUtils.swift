@@ -89,7 +89,13 @@ public extension UIViewController {
     }
     
     @MainActor func showAlert(error: any Error, onOK: (() -> Void)? = nil) {
-        if let error = error as? BridgeCallError {
+        if let error = error as? DisplayError {
+            showAlert(title: error.title ?? lang("Error"),
+                      text: error.text,
+                      button: lang("OK")) {
+                onOK?()
+            }
+        } else if let error = error as? BridgeCallError {
             switch error {
             case .message(let bridgeCallErrorMessages, _):
                 if bridgeCallErrorMessages == .serverError {

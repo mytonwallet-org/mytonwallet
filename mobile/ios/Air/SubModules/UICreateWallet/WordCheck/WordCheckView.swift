@@ -15,10 +15,6 @@ struct WordCheckView: View {
     
     var introModel: IntroModel
     @ObservedObject var model: WordCheckModel
-    var navigationBarInset: CGFloat
-    var onScroll: (CGFloat) -> ()
-
-    @Namespace private var ns
     
     @State private var isLoading = false
 
@@ -29,7 +25,6 @@ struct WordCheckView: View {
                     WUIAnimatedSticker("animation_bill", size: 124, loop: false)
                         .frame(width: 124, height: 124)
                         .padding(.top, -8)
-                        .scrollPosition(ns: ns, offset: navigationBarInset, callback: onScroll)
                     VStack(spacing: 20) {
                         title
                         description
@@ -49,14 +44,12 @@ struct WordCheckView: View {
                 }
             }
         }
-        .navigationBarInset(navigationBarInset)
         .scrollIndicators(.hidden)
         .backportScrollBounceBehaviorBasedOnSize()
         .backportScrollClipDisabled()
         .padding(.horizontal, 32)
         .padding(.bottom, 8)
         .allowsHitTesting(!model.intractionDisabled)
-        .coordinateSpace(name: ns)
         .onChange(of: model.allSelected) { allSelected in
             if allSelected {
                 if !model.revealCorrect {

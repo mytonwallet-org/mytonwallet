@@ -85,7 +85,7 @@ class ActionsStyleView(
 
         addView(titleLabel)
         addView(themeView, LayoutParams(0, LayoutParams.WRAP_CONTENT))
-        addView(separatorView, LayoutParams(LayoutParams.MATCH_PARENT, 1))
+        addView(separatorView, LayoutParams(LayoutParams.MATCH_PARENT, ViewConstants.SEPARATOR_HEIGHT))
 
         setConstraints {
             toTop(titleLabel, 16f)

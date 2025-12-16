@@ -138,14 +138,16 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
         apy = stakingState?.annualYield
         amountToClaim = stakingState?.amountToClaim
 
-        val stakingBalance = stakingState?.totalBalance?.toString(
+        val stakingBalanceValue = stakingState?.totalBalance
+        val stakingBalance = stakingBalanceValue?.toString(
             token!!.decimals,
             "",
-            stakingState.totalBalance.smartDecimalsCount(token!!.decimals),
+            stakingBalanceValue.smartDecimalsCount(token!!.decimals),
             showPositiveSign = false,
             forceCurrencyToRight = true,
             roundUp = false
         )
+        val stakingBalanceIsLarge = stakingBalanceValue?.doubleAbsRepresentation(token!!.decimals)?.let { it >= 10 } ?: false
 
         val totalProfitAmount = when {
             tokenSlug == TONCOIN_SLUG -> updateStaking.totalProfit
@@ -164,10 +166,11 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
         _viewState.tryEmit(
             viewStateValue().copy(
                 stakingBalance = stakingBalance,
+                stakingBalanceIsLarge = stakingBalanceIsLarge,
                 totalProfit = totalProfit,
-                showAddStakeButton = stakingState?.isUnstakeRequestAmountUnlocked != true,
-                showUnstakeButton =
-                    (stakingState?.balance ?: BigInteger.ZERO) > BigInteger.ZERO,
+                showAddStakeButton = true,
+                showUnstakeButton = stakingState?.shouldShowWithdrawButton ?: false,
+                showBiggerUnstakeButton = stakingState?.isUnstakeRequestAmountUnlocked != true,
                 enableAddStakeButton = getTokenBalance() > BigInteger.ZERO,
                 unclaimedReward = amountToClaim
             )
@@ -620,7 +623,7 @@ class EarnViewModel(val tokenSlug: String) : ViewModel(), WalletCore.EventObserv
                 profitItems = mutableListOf<EarnItem.Profit>().apply {
                     addAll(consecutiveProfitList)
                 },
-                itemTitle = LocaleController.getString("Earned") + if (LocaleController.isRTL) " ${consecutiveProfitList.size}x" else "x${consecutiveProfitList.size}"
+                itemTitle = LocaleController.getString("Earned") + " ×${consecutiveProfitList.size}"
             ).apply { updateAmountInBaseCurrency() }
             result.add(newProfitGroup)
         }

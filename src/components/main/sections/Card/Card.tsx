@@ -5,7 +5,7 @@ import React, {
 import { withGlobal } from '../../../../global';
 
 import type { ApiBaseCurrency, ApiCurrencyRates, ApiNft, ApiStakingState } from '../../../../api/types';
-import type { IAnchorPosition, UserToken } from '../../../../global/types';
+import type { IAnchorPosition, TokenChartMode, UserToken } from '../../../../global/types';
 
 import { IS_CORE_WALLET } from '../../../../config';
 import {
@@ -39,15 +39,16 @@ import SensitiveData from '../../../ui/SensitiveData';
 import Spinner from '../../../ui/Spinner';
 import Transition from '../../../ui/Transition';
 import CardAddress from './CardAddress';
+import ChartCard from './ChartCard';
 import CurrencySwitcherMenu from './CurrencySwitcherMenu';
 import CustomCardManager from './CustomCardManager';
-import TokenCard from './TokenCard';
 
 import styles from './Card.module.scss';
 
 interface OwnProps {
   ref?: ElementRef<HTMLDivElement>;
-  onTokenCardClose: NoneToVoidFunction;
+  onChartCardClose: NoneToVoidFunction;
+  tokenChartMode: TokenChartMode;
   onYieldClick: (stakingId?: string) => void;
 }
 
@@ -73,7 +74,8 @@ function Card({
   isTemporaryAccount,
   tokens,
   currentTokenSlug,
-  onTokenCardClose,
+  onChartCardClose,
+  tokenChartMode,
   onYieldClick,
   baseCurrency,
   currencyRates,
@@ -104,8 +106,8 @@ function Card({
   const [currencyMenuAnchor, setCurrencyMenuAnchor] = useState<IAnchorPosition>();
 
   const {
-    shouldRender: shouldRenderTokenCard,
-    ref: tokenCardRef,
+    shouldRender: shouldRenderChartCard,
+    ref: chartCardRef,
   } = useShowTransition({
     isOpen: Boolean(currentTokenSlug),
     noMountTransition: true,
@@ -133,12 +135,12 @@ function Card({
 
   useHistoryBack({
     isActive: Boolean(currentTokenSlug),
-    onBack: onTokenCardClose,
+    onBack: onChartCardClose,
   });
 
   useEffect(
-    () => (shouldRenderTokenCard ? captureEscKeyListener(onTokenCardClose) : undefined),
-    [shouldRenderTokenCard, onTokenCardClose],
+    () => (shouldRenderChartCard ? captureEscKeyListener(onChartCardClose) : undefined),
+    [shouldRenderChartCard, onChartCardClose],
   );
 
   const {
@@ -277,13 +279,13 @@ function Card({
         </div>
       </div>
 
-      {shouldRenderTokenCard && (
-        <TokenCard
+      {shouldRenderChartCard && (
+        <ChartCard
           tokenSlug={currentTokenSlug}
-          ref={tokenCardRef}
+          ref={chartCardRef}
           isUpdating={isUpdating}
+          tokenChartMode={tokenChartMode}
           onYieldClick={isViewMode ? undefined : onYieldClick}
-          onClose={onTokenCardClose}
         />
       )}
     </div>

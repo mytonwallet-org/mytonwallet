@@ -5,44 +5,35 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Shader
-import android.text.SpannableStringBuilder
-import android.text.Spanned
 import android.text.TextUtils
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ImageView
-import androidx.appcompat.widget.AppCompatImageView
+import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.content.ContextCompat
-import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.commonViews.RadialGradientView
-import org.mytonwallet.app_air.uicomponents.commonViews.WalletTypeView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
-import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.helpers.spans.WSpacingSpan
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.AutoScaleContainerView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
+import org.mytonwallet.app_air.uicomponents.widgets.WMultichainAddressLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
-import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.balance.WBalanceView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.SensitiveDataMaskView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardTextType
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardType
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
@@ -85,6 +76,7 @@ class WalletCustomizationCardCell(context: Context, val cellWidth: Int) :
         primarySize = 42f
         decimalsSize = 32f
         typeface = WFont.NunitoExtraBold.typeface
+        containerWidth = cellWidth
     }
 
     private val balanceContainerView = WSensitiveDataContainer(
@@ -106,41 +98,12 @@ class WalletCustomizationCardCell(context: Context, val cellWidth: Int) :
         clipToPadding = false
     }
 
-    private val addressChain = AppCompatImageView(context).apply {
-        id = generateViewId()
-    }
-
-    private val addressLabel: WLabel by lazy {
-        val lbl = WLabel(context)
-        lbl.setStyle(16f, WFont.Medium)
-        lbl.paint.letterSpacing = 0.031f
-        lbl
-    }
-
-    val walletTypeView = WalletTypeView(context)
-
-    val addressLabelContainer = WView(context).apply {
-        setPaddingDpLocalized(4, 0, 1, 0)
-        addView(addressChain, LayoutParams(16.dp, 16.dp))
-        addView(addressLabel, LayoutParams(WRAP_CONTENT, MATCH_PARENT))
-        setConstraints {
-            toStart(addressChain)
-            toCenterY(addressChain)
-            startToEnd(addressLabel, addressChain, 6f)
-            toEnd(addressLabel)
-            toCenterY(addressLabel)
-        }
-    }
-
-    val bottomViewContainer = WView(context).apply {
-        addView(walletTypeView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
-        addView(addressLabelContainer, LayoutParams(WRAP_CONTENT, MATCH_PARENT))
-        setConstraints {
-            toStart(walletTypeView)
-            startToEnd(addressLabelContainer, walletTypeView)
-            toEnd(addressLabelContainer)
-            toCenterY(walletTypeView)
-            toCenterY(addressLabelContainer)
+    private val addressLabel: WMultichainAddressLabel by lazy {
+        WMultichainAddressLabel(context).apply {
+            setStyle(16f, WFont.Medium)
+            setPaddingDpLocalized(3, 0, 1, 1)
+            gravity = Gravity.CENTER
+            containerWidth = cellWidth
         }
     }
 
@@ -151,7 +114,7 @@ class WalletCustomizationCardCell(context: Context, val cellWidth: Int) :
         addView(radialGradientView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
         addView(titleLabel, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         addView(balanceContainerView, LayoutParams(0, MATCH_PARENT))
-        addView(bottomViewContainer, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        addView(addressLabel, LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
 
         setConstraints {
             allEdges(imageView)
@@ -159,8 +122,8 @@ class WalletCustomizationCardCell(context: Context, val cellWidth: Int) :
             toCenterX(balanceContainerView)
             toTop(balanceContainerView, -4f)
             toBottom(balanceContainerView, 4f)
-            toCenterX(bottomViewContainer)
-            toBottom(bottomViewContainer, 16f)
+            toCenterX(addressLabel, 16f)
+            toBottom(addressLabel, 16f)
         }
     }
 
@@ -168,10 +131,10 @@ class WalletCustomizationCardCell(context: Context, val cellWidth: Int) :
         setBackgroundColor(Color.TRANSPARENT, 20f.dp, true)
         cardNft?.let {
             val colors = cardNft?.metadata?.mtwCardColors ?: return@let
-            setLabelColors(colors.first, colors.second)
+            setLabelColors(colors.first, colors.second, drawGradient = true)
             return
         }
-        setLabelColors(Color.WHITE, Color.WHITE)
+        setLabelColors(Color.WHITE, Color.WHITE.colorWithAlpha(191), drawGradient = false)
     }
 
     private var account: MAccount? = null
@@ -183,25 +146,6 @@ class WalletCustomizationCardCell(context: Context, val cellWidth: Int) :
 
         updateCardImage()
         updateBalance()
-
-        val isMultiChain = account.isMultichain
-        addressChain.layoutParams.width = if (isMultiChain) 26.dp else 16.dp
-        val drawableRes = when {
-            isMultiChain -> R.drawable.ic_multichain
-            account.byChain.containsKey(MBlockchain.ton.name) ->
-                R.drawable.ic_blockchain_ton_128
-
-            account.byChain.containsKey(MBlockchain.tron.name) ->
-                R.drawable.ic_blockchain_tron_40
-
-            else -> null
-        }
-        addressChain.setImageDrawable(drawableRes?.let {
-            ContextCompat.getDrawable(
-                context,
-                drawableRes
-            )
-        })
     }
 
     fun updateCardImage() {
@@ -239,7 +183,7 @@ class WalletCustomizationCardCell(context: Context, val cellWidth: Int) :
         }
     }
 
-    private fun setLabelColors(primaryColor: Int, secondaryColor: Int) {
+    private fun setLabelColors(primaryColor: Int, secondaryColor: Int, drawGradient: Boolean) {
         var textShader: LinearGradient?
         cardNft?.let {
             balanceView.alpha = 0.95f
@@ -258,8 +202,8 @@ class WalletCustomizationCardCell(context: Context, val cellWidth: Int) :
             textShader = null
         }
         titleLabel.setTextColor(primaryColor)
-        balanceView.updateColors(primaryColor, secondaryColor.colorWithAlpha(191))
-        addressLabel.setTextColor(secondaryColor.colorWithAlpha(204))
+        balanceView.updateColors(primaryColor, secondaryColor, drawGradient)
+        addressLabel.setTextColor(primaryColor, secondaryColor, drawGradient)
         if (textShader == null) {
             addressLabel.paint.shader = null
         } else {
@@ -270,41 +214,14 @@ class WalletCustomizationCardCell(context: Context, val cellWidth: Int) :
     }
 
     private fun updateAddressLabel() {
-        val addressSpannableString = SpannableStringBuilder()
-        val isMultichain = account?.isMultichain == true
-        if (account?.isViewOnly == true || account?.isHardware == true) {
-            val drawable = ContextCompat.getDrawable(
-                context,
-                if (account?.isHardware == true)
-                    org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_ledger
-                else
-                    org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_eye
-            )!!
-            drawable.mutate()
-            drawable.setTint(addressLabel.currentTextColor)
-            val width = 12.dp
-            val height = 12.dp
-            drawable.setBounds(0, 0, width, height)
-            val imageSpan = VerticalImageSpan(drawable)
-            addressSpannableString.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            addressSpannableString.append(
-                " ",
-                WSpacingSpan(4.dp),
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
+        addressLabel.style = when (account?.accountType) {
+            MAccount.AccountType.VIEW -> WMultichainAddressLabel.walletCustomizationViewStyle
+            MAccount.AccountType.HARDWARE -> WMultichainAddressLabel.walletCustomizationHardwareStyle
+            else -> WMultichainAddressLabel.walletCustomizationStyle
         }
-        val txt =
-            if (isMultichain) LocaleController.getString("Multichain") else account?.firstAddress?.formatStartEndAddress(
-                6,
-                6
-            ) ?: ""
-        addressSpannableString.append(
-            SpannableStringBuilder(txt).apply {
-                if (!isMultichain)
-                    updateDotsTypeface()
-            }
-        )
-        addressLabel.text = addressSpannableString
+        addressLabel.displayAddresses(account?.byChain?.map { (key, value) ->
+            Pair(key, value)
+        } ?: emptyList())
     }
 
     private fun updateBalance() {

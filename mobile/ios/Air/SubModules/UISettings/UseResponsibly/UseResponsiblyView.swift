@@ -13,22 +13,14 @@ import WalletCore
 
 struct UseResponsiblyView: View {
 
-    var navigationBarInset: CGFloat
-    var onScroll: (CGFloat) -> ()
-
-    @Namespace private var ns
-    
     var body: some View {
         InsetList(topPadding: 0) {
             header
-                .scrollPosition(ns: ns, offset: -40, callback: onScroll)
             longDescription
             links
                 .padding(.bottom, 32)
         }
-        .navigationBarInset(navigationBarInset)
         .backportScrollBounceBehaviorBasedOnSize()
-        .coordinateSpace(name: ns)
     }
     
     @ViewBuilder

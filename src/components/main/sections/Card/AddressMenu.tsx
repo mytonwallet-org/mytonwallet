@@ -72,12 +72,12 @@ function AddressMenu({
   getLayout,
   byChain,
 }: OwnProps & StateProps) {
-  const { showNotification } = getActions();
+  const { showToast } = getActions();
 
   const lang = useLang();
 
   const handleItemClick = useLastCallback((value: string, kind: 'address' | 'domain') => {
-    showNotification({
+    showToast({
       message: lang(kind === 'domain' ? 'Domain was copied!' : 'Address was copied!'),
       icon: 'icon-copy',
     });

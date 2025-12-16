@@ -124,7 +124,7 @@ private struct ListAddressLine: View {
     var addressLine: MAccount.AddressLine
     
     var body: some View {
-        MtwCardAddressLine(addressLine: addressLine, style: .list)
+        MtwCardAddressLine(addressLine: addressLine, style: .list, gradient: nil)
     }
 }
 

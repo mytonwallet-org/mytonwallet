@@ -32,8 +32,6 @@ public final class MenuLayerView: UIView {
     private let blurredBackground = BlurredMenuBackground()
     private var portalView: UIView?
     
-    let feedbackGenerator = UIImpactFeedbackGenerator(style: .rigid)
-    
     init() {
         super.init(frame: .zero)
         setup()
@@ -65,7 +63,7 @@ public final class MenuLayerView: UIView {
     
     public func showMenu(menuContext: MenuContext) {
         
-        feedbackGenerator.impactOccurred()
+        Haptics.play(.transition)
         
         if let sourceView = menuContext.sourceView, let window = sourceView.window, let portalView = makePortalView(of: sourceView) {
             addSubview(portalView)

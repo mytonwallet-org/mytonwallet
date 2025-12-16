@@ -59,6 +59,7 @@ class TonConnectRequestSendVC(
     private val connectionType: ApiConnectionType,
     private var update: ApiUpdate.ApiUpdateDappSignRequest? = null
 ) : WViewControllerWithModelStore(context), CustomListAdapter.ItemClickListener, SkeletonContainer {
+    override val TAG = "TonConnectRequestSend"
 
     override val shouldDisplayTopBar = true
 

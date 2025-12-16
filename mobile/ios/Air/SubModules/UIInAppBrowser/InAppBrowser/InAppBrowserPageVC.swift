@@ -224,17 +224,28 @@ extension InAppBrowserPageVC: WKNavigationDelegate, WKUIDelegate {
         
         let allowedSchemes = ["itms-appss", "itms-apps", "tel", "sms", "mailto", "geo", "tg", "mtw"]
         var shouldStart = true
+        var shouldDismiss = false
         
         if let scheme = url.scheme, allowedSchemes.contains(scheme) {
             webView.stopLoading()
             openSystemUrl(url)
             shouldStart = false
+            if scheme == "mtw" {
+                shouldDismiss = true
+            }
         }
         
         if WalletContextManager.delegate?.handleDeeplink(url: url) ?? false {
             shouldStart = false
+            shouldDismiss = true
         }
-        
+        defer {
+            if shouldDismiss {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
+                    self.presentingViewController?.dismiss(animated: true)
+                }
+            }
+        }
         if shouldStart {
             // Handle links with target="_blank"
             if navigationAction.targetFrame == nil {

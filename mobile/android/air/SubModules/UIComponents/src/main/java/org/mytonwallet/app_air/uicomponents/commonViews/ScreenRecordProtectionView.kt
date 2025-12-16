@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import android.widget.FrameLayout
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.setPadding
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -13,20 +12,20 @@ import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WView
-import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
-import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 
 @SuppressLint("ViewConstructor", "ClickableViewAccessibility")
 class ScreenRecordProtectionView(
     val viewController: WViewController,
     val proceedPressed: () -> Unit
-) : FrameLayout(viewController.context) {
+) : WFrameLayout(viewController.context) {
 
     init {
-        id = generateViewId()
         addBackgroundView()
         addContentView()
         setOnTouchListener { _, _ -> true }

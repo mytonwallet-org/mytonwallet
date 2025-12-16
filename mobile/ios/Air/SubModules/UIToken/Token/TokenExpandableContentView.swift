@@ -271,6 +271,6 @@ extension TokenExpandableContentView: TokenActionsView.Delegate {
     }
 
     func earnPressed() {
-        AppActions.showEarn(token: token)
+        AppActions.showEarn(tokenSlug: token?.slug)
     }
 }

@@ -526,7 +526,10 @@ function migrateCache(cached: GlobalState, initialState: GlobalState) {
   if (cached.stateVersion === 46) {
     if (cached.accounts) {
       for (const _account of Object.values(cached.accounts.byId)) {
-        const account = _account as Account & { ledger?: { index: number } };
+        const account = _account as Account & {
+          ledger?: { index: number };
+          byChain: { ton?: { ledgerIndex?: number } };
+        };
 
         if (
           account.type !== 'hardware'

@@ -164,8 +164,11 @@ export type ApiSwapHistoryItem = {
   hashes: string[];
   isCanceled?: boolean;
   cex?: {
+    /** The address to send the "from" token to */
     payinAddress: string;
+    /** The address where the "to" token will be sent to */
     payoutAddress: string;
+    /** The memo to use with the "from" token sending transaction */
     payinExtraId?: string;
     status: ApiSwapCexTransactionStatus;
     transactionId: string;
@@ -196,12 +199,16 @@ export type ApiSwapCexEstimateResponse = {
 export type ApiSwapCexCreateTransactionRequest = {
   from: string;
   fromAmount: string;
-  fromAddress: string; // Always TON address
+  /** Always TON address */
+  fromAddress: string;
   to: string;
-  toAddress: string; // TON or other crypto address
+  /** Any chain address */
+  toAddress: string;
   payoutExtraId?: string;
-  swapFee: string; // from estimate request
-  networkFee?: string; // only for sent TON
+  /** From the estimate request */
+  swapFee: string;
+  /** Measured in the "from" chain's native token */
+  networkFee?: string;
 };
 
 export type ApiSwapCexCreateTransactionResponse = {
@@ -274,6 +281,7 @@ export type ApiSite = {
   extendedIcon?: string;
   badgeText?: string;
   withBorder?: boolean;
+  borderColor?: [string, string?];
 };
 
 export type ApiSiteCategory = {

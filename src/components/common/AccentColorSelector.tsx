@@ -37,7 +37,7 @@ function AccentColorSelector({
   const {
     installAccentColorFromNft,
     clearAccentColorFromNft,
-    showNotification,
+    showToast,
   } = getActions();
 
   const lang = useLang();
@@ -77,7 +77,7 @@ function AccentColorSelector({
     const isLocked = colorIndex !== undefined ? !availableAccentColorIds.includes(colorIndex) : false;
 
     if (isLocked) {
-      showNotification({ message: lang('Get a unique MyTonWallet Card to unlock new palettes.') });
+      showToast({ message: lang('Get a unique MyTonWallet Card to unlock new palettes.') });
     } else if (colorIndex === undefined) {
       clearAccentColorFromNft();
     } else {

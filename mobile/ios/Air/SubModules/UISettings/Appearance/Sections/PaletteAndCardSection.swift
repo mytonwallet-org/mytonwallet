@@ -17,7 +17,7 @@ import Dependencies
 
 struct PaletteAndCardSection: View {
     
-    @State var viewModel = CurrentAccountViewModel()
+    @State var viewModel = AccountViewModel(source: .current)
     
     var body: some View {
         InsetSection {
@@ -48,7 +48,7 @@ struct PaletteAndCardSection: View {
 
 struct PaletteAndCardIcon: View {
     
-    let viewModel: CurrentAccountViewModel
+    let viewModel: AccountViewModel
     
     var body: some View {
         WithPerceptionTracking {
@@ -90,7 +90,9 @@ struct _CardMiniature: View {
                 .frame(width: 22, height: 14)
                 .overlay {
                     MtwCardMiniPlaceholders()
-                        .foregroundStyle(MtwCardForegroundStyle(nft: viewModel.nft))
+                        .sourceAtop {
+                            MtwCardInverseCenteredGradient(nft: viewModel.nft)
+                        }
                 }
         }
     }

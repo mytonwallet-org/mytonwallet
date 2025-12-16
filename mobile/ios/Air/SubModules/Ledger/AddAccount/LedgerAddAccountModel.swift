@@ -131,6 +131,6 @@ private let log = Log("LedgerAddAccountModel")
         if let firstId {
             _ = try await AccountStore.activateAccount(accountId: firstId)
         }
-        await onDone?()
+        onDone?()
     }
 }

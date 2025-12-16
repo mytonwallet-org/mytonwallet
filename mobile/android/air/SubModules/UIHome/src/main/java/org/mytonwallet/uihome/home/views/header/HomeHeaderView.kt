@@ -13,7 +13,6 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import android.widget.FrameLayout
 import android.widget.Scroller
 import androidx.core.view.isGone
 import kotlinx.coroutines.CoroutineScope
@@ -26,10 +25,13 @@ import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.commonViews.SkeletonView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
+import org.mytonwallet.app_air.uicomponents.helpers.HapticType
+import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.AutoScaleContainerView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WGradientMaskView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
@@ -42,6 +44,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSens
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
+import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -64,12 +67,13 @@ import kotlin.math.roundToInt
 @SuppressLint("ViewConstructor")
 open class HomeHeaderView(
     window: WWindow,
+    private val overrideAccountIds: Array<String>?,
     private val updateStatusView: UpdateStatusView,
     private var onModeChange: ((animated: Boolean) -> Unit)?,
     private var onExpandPressed: (() -> Unit)?,
     private var onHeaderPressed: (() -> Unit)?,
     private var onHorizontalScrollListener: ((contentAlpha: Float, verticalOffset: Int, actionsFadeOutPercent: Float) -> Unit)? = null,
-) : FrameLayout(window), WThemedView, WProtectedView {
+) : WFrameLayout(window), WThemedView, WProtectedView {
 
     companion object {
         val DEFAULT_MODE = Mode.Expanded
@@ -78,7 +82,6 @@ open class HomeHeaderView(
     }
 
     init {
-        id = generateViewId()
         clipChildren = false
         clipToPadding = false
     }
@@ -149,6 +152,7 @@ open class HomeHeaderView(
         typeface = WFont.NunitoExtraBold.typeface
         clipChildren = false
         clipToPadding = false
+        smartDecimalsColor = true
     }
     private val balanceViewMaskWrapper = WGradientMaskView(balanceView)
     private val balanceLabel = WSensitiveDataContainer(
@@ -197,7 +201,7 @@ open class HomeHeaderView(
         get() {
             return cardView.account
         }
-    private val smallCardWidth = 34.dp
+    private val smallCardWidth = 36.dp
     private val topInset = window.systemBars?.top ?: 0
     private val cardRatio = 208 / 358f
 
@@ -246,8 +250,10 @@ open class HomeHeaderView(
         render()
         updateTheme()
 
-        cardView.setOnClickListener {
-            onExpandPressed?.invoke()
+        cardViews.forEach {
+            it.setOnClickListener {
+                onExpandPressed?.invoke()
+            }
         }
         cardView.isClickable = DEFAULT_MODE == Mode.Collapsed
         setOnClickListener {
@@ -283,6 +289,9 @@ open class HomeHeaderView(
             )
         )
         walletNameLabel.setTextColor(WColor.SubtitleText.color)
+        cardViews.forEach {
+            it.updateTheme()
+        }
 
         if (isShowingSkeletons)
             updateSkeletonViewColors()
@@ -337,7 +346,7 @@ open class HomeHeaderView(
         }
     }
 
-    private fun expand(animated: Boolean, velocity: Float?) {
+    fun expand(animated: Boolean, velocity: Float?) {
         mode = Mode.Expanded
         cardViews.forEach { it.headerMode = Mode.Expanded }
         onModeChange?.invoke(animated)
@@ -395,7 +404,7 @@ open class HomeHeaderView(
     }
 
     fun updateAccountData(activeAccount: MAccount) {
-        val accountIds = WGlobalStorage.accountIds()
+        val accountIds = overrideAccountIds ?: WGlobalStorage.accountIds()
         val activeAccountIndex = accountIds.indexOf(activeAccount.accountId)
         val prevAccountId = accountIds.getOrNull(activeAccountIndex - 1)
         val nextAccountId = accountIds.getOrNull(activeAccountIndex + 1)
@@ -453,7 +462,7 @@ open class HomeHeaderView(
 
     private var prevBalance: Double? = null
 
-    fun updateBalance(animated: Boolean = true) {
+    fun updateBalance(accountName: String, animated: Boolean = true) {
         val activeAccountId = cardView.account?.accountId ?: return
 
         fun fetchBalances(): Pair<Double?, Double?> {
@@ -475,12 +484,17 @@ open class HomeHeaderView(
             if (activeAccountId != cardView.account?.accountId)
                 return@launch
 
-            applyBalance(balance, balance24h, animated)
+            applyBalance(accountName, balance, balance24h, animated)
         }
     }
 
-    private fun applyBalance(balance: Double?, balance24h: Double?, animated: Boolean) {
-        updateWalletName(shouldShow = balance != null, animated)
+    private fun applyBalance(
+        accountName: String,
+        balance: Double?,
+        balance24h: Double?,
+        animated: Boolean
+    ) {
+        updateWalletName(shouldShow = balance != null, accountName, animated)
         cardView.updateBalanceChange(balance, balance24h, animated)
         updateBalanceViews(balance, animated)
         updateSideCardBalanceViews(animated)
@@ -491,14 +505,14 @@ open class HomeHeaderView(
             showSkeletons()
     }
 
-    private fun updateWalletName(shouldShow: Boolean, animated: Boolean) {
+    private fun updateWalletName(shouldShow: Boolean, accountName: String, animated: Boolean) {
         if (shouldShow) {
             if (prevBalance == null && animated) {
                 walletNameLabel.alpha = 0f
                 walletNameLabel.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
             } else
                 walletNameLabel.alpha = 1f
-            walletNameLabel.setTextIfChanged(AccountStore.activeAccount?.name)
+            walletNameLabel.setTextIfChanged(accountName)
         } else {
             walletNameLabel.setTextIfChanged("")
         }
@@ -510,10 +524,10 @@ open class HomeHeaderView(
             WalletCore.baseCurrency.decimalsCount,
             WalletCore.baseCurrency.sign,
             animated,
-            forceCurrencyToRight = false
+            forceCurrencyToRight = (WalletCore.baseCurrency == MBaseCurrency.RUB)
         )
-        animateBalance(animateConfig)
-        cardView.animateBalance(animateConfig)
+        animateBalance(animateConfig.copy(animated = animateConfig.animated && mode == Mode.Collapsed))
+        cardView.animateBalance(animateConfig.copy(animated = animateConfig.animated && mode == Mode.Expanded))
         prevBalance = balance
         layoutBalance()
     }
@@ -661,9 +675,8 @@ open class HomeHeaderView(
 
     fun layoutCardView() {
         val expandProgress = this.expandProgress
-        val viewWidth = width
         val newWidth =
-            (smallCardWidth + (viewWidth - 26.dp - smallCardWidth) * expandProgress).roundToInt()
+            (smallCardWidth + (width - 26.dp - smallCardWidth) * expandProgress).roundToInt()
         if (cardView.layoutParams.width != newWidth)
             cardView.layoutParams = cardView.layoutParams.apply {
                 width = newWidth
@@ -681,10 +694,12 @@ open class HomeHeaderView(
                 expandProgress * (WalletCardView.EXPANDED_RADIUS - WalletCardView.COLLAPSED_RADIUS)).dp
         )
         // Address Container
-        cardView.updateActionsAlpha(
-            if (expandProgress <= 0.9f) 0f else
-                ((expandProgress - 0.9f) / 0.1f).coerceIn(0f, 1f)
-        )
+        val actionsTransformProgress = if (expandProgress <= 0.9f) {
+            0f
+        } else {
+            ((expandProgress - 0.9f) / 0.1f).coerceIn(0f, 1f)
+        }
+        cardView.updateActionsTransformProgress(actionsTransformProgress)
 
         balanceView.isGone = expandProgress > 0.98
         walletNameLabel.isGone = balanceView.isGone
@@ -726,9 +741,9 @@ open class HomeHeaderView(
         balanceExpandProgress = if (scrollY > 0) (1 - scrollY / 92f.dp).coerceIn(0f, 1f) else 1f
         balanceLabel.y =
             collapsedMinHeight -
-                74f.dp + (balanceExpandProgress * 76.5f.dp) -
+                74f.dp + (balanceExpandProgress * 84f.dp) -
                 min(scrollY, 0) -
-                (if (isExpandAllowed) (expandedContentHeight - collapsedHeight - 2f.dp - expandedBalanceY) * expandProgress.pow(
+                (if (isExpandAllowed) (expandedContentHeight - collapsedHeight + 5.5f.dp - expandedBalanceY) * expandProgress.pow(
                     2
                 ) else 0f)
         balanceLabel.visibility = if (expandProgress < 1f) VISIBLE else INVISIBLE
@@ -754,7 +769,7 @@ open class HomeHeaderView(
 
         walletNameLabel.x = (width - walletNameLabel.width) / 2f
         walletNameLabel.y =
-            balanceLabel.y + balanceLabel.height - 10.dp + (9.5f * balanceExpandProgress).dp
+            balanceLabel.y + balanceLabel.height - 10.dp + (10f * balanceExpandProgress).dp
         updateWalletNameMargin(balanceExpandProgress)
 
         updateStatusView.alpha = balanceExpandProgress
@@ -927,6 +942,7 @@ open class HomeHeaderView(
             if (changingAccountTo == null || nextAccount?.accountId != changingAccountTo) {
                 nextAccount?.accountId?.let { nextAccountId ->
                     changingAccountTo = nextAccountId
+                    Haptics.play(this, HapticType.TRANSITION)
                     scrollerOffset = (if (progress > 0) -1f else 1f) * cardView.width
                     initialTouchX += scrollerOffset
                     horizontalScrollOffset += scrollerOffset
@@ -951,7 +967,7 @@ open class HomeHeaderView(
                         } else {
                             WalletCore.notifyEvent(
                                 WalletEvent.AccountChangedInApp(
-                                    accountsModified = false
+                                    persistedAccountsModified = false
                                 )
                             )
                             changingAccountTo = null
@@ -972,16 +988,16 @@ open class HomeHeaderView(
     private fun notifyVerticalOffsetChange(progress: Float) {
         val verticalOffset = if (progress < 0) {
             lerp(
-                if (cardView.account?.isViewOnly == true) 0f else 76f.dp,
-                if (prevCardView.account?.isViewOnly == true) 0f else 76f.dp,
+                if (cardView.account?.isViewOnly == true) 0f else 94f.dp,
+                if (prevCardView.account?.isViewOnly == true) 0f else 94f.dp,
                 abs(progress)
-            ) - if (cardView.account?.isViewOnly == true) 0f else 76f.dp
+            ) - if (cardView.account?.isViewOnly == true) 0f else 94f.dp
         } else {
             lerp(
-                if (cardView.account?.isViewOnly == true) 0f else 76f.dp,
-                if (nextCardView.account?.isViewOnly == true) 0f else 76f.dp,
+                if (cardView.account?.isViewOnly == true) 0f else 94f.dp,
+                if (nextCardView.account?.isViewOnly == true) 0f else 94f.dp,
                 progress
-            ) - if (cardView.account?.isViewOnly == true) 0f else 76f.dp
+            ) - if (cardView.account?.isViewOnly == true) 0f else 94f.dp
         }
         val actionsFadeOutPercent = if (progress < 0)
             lerp(
@@ -1013,7 +1029,7 @@ open class HomeHeaderView(
                 return false
             }
 
-            val accountIds = WGlobalStorage.accountIds()
+            val accountIds = overrideAccountIds ?: WGlobalStorage.accountIds()
             if (accountIds.isEmpty() || accountIds.size == 1) {
                 return false
             }

@@ -20,9 +20,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -35,7 +35,9 @@ import kotlin.math.max
 class SendTokenVC(
     context: Context,
     private val selectedChain: MBlockchain? = null
-) : WViewController(context), WThemedView, WRecyclerViewAdapter.WRecyclerViewDataSource, WalletCore.EventObserver {
+) : WViewController(context), WThemedView, WRecyclerViewAdapter.WRecyclerViewDataSource,
+    WalletCore.EventObserver {
+    override val TAG = "SendToken"
 
     companion object {
         val TOKEN_CELL = WCell.Type(1)
@@ -55,7 +57,8 @@ class SendTokenVC(
 
     override val shouldDisplayBottomBar = true
 
-    private val rvAdapter = WRecyclerViewAdapter(WeakReference(this), arrayOf(TOKEN_CELL, HEADER_CELL))
+    private val rvAdapter =
+        WRecyclerViewAdapter(WeakReference(this), arrayOf(TOKEN_CELL, HEADER_CELL))
 
     private val recyclerView: WRecyclerView by lazy {
         val rv = WRecyclerView(this)
@@ -127,7 +130,8 @@ class SendTokenVC(
         onAssetSelectListener = listener
     }
 
-    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = if (sections.isEmpty()) 0 else TOTAL_SECTIONS
+    override fun recyclerViewNumberOfSections(rv: RecyclerView): Int =
+        if (sections.isEmpty()) 0 else TOTAL_SECTIONS
 
     override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int {
         val sectionData = sections[section] ?: return 0
@@ -153,9 +157,11 @@ class SendTokenVC(
                 }
                 cell
             }
+
             HEADER_CELL -> {
                 HeaderCell(context)
             }
+
             else -> throw IllegalArgumentException("Unknown cell type: $cellType")
         }
     }
@@ -175,7 +181,8 @@ class SendTokenVC(
                     val token = sectionData.tokens[tokenIndex]
                     val isLastInSection = indexPath.row == sectionData.tokens.size
 
-                    val isLastOverall = rvAdapter.indexPathToPosition(indexPath) == rvAdapter.itemCount - 1
+                    val isLastOverall =
+                        rvAdapter.indexPathToPosition(indexPath) == rvAdapter.itemCount - 1
 
                     cell.configure(
                         tokenBalance = token,
@@ -184,6 +191,7 @@ class SendTokenVC(
                     )
                 }
             }
+
             is HeaderCell -> {
                 val isFirstHeader = rvAdapter.indexPathToPosition(indexPath) == 0
                 val topRounding = if (isFirstHeader) ViewConstants.BIG_RADIUS.dp else 0f
@@ -229,6 +237,7 @@ class SendTokenVC(
             is WalletEvent.BaseCurrencyChanged -> {
                 buildTokenItems()
             }
+
             else -> {}
         }
     }

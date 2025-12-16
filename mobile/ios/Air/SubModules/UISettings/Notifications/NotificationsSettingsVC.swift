@@ -14,11 +14,8 @@ final class NotificationsSettingsVC: WViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        addNavigationBar(
-            title: lang("Notifications & Sounds"),
-            addBackButton: weakifyGoBack(),
-        )
+
+        navigationItem.title = lang("Notifications & Sounds")
         
         hostingController = addHostingController(makeView(), constraints: .fill)
         
@@ -30,8 +27,6 @@ final class NotificationsSettingsVC: WViewController {
     func makeView() -> NotificationsSettingsView {
         NotificationsSettingsView(
             viewModel: viewModel,
-            navigationBarHeight: navigationBarHeight,
-            onScroll: weakifyUpdateProgressiveBlur(),
         )
     }
     

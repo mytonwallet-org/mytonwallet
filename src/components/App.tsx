@@ -23,6 +23,7 @@ import {
 } from '../util/windowEnvironment';
 import { updateSizes } from '../util/windowSize';
 import { callApi } from '../api';
+import { SwapActivityModal, TransactionInfoModal, TransactionModal } from './main/modals/transaction';
 import IFrameBrowser from './ui/IFrameBrowser';
 
 import { useAppIntersectionObserver } from '../hooks/useAppIntersectionObserver';
@@ -54,11 +55,9 @@ import OffRampWidgetModal from './main/modals/OffRampWidgetModal';
 import OnRampWidgetModal from './main/modals/OnRampWidgetModal';
 import QrScannerModal from './main/modals/QrScannerModal';
 import SignatureModal from './main/modals/SignatureModal';
-import SwapActivityModal from './main/modals/SwapActivityModal';
-import TransactionModal from './main/modals/TransactionModal';
 import UnhideNftModal from './main/modals/UnhideNftModal';
-import Notifications from './main/Notifications';
 import BottomBar from './main/sections/Actions/BottomBar';
+import Toasts from './main/Toasts';
 import MediaViewer from './mediaViewer/MediaViewer';
 import MintCardModal from './mintCard/MintCardModal';
 import Settings from './settings/Settings';
@@ -267,6 +266,7 @@ function App({
           )}
           <SignatureModal />
           <TransactionModal />
+          <TransactionInfoModal />
           <SwapActivityModal />
           <DappConnectModal />
           <DappSignDataModal />
@@ -284,7 +284,7 @@ function App({
           )}
           {!IS_DELEGATED_BOTTOM_SHEET && (
             <>
-              <Notifications />
+              <Toasts />
               <Dialogs />
               <ConfettiContainer />
               {IS_CAPACITOR ? <InAppBrowser /> : <IFrameBrowser />}

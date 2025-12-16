@@ -16,22 +16,14 @@ import SwiftUI
 extension HomeVC: BalanceHeaderViewDelegate, WalletAssetsDelegate {
     
     public func headerIsAnimating() {
-        if !isExpandingProgrammatically {
-//            if balanceHeaderView.walletCardView.state == .expanded {
-//                scrollExtraOffset += WalletCardView.expansionOffset
-//            } else {
-//                scrollExtraOffset -= WalletCardView.collapseOffset
-//            }
-        }
 
         let duration = isExpandingProgrammatically ? 0.2 : 0.3
         UIView.animateAdaptive(duration: duration) { [self] in
-            withAnimation(.interactiveSpring(duration: 0.3)) {
-                updateTableViewHeaderFrame(animated: true)
-                // reset status view to show wallet name in expanded mode and hide in collpased mode
+            updateTableViewHeaderFrame(animated: true)
+            // reset status view to show wallet name in expanded mode and hide in collpased mode
+            if let balanceHeaderView {
                 balanceHeaderView.update(status: balanceHeaderView.updateStatusView.state,
                                          animatedWithDuration: duration)
-                headerViewModel.state = balanceHeaderView.walletCardView.state
             }
         } completion: { [weak self] _ in
             guard let self else { return }
@@ -48,7 +40,7 @@ extension HomeVC: BalanceHeaderViewDelegate, WalletAssetsDelegate {
         isExpandingProgrammatically = true
         UIView.animate(withDuration: 0.2) { [weak self] in
             guard let self else {return}
-            tableView.contentOffset = .init(x: 0, y: -40)
+            tableView.contentOffset = .init(x: 0, y: -expansionOffset)
         } completion: { [weak self] _ in
             guard let self else {return}
             isExpandingProgrammatically = false

@@ -28,6 +28,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.thinSpace
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcore.STAKE_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
@@ -115,7 +116,7 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         addView(topRightLabel)
         addView(bottomLeftLabel)
         addView(bottomRightLabel)
-        addView(separator, LayoutParams(0, 1))
+        addView(separator, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
         setConstraints {
             // Icon View
             toTop(iconView, 8f)
@@ -357,11 +358,11 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
             val percentChangeText =
                 when {
                     pricedToken.percentChange24h < 0 -> {
-                        " ${pricedToken.percentChange24h}%"
+                        " -$thinSpace${kotlin.math.abs(pricedToken.percentChange24h)}%"
                     }
 
                     pricedToken.percentChange24h.isFinite() -> {
-                        " +${pricedToken.percentChange24h}%"
+                        " +$thinSpace${pricedToken.percentChange24h}%"
                     }
 
                     else -> ""

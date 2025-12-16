@@ -23,7 +23,7 @@ public final class _DappsStore {
                 let dapps = try await Api.getDapps(accountId: accountId)
                 _dappsCount.withLock { $0[accountId] = dapps.count }
                 if AccountStore.accountId == accountId {
-                    WalletCoreData.notify(event: .dappsCountUpdated, for: accountId)
+                    WalletCoreData.notify(event: .dappsCountUpdated(accountId: accountId))
                 }
             } catch {
                 Log.api.error("\(error, .public)")
@@ -42,7 +42,7 @@ public final class _DappsStore {
     public func deleteAllDapps(accountId: String) async throws {
         try await Api.deleteAllDapps(accountId: accountId)
         _dappsCount.withLock { $0[accountId] = 0 }
-        WalletCoreData.notify(event: .dappsCountUpdated, for: accountId)
+        WalletCoreData.notify(event: .dappsCountUpdated(accountId: accountId))
     }
 }
 

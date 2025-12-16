@@ -70,6 +70,7 @@ import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.MScreenMode
 import org.mytonwallet.app_air.walletcore.models.SwapType
 import org.mytonwallet.app_air.walletcore.moshi.ApiSwapStatus
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
@@ -84,8 +85,11 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-class HomeVC(context: Context) : WViewControllerWithModelStore(context),
+class HomeVC(context: Context, private val mode: MScreenMode) :
+    WViewControllerWithModelStore(context),
     WRecyclerViewDataSource, HomeVM.Delegate, WThemedView, WProtectedView, ISortableView {
+    override val TAG = "Home"
+
     companion object {
         val HEADER_CELL = WCell.Type(1)
         val ACTIONS_CELL = WCell.Type(2)
@@ -112,13 +116,22 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
     private val px46 = 46.dp
 
     override val shouldDisplayTopBar = false
+    override val shouldDisplayBottomBar = mode is MScreenMode.SingleWallet
 
     override val isSwipeBackAllowed = false
+    override val isEdgeSwipeBackAllowed = mode is MScreenMode.SingleWallet
 
+    override val displayedAccount: DisplayedAccount?
+        get() {
+            return DisplayedAccount(
+                homeVM.showingAccount?.accountId,
+                mode is MScreenMode.SingleWallet
+            )
+        }
     // override val shouldMonitorFrames = true
 
     private val homeVM by lazy {
-        HomeVM(context, this)
+        HomeVM(context, mode, this)
     }
 
     private var rvMode = HomeHeaderView.DEFAULT_MODE
@@ -403,11 +416,12 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
         rv
     }
 
-    private val stickyHeaderView = StickyHeaderView(context) { onClick(it) }
+    private val stickyHeaderView = StickyHeaderView(context, mode) { onClick(it) }
 
     private val headerView: HomeHeaderView by lazy {
         val v = HomeHeaderView(
             window!!,
+            if (mode is MScreenMode.SingleWallet) arrayOf(mode.accountId) else null,
             stickyHeaderView.updateStatusView,
             onModeChange = { animated ->
                 if (animated) {
@@ -417,7 +431,11 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
                 }
                 stickyHeaderView.update(
                     headerView.mode,
-                    stickyHeaderView.updateStatusView.state ?: UpdateStatusView.State.Updated,
+                    if (stickyHeaderView.updateStatusView.state != null &&
+                        stickyHeaderView.updateStatusView.state !is UpdateStatusView.State.Updated
+                    )
+                        stickyHeaderView.updateStatusView.state!!
+                    else UpdateStatusView.State.Updated(homeVM.showingAccount?.name ?: ""),
                     true
                 )
             },
@@ -451,6 +469,10 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
 
     private fun onClick(identifier: HeaderActionsView.Identifier) {
         when (identifier) {
+            HeaderActionsView.Identifier.BACK -> {
+                navigationController?.pop()
+            }
+
             HeaderActionsView.Identifier.LOCK_APP -> {
                 WalletContextManager.delegate?.lockScreen()
             }
@@ -464,7 +486,7 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
                 navVC.setRoot(
                     ReceiveVC(
                         context,
-                        AccountStore.activeAccount?.firstChain ?: MBlockchain.ton
+                        homeVM.showingAccount?.firstChain ?: MBlockchain.ton
                     )
                 )
                 window?.present(navVC)
@@ -631,6 +653,8 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
     override fun onDestroy() {
         super.onDestroy()
         homeVM.destroy()
+        if (mode is MScreenMode.SingleWallet && AccountStore.isPushedTemporary)
+            homeVM.removeTemporaryAccount()
         actionsView?.onDestroy()
         headerView.onDestroy()
         tonConnectController.onDestroy()
@@ -756,7 +780,7 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
     }
 
     override fun instantScrollToTop() {
-        if (recyclerView.computeVerticalScrollOffset() == 0)
+        if (view.isAttachedToWindow && recyclerView.computeVerticalScrollOffset() == 0)
             return
         (recyclerView.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(0, 0)
         updateScroll(0)
@@ -820,6 +844,7 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
             if (themeChanged) {
                 topBlurReversedCornerView.alpha = 1f
                 headerView.background = null
+                headerView.updateTheme()
             }
             return
         }
@@ -948,7 +973,7 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
                         onClick(it)
                     })
                 actionsView?.setPadding(0, 0, 0, 16.dp)
-                actionsView?.updateActions(headerView.centerAccount ?: AccountStore.activeAccount)
+                actionsView?.updateActions(headerView.centerAccount ?: homeVM.showingAccount)
                 actionsView!!
             }
 
@@ -957,6 +982,7 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
                     context,
                     window = window!!,
                     navigationController = navigationController!!,
+                    screenMode = mode,
                     heightChanged = {
                         resumeBottomBlurViews()
                     },
@@ -1065,6 +1091,7 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
                     val transaction = showingTransactions!![indexPath.row]
                     transactionCell.configure(
                         transaction,
+                        homeVM.showingAccount!!.accountId,
                         indexPath.row == 0,
                         indexPath.row == 0 || !transaction.dt.isSameDayAs(showingTransactions!![indexPath.row - 1].dt),
                         (indexPath.row == showingTransactions!!.size - 1) || !transaction.dt.isSameDayAs(
@@ -1127,7 +1154,7 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
                     else
                         headerView.collapsedHeight) +
                     swipeItemsOffset +
-                    (if (headerView.centerAccount?.accountType == MAccount.AccountType.VIEW) 0 else 80.dp) +
+                    (if (headerView.centerAccount?.accountType == MAccount.AccountType.VIEW) 0 else HeaderActionsView.HEIGHT.dp) +
                     (if (ThemeManager.uiMode.hasRoundedCorners) 0 else ViewConstants.GAP.dp)
         }
     }
@@ -1218,34 +1245,36 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
         }
         val accountNotLoadedYet = !homeVM.isGeneralDataAvailable &&
             state == UpdateStatusView.State.Updating &&
-            stickyHeaderView.updateStatusView.state == UpdateStatusView.State.Updated
+            stickyHeaderView.updateStatusView.state is UpdateStatusView.State.Updated
         if (accountNotLoadedYet)
             return
         headerView.update(state, animated)
         stickyHeaderView.update(headerView.mode, state, animated)
     }
 
-    override fun updateBalance(accountChangedFromOtherScreens: Boolean) {
-        if (accountChangedFromOtherScreens) {
-            AccountStore.activeAccount?.let {
-                headerView.updateAccountData(it)
+    override fun updateHeaderCards(expand: Boolean) {
+        homeVM.showingAccount?.let {
+            headerView.updateAccountData(it)
+            if (expand) {
+                headerView.isExpandAllowed = true
+                headerView.expand(animated = false, velocity = null)
+                pauseBlurViews()
+            } else
                 headerView.layoutCardView()
-            }
-            scrollToTop()
         }
+    }
+
+    override fun updateBalance(accountChangedFromOtherScreens: Boolean) {
         if (!homeVM.isGeneralDataAvailable && headerView.isShowingSkeletons)
             return
-        headerView.updateBalance(!accountChangedFromOtherScreens)
+        headerView.updateBalance(
+            homeVM.showingAccount?.name ?: "",
+            !accountChangedFromOtherScreens
+        )
     }
 
     override fun reloadCard() {
         headerView.updateCardImage()
-    }
-
-    override fun transactionsLoaded() {
-        showingTransactions = homeVM.activityLoaderHelper?.showingTransactions
-        updateSkeletonState()
-        reloadTransactions()
     }
 
     override fun transactionsUpdated(isUpdateEvent: Boolean) {
@@ -1273,7 +1302,7 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
     override fun loadStakingData() {
         if (!homeVM.isGeneralDataAvailable) return
 
-        if (AccountStore.activeAccount?.isViewOnly == false)
+        if (homeVM.showingAccount?.isViewOnly == false)
             executeWithLowPriority {
                 earnToncoinViewModel.loadOrRefreshStakingData()
                 earnMycoinViewModel.loadOrRefreshStakingData()
@@ -1393,7 +1422,7 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
 
     override fun updateActionsView() {
         stickyHeaderView.updateActions()
-        actionsView?.updateActions(headerView.centerAccount ?: AccountStore.activeAccount)
+        actionsView?.updateActions(headerView.centerAccount ?: homeVM.showingAccount)
         updateActionsAlpha()
     }
 
@@ -1403,13 +1432,14 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
 
     override fun accountNameChanged(accountName: String, animated: Boolean) {
         headerView.updateAccountName(accountName)
-        if (stickyHeaderView.updateStatusView.state == UpdateStatusView.State.Updated)
+        if (stickyHeaderView.updateStatusView.state is UpdateStatusView.State.Updated)
             stickyHeaderView.updateStatusView.setState(
-                UpdateStatusView.State.Updated, animated,
-                if (headerView.mode == HomeHeaderView.Mode.Expanded)
-                    accountName
-                else
-                    ""
+                UpdateStatusView.State.Updated(
+                    if (headerView.mode == HomeHeaderView.Mode.Expanded)
+                        accountName
+                    else
+                        ""
+                ), animated
             )
     }
 
@@ -1424,6 +1454,14 @@ class HomeVC(context: Context) : WViewControllerWithModelStore(context),
         if (headerView.changingAccountTo == null)
             swipeFadeOutPercent =
                 1f // Account will change from another screen, invalidate swipeFadeOutPercent
+    }
+
+    override fun removeScreenFromStack() {
+        navigationController?.removeViewController(this)
+    }
+
+    override fun popToRoot() {
+        navigationController?.popToRoot(false)
     }
 
     override fun startSorting() {

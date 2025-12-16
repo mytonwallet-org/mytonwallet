@@ -228,15 +228,11 @@ class SettingsHeaderView: WTouchPassView, WThemedView {
             return
         }
         let formattedAddress = formatStartEndAddress(account.tonAddress ?? "")
-        let currency = TokenStore.baseCurrency
         
         addressLabel.text = formattedAddress
         
-        if let totalBalanceInBaseCurrency = BalanceStore.totalBalanceInBaseCurrency {
-            let totalBalanceString = formatAmountText(amount: totalBalanceInBaseCurrency,
-                                                      currency: currency.sign,
-                                                      decimalsCount: currency.decimalsCount)
-            balanceLabel.text = totalBalanceString
+        if let totalBalance = BalanceStore.accountBalanceData[account.id]?.totalBalance {
+            balanceLabel.text = totalBalance.formatted()
             separatorDotLabel.isHidden = false
             walletBalanceContainer.isDisabled = false
             walletBalanceContainer.isHidden = false

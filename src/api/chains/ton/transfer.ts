@@ -32,6 +32,7 @@ import { DEFAULT_FEE, DIESEL_ADDRESS, STON_PTON_ADDRESS } from '../../../config'
 import { parseAccountId } from '../../../util/account';
 import { bigintMultiplyToNumber } from '../../../util/bigint';
 import { fromDecimal, toDecimal } from '../../../util/decimals';
+import { getToncoinAmountForTransfer } from '../../../util/fee/getTonOperationFees';
 import { getDieselTokenAmount, isDieselAvailable } from '../../../util/fee/transferFee';
 import { omit, pick, split } from '../../../util/iteratees';
 import { logDebug, logDebugError } from '../../../util/logs';
@@ -68,7 +69,6 @@ import {
   buildTokenTransfer,
   calculateTokenBalanceWithMintless,
   getTokenBalanceWithMintless,
-  getToncoinAmountForTransfer,
 } from './tokens';
 import { getContractInfo, getTonWallet, getWalletBalance, getWalletInfo, getWalletSeqno } from './wallet';
 
@@ -729,7 +729,10 @@ interface SubmitMultiTransferOptions {
   noFeeCheck?: boolean;
 }
 
-// todo: Support submitting multiple transactions (not only multiple messages). The signing already supports that. It will allow to: 1) send multiple NFTs with a single API call, 2) renew multiple domains in a single function call, 3) simplify the implementation of swapping with Ledger
+// todo: Support submitting multiple transactions (not only multiple messages). The signing already supports that. It will allow to:
+//  1) send multiple NFTs with a single API call,
+//  2) renew multiple domains in a single function call,
+//  3) simplify the implementation of swapping with Ledger
 export async function submitMultiTransfer({
   accountId, password, messages, expireAt, isGasless, noFeeCheck,
 }: SubmitMultiTransferOptions): Promise<ApiSubmitMultiTransferResult> {

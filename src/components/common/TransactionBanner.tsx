@@ -24,6 +24,7 @@ interface OwnProps {
   secondText?: string;
   color?: 'purple' | 'green';
   className?: string;
+  textClassName?: string;
 }
 
 function TransactionBanner({
@@ -35,6 +36,7 @@ function TransactionBanner({
   secondText,
   color,
   className,
+  textClassName,
 }: OwnProps) {
   const lang = useLang();
 
@@ -80,7 +82,7 @@ function TransactionBanner({
         />
       )}
       {isNftTransaction && renderNftIcon()}
-      <span className={styles.text}>
+      <span className={buildClassName(styles.text, textClassName)}>
         {secondText
           ? text
             ? (

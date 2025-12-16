@@ -40,7 +40,8 @@ function BackupPrivateKey({
   useEffect(() => {
     async function loadPrivateKey() {
       if (isBackupSlideActive && enteredPassword) {
-        const privateKeyResult = await callApi('fetchPrivateKey', currentAccountId, enteredPassword);
+        // todo: Add a UI for choosing the chain to export the private key from
+        const privateKeyResult = await callApi('fetchPrivateKey', currentAccountId, 'ton', enteredPassword);
 
         setPrivateKey(privateKeyResult);
       } else {

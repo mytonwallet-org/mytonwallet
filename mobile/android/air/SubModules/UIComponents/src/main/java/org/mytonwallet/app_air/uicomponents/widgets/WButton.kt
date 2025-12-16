@@ -19,12 +19,13 @@ import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.drawable.RoundProgressDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.getCenterAlignBaseline
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import kotlin.math.ceil
+import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -233,7 +234,7 @@ class WButton(context: Context) : View(context), WThemedView {
             staticLayout.getLineWidth(i)
         }
         val layout = StaticLayout(
-            text, textPaint, ceil(textWidth).toInt(),
+            text, textPaint, (textWidth).ceilToInt(),
             Layout.Alignment.ALIGN_NORMAL, 1f, 0f, false
         )
 
@@ -244,10 +245,7 @@ class WButton(context: Context) : View(context), WThemedView {
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        super.onMeasure(
-            widthMeasureSpec,
-            MeasureSpec.makeMeasureSpec(buttonHeight, MeasureSpec.EXACTLY)
-        )
+        super.onMeasure(widthMeasureSpec, buttonHeight.exactly)
 
         val s = progressDrawable.minimumWidth
         val x = (measuredWidth - s) / 2
@@ -269,7 +267,7 @@ class WButton(context: Context) : View(context), WThemedView {
             return
         }
 
-        val textWidth = min(ceil(textPaint.measureText(oldItem.text)).roundToInt(), maxWidth)
+        val textWidth = min((textPaint.measureText(oldItem.text)).ceilToInt(), maxWidth)
         if (oldItem.width == textWidth) {
             return
         }

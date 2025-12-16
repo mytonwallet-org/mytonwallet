@@ -316,9 +316,9 @@ public class WSegmentedController: WTouchPassView {
             DispatchQueue.main.async {
                 UIView.performWithoutAnimation {
                     self.model.setItems(items)
-                    self.model.onSelect(items[0])
-                    self.handleSegmentChange(to: 0, animated: false)
-                    self.delegate?.segmentedController(scrollOffsetChangedTo: CGFloat(0))
+                    self.model.onSelect(items[newSelected])
+                    self.handleSegmentChange(to: newSelected, animated: false)
+                    self.delegate?.segmentedController(scrollOffsetChangedTo: CGFloat(newSelected))
 
                     self.setNeedsLayout()
                     self.layoutIfNeeded()
@@ -418,20 +418,19 @@ extension WSegmentedController: UIScrollViewDelegate {
     public func scrollViewWillEndDragging(_ scrollView: UIScrollView,
                                           withVelocity velocity: CGPoint,
                                           targetContentOffset: UnsafeMutablePointer<CGPoint>) {
-        // sometimes, default pagin behavior skips pages (0 -> 1 -> 3 ?!)
+        // sometimes, default pagination behavior skips pages (0 -> 1 -> 3 ?!)
         if (targetContentOffset.pointee.x - scrollView.contentOffset.x) > scrollView.frame.width {
             targetContentOffset.pointee.x -= scrollView.frame.width
         } else if (targetContentOffset.pointee.x - scrollView.contentOffset.x) < -scrollView.frame.width {
             targetContentOffset.pointee.x += scrollView.frame.width
         }
         let progress = targetContentOffset.pointee.x / scrollView.frame.width
-        withAnimation(.spring(duration: 0.25)) {
-            segmentedControl.model.setRawProgress(progress)
-        }
         UIView.animateAdaptive(duration: animationSpeed.duration) { [self] in
-            scrollView.setContentOffset(targetContentOffset.pointee, animated: false)
-            let progress = scrollView.contentOffset.x / scrollView.frame.width
-            delegate?.segmentedController(scrollOffsetChangedTo: progress)
+            withAnimation(.spring(duration: 0.25)) {
+                segmentedControl.model.setRawProgress(progress)
+                scrollView.setContentOffset(targetContentOffset.pointee, animated: false)
+                delegate?.segmentedController(scrollOffsetChangedTo: progress)
+            }
         }
     }
 }

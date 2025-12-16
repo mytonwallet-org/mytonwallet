@@ -1,0 +1,54 @@
+.container {
+  position: fixed;
+  z-index: var(--z-toast);
+  top: 1rem;
+  left: calc(50% - 11.5rem);
+
+  width: 23rem;
+  max-width: 100vw;
+  margin: 0.25rem auto;
+
+  &_electron {
+    top: 2rem !important;
+  }
+
+  @media (min-width: 1276px) {
+    transition: transform var(--layer-transition);
+
+    :global(html.animation-level-0) & {
+      transition: none !important;
+    }
+  }
+
+  @supports (top: max(var(--safe-area-top), 1rem)) {
+    top: max(var(--safe-area-top), 1rem);
+  }
+}
+
+.toast {
+  max-width: 23rem;
+  margin: 0 1.5rem;
+  padding: 1rem ;
+  border-radius: var(--border-radius-big);
+
+  color: var(--color-black);
+
+  background: var(--color-background-drop-down);
+  backdrop-filter: blur(30px);
+  box-shadow: 0 0 1.25rem 0.625rem rgba(0, 0, 0, 0.15);
+}
+
+.content {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1rem;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.icon {
+  margin-right: 0.25rem;
+  font-size: 1.25rem;
+  line-height: 1rem;
+  vertical-align: -0.25rem;
+}

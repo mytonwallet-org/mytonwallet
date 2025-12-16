@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -35,7 +36,6 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
-import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -129,15 +129,15 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(64.dp, MeasureSpec.EXACTLY))
+        super.onMeasure(widthMeasureSpec, 64.dp.exactly)
     }
 
     private var transaction: MApiTransaction? = null
-    fun configure(transaction: MApiTransaction) {
+    fun configure(transaction: MApiTransaction, accountId: String) {
         this.transaction = transaction
         when (transaction) {
             is MApiTransaction.Transaction -> {
-                configureTransaction()
+                configureTransaction(accountId)
             }
 
             is MApiTransaction.Swap -> {
@@ -160,13 +160,13 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
         bottomRightLabel.updateProtectedView()
     }
 
-    private fun configureTransaction() {
+    private fun configureTransaction(accountId: String) {
         val transaction = transaction as MApiTransaction.Transaction
         iconView.config(transaction)
         topLeftLabel.text = transaction.title
         configureScamLabel()
         topRightView.configure(transaction)
-        configureTransactionSubtitle()
+        configureTransactionSubtitle(accountId)
         configureTransactionEquivalentAmount()
     }
 
@@ -235,7 +235,7 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
         }
     }
 
-    private fun configureTransactionSubtitle() {
+    private fun configureTransactionSubtitle(accountId: String) {
         val transaction = transaction as MApiTransaction.Transaction
         val token = transaction.token
         val timeStr = transaction.dt.formatTime()
@@ -282,7 +282,7 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
                 builder.updateDotsTypeface(startIndex = addressStart)
         } else if (transaction.type == ApiTransactionType.STAKE) {
             val stakingState =
-                StakingStore.getStakingState(AccountStore.activeAccountId!!)?.states?.firstOrNull {
+                StakingStore.getStakingState(accountId)?.states?.firstOrNull {
                     it?.tokenSlug == transaction.slug
                 }
             stakingState?.let { stakingState ->

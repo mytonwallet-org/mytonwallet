@@ -13,6 +13,9 @@ import android.widget.ScrollView
 import androidx.core.view.updateLayoutParams
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.exactly
+import org.mytonwallet.app_air.uicomponents.extensions.unspecified
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.Item.Config
 import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import kotlin.math.min
@@ -25,10 +28,10 @@ class WMenuPopupView(
     val items: List<WMenuPopup.Item>,
     private val onWillDismiss: (() -> Unit)?,
     private val onDismiss: () -> Unit,
-) : FrameLayout(context) {
+) : WFrameLayout(context) {
 
     var popupWindow: WPopupWindow? = null
-    private val itemViews = ArrayList<WMenuPopupViewItem>(items.size)
+    private val itemViews = ArrayList<FrameLayout>(items.size)
     private var currentHeight: Int = 0
     private var currentFrameHeight: Int = 0
     private val itemHeights: IntArray = IntArray(items.size)
@@ -41,8 +44,6 @@ class WMenuPopupView(
     private var maxHeight: Int = 0
 
     init {
-        id = generateViewId()
-
         val displayMetrics = context.resources.displayMetrics
         maxHeight = displayMetrics.heightPixels - 100.dp
 
@@ -56,51 +57,61 @@ class WMenuPopupView(
 
         var totalHeight = 0
         items.forEachIndexed { index, item ->
-            val itemContentHeight =
-                if (item.config == Config.Back)
-                    44.dp
-                else
-                    if (item.getSubTitle().isNullOrEmpty())
-                        48.dp
+            var itemHeight: Int
+            var itemView: FrameLayout
+            if (item.config is Config.CustomView) {
+                itemView = item.config.customView.apply {
+                    alpha = 0f
+                    visibility = INVISIBLE
+                }
+                itemHeight = (56 + if (item.hasSeparator) 7 else 0).dp
+            } else {
+                val itemContentHeight =
+                    if (item.config == Config.Back)
+                        44.dp
                     else
-                        56.dp
-            val itemHeight = itemContentHeight + if (item.hasSeparator) 7.dp else 0
+                        if (item.getSubTitle().isNullOrEmpty())
+                            48.dp
+                        else
+                            56.dp
+                itemHeight = itemContentHeight + if (item.hasSeparator) 7.dp else 0
+
+                itemView = WMenuPopupViewItem(context, item).apply {
+                    alpha = 0f
+                    visibility = INVISIBLE
+                }.apply {
+                    setOnClickListener {
+                        if (!item.getSubItems().isNullOrEmpty()) {
+                            val window = popupWindow
+                            window?.push(
+                                WMenuPopupView(
+                                    context, item.getSubItems()!!.toMutableList().apply {
+                                        add(0, WMenuPopup.Item(Config.Back, true))
+                                    }, onWillDismiss = {
+                                        onWillDismiss?.invoke()
+                                    },
+                                    onDismiss = {
+                                        popupWindow?.dismiss()
+                                    }).apply {
+                                    popupWindow = window
+                                }
+                            )
+                            return@setOnClickListener
+                        }
+                        item.onTap?.invoke() ?: run {
+                            // Back Button
+                            if (item.config is Config.Back) {
+                                popupWindow?.pop()
+                                return@setOnClickListener
+                            }
+                        }
+                        dismiss()
+                    }
+                }
+            }
             itemHeights[index] = itemHeight
             itemYPositions[index] = totalHeight
             totalHeight += itemHeight
-
-            val itemView = WMenuPopupViewItem(context, item).apply {
-                alpha = 0f
-                visibility = INVISIBLE
-            }.apply {
-                setOnClickListener {
-                    if (!item.getSubItems().isNullOrEmpty()) {
-                        val window = popupWindow
-                        window?.push(
-                            WMenuPopupView(
-                                context, item.getSubItems()!!.toMutableList().apply {
-                                    add(0, WMenuPopup.Item(Config.Back, true))
-                                }, onWillDismiss = {
-                                    onWillDismiss?.invoke()
-                                },
-                                onDismiss = {
-                                    popupWindow?.dismiss()
-                                }).apply {
-                                popupWindow = window
-                            }
-                        )
-                        return@setOnClickListener
-                    }
-                    item.onTap?.invoke() ?: run {
-                        // Back Button
-                        if (index == 0) {
-                            popupWindow?.pop()
-                            return@setOnClickListener
-                        }
-                    }
-                    dismiss()
-                }
-            }
             itemViews.add(itemView)
             contentContainer.addView(itemView, LayoutParams(WRAP_CONTENT, itemHeight))
         }
@@ -190,10 +201,7 @@ class WMenuPopupView(
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val totalHeight = itemYPositions.lastOrNull()?.plus(itemHeights.lastOrNull() ?: 0) ?: 0
 
-        contentContainer.measure(
-            MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED),
-            MeasureSpec.makeMeasureSpec(totalHeight, MeasureSpec.EXACTLY)
-        )
+        contentContainer.measure(0.unspecified, totalHeight.exactly)
 
         val contentWidth = contentContainer.measuredWidth
         val widthMode = MeasureSpec.getMode(widthMeasureSpec)
@@ -211,10 +219,7 @@ class WMenuPopupView(
             min(totalHeight, maxHeight)
         }
 
-        scrollView.measure(
-            MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
-            MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY)
-        )
+        scrollView.measure(width.exactly, height.exactly)
 
         setMeasuredDimension(width, height)
     }

@@ -1,12 +1,8 @@
-import React, {
-  memo, useEffect, useMemo, useRef, useState,
-} from '../../lib/teact/teact';
+import React, { memo, useEffect, useMemo, useRef, useState } from '../../lib/teact/teact';
 import { getActions, getGlobal, withGlobal } from '../../global';
 
-import type { ApiChain, ApiToken } from '../../api/types';
-import type {
-  Account, ActionPayloads, AssetPairs, GlobalState, UserSwapToken,
-} from '../../global/types';
+import type { ApiToken } from '../../api/types';
+import type { ActionPayloads, AssetPairs, GlobalState, UserSwapToken } from '../../global/types';
 import type { LangFn } from '../../hooks/useLang';
 import type { ExplainedSwapFee } from '../../util/fee/swapFee';
 import type { FeePrecision, FeeTerms } from '../../util/fee/types';
@@ -20,13 +16,7 @@ import {
   CHANGELLY_TERMS_OF_USE,
   INIT_SWAP_ASSETS,
 } from '../../config';
-import {
-  selectCurrentAccount,
-  selectCurrentAccountId,
-  selectIsMultichainAccount,
-  selectSwapTokens,
-  selectSwapType,
-} from '../../global/selectors';
+import { selectCurrentAccountId, selectSwapTokens, selectSwapType } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { fromDecimal, toDecimal } from '../../util/decimals';
 import { stopEvent } from '../../util/domEvents';
@@ -60,10 +50,8 @@ interface OwnProps {
 }
 
 interface StateProps {
-  accountChains?: Account['byChain'];
   currentSwap: GlobalState['currentSwap'];
   tokens?: UserSwapToken[];
-  isMultichainAccount?: boolean;
   swapType: SwapType;
   isSensitiveDataHidden?: true;
   pairsBySlug?: Record<string, AssetPairs>;
@@ -93,12 +81,10 @@ function SwapInitial({
     dieselFee,
     maxAmountFromBackend,
   },
-  accountChains,
   tokens,
   isActive,
   isStatic,
   isComplete,
-  isMultichainAccount,
   swapType,
   isSensitiveDataHidden,
   pairsBySlug,
@@ -112,7 +98,7 @@ function SwapInitial({
     setSwapScreen,
     setSwapCexAddress,
     authorizeDiesel,
-    showNotification,
+    showToast,
   } = getActions();
   const lang = useLang();
 
@@ -131,12 +117,13 @@ function SwapInitial({
     [currentTokenOutSlug, tokens],
   );
 
-  const nativeTokenInSlug = isMultichainAccount || tokenIn?.chain === 'ton'
-    ? findNativeToken(tokenIn?.chain)?.slug
-    : undefined;
   const nativeUserTokenIn = useMemo(
-    () => tokens?.find((token) => token.slug === nativeTokenInSlug),
-    [nativeTokenInSlug, tokens],
+    () => {
+      const nativeTokenInSlug = findNativeToken(tokenIn?.chain)?.slug;
+      if (!nativeTokenInSlug) return undefined;
+      return tokens?.find((token) => token.slug === nativeTokenInSlug);
+    },
+    [tokenIn?.chain, tokens],
   );
   const nativeTokenInBalance = nativeUserTokenIn?.amount ?? 0n;
 
@@ -208,14 +195,14 @@ function SwapInitial({
     && dieselStatus !== 'not-authorized' && dieselStatus !== 'pending-previous';
 
   const isPriceImpactError = priceImpact >= MAX_PRICE_IMPACT_VALUE;
-  const isCrosschain = swapType === SwapType.CrosschainFromWallet || swapType === SwapType.CrosschainToWallet;
+  const isCrosschain = swapType !== SwapType.OnChain;
 
   const [isBuyAmountInputDisabled, handleBuyAmountInputClick] = useReverseProhibited(
     isCrosschain,
     pairsBySlug,
     currentTokenInSlug,
     currentTokenOutSlug,
-    showNotification,
+    showToast,
     lang,
   );
 
@@ -303,24 +290,12 @@ function SwapInitial({
 
     void vibrate();
 
-    if (isCrosschain) {
+    if (swapType === SwapType.CrosschainFromWallet) {
       setSwapCexAddress({ toAddress: '' });
-      if (swapType === SwapType.CrosschainToWallet) {
-        setSwapScreen({ state: SwapState.Password });
-      } else if (
-        isMultichainAccount
-        && accountChains![tokenIn!.chain as ApiChain]
-        && accountChains![tokenOut!.chain as ApiChain]
-      ) {
-        setSwapCexAddress({ toAddress: accountChains![tokenOut!.chain as ApiChain]!.address });
-        setSwapScreen({ state: SwapState.Password });
-      } else {
-        setSwapScreen({ state: SwapState.Blockchain });
-      }
-      return;
+      setSwapScreen({ state: SwapState.Blockchain });
+    } else {
+      setSwapScreen({ state: SwapState.Password });
     }
-
-    setSwapScreen({ state: SwapState.Password });
   });
 
   const handleSwitchTokens = useLastCallback(() => {
@@ -528,14 +503,9 @@ function SwapInitial({
 export default memo(
   withGlobal<OwnProps>(
     (global): StateProps => {
-      const currentAccountId = selectCurrentAccountId(global);
-      const account = selectCurrentAccount(global);
-
       return {
         currentSwap: global.currentSwap,
         tokens: selectSwapTokens(global),
-        accountChains: account?.byChain,
-        isMultichainAccount: selectIsMultichainAccount(global, currentAccountId!),
         swapType: selectSwapType(global),
         isSensitiveDataHidden: global.settings.isSensitiveDataHidden,
         pairsBySlug: global.swapPairs?.bySlug,
@@ -551,7 +521,7 @@ function useReverseProhibited(
   pairsBySlug: Record<string, AssetPairs> | undefined,
   currentTokenInSlug: string,
   currentTokenOutSlug: string,
-  showNotification: (arg: ActionPayloads['showNotification']) => void,
+  showToast: (arg: ActionPayloads['showToast']) => void,
   lang: LangFn,
 ) {
   const isReverseProhibited = isCrosschain
@@ -562,10 +532,10 @@ function useReverseProhibited(
     return isReverseProhibited
       ? () => {
         void vibrate();
-        showNotification({ message: lang('$swap_reverse_prohibited') });
+        showToast({ message: lang('$swap_reverse_prohibited') });
       }
       : undefined;
-  }, [isReverseProhibited, lang, showNotification]);
+  }, [isReverseProhibited, lang, showToast]);
 
   return [isBuyAmountInputDisabled, handleBuyAmountInputClick] as const;
 }

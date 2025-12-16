@@ -75,7 +75,7 @@ public struct TransactionOverviewView: View {
                 Text(text)
                     .font17h22()
             }
-            TappableAddress(name: addressName, resolvedAddress: resolvedAddress, addressOrName: addressOrDomain)
+            TappableAddress(name: addressName, chain: token.chain, resolvedAddress: resolvedAddress, addressOrName: addressOrDomain)
         }
     }
 }

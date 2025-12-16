@@ -15,10 +15,13 @@ import androidx.core.animation.doOnEnd
 import androidx.core.view.children
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.extensions.atMost
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.IPopup
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
@@ -102,12 +105,11 @@ class WDialog(private val customView: ViewGroup, private val config: Config): IP
             }
         } else null
 
-    private val contentView: FrameLayout = object : FrameLayout(customView.context), WThemedView {
+    private val contentView: WFrameLayout = object : WFrameLayout(customView.context), WThemedView {
         override fun updateTheme() {
             setBackgroundColor(WColor.Background.color, 18f.dp)
         }
     }.apply {
-        id = View.generateViewId()
         alpha = 0f
         z = Float.MAX_VALUE - 1
         updateTheme()
@@ -188,10 +190,7 @@ class WDialog(private val customView: ViewGroup, private val config: Config): IP
         }
         contentView.post {
             if (customView.height == 0) {
-                customView.measure(
-                    View.MeasureSpec.makeMeasureSpec(contentViewWidth, View.MeasureSpec.AT_MOST),
-                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-                )
+                customView.measure(contentViewWidth.atMost, 0.unspecified)
             }
 
             val measuredHeight =

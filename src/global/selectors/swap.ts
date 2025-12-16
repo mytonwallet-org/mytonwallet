@@ -1,12 +1,11 @@
 import type { ApiBalanceBySlug, ApiBaseCurrency, ApiCurrencyRates, ApiSwapAsset } from '../../api/types';
 import type { AccountSettings, GlobalState, UserSwapToken } from '../types';
-import { SwapType } from '../types';
 
 import { DEFAULT_SWAP_FIRST_TOKEN_SLUG, DEFAULT_SWAP_SECOND_TOKEN_SLUG, IS_CORE_WALLET, TONCOIN } from '../../config';
 import { calculateTokenPrice } from '../../util/calculatePrice';
 import { toBig } from '../../util/decimals';
 import memoize from '../../util/memoize';
-import { getChainBySlug } from '../../util/tokens';
+import { getSwapType } from '../../util/swap/getSwapType';
 import withCache from '../../util/withCache';
 import {
   selectCurrentAccount,
@@ -216,20 +215,9 @@ export function selectSwapType(global: GlobalState) {
     tokenInSlug = DEFAULT_SWAP_FIRST_TOKEN_SLUG,
     tokenOutSlug = DEFAULT_SWAP_SECOND_TOKEN_SLUG,
   } = global.currentSwap;
-  const tokenInChain = getChainBySlug(tokenInSlug);
-  const tokenOutChain = getChainBySlug(tokenOutSlug);
+  const { byChain = {} } = selectCurrentAccount(global) ?? {};
 
-  if (tokenInChain === 'ton' && tokenOutChain === 'ton') {
-    return SwapType.OnChain;
-  }
-
-  const byChain = selectCurrentAccount(global)?.byChain ?? {};
-
-  if (tokenInChain in byChain) {
-    return SwapType.CrosschainFromWallet;
-  }
-
-  return SwapType.CrosschainToWallet;
+  return getSwapType(tokenInSlug, tokenOutSlug, byChain);
 }
 
 export function selectIsSwapDisabled(global: GlobalState) {

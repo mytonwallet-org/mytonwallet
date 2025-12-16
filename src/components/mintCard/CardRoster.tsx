@@ -3,11 +3,11 @@ import React, {
 } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
-import type { ApiCardInfo, ApiCardsInfo, ApiMtwCardType } from '../../api/types';
+import type { ApiCardInfo, ApiCardsInfo, ApiMtwCardType, ApiTokenWithPrice } from '../../api/types';
 import type { LangFn } from '../../hooks/useLang';
 
 import { MTW_CARDS_MINT_BASE_URL } from '../../config';
-import { selectCurrentToncoinBalance } from '../../global/selectors';
+import { selectCurrentAccountTokenBalance, selectCurrentToncoinBalance, selectMycoin } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { captureEvents, SwipeDirection } from '../../util/captureEvents';
 import { formatNumber } from '../../util/formatNumber';
@@ -37,7 +37,9 @@ interface OwnProps {
 }
 
 interface StateProps {
-  tonBalance: bigint;
+  mycoinBalance: bigint;
+  toncoinBalance: bigint;
+  mycoin?: ApiTokenWithPrice;
 }
 
 enum CardSlides {
@@ -50,7 +52,7 @@ enum CardSlides {
 
 const TOTAL_SLIDES = Object.values(CardSlides).length / 2;
 
-function CardRoster({ cardsInfo, tonBalance }: OwnProps & StateProps) {
+function CardRoster({ cardsInfo, mycoin, mycoinBalance, toncoinBalance }: OwnProps & StateProps) {
   const { closeMintCardModal } = getActions();
 
   const lang = useLang();
@@ -124,7 +126,9 @@ function CardRoster({ cardsInfo, tonBalance }: OwnProps & StateProps) {
   function renderContent(isActive: boolean, isFrom: boolean, currentKey: CardSlides) {
     const defaultProps = {
       lang,
-      tonBalance,
+      mycoin,
+      mycoinBalance,
+      toncoinBalance,
       currentKey,
     };
 
@@ -188,8 +192,12 @@ function CardRoster({ cardsInfo, tonBalance }: OwnProps & StateProps) {
 }
 
 export default memo(withGlobal<OwnProps>((global): StateProps => {
+  const mycoin = selectMycoin(global);
+
   return {
-    tonBalance: selectCurrentToncoinBalance(global),
+    mycoinBalance: mycoin ? selectCurrentAccountTokenBalance(global, mycoin.slug) : 0n,
+    toncoinBalance: selectCurrentToncoinBalance(global),
+    mycoin,
   };
 })(CardRoster));
 
@@ -197,15 +205,19 @@ function renderMediaCard({
   lang,
   title,
   type,
+  mycoin,
   cardInfo,
-  tonBalance,
+  mycoinBalance,
+  toncoinBalance,
   currentKey,
 }: {
   lang: LangFn;
   title: string;
   type: ApiMtwCardType;
   cardInfo?: ApiCardInfo;
-  tonBalance?: bigint;
+  mycoin?: ApiTokenWithPrice;
+  mycoinBalance?: bigint;
+  toncoinBalance?: bigint;
   currentKey: number;
 }) {
   return (
@@ -231,7 +243,14 @@ function renderMediaCard({
             {renderAvailability(lang, cardInfo)}
           </div>
         </div>
-        <CardPros type={type} price={cardInfo?.price} balance={tonBalance} isAvailable={Boolean(cardInfo?.notMinted)} />
+        <CardPros
+          type={type}
+          price={cardInfo?.price}
+          mycoinBalance={mycoinBalance}
+          toncoinBalance={toncoinBalance}
+          mycoin={mycoin}
+          isAvailable={Boolean(cardInfo?.notMinted)}
+        />
       </div>
     )
   );

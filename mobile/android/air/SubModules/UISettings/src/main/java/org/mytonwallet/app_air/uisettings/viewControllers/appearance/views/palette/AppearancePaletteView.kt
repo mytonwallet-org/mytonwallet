@@ -98,7 +98,7 @@ class AppearancePaletteView(
         addView(titleLabel)
         addView(palettesView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         if (showUnlockButton) {
-            addView(separatorView, LayoutParams(MATCH_PARENT, 1))
+            addView(separatorView, LayoutParams(MATCH_PARENT, ViewConstants.SEPARATOR_HEIGHT))
             addView(unlockButton, LayoutParams(MATCH_PARENT, 56.dp))
         }
 

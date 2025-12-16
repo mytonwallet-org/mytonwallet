@@ -46,6 +46,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.SwapSearchEditText
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -67,6 +68,8 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MExploreHistory
+import org.mytonwallet.app_air.walletcore.models.MScreenMode
+import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.ExploreHistoryStore
 import org.mytonwallet.uihome.R
@@ -77,6 +80,7 @@ import kotlin.math.roundToInt
 class TabsVC(context: Context) : WViewController(context), WThemedView, WProtectedView,
     WalletCore.EventObserver,
     WNavigationController.ITabBarController {
+    override val TAG = "Tabs"
 
     companion object {
         const val ID_HOME = 1
@@ -113,6 +117,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         bottomNavigationView.id = View.generateViewId()
         bottomNavigationView.elevation = 0f
         bottomNavigationView.itemPaddingBottom += BOTTOM_TABS_PADDING_OFFSET.dp
+        bottomNavigationView.setPadding(25.dp, 0, 25.dp, 0)
 
         // Add menu items to BottomNavigationView
         val menu = bottomNavigationView.menu
@@ -145,9 +150,9 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         bottomNavigationView.setOnItemSelectedListener { item ->
             if (bottomNavigationView.selectedItemId == item.itemId) {
                 stackNavigationControllers[item.itemId]?.apply {
-                    if (viewControllers.size == 1)
+                    if (viewControllers.size == 1) {
                         scrollToTop()
-                    else
+                    } else
                         popToRoot()
                 }
                 return@setOnItemSelectedListener true
@@ -264,9 +269,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         }
     }
 
-    private val bottomNavigationFrameLayout = FrameLayout(context).apply {
-        id = View.generateViewId()
-    }
+    private val bottomNavigationFrameLayout = WFrameLayout(context)
 
     private val keyboardVisible = FloatAnimator(220L, AnimatorUtils.DECELERATE_INTERPOLATOR, 0f) {
         render()
@@ -515,7 +518,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         navigationController.setRoot(
             when (id) {
                 ID_HOME -> {
-                    HomeVC(context)
+                    HomeVC(context, MScreenMode.Default)
                 }
 
                 ID_EXPLORE -> {
@@ -537,7 +540,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         return navigationController
     }
 
-    private val activeNavigationController: WNavigationController?
+    val activeNavigationController: WNavigationController?
         get() {
             return stackNavigationControllers[bottomNavigationView.selectedItemId]
         }
@@ -658,11 +661,17 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
     override fun onWalletEvent(walletEvent: WalletEvent) {
         when (walletEvent) {
             is WalletEvent.AccountChanged -> {
+                if (!AccountStore.isPushedTemporary && !walletEvent.isSavingTemporaryAccount)
+                    navigationController?.popToRoot(false)
+            }
+
+            is WalletEvent.TemporaryAccountSaved -> {
                 navigationController?.popToRoot(false)
             }
 
             is WalletEvent.AccountChangedInApp, WalletEvent.AddNewWalletCompletion -> {
-                bottomNavigationView.selectedItemId = ID_HOME
+                if (bottomNavigationView.selectedItemId != ID_HOME)
+                    bottomNavigationView.selectedItemId = ID_HOME
                 dismissMinimized(false)
             }
 

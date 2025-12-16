@@ -15,27 +15,29 @@ private let log = Log("BalanceHeaderView+update")
 
 @MainActor extension BalanceHeaderView {
     
-    func updateHeight(scrollOffset: CGFloat, isExpandingProgrammatically: Bool) -> CGFloat {
-        if UIDevice.current.hasDynamicIsland {
-            if scrollOffset >= 87 {
-                self.walletCardView.alpha = 0
-            } else {
-                walletCardView.alpha = 1
-            }
-        }
+    func updateHeight(scrollOffset: CGFloat, isExpandingProgrammatically: Bool) {
 
-        // Should set wallet card offset first, to detect collapse/expand mode first of all.
-        walletCardView.setScrollOffset(to: scrollOffset, isTracking: delegate?.isTracking, forceIsTracking: isExpandingProgrammatically)
+        // detect collapse/expand mode first of all
+        if scrollOffset <= -expansionOffset, headerViewModel.state == .collapsed {
+            if (!isExpandingProgrammatically && delegate?.isTracking == false) {
+                return
+            }
+            headerViewModel.state = .expanded
+            Haptics.play(.transition)
+        } else if headerViewModel.state == .expanded, scrollOffset >= collapseOffset {
+            headerViewModel.state = .collapsed
+            Haptics.play(.transition)
+        }
 
         var newHeight = calculatedHeight - (isExpandingProgrammatically ? 0 : scrollOffset)
 
         var shouldAnimate = false
-        if prevWalletCardViewState != walletCardView.state {
-            prevWalletCardViewState = walletCardView.state
+        if prevWalletCardViewState != headerViewModel.state {
+            prevWalletCardViewState = headerViewModel.state
             shouldAnimate = true
             // Mode changed, animate considering the offset!
             if !isExpandingProgrammatically {
-                newHeight += walletCardView.state == .expanded ? -WalletCardView.expansionOffset : WalletCardView.collapseOffset
+                newHeight += headerViewModel.state == .expanded ? -expansionOffset : collapseOffset
             }
         }
         if isExpandingProgrammatically {
@@ -51,14 +53,7 @@ private let log = Log("BalanceHeaderView+update")
             // set the new constraint
             heightConstraint.constant = newHeight
 
-            // progress is between 0 (collapsed) and 1 (expanded)
-            let progress: CGFloat = scrollOffset <= 0 ? 1 : (max(0, 110 - scrollOffset) / 110)
-            var balanceScale = interpolate(from: 17.0/WAnimatedAmountLabelConfig.balanceHeader.primaryFont.pointSize, to: 1, progress: progress)
-            if walletCardView.state == .expanded {
-                balanceScale *= WAnimatedAmountLabelConfig.cardToBalanceHeaderRatio
-            }
-
-            updateStatusViewContainer.alpha = walletCardView.state == .expanded ? 1 : 0
+            updateStatusViewContainer.alpha = headerViewModel.state == .expanded ? 1 : 0
         }
 
         if shouldAnimate {
@@ -69,22 +64,10 @@ private let log = Log("BalanceHeaderView+update")
         } else {
             updateView()
         }
-
-        return newHeight
     }
     
-    func update(balance: Double?,
-                balance24h: Double?,
-                animated: Bool,
-                onCompletion: (() -> Void)?) {
-        let shouldAnimate = (animated && (!isShowingSkeleton || isShowingSkeletonCompletely)) ? nil : false
-        onCompletion?()
-    }
-
     func update(status: UpdateStatusView.State, animatedWithDuration: TimeInterval?) {
-        log.info("newStatus=\(status, .public) animated=\(animatedWithDuration as Any, .public)", fileOnly: true)
         updateStatusView.setState(newState: status, animatedWithDuration: animatedWithDuration)
-        walletCardView.statusViewState = status
-        updateStatusViewContainer.alpha = walletCardView.state == .expanded ? 1 : 0
+        updateStatusViewContainer.alpha = headerViewModel.state == .expanded ? 1 : 0
     }
 }

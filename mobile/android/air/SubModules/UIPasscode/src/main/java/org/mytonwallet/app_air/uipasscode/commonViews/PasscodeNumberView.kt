@@ -71,12 +71,12 @@ class PasscodeNumberView(
 
     override fun updateTheme() {
         val color = if (light) Color.WHITE else Color.BLACK
-        if (num != null) {
-            setBackgroundColor(
-                color.colorWithAlpha(if (light) 38 else 0),
-                40f.dp
-            )
-        } else {
+        // Always set background first to avoid nested RippleDrawables on repeated calls
+        setBackgroundColor(
+            color.colorWithAlpha(if (light && num != null) 38 else 0),
+            40f.dp
+        )
+        if (num == null) {
             if (column == 1) {
                 // Biometric button
                 val biometricDrawable =
@@ -102,7 +102,6 @@ class PasscodeNumberView(
         addRippleEffect(color.colorWithAlpha(if (light) 128 else 20), 40f.dp)
         titleLabel.setTextColor(color)
         subtitleLabel.setTextColor(color.colorWithAlpha(169))
-
     }
 
     private fun getNum(row: Int, column: Int): Int? {

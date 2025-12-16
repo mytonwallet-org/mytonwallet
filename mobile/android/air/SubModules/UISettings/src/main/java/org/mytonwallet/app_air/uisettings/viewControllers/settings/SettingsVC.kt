@@ -66,6 +66,7 @@ class SettingsVC(context: Context) : WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource,
     WalletCore.EventObserver, WalletCore.UpdatesObserver,
     WProtectedView {
+    override val TAG = "Settings"
 
     companion object {
         val HEADER_CELL = WCell.Type(1)
@@ -162,7 +163,7 @@ class SettingsVC(context: Context) : WViewController(context),
                     },
                     WMenuPopup.Item(
                         org.mytonwallet.app_air.icons.R.drawable.ic_exit,
-                        LocaleController.getString("Log Out")
+                        LocaleController.getString("Sign Out")
                     ) {
                         window?.let { window ->
                             AccountStore.activeAccount?.let { account ->
@@ -383,7 +384,11 @@ class SettingsVC(context: Context) : WViewController(context),
                                 ).build()
                         )
                     } else {
-                        WalletCore.notifyEvent(WalletEvent.AccountChangedInApp(accountsModified = false))
+                        WalletCore.notifyEvent(
+                            WalletEvent.AccountChangedInApp(
+                                persistedAccountsModified = false
+                            )
+                        )
                     }
                 }
             }
@@ -657,6 +662,13 @@ class SettingsVC(context: Context) : WViewController(context),
             WalletEvent.DappsCountUpdated -> {
                 settingsVM.updateWalletConfigSection()
                 rvAdapter.reloadData()
+            }
+
+            WalletEvent.ByChainUpdated -> {
+                settingsVM.fillOtherAccounts(async = true, onComplete = {
+                    rvAdapter.reloadData()
+                })
+                headerView.configure()
             }
 
             else -> {}

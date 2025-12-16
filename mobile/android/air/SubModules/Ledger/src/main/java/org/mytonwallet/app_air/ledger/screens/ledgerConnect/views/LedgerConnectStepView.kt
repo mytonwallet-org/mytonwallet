@@ -6,6 +6,7 @@ import android.view.Gravity
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.widget.Barrier
+import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.animateHeight
@@ -83,10 +84,7 @@ class LedgerConnectStepView(context: Context, stepText: String) : WView(context)
 
         errorLabel.text = errorMessage
         if (!errorMessage.isNullOrEmpty()) {
-            errorLabel.measure(
-                MeasureSpec.makeMeasureSpec(stepLabel.width, MeasureSpec.EXACTLY),
-                MeasureSpec.UNSPECIFIED
-            )
+            errorLabel.measure(stepLabel.width.exactly, MeasureSpec.UNSPECIFIED)
         }
 
         if (errorMessage.isNullOrEmpty()) {

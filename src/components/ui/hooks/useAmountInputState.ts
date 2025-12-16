@@ -41,7 +41,7 @@ export interface AmountInputStateOutput {
  * `<AmountInput>` has to be remounted while its state must persist.
  */
 export function useAmountInputState(input: AmountInputStateInput): AmountInputStateOutput {
-  const { baseCurrency, onAmountChange } = input;
+  const { baseCurrency, onAmountChange, isAmountReadonly } = input;
   const { isBaseCurrency, switchCurrency, ...output } = useCurrencySwitch(input);
 
   const onMaxAmountClick = useLastCallback((maxAmount?: bigint) => {
@@ -55,6 +55,10 @@ export function useAmountInputState(input: AmountInputStateInput): AmountInputSt
   });
 
   const onAlternativeAmountClick = useLastCallback(() => {
+    if (isAmountReadonly) {
+      return;
+    }
+
     void vibrate();
     switchCurrency(!isBaseCurrency);
   });

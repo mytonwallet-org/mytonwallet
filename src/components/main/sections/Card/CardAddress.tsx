@@ -9,7 +9,6 @@ import buildClassName from '../../../../util/buildClassName';
 import { getOrderedAccountChains } from '../../../../util/chain';
 import { openUrl } from '../../../../util/openUrl';
 import { shortenAddress } from '../../../../util/shortenAddress';
-import { shortenDomain } from '../../../../util/shortenDomain';
 import getChainNetworkIcon from '../../../../util/swap/getChainNetworkIcon';
 import { getExplorerAddressUrl, getExplorerName } from '../../../../util/url';
 import { IS_TOUCH_ENV } from '../../../../util/windowEnvironment';
@@ -72,7 +71,7 @@ function CardAddress({
       return {
         value: accountChain.address,
         address: shortenAddress(accountChain.address)!,
-        ...(accountChain.domain && { domain: shortenDomain(accountChain.domain) }),
+        ...(accountChain.domain && { domain: accountChain.domain }),
         icon: getChainNetworkIcon(chain),
         fontIcon: 'copy',
         chain,

@@ -1,5 +1,5 @@
 import type {
-  Account, AccountSettings, AccountState, NotificationType,
+  Account, AccountSettings, AccountState, ToastType,
 } from '../../types';
 import { AppState } from '../../types';
 
@@ -235,36 +235,36 @@ addActionHandler('showError', (global, actions, { error } = {}) => {
   });
 });
 
-addActionHandler('showNotification', (global, actions, payload) => {
+addActionHandler('showToast', (global, actions, payload) => {
   if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('showNotification', payload);
+    callActionInMain('showToast', payload);
     return undefined;
   }
 
   const { message, icon } = payload;
 
-  const newNotifications: NotificationType[] = [...global.notifications];
-  const existingNotificationIndex = newNotifications.findIndex((n) => n.message === message);
-  if (existingNotificationIndex !== -1) {
-    newNotifications.splice(existingNotificationIndex, 1);
+  const newToasts: ToastType[] = [...global.toasts];
+  const existingToastIndex = newToasts.findIndex((n) => n.message === message);
+  if (existingToastIndex !== -1) {
+    newToasts.splice(existingToastIndex, 1);
   }
 
-  newNotifications.push({ message, icon });
+  newToasts.push({ message, icon });
 
   return {
     ...global,
-    notifications: newNotifications,
+    toasts: newToasts,
   };
 });
 
-addActionHandler('dismissNotification', (global) => {
-  const newNotifications = [...global.notifications];
+addActionHandler('dismissToast', (global) => {
+  const newToasts = [...global.toasts];
 
-  newNotifications.pop();
+  newToasts.pop();
 
   return {
     ...global,
-    notifications: newNotifications,
+    toasts: newToasts,
   };
 });
 

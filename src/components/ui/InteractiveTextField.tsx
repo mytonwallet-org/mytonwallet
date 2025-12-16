@@ -104,7 +104,7 @@ function InteractiveTextField({
   noDimming,
   withShareInMenu,
 }: OwnProps & StateProps) {
-  const { showNotification, addSavedAddress, openTemporaryViewAccount } = getActions();
+  const { showToast, addSavedAddress, openTemporaryViewAccount } = getActions();
 
   const addressNameRef = useRef<HTMLInputElement>();
   const contentRef = useRef<HTMLDivElement>();
@@ -139,7 +139,7 @@ function InteractiveTextField({
     }
 
     addSavedAddress({ address, chain, name: savedAddressName });
-    showNotification({ message: lang('Address was saved!'), icon: 'icon-star' });
+    showToast({ message: lang('Address was saved!'), icon: 'icon-star' });
     closeSaveAddressModal();
   });
 
@@ -153,7 +153,7 @@ function InteractiveTextField({
 
   const handleCopy = useLastCallback(() => {
     if (!copyNotification) return;
-    showNotification({ message: copyNotification, icon: 'icon-copy' });
+    showToast({ message: copyNotification, icon: 'icon-copy' });
     void copyTextToClipboard(address || text);
   });
 

@@ -14,15 +14,10 @@ struct DepositLinkView: View {
     
     @StateObject private var model: DepositLinkModel = .init(nativeToken: .toncoin)
     
-    var topPadding: CGFloat
-    var onScroll: (CGFloat) -> ()
-    
     @FocusState private var commentIsFocused: Bool
     
-    @Namespace private var ns
-    
     var body: some View {
-        InsetList(topPadding: topPadding) {
+        InsetList {
             
             Text(lang("$receive_invoice_description"))
                 .foregroundStyle(.secondary)
@@ -31,7 +26,6 @@ struct DepositLinkView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.top, 8)
                 .padding(.bottom, -8)
-                .scrollPosition(ns: ns, offset: topPadding, callback: onScroll)
 
             TokenAmountEntrySection(
                 amount: $model.tokenAmount.optionalAmount,
@@ -71,7 +65,7 @@ struct DepositLinkView: View {
             if let url = model.url {
                 InsetSection {
                     InsetCell {
-                        TappableDepositLink(depostitLink: url, ns: ns)
+                        TappableDepositLink(depostitLink: url)
                     }
                 } header: {
                     Text(lang("Share this URL to receive %token%", arg1: model.tokenAmount.token.symbol))
@@ -81,7 +75,6 @@ struct DepositLinkView: View {
         .onTapGesture {
             topViewController()?.view.endEditing(true)
         }
-        .coordinateSpace(name: ns)
     }
 }
 
@@ -89,7 +82,6 @@ struct DepositLinkView: View {
 struct TappableDepositLink: View {
     
     var depostitLink: String
-    var ns: Namespace.ID
     @State private var menuContext = MenuContext()
     
     var body: some View {

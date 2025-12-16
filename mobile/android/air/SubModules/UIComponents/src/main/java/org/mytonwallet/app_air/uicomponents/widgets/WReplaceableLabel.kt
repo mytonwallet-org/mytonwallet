@@ -86,6 +86,7 @@ class WReplaceableLabel(
     }
 
     var setTextRunnable: Runnable? = null
+    private var isFadingOut = false
     fun setText(
         config: Config,
         animated: Boolean = true,
@@ -118,6 +119,7 @@ class WReplaceableLabel(
         if (!animated) {
             animatingConfig = null
             setTextRunnable = null
+            isFadingOut = false
             translationX = 0f
             scaleX = 1f
             scaleY = 1f
@@ -126,6 +128,8 @@ class WReplaceableLabel(
             this.config = config
             updateLabelAppearance?.invoke()
             updateProgressView()
+            animate().cancel()
+            alpha = 1f
             return
         }
 
@@ -146,22 +150,30 @@ class WReplaceableLabel(
             label.setCompoundDrawables(null, null, config.trailingDrawable, null)
             translationX = 0f
 
-            animate()
-                .alpha(1f)
-                .scaleX(1f)
-                .scaleY(1f)
-                .setDuration(AnimationConstants.VERY_QUICK_ANIMATION)
-                .start()
+            animate().cancel()
+            if (alpha < 1f)
+                animate()
+                    .alpha(1f)
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .setDuration(AnimationConstants.VERY_QUICK_ANIMATION)
+                    .start()
         }
 
-        if (alpha == 0f) {
+        if (alpha == 0f || label.text.isNullOrEmpty()) {
+            isFadingOut = false
             setTextRunnable?.run()
         } else {
+            if (isFadingOut)
+                return
+            isFadingOut = true
+            animate().cancel()
             animate()
                 .alpha(0f)
-                .translationX(-20f * LocaleController.rtlMultiplier)
+                .translationX(if (animatingConfig?.text.isNullOrEmpty()) 0f else -20f * LocaleController.rtlMultiplier)
                 .setDuration(AnimationConstants.QUICK_ANIMATION)
                 .withEndAction {
+                    isFadingOut = false
                     setTextRunnable?.let {
                         scaleX = 0.8f
                         scaleY = 0.8f

@@ -1,7 +1,7 @@
 @font-face {
     font-family: "brilliant-icons";
-    src: url("./brilliant-icons.woff?0b22b5f539285fd6071dfac31ec33598") format("woff"),
-url("./brilliant-icons.woff2?0b22b5f539285fd6071dfac31ec33598") format("woff2");
+    src: url("./brilliant-icons.woff?6409541492e21b0f2732aca32a6c131e") format("woff"),
+url("./brilliant-icons.woff2?6409541492e21b0f2732aca32a6c131e") format("woff2");
     font-weight: normal;
     font-style: normal;
     font-display: block;
@@ -360,57 +360,54 @@ url("./brilliant-icons.woff2?0b22b5f539285fd6071dfac31ec33598") format("woff2");
 .icon-testnet::before {
     content: "\f173";
 }
-.icon-ton::before {
+.icon-tonexplorer-small::before {
     content: "\f174";
 }
-.icon-tonexplorer-small::before {
+.icon-tonexplorer::before {
     content: "\f175";
 }
-.icon-tonexplorer::before {
+.icon-tooltip::before {
     content: "\f176";
 }
-.icon-tooltip::before {
+.icon-touch-id::before {
     content: "\f177";
 }
-.icon-touch-id::before {
+.icon-trash-small::before {
     content: "\f178";
 }
-.icon-trash-small::before {
+.icon-trash::before {
     content: "\f179";
 }
-.icon-trash::before {
+.icon-update::before {
     content: "\f17a";
 }
-.icon-update::before {
+.icon-verification::before {
     content: "\f17b";
 }
-.icon-verification::before {
+.icon-versions::before {
     content: "\f17c";
 }
-.icon-versions::before {
+.icon-view-landscape::before {
     content: "\f17d";
 }
-.icon-view-landscape::before {
+.icon-view-portrait::before {
     content: "\f17e";
 }
-.icon-view-portrait::before {
+.icon-wallet-add::before {
     content: "\f17f";
 }
-.icon-wallet-add::before {
+.icon-wallet-view::before {
     content: "\f180";
 }
-.icon-wallet-view::before {
+.icon-wallet::before {
     content: "\f181";
 }
-.icon-wallet::before {
+.icon-windows-close::before {
     content: "\f182";
 }
-.icon-windows-close::before {
+.icon-windows-maximize::before {
     content: "\f183";
 }
-.icon-windows-maximize::before {
-    content: "\f184";
-}
 .icon-windows-minimize::before {
-    content: "\f185";
+    content: "\f184";
 }

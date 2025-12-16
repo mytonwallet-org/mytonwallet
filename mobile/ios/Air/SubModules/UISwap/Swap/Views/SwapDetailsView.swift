@@ -142,6 +142,7 @@ struct SwapDetailsView: View {
                 .foregroundStyle(Color(WTheme.secondaryLabel))
             }
             .frame(minHeight: 44)
+            .frame(height: 44)
             .contentShape(.rect)
         }
         .buttonStyle(InsetButtonStyle())
@@ -344,10 +345,10 @@ struct SwapDetailsView: View {
                         InfoButton(title: lang("Price Impact"), message: lang("$swap_price_impact_tooltip1") + "\n\n" +  lang("$swap_price_impact_tooltip2"))
                     }
             } value: {
-                HStack {
+                HStack(spacing: 3) {
                     Text("\(formatAmountText(amount: displayEstimate.impact, decimalsCount: 1))%")
                     if model.displayImpactWarning != nil {
-                        Text(Image(systemName: "exclamitiexclamationmark.triangle.fill"))
+                        Text(Image(systemName: "exclamationmark.triangle.fill"))
                             .foregroundStyle(.red)
                     }
                 }

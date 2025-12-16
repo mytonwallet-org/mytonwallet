@@ -85,7 +85,7 @@ struct ActionsWithBackground: View {
 #if DEBUG
 @available(iOS 18, *)
 #Preview {
-    @Previewable var viewModel = NftDetailsViewModel(nft: .sampleMtwCard, listContext: .none, navigationBarInset: 0)
+    @Previewable var viewModel = NftDetailsViewModel(accountId: "0-mainnet", nft: .sampleMtwCard, listContext: .none, navigationBarInset: 0)
     @Previewable @Namespace var ns
     ZStack {
         Color.blue.opacity(0.2)

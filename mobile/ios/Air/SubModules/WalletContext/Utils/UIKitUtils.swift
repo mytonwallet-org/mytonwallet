@@ -39,3 +39,23 @@ public extension UIViewController {
         view.backgroundColor = color
     }
 }
+
+public extension CALayer {
+    func removeAllAnimationsRecursive() {
+        removeAllAnimations()
+        for layer in sublayers ?? [] {
+            layer.removeAllAnimationsRecursive()
+        }
+    }
+    
+    func allAnimationKeysRecursive() -> [String] {
+        var keys: [String] = []
+        if let _keys = animationKeys(), !_keys.isEmpty {
+            keys += _keys.map { "\($0) \(description)" }
+        }
+        for sublayer in sublayers ?? [] {
+            keys += sublayer.allAnimationKeysRecursive()
+        }
+        return keys
+    }
+}

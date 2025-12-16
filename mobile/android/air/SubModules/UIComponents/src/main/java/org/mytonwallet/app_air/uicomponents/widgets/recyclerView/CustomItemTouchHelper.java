@@ -25,6 +25,8 @@ import android.os.Build;
 import android.util.Log;
 import android.view.GestureDetector;
 import android.view.HapticFeedbackConstants;
+import org.mytonwallet.app_air.uicomponents.helpers.Haptics;
+import org.mytonwallet.app_air.uicomponents.helpers.HapticType;
 import android.view.MotionEvent;
 import android.view.VelocityTracker;
 import android.view.View;
@@ -505,7 +507,7 @@ public class CustomItemTouchHelper extends RecyclerView.ItemDecoration
             mSelected = selected;
 
             if (actionState == ACTION_STATE_DRAG) {
-                mSelected.itemView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+                Haptics.play(mSelected.itemView, HapticType.DRAG);
             }
         }
         final ViewParent rvParent = mRecyclerView.getParent();

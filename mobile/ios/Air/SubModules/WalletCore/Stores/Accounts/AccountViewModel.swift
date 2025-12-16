@@ -5,11 +5,17 @@ import SwiftUI
 import WalletContext
 import Perception
 import Dependencies
+import SwiftNavigation
 
 @Perceptible
 public class AccountViewModel {
     
-    public var accountId: String
+    public let source: AccountSource
+    
+    private(set) public var account: MAccount = DUMMY_ACCOUNT
+
+    @PerceptionIgnored
+    public var onAccountDeleted: () -> () = { }
     
     @PerceptionIgnored
     @Dependency(\.accountStore) private var accountStore
@@ -19,32 +25,45 @@ public class AccountViewModel {
     @Dependency(\.nftStore) private var nftStore
     @PerceptionIgnored
     @Dependency(\.balanceStore.accountBalanceData) private var balanceData
+    
+    private let accountIdProvider: AccountIdProvider
     @PerceptionIgnored
-    @Dependency(\.tokenStore.baseCurrency) private var baseCurrency
+    private var observeAccount: ObserveToken?
     
-    public init(accountId: String) {
-        self.accountId = accountId
+    public convenience init(accountId: String?) {
+        self.init(source: AccountSource(accountId))
     }
     
-    public var account: MAccount {
-        accountStore.accountsById[accountId] ?? DUMMY_ACCOUNT
+    public init(source: AccountSource) {
+        self.source = source
+        self.accountIdProvider = AccountIdProvider(source: source)
+        observeAccount = observe { [weak self] in
+            guard let self else { return }
+            if let account = accountStore.accountsById[self.accountId] {
+                self.account = account
+            } else {
+                onAccountDeleted()
+            }
+        }
     }
+    
+    public var accountId: String {
+        get { accountIdProvider.accountId }
+        set { accountIdProvider.accountId = newValue }
+    }
+
     public var isCurrent: Bool {
         account.id == accountStore.currentAccountId
     }
     public var balance: BaseCurrencyAmount? {
-        if let totalBalance = balanceData[accountId]?.totalBalance {
-            return BaseCurrencyAmount.fromDouble(totalBalance, baseCurrency)
-        }
-        return nil
+        balanceData[accountId]?.totalBalance
     }
     public var balance24h: BaseCurrencyAmount? {
-        if let totalBalance = balanceData[accountId]?.totalBalanceYesterday {
-            return BaseCurrencyAmount.fromDouble(totalBalance, baseCurrency)
-        }
-        return nil
+        balanceData[accountId]?.totalBalanceYesterday
     }
-    
+    public var balanceChange: Double? {
+        balanceData[accountId]?.totalBalanceChange
+    }
     public var nft: ApiNft? {
         accountSettings.for(accountId: accountId).backgroundNft
     }

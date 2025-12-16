@@ -3,6 +3,7 @@ import UIKit
 import UIComponents
 import WalletCore
 import WalletContext
+import Dependencies
 
 private let log = Log("Home-WalletTokens")
 
@@ -14,15 +15,18 @@ private let log = Log("Home-WalletTokens")
     public var tokensView: WalletTokensView { view as! WalletTokensView }
     public var onHeightChanged: ((_ animated: Bool) -> ())?
 
-    private var currentAccountId: String {
+    private var displayedAccountId: String {
         get { tokensView.accountId }
         set { tokensView.accountId = newValue }
     }
-    public var accountId: String
+    
+    public let accountIdProvider: AccountIdProvider
+    
+    var accountId: String { accountIdProvider.accountId }
 
-    public init(compactMode: Bool) {
+    public init(accountSource: AccountSource, compactMode: Bool) {
+        self.accountIdProvider = AccountIdProvider(source: accountSource)
         self.compactMode = compactMode
-        self.accountId = AccountStore.accountId ?? ""
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -52,9 +56,10 @@ private let log = Log("Home-WalletTokens")
         MainActor.assumeIsolated {
             switch event {
             case .accountChanged:
-                self.accountId = AccountStore.accountId ?? ""
-                updateWalletTokens(animated: true)
-                tokensView.reloadStakeCells(animated: false)
+                if accountIdProvider.source == .current {
+                    updateWalletTokens(animated: true)
+                    tokensView.reloadStakeCells(animated: false)
+                }
 
             case .stakingAccountData(let data):
                 if data.accountId == self.accountId {
@@ -64,8 +69,10 @@ private let log = Log("Home-WalletTokens")
             case .tokensChanged:
                 tokensChanged()
 
-            case .balanceChanged(_):
-                updateWalletTokens(animated: true)
+            case .balanceChanged(let accountId, _):
+                if accountId == self.accountId {
+                    updateWalletTokens(animated: true)
+                }
 
             default:
                 break
@@ -73,9 +80,9 @@ private let log = Log("Home-WalletTokens")
         }
     }
     
-    public func switchAcccountTo(accountId: String) {
-        self.accountId = accountId
-        updateWalletTokens(animated: false)
+    public func switchAcccountTo(accountId: String, animated: Bool) {
+        self.accountIdProvider.accountId = accountId
+        updateWalletTokens(animated: animated)
     }
 
     private func stakingDataUpdated() {
@@ -87,9 +94,9 @@ private let log = Log("Home-WalletTokens")
     }
 
     private func updateWalletTokens(animated: Bool) {
-        let accountChanged = accountId != currentAccountId
+        let accountChanged = accountId != displayedAccountId
         if accountChanged {
-            currentAccountId = accountId
+            displayedAccountId = accountId
         }
 
         if let data = BalanceStore.accountBalanceData[accountId] {
@@ -123,20 +130,20 @@ private let log = Log("Home-WalletTokens")
     }
 
     public func goToStakedPage(slug: String) {
-        let token: ApiToken? = switch slug {
+        let tokenSlug: String? = switch slug {
         case TONCOIN_SLUG, STAKED_TON_SLUG:
-            nil
+            TONCOIN_SLUG
         case MYCOIN_SLUG, STAKED_MYCOIN_SLUG:
-            TokenStore.tokens[STAKED_MYCOIN_SLUG]!
+            MYCOIN_SLUG
         case TON_USDE_SLUG, TON_TSUSDE_SLUG:
-            TokenStore.tokens[TON_USDE_SLUG]!
+            TON_USDE_SLUG
         default:
             nil
         }
-        AppActions.showEarn(token: token)
+        AppActions.showEarn(tokenSlug: tokenSlug)
     }
 
     public func goToTokens() {
-        AppActions.showAssets(selectedTab: 0, collectionsFilter: .none)
+        AppActions.showAssets(accountSource: accountIdProvider.source, selectedTab: 0, collectionsFilter: .none)
     }
 }

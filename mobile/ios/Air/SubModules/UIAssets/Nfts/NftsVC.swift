@@ -40,7 +40,15 @@ public class NftsVC: WViewController, WSegmentedControllerContent, WalletAssetsV
         }
     }
     
-    private var walletAssetsViewModel = WalletAssetsViewModel()
+    @Dependency(\.accountStore) private var accountStore
+    @Dependency(\.accountSettings) var _accountSettings
+    
+    private let accountIdProvider: AccountIdProvider
+    
+    var accountSource: AccountSource { accountIdProvider.source }
+    var accountId: String { accountIdProvider.accountId }
+    
+    private let walletAssetsViewModel: WalletAssetsViewModel
     
     public var onScroll: ((CGFloat) -> Void)?
     public var onScrollStart: (() -> Void)?
@@ -71,10 +79,12 @@ public class NftsVC: WViewController, WSegmentedControllerContent, WalletAssetsV
     
     var scrollingContext = ScrollingContext()
     
-    public init(compactMode: Bool, filter: NftCollectionFilter, topInset: CGFloat = 0) {
+    public init(accountSource: AccountSource, compactMode: Bool, filter: NftCollectionFilter, topInset: CGFloat = 0) {
+        self.accountIdProvider = AccountIdProvider(source: accountSource)
         self.compactMode = compactMode
         self.filter = filter
         self.topInset = topInset
+        self.walletAssetsViewModel = WalletAssetsViewModel(accountSource: accountSource)
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -135,7 +145,7 @@ public class NftsVC: WViewController, WSegmentedControllerContent, WalletAssetsV
 
         let nftCellRegistration = UICollectionView.CellRegistration<CollectionViewCellIgnoringSafeArea, String> { [weak self, scrollingContext] cell, indexPath, itemIdentifier in
             guard let self else { return }
-            let displayNft: DisplayNft? = displayNfts?[itemIdentifier] ?? NftStore.currentAccountNfts?[itemIdentifier]
+            let displayNft: DisplayNft? = displayNfts?[itemIdentifier] ?? NftStore.getAccountNfts(accountId: accountId)?[itemIdentifier]
             cell.configurationUpdateHandler = { [weak self] cell, state in
                 let animateIfPossible = self?.animateIfPossible ?? false
                 cell.contentConfiguration = UIHostingConfiguration {
@@ -180,11 +190,11 @@ public class NftsVC: WViewController, WSegmentedControllerContent, WalletAssetsV
             if case .nft = identifier { return true }
             return false
         }
-        dataSource.reorderingHandlers.didReorder = { transaction in
+        dataSource.reorderingHandlers.didReorder = { [weak self] transaction in
+            guard let self else { return }
+            let accountId = self.accountId
             let changes = transaction.difference.toNftIds()
-            if let accountId = AccountStore.accountId {
-                NftStore.reorderNfts(accountId: accountId, changes: changes)
-            }
+            NftStore.reorderNfts(accountId: accountId, changes: changes)
         }
         
         if !compactMode, filter != .none {
@@ -300,7 +310,7 @@ public class NftsVC: WViewController, WSegmentedControllerContent, WalletAssetsV
     
     private func updateNfts() {
         guard dataSource != nil else { return }
-        if var nfts = NftStore.currentAccountShownNfts {
+        if var nfts = NftStore.getAccountShownNfts(accountId: accountId) {
             nfts = filter.apply(to: nfts)
             self.allShownNftsCount = nfts.count
             if compactMode {
@@ -409,7 +419,7 @@ public class NftsVC: WViewController, WSegmentedControllerContent, WalletAssetsV
     }
     
     func onFavorite() {
-        if filter != .none, let accountId = AccountStore.accountId {
+        if filter != .none {
             Task {
                 do {
                     let newIsFavorited = !self.walletAssetsViewModel.isFavorited(filter: filter)
@@ -422,9 +432,9 @@ public class NftsVC: WViewController, WSegmentedControllerContent, WalletAssetsV
                     }
                     
                     if newIsFavorited {
-                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        Haptics.play(.success)
                     } else {
-                        UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.7)
+                        Haptics.play(.lightTap)
                     }
                 } catch {
                     log.error("failed to favorite collection: \(filter, .public) \(accountId, .public)")
@@ -442,12 +452,12 @@ extension NftsVC: UICollectionViewDelegate {
         switch id {
         case .nft(let nftId):
             if let nft = displayNfts?[nftId]?.nft {
-                let assetVC = NftDetailsVC(nft: nft, listContext: filter)
+                let assetVC = NftDetailsVC(accountId: accountId, nft: nft, listContext: filter)
                 navigationController?.pushViewController(assetVC, animated: true)
             }
         case .action(let actionId):
             if actionId == "showAll" {
-                AppActions.showAssets(selectedTab: 1, collectionsFilter: filter)
+                AppActions.showAssets(accountSource: accountSource, selectedTab: 1, collectionsFilter: filter)
             }
         case .placeholder:
             if compactMode {
@@ -494,9 +504,9 @@ extension NftsVC: UICollectionViewDelegate {
 //        }
 
         let row = dataSource.itemIdentifier(for: indexPath)
-        guard let accountId = AccountStore.accountId, case .nft(let nftId) = row, let nft = displayNfts?[nftId]?.nft else { return nil }
+        guard case .nft(let nftId) = row, let nft = displayNfts?[nftId]?.nft else { return nil }
         
-        let menu = UIContextMenuConfiguration(identifier: indexPath as NSCopying, previewProvider: nil) { _ in
+        let menu = UIContextMenuConfiguration(identifier: indexPath as NSCopying, previewProvider: nil) { [accountId] _ in
             return self.makeMenu(accountId: accountId, nft: nft)
         }
         return menu
@@ -504,13 +514,11 @@ extension NftsVC: UICollectionViewDelegate {
     
     private func makeMenu(accountId: String, nft: ApiNft) -> UIMenu {
 
-        @Dependency(\.accountStore.currentAccountId) var currentAccountId
-        @Dependency(\.accountSettings) var _accountSettings
-        let accountSettings = _accountSettings.for(accountId: currentAccountId)
+        let accountSettings = _accountSettings.for(accountId: accountId)
         
         
         let detailsAction = UIAction(title: lang("Details"), image: UIImage(systemName: "info.circle")) { [filter] _ in
-            let assetVC = NftDetailsVC(nft: nft, listContext: filter)
+            let assetVC = NftDetailsVC(accountId: accountId, nft: nft, listContext: filter)
             self.navigationController?.pushViewController(assetVC, animated: true)
         }
         let sendAction = UIAction(title: lang("Send"), image: UIImage(systemName: "paperplane")) { _ in
@@ -518,8 +526,9 @@ extension NftsVC: UICollectionViewDelegate {
         }
         var section1Items = [detailsAction, sendAction]
         if let collection = nft.collection {
-            let collectionAction = UIAction(title: lang("Open Collection"), image: nil) { _ in
-                AppActions.showAssets(selectedTab: 1, collectionsFilter: .collection(collection))
+            let collectionAction = UIAction(title: lang("Open Collection"), image: nil) { [weak self] _ in
+                guard let self else { return }
+                AppActions.showAssets(accountSource: accountSource, selectedTab: 1, collectionsFilter: .collection(collection))
             }
             section1Items.append(collectionAction)
         }
@@ -693,12 +702,14 @@ extension NftsVC: WalletCoreData.EventsObserver {
     public nonisolated func walletCore(event: WalletCore.WalletCoreData.Event) {
         Task { @MainActor in
             switch event {
-            case .nftsChanged(accountId: let accountId):
-                if accountId == AccountStore.accountId {
+            case .nftsChanged(let accountId):
+                if accountId == self.accountId {
                     updateNfts()
                 }
             case .accountChanged:
-                updateNfts()
+                if accountSource == .current {
+                    updateNfts()
+                }
             default:
                 break
             }

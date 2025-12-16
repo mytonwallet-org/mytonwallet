@@ -55,6 +55,7 @@ class SendConfirmVC(
     private val transferOptions: MApiSubmitTransferOptions,
     private val slug: String
 ) : WViewController(context) {
+    override val TAG = "SendConfirm"
 
     private var task: ((passcode: String?) -> Unit)? = null
 

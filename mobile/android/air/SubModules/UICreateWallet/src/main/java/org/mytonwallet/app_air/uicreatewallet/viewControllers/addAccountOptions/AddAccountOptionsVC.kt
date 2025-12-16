@@ -39,6 +39,7 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 
 class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
     WViewController(context) {
+    override val TAG = "AddAccountOptions"
 
     private val showCreateButton = !isOnIntro
 

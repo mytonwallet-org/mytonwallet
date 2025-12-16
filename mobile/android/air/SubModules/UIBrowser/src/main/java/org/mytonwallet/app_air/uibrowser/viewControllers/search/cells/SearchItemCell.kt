@@ -57,7 +57,7 @@ class SearchItemCell(context: Context, private val onTap: (keyword: String) -> U
         super.setupViews()
         addView(searchImageView, LayoutParams(24.dp, 24.dp))
         addView(titleLabel, LayoutParams(0, WRAP_CONTENT))
-        addView(separatorView, LayoutParams(MATCH_PARENT, 1))
+        addView(separatorView, LayoutParams(MATCH_PARENT, ViewConstants.SEPARATOR_HEIGHT))
         setConstraints {
             toStart(searchImageView, 16f)
             toCenterY(searchImageView)

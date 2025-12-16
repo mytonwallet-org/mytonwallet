@@ -88,7 +88,7 @@ public class WAmountLabel: UILabel {
                                          tokenDecimals: tokenDecimals ?? 9,
                                          decimalsCount: decimalsCount)
             .components(separatedBy: ".")
-        let attr = NSMutableAttributedString(string: "\(amount > 0 && !hidePositiveSign ? "+" : "")\(components[0])", attributes: [
+        let attr = NSMutableAttributedString(string: "\(amount > 0 && !hidePositiveSign ? "+\(signSpace)" : "")\(components[0])", attributes: [
             NSAttributedString.Key.font: numberFont,
             NSAttributedString.Key.foregroundColor: amount > 0 ? (forcePositiveColor ?? WTheme.positiveAmount) : primaryColor
         ])

@@ -254,7 +254,7 @@ public class IconView: UIView, WThemedView {
             chainImageView.tintColor = .white
             chainImageView.backgroundColor = WTheme.positiveAmount
             chainImageViewContainer.isHidden = false
-        } else if shouldShowChain {
+        } else if shouldShowChain && !token.isNative {
             let chain = token.chain
             chainImageView.contentMode = .scaleToFill
             chainImageView.image = UIImage(named: "chain_\(chain)", in: AirBundle, compatibleWith: nil)
@@ -297,8 +297,6 @@ public class IconView: UIView, WThemedView {
         case .typeIcon:
             break
         case .image(_):
-            break
-        @unknown default:
             break
         }
         resolveGradientColors = { account.firstAddress?.gradientColors }
@@ -521,8 +519,6 @@ public struct AccountIcon: View {
             case .typeIcon:
                 EmptyView()
             case .image(_):
-                EmptyView()
-            @unknown default:
                 EmptyView()
             }
         }

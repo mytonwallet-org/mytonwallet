@@ -1,11 +1,6 @@
 package org.mytonwallet.app_air.walletcontext.helpers
 
-import android.content.ComponentName
-import android.content.Context
-import android.content.pm.PackageManager
-import org.mytonwallet.app_air.walletcontext.R
-
-class LauncherIconController {
+/*class LauncherIconController {
     enum class LauncherIcon(
         val key: String,
         val icon: Int,
@@ -66,3 +61,4 @@ class LauncherIconController {
         }
     }
 }
+*/

@@ -60,11 +60,9 @@ public enum ApiTransactionType: String, Codable, Sendable {
     case liquidityDeposit
     case liquidityWithdraw
     
-    @available(*, deprecated)
+    // legacy
     case nftPurchase
-    @available(*, deprecated)
     case nftReceived
-    @available(*, deprecated)
     case nftTransferred
     
     case swap

@@ -1,14 +1,12 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.settings.cells
 
 import android.content.Context
-import android.text.SpannableStringBuilder
-import android.text.Spanned
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
-import androidx.core.content.ContextCompat
+import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.view.isGone
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -17,11 +15,11 @@ import kotlinx.coroutines.withContext
 import org.mytonwallet.app_air.uicomponents.commonViews.AccountIconView
 import org.mytonwallet.app_air.uicomponents.commonViews.CardThumbnailView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
-import org.mytonwallet.app_air.uicomponents.helpers.spans.WSpacingSpan
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
+import org.mytonwallet.app_air.uicomponents.widgets.WMultichainAddressLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
@@ -31,15 +29,11 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
-import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import kotlin.math.abs
-import kotlin.math.roundToInt
 
 class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell, WThemedView {
     private var account: MAccount? = null
@@ -64,13 +58,10 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
         CardThumbnailView(context)
     }
 
-    private val subtitleLabel: WLabel by lazy {
-        WLabel(context).apply {
+    private val addressLabel: WMultichainAddressLabel by lazy {
+        WMultichainAddressLabel(context).apply {
             setStyle(13f)
-            setSingleLine()
-            ellipsize = TextUtils.TruncateAt.MARQUEE
             isSelected = true
-            isHorizontalFadingEdgeEnabled = true
         }
     }
 
@@ -85,9 +76,8 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
         )
     }
 
-    private val trailingContainerView: FrameLayout by lazy {
-        FrameLayout(context).apply {
-            id = generateViewId()
+    private val trailingContainerView: WFrameLayout by lazy {
+        WFrameLayout(context).apply {
             addView(valueLabel, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
                 gravity = Gravity.END or Gravity.CENTER_VERTICAL
             })
@@ -109,11 +99,11 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
             LayoutParams(22.dp, 14.dp)
         )
         addView(
-            subtitleLabel,
-            LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
+            addressLabel,
+            LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT)
         )
         addView(trailingContainerView)
-        addView(separatorView, LayoutParams(0, 1))
+        addView(separatorView, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
 
         setConstraints {
             // Icon
@@ -138,11 +128,11 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
             endToStartPx(cardThumbnail, trailingContainerView, 4.dp)
 
             // Subtitle
-            topToBottom(subtitleLabel, titleLabel, 1f)
-            startToStart(subtitleLabel, titleLabel)
-            endToStart(subtitleLabel, trailingContainerView, 4f)
-            setHorizontalBias(subtitleLabel.id, 0f)
-            constrainedWidth(subtitleLabel.id, true)
+            topToBottom(addressLabel, titleLabel, 1f)
+            startToStart(addressLabel, titleLabel)
+            endToStart(addressLabel, trailingContainerView, 4f)
+            setHorizontalBias(addressLabel.id, 0f)
+            constrainedWidth(addressLabel.id, true)
 
             // Separator
             toStart(separatorView, 72f)
@@ -181,12 +171,6 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
         cardThumbnail.configure(account)
         if (titleLabel.text != account.name) {
             titleLabel.text = account.name
-            subtitleLabel.text =
-                SpannableStringBuilder(
-                    account.firstAddress?.formatStartEndAddress() ?: ""
-                ).apply {
-                    updateDotsTypeface()
-                }
         }
         notifyBalanceChange()
 
@@ -234,68 +218,21 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
             if (isLast) ViewConstants.BIG_RADIUS.dp else 0f.dp
         )
         titleLabel.setTextColor(WColor.PrimaryText.color)
-        subtitleLabel.setTextColor(WColor.SecondaryText.color)
+        addressLabel.setTextColor(WColor.SecondaryText.color)
         valueLabel.contentView.setTextColor(WColor.SecondaryText.color)
         separatorView.setBackgroundColor(WColor.Separator.color)
         updateAddressLabel()
     }
 
     private fun updateAddressLabel() {
-        val addressSpannableString = SpannableStringBuilder()
-        val isMultichain = account?.isMultichain == true
-        if (account?.isViewOnly == true || account?.isHardware == true) {
-            val drawable = ContextCompat.getDrawable(
-                context,
-                if (account?.isHardware == true)
-                    org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_ledger
-                else
-                    org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_eye
-            )!!
-            drawable.mutate()
-            drawable.setTint(subtitleLabel.currentTextColor)
-            val width = 12.dp
-            val height = 12.dp
-            drawable.setBounds(0, 0, width, height)
-            val imageSpan = VerticalImageSpan(drawable)
-            addressSpannableString.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            addressSpannableString.append(
-                " ",
-                WSpacingSpan(4.dp),
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
+        addressLabel.style = when (account?.accountType) {
+            MAccount.AccountType.VIEW -> WMultichainAddressLabel.cardRowWalletViewStyle
+            MAccount.AccountType.HARDWARE -> WMultichainAddressLabel.cardRowWalletHardwareStyle
+            else -> WMultichainAddressLabel.cardRowWalletStyle
         }
-        account?.byChain?.entries?.forEachIndexed { i, addressChain ->
-            if (i > 0) {
-                addressSpannableString.append(", ")
-            }
-            val blockchain = MBlockchain.valueOf(addressChain.key)
-            blockchain.symbolIcon?.let {
-                val drawable = ContextCompat.getDrawable(context, it)!!
-                drawable.mutate()
-                drawable.setTint(subtitleLabel.currentTextColor)
-                val iconWidth = 8.66f.dp.roundToInt()
-                val iconHeight = 8.66f.dp.roundToInt()
-                drawable.setBounds(0, 0, iconWidth, iconHeight)
-                val imageSpan = VerticalImageSpan(drawable)
-                addressSpannableString.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                addressSpannableString.append(
-                    " ",
-                    WSpacingSpan(1.66f.dp.roundToInt()),
-                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-            }
-            val ss =
-                SpannableStringBuilder(
-                    addressChain.value.address.formatStartEndAddress(
-                        prefix = if (isMultichain) 0 else 4,
-                        suffix = 4
-                    )
-                ).apply {
-                    updateDotsTypeface()
-                }
-            addressSpannableString.append(ss)
-        }
-        subtitleLabel.text = addressSpannableString
+        addressLabel.displayAddresses(account?.byChain?.map { (key, value) ->
+            Pair(key, value)
+        } ?: emptyList())
     }
 
     fun notifyBalanceChange() {

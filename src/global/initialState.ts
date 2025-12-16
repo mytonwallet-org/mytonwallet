@@ -11,6 +11,7 @@ import {
   SignDataState,
   StakingState,
   SwapState,
+  TransactionInfoState,
   TransferState,
 } from './types';
 
@@ -114,7 +115,7 @@ export const INITIAL_STATE: GlobalState = {
   byAccountId: {},
 
   dialogs: [],
-  notifications: [],
+  toasts: [],
 
   stateVersion: STATE_VERSION,
   currentTemporaryViewAccountId: undefined,
@@ -128,6 +129,10 @@ export const INITIAL_STATE: GlobalState = {
   },
 
   mediaViewer: {},
+
+  currentTransactionInfo: {
+    state: TransactionInfoState.None,
+  },
 
   pushNotifications: {
     enabledAccounts: {},

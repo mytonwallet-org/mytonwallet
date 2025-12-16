@@ -52,4 +52,8 @@
   right: -0.125rem;
   bottom: -0.125rem;
   font-size: 1rem;
+
+  @include mixins.respond-above(xs) {
+    bottom: 0;
+  }
 }

@@ -3,6 +3,7 @@ import SwiftUI
 import UIComponents
 import WalletCore
 import WalletContext
+import Perception
 
 struct ClaimRewardsView: View {
     
@@ -75,17 +76,19 @@ struct ClaimRewardsButtonContent: View {
     @ObservedObject var viewModel: ClaimRewardsModel
     
     var body: some View {
-        HStack(spacing: 10) {
-            icon
-            labels
-            if (AccountStore.account?.supportsEarn == true) {
-                claimButton
-                    .padding(.trailing, 5)
+        WithPerceptionTracking {
+            HStack(spacing: 10) {
+                icon
+                labels
+                if (AccountStore.account?.supportsEarn == true) {
+                    claimButton
+                        .padding(.trailing, 5)
+                }
             }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 10)
+            .frame(height: 60)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 10)
-        .frame(height: 60)
     }
     
     var icon: some View {
@@ -104,7 +107,7 @@ struct ClaimRewardsButtonContent: View {
     
     var labels: some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(lang("Accumulated rewards"))
+            Text(lang("Accumulated Rewards"))
                 .fontWeight(.medium)
             Text(amount: viewModel.amount, format: .init())
                 .contentTransition(.numericText())

@@ -13,6 +13,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsItem
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
@@ -50,7 +51,7 @@ class SettingsShowAllAccountsCell(context: Context) :
             titleLabel,
             LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
         )
-        addView(separatorView, LayoutParams(0, 1))
+        addView(separatorView, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
 
         setConstraints {
             toStart(icon1)

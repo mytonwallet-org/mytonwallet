@@ -30,7 +30,7 @@ Change: Редагувати
   fewValue: "%1$d секретних слова"
 Secret Words: Секретних слів
 $auth_import_mnemonic_description: |
-  Ви можете відновити доступ до свого гаманця, ввівши **12 або 24 секретні слова**, які ви записали під час створення гаманця.
+  Ви можете відновити доступ до свого гаманця, ввівши **%counts% секретні слова**, які ви записали під час створення гаманця.
 Let’s make sure your secrets words are recorded correctly.: Давайте переконаємося, що всі слова записані правильно.
 $check_words_description: Тепер давайте перевіримо, чи правильно ви записали свої секретні слова.
 $mnemonic_list_description: Запишіть ці слова у **правильному порядку** та збережіть їх у **безпечному місці**.
@@ -89,6 +89,8 @@ Is there a community?: Чи існує ком'юніті?
 $about_wallet_community: А як же, ласкаво просимо в наш %community_link%.
 $about_community_link_text: "**Telegram-канал**"
 Currency History: Графік курсу
+Net Worth: Вартість
+Price: Ціна
 Enter Password: Введіть пароль
 Send: Відправити
 Add Wallet: Додати
@@ -137,6 +139,10 @@ Sign: Підписати
 Done!: Готово!
 Signing was confirmed!: Підпис підтверджено!
 Transaction Info: Інформація про переказ
+Activity Details: Деталі активності
+No activities found: Активність не знайдено
+Transaction not found: Транзакцію не знайдено
+Failed to fetch transaction: Не вдалося завантажити транзакцію
 Transaction in progress: Переказ виконується
 Comment was copied!: Коментар скопійовано!
 Sender: Відправник
@@ -396,7 +402,7 @@ Your address on another blockchain: Ваша адреса в іншому бло
 Please provide an address of your wallet in %blockchain% blockchain to receive bought tokens.: Будь ласка, вкажіть адресу вашого гаманця в блокчейні %blockchain% для отримання куплених токенів.
 The time for sending coins is over.: Час відправлення монет минув.
 You have not sent the coins to the specified address.: Ви не відправили монети на вказану адресу.
-$swap_changelly_to_ton_description1: Надішліть %value% на цю адресу в блокчейні %blockchain% протягом %time%
+$swap_changelly_to_wallet_description1: Надішліть %value% на цю адресу в блокчейні %blockchain% протягом %time%
 Please contact support and provide a transaction ID.: Будь ласка, зв'яжіться з підтримкою та надайте ідентифікатор транзакції.
 Exchange failed and coins were refunded to your wallet.: Обмін не вдався і монети були повернуті на ваш гаманець.
 Please contact security team to pass the KYC procedure.: Будь ласка, зв'яжіться з командою безпеки, щоб пройти процедуру KYC.
@@ -408,7 +414,7 @@ $swap_changelly_terms_of_use: умовами використання
 $swap_changelly_privacy_policy: політикою конфіденційності
 Password must contain %length% digits.: Пароль має містити %length% цифри.
 Deposit Link: Посилання для поповнення
-$swap_changelly_from_ton_description: "Токени буде відправлено на вашу адресу в блокчейні %blockchain% найближчим часом:"
+$swap_changelly_from_wallet_description: "Токени буде відправлено на вашу адресу в блокчейні %blockchain% найближчим часом:"
 Please note that it may take up to a few hours for tokens to appear in your wallet.: Поява куплених токенів у вашому гаманці може зайняти до кількох годин.
 Minimum amount: Мінімум %value%
 Maximum amount: Максимум %value%
@@ -716,8 +722,6 @@ Request is sent!: Запит відправлено!
 Transaction ID: ID транзакції
 Help Center: База знань
 MyTonWallet Tips: Поради MyTonWallet
-$auth_import_24_mnemonic_description: |
-  Ви можете відновити доступ до свого гаманця, ввівши **24 секретні слова**, які ви записали під час створення гаманця.
 Open %nft_marketplace%: Відкрити %nft_marketplace%
 Link was copied!: Посилання скопійовано!
 Share Link: Поділитися посиланням
@@ -795,14 +799,13 @@ Transferable: Можна передати
 Easily send your upgraded card to any of your friends.: Покращену карту можна легко надіслати будь-якому другові.
 Tradable: Можна продати
 Sell or auction your card on third-party NFT marketplaces.: Карту можна продати або виставити на аукціон на сторонніх NFT-майданчиках.
-Upgrade for %currency% %amount%: Оновлення за %currency% %amount%
+Upgrade for %amount% %currency%: Оновлення за %amount% %currency%
 "%amount% left": Залишилося %amount%
 "%amount% sold": Продано %amount%
 This card has been sold out: Ця картка розпродана
 Import Existing Wallet: Імпорт існуючого гаманця
 View Any Address: Перегляд адреси
-12/24 Secret Words: 12/24 секретних слів
-24 Secret Words: 24 секретних слова
+"%counts% Secret Words": "%counts% секретних слова"
 Wallet Address or Domain: Адреса гаманця або домен
 $import_view_account_note: Введіть **будь-яку адресу** в мережі %chains%, щоб відкрити її в **Режимі перегляду**.
 $view_mode: Перегляд
@@ -1027,3 +1030,4 @@ Choose Wallet: Вибрати гаманець
 Wallet to use on %host%: Гаманець для %host%
 Selected Wallet: Обраний гаманець
 Connect Wallet: Підключити гаманець
+Insufficient Fee: Недостатньо для комісії

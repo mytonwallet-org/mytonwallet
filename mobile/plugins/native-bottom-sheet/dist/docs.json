@@ -357,6 +357,10 @@
           "complexTypes": []
         },
         {
+          "text": "'transaction'",
+          "complexTypes": []
+        },
+        {
           "text": "'transaction-info'",
           "complexTypes": []
         },

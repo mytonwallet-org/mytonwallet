@@ -35,7 +35,6 @@ import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MToken
-import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.math.BigInteger
@@ -47,6 +46,7 @@ import kotlin.math.roundToInt
 class TokenHeaderView(
     val navigationController: WNavigationController,
     private val navigationBar: WNavigationBar,
+    private val accountId: String,
     var token: MToken
 ) :
     WView(navigationController.context), WThemedView {
@@ -129,6 +129,7 @@ class TokenHeaderView(
         typeface = WFont.NunitoExtraBold.typeface
         clipChildren = false
         clipToPadding = false
+        smartDecimalsColor = true
     }
     private val balanceView = WSensitiveDataContainer(
         AutoScaleContainerView(balanceContentView).apply {
@@ -252,7 +253,7 @@ class TokenHeaderView(
     fun reloadData() {
         token = TokenStore.getToken(token.slug) ?: token
         val balance =
-            BalanceStore.getBalances(AccountStore.activeAccountId!!)?.get(token.slug)
+            BalanceStore.getBalances(accountId)?.get(token.slug)
                 ?: BigInteger.ZERO
         balanceContentView.animateText(
             AnimateConfig(

@@ -58,6 +58,7 @@ export const enum DeeplinkCommand {
   Receive = 'receive',
   View = 'view',
   Token = 'token',
+  Transaction = 'tx',
 }
 
 let urlAfterSignIn: string | undefined;
@@ -523,6 +524,7 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
           toAddress: depositWalletAddress,
           comment: depositWalletAddressTag ?? undefined,
           amount,
+          isTransferReadonly: true,
         });
 
         if (getIsLandscape()) {
@@ -623,6 +625,26 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
         }
 
         actions.showTokenActivity({ slug: tokenSlug });
+        return true;
+      }
+
+      case DeeplinkCommand.Transaction: {
+        // Format: mtw://tx/{chain}/{txId}
+        const pathParts = pathname.split('/');
+
+        if (pathParts.length < 3) {
+          return false;
+        }
+
+        const [, , chainPart, ...txIdParts] = pathParts;
+        const txId = txIdParts.join('/');
+        const chain = chainPart as ApiChain;
+
+        if (!chain || !txId || !getSupportedChains().includes(chain)) {
+          return false;
+        }
+
+        actions.openTransactionInfo({ txId, chain });
         return true;
       }
     }

@@ -81,7 +81,7 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
         addView(topRightLabel)
         addView(bottomLeftLabel)
         addView(bottomRightLabel)
-        addView(separator, LayoutParams(0, 1))
+        addView(separator, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
         setConstraints {
             toTop(iconView, 8f)
             toBottom(iconView, 8f)
