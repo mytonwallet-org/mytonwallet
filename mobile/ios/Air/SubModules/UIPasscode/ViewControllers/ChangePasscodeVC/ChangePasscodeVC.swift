@@ -48,13 +48,13 @@ public class ChangePasscodeVC: WViewController {
         switch step {
         case .currentPasscode:
             title = lang("Enter your current password")
-            addCloseToNavBar()
+            addCloseNavigationItemIfNeeded()
             break
         case .newPasscode(_):
             title = lang("Set a passcode")
             break
         case .verifyPasscode(_, _):
-            title = lang("Confirm Password")
+            title = lang("Confirm Passcode")
         }
         passcodeScreenView = PasscodeScreenView(title: title,
                                                 biometricPassAllowed: false,
@@ -94,8 +94,7 @@ extension ChangePasscodeVC: PasscodeScreenViewDelegate {
                     navigationController?.pushViewController(ChangePasscodeVC(step: .newPasscode(prevPasscode: passcode)), animated: true)
                     passcodeScreenView.passcodeInputView.currentPasscode = ""
                 } else {
-                    let tapticFeedback = UINotificationFeedbackGenerator()
-                    tapticFeedback.notificationOccurred(.error)
+                    Haptics.play(.error)
                     passcodeScreenView.passcodeInputView.currentPasscode = ""
                 }
             }

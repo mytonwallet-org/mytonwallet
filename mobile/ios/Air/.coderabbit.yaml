@@ -1,4 +1,5 @@
 reviews:
+  high_level_summary: false
   estimate_code_review_effort: false
   in_progress_fortune: false
   poem: false

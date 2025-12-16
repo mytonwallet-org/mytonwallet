@@ -30,9 +30,21 @@ struct ActionsRow: View {
         }
     }
     
+    var shouldShowShare: Bool {
+        !activity.isBackendSwapId
+    }
+    
+    var buttonCount: Int {
+        1 + (shouldShowRepeat ? 1 : 0) + (shouldShowShare ? 1 : 0)
+    }
+    
+    var buttonSpacing: CGFloat {
+        S.actionButtonSpacing(forButtonCount: buttonCount)
+    }
+    
     var body: some View {
         WithPerceptionTracking {
-            HStack(spacing: IOS_26_MODE_ENABLED ? 16 : 8) {
+            HStack(spacing: IOS_26_MODE_ENABLED ? buttonSpacing : 8) {
                 ActionButton(lang("Details"), IOS_26_MODE_ENABLED ? "DetailsIconBold" : "ActivityDetails22") {
                     onDetailsExpanded()
                 }
@@ -41,7 +53,7 @@ struct ActionsRow: View {
                         AppActions.repeatActivity(activity)
                     }
                 }
-                if !activity.isBackendSwapId {
+                if shouldShowShare {
                     ActionButton(lang("Share"), IOS_26_MODE_ENABLED ? "ShareIconBold" : "ActivityShare22") {
                         let chain = ApiChain(rawValue: TokenStore.tokens[activity.slug]?.chain ?? "")
                         if let chain {
@@ -52,7 +64,9 @@ struct ActionsRow: View {
                     }
                 }
             }
-            .padding(.horizontal, 16)
+            .fixedSize(horizontal: IOS_26_MODE_ENABLED, vertical: false)
+            .frame(maxWidth: IOS_26_MODE_ENABLED ? nil : .infinity)
+            .padding(.horizontal, IOS_26_MODE_ENABLED ? 0 : 16)
             .padding(.top, 4)
             .padding(.bottom, IOS_26_MODE_ENABLED ? 24 : 16)
         }
@@ -107,7 +121,7 @@ struct ActionButton_New: View {
                 Text(title)
                     .font(.system(size: 12, weight: .regular))
                     .frame(height: 13)
-                    .foregroundStyle(Color.air.tint)
+                    .foregroundStyle(Color(UIColor.label))
             }
             .frame(width: 64, height: 70)
         }

@@ -23,7 +23,8 @@ class AccountIconView(context: Context, val usage: Usage) : View(context) {
 
     enum class Usage {
         SELECTABLE_ITEM,
-        THUMB
+        VIEW_ITEM,
+        THUMB,
     }
 
     private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -38,6 +39,7 @@ class AccountIconView(context: Context, val usage: Usage) : View(context) {
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textSize = when (usage) {
             Usage.SELECTABLE_ITEM -> 18f.dp
+            Usage.VIEW_ITEM -> 14f.dp
             else -> 11f.dp
         }
         typeface = WFont.Bold.typeface
@@ -69,24 +71,31 @@ class AccountIconView(context: Context, val usage: Usage) : View(context) {
     private var account: MAccount? = null
     fun config(account: MAccount) {
         this.account = account
-        val address = account.firstAddress ?: ""
+        config(account.name, account.firstAddress ?: "")
+    }
+
+    fun config(title: CharSequence?, address: String) {
         gradientColors = address.gradientColors
 
-        titleText = account.name
-            .trim()
-            .split("\\s+".toRegex())
-            .filter { it.isNotEmpty() }
-            .take(2)
-            .joinToString("") { part -> part.firstGrapheme().uppercase() }
+        titleText = title?.let { title ->
+            title
+                .trim()
+                .split("\\s+".toRegex())
+                .filter { it.isNotEmpty() }
+                .take(2)
+                .joinToString("") { part -> part.firstGrapheme().uppercase() }
+        } ?: address.take(2)
 
         currentPadding = when (usage) {
             Usage.SELECTABLE_ITEM -> {
-                if (account.accountId == AccountStore.activeAccountId) {
+                if (account?.accountId == AccountStore.activeAccountId) {
                     3f.dp
                 } else {
                     1.5f.dp
                 }
             }
+
+            Usage.VIEW_ITEM -> 0f
 
             else -> 1.5f.dp
         }
@@ -136,6 +145,7 @@ class AccountIconView(context: Context, val usage: Usage) : View(context) {
     private fun drawBorderIfNeeded(canvas: Canvas) {
         val shouldDrawBorder = when (usage) {
             Usage.SELECTABLE_ITEM -> account?.accountId == AccountStore.activeAccountId
+            Usage.VIEW_ITEM -> false
             else -> true
         }
 

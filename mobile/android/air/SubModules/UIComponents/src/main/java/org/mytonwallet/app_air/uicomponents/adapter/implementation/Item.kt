@@ -62,6 +62,7 @@ open class Item(
 
     data class Activity(
         val activity: MApiTransaction,
+        val accountId: String,
         val isFirst: Boolean,
         val isLast: Boolean,
     ) : Item(Type.ACTIVITY.value)

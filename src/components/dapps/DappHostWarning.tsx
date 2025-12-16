@@ -1,11 +1,9 @@
 import React, { memo } from '../../lib/teact/teact';
 
-import { APP_INSTALL_URL, IS_CAPACITOR } from '../../config';
+import { APP_INSTALL_URL } from '../../config';
 import renderText from '../../global/helpers/renderText';
-import { openUrl } from '../../util/openUrl';
 
 import useLang from '../../hooks/useLang';
-import useLastCallback from '../../hooks/useLastCallback';
 
 import IconWithTooltip from '../ui/IconWithTooltip';
 
@@ -19,13 +17,6 @@ interface OwnProps {
 function DappHostWarning({ url, iconClassName }: OwnProps) {
   const lang = useLang();
 
-  const handleButtonClick = useLastCallback(
-    (e: React.MouseEvent, platform: 'mobile' | 'chrome-extension') => {
-      e.preventDefault();
-      void openUrl(`${APP_INSTALL_URL}/${platform}`, { isExternal: true });
-    },
-  );
-
   return (
     <IconWithTooltip
       direction="bottom"
@@ -34,27 +25,23 @@ function DappHostWarning({ url, iconClassName }: OwnProps) {
           <b>{lang('Unverified Source')}</b>
           <p className={styles.dappHostWarningText}>
             {renderText(lang('$reopen_in_iab', {
-              mobileAppButton: IS_CAPACITOR && url?.startsWith('http') ? (
-                <button
-                  type="button"
-                  className={styles.dappHostWarningButton}
-                  onClick={(e) => handleButtonClick(e, 'mobile')}
+              mobileAppButton: (
+                <a
+                  href={`${APP_INSTALL_URL}/mobile`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                 >
                   {lang('mobile app')}
-                </button>
-              ) : (
-                <b>{lang('mobile app')}</b>
+                </a>
               ),
-              browserExtensionButton: IS_CAPACITOR && url?.startsWith('http') ? (
-                <button
-                  type="button"
-                  className={styles.dappHostWarningButton}
-                  onClick={(e) => handleButtonClick(e, 'chrome-extension')}
+              browserExtensionButton: (
+                <a
+                  href={`${APP_INSTALL_URL}/chrome-extension`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                 >
                   {lang('browser extension')}
-                </button>
-              ) : (
-                <b>{lang('browser extension')}</b>
+                </a>
               ),
             }))}
           </p>
@@ -63,6 +50,7 @@ function DappHostWarning({ url, iconClassName }: OwnProps) {
       type="warning"
       size="small"
       iconClassName={iconClassName}
+      canHoverOnTooltip
     />
   );
 }

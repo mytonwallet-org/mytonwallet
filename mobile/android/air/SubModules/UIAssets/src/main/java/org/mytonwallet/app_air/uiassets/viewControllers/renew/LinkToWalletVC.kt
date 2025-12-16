@@ -56,6 +56,7 @@ class LinkToWalletVC(
     context: Context,
     val nft: ApiNft
 ) : WViewController(context) {
+    override val TAG = "LinkToWallet"
 
     override val shouldDisplayTopBar = false
 

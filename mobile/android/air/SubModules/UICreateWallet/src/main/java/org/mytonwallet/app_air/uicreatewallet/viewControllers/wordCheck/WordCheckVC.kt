@@ -46,6 +46,7 @@ class WordCheckVC(
     private val initialWordIndices: List<Int>,
     private val mode: WordCheckMode
 ) : WViewController(context), WalletCreationVM.Delegate {
+    override val TAG = "WordCheck"
 
     private val walletCreationVM by lazy {
         WalletCreationVM(this)

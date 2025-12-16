@@ -23,3 +23,17 @@ export async function fetchPriceHistory(
     period,
   });
 }
+
+export async function fetchTokenNetWorthHistory(
+  accountAddress: string,
+  assetId: string,
+  period: ApiPriceHistoryPeriod,
+  baseCurrency: ApiBaseCurrency = DEFAULT_PRICE_CURRENCY,
+): Promise<ApiHistoryList | { error: string }> {
+  return callBackendGet('/portfolio/net-worth-by-asset', {
+    base: baseCurrency,
+    period,
+    walletAddress: accountAddress,
+    assetAddress: assetId,
+  });
+}

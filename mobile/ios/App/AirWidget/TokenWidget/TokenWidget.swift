@@ -41,6 +41,7 @@ struct TokenWidgetView: View {
         .containerBackground(for: .widget) {
             CardBackground(tokenSlug: entry.token.slug, tokenColor: entry.token.color)
         }
+        .widgetURL(entry.token.internalDeeplinkUrl)
     }
     
     @ViewBuilder

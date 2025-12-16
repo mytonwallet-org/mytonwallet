@@ -11,6 +11,7 @@ import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.commonViews.WalletTypeView
 import org.mytonwallet.app_air.uicomponents.drawable.CheckboxDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -23,6 +24,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
+import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.models.MAccount
 
 class NotificationSettingsAccountCell(
@@ -81,7 +83,7 @@ class NotificationSettingsAccountCell(
             LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
         )
         addView(subtitleLabel)
-        addView(separator, LayoutParams(0, 1))
+        addView(separator, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
         setConstraints {
             toStart(imageView, 25f)
             toCenterY(imageView)
@@ -163,10 +165,7 @@ class NotificationSettingsAccountCell(
                 if (badgeLabel.isGone)
                     0
                 else {
-                    badgeLabel.measure(
-                        MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED),
-                        MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
-                    )
+                    badgeLabel.measure(0.unspecified, 0.unspecified)
                     badgeLabel.measuredWidth
                 }
             toEndPx(titleLabel, 24.dp + badgeWidth)
@@ -184,7 +183,10 @@ class NotificationSettingsAccountCell(
         addRippleEffect(WColor.SecondaryBackground.color)
         titleLabel.setTextColor(WColor.PrimaryText.color)
         subtitleLabel.setTextColor(WColor.SecondaryText.color)
-        badgeLabel.setColor(WColor.SecondaryText.color)
+        badgeLabel.setColor(
+            WColor.SecondaryText.color.colorWithAlpha(41),
+            WColor.SecondaryText.color
+        )
         separator.setBackgroundColor(WColor.Separator.color)
         checkboxDrawable.checkedColor = WColor.Tint.color
         checkboxDrawable.uncheckedColor = WColor.SecondaryText.color

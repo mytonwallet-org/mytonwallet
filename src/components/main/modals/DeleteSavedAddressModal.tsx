@@ -22,13 +22,13 @@ interface OwnProps {
 function DeleteSavedAddressModal({
   isOpen, address, chain, onClose,
 }: OwnProps) {
-  const { removeFromSavedAddress, showNotification } = getActions();
+  const { removeFromSavedAddress, showToast } = getActions();
 
   const lang = useLang();
 
   const handleDeleteSavedAddress = useLastCallback(() => {
     removeFromSavedAddress({ address: address!, chain: chain! });
-    showNotification({ message: lang('Address removed from saved'), icon: 'icon-trash' });
+    showToast({ message: lang('Address removed from saved'), icon: 'icon-trash' });
     onClose();
   });
 

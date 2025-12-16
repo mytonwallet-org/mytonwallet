@@ -74,15 +74,12 @@ class SignDataVC: WViewController {
                 account: account,
                 onConfirm: { [weak self] in self?._onConfirm() },
                 onCancel: { [weak self] in self?._onCancel() },
-                navigationBarInset: navigationBarHeight,
-                onScroll: weakifyUpdateProgressiveBlur(),
             )))
         } else {
             let account = placeholderAccountId.flatMap { AccountStore.accountsById[$0] }
             return SignDataViewOrPlaceholder(content: .placeholder(TonConnectPlaceholder(
                 account: account,
                 connectionType: .signData,
-                navigationBarInset: navigationBarHeight
             )))
         }
     }

@@ -285,8 +285,6 @@ public struct DragulaView<Card: View, DropView: View, Item: DragulaItem>: View {
 #if !os(watchOS)
 fileprivate struct DragulaDropDelegate<Item: DragulaItem>: DropDelegate {
     
-    private let generator = UIImpactFeedbackGenerator(style: .rigid)
-    
     private let item: Item
     @Binding private var items: [Item]
     @Binding private var draggedItems: [Item]
@@ -343,8 +341,7 @@ fileprivate struct DragulaDropDelegate<Item: DragulaItem>: DropDelegate {
     }
     
     func playHaptic() {
-        generator.prepare()
-        generator.impactOccurred()
+        Haptics.play(.drag)
     }
 
     func dropUpdated(info: DropInfo) -> DropProposal? {
@@ -354,8 +351,6 @@ fileprivate struct DragulaDropDelegate<Item: DragulaItem>: DropDelegate {
 
 // MARK: - Drop Delegate
 fileprivate struct DragulaSectionDropDelegate<Section: DragulaSection>: DropDelegate {
-    
-    private let generator = UIImpactFeedbackGenerator(style: .rigid)
     
     private let item: Section.Item? // when nil it means dropping into a section
     private let sectionID: Section.ID
@@ -452,8 +447,7 @@ fileprivate struct DragulaSectionDropDelegate<Section: DragulaSection>: DropDele
     }
     
     func playHaptic() {
-        generator.prepare()
-        generator.impactOccurred()
+        Haptics.play(.drag)
     }
 
     func dropUpdated(info: DropInfo) -> DropProposal? {

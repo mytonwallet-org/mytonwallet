@@ -36,6 +36,7 @@ class NotificationSettingsVC(
 ) :
     WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource {
+    override val TAG = "NotificationSettings"
 
     val isPermissionGranted: Boolean
         get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

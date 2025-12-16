@@ -25,6 +25,8 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.HapticType
+import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -61,6 +63,7 @@ class ReceiveVC(
     private val defaultChain: MBlockchain = MBlockchain.ton,
     private var openBuyWithCardInstantly: Boolean = false,
 ) : WViewControllerWithModelStore(context) {
+    override val TAG = "Receive"
 
     override val shouldDisplayTopBar = false
 
@@ -192,7 +195,7 @@ class ReceiveVC(
     private val copyAddressView: WView by lazy {
         val v = WView(context)
         v.addView(copyAddressLabel)
-        v.addView(copyAddressSeparator, LayoutParams(0, 1))
+        v.addView(copyAddressSeparator, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
         v.setConstraints {
             toStart(copyAddressLabel, 20f)
             toCenterY(copyAddressLabel)
@@ -205,6 +208,7 @@ class ReceiveVC(
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val clip = ClipData.newPlainText("Wallet Address", currentQRCode.walletAddress)
             clipboard.setPrimaryClip(clip)
+            Haptics.play(v, HapticType.LIGHT_TAP)
             Toast.makeText(
                 context,
                 LocaleController.getString("Your address was copied!"),
@@ -244,7 +248,7 @@ class ReceiveVC(
         v.isGone = AccountStore.activeAccount?.supportsBuyWithCard != true
         if (v.isVisible) {
             v.addView(buyWithCardLabel)
-            v.addView(buyWithCardSeparator, LayoutParams(0, 1))
+            v.addView(buyWithCardSeparator, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
             v.setConstraints {
                 toStart(buyWithCardLabel, 20f)
                 toCenterY(buyWithCardLabel)
@@ -289,7 +293,7 @@ class ReceiveVC(
         v.isGone = AccountStore.activeAccount?.supportsBuyWithCrypto != true
         if (v.isVisible) {
             v.addView(buyWithCryptoLabel)
-            v.addView(buyWithCryptoSeparator, LayoutParams(0, 1))
+            v.addView(buyWithCryptoSeparator, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
             v.setConstraints {
                 toStart(buyWithCryptoLabel, 20f)
                 toCenterY(buyWithCryptoLabel)

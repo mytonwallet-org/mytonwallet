@@ -80,6 +80,8 @@ class SendVC(
     private val initialTokenSlug: String? = null,
     private val initialValues: InitialValues? = null,
 ) : WViewControllerWithModelStore(context), WalletCore.EventObserver {
+    override val TAG = "Send"
+
     private val viewModel by lazy { ViewModelProvider(this)[SendViewModel::class.java] }
 
     data class InitialValues(

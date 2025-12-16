@@ -119,7 +119,7 @@ public class WMinimizableSheet: WViewController {
         }
     }
     
-    public override func closeButtonPressed() {
+    func closeButtonPressed() {
         delegate?.minimizableSheetDidClose(self)
         presentingViewController?.dismiss(animated: true)
         WalletCoreData.notify(event: .minimizedSheetChanged(.closed))

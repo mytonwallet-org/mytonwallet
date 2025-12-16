@@ -23,7 +23,7 @@ export async function shareUrl(url: string, title?: string) {
   }
 
   await copyTextToClipboard(url);
-  getActions().showNotification({
+  getActions().showToast({
     message: getTranslation('Link was copied!'),
     icon: 'icon-link',
   });

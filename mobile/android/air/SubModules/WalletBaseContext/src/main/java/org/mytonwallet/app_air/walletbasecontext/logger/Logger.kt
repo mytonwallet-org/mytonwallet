@@ -29,6 +29,7 @@ object Logger {
         //JS_LOG("JSLog"),
         JS_WEBVIEW_BRIDGE("JSBridge"),
         PASSCODE_CONFIRM("PassConf"),
+        SCREEN("Screen"),
         SECURE_STORAGE("SecStore"),
         SHIDDevice("SHID"),
     }

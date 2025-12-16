@@ -151,13 +151,22 @@ public extension View {
 
     }
     
-    @_disfavoredOverload func sourceAtop<V: View>(_ stylingView: V) -> some View {
+    func sourceAtop<V: View>(@ViewBuilder _ stylingView: () -> V) -> some View {
         self
             .overlay {
-                stylingView
+                stylingView()
                     .blendMode(.sourceAtop)
+                    .allowsHitTesting(false)
             }
             .compositingGroup()
         
+    }
+    
+    func scaleEffectIgnoredByLayout(_ scale: CGFloat) -> some View {
+        self.modifier(_ScaleEffect(scale: CGSize(width: scale, height: scale)).ignoredByLayout())
+    }
+
+    func offsetIgnoredByLayout(x: CGFloat = 0, y: CGFloat = 0) -> some View {
+        self.modifier(_OffsetEffect(offset: CGSize(width: x, height: y)).ignoredByLayout())
     }
 }

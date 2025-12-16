@@ -4,6 +4,10 @@ $portraitHeaderHeight: 3rem;
 $cardAspectRatio: 58.203%;
 $defaultCardGradient: #479DE2 0, #367CCC 100%;
 
+// Transaction modal heights
+$transactionModalHeight: 38.5rem;
+$transactionModalMaxWidth: 24rem;
+
 $byChain: (
   ton: (
     tabColor: var(--color-activity-blue),

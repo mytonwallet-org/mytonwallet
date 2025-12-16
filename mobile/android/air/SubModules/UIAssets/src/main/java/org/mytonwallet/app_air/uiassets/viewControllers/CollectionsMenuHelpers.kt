@@ -11,6 +11,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.Item.Config.Icon
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletcore.models.MScreenMode
 import org.mytonwallet.app_air.walletcore.stores.NftStore
 
 object CollectionsMenuHelpers {
@@ -61,6 +62,7 @@ object CollectionsMenuHelpers {
     }
 
     fun presentCollectionsMenuOn(
+        screenMode: MScreenMode,
         view: View,
         navigationController: WNavigationController,
         onReorderTapped: (() -> Unit)?
@@ -97,6 +99,7 @@ object CollectionsMenuHelpers {
                             navigationController.push(
                                 AssetsVC(
                                     view.context,
+                                    screenMode,
                                     AssetsVC.Mode.COMPLETE,
                                     isShowingSingleCollection = true,
                                     collectionMode = CollectionMode.SingleCollection(
@@ -115,6 +118,7 @@ object CollectionsMenuHelpers {
                             navigationController.push(
                                 AssetsVC(
                                     view.context,
+                                    screenMode,
                                     AssetsVC.Mode.COMPLETE,
                                     collectionMode = CollectionMode.TelegramGifts,
                                     isShowingSingleCollection = true
@@ -138,7 +142,7 @@ object CollectionsMenuHelpers {
             ),
             hasSeparator = shouldShowReorder
         ) {
-            val hiddenNFTsVC = HiddenNFTsVC(view.context)
+            val hiddenNFTsVC = HiddenNFTsVC(view.context, screenMode)
             (navigationController.tabBarController?.navigationController
                 ?: navigationController).push(hiddenNFTsVC)
         }
@@ -156,6 +160,7 @@ object CollectionsMenuHelpers {
                     navigationController.push(
                         AssetsVC(
                             view.context,
+                            screenMode,
                             AssetsVC.Mode.COMPLETE,
                             collectionMode = CollectionMode.SingleCollection(
                                 nftCollection

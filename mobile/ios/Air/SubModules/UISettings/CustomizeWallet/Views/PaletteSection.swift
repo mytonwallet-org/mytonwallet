@@ -15,10 +15,10 @@ import Flow
 import Perception
 import Dependencies
 
-private let _horizontalPadding = 12.5
+private let _horizontalPadding = 16.0
 private let _fallbackHorizontalPadding = 14.5
 private let itemSize = 30.0
-private let minimumSpacing = 15.0
+private let minimumSpacing = 16.0
 
 @Perceptible
 final class PaletteSettingsViewModel {
@@ -112,7 +112,7 @@ struct PaletteSection: View {
     }
     
     var cell: some View {
-        InsetCell(horizontalPadding: resolvedHorizontalPadding, verticalPadding: 12) {
+        InsetCell(horizontalPadding: resolvedHorizontalPadding, verticalPadding: 16) {
             HStack {
                 PaletteGrid(viewModel: viewModel, availableColorIds: viewModel.availableColorIds, spacing: spacing)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -146,7 +146,7 @@ struct PaletteSection: View {
         let width = containerWidth - 2 * _horizontalPadding
         let n = floor((width + minimumSpacing) / (itemSize + minimumSpacing))
         let spacing = (width - itemSize * n) / (n - 1)
-        if spacing > 20.0 {
+        if spacing > 24.0 {
             return _fallbackHorizontalPadding
         } else {
             return _horizontalPadding
@@ -179,7 +179,7 @@ struct PaletteGrid: View {
     
     var body: some View {
         WithPerceptionTracking {
-            HFlow(alignment: .center, itemSpacing: spacing, rowSpacing: 12, justified: false, distributeItemsEvenly: false) {
+            HFlow(alignment: .center, itemSpacing: spacing, rowSpacing: 16, justified: false, distributeItemsEvenly: false) {
                 ForEach(unlockedColors) { color in
                     WithPerceptionTracking {
                         PaletteItemView(
@@ -204,7 +204,7 @@ struct PaletteGrid: View {
                                     message: lang("Get a unique MyTonWallet Card to unlock new palettes."),
                                     tapAction: AppActions.showUpgradeCard
                                 )
-                                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                                Haptics.play(.lightTap)
                             },
                         )
                     }
@@ -258,12 +258,19 @@ struct PaletteItemView: View {
             .overlay {
                 if state == .locked {
                     Image.airBundle("PaletteLock")
-                        .foregroundStyle(Color.air.groupedItem.opacity(0.5))
+                        .foregroundStyle(lockColor.opacity(0.5))
                 }
             }
             .onTapGesture(perform: _onTap)
             .frame(width: itemSize, height: itemSize)
             .onGeometryChange(for: CGPoint.self, of: { $0.frame(in: .global).center }, action: { center = $0 })
+    }
+    
+    var lockColor: Color {
+        if paletteColor.id == ACCENT_BNW_INDEX {
+            return Color.air.groupedItem
+        }
+        return .white
     }
     
     func _onTap() {

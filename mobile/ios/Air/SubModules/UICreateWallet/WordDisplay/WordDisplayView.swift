@@ -14,8 +14,6 @@ struct WordDisplayView: View {
     
     let introModel: IntroModel
     let words: [String]
-    var navigationBarInset: CGFloat
-    var onScroll: (CGFloat) -> ()
 
     @State private var shownCopyWarning = false
     @State private var shownScreenshotWarning = false
@@ -24,8 +22,6 @@ struct WordDisplayView: View {
     @State private var showScreenshotWarning = false
     @State private var showContinueWithoutCheckingWarning = false
 
-    @Namespace private var ns
-
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
@@ -33,7 +29,6 @@ struct WordDisplayView: View {
                     WUIAnimatedSticker("animation_bill", size: 96, loop: false)
                         .frame(width: 96, height: 96)
                         .padding(.top, 16)
-                        .scrollPosition(ns: ns, offset: navigationBarInset, callback: onScroll)
 
                     title
                     warning
@@ -52,13 +47,11 @@ struct WordDisplayView: View {
                 }
             }
         }
-        .navigationBarInset(navigationBarInset)
         .scrollIndicators(.hidden)
         .backportScrollBounceBehaviorBasedOnSize()
         .backportScrollClipDisabled()
         .padding(.horizontal, 32)
         .padding(.bottom, 8)
-        .coordinateSpace(name: ns)
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.userDidTakeScreenshotNotification)) { _ in
             if !shownScreenshotWarning {
                 showScreenshotWarning = true

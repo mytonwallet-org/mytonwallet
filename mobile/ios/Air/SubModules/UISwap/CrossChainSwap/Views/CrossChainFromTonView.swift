@@ -79,8 +79,6 @@ class CrossChainFromTonView: UIStackView, WThemedView {
                 }
                 addressTextField.textView.text = address
                 addressTextField.textViewDidChange(addressTextField.textView)
-            @unknown default:
-                break
             }
         })
         topViewController()?.present(WNavigationController(rootViewController: qrScanVC), animated: true)

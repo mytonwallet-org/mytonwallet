@@ -97,7 +97,7 @@ class NftHeaderView(
         imageView.loadUrl(nft.image ?: "")
 
         val address = transaction.peerAddress
-        val addressToShow = transaction.addressToShow()
+        val addressToShow = transaction.addressToShow(6, 6)
         val formattedAddress = addressToShow?.first ?: ""
         val prefixString = LocaleController.getString(
             if (transaction.isIncoming) "from" else "to"
@@ -111,12 +111,14 @@ class NftHeaderView(
         ).apply {
             AddressPopupHelpers.configSpannableAddress(
                 viewController,
+                if (addressToShow?.second == true) formattedAddress else null,
                 this,
                 length - formattedAddress.length,
                 formattedAddress.length,
                 TONCOIN_SLUG,
                 address,
-                startOffset.roundToInt()
+                startOffset.roundToInt(),
+                showTemporaryViewOption = true
             )
             setSpan(
                 WForegroundColorSpan(WColor.SecondaryText),

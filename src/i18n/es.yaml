@@ -28,7 +28,7 @@ Change: Cambiar
 "%1$d Secret Words": Frases Semilla
 Secret Words: Frases Semilla
 $auth_import_mnemonic_description: |
-  Puedes restaurar el acceso a tu billetera ingresando las **12 o 24 palabras secretas** que anotaste al crear la billetera.
+  Puedes restaurar el acceso a tu billetera ingresando las **%counts% palabras secretas** que anotaste al crear la billetera.
 Let’s make sure your secrets words are recorded correctly.: Asegurémonos de que hayas guardado la frase semilla correctamente.
 $check_words_description: Ahora verifiquemos que haya escrito sus palabras secretas correctamente.
 $mnemonic_list_description: Escriba estas palabras en el **orden correcto** y guárdelas en un **lugar seguro**.
@@ -86,6 +86,8 @@ Is there a community?: ¿Hay una comunidad?
 $about_wallet_community: Claro, bienvenido a nuestro %community_link%.
 $about_community_link_text: "**canal de Telegram**"
 Currency History: Historia del activo
+Net Worth: Valor neto
+Price: Precio
 Enter Password: Introduce la contraseña
 Send: Enviar
 Add Wallet: Agregar monedero
@@ -132,6 +134,10 @@ Sign: Firmar
 Done!: ¡Listo!
 Signing was confirmed!: ¡La firma fue confirmada!
 Transaction Info: Información de la transacción
+Activity Details: Detalles de la actividad
+No activities found: No se encontraron actividades
+Transaction not found: Transacción no encontrada
+Failed to fetch transaction: Error al obtener la transacción
 Transaction in progress: Transacción en curso
 Comment was copied!: ¡El comentario fue copiado!
 Sender: Remitente
@@ -391,7 +397,7 @@ Your address on another blockchain: Tu dirección en otra blockchain
 Please provide an address of your wallet in %blockchain% blockchain to receive bought tokens.: Proporcione una dirección de su billetera en %blockchain% blockchain para recibir los tokens comprados.
 The time for sending coins is over.: El tiempo para enviar monedas ha terminado.
 You have not sent the coins to the specified address.: Usted no ha enviado las monedas a la dirección especificada.
-$swap_changelly_to_ton_description1: Debe enviar %value% a esta dirección en la cadena de bloques %blockchain% dentro de %time%
+$swap_changelly_to_wallet_description1: Debe enviar %value% a esta dirección en la cadena de bloques %blockchain% dentro de %time%
 Exchange failed and coins were refunded to your wallet.: El intercambio falló y las monedas fueron reembolsadas a su billetera.
 $swap_changelly_kyc_security: "Comuníquese con **%email%** y proporcione **ID de transacción** para pasar el procedimiento KYC:"
 Swap Expired: Intercambio vencido
@@ -402,7 +408,7 @@ $swap_changelly_terms_of_use: términos de uso
 $swap_changelly_privacy_policy: política de privacidad
 Password must contain %length% digits.: La contraseña debe contener %length% dígitos.
 Deposit Link: Enlace de depósito
-$swap_changelly_from_ton_description: "Los tokens se enviarán pronto a su dirección en %blockchain% blockchain:"
+$swap_changelly_from_wallet_description: "Los tokens se enviarán pronto a su dirección en %blockchain% blockchain:"
 Please note that it may take up to a few hours for tokens to appear in your wallet.: Tenga en cuenta que pueden pasar hasta unas horas para que los tokens aparezcan en su billetera.
 Minimum amount: Mínimo %value%
 Maximum amount: Máximo %value%
@@ -710,8 +716,6 @@ Request is sent!: ¡Solicitud enviada!
 Transaction ID: ID de transacción
 Help Center: Centro de ayuda
 MyTonWallet Tips: Consejos de MyTonWallet
-$auth_import_24_mnemonic_description: |
-  Puedes restaurar el acceso a tu monedero introduciendo las **24 palabras secretas** que anotaste al crear el monedero.
 Open %nft_marketplace%: Abrir %nft_marketplace%
 Link was copied!: ¡Enlace copiado!
 Share Link: Compartir enlace
@@ -789,14 +793,13 @@ Transferable: Transferible
 Easily send your upgraded card to any of your friends.: Envía fácilmente tu tarjeta mejorada a cualquiera de tus amigos.
 Tradable: Comercializable
 Sell or auction your card on third-party NFT marketplaces.: Vende o subasta tu tarjeta en mercados de NFT de terceros.
-Upgrade for %currency% %amount%: Actualización por %currency% %amount%
+Upgrade for %amount% %currency%: Actualización por %amount% %currency%
 "%amount% left": "%amount% restantes"
 "%amount% sold": "%amount% vendidos"
 This card has been sold out: Esta tarjeta está agotada
 Import Existing Wallet: Importar cartera existente
 View Any Address: Ver cualquier dirección
-12/24 Secret Words: 12/24 Palabras secretas
-24 Secret Words: 24 Palabras secretas
+"%counts% Secret Words": "%counts% Palabras secretas"
 Wallet Address or Domain: Dirección de cartera o dominio
 $import_view_account_note: Ingrese **cualquier dirección** en la red %chains% para abrirla en **Modo de visualización**.
 $view_mode: Ver
@@ -1014,3 +1017,4 @@ Choose Wallet: Elegir billetera
 Wallet to use on %host%: Billetera para %host%
 Selected Wallet: Billetera seleccionada
 Connect Wallet: Conectar billetera
+Insufficient Fee: Comisión insuficiente

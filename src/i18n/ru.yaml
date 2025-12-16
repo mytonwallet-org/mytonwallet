@@ -30,7 +30,7 @@ Change: Изменить
   fewValue: "%1$d секретных слова"
 Secret Words: Секретных слов
 $auth_import_mnemonic_description: |
-  Вы можете восстановить доступ к кошельку, используя **12 или 24 секретных слова**, которые вы сохранили при создании кошелька.
+  Вы можете восстановить доступ к кошельку, используя **%counts% секретных слова**, которые вы сохранили при создании кошелька.
 Let’s make sure your secrets words are recorded correctly.: Давайте убедимся, что все слова записаны правильно.
 $check_words_description: Теперь давайте проверим, правильно ли вы записали свои секретные слова.
 $mnemonic_list_description: Запишите эти слова в **правильном порядке** и храните их в **безопасном месте**.
@@ -89,6 +89,8 @@ Is there a community?: Существует ли комьюнити?
 $about_wallet_community: А как же, добро пожаловать в наш %community_link%.
 $about_community_link_text: "**Telegram-канал**"
 Currency History: График курса
+Net Worth: Стоимость
+Price: Цена
 Enter Password: Введите пароль
 Send: Отправить
 Add Wallet: Добавить
@@ -137,6 +139,10 @@ Sign: Подписать
 Done!: Готово!
 Signing was confirmed!: Подпись подтверждена!
 Transaction Info: Информация о переводе
+Activity Details: Детали активности
+No activities found: Активность не найдена
+Transaction not found: Транзакция не найдена
+Failed to fetch transaction: Не удалось загрузить транзакцию
 Transaction in progress: Перевод выполняется
 Comment was copied!: Комментарий скопирован!
 Sender: Отправитель
@@ -263,7 +269,7 @@ Stake Again: Повторить депозит
 Earned: Всего
 Select wallet to use on this dapp: Выберите кошелёк для использования с этим приложением
 Connect: Подключить
-Dapp Permissions: Разрешения для приложения
+Dapp Permissions: Разрешения
 $dapp_can_view_balance: Для %dappname% будет доступен ваш адрес кошелька и баланс.
 Payload: Служебные данные
 $many_transactions:
@@ -395,7 +401,7 @@ Your address on another blockchain: Ваш адрес в другом блокч
 Please provide an address of your wallet in %blockchain% blockchain to receive bought tokens.: Пожалуйста, укажите адрес вашего кошелька в блокчейне %blockchain% для получения купленных токенов.
 The time for sending coins is over.: Время отправки монет истекло.
 You have not sent the coins to the specified address.: Вы не отправили монеты на указанный адрес.
-$swap_changelly_to_ton_description1: Отправьте %value% на этот адрес в блокчейне %blockchain% в течение %time%
+$swap_changelly_to_wallet_description1: Отправьте %value% на этот адрес в блокчейне %blockchain% в течение %time%
 Exchange failed and coins were refunded to your wallet.: Обмен не удался и монеты были возвращены на ваш кошелёк.
 $swap_changelly_kyc_security: "Пожалуйста, свяжитесь с командой безопасности по адресу **%email%** и предоставьте идентификатор транзакции, чтобы пройти процедуру KYC:"
 Swap Expired: Обмен истёк
@@ -406,7 +412,7 @@ $swap_changelly_terms_of_use: условиями использования
 $swap_changelly_privacy_policy: политикой конфиденциальности
 Password must contain %length% digits.: Пароль должен содержать %length% цифры.
 Deposit Link: Ссылка для пополнения
-$swap_changelly_from_ton_description: "Токены скоро будут отправлены на ваш адрес в блокчейне %blockchain%:"
+$swap_changelly_from_wallet_description: "Токены скоро будут отправлены на ваш адрес в блокчейне %blockchain%:"
 Please note that it may take up to a few hours for tokens to appear in your wallet.: Появление купленных токенов в вашем кошельке может занять до нескольких часов.
 Minimum amount: Минимум %value%
 Maximum amount: Максимум %value%
@@ -710,8 +716,6 @@ Request is sent!: Запрос отправлен!
 Transaction ID: ID транзакции
 Help Center: База знаний
 MyTonWallet Tips: Советы MyTonWallet
-$auth_import_24_mnemonic_description: |
-  Вы можете восстановить доступ к кошельку, используя **24 секретных слова**, которые вы сохранили при создании кошелька.
 Open %nft_marketplace%: Открыть %nft_marketplace%
 Link was copied!: Ссылка скопирована!
 Share Link: Поделиться ссылкой
@@ -789,14 +793,13 @@ Transferable: Можно передать
 Easily send your upgraded card to any of your friends.: Улучшенную карту можно легко отправить любому другу.
 Tradable: Можно продать
 Sell or auction your card on third-party NFT marketplaces.: Карту можно продать или выставить на аукцион на сторонних NFT-площадках.
-Upgrade for %currency% %amount%: Улучшить за %currency% %amount%
+Upgrade for %amount% %currency%: Улучшить за %amount% %currency%
 "%amount% left": Осталось %amount%
 "%amount% sold": Продано %amount%
 This card has been sold out: Эта карта распродана
 Import Existing Wallet: Импортировать существующий
 View Any Address: Просмотр адреса
-12/24 Secret Words: 12/24 секретных слов
-24 Secret Words: 24 секретных слова
+"%counts% Secret Words": "%counts% секретных слова"
 Wallet Address or Domain: Адрес кошелька или домен
 $import_view_account_note: Введите **любой адрес** в сети %chains%, чтобы открыть его в **Режиме просмотра**.
 $view_mode: Просмотр
@@ -970,6 +973,7 @@ $wallets_amount:
   oneValue: "%1$d кошелёк"
   fewValue: "%1$d кошелька"
   manyValue: "%1$d кошельков"
+  otherValue: "%1$d кошельков"
 $total_balance: "Всего: %balance%"
 No wallets: Нет кошельков
 View as List: Вид списком
@@ -1021,3 +1025,4 @@ Choose Wallet: Выбрать кошелёк
 Wallet to use on %host%: Кошелёк для %host%
 Selected Wallet: Выбранный кошелёк
 Connect Wallet: Подключить кошелёк
+Insufficient Fee: Недостаточно для комиссии

@@ -3,7 +3,7 @@ import { getActions, withGlobal } from '../../../global';
 
 import { SettingsState } from '../../../global/types';
 
-import { IS_CORE_WALLET } from '../../../config';
+import { IS_CORE_WALLET, MNEMONIC_COUNTS } from '../../../config';
 import { selectCurrentAccountId, selectIsPasswordPresent } from '../../../global/selectors';
 import { getHasInMemoryPassword, getInMemoryPassword } from '../../../util/authApi/inMemoryPasswordStore';
 import buildClassName from '../../../util/buildClassName';
@@ -186,7 +186,7 @@ function AddAccountModal({
         <div className={styles.actionsSection}>
           <ListItem
             icon="key"
-            label={lang(IS_CORE_WALLET ? '24 Secret Words' : '12/24 Secret Words')}
+            label={lang('%counts% Secret Words', { counts: MNEMONIC_COUNTS.join('/') })}
             onClick={handleImportAccountClick}
             isLoading={isNewAccountImporting && isLoading}
           />

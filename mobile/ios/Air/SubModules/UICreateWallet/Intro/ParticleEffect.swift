@@ -6,7 +6,6 @@
 //
 
 import UIKit
-import UIComponents
 import SwiftUI
 import WalletContext
 import WalletCore

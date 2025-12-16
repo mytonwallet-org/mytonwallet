@@ -30,6 +30,7 @@ class WalletSelectionVC(
     context: Context,
     private val dappHost: String
 ) : WViewController(context), WThemedView, WRecyclerViewAdapter.WRecyclerViewDataSource {
+    override val TAG = "WalletSelection"
 
     override val shouldDisplayBottomBar = true
 

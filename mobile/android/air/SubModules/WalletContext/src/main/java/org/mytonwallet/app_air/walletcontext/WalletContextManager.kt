@@ -26,8 +26,10 @@ interface WalletContextManagerDelegate {
     fun lockScreen()
     fun isAppUnlocked(): Boolean
     fun handleDeeplink(deeplink: String): Boolean
+    fun openASingleWallet(addressByChainString: Map<String, String>, name: String?)
     fun walletIsReady()
     fun isWalletReady(): Boolean
+    fun appResumed()
     fun switchToLegacy()
 
     fun bindQrCodeButton(

@@ -24,7 +24,7 @@ addActionHandler('startCardMinting', (global, action, { type }): GlobalState => 
     global = updateMintCards(global, { state: MintCardState.Password });
   }
 
-  return global;
+  return updateMintCards(global, { type });
 });
 
 addActionHandler('clearMintCardError', (global): GlobalState => {

@@ -37,6 +37,7 @@ import java.math.BigInteger
 
 class AssetsAndActivitiesVC(context: Context) : WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource, WalletCore.EventObserver {
+    override val TAG = "AssetsAndActivities"
 
     companion object {
         val HEADER_CELL = WCell.Type(1)

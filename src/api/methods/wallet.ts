@@ -5,7 +5,6 @@ import type { ApiDappRequestConfirmation } from '../tonConnect/types';
 import type { ApiAccountWithMnemonic, ApiAnyDisplayError, ApiChain, ApiNetwork, ApiSignedTransfer } from '../types';
 
 import chains from '../chains';
-import * as ton from '../chains/ton';
 import {
   fetchStoredAccount,
   fetchStoredAccounts,
@@ -15,11 +14,8 @@ import {
 import * as dappPromises from '../common/dappPromises';
 import { getMnemonic } from '../common/mnemonic';
 
-export async function fetchPrivateKey(accountId: string, password: string) {
-  const account = await fetchStoredAccount<ApiAccountWithMnemonic>(accountId);
-  const privateKey = await ton.fetchPrivateKey(accountId, password, account);
-
-  return Buffer.from(privateKey!).toString('hex');
+export function fetchPrivateKey(accountId: string, chain: ApiChain, password: string) {
+  return chains[chain].fetchPrivateKeyString(accountId, password);
 }
 
 export async function fetchMnemonic(accountId: string, password: string) {

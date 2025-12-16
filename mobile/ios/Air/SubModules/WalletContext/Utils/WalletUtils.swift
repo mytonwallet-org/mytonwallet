@@ -32,11 +32,11 @@ public let DIESEL_TOKENS = [
 ]
 
 fileprivate let decimalSeparator = "."
+public let signSpace = "\u{2009}"
+fileprivate let thousandSpace: Character = " "
 
 public let walletAddressLength: Int = 48
 public let walletTextLimit: Int = 120
-
-public var isRTL = false
 
 public var supportedTonConnectVersion = 2
 
@@ -147,7 +147,7 @@ public func formatAddressAttributed(
     return at
 }
 
-fileprivate func insertGroupingSeparator(in string: String, separator: Character = " ", every nthPosition: Int = 3) -> String {
+fileprivate func insertGroupingSeparator(in string: String, separator: Character = thousandSpace, every nthPosition: Int = 3) -> String {
     var result = ""
     var count = 0
     var hasDot = string.contains(".")
@@ -217,9 +217,9 @@ public func formatBigIntText(_ value: BigInt,
     }
 
     if value < 0, negativeSign {
-        result.insert("-", at: result.startIndex)
+        result.insert(contentsOf: "-\(signSpace)", at: result.startIndex)
     } else if value >= 0, positiveSign {
-        result.insert("+", at: result.startIndex)
+        result.insert(contentsOf: "+\(signSpace)", at: result.startIndex)
     }
 
     return result
@@ -233,7 +233,7 @@ public func formatAmountText(amount: Double,
                              forceCurrencyToRight: Bool = false) -> String {
     let numberFormatter = NumberFormatter()
     numberFormatter.numberStyle = .decimal
-    numberFormatter.groupingSeparator = " "
+    numberFormatter.groupingSeparator = String(thousandSpace)
     numberFormatter.decimalSeparator = decimalSeparator
     numberFormatter.maximumFractionDigits = decimalsCount ?? 9
     numberFormatter.roundingMode = .halfUp
@@ -248,9 +248,9 @@ public func formatAmountText(amount: Double,
     }
 
     if amount < 0, negativeSign {
-        result.insert("-", at: result.startIndex)
+        result.insert(contentsOf: "-\(signSpace)", at: result.startIndex)
     } else if amount >= 0, positiveSign {
-        result.insert("+", at: result.startIndex)
+        result.insert(contentsOf: "+\(signSpace)", at: result.startIndex)
     }
 
     if let currency, currency.count > 0 {
@@ -261,6 +261,17 @@ public func formatAmountText(amount: Double,
         }
     }
     return result
+}
+
+public func formatPercent(_ value: Double, decimals: Int = 2, showPlus: Bool = true, showMinus: Bool = true) -> String {
+    let value = (value * 100).rounded(decimals: decimals)
+    return if showPlus && value > 0 {
+        "+\(signSpace)\(value)%"
+    } else if showMinus && value < 0 {
+        "-\(signSpace)\(abs(value))%"
+    } else {
+        "\(abs(value))%"
+    }
 }
 
 // timestamp into string
@@ -278,28 +289,12 @@ public func stringForTimestamp(timestamp: Int32, local: Bool = true) -> String {
 
 public func stringForShortTimestamp(hours: Int32, minutes: Int32) -> String {
     let hourString: String = hours < 10 ? "0\(hours)" : "\(hours)"
-    /*if hours == 0 {
-        hourString = "12"
-    } else if hours > 12 {
-        hourString = "\(hours - 12)"
-    } else {
-        hourString = "\(hours)"
-    }*/
-
-    /*let periodString: String
-    if hours >= 12 {
-        periodString = "PM"
-    } else {
-        periodString = "AM"
-    }*/
     if minutes >= 10 {
         return "\(hourString):\(minutes)"// \(periodString)"
     } else {
         return "\(hourString):0\(minutes)"// \(periodString)"
     }
 }
-
-//private let maxIntegral: Int64 = Int64.max / 1000000000
 
 public func amountValue(_ string: String, digits: Int) -> BigInt {
     let string = string
@@ -311,9 +306,6 @@ public func amountValue(_ string: String, digits: Int) -> BigInt {
         let string = integralPart + "\(fractionalPart.prefix(digits))" + String(repeating: "0", count: max(0, digits - fractionalPart.count))
         return BigInt(string) ?? 0
     } else if let integral = BigInt(string) {
-//        if integral > BigInt.max / powI64(10, digits) {
-//            return 0
-//        }
         return integral * powI64(10, digits)
     }
     return 0

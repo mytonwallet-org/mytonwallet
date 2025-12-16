@@ -33,7 +33,7 @@ class GlassActionButton: UIControl {
     public let titleLabel: UILabel = {
         let label = UILabel()
         label.font = .systemFont(ofSize: 12)
-        label.textColor = .tintColor
+        label.textColor = .label
         label.translatesAutoresizingMaskIntoConstraints = false
         label.heightAnchor.constraint(equalToConstant: 13).isActive = true
         return label

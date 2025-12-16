@@ -166,13 +166,13 @@ struct CrossChainToTonView: View {
     func copyAddress() {
         UIPasteboard.general.string = address
         topWViewController()?.showToast(message: lang("Transaction ID was copied!"))
-        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+        Haptics.play(.lightTap)
     }
     
     func copyTx() {
         UIPasteboard.general.string = exchangerTxId
         topWViewController()?.showToast(message: lang("Transaction ID was copied!"))
-        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+        Haptics.play(.lightTap)
     }
     
     func onQRTap() {

@@ -28,27 +28,30 @@ public final class _NftStore: Sendable {
     private var nfts: [String: OrderedDictionary<String, DisplayNft>] {
         _nfts.withLock { $0 }
     }
-    public var currentAccountNfts: OrderedDictionary<String, DisplayNft>? {
-        _nfts.withLock { $0[AccountStore.accountId ?? ""] }
+    
+    public func getAccountNfts(accountId: String) -> OrderedDictionary<String, DisplayNft>? {
+        _nfts.withLock { $0[accountId] }
     }
-    public var currentAccountShownNfts: OrderedDictionary<String, DisplayNft>? {
-        guard let currentAccountNfts else { return nil }
-        return currentAccountNfts
-            .filter { (_, displayNft) in
-                displayNft.shouldHide == false
-            }
+    public func getAccountShownNfts(accountId: String) -> OrderedDictionary<String, DisplayNft>? {
+        guard let nfts = getAccountNfts(accountId: accountId) else { return nil }
+        return nfts.filter { (_, displayNft) in
+            displayNft.shouldHide == false
+        }
     }
-    public var currentAccountHasHiddenNfts: Bool {
-        guard let currentAccountNfts else { return false }
-        return currentAccountNfts.contains { _, displayNft in
+    public func getAccountHasHiddenNfts(accountId: String) -> Bool {
+        guard let nfts = getAccountNfts(accountId: accountId) else { return false }
+        return nfts.contains { _, displayNft in
             displayNft.isUnhiddenByUser == true || displayNft.shouldHide == true
         }
     }
-    public var currentAccountHiddenNftsCount: Int {
-        guard let currentAccountNfts else { return 0 }
-        return currentAccountNfts.count { _, displayNft in
+    public func getAccountHiddenNftsCount(accountId: String) -> Int {
+        guard let nfts = getAccountNfts(accountId: accountId) else { return 0 }
+        return nfts.count { _, displayNft in
             displayNft.isUnhiddenByUser == true || displayNft.shouldHide == true
         }
+    }
+    public func getNft(accountId: String, nftId: String) -> DisplayNft? {
+        _nfts.withLock { $0[accountId]?[nftId] }
     }
     
     private let cacheUrl = URL.cachesDirectory.appending(components: "air", "nfts", "nfts.json")
@@ -336,7 +339,6 @@ extension _NftStore: WalletCoreData.EventsObserver {
             
         case .updateNfts(let update):
             Task {
-                print(update.accountId, update.nfts.count, update.collectionAddress ?? "-")
                 await self.received(accountId: update.accountId, newNfts: update.nfts, removedNftIds: [], replaceExisting: update.collectionAddress == nil)
             }
         case .nftReceived(let update):
@@ -365,66 +367,6 @@ extension DependencyValues {
     public var nftStore: _NftStore {
         get { self[_NftStore.self] }
         set { self[_NftStore.self] = newValue }
-    }
-}
-
-
-// MARK: - UI extensions
-
-import UIKit
-
-extension _NftStore {
-    
-    @MainActor public func makeNftCollectionsMenu(accountId: String) -> UIMenu? {
-        
-        let collections = NftStore.getCollections(accountId: accountId)
-        let hasHidden = NftStore.currentAccountHasHiddenNfts
-
-        var children: [UIMenuElement] = []
-
-        let gifts = collections.telegramGiftsCollections
-        if !gifts.isEmpty {
-            var collectionActions: [UIMenuElement] = [
-                UIMenu(options: .displayInline, children: [
-                    UIAction(title: "All Telegram Gifts") { _ in
-                        AppActions.showAssets(selectedTab: 1, collectionsFilter: .telegramGifts)
-                    }
-                ])
-            ]
-            let collections = gifts.map { collection in
-                UIAction(title: collection.name) { _ in
-                    AppActions.showAssets(selectedTab: 1, collectionsFilter: .collection(collection))
-                }
-            }
-            collectionActions.append(contentsOf: collections)
-            let collectionsMenu = UIMenu(title: "Telegram Gifts", options: [], children: collectionActions)
-            children.append(collectionsMenu)
-        }
-        
-        let notGifts = collections.notTelegramGiftsCollections
-        if !notGifts.isEmpty {
-            let collectionActions = notGifts.map { collection in
-                UIAction(title: collection.name) { _ in
-                    AppActions.showAssets(selectedTab: 1, collectionsFilter: .collection(collection))
-                }
-            }
-            let collectionsMenu = UIMenu(options: .displayInline, children: collectionActions)
-            children.append(collectionsMenu)
-        }
-
-        if hasHidden {
-            let hiddenNftsAction = UIAction(title: "Hidden NFTs") { _ in
-                AppActions.showHiddenNfts()
-            }
-            let hiddenNftsMenu = UIMenu(options: .displayInline, children: [hiddenNftsAction])
-            children.append(hiddenNftsMenu)
-        }
-        
-        if children.isEmpty {
-            return nil
-        }
-
-        return UIMenu(children: children)
     }
 }
 

@@ -56,6 +56,7 @@ import kotlin.math.roundToInt
 
 class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) :
     WViewController(context), WalletCore.EventObserver {
+    override val TAG = "WalletsTabs"
 
     override val isSwipeBackAllowed = false
 
@@ -385,13 +386,13 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
             }
 
             is WalletEvent.AccountChangedInApp -> {
-                if (walletEvent.accountsModified)
+                if (walletEvent.persistedAccountsModified)
                     allAccounts = WalletCore.getAllAccounts()
                 updateAccounts()
                 walletsViewControllers.forEach {
                     it.reloadData()
                 }
-                if (walletEvent.accountsModified) {
+                if (walletEvent.persistedAccountsModified) {
                     updateTitleBar()
                     if (isReordering) {
                         updateRemoveWalletButton()
@@ -401,7 +402,7 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                 }
             }
 
-            WalletEvent.AccountNameChanged, WalletEvent.NftCardUpdated -> {
+            WalletEvent.AccountNameChanged, WalletEvent.NftCardUpdated, WalletEvent.ByChainUpdated -> {
                 updateAccounts()
                 walletsViewControllers.forEach {
                     it.reloadData()

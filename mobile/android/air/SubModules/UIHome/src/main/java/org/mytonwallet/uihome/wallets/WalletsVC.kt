@@ -68,6 +68,7 @@ class WalletsVC(
     private val topInset: Int,
     private val bottomInset: Int,
 ) : WViewController(context), WRecyclerViewAdapter.WRecyclerViewDataSource {
+    override val TAG = "Wallets"
 
     override val isSwipeBackAllowed = false
     override val shouldDisplayTopBar = true
@@ -461,7 +462,10 @@ class WalletsVC(
                     ).apply {
                         z = 3f
                     }
-                view.addView(emptyView!!, ConstraintLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+                view.addView(
+                    emptyView!!,
+                    ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT)
+                )
                 view.setConstraints {
                     toCenterX(emptyView!!)
                     toTopPx(
@@ -505,7 +509,8 @@ class WalletsVC(
         onSwitchAccountInProgress?.invoke()
         WalletCore.activateAccount(
             newAccount.accountId,
-            notifySDK = true
+            notifySDK = true,
+            willPopTemporaryPushedWallets = true
         ) { res, err ->
             if (res == null || err != null) {
                 // Should not happen!
@@ -520,7 +525,7 @@ class WalletsVC(
             } else {
                 WalletCore.notifyEvent(
                     WalletEvent.AccountChangedInApp(
-                        accountsModified = false
+                        persistedAccountsModified = false
                     )
                 )
             }

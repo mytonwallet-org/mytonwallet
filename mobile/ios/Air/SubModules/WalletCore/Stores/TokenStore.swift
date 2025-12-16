@@ -134,6 +134,9 @@ public class _TokenStore {
             tokens[slug] = _merge(cached: self.tokens[slug], incoming: newToken)
         }
         _applyFixups(tokens: &tokens)
+        guard self.tokens != tokens else {
+            return
+        }
         self.tokens = tokens
         WalletCoreData.notify(event: .tokensChanged)
         if tokens.count > 0 {
@@ -194,7 +197,7 @@ public class _TokenStore {
         }
         self.baseCurrency = currency
         AppStorageHelper.save(baseCurrency: currency, tokens: tokens, currencyRates: self.currencyRates)
-        WalletCoreData.notify(event: .baseCurrencyChanged(to: currency), for: nil)
+        WalletCoreData.notify(event: .baseCurrencyChanged(to: currency))
         scheduleSharedCacheUpdate(tokens: self.tokens, baseCurrency: currency, rates: self.currencyRates)
     }
     
@@ -209,7 +212,7 @@ public class _TokenStore {
             let assets = try JSONSerialization.decode([ApiToken].self, from: swapAssetsArray)
             TokenStore.swapAssets = assets.sorted { $0.name < $1.name }
             DispatchQueue.main.async {
-                WalletCoreData.notify(event: .swapTokensChanged, for: nil)
+                WalletCoreData.notify(event: .swapTokensChanged)
             }
         } catch {
             log.error("failed to decode swap assets")
@@ -327,7 +330,7 @@ extension _TokenStore: WalletCoreData.EventsObserver {
                 let tokens: [ApiToken] = update.tokens.values.sorted { $0.name < $1.name }
                 AppStorageHelper.save(swapAssetsArray: tokens)
                 TokenStore.swapAssets = tokens
-                WalletCoreData.notify(event: .swapTokensChanged, for: nil)
+                WalletCoreData.notify(event: .swapTokensChanged)
             }
         default:
             break

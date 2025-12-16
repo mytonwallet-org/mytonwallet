@@ -40,7 +40,6 @@ struct ConnectDappViewOrPlaceholder: View {
             return .placeholder(TonConnectPlaceholder(
                 account: viewModel.accountViewModel.account,
                 connectionType: .connect,
-                navigationBarInset: topMargin,
             ))
         }
     }
@@ -121,12 +120,14 @@ private struct ConnectButton: View {
     let viewModel: ConnectViewModel
     
     var body: some View {
-        Button(action: viewModel.onConnectWallet) {
-            Text(lang("Connect Wallet"))
+        WithPerceptionTracking {
+            Button(action: viewModel.onConnectWallet) {
+                Text(lang("Connect Wallet"))
+            }
+            .disabled(viewModel.isDisabled)
+            .buttonStyle(.airPrimary)
+            .padding(.horizontal, 30)
+            .padding(.bottom, 36)
         }
-        .disabled(viewModel.isDisabled)
-        .buttonStyle(.airPrimary)
-        .padding(.horizontal, 30)
-        .padding(.bottom, 36)
     }
 }

@@ -13,14 +13,15 @@ import WalletContext
 public struct TappableAddress: View {
     
     var name: String?
+    var chain: String
     var resolvedAddress: String?
     var addressOrName: String
-    var openInBrowser: (URL) -> () = { url in
-        AppActions.openInBrowser(url)
-    }
+
+    @State private var menuContext = MenuContext()
     
-    public init(name: String?, resolvedAddress: String?, addressOrName: String) {
+    public init(name: String?, chain: String, resolvedAddress: String?, addressOrName: String) {
         self.name = name
+        self.chain = chain
         self.resolvedAddress = resolvedAddress
         self.addressOrName = addressOrName
     }
@@ -43,13 +44,13 @@ public struct TappableAddress: View {
             .font(.system(size: 14))
             .foregroundColor(Color(WTheme.secondaryLabel))
 
-        Menu {
-            AddressActions(address: resolvedAddress ?? addressOrName, showSaveToFavorites: true)
-        } label: {
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                addr
-                more
-            }
+        HStack(alignment: .firstTextBaseline, spacing: 2) {
+            addr
+            more
+        }
+        .menuSource(menuContext: menuContext)
+        .task {
+            menuContext.makeConfig = makeTappableAddressMenu(displayName: name, chain: chain, address: resolvedAddress ?? addressOrName)
         }
     }
 }
@@ -57,12 +58,17 @@ public struct TappableAddress: View {
 
 public struct TappableAddressFull: View {
     
+    var chain: String
     var address: String
+    
+    @State private var menuContext = MenuContext()
+    
     let openInBrowser: (URL) -> () = { url in
         AppActions.openInBrowser(url)
     }
     
-    public init(address: String) {
+    public init(chain: String, address: String) {
+        self.chain = chain
         self.address = address
     }
     
@@ -84,12 +90,9 @@ public struct TappableAddressFull: View {
         Text("\(addr) \(more)")
             .lineLimit(nil)
             .multilineTextAlignment(.leading)
-            .overlay {
-                Menu {
-                    AddressActions(address: address, showSaveToFavorites: true)
-                } label: {
-                    Color.clear.contentShape(.rect)
-                }
+            .menuSource(menuContext: menuContext)
+            .task {
+                menuContext.makeConfig = makeTappableAddressMenu(displayName: nil, chain: chain, address: address)
             }
     }
 }

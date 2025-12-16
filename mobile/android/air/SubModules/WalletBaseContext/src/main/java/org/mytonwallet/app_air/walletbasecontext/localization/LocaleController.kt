@@ -19,7 +19,7 @@ object LocaleController {
             }
         },
 
-        /*WLanguage.SPANISH.langCode to { n -> if (n == 0) 1 else if (n != 1) 6 else 2 },
+        WLanguage.SPANISH.langCode to { n -> if (n == 0) 1 else if (n != 1) 6 else 2 },
         WLanguage.POLISH.langCode to { n ->
             when {
                 n == 0 -> 1
@@ -40,7 +40,7 @@ object LocaleController {
         },
         WLanguage.CHINESE_SIMPLIFIED.langCode to { n -> if (n == 0) 1 else 6 },
         WLanguage.CHINESE_TRADITIONAL.langCode to { n -> if (n == 0) 1 else 6 },
-        WLanguage.PERSIAN.langCode to { n -> if (n == 0) 1 else if (n != 1) 6 else 2 },*/
+        //WLanguage.PERSIAN.langCode to { n -> if (n == 0) 1 else if (n != 1) 6 else 2 },
     )
 
     val PLURAL_OPTIONS = listOf(

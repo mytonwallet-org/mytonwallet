@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.walletcore.models
 
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 
 enum class MBridgeError(val errorName: String? = null, var customMessage: String? = null) {
     AXIOS_ERROR("AxiosError"),
@@ -30,7 +29,7 @@ enum class MBridgeError(val errorName: String? = null, var customMessage: String
     PARSE_ERROR("JSON Parse Error"),
     UNKNOWN("Unknown");
 
-    val toLocalized: CharSequence
+    val toLocalized: String
         get() {
             return customMessage ?: when (this) {
                 INVALID_MNEMONIC -> LocaleController.getString("InvalidMnemonic")
@@ -46,7 +45,6 @@ enum class MBridgeError(val errorName: String? = null, var customMessage: String
                 HARDWARE_OUTDATED -> LocaleController.getString("HardwareOutdated")
                 HARDWARE_BLIND_SIGNING_NOT_ENABLED ->
                     LocaleController.getString("\$hardware_blind_sign_not_enabled")
-                        .toProcessedSpannableStringBuilder()
 
                 PROOF_TOO_LARGE -> LocaleController.getString("The proof for signing provided by the Dapp is too large")
                 CONNECTION_BROKEN -> LocaleController.getString("\$ledger_connection_broken")

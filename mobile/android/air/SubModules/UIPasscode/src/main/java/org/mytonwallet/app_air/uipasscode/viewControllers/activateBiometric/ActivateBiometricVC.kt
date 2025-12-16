@@ -19,16 +19,17 @@ import org.mytonwallet.app_air.uicomponents.widgets.particles.ParticleConfig
 import org.mytonwallet.app_air.uicomponents.widgets.particles.ParticleView
 import org.mytonwallet.app_air.uicomponents.widgets.pulseView
 import org.mytonwallet.app_air.uipasscode.R
-import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
+import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 
 @SuppressLint("ViewConstructor")
 class ActivateBiometricVC(context: Context, onCompletion: (activated: Boolean) -> Unit) :
     WViewController(context) {
+    override val TAG = "ActivateBiometric"
 
     override val shouldDisplayTopBar = false
 
@@ -61,7 +62,8 @@ class ActivateBiometricVC(context: Context, onCompletion: (activated: Boolean) -
                 }
             ),
             title = LocaleController.getString("Use Biometrics"),
-            subtitle = LocaleController.getString("\$auth_biometric_info").toProcessedSpannableStringBuilder(),
+            subtitle = LocaleController.getString("\$auth_biometric_info")
+                .toProcessedSpannableStringBuilder(),
         )
         v
     }

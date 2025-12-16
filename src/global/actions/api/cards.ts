@@ -2,14 +2,14 @@ import type { ApiSubmitTransferOptions } from '../../../api/types';
 import type { GlobalState } from '../../types';
 import { MintCardState } from '../../types';
 
-import { IS_CORE_WALLET, MINT_CARD_ADDRESS, MINT_CARD_COMMENT, TONCOIN } from '../../../config';
+import { IS_CORE_WALLET, MINT_CARD_ADDRESS, MINT_CARD_COMMENT } from '../../../config';
 import { fromDecimal } from '../../../util/decimals';
 import { IS_DELEGATED_BOTTOM_SHEET } from '../../../util/windowEnvironment';
 import { callApi } from '../../../api';
 import { handleTransferResult, prepareTransfer } from '../../helpers/transfer';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import { updateAccountSettings, updateAccountState, updateMintCards } from '../../reducers';
-import { selectAccountState, selectCurrentAccountId } from '../../selectors';
+import { selectAccountState, selectCurrentAccountId, selectMycoin } from '../../selectors';
 
 addActionHandler('submitMintCard', async (global, actions, { password } = {}) => {
   const accountId = selectCurrentAccountId(global)!;
@@ -34,6 +34,7 @@ addActionHandler('submitMintCard', async (global, actions, { password } = {}) =>
 function createTransferOptions(globalState: GlobalState, password?: string): ApiSubmitTransferOptions {
   const { currentAccountId, currentMintCard } = globalState;
   const { config } = selectAccountState(globalState, currentAccountId!)!;
+  const mycoin = selectMycoin(globalState);
   const { cardsInfo } = config!;
   const type = currentMintCard!.type!;
   const cardInfo = cardsInfo![type];
@@ -42,7 +43,8 @@ function createTransferOptions(globalState: GlobalState, password?: string): Api
     accountId: currentAccountId!,
     password,
     toAddress: MINT_CARD_ADDRESS,
-    amount: fromDecimal(cardInfo.price, TONCOIN.decimals),
+    amount: fromDecimal(cardInfo.price, mycoin.decimals),
+    tokenAddress: mycoin.tokenAddress,
     payload: { type: 'comment', text: MINT_CARD_COMMENT },
   };
 }

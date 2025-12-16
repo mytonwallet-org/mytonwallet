@@ -11,7 +11,9 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.commonViews.AddressInputLayout
+import org.mytonwallet.app_air.uicomponents.extensions.atMost
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WAnimationView
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
@@ -40,6 +42,7 @@ import java.lang.ref.WeakReference
 
 class ImportViewWalletVC(context: Context, private val isOnIntro: Boolean) :
     WViewController(context) {
+    override val TAG = "ImportViewWallet"
 
     override val shouldDisplayTopBar = false
 
@@ -146,14 +149,8 @@ class ImportViewWalletVC(context: Context, private val isOnIntro: Boolean) :
     override fun getModalHalfExpandedHeight(): Int? {
         if (cachedHeight > 0)
             return cachedHeight
-        titleLabel.measure(
-            View.MeasureSpec.makeMeasureSpec(view.width - 64.dp, View.MeasureSpec.AT_MOST),
-            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-        )
-        subtitleLabel.measure(
-            View.MeasureSpec.makeMeasureSpec(view.width - 64.dp, View.MeasureSpec.AT_MOST),
-            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-        )
+        titleLabel.measure((view.width - 64.dp).atMost, 0.unspecified)
+        subtitleLabel.measure((view.width - 64.dp).atMost, 0.unspecified)
 
         val titleHeight = titleLabel.measuredHeight.coerceAtLeast(1)
         val subtitleHeight = subtitleLabel.measuredHeight.coerceAtLeast(1)

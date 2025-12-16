@@ -52,7 +52,7 @@ const MENU_ITEMS: DropdownItem<MenuHandler>[] = [{
 function IFrameBrowser({
   url, title,
 }: StateProps) {
-  const { closeBrowser, showNotification } = getActions();
+  const { closeBrowser, showToast } = getActions();
   const lang = useLang();
 
   const iframeRef = useRef<HTMLIFrameElement>();
@@ -82,7 +82,7 @@ function IFrameBrowser({
 
       case 'copyUrl':
         void copyTextToClipboard(url);
-        showNotification({ message: lang('URL was copied!'), icon: 'icon-copy' });
+        showToast({ message: lang('URL was copied!'), icon: 'icon-copy' });
         break;
 
       case 'share':

@@ -11,22 +11,15 @@ import WalletContext
 struct SendConfirmView: View {
     
     @ObservedObject var model: SendModel
-    var navigationBarInset: CGFloat
-    var onScrollPositionChange: (CGFloat) -> ()
-    
-    @Namespace private var ns
     
     var body: some View {
         InsetList {
             ToSection()
-                .scrollPosition(ns: ns, offset: 8, callback: onScrollPositionChange)
             NftSection()
             AmountSection()
             CommentSection()
         }
-        .coordinateSpace(name: ns)
         .environmentObject(model)
-        .navigationBarInset(navigationBarInset)
     }
 }
 
@@ -48,47 +41,48 @@ fileprivate struct AddressCellView: View {
     
     @EnvironmentObject private var model: SendModel
     
+    @State private var menuContext = MenuContext()
+    
     var body: some View {
-        Menu {
-            AddressActions(address: model.resolvedAddress ?? model.addressOrDomain, showSaveToFavorites: true)
-        } label: {
-            InsetCell {
-                let more: Text = Text(
-                    Image(systemName: "chevron.down")
-                )
-                    .font(.system(size: 14))
-                    .foregroundColor(Color(WTheme.secondaryLabel))
+        InsetCell {
+            let more: Text = Text(
+                Image(systemName: "chevron.down")
+            )
+                .font(.system(size: 14))
+                .foregroundColor(Color(WTheme.secondaryLabel))
             
-                Group {
-                    if let resolvedAddress = model.resolvedAddress, resolvedAddress != model.addressOrDomain {
-                        let addr = Text(model.addressOrDomain).foregroundColor(Color(WTheme.primaryLabel))
-                        let resolvedAddress = Text(
-                            formatAddressAttributed(
-                                resolvedAddress,
-                                startEnd: false,
-                                primaryColor: WTheme.secondaryLabel
-                            )
+            Group {
+                if let resolvedAddress = model.resolvedAddress, resolvedAddress != model.addressOrDomain {
+                    let addr = Text(model.addressOrDomain).foregroundColor(Color(WTheme.primaryLabel))
+                    let resolvedAddress = Text(
+                        formatAddressAttributed(
+                            resolvedAddress,
+                            startEnd: false,
+                            primaryColor: WTheme.secondaryLabel
                         )
-                
-                        Text("\(addr)\u{A0}·\u{A0}\(resolvedAddress) \(more)") // non-breaking spaces
-                        
-                    } else {
-                        let addr = Text(
-                            formatAddressAttributed(
-                                model.addressOrDomain,
-                                startEnd: false
-                            )
+                    )
+                    
+                    Text("\(addr)\u{A0}·\u{A0}\(resolvedAddress) \(more)") // non-breaking spaces
+                    
+                } else {
+                    let addr = Text(
+                        formatAddressAttributed(
+                            model.addressOrDomain,
+                            startEnd: false
                         )
-                        
-                        Text("\(addr) \(more)")
-                    }
-
+                    )
+                    
+                    Text("\(addr) \(more)")
                 }
-                .multilineTextAlignment(.leading)
-                .font16h22()
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .contentShape(.rect)
+            .multilineTextAlignment(.leading)
+            .font16h22()
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .contentShape(.rect)
+        .menuSource(menuContext: menuContext)
+        .task {
+            menuContext.makeConfig = makeTappableAddressMenu(displayName: nil, chain: model.tokenChain?.rawValue ?? "ton", address: model.resolvedAddress ?? model.addressOrDomain)
         }
     }
 }
@@ -125,9 +119,9 @@ fileprivate struct AmountSection: View {
 
 
 fileprivate struct CommentSection: View {
-
+    
     @EnvironmentObject private var model: SendModel
-
+    
     var body: some View {
         if model.binaryPayload?.nilIfEmpty != nil {
             binaryPayloadSection

@@ -30,23 +30,13 @@ public final class UseResponsiblyVC: WViewController {
     
     private func setupViews() {
         
-        addNavigationBar(
-            addBackButton: { topWViewController()?.navigationController?.popViewController(animated: true) }
-        )
-        navigationBarProgressiveBlurDelta = 32
-        
         hostingController = addHostingController(makeView(), constraints: .fill)
-        
-        bringNavigationBarToFront()
         
         updateTheme()
     }
     
     private func makeView() -> UseResponsiblyView {
-        UseResponsiblyView(
-            navigationBarInset: navigationBarHeight,
-            onScroll: { [weak self] y in self?.updateNavigationBarProgressiveBlur(y) }
-        )
+        UseResponsiblyView()
     }
     
     override public func updateTheme() {

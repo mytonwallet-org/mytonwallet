@@ -4,15 +4,16 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import android.widget.FrameLayout
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.commonViews.HeaderActionsView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
@@ -23,18 +24,18 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.models.MScreenMode
 import org.mytonwallet.uihome.R
 import org.mytonwallet.uihome.home.views.UpdateStatusView
 
 @SuppressLint("ViewConstructor", "ClickableViewAccessibility")
 class StickyHeaderView(
     context: Context,
+    private val screenMode: MScreenMode,
     private val onActionClick: (HeaderActionsView.Identifier) -> Unit
-) : FrameLayout(context), WThemedView, WProtectedView {
+) : WFrameLayout(context), WThemedView, WProtectedView {
 
     init {
-        id = generateViewId()
         clipChildren = false
         clipToPadding = false
     }
@@ -87,6 +88,21 @@ class StickyHeaderView(
         }
         v
     }
+    private val backButton: WImageButton by lazy {
+        WImageButton(context).apply {
+            setOnClickListener {
+                onActionClick(HeaderActionsView.Identifier.BACK)
+            }
+            val arrowDrawable =
+                ContextCompat.getDrawable(
+                    context,
+                    org.mytonwallet.app_air.uicomponents.R.drawable.ic_nav_back
+                )
+            setImageDrawable(arrowDrawable)
+            updateColors(WColor.SecondaryText, WColor.BackgroundRipple)
+        }
+    }
+
 
     private val cancelButton: WLabel by lazy {
         WLabel(context).apply {
@@ -114,14 +130,29 @@ class StickyHeaderView(
             LayoutParams(WRAP_CONTENT, WNavigationBar.DEFAULT_HEIGHT.dp).apply {
                 gravity = Gravity.CENTER or Gravity.TOP
             })
-        addView(scanButton, LayoutParams(40.dp, 40.dp).apply {
-            gravity = Gravity.START or Gravity.CENTER_VERTICAL
-            if (LocaleController.isRTL)
-                rightMargin = 8.dp
-            else
-                leftMargin = 8.dp
-            topMargin = 1.dp
-        })
+        when (screenMode) {
+            MScreenMode.Default -> {
+                addView(scanButton, LayoutParams(40.dp, 40.dp).apply {
+                    gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                    if (LocaleController.isRTL)
+                        rightMargin = 8.dp
+                    else
+                        leftMargin = 8.dp
+                    topMargin = 1.dp
+                })
+            }
+
+            is MScreenMode.SingleWallet -> {
+                addView(backButton, LayoutParams(40.dp, 40.dp).apply {
+                    gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                    if (LocaleController.isRTL)
+                        rightMargin = 8.dp
+                    else
+                        leftMargin = 8.dp
+                    topMargin = 1.dp
+                })
+            }
+        }
         addView(lockButton, LayoutParams(40.dp, 40.dp).apply {
             gravity = Gravity.END or Gravity.CENTER_VERTICAL
             if (LocaleController.isRTL)
@@ -155,21 +186,17 @@ class StickyHeaderView(
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        super.onMeasure(
-            widthMeasureSpec,
-            MeasureSpec.makeMeasureSpec(HomeHeaderView.navDefaultHeight, MeasureSpec.EXACTLY)
-        )
+        super.onMeasure(widthMeasureSpec, HomeHeaderView.navDefaultHeight.exactly)
     }
 
     fun update(mode: HomeHeaderView.Mode, state: UpdateStatusView.State, handleAnimation: Boolean) {
-        if (mode == HomeHeaderView.Mode.Expanded && state == UpdateStatusView.State.Updated) {
+        if (state is UpdateStatusView.State.Updated && mode == HomeHeaderView.Mode.Collapsed) {
             updateStatusView.setState(
-                state,
-                handleAnimation,
-                AccountStore.activeAccount?.name ?: ""
+                state.copy(""),
+                handleAnimation
             )
         } else {
-            updateStatusView.setState(state, handleAnimation, "")
+            updateStatusView.setState(state, handleAnimation)
         }
     }
 

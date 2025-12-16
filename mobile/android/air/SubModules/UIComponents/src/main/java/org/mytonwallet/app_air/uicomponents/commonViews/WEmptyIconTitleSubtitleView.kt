@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.view.Gravity
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WAnimationView
@@ -35,6 +36,7 @@ class WEmptyIconTitleSubtitleView(
     private val subtitleLabel: WLabel by lazy {
         WLabel(context).apply {
             setStyle(17f)
+            gravity = Gravity.CENTER
         }
     }
 
@@ -43,7 +45,10 @@ class WEmptyIconTitleSubtitleView(
 
         addView(animationView, LayoutParams(124.dp, 124.dp))
         addView(titleLabel)
-        addView(subtitleLabel)
+        addView(
+            subtitleLabel,
+            LayoutParams(LayoutParams.MATCH_CONSTRAINT, LayoutParams.WRAP_CONTENT)
+        )
 
         setConstraints {
             toTop(animationView)
@@ -51,7 +56,7 @@ class WEmptyIconTitleSubtitleView(
             topToBottom(titleLabel, animationView, 24f)
             toCenterX(titleLabel)
             topToBottom(subtitleLabel, titleLabel, 22f)
-            toCenterX(subtitleLabel)
+            toCenterX(subtitleLabel, 4f)
             toBottom(subtitleLabel)
         }
 

@@ -171,5 +171,10 @@ func makeMigrator() -> DatabaseMigrator {
             try newAccount.update(db)
         }
     }
+    migrator.registerMigration("v8") { db in
+        try db.alter(table: "accounts") { t in
+            t.add(column: "isTemporary", .boolean)
+        }
+    }
     return migrator
 }

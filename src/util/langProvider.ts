@@ -256,16 +256,27 @@ function processTranslation(
 /**
  * Formats a string like "One, Two and Three" or "Foo、Bar 或 Baz".
  * The `items` elements are not translated, you need to translate them separately if you need.
+ * When `preferCompact` is true, there will be no spaces around the joiners in languages that don't use spaces normally.
  */
 export function formatEnumeration(
   lang: LangFn,
   items: (string | number | boolean | undefined)[],
   joiner: 'and' | 'or',
+  preferCompact?: boolean,
 ): string;
-export function formatEnumeration(lang: LangFn, items: TeactNode[], joiner: 'and' | 'or'): string | TeactNode[];
-export function formatEnumeration(lang: LangFn, items: TeactNode[], joiner: 'and' | 'or') {
+export function formatEnumeration(
+  lang: LangFn,
+  items: TeactNode[],
+  joiner: 'and' | 'or',
+  preferCompact?: boolean,
+): string | TeactNode[];
+export function formatEnumeration(lang: LangFn, items: TeactNode[], joiner: 'and' | 'or', preferCompact?: boolean) {
   const middleJoiner = lang('$joining_comma');
-  const lastJoiner = lang(joiner === 'and' ? '$joining_and' : '$joining_or');
+  let lastJoiner = lang(joiner === 'and' ? '$joining_and' : '$joining_or');
+
+  if (preferCompact && lang.code?.startsWith('zh')) {
+    lastJoiner = lastJoiner.trim();
+  }
 
   let result: string | TeactNode[];
   let appendResult: (part: TeactNode) => void;

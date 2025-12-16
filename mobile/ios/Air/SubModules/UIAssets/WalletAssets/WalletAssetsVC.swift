@@ -20,7 +20,9 @@ private let log = Log("Home-WalletAssets")
     
     private var tokensVC: WalletTokensVC?
     private var nftsVC: NftsVC?
-    private var currentAccountId: String?
+    
+    private let accountIdProvider: AccountIdProvider
+    private var accountSource: AccountSource { accountIdProvider.source }
     
     @AppStorage("debug_hideSegmentedControls") private var hideSegmentedControls = false
     
@@ -40,7 +42,7 @@ private let log = Log("Home-WalletAssets")
             case .tokens:
                 configureTokensMenu(menuContext: ctx, onReorder: { self.onReorder() })
             case .nfts:
-                configureCollectiblesMenu(menuContext: ctx, onReorder: { self.onReorder() })
+                configureCollectiblesMenu(accountSource: accountSource, menuContext: ctx, onReorder: { self.onReorder() })
             case .nftCollectionFilter(let filter):
                 configureNftCollectionMenu(menuContext: ctx, onReorder: { self.onReorder() }, onHide: { [weak self] in
                     Task {
@@ -53,9 +55,10 @@ private let log = Log("Home-WalletAssets")
         }
     }
     
-    public init(compactMode: Bool = true) {
+    public init(accountSource: AccountSource, compactMode: Bool = true) {
+        self.accountIdProvider = AccountIdProvider(source: accountSource)
         self.compactMode = compactMode
-        self.tabsViewModel = WalletAssetsViewModel()
+        self.tabsViewModel = WalletAssetsViewModel(accountSource: accountSource)
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -64,28 +67,47 @@ private let log = Log("Home-WalletAssets")
     }
     
     private var changeAccountTask: Task<Void, any Error>?
+    private var snapshot: UIView?
     
     public func interactivelySwitchAccountTo(accountId: String) {
-        UIView.animate(withDuration: 0.2) { [self] in
-            walletAssetsView.segmentedController.scrollView.alpha = 0
-            walletAssetsView.segmentedController.segmentedControl.alpha = 0
-        }
         changeAccountTask?.cancel()
         changeAccountTask = Task {
-            try await Task.sleep(for: .seconds(0.2))
-            tabsViewModel.changAccountTo(accountId: accountId)
+            self.snapshot?.removeFromSuperview()
+            self.snapshot = nil
+            let snapshot = walletAssetsView.segmentedController.snapshotView(afterScreenUpdates: false)
+            if let snapshot {
+                view.addSubview(snapshot)
+                snapshot.frame = walletAssetsView.segmentedController.frame
+                snapshot.backgroundColor = WTheme.groupedItem
+                self.snapshot = snapshot
+            }
+            walletAssetsView.segmentedController.alpha = 0
+            UIView.animate(withDuration: 0.25) {
+                snapshot?.alpha = 0
+            }
+
+            try await Task.sleep(for: .seconds(0.03))
+            
+            tabsViewModel.changeAccountTo(accountId: accountId)
             if let first = tabsViewModel.displayTabs.first, let vc = tabViewControllers[first] {
-                if let vc = vc as? WalletTokensView {
-                    tokensVC?.switchAcccountTo(accountId: accountId)
+                if vc is WalletTokensView {
+                    tokensVC?.switchAcccountTo(accountId: accountId, animated: true)
                 }
             }
+            
             try await Task.sleep(for: .seconds(0.03))
+
             walletAssetsView.segmentedController.switchTo(tabIndex: 0)
-            walletAssetsView.segmentedController.handleSegmentChange(to: 0, animated: false)
-            UIView.animate(withDuration: 0.2) { [self] in
-                walletAssetsView.segmentedController.scrollView.alpha = 1
-                walletAssetsView.segmentedController.segmentedControl.alpha = 1
+            walletAssetsView.segmentedController.handleSegmentChange(to: 0, animated: true)
+            
+            try await Task.sleep(for: .seconds(0.03))
+            
+            UIView.animate(withDuration: 0.3) { [self] in
+                walletAssetsView.segmentedController.alpha = 1
             }
+            
+            try await Task.sleep(for: .seconds(0.3))
+            snapshot?.removeFromSuperview()
         }
     }
     
@@ -143,7 +165,7 @@ private let log = Log("Home-WalletAssets")
         case .tokens, .nfts:
             fatalError("created once")
         case .nftCollectionFilter(let filter):
-            let vc = NftsVC(compactMode: compactMode, filter: filter)
+            let vc = NftsVC(accountSource: accountSource, compactMode: compactMode, filter: filter)
             vc.onHeightChanged = { [weak self] animated in
                 self?.delegate?.headerHeightChanged(animated: animated)
             }
@@ -152,12 +174,12 @@ private let log = Log("Home-WalletAssets")
     }
     
     public override func loadView() {
-        let tokensVC = WalletTokensVC(compactMode: true)
+        let tokensVC = WalletTokensVC(accountSource: accountSource, compactMode: true)
         self.tokensVC = tokensVC
         addChild(tokensVC)
         tokensVC.didMove(toParent: self)
         
-        let nftsVC = NftsVC(compactMode: true, filter: .none)
+        let nftsVC = NftsVC(accountSource: accountSource, compactMode: true, filter: .none)
         self.nftsVC = nftsVC
         addChild(nftsVC)
         nftsVC.didMove(toParent: self)
@@ -191,7 +213,7 @@ private let log = Log("Home-WalletAssets")
         tabsViewModel.delegate = self
         _displayTabsChanged(force: true)
         
-        let collections = NftStore.getCollections(accountId: AccountStore.accountId ?? "").collections
+        let collections = NftStore.getCollections(accountId: accountIdProvider.accountId).collections
         
         walletAssetsView.segmentedController.model.onItemsReordered = { items in
             let displayTabs: [DisplayAssetTab] = items.compactMap { item in
@@ -218,7 +240,9 @@ private let log = Log("Home-WalletAssets")
         MainActor.assumeIsolated {
             switch event {
             case .accountChanged:
-                walletAssetsView.selectedIndex = 0
+                if accountSource == .current {
+                    walletAssetsView.selectedIndex = 0
+                }
             case .applicationWillEnterForeground:
                 view.setNeedsLayout()
                 view.setNeedsDisplay()

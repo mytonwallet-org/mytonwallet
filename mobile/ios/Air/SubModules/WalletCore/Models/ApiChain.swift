@@ -116,13 +116,21 @@ public enum ApiChain: String, Equatable, Hashable, Codable, Comparable, Sendable
         }
     }
     
-    private func addressMatches(_ address: String) -> Bool {
+    public func isValidAddressOrDomain(_ addressOrDomain: String) -> Bool {
+        return isValidAddress(addressOrDomain) || isValidDomain(addressOrDomain)
+    }
+
+    private func isValidAddress(_ address: String) -> Bool {
         switch self {
         case .ton:
-            address.firstMatch(of: /^([\-\w_]{48}|0:[\da-hA-H]{64})$/) != nil
+            return address.firstMatch(of: /^([\-\w_]{48}|0:[\da-hA-H]{64})$/) != nil
         case .tron:
-            address.firstMatch(of: /^T[1-9A-HJ-NP-Za-km-z]{33}$/) != nil
+            return address.firstMatch(of: /^T[1-9A-HJ-NP-Za-km-z]{33}$/) != nil
         }
+    }
+    
+    private func isValidDomain(_ domain: String) -> Bool {
+        return isDnsSupported && DNSHelpers.isDnsDomain(domain)
     }
     
     private var isDnsSupported: Bool {
@@ -146,7 +154,7 @@ public enum ApiChain: String, Equatable, Hashable, Codable, Comparable, Sendable
     public func validate(address: String) -> Bool {
         return !address.isEmpty &&
             (
-                addressMatches(address) ||
+                isValidAddress(address) ||
                 (isDnsSupported && DNSHelpers.isDnsDomain(address))
             ) &&
             (
@@ -158,7 +166,7 @@ public enum ApiChain: String, Equatable, Hashable, Codable, Comparable, Sendable
     public static func chainForAddress(_ address: String?) -> ApiChain {
         if let address {
             for chain in ApiChain.allCases {
-                if chain.addressMatches(address) {
+                if chain.isValidAddress(address) {
                     return chain
                 }
             }

@@ -28,7 +28,7 @@ public struct MtwCardMiniPlaceholders: View {
                 .frame(width: 8, height: 1.5)
         }
         .padding(.top, 3)
-        .drawingGroup()
+//        .drawingGroup()
     }
 }
 

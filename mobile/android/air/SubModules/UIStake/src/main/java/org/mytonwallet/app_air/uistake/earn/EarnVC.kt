@@ -84,6 +84,7 @@ class EarnVC(
     val tokenSlug: String,
     private var onScroll: ((rv: RecyclerView) -> Unit)?
 ) : WViewControllerWithModelStore(context), WRecyclerViewDataSource {
+    override val TAG = "Earn"
 
     override val shouldDisplayTopBar = false
     override val shouldDisplayBottomBar = true
@@ -527,6 +528,7 @@ class EarnVC(
             setStakingBalance(
                 viewState.stakingBalance ?: "0",
                 earnViewModel.token?.symbol ?: "",
+                viewState.stakingBalanceIsLarge,
             )
             setSubtitle(AccountStore.stakingData?.stakingState(tokenSlug))
             changeAddStakeButtonEnable(viewState.enableAddStakeButton)
@@ -541,7 +543,8 @@ class EarnVC(
                 } else {
                     headerView.showInnerViews(
                         viewState.showAddStakeButton,
-                        viewState.showUnstakeButton
+                        viewState.showUnstakeButton,
+                        viewState.showBiggerUnstakeButton
                     )
                 }
                 recyclerView.overScrollMode = RecyclerView.OVER_SCROLL_NEVER
@@ -552,7 +555,10 @@ class EarnVC(
             }
 
             is HistoryListState.NoItem -> {
-                headerView.showInnerViews(viewState.showAddStakeButton, viewState.showUnstakeButton)
+                headerView.showInnerViews(
+                    viewState.showAddStakeButton,
+                    viewState.showUnstakeButton, viewState.showBiggerUnstakeButton
+                )
                 recyclerView.overScrollMode = RecyclerView.OVER_SCROLL_NEVER
                 noItemView.visibility = View.VISIBLE
                 updateSkeletonState()
@@ -573,7 +579,11 @@ class EarnVC(
             }
 
             is HistoryListState.HasItem -> {
-                headerView.showInnerViews(viewState.showAddStakeButton, viewState.showUnstakeButton)
+                headerView.showInnerViews(
+                    viewState.showAddStakeButton,
+                    viewState.showUnstakeButton,
+                    viewState.showBiggerUnstakeButton
+                )
                 recyclerView.overScrollMode = RecyclerView.OVER_SCROLL_ALWAYS
                 noItemView.visibility = View.GONE
                 updateSkeletonState()

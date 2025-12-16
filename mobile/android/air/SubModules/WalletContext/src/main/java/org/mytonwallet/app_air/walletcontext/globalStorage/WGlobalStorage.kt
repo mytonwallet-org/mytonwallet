@@ -27,13 +27,21 @@ object WGlobalStorage {
         _isSensitiveDataProtectionOn =
             WGlobalStorage.globalStorageProvider.getBool(IS_SENSITIVE_DATA_HIDDEN) == true
         migrate()
-        extractTemporaryAccountIds()
+        removeTemporaryAccounts()
     }
 
-    private var temporaryAccountIds: List<String>? = null
-    private fun extractTemporaryAccountIds() {
-        temporaryAccountIds =
+    @Volatile
+    var temporaryAddedAccountIds: MutableList<String> = mutableListOf()
+        private set
+
+    private fun removeTemporaryAccounts() {
+        temporaryAddedAccountIds =
             accountIds().filter { globalStorageProvider.getBool("accounts.byId.$it.isTemporary") == true }
+                .toMutableList()
+        temporaryAddedAccountIds.toList().forEach {
+            removeAccount(it)
+        }
+        setTemporaryAccountId(null)
     }
 
     fun clearCachedData() {
@@ -54,6 +62,7 @@ object WGlobalStorage {
     }
 
     private const val CURRENT_ACCOUNT_ID = "currentAccountId"
+    private const val CURRENT_TEMPORARY_VIEW_ACCOUNT_ID = "currentTemporaryViewAccountId"
     private const val ACCENT_COLOR_ID = "settings.themeColor"
     private const val ACTIVE_THEME = "settings.theme"
     private const val ACTIVE_FONT = "settings.font"
@@ -95,6 +104,10 @@ object WGlobalStorage {
         return cachedAccountNames[accountId]
     }
 
+    fun accountExists(accountId: String): Boolean {
+        return globalStorageProvider.getDict("accounts.byId.$accountId") != null
+    }
+
     fun getAccountTonAddress(accountId: String): String? {
         globalStorageProvider.getDict("accounts.byId.$accountId.byChain.ton")
             ?.optString("address")?.let {
@@ -120,7 +133,7 @@ object WGlobalStorage {
 
     fun accountIds(): Array<String> {
         val allIds = globalStorageProvider.keysIn("accounts.byId").filter {
-            temporaryAccountIds?.contains(it) != true
+            !temporaryAddedAccountIds.contains(it)
         }.toTypedArray()
         val orderedIds = globalStorageProvider.getArray(ORDERED_ACCOUNT_IDS)
             ?.let { array ->
@@ -142,15 +155,13 @@ object WGlobalStorage {
         name: String? = null,
         importedAt: Long?,
         tonLedgerIndex: Int? = null,
+        isTemporary: Boolean = false,
     ) {
         val accountIds = accountIds()
         val suggestedName =
-            name
-                ?: (if (accountIds.isEmpty()) LocaleController.getString("My Wallet") else "${
-                    LocaleController.getString(
-                        "My Wallet"
-                    )
-                } ${accountIds.size}")
+            name ?: if (isTemporary)
+                LocaleController.getString("Wallet")
+            else getSuggestedName(accountIds.size)
         save(accountId = accountId, accountName = suggestedName, persist = false)
 
         val byChain = JSONObject()
@@ -186,11 +197,38 @@ object WGlobalStorage {
                 value = importedAt,
                 persistInstantly = IGlobalStorageProvider.PERSIST_NO
             )
+        if (isTemporary) {
+            globalStorageProvider.set(
+                "accounts.byId.$accountId.isTemporary",
+                value = true,
+                persistInstantly = IGlobalStorageProvider.PERSIST_NO
+            )
+            temporaryAddedAccountIds.add(accountId)
+        }
         globalStorageProvider.set(
             "byAccountId.$accountId.isBackupRequired",
             value = false,
             persistInstantly = IGlobalStorageProvider.PERSIST_INSTANT
         )
+    }
+
+    fun saveAccountByChain(accountId: String, byChain: JSONObject) {
+        if (byChain.length() > 0) {
+            globalStorageProvider.set(
+                "accounts.byId.$accountId.byChain",
+                byChain,
+                IGlobalStorageProvider.PERSIST_NORMAL
+            )
+        }
+    }
+
+    fun saveTemporaryAccount(accountId: String) {
+        globalStorageProvider.remove(
+            "accounts.byId.$accountId.isTemporary",
+            persistInstantly = IGlobalStorageProvider.PERSIST_INSTANT
+        )
+        temporaryAddedAccountIds.remove(accountId)
+        setActiveAccountId(accountId)
     }
 
     fun setOrderedAccountIds(accountIds: JSONArray) {
@@ -228,14 +266,24 @@ object WGlobalStorage {
             ), persistInstantly = IGlobalStorageProvider.PERSIST_INSTANT
         )
         setActiveAccountId(null)
+        setTemporaryAccountId(null)
     }
 
+    // Active account id is the permanent default account id (not pushed temporary screens)
     fun getActiveAccountId(): String? {
         return globalStorageProvider.getString(CURRENT_ACCOUNT_ID)
     }
 
     fun setActiveAccountId(id: String?) {
         globalStorageProvider.set(CURRENT_ACCOUNT_ID, id, IGlobalStorageProvider.PERSIST_INSTANT)
+    }
+
+    fun setTemporaryAccountId(id: String?) {
+        globalStorageProvider.set(
+            CURRENT_TEMPORARY_VIEW_ACCOUNT_ID,
+            id,
+            IGlobalStorageProvider.PERSIST_INSTANT
+        )
     }
 
     fun getAssetsAndActivityData(accountId: String): JSONObject? {
@@ -267,14 +315,6 @@ object WGlobalStorage {
 
     fun isBiometricActivated(): Boolean {
         return globalStorageProvider.getString(BIOMETRIC_KIND) == "native-biometrics"
-    }
-
-    fun getAccentColorId(): Int {
-        return globalStorageProvider.getInt(ACCENT_COLOR_ID) ?: 1
-    }
-
-    fun setAccentColorId(id: Int) {
-        globalStorageProvider.set(ACCENT_COLOR_ID, id, IGlobalStorageProvider.PERSIST_INSTANT)
     }
 
     fun getActiveTheme(): String {
@@ -915,5 +955,12 @@ object WGlobalStorage {
                 IGlobalStorageProvider.PERSIST_NO
             )
         }
+    }
+
+    fun getSuggestedName(accountIdsSize: Int): String {
+        return if (accountIdsSize == 0)
+            LocaleController.getString("My Wallet")
+        else
+            "${LocaleController.getString("My Wallet")} ${accountIdsSize}"
     }
 }

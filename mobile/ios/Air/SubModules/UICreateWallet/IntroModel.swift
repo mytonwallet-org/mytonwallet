@@ -151,7 +151,7 @@ private let log = Log("IntroActions")
         Task { @MainActor in
             if WalletContextManager.delegate?.isWalletReady == true {
                 topWViewController()?.dismiss(animated: true)
-                AppActions.showHome()
+                AppActions.showHome(popToRoot: true)
             } else {
                 let homeVC = HomeTabBarController()
                 AppActions.transitionToNewRootViewController(homeVC, animationDuration: 0.35)
@@ -164,7 +164,7 @@ private let log = Log("IntroActions")
     private func _createWallet(passcode: String, biometricsEnabled: Bool?) {
         Task { @MainActor in
             do {
-                _ = try await AccountStore.createWallet(network: .mainnet, words: words.orThrow(), passcode: passcode, version: nil)
+                _ = try await AccountStore.importMnemonic(network: .mainnet, words: words.orThrow(), passcode: passcode, version: nil)
                 KeychainHelper.save(biometricPasscode: passcode)
                 if let biometricsEnabled { // nil if not first wallet
                     AppStorageHelper.save(isBiometricActivated: biometricsEnabled)

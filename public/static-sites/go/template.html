@@ -1,0 +1,73 @@
+<!-- This is a template for the go page. It is used to generate the go page for each action. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Open MyTonWallet</title>
+  <meta property="og:locale" content="en_US">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="!{{TITLE}}">
+  <meta property="og:site_name" content="MyTonWallet">
+  <meta name="twitter:title" content="!{{TITLE}}">
+  <meta name="description" content="!{{DESCRIPTION}}">
+  <meta property="og:description" content="!{{DESCRIPTION}}">
+  <meta name="twitter:description" content="!{{DESCRIPTION}}">
+  <meta property="og:image" content="!{{ICON}}">
+  <meta name="twitter:image" content="!{{ICON}}">
+  <meta name="twitter:card" content="summary">
+  <link rel="stylesheet" href="/index.css">
+  <script type="module">
+    import { IS_DESKTOP, onContentReady } from '/common.js';
+
+    const {
+      pathname,
+      search,
+    } = location;
+
+    const redirectTo = `${pathname.slice(1)}${search}`;
+
+    function main() {
+      if (IS_DESKTOP) {
+        location.href = `/desktop#${redirectTo}`;
+        return;
+      }
+
+      document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('btn-sign-in').href = `mtw://${redirectTo}`;
+
+        if (!search?.includes('no-redirect')) {
+          location.href = `mtw://${redirectTo}`;
+          history.replaceState({}, '', `${pathname}${search}${search ? '&' : '?'}no-redirect`);
+        }
+      });
+
+      onContentReady();
+    }
+
+    main();
+  </script>
+</head>
+<body class="loading">
+<div class="container small-padding">
+  <h1>Open <span class="gradient-text">MyTonWallet</span></h1>
+  <info-block>
+    <p>
+      Launch the app and log into your wallet.
+    </p>
+    <a href="https://get.mytonwallet.io" target="_blank" class="download-btn">Install MyTonWallet</a>
+  </info-block>
+  <info-block>
+    <p>
+      Once you have done it, proceed by clicking the button below.
+    </p>
+    <a href="mtw://" id="btn-sign-in" class="download-btn">
+      Open MyTonWallet
+    </a>
+  </info-block>
+  <div class="footer">
+    <a href="https://mytonwallet.io">mytonwallet.io</a>
+  </div>
+</div>
+</body>
+</html>

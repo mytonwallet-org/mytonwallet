@@ -11,9 +11,14 @@ import WalletContext
 import WalletCore
 import Dependencies
 
-public struct MtwCardBalanceView: View {
+public let fontScalingFactor = max(1, UIScreen.main.bounds.width / 402.0)
+public let homeCardFontSize: CGFloat = 56 * fontScalingFactor
+public let homeCollapsedFontSize: CGFloat = 40
+
+public struct MtwCardBalanceView: View, Equatable {
     
-    public struct Style {
+    public struct Style: Equatable, Identifiable {
+        public let id: String
         public let integerFont: UIFont
         public let fractionFont: UIFont
         public let symbolFont: UIFont
@@ -25,9 +30,10 @@ public struct MtwCardBalanceView: View {
         public let sensitiveDataTheme: ShyMask.Theme
 
         public static let grid = Style(
-            integerFont: .rounded(ofSize: 19, weight: .bold),
-            fractionFont: .rounded(ofSize: 13, weight: .bold),
-            symbolFont: .rounded(ofSize: 16, weight: .bold),
+            id: "grid",
+            integerFont: .rounded(ofSize: 19 * fontScalingFactor, weight: .bold),
+            fractionFont: .rounded(ofSize: 13 * fontScalingFactor, weight: .bold),
+            symbolFont: .rounded(ofSize: 16 * fontScalingFactor, weight: .bold),
             integerColor: nil,
             fractionColor: nil,
             symbolColor: nil,
@@ -36,9 +42,10 @@ public struct MtwCardBalanceView: View {
             sensitiveDataTheme: .adaptive,
         )
         public static let homeCard = Style(
-            integerFont: .rounded(ofSize: 56, weight: .bold),
-            fractionFont: .rounded(ofSize: 40, weight: .bold),
-            symbolFont: .rounded(ofSize: 48, weight: .bold),
+            id: "homeCard",
+            integerFont: .rounded(ofSize: homeCardFontSize, weight: .bold),
+            fractionFont: .rounded(ofSize: 40 * fontScalingFactor, weight: .bold),
+            symbolFont: .rounded(ofSize: 48 * fontScalingFactor, weight: .bold),
             integerColor: nil,
             fractionColor: nil,
             symbolColor: nil,
@@ -47,9 +54,10 @@ public struct MtwCardBalanceView: View {
             sensitiveDataTheme: .light,
         )
         public static let homeCollaped = Style(
-            integerFont: .rounded(ofSize: 40, weight: .bold),
-            fractionFont: .rounded(ofSize: 33, weight: .bold),
-            symbolFont: .rounded(ofSize: 35, weight: .bold),
+            id: "homeCollaped",
+            integerFont: .rounded(ofSize: homeCollapsedFontSize, weight: .bold),
+            fractionFont: .rounded(ofSize: 28.5, weight: .bold),
+            symbolFont: .rounded(ofSize: 34, weight: .bold),
             integerColor: WTheme.primaryLabel,
             fractionColor: WTheme.secondaryLabel,
             symbolColor: WTheme.secondaryLabel,
@@ -58,9 +66,10 @@ public struct MtwCardBalanceView: View {
             sensitiveDataTheme: .adaptive,
         )
         public static let customizeWalletCard = Style(
-            integerFont: .rounded(ofSize: 40, weight: .bold),
-            fractionFont: .rounded(ofSize: 33, weight: .bold),
-            symbolFont: .rounded(ofSize: 35, weight: .bold),
+            id: "customizeWalletCard",
+            integerFont: .rounded(ofSize: 46, weight: .bold),
+            fractionFont: .rounded(ofSize: 32, weight: .bold),
+            symbolFont: .rounded(ofSize: 38, weight: .bold),
             integerColor: nil,
             fractionColor: nil,
             symbolColor: nil,
@@ -68,16 +77,22 @@ public struct MtwCardBalanceView: View {
             sensitiveDataCellSize: 18,
             sensitiveDataTheme: .light,
         )
+        
+        public static func ==(lhs: Self, rhs: Self) -> Bool {
+            lhs.id == rhs.id
+        }
     }
     
     var balance: BaseCurrencyAmount?
     var isNumericTranstionEnabled: Bool
     var style: Style
+    var secondaryOpacity: CGFloat
     
-    public init(balance: BaseCurrencyAmount?, isNumericTranstionEnabled: Bool = true, style: Style) {
+    public init(balance: BaseCurrencyAmount?, isNumericTranstionEnabled: Bool = true, style: Style, secondaryOpacity: CGFloat = 1) {
         self.balance = balance
         self.isNumericTranstionEnabled = isNumericTranstionEnabled
         self.style = style
+        self.secondaryOpacity = secondaryOpacity
     }
     
     public var body: some View {
@@ -90,8 +105,8 @@ public struct MtwCardBalanceView: View {
                         fractionFont: style.fractionFont,
                         symbolFont: style.symbolFont,
                         integerColor: style.integerColor ?? UIColor.label,
-                        fractionColor: style.fractionColor ?? UIColor.label.withAlphaComponent(0.75),
-                        symbolColor: style.symbolColor ?? UIColor.label.withAlphaComponent(0.75),
+                        fractionColor: (style.fractionColor ?? UIColor.label).withAlphaComponent(secondaryOpacity),
+                        symbolColor: (style.symbolColor ?? UIColor.label).withAlphaComponent(secondaryOpacity),
                     )
                 )
                 .contentTransition(isNumericTranstionEnabled ? .numericText() : .identity)
@@ -107,6 +122,8 @@ public struct MtwCardBalanceView: View {
             .minimumScaleFactor(0.1)
             .sensitiveData(alignment: .center, cols: 14, rows: 3, cellSize: style.sensitiveDataCellSize, theme: style.sensitiveDataTheme, cornerRadius: 12)
             .animation(.default, value: balance)
+        } else {
+            Color.clear.frame(height: 60)
         }
     }
 }

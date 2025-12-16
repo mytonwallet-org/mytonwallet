@@ -16,13 +16,9 @@ import Combine
 
 private let itemWidth: CGFloat = 274
 private let itemHeight: CGFloat = 176
-private let itemSpacing: CGFloat = 4 + itemWidth
-private let rotationSensitivity: Double = 1
-private let rotationAngle: Double = Angle.degrees(-15).radians
-//private let offsetSensitivity: Double = 1
-//private let offsetMultiplier: Double = 4
-//private let offsetMultiplier2: Double = -50
-//private let negativeHorizontalInset: CGFloat = -40
+private let itemSpacing: CGFloat = itemWidth
+private let rotationAngle: Double = Angle.degrees(-12).radians
+private let offsetAdjustment: CGFloat = -12
 
 class _AccountSelectorView: UIView, UICollectionViewDelegate {
     
@@ -30,6 +26,7 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
     var onIsScrolling: (Bool) -> ()
     var onSelect: (String) -> ()
     var selectedIdx = 0
+    var hasInitialized = false
     
     enum Section: Hashable {
         case main
@@ -61,7 +58,7 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
         
         let item = NSCollectionLayoutItem(layoutSize: .init(widthDimension: .absolute(itemWidth), heightDimension: .absolute(itemHeight)))
         
-        let group = NSCollectionLayoutGroup.vertical(layoutSize: .init(widthDimension: .absolute(itemWidth), heightDimension: .absolute(itemHeight)), subitems: [item])
+        let group = NSCollectionLayoutGroup.vertical(layoutSize: .init(.absolute(itemWidth), .absolute(itemHeight)), subitems: [item])
         
         let section = NSCollectionLayoutSection(group: group)
         section.orthogonalScrollingBehavior = .continuousGroupLeadingBoundary
@@ -70,12 +67,10 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
         }
         let inset: CGFloat = (UIScreen.main.bounds.width - itemSpacing /*- 2 * negativeHorizontalInset*/)/2
         section.contentInsets = .init(top: 0, leading: inset, bottom: 0, trailing: inset)
-        section.interGroupSpacing = 4
+        section.interGroupSpacing = 0
         
-        var date = Date()
         section.visibleItemsInvalidationHandler = { [unowned self] items, scrollOffset, env in
             guard !items.isEmpty else { return }
-            let now = Date()
             var minDistance: CGFloat = .infinity
             var minDistanceIndex = 0
             
@@ -83,7 +78,6 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
                 let idx = CGFloat(item.indexPath.row)
                 let calculatedCenterX = inset + itemSpacing/2 + idx * itemSpacing
                 let position = idx - scrollOffset.x/itemSpacing
-                let sign: CGFloat = position > 0 ? 1 : -1
                 
                 let absDistance = abs(position)
                 if absDistance < minDistance {
@@ -91,40 +85,21 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
                     minDistanceIndex = item.indexPath.row
                 }
                 
-                
-                let distance1 = position
-                let distance2 = sign * max(0, abs(distance1) - 1)
-                let offset = 0.0 // clamp(distance1 * offsetSensitivity, to: -1...1) * offsetMultiplier + distance2 * offsetMultiplier2
-
-                let angle = clamp(distance1 * rotationSensitivity, to: -1...1) * rotationAngle
-                
-                let factor: CGFloat = 0.6
-                let pivot = factor * (position > 0 ? -itemWidth : itemWidth)
+                let angle = clamp(position, to: -1...1) * rotationAngle
+                let offset = clamp(position, to: -1...1) * offsetAdjustment
                 
                 var t = CATransform3DIdentity
                 t.m34 = -1.0 / 150.0
-//                t = CATransform3DTranslate(t, pivot, 0, 0)
                 t = CATransform3DRotate(t, angle, 0, 1, 0)
-//                t = CATransform3DTranslate(t, -pivot, 0, 0)
-//                t = CATransform3DScale(t, 1 - abs(position) * 0.5, 1 - abs(position) * 0.5, 0)
-                
-//                t = CATransform3DTranslate(t, offset, 0, 0)
-//
-                
-//                item.transform = .identity.translatedBy(x: offset, y: 0)
                 item.transform3D = t
                 
-//                item.zIndex = -Int(position)
-                
-//                item.center.x = calculatedCenterX + offset
+                item.center.x = calculatedCenterX + offset
             }
-            date = now
             
             self.updateFocusedItem(idx: minDistanceIndex)
             scrollingUpdates.send(minDistance > 1e-3)
         }
-        
-        
+                
         let layout = UICollectionViewCompositionalLayout(section: section)
         
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
@@ -163,8 +138,9 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
         addSubview(collectionView)
         collectionView.translatesAutoresizingMaskIntoConstraints = false
         collectionView.backgroundColor = .clear
-        collectionView.clipsToBounds = true
+        collectionView.clipsToBounds = false
         collectionView.isScrollEnabled = false
+        collectionView.delegate = self
         
         scrollingUpdates
             .sink { [unowned self] isScrolling in
@@ -211,8 +187,11 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
     
     func updateFocusedItem(idx: Int) {
         if idx != selectedIdx {
-            UISelectionFeedbackGenerator().selectionChanged()
+            if hasInitialized {
+                Haptics.play(.selection)
+            }
             selectedIdx = idx
+            hasInitialized = true
             if case .coverFlowItem(let id) = dataSource.itemIdentifier(for: IndexPath(item: idx, section: 0)) {
                 onSelect(id)
             }
@@ -224,6 +203,9 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
     }
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        if case .coverFlowItem(let id) = dataSource?.itemIdentifier(for: indexPath) {
+            scrollTo(id, animated: true)
+        }
     }
     
     func scrollTo(_ id: String, animated: Bool) {

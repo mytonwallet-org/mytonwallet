@@ -46,6 +46,7 @@ class PriceWidgetConfigurationVC(
     override val onResult: (ok: Boolean) -> Unit
 ) :
     WidgetConfigurationVC(context), WalletCore.EventObserver {
+    override val TAG = "PriceWidgetConfiguration"
 
     override val shouldDisplayTopBar = false
 

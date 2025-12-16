@@ -28,12 +28,23 @@ public func langMd(_ keyAndDefault: String, arg1: any CVarArg) -> LocalizedStrin
     LocalizedStringKey(String(format: lang(keyAndDefault), arg1))
 }
 
-public func langFormattedEnumeration(
-    items: [String],
-    joiner: String = "and"
-) -> String {
+public enum EnumerationJoiner {
+    case and
+    case or
+    
+    var localizedValue: String {
+        switch self {
+        case .and:
+            lang("$joining_and")
+        case .or:
+            lang("$joining_or")
+        }
+    }
+}
+
+public func langJoin(_ items: [String], _ joiner: EnumerationJoiner) -> String {
     let middleJoiner = lang("$joining_comma")
-    let lastJoiner = lang(joiner == "and" ? "$joining_and" : "$joining_or")
+    let lastJoiner = joiner.localizedValue
 
     var result = ""
     for (i, item) in items.enumerated() {

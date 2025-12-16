@@ -90,6 +90,10 @@ open class WalletCustomizationCardsView(
                 val index = accounts.indexOfFirst { it.accountId == selectedAccountId }
                 if (index != -1) {
                     layoutManagerH.scrollToPosition(index)
+                    if (index == 0)
+                        post {
+                            scrollListener.onScrolled(this@WalletCustomizationCardsView, 0, 0)
+                        }
                 }
             }
         })

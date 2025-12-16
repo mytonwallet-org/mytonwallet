@@ -7,7 +7,7 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.api.activateAccount
-import org.mytonwallet.app_air.walletcore.api.createWallet
+import org.mytonwallet.app_air.walletcore.api.importWallet
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
@@ -30,7 +30,7 @@ class WalletCreationVM(delegate: Delegate) {
         biometricsActivated: Boolean?,
         retriesLeft: Int
     ) {
-        WalletCore.createWallet(words, passcode) { account, error ->
+        WalletCore.importWallet(words, passcode, true) { account, error ->
             if (account == null || error != null) {
                 if (retriesLeft > 0) {
                     finalizeAccount(window, words, passcode, biometricsActivated, retriesLeft)

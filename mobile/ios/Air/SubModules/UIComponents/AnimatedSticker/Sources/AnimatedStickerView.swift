@@ -104,7 +104,10 @@ private final class AnimatedStickerCachedFrameSource: AnimatedStickerFrameSource
         var frameRate = 0
         var frameCount = 0
         
-        if !self.data.withUnsafeBytes({ (bytes: UnsafePointer<UInt8>) -> Bool in
+        if !self.data.withUnsafeBytes({ (buffer: UnsafeRawBufferPointer) -> Bool in
+            guard let bytes = buffer.bindMemory(to: UInt8.self).baseAddress else {
+                return false
+            }
             var frameRateValue: Int32 = 0
             var frameCountValue: Int32 = 0
             var widthValue: Int32 = 0
@@ -145,7 +148,10 @@ private final class AnimatedStickerCachedFrameSource: AnimatedStickerFrameSource
         self.decodeBuffer = Data(count: self.bytesPerRow * height)
         self.frameBuffer = Data(count: self.bytesPerRow * height)
         let frameBufferLength = self.frameBuffer.count
-        self.frameBuffer.withUnsafeMutableBytes { (bytes: UnsafeMutablePointer<UInt8>) -> Void in
+        self.frameBuffer.withUnsafeMutableBytes { (buffer: UnsafeMutableRawBufferPointer) in
+            guard let bytes = buffer.bindMemory(to: UInt8.self).baseAddress else {
+                return
+            }
             memset(bytes, 0, frameBufferLength)
         }
     }
@@ -164,12 +170,18 @@ private final class AnimatedStickerCachedFrameSource: AnimatedStickerFrameSource
         
         let frameIndex = self.frameIndex
         
-        self.data.withUnsafeBytes { (bytes: UnsafePointer<UInt8>) -> Void in
+        self.data.withUnsafeBytes { (buffer: UnsafeRawBufferPointer) in
+            guard let bytes = buffer.bindMemory(to: UInt8.self).baseAddress else {
+                return
+            }
             if self.offset + 4 > dataLength {
                 if self.dataComplete {
                     self.frameIndex = 0
                     self.offset = self.initialOffset
-                    self.frameBuffer.withUnsafeMutableBytes { (bytes: UnsafeMutablePointer<UInt8>) -> Void in
+                    self.frameBuffer.withUnsafeMutableBytes { (buffer: UnsafeMutableRawBufferPointer) in
+                        guard let bytes = buffer.bindMemory(to: UInt8.self).baseAddress else {
+                            return
+                        }
                         memset(bytes, 0, frameBufferLength)
                     }
                 }
@@ -185,9 +197,18 @@ private final class AnimatedStickerCachedFrameSource: AnimatedStickerFrameSource
             
             self.offset += 4
             
-            self.scratchBuffer.withUnsafeMutableBytes { (scratchBytes: UnsafeMutablePointer<UInt8>) -> Void in
-                self.decodeBuffer.withUnsafeMutableBytes { (decodeBytes: UnsafeMutablePointer<UInt8>) -> Void in
-                    self.frameBuffer.withUnsafeMutableBytes { (frameBytes: UnsafeMutablePointer<UInt8>) -> Void in
+            self.scratchBuffer.withUnsafeMutableBytes { (scratchBuffer: UnsafeMutableRawBufferPointer) in
+                guard let scratchBytes = scratchBuffer.bindMemory(to: UInt8.self).baseAddress else {
+                    return
+                }
+                self.decodeBuffer.withUnsafeMutableBytes { (decodeBuffer: UnsafeMutableRawBufferPointer) in
+                    guard let decodeBytes = decodeBuffer.bindMemory(to: UInt8.self).baseAddress else {
+                        return
+                    }
+                    self.frameBuffer.withUnsafeMutableBytes { (frameBuffer: UnsafeMutableRawBufferPointer) in
+                        guard let frameBytes = frameBuffer.bindMemory(to: UInt8.self).baseAddress else {
+                            return
+                        }
                         compression_decode_buffer(decodeBytes, decodeBufferLength, bytes.advanced(by: self.offset), Int(frameLength), UnsafeMutableRawPointer(scratchBytes), COMPRESSION_LZFSE)
                         
                         var lhs = UnsafeMutableRawPointer(frameBytes).assumingMemoryBound(to: UInt64.self)
@@ -216,7 +237,10 @@ private final class AnimatedStickerCachedFrameSource: AnimatedStickerFrameSource
                 isLastFrame = true
                 self.frameIndex = 0
                 self.offset = self.initialOffset
-                self.frameBuffer.withUnsafeMutableBytes { (bytes: UnsafeMutablePointer<UInt8>) -> Void in
+                self.frameBuffer.withUnsafeMutableBytes { (buffer: UnsafeMutableRawBufferPointer) in
+                    guard let bytes = buffer.bindMemory(to: UInt8.self).baseAddress else {
+                        return
+                    }
                     memset(bytes, 0, frameBufferLength)
                 }
             }
@@ -276,7 +300,10 @@ private final class AnimatedStickerDirectFrameSource: AnimatedStickerFrameSource
         frameIndex = self.currentFrame % self.frameCount
         self.currentFrame += playbackSpeed
         var frameData = Data(count: self.bytesPerRow * self.height)
-        frameData.withUnsafeMutableBytes { (bytes: UnsafeMutablePointer<UInt8>) -> Void in
+        frameData.withUnsafeMutableBytes { (buffer: UnsafeMutableRawBufferPointer) in
+            guard let bytes = buffer.bindMemory(to: UInt8.self).baseAddress else {
+                return
+            }
             memset(bytes, 0, self.bytesPerRow * self.height)
             self.animation.renderFrame(with: Int32(frameIndex), into: bytes, width: Int32(self.width), height: Int32(self.height), bytesPerRow: Int32(self.bytesPerRow))
         }

@@ -87,7 +87,7 @@ class ConnectedAppsCell(context: Context) :
         addView(imageView)
         addView(titleLabel, LayoutParams(0, WRAP_CONTENT))
         addView(subtitleLabel, LayoutParams(0, 22.dp))
-        addView(separatorView, LayoutParams(0, 1))
+        addView(separatorView, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
         setConstraints {
             toCenterY(imageView, 12f)
             toStart(imageView, 16f)

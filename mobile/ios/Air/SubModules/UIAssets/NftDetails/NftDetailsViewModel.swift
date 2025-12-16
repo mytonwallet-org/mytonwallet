@@ -25,6 +25,8 @@ final class NftDetailsViewModel: ObservableObject {
     
     var isAnimating: Bool { isAnimatingSince != nil }
     
+    var accountId: String
+    
     let listContextProvider: NftListContextProvider
     
     var state: State {
@@ -37,12 +39,17 @@ final class NftDetailsViewModel: ObservableObject {
     
     weak var viewController: NftDetailsVC?
     
-    init(isExpanded: Bool = true, isFullscreenPreviewOpen: Bool = false, nft: ApiNft, listContext: NftCollectionFilter, navigationBarInset: CGFloat) {
+    init(accountId: String, isExpanded: Bool = true, isFullscreenPreviewOpen: Bool = false, nft: ApiNft, listContext: NftCollectionFilter, navigationBarInset: CGFloat) {
+        self.accountId = accountId
         self.isExpanded = isExpanded
         self.isFullscreenPreviewOpen = isFullscreenPreviewOpen
         self.nft = nft
-        self.listContextProvider = NftListContextProvider(filter: listContext)
+        self.listContextProvider = NftListContextProvider(accountId: accountId,  filter: listContext)
         self.navigationBarInset = navigationBarInset
+    }
+    
+    var collapsedTopInset: CGFloat {
+        44 + safeAreaInsets.top + (IOS_26_MODE_ENABLED ? -52 : 0)
     }
     
     var onHeightChange: (CGFloat) -> () = { _ in }
@@ -64,7 +71,7 @@ final class NftDetailsViewModel: ObservableObject {
     
     func onImageLongTap() {
         if !isExpanded && !isFullscreenPreviewOpen {
-            UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+            Haptics.play(.drag)
             withAnimation(.spring(duration: 0.3)) {
                 isFullscreenPreviewOpen = true
             }

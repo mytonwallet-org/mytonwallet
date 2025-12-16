@@ -33,7 +33,6 @@ struct CustomizeWalletView: View {
         }
         .backportSafeAreaPadding(.bottom, 32)
         .scrollIndicators(.hidden)
-        .background(Color.air.sheetBackground)
     }
 }
 
@@ -41,11 +40,12 @@ struct GetMoreCardsSection: View {
     var body: some View {
         InsetSection {
             InsetButtonCell(action: onUnlockNew) {
-                HStack(spacing: 10) {
+                HStack(spacing: 19) {
                     Image(systemName: "plus.circle")
+                        .imageScale(.large)
                     Text(lang("Get More Cards"))
-                        .foregroundStyle(Color.accentColor)
                 }
+                .foregroundStyle(.tint)
             }
         } header: {} footer: {
             Text(lang("Browse MyTonWallet Cards available for purchase."))

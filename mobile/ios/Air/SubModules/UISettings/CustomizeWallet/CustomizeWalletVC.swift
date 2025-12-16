@@ -36,6 +36,7 @@ public final class CustomizeWalletVC: WViewController {
         addCloseNavigationItemIfNeeded()
         
         hostingController = addHostingController(makeView(), constraints: .fill)
+        hostingController?.view.backgroundColor = isPresentationModal ? WTheme.sheetBackground : WTheme.groupedBackground
     }
     
     func makeView() -> CustomizeWalletView {

@@ -19,20 +19,20 @@ let borderWidth = 1.5
 
 struct WalletSettingsGridCell: View {
     
-    let viewModel: WalletSettingsItemViewModel
+    let viewModel: AccountViewModel
     
     var body: some View {
         WithPerceptionTracking {
             VStack(spacing: 7) {
                 MtwCard(aspectRatio: SMALL_CARD_RATIO)
                     .background {
-                        MtwCardBackground(nft: viewModel.cardProvider.nft, hideBorder: true)
+                        MtwCardBackground(nft: viewModel.nft, hideBorder: true)
                     }
                     .overlay {
                         _BalanceView(viewModel: viewModel)
                     }
                     .overlay(alignment: .bottom) {
-                        GridAddressLine(addressLine: viewModel.account.addressLine)
+                        GridAddressLine(addressLine: viewModel.account.addressLine, nft: viewModel.nft)
                             .foregroundStyle(.white)
                             .padding(8)
                         
@@ -55,7 +55,7 @@ struct WalletSettingsGridCell: View {
 
 private struct _BalanceView: View {
     
-    var viewModel: WalletSettingsItemViewModel
+    var viewModel: AccountViewModel
     
     var body: some View {
         WithPerceptionTracking {
@@ -64,7 +64,9 @@ private struct _BalanceView: View {
                 .padding(.leading, 6)
                 .padding(.trailing, 5)
                 .padding(.bottom, 6)
-                .sourceAtop(MtwCardForegroundStyle(nft: viewModel.cardProvider.nft))
+                .sourceAtop {
+                    MtwCardBalanceGradient(nft: viewModel.nft)
+                }
         }
     }
 }
@@ -72,8 +74,9 @@ private struct _BalanceView: View {
 private struct GridAddressLine: View {
     
     var addressLine: MAccount.AddressLine
+    var nft: ApiNft?
     
     var body: some View {
-        MtwCardAddressLine(addressLine: addressLine, style: .card)
+        MtwCardAddressLine(addressLine: addressLine, style: .card, gradient: MtwCardCenteredGradient(nft: nft))
     }
 }

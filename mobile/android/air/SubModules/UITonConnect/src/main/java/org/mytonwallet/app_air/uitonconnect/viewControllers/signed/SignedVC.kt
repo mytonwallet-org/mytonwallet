@@ -17,6 +17,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 class SignedVC(context: Context) : WViewController(context) {
+    override val TAG = "Signed"
 
     override val isBackAllowed: Boolean = false
 

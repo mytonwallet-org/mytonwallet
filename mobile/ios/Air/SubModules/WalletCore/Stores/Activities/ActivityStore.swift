@@ -85,7 +85,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         case .newActivities(let update):
             handleNewActivities(update: update)
         case .newLocalActivity(let update):
-            await handleNewLocalActivities(update: update)
+            handleNewLocalActivities(update: update)
         default:
             break
         }
@@ -470,7 +470,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
             $0.idsBySlug = idsBySlug
             $0.newestActivitiesBySlug = newestActivitiesBySlug
             $0.localActivityIds = localActivityIds
-            if let chain {
+            if chain != nil {
                 $0.pendingActivityIds = pendingIds
             }
         }

@@ -85,17 +85,13 @@ function SwapSubmitButton({
   if (isTouched) {
     if (isErrorExist) {
       text = errorMsgByType[errorType] as string;
-    } else if (nativeToken) {
-      if (isNotEnoughNative && tokenIn?.chain === 'ton' && tokenIn?.tokenAddress) {
-        if (dieselStatus === 'not-available') {
-          text = lang('Not Enough %symbol%', { symbol: 'TON' }) as string;
-        } else if (dieselStatus === 'pending-previous') {
-          text = lang('Awaiting Previous Fee');
-        } else if (dieselStatus === 'not-authorized') {
-          text = lang('Authorize %token% Fee', { token: tokenIn?.symbol }) as string;
-        }
-      } else if (isNotEnoughNative) {
+    } else if (tokenIn?.tokenAddress && isNotEnoughNative) {
+      if (dieselStatus === 'not-available') {
         text = lang('Not Enough %symbol%', { symbol: nativeToken?.symbol }) as string;
+      } else if (dieselStatus === 'pending-previous') {
+        text = lang('Awaiting Previous Fee');
+      } else if (dieselStatus === 'not-authorized') {
+        text = lang('Authorize %token% Fee', { token: tokenIn?.symbol }) as string;
       }
     }
   }

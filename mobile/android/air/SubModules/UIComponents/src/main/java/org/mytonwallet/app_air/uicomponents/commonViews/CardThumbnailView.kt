@@ -2,19 +2,21 @@ package org.mytonwallet.app_air.uicomponents.commonViews
 
 import android.content.Context
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
-import android.widget.FrameLayout
 import androidx.core.view.isGone
+import com.facebook.drawee.drawable.ScalingUtils
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 
-class CardThumbnailView(context: Context) : FrameLayout(context) {
+class CardThumbnailView(context: Context) : WFrameLayout(context) {
 
     private var cardNft: ApiNft? = null
 
@@ -29,33 +31,64 @@ class CardThumbnailView(context: Context) : FrameLayout(context) {
         style = Paint.Style.FILL
         alpha = (255 * 0.6f).toInt()
     }
+    private val borderPaint: Paint by lazy {
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            color = Color.WHITE
+            strokeWidth = 1f.dp
+        }
+    }
 
     private var primaryColor: Int = 0
     private var secondaryColor: Int = 0
+    var showBorder: Boolean = false
+        set(value) {
+            field = value
+            imageView.layoutParams = (imageView.layoutParams as MarginLayoutParams).apply {
+                val borderWidth = borderPaint.strokeWidth.toInt()
+                leftMargin = borderWidth
+                topMargin = borderWidth
+                rightMargin = borderWidth
+                bottomMargin = borderWidth
+            }
+            invalidate()
+        }
 
     private val rect = RectF()
     private val cornerRadius = 2f.dp
+    private val borderRadius = 3f.dp
 
     init {
-        id = generateViewId()
         setWillNotDraw(false)
         addView(imageView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
     }
 
-    fun configure(account: MAccount?) {
+    fun configure(account: MAccount?, showDefaultCard: Boolean = false) {
         cardNft =
             account?.accountId?.let { activeAccountId ->
                 WGlobalStorage.getCardBackgroundNft(activeAccountId)
                     ?.let { ApiNft.fromJson(it) }
             }
         cardNft?.metadata?.cardImageUrl(true)?.let { url ->
-            imageView.set(Content.ofUrl(url))
+            imageView.set(
+                Content.ofUrl(url).copy(scaleType = ScalingUtils.ScaleType.FIT_XY)
+            )
             val colors = cardNft?.metadata?.mtwCardColors ?: return@let
             updateMiniPlaceholderColors(colors.first, colors.second)
             isGone = false
         } ?: run {
             imageView.clear()
-            isGone = true
+            if (showDefaultCard) {
+                imageView.set(
+                    Content(
+                        Content.Image.Res(org.mytonwallet.app_air.uicomponents.R.drawable.img_card),
+                        scaleType = ScalingUtils.ScaleType.FIT_XY
+                    ),
+                )
+                updateMiniPlaceholderColors(Color.WHITE, Color.WHITE)
+            } else {
+                isGone = true
+            }
         }
     }
 
@@ -71,6 +104,14 @@ class CardThumbnailView(context: Context) : FrameLayout(context) {
     override fun dispatchDraw(canvas: Canvas) {
         super.dispatchDraw(canvas)
         drawMiniPlaceholders(canvas)
+        drawBorder(canvas)
+    }
+
+    private fun drawBorder(canvas: Canvas) {
+        if (!showBorder) return
+        val halfStroke = borderPaint.strokeWidth / 2
+        rect.set(halfStroke, halfStroke, width - halfStroke, height - halfStroke)
+        canvas.drawRoundRect(rect, borderRadius, borderRadius, borderPaint)
     }
 
     private fun drawMiniPlaceholders(canvas: Canvas) {

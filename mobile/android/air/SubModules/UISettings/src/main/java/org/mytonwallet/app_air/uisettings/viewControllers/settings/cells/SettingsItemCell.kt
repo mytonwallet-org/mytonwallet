@@ -67,7 +67,7 @@ class SettingsItemCell(context: Context, textLeadingMargin: Float = 68f) : WCell
         addView(iconView, LayoutParams(40.dp, 40.dp))
         addView(titleLabel)
         addView(valueLabel)
-        addView(separatorView, LayoutParams(0, 1))
+        addView(separatorView, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
 
         setConstraints {
             toStart(iconView, 16f)

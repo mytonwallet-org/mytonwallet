@@ -185,11 +185,8 @@ export function renameAccount(global: GlobalState, accountId: string, title: str
 }
 
 export function createAccountsFromGlobal(global: GlobalState, isMnemonicImported = false): GlobalState {
-  const { firstNetworkAccount, secondNetworkAccount } = global.auth;
-
-  global = createAccount({ global, type: 'mnemonic', ...firstNetworkAccount!, isMnemonicImported });
-  if (secondNetworkAccount) {
-    global = createAccount({ global, type: 'mnemonic', ...secondNetworkAccount, isMnemonicImported });
+  for (const account of global.auth.accounts ?? []) {
+    global = createAccount({ global, type: 'mnemonic', ...account, isMnemonicImported });
   }
 
   return global;
@@ -407,5 +404,18 @@ export function updateCurrencyRates(global: GlobalState, rates: ApiCurrencyRates
   return {
     ...global,
     currencyRates: rates,
+  };
+}
+
+export function updateCurrentTransactionInfo(
+  global: GlobalState,
+  partial: Partial<GlobalState['currentTransactionInfo']>,
+): GlobalState {
+  return {
+    ...global,
+    currentTransactionInfo: {
+      ...global.currentTransactionInfo,
+      ...partial,
+    },
   };
 }

@@ -144,21 +144,14 @@ public class WButton: WBaseButton, WThemedView {
     }
 
     // used to place a gap between the image and text
-    public func centerTextAndImage(spacing: CGFloat, additionalOffset: CGFloat = 0) {
+    public func centerTextAndImage(spacing: CGFloat) {
         switch style {
         case .primary, .secondary, .clearBackground, .none:
             let insetAmount = spacing / 2
-            let isRTL = UIView.userInterfaceLayoutDirection(for: semanticContentAttribute) == .rightToLeft
-            if isRTL {
-               imageEdgeInsets = UIEdgeInsets(top: 0, left: insetAmount, bottom: 0, right: -insetAmount)
-               titleEdgeInsets = UIEdgeInsets(top: 0, left: -insetAmount, bottom: 0, right: insetAmount)
-               contentEdgeInsets = UIEdgeInsets(top: 0, left: -insetAmount, bottom: 0, right: -insetAmount)
-            } else {
-               imageEdgeInsets = UIEdgeInsets(top: 0, left: -insetAmount, bottom: 0, right: insetAmount)
-               titleEdgeInsets = UIEdgeInsets(top: 0, left: insetAmount, bottom: 0, right: -insetAmount)
-               contentEdgeInsets = UIEdgeInsets(top: 0, left: insetAmount, bottom: 0, right: insetAmount)
-            }
-            break
+           imageEdgeInsets = UIEdgeInsets(top: 0, left: -insetAmount, bottom: 0, right: insetAmount)
+           titleEdgeInsets = UIEdgeInsets(top: 0, left: insetAmount, bottom: 0, right: -insetAmount)
+           contentEdgeInsets = UIEdgeInsets(top: 0, left: insetAmount, bottom: 0, right: insetAmount)
+
         case .accent:
             guard let imageSize = self.imageView?.image?.size,
                         let text = self.titleLabel?.text,
@@ -166,34 +159,21 @@ public class WButton: WBaseButton, WThemedView {
                         else { return }
             let labelString = NSString(string: text)
             let titleSize = labelString.size(withAttributes: [.font: font])
-            if isRTL {
-                self.titleEdgeInsets = UIEdgeInsets(top: 0.0,
+            self.titleEdgeInsets = UIEdgeInsets(top: 0,
+                                                left: -imageSize.width,
+                                                bottom: -(imageSize.height + spacing),
+                                                right: 0)
+
+            self.imageEdgeInsets = UIEdgeInsets(top: -(titleSize.height + spacing),
                                                     left: 0,
-                                                    bottom: -(imageSize.height + spacing) + additionalOffset / 2,
-                                                    right: -imageSize.width)
-            } else {
-                self.titleEdgeInsets = UIEdgeInsets(top: 0.0,
-                                                    left: -imageSize.width,
-                                                    bottom: -(imageSize.height + spacing) + additionalOffset / 2,
-                                                    right: 0.0)
-            }
-            if isRTL {
-                self.imageEdgeInsets = UIEdgeInsets(top: -(titleSize.height + spacing) + additionalOffset / 4,
-                                                    left: -titleSize.width,
-                                                    bottom: additionalOffset / 4,
-                                                    right: 0.0)
-            } else {
-                self.imageEdgeInsets = UIEdgeInsets(top: -(titleSize.height + spacing) + additionalOffset / 4,
-                                                    left: 0.0,
-                                                    bottom: additionalOffset / 4,
+                                                    bottom: 0,
                                                     right: -titleSize.width)
-            }
+            
             let edgeOffset = abs(titleSize.height - imageSize.height) / 2.0;
-            self.contentEdgeInsets = UIEdgeInsets(top: edgeOffset + additionalOffset,
-                                                  left: 0.0,
-                                                  bottom: edgeOffset + additionalOffset,
-                                                  right: 0.0)
-            break
+            self.contentEdgeInsets = UIEdgeInsets(top: edgeOffset,
+                                                  left: 0,
+                                                  bottom: edgeOffset,
+                                                  right: 0)
         }
     }
 

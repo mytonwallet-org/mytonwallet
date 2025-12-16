@@ -367,12 +367,12 @@ final class TokenExpandableChartView: UIView, WThemedView {
 
             let percentChange: Double?
             if let firstPriceInChart, let lastPriceInChart {
-                percentChange = round(10000 * (lastPriceInChart - firstPriceInChart) / firstPriceInChart) / 100
+                percentChange = (lastPriceInChart - firstPriceInChart) / firstPriceInChart
             } else {
                 percentChange = nil
             }
             if let percentChange {
-                let percent = NSAttributedString(string: "\(percentChange > 0 ? "+" : "")\(percentChange)%", attributes: [
+                let percent = NSAttributedString(string: formatPercent(percentChange), attributes: [
                     .font: UIFont.systemFont(ofSize: 14),
                     .foregroundColor: percentChange > 0 ? WTheme.positiveAmount : (percentChange == 0 ? WTheme.secondaryLabel : WTheme.negativeAmount)
                 ])
@@ -386,7 +386,7 @@ final class TokenExpandableChartView: UIView, WThemedView {
             if let firstPriceInChart = historyData?.first(where: { val in
                 val[1] != 0
             })?[1] {
-                percentChange = round(10000 * ((token.price ?? 0) - firstPriceInChart) / firstPriceInChart) / 100
+                percentChange = ((token.price ?? 0) - firstPriceInChart) / firstPriceInChart
             } else {
                 percentChange = nil
             }
@@ -400,7 +400,7 @@ final class TokenExpandableChartView: UIView, WThemedView {
             priceValueLabel.attributedText = attr
 
             if let percentChange {
-                let percent = NSAttributedString(string: "\(percentChange > 0 ? "+" : "")\(percentChange)%", attributes: [
+                let percent = NSAttributedString(string: formatPercent(percentChange), attributes: [
                     .font: UIFont.systemFont(ofSize: 14),
                     .foregroundColor: percentChange > 0 ? WTheme.positiveAmount : (percentChange == 0 ? WTheme.secondaryLabel : WTheme.negativeAmount)
                 ])

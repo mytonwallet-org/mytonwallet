@@ -141,12 +141,10 @@ async function getTrxTransactions(
   return result.data;
 }
 
-function parseRawTrxTransaction(address: string, rawTx: any): ApiTransactionActivity {
+export function parseRawTrxTransaction(address: string, rawTx: any): ApiTransactionActivity {
   const {
     raw_data: rawData,
     txID: txId,
-    energy_fee: energyFee,
-    net_fee: netFee,
     block_timestamp: timestamp,
   } = rawTx;
 
@@ -160,7 +158,7 @@ function parseRawTrxTransaction(address: string, rawTx: any): ApiTransactionActi
   const slug = TRX.slug;
   const isIncoming = toAddress === address;
   const normalizedAddress = isIncoming ? fromAddress : toAddress;
-  const fee = BigInt(energyFee + netFee);
+  const fee = BigInt(rawTx.ret?.[0].fee ?? 0);
   const type = rawData.contract[0].type === 'TriggerSmartContract' ? 'callContract' : undefined;
   const shouldHide = rawData.contract[0].type === 'TransferAssetContract';
 
@@ -181,7 +179,7 @@ function parseRawTrxTransaction(address: string, rawTx: any): ApiTransactionActi
   });
 }
 
-async function getTrc20Transactions(
+export async function getTrc20Transactions(
   network: ApiNetwork,
   address: string,
   queryParams: {
@@ -205,7 +203,7 @@ async function getTrc20Transactions(
   return result.data;
 }
 
-function parseRawTrc20Transaction(address: string, rawTx: any): ApiTransactionActivity {
+export function parseRawTrc20Transaction(address: string, rawTx: any): ApiTransactionActivity {
   const {
     transaction_id: txId,
     block_timestamp: timestamp,

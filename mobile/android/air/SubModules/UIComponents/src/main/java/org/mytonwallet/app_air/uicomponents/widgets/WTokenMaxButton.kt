@@ -10,14 +10,15 @@ import android.view.View
 import android.view.ViewGroup
 import org.mytonwallet.app_air.uicomponents.drawable.counter.Counter
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.ViewHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import kotlin.math.roundToInt
 
 class WTokenMaxButton(context: Context) : View(context), Counter.Callback, WThemedView,
@@ -137,10 +138,7 @@ class WTokenMaxButton(context: Context) : View(context), Counter.Callback, WThem
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         super.onMeasure(
-            MeasureSpec.makeMeasureSpec(
-                counter.requiredWidth + paddingLeft + paddingRight + GAP.dp + maxStaticLayout.width,
-                MeasureSpec.EXACTLY
-            ),
+            (counter.requiredWidth + paddingLeft + paddingRight + GAP.dp + maxStaticLayout.width).exactly,
             heightMeasureSpec
         )
     }

@@ -7,12 +7,15 @@ import android.text.TextUtils
 import android.text.style.ForegroundColorSpan
 import android.view.Gravity
 import android.view.View
-import android.widget.FrameLayout
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
+import org.mytonwallet.app_air.uicomponents.extensions.atMost
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.exactly
+import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -32,7 +35,7 @@ import java.math.BigInteger
 import kotlin.math.abs
 import kotlin.math.max
 
-class ActivityAmountView(context: Context) : FrameLayout(context), WThemedView, WProtectedView {
+class ActivityAmountView(context: Context) : WFrameLayout(context), WThemedView, WProtectedView {
 
     private val amountLabel = WSensitiveDataContainer(
         WLabel(context).apply {
@@ -55,7 +58,6 @@ class ActivityAmountView(context: Context) : FrameLayout(context), WThemedView, 
     private val secondIconView = WCustomImageView(context)
 
     init {
-        id = generateViewId()
         addView(amountLabel)
         addView(mainIconView)
         addView(borderView)
@@ -250,20 +252,9 @@ class ActivityAmountView(context: Context) : FrameLayout(context), WThemedView, 
 
         val maxAmountLabelWidth = totalAvailableWidth - reservedWidth
 
-        amountLabel.measure(
-            MeasureSpec.makeMeasureSpec(maxAmountLabelWidth, MeasureSpec.AT_MOST),
-            MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
-        )
-
-        mainIconView.measure(
-            MeasureSpec.makeMeasureSpec(iconWidth, MeasureSpec.EXACTLY),
-            MeasureSpec.makeMeasureSpec(iconWidth, MeasureSpec.EXACTLY)
-        )
-
-        secondIconView.measure(
-            MeasureSpec.makeMeasureSpec(iconWidth, MeasureSpec.EXACTLY),
-            MeasureSpec.makeMeasureSpec(iconWidth, MeasureSpec.EXACTLY)
-        )
+        amountLabel.measure(maxAmountLabelWidth.atMost, 0.unspecified)
+        mainIconView.measure(iconWidth.exactly, iconWidth.exactly)
+        secondIconView.measure(iconWidth.exactly, iconWidth.exactly)
 
         val totalWidth = paddingLeft + amountLabel.measuredWidth + spacingBetweenViews +
             mainIconView.measuredWidth + paddingRight + secondIconOffset

@@ -63,18 +63,20 @@ interface StateProps {
 }
 
 export const enum AccountTab {
-  My = 0,
-  All = 1,
+  All = 0,
+  My = 1,
   Ledger = 2,
   View = 3,
 }
 
 export const TAB_TITLES = {
-  [AccountTab.My]: 'My',
   [AccountTab.All]: 'All',
+  [AccountTab.My]: 'My',
   [AccountTab.Ledger]: 'Ledger',
   [AccountTab.View]: '$view_accounts',
 };
+
+const DEFAULT_TAB = AccountTab.All;
 
 function AccountSelectorModal({
   isOpen,
@@ -87,7 +89,7 @@ function AccountSelectorModal({
   tokenInfo,
   stakingDefault,
   settingsByAccountId,
-  activeTab = AccountTab.My,
+  activeTab = DEFAULT_TAB,
   viewModeInitial,
   isSortByValueEnabled,
   areTokensWithNoCostHidden,
@@ -143,8 +145,8 @@ function AccountSelectorModal({
 
   const tabs = useMemo((): TabWithProperties[] => {
     const result: TabWithProperties[] = [
-      { id: AccountTab.My, title: lang(TAB_TITLES[AccountTab.My]) },
       { id: AccountTab.All, title: lang(TAB_TITLES[AccountTab.All]) },
+      { id: AccountTab.My, title: lang(TAB_TITLES[AccountTab.My]) },
     ];
 
     if (IS_LEDGER_SUPPORTED && !isTestnet) {
@@ -160,7 +162,7 @@ function AccountSelectorModal({
 
     return idx >= 0 ? idx : 0;
   }, [activeTab, tabs]);
-  const selectedTab = (tabs[currentTabIndex]?.id as AccountTab) ?? AccountTab.My;
+  const selectedTab = (tabs[currentTabIndex]?.id as AccountTab) ?? DEFAULT_TAB;
 
   const {
     isScrolled,
@@ -206,7 +208,7 @@ function AccountSelectorModal({
     void vibrate();
     handleCloseAccountSelectorForced();
 
-    const selectedTabId = tabs[currentTabIndex]?.id as AccountTab ?? AccountTab.My;
+    const selectedTabId = tabs[currentTabIndex]?.id as AccountTab ?? DEFAULT_TAB;
     let initialState: typeof ADD_LEDGER_ACCOUNT | typeof ADD_VIEW_ACCOUNT | undefined;
     if (selectedTabId === AccountTab.Ledger && IS_LEDGER_SUPPORTED && !isTestnet) {
       initialState = ADD_LEDGER_ACCOUNT;

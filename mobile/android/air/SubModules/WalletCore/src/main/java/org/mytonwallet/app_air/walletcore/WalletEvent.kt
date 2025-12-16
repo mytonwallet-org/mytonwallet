@@ -34,16 +34,23 @@ sealed class WalletEvent {
     ) : WalletEvent()
 
     data object ReceivedNewNFT : WalletEvent()
+
+    // TODO:: Merge these 2 account change events
     data class AccountChanged(
         val accountId: String? = null,
-        val fromHome: Boolean = false
+        val fromHome: Boolean = false,
+        val isSavingTemporaryAccount: Boolean = false,
     ) : WalletEvent()
+
+    data class AccountChangedInApp(val persistedAccountsModified: Boolean) : WalletEvent()
+
+    data class AccountRemoved(val accountId: String) : WalletEvent()
 
     data object AccountNameChanged : WalletEvent()
     data object AccountsReordered : WalletEvent()
     data object AccountSavedAddressesChanged : WalletEvent()
     data object AddNewWalletCompletion : WalletEvent()
-    data class AccountChangedInApp(val accountsModified: Boolean) : WalletEvent()
+    data class TemporaryAccountSaved(val accountId: String) : WalletEvent()
     data object AccountWillChange : WalletEvent()
     data object DappsCountUpdated : WalletEvent()
     data class DappRemoved(val dapp: ApiDapp) : WalletEvent()
@@ -81,4 +88,5 @@ sealed class WalletEvent {
 
     data object NftsReordered : WalletEvent()
     data object HomeNftCollectionsUpdated : WalletEvent()
+    data object ByChainUpdated : WalletEvent()
 }

@@ -81,7 +81,7 @@ class SearchDappCell(context: Context, private val onTap: (site: IDapp) -> Unit)
         addView(titleLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(subtitleLabel, LayoutParams(0, WRAP_CONTENT))
         addView(openButton, LayoutParams(WRAP_CONTENT, 28.dp))
-        addView(separatorView, LayoutParams(0, 1))
+        addView(separatorView, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
         setConstraints {
             toStart(dappImageView, 18f)
             toCenterY(dappImageView)

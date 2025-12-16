@@ -112,7 +112,7 @@ final class WalletSettingsListVC: WViewController, WSegmentedControllerContent, 
     
     func makeDataSource(collectionView: UICollectionView) -> UICollectionViewDiffableDataSource<Section, Item> {
         let gridCellRegistration = UICollectionView.CellRegistration<UICollectionViewCell, String> { cell, _, walletId in
-            let viewModel = WalletSettingsItemViewModel(accountId: walletId)
+            let viewModel = AccountViewModel(accountId: walletId)
             cell.configurationUpdateHandler = { cell, state in
                 cell.contentConfiguration = UIHostingConfiguration {
                     WalletSettingsGridCell(viewModel: viewModel)
@@ -226,7 +226,7 @@ final class WalletSettingsListVC: WViewController, WSegmentedControllerContent, 
                 Task {
                     _ = try await accountStore.activateAccount(accountId: accountId)
                     topViewController()?.dismiss(animated: true)
-                    AppActions.showHome()
+                    AppActions.showHome(popToRoot: true)
                 }
             } else {
                 topViewController()?.dismiss(animated: true)

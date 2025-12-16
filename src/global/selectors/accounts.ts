@@ -50,8 +50,8 @@ export function selectAccountOrAuthAccount(global: GlobalState, accountId: strin
     return account;
   }
 
-  for (const account of [global.auth.firstNetworkAccount, global.auth.secondNetworkAccount]) {
-    if (account?.accountId === accountId) {
+  for (const account of global.auth.accounts ?? []) {
+    if (account.accountId === accountId) {
       return account;
     }
   }

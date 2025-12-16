@@ -118,9 +118,9 @@ class PasscodeNumberView(
             (if (light ?: ThemeManager.isDark) Color.WHITE else Color.BLACK).colorWithAlpha(20)
         else WColor.BackgroundRipple.color
         val radius = if (measuredWidth == measuredHeight) 40f.dp else 16f.dp
-        if (num != null) {
-            setBackgroundColor(0, radius)
-        } else {
+        // Always set background first to avoid nested RippleDrawables on repeated calls
+        setBackgroundColor(0, radius)
+        if (num == null) {
             updateImage(false)
         }
         addRippleEffect(color, radius)

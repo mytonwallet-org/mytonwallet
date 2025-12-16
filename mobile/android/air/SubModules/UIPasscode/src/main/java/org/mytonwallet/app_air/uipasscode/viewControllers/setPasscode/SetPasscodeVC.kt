@@ -32,6 +32,7 @@ class SetPasscodeVC(
     private val confirmingPasscode: String?,
     private val onCompletion: (passcode: String, isBiometricRequested: Boolean) -> Unit
 ) : WViewController(context), PasscodeInputView.Delegate {
+    override val TAG = "SetPasscode"
 
     override val shouldDisplayTopBar = false
 

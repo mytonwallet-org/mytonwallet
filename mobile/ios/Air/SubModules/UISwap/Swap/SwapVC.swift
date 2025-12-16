@@ -164,8 +164,8 @@ public class SwapVC: WViewController, WSensitiveDataProtocol {
                 continueChainFromTon()
             case .crosschainToWallet:
                 continueChainToTon()
-            @unknown default:
-                break
+            case .crosschainInsideWallet:
+                continueCrossChainImmediate()
             }
         }
     }

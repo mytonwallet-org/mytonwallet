@@ -46,6 +46,8 @@ export interface ChainSdk<T extends ApiChain> {
 
   getWalletFromBip39Mnemonic(network: ApiNetwork, mnemonic: string[]): MaybePromise<ApiWalletByChain[T]>;
 
+  getWalletFromPrivateKey(network: ApiNetwork, privateKey: string): MaybePromise<ApiWalletByChain[T]>;
+
   getWalletFromAddress(
     network: ApiNetwork,
     addressOrDomain: string,
@@ -140,6 +142,12 @@ export interface ChainSdk<T extends ApiChain> {
    */
   verifyLedgerWalletAddress(accountId: string): Promise<string | { error: ApiAnyDisplayError }>;
 
+  /**
+   * Returns the private key of the given account in the format used by `getWalletFromPrivateKey`, even if it's a
+   * mnemonic account. Returns `undefined` if the account doesn't exist.
+   */
+  fetchPrivateKeyString(accountId: string, password: string): Promise<string | undefined>;
+
   //
   // Other
   //
@@ -149,4 +157,12 @@ export interface ChainSdk<T extends ApiChain> {
    * Should return an error if the connection with Ledger is broken.
    */
   getIsLedgerAppOpen(): Promise<boolean | { error: ApiAnyDisplayError }>;
+
+  /**
+   * Fetches transaction/trace info by hash or trace ID for deeplink viewing.
+   * Returns all activities from a transaction, regardless of which wallet initiated it.
+   * `walletAddress` is only used for determining the isIncoming perspective.
+   * For TON, `txId` can be either a trace_id or msg_hash. For TRON, `txId` is a transaction hash.
+   */
+  fetchTransactionById(network: ApiNetwork, walletAddress: string, txId: string): Promise<ApiActivity[]>;
 }

@@ -21,6 +21,8 @@ class TonConnectRequestSendDetailsVC(
     context: Context,
     private val items: List<BaseListItem>
 ) : WViewController(context) {
+    override val TAG = "TonConnectRequestSendDetails"
+
     private val rvAdapter = Adapter()
 
     override val shouldDisplayBottomBar = true

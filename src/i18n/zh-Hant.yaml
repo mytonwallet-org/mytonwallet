@@ -27,7 +27,7 @@ Change: 更改密碼
 "%1$d Secret Words": "%1$d 個註記詞"
 Secret Words: 密語
 $auth_import_mnemonic_description: |
-  您可以通過輸入創建錢包時記錄的**12或24個密語**來恢復對錢包的訪問。
+  您可以通過輸入創建錢包時記錄的**%counts%個密語**來恢復對錢包的訪問。
 Let’s make sure your secrets words are recorded correctly.: 請確定您的註記詞已被正確記錄下來。
 $check_words_description: 現在讓我們檢查一下您是否正確寫下了秘密詞語。
 $mnemonic_list_description: 按**正確順序**寫下這些單詞並存放在一個**安全的地方**。
@@ -86,6 +86,8 @@ Is there a community?: 有社群嗎？
 $about_wallet_community: 當然，歡迎來到我們的社群 %community_link%.
 $about_community_link_text: "**Telegram 頻道**"
 Currency History: 代幣歷史記錄
+Net Worth: 淨值
+Price: 價格
 Enter Password: 輸入密碼
 Send: 發送
 Add Wallet: 新增錢包
@@ -132,6 +134,10 @@ Sign: 簽署
 Done!: 完成!
 Signing was confirmed!: 簽署已確認!
 Transaction Info: 交易資訊
+Activity Details: 活動詳情
+No activities found: 未找到活動
+Transaction not found: 未找到交易
+Failed to fetch transaction: 獲取交易失敗
 Transaction in progress: 交易進行中
 Comment was copied!: 註記欄已被複製!
 Sender: 發送人
@@ -386,7 +392,7 @@ Your address on another blockchain: 您在另一個區塊鏈上的地址
 Please provide an address of your wallet in %blockchain% blockchain to receive bought tokens.: 請提供您在%blockchain%區塊鏈中的錢包地址，以接收購買的代幣。
 The time for sending coins is over.: 發送硬幣的時間已結束。
 You have not sent the coins to the specified address.: 您尚未將硬幣發送到指定地址。
-$swap_changelly_to_ton_description1: 您必須在 %time% 內將 %value% 發送到此地址 在 %blockchain% 區塊鏈中
+$swap_changelly_to_wallet_description1: 您必須在 %time% 內將 %value% 發送到此地址 在 %blockchain% 區塊鏈中
 Exchange failed and coins were refunded to your wallet.: 交換失敗，硬幣已退還到您的錢包。
 $swap_changelly_kyc_security: 請聯絡**%email%**並提供**交易ID**以通過KYC程序：
 Swap Expired: 交換過期
@@ -397,7 +403,7 @@ $swap_changelly_terms_of_use: 使用條款
 $swap_changelly_privacy_policy: 隱私政策
 Password must contain %length% digits.: 密碼必須包含%length%位數字。
 Deposit Link: 儲值連結
-$swap_changelly_from_ton_description: 代幣將很快發送到您在%blockchain%區塊鏈中的地址：
+$swap_changelly_from_wallet_description: 代幣將很快發送到您在%blockchain%區塊鏈中的地址：
 Please note that it may take up to a few hours for tokens to appear in your wallet.: 請注意，代幣顯示在您的錢包中可能需要幾個小時。
 Minimum amount: 最低 %value%
 Maximum amount: 最高 %value%
@@ -704,8 +710,6 @@ Request is sent!: 請求已發送！
 Transaction ID: 交易ID
 Help Center: 幫助中心
 MyTonWallet Tips: MyTonWallet 提示
-$auth_import_24_mnemonic_description: |
-  你可以透過輸入創建錢包時記錄的 **24 個秘密單詞** 來恢復對錢包的存取權限。
 Open %nft_marketplace%: 打開 %nft_marketplace%
 Link was copied!: 連結已複製！
 Share Link: 分享連結
@@ -783,14 +787,13 @@ Transferable: 可轉讓
 Easily send your upgraded card to any of your friends.: 輕鬆將您的升級卡片發送給任何朋友。
 Tradable: 可交易
 Sell or auction your card on third-party NFT marketplaces.: 在第三方 NFT 市場上出售或拍賣您的卡片。
-Upgrade for %currency% %amount%: 升級需 %currency% %amount%
+Upgrade for %amount% %currency%: 升級需 %amount% %currency%
 "%amount% left": 剩餘 %amount%
 "%amount% sold": 已售 %amount%
 This card has been sold out: 此卡片已售罄
 Import Existing Wallet: 導入現有錢包
 View Any Address: 查看任意地址
-12/24 Secret Words: 12/24個助記詞
-24 Secret Words: 24個助記詞
+"%counts% Secret Words": "%counts%個助記詞"
 Wallet Address or Domain: 錢包地址或域名
 $import_view_account_note: 輸入 %chains% 網絡上的**任意地址**以**查看模式**打開。
 $view_mode: 查看
@@ -1007,3 +1010,4 @@ Choose Wallet: 選擇錢包
 Wallet to use on %host%: 用於 %host% 的錢包
 Selected Wallet: 已選錢包
 Connect Wallet: 連接錢包
+Insufficient Fee: 手續費不足

@@ -29,15 +29,15 @@ class TiltGradientDrawable(
     }
 
     private fun updateShader() {
-        val rad = Math.toRadians(angle.toDouble())
+        val rad = Math.toRadians(angle.toDouble() + 18)
         val w = bounds.width().toFloat()
         val h = bounds.height().toFloat()
 
-        val x0 = w / 2f
-        val y0 = h / 2f
+        val x0 = w * 0.45f
+        val y0 = h * 0.2f
 
-        val x1 = (x0 + cos(rad) * w)
-        val y1 = (y0 + sin(rad) * h)
+        val x1 = (x0 + cos(rad) * w * 0.17)
+        val y1 = (y0 - sin(rad) * h * 0.1)
 
         paint.shader = LinearGradient(
             x0, y0, x1.toFloat(), y1.toFloat(),

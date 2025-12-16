@@ -30,6 +30,7 @@ interface OwnProps {
   anchor: IAnchorPosition | undefined;
   className?: string;
   bubbleClassName?: string;
+  hideBalance?: boolean;
   onClose: NoneToVoidFunction;
   onChange?: (currency: ApiBaseCurrency) => void;
 }
@@ -50,6 +51,7 @@ function CurrencySwitcherMenu({
   menuPositionX,
   className,
   bubbleClassName,
+  hideBalance,
   tokens,
   currencyRates,
   stakingStates,
@@ -61,18 +63,18 @@ function CurrencySwitcherMenu({
   const menuRef = useRef<HTMLDivElement>();
 
   const currencyList = useMemo<DropdownItem<ApiBaseCurrency>[]>(() => {
-    if (!tokens || !currencyRates) {
-      return Object.entries(CURRENCIES)
-        .filter(([currency]) => currency !== excludedCurrency)
-        .map(([currency, { name }]) => ({ value: currency as keyof typeof CURRENCIES, name }));
+    const entries = Object.entries(CURRENCIES)
+      .filter(([currency]) => currency !== excludedCurrency);
+
+    if (hideBalance || !tokens || !currencyRates) {
+      return entries.map(([currency, { name }]) => ({ value: currency as keyof typeof CURRENCIES, name }));
     }
 
     const totalBalanceInUsd = new Big(
       calculateFullBalance(tokens, stakingStates).primaryValueUsd,
     );
 
-    return Object.entries(CURRENCIES)
-      .filter(([currency]) => currency !== excludedCurrency)
+    return entries
       .map(([currency, { name }]) => {
         const balanceInCurrency = totalBalanceInUsd.mul(currencyRates[currency as ApiBaseCurrency]);
 
@@ -89,7 +91,7 @@ function CurrencySwitcherMenu({
           description: formattedBalance,
         };
       });
-  }, [excludedCurrency, tokens, currencyRates, stakingStates]);
+  }, [excludedCurrency, tokens, currencyRates, stakingStates, hideBalance]);
 
   const handleBaseCurrencyChange = useLastCallback((currency: string) => {
     onClose();

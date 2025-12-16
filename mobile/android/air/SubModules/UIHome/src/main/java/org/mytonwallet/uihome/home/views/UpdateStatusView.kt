@@ -7,13 +7,10 @@ import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import androidx.core.content.ContextCompat
-import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WReplaceableLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
-import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
-import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -23,10 +20,10 @@ class UpdateStatusView(
 ) : FrameLayout(context),
     WThemedView {
 
-    enum class State {
-        WaitingForNetwork,
-        Updating,
-        Updated
+    sealed class State {
+        data object WaitingForNetwork : State()
+        data object Updating : State()
+        data class Updated(val customText: String) : State()
     }
 
     private val statusReplaceableLabel: WReplaceableLabel by lazy {
@@ -61,10 +58,9 @@ class UpdateStatusView(
 
     var state: State? = null
     private var customMessage = ""
-    private var targetAlpha = 0f
 
     private fun setLabelStyle(state: State) {
-        if (state == State.Updated) {
+        if (state is State.Updated) {
             statusReplaceableLabel.label.setStyle(
                 20f,
                 WFont.SemiBold
@@ -75,28 +71,22 @@ class UpdateStatusView(
                 WFont.Medium
             )
         }
-        statusReplaceableLabel.label.setTextColor(if (state != State.Updated) WColor.SecondaryText else WColor.PrimaryText)
+        statusReplaceableLabel.label.setTextColor(if (state !is State.Updated) WColor.SecondaryText else WColor.PrimaryText)
     }
 
     @SuppressLint("SetTextI18n")
     fun setState(
         newState: State,
         handleAnimation: Boolean,
-        newCustomMessage: String
     ) {
+        val newCustomMessage = (newState as? State.Updated)?.customText ?: ""
         // Check if the state has changed
-        if (state == null)
-            setLabelStyle(newState)
-        else
-            if (state == newState && (state != State.Updated || customMessage == newCustomMessage)) {
-                return
-            }
-
-        val prevAlpha = targetAlpha
+        if (state == newState) {
+            return
+        }
 
         when (newState) {
             State.WaitingForNetwork -> {
-                targetAlpha = 1f
                 statusReplaceableLabel.setText(
                     WReplaceableLabel.Config(
                         text = LocaleController.getString("Waiting for Network"),
@@ -110,7 +100,6 @@ class UpdateStatusView(
             }
 
             State.Updating -> {
-                targetAlpha = 1f
                 statusReplaceableLabel.setText(
                     WReplaceableLabel.Config(
                         text = LocaleController.getString("Updating"),
@@ -123,69 +112,29 @@ class UpdateStatusView(
                 )
             }
 
-            State.Updated -> {
-                if (newCustomMessage.isEmpty()) {
-                    targetAlpha = 0f
-                } else {
-                    targetAlpha = 1f
-                    statusReplaceableLabel.setText(
-                        WReplaceableLabel.Config(
-                            text = newCustomMessage,
-                            isLoading = false,
-                            trailingDrawable = ContextCompat.getDrawable(
-                                context,
-                                org.mytonwallet.uihome.R.drawable.ic_expand
-                            )!!.apply {
-                                setTint(WColor.PrimaryText.color)
-                            }
-                        ),
-                        animated = handleAnimation,
-                        updateLabelAppearance = {
-                            setLabelStyle(newState)
+            is State.Updated -> {
+                statusReplaceableLabel.setText(
+                    WReplaceableLabel.Config(
+                        text = newCustomMessage,
+                        isLoading = false,
+                        trailingDrawable = if (newCustomMessage.isEmpty()) null else ContextCompat.getDrawable(
+                            context,
+                            org.mytonwallet.uihome.R.drawable.ic_expand
+                        )!!.apply {
+                            setTint(WColor.PrimaryText.color)
                         }
-                    )
-                }
+                    ),
+                    animated = handleAnimation,
+                    updateLabelAppearance = {
+                        setLabelStyle(newState)
+                    }
+                )
             }
         }
 
         // Update the state
         state = newState
         customMessage = newCustomMessage
-
-        if (handleAnimation) {
-            if (prevAlpha != targetAlpha) {
-                if (targetAlpha == 1f) {
-                    statusReplaceableLabel.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
-                } else {
-                    statusReplaceableLabel.setTextRunnable = null
-                    statusReplaceableLabel.fadeOut(AnimationConstants.VERY_QUICK_ANIMATION) {
-                        if (state != newState || customMessage != newCustomMessage)
-                            return@fadeOut // Status is already updated
-                        statusReplaceableLabel.setText(
-                            WReplaceableLabel.Config(
-                                text = "",
-                                isLoading = false,
-                            ),
-                            animated = false,
-                            updateLabelAppearance = { setLabelStyle(newState) }
-                        )
-                    }
-                }
-            }
-        } else {
-            if (targetAlpha == 0f) {
-                statusReplaceableLabel.setText(
-                    WReplaceableLabel.Config(
-                        text = "",
-                        isLoading = false,
-                    ),
-                    animated = false,
-                    updateLabelAppearance = { setLabelStyle(newState) }
-                )
-            } else {
-                statusReplaceableLabel.alpha = 1f
-            }
-        }
     }
 
 }

@@ -4,13 +4,14 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import org.mytonwallet.app_air.uicomponents.widgets.WView
+import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
 import kotlin.math.ceil
 
 @SuppressLint("ViewConstructor")
 class WordListView(context: Context) : WView(context) {
 
     fun setupViews(words: List<String>) {
-        val rowsCount = ceil(words.size / 2.0).toInt()
+        val rowsCount = (words.size / 2.0).ceilToInt()
 
         // To increase performance, decided to use a single view for each row, totally 4 text views!
         var leftIndexes = ""

@@ -11,7 +11,7 @@ import WalletCore
 
 public struct MtwCardAddressLine: View {
     
-    public struct Style {
+    public struct Style: Equatable, Hashable {
         public let font: Font
         public let textOpacity: CGFloat
         public let accountTypeIconSpacing: CGFloat
@@ -20,6 +20,7 @@ public struct MtwCardAddressLine: View {
         public let chainIconWidth: CGFloat
         public let chainIconSpacing: CGFloat
         public let chainSpacing: CGFloat
+        public let singlechainAddressCount: Int
         public let multichainEndCount: Int
         public let showComma: Bool
         public let showAccessories: Bool
@@ -33,7 +34,8 @@ public struct MtwCardAddressLine: View {
             chainIconWidth: 13,
             chainIconSpacing: 0,
             chainSpacing: 3,
-            multichainEndCount: 4,
+            singlechainAddressCount: 6,
+            multichainEndCount: 6,
             showComma: true,
             showAccessories: false,
         )
@@ -46,7 +48,8 @@ public struct MtwCardAddressLine: View {
             chainIconWidth: 12,
             chainIconSpacing: 0,
             chainSpacing: 1.667,
-            multichainEndCount: 3,
+            singlechainAddressCount: 4,
+            multichainEndCount: 4,
             showComma: false,
             showAccessories: false,
         )
@@ -59,7 +62,8 @@ public struct MtwCardAddressLine: View {
             chainIconWidth: 16,
             chainIconSpacing: 4,
             chainSpacing: 6,
-            multichainEndCount: 4,
+            singlechainAddressCount: 6,
+            multichainEndCount: 6,
             showComma: true,
             showAccessories: true,
         )
@@ -72,6 +76,7 @@ public struct MtwCardAddressLine: View {
             chainIconWidth: 16,
             chainIconSpacing: 4,
             chainSpacing: 6,
+            singlechainAddressCount: 4,
             multichainEndCount: 4,
             showComma: true,
             showAccessories: false,
@@ -80,10 +85,14 @@ public struct MtwCardAddressLine: View {
     
     var addressLine: MAccount.AddressLine
     var style: Style
+    var gradient: MtwCardCenteredGradient?
     
-    public init(addressLine: MAccount.AddressLine, style: Style) {
+    @Namespace private var ns
+        
+    public init(addressLine: MAccount.AddressLine, style: Style, gradient: MtwCardCenteredGradient?) {
         self.addressLine = addressLine
         self.style = style
+        self.gradient = gradient
     }
     
     public var body: some View {
@@ -91,23 +100,35 @@ public struct MtwCardAddressLine: View {
             let itemsCount = addressLine.items.count
             if addressLine.isTestnet {
                 addressLine.testnetImage
-            }
-            if let leadingIcon = addressLine.leadingIcon {
-                if style.largeAccountTypeIcon {
-                    switch leadingIcon {
-                    case .ledger:
-                        AccountTypeBadge(.hardware, style: .card)
-                    case .view:
-                        AccountTypeBadge(.view, style: .card)
+                    .sourceAtop {
+                        if let gradient {
+                            gradient.matchedGeometryEffect(id: "address", in: ns, isSource: false)
+                        }
                     }
-                } else {
-                    leadingIcon.image
-                        .opacity(style.textOpacity)
+            }
+            Group {
+                if let leadingIcon = addressLine.leadingIcon {
+                    if style.largeAccountTypeIcon {
+                        switch leadingIcon {
+                        case .ledger:
+                            AccountTypeBadge(.hardware, style: .card, increasedOpacity: gradient?.nft?.metadata?.mtwCardType?.isPremium == true)
+                        case .view:
+                            AccountTypeBadge(.view, style: .card, increasedOpacity: gradient?.nft?.metadata?.mtwCardType?.isPremium == true)
+                        }
+                    } else {
+                        leadingIcon.image
+                            .opacity(style.textOpacity)
+                    }
+                }
+            }
+            .sourceAtop {
+                if let gradient {
+                    gradient.matchedGeometryEffect(id: "address", in: ns, isSource: false)
                 }
             }
             HStack(spacing: style.chainSpacing) {
                 ForEach(addressLine.items) { item in
-                    ItemView(item: item, itemsCount: itemsCount, style: style)
+                    ItemView(item: item, itemsCount: itemsCount, style: style, gradient: gradient, ns: ns)
                 }
             }
             if style.showAccessories {
@@ -115,11 +136,21 @@ public struct MtwCardAddressLine: View {
                     .opacity(style.textOpacity)
                     .offset(y: 1)
                     .padding(.vertical, -3)
+                    .sourceAtop {
+                        if let gradient {
+                            gradient.matchedGeometryEffect(id: "address", in: ns, isSource: false)
+                        }
+                    }
             }
         }
         .lineLimit(1)
         .font(style.font)
         .allowsTightening(true)
+        .background {
+            if gradient != nil {
+                Color.clear.matchedGeometryEffect(id: "address", in: ns, isSource: true)
+            }
+        }
     }
 }
 
@@ -128,7 +159,9 @@ private struct ItemView: View {
     var item: MAccount.AddressLine.Item
     var itemsCount: Int
     var style: MtwCardAddressLine.Style
-    
+    var gradient: MtwCardCenteredGradient?
+    var ns: Namespace.ID
+
     var body: some View {
         HStack(spacing: style.chainIconSpacing) {
             if style.fullcolorChainIcons {
@@ -144,23 +177,35 @@ private struct ItemView: View {
                     .opacity(style.textOpacity)
             }
             
-            let comma = item.isLast ? "" : ","
-            if item.isDomain {
-                Text(item.text + comma)
-                    .truncationMode(.middle)
-                    .opacity(style.textOpacity)
-            } else {
-                Text(formatStartEndAddress(item.text, prefix: itemsCount == 1 ? 4 : 0, suffix: style.multichainEndCount) + comma)
-                    .opacity(style.textOpacity)
+            Group {
+                let comma = style.showComma && !item.isLast ? "," : ""
+                if item.isDomain {
+                    Text(item.text + comma)
+                        .truncationMode(.middle)
+                        .opacity(style.textOpacity)
+                } else {
+                    Text(formatStartEndAddress(item.text, prefix: itemsCount == 1 ? style.singlechainAddressCount : 0, suffix: itemsCount == 1 ? style.singlechainAddressCount : style.multichainEndCount) + comma)
+                        .opacity(style.textOpacity)
+                }
+            }
+            .sourceAtop {
+                if style.fullcolorChainIcons, let gradient {
+                    gradient.matchedGeometryEffect(id: "address", in: ns, isSource: false)
+                }
             }
         }
         .contentShape(.rect)
         .longTapGesture_ios18(isEnabled: true, onLongTap: onCopy)
+        .sourceAtop {
+            if !style.fullcolorChainIcons, let gradient {
+                gradient.matchedGeometryEffect(id: "address", in: ns, isSource: false)
+            }
+        }
     }
     
     func onCopy() {
         UIPasteboard.general.string = item.textToCopy
         topWViewController()?.showToast(animationName: "Copy", message: lang("Address was copied!"))
-        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+        Haptics.play(.lightTap)
     }
 }

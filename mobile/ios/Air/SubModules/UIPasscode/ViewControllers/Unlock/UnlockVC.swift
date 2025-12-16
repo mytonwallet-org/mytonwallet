@@ -226,11 +226,24 @@ public class UnlockVC: WViewController {
     
     private(set) public var passcodeScreenView: PasscodeScreenView!
     private var indicatorView: WActivityIndicator!
+    
+    var shouldShowEmptyNavigationBar: Bool {
+        IOS_26_MODE_ENABLED && customHeaderVC != nil
+    }
 
     public override var hideNavigationBar: Bool {
-        return customHeaderVC != nil
+        return !IOS_26_MODE_ENABLED && customHeaderVC != nil
     }
     
+    public override func viewIsAppearing(_ animated: Bool) {
+        if shouldShowEmptyNavigationBar,
+           let navbarHeight = navigationController?.navigationBar.frame.height {
+            if IOS_26_MODE_ENABLED {
+                additionalSafeAreaInsets.top = -navbarHeight
+            }
+        }
+    }
+
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         self.viewStartedDismissing = true
@@ -245,12 +258,21 @@ public class UnlockVC: WViewController {
         
         // legacy
         if cancellable && !compactLayout {
-            addCloseToNavBar(color: shouldBeThemedLikeHeader ? WTheme.unlockScreen.tint : nil)
+            addCloseNavigationItemIfNeeded()
         }
 
         // init views
         
-        if showNavBar {
+        if shouldShowEmptyNavigationBar {
+            addNavigationBar(
+                centerYOffset: 1,
+                title: nil,
+                closeIcon: false,
+                addBackButton: { [weak self] in
+                    self?.navigationController?.popViewController(animated: true)
+                }
+            )
+        } else if showNavBar {
             addNavigationBar(
                 centerYOffset: 1,
                 title: unlockTitle,
@@ -328,10 +350,6 @@ public class UnlockVC: WViewController {
         }
         super.viewDidDisappear(animated)
     }
-    
-    public override func closeButtonPressed() {
-        presentingViewController?.dismiss(animated: true)
-    }
 
     // when this function is called, `UnlockVC` retries to use biometric
     public func tryBiometric() {
@@ -369,8 +387,7 @@ extension UnlockVC: PasscodeScreenViewDelegate {
                 passcodeScreenView.isUserInteractionEnabled = true
                 passcodeScreenView.passcodeInputView.currentPasscode = ""
                 passcodeScreenView.wrongPassFeedback()
-                let tapticFeedback = UINotificationFeedbackGenerator()
-                tapticFeedback.notificationOccurred(.error)
+                Haptics.play(.error)
             }
         }
     }

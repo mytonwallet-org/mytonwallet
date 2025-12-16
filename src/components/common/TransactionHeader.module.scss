@@ -1,0 +1,45 @@
+.modalTitle {
+  overflow: visible;
+  line-height: 1 !important;
+}
+
+.headerTitle {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+  justify-content: center;
+
+  margin-bottom: 0.25rem;
+
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--color-black);
+
+  &__badge {
+    padding: 0.1875rem 0.1875rem 0.125rem;
+    border-radius: 0.25rem;
+
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 0.75rem;
+    color: var(--color-transaction-amount-red-text);
+
+    background: var(--color-transaction-amount-red-bg);
+
+    &.warning {
+      color: var(--color-orange);
+      background: var(--color-background-yellow);
+    }
+  }
+}
+
+.headerDate {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-gray-2);
+}
+
+.scamImage {
+  width: 2.75rem;
+  height: 1.0625rem;
+}

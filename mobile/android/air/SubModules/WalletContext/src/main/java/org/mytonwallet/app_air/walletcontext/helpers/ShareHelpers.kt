@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.walletcontext.helpers
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
@@ -57,6 +58,14 @@ class ShareHelpers {
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+        }
+
+        fun shareText(context: Context, text: String, title: String) {
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                setType("text/plain")
+                putExtra(Intent.EXTRA_TEXT, text)
+            }
+            context.startActivity(Intent.createChooser(shareIntent, title))
         }
     }
 }

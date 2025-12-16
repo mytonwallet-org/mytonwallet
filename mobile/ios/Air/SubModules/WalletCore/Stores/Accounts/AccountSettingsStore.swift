@@ -68,7 +68,6 @@ public final class AccountSettings {
     private var _backgroundNft: ApiNft??
     
     init(accountId: String) {
-        print("init", accountId)
         self.accountId = accountId
         _ = backgroundNft
     }

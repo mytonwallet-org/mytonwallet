@@ -18,14 +18,25 @@ import UIKitNavigation
 
 private let log = Log("HomeCard")
 
+enum HomeHeaderState {
+    case collapsed
+    case expanded
+}
+
 @Perceptible
 class HomeHeaderViewModel {
+    
+    let accountId: String?
+    
     var height: CGFloat = 0
-    var state: WalletCardView.State = .expanded
-    var topSafeAreaInset: CGFloat = 0
-    let collapsedHeight: CGFloat = 111
-    var cardIsHidden = false
-    var width: CGFloat = 0
+    var state: HomeHeaderState = .expanded
+    var isCardHidden = false
+    var _collapseProgress: CGFloat = 0
+    
+    var isCollapsed: Bool { state == .collapsed }
+    var collapseProgress: CGFloat { isCollapsed ? _collapseProgress : 0 }
+
+    let collapsedHeight: CGFloat = 95
     
     @PerceptionIgnored
     var onSelect: (String) -> () = { _ in }
@@ -35,20 +46,16 @@ class HomeHeaderViewModel {
     @PerceptionIgnored
     @Dependency(\.accountStore) var accountStore
     
-    let currentAccountViewModel: AccountViewModel
-    
-    @PerceptionIgnored
-    private var currentAccountObserver: AnyObject?
-    
-    init() {
-        @Dependency(\.accountStore.currentAccountId) var currentAccountId
-        currentAccountViewModel = AccountViewModel(accountId: currentAccountId)
-        currentAccountObserver = observe { [weak self] in
-            guard let self else { return }
-            currentAccountViewModel.accountId = currentAccountId
-        }
+    init(accountId: String?) {
+        self.accountId = accountId
     }
     
-    var isCollapsed: Bool { state == .collapsed }
+    func scrollOffsetChanged(to y: CGFloat) {
+        let p = y / collapsedHeight
+        _collapseProgress = clamp(p, to: 0...1)
+        if UIDevice.current.hasDynamicIsland {
+            isCardHidden = y > 62
+        }
+    }
 }
 

@@ -52,7 +52,6 @@ struct WalletSettingsNavigationHeader: View {
     var total: BaseCurrencyAmount {
         let filter = viewModel.currentFilter
         let type = filter.accountType
-        let totalBalance = balanceStore.totalBalance(ofWalletsWithType: type)
-        return BaseCurrencyAmount.fromDouble(totalBalance, TokenStore.baseCurrency)
+        return balanceStore.totalBalance(ofWalletsWithType: type)
     }
 }

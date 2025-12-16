@@ -93,3 +93,12 @@ fun View.asImage(): Bitmap? {
     draw(canvas)
     return bitmap
 }
+
+inline val Int.exactly: Int
+    get() = View.MeasureSpec.makeMeasureSpec(this, View.MeasureSpec.EXACTLY)
+
+inline val Int.atMost: Int
+    get() = View.MeasureSpec.makeMeasureSpec(this, View.MeasureSpec.AT_MOST)
+
+inline val Int.unspecified: Int
+    get() = View.MeasureSpec.makeMeasureSpec(this, View.MeasureSpec.UNSPECIFIED)

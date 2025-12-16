@@ -46,7 +46,7 @@ final class WebViewGlobalStorageProvider: NSObject, WKNavigationDelegate {
         let result: Any
         do {
             log.info("[wv] getItem called")
-            result = try await webView!.evaluateJavaScript("localStorage.getItem('\(globalStateKey)')")
+            result = try await webView!.evaluateJavaScript("localStorage.getItem('\(globalStateKey)')") as Any
             log.info("[wv] getItem result received")
         } catch {
             throw .javaScriptError(error)

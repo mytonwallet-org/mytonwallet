@@ -196,7 +196,7 @@ class AssetsAndActivitiesTokenCell(
     override fun setupViews() {
         super.setupViews()
 
-        mainView.addView(separatorView, LayoutParams(0, 1))
+        mainView.addView(separatorView, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
         mainView.addView(imageView, ViewGroup.LayoutParams(48.dp, 48.dp))
         mainView.addView(tokenNameLabel, LayoutParams(0, LayoutParams.WRAP_CONTENT))
         mainView.addView(amountLabel)

@@ -37,12 +37,9 @@ public class TokenActionsView: WTouchPassStackView {
     
     private func setupViews() {
         translatesAutoresizingMaskIntoConstraints = false
-        spacing = IOS_26_MODE_ENABLED ? 16 : 8
+        spacing = S.actionButtonSpacing(forButtonCount: 4)
         distribution = IOS_26_MODE_ENABLED ? .equalSpacing : .fillEqually
         clipsToBounds = false
-        if IOS_26_MODE_ENABLED {
-            widthAnchor.constraint(equalToConstant: 304).isActive = true
-        }
         
         heightConstraint = heightAnchor.constraint(equalToConstant: actionsRowHeight)
         NSLayoutConstraint.activate([
@@ -50,7 +47,7 @@ public class TokenActionsView: WTouchPassStackView {
         ])
         
         let addButton = WScalableButton(
-            title: IOS_26_MODE_ENABLED ? lang("Add").lowercased() : lang("Add").lowercased(),
+            title: IOS_26_MODE_ENABLED ? lang("Add / Buy") : lang("Add").lowercased(),
             image: .airBundle(IOS_26_MODE_ENABLED ? "AddIconBold" : "AddIcon"),
             onTap: { [weak self] in self?.delegate.addPressed() },
         )
@@ -78,6 +75,11 @@ public class TokenActionsView: WTouchPassStackView {
         addArrangedSubview(earnButton)
     }
     
+    private func updateSpacing() {
+        let visibleCount = arrangedSubviews.filter { !$0.isHidden }.count
+        spacing = S.actionButtonSpacing(forButtonCount: visibleCount)
+    }
+    
     public func set(actionsVisibleHeight: CGFloat) {
         let actionButtonAlpha = actionsVisibleHeight < actionsRowHeight ? actionsVisibleHeight / actionsRowHeight : 1
         let maxRadius = S.actionButtonCornerRadius
@@ -95,6 +97,7 @@ public class TokenActionsView: WTouchPassStackView {
         }
         set {
             swapButton.isHidden = !newValue
+            updateSpacing()
         }
     }
     public var earnAvailable: Bool {
@@ -103,6 +106,7 @@ public class TokenActionsView: WTouchPassStackView {
         }
         set {
             earnButton.isHidden = !newValue
+            updateSpacing()
         }
     }
 }

@@ -88,6 +88,7 @@ function MintCardModal({
         >
           <TransactionBanner
             className={styles.mintCardBanner}
+            textClassName={styles.mintCardBannerText}
             secondText={selectedCardName}
           />
         </PasswordForm>

@@ -59,7 +59,7 @@ public class WalletTokenCell: WHighlightCell {
         NSLayoutConstraint.activate([
             mainView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 10),
             mainView.leftAnchor.constraint(equalTo: contentView.leftAnchor, constant: 12),
-            mainView.rightAnchor.constraint(equalTo: contentView.rightAnchor, constant: -16),
+            mainView.rightAnchor.constraint(equalTo: contentView.rightAnchor, constant: -12),
             mainView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -10)
         ])
 
@@ -128,16 +128,16 @@ public class WalletTokenCell: WHighlightCell {
         ])
         badge.alpha = 0
 
-        // seaparator
+        // separator
         separatorView = UIView()
         separatorView.translatesAutoresizingMaskIntoConstraints = false
-        separatorView.backgroundColor = isUIAssets ? WTheme.separatorDarkBackground : WTheme.separator
+        separatorView.backgroundColor = IOS_26_MODE_ENABLED ? UIColor.separator : isUIAssets ? WTheme.separatorDarkBackground : WTheme.separator
         addSubview(separatorView)
         NSLayoutConstraint.activate([
-            separatorView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: isUIAssets ? 0 : -0.33),
-            separatorView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            separatorView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: 0),
+            separatorView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: IOS_26_MODE_ENABLED ? -12 : 0),
             separatorView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 62),
-            separatorView.heightAnchor.constraint(equalToConstant: 0.33)
+            separatorView.heightAnchor.constraint(equalToConstant: IOS_26_MODE_ENABLED ? 1 : 0.33)
         ])
 
         contentView.backgroundColor = .clear
@@ -195,7 +195,7 @@ public class WalletTokenCell: WHighlightCell {
             if let percentChange24h = token?.percentChange24h, let percentChange24hRounded = token?.percentChange24hRounded {
                 let color = abs(percentChange24h) < 0.005 ? WTheme.secondaryLabel : percentChange24h > 0 ? WTheme.positiveAmount : WTheme.negativeAmount
                 if percentChange24hRounded != 0 {
-                    attr.append(NSAttributedString(string: (percentChange24hRounded < 0 ? " \(percentChange24hRounded)%" : " +\(percentChange24hRounded)%"),
+                    attr.append(NSAttributedString(string: " \(percentChange24hRounded < 0 ? "-\(signSpace)" : "+\(signSpace)")\(abs(percentChange24hRounded))%",
                                                    attributes: [
                                                     .font: regular14Font,
                                                     .foregroundColor: color
@@ -214,10 +214,9 @@ public class WalletTokenCell: WHighlightCell {
                                            forceCurrencyToRight: true,
                                            roundUp: false)
 
-        // amount in base currency
-        var amount = walletToken.toBaseCurrency
+        let amount = walletToken.toBaseCurrency
         if let amount {
-            baseCurrencyAmountLabel.text = formatAmountText(amount: amount, currency: TokenStore.baseCurrency.sign ?? "", decimalsCount: TokenStore.baseCurrency.decimalsCount)
+            baseCurrencyAmountLabel.text = formatAmountText(amount: amount, currency: TokenStore.baseCurrency.sign, decimalsCount: TokenStore.baseCurrency.decimalsCount)
         } else {
             baseCurrencyAmountLabel.text = " "
         }

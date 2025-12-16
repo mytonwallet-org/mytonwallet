@@ -38,9 +38,11 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 
-class AppearanceVC(context: Context) : WViewController(context) {
+class AppearanceVC(context: Context) : WViewController(context), WalletCore.EventObserver {
+    override val TAG = "Appearance"
 
     override val shouldDisplayBottomBar = true
 
@@ -77,6 +79,7 @@ class AppearanceVC(context: Context) : WViewController(context) {
                     )
                 )
             }
+            configure(AccountStore.activeAccount)
         }
     }
 
@@ -285,6 +288,7 @@ class AppearanceVC(context: Context) : WViewController(context) {
         }
 
         updateTheme()
+        WalletCore.registerObserver(this)
     }
 
     override fun viewDidAppear() {
@@ -302,11 +306,24 @@ class AppearanceVC(context: Context) : WViewController(context) {
 
     override fun onDestroy() {
         super.onDestroy()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            scrollView.setOnScrollChangeListener(null)
-        }
+        WalletCore.unregisterObserver(this)
+        scrollView.setOnScrollChangeListener(null)
         animationsRow.setOnClickListener(null)
         appPaletteView.onCustomizePressed = null
+    }
+
+    override fun onWalletEvent(walletEvent: WalletEvent) {
+        when (walletEvent) {
+            is WalletEvent.AccountChanged -> {
+                appPaletteView.configure(AccountStore.activeAccount)
+            }
+
+            WalletEvent.NftCardUpdated -> {
+                appPaletteView.configure(AccountStore.activeAccount)
+            }
+
+            else -> {}
+        }
     }
 
 }

@@ -19,7 +19,6 @@ interface OwnProps {
   isHardware?: boolean;
   isSavedAddress?: boolean;
   isSelected?: boolean;
-  deleteLabel?: string;
   onClick: (address: string) => void;
   onDeleteClick?: (address: string) => void;
 }
@@ -33,7 +32,6 @@ function AddressBookItem({
   isHardware,
   isSavedAddress,
   isSelected,
-  deleteLabel,
   onClick,
   onDeleteClick,
 }: OwnProps) {
@@ -72,7 +70,7 @@ function AddressBookItem({
             className={styles.savedAddressDeleteInner}
             onMouseDown={handleDeleteClick}
           >
-            {deleteLabel}
+            {lang('Delete')}
           </span>
         </span>
       )}

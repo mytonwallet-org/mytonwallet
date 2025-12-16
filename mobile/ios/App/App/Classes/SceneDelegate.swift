@@ -49,8 +49,7 @@ final class SceneDelegate: UIResponder, UISceneDelegate {
     
     func sceneWillResignActive(_ scene: UIScene) {
         log.info("sceneWillResignActive")
-        AirLauncher.willResignActive()
-        
+
         WidgetCenter.shared.reloadAllTimelines()
     }
     
@@ -107,7 +106,7 @@ final class SceneDelegate: UIResponder, UISceneDelegate {
     
     func sceneDidBecomeActive(_ scene: UIScene) {
         log.info("sceneDidBecomeActive")
-        AirLauncher.willBecomeActive()
+        
         if let view = self.backgroundCover {
             UIView.animate(withDuration: 0.15) {
                 view.alpha = 0

@@ -128,6 +128,60 @@ enum class MBlockchain(
         }
     }
 
+    fun isValidDNS(address: String): Boolean {
+        return when (this) {
+            ton -> {
+                val dnsZones = listOf(
+                    DnsZone(
+                        suffixes = listOf("ton"),
+                        baseFormat = Regex(
+                            """^([-\da-z]+\.){0,2}[-\da-z]{4,126}$""",
+                            RegexOption.IGNORE_CASE
+                        )
+                    ),
+                    DnsZone(
+                        suffixes = listOf("t.me"),
+                        baseFormat = Regex(
+                            """^([-\da-z]+\.){0,2}[-_\da-z]{4,32}$""",
+                            RegexOption.IGNORE_CASE
+                        )
+                    ),
+                    DnsZone(
+                        suffixes = listOf("vip", "ton.vip", "vip.ton"),
+                        baseFormat = Regex(
+                            """^([-\da-z]+\.){0,2}[\da-z]{1,24}$""",
+                            RegexOption.IGNORE_CASE
+                        )
+                    ),
+                    DnsZone(
+                        suffixes = listOf("gram"),
+                        baseFormat = Regex(
+                            """^([-\da-z]+\.){0,2}[-\da-z]{1,127}$""",
+                            RegexOption.IGNORE_CASE
+                        )
+                    )
+                )
+
+                dnsZones.any { zone ->
+                    zone.suffixes.reversed().any { suffix ->
+                        if (!address.endsWith(".$suffix")) {
+                            return@any false
+                        }
+                        val base = address.dropLast(suffix.length + 1)
+                        zone.baseFormat.matches(base)
+                    }
+                }
+            }
+
+            else -> false
+        }
+    }
+
+    private data class DnsZone(
+        val suffixes: List<String>,
+        val baseFormat: Regex
+    )
+
     companion object {
         val supportedChains = listOf(ton, tron)
         val supportedChainValues = listOf("ton", "tron")

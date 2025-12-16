@@ -35,8 +35,8 @@ struct TransactionActivityHeader: View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             let amount = self.amount
             AmountText(
-                amount: amount.roundedForDisplay,
-                format: .init(showPlus: transaction.isIncoming, showMinus: !transaction.isIncoming),
+                amount: amount,
+                format: .init(maxDecimals: amount.defaultDisplayDecimals, showPlus: transaction.isIncoming, showMinus: !transaction.isIncoming),
                 integerFont: .rounded(ofSize: 34, weight: .bold),
                 fractionFont: .rounded(ofSize: 28, weight: .bold),
                 symbolFont: .rounded(ofSize: 28, weight: .bold),
@@ -59,7 +59,7 @@ struct TransactionActivityHeader: View {
             (Text(transaction.isIncoming ? lang("Received from") :  lang("Sent to")) + Text(" "))
                 .font17h22()
             let addressToShow = transaction.addressToShow
-            TappableAddress(name: addressToShow, resolvedAddress: transaction.normalizedAddress, addressOrName: addressToShow)
+            TappableAddress(name: addressToShow, chain: token.chain, resolvedAddress: transaction.normalizedAddress, addressOrName: addressToShow)
         }
     }
 }

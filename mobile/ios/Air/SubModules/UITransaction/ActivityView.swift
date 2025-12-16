@@ -11,9 +11,7 @@ import Perception
 
 struct ActivityView: View {
 
-    @ObservedObject var model: ActivityDetialsViewModel
-    var navigationBarInset: CGFloat
-    var onScroll: (CGFloat) -> ()
+    @ObservedObject var model: ActivityDetailsViewModel
     var onDecryptComment: () -> ()
     var decryptedComment: String?
     var isSensitiveDataHidden: Bool
@@ -46,15 +44,12 @@ struct ActivityView: View {
             InsetList(spacing: 16) {
                 
                 VStack(spacing: 20) {
-                    Group {
-                        if activity.transaction?.nft != nil {
-                            nftHeader
-                        } else {
-                            header
-                                .padding(.horizontal, 16)
-                        }
+                    if activity.transaction?.nft != nil {
+                        nftHeader
+                    } else {
+                        header
+                            .padding(.horizontal, 16)
                     }
-                    .scrollPosition(ns: ns, offset: 8, callback: onScroll)
                     
                     commentSection
                     
@@ -82,7 +77,6 @@ struct ActivityView: View {
             }
             .environment(\.insetListContext, .elevated)
             .coordinateSpace(name: ns)
-            .navigationBarInset(navigationBarInset)
             .animation(.default, value: activity)
             .animation(.default, value: decryptedComment)
             .scrollDisabled(model.scrollingDisabled)
@@ -107,6 +101,7 @@ struct ActivityView: View {
                     HStack(alignment: .firstTextBaseline, spacing: 0) {
                         Text((tx.isIncoming == true ? lang("Received from") :  lang("Sent to")) + " ") 
                         TappableAddress(name: activity.addressToShow,
+                                        chain: chain.rawValue,
                                         resolvedAddress: activity.peerAddress,
                                         addressOrName: activity.addressToShow)
                     }
@@ -138,8 +133,6 @@ struct ActivityView: View {
                 )
                 .padding(.top, 16)
             }
-        @unknown default:
-            EmptyView()
         }
     }
 
@@ -234,7 +227,7 @@ struct ActivityView: View {
     func onNftCollectionTap() {
         if let accountId = AccountStore.accountId, let nft = activity.transaction?.nft, let name = nft.collectionName?.nilIfEmpty, let address = nft.collectionAddress {
             if NftStore.accountOwnsCollection(accountId: accountId, address: address) {
-                AppActions.showAssets(selectedTab: 1, collectionsFilter: .collection(.init(address: address, name: name)))
+                AppActions.showAssets(accountSource: .accountId(accountId), selectedTab: 1, collectionsFilter: .collection(.init(address: address, name: name)))
             } else {
                 AppActions.openInBrowser(ExplorerHelper.nftCollectionUrl(nft))
             }

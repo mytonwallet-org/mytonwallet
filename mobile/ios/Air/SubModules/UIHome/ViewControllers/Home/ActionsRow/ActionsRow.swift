@@ -10,12 +10,11 @@ let actionsRowHeight: CGFloat = IOS_26_MODE_ENABLED ? 70 : 60
 
 @MainActor final class ActionsVC: WViewController, WalletCoreData.EventsObserver {
     
-    
     var actionsContainerView: ActionsContainerView { view as! ActionsContainerView }
     var actionsView: ActionsView { actionsContainerView.actionsView }
     
-    // dependencies
-    private var account: MAccount { AccountStore.account ?? DUMMY_ACCOUNT }
+    private var accountId: String = ""
+    private var account: MAccount { AccountStore.get(accountId: accountId) }
     
     override func loadView() {
         view = ActionsContainerView()
@@ -23,18 +22,23 @@ let actionsRowHeight: CGFloat = IOS_26_MODE_ENABLED ? 70 : 60
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        hideUnsupportedActions()
         WalletCoreData.add(eventObserver: self)
+    }
+    
+    func setAccountId(accountId: String, animated: Bool)  {
+        self.accountId = accountId
+        hideUnsupportedActions()
     }
     
     func hideUnsupportedActions() {
         if account.isView {
-            view.isHidden = true
+            view.alpha = 0
         } else {
-            view.isHidden = false
+            view.alpha = 1
             actionsView.sendButton.isHidden = !account.supportsSend
             actionsView.swapButton.isHidden = !account.supportsSwap 
             actionsView.earnButton.isHidden = !account.supportsEarn
+            actionsView.updateSpacing()
         }
     }
     
@@ -45,8 +49,6 @@ let actionsRowHeight: CGFloat = IOS_26_MODE_ENABLED ? 70 : 60
     nonisolated func walletCore(event: WalletCore.WalletCoreData.Event) {
         MainActor.assumeIsolated {
             switch event {
-            case .accountChanged:
-                hideUnsupportedActions()
             case .configChanged:
                 hideUnsupportedActions()
             default:
@@ -108,12 +110,9 @@ let actionsRowHeight: CGFloat = IOS_26_MODE_ENABLED ? 70 : 60
     
     func setup() {
         translatesAutoresizingMaskIntoConstraints = false
-        spacing = IOS_26_MODE_ENABLED ? 16 : 8
+        spacing = S.actionButtonSpacing(forButtonCount: 4)
         distribution = IOS_26_MODE_ENABLED ? .equalSpacing : .fillEqually
         clipsToBounds = false
-        if IOS_26_MODE_ENABLED {
-            widthAnchor.constraint(equalToConstant: 304).isActive = true
-        }
         
         addButton = WScalableButton(
             title: IOS_26_MODE_ENABLED ? lang("Add / Buy") : lang("Add").lowercased(),
@@ -139,10 +138,15 @@ let actionsRowHeight: CGFloat = IOS_26_MODE_ENABLED ? 70 : 60
         earnButton = WScalableButton(
             title: IOS_26_MODE_ENABLED ? lang("Earn") : lang("Earn").lowercased(),
             image: IOS_26_MODE_ENABLED ? .airBundle("EarnIconBold") : .airBundle("EarnIcon"),
-            onTap: { AppActions.showEarn(token: nil) }
+            onTap: { AppActions.showEarn(tokenSlug: nil) }
         )
         addArrangedSubview(earnButton)
         
+    }
+    
+    func updateSpacing() {
+        let visibleCount = arrangedSubviews.filter { !$0.isHidden }.count
+        spacing = S.actionButtonSpacing(forButtonCount: visibleCount)
     }
     
     override func layoutSubviews() {

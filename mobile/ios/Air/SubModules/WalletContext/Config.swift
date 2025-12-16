@@ -70,3 +70,8 @@ public var IS_DEBUG_OR_TESTFLIGHT: Bool {
     return Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt"
     #endif
 }
+
+public let SELF_PROTOCOL = "mtw://"
+public let SHORT_UNIVERSAL_URL = "https://my.tt/"
+public let SELF_UNIVERSAL_URLS = [SHORT_UNIVERSAL_URL,  "https://go.mytonwallet.org/"]
+

@@ -132,11 +132,12 @@ struct NftDetailsActionsRow: View {
         }
         .compositingGroup()
         .menuSource(menuContext: moreMenu)
-        .task {
+        .task(id: viewModel.accountId) {
+            let accountId = viewModel.accountId
             self.moreMenu.makeConfig = {
                 var items: [MenuItem] = []
                 items += .button(id: "0-hide", title: lang("Hide"), trailingIcon: .air("MenuHide26")) {
-                    NftStore.setHiddenByUser(accountId: AccountStore.accountId ?? "", nftId: viewModel.nft.id, isHidden: true)
+                    NftStore.setHiddenByUser(accountId: accountId, nftId: viewModel.nft.id, isHidden: true)
                 }
                 items += .button(id: "0-burn", title: lang("Burn"), trailingIcon: .air("MenuBurn26"), isDangerous: true) {
                     AppActions.showSend(prefilledValues: .init(nfts: [viewModel.nft], nftSendMode: .burn))
@@ -315,7 +316,7 @@ struct ActionButtonStyle: PrimitiveButtonStyle {
 #if DEBUG
 @available(iOS 18, *)
 #Preview {
-    @Previewable var viewModel = NftDetailsViewModel(nft: .sampleMtwCard, listContext: .none, navigationBarInset: 0)
+    @Previewable var viewModel = NftDetailsViewModel(accountId: "0-mainnet", nft: .sampleMtwCard, listContext: .none, navigationBarInset: 0)
     VStack {
         NftDetailsActionsRow(viewModel: viewModel)
         Button("Toggle isExplanded") {

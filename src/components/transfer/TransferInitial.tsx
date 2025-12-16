@@ -46,7 +46,7 @@ import { useAmountInputState } from '../ui/hooks/useAmountInputState';
 
 import FeeDetailsModal from '../common/FeeDetailsModal';
 import AddressInput from '../ui/AddressInput';
-import AmountInputSection from '../ui/AmountInput';
+import AmountInput from '../ui/AmountInput';
 import Button from '../ui/Button';
 import FeeLine from '../ui/FeeLine';
 import Modal from '../ui/Modal';
@@ -93,6 +93,7 @@ interface StateProps {
   isSensitiveDataHidden?: true;
   scamWarningType?: ScamWarningType;
   isAllowSuspiciousActions: boolean;
+  isTransferReadonly?: boolean;
 }
 
 const COMMENT_MAX_SIZE_BYTES = 5000;
@@ -132,6 +133,7 @@ function TransferInitial({
   isSensitiveDataHidden,
   scamWarningType,
   isAllowSuspiciousActions,
+  isTransferReadonly,
 }: OwnProps & StateProps) {
   const {
     submitTransferInitial,
@@ -412,6 +414,7 @@ function TransferInitial({
     amount,
     token: transferToken,
     baseCurrency,
+    isAmountReadonly: isTransferReadonly,
     onAmountChange: handleAmountChange,
     onTokenChange: handleTokenChange,
   });
@@ -514,6 +517,7 @@ function TransferInitial({
             savedAddresses={savedAddresses}
             validateAddress={checkTransferAddress}
             isStatic={isStatic}
+            isReadonly={isTransferReadonly}
             withQrScan
             address={resolvedAddress || toAddress}
             addressName={toAddressName}
@@ -523,7 +527,7 @@ function TransferInitial({
           />
 
           {!isNftTransfer && (
-            <AmountInputSection
+            <AmountInput
               {...amountInputProps}
               ref={amountInputRef}
               maxAmount={maxAmount}
@@ -547,6 +551,7 @@ function TransferInitial({
               stateInit={stateInit}
               chain={chain}
               isStatic={isStatic}
+              isReadonly={isTransferReadonly}
               isCommentRequired={isCommentRequired}
               isEncryptedCommentSupported={isEncryptedCommentSupported}
               onCommentChange={handleCommentChange}
@@ -645,6 +650,7 @@ export default memo(
         diesel,
         stateInit,
         scamWarningType,
+        isTransferReadonly,
       } = global.currentTransfer;
 
       const isLedger = selectIsHardwareAccount(global);
@@ -683,6 +689,7 @@ export default memo(
         isSensitiveDataHidden,
         scamWarningType,
         isAllowSuspiciousActions: selectIsAllowSuspiciousActions(global, currentAccountId),
+        isTransferReadonly,
       };
     },
     (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),

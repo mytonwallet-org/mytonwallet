@@ -16,10 +16,10 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.view.isGone
+import androidx.core.widget.NestedScrollView
 import androidx.lifecycle.ViewModelProvider
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
@@ -29,8 +29,10 @@ import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpside
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.setConstraints
 import org.mytonwallet.app_air.uicomponents.extensions.setTextIfDiffer
+import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.helpers.DieselAuthorizationHelpers
 import org.mytonwallet.app_air.uicomponents.viewControllers.selector.TokenSelectorVC
 import org.mytonwallet.app_air.uicomponents.widgets.ExpandableFrameLayout
@@ -72,6 +74,7 @@ class SwapVC(
     amountIn: Double? = null
 ) :
     WViewControllerWithModelStore(context) {
+    override val TAG = "Swap"
 
     private val swapViewModel by lazy { ViewModelProvider(this)[SwapViewModel::class.java] }
 
@@ -81,9 +84,9 @@ class SwapVC(
         }
     }
 
-    private val scrollView = ScrollView(context).apply {
+    private val scrollView = NestedScrollView(context).apply {
         id = View.generateViewId()
-        overScrollMode = ScrollView.OVER_SCROLL_ALWAYS
+        overScrollMode = NestedScrollView.OVER_SCROLL_ALWAYS
         isVerticalScrollBarEnabled = false
     }
     private val contentLayout = FrameLayout(context)
@@ -580,10 +583,7 @@ class SwapVC(
         isShowingAlertView = true
 
         alertView.apply {
-            measure(
-                View.MeasureSpec.makeMeasureSpec(linearLayout.width, View.MeasureSpec.EXACTLY),
-                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-            )
+            measure(linearLayout.width.exactly, 0.unspecified)
             val targetHeight = measuredHeight
             val lp = layoutParams as ViewGroup.MarginLayoutParams
             lp.height = 0

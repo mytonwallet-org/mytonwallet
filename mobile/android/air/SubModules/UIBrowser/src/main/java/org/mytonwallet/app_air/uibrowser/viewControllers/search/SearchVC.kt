@@ -39,6 +39,7 @@ import java.lang.ref.WeakReference
 
 class SearchVC(context: Context) : WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource {
+    override val TAG = "Search"
 
     override val isSwipeBackAllowed = false
 

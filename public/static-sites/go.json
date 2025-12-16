@@ -1,0 +1,67 @@
+{
+  "index": {
+    "title": "Open MyTonWallet",
+    "description": "Open the MyTonWallet app",
+    "icon": "https://get.mytonwallet.io/images/logo-link-preview.webp"
+  },
+  "air": {
+    "title": "Switch to Air Version",
+    "description": "Experience the native MyTonWallet mobile app",
+    "icon": "https://get.mytonwallet.io/images/logo-link-preview.webp"
+  },
+  "classic": {
+    "title": "Switch to Classic Version",
+    "description": "Return to the legacy MyTonWallet mobile app",
+    "icon": "https://get.mytonwallet.io/images/logo-link-preview.webp"
+  },
+  "r": {
+    "title": "Install & Open MyTonWallet",
+    "description": "Jump straight into crypto",
+    "icon": "https://get.mytonwallet.io/images/logo-link-preview.webp"
+  },
+  "giveaway": {
+    "title": "Join the Giveaway",
+    "description": "Click to check the details",
+    "icon": "https://get.mytonwallet.io/images/logo-link-preview.webp"
+  },
+  "swap": {
+    "title": "Swap Tokens",
+    "description": "Enjoy smart swaps at the best rates",
+    "icon": "https://get.mytonwallet.io/images/logo-link-preview.webp"
+  },
+  "buy-with-crypto": {
+    "title": "Buy with Crypto",
+    "description": "Buy crypto using another token",
+    "icon": "https://get.mytonwallet.io/images/logo-link-preview.webp"
+  },
+  "buy-with-card": {
+    "title": "Buy with Bank Card",
+    "description": "Purchase TON or USDT with a bank card",
+    "icon": "https://get.mytonwallet.io/images/logo-link-preview.webp"
+  },
+  "stake": {
+    "title": "Stake Tokens",
+    "description": "Deposit TON, MY, or USDe and begin earning passive income",
+    "icon": "https://get.mytonwallet.io/images/logo-link-preview.webp"
+  },
+  "transfer": {
+    "title": "Quick Transfer",
+    "description": "Send crypto to your friends, colleagues, and loved ones",
+    "icon": "https://get.mytonwallet.io/images/logo-link-preview.webp"
+  },
+  "explore": {
+    "title": "Open Explore",
+    "description": "Discover the best Web3 apps and services",
+    "icon": "https://get.mytonwallet.io/images/logo-link-preview.webp"
+  },
+  "receive": {
+    "title": "Receive Funds",
+    "description": "View, copy, and share your wallet address.",
+    "icon": "https://get.mytonwallet.io/images/logo-link-preview.webp"
+  },
+  "tx": {
+    "title": "View Transaction",
+    "description": "View transaction details in MyTonWallet",
+    "icon": "https://get.mytonwallet.io/images/logo-link-preview.webp"
+  }
+}

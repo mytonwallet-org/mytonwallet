@@ -15,9 +15,9 @@ import type {
 
 import { parseAccountId } from '../../../util/account';
 import { logDebugError } from '../../../util/logs';
+import { fetchPrivateKeyString } from './auth';
 import { getChainParameters, getTronClient } from './util/tronweb';
 import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/accounts';
-import { getMnemonic } from '../../common/mnemonic';
 import { handleServerError } from '../../errors';
 import { getTrc20Balance, getWalletBalance } from './wallet';
 import { hexToString } from '../../../util/stringFormat';
@@ -137,8 +137,7 @@ export async function submitGasfullTransfer(
       // todo: Check that the amount ≤ the token balance (in case of a token transfer)
     }
 
-    const mnemonic = await getMnemonic(accountId, password, account);
-    const privateKey = tronWeb.fromMnemonic(mnemonic!.join(' ')).privateKey.slice(2);
+    const privateKey = (await fetchPrivateKeyString(accountId, password, account))!;
 
     if (tokenAddress) {
       const { transaction } = await buildTrc20Transfer(tronWeb, {

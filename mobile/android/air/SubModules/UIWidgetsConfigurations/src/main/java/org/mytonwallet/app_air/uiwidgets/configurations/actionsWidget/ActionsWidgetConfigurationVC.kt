@@ -24,6 +24,7 @@ class ActionsWidgetConfigurationVC(
     override val onResult: (ok: Boolean) -> Unit
 ) :
     WidgetConfigurationVC(context) {
+    override val TAG = "ActionsWidgetConfiguration"
 
     override val shouldDisplayTopBar = false
 

@@ -1,5 +1,6 @@
 package org.mytonwallet.app_air.walletcore.api
 
+import org.json.JSONArray
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -17,43 +18,16 @@ import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 
-fun WalletCore.createWallet(
-    words: Array<String>,
-    passcode: String,
-    callback: (MAccount?, MBridgeError?) -> Unit
-) {
-    // Safely quote network and passcode to prevent injection
-    val quotedNetwork = JSONObject.quote(activeNetwork)
-    val quotedPasscode = JSONObject.quote(passcode)
-
-    bridge?.callApi(
-        "createWallet",
-        "[$quotedNetwork, ${words.toJSONString}, $quotedPasscode]"
-    ) { result, error ->
-        if (error != null || result == null) {
-            callback(null, error)
-        } else {
-            val account = JSONObject(result)
-            callback(
-                MAccount(
-                    account.optString("accountId", ""),
-                    MAccount.parseByChain(account.optJSONObject("byChain")),
-                    "",
-                    MAccount.AccountType.MNEMONIC,
-                    importedAt = null
-                ), null
-            )
-        }
-    }
-}
-
 fun WalletCore.importWallet(
     words: Array<String>,
     passcode: String,
+    isNew: Boolean,
     callback: (MAccount?, MBridgeError?) -> Unit
 ) {
     // Safely quote network and passcode to prevent injection
-    val quotedNetwork = JSONObject.quote(activeNetwork)
+    val quotedNetwork = JSONArray().apply {
+        put(activeNetwork)
+    }.toString()
     val quotedPasscode = JSONObject.quote(passcode)
 
     bridge?.callApi(
@@ -63,14 +37,15 @@ fun WalletCore.importWallet(
         if (error != null || result == null) {
             callback(null, error)
         } else {
-            val account = JSONObject(result)
+            val account = JSONArray(result).getJSONObject(0)
             callback(
                 MAccount(
                     account.optString("accountId", ""),
                     MAccount.parseByChain(account.optJSONObject("byChain")),
                     name = "",
                     accountType = MAccount.AccountType.MNEMONIC,
-                    importedAt = System.currentTimeMillis()
+                    importedAt = if (isNew) null else System.currentTimeMillis(),
+                    isTemporary = false
                 ), null
             )
         }
@@ -111,7 +86,8 @@ fun WalletCore.importNewWalletVersion(
                     ),
                     name = "$prevName $version",
                     accountType = prevAccount.accountType,
-                    importedAt = System.currentTimeMillis()
+                    importedAt = System.currentTimeMillis(),
+                    isTemporary = false
                 ), null
             )
         }
@@ -147,12 +123,18 @@ fun WalletCore.activateAccount(
     accountId: String,
     notifySDK: Boolean,
     fromHome: Boolean = false,
+    isPushedTemporary: Boolean = false,
+    willPopTemporaryPushedWallets: Boolean = false,
+    force: Boolean = false,
     callback: (MAccount?, MBridgeError?) -> Unit
 ) {
-    if (nextAccountId == accountId)
+    if (willPopTemporaryPushedWallets)
+        AccountStore.isPushedTemporary = false
+    if (nextAccountId == accountId && !force)
         return
     val prevNextAccountId = nextAccountId
     nextAccountId = accountId
+    nextAccountIsPushedTemporary = isPushedTemporary
     val newestActivitiesTimestampBySlug = WGlobalStorage.getNewestActivitiesBySlug(accountId)
     fun fetch() {
         fetchAccount(accountId) { account, err ->
@@ -164,6 +146,7 @@ fun WalletCore.activateAccount(
                 activeNetwork =
                     if (accountId.split("-")[1] == MAIN_NETWORK) MAIN_NETWORK else TEST_NETWORK
                 isMultichain = account.isMultichain
+                AccountStore.isPushedTemporary = isPushedTemporary
                 notifyAccountChanged(account, fromHome)
                 callback(account, null)
                 WCacheStorage.setInitialScreen(
@@ -181,8 +164,9 @@ fun WalletCore.activateAccount(
     if (WColor.Tint.color != prevAccentColor) {
         WalletContextManager.delegate?.themeChanged(animated = false)
     }
-    if (AccountStore.activeAccountId != null &&
-        (prevNextAccountId ?: AccountStore.activeAccountId) != accountId
+    if (force ||
+        (AccountStore.activeAccountId != null &&
+            (prevNextAccountId ?: AccountStore.activeAccountId) != accountId)
     ) {
         WalletCore.notifyEvent(WalletEvent.AccountWillChange)
     }
@@ -247,10 +231,13 @@ fun WalletCore.resetAccounts(
 fun WalletCore.removeAccount(
     accountId: String,
     nextAccountId: String?,
+    isNextAccountPushedTemporary: Boolean?,
     callback: (Boolean?, MBridgeError?) -> Unit
 ) {
-    if (nextAccountId != null)
+    if (nextAccountId != null) {
         AccountStore.updateActiveAccount(null)
+        WalletCore.nextAccountId = nextAccountId
+    }
     val quotedAccountId = JSONObject.quote(accountId)
     val quotedNextAccountId = nextAccountId?.let { JSONObject.quote(nextAccountId) }
     val newestActivitiesTimestampBySlug =
@@ -264,7 +251,23 @@ fun WalletCore.removeAccount(
         if (error != null || result == null) {
             callback(null, error)
         } else {
-            callback(true, null)
+            nextAccountId?.let {
+                if (WalletCore.nextAccountId != nextAccountId)
+                    return@let
+                activateAccount(
+                    nextAccountId,
+                    false,
+                    isPushedTemporary = isNextAccountPushedTemporary ?: false,
+                    force = true,
+                    callback = { account, error ->
+                        if (error != null || account == null) {
+                            throw Error()
+                        }
+                        callback(true, null)
+                    })
+            } ?: run {
+                callback(true, null)
+            }
         }
     }
 }

@@ -34,6 +34,7 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 
 class ConnectedAppsVC(context: Context) : WViewControllerWithModelStore(context) {
+    override val TAG = "ConnectedApps"
 
     private val connectedAppsViewModel by lazy {
         ViewModelProvider(this)[ConnectedAppsViewModel::class.java]

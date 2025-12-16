@@ -155,6 +155,12 @@ $listHorizontalPadding: 1rem;
   color: var(--color-gray-2);
 }
 
+.itemWrapper {
+  --color-site-border: linear-gradient(var(--color-accent) 0 0);
+
+  position: relative;
+}
+
 .item {
   cursor: var(--custom-cursor, pointer);
 
@@ -279,25 +285,15 @@ $listHorizontalPadding: 1rem;
   &.extended {
     width: min(23.125rem, calc(100vw - calc(2 * $listHorizontalPadding - var(--scrollbar-width))));
   }
-
-  .image,
-  .imageWrapper {
-    border-radius: var(--border-radius-big);
-  }
 }
 
-.withBorder::after {
-  content: '';
-
-  position: absolute;
-  z-index: 1;
-  top: 0;
-  left: 0;
-
-  width: 100%;
-  height: 100%;
-  border: 0.125rem solid var(--color-accent);
+.withBorder {
+  overflow: hidden;
+  border: 0.125rem solid transparent;
   border-radius: var(--border-radius-big);
+  background:
+    linear-gradient(var(--color-background-first) 0 0) padding-box,
+    var(--color-site-border) border-box;
 }
 
 .badge,
@@ -310,7 +306,7 @@ $listHorizontalPadding: 1rem;
   line-height: 1.125rem;
   color: var(--color-accent-button-text);
 
-  background: var(--color-accent);
+  background: var(--color-site-border);
 }
 
 .badge {
@@ -319,7 +315,7 @@ $listHorizontalPadding: 1rem;
   top: -0.25rem;
   right: 0;
 
-  .featured & {
+  &.featuredBadge {
     top: -0.5rem;
     right: 1.25rem;
   }

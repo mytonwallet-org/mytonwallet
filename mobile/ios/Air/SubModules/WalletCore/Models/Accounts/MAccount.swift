@@ -20,29 +20,16 @@ public struct MAccount: Equatable, Hashable, Sendable, Codable, Identifiable, Fe
     public var title: String?
     public var type: AccountType
     public var byChain: [String: AccountChain] // keys have to be strings because encoding won't work with ApiChain as keys
-    
+    public var isTemporary: Bool?
+
     static public var databaseTableName: String = "accounts"
 
-    public init(id: String, title: String?, type: AccountType, byChain: [String : AccountChain]) {
+    public init(id: String, title: String?, type: AccountType, byChain: [String : AccountChain], isTemporary: Bool? = nil) {
         self.id = id
         self.title = title
         self.type = type
         self.byChain = byChain
-    }
-}
-
-public struct AccountChain: Equatable, Hashable, Sendable, Codable {
-    public var address: String
-    public var domain: String?
-    public var isMultisig: Bool?
-    /** Is set only in hardware accounts */
-    public var ledgerIndex: Int?
-    
-    public init(address: String, domain: String? = nil, isMultisig: Bool? = nil, ledgerIndex: Int? = nil) {
-        self.address = address
-        self.domain = domain
-        self.isMultisig = isMultisig
-        self.ledgerIndex = ledgerIndex
+        self.isTemporary = isTemporary
     }
 }
 
@@ -88,6 +75,10 @@ extension MAccount {
         type == .view
     }
     
+    public var isTemporaryView: Bool {
+        isTemporary == true
+    }
+    
     public var network: ApiNetwork {
         id.contains("mainnet") ? .mainnet  : .testnet
     }
@@ -119,6 +110,14 @@ extension MAccount {
             }
             return nil
         }
+    }
+    
+    public var shareLink: URL {
+        var components = URLComponents(string: SHORT_UNIVERSAL_URL + "view")!
+        components.queryItems = orderedChains.map { (chain, info) in
+            URLQueryItem(name: chain.rawValue, value: info.preferredCopyString)
+        }
+        return components.url!
     }
 }
 

@@ -19,23 +19,14 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
-import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.api.activateAccount
-import org.mytonwallet.app_air.walletcore.api.removeAccount
 import org.mytonwallet.app_air.walletcore.api.resetAccounts
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import org.mytonwallet.app_air.walletcore.stores.ActivityStore
-import org.mytonwallet.app_air.walletcore.stores.AddressStore
-import org.mytonwallet.app_air.walletcore.stores.BalanceStore
-import org.mytonwallet.app_air.walletcore.stores.DappsStore
-import org.mytonwallet.app_air.walletcore.stores.NftStore
-import org.mytonwallet.app_air.walletcore.stores.StakingStore
 
 class AccountDialogHelpers {
     companion object {
@@ -73,20 +64,7 @@ class AccountDialogHelpers {
                             viewController.view.hideKeyboard()
                             val newWalletName = input.text.toString().trim()
                             if (newWalletName.isNotEmpty()) {
-                                account.name = newWalletName
-                                WGlobalStorage.save(
-                                    account.accountId,
-                                    newWalletName
-                                )
-                                AddressStore.updatedAccountName(
-                                    account.accountId,
-                                    newWalletName
-                                )
-                                if (AccountStore.activeAccountId == account.accountId) {
-                                    AccountStore.activeAccount?.name = newWalletName
-                                }
-                                AirPushNotifications.accountNameChanged(account)
-                                WalletCore.notifyEvent(WalletEvent.AccountNameChanged)
+                                AccountStore.renameAccount(account, newWalletName)
                             }
                         }
                     )
@@ -100,7 +78,7 @@ class AccountDialogHelpers {
                 LocaleController.getString("Sign Out"),
                 LocaleController.getString("\$logout_warning")
                     .toProcessedSpannableStringBuilder(),
-                LocaleController.getString("Log Out"),
+                LocaleController.getString("Sign Out"),
                 {
                     signOutPressed(window, account, notifyAccountChange = true)
                 },
@@ -116,7 +94,7 @@ class AccountDialogHelpers {
                 LocaleController.getString("Sign Out"),
                 LocaleController.getString("\$logout_warning")
                     .toProcessedSpannableStringBuilder(),
-                LocaleController.getString("Log Out"),
+                LocaleController.getString("Sign Out"),
                 {
                     val accountsToRemove =
                         (accounts.filter { it.accountId != AccountStore.activeAccountId } +
@@ -124,7 +102,11 @@ class AccountDialogHelpers {
 
                     fun removeNextAccount(index: Int = 0) {
                         if (index >= accountsToRemove.size) {
-                            WalletCore.notifyEvent(WalletEvent.AccountChangedInApp(accountsModified = true))
+                            WalletCore.notifyEvent(
+                                WalletEvent.AccountChangedInApp(
+                                    persistedAccountsModified = true
+                                )
+                            )
                             return
                         }
                         signOutPressed(
@@ -166,49 +148,32 @@ class AccountDialogHelpers {
         ) {
             val removingAccountId = removingAccount.accountId
             val accountIds = WGlobalStorage.accountIds()
+            // Instantly switch to another account if account is active and in main home screen
+            val switchInstantly =
+                !AccountStore.isPushedTemporary && AccountStore.activeAccountId == removingAccountId
             val nextAccountId =
-                if (AccountStore.activeAccountId == removingAccountId) accountIds.find { it !== AccountStore.activeAccountId }!! else null
-            WalletCore.removeAccount(removingAccountId, nextAccountId) { done, error ->
-                if (done == true) {
-                    Logger.d(Logger.LogTag.ACCOUNT, "Remove account: $removingAccountId")
-                    ActivityStore.removeAccount(removingAccountId)
-                    DappsStore.removeAccount(removingAccountId)
-                    NftStore.setNfts(
-                        null,
-                        removingAccountId,
-                        notifyObservers = false,
-                        isReorder = false
-                    )
-                    WGlobalStorage.removeAccount(removingAccountId)
-                    StakingStore.setStakingState(removingAccountId, null)
-                    BalanceStore.removeBalances(removingAccountId)
-                    WCacheStorage.clean(removingAccountId)
-                    AirPushNotifications.unsubscribe(removingAccount) {}
-                    nextAccountId?.let {
-                        WalletCore.activateAccount(
-                            nextAccountId,
-                            notifySDK = false
-                        ) { activeAccount, err ->
-                            if (activeAccount == null || err != null) {
-                                removeAllWallets(window)
-                                return@activateAccount
-                            }
-                            if (notifyAccountChange)
-                                WalletCore.notifyEvent(
-                                    WalletEvent.AccountChangedInApp(
-                                        accountsModified = true
-                                    )
-                                )
-                        }
-                    } ?: run {
-                        if (notifyAccountChange)
-                            WalletCore.notifyEvent(WalletEvent.AccountChangedInApp(accountsModified = true))
-                    }
-                    callback?.invoke()
-                } else {
-                    window.topViewController?.showError(error)
-                }
+                if (switchInstantly) accountIds.find { it !== AccountStore.activeAccountId }!! else null
+            if (nextAccountId == null && WGlobalStorage.getActiveAccountId() == removingAccountId) {
+                // Permanent active account is being removed with no replacement, replace it!
+                WGlobalStorage.setActiveAccountId(accountIds.find { it !== AccountStore.activeAccountId })
             }
+            AccountStore.removeAccount(
+                removingAccountId,
+                nextAccountId,
+                isNextAccountPushedTemporary = false,
+                onCompletion = { done, error ->
+                    if (done == true) {
+                        if (notifyAccountChange)
+                            WalletCore.notifyEvent(
+                                WalletEvent.AccountChangedInApp(
+                                    persistedAccountsModified = true
+                                )
+                            )
+                        callback?.invoke()
+                    } else {
+                        window.topViewController?.showError(error)
+                    }
+                })
         }
 
         private fun removeAllWallets(window: WWindow) {
@@ -224,7 +189,6 @@ class AccountDialogHelpers {
                     vc.showError(err)
                 }
                 Logger.d(Logger.LogTag.ACCOUNT, "Reset accounts from settings")
-                WGlobalStorage.setActiveAccountId(null)
                 WGlobalStorage.deleteAllWallets()
                 WSecureStorage.deleteAllWalletValues()
                 WalletContextManager.delegate?.restartApp()

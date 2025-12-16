@@ -72,6 +72,11 @@ public class ActivityCell: WHighlightCell {
         fatalError("init(coder:) has not been implemented")
     }
     
+    public override func prepareForReuse() {
+        super.prepareForReuse()
+        contentView.alpha = 1
+    }
+    
     @objc private func itemSelected() {
         if let activity, let delegate {
             delegate.onSelect(transaction: activity)

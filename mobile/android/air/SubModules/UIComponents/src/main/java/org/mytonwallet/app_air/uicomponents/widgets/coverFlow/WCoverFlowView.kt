@@ -30,6 +30,8 @@ import com.facebook.imagepipeline.image.CloseableImage
 import com.facebook.imagepipeline.request.ImageRequestBuilder
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.HapticType
+import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
@@ -290,6 +292,9 @@ class WCoverFlowView @JvmOverloads constructor(
     private fun checkAndNotifyIndexChange() {
         val newIndex = getCurrentCenterIndex()
         if (newIndex != lastNotifiedIndex) {
+            if (lastNotifiedIndex >= 0) {
+                Haptics.play(this, HapticType.SELECTION)
+            }
             lastNotifiedIndex = newIndex
             currentIndex = newIndex
             onCoverSelectedListener?.invoke(currentIndex)

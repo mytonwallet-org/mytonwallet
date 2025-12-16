@@ -28,7 +28,7 @@ public class HomeTabBarController: UITabBarController, WThemedView {
         case settings
     }
 
-    private var homeVC: HomeVC!
+    private(set) public var homeVC: HomeVC!
     
     private var forwardedGestureRecognizer: ForwardedGestureRecognizer!
     private var blurView: WBlurView!
@@ -237,8 +237,14 @@ public class HomeTabBarController: UITabBarController, WThemedView {
         }
     }
     
-    public func switchToHome() {
+    public func switchToHome(popToRoot: Bool) {
         selectedIndex = Tab.home.rawValue
+        if popToRoot {
+            homeVC?.navigationController?.popToRootViewController(animated: true)
+        }
+        if presentedViewController != nil {
+            dismiss(animated: true)
+        }
     }
     
     public func switchToExplore() {
@@ -508,8 +514,7 @@ public class HomeTabBarController: UITabBarController, WThemedView {
     
     private func showSwitchWallet(gesture: UIGestureRecognizer?) {
         
-        let feedbackGenerator = UIImpactFeedbackGenerator(style: .rigid)
-        feedbackGenerator.impactOccurred(intensity: 0.9)
+        Haptics.play(.drag)
         let switchAccountVC = SwitchAccountVC(accounts: AccountStore.allAccounts, iconColor: currentTab == .settings ? WTheme.tint : WTheme.secondaryLabel)
         switchAccountVC.modalPresentationStyle = .overFullScreen
         switchAccountVC.startingGestureRecognizer = gesture ?? forwardedGestureRecognizer

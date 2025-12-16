@@ -14,8 +14,7 @@ Update all of the following in one PR:
 5. Create the SDK folder `src/api/chains/<chain>/` and export `const <chain>Sdk: ChainSdk<'<chain>'>` from its `index.ts` (all interface methods present; unsupported ones throw `Not supported in <ChainName>`, see `src/api/chains/tron/index.ts` as example).
 6. Register the SDK in the map `chains` in `src/api/chains/index.ts`.
 7. Add a font icon: `src/assets/font-icons/chain-<chain>.svg` (match size & baseline of existing chain icons).
-8. (Optional) Map the native token icon in `TOKEN_FONT_ICONS` in `src/config.ts` if a custom glyph is needed.
-9. (Optional) Map the native token color in `TOKEN_EXCEPTION_COLORS`.
+8. (Optional) Map the native token styles in `TOKEN_CUSTOM_STYLES` in `src/config.ts`.
 
 ## Minimum Viable Feature Set (Recommended Order)
 
@@ -27,7 +26,9 @@ Implement these first so the chain is actually usable.
 - Importing from an address (view-only)
 
 Nice to have later:
+- Importing from a private key
 - Importing from a Ledger hardware wallet
+- Exporting the private key
 
 ### Token List
 
@@ -52,6 +53,7 @@ Nice to have later:
 
 - Fetching the fee in the Send form
 - Sending
+- Getting address information
 
 Nice to have later:
 - Comment

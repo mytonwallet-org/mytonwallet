@@ -35,6 +35,7 @@ class PasscodeConfirmVC(
     private val allowedToCancel: Boolean = true,
     private val ignoreBiometry: Boolean = false,
 ) : WViewController(context), PasscodeScreenView.Delegate {
+    override val TAG = "PasscodeConfirm"
 
     override val protectFromScreenRecord = true
 
@@ -131,7 +132,7 @@ class PasscodeConfirmVC(
                 ViewConstants.HORIZONTAL_PADDINGS.dp,
                 0,
                 ViewConstants.HORIZONTAL_PADDINGS.dp,
-                0
+                if (passcodeViewState is PasscodeViewState.CustomHeader) 48.dp else 0
             )
         }
     }
@@ -221,7 +222,7 @@ class PasscodeConfirmVC(
             LocaleController.getString("Sign Out"),
             LocaleController.getString("\$logout_warning")
                 .toProcessedSpannableStringBuilder(),
-            LocaleController.getString("Log Out"),
+            LocaleController.getString("Sign Out"),
             buttonPressed = {
                 view.lockView()
                 WalletCore.resetAccounts { ok, err ->

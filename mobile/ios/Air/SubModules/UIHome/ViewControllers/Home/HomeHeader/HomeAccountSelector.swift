@@ -16,8 +16,6 @@ import Perception
 import Dependencies
 import Combine
 
-private let itemWidth: CGFloat = UIScreen.main.bounds.width - 32
-private let itemHeight: CGFloat = 500
 private let itemSpacing: CGFloat = 8 + itemWidth
 
 class _AccountSelectorView: UIView, UICollectionViewDelegate {
@@ -25,7 +23,6 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
     let viewModel: HomeHeaderViewModel
     var onIsScrolling: (Bool) -> ()
     var selectedIdx = 0
-    var ns: Namespace.ID
     
     enum Section: Hashable {
         case main
@@ -40,10 +37,15 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
     var scrollingUpdates = CurrentValueSubject<Bool, Never>(false)
     var cancellables = Set<AnyCancellable>()
     
-    init(viewModel: HomeHeaderViewModel, onIsScrolling: @escaping (Bool) -> (), ns: Namespace.ID) {
+    override var safeAreaInsets: UIEdgeInsets {
+        get { .zero }
+        set { _ = newValue }
+    }
+    
+    init(viewModel: HomeHeaderViewModel, onIsScrolling: @escaping (Bool) -> (), ns: Namespace.ID?) {
         self.viewModel = viewModel
         self.onIsScrolling = onIsScrolling
-        self.ns = ns
+//        self.ns = ns
         super.init(frame: .zero)
         setup()
     }
@@ -90,21 +92,14 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
         
         let layout = UICollectionViewCompositionalLayout(section: section)
         
-        collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
+        collectionView = _CollectionView(frame: .zero, collectionViewLayout: layout)
         
         let homeHeaderViewModel = self.viewModel
         
-        let cellRegistration = UICollectionView.CellRegistration<UICollectionViewCell, String> { [ns] cell, _, accountId in
-            let viewModel = AccountViewModel(accountId: accountId)
-            cell.configurationUpdateHandler = { cell, state in
-                cell.contentConfiguration = UIHostingConfiguration {
-                    HomeCard(homeHeaderViewModel: homeHeaderViewModel, viewModel: viewModel, ns: ns)
-                        .frame(maxHeight: .infinity, alignment: .bottom)
-                }
-                .margins(.all, 0)
-            }
+        let cellRegistration = UICollectionView.CellRegistration<HomeCardCell, String> { cell, _, accountId in
+            let accountViewModel = AccountViewModel(accountId: accountId)
+            cell.configure(headerViewModel: homeHeaderViewModel, accountViewModel: accountViewModel)
         }
-        collectionView.clipsToBounds = false
         
         dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) { collectionView, indexPath, itemIdentifier in
             switch itemIdentifier {
@@ -117,14 +112,18 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
             guard let self else { return }
             var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
             snapshot.appendSections([.main])
-            snapshot.appendItems(viewModel.accountStore.orderedAccountIds.map(Item.coverFlowItem))
+            if let accountId = viewModel.accountId {
+                snapshot.appendItems([.coverFlowItem(accountId)])
+            } else {
+                snapshot.appendItems(viewModel.accountStore.orderedAccountIds.map(Item.coverFlowItem))
+            }
             dataSource.apply(snapshot)
         }
         
         addSubview(collectionView)
         collectionView.translatesAutoresizingMaskIntoConstraints = false
         collectionView.backgroundColor = .clear
-        collectionView.clipsToBounds = true
+        collectionView.clipsToBounds = false
         collectionView.isScrollEnabled = false
         if #available(iOS 26.0, *) {
             collectionView.topEdgeEffect.isHidden = true
@@ -132,6 +131,7 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
             collectionView.rightEdgeEffect.isHidden = true
             collectionView.leftEdgeEffect.isHidden = true
         }
+        collectionView.delegate = self
         
         scrollingUpdates
             .sink { [unowned self] isScrolling in
@@ -181,9 +181,11 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
         return CGSize(width: UIView.noIntrinsicMetric, height: itemHeight)
     }
     
+    override func safeAreaInsetsDidChange() {
+    }
+    
     func updateFocusedItem(idx: Int) {
         if idx != selectedIdx {
-//            UISelectionFeedbackGenerator().selectionChanged()
             selectedIdx = idx
             if case .coverFlowItem(let id) = dataSource.itemIdentifier(for: IndexPath(item: idx, section: 0)) {
                 viewModel.onSelect(id)
@@ -192,7 +194,7 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
     }
     
     func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
-        true
+        false
     }
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
@@ -209,38 +211,13 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
     }
 }
 
+private final class _CollectionView: UICollectionView {
 
-struct _AccountSelectorViewRepresentable: UIViewRepresentable {
-    
-    var viewModel: HomeHeaderViewModel
-    var onIsScrolling: (Bool) -> ()
-    var ns: Namespace.ID
-    
-    func makeUIView(context: Context) -> some UIView {
-        let view = _AccountSelectorView(viewModel: viewModel, onIsScrolling: onIsScrolling, ns: ns)
-        return view
-    }
-    
-    func updateUIView(_ uiView: UIViewType, context: Context) {
-    }
-}
-
-struct AccountSelectorView: View {
-    
-    var viewModel: HomeHeaderViewModel
-    var ns: Namespace.ID
-    @State private var isScrolling = false
-    
-    var body: some View {
-        WithPerceptionTracking {
-            _AccountSelectorViewRepresentable(viewModel: viewModel, onIsScrolling: onIsScrolling, ns: ns)
-                .frame(maxWidth: .infinity)
-                .frame(height: 500, alignment: .bottom)
-                .opacity(viewModel.cardIsHidden ? 0 : 1)
+    // hides unwanted animation of ScrollEdgeEffect view (iOS 26.1)
+    override func didAddSubview(_ subview: UIView) {
+        super.didAddSubview(subview)
+        if subview.layer.animationKeys() != nil {
+            subview.layer.removeAllAnimationsRecursive()
         }
-    }
-    
-    func onIsScrolling(_ isScrolling: Bool) {
-        self.isScrolling = isScrolling
     }
 }
