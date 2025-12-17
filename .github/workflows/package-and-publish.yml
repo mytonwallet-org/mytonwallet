@@ -106,6 +106,7 @@ jobs:
         with:
           name: ${{ env.APP_NAME }}-x64-unsigned.exe
           path: dist-electron/${{ env.APP_NAME }}-x64.exe
+          if-no-files-found: error
 
   electron-sign-for-windows:
     name: Sign and re-publish Windows package
@@ -316,7 +317,6 @@ jobs:
       HASH_FILENAME: checksum.sha256
     needs:
       - electron-sign-for-windows
-      - extensions-package
       - android-release
     runs-on: ubuntu-latest
     environment: production
