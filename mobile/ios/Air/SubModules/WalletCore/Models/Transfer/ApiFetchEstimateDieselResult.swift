@@ -56,7 +56,7 @@ extension DieselStatus {
         case .notAvailable, .starsFee, .notAuthorized, .available:
             return nil
         case .pendingPrevious:
-            return lang("Pending previous fee")
+            return lang("Awaiting Previous Fee")
         }
     }
 }

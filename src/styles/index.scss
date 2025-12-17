@@ -238,7 +238,7 @@ a {
 
 .browser-update-message {
   position: fixed;
-  z-index: var(--z-notification);
+  z-index: var(--z-toast);
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);

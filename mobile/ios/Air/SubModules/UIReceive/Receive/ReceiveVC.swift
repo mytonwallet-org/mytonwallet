@@ -10,7 +10,9 @@ import UIKit
 import UIComponents
 import WalletContext
 import WalletCore
+import Perception
 
+let headerHeight: CGFloat = 340
 
 public class ReceiveVC: WViewController, WSegmentedController.Delegate {
     
@@ -20,8 +22,8 @@ public class ReceiveVC: WViewController, WSegmentedController.Delegate {
     
     private var segmentedController: WSegmentedController!
     private var hostingController: UIHostingController<ReceiveHeaderView>!
-    private var progress: CGFloat = 0
-    
+    private let headerViewModel = ReceiveHeaderViewModel()
+
     public init(chain: ApiChain? = nil, showBuyOptions: Bool = true, title: String? = nil) {
         var onlyChain = chain
         if let account = AccountStore.account, account.byChain.count <= 1, let first = account.addressByChain.first {
@@ -52,14 +54,29 @@ public class ReceiveVC: WViewController, WSegmentedController.Delegate {
         addChild(tonVC)
         addChild(tronVC)
         
-        segmentedController = WSegmentedController(viewControllers: [tonVC, tronVC],
-                                                   defaultIndex: 0,
-                                                   barHeight: 56.333,
-                                                   animationSpeed: .slow,
-                                                   primaryTextColor: .white,
-                                                   secondaryTextColor: .white.withAlphaComponent(0.75),
-                                                   capsuleFillColor: .white.withAlphaComponent(0.15),
-                                                   delegate: self)
+        let items: [SegmentedControlItem] = [
+            SegmentedControlItem(
+                id: tonVC.chain.rawValue,
+                title: tonVC.chain.symbol,
+                viewController: tonVC
+            ),
+            SegmentedControlItem(
+                id: tronVC.chain.rawValue,
+                title: tronVC.chain.symbol,
+                viewController: tronVC
+            ),
+        ]
+        
+        segmentedController = WSegmentedController(
+            items: items,
+            barHeight: 0,
+            goUnderNavBar: true,
+            animationSpeed: .slow,
+            primaryTextColor: .white,
+            secondaryTextColor: .white.withAlphaComponent(0.75),
+            capsuleFillColor: .white.withAlphaComponent(0.15),
+            delegate: self
+        )
         
         segmentedController.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(segmentedController)
@@ -72,7 +89,7 @@ public class ReceiveVC: WViewController, WSegmentedController.Delegate {
         segmentedController.backgroundColor = .clear
         segmentedController.blurView.isHidden = true
         segmentedController.separator.isHidden = true
-        segmentedController.newSegmentedControl.isHidden = !twoTabs
+        segmentedController.segmentedControl.isHidden = !twoTabs
         segmentedController.scrollView.isScrollEnabled = twoTabs
 
         self.hostingController = addHostingController(makeHeader()) { hv in
@@ -80,24 +97,35 @@ public class ReceiveVC: WViewController, WSegmentedController.Delegate {
                 hv.topAnchor.constraint(equalTo: self.view.topAnchor),
                 hv.leadingAnchor.constraint(equalTo: self.view.leadingAnchor),
                 hv.trailingAnchor.constraint(equalTo: self.view.trailingAnchor),
-                hv.heightAnchor.constraint(equalToConstant: 320)
+                hv.heightAnchor.constraint(equalToConstant: headerHeight)
             ])
         }
+        hostingController.disableSafeArea()
         hostingController.view.clipsToBounds = true
         
         view.bringSubviewToFront(segmentedController)
         
-        let title: String? = twoTabs ? nil : (customTitle ?? lang("Add Crypto"))
-        let navigationBar = WNavigationBar(navHeight: 60, title: title, titleColor: .white, closeIcon: true, closeIconColor: .white.withAlphaComponent(0.75), closeIconFillColor: .white.withAlphaComponent(0.15))
-        navigationBar.blurView.isHidden = true
-        navigationBar.shouldPassTouches = true
-        navigationBar.backgroundColor = .clear
-        view.addSubview(navigationBar)
-        NSLayoutConstraint.activate([
-            navigationBar.topAnchor.constraint(equalTo: view.topAnchor),
-            navigationBar.leftAnchor.constraint(equalTo: view.leftAnchor),
-            navigationBar.rightAnchor.constraint(equalTo: view.rightAnchor)
-        ])
+        configureNavigationItemWithTransparentBackground()
+        
+        if #available(iOS 26, *) {
+            addCloseNavigationItemIfNeeded()
+        } else {
+            let image = UIImage(systemName: "xmark")
+            let item = UIBarButtonItem(image: image, primaryAction: UIAction { _ in
+                topViewController()?.dismiss(animated: true)
+            })
+            item.tintColor = .white.withAlphaComponent(0.75)
+            navigationItem.rightBarButtonItem = item
+        }
+        if twoTabs {
+            let segmentedControl = segmentedController.segmentedControl!
+            segmentedControl.removeFromSuperview()
+            navigationItem.titleView = segmentedControl
+            segmentedControl.widthAnchor.constraint(equalToConstant: 200).isActive = true
+        } else {
+            segmentedController.segmentedControl.removeFromSuperview()
+            navigationItem.title = customTitle ?? lang("Add Crypto")
+        }
 
         updateTheme()
     }
@@ -106,8 +134,6 @@ public class ReceiveVC: WViewController, WSegmentedController.Delegate {
         view.backgroundColor = WTheme.sheetBackground
         segmentedController.updateTheme()
     }
-    
-    public override var hideNavigationBar: Bool { true }
     
     public override func scrollToTop(animated: Bool) {
         segmentedController?.scrollToTop(animated: animated)
@@ -123,8 +149,7 @@ public class ReceiveVC: WViewController, WSegmentedController.Delegate {
     }
     
     public func segmentedController(scrollOffsetChangedTo progress: CGFloat) {
-        self.progress = progress
-        hostingController.rootView = makeHeader()
+        self.headerViewModel.progress = progress
     }
     
     public func segmentedControllerDidStartDragging() {
@@ -134,39 +159,45 @@ public class ReceiveVC: WViewController, WSegmentedController.Delegate {
     }
     
     func makeHeader() -> ReceiveHeaderView {
-        ReceiveHeaderView(chain1: onlyChain ?? .ton, chain2: .tron, progress: progress)
+        ReceiveHeaderView(chain1: onlyChain ?? .ton, chain2: .tron, viewModel: headerViewModel)
     }
 }
 
 
 // MARK: - Header
 
+@Perceptible
+final class ReceiveHeaderViewModel {
+    var progress: CGFloat = 0
+}
+
 struct ReceiveHeaderView: View {
     
     let chain1: ApiChain
     let chain2: ApiChain
-    var progress: CGFloat
+    var viewModel: ReceiveHeaderViewModel
         
     var body: some View {
-        ZStack {
+        WithPerceptionTracking {
             ZStack {
-                Color(WTheme.background)
-                Image(chain1 == .ton ? "Receive.Background.Ton" : "Receive.Background.Tron", bundle: AirBundle)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .opacity(1 - progress)
-                Image(chain2 == .ton ? "Receive.Background.Ton" : "Receive.Background.Tron", bundle: AirBundle)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .opacity(progress)
-//                    .blendMode(.color)
+                ZStack {
+                    Color(WTheme.background)
+                    Image(chain1 == .ton ? "Receive.Background.Ton" : "Receive.Background.Tron", bundle: AirBundle)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .opacity(1 - viewModel.progress)
+                    Image(chain2 == .ton ? "Receive.Background.Ton" : "Receive.Background.Tron", bundle: AirBundle)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .opacity(viewModel.progress)
+                }
+                
+                ZStack {
+                    ReceiveHeaderItemView(chain: chain1, direction: -1, progress: viewModel.progress)
+                    ReceiveHeaderItemView(chain: chain2, direction: 1, progress: 1 - viewModel.progress)
+                }
+                .padding(.top, 48)
             }
-            
-            ZStack {
-                ReceiveHeaderItemView(chain: chain1, direction: -1, progress: progress)
-                ReceiveHeaderItemView(chain: chain2, direction: 1, progress: 1 - progress)
-            }
-            .padding(.top, 36)
         }
     }
 }
@@ -182,21 +213,23 @@ struct ReceiveHeaderItemView: View {
     var progress: CGFloat
     
     var body: some View {
-        let progress1 = 1 - progress
-        let progress2 = progress
-
-        ZStack {
-            Image(chain == .ton ? "Receive.Ornament.Ton" : "Receive.Ornament.Tron", bundle: AirBundle)
-                .blendMode(.softLight)
-                .opacity(inter(0.25, 1, progress1))
-
-            _QRCodeView(chain: chain, opacity: inter(0.25, 1, progress1), onTap: {})
-                .frame(width: 220, height: 220)
-                .clipShape(.rect(cornerRadius: 32))
+        WithPerceptionTracking {
+            let progress1 = 1 - progress
+            let progress2 = progress
+            
+            ZStack {
+                Image(chain == .ton ? "Receive.Ornament.Ton" : "Receive.Ornament.Tron", bundle: AirBundle)
+                    .blendMode(.softLight)
+                    .opacity(inter(0.25, 1, progress1))
+                
+                _QRCodeView(chain: chain, opacity: inter(0.25, 1, progress1), onTap: {})
+                    .frame(width: 220, height: 220)
+                    .clipShape(.rect(cornerRadius: 32))
+            }
+            .scaleEffect(min(1.05, inter(0.5, 1, progress1)))
+            .offset(x: progress2 * 320 * direction)
+            .rotation3DEffect(.degrees(-10) * progress2 * direction, axis: (0, 1, 0))
         }
-        .scaleEffect(min(1.05, inter(0.5, 1, progress1)))
-        .offset(x: progress2 * 320 * direction)
-        .rotation3DEffect(.degrees(-10) * progress2 * direction, axis: (0, 1, 0))
     }
 }
 
@@ -248,15 +281,14 @@ struct _QRCodeView: UIViewRepresentable {
     public func updateUIView(_ uiView: UIView, context: Context) {
         uiView.alpha = self.opacity
     }
-
 }
 
 
 // MARK: - Table
 
-private class ReceiveTableVC: WViewController, WSegmentedControllerContent {
+class ReceiveTableVC: WViewController, WSegmentedControllerContent {
     
-    private let chain: ApiChain
+    let chain: ApiChain
     
     private let showBuyOptions: Bool
     public init(chain: ApiChain, showBuyOptions: Bool, customTitle: String? = nil) {
@@ -282,8 +314,9 @@ private class ReceiveTableVC: WViewController, WSegmentedControllerContent {
         tableView.delegate = self
         tableView.dataSource = self
         tableView.separatorStyle = .none
-        tableView.contentInset.top = 320
+        tableView.contentInset.top = headerHeight
         tableView.contentInset.bottom = 16
+        tableView.contentInsetAdjustmentBehavior = .never
         tableView.bounces = false // disabling scrolling messes with dismiss gesture so we just disable overscroll
         tableView.delaysContentTouches = false
         tableView.backgroundColor = .clear
@@ -294,7 +327,7 @@ private class ReceiveTableVC: WViewController, WSegmentedControllerContent {
         tableView.backgroundColor = .clear
         view.insertSubview(tableView, at: 0)
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tableView.topAnchor.constraint(equalTo: view.topAnchor),
             tableView.leftAnchor.constraint(equalTo: view.leftAnchor),
             tableView.rightAnchor.constraint(equalTo: view.rightAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
@@ -326,7 +359,7 @@ extension ReceiveTableVC: UITableViewDelegate, UITableViewDataSource {
     public func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch section {
         case 0:
-            return 3
+            return 2
         case 1:
             var count = 2
             if shouldShowDepositLink {
@@ -372,7 +405,7 @@ extension ReceiveTableVC: UITableViewDelegate, UITableViewDataSource {
                     
                     Button(action: {
                         self?.showToast(animationName: "Copy", message: lang("Address was copied!"))
-                        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                        Haptics.play(.lightTap)
                         UIPasteboard.general.string = address
                     }) {
                         text
@@ -390,16 +423,6 @@ extension ReceiveTableVC: UITableViewDelegate, UITableViewDataSource {
                 })
                 return cell
                 
-            case 2:
-                let cell = tableView.dequeueReusableCell(withIdentifier: "Footer")!
-                var config = UIListContentConfiguration.groupedFooter()
-                
-                config.text = chain == .ton ? lang("$send_only_ton") : lang("$send_only_tron")
-                cell.contentConfiguration = config
-                cell.layoutMargins = .init(top: 2, left: 32, bottom: 0, right: 32)
-                cell.backgroundConfiguration = .listGroupedHeaderFooter()
-                return cell
-            
             default:
                 fatalError()
             }

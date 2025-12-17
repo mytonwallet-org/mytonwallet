@@ -3,8 +3,8 @@
  */
 
 import type { ApiActivity, ApiDecryptCommentOptions, ApiFetchActivitySliceOptions } from './activities';
-import type { ApiAnyDisplayError, ApiAuthError } from './errors';
-import type { ApiActivityTimestamps, ApiChain, ApiNetwork, OnUpdatingStatusChange } from './misc';
+import type { ApiAnyDisplayError } from './errors';
+import type { ApiActivityTimestamps, ApiChain, ApiNetwork, ApiToken, OnUpdatingStatusChange } from './misc';
 import type { ApiAccountWithChain, ApiWalletByChain } from './storage';
 import type {
   ApiCheckTransactionDraftOptions,
@@ -16,6 +16,7 @@ import type {
   ApiSubmitGaslessTransferResult,
 } from './transfer';
 import type { OnApiUpdate } from './updates';
+import type { ApiAddressInfo } from './wallet';
 
 export interface ChainSdk<T extends ApiChain> {
   //
@@ -37,7 +38,7 @@ export interface ChainSdk<T extends ApiChain> {
   /**
    * Converts an address to the normalized form (to fill the `normalizedAddress` field of `ApiTransactionActivity`).
    */
-  normalizeAddress(address: string, network: ApiNetwork): string;
+  normalizeAddress(network: ApiNetwork, address: string): string;
 
   //
   // Authentication
@@ -45,10 +46,12 @@ export interface ChainSdk<T extends ApiChain> {
 
   getWalletFromBip39Mnemonic(network: ApiNetwork, mnemonic: string[]): MaybePromise<ApiWalletByChain[T]>;
 
+  getWalletFromPrivateKey(network: ApiNetwork, privateKey: string): MaybePromise<ApiWalletByChain[T]>;
+
   getWalletFromAddress(
     network: ApiNetwork,
     addressOrDomain: string,
-  ): MaybePromise<{ title?: string; wallet: ApiWalletByChain[T] } | { error: ApiAuthError }>;
+  ): MaybePromise<{ title?: string; wallet: ApiWalletByChain[T] } | { error: ApiAnyDisplayError }>;
 
   /**
    * Loads wallets with the given indices from the Ledger device and fetches their balances.
@@ -69,6 +72,7 @@ export interface ChainSdk<T extends ApiChain> {
    *  - balance
    *  - staking
    *  - NFT
+   *  - is multisig
    *  - etc...
    *
    * Returns a function that permanently stops updating the data when called.
@@ -88,6 +92,16 @@ export interface ChainSdk<T extends ApiChain> {
    * Returns a function that permanently stops updating the data when called.
    */
   setupInactivePolling(accountId: string, account: ApiAccountWithChain<T>, onUpdate: OnApiUpdate): NoneToVoidFunction;
+
+  //
+  // Tokens
+  //
+
+  /** Fetches the token info and only returns it */
+  fetchToken(network: ApiNetwork, tokenAddress: string): Promise<ApiToken | { error: ApiAnyDisplayError }>;
+
+  /** Fetches the token info, puts it into the SDK cache and calls `sendTokensUpdate` if the token list changes */
+  importToken(network: ApiNetwork, tokenAddress: string, sendTokensUpdate: NoneToVoidFunction): Promise<void>;
 
   //
   // Sending transfers
@@ -116,11 +130,23 @@ export interface ChainSdk<T extends ApiChain> {
   // Wallet info
   //
 
+  /** Validates the given address and fetches information about it */
+  getAddressInfo(
+    network: ApiNetwork,
+    addressOrDomain: string,
+  ): MaybePromise<ApiAddressInfo | { error: ApiAnyDisplayError }>;
+
   /**
    * Opens the verification screen of the chain's app on the Ledger device.
    * Returns the wallet address if the user accepts the verification.
    */
   verifyLedgerWalletAddress(accountId: string): Promise<string | { error: ApiAnyDisplayError }>;
+
+  /**
+   * Returns the private key of the given account in the format used by `getWalletFromPrivateKey`, even if it's a
+   * mnemonic account. Returns `undefined` if the account doesn't exist.
+   */
+  fetchPrivateKeyString(accountId: string, password: string): Promise<string | undefined>;
 
   //
   // Other
@@ -131,4 +157,12 @@ export interface ChainSdk<T extends ApiChain> {
    * Should return an error if the connection with Ledger is broken.
    */
   getIsLedgerAppOpen(): Promise<boolean | { error: ApiAnyDisplayError }>;
+
+  /**
+   * Fetches transaction/trace info by hash or trace ID for deeplink viewing.
+   * Returns all activities from a transaction, regardless of which wallet initiated it.
+   * `walletAddress` is only used for determining the isIncoming perspective.
+   * For TON, `txId` can be either a trace_id or msg_hash. For TRON, `txId` is a transaction hash.
+   */
+  fetchTransactionById(network: ApiNetwork, walletAddress: string, txId: string): Promise<ApiActivity[]>;
 }

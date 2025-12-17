@@ -1,8 +1,10 @@
 package org.mytonwallet.app_air.walletbasecontext.utils
 
+import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import java.math.BigInteger
 
 const val decimalSeparator = '.'
+const val thinSpace = '\u2009'
 
 fun max(a: BigInteger, b: BigInteger): BigInteger {
     return if (a > b) a else b
@@ -76,12 +78,12 @@ fun BigInteger.toString(
 
     // Add negative sign if needed
     if (this < BigInteger.valueOf(0)) {
-        result = "-$result"
+        result = "-$thinSpace$result"
     }
 
     // Add currency symbol
     if (currency.isNotEmpty()) {
-        result = if (currency.length > 1 || forceCurrencyToRight) {
+        result = if (currency.length > 1 || forceCurrencyToRight || MBaseCurrency.forcedToRight.contains(currency)) {
             "$result $currency"
         } else {
             "$currency$result"
@@ -90,7 +92,7 @@ fun BigInteger.toString(
 
     // Add positive sign if needed
     if (showPositiveSign && this >= BigInteger.valueOf(0)) {
-        result = "+$result"
+        result = "+$thinSpace$result"
     }
 
     return result

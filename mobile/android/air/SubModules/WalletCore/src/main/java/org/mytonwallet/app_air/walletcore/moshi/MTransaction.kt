@@ -474,7 +474,7 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
             })
         }
 
-    fun addressToShow(): Pair<String, Boolean>? {
+    fun addressToShow(addressPrefixCount: Int = 4, addressSuffixCount: Int = 4): Pair<String, Boolean>? {
         return (when (this) {
             is Transaction -> {
                 AddressStore.getAddress(peerAddress)?.name?.let { name ->
@@ -482,7 +482,7 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
                 } ?: run {
                     if (metadata?.name?.isNotEmpty() == true)
                         Pair(metadata.name, true) else
-                        Pair(peerAddress.formatStartEndAddress(), false)
+                        Pair(peerAddress.formatStartEndAddress(addressPrefixCount, addressSuffixCount), false)
                 }
             }
 

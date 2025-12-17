@@ -34,6 +34,7 @@ class WNavigationBar(
 ) : WView(viewController.navigationController!!.context), WThemedView {
 
     companion object {
+        const val DEFAULT_HEIGHT_THICK = 76
         const val DEFAULT_HEIGHT = 64
         const val DEFAULT_HEIGHT_THIN = 56
         const val DEFAULT_HEIGHT_TINY = 48
@@ -90,7 +91,7 @@ class WNavigationBar(
     private val backButton: WImageButton by lazy {
         WImageButton(context).apply {
             setOnClickListener {
-                navigationController.pop()
+                navigationController.onBackPressed()
             }
             visibility = if (navigationController.isBackAllowed()) VISIBLE else GONE
             val arrowDrawable =
@@ -199,6 +200,7 @@ class WNavigationBar(
     }
 
     fun addCloseButton(
+        trailingMarginDp: Float? = null,
         onClose: () -> Unit = {
             navigationController.window.dismissLastNav()
         }
@@ -210,7 +212,23 @@ class WNavigationBar(
         contentView.setConstraints {
             toTopPx(closeButton, topOffset)
             toBottom(closeButton)
-            toEnd(closeButton, if (height < DEFAULT_HEIGHT) 11f else 8f)
+            toEnd(closeButton, trailingMarginDp ?: if (height < DEFAULT_HEIGHT) 11f else 8f)
+        }
+    }
+
+    private var leadingView: View? = null
+    fun addLeadingView(
+        leadingView: View,
+        layoutParams: LayoutParams = LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
+    ) {
+        this.leadingView = leadingView
+        contentView.addView(leadingView, layoutParams)
+
+        contentView.setConstraints {
+            toTopPx(leadingView, topOffset + contentMarginTop)
+            toBottom(leadingView)
+            toStart(leadingView, 8f)
+            startToEnd(titleLinearLayout, leadingView, 4f)
         }
     }
 
@@ -247,6 +265,7 @@ class WNavigationBar(
 
     fun setTitleGravity(gravity: Int) {
         titleLabel.gravity = gravity
+        subtitleLabel.gravity = gravity
         contentView.setConstraints {
             if (gravity == Gravity.CENTER) {
                 toCenterX(titleLinearLayout, if (backButton.isVisible) 64f else 20f)

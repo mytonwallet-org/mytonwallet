@@ -13,7 +13,8 @@ import com.github.mikephil.charting.listener.ChartTouchListener.ChartGesture
 import com.github.mikephil.charting.listener.OnChartGestureListener
 import com.github.mikephil.charting.listener.OnChartValueSelectedListener
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.helpers.HapticFeedbackHelper
+import org.mytonwallet.app_air.uicomponents.helpers.Haptics
+import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -32,7 +33,6 @@ class WLineChartView(context: Context, labeled: Boolean) : LineChart(context), W
 
     var dateFormat = SimpleDateFormat("MMM dd", Locale(WGlobalStorage.getLangCode()))
 
-    private val hapticFeedbackHelper = HapticFeedbackHelper(context)
     var onHighlightChange: ((h: Highlight?) -> Unit)? = null
 
     init {
@@ -125,7 +125,7 @@ class WLineChartView(context: Context, labeled: Boolean) : LineChart(context), W
         renderer = customRenderer
         setOnChartValueSelectedListener(object : OnChartValueSelectedListener {
             override fun onValueSelected(e: Entry, h: Highlight) {
-                hapticFeedbackHelper.provideHapticFeedback(2)
+                Haptics.play(this@WLineChartView, HapticType.SELECTION)
                 invalidate()
                 onHighlightChange?.invoke(h)
             }

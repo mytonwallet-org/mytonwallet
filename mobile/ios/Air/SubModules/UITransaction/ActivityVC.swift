@@ -15,10 +15,10 @@ import UIPasscode
 @MainActor
 public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData.EventsObserver {
     
-    private var model: ActivityDetialsViewModel
+    private var model: ActivityDetailsViewModel
     
     public init(activity: ApiActivity) {
-        self.model = ActivityDetialsViewModel(activity: activity, detailsExpanded: false, scrollingDisabled: true)
+        self.model = ActivityDetailsViewModel(activity: activity, detailsExpanded: false, scrollingDisabled: true)
         super.init(nibName: nil, bundle: nil)
         model.onHeightChange = { [weak self] in self?.onHeightChange() }
         model.onDetailsExpandedChanged = { [weak self] in self?.onDetailsExpandedChanged() }
@@ -49,14 +49,12 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
         let (title, titleIsRed) = makeTitle()
         let subtitle = activity.timestamp.dateTimeString
         
-        addNavigationBar(
-            navHeight: 60,
-            centerYOffset: 0,
-            title: title,
-            subtitle: subtitle,
-            titleColor: titleIsRed ? WTheme.error : nil,
-            closeIcon: true)
-        navigationBarProgressiveBlurDelta = 10
+        navigationItem.title = title
+        if #available(iOS 26, *) {
+            navigationItem.subtitle = subtitle
+        }
+        addCloseNavigationItemIfNeeded()
+        
         if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
             let appearance = UINavigationBarAppearance()
             appearance.titleTextAttributes = [
@@ -71,14 +69,15 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
             navigationItem.standardAppearance = appearance
             if let sheet = sheetPresentationController {
                 sheet.prefersGrabberVisible = true
+                if #available(iOS 26.1, *) {
+                    sheet.backgroundEffect = UIColorEffect(color: WTheme.sheetBackground)
+                }
             }
         }
         
         self.hostingController = addHostingController(makeView(), constraints: .fill)
         hostingController?.view.clipsToBounds = false
         
-        bringNavigationBarToFront()
-
         updateTheme()
     }
     
@@ -129,8 +128,6 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
     func makeView() -> ActivityView {
         ActivityView(
             model: self.model,
-            navigationBarInset: navigationBarHeight,
-            onScroll: { [weak self] y in self?.updateNavigationBarProgressiveBlur(y) },
             onDecryptComment: decryptMessage,
             decryptedComment: decryptedComment,
             isSensitiveDataHidden: AppStorageHelper.isSensitiveDataHidden
@@ -141,7 +138,6 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
         
         guard model.collapsedHeight > 0 else { return }
         
-        let collapsedHeight = model.collapsedHeight + 34
         let expandedHeight = model.expandedHeight + 34
         
         if let p = sheetPresentationController {
@@ -154,12 +150,6 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
             if expandedHeight != self.contentHeight {
                 p.animateChanges {
                     p.detents = makeDetents()
-//
-//                    if p.selectedDetentIdentifier == .detailsCollapsed || Date().timeIntervalSince(detentChange) > 0.5 {
-//                        p.selectedDetentIdentifier = .detailsCollapsed
-//                    } else if p.selectedDetentIdentifier == .detailsExpanded {
-//                        p.selectedDetentIdentifier = .detailsExpanded
-//                    }
                 }
                 self.contentHeight = expandedHeight
             }

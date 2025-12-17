@@ -1,8 +1,9 @@
 import { useMemo } from '../../../lib/teact/teact';
 
 import type { ApiChain } from '../../../api/types';
-import type { Account, AccountChain, AddressBookItemData, SavedAddress } from '../../../global/types';
+import type { Account, AddressBookItemData, SavedAddress } from '../../../global/types';
 
+import { getOrderedAccountChains } from '../../../util/chain';
 import { isKeyCountGreater } from '../../../util/isEmptyObject';
 import { shortenAddress } from '../../../util/shortenAddress';
 import { doesSavedAddressFitSearch } from '../helpers/doesSavedAddressFitSearch';
@@ -66,27 +67,27 @@ export default function useAddressBookItems({
         const account = accounts[accountId];
         if (!account) return;
 
-        (Object.entries(account.byChain) as [ApiChain, AccountChain][])
-          .forEach(([accountChain, { address }]) => {
-            const key = `${accountChain}:${address}`;
+        getOrderedAccountChains(account.byChain).forEach((accountChain) => {
+          const address = account.byChain[accountChain]!.address;
+          const key = `${accountChain}:${address}`;
 
-            if (
-              address
-              && !uniqueAddresses.has(key)
-              && (!currentChain || accountChain === currentChain)
-              && accountChain in supportedChains
-              && doesSavedAddressFitSearch({ address, name: account.title || '' }, searchValue)
-            ) {
-              uniqueAddresses.add(key);
-              items.push({
-                address,
-                name: account.title || shortenAddress(address)!,
-                chain: isMultichainAccount ? accountChain : undefined,
-                isHardware: account.type === 'hardware',
-                isSavedAddress: false,
-              });
-            }
-          });
+          if (
+            address
+            && !uniqueAddresses.has(key)
+            && (!currentChain || accountChain === currentChain)
+            && accountChain in supportedChains
+            && doesSavedAddressFitSearch({ address, name: account.title || '' }, searchValue)
+          ) {
+            uniqueAddresses.add(key);
+            items.push({
+              address,
+              name: account.title || shortenAddress(address)!,
+              chain: isMultichainAccount ? accountChain : undefined,
+              isHardware: account.type === 'hardware',
+              isSavedAddress: false,
+            });
+          }
+        });
       });
     }
 

@@ -1,5 +1,6 @@
+import './dev/loadEnv';
+
 import StatoscopeWebpackPlugin from '@statoscope/webpack-plugin';
-import dotenv from 'dotenv';
 import HtmlPlugin from 'html-webpack-plugin';
 import MiniCssExtractPlugin from 'mini-css-extract-plugin';
 import path from 'path';
@@ -8,9 +9,7 @@ import {
   EnvironmentPlugin, NormalModuleReplacementPlugin, ProvidePlugin,
 } from 'webpack';
 
-dotenv.config();
-
-const { APP_ENV = 'production' } = process.env;
+import { APP_ENV } from './src/multisend/config';
 
 const destinationDir = path.resolve(__dirname, 'dist-multisend');
 

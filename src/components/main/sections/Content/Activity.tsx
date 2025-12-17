@@ -21,6 +21,7 @@ interface OwnProps {
   isSensitiveDataHidden?: boolean;
   isFuture?: boolean;
   withChainIcon?: boolean;
+  className?: string;
   tokensBySlug: Record<string, ApiTokenWithPrice>;
   swapTokensBySlug: Record<string, ApiSwapAsset> | undefined;
   appTheme: AppTheme;
@@ -41,6 +42,7 @@ export default function Activity({
   isSensitiveDataHidden,
   isFuture,
   withChainIcon,
+  className,
   tokensBySlug,
   swapTokensBySlug,
   appTheme,
@@ -60,6 +62,7 @@ export default function Activity({
         tokensBySlug={swapTokensBySlug}
         isLast={isLast}
         isActive={isActive}
+        className={className}
         appTheme={appTheme}
         accountChains={accounts?.[currentAccountId]?.byChain}
         isSensitiveDataHidden={isSensitiveDataHidden}
@@ -77,6 +80,7 @@ export default function Activity({
         transaction={activity}
         tokensBySlug={tokensBySlug}
         isActive={isActive}
+        className={className}
         annualYield={annualYield}
         yieldType={yieldType}
         isLast={isLast}

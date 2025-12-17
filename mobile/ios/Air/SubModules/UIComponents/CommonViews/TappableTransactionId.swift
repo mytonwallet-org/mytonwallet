@@ -8,7 +8,7 @@ public struct TappableTransactionId: View {
     var chain: ApiChain
     var txId: String
     
-    @StateObject private var menuContext = MenuContext()
+    @State private var menuContext = MenuContext()
     @State private var hover = false
     
     public init(chain: ApiChain, txId: String) {
@@ -40,7 +40,7 @@ public struct TappableTransactionId: View {
                     .button(id: "0-copy", title: lang("Copy"), trailingIcon: .air("SendCopy")) {
                         UIPasteboard.general.string = txId
                         topWViewController()?.showToast(animationName: "Copy", message: lang("Transaction ID was copied!"))
-                        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                        Haptics.play(.lightTap)
                     },
                     .button(id: "0-explorer", title: lang("Open in Explorer"), trailingIcon: .air("SendGlobe")) {
                         let url = ExplorerHelper.txUrl(chain: chain, txHash: txId)
@@ -57,7 +57,7 @@ public struct ChangellyTransactionId: View {
     
     var id: String
     
-    @StateObject private var menuContext = MenuContext()
+    @State private var menuContext = MenuContext()
     @State private var hover = false
     
     public init(id: String) {
@@ -88,7 +88,7 @@ public struct ChangellyTransactionId: View {
                     .button(id: "0-copy", title: lang("Copy"), trailingIcon: .air("SendCopy")) {
                         UIPasteboard.general.string = id
                         topWViewController()?.showToast(animationName: "Copy", message: lang("Transaction ID was copied!"))
-                        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                        Haptics.play(.lightTap)
                     },
                     .button(id: "0-explorer", title: lang("Open in Explorer"), trailingIcon: .air("SendGlobe")) {
                         AppActions.openInBrowser(URL(string: "https://changelly.com/track/\(id)")!)

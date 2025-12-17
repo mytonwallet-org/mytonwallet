@@ -3,6 +3,8 @@ import React, { memo } from '../../lib/teact/teact';
 import type { ApiBaseCurrency, ApiCurrencyRates, ApiNft } from '../../api/types';
 import type { UserToken } from '../../global/types';
 
+import { DEFAULT_CARD_ADDRESS } from './constants';
+
 import useLastCallback from '../../hooks/useLastCallback';
 
 import NftCardItem from './NftCardItem';
@@ -29,7 +31,7 @@ function CardGrid({
     <div className={styles.grid}>
       <NftCardItem
         key="default"
-        isSelected={selectedAddress === 'default'}
+        isSelected={selectedAddress === DEFAULT_CARD_ADDRESS}
         tokens={tokens}
         baseCurrency={baseCurrency}
         currencyRates={currencyRates}

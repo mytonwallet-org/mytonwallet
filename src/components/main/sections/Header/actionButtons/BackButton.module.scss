@@ -1,0 +1,26 @@
+@use "../../../../../styles/mixins";
+
+.backButton {
+  cursor: var(--custom-cursor, pointer);
+
+  z-index: 1;
+
+  display: flex;
+  align-items: center;
+
+  padding: 0 0.5rem;
+
+  font-size: 1.0625rem;
+  color: var(--color-accent);
+
+  @include mixins.respond-below(xs) {
+    position: absolute;
+    top: calc(0.5rem + var(--safe-area-top, 0rem));
+    left: calc(1rem + var(--safe-area-left, 0rem));
+    margin-left: -0.875rem;
+  }
+}
+
+.backIcon {
+  font-size: 1.5rem;
+}

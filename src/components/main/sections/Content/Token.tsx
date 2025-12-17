@@ -6,7 +6,7 @@ import type { LangFn } from '../../../../hooks/useLang';
 import type { Layout } from '../../../../hooks/useMenuPosition';
 import type { StakingStateStatus } from '../../../../util/staking';
 
-import { ANIMATED_STICKER_TINY_ICON_PX, IS_CORE_WALLET, TOKEN_WITH_LABEL, TON_USDE } from '../../../../config';
+import { ANIMATED_STICKER_TINY_ICON_PX, IS_CORE_WALLET, TON_USDE } from '../../../../config';
 import { Big } from '../../../../lib/big.js';
 import buildClassName from '../../../../util/buildClassName';
 import { calcChangeValue } from '../../../../util/calcChangeValue';
@@ -94,6 +94,7 @@ function Token({
     price,
     change24h: change,
     decimals,
+    label,
   } = token;
 
   const lang = useLang();
@@ -109,7 +110,7 @@ function Token({
   const changePercent = Math.abs(round(change * 100, 2));
   const withYield = !IS_CORE_WALLET && annualYield !== undefined;
   const shortBaseSymbol = getShortCurrencySymbol(baseCurrency);
-  const withLabel = Boolean(!isVesting && TOKEN_WITH_LABEL[slug]);
+  const withLabel = Boolean(!isVesting && label);
   const stakingId = stakingState?.id;
   const name = getTokenName(lang, token, !!stakingId);
   const amountCols = useMemo(() => getPseudoRandomNumber(4, 12, name), [name]);
@@ -258,7 +259,7 @@ function Token({
             <span className={styles.nameText}>{name}</span>
             {shouldRenderYield && renderYield()}
             {withLabel && (
-              <span className={buildClassName(styles.label, styles.chainLabel)}>{TOKEN_WITH_LABEL[slug]}</span>
+              <span className={buildClassName(styles.label, styles.chainLabel)}>{label}</span>
             )}
           </div>
           <div className={styles.subtitle}>
@@ -354,7 +355,7 @@ function Token({
             <span className={styles.nameText}>{name}</span>
             {canRenderYield && renderYield()}
             {withLabel && (
-              <span className={buildClassName(styles.label, styles.chainLabel)}>{TOKEN_WITH_LABEL[slug]}</span>
+              <span className={buildClassName(styles.label, styles.chainLabel)}>{label}</span>
             )}
           </div>
           <div className={styles.subtitle}>

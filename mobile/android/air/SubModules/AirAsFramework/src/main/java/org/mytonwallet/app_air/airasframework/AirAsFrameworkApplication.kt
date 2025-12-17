@@ -16,7 +16,6 @@ import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.IGlobalStorageProvider
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
-import org.mytonwallet.app_air.walletcontext.helpers.LauncherIconController
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -125,12 +124,12 @@ class AirAsFrameworkApplication {
                 "ValueAnimator.setFrameDelay: ${System.currentTimeMillis() - t}ms"
             )
 
-            t = System.currentTimeMillis()
+            /*t = System.currentTimeMillis()
             LauncherIconController.tryFixLauncherIconIfNeeded(applicationContext)
             Logger.i(
                 Logger.LogTag.AIR_APPLICATION,
                 "LauncherIconController.tryFixLauncherIconIfNeeded: ${System.currentTimeMillis() - t}ms"
-            )
+            )*/
 
             t = System.currentTimeMillis()
             DevicePerformanceClassifier.init(applicationContext)
@@ -191,7 +190,8 @@ class AirAsFrameworkApplication {
                     }
                 }
             }
-            val accountId = AccountStore.activeAccountId ?: WGlobalStorage.getActiveAccountId()
+            val accountId = WalletCore.nextAccountId ?: AccountStore.activeAccountId
+            ?: WGlobalStorage.getActiveAccountId()
             updateAccentColor(accountId)
         }
 

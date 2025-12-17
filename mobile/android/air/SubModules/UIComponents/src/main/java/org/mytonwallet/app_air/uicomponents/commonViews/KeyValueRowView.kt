@@ -10,9 +10,13 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+import androidx.core.view.doOnLayout
 import com.google.android.material.progressindicator.CircularProgressIndicator
+import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonCell.Companion.SUBTITLE_SKELETON_RADIUS
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
@@ -95,11 +99,21 @@ class KeyValueRowView(
     }
     var valView: View? = null
 
+    private var skeletonIndicator: WBaseView? = null
+    private var skeletonView: SkeletonView? = null
+    var useSkeletonIndicatorWithWidth: Int? = null
+        set(value) {
+            field = value
+            updateLoadingState()
+            updateSkeletonLoadingState()
+        }
+
     private var progressIndicator: CircularProgressIndicator? = null
     var isLoading: Boolean = false
         set(value) {
             field = value
             updateLoadingState()
+            updateSkeletonLoadingState()
         }
 
     init {
@@ -142,6 +156,10 @@ class KeyValueRowView(
         addRippleEffect(WColor.SecondaryBackground.color)
         valueLabel.contentView.setTextColor(WColor.PrimaryText.color)
         progressIndicator?.setIndicatorColor(WColor.SecondaryText.color)
+        skeletonIndicator?.setBackgroundColor(
+            WColor.SecondaryBackground.color,
+            SUBTITLE_SKELETON_RADIUS
+        )
     }
 
     fun setKey(newValue: String?) {
@@ -158,7 +176,7 @@ class KeyValueRowView(
     }
 
     private fun updateLoadingState() {
-        if (isLoading && progressIndicator == null) {
+        if (isLoading && useSkeletonIndicatorWithWidth == null && progressIndicator == null) {
             progressIndicator = CircularProgressIndicator(context).apply {
                 id = generateViewId()
                 isIndeterminate = true
@@ -174,10 +192,46 @@ class KeyValueRowView(
                 toCenterY(progressIndicator!!)
             }
         }
-        if (isLoading) {
+        if (isLoading && useSkeletonIndicatorWithWidth == null) {
             progressIndicator?.visibility = VISIBLE
         } else {
             progressIndicator?.visibility = GONE
+        }
+    }
+
+    private fun updateSkeletonLoadingState() {
+        if (isLoading && useSkeletonIndicatorWithWidth != null && skeletonView == null) {
+            skeletonIndicator = WBaseView(context).apply {
+                id = generateViewId()
+            }
+            skeletonView = SkeletonView(context, false)
+            addView(
+                skeletonIndicator,
+                ViewGroup.LayoutParams(useSkeletonIndicatorWithWidth!!, 16.dp)
+            )
+            addView(skeletonView, LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT))
+            setConstraints {
+                toEnd(skeletonIndicator!!, 20f)
+                toCenterY(skeletonIndicator!!)
+                allEdges(skeletonView!!)
+            }
+            skeletonIndicator?.setBackgroundColor(
+                WColor.SecondaryBackground.color,
+                SUBTITLE_SKELETON_RADIUS
+            )
+            skeletonView?.bringToFront()
+        }
+        if (isLoading && useSkeletonIndicatorWithWidth != null) {
+            skeletonView?.visibility = VISIBLE
+            skeletonIndicator?.visibility = VISIBLE
+            skeletonView?.doOnLayout {
+                skeletonView?.applyMask(listOf(skeletonIndicator!!), hashMapOf(0 to SUBTITLE_SKELETON_RADIUS))
+                skeletonView?.startAnimating()
+            }
+        } else {
+            skeletonView?.visibility = GONE
+            skeletonIndicator?.visibility = GONE
+            skeletonView?.stopAnimating()
         }
     }
 

@@ -122,9 +122,13 @@ export async function setLanguage(langCode: LangCode, callback?: NoneToVoidFunct
   runCallbacks();
 }
 
+function getLangCacheVersion() {
+  return Number((LANG_CACHE_NAME.match(/\d+$/) || [0])[0]);
+}
+
 export function clearPreviousLangpacks() {
   const langCachePrefix = LANG_CACHE_NAME.replace(/\d+$/, '');
-  const langCacheVersion = Number((LANG_CACHE_NAME.match(/\d+$/) || [0])[0]);
+  const langCacheVersion = getLangCacheVersion();
   for (let i = 0; i < langCacheVersion; i++) {
     void cacheApi.clear(`${langCachePrefix}${i === 0 ? '' : i}`);
   }
@@ -135,7 +139,7 @@ async function fetchRemote(langCode: string): Promise<LangPack | undefined> {
     return defaultLangPack;
   }
 
-  const response = await fetch(`${IS_PACKAGED_ELECTRON ? '.' : '..'}/i18n/${langCode}.json`);
+  const response = await fetch(`${IS_PACKAGED_ELECTRON ? '.' : '..'}/i18n/${langCode}.json?v=${getLangCacheVersion()}`);
 
   if (!response.ok) {
     const message = `An error has occured: ${response.status}`;
@@ -244,6 +248,59 @@ function processTranslation(
   if (typeof value !== 'object' && typeof result === 'string') {
     const cacheValue = Array.isArray(value) ? JSON.stringify(value) : value;
     cache.set(`${key}_${cacheValue}_${format}${pluralValue ? `_${pluralValue}` : ''}`, result);
+  }
+
+  return result;
+}
+
+/**
+ * Formats a string like "One, Two and Three" or "Foo、Bar 或 Baz".
+ * The `items` elements are not translated, you need to translate them separately if you need.
+ * When `preferCompact` is true, there will be no spaces around the joiners in languages that don't use spaces normally.
+ */
+export function formatEnumeration(
+  lang: LangFn,
+  items: (string | number | boolean | undefined)[],
+  joiner: 'and' | 'or',
+  preferCompact?: boolean,
+): string;
+export function formatEnumeration(
+  lang: LangFn,
+  items: TeactNode[],
+  joiner: 'and' | 'or',
+  preferCompact?: boolean,
+): string | TeactNode[];
+export function formatEnumeration(lang: LangFn, items: TeactNode[], joiner: 'and' | 'or', preferCompact?: boolean) {
+  const middleJoiner = lang('$joining_comma');
+  let lastJoiner = lang(joiner === 'and' ? '$joining_and' : '$joining_or');
+
+  if (preferCompact && lang.code?.startsWith('zh')) {
+    lastJoiner = lastJoiner.trim();
+  }
+
+  let result: string | TeactNode[];
+  let appendResult: (part: TeactNode) => void;
+
+  const isStringResult = items.every((item) => (
+    item === undefined
+    || typeof item === 'string'
+    || typeof item === 'number'
+    || typeof item === 'boolean'
+  ));
+
+  if (isStringResult) {
+    result = '';
+    appendResult = (part) => (result as string) += part as string;
+  } else {
+    result = [];
+    appendResult = (part) => (result as TeactNode[]).push(part);
+  }
+
+  for (let i = 0; i < items.length; i++) {
+    if (i > 0) {
+      appendResult(i === items.length - 1 ? lastJoiner : middleJoiner);
+    }
+    appendResult(items[i] ?? '');
   }
 
   return result;

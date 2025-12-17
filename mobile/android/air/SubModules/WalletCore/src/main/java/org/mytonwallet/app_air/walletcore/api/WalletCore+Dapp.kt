@@ -1,10 +1,9 @@
 package org.mytonwallet.app_air.walletcore.api
 
-import android.os.Handler
-import android.os.Looper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
@@ -16,7 +15,6 @@ import org.mytonwallet.app_air.walletcore.models.MExploreSite
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.DappsStore
-import java.util.concurrent.Executors
 
 fun WalletCore.loadExploreSites(
     callback: (Array<MExploreCategory>?, sites: Array<MExploreSite>?, MBridgeError?) -> Unit
@@ -28,8 +26,7 @@ fun WalletCore.loadExploreSites(
         if (error != null || result == null) {
             callback(null, null, error)
         } else {
-            val executor = Executors.newSingleThreadExecutor()
-            executor.run {
+            scope.launch {
                 try {
                     val exploreSitesJSONObject = JSONObject(result)
                     val exploreSites = ArrayList<MExploreSite>()
@@ -46,11 +43,11 @@ fun WalletCore.loadExploreSites(
                         val exploreCategory = MExploreCategory(categoryObj, exploreSites)
                         categories.add(exploreCategory)
                     }
-                    Handler(Looper.getMainLooper()).post {
+                    withContext(Dispatchers.Main) {
                         callback(categories.toTypedArray(), exploreSites.toTypedArray(), null)
                     }
                 } catch (e: Error) {
-                    Handler(Looper.getMainLooper()).post {
+                    withContext(Dispatchers.Main) {
                         callback(null, null, null)
                     }
                 }

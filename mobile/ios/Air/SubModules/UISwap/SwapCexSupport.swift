@@ -25,9 +25,6 @@ enum SwapCexSupport {
             let amountValue = createResult.swap.fromAmount.value
             let amount: BigInt = doubleToBigInt(amountValue, decimals: sellingToken.decimals)
             
-            let networkFeeValue = createResult.swap.networkFee?.value
-            let networkFee = networkFeeValue.map { doubleToBigInt($0, decimals: sellingToken.decimals) }
-            
             let toAddress = createResult.swap.cex?.payinAddress
             
             guard let toAddress, let accountId = AccountStore.accountId else {

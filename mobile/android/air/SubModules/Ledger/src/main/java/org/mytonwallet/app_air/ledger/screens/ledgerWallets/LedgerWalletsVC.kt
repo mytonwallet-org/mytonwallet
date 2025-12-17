@@ -32,6 +32,7 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.moshi.ledger.MLedgerWalletInfo
+import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import java.lang.ref.WeakReference
 
 class LedgerWalletsVC(
@@ -40,6 +41,7 @@ class LedgerWalletsVC(
 ) :
     WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource, LedgerWalletsVM.Delegate {
+    override val TAG = "LedgerWallets"
 
     data class Item(
         val title: String?,
@@ -56,10 +58,11 @@ class LedgerWalletsVC(
     private val prevAccountsCount = WGlobalStorage.accountIds().size
 
     val accounts = WGlobalStorage.accountIds().mapNotNull { accountId ->
-        val accountObj = WGlobalStorage.getAccount(accountId)
-        accountObj?.let {
-            MAccount(accountId, accountObj)
-        }
+        val account = AccountStore.accountById(accountId)
+        if (account?.accountType != MAccount.AccountType.VIEW)
+            return@mapNotNull account
+        else
+            return@mapNotNull null
     }
 
     override val shouldDisplayBottomBar = true
@@ -168,7 +171,7 @@ class LedgerWalletsVC(
             topToTop(
                 bottomReversedCornerViewUpsideDown,
                 continueButton,
-                -20f - ViewConstants.BIG_RADIUS
+                -ViewConstants.GAP - ViewConstants.BIG_RADIUS
             )
             toBottom(bottomReversedCornerViewUpsideDown)
         }

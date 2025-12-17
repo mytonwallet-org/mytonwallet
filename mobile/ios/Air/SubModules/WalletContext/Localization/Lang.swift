@@ -28,6 +28,30 @@ public func langMd(_ keyAndDefault: String, arg1: any CVarArg) -> LocalizedStrin
     LocalizedStringKey(String(format: lang(keyAndDefault), arg1))
 }
 
-public func langR(_ keyAndDefault: String.LocalizationValue) -> LocalizedStringResource {
-    LocalizedStringResource(keyAndDefault, bundle: LocalizationSupport.shared.bundle)
+public enum EnumerationJoiner {
+    case and
+    case or
+    
+    var localizedValue: String {
+        switch self {
+        case .and:
+            lang("$joining_and")
+        case .or:
+            lang("$joining_or")
+        }
+    }
+}
+
+public func langJoin(_ items: [String], _ joiner: EnumerationJoiner) -> String {
+    let middleJoiner = lang("$joining_comma")
+    let lastJoiner = joiner.localizedValue
+
+    var result = ""
+    for (i, item) in items.enumerated() {
+        if i > 0 {
+            result += (i == items.count - 1) ? lastJoiner : middleJoiner
+        }
+        result += item
+    }
+    return result
 }

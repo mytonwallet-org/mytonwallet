@@ -9,25 +9,47 @@ import WalletContext
 @MainActor
 public class EarnRootVC: WViewController, WSegmentedController.Delegate {
     
-    public let onlyToken: ApiToken?
-    public let customTitle: String?
+    public let tokenSlug: String?
     
     private var tonVC: EarnVC!
     private var mycoinVC: EarnVC!
     private var ethenaVC: EarnVC!
     
     private var segmentedController: WSegmentedController!
-    private var progress: CGFloat = 0
     
-    private let segmentedControlItems: [SegmentedControlItem] = [
-        SegmentedControlItem(index: 0, id: "TON", content: AnyView(Text("TON"))),
-        SegmentedControlItem(index: 1, id: "MY", content: AnyView(Text("MY"))),
-        SegmentedControlItem(index: 2, id: "USDe", content: AnyView(Text("USDe"))),
+    private lazy var _allSegmentedControlItems: [String: SegmentedControlItem] = [
+        TONCOIN_SLUG: SegmentedControlItem(
+            id: TONCOIN_SLUG,
+            title: "TON",
+            viewController: tonVC,
+        ),
+        MYCOIN_SLUG: SegmentedControlItem(
+            id: MYCOIN_SLUG,
+            title: "MY",
+            viewController: mycoinVC,
+        ),
+        TON_USDE_SLUG: SegmentedControlItem(
+            id: TON_USDE_SLUG,
+            title: "USDe",
+            viewController: ethenaVC,
+        ),
     ]
+    private var segmentedControlItems: [SegmentedControlItem] {
+        var items: [SegmentedControlItem] = []
+        let stakingState = StakingStore.currentAccount
+        
+        items += _allSegmentedControlItems[TONCOIN_SLUG]!
+        if stakingState?.mycoinState != nil {
+            items += _allSegmentedControlItems[MYCOIN_SLUG]!
+        }
+        if stakingState?.ethenaState != nil {
+            items += _allSegmentedControlItems[TON_USDE_SLUG]!
+        }
+        return items
+    }
     
-    public init(token: ApiToken? = nil, title: String? = nil) {
-        self.onlyToken = token
-        self.customTitle = title
+    public init(tokenSlug: String?) {
+        self.tokenSlug = tokenSlug ?? TONCOIN_SLUG
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -35,8 +57,8 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate {
         fatalError("init(coder:) has not been implemented")
     }
     
-    public override func loadView() {
-        super.loadView()
+    public override func viewDidLoad() {
+        super.viewDidLoad()
         setupViews()
     }
     
@@ -52,12 +74,16 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate {
         addChild(ethenaVC)
         
         let capsuleColor = UIColor { WTheme.secondaryLabel.withAlphaComponent($0.userInterfaceStyle == .dark ? 0.2 : 0.12 ) }
-        segmentedController = WSegmentedController(viewControllers: [tonVC, mycoinVC, ethenaVC],
-                                                   defaultIndex: onlyToken?.slug == STAKED_MYCOIN_SLUG ? 1 : 0,
-                                                   barHeight: 56.333,
-                                                   animationSpeed: .slow,
-                                                   capsuleFillColor: capsuleColor,
-                                                   delegate: self)
+        let items = segmentedControlItems
+        segmentedController = WSegmentedController(
+            items: items,
+            defaultItemId: tokenSlug,
+            barHeight: 0,
+            goUnderNavBar: true,
+            animationSpeed: .slow,
+            capsuleFillColor: capsuleColor,
+            delegate: self
+        )
         
         segmentedController.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(segmentedController)
@@ -73,42 +99,33 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate {
         
         view.bringSubviewToFront(segmentedController)
         
-        let navigationBar = WNavigationBar(navHeight: 60, title: title, titleColor: .white, closeIcon: true, closeIconColor: WTheme.secondaryLabel, closeIconFillColor: capsuleColor)
-        self.navigationBar = navigationBar
-        navigationBar.blurView.isHidden = true
-        navigationBar.shouldPassTouches = true
-        navigationBar.backgroundColor = .clear
-        view.addSubview(navigationBar)
-        NSLayoutConstraint.activate([
-            navigationBar.topAnchor.constraint(equalTo: view.topAnchor),
-            navigationBar.leftAnchor.constraint(equalTo: view.leftAnchor),
-            navigationBar.rightAnchor.constraint(equalTo: view.rightAnchor)
-        ])
-
         updateWithStakingState()
+        
+        // Select the correct tab after replace() async completes
+        DispatchQueue.main.async { [self] in
+            let currentItems = segmentedControlItems
+            let idx = currentItems.firstIndex(where: { $0.id == tokenSlug }) ?? 0
+            segmentedController.switchTo(tabIndex: idx)
+            segmentedController.handleSegmentChange(to: idx, animated: false)
+        }
 
+        let segmentedControl = segmentedController.segmentedControl!
+        segmentedControl.removeFromSuperview()
+        navigationItem.titleView = segmentedControl
+        segmentedControl.widthAnchor.constraint(equalToConstant: 200).isActive = true
+        addCloseNavigationItemIfNeeded()
+        addCustomNavigationBarBackground()
+        configureNavigationItemWithTransparentBackground()
+        
         updateTheme()
 
         WalletCoreData.add(eventObserver: self)
     }
 
     func updateWithStakingState() {
-        let twoTabs = true
-        segmentedController.scrollView.isScrollEnabled = twoTabs
-        let title: String? = twoTabs ? nil : (customTitle ?? lang("Add Crypto"))
-        navigationBar?.set(title: title)
-        
-        var vcs: [any WSegmentedControllerContent] = [tonVC]
-        var items: [SegmentedControlItem] = [segmentedControlItems[0]]
-        if StakingStore.currentAccount?.mycoinState != nil {
-            vcs.append(mycoinVC)
-            items.append(segmentedControlItems[1])
-        }
-        if StakingStore.currentAccount?.ethenaState != nil {
-            vcs.append(ethenaVC)
-            items.append(segmentedControlItems[2])
-        }
-        segmentedController.replace(viewControllers: vcs, items: items)
+        let items = self.segmentedControlItems
+        segmentedController.scrollView.isScrollEnabled = items.count > 1
+        segmentedController.replace(items: items)
     }
     
     public override func updateTheme() {
@@ -116,18 +133,11 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate {
         segmentedController.updateTheme()
     }
     
-    public override var hideNavigationBar: Bool { true }
-    
     public override func scrollToTop(animated: Bool) {
         segmentedController?.scrollToTop(animated: animated)
     }
     
-    public func switchToTokensTab() {
-        segmentedController?.switchTo(tabIndex: 0)
-    }
-    
     public func segmentedController(scrollOffsetChangedTo progress: CGFloat) {
-        self.progress = progress
     }
     
     public func segmentedControllerDidStartDragging() {

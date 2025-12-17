@@ -57,6 +57,7 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.models.MScreenMode
 import org.mytonwallet.app_air.walletcore.models.NftCollection
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -68,6 +69,7 @@ import kotlin.math.min
 @SuppressLint("ViewConstructor")
 class AssetsVC(
     context: Context,
+    private val screenMode: MScreenMode,
     private val mode: Mode,
     private var injectedWindow: WWindow? = null,
     val collectionMode: CollectionMode? = null,
@@ -80,6 +82,7 @@ class AssetsVC(
     WRecyclerViewAdapter.WRecyclerViewDataSource, AssetsVM.Delegate,
     WSegmentedControllerItemVC,
     ISortableView {
+    override val TAG = "Assets"
 
     val identifier: String
         get() {
@@ -149,7 +152,7 @@ class AssetsVC(
     override val shouldDisplayTopBar = isShowingSingleCollection
 
     private val assetsVM by lazy {
-        AssetsVM(collectionMode, this)
+        AssetsVM(collectionMode, screenMode, this)
     }
 
     private val thereAreMoreToShow: Boolean
@@ -414,6 +417,7 @@ class AssetsVC(
             navVC.setRoot(
                 AssetsTabVC(
                     context,
+                    screenMode,
                     defaultSelectedIdentifier = collectionMode?.collectionAddress
                         ?: AssetsTabVC.TAB_COLLECTIBLES
                 )
@@ -449,11 +453,11 @@ class AssetsVC(
     val homeCollectionAddress: String
         get() {
             return when (collectionMode) {
-                is CollectionMode.SingleCollection -> {
+                is SingleCollection -> {
                     collectionMode.collection.address
                 }
 
-                CollectionMode.TelegramGifts -> {
+                TelegramGifts -> {
                     NftCollection.TELEGRAM_GIFTS_SUPER_COLLECTION
                 }
 
@@ -484,11 +488,11 @@ class AssetsVC(
                         false,
                     ) {
                         val url = when (collectionMode) {
-                            is CollectionMode.SingleCollection -> {
+                            is SingleCollection -> {
                                 "https://getgems.io/collection/${collectionMode.collection.address}"
                             }
 
-                            CollectionMode.TelegramGifts -> {
+                            TelegramGifts -> {
                                 "https://getgems.io/top-gifts"
                             }
 
@@ -497,7 +501,7 @@ class AssetsVC(
                         openLink(url)
                     }
                 )
-                if (collectionMode == CollectionMode.TelegramGifts) {
+                if (collectionMode == TelegramGifts) {
                     items.add(
                         0,
                         WMenuPopup.Item(
@@ -514,7 +518,7 @@ class AssetsVC(
                             openLink("https://fragment.com/gifts")
                         })
                 }
-                if (collectionMode is CollectionMode.SingleCollection) {
+                if (collectionMode is SingleCollection) {
                     items.add(
                         WMenuPopup.Item(
                             WMenuPopup.Item.Config.Item(
@@ -673,7 +677,7 @@ class AssetsVC(
     }
 
     private fun onNftTap(nft: ApiNft) {
-        val assetVC = NftVC(context, nft, assetsVM.nfts!!)
+        val assetVC = NftVC(context, screenMode, nft, assetsVM.nfts!!)
         val window = injectedWindow ?: window!!
         val tabNav = window.navigationControllers.last().tabBarController?.navigationController
         if (tabNav != null)

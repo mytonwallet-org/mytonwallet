@@ -44,6 +44,8 @@ export interface ApiToken {
   isTiny?: boolean;
   customPayloadApiUrl?: string;
   codeHash?: string;
+  /** A small dim label to show in the UI right after the token name */
+  label?: string;
   /* Means the token is fetched from the backend by default and already includes price
   and other details (`ApiTokenDetails`), so no separate requests are needed. */
   isFromBackend?: boolean;
@@ -59,9 +61,9 @@ export type ApiTokenWithMaybePrice = ApiToken & {
   percentChange24h: undefined | ApiTokenWithPrice['percentChange24h'];
 };
 
-export type ApiKnownAddresses = Record<string, ApiAddressInfo>;
+export type ApiKnownAddresses = Record<string, ApiKnownAddressInfo>;
 
-export interface ApiAddressInfo {
+export interface ApiKnownAddressInfo {
   name?: string;
   isScam?: boolean;
   isMemoRequired?: boolean;
@@ -112,7 +114,7 @@ export interface ApiTransaction {
   status: 'pending' | 'pendingTrusted' | 'completed' | 'failed';
 }
 
-export type ApiTransactionMetadata = ApiAddressInfo;
+export type ApiTransactionMetadata = ApiKnownAddressInfo;
 
 export type ApiMtwCardType = 'black' | 'platinum' | 'gold' | 'silver' | 'standard';
 export type ApiMtwCardTextType = 'light' | 'dark';

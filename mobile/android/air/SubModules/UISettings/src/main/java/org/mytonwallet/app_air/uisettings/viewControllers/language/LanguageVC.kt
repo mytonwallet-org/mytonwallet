@@ -28,23 +28,21 @@ import java.lang.ref.WeakReference
 
 class LanguageVC(context: Context) : WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource {
+    override val TAG = "Language"
 
     companion object {
         val languages = arrayOf(
-            WLanguage.ENGLISH,
-            WLanguage.RUSSIAN,
-
-            /*WLanguage.CHINESE_SIMPLIFIED,
+            WLanguage.CHINESE_SIMPLIFIED,
             WLanguage.CHINESE_TRADITIONAL,
             WLanguage.ENGLISH,
             WLanguage.GERMAN,
-            WLanguage.PERSIAN,
+            //WLanguage.PERSIAN,
             WLanguage.POLISH,
             WLanguage.RUSSIAN,
             WLanguage.SPANISH,
             WLanguage.THAI,
             WLanguage.TURKISH,
-            WLanguage.UKRAINIAN,*/
+            WLanguage.UKRAINIAN,
         )
 
         val HEADER_CELL = WCell.Type(1)

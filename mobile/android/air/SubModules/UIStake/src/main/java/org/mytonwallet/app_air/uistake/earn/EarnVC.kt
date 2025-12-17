@@ -67,9 +67,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
-import org.mytonwallet.app_air.walletcontext.utils.WEquatable
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
-import org.mytonwallet.app_air.walletcontext.utils.diff
 import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.USDE_SLUG
@@ -86,6 +84,7 @@ class EarnVC(
     val tokenSlug: String,
     private var onScroll: ((rv: RecyclerView) -> Unit)?
 ) : WViewControllerWithModelStore(context), WRecyclerViewDataSource {
+    override val TAG = "Earn"
 
     override val shouldDisplayTopBar = false
     override val shouldDisplayBottomBar = true
@@ -430,7 +429,7 @@ class EarnVC(
             elevation = 4f.dp
             val titleLabel = WLabel(context).apply {
                 text =
-                    LocaleController.getString("\$accumulated_rewards")
+                    LocaleController.getString("Accumulated Rewards")
                 setStyle(16f, WFont.Medium)
                 setTextColor(WColor.PrimaryText)
                 setSingleLine()
@@ -511,11 +510,16 @@ class EarnVC(
     }
 
     private var lastListState: HistoryListState? = null
-    private var previousHistoryItems: List<WEquatable<*>> = emptyList()
+    private var previousHistoryItems: List<EarnItem> = emptyList()
     private fun updateItems(newItems: List<EarnItem>) {
-        val changes = previousHistoryItems.diff(newItems, section = 1)
-        rvAdapter.applyChanges(changes)
-        previousHistoryItems = newItems.toList()
+        val previousHistoryItems = previousHistoryItems
+        this.previousHistoryItems = newItems.toList()
+        rvAdapter.applyChanges(
+            previousHistoryItems,
+            newItems,
+            1,
+            true
+        )
     }
 
     private fun updateView(viewState: EarnViewState) {
@@ -524,6 +528,7 @@ class EarnVC(
             setStakingBalance(
                 viewState.stakingBalance ?: "0",
                 earnViewModel.token?.symbol ?: "",
+                viewState.stakingBalanceIsLarge,
             )
             setSubtitle(AccountStore.stakingData?.stakingState(tokenSlug))
             changeAddStakeButtonEnable(viewState.enableAddStakeButton)
@@ -538,7 +543,8 @@ class EarnVC(
                 } else {
                     headerView.showInnerViews(
                         viewState.showAddStakeButton,
-                        viewState.showUnstakeButton
+                        viewState.showUnstakeButton,
+                        viewState.showBiggerUnstakeButton
                     )
                 }
                 recyclerView.overScrollMode = RecyclerView.OVER_SCROLL_NEVER
@@ -549,7 +555,10 @@ class EarnVC(
             }
 
             is HistoryListState.NoItem -> {
-                headerView.showInnerViews(viewState.showAddStakeButton, viewState.showUnstakeButton)
+                headerView.showInnerViews(
+                    viewState.showAddStakeButton,
+                    viewState.showUnstakeButton, viewState.showBiggerUnstakeButton
+                )
                 recyclerView.overScrollMode = RecyclerView.OVER_SCROLL_NEVER
                 noItemView.visibility = View.VISIBLE
                 updateSkeletonState()
@@ -570,7 +579,11 @@ class EarnVC(
             }
 
             is HistoryListState.HasItem -> {
-                headerView.showInnerViews(viewState.showAddStakeButton, viewState.showUnstakeButton)
+                headerView.showInnerViews(
+                    viewState.showAddStakeButton,
+                    viewState.showUnstakeButton,
+                    viewState.showBiggerUnstakeButton
+                )
                 recyclerView.overScrollMode = RecyclerView.OVER_SCROLL_ALWAYS
                 noItemView.visibility = View.GONE
                 updateSkeletonState()

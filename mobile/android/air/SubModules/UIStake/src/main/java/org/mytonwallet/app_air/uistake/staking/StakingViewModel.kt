@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uistake.util.getTonStakingFees
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
+import org.mytonwallet.app_air.walletbasecontext.utils.thinSpace
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
@@ -288,7 +289,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
                         true
                     )
                 } else {
-                    "+${
+                    "+$thinSpace${
                         CoinUtils.toDecimalString(
                             PriceConversionUtils.convertTokenToBaseCurrency(
                                 estimatedEarning,

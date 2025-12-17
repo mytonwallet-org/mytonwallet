@@ -52,10 +52,10 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
                                        draftStatus.address == model.addressOrDomain, !model.addressOrDomain.isEmpty {
                     lang("Invalid address")
                 } else if insufficientFunds {
-                    WStrings.InsufficientBalance_Text(symbol: model.token?.symbol ?? "TON")
+                    lang("Insufficient Balance")
                 } else {
                     if model.toAddressDraft?.diesel?.status == .notAuthorized {
-                        WStrings.Swap_AuthorizeDiesel_Text(symbol: model.token?.symbol.uppercased() ?? "")
+                        lang("Authorize %token% Fee", arg1: model.token?.symbol ?? "")
                     } else {
                         lang("Continue")
                     }
@@ -69,12 +69,8 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
     
     private func setupViews() {
         
-        let title = model.nftSendMode != nil ? lang("Send NFT") : lang("Send")
-        addNavigationBar(
-            centerYOffset: 1,
-            title: title,
-            closeIcon: true)
-        navigationBarProgressiveBlurDelta = 12
+        navigationItem.title = model.nftSendMode != nil ? lang("Send NFT") : lang("Send")
+        addCloseNavigationItemIfNeeded()
         
         let hostingController = UIHostingController(rootView: makeView())
         self.hostingController = hostingController
@@ -101,8 +97,6 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
         constraint.isActive = true
         self.continueButtonConstraint = constraint
         
-        bringNavigationBarToFront()
-        
         updateTheme()
         
         updateSensitiveData()
@@ -116,8 +110,6 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
         SendComposeView(
             model: model,
             isSensitiveDataHidden: AppStorageHelper.isSensitiveDataHidden,
-            navigationBarInset: navigationBarHeight,
-            onScrollPositionChange: { [weak self] y in self?.updateNavigationBarProgressiveBlur(y) }
         )
     }
     

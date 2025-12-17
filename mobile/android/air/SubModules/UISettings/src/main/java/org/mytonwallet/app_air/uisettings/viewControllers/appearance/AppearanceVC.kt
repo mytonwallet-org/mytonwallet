@@ -15,7 +15,6 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewController
-import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SwitchCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -26,11 +25,11 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uisettings.R
-import org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.palette.AppearancePaletteItemView
-import org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.palette.AppearancePaletteView
+import org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.palette.AppearancePaletteAndCardView
 import org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.theme.AppearanceAppThemeView
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.SettingsItemCell
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsItem
+import org.mytonwallet.app_air.uisettings.viewControllers.walletCustomization.WalletCustomizationVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
@@ -43,6 +42,7 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 
 class AppearanceVC(context: Context) : WViewController(context), WalletCore.EventObserver {
+    override val TAG = "Appearance"
 
     override val shouldDisplayBottomBar = true
 
@@ -69,39 +69,17 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
         v
     }
 
-    private val appPaletteView: AppearancePaletteView by lazy {
-        AppearancePaletteView(context).apply {
-            updatePaletteView()
-            onPaletteSelected = { nftAccentId, state, nft ->
-                when (state) {
-                    AppearancePaletteItemView.State.LOCKED -> {
-                        showAlert(
-                            LocaleController.getString("Unlock New Palettes"),
-                            LocaleController.getString("Get a unique MyTonWallet Card to unlock new palettes.")
-                        )
-                    }
-
-                    AppearancePaletteItemView.State.AVAILABLE -> {
-                        nftAccentId?.let {
-                            WGlobalStorage.setNftAccentColor(
-                                AccountStore.activeAccountId!!,
-                                nftAccentId,
-                                nft?.toDictionary()
-                            )
-                        } ?: run {
-                            WGlobalStorage.setNftAccentColor(
-                                AccountStore.activeAccountId!!,
-                                null,
-                                null
-                            )
-                        }
-                        WalletContextManager.delegate?.themeChanged()
-                        appPaletteView.reloadViews()
-                    }
-
-                    else -> {}
-                }
+    private val appPaletteView: AppearancePaletteAndCardView by lazy {
+        AppearancePaletteAndCardView(context).apply {
+            onCustomizePressed = {
+                navigationController?.push(
+                    WalletCustomizationVC(
+                        context,
+                        AccountStore.activeAccountId!!
+                    )
+                )
             }
+            configure(AccountStore.activeAccount)
         }
     }
 
@@ -309,9 +287,8 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
             toBottom(scrollView)
         }
 
-        WalletCore.registerObserver(this)
-
         updateTheme()
+        WalletCore.registerObserver(this)
     }
 
     override fun viewDidAppear() {
@@ -329,23 +306,24 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
 
     override fun onDestroy() {
         super.onDestroy()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            scrollView.setOnScrollChangeListener(null)
-        }
-        animationsRow.setOnClickListener(null)
-        appPaletteView.onPaletteSelected = null
         WalletCore.unregisterObserver(this)
+        scrollView.setOnScrollChangeListener(null)
+        animationsRow.setOnClickListener(null)
+        appPaletteView.onCustomizePressed = null
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
         when (walletEvent) {
-            WalletEvent.NftsUpdated, WalletEvent.ReceivedNewNFT -> {
-                appPaletteView.updatePaletteView()
+            is WalletEvent.AccountChanged -> {
+                appPaletteView.configure(AccountStore.activeAccount)
+            }
+
+            WalletEvent.NftCardUpdated -> {
+                appPaletteView.configure(AccountStore.activeAccount)
             }
 
             else -> {}
         }
     }
-
 
 }

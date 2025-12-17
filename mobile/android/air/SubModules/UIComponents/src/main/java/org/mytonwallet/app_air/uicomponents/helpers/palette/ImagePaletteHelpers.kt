@@ -3,8 +3,6 @@ package org.mytonwallet.app_air.uicomponents.helpers.palette
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
-import android.os.Handler
-import android.os.Looper
 import com.facebook.common.references.CloseableReference
 import com.facebook.datasource.DataSource
 import com.facebook.datasource.DataSources
@@ -12,11 +10,15 @@ import com.facebook.drawee.backends.pipeline.Fresco
 import com.facebook.imagepipeline.image.CloseableBitmap
 import com.facebook.imagepipeline.image.CloseableImage
 import com.facebook.imagepipeline.request.ImageRequestBuilder
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.mytonwallet.app_air.walletbasecontext.theme.NftAccentColors
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardBorderShineType
 import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardType
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
-import java.util.concurrent.Executors
 import kotlin.math.sqrt
 
 class ImagePaletteHelpers {
@@ -56,13 +58,14 @@ class ImagePaletteHelpers {
             }.minByOrNull { it.second }!!.first
         }
 
+        private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         private fun extractPaletteFromImage(imageUrl: String, onPaletteExtracted: (Int?) -> Unit) {
-            Executors.newSingleThreadExecutor().execute {
+            scope.launch {
                 val bitmap = getBitmapFromUri(imageUrl)
                 bitmap?.let {
                     val dominantColor = BitmapPaletteExtractHelpers.extractAccentColorIndex(bitmap)
                     val closestColorIndex = findClosestColorIndex(dominantColor)
-                    Handler(Looper.getMainLooper()).post {
+                    withContext(Dispatchers.Main) {
                         onPaletteExtracted(closestColorIndex)
                     }
                 } ?: onPaletteExtracted(null)
@@ -86,7 +89,10 @@ class ImagePaletteHelpers {
                 }
 
                 else -> {
-                    extractPaletteFromImage(nft.metadata?.cardImageUrl ?: "", onPaletteExtracted)
+                    extractPaletteFromImage(
+                        nft.metadata?.cardImageUrl(false) ?: "",
+                        onPaletteExtracted
+                    )
                 }
             }
         }

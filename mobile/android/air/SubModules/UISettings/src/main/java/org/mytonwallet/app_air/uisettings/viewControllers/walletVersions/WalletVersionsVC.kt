@@ -32,6 +32,7 @@ import java.lang.ref.WeakReference
 
 class WalletVersionsVC(context: Context) : WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource, WalletCore.EventObserver {
+    override val TAG = "WalletVersions"
 
     companion object {
         val HEADER_CELL = WCell.Type(1)
@@ -121,7 +122,11 @@ class WalletVersionsVC(context: Context) : WViewController(context),
                     WalletCore.activateAccount(accountId, notifySDK = true) { res, err ->
                         if (res != null && err == null) {
                             navigationController?.popToRoot()
-                            WalletCore.notifyEvent(WalletEvent.AccountChangedInApp)
+                            WalletCore.notifyEvent(
+                                WalletEvent.AccountChangedInApp(
+                                    persistedAccountsModified = false
+                                )
+                            )
                         }
                     }
                     return

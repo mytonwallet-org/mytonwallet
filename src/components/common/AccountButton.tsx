@@ -1,11 +1,11 @@
 import React, { memo } from '../../lib/teact/teact';
 
 import type { ApiNft } from '../../api/types';
-import type { AccountType } from '../../global/types';
+import type { Account, AccountType } from '../../global/types';
 
 import buildClassName from '../../util/buildClassName';
 import buildStyle from '../../util/buildStyle';
-import { shortenAddress } from '../../util/shortenAddress';
+import { formatAccountAddresses } from '../../util/formatAccountAddress';
 
 import { useCachedImage } from '../../hooks/useCachedImage';
 import useCardCustomization from '../../hooks/useCardCustomization';
@@ -14,7 +14,7 @@ import styles from './AccountButton.module.scss';
 
 interface OwnProps {
   accountId: string;
-  address: string;
+  byChain: Account['byChain'];
   title?: string;
   accountType: AccountType;
   isActive?: boolean;
@@ -27,12 +27,9 @@ interface OwnProps {
   onClick?: NoneToVoidFunction;
 }
 
-const ACCOUNT_WITH_ICON_ADDRESS_SHIFT = 3;
-const ACCOUNT_ADDRESS_SHIFT = 4;
-
 function AccountButton({
   accountId,
-  address,
+  byChain,
   title,
   accountType,
   ariaLabel,
@@ -63,6 +60,8 @@ function AccountButton({
     !onClick && styles.account_inactive,
   );
 
+  const formattedAddress = formatAccountAddresses(byChain, 'card');
+
   return (
     <div
       key={accountId}
@@ -80,11 +79,7 @@ function AccountButton({
         {isViewMode && <i className={buildClassName('icon-eye-filled', styles.icon)} aria-hidden />}
         {isHardware && <i className={buildClassName('icon-ledger', styles.icon)} aria-hidden />}
         <span className={styles.accountAddress}>
-          {shortenAddress(
-            address,
-            isHardware ? ACCOUNT_WITH_ICON_ADDRESS_SHIFT : ACCOUNT_ADDRESS_SHIFT,
-            ACCOUNT_ADDRESS_SHIFT,
-          )}
+          {formattedAddress}
         </span>
       </div>
       {withCheckbox

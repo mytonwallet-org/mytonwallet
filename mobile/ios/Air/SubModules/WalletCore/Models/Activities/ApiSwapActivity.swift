@@ -121,7 +121,25 @@ public extension ApiSwapActivity {
         toToken?.symbol ?? ""
     }
     
-    var swapType: SwapType {
-        fromToken?.isOnChain == false ? .crossChainToTon : toToken?.isOnChain == false ? .crossChainFromTon : .inChain
+    var swapType: SwapType? {
+        if let fromToken, let toToken {
+            return getSwapType(fromToken: fromToken, toToken: toToken)
+        }
+        return nil
+    }
+}
+
+
+public func getSwapType(fromToken: ApiToken, toToken: ApiToken) -> SwapType {
+    if fromToken.isOnChain && toToken.isOnChain {
+        if fromToken.chainValue == toToken.chainValue && fromToken.chainValue.supportsSwap {
+            return .onChain
+        } else {
+            return .crosschainInsideWallet
+        }
+    } else if fromToken.isOnChain {
+        return .crosschainFromWallet
+    } else {
+        return .crosschainToWallet
     }
 }

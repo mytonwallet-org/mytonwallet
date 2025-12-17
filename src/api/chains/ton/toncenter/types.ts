@@ -100,6 +100,8 @@ export type AnyAction = TonTransferAction
   | SubscribeAction
   | UnsubscribeAction;
 
+export type DnsAction = ChangeDnsAction | RenewDnsAction | DeleteDnsAction;
+
 export type MetadataMap = Record<string, {
   is_indexed: boolean;
   token_info: AnyTokenMetadata[];
@@ -156,6 +158,7 @@ export type NftTransferAction = BaseAction & {
     forward_amount: string | null;
     price: string | null;
     marketplace: MarketplaceSlug | null;
+    payout_amount: string | null;
   };
 };
 

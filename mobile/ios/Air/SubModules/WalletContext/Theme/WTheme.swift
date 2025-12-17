@@ -94,13 +94,17 @@ public struct _WThemeType {
 // MARK: - Theme and Theme generator
 nonisolated(unsafe) public var WTheme: _WThemeType = generateTheme()
 
-// This method changes WTheme to a new theme with customized colors
-public func changeThemeColors(to index: Int?) {
-    let accentColor: UIColor = if let index, index < ACCENT_COLORS.count {
+public func getAccentColorByIndex(_ index: Int?) -> UIColor {
+    if let index, index < ACCENT_COLORS.count {
         ACCENT_COLORS[index]
     } else {
         UIColor.airBundle("TC1_PrimaryColor")
     }
+}
+
+// This method changes WTheme to a new theme with customized colors
+public func changeThemeColors(to index: Int?) {
+    let accentColor = getAccentColorByIndex(index)
     WColors = _WColorsType(primary: accentColor)
     WTheme = generateTheme()
 }

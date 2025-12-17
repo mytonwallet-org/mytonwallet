@@ -33,7 +33,7 @@ final class DepositLinkModel: ObservableObject, TokenSelectionVCDelegate {
 
         $tokenAmount
             .sink { tokenAmount in
-                self.baseCurrencyAmount = tokenAmount.convertTo(TokenStore.baseCurrency ?? .USD, exchangeRate: tokenAmount.token.price ?? 0.0).amount
+                self.baseCurrencyAmount = tokenAmount.convertTo(TokenStore.baseCurrency, exchangeRate: tokenAmount.token.price ?? 0.0).amount
             }
             .store(in: &cancellables)
         

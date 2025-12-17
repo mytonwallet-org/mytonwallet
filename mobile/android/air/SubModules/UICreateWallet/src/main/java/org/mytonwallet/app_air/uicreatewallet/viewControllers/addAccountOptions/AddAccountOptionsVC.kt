@@ -27,18 +27,19 @@ import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.Passco
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.SettingsItemCell
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsItem
 import org.mytonwallet.app_air.uisettings.viewControllers.walletVersions.WalletVersionsVC
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.coloredSubstring
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 
 class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
     WViewController(context) {
+    override val TAG = "AddAccountOptions"
 
     private val showCreateButton = !isOnIntro
 
@@ -48,7 +49,7 @@ class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
         AccountStore.walletVersionsData?.versions?.isNotEmpty() == true
 
     private val createWalletRow: SettingsItemCell by lazy {
-        SettingsItemCell(context).apply {
+        SettingsItemCell(context, 72f).apply {
             configure(
                 item = SettingsItem(
                     SettingsItem.Identifier.NONE,
@@ -77,6 +78,7 @@ class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
                 }
             )
             setSeparator(toEnd = 0f)
+            iconView.setPaddingDp(8f, 3f, 4f, 9f)
         }
     }
 
@@ -95,23 +97,14 @@ class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
             setConstraints {
                 toTop(createWalletRow)
                 toCenterX(createWalletRow, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
-                topToBottom(orImportTitleView, createWalletRow)
+                topToBottom(orImportTitleView, createWalletRow, 2f)
                 toCenterX(orImportTitleView)
                 toBottom(orImportTitleView)
             }
         }
     }
 
-    private val importTitleLabel: WLabel by lazy {
-        WLabel(context).apply {
-            text = LocaleController.getString("\$import_hint")
-            gravity = Gravity.CENTER
-            setStyle(16f)
-            setTextColor(WColor.PrimaryText)
-        }
-    }
-
-    private val secretWordsRow = SettingsItemCell(context).apply {
+    private val secretWordsRow = SettingsItemCell(context, 72f).apply {
         configure(
             item = SettingsItem(
                 SettingsItem.Identifier.NONE,
@@ -158,7 +151,7 @@ class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
         setSeparator(toEnd = 0f)
     }
 
-    private val ledgerRow = SettingsItemCell(context).apply {
+    private val ledgerRow = SettingsItemCell(context, 72f).apply {
         configure(
             item = SettingsItem(
                 SettingsItem.Identifier.NONE,
@@ -176,7 +169,7 @@ class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
         )
     }
 
-    private val viewRow = SettingsItemCell(context).apply {
+    private val viewRow = SettingsItemCell(context, 72f).apply {
         configure(
             item = SettingsItem(
                 SettingsItem.Identifier.NONE,
@@ -223,14 +216,14 @@ class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
 
             setConstraints {
                 if (showCreateButton) {
-                    toTop(createNewWalletView, 84f)
+                    toTop(createNewWalletView, 78f)
                     toCenterX(createNewWalletView)
-                    topToBottom(secretWordsRow, createNewWalletView)
+                    topToBottom(secretWordsRow, createNewWalletView, 1f)
                 } else {
                     // toTop(importTitleLabel, 84f)
                     // toCenterX(importTitleLabel, 32f)
                     // topToBottom(secretWordsRow, importTitleLabel, 32f)
-                    toTop(secretWordsRow, 84f)
+                    toTop(secretWordsRow, 78f)
                 }
                 toCenterX(secretWordsRow, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
                 topToBottom(ledgerRow, secretWordsRow)

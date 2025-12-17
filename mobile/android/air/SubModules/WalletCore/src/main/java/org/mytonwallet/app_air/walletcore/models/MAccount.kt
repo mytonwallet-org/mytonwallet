@@ -13,18 +13,24 @@ import org.mytonwallet.app_air.walletcore.stores.TokenStore
 @JsonClass(generateAdapter = true)
 class MAccount(
     var accountId: String,
-    val byChain: Map<String, AccountChain>,
+    var byChain: Map<String, AccountChain>,
     var name: String,
     var accountType: AccountType,
     var importedAt: Long?,
+    var isTemporary: Boolean,
 ) {
+
+    override fun equals(other: Any?): Boolean {
+        return other is MAccount && other.accountId == this.accountId
+    }
+
+    override fun hashCode(): Int = accountId.hashCode()
 
     @JsonClass(generateAdapter = true)
     data class AccountChain(
         val address: String,
         val domain: String? = null,
         val isMultisig: Boolean? = null,
-        var ledgerIndex: Int? = null,
     )
 
     @JsonClass(generateAdapter = false)
@@ -36,15 +42,6 @@ class MAccount(
         companion object {
             fun fromValue(value: String): AccountType? = entries.find { it.value == value }
         }
-
-        val badge: String?
-            get() {
-                return when (this) {
-                    MNEMONIC -> null
-                    HARDWARE -> "LEDGER"
-                    VIEW -> "VIEW"
-                }
-            }
     }
 
     val isViewOnly: Boolean
@@ -77,6 +74,7 @@ class MAccount(
         globalJSON.optString("title"),
         AccountType.fromValue(globalJSON.optString("type"))!!,
         globalJSON.optLong("importedAt"),
+        globalJSON.optBoolean("isTemporary"),
     )
 
     companion object {
@@ -89,10 +87,22 @@ class MAccount(
                     domain = chainData.optString("domain").takeIf { it.isNotEmpty() },
                     isMultisig = chainData.optBoolean("isMultisig")
                         .takeIf { chainData.has("isMultisig") },
-                    ledgerIndex = chainData.optInt("ledgerIndex")
                 )
             }
             return result
+        }
+
+        fun byChainToJson(byChain: Map<String, AccountChain>): JSONObject {
+            val json = JSONObject()
+            byChain.forEach { (chainName, accountChain) ->
+                val chain = JSONObject().apply {
+                    put("address", accountChain.address)
+                    accountChain.domain?.let { put("domain", it) }
+                    accountChain.isMultisig?.let { put("isMultisig", it) }
+                }
+                json.put(chainName, chain)
+            }
+            return json
         }
     }
 
@@ -160,5 +170,20 @@ class MAccount(
                 return@filter token.priceUsd *
                     it.value.doubleAbsRepresentation(token.decimals) >= 0.01
             }.isEmpty()
+        }
+
+    val isMainnet: Boolean
+        get() {
+            return accountId.endsWith("mainnet")
+        }
+
+    val firstChain: MBlockchain?
+        get() {
+            return MBlockchain.supportedChains.firstOrNull { addressByChain.contains(it.name) }
+        }
+
+    val hasDomain: Boolean
+        get() {
+            return byChain.values.firstOrNull { it.domain != null } != null
         }
 }

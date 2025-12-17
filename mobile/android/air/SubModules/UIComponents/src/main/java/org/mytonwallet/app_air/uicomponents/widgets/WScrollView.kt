@@ -13,7 +13,7 @@ import java.lang.ref.WeakReference
 import kotlin.math.max
 
 @SuppressLint("ViewConstructor")
-class WScrollView(private val viewController: WeakReference<WViewController>) :
+open class WScrollView(private val viewController: WeakReference<WViewController>) :
     ScrollView(viewController.get()!!.context) {
     init {
         id = generateViewId()

@@ -62,7 +62,7 @@ export type AppTheme = 'dark' | 'light';
 export type AppLayout = 'portrait' | 'landscape';
 export type DialogAction = 'openBluetoothSettings' | 'signOutAll';
 
-export type NotificationType = {
+export type ToastType = {
   icon?: string;
   message: string;
 };
@@ -172,6 +172,13 @@ export enum TransferState {
   Complete,
 }
 
+export const enum TransactionInfoState {
+  None,
+  Loading,
+  ActivityList,
+  ActivityDetail,
+}
+
 export const enum ScamWarningType {
   SeedPhrase = 1,
   DomainLike,
@@ -230,13 +237,22 @@ export enum SwapErrorType {
 }
 
 export enum SwapType {
+  /** The swap is on-chain, i.e. performed via a DEX */
   OnChain,
+  /** The swap is crosschain (Changelly CEX) and happens within a single account */
+  CrosschainInsideWallet,
+  /** The swap is crosschain (Changelly CEX), the "in" token is sent from the app, and the "out" token is sent outside */
   CrosschainFromWallet,
+  /**
+   * The swap is crosschain (Changelly CEX), the "in" token is sent manually by the user from another source, and the
+   * "out" token is sent to the user account.
+   */
   CrosschainToWallet,
 }
 
 export enum DappConnectState {
   Info,
+  SelectAccount,
   Password,
   ConnectHardware,
   ConfirmHardware,
@@ -342,6 +358,8 @@ export type UserToken = {
   type?: ApiTokenType;
   color?: string;
   codeHash?: string;
+  /** A small dim label to show in the UI right after the token name */
+  label?: string;
 };
 
 export type UserSwapToken = Omit<UserToken, 'change24h' | 'chain'> & {
@@ -350,6 +368,8 @@ export type UserSwapToken = Omit<UserToken, 'change24h' | 'chain'> & {
 };
 
 export type TokenPeriod = '1D' | '7D' | '1M' | '3M' | '1Y' | 'ALL';
+
+export type TokenChartMode = 'price' | 'netWorth';
 
 export type PriceHistoryPeriods = Partial<Record<ApiPriceHistoryPeriod, ApiHistoryList>>;
 
@@ -361,19 +381,17 @@ export interface AccountChain {
   address: string;
   domain?: string;
   isMultisig?: true;
-  /** Is set only in hardware accounts */
-  ledgerIndex?: number;
 }
 
 export interface Account {
   title?: string;
   type: AccountType;
   byChain: Partial<Record<ApiChain, AccountChain>>;
+  isTemporary?: true;
 }
 
 export type AssetPairs = Record<string, {
   isReverseProhibited?: boolean;
-  isMultichain?: boolean;
 }>;
 
 export interface AccountState {
@@ -410,6 +428,7 @@ export interface AccountState {
     linkedAddressByAddress?: Record<string, string>;
     collectionTabs?: string[];
     wasTelegramGiftsAutoAdded?: boolean;
+    isLoadedByAddress?: Record<string, true>;
   };
   blacklistedNftAddresses?: string[];
   whitelistedNftAddresses?: string[];
@@ -428,6 +447,7 @@ export interface AccountState {
   currentTokenSlug?: string;
   currentActivityId?: string;
   currentTokenPeriod?: TokenPeriod;
+  tokenNetWorthHistory?: Record<string, PriceHistoryPeriods>;
   savedAddresses?: SavedAddress[];
   activeContentTab?: ContentTab;
   landscapeActionsActiveTabIndex?: ActiveTab;
@@ -517,8 +537,7 @@ export type GlobalState = {
     error?: string;
     password?: string;
     isImportModalOpen?: boolean;
-    firstNetworkAccount?: AuthAccount;
-    secondNetworkAccount?: AuthAccount;
+    accounts?: AuthAccount[];
     forceAddingTonOnlyAccount?: boolean;
     initialState?: number; // Initial rendering state for the `AddAccountModal` component
   };
@@ -586,6 +605,7 @@ export type GlobalState = {
     // This field is used to display a scam warning in the UI only because `Dialogs` are not displayed in iOS
     // due to NBS specifics. Undefined means closed.
     scamWarningType?: ScamWarningType;
+    isTransferReadonly?: boolean;
   };
 
   currentSwap: {
@@ -610,6 +630,7 @@ export type GlobalState = {
      */
     isEstimating?: boolean;
     inputSource?: SwapInputSource;
+    /** The address to send the "out" tokens to. Used only when the swap type is `CrosschainFromWallet`. */
     toAddress?: string;
     payinAddress?: string;
     payoutAddress?: string;
@@ -634,7 +655,6 @@ export type GlobalState = {
     ourFee?: string;
     ourFeePercent?: number;
     dieselFee?: string;
-    shouldShowAllPairs?: boolean;
   };
 
   currentSignature?: {
@@ -776,6 +796,7 @@ export type GlobalState = {
     importToken?: {
       isLoading?: boolean;
       token?: UserToken | UserSwapToken;
+      error?: string;
     };
     authConfig?: AuthConfig;
     baseCurrency: ApiBaseCurrency;
@@ -787,8 +808,9 @@ export type GlobalState = {
   };
 
   dialogs: DialogType[];
-  notifications: NotificationType[];
+  toasts: ToastType[];
   currentAccountId?: string;
+  currentTemporaryViewAccountId?: string;
   isAccountSelectorOpen?: boolean;
   accountSelectorActiveTab?: number;
   accountSelectorViewMode?: 'cards' | 'list';
@@ -807,6 +829,7 @@ export type GlobalState = {
   confettiRequestedAt?: number;
   isPinAccepted?: boolean;
   chainForOnRampWidgetModal?: ApiChain;
+  chainForOffRampWidgetModal?: ApiChain;
   isInvoiceModalOpen?: boolean;
   isReceiveModalOpen?: boolean;
   isVestingModalOpen?: boolean;
@@ -837,6 +860,7 @@ export type GlobalState = {
     isLimitedRegion: boolean;
     isSwapDisabled: boolean;
     isOnRampDisabled: boolean;
+    isOffRampDisabled: boolean;
     isNftBuyingDisabled: boolean;
     isCopyStorageEnabled?: boolean;
     supportAccountsCount?: number;
@@ -849,6 +873,15 @@ export type GlobalState = {
     txId?: string;
     hiddenNfts?: 'user' | 'scam';
     noGhostAnimation?: boolean;
+  };
+
+  currentTransactionInfo: {
+    state: TransactionInfoState;
+    txId?: string;
+    chain?: ApiChain;
+    activities?: ApiActivity[];
+    selectedActivityIndex?: number;
+    error?: string;
   };
 
   isLoadingOverlayOpen?: boolean;
@@ -915,12 +948,14 @@ export interface ActionPayloads {
   createHardwareAccounts: undefined;
   addHardwareAccounts: { accounts: { accountId: string; byChain: Account['byChain'] }[] };
   loadMoreHardwareWallets: undefined;
-  createAccount: { password: string; isImporting: boolean; isPasswordNumeric?: boolean; version?: ApiTonWalletVersion };
+  createAccount: { password: string; isImporting: boolean; isPasswordNumeric?: boolean };
   afterSelectHardwareWallets: { hardwareSelectedIndices: number[] };
   resetApiSettings: { areAllDisabled?: boolean } | undefined;
   checkAppVersion: undefined;
   importAccountByVersion: { version: ApiTonWalletVersion; isTestnetSubwalletId?: boolean };
   importViewAccount: { addressByChain: ApiImportAddressByChain };
+  openTemporaryViewAccount: { addressByChain: Partial<Record<ApiChain, string>> };
+  saveTemporaryAccount: undefined;
 
   selectToken: { slug?: string } | undefined;
   openBackupWalletModal: undefined;
@@ -945,6 +980,7 @@ export interface ActionPayloads {
     nfts?: ApiNft[];
     binPayload?: string;
     stateInit?: string;
+    isTransferReadonly?: boolean;
   } | undefined;
   changeTransferToken: { tokenSlug: string; withResetAmount?: boolean };
   fetchTransferFee: {
@@ -982,8 +1018,8 @@ export interface ActionPayloads {
   showDialog: DialogType;
   dismissDialog: undefined;
   showError: { error?: ApiAnyDisplayError | TeactNode | string };
-  showNotification: { message: string; icon?: string };
-  dismissNotification: undefined;
+  showToast: { message: string; icon?: string };
+  dismissToast: undefined;
   initLedgerPage: undefined;
   afterSignIn: undefined;
   signOut: { level: SignOutLevel; accountId?: string };
@@ -1008,7 +1044,13 @@ export interface ActionPayloads {
   showTokenActivity: { slug: string };
   closeActivityInfo: { id: string };
   fetchActivityDetails: { id: string };
+
+  // External transaction info (deeplink)
+  openTransactionInfo: { txId: string; chain: ApiChain };
+  closeTransactionInfo: undefined;
+  selectTransactionInfoActivity: { index: number };
   fetchNftsFromCollection: { collectionAddress: string };
+  clearNftCollectionLoading: { collectionAddress: string };
   openNftCollection: { address: string };
   closeNftCollection: undefined;
   selectNfts: { addresses: string[] };
@@ -1044,7 +1086,7 @@ export interface ActionPayloads {
 
   addSavedAddress: { address: string; name: string; chain: ApiChain };
   removeFromSavedAddress: { address: string; chain: ApiChain };
-  checkTransferAddress: { address?: string };
+  checkTransferAddress: { address?: string; chain?: ApiChain };
 
   openAccountSelector: undefined;
   closeAccountSelector: undefined;
@@ -1113,7 +1155,7 @@ export interface ActionPayloads {
   toggleTokenVisibility: { slug: string; shouldShow: boolean };
   addToken: { token: UserToken };
   deleteToken: { slug: string };
-  importToken: { address: string; isSwap?: boolean };
+  importToken: { chain: ApiChain; address: string };
   updateOrderedAccountIds: { orderedAccountIds: string[] };
   rebuildOrderedAccountIds: undefined;
   resetImportToken: undefined;
@@ -1227,6 +1269,9 @@ export interface ActionPayloads {
   openOnRampWidgetModal: { chain: ApiChain };
   closeOnRampWidgetModal: undefined;
 
+  openOffRampWidgetModal: undefined;
+  closeOffRampWidgetModal: undefined;
+
   // MediaViewer
   openMediaViewer: {
     mediaId: string;
@@ -1245,6 +1290,11 @@ export interface ActionPayloads {
   closeInvoiceModal: undefined;
 
   loadPriceHistory: { slug: string; period: ApiPriceHistoryPeriod; currency?: ApiBaseCurrency };
+  loadTokenNetWorthHistory: {
+    slug: string;
+    period: ApiPriceHistoryPeriod;
+    currency?: ApiBaseCurrency;
+  };
 
   showIncorrectTimeError: undefined;
 

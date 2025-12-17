@@ -72,6 +72,11 @@ public class ActivityCell: WHighlightCell {
         fatalError("init(coder:) has not been implemented")
     }
     
+    public override func prepareForReuse() {
+        super.prepareForReuse()
+        contentView.alpha = 1
+    }
+    
     @objc private func itemSelected() {
         if let activity, let delegate {
             delegate.onSelect(transaction: activity)
@@ -497,8 +502,8 @@ public class ActivityCell: WHighlightCell {
         
         switch activity {
         case .transaction(let transaction):
-            if displayMode != .hide, let token = TokenStore.tokens[transaction.slug], let price = token.price, let baseCurrency = TokenStore.baseCurrency {
-                let amount: BaseCurrencyAmount = TokenAmount(transaction.amount, token).convertTo(baseCurrency, exchangeRate: price)
+            if displayMode != .hide, let token = TokenStore.tokens[transaction.slug], let price = token.price {
+                let amount: BaseCurrencyAmount = TokenAmount(transaction.amount, token).convertTo(TokenStore.baseCurrency, exchangeRate: price)
                 let doubleValue = amount.doubleValue
                 let color = WTheme.secondaryLabel
                 let amountString = amount.formatAttributed(

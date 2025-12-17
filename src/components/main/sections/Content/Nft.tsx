@@ -1,11 +1,7 @@
-import React, {
-  type ElementRef,
-  memo, useMemo, useRef, useState,
-} from '../../../../lib/teact/teact';
+import React, { memo, useMemo, useRef, useState } from '../../../../lib/teact/teact';
 import { getActions } from '../../../../global';
 
 import type { ApiNft } from '../../../../api/types';
-import type { ObserveFn } from '../../../../hooks/useIntersectionObserver';
 import { type IAnchorPosition } from '../../../../global/types';
 
 import { TON_DNS_RENEWAL_NFT_WARNING_DAYS } from '../../../../config';
@@ -18,7 +14,6 @@ import { IS_ANDROID, IS_IOS } from '../../../../util/windowEnvironment';
 
 import useContextMenuHandlers from '../../../../hooks/useContextMenuHandlers';
 import useFlag from '../../../../hooks/useFlag';
-import { useIsIntersecting } from '../../../../hooks/useIntersectionObserver';
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
 import useShowTransition from '../../../../hooks/useShowTransition';
@@ -34,7 +29,6 @@ import styles from './Nft.module.scss';
 interface OwnProps {
   nft: ApiNft;
   selectedAddresses?: string[];
-  observeIntersection: ObserveFn;
   tonDnsExpiration?: number;
   isViewAccount?: boolean;
 }
@@ -47,27 +41,14 @@ interface UseLottieReturnType {
   unmarkHover?: NoneToVoidFunction;
 }
 
-function Nft({
-  nft,
-  selectedAddresses,
-  tonDnsExpiration,
-  observeIntersection,
-  isViewAccount,
-}: OwnProps) {
-  const {
-    selectNfts,
-    clearNftSelection,
-    openDomainRenewalModal,
-    openNftAttributesModal,
-  } = getActions();
+function Nft({ nft, selectedAddresses, tonDnsExpiration, isViewAccount }: OwnProps) {
+  const { selectNfts, clearNftSelection, openDomainRenewalModal, openNftAttributesModal } = getActions();
 
   const lang = useLang();
 
   const ref = useRef<HTMLDivElement>();
 
-  const {
-    isLottie, shouldPlay, noLoop, markHover, unmarkHover,
-  } = useLottie(nft, ref, observeIntersection);
+  const { isLottie, shouldPlay, noLoop, markHover, unmarkHover } = useLottie(nft);
 
   const [menuAnchor, setMenuAnchor] = useState<IAnchorPosition>();
   const isSelectionEnabled = !!selectedAddresses && selectedAddresses.length > 0;
@@ -75,10 +56,7 @@ function Nft({
   const isMenuOpen = Boolean(menuAnchor);
   const dnsExpireInDays = tonDnsExpiration ? getCountDaysToDate(tonDnsExpiration) : undefined;
   const isDnsExpireSoon = dnsExpireInDays !== undefined ? dnsExpireInDays <= TON_DNS_RENEWAL_NFT_WARNING_DAYS : false;
-  const {
-    shouldRender: shouldRenderWarning,
-    ref: warningRef,
-  } = useShowTransition({
+  const { shouldRender: shouldRenderWarning, ref: warningRef } = useShowTransition({
     isOpen: isSelectionEnabled && nft.isOnSale,
     withShouldRender: true,
   });
@@ -169,12 +147,7 @@ function Nft({
       onContextMenu={handleContextMenu}
     >
       {isSelectionEnabled && !nft.isOnSale && (
-        <Radio
-          isChecked={isSelected}
-          name="nft"
-          value={nft.address}
-          className={styles.radio}
-        />
+        <Radio isChecked={isSelected} name="nft" value={nft.address} className={styles.radio} />
       )}
       {!isSelectionEnabled && (
         <NftMenu
@@ -188,9 +161,7 @@ function Nft({
         />
       )}
       {isLottie ? (
-        <div
-          className={styles.imageWrapper}
-        >
+        <div className={styles.imageWrapper}>
           <AnimatedIconWithPreview
             shouldStretch
             play={shouldPlay}
@@ -226,30 +197,25 @@ function Nft({
 
 export default memo(Nft);
 
-function useLottie(
-  nft: ApiNft,
-  ref: ElementRef<HTMLDivElement>,
-  observeIntersection: ObserveFn,
-): UseLottieReturnType {
+function useLottie(nft: ApiNft): UseLottieReturnType {
   const isLottie = Boolean(nft.metadata?.lottie);
 
-  const isIntersecting = useIsIntersecting(ref, isLottie ? observeIntersection : undefined);
   const [isHover, markHover, unmarkHover] = useFlag();
 
   if (!isLottie) {
     return { isLottie };
   }
 
-  const shouldPlay = isIntersecting || isHover;
+  const shouldPlay = isHover;
   const noLoop = !isHover;
 
   return {
     isLottie,
     shouldPlay,
     noLoop,
-    ...!(IS_IOS || IS_ANDROID) && {
+    ...(!(IS_IOS || IS_ANDROID) && {
       markHover,
       unmarkHover,
-    },
+    }),
   };
 }

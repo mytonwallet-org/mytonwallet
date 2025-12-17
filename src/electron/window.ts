@@ -102,10 +102,10 @@ function loadWindowUrl(): void {
     void mainWindow.loadURL('http://localhost:4321');
     mainWindow.webContents.openDevTools();
   } else if (getIsAutoUpdateEnabled()) {
-    void mainWindow.loadURL(BASE_URL!);
+    void mainWindow.loadURL(BASE_URL);
   } else if (getIsAutoUpdateEnabled() === undefined && IS_FIRST_RUN) {
     store.set(AUTO_UPDATE_SETTING_KEY, true);
-    void mainWindow.loadURL(BASE_URL!);
+    void mainWindow.loadURL(BASE_URL);
   } else {
     void mainWindow.loadURL(`file://${__dirname}/index.html`);
   }

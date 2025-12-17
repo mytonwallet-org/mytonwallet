@@ -1,7 +1,6 @@
-import type { ApiChain } from '../../api/types';
 import type { GlobalState } from '../types';
 
-import { isValidAddressOrDomain } from '../../util/isValidAddressOrDomain';
+import { getChainFromAddress } from '../../util/isValidAddress';
 import { getChainBySlug, getNativeToken } from '../../util/tokens';
 import { getActions } from '../index';
 import { selectCurrentAccount } from '../selectors';
@@ -14,7 +13,7 @@ import { getInAppBrowser } from '../../components/ui/InAppBrowser';
  */
 export function parsePlainAddressQr(global: GlobalState, qrData: string) {
   const availableChains = selectCurrentAccount(global)?.byChain ?? {};
-  const newChain = getChainFromAddress(qrData, availableChains);
+  const newChain = getChainFromAddress(qrData, availableChains, true);
   if (!newChain) {
     return undefined;
   }
@@ -27,19 +26,6 @@ export function parsePlainAddressQr(global: GlobalState, qrData: string) {
     toAddress: qrData,
     tokenSlug: newTokenSlug,
   };
-}
-
-function getChainFromAddress(
-  address: string,
-  availableChains: Partial<Record<ApiChain, unknown>>,
-): ApiChain | undefined {
-  for (const chain of Object.keys(availableChains) as Array<keyof typeof availableChains>) {
-    if (isValidAddressOrDomain(address, chain)) {
-      return chain;
-    }
-  }
-
-  return undefined;
 }
 
 export function closeAllOverlays() {

@@ -1,6 +1,7 @@
 import React, { useRef, useState } from '../../lib/teact/teact';
 
 import type { IAnchorPosition } from '../../global/types';
+import type { Layout } from '../../hooks/useMenuPosition';
 import type { DropdownItem } from './Dropdown';
 
 import buildClassName from '../../util/buildClassName';
@@ -16,6 +17,8 @@ type OwnProps = {
   icon?: string;
   title: string;
   menuItems?: DropdownItem[];
+  menuClassName?: string;
+  menuPositionX?: 'left' | 'right';
   className?: string;
   onClick: (arg: number) => void;
   clickArg: number;
@@ -28,6 +31,8 @@ function Tab({
   icon,
   title,
   menuItems,
+  menuClassName,
+  menuPositionX,
   className,
   onClick,
   clickArg,
@@ -43,7 +48,10 @@ function Tab({
   const getTriggerElement = useLastCallback(() => contentRef.current);
   const getRootElement = useLastCallback(() => document.body);
   const getMenuElement = useLastCallback(() => menuRef.current);
-  const getLayout = useLastCallback(() => ({ withPortal: true }));
+  const getLayout = useLastCallback((): Layout => ({
+    withPortal: true,
+    preferredPositionX: menuPositionX,
+  }));
   const closeMenu = useLastCallback(() => setMenuAnchor(undefined));
 
   const handleClick = useLastCallback(() => {
@@ -83,8 +91,9 @@ function Tab({
           ref={menuRef}
           items={menuItems}
           withPortal
+          className={menuClassName}
           buttonClassName={styles.menuItem}
-          menuPositionX="right"
+          menuPositionX={menuPositionX || 'right'}
           menuAnchor={menuAnchor}
           getTriggerElement={getTriggerElement}
           getRootElement={getRootElement}

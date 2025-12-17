@@ -53,7 +53,6 @@ struct ExploreSearchView: View {
         searchBar
             .fixedSize(horizontal: false, vertical: true)
             .frame(height: 80, alignment: .bottom)
-//            .border(.red)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
     }
     

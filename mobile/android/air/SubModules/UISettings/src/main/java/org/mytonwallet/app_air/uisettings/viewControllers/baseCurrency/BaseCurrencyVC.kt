@@ -27,6 +27,7 @@ import java.lang.ref.WeakReference
 
 class BaseCurrencyVC(context: Context) : WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource {
+    override val TAG = "BaseCurrency"
 
     companion object {
         val baseCurrencies = arrayOf(

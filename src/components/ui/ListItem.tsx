@@ -1,3 +1,4 @@
+import type { TeactNode } from '../../lib/teact/teact';
 import React, { memo } from '../../lib/teact/teact';
 
 import buildClassName from '../../util/buildClassName';
@@ -8,7 +9,7 @@ import styles from './ListItem.module.scss';
 
 interface OwnProps {
   icon?: string;
-  label: string;
+  label: TeactNode;
   className?: string;
   isLoading?: boolean;
   onClick: NoneToVoidFunction;

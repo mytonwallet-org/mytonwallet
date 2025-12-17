@@ -185,6 +185,11 @@ export enum OtherOpCode {
   TokenBridgePaySwap = 0x8,
 }
 
+export enum BidaskOpCode {
+  Swap = 0xc09da84e,
+  NativeTransferNotification = 0x6edd65f0,
+}
+
 export enum ContractType {
   Wallet = 'wallet',
   Staking = 'staking',
@@ -202,6 +207,7 @@ export const EXCESS_OP_CODES = [
   JettonOpCode.Excesses,
   TeleitemOpCode.Ok,
   0x80f4c55b, // StormTrade excess
+  0x76dbd306, // Stonfi excess
 ];
 
 export const DNS_CATEGORY_HASH_MAP = {

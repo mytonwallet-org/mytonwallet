@@ -29,6 +29,8 @@ import androidx.core.view.doOnLayout
 import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
+import org.mytonwallet.app_air.uicomponents.helpers.TiltSensorManager
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -36,8 +38,8 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedController
-import org.mytonwallet.app_air.uicomponents.widgets.updateThemeForChildren
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -168,6 +170,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
     public override fun onPause() {
         if (PROTECT_PAUSED_APP_VIEW)
             window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        TiltSensorManager.onAppPause()
         super.onPause()
         isPaused = true
     }
@@ -176,8 +179,13 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         super.onResume()
         if (PROTECT_PAUSED_APP_VIEW)
             window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        isPaused = false
-        navigationControllers.lastOrNull()?.viewWillAppear()
+        TiltSensorManager.onAppResume()
+        if (isPaused) {
+            isPaused = false
+            navigationControllers.lastOrNull()?.viewWillAppear()
+            navigationControllers.lastOrNull()?.viewDidAppear()
+            WalletContextManager.delegate?.appResumed()
+        }
     }
 
     override fun updateTheme() {
@@ -185,10 +193,8 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         forceBottomBarLight = null
         updateStatusBarColors()
         updateBottomBarColors()
-
         navigationControllers.forEach {
             it.updateTheme()
-            updateThemeForChildren(it)
         }
     }
 
@@ -274,8 +280,11 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         animated: Boolean,
         onCompletion: (() -> Unit)? = null
     ) {
+        Logger.i(
+            Logger.LogTag.SCREEN,
+            "ReplaceNav with RootVC: ${navigationController.viewControllers.firstOrNull()?.TAG} ${hashCode()}"
+        )
         window.decorView.setBackgroundColor(WColor.Background.color)
-        navigationController.viewWillAppear()
         val navigationControllersExist = navigationControllers.isNotEmpty()
         detachAllNavigationControllers(animated = animated, onCompletion = {
             present(navigationController, animated = false)
@@ -346,6 +355,10 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         animated: Boolean = true,
         onCompletion: (() -> Unit)? = null
     ) {
+        Logger.i(
+            Logger.LogTag.SCREEN,
+            "PresentNav with RootVC: ${navigationController.viewControllers.firstOrNull()?.TAG}"
+        )
         // Overlay for previous views
         val overlayView: WBaseView?
         if (navigationController.presentationConfig.isBottomSheet) {
@@ -361,11 +374,6 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
 
         // Add new navigation controller to window
         navigationControllers.add(navigationController)
-        if (navigationController.presentationConfig.overFullScreen &&
-            navigationControllers.size >= 2
-        )
-            navigationControllers[navigationControllers.size - 2].viewControllers.last()
-                .viewWillDisappear()
         navigationController.viewWillAppear()
         windowView.addView(
             navigationController,
@@ -418,6 +426,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
                     }
                     doOnEnd {
                         WGlobalStorage.decDoNotSynchronize()
+                        navigationController.viewDidAppear()
                         overlayView?.setOnClickListener {
                             dismissLastNav()
                         }
@@ -484,9 +493,10 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
             activeAnimator = null
             isAnimating = false
             onCompletion?.invoke()
-            if (navigationController?.presentationConfig?.overFullScreen == true) {
+            if (navigationController?.presentationConfig?.overFullScreen == true)
                 navigationControllers.lastOrNull()?.viewDidAppear()
-            }
+            else
+                navigationControllers.lastOrNull()?.viewDidEnterForeground()
         }
 
         if (!animated || !WGlobalStorage.getAreAnimationsActive()) {
@@ -561,7 +571,8 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         return true
     }
 
-    fun dismissToRoot() {
+    fun dismissToRoot(onCompletion: (() -> Unit)? = null) {
+        PopupHelpers.dismissAllPopups()
         val prevNavigationControllers = ArrayList(navigationControllers)
         for (i in 1 until prevNavigationControllers.size - 1) {
             val nav = prevNavigationControllers[i]
@@ -572,8 +583,10 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         }
         if (navigationControllers.size > 1)
             dismissLastNav {
-                dismissToRoot()
+                dismissToRoot(onCompletion)
             }
+        else
+            onCompletion?.invoke()
     }
 
     // Detach a navigation controller from the window, to use somewhere else!
@@ -658,6 +671,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
                     if (i < 0)
                         return
                     navigationControllers[i].let {
+                        navigationControllers[i].viewWillDisappear()
                         it.visibility = View.GONE
                         windowView.removeView(it)
                         if (!it.presentationConfig.overFullScreen) {
@@ -671,7 +685,6 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
                 }
                 removePrevNav(navigationControllers.size - 2)
             }
-            navigationController.viewDidAppear()
         }
     }
 

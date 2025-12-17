@@ -50,8 +50,8 @@ open class WNavigationController: UINavigationController {
     }
     
     open override func popViewController(animated: Bool) -> UIViewController? {
-        if presentedViewController != nil, !(presentedViewController?.description.contains("MinimizableSheet") == true) {
-            log.error("Presenting a modal view controller. Will not pop to prevent freeze")
+        if let presentedViewController, presentedViewController.isBeingDismissed {
+            log.error("Dismissing a modal view controller. Will not pop to prevent freeze")
             return nil
         }
         return super.popViewController(animated: animated)

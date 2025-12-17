@@ -79,7 +79,7 @@ class AppearanceAppThemeView(
 
         addView(titleLabel)
         addView(themeView, LayoutParams(0, WRAP_CONTENT))
-        addView(separatorView, LayoutParams(MATCH_PARENT, 1))
+        addView(separatorView, LayoutParams(MATCH_PARENT, ViewConstants.SEPARATOR_HEIGHT))
 
         setConstraints {
             toTop(titleLabel, 16f)

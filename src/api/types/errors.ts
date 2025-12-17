@@ -4,12 +4,12 @@ export enum ApiCommonError {
   DebugError = 'DebugError',
   UnsupportedVersion = 'UnsupportedVersion',
   InvalidPassword = 'InvalidPassword',
+  InvalidAddress = 'InvalidAddress',
+  DomainNotResolved = 'DomainNotResolved',
 }
 
 export enum ApiAuthError {
   InvalidMnemonic = 'InvalidMnemonic',
-  InvalidAddress = 'InvalidAddress',
-  DomainNotResolved = 'DomainNotResolved',
 }
 
 export enum ApiTransactionDraftError {
@@ -17,7 +17,6 @@ export enum ApiTransactionDraftError {
   InvalidToAddress = 'InvalidToAddress',
   InsufficientBalance = 'InsufficientBalance',
   InvalidStateInit = 'InvalidStateInit',
-  DomainNotResolved = 'DomainNotResolved',
   WalletNotInitialized = 'WalletNotInitialized',
   InvalidAddressFormat = 'InvalidAddressFormat',
   InactiveContract = 'InactiveContract',
@@ -43,9 +42,15 @@ export enum ApiHardwareError {
   WrongDevice = 'WrongDevice',
 }
 
+export enum ApiTokenImportError {
+  AddressDoesNotExist = 'AddressDoesNotExist',
+  NotATokenAddress = 'NotATokenAddress',
+}
+
 export type ApiAnyDisplayError =
   | ApiCommonError
   | ApiAuthError
   | ApiTransactionDraftError
   | ApiTransactionError
-  | ApiHardwareError;
+  | ApiHardwareError
+  | ApiTokenImportError;

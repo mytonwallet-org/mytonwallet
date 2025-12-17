@@ -8,26 +8,30 @@
 import Foundation
 import OrderedCollections
 
-public struct MAccountBalanceData {
+public struct MAccountBalanceData: Equatable, Hashable, Sendable {
     public let walletTokensDict: OrderedDictionary<String, MTokenBalance>
     public let walletStakedDict: OrderedDictionary<String, MTokenBalance>
-    public let totalBalance: Double
-    public let totalBalanceYesterday: Double
+    
+    public let totalBalance: BaseCurrencyAmount
+    public let totalBalanceYesterday: BaseCurrencyAmount
+    public let totalBalanceUsd: Double
+    public let totalBalanceChange: Double?
     
     public var walletTokens: [MTokenBalance] { Array(walletTokensDict.values) }
     public var walletStaked: [MTokenBalance] { Array(walletStakedDict.values) }
     
-    init(walletTokens: [MTokenBalance], walletStaked: [MTokenBalance], totalBalance: Double, totalBalanceYesterday: Double) {
+    init(walletTokens: [MTokenBalance], walletStaked: [MTokenBalance], totalBalance: BaseCurrencyAmount, totalBalanceYesterday: BaseCurrencyAmount, totalBalanceUsd: Double, totalBalanceChange: Double?) {
         self.walletTokensDict = walletTokens.orderedDictionaryByKey(\.tokenSlug)
         self.walletStakedDict = walletStaked.orderedDictionaryByKey(\.tokenSlug)
         self.totalBalance = totalBalance
         self.totalBalanceYesterday = totalBalanceYesterday
+        self.totalBalanceUsd = totalBalanceUsd
+        self.totalBalanceChange = totalBalanceChange
     }
 }
 
 extension MAccountBalanceData: CustomStringConvertible {
     public var description: String {
-        let first = walletTokens.prefix(5).map { $0.tokenSlug }.joined(separator: ",")
-        return "MAccountBalanceData<\(totalBalance.rounded(decimals: 2)) tokens#=\(walletTokens.count) \(first)>"
+        return "MAccountBalanceData(\(totalBalance.formatted()) tokens#=\(walletTokens.count))"
     }
 }

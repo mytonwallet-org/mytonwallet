@@ -2,7 +2,7 @@ package org.mytonwallet.app_air.uicomponents.drawable.counter
 
 import android.graphics.Canvas
 import android.text.TextPaint
-import kotlin.math.ceil
+import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
 import kotlin.math.roundToInt
 
 
@@ -10,7 +10,7 @@ class CounterTextPartImpl(
     private val text: String,
     val paint: TextPaint
 ) : CounterTextPart {
-    private val width = ceil(paint.measureText(text)).toInt()
+    private val width = (paint.measureText(text)).ceilToInt()
     private val height = (paint.fontMetrics.descent - paint.fontMetrics.ascent).toInt()
 
     override fun hashCode(): Int {

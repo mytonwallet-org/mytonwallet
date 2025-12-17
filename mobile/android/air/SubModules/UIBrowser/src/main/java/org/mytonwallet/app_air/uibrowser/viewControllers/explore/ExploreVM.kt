@@ -95,7 +95,7 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
                 delegate.get()?.sitesUpdated()
             }
 
-            WalletEvent.AccountChangedInApp -> {
+            is WalletEvent.AccountChangedInApp -> {
                 delegate.get()?.accountChanged()
             }
 

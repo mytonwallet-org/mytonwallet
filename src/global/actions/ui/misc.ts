@@ -8,6 +8,7 @@ import {
   DomainLinkingState,
   SettingsState,
   SwapState,
+  TransactionInfoState,
   TransferState,
 } from '../../types';
 
@@ -29,6 +30,7 @@ import { getTranslation } from '../../../util/langProvider';
 import { callActionInMain, callActionInNative } from '../../../util/multitab';
 import { openUrl } from '../../../util/openUrl';
 import { getTelegramApp } from '../../../util/telegram';
+import { getChainBySlug } from '../../../util/tokens';
 import {
   getIsMobileTelegramApp,
   IS_ANDROID_APP,
@@ -53,13 +55,16 @@ import {
   updateCurrentAccountState,
   updateCurrentDomainLinking,
   updateCurrentSwap,
+  updateCurrentTransactionInfo,
   updateCurrentTransfer,
   updateSettings,
 } from '../../reducers';
 import {
   selectCurrentAccount,
+  selectCurrentAccountId,
   selectCurrentAccountSettings,
   selectCurrentAccountState,
+  selectCurrentNetwork,
   selectIsPasswordPresent,
 } from '../../selectors';
 import { switchAccount } from '../api/auth';
@@ -114,6 +119,100 @@ addActionHandler('closeActivityInfo', (global, actions, { id }) => {
   }
 
   return updateCurrentAccountState(global, { currentActivityId: undefined });
+});
+
+addActionHandler('openTransactionInfo', async (global, actions, { txId, chain }) => {
+  if (IS_DELEGATED_BOTTOM_SHEET) {
+    callActionInMain('openTransactionInfo', { txId, chain });
+    return;
+  }
+
+  // Set loading state
+  global = getGlobal();
+  setGlobal(updateCurrentTransactionInfo(global, {
+    state: TransactionInfoState.Loading,
+    txId,
+    chain,
+  }));
+
+  try {
+    const account = selectCurrentAccount(getGlobal());
+    if (!account) return;
+    const chainAccount = account.byChain[chain];
+    const walletAddress = chainAccount?.address ?? '';
+
+    const network = selectCurrentNetwork(getGlobal());
+
+    const activities = await callApi('fetchTransactionById', chain, network, txId, walletAddress);
+
+    global = getGlobal();
+
+    if (!activities || activities.length === 0) {
+      setGlobal(updateCurrentTransactionInfo(global, {
+        state: TransactionInfoState.None,
+        error: 'Transaction not found',
+      }));
+      actions.showError({ error: 'Transaction not found' });
+      return;
+    }
+
+    // If single activity, show detail directly; otherwise show list
+    const nextState = activities.length === 1
+      ? TransactionInfoState.ActivityDetail
+      : TransactionInfoState.ActivityList;
+
+    global = getGlobal();
+    setGlobal(updateCurrentTransactionInfo(global, {
+      state: nextState,
+      txId,
+      chain,
+      activities,
+      selectedActivityIndex: activities.length === 1 ? 0 : undefined,
+    }));
+  } catch (err) {
+    global = getGlobal();
+    setGlobal(updateCurrentTransactionInfo(global, {
+      state: TransactionInfoState.None,
+      error: 'Failed to fetch transaction',
+    }));
+    actions.showError({ error: 'Failed to fetch transaction' });
+  }
+});
+
+addActionHandler('closeTransactionInfo', (global) => {
+  return {
+    ...global,
+    currentTransactionInfo: {
+      state: TransactionInfoState.None,
+    },
+  };
+});
+
+addActionHandler('selectTransactionInfoActivity', (global, actions, { index }) => {
+  if (global.currentTransactionInfo.state === TransactionInfoState.None) {
+    return undefined;
+  }
+
+  // If index is -1, go back to list view
+  if (index < 0) {
+    return {
+      ...global,
+      currentTransactionInfo: {
+        ...global.currentTransactionInfo,
+        state: TransactionInfoState.ActivityList,
+        selectedActivityIndex: undefined,
+      },
+    };
+  }
+
+  return {
+    ...global,
+    currentTransactionInfo: {
+      ...global.currentTransactionInfo,
+      state: TransactionInfoState.ActivityDetail,
+      selectedActivityIndex: index,
+    },
+  };
 });
 
 addActionHandler('addSavedAddress', (global, actions, { address, name, chain }) => {
@@ -307,7 +406,7 @@ addActionHandler('setSettingsState', (global, actions, { state }) => {
 });
 
 addActionHandler('closeSettings', (global) => {
-  if (!global.currentAccountId) {
+  if (!selectCurrentAccountId(global)) {
     return global;
   }
 
@@ -483,7 +582,7 @@ addActionHandler('requestOpenQrScanner', async (global, actions) => {
   const { camera } = await BarcodeScanner.requestPermissions();
   const isGranted = camera === 'granted' || camera === 'limited';
   if (!isGranted) {
-    actions.showNotification({
+    actions.showToast({
       message: getTranslation('Permission denied. Please grant camera permission to use the QR code scanner.'),
     });
     return;
@@ -600,6 +699,21 @@ addActionHandler('openOnRampWidgetModal', (global, actions, { chain }) => {
 
 addActionHandler('closeOnRampWidgetModal', (global) => {
   setGlobal({ ...global, chainForOnRampWidgetModal: undefined });
+});
+
+addActionHandler('openOffRampWidgetModal', (global) => {
+  if (IS_DELEGATED_BOTTOM_SHEET) {
+    callActionInMain('openOffRampWidgetModal');
+    return;
+  }
+
+  const { tokenSlug } = global.currentTransfer;
+  const chain = tokenSlug ? getChainBySlug(tokenSlug) : 'ton';
+  setGlobal({ ...global, chainForOffRampWidgetModal: chain });
+});
+
+addActionHandler('closeOffRampWidgetModal', (global) => {
+  setGlobal({ ...global, chainForOffRampWidgetModal: undefined });
 });
 
 addActionHandler('openMediaViewer', (global, actions, {

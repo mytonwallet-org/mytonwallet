@@ -28,6 +28,7 @@ type ApiBaseAccount = {
   };
 };
 
+/** Also accounts based on a private key */
 export type ApiBip39Account = ApiBaseAccount & {
   type: 'bip39';
   mnemonicEncrypted: string;

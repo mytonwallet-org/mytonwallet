@@ -53,7 +53,7 @@ function SwapBlockchain({
   const {
     cancelSwap,
     setSwapCexAddress,
-    showNotification,
+    showToast,
     setSwapScreen,
     requestOpenQrScanner,
   } = getActions();
@@ -65,7 +65,7 @@ function SwapBlockchain({
   const [shouldRenderPasteButton, setShouldRenderPasteButton] = useState(IS_CLIPBOARDS_SUPPORTED);
   const [isAddressFocused, markAddressFocused, unmarkAddressFocused] = useFlag();
   const [hasToAddressError, setHasToAddressError] = useState(false);
-  const [canContinue, setCanContinue] = useState(swapType !== SwapType.CrosschainFromWallet);
+  const [canContinue, setCanContinue] = useState(false);
 
   const isQrScannerSupported = useQrScannerSupport();
 
@@ -147,7 +147,7 @@ function SwapBlockchain({
         await validateToAddress(text.trim());
       }
     } catch (error) {
-      showNotification({
+      showToast({
         message: lang('Error reading clipboard'),
       });
       setShouldRenderPasteButton(false);

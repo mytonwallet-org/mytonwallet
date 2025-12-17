@@ -80,7 +80,7 @@ extension BaseCurrencyVC: UITableViewDelegate, UITableViewDataSource {
         let cell = tableView.dequeueReusableCell(withIdentifier: "CurrencyCell", for: indexPath) as! TitleSubtitleSelectableCell
         cell.configure(title: baseCurrency.symbol,
                        subtitle: baseCurrency.name,
-                       isSelected: TokenStore.baseCurrency?.rawValue == baseCurrency.rawValue,
+                       isSelected: TokenStore.baseCurrency.rawValue == baseCurrency.rawValue,
                        isFirst: indexPath.row == 1,
                        isLast: indexPath.row == baseCurrencies.count,
                        isInModal: isModal,

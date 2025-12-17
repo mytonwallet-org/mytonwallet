@@ -1,9 +1,10 @@
 import type { ApiActivity, ApiSwapActivity, ApiSwapHistoryItem } from '../types';
 
-import { SWAP_API_VERSION, SWAP_CROSSCHAIN_SLUGS, TONCOIN } from '../../config';
+import { SWAP_API_VERSION, TONCOIN } from '../../config';
 import { parseAccountId } from '../../util/account';
 import { buildBackendSwapId, getActivityTokenSlugs, parseTxId } from '../../util/activities';
 import { mergeSortedActivities, sortActivities } from '../../util/activities/order';
+import { getSlugsSupportingCexSwap } from '../../util/chain';
 import { logDebugError } from '../../util/logs';
 import { fetchStoredAccount } from './accounts';
 import { callBackendGet, callBackendPost } from './backend';
@@ -150,13 +151,17 @@ export async function swapReplaceCexActivities(
 }
 
 function canHaveCexSwap(slug: string | undefined, activities: ApiActivity[]): boolean {
+  // In cross-chain swaps, only a few tokens are available.
+  // It’s not optimal to request swap history for all the others.
+  const slugsSupportingCexSwap = getSlugsSupportingCexSwap();
+
   if (slug) {
-    return SWAP_CROSSCHAIN_SLUGS.has(slug);
+    return slugsSupportingCexSwap.has(slug);
   }
 
   return activities.some((activity) => {
     return getActivityTokenSlugs(activity).some((slug) => {
-      return SWAP_CROSSCHAIN_SLUGS.has(slug);
+      return slugsSupportingCexSwap.has(slug);
     });
   });
 }

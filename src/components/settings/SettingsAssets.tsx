@@ -9,6 +9,7 @@ import { SettingsState, type UserToken } from '../../global/types';
 
 import { CURRENCIES, IS_CAPACITOR, TINY_TRANSFER_MAX_COST } from '../../config';
 import {
+  selectCurrentAccountId,
   selectCurrentAccountSettings,
   selectCurrentAccountState,
   selectCurrentAccountTokens,
@@ -289,6 +290,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     orderedSlugs,
   } = selectCurrentAccountSettings(global) ?? {};
 
+  const currentAccountId = selectCurrentAccountId(global);
   const {
     blacklistedNftAddresses = MEMO_EMPTY_ARRAY,
     whitelistedNftAddresses = MEMO_EMPTY_ARRAY,
@@ -303,7 +305,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     areTinyTransfersHidden,
     areTokensWithNoCostHidden,
     baseCurrency,
-    isMultichainAccount: selectIsMultichainAccount(global, global.currentAccountId!),
+    isMultichainAccount: selectIsMultichainAccount(global, currentAccountId!),
     tokens: selectCurrentAccountTokens(global),
     orderedSlugs,
     nftsByAddress,

@@ -58,9 +58,6 @@ class TonConnectController(private val window: WWindow) : WalletCore.UpdatesObse
     override fun onBridgeUpdate(update: ApiUpdate) {
         when (update) {
             is ApiUpdate.ApiUpdateDappConnect -> {
-                if (AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW) {
-                    return
-                }
                 window.doOnWalletReady {
                     val loadingVC = loadingConnectRequestViewController?.get()
                     if (loadingVC?.isDisappeared == false) {

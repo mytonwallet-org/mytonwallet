@@ -139,4 +139,8 @@ public extension String {
         }
         return count
     }
+    
+    var reverse: String {
+        String(self.reversed())
+    }
 }

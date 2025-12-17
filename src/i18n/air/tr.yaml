@@ -1,0 +1,298 @@
+More: Daha Fazla
+at: tarihinde
+MyTonWallet: MyTonWallet
+MyTonWallet Resources: MyTonWallet Kaynakları
+I agree to %term%: "%term% şartlarını kabul ediyorum"
+See Words: Kelimeleri Gör
+Wrong Phrase: Yanlış ifade
+Permission Denied: İzin reddedildi
+USB: USB
+Bluetooth: Bluetooth
+Locked: Kilitli
+Enter Passcode: Parola gir
+Enter passcode or use fingerprint: Parola girin veya parmak izi kullanın
+Use PIN: PIN kullan
+Try again in %1$@: "%1$@ sonra tekrar deneyin"
+Try again in %1$@ and %2$@: "%1$@ ve %2$@ sonra tekrar deneyin"
+Screen Recording Detected: Ekran kaydı algılandı
+$screen_recording_info: |
+  Şu anda ekranınızı kaydediyorsunuz.
+  Bu ekran hassas veya gizli bilgiler içerebilir.
+  Paylaşılacak içeriğin farkında olduğunuzdan emin olun.
+I Understand, Proceed: Anladım, devam et
+Waiting for Network: Ağ bekleniyor
+Updating: Güncelleniyor
+My Wallet: Cüzdanım
+$no_activity_history: |
+  Bu cüzdanda henüz
+  işlem geçmişi yok.
+Standalone: Bağımsız
+Processing Excess: Fazlalık işleniyor
+Bidding Auction: Teklifli açık artırma
+"Enter wallet name:": "Cüzdan adını girin:"
+All Telegram Gifts: Tüm Telegram hediyeleri
+Add Crypto: Kripto ekle
+Share QR Code: QR kodu paylaş
+$send_only_ton: Bu adrese yalnızca Toncoin (TON) veya TON tabanlı varlıklar gönderin. Diğer tokenlar kaybolur.
+$send_only_tron: Bu adrese yalnızca TRON (TRX) veya TRON tabanlı varlıklar gönderin. Diğer tokenlar kaybolur.
+Buying with card is not supported for this account.: Bu hesap kartla satın almayı desteklemiyor.
+Swapped at: Takas zamanı
+Price per: Birim fiyat
+Transaction Details: İşlem detayları
+From: Kimden
+To: Kime
+Changelly ID: Changelly ID
+Copy Changelly ID: Changelly ID'yi kopyala
+Changelly ID Copied!: Changelly ID kopyalandı!
+from: kimden
+to: kime
+Currency: Para birimi
+Choose Currency to Send: Gönderilecek para birimini seçin
+Send to: Şuraya gönder
+Add a message, if needed: Gerekirse mesaj ekleyin
+Sending To: Şuraya gönderiliyor
+Show All Collectibles: Tüm koleksiyonları göster
+You have no NFT in this wallet yet: |
+  Bu cüzdanda henüz
+  NFT yok.
+Collapse: Daralt
+Standalone NFT: Bağımsız NFT
+Linked Address: Bağlı adres
+Enter Address: Adres girin
+Show All Assets: Tüm varlıkları göster
+Price: Fiyat
+D: G
+W: H
+M: A
+3M: 3A
+Y: Y
+No price data: Fiyat verisi yok
+Happening Now: Şu anda trend
+No Dapps Found!: dApp bulunamadı!
+Open: Aç
+Edit Wallet Name: Cüzdan adını düzenle
+Add Account: Hesap ekle
+Questions and Answers: Sorular ve yanıtlar
+Wallet Name: Cüzdan adı
+"MyTonWallet Air v%1$@ (%2$@)": "MyTonWallet Air v%1$@ (%2$@)"
+App Icon: Uygulama simgesi
+App Font: Uygulama yazı tipi
+Rounded Toolbars: Yuvarlatılmış araç çubukları
+Side Gutters: Yan boşluklar
+Tokens on Home Screen: Ana ekrandaki tokenlar
+Current Wallet Version: Mevcut cüzdan sürümü
+Tokens on Other Versions: Diğer sürümlerdeki tokenlar
+Show Recovery Phrase: Kurtarma ifadesini göster
+Passcode: Parola
+Lock the app after: Uygulamayı şu kadar sonra kilitle
+Never: Asla
+"%1$@ seconds": "%1$@ saniye"
+"%1$@ minutes": "%1$@ dakika"
+Unstake Request: Stake çözme talebi
+Add Stake: Stake ekle
+History: Geçmiş
+Earn up to %1$@ per year from your tokens: Tokenlarınızdan yılda %1$@'a kadar kazanın
+Insufficient %1$@ Balance: "Yetersiz %1$@ bakiyesi"
+Instant Withdrawal: Anında çekim
+Instantly: Anında
+Up to %1$@: "%1$@'a kadar"
+up to %1$@: "%1$@'a kadar"
+Current APY: Güncel APY
+Est. earning per year: Tahmini yıllık kazanç
+in: içinde
+Error: Hata
+Network Error: Ağ hatası
+Buy: Satın al
+Sell: Sat
+Enter Amount: Tutar girin
+"Swap %1$@ to %2$@": "%1$@'ı %2$@ ile değiştir"
+"%1$@ to %2$@": "%1$@ → %2$@"
+"Max %1$@": "Maks. %1$@"
+"Authorize %1$@ fee": "%1$@ ücretini onayla"
+Pending previous fee: Önceki ücret bekleniyor
+Cross-chain swap by %1$@: "%1$@ tarafından zincirler arası takas"
+AML/KYC: AML/KYC
+Receive to: Şuraya al
+Enter %1$@ address: "%1$@ adresi girin"
+"Send %1$@ this address:": "Bu adrese %1$@ gönderin:"
+Swap is not supported on this account.: Bu hesapta takas desteklenmiyor.
+"%1$@ will be returned": "%1$@ iade edilecek"
+Connecting your wallet: Cüzdanınız bağlanıyor
+Action is not possible on a view-only wallet.: Salt okunur cüzdanda bu işlem yapılamaz.
+Logged in with MyTonWallet: MyTonWallet ile giriş yapıldı
+You have no apps connected to this wallet.: Bu cüzdana bağlı uygulama yok.
+Asset: Varlık
+Sent to: Şuraya gönderildi
+via %agg%: "%agg% üzerinden"
+Switch to Legacy Version: Klasik sürüme geç
+Hide tab: Sekmeyi gizle
+Received from: Şuradan alındı
+Your Recovery Phrase: Kurtarma ifadeniz
+day:
+  zeroValue: "%1$d gün"
+  oneValue: "%1$d gün"
+  otherValue: "%1$d gün"
+hour:
+  zeroValue: "%1$d saat"
+  oneValue: "%1$d saat"
+  otherValue: "%1$d saat"
+minute:
+  zeroValue: "%1$d dakika"
+  oneValue: "%1$d dakika"
+  otherValue: "%1$d dakika"
+second:
+  zeroValue: "%1$d saniye"
+  oneValue: "%1$d saniye"
+  otherValue: "%1$d saniye"
+transfer:
+  zeroValue: "%1$d transfer"
+  oneValue: "%1$d transfer"
+  otherValue: "%1$d transfer"
+Confirm Actions:
+  zeroValue: "%1$d işlemi onayla"
+  oneValue: İşlemi onayla
+  otherValue: İşlemleri onayla
+"%lld transfer": "%lld transfer"
+"A ~ Z": A ~ Z
+"Accumulated rewards": Biriken ödüller
+"Biometric authentication not available.": Biyometrik kimlik doğrulama kullanılamıyor.
+"Changelly Payment Address": Changelly ödeme adresi
+"Choose Currency": Para birimi seç
+"Choose Wallet": Cüzdan seç
+"Choose Wallet to Use On": Kullanılacak cüzdanı seç
+"Wallet to use on": Kullanılacak cüzdan
+"Clipboard empty": Pano boş
+"Confirm Connect": Bağlantıyı onayla
+"Connect Wallet": Cüzdanı bağla
+"Connected apps can only see your wallet address and will not be able to move your assets without permission.": Bağlı uygulamalar yalnızca cüzdan adresinizi görebilir ve izniniz olmadan varlıklarınızı taşıyamaz.
+"Connect to %1$@?": "%1$@ uygulamasına bağlanmak istiyor musunuz?"
+"Don’t show tokens on your account with value less than $0.01. You can also selectively enable and disable particular tokens using the list below.": Hesabınızda değeri 0,01 $'ın altındaki tokenları gösterme. Aşağıdaki listeden tek tek tokenları açıp kapatabilirsiniz.
+"Don’t show transactions of less than $0.01. Such small transactions are often used for spam and scam.": 0,01 $'dan düşük işlemleri gösterme. Bu tür küçük işlemler genellikle spam veya dolandırıcılık için kullanılır.
+"Enter passcode or use Touch ID": Parola girin veya Touch ID kullanın
+"Enter your Wallet Passcode": Cüzdan parolanızı girin
+"Estimated APY": Tahmini APY
+"Expired swap": Takasın süresi doldu
+"Failed swap": Takas başarısız
+"Import failed": İçe aktarma başarısız oldu
+"Install Palette": Paleti yükle
+Ledger: Ledger
+"Main Currency": Ana para birimi
+"Moving to staking balance": Stake bakiyesine aktarılıyor
+"My assets": Varlıklarım
+MyTonWallet uses biometric authentication to unlock and authorize transactions: MyTonWallet, biyometrik doğrulamayla kilidi açar ve işlemleri onaylar
+"Network error": Ağ hatası
+"No Camera Access": Kamera erişimi yok
+"No transactions yet.": Henüz işlem yok.
+"Not all transactions were sent successfully.": Tüm işlemler başarıyla gönderilemedi.
+OK: Tamam
+"Open Collection": Koleksiyonu aç
+"Open in Explorer": Explorer'da aç
+"Passcode changed": Parola değiştirildi
+"Please make sure your internet connection is working and try again.": Lütfen internet bağlantınızın çalıştığından emin olun ve tekrar deneyin.
+"Please set a passcode on your device, and then try to use biometric authentication.": Lütfen cihazınıza bir parola ayarlayın ve ardından biyometrik doğrulamayı yeniden deneyin.
+Please try again: Lütfen tekrar deneyin
+"Please wait...": Lütfen bekleyin...
+Popular: Popüler
+"Preview is currently unavailable.": Önizleme şu anda kullanılamıyor.
+Read-only account: Salt okunur hesap
+Receiving address: Alıcı adresi
+Remove: Kaldır
+"Request for unstaking": Stake çözme talebi
+"Save to Favorites": Favorilere kaydet
+Set a passcode: Parola ayarla
+"Show All %1$@": "Tüm %1$@ öğelerini göster"
+"Staking Details": Stake detayları
+"TON Wallet Versions": TON cüzdan sürümleri
+"Tap to reveal": Görüntülemek için dokunun
+"The current version of Ledger only supports English-language comments without special characters.": Ledger'ın mevcut sürümü yalnızca özel karakter içermeyen İngilizce yorumları destekler.
+"The time on your device is incorrect, sync it and try again.": Cihazınızdaki saat yanlış, senkronize edin ve tekrar deneyin.
+"There is no activity history for this wallet yet.": Bu cüzdanda henüz etkinlik geçmişi yok.
+"This is how the TON Blockchain works.": TON blok zinciri bu şekilde çalışır.
+"This type of transaction is not yet supported by Ledger.": Bu işlem türü Ledger tarafından henüz desteklenmiyor.
+"Transaction to this smart contract is not yet supported by Ledger.": Ledger bu akıllı sözleşmeye işlem göndermeyi henüz desteklemiyor.
+Transfer Details: Transfer detayları
+"Transferring NFT is not yet supported by Ledger.": Ledger, NFT transferini henüz desteklemiyor.
+Unavailable: Kullanılamıyor
+"Updating…": Güncelleniyor…
+"Waiting for network…": Ağ bekleniyor…
+Wallet is Locked: Cüzdan kilitli
+Warning: Uyarı
+Wear: Kullan
+Your Address: Adresiniz
+Passcodes don't match. Please try again.: Parolalar eşleşmiyor. Lütfen tekrar deneyin.
+Secret phrase was copied to clipboard: Gizli ifade panoya kopyalandı
+clipboard: pano
+screenshot: ekran görüntüsü
+Copy Anyway: Yine de kopyala
+12 Words: 12 Kelime
+24 Words: 24 Kelime
+"Words don’t match, please try again.": Kelimeler eşleşmiyor, lütfen tekrar deneyin.
+Load 5 More Wallets: 5 cüzdan daha yükle
+$n_wallets_selected:
+  zeroValue: "%1$d seçildi"
+  oneValue: "%1$d seçildi"
+  otherValue: "%1$d seçildi"
+"Are you sure you want to unpin %tab%?": "%tab% sekmesinin sabitlemesini kaldırmak istediğinizden emin misiniz?"
+add: ekle
+send: gönder
+swap: takas et
+earn: kazan
+Actions: İşlemler
+$actions_description: En sık kullanılan işlemlere hızlı erişin.
+Rate: Kur
+$rate_description: Seçtiğiniz herhangi bir tokenın güncel kurunu görüntüleyin.
+Rate with Chart: Grafikli kur
+$rate_with_chart_description: Seçilen tokenın güncel kurunu görüntüleyin ve performansını takip edin.
+Style: Stil
+Neutral: Nötr
+Vivid: Canlı
+Chart Period: Grafik dönemi
+$period_all: Tüm zamanlar
+$period_day: 1 Gün
+$period_week: 1 Hafta
+$period_month: 1 Ay
+$period_3months: 3 Ay
+$period_year: 1 Yıl
+Token: Token
+All Tokens: Tüm tokenlar
+Customize Widget: Bileşeni özelleştir
+$accumulated_rewards: Biriken ödüller
+Recent Searches: Son aramalar
+Clear All: Tümünü temizle
+Suggestions: Öneriler
+Popular and connected apps: Popüler ve bağlı uygulamalar
+Connected Dapp: Bağlı dApp
+$ago: "%1$d önce"
+$visited_ago: "%1$d önce ziyaret edildi"
+Notifications are disabled: Bildirimler devre dışı
+Enable in Settings: Ayarlar'da etkinleştir
+Search in Google: Google'da ara
+$remove_wallets:
+  zeroValue: Cüzdanı kaldır
+  oneValue: Cüzdanı kaldır
+  otherValue: "%1$d cüzdanı kaldır"
+Contract Initialization Data was copied!: Sözleşme başlatma verileri kopyalandı!
+Encryption is not possible. The recipient is not a wallet or has no outgoing transactions.: Şifreleme mümkün değil. Alıcı bir cüzdan değil veya giden işlemi yok.
+just now: az önce
+"No": Hayır
+Search: Ara
+Show All Wallets: Tüm cüzdanları göster
+Sign Out: Çıkış yap
+State init supplied without message body: Mesaj gövdesi olmadan durum başlatması gönderildi
+Swap Failed: Takas başarısız oldu
+The wallet is ready: Cüzdan hazır
+Unexpected error. Please let the support know.: Beklenmeyen bir hata oluştu. Lütfen destek ekibine bildirin.
+Unlock it and open the TON App: Cihazın kilidini açın ve TON uygulamasını başlatın
+Use 4-digit Passcode: 4 haneli parola kullan
+Use 6-digit Passcode: 6 haneli parola kullan
+You don’t have any cards to customize yet: Henüz özelleştirebileceğiniz kart yok
+Authorize %token% Fee: "%token% ücretini onayla"
+Awaiting Previous Fee: Önceki ücret bekleniyor
+Lock: Kilitle
+MyTonWallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.: MyTonWallet kartları cüzdanlara yüklenebilir ve ana ekranda ve cüzdan listesinde gösterilebilir.
+Receive: Al
+Scan: Tara
+Search or enter address: Adres arayın veya girin
+View as Grid: Izgara olarak görüntüle
+$secret_words_warning: Kelimeleri dijital ortamda, **%1$d** dahil, saklamak güvenli değildir. Lütfen kurtarma ifadenizi güvenli bir yerde sakladığınızdan emin olun.
+

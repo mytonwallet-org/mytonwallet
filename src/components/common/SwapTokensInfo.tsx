@@ -3,7 +3,6 @@ import React, { memo, useMemo } from '../../lib/teact/teact';
 import type { ApiSwapAsset } from '../../api/types';
 import type { UserSwapToken } from '../../global/types';
 
-import { TOKEN_WITH_LABEL } from '../../config';
 import buildClassName from '../../util/buildClassName';
 import { formatCurrencyExtended } from '../../util/formatNumber';
 import getPseudoRandomNumber from '../../util/getPseudoRandomNumber';
@@ -37,7 +36,7 @@ function SwapTokensInfo({
     isReceived = false,
   ) {
     const amountWithSign = isReceived ? amount : `-${amount}`;
-    const withLabel = Boolean(token && TOKEN_WITH_LABEL[token.slug]);
+    const withLabel = Boolean(token && token.label);
 
     return (
       <div className={buildClassName(styles.infoRow, !token && styles.noIcon, isReceived && styles.noCurrency)}>
@@ -52,7 +51,7 @@ function SwapTokensInfo({
         <span className={styles.infoRowToken}>
           {token?.name}
           {withLabel && (
-            <span className={buildClassName(styles.label, styles.chainLabel)}>{TOKEN_WITH_LABEL[token!.slug]}</span>
+            <span className={buildClassName(styles.label, styles.chainLabel)}>{token!.label}</span>
           )}
         </span>
         <SensitiveData

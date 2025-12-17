@@ -6,8 +6,9 @@ import android.graphics.drawable.ColorDrawable
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import android.widget.PopupWindow
+import android.widget.FrameLayout
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.Item.Config.Icon
@@ -47,6 +48,7 @@ class WMenuPopup {
                 val isSubItem: Boolean = false,
                 val subItems: List<WMenuPopup.Item>? = null,
                 val trailingView: View? = null,
+                val textMargin: Int? = null
             ) : Config()
 
             data class SelectableItem(
@@ -55,10 +57,15 @@ class WMenuPopup {
                 val isSelected: Boolean
             ) : Config()
 
+            data class CustomView(
+                val customView: FrameLayout
+            ) : Config()
+
             data class Icon(
                 val icon: Int,
                 val tintColor: WColor? = null,
-                val iconSize: Int? = null
+                val iconSize: Int? = null,
+                val iconMargin: Int? = null,
             )
         }
 
@@ -74,6 +81,10 @@ class WMenuPopup {
 
                 is Config.SelectableItem -> {
                     if (config.isSelected) org.mytonwallet.app_air.uicomponents.R.drawable.ic_radio_fill else null
+                }
+
+                else -> {
+                    null
                 }
             }
         }
@@ -110,7 +121,31 @@ class WMenuPopup {
             }
         }
 
-        fun getTitle(): CharSequence {
+        fun getIconMargin(): Int? {
+            return when (config) {
+                is Config.Item -> {
+                    config.icon?.iconMargin
+                }
+
+                else -> {
+                    null
+                }
+            }
+        }
+
+        fun getTextMargin(): Int? {
+            return when (config) {
+                is Config.Item -> {
+                    config.textMargin
+                }
+
+                else -> {
+                    null
+                }
+            }
+        }
+
+        fun getTitle(): CharSequence? {
             return when (config) {
                 is Config.Back -> {
                     LocaleController.getString("Back")
@@ -122,6 +157,10 @@ class WMenuPopup {
 
                 is Config.SelectableItem -> {
                     config.title
+                }
+
+                else -> {
+                    null
                 }
             }
         }
@@ -166,6 +205,10 @@ class WMenuPopup {
                 is Config.SelectableItem -> {
                     null
                 }
+
+                else -> {
+                    null
+                }
             }
         }
 
@@ -182,6 +225,10 @@ class WMenuPopup {
                 is Config.SelectableItem -> {
                     false
                 }
+
+                else -> {
+                    false
+                }
             }
         }
     }
@@ -195,15 +242,19 @@ class WMenuPopup {
             offset: Int = 0,
             verticalOffset: Int = 0,
             aboveView: Boolean,
-            centerHorizontally: Boolean = false
-        ): PopupWindow {
+            centerHorizontally: Boolean = false,
+            onWillDismiss: (() -> Unit)? = null,
+        ): WPopupWindow {
             view.lockView()
 
-            lateinit var popupWindow: PopupWindow
+            lateinit var popupWindow: WPopupWindow
 
-            val popupView = WMenuPopupView(view.context, items, onDismiss = {
-                popupWindow.dismiss()
-            })
+            val popupView = WMenuPopupView(
+                view.context, items,
+                onWillDismiss = onWillDismiss,
+                onDismiss = {
+                    popupWindow.dismiss()
+                })
 
             popupWindow = WPopupWindow(popupView, popupWidth).apply {
                 isOutsideTouchable = true
@@ -220,19 +271,16 @@ class WMenuPopup {
             val location = IntArray(2)
             view.getLocationOnScreen(location)
 
-            val offset = if (centerHorizontally) {
+            val offset = offset + if (centerHorizontally) {
                 val popupMeasuredWidth = if (popupWidth == WRAP_CONTENT) {
-                    popupView.measure(
-                        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
-                        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-                    )
+                    popupView.measure(0.unspecified, 0.unspecified)
                     popupView.measuredWidth
                 } else {
                     popupWidth
                 }
                 (view.width - popupMeasuredWidth) / 2
             } else {
-                offset
+                0
             }
 
             popupWindow.showAtLocation(

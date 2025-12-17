@@ -50,7 +50,7 @@ class TitleSubtitleSelectionCell(
         addView(selectionImageView, LayoutParams(40.dp, 40.dp))
         addView(titleLabel)
         addView(subtitleLabel)
-        addView(separatorView, LayoutParams(0, 1))
+        addView(separatorView, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
         setConstraints {
             toCenterY(selectionImageView)
             toStart(selectionImageView, 12f)

@@ -15,10 +15,6 @@ struct WordCheckView: View {
     
     var introModel: IntroModel
     @ObservedObject var model: WordCheckModel
-    var navigationBarInset: CGFloat
-    var onScroll: (CGFloat) -> ()
-
-    @Namespace private var ns
     
     @State private var isLoading = false
 
@@ -29,7 +25,6 @@ struct WordCheckView: View {
                     WUIAnimatedSticker("animation_bill", size: 124, loop: false)
                         .frame(width: 124, height: 124)
                         .padding(.top, -8)
-                        .scrollPosition(ns: ns, offset: navigationBarInset, callback: onScroll)
                     VStack(spacing: 20) {
                         title
                         description
@@ -49,14 +44,12 @@ struct WordCheckView: View {
                 }
             }
         }
-        .navigationBarInset(navigationBarInset)
         .scrollIndicators(.hidden)
         .backportScrollBounceBehaviorBasedOnSize()
         .backportScrollClipDisabled()
         .padding(.horizontal, 32)
         .padding(.bottom, 8)
         .allowsHitTesting(!model.intractionDisabled)
-        .coordinateSpace(name: ns)
         .onChange(of: model.allSelected) { allSelected in
             if allSelected {
                 if !model.revealCorrect {
@@ -95,7 +88,7 @@ struct WordCheckView: View {
     var description: some View {
         let ids = model.tests.map { String($0.id + 1) }
         let line1 = lang("$check_words_description").replacingOccurrences(of: "\n", with: " ")
-        let line2 = lang("Please choose the correct words **%1$@**, **%2$@**, **%3$@**:", arg1: ids[0], arg2: ids[1], arg3: ids[2])
+        let line2 = lang("$mnemonic_check_words_list", arg1: ids.joined(separator: ", "))
         Text(LocalizedStringKey(line1 + "\n\n" + line2))
             .multilineTextAlignment(.center)
             .contentTransition(.numericText())
@@ -131,7 +124,7 @@ struct WordCheckView: View {
     @ViewBuilder
     var error: some View {
         if model.showTryAgain {
-            Text(lang("Words don’t match, please try again."))
+            Text(lang("$mnemonic_check_error"))
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.red)
                 .font(.system(size: 16, weight: .medium))

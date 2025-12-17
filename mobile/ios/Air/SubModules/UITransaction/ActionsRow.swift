@@ -6,6 +6,7 @@ import WalletContext
 import WalletCore
 import Kingfisher
 import UIPasscode
+import Perception
 
 struct ActionsRow: View {
     
@@ -24,40 +25,112 @@ struct ActionsRow: View {
                 return false
             }
             return account.supportsSend
-        case .swap(let apiSwapActivity):
+        case .swap:
             return account.supportsSwap
         }
     }
     
+    var shouldShowShare: Bool {
+        !activity.isBackendSwapId
+    }
+    
+    var buttonCount: Int {
+        1 + (shouldShowRepeat ? 1 : 0) + (shouldShowShare ? 1 : 0)
+    }
+    
+    var buttonSpacing: CGFloat {
+        S.actionButtonSpacing(forButtonCount: buttonCount)
+    }
+    
     var body: some View {
-        HStack {
-            ActionButton(lang("Details"), "ActivityDetails22") {
-                onDetailsExpanded()
-            }
-            if shouldShowRepeat {
-                ActionButton(lang("Repeat"), "ActivityRepeat22") {
-                    AppActions.repeatActivity(activity)
+        WithPerceptionTracking {
+            HStack(spacing: IOS_26_MODE_ENABLED ? buttonSpacing : 8) {
+                ActionButton(lang("Details"), IOS_26_MODE_ENABLED ? "DetailsIconBold" : "ActivityDetails22") {
+                    onDetailsExpanded()
                 }
-            }
-            if !activity.isBackendSwapId {
-                ActionButton(lang("Share"), "ActivityShare22") {
-                    let chain = ApiChain(rawValue: TokenStore.tokens[activity.slug]?.chain ?? "")
-                    if let chain {
-                        let txHash = activity.parsedTxId.hash
-                        let url = ExplorerHelper.txUrl(chain: chain, txHash: txHash)
-                        AppActions.shareUrl(url)
+                if shouldShowRepeat {
+                    ActionButton(lang("Repeat"), IOS_26_MODE_ENABLED ? "RepeatIconBold" : "ActivityRepeat22") {
+                        AppActions.repeatActivity(activity)
+                    }
+                }
+                if shouldShowShare {
+                    ActionButton(lang("Share"), IOS_26_MODE_ENABLED ? "ShareIconBold" : "ActivityShare22") {
+                        let chain = ApiChain(rawValue: TokenStore.tokens[activity.slug]?.chain ?? "")
+                        if let chain {
+                            let txHash = activity.parsedTxId.hash
+                            let url = ExplorerHelper.txUrl(chain: chain, txHash: txHash)
+                            AppActions.shareUrl(url)
+                        }
                     }
                 }
             }
+            .fixedSize(horizontal: IOS_26_MODE_ENABLED, vertical: false)
+            .frame(maxWidth: IOS_26_MODE_ENABLED ? nil : .infinity)
+            .padding(.horizontal, IOS_26_MODE_ENABLED ? 0 : 16)
+            .padding(.top, 4)
+            .padding(.bottom, IOS_26_MODE_ENABLED ? 24 : 16)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 4)
-        .padding(.bottom, 16)
     }
 }
 
 struct ActionButton: View {
 
+    var title: String
+    var icon: String
+    var action: () -> ()
+
+    init(_ title: String, _ icon: String, action: @escaping () -> Void) {
+        self.title = title
+        self.icon = icon
+        self.action = action
+    }
+
+    var body: some View {
+        if #available(iOS 26, *) {
+            ActionButton_New(title, icon, action: action)
+        } else {
+            ActionButton_Legacy(title, icon, action: action)
+        }
+    }
+}
+
+@available(iOS 26, *)
+struct ActionButton_New: View {
+    var title: String
+    var icon: String
+    var action: () -> ()
+
+    init(_ title: String, _ icon: String, action: @escaping () -> Void) {
+        self.title = title
+        self.icon = icon
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                ZStack {
+                    Image.airBundle("ActionButtonBackground")
+                    Image.airBundle(icon)
+                        .foregroundStyle(Color.air.tint)
+                }
+                .frame(width: 48, height: 48)
+                .clipShape(.circle)
+                .glassEffect(.regular.interactive())
+                
+                Text(title)
+                    .font(.system(size: 12, weight: .regular))
+                    .frame(height: 13)
+                    .foregroundStyle(Color(UIColor.label))
+            }
+            .frame(width: 64, height: 70)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+@available(iOS, deprecated: 18)
+struct ActionButton_Legacy: View {
     var title: String
     var icon: String
     var action: () -> ()
@@ -77,11 +150,12 @@ struct ActionButton: View {
                     .font(.system(size: 12))
             }
         }
-        .buttonStyle(ActionButtonStyle())
+        .buttonStyle(ActionButtonStyle_Legacy())
     }
 }
 
-struct ActionButtonStyle: PrimitiveButtonStyle {
+@available(iOS, deprecated: 18)
+struct ActionButtonStyle_Legacy: PrimitiveButtonStyle {
 
     @State private var isHighlighted: Bool = false
 

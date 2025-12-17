@@ -4,6 +4,7 @@ import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.drawable.Drawable
 import android.os.Handler
 import android.os.Looper
 import android.text.SpannableStringBuilder
@@ -39,12 +40,15 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.drawable.RotatableDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.resize
+import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.helpers.DirectionalTouchHandler
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.palette.ImagePaletteHelpers
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.viewControllers.preview.PreviewVC
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WView
@@ -53,17 +57,19 @@ import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uisend.sendNft.SendNftVC
 import org.mytonwallet.app_air.uisend.sendNft.sendNftConfirm.ConfirmNftVC
-import org.mytonwallet.app_air.walletcontext.WalletContextManager
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.NftAccentColors
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.WalletContextManager
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MAccount
+import org.mytonwallet.app_air.walletcore.models.MScreenMode
 import org.mytonwallet.app_air.walletcore.models.NftCollection
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -73,9 +79,14 @@ import kotlin.math.max
 
 class NftVC(
     context: Context,
+    val screenMode: MScreenMode,
     var nft: ApiNft,
     val collectionNFTs: List<ApiNft>
 ) : WViewController(context), NftHeaderView.Delegate {
+    override val TAG = "Nft"
+
+    override val displayedAccount =
+        DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
 
     override val shouldDisplayBottomBar = true
     override val isSwipeBackAllowed: Boolean
@@ -172,9 +183,8 @@ class NftVC(
     }
     private var arrowDrawable: RotatableDrawable? = null
     private var isAttributesSectionExpanded = false
-    private val attributesToggleView: FrameLayout by lazy {
-        FrameLayout(context).apply {
-            id = View.generateViewId()
+    private val attributesToggleView: WFrameLayout by lazy {
+        WFrameLayout(context).apply {
             addView(
                 attributesToggleLabel,
                 FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
@@ -430,11 +440,8 @@ class NftVC(
         // Add enough bottom padding to prevent recycler-view scroll before calculating and setting the correct padding
         scrollingContentView.setPadding(0, scrollingContentView.paddingTop, 0, view.height)
         attributesContentView.measure(
-            View.MeasureSpec.makeMeasureSpec(
-                scrollingContentView.width - 32.dp,
-                View.MeasureSpec.EXACTLY
-            ),
-            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+            (scrollingContentView.width - 32.dp).exactly,
+            0.unspecified
         )
         if (isAttributesSectionExpandable) {
             attributesContentView.updateLayoutParams {
@@ -529,6 +536,10 @@ class NftVC(
         super.scrollToTop()
         if (wasTracking || !headerView.targetIsCollapsed)
             return
+        performScrollToTop()
+    }
+
+    private fun performScrollToTop() {
         recyclerView.smoothScrollBy(
             0,
             headerView.collapsedOffset - recyclerView.computeVerticalScrollOffset(),
@@ -655,7 +666,12 @@ class NftVC(
                 context,
                 org.mytonwallet.app_air.uiassets.R.drawable.ic_nft_wear
             )!!.apply {
-                setTint(Color.WHITE)
+                setTint(
+                    if (!NftAccentColors.veryBrightColors.contains(WColor.Tint.color))
+                        Color.WHITE
+                    else
+                        Color.BLACK
+                )
             }
         )
         wearActionButton.setBackgroundColor(WColor.Tint.color, 28f.dp)
@@ -741,7 +757,7 @@ class NftVC(
         val txt =
             LocaleController.getString(if (isAttributesSectionExpanded) "Collapse" else "Show All")
         val ss = SpannableStringBuilder(txt)
-        val imageSpan = VerticalImageSpan(arrowDrawable, 3.dp, 3.dp)
+        val imageSpan = VerticalImageSpan(arrowDrawable as Drawable, 3.dp, 3.dp)
         ss.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         attributesToggleLabel.text = ss
         attributesToggleView.background = null
@@ -767,6 +783,14 @@ class NftVC(
         } else {
             onPreviewTapped()
         }
+    }
+
+    override fun onBackPressed(): Boolean {
+        if (!headerView.targetIsCollapsed) {
+            performScrollToTop()
+            return false
+        }
+        return super.onBackPressed()
     }
 
     override fun onPreviewTapped() {
@@ -820,6 +844,7 @@ class NftVC(
             push(
                 AssetsVC(
                     context,
+                    screenMode,
                     AssetsVC.Mode.COMPLETE,
                     collectionMode = AssetsVC.CollectionMode.SingleCollection(
                         NftCollection(collectionAddress, nft.collectionName ?: "")

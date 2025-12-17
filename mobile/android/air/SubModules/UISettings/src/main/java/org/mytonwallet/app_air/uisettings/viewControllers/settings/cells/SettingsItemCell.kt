@@ -1,5 +1,6 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.settings.cells
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.text.TextUtils
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -25,16 +26,19 @@ interface ISettingsItemCell {
         value: String?,
         isFirst: Boolean,
         isLast: Boolean,
+        showSeparator: Boolean = false,
         onTap: () -> Unit
     )
 }
 
-class SettingsItemCell(context: Context) : WCell(context), ISettingsItemCell, WThemedView {
+@SuppressLint("ViewConstructor")
+class SettingsItemCell(context: Context, textLeadingMargin: Float = 68f) : WCell(context),
+    ISettingsItemCell, WThemedView {
 
     private var isFirst = false
     private var isLast = false
 
-    private val iconView: AppCompatImageView by lazy {
+    val iconView: AppCompatImageView by lazy {
         AppCompatImageView(context).apply {
             id = generateViewId()
             setPadding(8.dp)
@@ -63,20 +67,20 @@ class SettingsItemCell(context: Context) : WCell(context), ISettingsItemCell, WT
         addView(iconView, LayoutParams(40.dp, 40.dp))
         addView(titleLabel)
         addView(valueLabel)
-        addView(separatorView, LayoutParams(0, 1))
+        addView(separatorView, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
 
         setConstraints {
             toStart(iconView, 16f)
             toCenterY(iconView)
             setHorizontalBias(titleLabel.id, 0f)
             constrainedWidth(titleLabel.id, true)
-            toStart(titleLabel, 68f)
+            toStart(titleLabel, textLeadingMargin)
             toTop(titleLabel, 16f)
             endToStart(titleLabel, valueLabel, 8f)
             toEnd(valueLabel, 16f)
             toTop(valueLabel, 16f)
             toBottom(separatorView)
-            toStart(separatorView, 68f)
+            toStart(separatorView, textLeadingMargin)
             toEnd(separatorView, 16f)
         }
     }
@@ -98,6 +102,7 @@ class SettingsItemCell(context: Context) : WCell(context), ISettingsItemCell, WT
         value: String?,
         isFirst: Boolean,
         isLast: Boolean,
+        showSeparator: Boolean,
         onTap: () -> Unit
     ) {
         this.isFirst = isFirst

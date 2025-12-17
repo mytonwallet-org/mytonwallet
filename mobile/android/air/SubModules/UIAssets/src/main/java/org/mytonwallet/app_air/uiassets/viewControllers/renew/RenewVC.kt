@@ -46,6 +46,7 @@ import java.util.Date
 import kotlin.math.roundToInt
 
 class RenewVC(context: Context, val nft: ApiNft) : WViewController(context) {
+    override val TAG = "Renew"
 
     override val shouldDisplayTopBar = false
 

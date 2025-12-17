@@ -254,7 +254,7 @@ public class IconView: UIView, WThemedView {
             chainImageView.tintColor = .white
             chainImageView.backgroundColor = WTheme.positiveAmount
             chainImageViewContainer.isHidden = false
-        } else if shouldShowChain {
+        } else if shouldShowChain && !token.isNative {
             let chain = token.chain
             chainImageView.contentMode = .scaleToFill
             chainImageView.image = UIImage(named: "chain_\(chain)", in: AirBundle, compatibleWith: nil)
@@ -297,8 +297,6 @@ public class IconView: UIView, WThemedView {
         case .typeIcon:
             break
         case .image(_):
-            break
-        @unknown default:
             break
         }
         resolveGradientColors = { account.firstAddress?.gradientColors }
@@ -484,5 +482,48 @@ public struct WUIIconViewToken: UIViewRepresentable {
     public func updateUIView(_ uiView: UIViewType, context: Context) {
         uiView.setChainSize(chainSize, borderWidth: chainBorderWidth, borderColor: chainBorderColor, horizontalOffset: chainHorizontalOffset, verticalOffset: chainVerticalOffset)
         uiView.config(with: token, isStaking: isStaking, isWalletView: isWalletView, shouldShowChain: showldShowChain)
+    }
+}
+
+
+public struct AccountIcon: View {
+    
+    var account: MAccount
+    
+    public init(account: MAccount) {
+        self.account = account
+    }
+    
+    public var body: some View {
+        ZStack {
+            Color.clear
+            if let _colors = account.firstAddress?.gradientColors {
+                let colors = _colors.map { Color($0) }
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: colors,
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+            }
+            let content = account.avatarContent
+            switch content {
+            case .initial(let string):
+                Text(verbatim: string)
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .fixedSize()
+            case .sixCharaters(_, _):
+                EmptyView()
+            case .typeIcon:
+                EmptyView()
+            case .image(_):
+                EmptyView()
+            }
+        }
+        .foregroundStyle(.white)
+        .frame(width: 40, height: 40)
+        .drawingGroup()
     }
 }

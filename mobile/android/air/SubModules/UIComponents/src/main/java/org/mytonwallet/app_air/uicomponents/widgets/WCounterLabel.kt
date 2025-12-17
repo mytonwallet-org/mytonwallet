@@ -9,6 +9,7 @@ import android.text.TextPaint
 import android.view.View
 import org.mytonwallet.app_air.uicomponents.drawable.counter.Counter
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -50,10 +51,7 @@ class WCounterLabel(context: Context) : View(context), Counter.Callback, WThemed
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         super.onMeasure(
-            MeasureSpec.makeMeasureSpec(
-                counter.requiredWidth + paddingLeft + paddingRight,
-                MeasureSpec.EXACTLY
-            ),
+            (counter.requiredWidth + paddingLeft + paddingRight).exactly,
             heightMeasureSpec
         )
         applyGradient(measuredWidth.toFloat())

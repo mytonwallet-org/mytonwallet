@@ -19,7 +19,12 @@ import {
   updateAccountState,
   updateCurrentStaking,
 } from '../../reducers';
-import { selectAccountStakingState, selectAccountStakingStatesBySlug, selectIsHardwareAccount } from '../../selectors';
+import {
+  selectAccountStakingState,
+  selectAccountStakingStatesBySlug,
+  selectCurrentAccountId,
+  selectIsHardwareAccount,
+} from '../../selectors';
 import { switchAccount } from './auth';
 
 const MODAL_CLOSING_DELAY = 50;
@@ -29,10 +34,11 @@ addActionHandler('startStaking', (global, actions, payload) => {
   const { tokenSlug } = payload || {};
 
   if (tokenSlug) {
-    const stakingState = selectAccountStakingStatesBySlug(global, global.currentAccountId!)[tokenSlug];
+    const currentAccountId = selectCurrentAccountId(global)!;
+    const stakingState = selectAccountStakingStatesBySlug(global, currentAccountId)[tokenSlug];
     if (stakingState) {
       global = getGlobal();
-      global = updateAccountStaking(global, global.currentAccountId!, { stakingId: stakingState.id });
+      global = updateAccountStaking(global, currentAccountId, { stakingId: stakingState.id });
       setGlobal(global);
 
       global = getGlobal();
@@ -58,7 +64,7 @@ addActionHandler('startUnstaking', (global, actions, payload) => {
 
   if (stakingId) {
     global = getGlobal();
-    global = updateAccountStaking(global, global.currentAccountId!, { stakingId });
+    global = updateAccountStaking(global, selectCurrentAccountId(global)!, { stakingId });
     setGlobal(global);
 
     global = getGlobal();
@@ -79,7 +85,7 @@ addActionHandler('startUnstaking', (global, actions, payload) => {
 
 addActionHandler('fetchStakingFee', async (global, actions, payload) => {
   const { amount } = payload;
-  const { currentAccountId } = global;
+  const currentAccountId = selectCurrentAccountId(global);
 
   if (!currentAccountId) {
     return;
@@ -106,7 +112,7 @@ addActionHandler('fetchStakingFee', async (global, actions, payload) => {
 
 addActionHandler('submitStakingInitial', async (global, actions, payload) => {
   const { isUnstaking, amount } = payload ?? {};
-  const { currentAccountId } = global;
+  const currentAccountId = selectCurrentAccountId(global);
 
   if (!currentAccountId) {
     return;
@@ -176,7 +182,7 @@ addActionHandler('submitStakingInitial', async (global, actions, payload) => {
 addActionHandler('submitStaking', async (global, actions, payload = {}) => {
   const { password, isUnstaking } = payload;
   const { amount, tokenAmount } = global.currentStaking;
-  const { currentAccountId } = global;
+  const currentAccountId = selectCurrentAccountId(global)!;
 
   if (!await prepareTransfer(
     isUnstaking ? StakingState.UnstakeConfirmHardware : StakingState.StakeConfirmHardware,
@@ -187,13 +193,15 @@ addActionHandler('submitStaking', async (global, actions, payload = {}) => {
   }
 
   global = getGlobal();
-  const state = selectAccountStakingState(global, currentAccountId!);
+  const state = selectAccountStakingState(global, currentAccountId);
 
   if (isUnstaking) {
     const unstakeAmount = state.type === 'nominators' ? state.balance : tokenAmount!;
     const result = await callApi(
       'submitUnstake',
-      global.currentAccountId!,
+      // This may be different from the `currentAccountId` if the user switched accounts
+      // while the transaction was being signed
+      selectCurrentAccountId(global)!,
       password,
       unstakeAmount,
       state,
@@ -207,13 +215,15 @@ addActionHandler('submitStaking', async (global, actions, payload = {}) => {
     const isLongUnstakeRequested = getIsLongUnstake(state, unstakeAmount);
 
     global = getGlobal();
-    global = updateAccountState(global, currentAccountId!, { isLongUnstakeRequested });
+    global = updateAccountState(global, currentAccountId, { isLongUnstakeRequested });
     global = updateCurrentStaking(global, { state: StakingState.UnstakeComplete });
     setGlobal(global);
   } else {
     const result = await callApi(
       'submitStake',
-      global.currentAccountId!,
+      // This may be different from the `currentAccountId` if the user switched accounts
+      // while the transaction was being signed
+      selectCurrentAccountId(global)!,
       password,
       amount!,
       state,
@@ -250,14 +260,14 @@ addActionHandler('setStakingScreen', (global, actions, payload) => {
 });
 
 addActionHandler('fetchStakingHistory', async (global) => {
-  const stakingHistory = await callApi('getStakingHistory', global.currentAccountId!);
+  const stakingHistory = await callApi('getStakingHistory', selectCurrentAccountId(global)!);
 
   if (!stakingHistory) {
     return;
   }
 
   global = getGlobal();
-  global = updateAccountState(global, global.currentAccountId!, { stakingHistory }, true);
+  global = updateAccountState(global, selectCurrentAccountId(global)!, { stakingHistory }, true);
   setGlobal(global);
 });
 
@@ -303,7 +313,7 @@ addActionHandler('changeCurrentStaking', async (global, actions, { stakingId, sh
   }
 
   global = getGlobal();
-  global = updateAccountStaking(global, global.currentAccountId!, { stakingId });
+  global = updateAccountStaking(global, selectCurrentAccountId(global)!, { stakingId });
   setGlobal(global);
 
   if (shouldReopenModal) {
@@ -316,7 +326,7 @@ addActionHandler('startStakingClaim', (global, actions, payload) => {
 
   if (stakingId) {
     global = getGlobal();
-    global = updateAccountStaking(global, global.currentAccountId!, { stakingId });
+    global = updateAccountStaking(global, selectCurrentAccountId(global)!, { stakingId });
     setGlobal(global);
 
     global = getGlobal();
@@ -342,7 +352,7 @@ addActionHandler('cancelStakingClaim', (global) => {
 });
 
 addActionHandler('submitStakingClaim', async (global, actions, { password } = {}) => {
-  const accountId = global.currentAccountId!;
+  const accountId = selectCurrentAccountId(global)!;
 
   if (!await prepareTransfer(StakingState.ClaimConfirmHardware, updateCurrentStaking, password)) {
     return;
@@ -385,11 +395,13 @@ addActionHandler('submitStakingClaim', async (global, actions, { password } = {}
 
 // Opens the staking info modal if the modal is available. Otherwise, opens the staking start modal.
 addActionHandler('openStakingInfoOrStart', (global, actions) => {
-  if (!global.currentAccountId) {
+  const currentAccountId = selectCurrentAccountId(global);
+
+  if (!currentAccountId) {
     return;
   }
 
-  const stakingState = selectAccountStakingState(global, global.currentAccountId);
+  const stakingState = selectAccountStakingState(global, currentAccountId);
 
   if (getIsActiveStakingState(stakingState)) {
     actions.openStakingInfo();

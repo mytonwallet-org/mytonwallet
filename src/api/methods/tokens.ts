@@ -1,14 +1,14 @@
-import type { OnApiUpdate } from '../types';
+import type { ApiChain, OnApiUpdate } from '../types';
 
 import { parseAccountId } from '../../util/account';
-import * as ton from '../chains/ton';
+import chains from '../chains';
 import { sendUpdateTokens } from '../common/tokens';
 
-export { getTokenBySlug, buildTokenSlug } from '../common/tokens';
+export { buildTokenSlug } from '../common/tokens';
 
-export function fetchToken(accountId: string, address: string) {
+export function fetchToken(accountId: string, chain: ApiChain, tokenAddress: string) {
   const { network } = parseAccountId(accountId);
-  return ton.fetchToken(network, address);
+  return chains[chain].fetchToken(network, tokenAddress);
 }
 
 let onUpdate: OnApiUpdate | undefined;
@@ -17,7 +17,7 @@ export function initTokens(_onUpdate: OnApiUpdate) {
   onUpdate = _onUpdate;
 }
 
-export async function importToken(accountId: string, address: string) {
+export async function importToken(accountId: string, chain: ApiChain, tokenAddress: string) {
   const { network } = parseAccountId(accountId);
-  await ton.importToken(network, address, () => onUpdate && sendUpdateTokens(onUpdate));
+  await chains[chain].importToken(network, tokenAddress, () => onUpdate && sendUpdateTokens(onUpdate));
 }

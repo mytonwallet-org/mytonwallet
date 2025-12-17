@@ -13,7 +13,6 @@ import androidx.core.content.ContextCompat
 import com.facebook.drawee.backends.pipeline.Fresco
 import com.facebook.drawee.generic.GenericDraweeHierarchyBuilder
 import com.facebook.drawee.generic.RoundingParams
-import com.facebook.drawee.interfaces.DraweeController
 import com.facebook.drawee.view.SimpleDraweeView
 import com.facebook.imagepipeline.request.ImageRequest
 import org.mytonwallet.app_air.uicomponents.drawable.ContentGradientDrawable
@@ -94,8 +93,10 @@ open class WCustomImageView @JvmOverloads constructor(
     }
 
     fun set(content: Content, lowResUrl: String? = null) {
-        this.hierarchy = buildHierarchy(content)
-        this.controller = buildController(content, lowResUrl = lowResUrl)
+        if (content == this.content && lowResUrl == this.lowResUrl)
+            return
+        buildHierarchy(content)
+        buildController(content, lowResUrl = lowResUrl)
         this.chainDrawable = if (content.subImageRes != 0)
             AppCompatResources.getDrawable(context, content.subImageRes)
         else null
@@ -106,7 +107,7 @@ open class WCustomImageView @JvmOverloads constructor(
     }
 
     fun clear() {
-        controller = buildController(null, null)
+        buildController(null, null)
         chainDrawable = null
         content = null
         lowResUrl = null
@@ -118,16 +119,16 @@ open class WCustomImageView @JvmOverloads constructor(
         val content = this.content ?: return
         val placeholder = getPlaceholderMode(content)
         if (placeholder is Content.Placeholder.Color || content.image is Content.Image.Gradient) {
-            hierarchy = buildHierarchy(content)
-            controller = buildController(content, lowResUrl = lowResUrl)
+            buildHierarchy(content)
+            buildController(content, lowResUrl = lowResUrl)
         }
         invalidate()
     }
 
     /* Private */
 
-    private fun buildController(content: Content?, lowResUrl: String?): DraweeController {
-        return when (val image = content?.image) {
+    private fun buildController(content: Content?, lowResUrl: String?) {
+        controller = when (val image = content?.image) {
             is Content.Image.Empty,
             is Content.Image.Res,
             is Content.Image.Gradient,
@@ -144,12 +145,23 @@ open class WCustomImageView @JvmOverloads constructor(
         }
     }
 
-    private fun buildHierarchy(content: Content) = GenericDraweeHierarchyBuilder(resources).apply {
-        setPlaceholderImage(getPlaceholderDrawable(content))
-        setPlaceholderImageScaleType(content.scaleType)
-        setActualImageScaleType(content.scaleType)
-        setRoundingParams(getRoundingParams(content))
-    }.build()
+    private var _placeholderVal: Int? = null
+    private fun buildHierarchy(content: Content) {
+        // Ignore rebuild if it's not necessary. Building `hierarchy` can be resource heavy.
+        //  Notice: We assume rounding params are not changed in a specific image-view.
+        val placeholderVal = getCachingPlaceholderValue(content)
+        if (placeholderVal != null && _placeholderVal == placeholderVal &&
+            hierarchy?.actualImageScaleType == content.scaleType
+        )
+            return
+        _placeholderVal = placeholderVal
+        hierarchy = GenericDraweeHierarchyBuilder(resources).apply {
+            setPlaceholderImage(getPlaceholderDrawable(content))
+            setPlaceholderImageScaleType(content.scaleType)
+            setActualImageScaleType(content.scaleType)
+            setRoundingParams(getRoundingParams(content))
+        }.build()
+    }
 
     private fun getRoundingMode(content: Content) =
         if (content.rounding !is Content.Rounding.Default)
@@ -189,6 +201,20 @@ open class WCustomImageView @JvmOverloads constructor(
             else -> when (val placeholder = getPlaceholderMode(content)) {
                 is Content.Placeholder.Default -> throw IllegalArgumentException()
                 is Content.Placeholder.Color -> ColorDrawable(placeholder.color.color)
+            }
+        }
+    }
+
+    private fun getCachingPlaceholderValue(content: Content): Int? {
+        return when (content.image) {
+            is Content.Image.Res -> null
+            is Content.Image.Gradient -> {
+                null
+            }
+
+            else -> when (val placeholder = getPlaceholderMode(content)) {
+                is Content.Placeholder.Default -> throw IllegalArgumentException()
+                is Content.Placeholder.Color -> placeholder.color.color
             }
         }
     }

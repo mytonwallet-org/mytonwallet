@@ -233,7 +233,7 @@ struct SwapAgregatorContainerView: View {
         VStack(spacing: 0) {
             
             VStack(spacing: 8) {
-                Text(lang("Built-in Dex Aggregator"))
+                Text(lang("Built-in DEX Aggregator"))
                     .fontWeight(.semibold)
                     .font17h22()
 

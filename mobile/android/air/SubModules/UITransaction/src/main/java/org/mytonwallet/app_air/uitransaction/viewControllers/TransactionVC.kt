@@ -36,8 +36,11 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
+import org.mytonwallet.app_air.uicomponents.helpers.HapticType
+import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.helpers.SpannableHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
@@ -88,6 +91,7 @@ import kotlin.math.roundToInt
 @SuppressLint("ViewConstructor")
 class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewController(context),
     WalletCore.EventObserver {
+    override val TAG = "Transaction"
 
     override val isSwipeBackAllowed = false
 
@@ -294,9 +298,8 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
     private var transactionHeaderView: TransactionHeaderView? = null
     private var swapHeaderView: SwapHeaderView? = null
     private var nftHeaderView: NftHeaderView? = null
-    private val headerViewContainer: FrameLayout by lazy {
-        FrameLayout(context).apply {
-            id = View.generateViewId()
+    private val headerViewContainer: WFrameLayout by lazy {
+        WFrameLayout(context).apply {
             addView(headerView, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         }
     }
@@ -355,7 +358,7 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
                 HeaderActionsView.Identifier.DETAILS,
                 ContextCompat.getDrawable(
                     context,
-                    org.mytonwallet.app_air.uitransaction.R.drawable.ic_act_details
+                    org.mytonwallet.app_air.uitransaction.R.drawable.ic_act_details_outline
                 )!!,
                 LocaleController.getString("Details")
             ),
@@ -363,7 +366,7 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
                 HeaderActionsView.Identifier.REPEAT,
                 ContextCompat.getDrawable(
                     context,
-                    org.mytonwallet.app_air.uitransaction.R.drawable.ic_act_repeat
+                    org.mytonwallet.app_air.uitransaction.R.drawable.ic_act_repeat_outline
                 )!!,
                 LocaleController.getString("Repeat")
             ) else null,
@@ -372,7 +375,7 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
                     HeaderActionsView.Identifier.SHARE,
                     ContextCompat.getDrawable(
                         context,
-                        org.mytonwallet.app_air.uitransaction.R.drawable.ic_act_share
+                        org.mytonwallet.app_air.uitransaction.R.drawable.ic_act_share_outline
                     )!!,
                     LocaleController.getString("Share")
                 ) else null
@@ -401,7 +404,6 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
                 }
             }
         },
-        bottomPadding = 4.dp
     )
 
     private val transactionDetailsLabel: WLabel by lazy {
@@ -422,6 +424,8 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
             isLast = false
         ).apply {
             isSensitiveData = true
+            useSkeletonIndicatorWithWidth = 80.dp
+            isLoading = valueLabel.contentView.text.isNullOrEmpty()
         }
     }
     private var transactionIdRow: KeyValueRowView? = null
@@ -478,7 +482,7 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
                                 transaction.amount.abs().toString(
                                     decimals = token.decimals,
                                     currency = token.symbol,
-                                    currencyDecimals = transaction.amount.smartDecimalsCount(token.decimals),
+                                    currencyDecimals = token.decimals,
                                     showPositiveSign = false,
                                     forceCurrencyToRight = true
                                 ) + if (equivalent != null) " ($equivalent)" else "",
@@ -612,7 +616,10 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
     private val innerContentView: WView by lazy {
         val v = WView(context)
         v.addView(headerViewContainer, ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        v.addView(actionsView, ConstraintLayout.LayoutParams(MATCH_PARENT, 70.dp))
+        v.addView(
+            actionsView,
+            ConstraintLayout.LayoutParams(MATCH_PARENT, HeaderActionsView.HEIGHT.dp)
+        )
         v.addView(transactionDetails, ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.setConstraints {
             toTop(headerViewContainer)
@@ -656,8 +663,9 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
         setNavTitle(transaction.title)
         setNavSubtitle(transaction.dt.formatDateAndTime())
         setupNavBar(true)
-
         navigationBar?.addCloseButton()
+
+        actionsView.setPadding(0, 0, 0, 16.dp)
 
         view.addView(
             scrollView,
@@ -716,7 +724,7 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
     }
 
     private fun updateBackground() {
-        val expandProgress = 10 / 3 * (((modalExpandProgress ?: 0f) - 0.7f).coerceIn(0f, 1f))
+        val expandProgress = 10f / 3f * (((modalExpandProgress ?: 0f) - 0.7f).coerceIn(0f, 1f))
         innerContentView.setBackgroundColor(
             WColor.SecondaryBackground.color,
             (1 - expandProgress) * ViewConstants.BIG_RADIUS.dp,
@@ -761,6 +769,7 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
                 fee,
                 fadeIn = false
             )
+            feeRow?.isLoading = false
         } ?: run {
             loadActivityDetails()
         }
@@ -872,6 +881,7 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
                                         transaction.getTxIdentifier()
                                     )
                                     clipboard.setPrimaryClip(clip)
+                                    Haptics.play(context, HapticType.LIGHT_TAP)
                                     Toast.makeText(
                                         context,
                                         LocaleController.getString("Transaction ID was copied!"),
@@ -947,6 +957,7 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
                                         changellyId
                                     )
                                     clipboard.setPrimaryClip(clip)
+                                    Haptics.play(context, HapticType.LIGHT_TAP)
                                     Toast.makeText(
                                         context,
                                         LocaleController.getString("Changelly ID Copied!"),
@@ -989,7 +1000,7 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
         }
 
     private fun loadActivityDetails() {
-        val accountId = AccountStore.activeAccountId!!
+        val accountId = AccountStore.activeAccountId ?: return
         WalletCore.call(
             ApiMethod.WalletData.FetchActivityDetails(
                 accountId,
@@ -1010,6 +1021,7 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
                         calcFee(transaction),
                         fadeIn = feeRow?.valueLabel?.contentView?.text.isNullOrEmpty()
                     )
+                    feeRow?.isLoading = false
                 }
             })
     }

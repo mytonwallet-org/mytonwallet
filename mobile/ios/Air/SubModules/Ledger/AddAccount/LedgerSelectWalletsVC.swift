@@ -27,18 +27,15 @@ public final class LedgerSelectWalletsVC: WViewController {
     
     private func setupViews() {
         
-        addNavigationBar(
-            title: lang("Select Ledger Wallets"),
-            subtitle: "",
-            closeIcon: self.navigationController?.sheetPresentationController != nil,
-        )
-        self.navigationBar?.subtitleLabel?.text = lang("$n_wallets_selected", arg1: model.selectedCount)
+        navigationItem.title = lang("Select Ledger Wallets")
+        addCloseNavigationItemIfNeeded()
+        if #available(iOS 26, *) {
+            navigationItem.subtitle = ""
+        }
+        self.navigationBar?.subtitleLabel?.text = lang("%1$d Selected", arg1: model.selectedCount)
         self.navigationBar?.subtitleLabel?.isHidden = !model.canContinue
         
-        
         self.hostingController = addHostingController(makeView(), constraints: .fill)
-        
-        bringNavigationBarToFront()
         
         updateTheme()
     }
@@ -46,8 +43,6 @@ public final class LedgerSelectWalletsVC: WViewController {
     private func makeView() -> LedgerSelectWalletsView {
         LedgerSelectWalletsView(
             model: self.model,
-            navigationBarHeight: navigationBarHeight,
-            onScroll: weakifyUpdateProgressiveBlur(),
             onWalletsCountChange: { [weak self] count in
                 UIView.animate(withDuration: 0.3) {
                     guard let self else { return }

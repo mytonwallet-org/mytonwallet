@@ -59,7 +59,8 @@ struct AddViewWalletView: View {
     
     @ViewBuilder
     var description: some View {
-        Text(langMd("$import_view_account_note"))
+        let symbols = ApiChain.allCases.map(\.symbol)
+        Text(langMd("$import_view_account_note", arg1: langJoin(symbols, .or)))
             .font(.system(size: 17))
             .multilineTextAlignment(.center)
             .fixedSize(horizontal: false, vertical: true)
@@ -87,10 +88,6 @@ struct AddViewWalletView: View {
                             Button(action: onPaste) {
                                 Text(lang("Paste"))
                             }
-//                                    Button(action: { model.onScanPressed() }) {
-//                                        Image("ScanIcon", bundle: AirBundle)
-//                                            .renderingMode(.template)
-//                                    }
                         }
                         .offset(x: 4)
                         .padding(.vertical, -1)

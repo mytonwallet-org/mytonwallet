@@ -5,7 +5,6 @@ import type { ApiDappRequestConfirmation } from '../tonConnect/types';
 import type { ApiAccountWithMnemonic, ApiAnyDisplayError, ApiChain, ApiNetwork, ApiSignedTransfer } from '../types';
 
 import chains from '../chains';
-import * as ton from '../chains/ton';
 import {
   fetchStoredAccount,
   fetchStoredAccounts,
@@ -14,13 +13,9 @@ import {
 } from '../common/accounts';
 import * as dappPromises from '../common/dappPromises';
 import { getMnemonic } from '../common/mnemonic';
-import { handleServerError } from '../errors';
 
-export async function fetchPrivateKey(accountId: string, password: string) {
-  const account = await fetchStoredAccount<ApiAccountWithMnemonic>(accountId);
-  const privateKey = await ton.fetchPrivateKey(accountId, password, account);
-
-  return Buffer.from(privateKey!).toString('hex');
+export function fetchPrivateKey(accountId: string, chain: ApiChain, password: string) {
+  return chains[chain].fetchPrivateKeyString(accountId, password);
 }
 
 export async function fetchMnemonic(accountId: string, password: string) {
@@ -84,19 +79,8 @@ export function fetchAddress(accountId: string, chain: ApiChain) {
   return fetchStoredAddress(accountId, chain);
 }
 
-export async function getAddressInfo(network: ApiNetwork, toAddress: string): Promise<{
-  addressName?: string;
-  isScam?: boolean;
-  resolvedAddress?: string;
-  isToAddressNew?: boolean;
-  isBounceable?: boolean;
-  isMemoRequired?: boolean;
-} | { error: string }> {
-  try {
-    return await ton.checkToAddress(network, toAddress);
-  } catch (err: any) {
-    return handleServerError(err);
-  }
+export async function getAddressInfo(chain: ApiChain, network: ApiNetwork, address: string) {
+  return await chains[chain].getAddressInfo(network, address);
 }
 
 /**

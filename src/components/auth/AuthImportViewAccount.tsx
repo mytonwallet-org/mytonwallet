@@ -7,9 +7,11 @@ import type { ApiImportAddressByChain } from '../../api/types';
 
 import renderText from '../../global/helpers/renderText';
 import buildClassName from '../../util/buildClassName';
-import { getSupportedChains } from '../../util/chain';
+import { getChainTitle, getSupportedChains } from '../../util/chain';
 import { stopEvent } from '../../util/domEvents';
-import { isValidAddressOrDomain } from '../../util/isValidAddressOrDomain';
+import isEmptyObject from '../../util/isEmptyObject';
+import { isValidAddressOrDomain } from '../../util/isValidAddress';
+import { formatEnumeration } from '../../util/langProvider';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
 import useFocusAfterAnimation from '../../hooks/useFocusAfterAnimation';
@@ -64,18 +66,17 @@ function AuthImportViewAccount({
     const addresses = value.trim().split(/\s+/);
     const addressByChain: ApiImportAddressByChain = {};
 
-    const hasValidAddress = addresses.reduce((isValid, address) => {
+    for (const address of addresses) {
       for (const chain of getSupportedChains()) {
         if (isValidAddressOrDomain(address, chain)) {
           addressByChain[chain] = address;
-          return true;
+          // Continuing the loop, because addresses can be valid in multiple chains, for example in Ethereum blockchain
+          // forks. The user doesn't specify the intended blockchain, so we add all that this address can belong to.
         }
       }
+    }
 
-      return isValid;
-    }, false);
-
-    if (hasValidAddress) {
+    if (!isEmptyObject(addressByChain)) {
       importViewAccount({ addressByChain });
       inputRef.current?.blur(); // To hide the virtual keyboard to show the loading indicator in the button
     } else {
@@ -112,7 +113,11 @@ function AuthImportViewAccount({
           onInput={handleChange}
         />
 
-        <p className={styles.info}>{renderText(lang('$import_view_account_note'))}</p>
+        <p className={styles.info}>
+          {renderText(lang('$import_view_account_note', {
+            chains: formatEnumeration(lang, getSupportedChains().map(getChainTitle), 'or'),
+          }))}
+        </p>
 
         <div className={styles.buttons}>
           <Button

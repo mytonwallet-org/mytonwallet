@@ -14,7 +14,7 @@ import {
 import buildClassName from '../../../../util/buildClassName';
 import captureEscKeyListener from '../../../../util/captureEscKeyListener';
 import { getCountDaysToDate } from '../../../../util/dateFormat';
-import { getDomainsExpirationDate, isTonDnsNft } from '../../../../util/dns';
+import { getDomainsExpirationDate, isRenewableDnsNft } from '../../../../util/dns';
 import { compact } from '../../../../util/iteratees';
 
 import { getIsPortrait } from '../../../../hooks/useDeviceScreen';
@@ -48,17 +48,17 @@ function NftSelectionHeader({
   const lang = useLang();
   const amount = selectedAddresses?.length ?? 1;
   const isActive = Boolean(selectedAddresses?.length);
-  const allSelectedIsTonDnsNft = useMemo(() => {
+  const areAllSelectedRenewableDns = useMemo(() => {
     return selectedAddresses?.length
-      ? selectedAddresses.every((address) => isTonDnsNft(byAddress?.[address]))
+      ? selectedAddresses.every((address) => isRenewableDnsNft(byAddress?.[address]))
       : false;
   }, [byAddress, selectedAddresses]);
   const dnsExpireInDays = useMemo(() => {
-    if (!allSelectedIsTonDnsNft) return undefined;
+    if (!areAllSelectedRenewableDns) return undefined;
     const date = getDomainsExpirationDate(selectedAddresses ?? [], byAddress, dnsExpiration);
 
     return date ? getCountDaysToDate(date) : undefined;
-  }, [allSelectedIsTonDnsNft, dnsExpiration, selectedAddresses, byAddress]);
+  }, [areAllSelectedRenewableDns, dnsExpiration, selectedAddresses, byAddress]);
   const tonDnsMultiSelected = (selectedAddresses?.length ?? 0) > 1;
 
   useHistoryBack({
@@ -74,7 +74,7 @@ function NftSelectionHeader({
         name: 'Send',
         value: 'send',
       },
-      !isViewMode && allSelectedIsTonDnsNft && {
+      !isViewMode && areAllSelectedRenewableDns && {
         name: tonDnsMultiSelected ? 'Renew All' : 'Renew',
         value: 'renew',
         description: dnsExpireInDays && dnsExpireInDays < 0
@@ -97,7 +97,7 @@ function NftSelectionHeader({
         withDelimiter: true,
       },
     ]);
-  }, [allSelectedIsTonDnsNft, dnsExpireInDays, isViewMode, lang, selectedAddresses?.length, tonDnsMultiSelected]);
+  }, [areAllSelectedRenewableDns, dnsExpireInDays, isViewMode, lang, selectedAddresses?.length, tonDnsMultiSelected]);
 
   const handleSendClick = useLastCallback(() => {
     const nfts = selectedAddresses!.map((address) => byAddress![address]) ?? [];

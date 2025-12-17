@@ -26,6 +26,7 @@ interface OwnProps<T extends TokenWithId> {
   isMultichainAccount?: boolean;
   theme?: 'purple';
   isInMode?: boolean;
+  isDisabled?: boolean;
   /** `id` is the token slug, unless an `id` property is specified explicitly in the `allTokens` items */
   onChange?: (id: string, token: T) => void;
 }
@@ -38,6 +39,7 @@ function TokenDropdown<T extends TokenWithId>({
   isMultichainAccount,
   theme,
   isInMode,
+  isDisabled,
   onChange,
 }: OwnProps<T>) {
   const lang = useLang();
@@ -87,6 +89,7 @@ function TokenDropdown<T extends TokenWithId>({
       buttonPrefix={buttonPrefix}
       className={styles.dropdown}
       menuClassName={theme && styles[theme]}
+      disabled={isDisabled}
       onChange={handleChange}
     />
   );

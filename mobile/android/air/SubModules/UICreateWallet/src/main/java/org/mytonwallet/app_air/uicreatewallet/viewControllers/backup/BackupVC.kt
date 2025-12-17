@@ -35,6 +35,7 @@ class BackupVC(
     // Used when adding new account (not first account!)
     private val passedPasscode: String?
 ) : WViewController(context) {
+    override val TAG = "Backup"
 
     override val shouldDisplayTopBar = false
     override val ignoreSideGuttering = true

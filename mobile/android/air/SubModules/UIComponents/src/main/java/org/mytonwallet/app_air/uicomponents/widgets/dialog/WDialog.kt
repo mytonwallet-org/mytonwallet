@@ -15,8 +15,13 @@ import androidx.core.animation.doOnEnd
 import androidx.core.view.children
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.extensions.atMost
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.unspecified
+import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.widgets.IPopup
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
@@ -31,7 +36,7 @@ import java.lang.ref.WeakReference
 import kotlin.math.max
 import kotlin.math.min
 
-class WDialog(private val customView: ViewGroup, private val config: Config) {
+class WDialog(private val customView: ViewGroup, private val config: Config): IPopup {
 
     data class Config(
         val title: String? = null,
@@ -100,12 +105,11 @@ class WDialog(private val customView: ViewGroup, private val config: Config) {
             }
         } else null
 
-    private val contentView: FrameLayout = object : FrameLayout(customView.context), WThemedView {
+    private val contentView: WFrameLayout = object : WFrameLayout(customView.context), WThemedView {
         override fun updateTheme() {
             setBackgroundColor(WColor.Background.color, 18f.dp)
         }
     }.apply {
-        id = View.generateViewId()
         alpha = 0f
         z = Float.MAX_VALUE - 1
         updateTheme()
@@ -162,6 +166,7 @@ class WDialog(private val customView: ViewGroup, private val config: Config) {
             throw Exception("WDialog can't be presented more than once")
         isPresented = true
         viewController.setActiveDialog(this)
+        PopupHelpers.popupShown(this)
         parentViewController = WeakReference(viewController)
         val parentView = viewController.navigationController?.parent as WView
         parentView.hideKeyboard()
@@ -185,10 +190,7 @@ class WDialog(private val customView: ViewGroup, private val config: Config) {
         }
         contentView.post {
             if (customView.height == 0) {
-                customView.measure(
-                    View.MeasureSpec.makeMeasureSpec(contentViewWidth, View.MeasureSpec.AT_MOST),
-                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-                )
+                customView.measure(contentViewWidth.atMost, 0.unspecified)
             }
 
             val measuredHeight =
@@ -248,7 +250,7 @@ class WDialog(private val customView: ViewGroup, private val config: Config) {
         }
     }
 
-    fun dismiss() {
+    override fun dismiss() {
         if (isAnimating)
             return
         if (!isPresented)
@@ -270,6 +272,7 @@ class WDialog(private val customView: ViewGroup, private val config: Config) {
                     removeView(contentView)
                 }
                 onDismissListener?.invoke()
+                PopupHelpers.popupDismissed(this@WDialog)
             }
             start()
         }

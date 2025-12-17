@@ -5,7 +5,7 @@ import { getActions, withGlobal } from '../../../global';
 
 import { IS_CAPACITOR, MNEMONIC_COUNT } from '../../../config';
 import { selectMnemonicForCheck } from '../../../global/actions/api/auth';
-import { selectCurrentAccountState } from '../../../global/selectors';
+import { selectCurrentAccountId, selectCurrentAccountState } from '../../../global/selectors';
 import { getDoesUsePinPad } from '../../../util/biometrics';
 import buildClassName from '../../../util/buildClassName';
 import { vibrateOnError, vibrateOnSuccess } from '../../../util/haptics';
@@ -208,5 +208,5 @@ function BackupModal({
 
 export default memo(withGlobal<OwnProps>((global): StateProps => {
   const { isBackupRequired } = selectCurrentAccountState(global) || {};
-  return { currentAccountId: global.currentAccountId, isBackupRequired };
+  return { currentAccountId: selectCurrentAccountId(global), isBackupRequired };
 })(BackupModal));

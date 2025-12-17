@@ -1,15 +1,20 @@
 import React, {
-  memo, useEffect, useState,
+  memo, useEffect, useMemo, useState,
 } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import type { ApiTonConnectProof } from '../../api/tonConnect/types';
-import type { ApiDapp, ApiDappPermissions } from '../../api/types';
-import type { Account, AccountSettings, AccountType } from '../../global/types';
+import type { ApiBaseCurrency, ApiCurrencyRates, ApiDapp, ApiDappPermissions, ApiStakingState } from '../../api/types';
+import type { Account, AccountSettings, GlobalState } from '../../global/types';
 import { DappConnectState } from '../../global/types';
 
-import { selectNetworkAccounts, selectOrderedAccounts } from '../../global/selectors';
-import { getMainAccountAddress } from '../../util/account';
+import {
+  selectCurrentAccountId,
+  selectMultipleAccountsStakingStatesSlow,
+  selectMultipleAccountsTokensSlow,
+  selectNetworkAccounts,
+  selectOrderedAccounts,
+} from '../../global/selectors';
 import { getHasInMemoryPassword, getInMemoryPassword } from '../../util/authApi/inMemoryPasswordStore';
 import buildClassName from '../../util/buildClassName';
 import { isKeyCountGreater } from '../../util/isEmptyObject';
@@ -20,17 +25,21 @@ import useFlag from '../../hooks/useFlag';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
+import {
+  type AccountBalance,
+  useAccountsBalances,
+} from '../main/modals/accountSelector/hooks/useAccountsBalances';
 
-import AccountButton from '../common/AccountButton';
-import AccountButtonWrapper from '../common/AccountButtonWrapper';
+import AccountRowContent from '../common/AccountRowContent';
 import LedgerConfirmOperation from '../ledger/LedgerConfirmOperation';
 import LedgerConnect from '../ledger/LedgerConnect';
 import Button from '../ui/Button';
+import Image from '../ui/Image';
 import Modal from '../ui/Modal';
 import ModalHeader from '../ui/ModalHeader';
 import Skeleton from '../ui/Skeleton';
 import Transition from '../ui/Transition';
-import DappInfo from './DappInfo';
+import DappHostWarning from './DappHostWarning';
 import DappPassword from './DappPassword';
 
 import modalStyles from '../ui/Modal.module.scss';
@@ -47,6 +56,13 @@ interface StateProps {
   accounts?: Record<string, Account>;
   orderedAccounts: Array<[string, Account]>;
   settingsByAccountId?: Record<string, AccountSettings>;
+  baseCurrency: ApiBaseCurrency;
+  currencyRates: ApiCurrencyRates;
+  byAccountId: GlobalState['byAccountId'];
+  tokenInfo: GlobalState['tokenInfo'];
+  stakingDefault: ApiStakingState;
+  isSortByValueEnabled?: boolean;
+  areTokensWithNoCostHidden?: boolean;
 }
 
 function DappConnectModal({
@@ -60,6 +76,13 @@ function DappConnectModal({
   orderedAccounts,
   currentAccountId,
   settingsByAccountId,
+  baseCurrency,
+  currencyRates,
+  byAccountId,
+  tokenInfo,
+  stakingDefault,
+  isSortByValueEnabled,
+  areTokensWithNoCostHidden,
 }: StateProps) {
   const {
     submitDappConnectRequestConfirm,
@@ -78,13 +101,67 @@ function DappConnectModal({
 
   const isLoading = dapp === undefined;
 
+  const dappHost = useMemo(() => dapp && dapp.url ? new URL(dapp.url).host : undefined, [dapp]);
+
+  const allAccountsTokens = useMemo(() => {
+    if (!settingsByAccountId) return undefined;
+    return selectMultipleAccountsTokensSlow(
+      accounts,
+      byAccountId,
+      tokenInfo,
+      settingsByAccountId,
+      isSortByValueEnabled,
+      areTokensWithNoCostHidden,
+      baseCurrency,
+      currencyRates,
+    );
+  }, [
+    accounts,
+    byAccountId,
+    tokenInfo,
+    settingsByAccountId,
+    isSortByValueEnabled,
+    areTokensWithNoCostHidden,
+    baseCurrency,
+    currencyRates,
+  ]);
+
+  const allAccountsStakingStates = useMemo(() => {
+    return selectMultipleAccountsStakingStatesSlow(
+      accounts,
+      byAccountId,
+      stakingDefault,
+    );
+  }, [accounts, byAccountId, stakingDefault]);
+
+  const { balancesByAccountId } = useAccountsBalances(
+    orderedAccounts,
+    allAccountsTokens,
+    allAccountsStakingStates,
+    baseCurrency,
+    currencyRates,
+  ) as { balancesByAccountId: Record<string, AccountBalance | undefined> };
+
   useEffect(() => {
     if (!currentAccountId) return;
 
     setSelectedAccount(currentAccountId);
   }, [currentAccountId]);
 
-  const shouldRenderAccounts = accounts && isKeyCountGreater(accounts, 1);
+  const shouldRenderAccountSelector = accounts && isKeyCountGreater(accounts, 1);
+
+  const handleOpenAccountSelector = useLastCallback(() => {
+    setDappConnectRequestState({ state: DappConnectState.SelectAccount });
+  });
+
+  const handleSelectAccount = useLastCallback((accountId: string) => {
+    setSelectedAccount(accountId);
+    setDappConnectRequestState({ state: DappConnectState.Info });
+  });
+
+  const handleAccountSelectorBack = useLastCallback(() => {
+    setDappConnectRequestState({ state: DappConnectState.Info });
+  });
 
   const handleSubmit = useLastCallback(async () => {
     closeConfirm();
@@ -136,46 +213,74 @@ function DappConnectModal({
     });
   });
 
-  function renderAccount(
-    accountId: string,
-    byChain: Account['byChain'],
-    accountType: AccountType,
-    title?: string,
-  ) {
-    const hasTonWallet = Boolean(byChain.ton);
-    const onClick = !hasTonWallet || isViewAccount(accountType) ? undefined : () => setSelectedAccount(accountId);
-    const address = getMainAccountAddress(byChain) ?? '';
-    const { cardBackgroundNft } = settingsByAccountId?.[accountId] || {};
+  function renderAccountSelector() {
+    const account = accounts?.[selectedAccount];
+    if (!account) return undefined;
+
+    const { title, byChain, type } = account;
+    const { cardBackgroundNft } = settingsByAccountId?.[selectedAccount] || {};
+    const balanceData = balancesByAccountId?.[selectedAccount];
 
     return (
-      <AccountButton
-        key={accountId}
-        accountId={accountId}
-        address={address}
-        title={title}
-        ariaLabel={lang('Switch Account')}
-        accountType={accountType}
-        isActive={accountId === selectedAccount}
-        isLoading={isLoading}
-
-        onClick={onClick}
-        cardBackgroundNft={cardBackgroundNft}
-      />
+      <>
+        <span className={styles.accountSelectorTitle}>{lang('Selected Wallet')}</span>
+        <AccountRowContent
+          accountId={selectedAccount}
+          byChain={byChain}
+          accountType={type}
+          title={title}
+          cardBackgroundNft={cardBackgroundNft}
+          balanceData={balanceData}
+          className={styles.accountSelectorButton}
+          suffixIcon={<i className={buildClassName(styles.accountSelectorChevron, 'icon-chevron-right')} aria-hidden />}
+          onClick={handleOpenAccountSelector}
+        />
+      </>
     );
   }
 
-  function renderAccounts() {
+  function renderSelectAccountSlide() {
     return (
-      <AccountButtonWrapper
-        accountLength={orderedAccounts.length}
-        labelText={lang('Select wallet to use on this dapp')}
-      >
-        {orderedAccounts.map(
-          ([accountId, { title, byChain, type }]) => {
-            return renderAccount(accountId, byChain, type, title);
-          },
-        )}
-      </AccountButtonWrapper>
+      <>
+        <ModalHeader
+          title={lang('Choose Wallet')}
+          onBackButtonClick={handleAccountSelectorBack}
+          onClose={cancelDappConnectRequestConfirm}
+        />
+        <div className={modalStyles.transitionContent}>
+          <span className={buildClassName(styles.accountSelectorTitle, styles.accountSelectorTitle_2)}>
+            {lang('Wallet to use on %host%', { host: dappHost })}
+            {!dapp?.isUrlEnsured && (
+              <DappHostWarning url={dapp?.url} iconClassName={styles.dappLargePreviewHostWarning} />
+            )}
+          </span>
+          <div className={styles.accountList}>
+            {orderedAccounts.map(([accountId, { title, byChain, type }]) => {
+              const hasTonWallet = Boolean(byChain.ton);
+              const isDisabled = !hasTonWallet || isViewAccount(type);
+              const isSelected = accountId === selectedAccount;
+              const { cardBackgroundNft } = settingsByAccountId?.[accountId] || {};
+              const balanceData = balancesByAccountId?.[accountId];
+
+              return (
+                <AccountRowContent
+                  key={accountId}
+                  accountId={accountId}
+                  byChain={byChain}
+                  accountType={type}
+                  title={title}
+                  cardBackgroundNft={cardBackgroundNft}
+                  balanceData={balanceData}
+                  isSelected={isSelected}
+                  isDisabled={isDisabled}
+                  className={styles.accountListItem}
+                  onClick={() => handleSelectAccount(accountId)}
+                />
+              );
+            })}
+          </div>
+        </div>
+      </>
     );
   }
 
@@ -184,11 +289,34 @@ function DappConnectModal({
 
     return (
       <div className={buildClassName(modalStyles.transitionContent, styles.skeletonBackground)}>
-        <DappInfo
-          dapp={dapp}
-          className={buildClassName(styles.dapp_first, styles.dapp_push)}
-        />
-        {shouldRenderAccounts && renderAccounts()}
+        <div className={styles.dappLargePreviewBlock}>
+          <Image
+            url={dapp!.iconUrl}
+            alt={dapp!.name}
+            className={styles.dappLargePreviewLogo}
+            imageClassName={styles.dappLargePreviewLogo}
+            fallback={(
+              <i
+                className={buildClassName(
+                  styles.dappLargePreviewLogo,
+                  styles.dappLargePreviewLogo_icon,
+                  'icon-laptop',
+                )}
+                aria-hidden
+              />
+            )}
+          />
+
+          <span className={styles.dappLargePreviewName}>{lang('$connect_dapp_title', { name: dapp?.name })}</span>
+          <span className={styles.dappLargePreviewHost}>
+            {dappHost}
+            {!dapp?.isUrlEnsured && (
+              <DappHostWarning url={dapp?.url} iconClassName={styles.dappLargePreviewHostWarning} />
+            )}
+          </span>
+          <p className={styles.dappLargePreviewDescription}>{lang('$connect_dapp_description')}</p>
+        </div>
+        {shouldRenderAccountSelector && renderAccountSelector()}
 
         <div className={styles.footer}>
           <Button
@@ -197,7 +325,7 @@ function DappConnectModal({
             className={modalStyles.buttonFullWidth}
             onClick={openConfirm}
           >
-            {lang('Connect')}
+            {lang('Connect Wallet')}
           </Button>
         </div>
       </div>
@@ -207,15 +335,11 @@ function DappConnectModal({
   function renderWaitForConnection() {
     return (
       <div className={buildClassName(modalStyles.transitionContent, styles.skeletonBackground)}>
-        <div className={buildClassName(styles.dappInfoSkeleton, styles.dapp_first)}>
-          <Skeleton className={styles.dappInfoIconSkeleton} />
-          <div className={styles.dappInfoTextSkeleton}>
-            <Skeleton className={styles.nameSkeleton} />
-            <Skeleton className={styles.descSkeleton} />
-          </div>
-        </div>
-        <div className={styles.accountWrapperSkeleton}>
-          {shouldRenderAccounts && renderAccounts()}
+        <div className={styles.dappLargePreviewBlock}>
+          <Skeleton className={buildClassName(styles.dappLargePreviewLogo, styles.dappLargePreviewLogo_skeleton)} />
+          <Skeleton className={buildClassName(styles.dappLargePreviewName, styles.dappLargePreviewName_skeleton)} />
+          <Skeleton className={buildClassName(styles.dappLargePreviewHost, styles.dappLargePreviewHost_skeleton)} />
+          <p className={styles.dappLargePreviewDescription}>{lang('$connect_dapp_description')}</p>
         </div>
       </div>
     );
@@ -224,7 +348,7 @@ function DappConnectModal({
   function renderDappInfoWithSkeleton() {
     return (
       <Transition name="semiFade" activeKey={isLoading ? 0 : 1} slideClassName={styles.skeletonTransitionWrapper}>
-        <ModalHeader title={lang('Connect Dapp')} onClose={cancelDappConnectRequestConfirm} />
+        <ModalHeader onClose={cancelDappConnectRequestConfirm} />
         {isLoading ? renderWaitForConnection() : renderDappInfo()}
       </Transition>
     );
@@ -234,6 +358,8 @@ function DappConnectModal({
     switch (currentKey) {
       case DappConnectState.Info:
         return renderDappInfoWithSkeleton();
+      case DappConnectState.SelectAccount:
+        return renderSelectAccountSlide();
       case DappConnectState.Password:
         return (
           <DappPassword
@@ -315,7 +441,20 @@ export default memo(withGlobal((global): StateProps => {
     state, dapp, error, accountId, permissions, proof,
   } = global.dappConnectRequest || {};
 
-  const currentAccountId = accountId || global.currentAccountId!;
+  const currentAccountId = accountId || selectCurrentAccountId(global)!;
+
+  const {
+    settings: {
+      byAccountId: settingsByAccountId,
+      baseCurrency,
+      isSortByValueEnabled,
+      areTokensWithNoCostHidden,
+    },
+    currencyRates,
+    byAccountId,
+    tokenInfo,
+    stakingDefault,
+  } = global;
 
   return {
     state,
@@ -327,6 +466,13 @@ export default memo(withGlobal((global): StateProps => {
     currentAccountId,
     accounts,
     orderedAccounts,
-    settingsByAccountId: global.settings.byAccountId,
+    settingsByAccountId,
+    baseCurrency,
+    currencyRates,
+    byAccountId,
+    tokenInfo,
+    stakingDefault,
+    isSortByValueEnabled,
+    areTokensWithNoCostHidden,
   };
 })(DappConnectModal));

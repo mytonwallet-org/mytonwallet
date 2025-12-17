@@ -46,7 +46,7 @@ class ImportWalletVM(delegate: Delegate) {
         biometricsActivated: Boolean?,
         retriesLeft: Int = 3
     ) {
-        WalletCore.importWallet(words, passcode) { importedAccount, error ->
+        WalletCore.importWallet(words, passcode, false) { importedAccount, error ->
             if (error != null) {
                 if (retriesLeft > 0) {
                     Handler(Looper.getMainLooper()).postDelayed({

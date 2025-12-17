@@ -5,7 +5,11 @@ import type { ApiDapp } from '../../api/types';
 import type { Account } from '../../global/types';
 
 import { TONCOIN } from '../../config';
-import { selectCurrentToncoinBalance, selectNetworkAccounts } from '../../global/selectors';
+import {
+  selectCurrentAccountId,
+  selectCurrentToncoinBalance,
+  selectNetworkAccounts,
+} from '../../global/selectors';
 import { toDecimal } from '../../util/decimals';
 import { formatCurrency } from '../../util/formatNumber';
 
@@ -50,8 +54,8 @@ function DappInfoWithAccount({
       </div>
 
       <DappInfo
+        variant="transfer"
         dapp={dapp}
-        className={styles.transactionDapp}
       />
     </div>
   );
@@ -62,7 +66,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
 
   return {
     toncoinBalance: selectCurrentToncoinBalance(global),
-    currentAccountId: global.currentAccountId!,
+    currentAccountId: selectCurrentAccountId(global)!,
     accounts,
   };
 })(DappInfoWithAccount));

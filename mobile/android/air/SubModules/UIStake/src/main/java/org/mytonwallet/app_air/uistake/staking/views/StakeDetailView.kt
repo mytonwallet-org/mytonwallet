@@ -17,6 +17,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WLinearLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
@@ -120,14 +121,14 @@ class StakeDetailView(
 
     private val separatorView1 = WBaseView(context).apply {
         setBackgroundColor(WColor.Separator.color)
-        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, 1).apply {
+        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, ViewConstants.SEPARATOR_HEIGHT).apply {
             marginStart = 20.dp
         }
     }
 
     private val separatorView2 = WBaseView(context).apply {
         setBackgroundColor(WColor.Separator.color)
-        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, 1).apply {
+        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, ViewConstants.SEPARATOR_HEIGHT).apply {
             marginStart = 20.dp
         }
     }

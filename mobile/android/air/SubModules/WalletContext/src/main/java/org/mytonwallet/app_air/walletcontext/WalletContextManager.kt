@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.view.View
 import org.mytonwallet.app_air.walletcontext.helpers.WordCheckMode
+import org.mytonwallet.app_air.walletcontext.models.MWalletSettingsViewMode
 
 interface WalletContextManagerDelegate {
     fun restartApp()
@@ -15,13 +16,20 @@ interface WalletContextManagerDelegate {
         mode: WordCheckMode
     ): Any
 
-    fun themeChanged()
+    fun getImportLedgerVC(): Any
+    fun getAddViewAccountVC(): Any
+
+    fun getWalletsTabsVC(viewMode: MWalletSettingsViewMode): Any
+
+    fun themeChanged(animated: Boolean = true)
     fun protectedModeChanged()
     fun lockScreen()
     fun isAppUnlocked(): Boolean
     fun handleDeeplink(deeplink: String): Boolean
+    fun openASingleWallet(addressByChainString: Map<String, String>, name: String?)
     fun walletIsReady()
     fun isWalletReady(): Boolean
+    fun appResumed()
     fun switchToLegacy()
 
     fun bindQrCodeButton(

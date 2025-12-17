@@ -717,13 +717,6 @@ final class CategoryDappsAnimator: NSObject, UIViewControllerAnimatedTransitioni
 }
 
 
-fileprivate extension NSCollectionLayoutSize {
-    convenience init(_ width: NSCollectionLayoutDimension, _ height: NSCollectionLayoutDimension) {
-        self.init(widthDimension: width, heightDimension: height)
-    }
-}
-
-
 // MARK: - Collection view supplementary views
 
 

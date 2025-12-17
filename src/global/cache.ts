@@ -19,15 +19,15 @@ import {
   GLOBAL_STATE_CACHE_KEY,
   IS_CAPACITOR,
   MAIN_ACCOUNT_ID,
-  TOKEN_INFO,
   TONCOIN,
 } from '../config';
 import { buildAccountId, parseAccountId } from '../util/account';
 import { getActivityTokenSlugs, getIsActivityPending, getIsTxIdLocal } from '../util/activities';
 import { bigintReviver } from '../util/bigint';
+import { getTokenInfo } from '../util/chain';
 import isEmptyObject from '../util/isEmptyObject';
 import {
-  cloneDeep, extractKey, filterValues, mapValues, pick, pickTruthy,
+  cloneDeep, extractKey, filterValues, mapValues, omit, pick, pickTruthy,
 } from '../util/iteratees';
 import {
   clearPoisoningCache,
@@ -526,7 +526,10 @@ function migrateCache(cached: GlobalState, initialState: GlobalState) {
   if (cached.stateVersion === 46) {
     if (cached.accounts) {
       for (const _account of Object.values(cached.accounts.byId)) {
-        const account = _account as Account & { ledger?: { index: number } };
+        const account = _account as Account & {
+          ledger?: { index: number };
+          byChain: { ton?: { ledgerIndex?: number } };
+        };
 
         if (
           account.type !== 'hardware'
@@ -549,7 +552,7 @@ function loadMemoryCache(cached: GlobalState) {
 }
 
 const getUsedTokenSlugs = (reducedGlobal: GlobalState): string[] => {
-  const usedTokenSlugs = new Set<string>(Object.keys(TOKEN_INFO));
+  const usedTokenSlugs = new Set<string>(Object.keys(getTokenInfo()));
 
   if (reducedGlobal.currentAccountId) {
     const currentTokenSlug = reducedGlobal.byAccountId[reducedGlobal.currentAccountId]?.currentTokenSlug;
@@ -595,13 +598,15 @@ function updateCache(force?: boolean) {
     return;
   }
 
-  const global = getGlobal();
+  const global = getGlobalWithoutTemporaryAccount();
 
   const accountsById = global.accounts?.byId || {};
   const reducedGlobal: GlobalState = {
     ...INITIAL_STATE,
     ...pick(global, [
       'currentAccountId',
+      // The temporary account is correctly removed from the state during the initialization phase
+      'currentTemporaryViewAccountId',
       'stateVersion',
       'restrictions',
       'pushNotifications',
@@ -629,6 +634,37 @@ function updateCache(force?: boolean) {
 
   const json = JSON.stringify(reducedGlobal);
   localStorage.setItem(GLOBAL_STATE_CACHE_KEY, json);
+}
+
+function getGlobalWithoutTemporaryAccount(): GlobalState {
+  const global = getGlobal();
+  const temporaryAccountId = global.currentTemporaryViewAccountId;
+  if (!temporaryAccountId) return global;
+
+  const accountsById = global.accounts?.byId;
+  if (!accountsById || !(temporaryAccountId in accountsById)) {
+    return global;
+  }
+
+  const newAccountsById = omit(global.accounts!.byId, [temporaryAccountId]);
+  const newByAccountId = omit(global.byAccountId, [temporaryAccountId]);
+  const newSettingsByAccountId = omit(global.settings.byAccountId, [temporaryAccountId]);
+  const orderedAccountIds = global.settings.orderedAccountIds?.filter((id) => id !== temporaryAccountId);
+
+  return {
+    ...global,
+    currentTemporaryViewAccountId: undefined,
+    accounts: {
+      ...global.accounts,
+      byId: newAccountsById,
+    },
+    byAccountId: newByAccountId,
+    settings: {
+      ...global.settings,
+      byAccountId: newSettingsByAccountId,
+      orderedAccountIds,
+    },
+  };
 }
 
 function reduceByAccountId(global: GlobalState) {

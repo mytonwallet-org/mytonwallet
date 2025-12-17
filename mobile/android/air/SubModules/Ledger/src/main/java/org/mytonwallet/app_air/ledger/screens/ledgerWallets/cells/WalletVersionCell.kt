@@ -16,6 +16,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
@@ -75,7 +76,7 @@ class LedgerWalletCell(
         addView(imageView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(contentView)
         addView(rightLabel)
-        addView(separator, LayoutParams(0, 1))
+        addView(separator, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
         setConstraints {
             toStart(imageView, 25f)
             toCenterY(imageView)

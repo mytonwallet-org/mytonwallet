@@ -8,6 +8,7 @@ import { TransferState } from '../../global/types';
 
 import { BURN_ADDRESS, NFT_BATCH_SIZE } from '../../config';
 import {
+  selectCurrentAccountId,
   selectCurrentAccountState,
   selectCurrentAccountTokens,
   selectIsMultichainAccount,
@@ -31,7 +32,6 @@ import TransactionBanner from '../common/TransactionBanner';
 import LedgerConfirmOperation from '../ledger/LedgerConfirmOperation';
 import LedgerConnect from '../ledger/LedgerConnect';
 import Modal from '../ui/Modal';
-import ModalHeader from '../ui/ModalHeader';
 import Transition from '../ui/Transition';
 import TransferComplete from './TransferComplete';
 import TransferConfirm from './TransferConfirm';
@@ -134,10 +134,7 @@ function TransferModal({
     switch (currentKey) {
       case TransferState.Initial:
         return (
-          <>
-            <ModalHeader title={lang(isNftTransfer ? 'Send NFT' : 'Send')} onClose={handleModalCloseWithReset} />
-            <TransferInitial />
-          </>
+          <TransferInitial />
         );
       case TransferState.Confirm:
         return (
@@ -241,6 +238,7 @@ function TransferModal({
 }
 
 export default memo(withGlobal((global): StateProps => {
+  const currentAccountId = selectCurrentAccountId(global);
   const accountState = selectCurrentAccountState(global);
 
   return {
@@ -248,6 +246,6 @@ export default memo(withGlobal((global): StateProps => {
     tokens: selectCurrentAccountTokens(global),
     savedAddresses: accountState?.savedAddresses,
     isMediaViewerOpen: Boolean(global.mediaViewer.mediaId),
-    isMultichainAccount: selectIsMultichainAccount(global, global.currentAccountId!),
+    isMultichainAccount: selectIsMultichainAccount(global, currentAccountId!),
   };
 })(TransferModal));

@@ -8,6 +8,7 @@ import { getActions, withGlobal } from '../../../../global';
 import type {
   ApiActivity,
   ApiBaseCurrency,
+  ApiChain,
   ApiCurrencyRates,
   ApiNft,
   ApiStakingState,
@@ -25,18 +26,20 @@ import {
 import { forceMeasure } from '../../../../lib/fasterdom/stricterdom';
 import { getIsTinyOrScamTransaction } from '../../../../global/helpers';
 import {
+  selectAccount,
   selectAccounts,
   selectAccountStakingStatesBySlug,
   selectActivityHistoryIds,
+  selectCurrentAccountId,
   selectCurrentAccountSettings,
   selectCurrentAccountState,
   selectIsHistoryEndReached,
-  selectIsMultichainAccount,
 } from '../../../../global/selectors';
 import { getActivityIdReplacements } from '../../../../util/activities';
 import buildClassName from '../../../../util/buildClassName';
 import { formatHumanDay, getDayStartAt } from '../../../../util/dateFormat';
 import generateUniqueId from '../../../../util/generateUniqueId';
+import { isKeyCountGreater } from '../../../../util/isEmptyObject';
 import { compact, swapKeysAndValues } from '../../../../util/iteratees';
 import { getIsTransactionWithPoisoning } from '../../../../util/poisoningHash';
 import { REM } from '../../../../util/windowEnvironment';
@@ -76,7 +79,7 @@ interface OwnProps {
 type StateProps = {
   currentAccountId: string;
   slug?: string;
-  isMultichainAccount: boolean;
+  accountChains?: Partial<Record<ApiChain, unknown>>;
   areTinyTransfersHidden?: boolean;
   byId?: Record<string, ApiActivity>;
   allActivityIds?: string[];
@@ -120,7 +123,7 @@ const EMPTY_DICTIONARY = Object.freeze({});
 function Activities({
   isActive,
   currentAccountId,
-  isMultichainAccount,
+  accountChains = EMPTY_DICTIONARY,
   slug,
   byId,
   allActivityIds,
@@ -293,6 +296,8 @@ function Activities({
   function renderHistory() {
     if (!viewportIds) return undefined;
 
+    const isMultichainAccount = isKeyCountGreater(accountChains, 1);
+
     return viewportIds.map((itemId, index) => {
       const topOffset = itemPositionById[itemId]?.top ?? 0;
       let itemContent: TeactNode;
@@ -353,7 +358,7 @@ function Activities({
         <div className={buildClassName(isLandscape && styles.greeting)}>
           <NewWalletGreeting
             isActive={isActive}
-            isMutlichainAccount={isMultichainAccount}
+            accountChains={accountChains}
             mode={isLandscape ? 'emptyList' : 'panel'}
           />
         </div>
@@ -396,20 +401,20 @@ function Activities({
 export default memo(
   withGlobal<OwnProps>(
     (global): StateProps => {
-      const accountId = global.currentAccountId!;
+      const currentAccountId = selectCurrentAccountId(global)!;
       const accountState = selectCurrentAccountState(global);
       const accountSettings = selectCurrentAccountSettings(global);
       const slug = accountState?.currentTokenSlug;
-      const stakingStateBySlug = selectAccountStakingStatesBySlug(global, accountId);
+      const stakingStateBySlug = selectAccountStakingStatesBySlug(global, currentAccountId);
       const { byId } = accountState?.activities ?? {};
       const { byAddress } = accountState?.nfts || {};
       const accounts = selectAccounts(global);
-      const isHistoryEndReached = selectIsHistoryEndReached(global, accountId, slug);
-      const allActivityIds = selectActivityHistoryIds(global, accountId, slug);
+      const isHistoryEndReached = selectIsHistoryEndReached(global, currentAccountId, slug);
+      const allActivityIds = selectActivityHistoryIds(global, currentAccountId, slug);
 
       return {
-        isMultichainAccount: selectIsMultichainAccount(global, global.currentAccountId!),
-        currentAccountId: accountId,
+        accountChains: selectAccount(global, currentAccountId)?.byChain,
+        currentAccountId,
         slug,
         byId,
         allActivityIds,
@@ -438,7 +443,7 @@ export default memo(
       return stickToFirst((
         accountState?.activeContentTab === ContentTab.Activity
         || (accountState?.activeContentTab === ContentTab.Assets && shouldShowSeparateAssetsPanel)
-      ) && global.currentAccountId);
+      ) && selectCurrentAccountId(global));
     },
   )(Activities),
 );

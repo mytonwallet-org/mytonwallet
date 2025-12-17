@@ -11,28 +11,21 @@ private let log = Log("NotificationsVC")
 struct NotificationsSettingsView: View {
     
     @ObservedObject var viewModel: NotificationsSettingsViewModel
-    var navigationBarHeight: CGFloat
-    var onScroll: (CGFloat) -> ()
     
     @State private var areNotificationsOn: Bool = false
-    @Namespace private var ns
     
     var body: some View {
         InsetList(topPadding: 16, spacing: 24) {
             if viewModel.notificationsAreAllowed {
                 notificationsSection
-                    .scrollPosition(ns: ns, offset: navigationBarHeight + 16, callback: onScroll)
                 walletSelectionSection
             } else {
                 enableNotificationsSection
-                    .scrollPosition(ns: ns, offset: navigationBarHeight + 16, callback: onScroll)
             }
             soundsSection
                 .padding(.top, 8)
                 .padding(.bottom, 48)
         }
-        .navigationBarInset(navigationBarHeight)
-        .coordinateSpace(name: ns)
         .onChange(of: areNotificationsOn) { areNotificationsOn in
             withAnimation {
                 if areNotificationsOn {

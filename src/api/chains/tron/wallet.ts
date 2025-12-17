@@ -1,10 +1,13 @@
 import type { TronWeb } from 'tronweb';
 
-import type { ApiNetwork } from '../../types';
+import type { ApiAddressInfo, ApiNetwork } from '../../types';
+import { ApiCommonError } from '../../types';
 
 import isEmptyObject from '../../../util/isEmptyObject';
 import { logDebugError } from '../../../util/logs';
 import { getTronClient } from './util/tronweb';
+import { getKnownAddressInfo } from '../../common/addresses';
+import { isValidAddress } from './address';
 
 /*
 * We display unconfirmed balance and transactions to user.
@@ -89,4 +92,18 @@ export async function isTronAccountMultisig(network: ApiNetwork, address: string
     logDebugError('isTronAccountMultisig', e);
     return false;
   }
+}
+
+export function getAddressInfo(
+  network: ApiNetwork,
+  addressOrDomain: string,
+): ApiAddressInfo | { error: ApiCommonError } {
+  if (!isValidAddress(network, addressOrDomain)) {
+    return { error: ApiCommonError.InvalidAddress };
+  }
+
+  return {
+    resolvedAddress: addressOrDomain,
+    addressName: getKnownAddressInfo(addressOrDomain)?.name,
+  };
 }

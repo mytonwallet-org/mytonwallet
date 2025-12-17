@@ -17,9 +17,10 @@ interface OwnProps {
   nft: ApiNft;
   noShowAnimation?: boolean;
   shouldHide?: boolean;
+  className?: string;
+  shadowClassName?: string;
   onLoad?: (hasGradient: boolean, className?: string) => void;
   onTransitionEnd: NoneToVoidFunction;
-  className?: string;
 }
 
 function CustomCardBackground({
@@ -27,9 +28,10 @@ function CustomCardBackground({
   nft,
   noShowAnimation,
   shouldHide,
+  className,
+  shadowClassName,
   onLoad,
   onTransitionEnd,
-  className,
 }: OwnProps) {
   const { imageUrl } = useCachedImage(nft ? getCardNftImageUrl(nft) : undefined);
   const [isLoaded, markLoaded] = useFlag();
@@ -68,7 +70,7 @@ function CustomCardBackground({
           onLoad={handleLoad}
         />
       )}
-      {withShadow && <div className={styles.shadow} />}
+      {withShadow && <div className={buildClassName(styles.shadow, shadowClassName)} />}
     </div>
   );
 }

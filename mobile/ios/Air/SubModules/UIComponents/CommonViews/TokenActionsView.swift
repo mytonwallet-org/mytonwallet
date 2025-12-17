@@ -8,8 +8,9 @@
 import UIKit
 import WalletContext
 
+let actionsRowHeight: CGFloat = IOS_26_MODE_ENABLED ? 70 : 60
+
 public class TokenActionsView: WTouchPassStackView {
-    public static let defaultHeight = CGFloat(60)
     
     @MainActor
     public protocol Delegate {
@@ -36,58 +37,56 @@ public class TokenActionsView: WTouchPassStackView {
     
     private func setupViews() {
         translatesAutoresizingMaskIntoConstraints = false
-        spacing = 8
-        distribution = .fillEqually
-        layer.masksToBounds = true
+        spacing = S.actionButtonSpacing(forButtonCount: 4)
+        distribution = IOS_26_MODE_ENABLED ? .equalSpacing : .fillEqually
+        clipsToBounds = false
         
-        heightConstraint = heightAnchor.constraint(equalToConstant: TokenActionsView.defaultHeight)
+        heightConstraint = heightAnchor.constraint(equalToConstant: actionsRowHeight)
         NSLayoutConstraint.activate([
             heightConstraint,
         ])
         
-        let addButton = WScalableButton(title: lang("Add").lowercased(),
-                                        image: UIImage(named: "AddIcon",
-                                                       in: AirBundle, compatibleWith: nil)?.withRenderingMode(.alwaysTemplate),
-                                        onTap: { [weak self] in
-            self?.delegate.addPressed()
-        })
+        let addButton = WScalableButton(
+            title: IOS_26_MODE_ENABLED ? lang("Add / Buy") : lang("Add").lowercased(),
+            image: .airBundle(IOS_26_MODE_ENABLED ? "AddIconBold" : "AddIcon"),
+            onTap: { [weak self] in self?.delegate.addPressed() },
+        )
         addArrangedSubview(addButton)
         
-        let sendButton = WScalableButton(title: lang("Send").lowercased(),
-                                         image: UIImage(named: "SendIcon",
-                                                        in: AirBundle, compatibleWith: nil)?.withRenderingMode(.alwaysTemplate),
-                                         onTap: { [weak self] in
-            self?.delegate.sendPressed()
-        })
+        let sendButton = WScalableButton(
+            title: IOS_26_MODE_ENABLED ? lang("Send") : lang("Send").lowercased(),
+            image: .airBundle(IOS_26_MODE_ENABLED ? "SendIconBold" : "SendIcon"),
+            onTap: { [weak self] in self?.delegate.sendPressed() },
+        )
         addArrangedSubview(sendButton)
         
-        swapButton = WScalableButton(title: lang("Swap").lowercased(),
-                                     image: UIImage(named: "SwapIcon",
-                                                    in: AirBundle, compatibleWith: nil)?.withRenderingMode(.alwaysTemplate),
-                                     onTap: { [weak self] in
-            self?.delegate.swapPressed()
-        })
+        swapButton = WScalableButton(
+            title: IOS_26_MODE_ENABLED ? lang("Swap") : lang("Swap").lowercased(),
+            image: .airBundle(IOS_26_MODE_ENABLED ? "SwapIconBold" : "SwapIcon"),
+            onTap: { [weak self] in self?.delegate.swapPressed() },
+        )
         addArrangedSubview(swapButton)
         
-        earnButton = WScalableButton(title: lang("Earn").lowercased(),
-                                     image: UIImage(named: "EarnIcon",
-                                                    in: AirBundle, compatibleWith: nil)?.withRenderingMode(.alwaysTemplate),
-                                     onTap: { [weak self] in
-            self?.delegate.earnPressed()
-        })
+        earnButton = WScalableButton(
+            title: IOS_26_MODE_ENABLED ? lang("Earn") : lang("Earn").lowercased(),
+            image: .airBundle(IOS_26_MODE_ENABLED ? "EarnIconBold" : "EarnIcon"),
+            onTap: { [weak self] in self?.delegate.earnPressed() },
+        )
         addArrangedSubview(earnButton)
     }
     
+    private func updateSpacing() {
+        let visibleCount = arrangedSubviews.filter { !$0.isHidden }.count
+        spacing = S.actionButtonSpacing(forButtonCount: visibleCount)
+    }
+    
     public func set(actionsVisibleHeight: CGFloat) {
-        let actionButtonAlpha = actionsVisibleHeight < 60 ? actionsVisibleHeight / 60 : 1
+        let actionButtonAlpha = actionsVisibleHeight < actionsRowHeight ? actionsVisibleHeight / actionsRowHeight : 1
         let maxRadius = S.actionButtonCornerRadius
         let actionButtonRadius = min(maxRadius, actionsVisibleHeight / 2)
         for btn in arrangedSubviews {
             guard let btn = btn as? WScalableButton else { continue }
-            btn.innerButton.titleLabel?.alpha = actionButtonAlpha
-            btn.innerButton.imageView?.alpha = actionButtonAlpha
-            btn.layer.cornerRadius = actionButtonRadius
-            btn.set(scale: actionButtonAlpha)
+            btn.set(scale: actionButtonAlpha, radius: actionButtonRadius)
         }
         heightConstraint.constant = actionsVisibleHeight
     }
@@ -98,6 +97,7 @@ public class TokenActionsView: WTouchPassStackView {
         }
         set {
             swapButton.isHidden = !newValue
+            updateSpacing()
         }
     }
     public var earnAvailable: Bool {
@@ -106,6 +106,7 @@ public class TokenActionsView: WTouchPassStackView {
         }
         set {
             earnButton.isHidden = !newValue
+            updateSpacing()
         }
     }
 }

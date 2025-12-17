@@ -24,6 +24,7 @@ import kotlin.math.max
 
 class EarnRootVC(context: Context, private val tokenSlug: String = TONCOIN_SLUG) :
     WViewController(context), WalletCore.EventObserver {
+    override val TAG = "EarnRoot"
 
     override val shouldDisplayTopBar = false
 

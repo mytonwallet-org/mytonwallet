@@ -1,0 +1,50 @@
+.headerWrapper {
+  position: relative;
+  display: inline-block;
+  margin: 1.5rem auto 1.25rem;
+}
+
+.headerButton {
+  display: inline-flex;
+
+  min-width: 0 !important;
+  margin: 0 auto;
+
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--color-black);
+}
+
+.menu {
+  --offset-x-value: 50%;
+  --translate-x: -50%;
+}
+
+.root {
+  margin-bottom: 1rem;
+}
+
+.rootInsideModal {
+  margin-top: 1.125rem;
+}
+
+.tabs,
+.tabsOverlay {
+  display: inline-flex;
+  justify-content: center;
+
+  width: 100%;
+  max-width: 100%;
+  padding: 0 1.5rem;
+}
+
+.tab {
+  flex: 0 0 auto;
+}
+
+.menuWrapper {
+  :global(.menu-bubble) {
+    right: auto !important;
+    left: calc((var(--menu-width) + var(--trigger-width)) / -2) !important;
+  }
+}

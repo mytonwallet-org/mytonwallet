@@ -40,10 +40,10 @@ export default function WithContextMenu<T extends string>({
   const getTriggerElement = useLastCallback(() => buttonRef.current);
   const getRootElement = useLastCallback(() => rootRef?.current ?? document.body);
   const getMenuElement = useLastCallback(() => menuRef.current);
-  const getLayout: () => Layout = useLastCallback(() => ({
+  const getLayout = useLastCallback((): Layout => ({
     withPortal: true,
     doNotCoverTrigger: true,
-    centerHorizontally: true,
+    isCenteredHorizontally: true,
   }));
 
   const {

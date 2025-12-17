@@ -1,0 +1,7 @@
+• Net Worth Chart · Added net worth history chart per token, based on your actual balance over time.
+
+• NFT Cards Design Update · Unified visuals, colors, and proportions for NFT Cards across all app versions.
+
+• MyTonWallet Air Enhancements · Integrated Wallet Explorer, multichain address and domain display, and expanded language support.
+
+• Other Improvements · Visual polish and consistency updates across the app.

@@ -12,6 +12,7 @@ import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.USDE_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.models.MBlockchain
 
 class StakingMessageHelpers {
     companion object {
@@ -20,7 +21,12 @@ class StakingMessageHelpers {
                 when (tokenSlug) {
                     TONCOIN_SLUG ->
                         LocaleController.getString("\$safe_staking_description1") + "\n\n" +
-                            LocaleController.getString("\$safe_staking_description2") + "\n\n" +
+                            LocaleController.getStringWithKeyValues(
+                                "\$safe_staking_description2",
+                                listOf(
+                                    Pair("%chain%", MBlockchain.ton.displayName),
+                                )
+                            ) + "\n\n" +
                             LocaleController.getString("\$safe_staking_description3")
 
                     MYCOIN_SLUG ->

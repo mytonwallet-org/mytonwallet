@@ -10,7 +10,11 @@ import type { DropdownItem } from '../../../ui/Dropdown';
 
 import { CURRENCIES, IS_CAPACITOR } from '../../../../config';
 import { Big } from '../../../../lib/big.js';
-import { selectAccountStakingStates, selectCurrentAccountTokens } from '../../../../global/selectors';
+import {
+  selectAccountStakingStates,
+  selectCurrentAccountId,
+  selectCurrentAccountTokens,
+} from '../../../../global/selectors';
 import { formatCurrency, getShortCurrencySymbol } from '../../../../util/formatNumber';
 import { calculateFullBalance } from './helpers/calculateFullBalance';
 
@@ -26,6 +30,7 @@ interface OwnProps {
   anchor: IAnchorPosition | undefined;
   className?: string;
   bubbleClassName?: string;
+  hideBalance?: boolean;
   onClose: NoneToVoidFunction;
   onChange?: (currency: ApiBaseCurrency) => void;
 }
@@ -46,6 +51,7 @@ function CurrencySwitcherMenu({
   menuPositionX,
   className,
   bubbleClassName,
+  hideBalance,
   tokens,
   currencyRates,
   stakingStates,
@@ -57,18 +63,18 @@ function CurrencySwitcherMenu({
   const menuRef = useRef<HTMLDivElement>();
 
   const currencyList = useMemo<DropdownItem<ApiBaseCurrency>[]>(() => {
-    if (!tokens || !currencyRates) {
-      return Object.entries(CURRENCIES)
-        .filter(([currency]) => currency !== excludedCurrency)
-        .map(([currency, { name }]) => ({ value: currency as keyof typeof CURRENCIES, name }));
+    const entries = Object.entries(CURRENCIES)
+      .filter(([currency]) => currency !== excludedCurrency);
+
+    if (hideBalance || !tokens || !currencyRates) {
+      return entries.map(([currency, { name }]) => ({ value: currency as keyof typeof CURRENCIES, name }));
     }
 
     const totalBalanceInUsd = new Big(
       calculateFullBalance(tokens, stakingStates).primaryValueUsd,
     );
 
-    return Object.entries(CURRENCIES)
-      .filter(([currency]) => currency !== excludedCurrency)
+    return entries
       .map(([currency, { name }]) => {
         const balanceInCurrency = totalBalanceInUsd.mul(currencyRates[currency as ApiBaseCurrency]);
 
@@ -85,7 +91,7 @@ function CurrencySwitcherMenu({
           description: formattedBalance,
         };
       });
-  }, [excludedCurrency, tokens, currencyRates, stakingStates]);
+  }, [excludedCurrency, tokens, currencyRates, stakingStates, hideBalance]);
 
   const handleBaseCurrencyChange = useLastCallback((currency: string) => {
     onClose();
@@ -102,7 +108,7 @@ function CurrencySwitcherMenu({
   const getMenuElement = useLastCallback(() => menuRef.current);
   const getLayout = useLastCallback((): Layout => ({
     withPortal: true,
-    centerHorizontally: !menuPositionX,
+    isCenteredHorizontally: !menuPositionX,
     preferredPositionX: menuPositionX || 'left' as const,
     doNotCoverTrigger: true,
   }));
@@ -130,10 +136,12 @@ function CurrencySwitcherMenu({
 }
 
 export default memo(withGlobal<OwnProps>((global) => {
+  const currentAccountId = selectCurrentAccountId(global);
+
   return {
     currentCurrency: global.settings.baseCurrency,
     tokens: selectCurrentAccountTokens(global),
     currencyRates: global.currencyRates,
-    stakingStates: selectAccountStakingStates(global, global.currentAccountId!),
+    stakingStates: selectAccountStakingStates(global, currentAccountId!),
   };
 })(CurrencySwitcherMenu));

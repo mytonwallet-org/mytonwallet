@@ -81,10 +81,10 @@ public class CapacitorGlobalStorageProvider implements IGlobalStorageProvider {
 
       isPersisting = true;
 
-      String jsonString = globalStorageJsonDict.toString();
+      String jsonString = JSONObject.quote(globalStorageJsonDict.toString());
       String script = "(function() { " +
         "try {" +
-        "localStorage.setItem('" + GLOBAL_STATE_KEY + "', JSON.stringify(" + jsonString + "));" +
+        "localStorage.setItem('" + GLOBAL_STATE_KEY + "', " + jsonString + ");" +
         "return true;" +
         "} catch (e) {" +
         "console.log('ERROR SAVING', e);" +

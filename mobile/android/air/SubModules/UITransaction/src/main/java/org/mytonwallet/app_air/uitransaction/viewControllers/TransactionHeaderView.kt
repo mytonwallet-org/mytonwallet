@@ -31,6 +31,7 @@ import org.mytonwallet.app_air.uitransaction.viewControllers.views.LabelAndIconV
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
@@ -104,6 +105,7 @@ class TransactionHeaderView(
         val token = TokenStore.getToken(transaction.slug)
         if (token != null) {
             tokenIconView.config(transaction)
+            val amountDouble = transaction.amount.doubleAbsRepresentation(token.decimals)
             val amount = transaction.amount.toString(
                 decimals = token.decimals,
                 currency = token.symbol,
@@ -115,7 +117,9 @@ class TransactionHeaderView(
                 amount.let {
                     val ssb = SpannableStringBuilder(it)
                     CoinUtils.setSpanToFractionalPart(ssb, sizeSpan)
-                    CoinUtils.setSpanToFractionalPart(ssb, colorSpan)
+                    if (amountDouble >= 10) {
+                        CoinUtils.setSpanToFractionalPart(ssb, colorSpan)
+                    }
                     ssb
                 },
                 Content.of(token, !token.isBlockchainNative)
@@ -125,7 +129,7 @@ class TransactionHeaderView(
         }
 
         if (transaction.shouldShowTransactionAddress) {
-            val addressToShow = transaction.addressToShow()
+            val addressToShow = transaction.addressToShow(6, 6)
             val addressText = addressToShow?.first ?: ""
             val spannedString: SpannableStringBuilder
             if (transaction.isIncoming) {
@@ -150,12 +154,14 @@ class TransactionHeaderView(
                 spannedString.append(text)
                 AddressPopupHelpers.configSpannableAddress(
                     viewController,
+                    if (addressToShow?.second == true) addressText else null,
                     spannedString,
                     text.length - addressText.length,
                     addressText.length,
                     transaction.slug,
                     transaction.fromAddress,
-                    startOffset
+                    startOffset,
+                    showTemporaryViewOption = true
                 )
             } else {
                 val sentToString =
@@ -173,12 +179,14 @@ class TransactionHeaderView(
                 spannedString.append(text)
                 AddressPopupHelpers.configSpannableAddress(
                     viewController,
+                    if (addressToShow?.second == true) addressText else null,
                     spannedString,
                     text.length - addressText.length,
                     addressText.length,
                     transaction.slug,
                     transaction.toAddress ?: "",
-                    startOffset.roundToInt()
+                    startOffset.roundToInt(),
+                    showTemporaryViewOption = true
                 )
             }
             spannedString.setSpan(

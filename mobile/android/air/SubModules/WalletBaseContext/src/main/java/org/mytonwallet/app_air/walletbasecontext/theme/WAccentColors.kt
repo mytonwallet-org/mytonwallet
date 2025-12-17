@@ -21,4 +21,9 @@ object NftAccentColors {
     const val ACCENT_SILVER_INDEX = 14;
     const val ACCENT_GOLD_INDEX = 15;
     const val ACCENT_BNW_INDEX = 16;
+
+    val veryBrightColors = setOf(
+        0xFFC3C5C6.toInt(), // Silver color in Dark theme = Light Gray
+        0xFFFFFFFF.toInt()  // BNW color in Dark theme = White
+    )
 }

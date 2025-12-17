@@ -1,0 +1,290 @@
+More: 更多
+at: 於
+MyTonWallet: MyTonWallet
+MyTonWallet Resources: MyTonWallet 資源
+I agree to %term%: 我同意 %term%
+See Words: 查看單詞
+Wrong Phrase: 片語不正確
+Permission Denied: 拒絕存取
+USB: USB
+Bluetooth: 藍牙
+Locked: 已鎖定
+Enter Passcode: 輸入密碼
+Enter passcode or use fingerprint: 輸入密碼或使用指紋
+Use PIN: 使用 PIN 碼
+"Try again in %1$@": "%1$@ 後再試"
+"Try again in %1$@ and %2$@": "%1$@ 和 %2$@ 後再試"
+Screen Recording Detected: 偵測到螢幕錄影
+$screen_recording_info: |
+  你目前正在錄製螢幕。
+  此畫面可能包含敏感或私人資訊。
+  請留意你要分享的內容。
+I Understand, Proceed: 我了解，繼續
+Waiting for Network: 等候網路
+Updating: 更新中
+My Wallet: 我的錢包
+$no_activity_history: |
+  這個錢包目前沒有
+  交易紀錄。
+Standalone: 獨立
+Processing Excess: 處理盈餘
+Bidding Auction: 競標拍賣
+"Enter wallet name:": "輸入錢包名稱："
+All Telegram Gifts: 全部 Telegram 禮物
+Add Crypto: 新增加密貨幣
+Share QR Code: 分享 QR Code
+$send_only_ton: 請僅將 Toncoin (TON) 或 TON 網路資產傳送到此地址。傳送其他代幣會導致損失。
+$send_only_tron: 請僅將 TRON (TRX) 或 TRON 網路資產傳送到此地址。傳送其他代幣會導致損失。
+Buying with card is not supported for this account.: 此帳戶不支援信用卡購買。
+Swapped at: 兌換時間
+Price per: 單價
+Transaction Details: 交易明細
+From: 來源
+To: 目的地
+Changelly ID: Changelly ID
+Copy Changelly ID: 複製 Changelly ID
+Changelly ID Copied!: 已複製 Changelly ID！
+from: 自
+to: 至
+Currency: 貨幣
+Choose Currency to Send: 選擇要傳送的貨幣
+Send to: 傳送至
+Add a message, if needed: 需要時可加入訊息
+Sending To: 正傳送至
+Show All Collectibles: 顯示全部收藏品
+You have no NFT in this wallet yet: |
+  這個錢包目前還沒有
+  NFT。
+Collapse: 摺疊
+Standalone NFT: 獨立 NFT
+Linked Address: 已連結地址
+Enter Address: 輸入地址
+Show All Assets: 顯示全部資產
+Price: 價格
+D: 日
+W: 週
+M: 月
+3M: 3 月
+Y: 年
+No price data: 暫無價格資料
+Happening Now: 正在流行
+No Dapps Found!: 找不到 dApp！
+Open: 開啟
+Edit Wallet Name: 編輯錢包名稱
+Add Account: 新增帳戶
+Questions and Answers: 常見問題
+Wallet Name: 錢包名稱
+"MyTonWallet Air v%1$@ (%2$@)": "MyTonWallet Air v%1$@ (%2$@)"
+App Icon: App 圖示
+App Font: App 字體
+Rounded Toolbars: 圓角工具列
+Side Gutters: 側邊留白
+Tokens on Home Screen: 主畫面顯示代幣
+Current Wallet Version: 目前錢包版本
+Tokens on Other Versions: 其他版本的代幣
+Show Recovery Phrase: 顯示備份助記詞
+Passcode: 密碼
+Lock the app after: 自動鎖定於
+Never: 永不
+"%1$@ seconds": "%1$@ 秒"
+"%1$@ minutes": "%1$@ 分鐘"
+Unstake Request: 解除質押申請
+Add Stake: 新增質押
+History: 歷史紀錄
+Earn up to %1$@ per year from your tokens: 每年可從代幣賺取最高 %1$@ 的收益
+Insufficient %1$@ Balance: "%1$@ 餘額不足"
+Instant Withdrawal: 立即提領
+Instantly: 立即
+Up to %1$@: 最高 %1$@
+up to %1$@: 最高 %1$@
+Current APY: 目前 APY
+Est. earning per year: 預估每年收益
+in: 於
+Error: 錯誤
+Network Error: 網路錯誤
+Buy: 買入
+Sell: 賣出
+Enter Amount: 輸入金額
+"Swap %1$@ to %2$@": "將 %1$@ 兌換為 %2$@"
+"%1$@ to %2$@": "%1$@ 兌換為 %2$@"
+"Max %1$@": "最大 %1$@"
+"Authorize %1$@ fee": "授權 %1$@ 手續費"
+Pending previous fee: 前次手續費待處理
+Cross-chain swap by %1$@: 由 %1$@ 執行跨鏈兌換
+AML/KYC: AML/KYC
+Receive to: 收到至
+Enter %1$@ address: 輸入 %1$@ 地址
+"Send %1$@ this address:": "傳送 %1$@ 至此地址："
+Swap is not supported on this account.: 此帳戶不支援兌換。
+"%1$@ will be returned": "%1$@ 將退回"
+Connecting your wallet: 正在連線錢包
+Action is not possible on a view-only wallet.: 只讀錢包無法執行此動作。
+Logged in with MyTonWallet: 已透過 MyTonWallet 登入
+You have no apps connected to this wallet.: 這個錢包沒有已連線的應用程式。
+Asset: 資產
+Sent to: 已傳送至
+via %agg%: 經由 %agg%
+Switch to Legacy Version: 切換到傳統版本
+Hide tab: 隱藏分頁
+Received from: 收到自
+Your Recovery Phrase: 你的備份助記詞
+day:
+  zeroValue: "%1$d 天"
+  otherValue: "%1$d 天"
+hour:
+  zeroValue: "%1$d 小時"
+  otherValue: "%1$d 小時"
+minute:
+  zeroValue: "%1$d 分鐘"
+  otherValue: "%1$d 分鐘"
+second:
+  zeroValue: "%1$d 秒"
+  otherValue: "%1$d 秒"
+transfer:
+  zeroValue: "%1$d 筆轉帳"
+  otherValue: "%1$d 筆轉帳"
+Confirm Actions:
+  zeroValue: "確認 %1$d 個動作"
+  otherValue: 確認動作
+"%lld transfer": "%lld 筆轉帳"
+"A ~ Z": A ~ Z
+"Accumulated rewards": 累積獎勵
+"Biometric authentication not available.": 無法使用生物辨識。
+"Changelly Payment Address": Changelly 付款地址
+"Choose Currency": 選擇貨幣
+"Choose Wallet": 選擇錢包
+"Choose Wallet to Use On": 選擇要使用的錢包
+"Wallet to use on": 要使用的錢包
+"Clipboard empty": 剪貼簿是空的
+"Confirm Connect": 確認連線
+"Connect Wallet": 連線錢包
+"Connected apps can only see your wallet address and will not be able to move your assets without permission.": 已連線的應用程式只能查看你的錢包地址，未經許可無法移動你的資產。
+"Connect to %1$@?": 要連線至 %1$@？
+"Don’t show tokens on your account with value less than $0.01. You can also selectively enable and disable particular tokens using the list below.": 不顯示價值低於 0.01 美元的代幣。你也可以在下方清單中個別啟用或停用代幣。
+"Don’t show transactions of less than $0.01. Such small transactions are often used for spam and scam.": 不顯示低於 0.01 美元的交易。此類小額交易常用於垃圾訊息或詐騙。
+"Enter passcode or use Touch ID": 輸入密碼或使用 Touch ID
+"Enter your Wallet Passcode": 輸入錢包密碼
+"Estimated APY": 預估 APY
+"Expired swap": 兌換已逾期
+"Failed swap": 兌換失敗
+"Import failed": 匯入失敗
+"Install Palette": 安裝調色盤
+Ledger: Ledger
+"Main Currency": 主要貨幣
+"Moving to staking balance": 正移至質押餘額
+"My assets": 我的資產
+MyTonWallet uses biometric authentication to unlock and authorize transactions: MyTonWallet 使用生物辨識來解鎖並授權交易
+"Network error": 網路錯誤
+"No Camera Access": 無法使用相機
+"No transactions yet.": 尚無交易。
+"Not all transactions were sent successfully.": 部分交易未成功送出。
+OK: 確定
+"Open Collection": 開啟收藏
+"Open in Explorer": 在區塊鏈瀏覽器開啟
+"Passcode changed": 密碼已變更
+"Please make sure your internet connection is working and try again.": 請確認網路連線正常後再試一次。
+"Please set a passcode on your device, and then try to use biometric authentication.": 請先在裝置上設定密碼，再嘗試使用生物辨識。
+Please try again: 請再試一次
+"Please wait...": 請稍候…
+Popular: 熱門
+"Preview is currently unavailable.": 預覽目前無法使用。
+Read-only account: 只讀帳戶
+Receiving address: 收款地址
+Remove: 移除
+"Request for unstaking": 解除質押申請
+"Save to Favorites": 儲存至最愛
+Set a passcode: 設定密碼
+"Show All %1$@": "顯示所有 %1$@"
+"Staking Details": 質押詳情
+"TON Wallet Versions": TON 錢包版本
+"Tap to reveal": 點一下顯示
+"The current version of Ledger only supports English-language comments without special characters.": 目前版本的 Ledger 僅支援英文註解且不得有特殊符號。
+"The time on your device is incorrect, sync it and try again.": 裝置時間不正確，請同步後再試一次。
+"There is no activity history for this wallet yet.": 此錢包尚無活動紀錄。
+"This is how the TON Blockchain works.": TON 區塊鏈就是這樣運作的。
+"This type of transaction is not yet supported by Ledger.": Ledger 尚未支援此類交易。
+"Transaction to this smart contract is not yet supported by Ledger.": Ledger 尚未支援針對此智慧合約的交易。
+Transfer Details: 轉帳明細
+"Transferring NFT is not yet supported by Ledger.": Ledger 尚未支援 NFT 轉移。
+Unavailable: 無法使用
+"Updating…": 更新中…
+"Waiting for network…": 等候網路…
+Wallet is Locked: 錢包已鎖定
+Warning: 警告
+Wear: 套用
+Your Address: 你的地址
+Passcodes don't match. Please try again.: 密碼不一致，請再試一次。
+Secret phrase was copied to clipboard: 備份助記詞已複製到剪貼簿
+clipboard: 剪貼簿
+screenshot: 擷取畫面
+Copy Anyway: 仍要複製
+12 Words: 12 個單字
+24 Words: 24 個單字
+"Words don’t match, please try again.": 單字不相符，請再試一次。
+Load 5 More Wallets: 載入另外 5 個錢包
+$n_wallets_selected:
+  zeroValue: 已選擇 %1$d 個
+  otherValue: 已選擇 %1$d 個
+"Are you sure you want to unpin %tab%?": 要取消釘選 %tab% 嗎？
+add: 新增
+send: 傳送
+swap: 兌換
+earn: 賺取
+Actions: 動作
+$actions_description: 快速存取最常用的動作。
+Rate: 匯率
+$rate_description: 檢視任一選定代幣的即時匯率。
+Rate with Chart: 匯率與圖表
+$rate_with_chart_description: 檢視代幣即時匯率並追蹤趨勢變化。
+Style: 風格
+Neutral: 中性
+Vivid: 鮮明
+Chart Period: 圖表期間
+$period_all: 全部時間
+$period_day: 1 天
+$period_week: 1 週
+$period_month: 1 個月
+$period_3months: 3 個月
+$period_year: 1 年
+Token: 代幣
+All Tokens: 所有代幣
+Customize Widget: 自訂小工具
+$accumulated_rewards: 累積獎勵
+Recent Searches: 最近搜尋
+Clear All: 全部清除
+Suggestions: 建議
+Popular and connected apps: 熱門與已連線應用程式
+Connected Dapp: 已連線 dApp
+$ago: "%1$d 前"
+$visited_ago: "%1$d 前造訪"
+Notifications are disabled: 通知已停用
+Enable in Settings: 前往設定開啟
+Search in Google: 在 Google 搜尋
+$remove_wallets:
+  zeroValue: 移除錢包
+  otherValue: 移除 %1$d 個錢包
+Contract Initialization Data was copied!: 已複製合約初始化資料！
+Encryption is not possible. The recipient is not a wallet or has no outgoing transactions.: 無法加密。收件方不是錢包或沒有轉出紀錄。
+just now: 剛剛
+"No": 否
+Search: 搜尋
+Show All Wallets: 顯示全部錢包
+Sign Out: 登出
+State init supplied without message body: 傳送了沒有訊息本文的初始化資料
+Swap Failed: 兌換失敗
+The wallet is ready: 錢包已就緒
+Unexpected error. Please let the support know.: 發生未預期錯誤，請通知客服。
+Unlock it and open the TON App: 先解鎖並開啟 TON App
+Use 4-digit Passcode: 使用四位密碼
+Use 6-digit Passcode: 使用六位密碼
+You don’t have any cards to customize yet: 你還沒有可自訂的卡片
+Authorize %token% Fee: 授權 %token% 手續費
+Awaiting Previous Fee: 等候前一筆手續費
+Lock: 鎖定
+MyTonWallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.: MyTonWallet 卡片可安裝至錢包，並顯示在主畫面與錢包列表。
+Receive: 收款
+Scan: 掃描
+Search or enter address: 搜尋或輸入地址
+View as Grid: 以格狀顯示
+$secret_words_warning: 在數位環境儲存單字（包含 **%1$d**）並不安全。請確保你已安全保存備份助記詞。
+

@@ -107,7 +107,7 @@ export function createLocalTransactions(
 
     return buildLocalTransaction(
       transaction,
-      normalizedAddress ?? chains[chain].normalizeAddress(toAddress, network),
+      normalizedAddress ?? chains[chain].normalizeAddress(network, toAddress),
       index,
     );
   });

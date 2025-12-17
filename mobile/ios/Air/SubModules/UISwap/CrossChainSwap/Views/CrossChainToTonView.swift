@@ -110,7 +110,7 @@ struct CrossChainToTonView: View {
     
     var header: some View {
         HStack {
-            Text(WStrings.CrossChainSwap_SendToThisAddress_Text(symbol: sellingToken.symbol).uppercased())
+            Text(lang("$swap_changelly_to_ton_description1", arg1: sellingToken.symbol))
             Spacer()
             Text(remaining)
         }
@@ -166,13 +166,13 @@ struct CrossChainToTonView: View {
     func copyAddress() {
         UIPasteboard.general.string = address
         topWViewController()?.showToast(message: lang("Transaction ID was copied!"))
-        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+        Haptics.play(.lightTap)
     }
     
     func copyTx() {
         UIPasteboard.general.string = exchangerTxId
         topWViewController()?.showToast(message: lang("Transaction ID was copied!"))
-        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+        Haptics.play(.lightTap)
     }
     
     func onQRTap() {

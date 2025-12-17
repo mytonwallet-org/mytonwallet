@@ -28,6 +28,7 @@ private func moveAccounts(global: _GlobalStorage, db: any DatabaseWriter) async 
         var title: String?
         var type: AccountType
         var byChain: [String: AccountChain]
+        var isTemporary: Bool?
     }
 
     for accountId in accountIds {
@@ -37,6 +38,9 @@ private func moveAccounts(global: _GlobalStorage, db: any DatabaseWriter) async 
             throw GlobalStorageError.localStorageIsInvalidJson(global)
         }
         let _account = try JSONSerialization.decode(_AccountWithoutId.self, from: dict)
+        if _account.isTemporary == true {
+            continue
+        }
         let account = MAccount(
             id: accountId,
             title: _account.title,

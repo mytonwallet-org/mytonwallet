@@ -31,7 +31,6 @@ class DappSendTransactionDetailVC: WViewController {
     func makeView() -> DappSendTransactionDetailView {
         return DappSendTransactionDetailView(
             message: message,
-            onScroll: { [weak self] y in self?.updateNavigationBarProgressiveBlur(y) }
         )
     }
     

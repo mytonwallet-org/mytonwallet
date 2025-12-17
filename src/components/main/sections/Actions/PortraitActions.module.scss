@@ -88,6 +88,15 @@
   }
 }
 
+.name {
+  white-space: nowrap;
+}
+
+.divider {
+  margin: 0 0.25rem;
+  color: var(--color-gray-4);
+}
+
 .menu {
   --offset-y-value: 0;
   --offset-y-bottom-value: 0;

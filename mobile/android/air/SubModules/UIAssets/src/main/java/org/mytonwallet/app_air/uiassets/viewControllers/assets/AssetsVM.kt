@@ -2,12 +2,17 @@ package org.mytonwallet.app_air.uiassets.viewControllers.assets
 
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.models.MScreenMode
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
 import java.lang.ref.WeakReference
 
-class AssetsVM(val collectionMode: AssetsVC.CollectionMode?, delegate: Delegate) :
+class AssetsVM(
+    val collectionMode: AssetsVC.CollectionMode?,
+    private val screenMode: MScreenMode,
+    delegate: Delegate
+) :
     WalletCore.EventObserver {
     interface Delegate {
         fun updateEmptyView()
@@ -25,6 +30,18 @@ class AssetsVM(val collectionMode: AssetsVC.CollectionMode?, delegate: Delegate)
     }
 
     private fun updateNfts() {
+        when (screenMode) {
+            MScreenMode.Default -> {
+                if (AccountStore.isPushedTemporary)
+                    return
+            }
+
+            is MScreenMode.SingleWallet -> {
+                if (AccountStore.activeAccountId != screenMode.accountId)
+                    return
+            }
+        }
+
         val oldNftsAddresses = nfts?.map { it.address }
         updateNftsArray()
         val newNftsAddresses = nfts?.map { it.address }

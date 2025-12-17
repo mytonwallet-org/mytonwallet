@@ -8,8 +8,9 @@ import type {
 } from '../../api/types';
 import type { Account, AccountChain, AccountState, AccountType, GlobalState } from '../types';
 
-import { DEFAULT_ENABLED_TOKEN_SLUGS, POPULAR_WALLET_VERSIONS, TONCOIN } from '../../config';
+import { POPULAR_WALLET_VERSIONS, TONCOIN } from '../../config';
 import { generateAccountTitle } from '../../util/account';
+import { getDefaultEnabledSlugs } from '../../util/chain';
 import isPartialDeepEqual from '../../util/isPartialDeepEqual';
 import { getChainBySlug } from '../../util/tokens';
 import {
@@ -17,6 +18,7 @@ import {
   selectAccountOrAuthAccount,
   selectAccountSettings,
   selectAccountState,
+  selectCurrentAccountId,
   selectCurrentNetwork,
   selectNetworkAccounts,
 } from '../selectors';
@@ -183,11 +185,8 @@ export function renameAccount(global: GlobalState, accountId: string, title: str
 }
 
 export function createAccountsFromGlobal(global: GlobalState, isMnemonicImported = false): GlobalState {
-  const { firstNetworkAccount, secondNetworkAccount } = global.auth;
-
-  global = createAccount({ global, type: 'mnemonic', ...firstNetworkAccount!, isMnemonicImported });
-  if (secondNetworkAccount) {
-    global = createAccount({ global, type: 'mnemonic', ...secondNetworkAccount, isMnemonicImported });
+  for (const account of global.auth.accounts ?? []) {
+    global = createAccount({ global, type: 'mnemonic', ...account, isMnemonicImported });
   }
 
   return global;
@@ -212,7 +211,7 @@ export function updateBalances(
   const network = selectCurrentNetwork(global);
 
   // Force balance values for the default enabled tokens and manually imported tokens
-  for (const slug of [...DEFAULT_ENABLED_TOKEN_SLUGS[network], ...importedSlugs]) {
+  for (const slug of [...getDefaultEnabledSlugs(network), ...importedSlugs]) {
     if (getChainBySlug(slug) === chain && !(slug in newBalances)) {
       newBalances[slug] = 0n;
     }
@@ -293,7 +292,7 @@ export function updateSwapTokens(
 }
 
 export function updateCurrentAccountState(global: GlobalState, partial: Partial<AccountState>): GlobalState {
-  return updateAccountState(global, global.currentAccountId!, partial);
+  return updateAccountState(global, selectCurrentAccountId(global)!, partial);
 }
 
 export function updateAccountState(
@@ -363,7 +362,7 @@ export function updateCurrentAccountSettings(
   global: GlobalState,
   settingsUpdate: Partial<GlobalState['settings']['byAccountId']['*']>,
 ) {
-  return updateAccountSettings(global, global.currentAccountId!, settingsUpdate);
+  return updateAccountSettings(global, selectCurrentAccountId(global)!, settingsUpdate);
 }
 
 export function updateBiometrics(global: GlobalState, biometricsUpdate: Partial<GlobalState['biometrics']>) {
@@ -405,5 +404,18 @@ export function updateCurrencyRates(global: GlobalState, rates: ApiCurrencyRates
   return {
     ...global,
     currencyRates: rates,
+  };
+}
+
+export function updateCurrentTransactionInfo(
+  global: GlobalState,
+  partial: Partial<GlobalState['currentTransactionInfo']>,
+): GlobalState {
+  return {
+    ...global,
+    currentTransactionInfo: {
+      ...global.currentTransactionInfo,
+      ...partial,
+    },
   };
 }

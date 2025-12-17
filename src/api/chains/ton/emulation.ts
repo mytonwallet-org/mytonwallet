@@ -12,13 +12,10 @@ import type { EmulationResponse } from './toncenter/emulation';
 import type { TonWallet } from './util/tonCore';
 
 import { BURN_ADDRESS, TONCOIN } from '../../../config';
-import { logDebugError } from '../../../util/logs';
 import { toBase64Address } from './util/tonCore';
 import { getNftSuperCollectionsByCollectionAddress } from '../../common/addresses';
 import { FAKE_TX_ID } from '../../constants';
 import { fetchEmulateTrace } from './toncenter/emulation';
-import { calculateActivityDetails, getActivityRealFee } from './activities';
-import { parseActions } from './toncenter';
 import { parseTrace } from './traces';
 
 export async function emulateTransaction(
@@ -29,8 +26,8 @@ export async function emulateTransaction(
 ) {
   const boc = buildExternalBoc(wallet, transaction, isInitialized);
   const emulation = await fetchEmulateTrace(network, boc);
-  const walletAddress = toBase64Address(wallet.address, false, network);
   const nftSuperCollectionsByCollectionAddress = await getNftSuperCollectionsByCollectionAddress();
+  const walletAddress = toBase64Address(wallet.address, false, network);
   return parseEmulation(network, walletAddress, emulation, nftSuperCollectionsByCollectionAddress);
 }
 
@@ -46,60 +43,37 @@ export function parseEmulation(
     actions: emulation.actions,
     traceDetail: emulation.trace,
     addressBook: emulation.address_book,
+    metadata: emulation.metadata,
     transactions: emulation.transactions,
+    nftSuperCollectionsByCollectionAddress,
   });
 
-  const allActivities = parseActions(
-    network,
-    walletAddress,
-    emulation.actions,
-    emulation.address_book,
-    emulation.metadata,
-    nftSuperCollectionsByCollectionAddress,
-  );
-
-  const walletActivities: ApiActivity[] = [];
+  let walletActivities: ApiActivity[] = [];
   let totalRealFee = 0n;
   let totalExcess = 0n;
 
-  for (let activity of allActivities) {
-    if (
-      activity.shouldHide || (
-        activity.kind === 'transaction'
-        && activity.fromAddress !== walletAddress
-        && activity.toAddress !== walletAddress
-      )) {
-      continue;
+  for (const traceOutput of parsedTrace.traceOutputs) {
+    totalRealFee += traceOutput.realFee;
+    totalExcess += traceOutput.excess;
+    for (const { activities } of traceOutput.walletActions) {
+      walletActivities = walletActivities.concat(activities);
     }
-
-    if (activity.shouldLoadDetails) {
-      const result = calculateActivityDetails(activity, parsedTrace, true);
-      if (result) {
-        activity = result.activity;
-        totalExcess += result.excess;
-      } else {
-        logDebugError('Unparsable trace for emulated activity', activity.id);
-      }
-    }
-
-    walletActivities.push(activity);
-    totalRealFee += getActivityRealFee(activity);
   }
 
   if (totalExcess) {
-    addExcessActivity(walletAddress, walletActivities, totalExcess);
+    addOrUpdateExcessActivity(walletAddress, walletActivities, totalExcess);
   }
 
   return {
     networkFee: parsedTrace.totalNetworkFee,
     received: parsedTrace.totalReceived,
-    byTransactionIndex: parsedTrace.byTransactionIndex,
+    traceOutputs: parsedTrace.traceOutputs,
     activities: walletActivities,
     realFee: totalRealFee,
   };
 }
 
-function addExcessActivity(walletAddress: string, activities: ApiActivity[], excess: bigint) {
+function addOrUpdateExcessActivity(walletAddress: string, activities: ApiActivity[], excess: bigint) {
   const index = activities.findIndex((activity) => {
     return activity.kind === 'transaction' && activity.type === 'excess';
   });
@@ -108,12 +82,13 @@ function addExcessActivity(walletAddress: string, activities: ApiActivity[], exc
     const excessActivity = activities.splice(index, 1)[0] as ApiTransactionActivity;
     activities.push({
       ...excessActivity,
-      amount: excessActivity.amount + excess,
+      amount: excess,
     });
   } else {
+    const ts = activities.length ? activities[activities.length - 1].timestamp : Date.now();
     activities.push({
       id: FAKE_TX_ID,
-      timestamp: activities[activities.length - 1].timestamp,
+      timestamp: ts,
       kind: 'transaction',
       amount: excess,
       slug: TONCOIN.slug,

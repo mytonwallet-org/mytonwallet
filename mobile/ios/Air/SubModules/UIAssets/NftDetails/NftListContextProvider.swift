@@ -11,12 +11,14 @@ import WalletContext
 
 final class NftListContextProvider: ObservableObject {
     
+    var accountId: String
     let filter: NftCollectionFilter
     @Published var nfts: [ApiNft]
 
-    init(filter: NftCollectionFilter) {
+    init(accountId: String, filter: NftCollectionFilter) {
+        self.accountId = accountId
         self.filter = filter
-        self.nfts = Array(filter.apply(to: NftStore.currentAccountShownNfts ?? [:]).values.map(\.nft))
+        self.nfts = Array(filter.apply(to: NftStore.getAccountShownNfts(accountId: accountId) ?? [:]).values.map(\.nft))
     }
 }
 

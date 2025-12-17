@@ -31,6 +31,7 @@ import java.lang.ref.WeakReference
 import kotlin.math.max
 
 class UserResponsibilityVC(context: Context) : WViewController(context) {
+    override val TAG = "UserResponsibility"
 
     override val shouldDisplayTopBar = false
     override val shouldDisplayBottomBar = true

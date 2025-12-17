@@ -12,6 +12,7 @@ import android.widget.PopupWindow
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
+import org.mytonwallet.app_air.uicomponents.widgets.IPopup
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
@@ -29,7 +30,7 @@ class WPopupWindow(
     if (popupWidth == WRAP_CONTENT) WRAP_CONTENT else popupWidth + 8.dp,
     WRAP_CONTENT,
     true
-) {
+), IPopup {
 
     private val containerLayout = object : FrameLayout(initialPopupView.context), WThemedView {
         init {

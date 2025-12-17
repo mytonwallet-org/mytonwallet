@@ -1,0 +1,9 @@
+· Integrated Wallet Explorer · View any wallet instantly, share my.tt links that open directly in the built-in viewer, and add viewed addresses to your Wallet Gallery.
+
+· Swipe-to-Switch · Switch between wallets with a single gesture in MyTonWallet Air.
+
+· Blockchain Addresses on Wallet Cards · See the last characters of each address—including multichain wallets.
+
+· Telegram Domains Support · Link .t.me domains, plus exclusive support for Gram (.gram) and VIP (.vip) domains.
+
+· Other Improvements · New Liquid Glass buttons and Wallet Gallery support in MyTonWallet Air, along with enhanced app connections.

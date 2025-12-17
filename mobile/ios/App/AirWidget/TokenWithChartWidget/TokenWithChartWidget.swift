@@ -58,6 +58,7 @@ struct TokenWithChartWidgetView: View {
         .containerBackground(for: .widget) {
             background
         }
+        .widgetURL(entry.token.internalDeeplinkUrl)
     }
     
     @ViewBuilder

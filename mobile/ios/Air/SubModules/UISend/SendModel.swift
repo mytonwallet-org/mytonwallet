@@ -157,7 +157,7 @@ private let log = Log("SendModel")
                 let (accountBalance, tokenSlug) = v
                 guard let self else { return }
                 let token = TokenStore.tokens[tokenSlug]
-                guard let token, let toAddressDraft else {
+                guard token != nil, toAddressDraft != nil else {
                     maxToSend = accountBalance
                     return
                 }
@@ -184,7 +184,7 @@ private let log = Log("SendModel")
     
     private func updateFee() {
         let token = TokenStore.tokens[tokenSlug]
-        guard let token, let toAddressDraft else {
+        guard let token, toAddressDraft != nil else {
             return
         }
         let isNative = token.isNative
@@ -318,9 +318,6 @@ private let log = Log("SendModel")
                 if !possibleChains.isEmpty {
                     self.addressOrDomain = address
                 }
-
-            @unknown default:
-                break
             }
             
         })
@@ -367,8 +364,8 @@ private let log = Log("SendModel")
             return
         }
         self.amount = maxToSend
-        self.amountInBaseCurrency = if let token, let baseCurrency = TokenStore.baseCurrency {
-            convertAmount(maxToSend, price: token.price ?? 0, tokenDecimals: token.decimals, baseCurrencyDecimals: baseCurrency.decimalsCount)
+        self.amountInBaseCurrency = if let token {
+            convertAmount(maxToSend, price: token.price ?? 0, tokenDecimals: token.decimals, baseCurrencyDecimals: TokenStore.baseCurrency.decimalsCount)
         } else {
             0
         }
@@ -392,15 +389,15 @@ private let log = Log("SendModel")
     
     func onSaveToFavorites() {
         showToast?(nil, "Not implemented")
-        UINotificationFeedbackGenerator().notificationOccurred(.error)
+        Haptics.play(.error)
     }
     
     // MARK: -
     
     func updateBaseCurrencyAmount(_ amount: BigInt?) {
         guard let amount else { return }
-        self.amountInBaseCurrency = if let token, let baseCurrency = TokenStore.baseCurrency {
-            convertAmount(amount, price: token.price ?? 0, tokenDecimals: token.decimals, baseCurrencyDecimals: baseCurrency.decimalsCount)
+        self.amountInBaseCurrency = if let token {
+            convertAmount(amount, price: token.price ?? 0, tokenDecimals: token.decimals, baseCurrencyDecimals: TokenStore.baseCurrency.decimalsCount)
         } else {
             0
         }
@@ -410,7 +407,7 @@ private let log = Log("SendModel")
     func updateAmountFromBaseCurrency(_ baseCurrency: BigInt) {
         guard let token else { return }
         let price = token.price ?? 0
-        let baseCurrencyDecimals = TokenStore.baseCurrency?.decimalsCount ?? 2
+        let baseCurrencyDecimals = TokenStore.baseCurrency.decimalsCount
         if price > 0 {
             self.amount = convertAmountReverse(baseCurrency, price: price, tokenDecimals: token.decimals, baseCurrencyDecimals: baseCurrencyDecimals)
         } else {
@@ -434,9 +431,6 @@ private let log = Log("SendModel")
     }
     
     func _prepareCommentOptions() -> AnyTransferPayload? {
-        let isBase64Data: Bool?
-        let comment: String?
-        let shouldEncrypt: Bool?
         if let binaryPayload = self.binaryPayload?.nilIfEmpty {
             return .base64(data: binaryPayload)
         } else if let _comment = self.comment.nilIfEmpty {
@@ -466,7 +460,6 @@ private let log = Log("SendModel")
             return nil
         }
         let accountId = AccountStore.accountId!
-        let draft = draftData.transactionDraft
         return ApiSubmitTransferOptions(
             accountId: accountId,
             toAddress: addressOrDomain,

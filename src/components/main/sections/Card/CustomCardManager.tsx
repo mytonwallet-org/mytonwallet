@@ -13,9 +13,10 @@ interface OwnProps {
   nft?: ApiNft;
   onCardChange: (hasGradient: boolean, className?: string) => void;
   className?: string;
+  shadowClassName?: string;
 }
 
-function CustomCardManager({ isSticky, nft, onCardChange, className }: OwnProps) {
+function CustomCardManager({ isSticky, nft, onCardChange, className, shadowClassName }: OwnProps) {
   const prevNftRef = useRef<ApiNft | undefined>(undefined);
   const forceUpdate = useForceUpdate();
 
@@ -50,6 +51,7 @@ function CustomCardManager({ isSticky, nft, onCardChange, className }: OwnProps)
           shouldHide={!nft}
           onTransitionEnd={handleTransitionEnd}
           className={className}
+          shadowClassName={shadowClassName}
         />
       )}
       {nft && (
@@ -61,6 +63,7 @@ function CustomCardManager({ isSticky, nft, onCardChange, className }: OwnProps)
           onLoad={onCardChange}
           onTransitionEnd={handleTransitionEnd}
           className={className}
+          shadowClassName={shadowClassName}
         />
       )}
     </div>

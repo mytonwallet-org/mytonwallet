@@ -20,7 +20,8 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 
-// TODO: There are few screens using this class instead of WRecyclerViewAdapter, let's unify them :)
+// TODO: There is TonConnectRequestSendVC.kt screen using this class for CustomListAdapter.ItemClickListener
+//  instead of using WRecyclerViewAdapter, let's unify it :)
 @Deprecated(
     message = "Use WRecyclerViewAdapter instead of CustomListAdapter",
     replaceWith = ReplaceWith("WRecyclerViewAdapter")

@@ -1,6 +1,7 @@
 
 import UIKit
 import SwiftUI
+import Perception
 
 public struct StackedContent<Content1: View, Content2: View>: View {
     
@@ -9,7 +10,7 @@ public struct StackedContent<Content1: View, Content2: View>: View {
     private var content1: Content1
     private var content2: Content2
     
-    @EnvironmentObject private var menuContext: MenuContext
+    @Environment(MenuContext.self) var menuContext
     
     @State private var rootWidth: CGFloat = 200
     
@@ -22,27 +23,29 @@ public struct StackedContent<Content1: View, Content2: View>: View {
     }
     
     public var body: some View {
-        ZStack(alignment: .top) {
-            content1
-                .backportGeometryGroup()
-                .offset(x: menuContext.submenuId == "0" ? 0 : -40)
-                .opacity(isSubmenuVisible("0") ? 1 : 0)
-                .onPreferenceChange(HasScrollPreference.self) { rootHasScroll = $0 }
-            
-            content2
-                .backportGeometryGroup()
-                .offset(x: menuContext.submenuId == "1" ? 0 : rootWidth + 25)
-                .shadow(color: .black.opacity(0.2), radius: 16)
-                .opacity(isSubmenuVisible("1") ? 1 : 0)
-                .onPreferenceChange(HasScrollPreference.self) { detailHasScroll = $0 }
-        }
-        .onPreferenceChange(SizePreference.self) { sizes in
-            if let width = sizes["0"]?.width, width > 0, width > rootWidth {
-                rootWidth = width
+        WithPerceptionTracking {
+            ZStack(alignment: .top) {
+                content1
+                    .backportGeometryGroup()
+                    .offset(x: menuContext.submenuId == "0" ? 0 : -40)
+                    .opacity(isSubmenuVisible("0") ? 1 : 0)
+                    .onPreferenceChange(HasScrollPreference.self) { rootHasScroll = $0 }
+                
+                content2
+                    .backportGeometryGroup()
+                    .offset(x: menuContext.submenuId == "1" ? 0 : rootWidth + 25)
+                    .shadow(color: .black.opacity(0.2), radius: 16)
+                    .opacity(isSubmenuVisible("1") ? 1 : 0)
+                    .onPreferenceChange(HasScrollPreference.self) { detailHasScroll = $0 }
             }
+            .onPreferenceChange(SizePreference.self) { sizes in
+                if let width = sizes["0"]?.width, width > 0, width > rootWidth {
+                    rootWidth = width
+                }
+            }
+            .preference(key: HasScrollPreference.self, value: menuContext.submenuId == "1" ? detailHasScroll : rootHasScroll)
+            .compositingGroup()
         }
-        .preference(key: HasScrollPreference.self, value: menuContext.submenuId == "1" ? detailHasScroll : rootHasScroll)
-        .compositingGroup()
     }
     
     func isSubmenuVisible(_ id: String) -> Bool {

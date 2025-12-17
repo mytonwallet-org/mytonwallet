@@ -7,6 +7,7 @@ import type { UserToken } from '../../global/types';
 
 import buildClassName from '../../util/buildClassName';
 import { getShortCurrencySymbol } from '../../util/formatNumber';
+import { DEFAULT_CARD_ADDRESS } from './constants';
 
 import { useDeviceScreen } from '../../hooks/useDeviceScreen';
 import useLastCallback from '../../hooks/useLastCallback';
@@ -54,7 +55,7 @@ function NftCardItem({
   }, [primaryFractionPart, primaryValue, primaryWholePart, shortBaseSymbol, updateFontScale, screenWidthDep]);
 
   const handleClick = useLastCallback(() => {
-    onClick(card?.address || 'default');
+    onClick(card?.address ?? DEFAULT_CARD_ADDRESS);
   });
 
   const handleCardChange = useLastCallback((hasGradient: boolean, className?: string) => {
@@ -73,7 +74,12 @@ function NftCardItem({
       tabIndex={0}
     >
       <div className={buildClassName(styles.card, customCardClassName, 'rounded-font')}>
-        <CustomCardManager nft={card} onCardChange={handleCardChange} className={styles.customCardManager} />
+        <CustomCardManager
+          nft={card}
+          onCardChange={handleCardChange}
+          className={styles.customCardManager}
+          shadowClassName={styles.customCardShadow}
+        />
         <div className={buildClassName(styles.cardContent, customCardClassName)}>
           <div
             ref={balanceRef}

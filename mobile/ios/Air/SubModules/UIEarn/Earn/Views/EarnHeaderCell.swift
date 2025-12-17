@@ -44,13 +44,20 @@ class EarnHeaderCell: UITableViewCell, WThemedView {
         return v
     }()
     
+    private lazy var currentlyStakedLabel = {
+        let lbl = UILabel()
+        lbl.font = .systemFont(ofSize: 15)
+        lbl.textAlignment = .center
+        lbl.text = lang("Currently Staked")
+        return lbl
+    }()
+    
     private lazy var yourBalanceHintLabel = {
         let lbl = UILabel()
-        lbl.text = lang("Your staking balance")
         lbl.font = .systemFont(ofSize: 16)
         lbl.numberOfLines = 0
         lbl.textAlignment = .center
-        lbl.text = lang("Your staking balance") + "\n"
+        lbl.text = "\n"
         return lbl
     }()
     
@@ -58,6 +65,7 @@ class EarnHeaderCell: UITableViewCell, WThemedView {
         let btn = WButton(style: .primary)
         btn.setTitle(lang("Add Stake"), for: .normal)
         btn.addTarget(self, action: #selector(addStakePressed), for: .touchUpInside)
+        btn.isEnabled = AccountStore.account?.supportsEarn == true
         return btn
     }()
     
@@ -65,6 +73,7 @@ class EarnHeaderCell: UITableViewCell, WThemedView {
         let btn = WButton(style: .secondary)
         btn.setTitle(lang("Unstake"), for: .normal)
         btn.addTarget(self, action: #selector(unstakePressed), for: .touchUpInside)
+        btn.isEnabled = AccountStore.account?.supportsEarn == true
         return btn
     }()
     
@@ -93,8 +102,9 @@ class EarnHeaderCell: UITableViewCell, WThemedView {
         v.axis = .vertical
         amountContainer.addContent(amountView)
         v.addArrangedSubview(amountContainer, spacing: 16)
+        v.addArrangedSubview(currentlyStakedLabel, spacing: 16)
         v.addArrangedSubview(yourBalanceHintLabel, spacing: 9)
-        v.addArrangedSubview(actionsStackView, margin: .init(top: 14, left: 16, bottom: 16, right: 16))
+        v.addArrangedSubview(actionsStackView, margin: .init(top: 4, left: 16, bottom: 16, right: 16))
         let actionsWidthAnchor = actionsStackView.widthAnchor.constraint(equalToConstant: 500)
         actionsWidthAnchor.priority = .defaultHigh
         NSLayoutConstraint.activate([
@@ -146,6 +156,7 @@ class EarnHeaderCell: UITableViewCell, WThemedView {
     }
 
     public func updateTheme() {
+        currentlyStakedLabel.textColor = WTheme.secondaryLabel
         yourBalanceHintLabel.textColor = WTheme.secondaryLabel
         bottomCornersViewContainer.backgroundColor = WTheme.groupedItem
         bottomCornersView.backgroundColor = WTheme.sheetBackground
@@ -174,13 +185,15 @@ class EarnHeaderCell: UITableViewCell, WThemedView {
         let token = config.baseToken
         if config.stakingState != nil {
             let stakingBalance = config.fullStakingBalance ?? 0
-            amountLabel.attributedText = TokenAmount(stakingBalance, token).formatAttributed(
-                format: .init(maxDecimals: 4),
+            let tokenAmount = TokenAmount(stakingBalance, token)
+            let isLargeAmount = abs(tokenAmount.doubleValue) >= 10
+            amountLabel.attributedText = tokenAmount.formatAttributed(
+                format: .init(maxDecimals: tokenAmount.defaultDisplayDecimals),
                 integerFont: .rounded(ofSize: 48, weight: .bold),
                 fractionFont: .rounded(ofSize: 32, weight: .bold),
                 symbolFont: .rounded(ofSize: 32, weight: .bold),
                 integerColor: WTheme.primaryLabel,
-                fractionColor: WTheme.primaryLabel,
+                fractionColor: isLargeAmount ? WTheme.secondaryLabel : WTheme.primaryLabel,
                 symbolColor: WTheme.secondaryLabel
             )
             unstakeButton.isHidden = stakingBalance == 0
@@ -195,11 +208,11 @@ class EarnHeaderCell: UITableViewCell, WThemedView {
                     }
                 } else {
                     timer?.invalidate()
-                    yourBalanceHintLabel.text = lang("Your staking balance") + "\n"
+                    yourBalanceHintLabel.text = "\n"
                 }
             } else {
                 timer?.invalidate()
-                yourBalanceHintLabel.text = lang("Your staking balance") + "\n"
+                yourBalanceHintLabel.text = "\n"
             }
             self.earnVC = delegate
             if stackView.alpha == 0 {

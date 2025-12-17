@@ -44,6 +44,7 @@ import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftOptions
+import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferOptions
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapBuildRequest
@@ -761,11 +762,10 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
     private suspend fun callEstimate(request: SwapEstimateRequest): SwapEstimateResponse {
         try {
             if (request.isCex) {
-                val firstTransactionFee: BigInteger
-                val balance = request.wallet.balances[request.tokenToSend.slug] ?: BigInteger.ZERO
+                var firstTransactionFee: BigInteger
                 val needEstFee = request.wallet.isSupportedChain(request.tokenToSend.mBlockchain)
 
-                if (needEstFee && balance > BigInteger.ZERO) {
+                if (needEstFee) { // Must call even when balance is 0 for proper fee estimation
                     val estFeeAddress = when (request.tokenToSend.mBlockchain) {
                         MBlockchain.ton -> request.wallet.tonAddress
                         MBlockchain.tron -> "TW2LXSebZ7Br1zHaiA2W1zRojDkDwjGmpw"    // random address for estimate
@@ -773,18 +773,31 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                     }
 
                     val estAmount = BigInteger.ONE
-                    firstTransactionFee = WalletCore.Transfer.checkTransactionDraft(
-                        request.tokenToSend.mBlockchain!!,
-                        MApiCheckTransactionDraftOptions(
-                            accountId = request.wallet.accountId,
-                            toAddress = estFeeAddress,
-                            amount = estAmount,
-                            stateInit = null,
-                            tokenAddress = if (!request.tokenToSend.isBlockchainNative) request.tokenToSend.tokenAddress else null,
-                            payload = null,
-                            allowGasless = null
-                        )
-                    ).fee!!
+                    try {
+                        firstTransactionFee = WalletCore.Transfer.checkTransactionDraft(
+                            request.tokenToSend.mBlockchain!!,
+                            MApiCheckTransactionDraftOptions(
+                                accountId = request.wallet.accountId,
+                                toAddress = estFeeAddress,
+                                amount = estAmount,
+                                stateInit = null,
+                                tokenAddress = if (!request.tokenToSend.isBlockchainNative) request.tokenToSend.tokenAddress else null,
+                                payload = null,
+                                allowGasless = null
+                            )
+                        ).fee!!
+                    } catch (apiError: JSWebViewBridge.ApiError) {
+                        if (apiError.parsed == MBridgeError.INSUFFICIENT_BALANCE &&
+                            apiError.parsedResult is MApiCheckTransactionDraftResult
+                        ) {
+                            firstTransactionFee =
+                                (apiError.parsedResult!! as MApiCheckTransactionDraftResult).fee
+                                ?: BigInteger.ZERO
+                        }
+                        else {
+                            throw apiError
+                        }
+                    }
                 } else {
                     firstTransactionFee = BigInteger.ZERO
                 }

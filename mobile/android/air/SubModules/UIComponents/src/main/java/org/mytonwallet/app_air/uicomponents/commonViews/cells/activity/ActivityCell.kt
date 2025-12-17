@@ -12,9 +12,11 @@ import androidx.core.view.isVisible
 import org.mytonwallet.app_air.uicomponents.adapter.BaseListHolder
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.Item
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.SpannableHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
@@ -58,7 +60,7 @@ class ActivityCell(val parentView: View, val withoutTagAndComment: Boolean) :
 
         addView(dateView, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         addView(mainContentView, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        addView(separator, LayoutParams(0, 1))
+        addView(separator, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
 
         setConstraints {
             toTop(dateView)
@@ -66,7 +68,7 @@ class ActivityCell(val parentView: View, val withoutTagAndComment: Boolean) :
             topToBottom(mainContentView, dateView)
             toBottom(mainContentView)
             toBottom(separator)
-            toStart(separator, 76f)
+            toStart(separator, 72f)
             toEnd(separator, 16f)
         }
 
@@ -75,6 +77,7 @@ class ActivityCell(val parentView: View, val withoutTagAndComment: Boolean) :
 
     fun configure(
         transaction: MApiTransaction,
+        accountId: String,
         isFirst: Boolean,
         isFirstInDay: Boolean,
         isLastInDay: Boolean,
@@ -87,7 +90,7 @@ class ActivityCell(val parentView: View, val withoutTagAndComment: Boolean) :
         dateView.visibility = if (isFirstInDay) VISIBLE else GONE
         if (isFirstInDay) dateView.configure(transaction.dt, isFirst)
 
-        mainContentView.configure(transaction)
+        mainContentView.configure(transaction, accountId)
 
         if (!withoutTagAndComment) {
             configureTags(transaction)
@@ -170,9 +173,8 @@ class ActivityCell(val parentView: View, val withoutTagAndComment: Boolean) :
         updateCommentConstraints(txn.isIncoming)
     }
 
-    private fun createCommentView(): FrameLayout {
-        val container = FrameLayout(context).apply {
-            id = generateViewId()
+    private fun createCommentView(): WFrameLayout {
+        val container = WFrameLayout(context).apply {
             minimumHeight = 36.dp
             addView(commentLabel, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         }
@@ -222,7 +224,7 @@ class ActivityCell(val parentView: View, val withoutTagAndComment: Boolean) :
             widthMeasureSpec,
             if (withoutTagAndComment) {
                 val height = if (dateView.isVisible) 112.dp else 64.dp
-                MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY)
+                height.exactly
             } else {
                 heightMeasureSpec
             }
@@ -242,6 +244,7 @@ class ActivityCell(val parentView: View, val withoutTagAndComment: Boolean) :
         override fun onBind(item: Item.Activity) {
             view.configure(
                 transaction = item.activity,
+                accountId = item.accountId,
                 isFirst = item.isFirst,
                 isFirstInDay = false,
                 isLastInDay = item.isLast,

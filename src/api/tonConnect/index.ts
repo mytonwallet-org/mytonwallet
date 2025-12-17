@@ -578,7 +578,7 @@ function prepareTransactionForRequest(
         displayedToAddress: getTransferActualToAddress(toAddress, payload),
         networkFee: emulation.isFallback
           ? bigintDivideToNumber(emulation.networkFee, messages.length)
-          : emulation.byTransactionIndex[index]?.networkFee ?? 0n,
+          : emulation.traceOutputs[index]?.networkFee ?? 0n,
       };
     },
   ));

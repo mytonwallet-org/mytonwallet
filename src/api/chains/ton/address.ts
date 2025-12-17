@@ -1,8 +1,9 @@
 import { Address } from '@ton/core';
 
 import type { ApiNetwork } from '../../types';
+import { ApiCommonError } from '../../types';
 
-import { getDnsDomainZone, isDnsDomain } from '../../../util/dns';
+import { getDnsDomainZone, isTonChainDns } from '../../../util/dns';
 import { dnsResolve } from './util/dns';
 import { getTonClient, toBase64Address } from './util/tonCore';
 import { getKnownAddressInfo } from '../../common/addresses';
@@ -14,14 +15,14 @@ export async function resolveAddress(network: ApiNetwork, address: string, skipF
   name?: string;
   isMemoRequired?: boolean;
   isScam?: boolean;
-} | 'dnsNotResolved' | 'invalidAddress'> {
-  const isDomain = isDnsDomain(address);
+} | { error: ApiCommonError }> {
+  const isDomain = isTonChainDns(address);
   let domain: string | undefined;
 
   if (isDomain) {
     const resolvedAddress = await resolveAddressByDomain(network, address);
     if (!resolvedAddress) {
-      return 'dnsNotResolved';
+      return { error: ApiCommonError.DomainNotResolved };
     }
 
     domain = address;
@@ -35,9 +36,9 @@ export async function resolveAddress(network: ApiNetwork, address: string, skipF
 
   let normalizedAddress: string;
   try {
-    normalizedAddress = normalizeAddress(address, network);
+    normalizedAddress = normalizeAddress(network, address);
   } catch {
-    return 'invalidAddress';
+    return { error: ApiCommonError.InvalidAddress };
   }
   const known = getKnownAddressInfo(normalizedAddress);
 
@@ -52,7 +53,7 @@ export async function resolveAddress(network: ApiNetwork, address: string, skipF
   return { address, name: domain };
 }
 
-async function resolveAddressByDomain(network: ApiNetwork, domain: string) {
+export async function resolveAddressByDomain(network: ApiNetwork, domain: string) {
   try {
     const zoneMatch = getDnsDomainZone(domain);
     if (!zoneMatch) {
@@ -79,6 +80,6 @@ async function resolveAddressByDomain(network: ApiNetwork, domain: string) {
   }
 }
 
-export function normalizeAddress(address: string, network: ApiNetwork) {
+export function normalizeAddress(network: ApiNetwork, address: string) {
   return toBase64Address(address, true, network);
 }

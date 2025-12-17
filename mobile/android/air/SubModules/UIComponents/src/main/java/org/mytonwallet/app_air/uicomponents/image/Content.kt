@@ -43,21 +43,22 @@ data class Content(
     companion object {
         fun of(token: IApiToken, alwaysShowChain: Boolean = false): Content {
             val resId = token.mBlockchain?.icon ?: 0
+            val showChainBadge = alwaysShowChain && !token.isBlockchainNative
 
             if (token.isUsdt) {
                 return Content(
                     image = Image.Res(R.drawable.ic_coin_usdt_40),
-                    subImageRes = resId,
+                    subImageRes = if (showChainBadge) resId else 0,
                 )
             } else if (resId != 0 && token.isBlockchainNative) {
                 return Content(
                     image = Image.Res(resId),
-                    subImageRes = if (alwaysShowChain) resId else 0,
+                    subImageRes = 0,
                 )
             } else {
                 return Content(
                     image = Image.Url(token.image ?: ""),
-                    subImageRes = resId,
+                    subImageRes = if (showChainBadge) resId else 0,
                 )
             }
         }
@@ -90,8 +91,8 @@ data class Content(
 
             val finalSubImageRes = when {
                 showPercentBadge -> R.drawable.ic_percent
-                showChainConfig != SHOW_CHAIN_NEVER && token.isUsdt -> chainIconRes
-                else -> subImageRes
+                showChainConfig == SHOW_CHAIN_ALWAYS && !token.isBlockchainNative -> chainIconRes
+                else -> 0
             }
 
             return Content(

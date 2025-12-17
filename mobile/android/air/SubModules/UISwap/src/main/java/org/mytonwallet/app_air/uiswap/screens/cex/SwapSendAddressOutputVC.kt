@@ -56,6 +56,7 @@ class SwapSendAddressOutputVC(
     payinAddress: String,
     transactionId: String
 ) : WViewControllerWithModelStore(context) {
+    override val TAG = "SwapSendAddressOutput"
 
     override val shouldDisplayTopBar = true
     override val shouldDisplayBottomBar = true

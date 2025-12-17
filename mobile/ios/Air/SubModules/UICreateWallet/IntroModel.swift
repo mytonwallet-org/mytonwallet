@@ -22,13 +22,7 @@ private let log = Log("IntroActions")
     private var password: String?
     private var words: [String]?
     
-    var allowOpenWithoutChecking: Bool {
-#if DEBUG
-        return true
-#else
-        return Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt"
-#endif
-    }
+    let allowOpenWithoutChecking: Bool = IS_DEBUG_OR_TESTFLIGHT
     
     public init(password: String?, words: [String]? = nil) {
         self.password = password
@@ -157,6 +151,7 @@ private let log = Log("IntroActions")
         Task { @MainActor in
             if WalletContextManager.delegate?.isWalletReady == true {
                 topWViewController()?.dismiss(animated: true)
+                AppActions.showHome(popToRoot: true)
             } else {
                 let homeVC = HomeTabBarController()
                 AppActions.transitionToNewRootViewController(homeVC, animationDuration: 0.35)
@@ -169,7 +164,7 @@ private let log = Log("IntroActions")
     private func _createWallet(passcode: String, biometricsEnabled: Bool?) {
         Task { @MainActor in
             do {
-                _ = try await AccountStore.createWallet(network: .mainnet, words: words.orThrow(), passcode: passcode, version: nil)
+                _ = try await AccountStore.importMnemonic(network: .mainnet, words: words.orThrow(), passcode: passcode, version: nil)
                 KeychainHelper.save(biometricPasscode: passcode)
                 if let biometricsEnabled { // nil if not first wallet
                     AppStorageHelper.save(isBiometricActivated: biometricsEnabled)

@@ -11,6 +11,14 @@
   &:global(.open) {
     transform: translateY(0);
   }
+
+  &.bottom {
+    transform: translateY(0.375rem);
+
+    &:global(.open) {
+      transform: translateY(0);
+    }
+  }
 }
 
 .tooltip {

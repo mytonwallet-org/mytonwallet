@@ -54,6 +54,8 @@ import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 class IntroVC(
     context: Context,
 ) : WViewController(context), IntroVM.Delegate {
+    override val TAG = "Intro"
+
     private val introVM by lazy {
         IntroVM(this)
     }

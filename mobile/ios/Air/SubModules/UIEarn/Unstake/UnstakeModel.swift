@@ -39,7 +39,7 @@ final class UnstakeModel: ObservableObject, WalletCoreData.EventsObserver {
     @Published var stakingState: ApiStakingState
     @Published var nativeBalance: BigInt = 0
     @Published var stakedTokenBalance: BigInt = 0
-    var baseCurrency: MBaseCurrency { TokenStore.baseCurrency ?? .USD }
+    var baseCurrency: MBaseCurrency { TokenStore.baseCurrency }
     
     public func walletCore(event: WalletCoreData.Event) {
         switch event {
@@ -131,17 +131,13 @@ final class UnstakeModel: ObservableObject, WalletCoreData.EventsObserver {
     func updateBaseCurrencyAmount(_ amount: BigInt?) {
         guard let amount else { return }
         let price = config.baseToken.price ?? 0
-        self.amountInBaseCurrency = if let baseCurrency = TokenStore.baseCurrency {
-            convertAmount(amount, price: price, tokenDecimals: baseToken.decimals, baseCurrencyDecimals: baseCurrency.decimalsCount)
-        } else {
-            0
-        }
+        self.amountInBaseCurrency = convertAmount(amount, price: price, tokenDecimals: baseToken.decimals, baseCurrencyDecimals: TokenStore.baseCurrency.decimalsCount)
         onAmountChanged?(amount)
     }
     
     func updateAmountFromBaseCurrency(_ baseCurrency: BigInt) {
         let price = config.baseToken.price ?? 0
-        let baseCurrencyDecimals = TokenStore.baseCurrency?.decimalsCount ?? 2
+        let baseCurrencyDecimals = TokenStore.baseCurrency.decimalsCount
         if price > 0 {
             self.amount = convertAmountReverse(baseCurrency, price: price, tokenDecimals: baseToken.decimals, baseCurrencyDecimals: baseCurrencyDecimals)
         } else {

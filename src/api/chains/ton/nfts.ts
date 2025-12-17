@@ -10,6 +10,7 @@ import {
   NOTCOIN_EXCHANGERS,
   NOTCOIN_FORWARD_TON_AMOUNT,
   NOTCOIN_VOUCHERS_ADDRESS,
+  TELEGRAM_GIFTS_SUPER_COLLECTION,
 } from '../../../config';
 import { parseAccountId } from '../../../util/account';
 import { bigintMultiplyToNumber } from '../../../util/bigint';
@@ -40,6 +41,9 @@ export async function getAccountNfts(accountId: string, options?: {
   const { network } = parseAccountId(accountId);
   const { address } = await fetchStoredWallet(accountId, 'ton');
   const nftSuperCollectionsByCollectionAddress = await getNftSuperCollectionsByCollectionAddress();
+
+  // We skip the request, since the super collection is an abstraction, and the TON address for the TonAPI is not valid.
+  if (options?.collectionAddress === TELEGRAM_GIFTS_SUPER_COLLECTION) return [];
 
   const rawNfts = await fetchAccountNfts(network, address, options);
   return compact(rawNfts.map((rawNft) => parseTonapiioNft(network, rawNft, nftSuperCollectionsByCollectionAddress)));

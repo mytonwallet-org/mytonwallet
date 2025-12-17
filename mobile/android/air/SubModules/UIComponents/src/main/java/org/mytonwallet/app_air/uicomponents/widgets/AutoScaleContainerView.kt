@@ -52,6 +52,8 @@ class AutoScaleContainerView(
         val child = contentView
         val contentWidth = child.width + additionalRightPadding
         val visibleWidth = maxAllowedWidth - minPadding * 2
+        if (visibleWidth <= 0)
+            return
 
         if (contentWidth > visibleWidth) {
             contentView.pivotX = contentView.width / 2f + additionalRightPadding / 2

@@ -48,6 +48,7 @@ dependencies {
     implementation(libs.lottie)
     implementation(project("$airSubModulePath:UIComponents"))
     implementation(project("$airSubModulePath:UIPasscode"))
+    implementation(project("$airSubModulePath:UISettings"))
     implementation(project("$airSubModulePath:OverScroll"))
     implementation(project("$airSubModulePath:WalletCore"))
     implementation(project("$airSubModulePath:WalletContext"))

@@ -2,21 +2,27 @@ package org.mytonwallet.app_air.uicomponents.commonViews
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.toColorInt
 import androidx.core.view.get
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.sp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
@@ -26,10 +32,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletcore.MAIN_NETWORK
-import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
-import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
@@ -37,7 +40,6 @@ class HeaderActionsView(
     context: Context,
     var tabs: List<Item>,
     var onClick: ((Identifier) -> Unit)?,
-    var bottomPadding: Int = 0
 ) : WCell(context), WThemedView {
 
     private var actionViews = HashMap<Identifier, View>()
@@ -46,10 +48,16 @@ class HeaderActionsView(
     private var itemViews = ArrayList<WView>()
 
     init {
-        layoutParams = LayoutParams(MATCH_PARENT, 80.dp).apply {
+        layoutParams = LayoutParams(MATCH_PARENT, HEIGHT.dp).apply {
             insetsUpdated()
         }
         layoutDirection = LAYOUT_DIRECTION_LTR
+        clipChildren = false
+        clipToPadding = false
+    }
+
+    override fun setupViews() {
+        super.setupViews()
 
         configureViews()
     }
@@ -65,26 +73,38 @@ class HeaderActionsView(
         itemViews.clear()
         fun itemGenerator(item: Item): WView {
             val tabView = WView(context)
-            tabView.setPadding(0, 4.dp, 2.dp, bottomPadding)
-            val iconView = AppCompatImageView(context)
-            iconView.id = generateViewId()
+            tabView.clipChildren = false
+            tabView.clipToPadding = false
+
+            val iconContainer = WFrameLayout(context).apply {
+                pivotX = ICON_SIZE.dp / 2f
+                pivotY = ICON_SIZE.dp.toFloat()
+            }
+            val iconView = AppCompatImageView(context).apply {
+                scaleType = ImageView.ScaleType.FIT_CENTER
+            }
             iconView.setImageDrawable(item.icon)
-            tabView.addView(iconView, 0, 0)
+            iconContainer.addView(
+                iconView,
+                FrameLayout.LayoutParams(ICON_INNER_SIZE.dp, ICON_INNER_SIZE.dp, Gravity.CENTER)
+            )
+
+            tabView.addView(iconContainer, LayoutParams(ICON_SIZE.dp, ICON_SIZE.dp))
+
             val label = WLabel(context).apply {
                 gravity = Gravity.CENTER
                 setSingleLine()
-                setStyle(15f, WFont.SemiBold)
+                setStyle(13f, WFont.Regular)
                 text = item.title
             }
 
-            tabView.addView(label, LayoutParams(MATCH_PARENT, 24.dp))
+            tabView.addView(label, LayoutParams(MATCH_PARENT, 20.dp))
             tabView.setConstraints {
                 toCenterX(label)
                 toBottom(label)
-                toTop(iconView)
-                toStart(iconView)
-                toEnd(iconView)
-                bottomToTop(iconView, label, 4f)
+                toTop(iconContainer, 14f)
+                toCenterX(iconContainer)
+                bottomToTop(iconContainer, label, 12f)
             }
             return tabView
         }
@@ -136,11 +156,9 @@ class HeaderActionsView(
             }
         }
 
+        insetsUpdated()
         updateTheme()
     }
-
-    // px60 refers to the action menu items height
-    private val px60 = 60.dp
 
     data class Item(
         val identifier: Identifier,
@@ -159,34 +177,102 @@ class HeaderActionsView(
         SCROLL_TO_TOP,
         DETAILS,
         REPEAT,
-        SHARE
+        SHARE,
+        WALLET_SETTINGS,
+        BACK,
     }
 
     fun insetsUpdated() {
+        val extraPadding = when (itemViews.size) {
+            2 -> 48f
+            3 -> 32f
+            4 -> 20f
+            else -> 0f
+        }
         setPadding(
-            (17.5f - ViewConstants.HORIZONTAL_PADDINGS).dp.roundToInt(),
+            (17.5f - ViewConstants.HORIZONTAL_PADDINGS + extraPadding).dp.roundToInt(),
             paddingTop,
-            (17.5f - ViewConstants.HORIZONTAL_PADDINGS).dp.roundToInt(),
+            (17.5f - ViewConstants.HORIZONTAL_PADDINGS + extraPadding).dp.roundToInt(),
             paddingBottom
         )
     }
 
     override fun updateTheme() {
+        val iconBackgroundColor =
+            if (ThemeManager.isDark) "#2A2A2E".toColorInt() else "#FCFCFD".toColorInt()
+        val shadowColor =
+            if (ThemeManager.isDark) "#40000000".toColorInt() else "#0F003C5D".toColorInt()
+        val accentColor = WColor.Tint.color
+        val accentShadowColor = (accentColor and 0x00FFFFFF) or 0x60000000
+        val iconColor = WColor.Icon.color
+
         for (itemView in itemViews) {
-            (itemView[0] as ImageView).setColorFilter(WColor.Tint.color)
-            (itemView[1] as WLabel).setTextColor(WColor.Tint.color)
-            itemView.setBackgroundColor(Color.TRANSPARENT)
-            itemView.addRippleEffect(
-                if (ThemeManager.uiMode.hasRoundedCorners) WColor.Background.color else WColor.SecondaryBackground.color,
-                ViewConstants.BIG_RADIUS.dp
-            )
+            val iconContainer = itemView[0] as FrameLayout
+            val iconView = iconContainer.getChildAt(0) as ImageView
+
+            iconContainer.background =
+                CircleShadowDrawable(iconBackgroundColor, shadowColor, accentShadowColor)
+
+            iconView.setColorFilter(iconColor)
+            (itemView[1] as WLabel).setTextColor(iconColor)
         }
+    }
+
+    private class CircleShadowDrawable(
+        private val circleColor: Int,
+        private val normalShadowColor: Int,
+        private val pressedShadowColor: Int
+    ) : Drawable() {
+        private var isPressed = false
+
+        private val circlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.FILL
+            color = circleColor
+        }
+        private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.FILL
+            color = Color.TRANSPARENT
+        }
+
+        override fun draw(canvas: Canvas) {
+            val centerX = bounds.width() / 2f
+            val centerY = bounds.height() / 2f
+            val radius = minOf(bounds.width(), bounds.height()) / 2f
+
+            val shadowColor = if (isPressed) pressedShadowColor else normalShadowColor
+            shadowPaint.setShadowLayer(10f.dp, 0f, 3f.dp, shadowColor)
+            canvas.drawCircle(centerX, centerY, radius, shadowPaint)
+            canvas.drawCircle(centerX, centerY, radius, circlePaint)
+        }
+
+        override fun isStateful(): Boolean = true
+
+        override fun onStateChange(state: IntArray): Boolean {
+            val pressed = state.contains(android.R.attr.state_pressed)
+            if (pressed != isPressed) {
+                isPressed = pressed
+                invalidateSelf()
+                return true
+            }
+            return false
+        }
+
+        override fun setAlpha(alpha: Int) {
+            circlePaint.alpha = alpha
+        }
+
+        override fun setColorFilter(colorFilter: android.graphics.ColorFilter?) {
+            circlePaint.colorFilter = colorFilter
+        }
+
+        @Deprecated("Deprecated in Java")
+        override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
     }
 
     fun updateTextSizes() {
         post {
             val labels = itemViews.map { it[1] as WLabel }
-            var finalSize = 15f
+            var finalSize = 13f
             val minSize = 8f
             val step = 1f
             while (finalSize >= minSize) {
@@ -210,14 +296,13 @@ class HeaderActionsView(
             if (field == value)
                 return
             field = value
-            setPadding(
-                (17 - ViewConstants.HORIZONTAL_PADDINGS).dp,
-                (px60 * (1 - value)).toInt(),
-                (17 - ViewConstants.HORIZONTAL_PADDINGS).dp,
-                16.dp
-            )
             itemViews.forEach {
-                it.alpha = (value - 0.4f) * 5 / 3
+                val alphaValue = (value - 0.4f) * 5 / 3
+                it[0].apply {
+                    scaleX = alphaValue
+                    scaleY = alphaValue
+                }
+                it.alpha = alphaValue
             }
         }
 
@@ -225,11 +310,11 @@ class HeaderActionsView(
         onClick = null
     }
 
-    fun updateActions() {
-        val isMainNet = WalletCore.activeNetwork == MAIN_NETWORK
-        setSendVisibility(AccountStore.activeAccount?.accountType != MAccount.AccountType.VIEW)
+    fun updateActions(account: MAccount?) {
+        val isMainNet = account?.isMainnet == true
+        setSendVisibility(account?.accountType != MAccount.AccountType.VIEW)
         setEarnVisibility(isMainNet)
-        setSwapVisibility(isMainNet && AccountStore.activeAccount?.accountType == MAccount.AccountType.MNEMONIC)
+        setSwapVisibility(isMainNet && account.accountType == MAccount.AccountType.MNEMONIC)
     }
 
     private fun setSendVisibility(visible: Boolean) {
@@ -245,6 +330,10 @@ class HeaderActionsView(
     }
 
     companion object {
+        const val HEIGHT = 94
+        private const val ICON_SIZE = 44
+        private const val ICON_INNER_SIZE = 30
+
         fun headerTabs(context: Context, showEarn: Boolean): List<Item> {
             return mutableListOf<Item>().apply {
                 add(
@@ -252,7 +341,7 @@ class HeaderActionsView(
                         Identifier.RECEIVE,
                         ContextCompat.getDrawable(
                             context,
-                            R.drawable.ic_header_add
+                            R.drawable.ic_header_add_outline
                         )!!,
                         LocaleController.getString("Add / Buy")
                     )
@@ -260,14 +349,14 @@ class HeaderActionsView(
                 add(
                     Item(
                         Identifier.SEND,
-                        ContextCompat.getDrawable(context, R.drawable.ic_header_send)!!,
+                        ContextCompat.getDrawable(context, R.drawable.ic_header_send_outline)!!,
                         LocaleController.getString("Send")
                     )
                 )
                 add(
                     Item(
                         Identifier.SWAP,
-                        ContextCompat.getDrawable(context, R.drawable.ic_header_swap)!!,
+                        ContextCompat.getDrawable(context, R.drawable.ic_header_swap_outline)!!,
                         LocaleController.getString("Swap")
                     )
                 )
@@ -275,7 +364,7 @@ class HeaderActionsView(
                     add(
                         Item(
                             Identifier.EARN,
-                            ContextCompat.getDrawable(context, R.drawable.ic_header_earn)!!,
+                            ContextCompat.getDrawable(context, R.drawable.ic_header_earn_outline)!!,
                             LocaleController.getString("Earn")
                         )
                     )

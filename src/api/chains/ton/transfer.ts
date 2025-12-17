@@ -32,6 +32,7 @@ import { DEFAULT_FEE, DIESEL_ADDRESS, STON_PTON_ADDRESS } from '../../../config'
 import { parseAccountId } from '../../../util/account';
 import { bigintMultiplyToNumber } from '../../../util/bigint';
 import { fromDecimal, toDecimal } from '../../../util/decimals';
+import { getToncoinAmountForTransfer } from '../../../util/fee/getTonOperationFees';
 import { getDieselTokenAmount, isDieselAvailable } from '../../../util/fee/transferFee';
 import { omit, pick, split } from '../../../util/iteratees';
 import { logDebug, logDebugError } from '../../../util/logs';
@@ -68,7 +69,6 @@ import {
   buildTokenTransfer,
   calculateTokenBalanceWithMintless,
   getTokenBalanceWithMintless,
-  getToncoinAmountForTransfer,
 } from './tokens';
 import { getContractInfo, getTonWallet, getWalletBalance, getWalletInfo, getWalletSeqno } from './wallet';
 
@@ -278,27 +278,19 @@ function estimateDiesel(
 }
 
 export async function checkToAddress(network: ApiNetwork, toAddress: string) {
-  const result: {
-    addressName?: string;
-    isScam?: boolean;
-    resolvedAddress?: string;
-    isToAddressNew?: boolean;
-    isBounceable?: boolean;
-    isMemoRequired?: boolean;
-  } = {};
-
   const resolved = await resolveAddress(network, toAddress);
-  if (resolved === 'dnsNotResolved') return { ...result, error: ApiTransactionDraftError.DomainNotResolved };
-  if (resolved === 'invalidAddress') return { ...result, error: ApiTransactionDraftError.InvalidToAddress };
-  result.addressName = resolved.name;
-  result.resolvedAddress = resolved.address;
-  result.isMemoRequired = resolved.isMemoRequired;
-  result.isScam = resolved.isScam;
+  if ('error' in resolved) return resolved;
   toAddress = resolved.address;
 
   const { isUserFriendly, isTestOnly, isBounceable } = parseAddress(toAddress);
 
-  result.isBounceable = isBounceable;
+  const result = {
+    addressName: resolved.name,
+    resolvedAddress: resolved.address,
+    isMemoRequired: resolved.isMemoRequired,
+    isScam: resolved.isScam,
+    isBounceable,
+  };
 
   const regex = /[+=/]/;
   const isUrlSafe = !regex.test(toAddress);
@@ -737,7 +729,10 @@ interface SubmitMultiTransferOptions {
   noFeeCheck?: boolean;
 }
 
-// todo: Support submitting multiple transactions (not only multiple messages). The signing already supports that. It will allow to: 1) send multiple NFTs with a single API call, 2) renew multiple domains in a single function call, 3) simplify the implementation of swapping with Ledger
+// todo: Support submitting multiple transactions (not only multiple messages). The signing already supports that. It will allow to:
+//  1) send multiple NFTs with a single API call,
+//  2) renew multiple domains in a single function call,
+//  3) simplify the implementation of swapping with Ledger
 export async function submitMultiTransfer({
   accountId, password, messages, expireAt, isGasless, noFeeCheck,
 }: SubmitMultiTransferOptions): Promise<ApiSubmitMultiTransferResult> {
@@ -1140,8 +1135,8 @@ function applyFeeFactorToEmulationResult(estimation: ApiEmulationWithFallbackRes
     networkFee: bigintMultiplyToNumber(estimation.networkFee, FEE_FACTOR),
   };
 
-  if ('byTransactionIndex' in estimation) {
-    estimation.byTransactionIndex = estimation.byTransactionIndex.map((transaction) => ({
+  if ('traceOutputs' in estimation) {
+    estimation.traceOutputs = estimation.traceOutputs.map((transaction) => ({
       ...transaction,
       networkFee: bigintMultiplyToNumber(transaction.networkFee, FEE_FACTOR),
     }));

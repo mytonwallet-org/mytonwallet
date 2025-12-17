@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
+import android.os.Message
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -17,7 +18,6 @@ import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.FrameLayout
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat.checkSelfPermission
@@ -30,12 +30,14 @@ import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.extensions.asImage
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uiinappbrowser.helpers.IABDarkModeStyleHelpers
 import org.mytonwallet.app_air.uiinappbrowser.views.InAppBrowserTopBarView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.TonConnectHelper
@@ -56,6 +58,7 @@ class InAppBrowserVC(
     private val tabBarController: WNavigationController.ITabBarController?,
     val config: InAppBrowserConfig
 ) : WViewController(context), WalletCore.EventObserver {
+    override val TAG = "InAppBrowser"
 
     private var lastTitle: String = config.title ?: URL(config.url).host
 
@@ -113,6 +116,7 @@ class InAppBrowserVC(
         wv.id = View.generateViewId()
         wv.settings.javaScriptEnabled = true
         wv.settings.domStorageEnabled = true
+        wv.settings.setSupportMultipleWindows(true)
         wv.setWebViewClient(object : WebViewClient() {
             override fun shouldOverrideUrlLoading(
                 view: WebView,
@@ -191,11 +195,15 @@ class InAppBrowserVC(
                         return true
                     } catch (_: android.content.ActivityNotFoundException) {
                     }
+                } else {
+                    val isValidDeeplink = WalletContextManager.delegate?.handleDeeplink(url)
+                    if (isValidDeeplink == true)
+                        return true
                 }
 
                 if (!url.startsWith("http://") &&
                     !url.startsWith("https://") &&
-                    canHandleExternalUrl(url)
+                    return canHandleExternalUrl(url)
                 ) {
                     val intent = Intent(Intent.ACTION_VIEW)
                     intent.setData(Uri.parse(url))
@@ -208,6 +216,20 @@ class InAppBrowserVC(
         })
         wv.setBackgroundColor(0)
         wv.setWebChromeClient(object : WebChromeClient() {
+            override fun onCreateWindow(
+                view: WebView?,
+                isDialog: Boolean,
+                isUserGesture: Boolean,
+                resultMsg: Message?
+            ): Boolean {
+                val href = view?.handler?.obtainMessage()
+                view?.requestFocusNodeHref(href)
+                href?.data?.getString("url")?.let { url ->
+                    webView.loadUrl(url)
+                }
+                return true
+            }
+
             override fun onPermissionRequest(request: PermissionRequest?) {
                 request?.let {
                     handlePermissionRequest(it)
@@ -253,8 +275,7 @@ class InAppBrowserVC(
         }
     }
 
-    private val webViewContainer = FrameLayout(context).apply {
-        id = View.generateViewId()
+    private val webViewContainer = WFrameLayout(context).apply {
         addView(webView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
     }
 
@@ -321,6 +342,11 @@ class InAppBrowserVC(
         super.insetsUpdated()
         topReversedCornerView?.setHorizontalPadding(0f)
         bottomReversedCornerView?.setHorizontalPadding(0f)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        webView.destroy()
     }
 
     private fun addWebView() {

@@ -14,29 +14,31 @@ public enum BadgeContent {
     case chain(ApiChain)
 }
 
-func badgeContent(slug: String, isStaking: Bool) -> BadgeContent? {
-    if slug == TONCOIN_SLUG, let apy = BalanceStore.currentAccountStakingData?.tonState?.apy {
-        let hasBalance = BalanceStore.currentAccountBalances[STAKED_TON_SLUG] ?? 0 > 0
+func badgeContent(accountId: String, slug: String, isStaking: Bool) -> BadgeContent? {
+    lazy var stakingData = StakingStore.byId(accountId)
+    lazy var balances = BalanceStore.getAccountBalances(accountId: accountId)
+    if slug == TONCOIN_SLUG, let apy = stakingData?.tonState?.apy {
+        let hasBalance = balances[STAKED_TON_SLUG] ?? 0 > 0
         if isStaking && hasBalance {
             return .activeStaking(.apy, apy)
         } else if !isStaking && !hasBalance {
             return .inactiveStaking(.apy, apy)
         }
-    } else if slug == MYCOIN_SLUG, let apy = BalanceStore.currentAccountStakingData?.mycoinState?.apy {
-        let hasBalance = BalanceStore.currentAccountBalances[STAKED_MYCOIN_SLUG] ?? 0 > 0
+    } else if slug == MYCOIN_SLUG, let apy = stakingData?.mycoinState?.apy {
+        let hasBalance = balances[STAKED_MYCOIN_SLUG] ?? 0 > 0
         if isStaking && hasBalance {
             return .activeStaking(.apr, apy)
         } else if !isStaking && !hasBalance {
             return .inactiveStaking(.apr, apy)
         }
-    } else if slug == TON_USDE_SLUG, let apy = BalanceStore.currentAccountStakingData?.ethenaState?.apy {
-        let hasBalance = BalanceStore.currentAccountBalances[TON_TSUSDE_SLUG] ?? 0 > 0
+    } else if slug == TON_USDE_SLUG, let apy = stakingData?.ethenaState?.apy {
+        let hasBalance = balances[TON_TSUSDE_SLUG] ?? 0 > 0
         if isStaking && hasBalance {
             return .activeStaking(.apy, apy)
         } else if !isStaking && !hasBalance {
             return .inactiveStaking(.apy, apy)
         }
-    } else if AccountStore.account?.isMultichain == true && (slug == TON_USDT_SLUG || slug == TRON_USDT_SLUG) {
+    } else if (slug == TON_USDT_SLUG || slug == TRON_USDT_SLUG) && AccountStore.accountsById[accountId]?.isMultichain == true {
         return .chain(slug == TON_USDT_SLUG ? .ton : .tron)
     }
     return nil

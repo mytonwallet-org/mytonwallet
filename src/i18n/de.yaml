@@ -28,7 +28,7 @@ Change: Ändern.
 "%1$d Secret Words": "%1$d Geheime Wörter"
 Secret Words: Geheimwörtern
 $auth_import_mnemonic_description: |
-  Sie können den Zugriff auf Ihr Wallet wiederherstellen, indem Sie die **12 oder 24 geheimen Wörter** eingeben, die Sie beim Erstellen des Wallets notiert haben.
+  Sie können den Zugriff auf Ihr Wallet wiederherstellen, indem Sie die **%counts% geheimen Wörter** eingeben, die Sie beim Erstellen des Wallets notiert haben.
 Let’s make sure your secrets words are recorded correctly.: Stellen Sie sicher, dass Ihre geheimen Wörter korrekt aufgezeichnet sind.
 $check_words_description: Jetzt überprüfen wir, ob Sie Ihre geheimen Wörter korrekt geschrieben haben.
 $mnemonic_list_description: Schreiben Sie diese Wörter in der **richtigen Reihenfolge** auf und bewahren Sie sie an einem **sicheren Ort** auf.
@@ -37,14 +37,14 @@ $mnemonic_warning: |
   Senden oder zeigen Sie es niemandem,
   geben Sie es nirgendwo ein.
 View Secret Words: Geheime Wörter anzeigen
-View TON Private Key: TON-Privatschlüssel anzeigen
-Can be imported to non-multichain wallets for TON.: Kann in nicht-multichain Wallets für TON importiert werden.
-Can be imported to any multichain wallet supporting TON.: Kann in jede Multichain-Wallet importiert werden, die TON unterstützt.
+View %chain% Private Key: "%chain%-Privatschlüssel anzeigen"
+Can be imported to non-multichain wallets for %chain%.: Kann in nicht-multichain Wallets für %chain% importiert werden.
+Can be imported to any multichain wallet supporting %chain%.: Kann in jede Multichain-Wallet importiert werden, die %chain% unterstützt.
 Let's Check: Lass uns nachprüfen.
 Let's Check!: Lass uns nachprüfen!
 Safety Rules: Sicherheitsregeln
 $safety_rules_private_key_one: |
-  Auf dem nächsten Bildschirm sehen Sie den **TON-Privatschlüssel**. Speichern Sie ihn korrekt und **bewahren Sie ihn an einem sicheren Ort** auf.
+  Auf dem nächsten Bildschirm sehen Sie den **%chain%-Privatschlüssel**. Speichern Sie ihn korrekt und **bewahren Sie ihn an einem sicheren Ort** auf.
 $safety_rules_private_key_two: Er ermöglicht es Ihnen, Ihre **Wallet zu öffnen**, wenn Sie Ihr Passwort oder den Zugriff auf dieses Gerät verlieren.
 $safety_rules_private_key_three: Wenn jemand anderes diesen privaten Schlüssel sieht, können Ihre Gelder **gestohlen werden**. **Senden oder zeigen Sie ihn niemandem**, auch nicht Entwicklern oder technischem Support.
 $safety_rules_one: |
@@ -86,6 +86,8 @@ Is there a community?: Gibt es eine Gemeinschaft?
 $about_wallet_community: Natürlich, willkommen in unserer %community_link%.
 $about_community_link_text: "**Telegram Kanal**"
 Currency History: Währungsgeschichte
+Net Worth: Vermögenswert
+Price: Preis
 Enter Password: Passwort eingeben
 Send: Senden
 Add Wallet: Wallet hinzufügen
@@ -96,7 +98,6 @@ Are you sure you want to remove this address from your saved ones?: Sind Sie sic
 You will be able to save it again via Transaction Info with this address.: Sie können es erneut über die Transaktions informationen mit dieser Adresse speichern.
 Address removed from saved: Adresse aus den Gespeicherten entfernt.
 Warning!: Achtung!
-Log Out: Wallet entfernen
 $logout_without_backup_warning: Sie haben diese Wallet nicht gesichert. Wenn Sie sie jetzt entfernen, verlieren Sie den Zugriff auf Ihre Token und NFTs.
 $logout_accounts_without_backup_warning: Sie haben %links% nicht gesichert. Wenn Sie fortfahren, verlieren Sie den Zugriff auf Ihre Token und NFTs.
 $logout_warning: Dies wird das aktuelle Wallet aus der App entfernen. Stellen Sie sicher, dass Sie Ihre **Geheimwörter** gesichert haben.
@@ -134,6 +135,10 @@ Sign: Signieren
 Done!: Erledigt!
 Signing was confirmed!: Die Signatur wurde bestätigt!
 Transaction Info: Transaktions informationen
+Activity Details: Aktivitätsdetails
+No activities found: Keine Aktivitäten gefunden
+Transaction not found: Transaktion nicht gefunden
+Failed to fetch transaction: Transaktion konnte nicht abgerufen werden
 Transaction in progress: Transaktion in Bearbeitung
 Comment was copied!: Der Kommentar wurde kopiert!
 Sender: Absender
@@ -142,7 +147,7 @@ Address was copied!: Adresse wurde kopiert!
 Repeat: Wiederholen
 Switch Account: Konto wechseln
 Copy wallet address: Wallet adresse kopieren
-View address on %ton_explorer_name%: Adresse im %ton_explorer_name% anzeigen
+View address on %explorer_name%: Adresse im %explorer_name% anzeigen
 You have just created a new wallet: Sie haben gerade eine neue Wallet erstellt.
 You can now transfer your tokens from another wallet or exchange.: Sie können jetzt Ihre Token von einer anderen Wallet oder Börse übertragen.
 Assets: Vermögenswerte
@@ -201,7 +206,6 @@ No suggestions, you're on your own!: Keine Vorschläge, Sie sind auf sich allein
 Play Sounds: Sounds abspielen
 Focus on asset value rather than current balance: Fokus auf den Vermögenswert anstatt auf den aktuellen Kontostand legen
 $logout_confirm: Alle Wallets entfernen
-$logout_warning2: Wallet befinden sich in der dezentralen TON-Blockchain. Wenn Sie möchten, dass die Wallet gelöscht wird, übertragen Sie einfach alle TON davon und lassen Sie sie leer.
 $tiny_transfers_help: Schalten Sie dies aus, um Transaktionen von weniger als $%value% anzuzeigen. Bitte beachten Sie, dass solche Transaktionen oft für Spam- und Betrugszwecke verwendet werden.
 Today: Heute
 Yesterday: Gestern
@@ -217,7 +221,7 @@ Earn from your tokens while holding them: Verdienen Sie mit Ihren Token, währen
 Why this is safe: Warum ist dies sicher
 Why is staking safe?: Warum ist das Staken sicher
 $safe_staking_description1: Das Staken erfolgt **vollständig dezentral** und wird von den **offiziellen TON Liquid Staking**-Smart Contracts betrieben.
-$safe_staking_description2: Der hinterlegte Einsatz wird für die Validierung des TON-Netzwerks als Teil seiner **Proof-of-Stake**-Essenz verwendet.
+$safe_staking_description2: Der hinterlegte Einsatz wird für die Validierung des %chain%-Netzwerks als Teil seiner **Proof-of-Stake**-Essenz verwendet.
 $safe_staking_description3: Sie können Ihren Einsatz **jederzeit** abheben, und er wird innerhalb von **zwei Tagen** wieder auf Ihr Konto eingezahlt.
 $safe_staking_description_jetton1: Das Token-Staking ist **vollständig dezentralisiert** und wird von den **Open-Source**-Smart-Contracts betrieben, die von %jvault_link% entwickelt und einer **Sicherheitsprüfung** unterzogen wurden.
 $safe_staking_description_jetton2: Sie können Ihren Einsatz **jederzeit** abheben, und er wird **sofort** auf Ihr Konto zurückgebucht.
@@ -261,17 +265,15 @@ Unexpected: Unerwarteter Fehler
 You can save this address for quick access while sending.: Sie können diese Adresse speichern, um schnellen Zugriff beim Senden zu haben.
 Stake Again: Erneut staken
 Earned: Verdient
-Connect Dapp: Dapp verbinden
 Select wallet to use on this dapp: Wählen Sie die Brieftasche aus, die Sie für diese Dapp verwenden möchten.
 Connect: Verbinden
 Dapp Permissions: Dapp-Berechtigungen
 $dapp_can_view_balance: "%dappname% wird die Wallet adresse und den Kontostand anzeigen können."
-Send Transaction: Transaktion senden
 Payload: Nutzlast
 $many_transactions:
-  zeroValue: Keine Transaktionen
-  oneValue: "%1$d Transaktion"
-  otherValue: "%1$d Transaktionen"
+  zeroValue: Keine Überweisungen
+  oneValue: "%1$d Überweisung"
+  otherValue: "%1$d Überweisungen"
 Total Amount: Gesamtbetrag
 $unstaking_short: Entstaken
 Handle ton:// links: Umgang mit ton://-Links
@@ -396,7 +398,7 @@ Your address on another blockchain: Ihre Adresse auf einer anderen Blockchain
 Please provide an address of your wallet in %blockchain% blockchain to receive bought tokens.: Bitte geben Sie eine Adresse Ihres Wallets in der %blockchain%-Blockchain an, um gekaufte Token zu erhalten.
 The time for sending coins is over.: Die Zeit zum Senden von Coins ist abgelaufen.
 You have not sent the coins to the specified address.: Sie haben die Coins nicht an die angegebene Adresse gesendet.
-$swap_changelly_to_ton_description1: Sie müssen %value% an diese Adresse in der %Blockchain%-Blockchain innerhalb von %time% senden.
+$swap_changelly_to_wallet_description1: Sie müssen %value% an diese Adresse in der %Blockchain%-Blockchain innerhalb von %time% senden.
 Exchange failed and coins were refunded to your wallet.: Der Austausch ist fehlgeschlagen, und die Coins wurden an Ihre Wallet zurückerstattet.
 $swap_changelly_kyc_security: "Bitte kontaktieren Sie **%email%** und geben Sie die **Transaktions-ID** an, um das KYC-Verfahren zu bestehen:"
 Swap Expired: Tausch abgelaufen
@@ -407,7 +409,7 @@ $swap_changelly_terms_of_use: Nutzungsbedingungen
 $swap_changelly_privacy_policy: Datenschutzrichtlinie
 Password must contain %length% digits.: Das Passwort muss %length% Ziffern enthalten.
 Deposit Link: Einzahlungslink
-$swap_changelly_from_ton_description: "Token werden in Kürze an Ihre Adresse in der %blockchain%-Blockchain gesendet:"
+$swap_changelly_from_wallet_description: "Token werden in Kürze an Ihre Adresse in der %blockchain%-Blockchain gesendet:"
 Please note that it may take up to a few hours for tokens to appear in your wallet.: Bitte beachten Sie, dass es bis zu einigen Stunden dauern kann, bis Tokens in Ihrer Wallet angezeigt werden.
 Minimum amount: Mindestens %value%
 Maximum amount: Höchstens %value%
@@ -449,7 +451,6 @@ Euro: Euro
 Russian Ruble: Russischer Rubel
 Chinese Yuan: Chinesischer Yuan
 Bitcoin: Bitcoin
-Toncoin: Toncoin
 $max_balance: "Maximal: %balance%"
 $unstake_information_instantly: Sie erhalten Ihre Einzahlung sofort
 Select Token: Token auswählen
@@ -482,6 +483,7 @@ Scan your fingerprint: Legen Sie Ihren Fingerabdruck auf.
 Incorrect code, please try again.: Falscher Code, bitte versuchen Sie es erneut.
 Correct: Korrekt
 Confirm Action: Aktion bestätigen
+$classic_confirm_actions: Aktionen bestätigen
 Confirm Swap: Swap bestätigen
 Confirm Rewards Claim: Belohnungsanspruch bestätigen
 "%amount% to %address%": "%amount% zu %address%"
@@ -507,7 +509,7 @@ $all_balance: "Gesamt: %balance%"
 $unstaking_not_enough_balance: Sie müssen %value% auf Ihrem Hauptkonto haben, um mit dem Entsperrprozess fortzufahren.
 $ledger_verify_address_on_device: Bitte überprüfen Sie die Adresse auf Ihrem Ledger.
 Wallet Versions: Wallet-Versionen
-$read_more_about_wallet_version: Lesen Sie mehr über die Arten von Wallet-Verträgen auf %ton_link%.
+$read_more_about_wallet_version: Lesen Sie mehr über die Arten von Wallet-Verträgen auf %link%.
 $current_wallet_version: Ihre aktuelle Wallet-Version ist %version%.
 You have tokens on other versions of your wallet. You can import them from here.: Sie haben Token in anderen Versionen Ihres Wallets. Sie können sie von hier importieren.
 $wallet_switch_version_1: Sie können auch %action%.
@@ -538,7 +540,7 @@ $dapp_token_bridge_pay_swap_payload: Bestätigung des Austauschs über die Cross
 $dapp_liquid_staking_deposit_payload: Einzahlung zum Liquid Staking
 $dapp_liquid_staking_vote_payload: Abstimmung „%vote%“ für Vorschlag %votingAddress%
 $dapp_single_nominator_change_validator_payload: Adresse des SingleNominator-Staking-Vertragsvalidators in %address% ändern
-$dapp_single_nominator_withdraw_payload: Abhebung von %amount% TON vom SingleNominator-Staking-Vertrag
+$dapp_single_nominator_withdraw_payload: Abhebung von %amount% vom SingleNominator-Staking-Vertrag
 $dapp_vesting_add_whitelist_payload: "%address% zur Vesting Wallet-Whitelist hinzufügen"
 Connecting dapps is not yet supported by Ledger.: Das Verbinden von Dapps wird von Ledger noch nicht unterstützt.
 Time synchronization issue. Please ensure your device's time settings are correct.: Problem mit der Zeitsynchronisierung. Bitte stellen Sie sicher, dass die Zeiteinstellungen Ihres Geräts korrekt sind.
@@ -546,13 +548,13 @@ Data was copied!: Daten wurden kopiert!
 Open NFT Collection: NFT-Sammlung öffnen
 Previous: Zurück
 Next: Weiter
-Insufficient TON for fee.: Unzureichende TON für Gebühr.
+Insufficient %token% for fee.: Unzureichende %token% für Gebühr.
 Send NFT: Senden von NFT
 NFT has been sent!: NFT wurde gesendet!
 Cannot be sent: Kann nicht gesendet werden
 NFT is for sale: NFT steht zum Verkauf
 More actions: Mehr Aktionen
-Open on %ton_explorer_name%: Auf %ton_explorer_name% öffnen
+Open on %explorer_name%: Auf %explorer_name% öffnen
 Swap is not supported in Testnet.: Swap wird in Testnet nicht unterstützt.
 Swap is not yet supported by Ledger.: Swap wird von Ledger noch nicht unterstützt.
 Buying with card is not supported in Testnet.: Der Kauf mit Karte wird in Testnet nicht unterstützt.
@@ -583,6 +585,7 @@ Send All: Sende alle
 Burn All: Alles verbrennen
 Select All: Wählen Sie Alle
 Collection: Sammlung
+Unnamed Collection: Unbenannte Sammlung
 Transaction ID was copied!: Transaktions-ID wurde kopiert!
 $swap_changelly_support: "Bei Problemen wenden Sie sich bitte an %livechat% oder %email% und geben Sie die **Transaktions-ID** an:"
 Changelly Live Chat: Changelly Live-Chat
@@ -653,7 +656,7 @@ Multichain: Multichain
 $swap_too_small_amount: Zu kleiner Betrag
 Not enough %symbol%: Nicht genug %symbol%
 You have just created a new multichain wallet: Sie haben gerade eine neue Multichain-Wallet erstellt
-Now you can transfer tokens from your TON and TRON wallets.: Jetzt können Sie Tokens von Ihren TON- und TRON-Wallets übertragen.
+Now you can transfer tokens from your %chains% wallets.: Jetzt können Sie Tokens von Ihren %chains%-Wallets übertragen.
 Enter Secret Words: Geheimwörter eingeben
 Turn this off so you can manually download updates and verify signatures.: Schalten Sie dies aus, damit Sie Updates manuell herunterladen und Signaturen überprüfen können.
 InvalidMnemonic: Ihre mnemonischen Wörter sind ungültig
@@ -715,8 +718,6 @@ Request is sent!: Anfrage gesendet!
 Transaction ID: Transaktions-ID
 Help Center: Hilfezentrum
 MyTonWallet Tips: MyTonWallet-Tipps
-$auth_import_24_mnemonic_description: |
-  Sie können den Zugriff auf Ihre Wallet wiederherstellen, indem Sie die **24 geheimen Wörter** eingeben, die Sie beim Erstellen der Wallet notiert haben.
 Open %nft_marketplace%: "%nft_marketplace% öffnen"
 Link was copied!: Link wurde kopiert!
 Share Link: Link teilen
@@ -794,19 +795,18 @@ Transferable: Übertragbar
 Easily send your upgraded card to any of your friends.: Sende deine aktualisierte Karte ganz einfach an deine Freunde.
 Tradable: Handelbar
 Sell or auction your card on third-party NFT marketplaces.: Verkaufe oder versteigere deine Karte auf Drittanbieter-NFT-Marktplätzen.
-Upgrade for %currency% %amount%: Upgrade für %currency% %amount%
+Upgrade for %amount% %currency%: Upgrade für %amount% %currency%
 "%amount% left": "%amount% übrig"
 "%amount% sold": "%amount% verkauft"
 This card has been sold out: Diese Karte ist ausverkauft
 Import Existing Wallet: Vorhandene Wallet importieren
 View Any Address: Beliebige Adresse anzeigen
-12/24 Secret Words: 12/24 Geheime Wörter
-24 Secret Words: 24 Geheime Wörter
+"%counts% Secret Words": "%counts% Geheime Wörter"
 Wallet Address or Domain: Wallet-Adresse oder Domain
-$import_view_account_note: Geben Sie **eine beliebige Adresse** im TON- oder TRON-Netzwerk ein, um sie im **Ansichtsmodus** zu öffnen.
+$import_view_account_note: Geben Sie **eine beliebige Adresse** im %chains%-Netzwerk ein, um sie im **Ansichtsmodus** zu öffnen.
 $view_mode: Ansicht
 Import Wallet: Wallet importieren
-Please top up your TON balance.: Bitte laden Sie Ihr TON-Guthaben auf.
+Please top up your %token% balance.: Bitte laden Sie Ihr %token%-Guthaben auf.
 Remember Passcode: Code merken
 Remember Password: Passwort merken
 Not available with biometrics.: Nicht mit Biometrie verfügbar.
@@ -815,8 +815,10 @@ Remember for %1$d minutes: Für %1$d Minuten merken
 Preview: Vorschau
 $preview_not_guaranteed: Das Vorschauergebnis ist **nicht garantiert** und kann **vom Dienst manipuliert** werden.
 Unverified Source: Unbestätigte Quelle
-$reopen_in_iab: Öffnen Sie diese DApp zur Ihrer Sicherheit erneut im %browserButton%.
+$reopen_in_iab: Bitte verwenden Sie MyTonWallet %mobileAppButton% oder %browserExtensionButton%, um diese Warnung zu vermeiden.
 MyTonWallet Browser: MyTonWallet Browser
+mobile app: mobile App
+browser extension: Browser-Erweiterung
 Exit all wallets: Alle Wallets schließen
 Can't confirm?: Anmeldung nicht möglich?
 $safe_staking_ethena_description1: Staking ist vollständig dezentralisiert und wird durch **offizielle, auditiere** Liquid-Staking-**Smart Contracts** von Ethena betrieben.
@@ -986,13 +988,35 @@ No Ledger wallets yet: Noch keine Ledger Wallets
 No view wallets yet: Noch keine View Wallets
 Add the first one to track balances and activity for any address.: Fügen Sie das erste Wallet hinzu, um Kontostände und Aktivitäten für jede Adresse zu verfolgen.
 Customize Wallet: Wallet anpassen
-'Select the card stored in this wallet:': 'Wählen Sie die Karte aus, die in dieser Wallet gespeichert ist:'
+"Select the card stored in this wallet:": "Wählen Sie die Karte aus, die in dieser Wallet gespeichert ist:"
 This card will be installed for this wallet and will be displayed on the home screen and in the wallets list.: Diese Karte wird für diese Wallet installiert und auf dem Startbildschirm sowie in der Wallet-Liste angezeigt.
 Get More Cards: Weitere Karten erhalten
 Browse MyTonWallet Cards available for purchase.: Durchsuchen Sie die verfügbaren MyTonWallet-Karten zum Kauf.
-Apply Card: Karte anwenden
 You don't have any cards to customize yet: Sie haben noch keine Karten zum Anpassen.
 MyTonWallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: MyTonWallet-Karten können für Wallets installiert und auf dem Startbildschirm sowie in der Wallet-Liste angezeigt werden.
 Get First Card: Erste Karte erhalten
 Palette and Card: Palette und Karte
 Customize the wallet's home screen and color accents the way you like.: Passen Sie den Startbildschirm und die Farbakzente Ihrer Wallet nach Ihrem Geschmack an.
+Address doesn't exist: Adresse existiert nicht
+The address is not a token minter address: Die Adresse ist keine Token-Minter-Adresse
+$joining_comma: ", "
+$joining_and: " und "
+$joining_or: " oder "
+View in App: In der App anzeigen
+Save Account: Konto speichern
+$invalid_address_format: Ungültiges Adressformat
+$no_valid_view_addresses: Keine gültigen Adressen zur Ansicht
+Account saved successfully!: Konto erfolgreich gespeichert!
+Share Wallet Link: Wallet-Link teilen
+Remove: Entfernen
+$missing_offramp_deposit_address: Fehlende Einzahlungsadresse für Off-Ramp.
+Buy: Kaufen
+Sell: Verkaufen
+Sell on Card: Auf Karte verkaufen
+$connect_dapp_description: Verbundene Apps können nur Ihre Wallet-Adresse sehen und können Ihre Assets ohne Ihre Zustimmung nicht bewegen.
+$connect_dapp_title: Mit %name% verbinden?
+Choose Wallet: Wallet auswählen
+Wallet to use on %host%: Wallet für %host%
+Selected Wallet: Ausgewählte Wallet
+Connect Wallet: Wallet verbinden
+Insufficient Fee: Unzureichende Gebühr

@@ -1,15 +1,15 @@
 import type { ApiBalanceBySlug, ApiBaseCurrency, ApiCurrencyRates, ApiSwapAsset } from '../../api/types';
 import type { AccountSettings, GlobalState, UserSwapToken } from '../types';
-import { SwapType } from '../types';
 
 import { DEFAULT_SWAP_FIRST_TOKEN_SLUG, DEFAULT_SWAP_SECOND_TOKEN_SLUG, IS_CORE_WALLET, TONCOIN } from '../../config';
 import { calculateTokenPrice } from '../../util/calculatePrice';
 import { toBig } from '../../util/decimals';
 import memoize from '../../util/memoize';
-import { getChainBySlug } from '../../util/tokens';
+import { getSwapType } from '../../util/swap/getSwapType';
 import withCache from '../../util/withCache';
 import {
   selectCurrentAccount,
+  selectCurrentAccountId,
   selectCurrentAccountSettings,
   selectCurrentAccountState,
   selectIsHardwareAccount,
@@ -29,8 +29,8 @@ function createTokenList(
     .map(([slug, {
       symbol, name, image,
       decimals, keywords, chain,
-      tokenAddress, isPopular, color, priceUsd = 0,
-    }]) => {
+      tokenAddress, isPopular, color, priceUsd = 0, label,
+    }]): UserSwapToken => {
       const amount = balancesBySlug[slug] ?? 0n;
       const price = calculateTokenPrice(priceUsd, baseCurrency, currencyRates);
       const totalValue = toBig(amount, decimals).mul(price).toString();
@@ -52,7 +52,8 @@ function createTokenList(
         color,
         chain,
         tokenAddress,
-      } satisfies UserSwapToken;
+        label,
+      };
     })
     .sort(sortFn);
 }
@@ -147,6 +148,7 @@ export function selectAvailableUserForSwapTokens(global: GlobalState, isSwapOut 
     return undefined;
   }
 
+  const accountId = selectCurrentAccountId(global)!;
   const accountSettings = selectCurrentAccountSettings(global) ?? {};
   const { areTokensWithNoCostHidden, isSortByValueEnabled } = global.settings;
 
@@ -154,7 +156,7 @@ export function selectAvailableUserForSwapTokens(global: GlobalState, isSwapOut 
     ? selectAccountTokensForSwapOutMemoizedFor
     : selectAccountTokensForSwapInMemoizedFor;
 
-  return selectAccountTokens(global.currentAccountId!)(
+  return selectAccountTokens(accountId)(
     balancesBySlug,
     global.tokenInfo,
     global.swapTokenInfo,
@@ -172,7 +174,9 @@ export function selectPopularTokens(global: GlobalState) {
     return undefined;
   }
 
-  return selectPopularTokensMemoizedFor(global.currentAccountId!)(
+  const accountId = selectCurrentAccountId(global)!;
+
+  return selectPopularTokensMemoizedFor(accountId)(
     balancesBySlug,
     global.swapTokenInfo,
     global.settings.baseCurrency,
@@ -186,7 +190,9 @@ export function selectSwapTokens(global: GlobalState) {
     return undefined;
   }
 
-  return selectSwapTokensMemoizedFor(global.currentAccountId!)(
+  const accountId = selectCurrentAccountId(global)!;
+
+  return selectSwapTokensMemoizedFor(accountId)(
     balancesBySlug,
     global.swapTokenInfo,
     global.settings.baseCurrency,
@@ -209,20 +215,9 @@ export function selectSwapType(global: GlobalState) {
     tokenInSlug = DEFAULT_SWAP_FIRST_TOKEN_SLUG,
     tokenOutSlug = DEFAULT_SWAP_SECOND_TOKEN_SLUG,
   } = global.currentSwap;
-  const tokenInChain = getChainBySlug(tokenInSlug);
-  const tokenOutChain = getChainBySlug(tokenOutSlug);
+  const { byChain = {} } = selectCurrentAccount(global) ?? {};
 
-  if (tokenInChain === 'ton' && tokenOutChain === 'ton') {
-    return SwapType.OnChain;
-  }
-
-  const byChain = selectCurrentAccount(global)?.byChain ?? {};
-
-  if (tokenInChain in byChain) {
-    return SwapType.CrosschainFromWallet;
-  }
-
-  return SwapType.CrosschainToWallet;
+  return getSwapType(tokenInSlug, tokenOutSlug, byChain);
 }
 
 export function selectIsSwapDisabled(global: GlobalState) {

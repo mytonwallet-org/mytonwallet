@@ -1,4 +1,4 @@
-export const APP_ENV = process.env.APP_ENV;
+export const APP_ENV = process.env.APP_ENV || 'production';
 export const DEBUG = APP_ENV !== 'production' && APP_ENV !== 'perf' && APP_ENV !== 'test';
 export const STRICTERDOM_ENABLED = DEBUG;
 

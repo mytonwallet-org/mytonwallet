@@ -1,15 +1,18 @@
 import type {
   ApiActivity,
   ApiChain,
+  ApiSwapActivity,
   ApiTransaction,
   ApiTransactionActivity,
   ApiTransactionType,
 } from '../../api/types';
 import type { LangFn } from '../langProvider';
+import { SwapType } from '../../global/types';
 
 import { ALL_STAKING_POOLS, BURN_ADDRESS } from '../../config';
 import { extractKey, groupBy, unique } from '../iteratees';
 import { getIsTransactionWithPoisoning } from '../poisoningHash';
+import { getSwapType } from '../swap/getSwapType';
 import { getChainBySlug } from '../tokens';
 
 type UnusualTxType = 'backend-swap' | 'local' | 'additional';
@@ -320,4 +323,16 @@ export function doesLocalActivityMatch(localActivity: ApiActivity, chainActivity
   }
 
   return parseTxId(localActivity.id).hash === parseTxId(chainActivity.id).hash;
+}
+
+/**
+ * If the account has the "from" token chain, the swap "in" transaction has been performed by the app automatically
+ * (see the `submitSwapCex` action code). So, if the Сhangelly status is "waiting", the UI shouldn't tell the user that
+ * the app is waiting for their payment.
+ */
+export function getShouldSkipSwapWaitingStatus(
+  { from, to }: ApiSwapActivity,
+  accountChains: Partial<Record<ApiChain, unknown>>,
+) {
+  return getSwapType(from, to, accountChains) !== SwapType.CrosschainToWallet;
 }

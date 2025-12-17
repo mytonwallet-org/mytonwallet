@@ -45,7 +45,7 @@ public class QRScanVC: WViewController {
     
     private func setupViews() {
         title = lang("Scan QR Code")
-        addCloseToNavBar(color: .white)
+        addCloseNavigationItemIfNeeded()
         let textAttributes = [NSAttributedString.Key.foregroundColor: UIColor.white]
         navigationController?.navigationBar.titleTextAttributes = textAttributes
 

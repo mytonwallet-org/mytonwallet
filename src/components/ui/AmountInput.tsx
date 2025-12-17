@@ -1,4 +1,5 @@
 import type { RefObject, TeactNode } from '../../lib/teact/teact';
+import { useMemo } from '../../lib/teact/teact';
 import React, { memo, useEffect, useRef } from '../../lib/teact/teact';
 
 import type { ApiTokenWithPrice } from '../../api/types';
@@ -69,6 +70,13 @@ function AmountInput({
   const lang = useLang();
   const transitionKey = isBaseCurrency ? 0 : 1;
   const { inputId, onInputFocus, onInputBlur, onClick: keepInputFocus } = useKeepInputFocus(transitionKey);
+  const availableTokens = useMemo(() => {
+    if (isAmountReadonly && token) {
+      return [token];
+    }
+
+    return allTokens;
+  }, [allTokens, isAmountReadonly, token]);
 
   const handleMaxAmountClick = useLastCallback(() => {
     onMaxAmountClick(maxAmount);
@@ -78,11 +86,12 @@ function AmountInput({
   function renderBalance() {
     return (
       <AmountInputMaxButton
-        maxAmount={isAmountReadonly ? undefined : maxAmount}
+        maxAmount={maxAmount}
         token={token}
         isLoading={isMaxAmountLoading}
         isAllMode={isMaxAmountAllMode}
         isSensitiveDataHidden={isSensitiveDataHidden}
+        isDisabled={isAmountReadonly}
         onAmountClick={handleMaxAmountClick}
       />
     );
@@ -128,7 +137,7 @@ function AmountInput({
     return (
       <TokenDropdown<AmountInputToken>
         selectedToken={token}
-        allTokens={allTokens}
+        allTokens={availableTokens}
         isInMode={isBaseCurrency}
         isMultichainAccount={isMultichainAccount}
         onChange={onTokenChange}
@@ -149,10 +158,15 @@ function AmountInput({
     // The main reason to use <button> is preventing the comment type selector (which is also a <button>) from hijacking
     // the clicks on touch screens.
     return (
-      <button type="button" className={styles.alternative} onClick={onClick}>
+      <button
+        type="button"
+        disabled={isAmountReadonly}
+        className={styles.alternative}
+        onClick={isAmountReadonly ? undefined : onClick}
+      >
         ≈&thinsp;
         {formatCurrency(alternativeValue ?? 0, symbol, undefined, true)}
-        <i className={buildClassName(styles.alternative__icon, 'icon-switch')} aria-hidden />
+        {!isAmountReadonly && <i className={buildClassName(styles.alternative__icon, 'icon-switch')} aria-hidden />}
       </button>
     );
   }

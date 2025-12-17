@@ -64,7 +64,7 @@ public struct ApiSwapCexEstimateResponse: Equatable, Hashable, Codable, Sendable
         let networkFeeData = FeeEstimationHelpers.networkFeeBigInt(sellToken: selling.token, swapType: swapType, networkFee: networkFee)
         let totalNativeAmount = networkFeeData?.fee ?? 0 + (networkFeeData?.isNativeIn == true ? selling.amount : 0)
         let isEnoughNative = BalanceStore.currentAccountBalances[nativeUserTokenIn?.slug ?? ""] ?? 0 >= totalNativeAmount
-        let isDiesel = swapType == SwapType.inChain && !isEnoughNative && DIESEL_TOKENS.contains(selling.token.tokenAddress ?? "")
+        let isDiesel = swapType == SwapType.onChain && !isEnoughNative && DIESEL_TOKENS.contains(selling.token.tokenAddress ?? "")
         let maxAmount = calcMaxToSwap(selling: selling,
                                       swapType: swapType,
                                       networkFee: networkFee,
@@ -86,7 +86,7 @@ public struct ApiSwapCexEstimateResponse: Equatable, Hashable, Codable, Sendable
                 balance -= doubleToBigInt(networkFee, decimals: selling.token.decimals)
             }
         }
-        if swapType == .inChain {
+        if swapType == .onChain {
             if let dieselFee {
                 balance -= doubleToBigInt(dieselFee, decimals: selling.decimals)
             }

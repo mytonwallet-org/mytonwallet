@@ -6,10 +6,10 @@ import {
   updateAccountState,
   updateCurrentAccountState,
 } from '../../reducers';
-import { selectAccountState, selectCurrentAccountState } from '../../selectors';
+import { selectAccountState, selectCurrentAccountId, selectCurrentAccountState } from '../../selectors';
 
 addActionHandler('openNftCollection', (global, actions, { address }) => {
-  const accountId = global.currentAccountId!;
+  const accountId = selectCurrentAccountId(global)!;
   const accountState = selectAccountState(global, accountId);
   global = updateAccountState(global, accountId, {
     nfts: {
@@ -33,13 +33,13 @@ addActionHandler('closeNftCollection', (global) => {
 });
 
 addActionHandler('selectNfts', (global, actions, { addresses }) => {
-  const accountId = global.currentAccountId!;
+  const accountId = selectCurrentAccountId(global)!;
   global = addToSelectedAddresses(global, accountId, addresses);
   setGlobal(global);
 });
 
 addActionHandler('selectAllNfts', (global, actions, { collectionAddress }) => {
-  const accountId = global.currentAccountId!;
+  const accountId = selectCurrentAccountId(global)!;
   const {
     blacklistedNftAddresses,
     whitelistedNftAddresses,
@@ -64,13 +64,13 @@ addActionHandler('selectAllNfts', (global, actions, { collectionAddress }) => {
 });
 
 addActionHandler('clearNftSelection', (global, actions, { address }) => {
-  const accountId = global.currentAccountId!;
+  const accountId = selectCurrentAccountId(global)!;
   global = removeFromSelectedAddresses(global, accountId, address);
   setGlobal(global);
 });
 
 addActionHandler('clearNftsSelection', (global) => {
-  const accountId = global.currentAccountId!;
+  const accountId = selectCurrentAccountId(global)!;
   const accountState = selectAccountState(global, accountId);
   global = updateAccountState(global, accountId, {
     nfts: {
@@ -82,7 +82,7 @@ addActionHandler('clearNftsSelection', (global) => {
 });
 
 addActionHandler('addCollectionTab', (global, actions, { collectionAddress, isAuto }) => {
-  const accountId = global.currentAccountId!;
+  const accountId = selectCurrentAccountId(global)!;
   const accountState = selectAccountState(global, accountId);
   const currentNfts = accountState?.nfts || { byAddress: {} };
 
@@ -106,7 +106,7 @@ addActionHandler('addCollectionTab', (global, actions, { collectionAddress, isAu
 });
 
 addActionHandler('removeCollectionTab', (global, actions, { collectionAddress }) => {
-  const accountId = global.currentAccountId!;
+  const accountId = selectCurrentAccountId(global)!;
   const accountState = selectAccountState(global, accountId);
   const currentNfts = accountState?.nfts || { byAddress: {} };
 

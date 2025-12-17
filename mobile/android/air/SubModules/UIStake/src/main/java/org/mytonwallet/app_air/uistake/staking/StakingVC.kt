@@ -57,6 +57,7 @@ class StakingVC(
     tokenSlug: String,
     mode: StakingViewModel.Mode,
 ) : WViewControllerWithModelStore(context) {
+    override val TAG = "Staking"
 
     private val viewmodelFactory = AddStakeViewModelFactory(tokenSlug, mode)
     private val stakingViewModel by lazy {
@@ -170,7 +171,7 @@ class StakingVC(
             topToTop(
                 bottomReversedCornerViewUpsideDown,
                 stakeButton,
-                -20f - ViewConstants.BIG_RADIUS
+                -ViewConstants.GAP - ViewConstants.BIG_RADIUS
             )
             toBottom(bottomReversedCornerViewUpsideDown)
         }

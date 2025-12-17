@@ -58,6 +58,8 @@ $footerPaddingBottom: 1rem;
   background-color: var(--color-background-window);
   backdrop-filter: saturate(180%) blur(20px);
 
+  @include mixins.transition('background-color 300ms ease-out');
+
   :global(html.is-mobile-telegram-app.is-fullscreen) &,
   :global(html.is-android-app) & {
     box-sizing: content-box;

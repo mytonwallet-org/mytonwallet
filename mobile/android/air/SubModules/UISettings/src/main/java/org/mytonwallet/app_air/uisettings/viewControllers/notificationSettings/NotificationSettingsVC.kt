@@ -27,8 +27,8 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
-import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
+import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import java.lang.ref.WeakReference
 
 class NotificationSettingsVC(
@@ -36,6 +36,7 @@ class NotificationSettingsVC(
 ) :
     WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource {
+    override val TAG = "NotificationSettings"
 
     val isPermissionGranted: Boolean
         get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -48,10 +49,7 @@ class NotificationSettingsVC(
         }
 
     val accounts = WGlobalStorage.accountIds().mapNotNull { accountId ->
-        val accountObj = WGlobalStorage.getAccount(accountId)
-        accountObj?.let {
-            MAccount(accountId, accountObj)
-        }
+        AccountStore.accountById(accountId)
     }.filter {
         it.tonAddress != null
     }
@@ -117,7 +115,7 @@ class NotificationSettingsVC(
             navigationBar?.calculatedMinHeight ?: 0,
             ViewConstants.HORIZONTAL_PADDINGS.dp,
             20.dp +
-                    (navigationController?.getSystemBars()?.bottom ?: 0)
+                (navigationController?.getSystemBars()?.bottom ?: 0)
         )
         recyclerView.clipToPadding = false
 

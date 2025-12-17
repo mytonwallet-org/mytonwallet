@@ -99,7 +99,7 @@ public class SendDappVC: WViewController {
     
     private func setupViews() {
         
-        addNavigationBar(title: nil, subtitle: nil, closeIcon: true)
+        addCloseNavigationItemIfNeeded()
 
         hostingController = addHostingController(makeView(), constraints: .fill)
         
@@ -111,8 +111,6 @@ public class SendDappVC: WViewController {
             contentView.rightAnchor.constraint(equalTo: view.rightAnchor)
         ])
 
-        bringNavigationBarToFront()
-        
         updateTheme()
         
         sendButton.isEnabled = if let request {
@@ -129,14 +127,12 @@ public class SendDappVC: WViewController {
                 account: account,
                 request: request,
                 onShowDetail: showDetail(_:),
-                onScroll: { [weak self] in self?.updateNavigationBarProgressiveBlur($0) }
             )))
         } else {
             let account = placeholderAccountId.flatMap { AccountStore.accountsById[$0] }
             return SendDappViewOrPlaceholder(content: .placeholder(TonConnectPlaceholder(
                 account: account,
                 connectionType: .sendTransaction,
-                navigationBarInset: 32
             )))
         }
     }

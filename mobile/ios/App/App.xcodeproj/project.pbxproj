@@ -9,7 +9,7 @@
 /* Begin PBXBuildFile section */
 		0A5CBED435F033B692B7658D /* Pods_MyTonWallet_NoExtensions.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4AE01800DB9A698BF927A656 /* Pods_MyTonWallet_NoExtensions.framework */; };
 		0C0A64BB6ABE70500EAF750F /* Pods_MyTonWallet.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 589674042DC17A4E00B18FD3 /* Pods_MyTonWallet.framework */; };
-		0EB354256D6B4E26B50364CD /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		0EB354256D6B4E26B50364CD /* (null) in Frameworks */ = {isa = PBXBuildFile; };
 		271019AD2CBE75EC00972D1A /* AppSwitcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 271019AC2CBE75EA00972D1A /* AppSwitcher.swift */; };
 		273751692D15F492006D07D1 /* AppSwitcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 271019AC2CBE75EA00972D1A /* AppSwitcher.swift */; };
 		2737516A2D15F492006D07D1 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27F19F5C2CECB4EB00ACE1B9 /* main.swift */; };
@@ -128,7 +128,7 @@
 		27CBE79B2CAEECD800FB0398 /* WalletContext.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 27CBE7992CAEECD800FB0398 /* WalletContext.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		27F19F5E2CECB4EB00ACE1B9 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27F19F5C2CECB4EB00ACE1B9 /* main.swift */; };
 		27F19F5F2CECB4EB00ACE1B9 /* MyTonWalletApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27F19F5D2CECB4EB00ACE1B9 /* MyTonWalletApp.swift */; };
-		2E87F08DF7A3F467711DC26F /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		2E87F08DF7A3F467711DC26F /* (null) in Frameworks */ = {isa = PBXBuildFile; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
@@ -318,7 +318,7 @@
 		58F632272EB8CDFA00A90B79 /* UIReceive.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 2761BEE92CCC06DC00376556 /* UIReceive.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		9FCA57A786A1B5604534ADEC /* Pods_MyTonWalletAir.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A090BD4DBB9752F15B825C70 /* Pods_MyTonWalletAir.framework */; };
 		CEE7F3F02CE1FBCE009D2B34 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = CEE7F3EF2CE1FBCE009D2B34 /* GoogleService-Info.plist */; };
-		ECF68AE79A630AA6CE8A6B80 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		ECF68AE79A630AA6CE8A6B80 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
 		F0B41E894369BE4E4690BA34 /* Pods_MyTonWallet.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9600AA328195207D1968E709 /* Pods_MyTonWallet.framework */; };
 /* End PBXBuildFile section */
 
@@ -641,50 +641,10 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		588AC1662E82428700588415 /* TokenWidget */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
-			path = TokenWidget;
-			sourceTree = "<group>";
-		};
-		588AC1772E82D72A00588415 /* Fonts */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
-			path = Fonts;
-			sourceTree = "<group>";
-		};
-		588AC1892E82EC7400588415 /* Models */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
-			path = Models;
-			sourceTree = "<group>";
-		};
-		588AD21B2E83CE6500588415 /* SharedUI */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
-			path = SharedUI;
-			sourceTree = "<group>";
-		};
+		588AC1662E82428700588415 /* TokenWidget */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = TokenWidget; sourceTree = "<group>"; };
+		588AC1772E82D72A00588415 /* Fonts */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Fonts; sourceTree = "<group>"; };
+		588AC1892E82EC7400588415 /* Models */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Models; sourceTree = "<group>"; };
+		588AD21B2E83CE6500588415 /* SharedUI */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = SharedUI; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -730,7 +690,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0EB354256D6B4E26B50364CD /* BuildFile in Frameworks */,
+				0EB354256D6B4E26B50364CD /* (null) in Frameworks */,
 				273D09552D2AE48F008EB149 /* BigIntLib.framework in Frameworks */,
 				27B43BE22CBED31C00273547 /* UISend.framework in Frameworks */,
 				27B43BE82CBED31C00273547 /* UITransaction.framework in Frameworks */,
@@ -761,9 +721,9 @@
 				27B43BCA2CBED31B00273547 /* SwiftSignalKit.framework in Frameworks */,
 				27B43BD22CBED31C00273547 /* UIComponents.framework in Frameworks */,
 				27B43BD02CBED31C00273547 /* UIBrowser.framework in Frameworks */,
-				ECF68AE79A630AA6CE8A6B80 /* BuildFile in Frameworks */,
+				ECF68AE79A630AA6CE8A6B80 /* (null) in Frameworks */,
 				0C0A64BB6ABE70500EAF750F /* Pods_MyTonWallet.framework in Frameworks */,
-				2E87F08DF7A3F467711DC26F /* BuildFile in Frameworks */,
+				2E87F08DF7A3F467711DC26F /* (null) in Frameworks */,
 				F0B41E894369BE4E4690BA34 /* Pods_MyTonWallet.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1230,7 +1190,7 @@
 			packageReferences = (
 				584B0F0B2DD395FB00BDF9E7 /* XCRemoteSwiftPackageReference "lottie-spm" */,
 				587C28432DE32F1200503E94 /* XCRemoteSwiftPackageReference "Popovers" */,
-				580CDB9A2DF47B6B0078F79E /* XCRemoteSwiftPackageReference "GRDB.swift" */,
+				580CDB9A2DF47B6B0078F79E /* XCRemoteSwiftPackageReference "GRDB" */,
 			);
 			productRefGroup = 504EC3051FED79650016851F /* Products */;
 			projectDirPath = "";
@@ -1325,8 +1285,12 @@
 			);
 			inputFileListPaths = (
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -1363,8 +1327,12 @@
 			);
 			inputFileListPaths = (
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -1401,8 +1369,12 @@
 			);
 			inputFileListPaths = (
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -1663,7 +1635,6 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -1723,7 +1694,6 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -1794,7 +1764,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "MyTonWallet Production profile";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1937,7 +1906,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "MyTonWallet Production profile";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1993,7 +1961,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "MyTonWallet Production profile";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -2060,7 +2027,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		580CDB9A2DF47B6B0078F79E /* XCRemoteSwiftPackageReference "GRDB.swift" */ = {
+		580CDB9A2DF47B6B0078F79E /* XCRemoteSwiftPackageReference "GRDB" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/groue/GRDB.swift";
 			requirement = {
@@ -2089,27 +2056,27 @@
 /* Begin XCSwiftPackageProductDependency section */
 		580C425A2DF483AE00934F5A /* GRDBSQLite */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 580CDB9A2DF47B6B0078F79E /* XCRemoteSwiftPackageReference "GRDB.swift" */;
+			package = 580CDB9A2DF47B6B0078F79E /* XCRemoteSwiftPackageReference "GRDB" */;
 			productName = GRDBSQLite;
 		};
 		580C42682DF4854C00934F5A /* GRDB */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 580CDB9A2DF47B6B0078F79E /* XCRemoteSwiftPackageReference "GRDB.swift" */;
+			package = 580CDB9A2DF47B6B0078F79E /* XCRemoteSwiftPackageReference "GRDB" */;
 			productName = GRDB;
 		};
 		580C426A2DF4854C00934F5A /* GRDBSQLite */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 580CDB9A2DF47B6B0078F79E /* XCRemoteSwiftPackageReference "GRDB.swift" */;
+			package = 580CDB9A2DF47B6B0078F79E /* XCRemoteSwiftPackageReference "GRDB" */;
 			productName = GRDBSQLite;
 		};
 		580CDB9B2DF47B930078F79E /* GRDB */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 580CDB9A2DF47B6B0078F79E /* XCRemoteSwiftPackageReference "GRDB.swift" */;
+			package = 580CDB9A2DF47B6B0078F79E /* XCRemoteSwiftPackageReference "GRDB" */;
 			productName = GRDB;
 		};
 		582009DE2E820E2C0010E2B5 /* GRDB */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 580CDB9A2DF47B6B0078F79E /* XCRemoteSwiftPackageReference "GRDB.swift" */;
+			package = 580CDB9A2DF47B6B0078F79E /* XCRemoteSwiftPackageReference "GRDB" */;
 			productName = GRDB;
 		};
 		584B0F0C2DD395FB00BDF9E7 /* Lottie */ = {
@@ -2124,7 +2091,7 @@
 		};
 		589A16ED2EB8FB1A00C5C81C /* GRDB */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 580CDB9A2DF47B6B0078F79E /* XCRemoteSwiftPackageReference "GRDB.swift" */;
+			package = 580CDB9A2DF47B6B0078F79E /* XCRemoteSwiftPackageReference "GRDB" */;
 			productName = GRDB;
 		};
 		589A16EF2EB8FB7E00C5C81C /* Lottie */ = {
@@ -2134,7 +2101,7 @@
 		};
 		589A1F6E2EB9006000C5C81C /* GRDB */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 580CDB9A2DF47B6B0078F79E /* XCRemoteSwiftPackageReference "GRDB.swift" */;
+			package = 580CDB9A2DF47B6B0078F79E /* XCRemoteSwiftPackageReference "GRDB" */;
 			productName = GRDB;
 		};
 		589A1F702EB9006700C5C81C /* Lottie */ = {

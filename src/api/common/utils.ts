@@ -4,7 +4,8 @@ export function sha256(bytes: Uint8Array) {
   return crypto.subtle.digest('SHA-256', bytes);
 }
 
-export function bytesToHex(bytes: Uint8Array) {
+/** `bytes` is an array of 0-255 integers */
+export function bytesToHex(bytes: ArrayLike<number>) {
   return Buffer.from(bytes).toString('hex');
 }
 

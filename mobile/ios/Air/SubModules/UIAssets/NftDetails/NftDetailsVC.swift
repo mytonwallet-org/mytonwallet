@@ -21,11 +21,9 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
     
     var backButton: HostingView? = nil
     
-    private let haptic = UIImpactFeedbackGenerator(style: .soft)
-    
-    public init(nft: ApiNft, listContext: NftCollectionFilter) {
+    public init(accountId: String, nft: ApiNft, listContext: NftCollectionFilter) {
         self.nft = nft
-        self.viewModel = NftDetailsViewModel(isExpanded: false, nft: nft, listContext: listContext, navigationBarInset: 0)
+        self.viewModel = NftDetailsViewModel(accountId: accountId, isExpanded: false, nft: nft, listContext: listContext, navigationBarInset: 0)
         super.init(nibName: nil, bundle: nil)
         viewModel.viewController = self
     }
@@ -41,22 +39,32 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
     
     private func setupViews() {
         
-        let navigationBar = WNavigationBar(
-            title: nft.name ?? "",
-            closeIcon: isPresentationModal,
-            addBackButton: { [weak self] in self?.goBack() }
-        )
-        navigationBar.shouldPassTouches = true
-        navigationBar.titleLabel?.alpha = 0
-        view.addSubview(navigationBar)
-        NSLayoutConstraint.activate([
-            navigationBar.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor).withPriority(.defaultHigh),
-            navigationBar.leftAnchor.constraint(equalTo: view.leftAnchor),
-            navigationBar.rightAnchor.constraint(equalTo: view.rightAnchor)
-        ])
-        self.navigationBar = navigationBar
-        navigationBarProgressiveBlurMinY = 150
-        navigationBarProgressiveBlurDelta = 48
+        if let sheet = self.sheetPresentationController {
+            sheet.setValue(true, forKey: "wantsFullScreen")
+            sheet.setValue(false, forKey: "allowsInteractiveDismissWhenFullScreen")
+        }
+
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+            addCloseNavigationItemIfNeeded()
+            configureNavigationItemWithTransparentBackground()
+        } else {
+            let navigationBar = WNavigationBar(
+                title: nft.name ?? "",
+                closeIcon: isPresentationModal,
+                addBackButton: { [weak self] in self?.goBack() }
+            )
+            navigationBar.shouldPassTouches = true
+            navigationBar.titleLabel?.alpha = 0
+            view.addSubview(navigationBar)
+            NSLayoutConstraint.activate([
+                navigationBar.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor).withPriority(.defaultHigh),
+                navigationBar.leftAnchor.constraint(equalTo: view.leftAnchor),
+                navigationBar.rightAnchor.constraint(equalTo: view.rightAnchor)
+            ])
+            self.navigationBar = navigationBar
+            navigationBarProgressiveBlurMinY = 150
+            navigationBarProgressiveBlurDelta = 48
+        }
         
         scrollView.delegate = self
         scrollView.showsHorizontalScrollIndicator = false
@@ -97,18 +105,19 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
         ])
         self.hostingController = hostingController
         
-//        self.fullscreenPreviewConstraint = scrollView.contentLayoutGuide.heightAnchor.constraint(equalToConstant:     852)
-
-        let backButton = HostingView {
-            BackButtonChevron(action: { [weak self] in self?.goBack() })
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+        } else {
+            let backButton = HostingView {
+                BackButtonChevron(action: { [weak self] in self?.goBack() })
+            }
+            backButton.translatesAutoresizingMaskIntoConstraints = false
+            view.addSubview(backButton)
+            NSLayoutConstraint.activate([
+                backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 6/*-12*/),
+                backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 14)
+            ])
+            self.backButton = backButton
         }
-        backButton.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(backButton)
-        NSLayoutConstraint.activate([
-            backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 6/*-12*/),
-            backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 14)
-        ])
-        self.backButton = backButton
         
         UIView.performWithoutAnimation {
             updateIsExpanded(viewModel.isExpanded)
@@ -138,9 +147,6 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
         view.backgroundColor = viewModel.isFullscreenPreviewOpen ? .black : WTheme.sheetBackground
     }
     
-//    public override var prefersStatusBarHidden: Bool {
-//        viewModel.isExpanded
-//    }
     
     public override func viewSafeAreaInsetsDidChange() {
         super.viewSafeAreaInsetsDidChange()
@@ -149,7 +155,11 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
     
     public override func viewWillAppear(_ animated: Bool) {
 
-        haptic.prepare()
+        if let sheet = self.sheetPresentationController {
+            sheet.setValue(false, forKey: "allowsInteractiveDismissWhenFullScreen")
+        }
+        
+        Haptics.prepare(.transition)
         if presentingViewController != nil,
             let presentationConroller = self.navigationController?.presentationController,
             let presentedView = presentationConroller.presentedView,
@@ -159,13 +169,16 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
         }
     }
     
-    public override func viewDidAppear(_ animated: Bool) {
-        if let sheet = self.sheetPresentationController {
-            sheet.animateChanges {
-                sheet.setValue(true, forKey: "wantsFullScreen")
-                sheet.setValue(false, forKey: "allowsInteractiveDismissWhenFullScreen")
-            }
+    public override func viewIsAppearing(_ animated: Bool) {
+        super.viewIsAppearing(animated)
+        UIView.performWithoutAnimation {
+            view.setNeedsLayout()
+            view.layoutIfNeeded()
         }
+    }
+    
+    public override func viewDidAppear(_ animated: Bool) {
+        
         super.viewDidAppear(animated)
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
             self.bringNavigationBarToFront()
@@ -178,22 +191,12 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
         }
     }
     
-    private var navigationControllerAfterDismissal: UINavigationController?
-    
-    public override func viewWillDisappear(_ animated: Bool) {
-        self.navigationControllerAfterDismissal = navigationController
-        super.viewWillDisappear(animated)
-    }
-    
     public override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
-        if let sheet = navigationControllerAfterDismissal?.sheetPresentationController {
-            sheet.animateChanges {
-                sheet.setValue(false, forKey: "wantsFullScreen")
-                sheet.setValue(true, forKey: "allowsInteractiveDismissWhenFullScreen")
-            }
+        
+        if let sheet = self.sheetPresentationController {
+            sheet.setValue(true, forKey: "allowsInteractiveDismissWhenFullScreen")
         }
-        self.navigationControllerAfterDismissal = nil
     }
     
     // MARK: Scroll view delegate
@@ -217,13 +220,13 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
         if scrollView.isDecelerating { return }
         
         if abs(offset) < 50 {
-            haptic.prepare()
+            Haptics.prepare(.transition)
         }
         switch viewModel.state {
         case .collapsed:
             if offset < -10 {
                 updateIsExpanded(true)
-                haptic.impactOccurred(intensity: 0.75)
+                Haptics.play(.transition)
                 allowsOpenMediaViewerForCurrentInteraction = false
 //                scrollView.panGestureRecognizer.state = .ended
             }
@@ -231,7 +234,7 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
             if offset >= 10 {
                 updateIsExpanded(false)
                 allowsOpenMediaViewerForCurrentInteraction = false
-                haptic.impactOccurred(intensity: 0.75)
+                Haptics.play(.transition)
             } else if offset < -30 && allowsOpenMediaViewerForCurrentInteraction {
                 viewModel.onImageLongTap()
                 scrollView.panGestureRecognizer.state = .ended
@@ -356,10 +359,10 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
 @available(iOS 18, *)
 #Preview {
     let _ = (NftStore.configureForPreview())
-    let vc = NftDetailsVC(nft: .sampleMtwCard, listContext: .none)
+    let vc = NftDetailsVC(accountId: "0-mainnet", nft: .sampleMtwCard, listContext: .none)
 //    let _ = vc.viewModel.isExpanded = false
 //    let _ = vc.viewModel.isFullscreenPreviewOpen = true
-    vc
+    ncPreview(vc)
 }
 #endif
 

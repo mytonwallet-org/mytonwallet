@@ -40,7 +40,7 @@ public struct NftOverviewView: View {
                 Text(text)
                     .font17h22()
             }
-            TappableAddress(name: addressName, resolvedAddress: resolvedAddress, addressOrName: addressOrDomain)
+            TappableAddress(name: addressName, chain: "ton", resolvedAddress: resolvedAddress, addressOrName: addressOrDomain)
         }
     }
 }

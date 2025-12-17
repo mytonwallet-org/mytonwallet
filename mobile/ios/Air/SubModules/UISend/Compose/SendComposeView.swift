@@ -6,24 +6,19 @@ import UIKit
 import UIComponents
 import WalletCore
 import WalletContext
-
+import Perception
 
 public struct SendComposeView: View {
     
     @ObservedObject var model: SendModel
     var isSensitiveDataHidden: Bool
-    var navigationBarInset: CGFloat
-    var onScrollPositionChange: (CGFloat) -> ()
             
     @State private var addressFocused: Bool = false
     @State private var amountFocused: Bool = false
     
-    @Namespace private var ns
-    
     public var body: some View {
         InsetList {
             ToSection(isFocused: $addressFocused, onSubmit: onAddressSubmit)
-                .scrollPosition(ns: ns, offset: 8, callback: onScrollPositionChange)
             AmountSection(focused: $amountFocused)
             NftSection()
             CommentOrMemoSection(commentIsEnrypted: $model.isMessageEncrypted, commentOrMemo: $model.comment)
@@ -31,8 +26,6 @@ public struct SendComposeView: View {
                     Color.clear.frame(height: 60)
                 }
         }
-        .coordinateSpace(name: ns)
-        .navigationBarInset(navigationBarInset)
         .safeAreaInset(edge: .bottom) {
             Color.clear.frame(height: 140)
         }
@@ -42,7 +35,6 @@ public struct SendComposeView: View {
         }
 
         .navigationTitle(Text(lang("Send")))
-        .environment(\.isSensitiveDataHidden, isSensitiveDataHidden)
         .environmentObject(model)
 
         .onChange(of: addressFocused) { focus in
@@ -242,10 +234,12 @@ private struct CommentOrMemoSection: View {
     @FocusState private var isFocused: Bool
 
     var body: some View {
-        if model.binaryPayload?.nilIfEmpty != nil {
-            binaryPayloadSection
-        } else {
-            commentSection
+        WithPerceptionTracking {
+            if model.binaryPayload?.nilIfEmpty != nil {
+                binaryPayloadSection
+            } else {
+                commentSection
+            }
         }
     }
     
@@ -254,7 +248,7 @@ private struct CommentOrMemoSection: View {
         InsetSection {
             InsetCell {
                 TextField(
-                    model.isCommentRequired ? lang("Add comment or memo") : lang("Add a message, if needed"),
+                    model.isCommentRequired ? lang("Required") : lang("Optional"),
                     text: $commentOrMemo,
                     axis: .vertical
                 )
@@ -294,7 +288,6 @@ private struct CommentOrMemoSection: View {
                     .contentShape(.rect)
                     .foregroundStyle(.secondary)
                     .tint(.primary)
-                    .font(.footnote)
                     .padding(.vertical, 2)
                 }
                 .padding(.vertical, -2)

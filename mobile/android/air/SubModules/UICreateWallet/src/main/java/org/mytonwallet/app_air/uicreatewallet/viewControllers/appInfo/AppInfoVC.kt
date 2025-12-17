@@ -40,6 +40,7 @@ import java.lang.ref.WeakReference
 import kotlin.math.max
 
 class AppInfoVC(context: Context) : WViewController(context) {
+    override val TAG = "AppInfo"
 
     override val shouldDisplayTopBar = false
     override val shouldDisplayBottomBar = true

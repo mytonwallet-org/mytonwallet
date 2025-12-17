@@ -1,0 +1,28 @@
+.root {
+  display: flex;
+  flex-direction: column;
+}
+
+.infoBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-top: 2rem;
+}
+
+.textFieldWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.textFieldLabel {
+  display: flex;
+  align-items: center;
+
+  padding-left: 0.5rem;
+
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-gray-2);
+}

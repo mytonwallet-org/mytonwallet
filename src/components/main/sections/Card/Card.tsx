@@ -5,11 +5,12 @@ import React, {
 import { withGlobal } from '../../../../global';
 
 import type { ApiBaseCurrency, ApiCurrencyRates, ApiNft, ApiStakingState } from '../../../../api/types';
-import type { IAnchorPosition, UserToken } from '../../../../global/types';
+import type { IAnchorPosition, TokenChartMode, UserToken } from '../../../../global/types';
 
 import { IS_CORE_WALLET } from '../../../../config';
 import {
-  selectAccountStakingStates,
+  selectAccountStakingStates, selectCurrentAccount,
+  selectCurrentAccountId,
   selectCurrentAccountSettings,
   selectCurrentAccountState,
   selectCurrentAccountTokens,
@@ -22,12 +23,12 @@ import { IS_IOS, IS_SAFARI } from '../../../../util/windowEnvironment';
 import { calculateFullBalance } from './helpers/calculateFullBalance';
 import getSensitiveDataMaskSkinFromCardNft from './helpers/getSensitiveDataMaskSkinFromCardNft';
 
-import useCurrentOrPrev from '../../../../hooks/useCurrentOrPrev';
 import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
 import useFontScale from '../../../../hooks/useFontScale';
 import useHistoryBack from '../../../../hooks/useHistoryBack';
 import useLastCallback from '../../../../hooks/useLastCallback';
 import useShowTransition from '../../../../hooks/useShowTransition';
+import useSyncEffect from '../../../../hooks/useSyncEffect';
 import useUpdateIndicator from '../../../../hooks/useUpdateIndicator';
 import useWindowSize from '../../../../hooks/useWindowSize';
 
@@ -38,19 +39,22 @@ import SensitiveData from '../../../ui/SensitiveData';
 import Spinner from '../../../ui/Spinner';
 import Transition from '../../../ui/Transition';
 import CardAddress from './CardAddress';
+import ChartCard from './ChartCard';
 import CurrencySwitcherMenu from './CurrencySwitcherMenu';
 import CustomCardManager from './CustomCardManager';
-import TokenCard from './TokenCard';
 
 import styles from './Card.module.scss';
 
 interface OwnProps {
   ref?: ElementRef<HTMLDivElement>;
-  onTokenCardClose: NoneToVoidFunction;
+  onChartCardClose: NoneToVoidFunction;
+  tokenChartMode: TokenChartMode;
   onYieldClick: (stakingId?: string) => void;
 }
 
 interface StateProps {
+  currentAccountId: string;
+  isTemporaryAccount?: boolean;
   tokens?: UserToken[];
   currentTokenSlug?: string;
   baseCurrency: ApiBaseCurrency;
@@ -62,11 +66,16 @@ interface StateProps {
   isViewMode: boolean;
 }
 
+let mainKey = 0;
+
 function Card({
   ref,
+  currentAccountId,
+  isTemporaryAccount,
   tokens,
   currentTokenSlug,
-  onTokenCardClose,
+  onChartCardClose,
+  tokenChartMode,
   onYieldClick,
   baseCurrency,
   currencyRates,
@@ -88,14 +97,17 @@ function Card({
   // Screen width affects font size only in portrait orientation
   const screenWidthDep = isPortrait ? screenWidth : 0;
 
+  useSyncEffect(() => {
+    if (currentAccountId) {
+      mainKey += 1;
+    }
+  }, [currentAccountId, isTemporaryAccount]);
+
   const [currencyMenuAnchor, setCurrencyMenuAnchor] = useState<IAnchorPosition>();
-  const currentToken = useMemo(() => {
-    return tokens ? tokens.find((token) => token.slug === currentTokenSlug) : undefined;
-  }, [currentTokenSlug, tokens]);
-  const renderedToken = useCurrentOrPrev(currentToken, true);
+
   const {
-    shouldRender: shouldRenderTokenCard,
-    ref: tokenCardRef,
+    shouldRender: shouldRenderChartCard,
+    ref: chartCardRef,
   } = useShowTransition({
     isOpen: Boolean(currentTokenSlug),
     noMountTransition: true,
@@ -123,12 +135,12 @@ function Card({
 
   useHistoryBack({
     isActive: Boolean(currentTokenSlug),
-    onBack: onTokenCardClose,
+    onBack: onChartCardClose,
   });
 
   useEffect(
-    () => (shouldRenderTokenCard ? captureEscKeyListener(onTokenCardClose) : undefined),
-    [shouldRenderTokenCard, onTokenCardClose],
+    () => (shouldRenderChartCard ? captureEscKeyListener(onChartCardClose) : undefined),
+    [shouldRenderChartCard, onChartCardClose],
   );
 
   const {
@@ -253,20 +265,27 @@ function Card({
 
         <div className={buildClassName(styles.containerInner, customCardClassName)}>
           {values ? renderBalance() : renderLoader()}
-          <CardAddress withTextGradient={withTextGradient} />
+          <Transition
+            activeKey={mainKey}
+            name="fade"
+            className={styles.cardAddressContainer}
+            slideClassName={styles.cardAddressSlide}
+          >
+            <CardAddress withTextGradient={withTextGradient} />
+          </Transition>
           {!IS_CORE_WALLET && !isNftBuyingDisabled && !isViewMode && (
             <MintCardButton />
           )}
         </div>
       </div>
 
-      {shouldRenderTokenCard && (
-        <TokenCard
-          token={renderedToken!}
-          ref={tokenCardRef}
+      {shouldRenderChartCard && (
+        <ChartCard
+          tokenSlug={currentTokenSlug}
+          ref={chartCardRef}
           isUpdating={isUpdating}
+          tokenChartMode={tokenChartMode}
           onYieldClick={isViewMode ? undefined : onYieldClick}
-          onClose={onTokenCardClose}
         />
       )}
     </div>
@@ -276,11 +295,14 @@ function Card({
 export default memo(
   withGlobal<OwnProps>(
     (global): StateProps => {
+      const currentAccountId = selectCurrentAccountId(global)!;
       const accountState = selectCurrentAccountState(global);
-      const stakingStates = selectAccountStakingStates(global, global.currentAccountId!);
+      const stakingStates = selectAccountStakingStates(global, currentAccountId);
       const { cardBackgroundNft: cardNft } = selectCurrentAccountSettings(global) || {};
 
       return {
+        currentAccountId,
+        isTemporaryAccount: selectCurrentAccount(global)?.isTemporary,
         isViewMode: selectIsCurrentAccountViewMode(global),
         tokens: selectCurrentAccountTokens(global),
         currentTokenSlug: accountState?.currentTokenSlug,
@@ -292,6 +314,6 @@ export default memo(
         isNftBuyingDisabled: global.restrictions.isNftBuyingDisabled,
       };
     },
-    (global, _, stickToFirst) => stickToFirst(global.currentAccountId),
+    (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),
   )(Card),
 );

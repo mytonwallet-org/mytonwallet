@@ -35,7 +35,7 @@ class AssetsAndActivityBaseCurrencyCell: UITableViewCell {
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
         lbl.font = .systemFont(ofSize: 17)
-        lbl.text = TokenStore.baseCurrency?.rawValue
+        lbl.text = TokenStore.baseCurrency.rawValue
         return lbl
     }()
 
@@ -169,7 +169,7 @@ class AssetsAndActivityBaseCurrencyCell: UITableViewCell {
 
     @objc private func hideTinyTransfersSwitched() {
         AppStorageHelper.hideTinyTransfers = hideTinyTransfersSwitch.isOn
-        WalletCoreData.notify(event: .hideTinyTransfersChanged, for: nil)
+        WalletCoreData.notify(event: .hideTinyTransfersChanged)
     }
     
     @objc private func baseCurrencyTapped() {

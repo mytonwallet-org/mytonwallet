@@ -21,6 +21,8 @@ import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.commonViews.WordListView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.helpers.HapticType
+import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
@@ -45,6 +47,7 @@ import kotlin.random.Random
 @SuppressLint("ViewConstructor")
 open class RecoveryPhraseVC(context: Context, private val words: Array<String>) :
     WViewController(context) {
+    override val TAG = "RecoveryPhrase"
 
     override val protectFromScreenRecord = true
     override val shouldDisplayBottomBar = true
@@ -125,6 +128,7 @@ open class RecoveryPhraseVC(context: Context, private val words: Array<String>) 
                         context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                     val clip = ClipData.newPlainText("Wallet Address", words.joinToString(" "))
                     clipboard.setPrimaryClip(clip)
+                    Haptics.play(context, HapticType.LIGHT_TAP)
                     Toast.makeText(
                         context,
                         LocaleController.getString("Secret phrase was copied to clipboard"),

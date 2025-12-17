@@ -31,7 +31,11 @@ publish:
   repo: "mytonwallet"
   releaseType: "draft"
 win:
-  target: "nsis"
+  target:
+    - target: "nsis"
+      arch:
+        - x64
+        - arm64
   icon: "public/icon-electron-windows.ico"
 nsis:
   oneClick: false

@@ -10,7 +10,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import kotlin.math.ceil
+import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
 
 class WordListItemView(
     context: Context,
@@ -34,7 +34,7 @@ class WordListItemView(
     fun setupViews(index: String, word: String) {
         addView(
             indexLabel,
-            LayoutParams(ceil(indexLabel.paint.measureText("88.")).toInt(), WRAP_CONTENT)
+            LayoutParams(indexLabel.paint.measureText("88.").ceilToInt(), WRAP_CONTENT)
         )
         addView(wordLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         setConstraints {

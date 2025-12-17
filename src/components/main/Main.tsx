@@ -3,20 +3,24 @@ import React, {
 } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
-import type { ApiStakingState } from '../../api/types';
-import { ActiveTab, ContentTab, type Theme } from '../../global/types';
+import type { ApiStakingState, ApiTokenWithPrice } from '../../api/types';
+import { ActiveTab, ContentTab, type Theme, type TokenChartMode } from '../../global/types';
 
 import { IS_CORE_WALLET } from '../../config';
 import {
   selectAccountStakingState,
+  selectCurrentAccountId,
   selectCurrentAccountSettings,
   selectCurrentAccountState,
   selectIsCurrentAccountViewMode,
   selectIsHardwareAccount,
+  selectIsOffRampAllowed,
   selectIsStakingDisabled,
   selectIsSwapDisabled,
+  selectToken,
 } from '../../global/selectors';
 import { useAccentColor } from '../../util/accentColor';
+import { isNetWorthChartAvailable } from '../../util/assets/netWorth';
 import buildClassName from '../../util/buildClassName';
 import { captureEvents, SwipeDirection } from '../../util/captureEvents';
 import { getStakingStateStatus } from '../../util/staking';
@@ -63,6 +67,7 @@ interface OwnProps {
 
 type StateProps = {
   currentTokenSlug?: string;
+  currentToken?: ApiTokenWithPrice;
   stakingState?: ApiStakingState;
   isTestnet?: boolean;
   isLedger?: boolean;
@@ -71,6 +76,7 @@ type StateProps = {
   isSwapDisabled?: boolean;
   isStakingDisabled?: boolean;
   isOnRampDisabled?: boolean;
+  isOffRampAllowed?: boolean;
   isMediaViewerOpen?: boolean;
   theme: Theme;
   accentColorIndex?: number;
@@ -90,9 +96,11 @@ function Main({
   isSwapDisabled,
   isStakingDisabled,
   isOnRampDisabled,
+  isOffRampAllowed,
   isMediaViewerOpen,
   theme,
   accentColorIndex,
+  currentToken,
 }: OwnProps & StateProps) {
   const {
     selectToken,
@@ -115,6 +123,7 @@ function Main({
   const safeAreaTop = calcSafeAreaTop();
   const [isFocused, markIsFocused, unmarkIsFocused] = useFlag(!isBackgroundModeActive());
   const [areTabsStuck, setAreTabsStuck] = useState(false);
+  const [tokenChartMode, setTokenChartMode] = useState<TokenChartMode>('price');
   const intersectionRootMarginTop = HEADER_HEIGHT_REM * REM + safeAreaTop;
 
   const stakingStatus = stakingState ? getStakingStateStatus(stakingState) : 'inactive';
@@ -148,9 +157,21 @@ function Main({
     rootMargin: `-${intersectionRootMarginTop}px 0px 0px 0px`,
   });
 
-  const handleTokenCardClose = useLastCallback(() => {
+  const handleChartCardClose = useLastCallback(() => {
     selectToken({ slug: undefined });
     setActiveContentTab({ tab: ContentTab.Assets });
+  });
+
+  const isNetWorthChartSupported = isNetWorthChartAvailable(currentToken);
+
+  useEffect(() => {
+    if (!currentTokenSlug || !isNetWorthChartSupported) {
+      setTokenChartMode('price');
+    }
+  }, [currentTokenSlug, isNetWorthChartSupported]);
+
+  const handleTokenChartModeChange = useLastCallback((mode: TokenChartMode) => {
+    setTokenChartMode(mode);
   });
 
   useEffect(() => {
@@ -159,17 +180,17 @@ function Main({
     }
 
     return captureEvents(portraitContainerRef.current, {
-      excludedClosestSelector: '.token-card',
+      excludedClosestSelector: '.chart-card',
       onSwipe: (e, direction) => {
         if (direction === SwipeDirection.Right) {
-          handleTokenCardClose();
+          handleChartCardClose();
           return true;
         }
 
         return false;
       },
     });
-  }, [currentTokenSlug, handleTokenCardClose, isPortrait]);
+  }, [currentTokenSlug, handleChartCardClose, isPortrait]);
 
   const appTheme = useAppTheme(theme);
   useAccentColor(isPortrait ? portraitContainerRef : landscapeContainerRef, appTheme, accentColorIndex);
@@ -194,11 +215,17 @@ function Main({
             withBalance={!shouldHideBalanceInHeader}
             areTabsStuck={areTabsStuck}
             isScrolled={!isPageAtTop}
+            isChartCardOpen={Boolean(currentTokenSlug)}
+            tokenChartMode={tokenChartMode}
+            isNetWorthChartAvailable={isNetWorthChartSupported}
+            onChartCardBack={handleChartCardClose}
+            onTokenChartModeChange={handleTokenChartModeChange}
           />
 
           <Card
             ref={cardRef}
-            onTokenCardClose={handleTokenCardClose}
+            onChartCardClose={handleChartCardClose}
+            tokenChartMode={tokenChartMode}
             onYieldClick={handleEarnClick}
           />
 
@@ -210,6 +237,7 @@ function Main({
               isStakingDisabled={isStakingDisabled}
               isSwapDisabled={isSwapDisabled}
               isOnRampDisabled={isOnRampDisabled}
+              isOffRampDisabled={!isOffRampAllowed}
               onEarnClick={handleEarnClick}
             />
           )}
@@ -230,14 +258,25 @@ function Main({
         <div className={buildClassName(styles.sidebar, 'custom-scroll')}>
           <Warnings onOpenBackupWallet={openBackupWalletModal} />
 
-          <Header />
+          <Header
+            isChartCardOpen={Boolean(currentTokenSlug)}
+            tokenChartMode={tokenChartMode}
+            isNetWorthChartAvailable={isNetWorthChartSupported}
+            onChartCardBack={handleChartCardClose}
+            onTokenChartModeChange={handleTokenChartModeChange}
+          />
 
-          <Card onTokenCardClose={handleTokenCardClose} onYieldClick={handleEarnClick} />
+          <Card
+            onChartCardClose={handleChartCardClose}
+            tokenChartMode={tokenChartMode}
+            onYieldClick={handleEarnClick}
+          />
           {!isViewMode && (
             <LandscapeActions
               containerRef={landscapeContainerRef}
               stakingStatus={stakingStatus}
               isLedger={isLedger}
+              isOffRampDisabled={!isOffRampAllowed}
               theme={theme}
             />
           )}
@@ -273,18 +312,21 @@ export default memo(
   withGlobal<OwnProps>(
     (global): StateProps => {
       const isLedger = selectIsHardwareAccount(global);
+      const currentAccountId = selectCurrentAccountId(global);
       const accountState = selectCurrentAccountState(global);
       const { currentTokenSlug } = accountState ?? {};
+      const currentToken = currentTokenSlug ? selectToken(global, currentTokenSlug) : undefined;
 
       const { isOnRampDisabled } = global.restrictions;
 
-      const stakingState = global.currentAccountId
-        ? selectAccountStakingState(global, global.currentAccountId)
+      const stakingState = currentAccountId
+        ? selectAccountStakingState(global, currentAccountId)
         : undefined;
 
       return {
         stakingState,
         currentTokenSlug,
+        currentToken,
         isTestnet: global.settings.isTestnet,
         isLedger,
         isViewMode: selectIsCurrentAccountViewMode(global),
@@ -293,10 +335,11 @@ export default memo(
         isSwapDisabled: selectIsSwapDisabled(global),
         isStakingDisabled: selectIsStakingDisabled(global),
         isOnRampDisabled,
+        isOffRampAllowed: selectIsOffRampAllowed(global),
         theme: global.settings.theme,
         accentColorIndex: selectCurrentAccountSettings(global)?.accentColorIndex,
       };
     },
-    (global, _, stickToFirst) => stickToFirst(global.currentAccountId),
+    (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),
   )(Main),
 );

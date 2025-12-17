@@ -7,13 +7,11 @@ import android.view.View
 import android.view.View.OnTouchListener
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import org.json.JSONArray
 import org.json.JSONObject
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcore.WalletCore
-import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.inject.DAppInject
-import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import java.security.SecureRandom
 
 class TonConnectInjectedInterface(
@@ -69,7 +67,12 @@ class TonConnectInjectedInterface(
     fun invokeFunc(json: String) {
         val adapter = WalletCore.moshi.adapter(DAppInject.FunctionInvoke::class.java)
         try {
-            val parsed = adapter.fromJson(json) ?: return
+            var parsed = adapter.fromJson(json) ?: return
+            if (parsed.args == null) {
+                JSONObject(json).optJSONObject("args")?.let { args ->
+                    parsed = parsed.copy(args = JSONArray().put(args))
+                }
+            }
             webView.post { invokeFunc(parsed) }
         } catch (t: Throwable) {
         }
@@ -97,14 +100,6 @@ class TonConnectInjectedInterface(
                 val version = args.getInt(0)
                 val request = args.getJSONObject(1)
                 if (version > TonConnectHelper.deviceInfo.maxProtocolVersion) {
-                    return
-                }
-                if (AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW) {
-                    LocaleController.getString("Action is not possible on a view-only wallet.")
-                        .let { error ->
-                            showError(error)
-                            sendInvokeError(error)
-                        }
                     return
                 }
 
@@ -196,7 +191,11 @@ class TonConnectInjectedInterface(
                 }
             }
 
-            "window:open" -> {}
+            "window:open" -> {
+                val url = invoke.args?.optJSONObject(0)?.optString("url") ?: return
+                webView.loadUrl(url)
+            }
+
             "window:close" -> {}
         }
     }

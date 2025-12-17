@@ -6,6 +6,8 @@ import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.RadialGradient
+import android.graphics.Shader
 import android.os.Handler
 import android.os.Looper
 import androidx.appcompat.widget.AppCompatTextView
@@ -14,6 +16,8 @@ import androidx.core.graphics.withTranslation
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.getCenterAlignBaseline
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
@@ -34,8 +38,21 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
     var primarySize = 52f
     var decimalsSize = 38f
     var decimalsAlpha = 255
+    var smartDecimalsAlpha = false
+    var reducedDecimalsAlpha = 191
+    // When true, decimals use primaryColor when amount < 10, secondaryColor when >= 10
+    var smartDecimalsColor = false
     var defaultHeight = 56.dp
     var onTotalWidthChanged: ((value: Int) -> Unit)? = null
+
+    // Container width is used to measure gradient width
+    var containerWidth = 0
+        set(value) {
+            if (field == value) return
+            field = value
+            applyGradient()
+            invalidate()
+        }
 
     // Animating ///////////////////////////////////////////////////////////////////////////////////
     companion object {
@@ -44,6 +61,7 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
     }
 
     var morphingDuration = PREFERRED_MORPHING_DURATION
+    var changeDelay = 500L
 
     data class AnimateConfig(
         val amount: BigInteger?,
@@ -53,7 +71,7 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
         val forceCurrencyToRight: Boolean
     )
 
-    private var _currentVal: BigInteger? = null
+    private var _currentVal: AnimateConfig? = null
     private var _prevText: List<WBalanceViewCharacter> = emptyList()
     private var _text: List<WBalanceViewCharacter> = emptyList()
     private var _str: String? = null
@@ -90,8 +108,15 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
         }
         _str = text
         val isIncreasing =
-            (animateConfig.amount ?: BigInteger.ZERO) > (_currentVal ?: BigInteger.ZERO)
-        _currentVal = animateConfig.amount
+            (animateConfig.amount ?: BigInteger.ZERO) > (_currentVal?.amount ?: BigInteger.ZERO)
+        _currentVal = animateConfig
+        val amountDouble = animateConfig.amount?.toDouble()?.div(
+            10.0.pow(animateConfig.decimals)
+        ) ?: 0.0
+        val isLargeAmount = kotlin.math.abs(amountDouble) >= 10
+        if (smartDecimalsAlpha) {
+            decimalsAlpha = if (isLargeAmount) reducedDecimalsAlpha else 255
+        }
         morphFromTop = isIncreasing
         this._prevText = _text
         var size = primarySize.dp
@@ -109,7 +134,7 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
             if (!decimalsPart && !character.isDigit() && i > 0 && character != ' ') {
                 left += primarySize.dp * 0.03f
                 size = decimalsSize.dp
-                color = secondaryColor
+                color = if (smartDecimalsColor && !isLargeAmount) (primaryColor ?: WColor.PrimaryText.color) else secondaryColor
                 decimalsPart = true
                 integerPartWidth = left
             }
@@ -119,7 +144,10 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
             if (!textMeasureCache.containsKey(key)) {
                 basePaint.textSize = charSize
                 basePaint.measureText(character.toString()).let {
-                    textMeasureCache[key] = it
+                    if (character == ' ')
+                        textMeasureCache[key] = it / 2
+                    else
+                        textMeasureCache[key] = it
                 }
             }
             val charLeft = left
@@ -155,7 +183,7 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
                 }
                 isAnimating = false
                 applyNextAnimation()
-            }, morphingDuration + 500L)
+            }, morphingDuration + changeDelay)
         animateTextChange()
     }
 
@@ -307,9 +335,16 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
             }
 
             addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationCancel(animation: Animator) {
+                    super.onAnimationCancel(animation)
+                    elapsedTime = totalDuration
+                    onAnimationEnd(animation)
+                }
+
                 override fun onAnimationEnd(animation: Animator) {
                     isAnimating = false
                     reposition(onBackground = true)
+                    animator = null
                 }
             })
 
@@ -412,6 +447,31 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
         }
     }
 
+    private var drawGradient = false
+    private var gradientShader: RadialGradient? = null
+
+    fun updateColors(primaryColor: Int, secondaryColor: Int, drawGradient: Boolean) {
+        if (this.primaryColor == primaryColor && this.secondaryColor == secondaryColor && this.drawGradient == drawGradient)
+            return
+        this.primaryColor = primaryColor
+        this.secondaryColor = secondaryColor
+        this.drawGradient = drawGradient
+
+        if (drawGradient && _width > 0) {
+            applyGradient()
+        } else {
+            gradientShader = null
+        }
+
+        paintCache.clear()
+
+        stop()
+        _currentVal?.copy(animated = false)?.let { it ->
+            this._str = null
+            animateText(it)
+        }
+    }
+
     private fun getPaintForCharacter(characterRect: WBalanceViewDrawingCharacterRect): Paint {
         val key = Pair(characterRect.textSize, characterRect.color)
         val paint = paintCache.getOrPut(key) {
@@ -422,11 +482,41 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
             }
         }
         paint.alpha = ((characterRect.alpha) * alpha).roundToInt()
+
+        if (drawGradient && gradientShader != null) {
+            paint.shader = gradientShader
+        } else {
+            paint.shader = null
+        }
+
         return paint
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         setMeasuredDimension(_width, defaultHeight)
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+
+        applyGradient()
+    }
+
+    private fun applyGradient() {
+        if (drawGradient && _width > 0 && containerWidth > 0) {
+            val centerY = defaultHeight / 2f
+            val radius = _width.toFloat() / 2f
+            gradientShader = RadialGradient(
+                containerWidth * 0.36f - (containerWidth - width) / 2f,
+                centerY,
+                radius,
+                intArrayOf(primaryColor ?: 0, secondaryColor ?: 0),
+                floatArrayOf(0f, 1f),
+                Shader.TileMode.CLAMP
+            )
+        } else {
+            gradientShader = null
+        }
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -450,6 +540,24 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
                     }
                 }
             }
+        }
+    }
+
+    private var interruptedAnimation = false
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        if (interruptedAnimation) {
+            interruptedAnimation = false
+            elapsedTime = morphingDuration
+            reposition(false)
+        }
+    }
+
+    fun interruptAnimation() {
+        if (isAnimating) {
+            stop()
+            isAnimating = false
+            interruptedAnimation = true
         }
     }
 }

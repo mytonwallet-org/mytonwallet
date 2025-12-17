@@ -1,49 +1,68 @@
 
 import UIKit
 import SwiftUI
+import Perception
 
 let MENU_EDGE_PADDING: CGFloat = 4
 private let distanceFromAnchor: CGFloat = 8
 
-public final class MenuContext: ObservableObject, @unchecked Sendable {
+@Perceptible
+@MainActor public final class MenuContext: Sendable {
     
-    @Published public var sourceView: UIView? = nil
-    @Published public var sourceFrame: CGRect = .zero
-    @Published var anchor: Alignment = .bottom
-    @Published var locations: [String: CGRect] = [:]
-    @Published var currentLocation: CGPoint?
-    @Published var currentItem: String?
-    @Published public var menuShown: Bool = false
-    @Published var submenuId = "0"
-    @Published var visibleSubmenus: Set<String> = []
-    @Published public var minWidth: CGFloat? = 180.0
-    @Published public var maxWidth: CGFloat? = 280.0
-    @Published public var verticalOffset: CGFloat = 0
+    @PerceptionIgnored
+    public var sourceView: UIView? = nil
+    @PerceptionIgnored
+    public var sourceFrame: CGRect = .zero
+    @PerceptionIgnored
+    var anchor: Alignment = .bottom
     
+    var locations: [String: CGRect] = [:]
+    var currentLocation: CGPoint?
+    var currentItem: String?
+    public var menuShown: Bool = false
+    var submenuId = "0"
+    var visibleSubmenus: Set<String> = []
+    
+    @PerceptionIgnored
+    public var minWidth: CGFloat? = 180.0
+    @PerceptionIgnored
+    public var maxWidth: CGFloat? = 280.0
+    @PerceptionIgnored
+    public var verticalOffset: CGFloat = 0
+    
+    @PerceptionIgnored
     public var makeConfig: () -> MenuConfig = { MenuConfig(menuItems: []) }
+    @PerceptionIgnored
     public var makeSubmenuConfig: (() -> MenuConfig)?
     
+    @PerceptionIgnored
     var actions: [String: () -> ()] = [:]
     
+    @PerceptionIgnored
     public var onAppear: (() -> ())?
+    @PerceptionIgnored
     public var onDismiss: (() -> ())?
     
     public init() {}
     
     func update(location: CGPoint) {
         currentLocation = location
+        let previousItem = currentItem
         for (id, frame) in locations {
             if id.hasPrefix(submenuId) && frame.contains(location) {
                 if id != currentItem {
                     currentItem = id
-                    UISelectionFeedbackGenerator().selectionChanged()
+                    // Only play haptic when changing FROM one item to another (not on initial touch)
+                    if previousItem != nil {
+                        Haptics.play(.selection)
+                    }
                 }
                 return
             }
         }
         if currentItem != nil {
             currentItem = nil
-            UISelectionFeedbackGenerator().selectionChanged()
+            Haptics.play(.selection)
         }
     }
     

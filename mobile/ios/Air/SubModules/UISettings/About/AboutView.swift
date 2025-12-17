@@ -37,7 +37,7 @@ struct AboutView: View {
                 .resizable()
                 .frame(width: 96, height: 96)
             VStack(spacing: 4) {
-                Text("\(lang("MyTonWallet")) \(appVersion)")
+                Text("\(APP_NAME) \(appVersion)")
                     .font(.system(size: 17, weight: .semibold))
                 Text("[mytonwallet.io](https://mytonwallet.io)")
                     .font(.system(size: 14, weight: .regular))
@@ -75,7 +75,7 @@ struct AboutView: View {
                 onTap: onLearn
             )
         } header: {
-            Text(lang("MyTonWallet Resources"))
+            Text(lang("%app_name% Resources", arg1: APP_NAME))
         }
     }
     

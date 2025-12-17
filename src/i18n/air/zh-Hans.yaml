@@ -1,0 +1,298 @@
+More: 更多
+at: 于
+MyTonWallet: MyTonWallet
+MyTonWallet Resources: MyTonWallet 资源
+I agree to %term%: 我同意 %term%
+See Words: 查看助记词
+Wrong Phrase: 助记词顺序错误
+Permission Denied: 权限被拒绝
+USB: USB
+Bluetooth: 蓝牙
+Locked: 已锁定
+Enter Passcode: 输入密码
+Enter passcode or use fingerprint: 输入密码或使用指纹
+Use PIN: 使用 PIN
+Try again in %1$@: "%1$@ 后再试"
+Try again in %1$@ and %2$@: "%1$@ 和 %2$@ 后再试"
+Screen Recording Detected: 检测到屏幕录制
+$screen_recording_info: |
+  你正在录制屏幕。
+  此画面可能包含敏感或私密信息。
+  请确保你了解即将分享的内容。
+I Understand, Proceed: 知道了，继续
+Waiting for Network: 正在等待网络
+Updating: 正在更新
+My Wallet: 我的钱包
+$no_activity_history: |
+  这个钱包还没有
+  任何交易记录。
+Standalone: 独立模式
+Processing Excess: 处理中
+Bidding Auction: 竞价拍卖
+"Enter wallet name:": "输入钱包名称："
+All Telegram Gifts: 所有 Telegram 礼物
+Add Crypto: 充值加密货币
+Share QR Code: 分享二维码
+$send_only_ton: 仅向此地址发送 Toncoin (TON) 或 TON 网络资产。发送其他代币会导致丢失。
+$send_only_tron: 仅向此地址发送 TRON (TRX) 或 TRON 网络资产。发送其他代币会导致丢失。
+Buying with card is not supported for this account.: 此账户不支持银行卡购买。
+Swapped at: 兑换时间
+Price per: 单价
+Transaction Details: 交易详情
+From: 来自
+To: 去往
+Changelly ID: Changelly ID
+Copy Changelly ID: 复制 Changelly ID
+Changelly ID Copied!: 已复制 Changelly ID！
+from: 来自
+to: 至
+Currency: 货币
+Choose Currency to Send: 选择要发送的货币
+Send to: 发送至
+Add a message, if needed: 需要时可添加留言
+Sending To: 正在发送至
+Show All Collectibles: 显示全部藏品
+You have no NFT in this wallet yet: |
+  你在这个钱包里
+  还没有 NFT。
+Collapse: 收起
+Standalone NFT: 独立 NFT
+Linked Address: 已绑定地址
+Enter Address: 输入地址
+Show All Assets: 显示全部资产
+Price: 价格
+D: 日
+W: 周
+M: 月
+3M: 3 月
+Y: 年
+No price data: 暂无价格数据
+Happening Now: 正在流行
+No Dapps Found!: 没有找到 dApp！
+Open: 打开
+Edit Wallet Name: 编辑钱包名称
+Add Account: 添加账户
+Questions and Answers: 常见问题
+Wallet Name: 钱包名称
+"MyTonWallet Air v%1$@ (%2$@)": "MyTonWallet Air v%1$@ (%2$@)"
+App Icon: 应用图标
+App Font: 应用字体
+Rounded Toolbars: 圆角工具栏
+Side Gutters: 侧边间距
+Tokens on Home Screen: 主屏显示的代币
+Current Wallet Version: 当前钱包版本
+Tokens on Other Versions: 其他版本的代币
+Show Recovery Phrase: 显示恢复助记词
+Passcode: 密码
+Lock the app after: 应用锁定时间
+Never: 从不
+"%1$@ seconds": "%1$@ 秒"
+"%1$@ minutes": "%1$@ 分钟"
+Unstake Request: 解锁质押申请
+Add Stake: 添加质押
+History: 历史记录
+Earn up to %1$@ per year from your tokens: 你的代币每年最高可赚取 %1$@
+Insufficient %1$@ Balance: "%1$@ 余额不足"
+Instant Withdrawal: 立刻提币
+Instantly: 立即
+Up to %1$@: 最高 %1$@
+up to %1$@: 最高 %1$@
+Current APY: 当前 APY
+Est. earning per year: 预计年收益
+in: 于
+Error: 错误
+Network Error: 网络错误
+Buy: 购买
+Sell: 卖出
+Enter Amount: 输入金额
+"Swap %1$@ to %2$@": "将 %1$@ 兑换为 %2$@"
+"%1$@ to %2$@": "%1$@ → %2$@"
+"Max %1$@": "最大 %1$@"
+"Authorize %1$@ fee": "授权 %1$@ 手续费"
+Pending previous fee: 上一笔手续费待处理
+Cross-chain swap by %1$@: 跨链兑换由 %1$@ 提供
+AML/KYC: AML/KYC
+Receive to: 接收至
+Enter %1$@ address: "输入 %1$@ 地址"
+"Send %1$@ this address:": "向此地址发送 %1$@："
+Swap is not supported on this account.: 此账户不支持兑换。
+"%1$@ will be returned": "%1$@ 将被退回"
+Connecting your wallet: 正在连接你的钱包
+Action is not possible on a view-only wallet.: 只读钱包无法执行此操作。
+Logged in with MyTonWallet: 已通过 MyTonWallet 登录
+You have no apps connected to this wallet.: 尚无应用连接到此钱包。
+Asset: 资产
+Sent to: 已发送至
+via %agg%: 通过 %agg%
+Switch to Legacy Version: 切换到传统版本
+Hide tab: 隐藏标签页
+Received from: 收到自
+Your Recovery Phrase: 你的恢复助记词
+day:
+  zeroValue: "%1$d 天"
+  oneValue: "%1$d 天"
+  otherValue: "%1$d 天"
+hour:
+  zeroValue: "%1$d 小时"
+  oneValue: "%1$d 小时"
+  otherValue: "%1$d 小时"
+minute:
+  zeroValue: "%1$d 分钟"
+  oneValue: "%1$d 分钟"
+  otherValue: "%1$d 分钟"
+second:
+  zeroValue: "%1$d 秒"
+  oneValue: "%1$d 秒"
+  otherValue: "%1$d 秒"
+transfer:
+  zeroValue: "%1$d 笔转账"
+  oneValue: "%1$d 笔转账"
+  otherValue: "%1$d 笔转账"
+Confirm Actions:
+  zeroValue: "确认 %1$d 个操作"
+  oneValue: 确认操作
+  otherValue: 确认操作
+"%lld transfer": "%lld 笔转账"
+"A ~ Z": A ~ Z
+"Accumulated rewards": 已累积奖励
+"Biometric authentication not available.": 无法使用生物识别验证。
+"Changelly Payment Address": Changelly 支付地址
+"Choose Currency": 选择货币
+"Choose Wallet": 选择钱包
+"Choose Wallet to Use On": 选择要使用的钱包
+"Wallet to use on": 要使用的钱包
+"Clipboard empty": 剪贴板为空
+"Confirm Connect": 确认连接
+"Connect Wallet": 连接钱包
+"Connected apps can only see your wallet address and will not be able to move your assets without permission.": 已连接的应用只能看到你的钱包地址，未经许可无法转移资产。
+"Connect to %1$@?": 要连接到 %1$@ 吗？
+"Don’t show tokens on your account with value less than $0.01. You can also selectively enable and disable particular tokens using the list below.": 不显示价值低于 0.01 美元的代币。你也可以在下面的列表中单独启用或停用代币。
+"Don’t show transactions of less than $0.01. Such small transactions are often used for spam and scam.": 不显示金额低于 0.01 美元的交易。这类小额交易经常用于垃圾信息或诈骗。
+"Enter passcode or use Touch ID": 输入密码或使用 Touch ID
+"Enter your Wallet Passcode": 输入钱包密码
+"Estimated APY": 预计 APY
+"Expired swap": 兑换已过期
+"Failed swap": 兑换失败
+"Import failed": 导入失败
+"Install Palette": 安装调色板
+Ledger: Ledger
+"Main Currency": 主货币
+"Moving to staking balance": 正转入质押余额
+"My assets": 我的资产
+MyTonWallet uses biometric authentication to unlock and authorize transactions: MyTonWallet 使用生物识别来解锁并授权交易
+"Network error": 网络错误
+"No Camera Access": 无法访问相机
+"No transactions yet.": 暂无交易。
+"Not all transactions were sent successfully.": 并非所有交易都发送成功。
+OK: 确定
+"Open Collection": 打开藏品
+"Open in Explorer": 在浏览器中打开
+"Passcode changed": 密码已更改
+"Please make sure your internet connection is working and try again.": 请确认网络连接正常后再试。
+"Please set a passcode on your device, and then try to use biometric authentication.": 请先在设备上设置密码，然后再次尝试使用生物识别。
+Please try again: 请再试一次
+"Please wait...": 请稍候…
+Popular: 热门
+"Preview is currently unavailable.": 预览暂不可用。
+Read-only account: 只读账户
+Receiving address: 收款地址
+Remove: 移除
+"Request for unstaking": 解锁质押申请
+"Save to Favorites": 保存到收藏
+Set a passcode: 设置密码
+"Show All %1$@": "显示全部 %1$@"
+"Staking Details": 质押详情
+"TON Wallet Versions": TON 钱包版本
+"Tap to reveal": 点击查看
+"The current version of Ledger only supports English-language comments without special characters.": 当前版本的 Ledger 仅支持不含特殊字符的英文备注。
+"The time on your device is incorrect, sync it and try again.": 设备时间不正确，请同步后再试。
+"There is no activity history for this wallet yet.": 该钱包暂时没有活动记录。
+"This is how the TON Blockchain works.": TON 区块链就是这样运作的。
+"This type of transaction is not yet supported by Ledger.": Ledger 尚未支持此类交易。
+"Transaction to this smart contract is not yet supported by Ledger.": Ledger 尚未支持向该智能合约发起交易。
+Transfer Details: 转账详情
+"Transferring NFT is not yet supported by Ledger.": Ledger 尚未支持 NFT 转移。
+Unavailable: 不可用
+"Updating…": 正在更新…
+"Waiting for network…": 正在等待网络…
+Wallet is Locked: 钱包已锁定
+Warning: 警告
+Wear: 应用
+Your Address: 你的地址
+Passcodes don't match. Please try again.: 密码不一致，请重试。
+Secret phrase was copied to clipboard: 恢复助记词已复制到剪贴板
+clipboard: 剪贴板
+screenshot: 屏幕截图
+Copy Anyway: 仍要复制
+12 Words: 12 个单词
+24 Words: 24 个单词
+"Words don’t match, please try again.": 单词不匹配，请重试。
+Load 5 More Wallets: 再加载 5 个钱包
+$n_wallets_selected:
+  zeroValue: "已选择 %1$d"
+  oneValue: "已选择 %1$d"
+  otherValue: "已选择 %1$d"
+"Are you sure you want to unpin %tab%?": 确定要取消固定 %tab% 吗？
+add: 添加
+send: 发送
+swap: 兑换
+earn: 质押
+Actions: 操作
+$actions_description: 快速访问最常用的操作。
+Rate: 汇率
+$rate_description: 查看所选代币的实时汇率。
+Rate with Chart: 汇率与图表
+$rate_with_chart_description: 查看实时汇率并追踪所选代币的走势。
+Style: 风格
+Neutral: 中性
+Vivid: 鲜明
+Chart Period: 图表周期
+$period_all: 全部
+$period_day: 1 天
+$period_week: 1 周
+$period_month: 1 个月
+$period_3months: 3 个月
+$period_year: 1 年
+Token: 代币
+All Tokens: 所有代币
+Customize Widget: 自定义小组件
+$accumulated_rewards: 累计奖励
+Recent Searches: 最近搜索
+Clear All: 全部清除
+Suggestions: 建议
+Popular and connected apps: 热门与已连接的应用
+Connected Dapp: 已连接 dApp
+$ago: "%1$d 前"
+$visited_ago: "%1$d 前访问"
+Notifications are disabled: 通知已关闭
+Enable in Settings: 在设置中开启
+Search in Google: 在 Google 中搜索
+$remove_wallets:
+  zeroValue: 移除钱包
+  oneValue: 移除钱包
+  otherValue: 移除 %1$d 个钱包
+Contract Initialization Data was copied!: 已复制合约初始化数据！
+Encryption is not possible. The recipient is not a wallet or has no outgoing transactions.: 无法加密。收款方不是钱包或没有转出记录。
+just now: 刚刚
+"No": 否
+Search: 搜索
+Show All Wallets: 显示全部钱包
+Sign Out: 退出登录
+State init supplied without message body: 已发送不含正文的状态初始化
+Swap Failed: 兑换失败
+The wallet is ready: 钱包已准备就绪
+Unexpected error. Please let the support know.: 出现意外错误，请告知客服。
+Unlock it and open the TON App: 请解锁并打开 TON 应用
+Use 4-digit Passcode: 使用 4 位密码
+Use 6-digit Passcode: 使用 6 位密码
+You don’t have any cards to customize yet: 你尚未拥有可自定义的卡片
+Authorize %token% Fee: 授权 %token% 手续费
+Awaiting Previous Fee: 等待上一笔手续费
+Lock: 锁定
+MyTonWallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.: MyTonWallet 卡片可安装到钱包，并在主屏和钱包列表中显示。
+Receive: 接收
+Scan: 扫描
+Search or enter address: 搜索或输入地址
+View as Grid: 网格视图
+$secret_words_warning: 在数字环境中存储助记词（包括 **%1$d**）并不安全。务必确保你已妥善保管恢复助记词。
+

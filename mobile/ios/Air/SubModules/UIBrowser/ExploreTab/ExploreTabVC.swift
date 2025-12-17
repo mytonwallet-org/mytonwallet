@@ -165,7 +165,7 @@ public class ExploreTabVC: WViewController {
     
     func onSubmit(_ text: String) {
         @MainActor func error() {
-            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            Haptics.play(.error)
         }
         
         var urlString = text.trimmingCharacters(in: .whitespacesAndNewlines)

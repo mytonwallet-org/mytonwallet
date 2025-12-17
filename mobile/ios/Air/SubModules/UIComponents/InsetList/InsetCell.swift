@@ -20,16 +20,8 @@ public struct InsetCell<Content: View>: View {
             .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, verticalPadding ?? 11)
-            .padding(.horizontal, horizontalPadding ?? 16)
-            .frame(minHeight: resolvedMinHeight)
-    }
-    
-    var resolvedMinHeight: CGFloat? {
-        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-            52
-        } else {
-            nil
-        }
+            .padding(.horizontal, horizontalPadding ?? (IOS_26_MODE_ENABLED ? 20 : 16))
+            .frame(minHeight: IOS_26_MODE_ENABLED ? 52 : nil)
     }
 }
 
@@ -68,7 +60,7 @@ public struct InsetButtonCell<Label: View>: View {
     public var horizontalPadding: CGFloat?
     public var verticalPadding: CGFloat?
     public var action: () -> ()
-    public var label: () -> Label
+    public var label: Label
     
     @State private var isTouching = false
     
@@ -77,13 +69,13 @@ public struct InsetButtonCell<Label: View>: View {
         self.horizontalPadding = horizontalPadding
         self.verticalPadding = verticalPadding
         self.action = action
-        self.label = label
+        self.label = label()
     }
     
     public var body: some View {
         Button(action: action) {
             InsetCell(horizontalPadding: horizontalPadding, verticalPadding: verticalPadding) {
-                label()
+                label
                     .frame(maxWidth: .infinity, alignment: alignment)
                     .foregroundStyle(Color(WTheme.tint))
                     .tint(Color(WTheme.tint))
@@ -134,7 +126,7 @@ public struct InsetExpandableCell: View {
                         .fixedSize(horizontal: false, vertical: true)
                     if !isExpanded {
                         Button(action: {isExpanded = true}) {
-                            Text(lang("More").lowercased())
+                            Text(lang("Show All").lowercased())
                                 .tint(Color(WTheme.tint))
                         }
                         .buttonStyle(.borderless)

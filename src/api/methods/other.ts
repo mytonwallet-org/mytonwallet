@@ -8,9 +8,9 @@ import { setIsAppFocused } from '../../util/focusAwareDelay';
 import { getLogs, logDebugError } from '../../util/logs';
 import { pause } from '../../util/schedulers';
 import chains from '../chains';
-import * as ton from '../chains/ton';
 import { fetchStoredAccounts, fetchStoredWallet, updateStoredWallet } from '../common/accounts';
 import { callBackendGet } from '../common/backend';
+import { hexToBytes } from '../common/utils';
 import { SEC } from '../constants';
 import { handleServerError } from '../errors';
 import { storage } from '../storages';
@@ -23,8 +23,8 @@ export async function getBackendAuthToken(accountId: string, password: string) {
   const { publicKey, isInitialized } = accountWallet;
 
   if (!authToken) {
-    const privateKey = await ton.fetchPrivateKey(accountId, password);
-    const signature = nacl.sign.detached(SIGN_MESSAGE, privateKey!);
+    const privateKey = await chains.ton.fetchPrivateKeyString(accountId, password);
+    const signature = nacl.sign.detached(SIGN_MESSAGE, hexToBytes(privateKey!));
     authToken = Buffer.from(signature).toString('base64');
 
     await updateStoredWallet(accountId, 'ton', {
@@ -71,6 +71,30 @@ export async function getMoonpayOnrampUrl(chain: ApiChain, address: string, them
     });
   } catch (err) {
     logDebugError('getMoonpayOnrampUrl', err);
+
+    return handleServerError(err);
+  }
+}
+
+export async function getMoonpayOfframpUrl(
+  chain: ApiChain,
+  address: string,
+  theme: Theme,
+  currency: ApiBaseCurrency,
+  amount: string,
+  baseUrl: string,
+) {
+  try {
+    return await callBackendGet<{ url: string }>('/offramp-url', {
+      chain,
+      address,
+      theme,
+      currency: currency.toLowerCase(),
+      amount,
+      baseUrl,
+    });
+  } catch (err) {
+    logDebugError('getMoonpayOfframpUrl', err);
 
     return handleServerError(err);
   }

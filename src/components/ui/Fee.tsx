@@ -4,7 +4,7 @@ import React, { memo } from '../../lib/teact/teact';
 import type { ApiToken } from '../../api/types';
 import type { FeePrecision, FeeTerms, FeeValue } from '../../util/fee/types';
 
-import { STARS_SYMBOL, TOKEN_FONT_ICONS } from '../../config';
+import { STARS_SYMBOL, TOKEN_CUSTOM_STYLES } from '../../config';
 import buildClassName from '../../util/buildClassName';
 import { toDecimal } from '../../util/decimals';
 import { formatCurrency } from '../../util/formatNumber';
@@ -67,9 +67,7 @@ function Fee({
     }
 
     const currentToken = tokenType === 'stars' ? STARS_TOKEN : tokenType === 'native' ? nativeToken : token;
-    const icon = shouldPreferIcons
-      ? (TOKEN_FONT_ICONS as Record<string, string | undefined>)[currentToken.slug]
-      : undefined;
+    const icon = shouldPreferIcons ? TOKEN_CUSTOM_STYLES[currentToken.slug]?.fontIcon : undefined;
 
     if (typeof amount === 'bigint') {
       amount = toDecimal(amount, currentToken.decimals);

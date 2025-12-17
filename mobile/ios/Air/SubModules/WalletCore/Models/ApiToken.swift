@@ -260,6 +260,10 @@ extension ApiToken {
         }
         return false
     }
+    
+    public var internalDeeplinkUrl: URL {
+        URL(string: "\(SELF_PROTOCOL)token/\(slug)")!
+    }
 }
 
 @inline(__always) func getPriority(tokenSlug: String) -> Int {

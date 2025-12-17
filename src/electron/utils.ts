@@ -7,7 +7,7 @@ import {
   BASE_URL, BETA_URL, PRODUCTION_URL,
 } from '../config';
 
-const ALLOWED_URL_ORIGINS = [BASE_URL!, BETA_URL, PRODUCTION_URL].map((url) => (new URL(url).origin));
+const ALLOWED_URL_ORIGINS = [BASE_URL, BETA_URL, PRODUCTION_URL].map((url) => (new URL(url).origin));
 
 export let mainWindow: BrowserWindow;
 export const store = new Conf();

@@ -1,13 +1,22 @@
 import { getActions } from '../../../global';
 
-import type { ApiSite } from '../../../api/types';
+import type { ApiChain, ApiSite } from '../../../api/types';
 
+import { getSupportedChains } from '../../../util/chain';
+import { isValidAddressOrDomain } from '../../../util/isValidAddress';
 import { openUrl } from '../../../util/openUrl';
-import { getHostnameFromUrl, isValidUrl } from '../../../util/url';
+import { getHostnameFromUrl, isValidUrl, normalizeUrl } from '../../../util/url';
+
+export interface WalletSuggestion {
+  chain: ApiChain;
+  address: string;
+  title?: string;
+}
 
 export interface SearchSuggestions {
   history: string[];
   sites: ApiSite[];
+  wallets: WalletSuggestion[];
   isEmpty: boolean;
 }
 
@@ -73,6 +82,17 @@ export function filterSites(sites?: ApiSite[], shouldRestrict?: boolean) {
     : sites;
 }
 
+export function validateAddressForChains(
+  address: string,
+): Array<{ chain: ApiChain; isValid: boolean }> {
+  const chains = getSupportedChains();
+
+  return chains.map((chain) => ({
+    chain,
+    isValid: isValidAddressOrDomain(address, chain),
+  }));
+}
+
 export function generateSearchSuggestions(
   searchValue: string,
   browserHistory?: string[],
@@ -107,6 +127,7 @@ export function generateSearchSuggestions(
     history: [
       ...(historyResult ?? []),
     ].sort((a, b) => comparator(factors.history![a], factors.history![b])),
+    wallets: [],
   };
 }
 
@@ -130,10 +151,7 @@ export function findSiteByUrl(sites?: ApiSite[], targetUrl?: string): ApiSite | 
 }
 
 export function openSite(originalUrl: string, isExternal?: boolean, title?: string) {
-  let url = originalUrl;
-  if (!url.startsWith('http:') && !url.startsWith('https:')) {
-    url = `https://${url}`;
-  }
+  let url = normalizeUrl(originalUrl);
   if (!isValidUrl(url)) {
     url = `${GOOGLE_SEARCH_URL}${encodeURIComponent(originalUrl)}`;
   } else {

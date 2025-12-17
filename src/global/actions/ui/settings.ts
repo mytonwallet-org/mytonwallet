@@ -11,7 +11,7 @@ import switchTheme from '../../../util/switchTheme';
 import { IS_DELEGATED_BOTTOM_SHEET, IS_DELEGATING_BOTTOM_SHEET } from '../../../util/windowEnvironment';
 import { addActionHandler, setGlobal } from '../..';
 import { resetHardware, updateAccountSettings, updateSettings } from '../../reducers';
-import { selectIsBiometricAuthEnabled } from '../../selectors';
+import { selectCurrentAccountId, selectIsBiometricAuthEnabled } from '../../selectors';
 
 let prevGlobal: GlobalState | undefined;
 
@@ -69,7 +69,7 @@ addActionHandler('setIsAutoConfirmEnabled', (global, actions, { isEnabled }) => 
 });
 
 addActionHandler('setIsAllowSuspiciousActions', (global, actions, { isEnabled }) => {
-  const accountId = global.currentAccountId!;
+  const accountId = selectCurrentAccountId(global)!;
 
   return updateAccountSettings(global, accountId, {
     isAllowSuspiciousActions: isEnabled || undefined,

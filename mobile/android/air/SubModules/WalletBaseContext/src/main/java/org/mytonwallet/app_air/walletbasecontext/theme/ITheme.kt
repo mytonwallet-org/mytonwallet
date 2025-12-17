@@ -27,7 +27,7 @@ internal val THEME_LIGHT_PRESET
             WColor.Decimals to 0xFF99999E.toInt(),
             WColor.Tint to DEFAULT_TINT_LIGHT,
             WColor.TextOnTint to 0xFFFFFFFF.toInt(),
-            WColor.Separator to 0xFFDFE1E5.toInt(),
+            WColor.Separator to 0xFFEFF0F0.toInt(),
             WColor.SecondaryBackground to 0xFFF4F4F5.toInt(),
             WColor.TrinaryBackground to 0xFFF4F4F5.toInt(),
             WColor.GroupedBackground to 0xFFEFEFF4.toInt(),
@@ -50,6 +50,7 @@ internal val THEME_LIGHT_PRESET
             WColor.Transparent to 0x00000000.toInt(),
             WColor.White to 0xFFFFFFFF.toInt(),
             WColor.Black to 0xFF000000.toInt(),
+            WColor.Icon to 0xFF363A3E.toInt(),
         )
     )
 
@@ -65,7 +66,7 @@ internal val THEME_DARK_PRESET
             WColor.Decimals to 0xFF8E8E93.toInt(),
             WColor.Tint to DEFAULT_TINT_DARK,
             WColor.TextOnTint to 0xFFFFFFFF.toInt(),
-            WColor.Separator to 0xFF353537.toInt(),
+            WColor.Separator to 0xFF313133.toInt(),
             WColor.SecondaryBackground to 0xFF181818.toInt(),
             WColor.TrinaryBackground to 0xFF343436.toInt(),
             WColor.GroupedBackground to 0xFF000000.toInt(),
@@ -88,5 +89,6 @@ internal val THEME_DARK_PRESET
             WColor.Transparent to 0x00000000.toInt(),
             WColor.White to 0xFFFFFFFF.toInt(),
             WColor.Black to 0xFF000000.toInt(),
+            WColor.Icon to 0xFFFFFFFF.toInt(),
         )
     )

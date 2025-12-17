@@ -45,7 +45,7 @@ class SendCurrencyVC: WViewController {
     private func setupViews() {
         title = lang("Choose Currency")
         navigationController?.navigationBar.isTranslucent = false
-        addCloseToNavBar()
+        addCloseNavigationItemIfNeeded()
 
         searchController.searchBar.delegate = self
         searchController.searchBar.isTranslucent = false
@@ -92,11 +92,6 @@ class SendCurrencyVC: WViewController {
         searchController.searchBar.backgroundColor = WTheme.sheetOpaqueBar
         view.backgroundColor = WTheme.pickerBackground
         tableViewBackgroundView.backgroundColor = WTheme.pickerBackground
-    }
-    
-    public override func closeButtonPressed() {
-        searchController.isActive = false // to prevent searchController from blocking dismiss on vc
-        super.closeButtonPressed()
     }
     
     @objc func hideKeyboard() {

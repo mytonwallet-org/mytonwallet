@@ -51,7 +51,7 @@ public enum ApiStakingState: Equatable, Hashable, Codable, Sendable {
             try ApiStakingStateJetton.encode(to: encoder)
         case .ethena(let ethena):
             try ethena.encode(to: encoder)
-        case .unknown(let type):
+        case .unknown:
             break
         }
     }
@@ -84,7 +84,7 @@ extension ApiStakingState: MBaseStakingState { // less cringey way to do this?
         case .nominators(let v): v.annualYield
         case .jetton(let v): v.annualYield
         case .ethena(let v): v.annualYield
-        case .unknown(let type): .zero
+        case .unknown: .zero
         }
     }
     
@@ -94,7 +94,7 @@ extension ApiStakingState: MBaseStakingState { // less cringey way to do this?
         case .nominators(let v): v.yieldType
         case .jetton(let v): v.yieldType
         case .ethena(let v): v.yieldType
-        case .unknown(let type): .apy
+        case .unknown: .apy
         }
     }
     
@@ -104,7 +104,7 @@ extension ApiStakingState: MBaseStakingState { // less cringey way to do this?
         case .nominators(let v): v.balance
         case .jetton(let v): v.balance
         case .ethena(let v): v.balance
-        case .unknown(let type): .zero
+        case .unknown: .zero
         }
     }
     
@@ -124,7 +124,7 @@ extension ApiStakingState: MBaseStakingState { // less cringey way to do this?
         case .nominators(let v): v.unstakeRequestAmount
         case .jetton(let v): v.unstakeRequestAmount
         case .ethena(let v): v.unstakeRequestAmount
-        case .unknown(let type): nil
+        case .unknown: nil
         }
     }
     
@@ -132,9 +132,9 @@ extension ApiStakingState: MBaseStakingState { // less cringey way to do this?
         switch self {
         case .liquid(let v): return v.end
         case .nominators(let v): return v.end
-        case .jetton(let v): return nil
-        case .ethena(let v): return nil
-        case .unknown(let type): return nil
+        case .jetton: return nil
+        case .ethena: return nil
+        case .unknown: return nil
         }
     }
     

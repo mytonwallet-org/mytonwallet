@@ -32,6 +32,7 @@ class EarnHistoryCell: WHighlightCell {
     private var amountLabel: WAmountLabel!
     private var amount2Container: WSensitiveData<WAmountLabel> = .init(cols: 9, rows: 2, cellSize: 7, cornerRadius: 4, theme: .adaptive, alignment: .trailing)
     private var amount2Label: WAmountLabel!
+    private var separatorView: UIView!
 
     private func setupViews() {
         selectionStyle = .none
@@ -66,8 +67,8 @@ class EarnHistoryCell: WHighlightCell {
         amount2Container.addContent(amount2Label)
         contentView.addSubview(amount2Container)
         
-        // seaparator
-        let separatorView = UIView()
+        // TODO: Migrate to system separators (tableView.separatorStyle)
+        separatorView = UIView()
         separatorView.translatesAutoresizingMaskIntoConstraints = false
         separatorView.backgroundColor = WTheme.separator
         addSubview(separatorView)
@@ -100,9 +101,9 @@ class EarnHistoryCell: WHighlightCell {
             
             // Separator
             separatorView.bottomAnchor.constraint(equalTo: bottomAnchor),
-            separatorView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            separatorView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: IOS_26_MODE_ENABLED ? -16 : 0),
             separatorView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 62),
-            separatorView.heightAnchor.constraint(equalToConstant: 0.33)
+            separatorView.heightAnchor.constraint(equalToConstant: 1.0 / UIScreen.main.scale),
         ])
         
         // Set content compression priorities
@@ -119,6 +120,11 @@ class EarnHistoryCell: WHighlightCell {
         baseBackgroundColor = WTheme.groupedItem
         highlightBackgroundColor = WTheme.highlight
         timeLabel.textColor = WTheme.secondaryLabel
+        separatorView.backgroundColor = WTheme.separator
+    }
+    
+    func setSeparatorHidden(_ hidden: Bool) {
+        separatorView.isHidden = hidden
     }
     
     func formatDateTime(date: Date) -> String {
@@ -156,27 +162,27 @@ class EarnHistoryCell: WHighlightCell {
         amountLabel.set(amount: earnHistoryItem.amount,
                         currency: token.symbol,
                         tokenDecimals: token.decimals,
-                        decimalsCount: token.decimals,
+                        decimalsCount: tokenDecimals(for: earnHistoryItem.amount, tokenDecimals: token.decimals),
                         forcePositiveColor: earnHistoryItem.type == .unstakeRequest ? WTheme.primaryLabel : nil)
         let price = TokenStore.tokens[token.slug]?.price ?? token.price ?? 0
         if price > 0 {
             let amnt = price * earnHistoryItem.amount.doubleAbsRepresentation(decimals: token.decimals)
             amount2Label.text = formatAmountText(
                 amount: amnt,
-                currency: TokenStore.baseCurrency?.sign,
-                decimalsCount: amnt < 0.0001 ? 6 : amnt < 0.01 ? 4 : TokenStore.baseCurrency?.decimalsCount
+                currency: TokenStore.baseCurrency.sign,
+                decimalsCount: amnt < 0.0001 ? 6 : amnt < 0.01 ? 4 : TokenStore.baseCurrency.decimalsCount
             )
         } else {
             amount2Label.text = " "
         }
-        amount2Label.textColor = earnHistoryItem.type == .profit ? WTheme.positiveAmount : WTheme.secondaryLabel
+        amount2Label.textColor = WTheme.secondaryLabel
 
         let amountCols = 4 + abs(earnHistoryItem.hashValue % 8)
         let fiatAmountCols = 5 + (amountCols % 6)
         amountContainer.setCols(amountCols)
         amount2Container.setCols(fiatAmountCols)
         amountContainer.setTheme(earnHistoryItem.type == .profit ? .color(WTheme.positiveAmount) : .adaptive)
-        amount2Container.setTheme(earnHistoryItem.type == .profit ? .color(WTheme.positiveAmount) : .adaptive)
+        amount2Container.setTheme(.adaptive)
     }
     
     public func configure(stackedProfits: MStakingHistoryItem, startTimestamp: Int64, count: Int, token: ApiToken) {
@@ -201,26 +207,26 @@ class EarnHistoryCell: WHighlightCell {
         amountLabel.set(amount: earnHistoryItem.amount,
                         currency: token.symbol,
                         tokenDecimals: token.decimals,
-                        decimalsCount: token.decimals,
+                        decimalsCount: tokenDecimals(for: earnHistoryItem.amount, tokenDecimals: token.decimals),
                         forcePositiveColor: earnHistoryItem.type == .unstakeRequest ? WTheme.primaryLabel : nil)
         let price = TokenStore.tokens[token.slug]?.price ?? token.price ?? 0
         if price > 0 {
             let amnt = price * earnHistoryItem.amount.doubleAbsRepresentation(decimals: token.decimals)
             amount2Label.text = formatAmountText(
                 amount: amnt,
-                currency: TokenStore.baseCurrency?.sign,
-                decimalsCount: amnt < 0.0001 ? 6 : amnt < 0.01 ? 4 : TokenStore.baseCurrency?.decimalsCount
+                currency: TokenStore.baseCurrency.sign,
+                decimalsCount: amnt < 0.0001 ? 6 : amnt < 0.01 ? 4 : TokenStore.baseCurrency.decimalsCount
             )
         } else {
             amount2Label.text = " "
         }
-        amount2Label.textColor = earnHistoryItem.type == .profit ? WTheme.positiveAmount : WTheme.secondaryLabel
+        amount2Label.textColor = WTheme.secondaryLabel
 
         let amountCols = 5 + abs(earnHistoryItem.hashValue % 8)
         let fiatAmountCols = 6 + (amountCols % 6)
         amountContainer.setCols(amountCols)
         amount2Container.setCols(fiatAmountCols)
         amountContainer.setTheme(.color(WTheme.positiveAmount))
-        amount2Container.setTheme(.color(WTheme.positiveAmount))
+        amount2Container.setTheme(.adaptive)
     }
 }

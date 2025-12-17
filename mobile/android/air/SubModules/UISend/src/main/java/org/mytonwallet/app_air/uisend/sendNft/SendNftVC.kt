@@ -61,6 +61,7 @@ class SendNftVC(
     context: Context,
     val nft: ApiNft,
 ) : WViewController(context), SendNftVM.Delegate, WalletCore.EventObserver {
+    override val TAG = "SendNft"
 
     private val viewModel = SendNftVM(this, nft)
 
@@ -201,7 +202,7 @@ class SendNftVC(
             topToTop(
                 bottomReversedCornerViewUpsideDown,
                 continueButton,
-                -20f - ViewConstants.BIG_RADIUS
+                -ViewConstants.GAP - ViewConstants.BIG_RADIUS
             )
             toBottom(bottomReversedCornerViewUpsideDown)
             toCenterX(continueButton, 20f)
@@ -222,12 +223,14 @@ class SendNftVC(
                     append(" $address")
                     AddressPopupHelpers.configSpannableAddress(
                         WeakReference(this@SendNftVC),
+                        null,
                         this,
                         length - address.length,
                         address.length,
                         TONCOIN_SLUG,
                         viewModel.resolvedAddress!!,
-                        startOffset.roundToInt()
+                        startOffset.roundToInt(),
+                        showTemporaryViewOption = false
                     )
                     updateDotsTypeface()
                     setSpan(

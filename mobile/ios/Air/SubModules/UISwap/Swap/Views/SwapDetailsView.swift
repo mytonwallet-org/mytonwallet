@@ -16,6 +16,7 @@ public let DEFAULT_SLIPPAGE = BigInt(5_0)
 public let MAX_SLIPPAGE_VALUE = BigInt(50_0)
 public let SLIPPAGE_DECIMALS = 1
 private let slippageFont = UIFont.systemFont(ofSize: 20, weight: .semibold)
+let DEFAULT_OUR_SWAP_FEE = 0.875
 
 @MainActor
 class SwapDetailsVM: ObservableObject {
@@ -141,6 +142,7 @@ struct SwapDetailsView: View {
                 .foregroundStyle(Color(WTheme.secondaryLabel))
             }
             .frame(minHeight: 44)
+            .frame(height: 44)
             .contentShape(.rect)
         }
         .buttonStyle(InsetButtonStyle())
@@ -153,10 +155,10 @@ struct SwapDetailsView: View {
             InsetCell {
                 VStack(alignment: .trailing, spacing: 4) {
                     HStack(spacing: 0) {
-                        Text(lang("Price per") + " 1 " + exchangeRate.toToken.symbol)
+                        Text(lang("Exchange Rate"))
                             .foregroundStyle(Color(WTheme.secondaryLabel))
                         Spacer(minLength: 4)
-                        Text("~\(formatAmountText(amount: exchangeRate.price, decimalsCount: min(6, sellingToken.decimals))) \(exchangeRate.fromToken.symbol)")
+                        Text("\(exchangeRate.toToken.symbol) ≈ \(formatAmountText(amount: exchangeRate.price, decimalsCount: min(6, sellingToken.decimals))) \(exchangeRate.fromToken.symbol)")
                     }
                     selectDexButton
                 }
@@ -170,7 +172,7 @@ struct SwapDetailsView: View {
             Button(action: showDexPicker) {
                 HStack(alignment: .firstTextBaseline, spacing: 2) {
                     if model.selectedDex == nil && hasAlternative {
-                        Text(lang("Best rate"))
+                        Text(lang("Best Rate"))
                             .foregroundStyle(gradient)
                             .background {
                                 RoundedRectangle(cornerRadius: 4, style: .continuous)
@@ -181,8 +183,7 @@ struct SwapDetailsView: View {
                             .padding(.trailing, 2)
                     }
                     if let dexString {
-                        Text(lang(" via "))
-                        Text(dexString)
+                        Text(" " + lang("via %dex_name%", arg1: dexString))
                     }
                     if hasAlternative {
                         Text(Image(systemName: "chevron.right.circle.fill"))
@@ -323,10 +324,10 @@ struct SwapDetailsView: View {
     var routingFeesRow: some View {
         if displayEstimate != nil {
             InsetDetailCell {
-                Text(lang("Routing Fees"))
+                Text(lang("Aggregator Fee"))
                     .foregroundStyle(Color(WTheme.secondaryLabel))
                     .overlay(alignment: .trailingFirstTextBaseline) {
-                        InfoButton(title: lang("Routing Fees"), message: lang("Both decentralized exchange and app fees (~0.875%) are already included in the price you see and will not be charged additionally."))
+                        InfoButton(title: lang("Aggregator Fee"), message: lang("$swap_aggregator_fee_tooltip", arg1: "\(DEFAULT_OUR_SWAP_FEE)"))
                     }
             } value: {
                 Text(lang("Included"))
@@ -344,10 +345,10 @@ struct SwapDetailsView: View {
                         InfoButton(title: lang("Price Impact"), message: lang("$swap_price_impact_tooltip1") + "\n\n" +  lang("$swap_price_impact_tooltip2"))
                     }
             } value: {
-                HStack {
+                HStack(spacing: 3) {
                     Text("\(formatAmountText(amount: displayEstimate.impact, decimalsCount: 1))%")
                     if model.displayImpactWarning != nil {
-                        Text(Image(systemName: "exclamitiexclamationmark.triangle.fill"))
+                        Text(Image(systemName: "exclamationmark.triangle.fill"))
                             .foregroundStyle(.red)
                     }
                 }
