@@ -376,22 +376,22 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Package and publish
-        env:
-          ANDROID_API_KEY_BASE64: ${{ secrets.ANDROID_API_KEY_BASE64 }}
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-        run: |
-          cd mobile/android
-
-          echo -n "$ANDROID_API_KEY_BASE64" | base64 --decode > ./api-key.json
-          echo -n "$ANDROID_KEYSTORE_BASE64" | base64 --decode > ./android.keystore
-
-          if [ -z "$PUBLISH_REPO" ]; then
-            bundle exec fastlane beta
-          else
-            bundle exec fastlane release
-          fi
+#      - name: Package and publish
+#        env:
+#          ANDROID_API_KEY_BASE64: ${{ secrets.ANDROID_API_KEY_BASE64 }}
+#          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+#          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+#        run: |
+#          cd mobile/android
+#
+#          echo -n "$ANDROID_API_KEY_BASE64" | base64 --decode > ./api-key.json
+#          echo -n "$ANDROID_KEYSTORE_BASE64" | base64 --decode > ./android.keystore
+#
+#          if [ -z "$PUBLISH_REPO" ]; then
+#            bundle exec fastlane beta
+#          else
+#            bundle exec fastlane release
+#          fi
 
       - name: Build project for direct apk
         env:
