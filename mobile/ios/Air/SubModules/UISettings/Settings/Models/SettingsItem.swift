@@ -7,7 +7,6 @@
 
 import Foundation
 import UIKit
-import WalletCore
 import WalletContext
 
 struct SettingsItem: Equatable, Identifiable {

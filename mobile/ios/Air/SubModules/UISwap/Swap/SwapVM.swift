@@ -36,6 +36,9 @@ final class SwapVM: ObservableObject {
     private weak var tokensSelector: SwapSelectorsVM?
     private var prevPair = ""
     
+    let accountViewModel = AccountViewModel(source: .current)
+    var account: MAccount { accountViewModel.account }
+    
     init(delegate: SwapVMDelegate, tokensSelector: SwapSelectorsVM) {
         self.delegate = delegate
         self.tokensSelector =  tokensSelector
@@ -44,7 +47,7 @@ final class SwapVM: ObservableObject {
     // MARK: - Swap data changed
     
     func updateSwapType(selling: TokenAmount, buying: TokenAmount) {
-        swapType = getSwapType(fromToken: selling.token, toToken: buying.token)
+        swapType = getSwapType(from: selling.token.slug, to: buying.token.slug, accountChains: account.supportedChains)
     }
     
     func updateDexPreference(_ dex: ApiSwapDexLabel?) {

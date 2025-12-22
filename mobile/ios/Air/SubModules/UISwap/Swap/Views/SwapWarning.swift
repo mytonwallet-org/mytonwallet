@@ -1,6 +1,5 @@
 import SwiftUI
 import UIComponents
-import WalletCore
 import WalletContext
 
 struct SwapWarning: View {

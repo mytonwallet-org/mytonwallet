@@ -22,7 +22,7 @@ import WalletContext
     static func showAssets(accountSource: AccountSource, selectedTab: Int, collectionsFilter: NftCollectionFilter) -> ()
     static func showBuyWithCard(chain: ApiChain?, push: Bool?)
     static func showConnectedDapps(push: Bool)
-    static func showCrossChainSwapVC(_ transaction: ApiActivity)
+    static func showCrossChainSwapVC(_ transaction: ApiActivity, accountId: String?)
     static func showCustomizeWallet(accountId: String?)
     static func showDeleteAccount(accountId: String)
     static func showEarn(tokenSlug: String?)
@@ -70,7 +70,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showAssets(accountSource: AccountSource, selectedTab: Int, collectionsFilter: NftCollectionFilter) -> () { }
     static func showBuyWithCard(chain: ApiChain?, push: Bool?) { }
     static func showConnectedDapps(push: Bool) { }
-    static func showCrossChainSwapVC(_ transaction: ApiActivity) { }
+    static func showCrossChainSwapVC(_ transaction: ApiActivity, accountId: String?) { }
     static func showCustomizeWallet(accountId: String?) { }
     static func showDeleteAccount(accountId: String) { }
     static func showEarn(tokenSlug: String?) { }

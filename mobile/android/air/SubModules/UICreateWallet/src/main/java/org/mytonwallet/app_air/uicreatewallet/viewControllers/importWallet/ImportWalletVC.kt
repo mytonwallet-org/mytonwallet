@@ -298,6 +298,7 @@ class ImportWalletVC(
             makeFieldVisible(activeField!!)
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         scrollingContentView.setBackgroundColor(WColor.SecondaryBackground.color)
         titleLabel.setTextColor(WColor.PrimaryText.color)

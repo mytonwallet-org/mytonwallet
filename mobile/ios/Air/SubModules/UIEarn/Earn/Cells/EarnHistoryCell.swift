@@ -170,7 +170,7 @@ class EarnHistoryCell: WHighlightCell {
             amount2Label.text = formatAmountText(
                 amount: amnt,
                 currency: TokenStore.baseCurrency.sign,
-                decimalsCount: amnt < 0.0001 ? 6 : amnt < 0.01 ? 4 : TokenStore.baseCurrency.decimalsCount
+                decimalsCount: tokenDecimals(for: amnt, tokenDecimals: MBaseCurrency.displayPrecision)
             )
         } else {
             amount2Label.text = " "
@@ -215,7 +215,7 @@ class EarnHistoryCell: WHighlightCell {
             amount2Label.text = formatAmountText(
                 amount: amnt,
                 currency: TokenStore.baseCurrency.sign,
-                decimalsCount: amnt < 0.0001 ? 6 : amnt < 0.01 ? 4 : TokenStore.baseCurrency.decimalsCount
+                decimalsCount: tokenDecimals(for: amnt, tokenDecimals: MBaseCurrency.displayPrecision)
             )
         } else {
             amount2Label.text = " "

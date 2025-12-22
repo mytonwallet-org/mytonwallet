@@ -27,6 +27,7 @@ import android.widget.ScrollView
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
@@ -229,6 +230,7 @@ class LedgerConnectVC(
                 toCenterX(connectionTypeView, 40f)
                 topToBottom(connectionTypeView, stepsView, 16f)
                 toBottom(connectionTypeView, 16f)
+                setGoneMargin(stepsView.id, ConstraintSet.BOTTOM, 16.dp)
             }
         }
     }

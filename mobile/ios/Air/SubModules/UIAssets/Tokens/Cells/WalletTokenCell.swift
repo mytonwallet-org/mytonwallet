@@ -187,7 +187,7 @@ public class WalletTokenCell: WHighlightCell {
             let attr = NSMutableAttributedString(string: formatAmountText(
                 amount: price,
                 currency: TokenStore.baseCurrency.sign,
-                decimalsCount: tokenDecimals(for: price, tokenDecimals: 9)
+                decimalsCount: tokenDecimals(for: price, tokenDecimals: MBaseCurrency.displayPrecision)
             ), attributes: [
                 .font: regular14Font,
                 .foregroundColor: WTheme.secondaryLabel
@@ -207,16 +207,17 @@ public class WalletTokenCell: WHighlightCell {
             tokenPriceLabel.text = " "
         }
         // amount (we set this from staking state if it is STAKE_SLUG!)
+        let decimals = token?.decimals ?? 9
         amountLabel.text = formatBigIntText(walletToken.balance,
                                            currency: token?.symbol ?? "",
-                                           tokenDecimals: token?.decimals ?? 9,
-                                           decimalsCount: 2,
+                                           tokenDecimals: decimals,
+                                           decimalsCount: tokenDecimals(for: walletToken.balance, tokenDecimals: decimals),
                                            forceCurrencyToRight: true,
                                            roundUp: false)
 
         let amount = walletToken.toBaseCurrency
         if let amount {
-            baseCurrencyAmountLabel.text = formatAmountText(amount: amount, currency: TokenStore.baseCurrency.sign, decimalsCount: TokenStore.baseCurrency.decimalsCount)
+            baseCurrencyAmountLabel.text = formatAmountText(amount: amount, currency: TokenStore.baseCurrency.sign, decimalsCount: tokenDecimals(for: amount, tokenDecimals: MBaseCurrency.displayPrecision))
         } else {
             baseCurrencyAmountLabel.text = " "
         }

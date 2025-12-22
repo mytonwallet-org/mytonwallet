@@ -1,7 +1,6 @@
 
 import Foundation
 import WalletContext
-import WalletCore
 
 
 public enum StepId: Sendable {

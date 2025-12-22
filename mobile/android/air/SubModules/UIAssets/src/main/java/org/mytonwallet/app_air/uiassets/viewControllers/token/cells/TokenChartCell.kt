@@ -50,7 +50,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.MHistoryTimePeriod
 import org.mytonwallet.app_air.walletbasecontext.utils.formatDateAndTime
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
-import org.mytonwallet.app_air.walletbasecontext.utils.thinSpace
+import org.mytonwallet.app_air.walletbasecontext.utils.signSpace
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
@@ -200,7 +200,7 @@ class TokenChartCell(
     }
 
     private val segmentedControlGroupContainer = WFrameLayout(context).apply {
-        setPadding(8.dp, 8.dp, 8.dp, 20.dp)
+        setPadding(8.dp, 4.dp, 8.dp, 12.dp)
         addView(segmentedControlGroup, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         setOnClickListener {}
         visibility = INVISIBLE
@@ -231,8 +231,8 @@ class TokenChartCell(
         addView(expandedChartImageView, LayoutParams(0, 0))
         addView(progressView)
         addView(noDataLabel)
-        addView(chartTimeLineView, LayoutParams(MATCH_PARENT, 40.dp))
-        addView(segmentedControlGroupContainer, LayoutParams(0, 58.dp))
+        addView(chartTimeLineView, LayoutParams(MATCH_PARENT, 36.dp))
+        addView(segmentedControlGroupContainer, LayoutParams(0, 46.dp))
         setConstraints {
             toTop(titleLabel, 10f)
             toStart(titleLabel, 20f)
@@ -244,9 +244,9 @@ class TokenChartCell(
             toEnd(arrowIcon, 16f)
             toTop(collapsedChartView, 20f)
             toEnd(collapsedChartView, 60f)
-            toTop(expandedChartView, 64f)
+            toTop(expandedChartView, 52f) // overlaps header by 12dp
             toCenterX(expandedChartView)
-            bottomToTop(chartTimeLineView, segmentedControlGroupContainer, 12f)
+            bottomToTop(chartTimeLineView, segmentedControlGroupContainer, 8f)
             toCenterX(segmentedControlGroupContainer, 12f)
             toBottom(segmentedControlGroupContainer)
         }
@@ -283,8 +283,6 @@ class TokenChartCell(
             toCenterX(containerView)
         }
 
-        updateTheme()
-
         // Collapse
         containerView.setOnClickListener { // Expand
             // Collapse
@@ -311,7 +309,7 @@ class TokenChartCell(
                 // Expand
                 val startValue = 64.dp.toFloat()
                 val endValue =
-                    206.dp + ((width - 20.dp) * 79 / 392).toFloat()
+                    182.dp + ((width - 20.dp) * 79 / 392).toFloat()
                 startSpringAnimation(startValue, endValue)
             }
         }
@@ -326,10 +324,11 @@ class TokenChartCell(
         super.setupViews()
 
         expandedChartView.layoutParams = expandedChartView.layoutParams.apply {
-            height = (((parent as ViewGroup).width.toFloat() - 20.dp) * 79f / 392f).toInt() + 16.dp
+            height = (((parent as ViewGroup).width.toFloat() - 20.dp) * 79f / 392f).toInt() + 28.dp
         }
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         setBackgroundColor(WColor.SecondaryBackground.color)
         containerView.setBackgroundColor(WColor.Background.color, ViewConstants.BIG_RADIUS.dp)
@@ -458,6 +457,7 @@ class TokenChartCell(
         } else {
             pendingAnimationToConfigure = true
         }
+        updateTheme()
     }
 
     private fun setupTexts() {
@@ -476,7 +476,7 @@ class TokenChartCell(
                 WalletCore.baseCurrency.sign,
                 priceBigInt.smartDecimalsCount(9).coerceAtLeast(2),
                 false,
-                forceCurrencyToRight = true
+                forceCurrencyToRight = false
             )
             if (token?.price != null) {
                 percentChange = firstPrice?.let { firstPriceInChart ->
@@ -488,7 +488,7 @@ class TokenChartCell(
                     if (priceChangeLabel.alpha == 0f)
                         priceChangeLabel.fadeIn()
                     priceChangeLabel.text =
-                        (if (percentChange!! > 0) "+$thinSpace" else if (percentChange!! < 0) "-$thinSpace" else "").plus(
+                        (if (percentChange!! > 0) "+$signSpace" else if (percentChange!! < 0) "-$signSpace" else "").plus(
                             kotlin.math.abs(percentChange!!).toString().plus("%")
                         )
                     priceChangeLabel.setTextColor(if (percentChange!! > 0) WColor.Green.color else if (percentChange!! < 0) WColor.Red.color else WColor.SecondaryText.color)
@@ -501,13 +501,14 @@ class TokenChartCell(
                 priceChangeLabel.text = null
             }
         } else {
-            val priceBigInt = highlight!!.y.toDouble().toBigInteger(9)!!
+            val decimals = token?.decimals ?: 9
+            val priceBigInt = highlight!!.y.toDouble().toBigInteger(decimals)!!
             priceLabel.text = priceBigInt.toString(
-                9,
+                decimals,
                 WalletCore.baseCurrency.sign,
-                priceBigInt.smartDecimalsCount(9).coerceAtLeast(4),
+                (priceBigInt.smartDecimalsCount(decimals) + 2).coerceAtMost(decimals),
                 false,
-                forceCurrencyToRight = true
+                forceCurrencyToRight = false
             )
             priceChangeLabel.text =
                 Date(highlight!!.x.toLong() * 1000).formatDateAndTime(activePeriod)

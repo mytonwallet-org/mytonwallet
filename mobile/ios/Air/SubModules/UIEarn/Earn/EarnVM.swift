@@ -112,12 +112,6 @@ public final class EarnVM: ObservableObject, WalletCoreData.EventsObserver {
             (lastActivityItem != nil || isLoadedAllActivityItems)
     }
     
-    func loadStakingData() {
-        DispatchQueue.main.async {
-            self.delegate?.stakingStateUpdated()
-        }
-    }
-    
     func loadInitialHistory() {
         fetchTokenActivities()
         fetchUnstakeTokenActivities()

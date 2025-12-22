@@ -137,6 +137,7 @@ class KeyValueRowView(
         updateTheme()
     }
 
+    override val isTinted = mode == Mode.LINK
     override fun updateTheme() {
         keyLabel.setTextColor(
             when (mode) {
@@ -225,7 +226,10 @@ class KeyValueRowView(
             skeletonView?.visibility = VISIBLE
             skeletonIndicator?.visibility = VISIBLE
             skeletonView?.doOnLayout {
-                skeletonView?.applyMask(listOf(skeletonIndicator!!), hashMapOf(0 to SUBTITLE_SKELETON_RADIUS))
+                skeletonView?.applyMask(
+                    listOf(skeletonIndicator!!),
+                    hashMapOf(0 to SUBTITLE_SKELETON_RADIUS)
+                )
                 skeletonView?.startAnimating()
             }
         } else {

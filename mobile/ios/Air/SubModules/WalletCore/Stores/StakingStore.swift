@@ -109,9 +109,4 @@ public final class _StakingStore: WalletCoreData.EventsObserver {
             WalletCoreData.notify(event: .stakingAccountData(data))
         }
     }
-    private func notifyObserversAccount(_ accountId: String) {
-        if let data = byId(accountId) {
-            WalletCoreData.notify(event: .stakingAccountData(data))
-        }
-    }
 }

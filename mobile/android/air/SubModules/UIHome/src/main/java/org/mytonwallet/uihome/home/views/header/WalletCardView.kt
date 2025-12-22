@@ -66,7 +66,7 @@ import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.utils.thinSpace
+import org.mytonwallet.app_air.walletbasecontext.utils.signSpace
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletbasecontext.utils.trimAddress
 import org.mytonwallet.app_air.walletbasecontext.utils.trimDomain
@@ -88,7 +88,6 @@ import java.math.BigInteger
 import kotlin.math.absoluteValue
 import kotlin.math.max
 import kotlin.math.roundToInt
-import kotlin.math.sqrt
 
 @SuppressLint("ViewConstructor")
 class WalletCardView(
@@ -211,7 +210,7 @@ class WalletCardView(
                 clipChildren = false
                 clipToPadding = false
                 maxAllowedWidth = w
-                minPadding = 11.dp
+                minPadding = 16.dp
             },
             WSensitiveDataContainer.MaskConfig(
                 9, 4, Gravity.CENTER,
@@ -255,6 +254,9 @@ class WalletCardView(
             setStyle(16f, WFont.Medium)
             setPaddingDpLocalized(3, 0, 3, 0)
             containerWidth = cardFullWidth
+            background = WRippleDrawable.create(20f.dp).apply {
+                rippleColor = Color.WHITE.colorWithAlpha(25)
+            }
         }
     }
 
@@ -467,7 +469,11 @@ class WalletCardView(
                             true
                         )
                         val balanceChangePercentString =
-                            if (balance24h == 0.0) "" else "${if (balance - balance24h >= 0) "+$thinSpace" else "-$thinSpace"}${kotlin.math.abs(((balance - balance24h) / balance24h * 10000).roundToInt() / 100f)}% · "
+                            if (balance24h == 0.0) "" else "${if (balance - balance24h >= 0) "+$signSpace" else "-$signSpace"}${
+                                kotlin.math.abs(
+                                    ((balance - balance24h) / balance24h * 10000).roundToInt() / 100f
+                                )
+                            }% · "
                         balanceChangeString =
                             "$balanceChangePercentString$balanceChangeValueString"
                     }
@@ -556,9 +562,6 @@ class WalletCardView(
         }
         updateAddressLabel()
         updateCardImage()
-        addressLabel.background = WRippleDrawable.create(20f.dp).apply {
-            rippleColor = Color.WHITE.colorWithAlpha(25)
-        }
         walletTypeView.configure(account)
         balanceAmount = null
         animateBalance(
@@ -567,6 +570,7 @@ class WalletCardView(
                 0,
                 "",
                 animated = false,
+                setInstantly = mode == HomeHeaderView.Mode.Collapsed,
                 forceCurrencyToRight = false
             )
         )
@@ -604,6 +608,14 @@ class WalletCardView(
             )
         )
         img.loadUrl(cardNft?.metadata?.cardImageUrl(false) ?: "")
+    }
+
+    fun updateAddressLabel() {
+        val displayDataList = account?.byChain?.map { (key, value) ->
+            Pair(key, value)
+        } ?: emptyList()
+        addressLabel.style = WMultichainAddressLabel.walletExpandStyle
+        addressLabel.displayAddresses(displayDataList)
     }
 
     var headerMode = HomeHeaderView.DEFAULT_MODE
@@ -672,21 +684,24 @@ class WalletCardView(
     }
 
     // PRIVATE METHODS /////////////////////////////////////////////////////////////////////////////
-    private fun updateAddressLabel() {
-        val displayDataList = account?.byChain?.map { (key, value) ->
-            Pair(key, value)
-        } ?: emptyList()
-        addressLabel.style = WMultichainAddressLabel.walletExpandStyle
-        addressLabel.displayAddresses(displayDataList)
-    }
-
     private fun updateActionsAlpha(actionsAlpha: Float) {
         addressLabel.alpha = actionsAlpha
         mintIcon.alpha = actionsAlpha
         walletTypeView.alpha = actionsAlpha
     }
 
+    private var _primaryColor: Int? = null
+    private var _secondaryColor: Int? = null
+    private var _drawGradient: Boolean? = null
     private fun setLabelColors(primaryColor: Int, secondaryColor: Int, drawGradient: Boolean) {
+        if (_primaryColor == primaryColor &&
+            _secondaryColor == secondaryColor &&
+            _drawGradient == drawGradient
+        )
+            return
+        _primaryColor = primaryColor
+        _secondaryColor = secondaryColor
+        _drawGradient = drawGradient
         if (::balanceViewMaskWrapper.isInitialized)
             balanceViewMaskWrapper.setupColors(
                 intArrayOf(
@@ -729,9 +744,6 @@ class WalletCardView(
                 secondaryColor.colorWithAlpha(41),
                 13f.dp
             )
-        }
-        addressLabel.background = WRippleDrawable.create(20f.dp).apply {
-            rippleColor = Color.WHITE.colorWithAlpha(25)
         }
     }
 
@@ -941,6 +953,7 @@ class WalletCardView(
                                 translationX = 4f.dp
                             }
 
+                            override val isTinted = true
                             override fun updateTheme() {
                                 val drw = ContextCompat.getDrawable(context, R.drawable.ic_world)
                                 drw?.setTint(WColor.Tint.color)

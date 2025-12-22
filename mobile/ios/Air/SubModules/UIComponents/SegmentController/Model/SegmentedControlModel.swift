@@ -109,7 +109,7 @@ public final class SegmentedControlModel {
         width += CGFloat(items.count) * 2 * SegmentedControlConstants.innerPadding
         width += CGFloat(items.count - 1) * SegmentedControlConstants.spacing
         width += SegmentedControlConstants.accessoryWidth
-        return width > UIScreen.main.bounds.width - 32.0
+        return width > screenWidth - 32.0
     }
     
     func distanceToItem(itemId: String) -> CGFloat {

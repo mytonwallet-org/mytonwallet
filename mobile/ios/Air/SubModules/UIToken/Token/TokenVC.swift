@@ -103,8 +103,6 @@ public class TokenVC: ActivitiesTableViewController, Sendable, WSensitiveDataPro
         return expandableNavigationView
     }()
 
-    private var tokenHeaderCell: TokenHeaderCell? = nil
-
     public override func loadView() {
         super.loadView()
         setupViews()
@@ -270,8 +268,6 @@ extension TokenVC: TokenVMDelegate {
             self.tokenVM = TokenVM(accountId: newAccountId, selectedToken: token, tokenVMDelegate: self)
             self.tokenVM.refreshTransactions()
         }
-    }
-    func cacheNotFound() {
     }
 }
 

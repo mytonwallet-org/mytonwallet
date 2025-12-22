@@ -44,6 +44,9 @@ public enum MBaseCurrency: String, Equatable, Hashable, Codable, Sendable, Ident
         }
     }
     
+    /// Precision for calculating meaningful display decimals
+    public static let displayPrecision = 9
+    
     public var symbol: String {
         return rawValue
     }

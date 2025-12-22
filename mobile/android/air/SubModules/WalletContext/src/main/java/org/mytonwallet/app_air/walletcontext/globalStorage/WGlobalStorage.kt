@@ -20,6 +20,8 @@ object WGlobalStorage {
     private lateinit var globalStorageProvider: IGlobalStorageProvider
     private val cachedAccountNames = mutableMapOf<String, String>()
     private val cachedAccountTonAddresses = mutableMapOf<String, String>()
+    @Volatile
+    private var cachedAccountIds: Array<String>? = null
     private var _isSensitiveDataProtectionOn: Boolean = false
 
     fun init(globalStorageProvider: IGlobalStorageProvider) {
@@ -47,6 +49,7 @@ object WGlobalStorage {
     fun clearCachedData() {
         cachedAccountNames.clear()
         cachedAccountTonAddresses.clear()
+        cachedAccountIds = null
         _isSensitiveDataProtectionOn =
             globalStorageProvider.getBool(IS_SENSITIVE_DATA_HIDDEN) == true
     }
@@ -63,7 +66,6 @@ object WGlobalStorage {
 
     private const val CURRENT_ACCOUNT_ID = "currentAccountId"
     private const val CURRENT_TEMPORARY_VIEW_ACCOUNT_ID = "currentTemporaryViewAccountId"
-    private const val ACCENT_COLOR_ID = "settings.themeColor"
     private const val ACTIVE_THEME = "settings.theme"
     private const val ACTIVE_FONT = "settings.font"
     private const val ACTIVE_UI_MODE = "settings.uiMode"
@@ -132,6 +134,9 @@ object WGlobalStorage {
     }
 
     fun accountIds(): Array<String> {
+        cachedAccountIds?.let {
+            return it
+        }
         val allIds = globalStorageProvider.keysIn("accounts.byId").filter {
             !temporaryAddedAccountIds.contains(it)
         }.toTypedArray()
@@ -144,7 +149,9 @@ object WGlobalStorage {
             ?.takeIf { it.isNotEmpty() }
             ?: return allIds
         val missing = allIds.filterNot { it in orderedIds }
-        return (orderedIds + missing).toTypedArray()
+        val arr = (orderedIds + missing).toTypedArray()
+        cachedAccountIds = arr
+        return arr
     }
 
     fun addAccount(
@@ -158,9 +165,12 @@ object WGlobalStorage {
         isTemporary: Boolean = false,
     ) {
         val accountIds = accountIds()
+        val isViewAccount = accountType == "view"
         val suggestedName =
             name ?: if (isTemporary)
                 LocaleController.getString("Wallet")
+            else if (isViewAccount)
+                getSuggestedViewName(accountIds.size)
             else getSuggestedName(accountIds.size)
         save(accountId = accountId, accountName = suggestedName, persist = false)
 
@@ -210,6 +220,7 @@ object WGlobalStorage {
             value = false,
             persistInstantly = IGlobalStorageProvider.PERSIST_INSTANT
         )
+        cachedAccountIds = null
     }
 
     fun saveAccountByChain(accountId: String, byChain: JSONObject) {
@@ -223,12 +234,13 @@ object WGlobalStorage {
     }
 
     fun saveTemporaryAccount(accountId: String) {
+        temporaryAddedAccountIds.remove(accountId)
+        setActiveAccountId(accountId, false)
         globalStorageProvider.remove(
             "accounts.byId.$accountId.isTemporary",
             persistInstantly = IGlobalStorageProvider.PERSIST_INSTANT
         )
-        temporaryAddedAccountIds.remove(accountId)
-        setActiveAccountId(accountId)
+        cachedAccountIds = null
     }
 
     fun setOrderedAccountIds(accountIds: JSONArray) {
@@ -237,6 +249,7 @@ object WGlobalStorage {
             accountIds,
             IGlobalStorageProvider.PERSIST_INSTANT
         )
+        cachedAccountIds = null
     }
 
     fun isPasscodeSet(): Boolean {
@@ -248,6 +261,8 @@ object WGlobalStorage {
     }
 
     fun removeAccount(accountId: String) {
+        cachedAccountNames.remove(accountId)
+        cachedAccountTonAddresses.remove(accountId)
         globalStorageProvider.remove(
             keys = arrayOf(
                 "accounts.byId.$accountId",
@@ -255,9 +270,12 @@ object WGlobalStorage {
                 "settings.byAccountId.$accountId",
             ), persistInstantly = IGlobalStorageProvider.PERSIST_INSTANT
         )
+        cachedAccountIds = null
     }
 
     fun deleteAllWallets() {
+        setTemporaryAccountId(null)
+        setActiveAccountId(null, false)
         globalStorageProvider.remove(
             keys = arrayOf(
                 "accounts.byId",
@@ -265,8 +283,6 @@ object WGlobalStorage {
                 "settings.byAccountId"
             ), persistInstantly = IGlobalStorageProvider.PERSIST_INSTANT
         )
-        setActiveAccountId(null)
-        setTemporaryAccountId(null)
     }
 
     // Active account id is the permanent default account id (not pushed temporary screens)
@@ -274,8 +290,12 @@ object WGlobalStorage {
         return globalStorageProvider.getString(CURRENT_ACCOUNT_ID)
     }
 
-    fun setActiveAccountId(id: String?) {
-        globalStorageProvider.set(CURRENT_ACCOUNT_ID, id, IGlobalStorageProvider.PERSIST_INSTANT)
+    fun setActiveAccountId(id: String?, persistInstantly: Boolean) {
+        globalStorageProvider.set(
+            CURRENT_ACCOUNT_ID,
+            id,
+            if (persistInstantly) IGlobalStorageProvider.PERSIST_INSTANT else IGlobalStorageProvider.PERSIST_NORMAL
+        )
     }
 
     fun setTemporaryAccountId(id: String?) {
@@ -781,6 +801,10 @@ object WGlobalStorage {
         return globalStorageProvider.getBool("byAccountId.$accountId.isCardMinting") == true
     }
 
+    fun isMultichain(accountId: String): Boolean {
+        return globalStorageProvider.keysIn("accounts.byId.$accountId.byChain").size > 1
+    }
+
     fun setCurrencyRates(rates: Map<String, Double>) {
         return globalStorageProvider.set(
             "currencyRates",
@@ -957,10 +981,22 @@ object WGlobalStorage {
         }
     }
 
-    fun getSuggestedName(accountIdsSize: Int): String {
-        return if (accountIdsSize == 0)
-            LocaleController.getString("My Wallet")
-        else
-            "${LocaleController.getString("My Wallet")} ${accountIdsSize}"
+    fun getSuggestedName(totalAccountsSize: Int): String {
+        if (totalAccountsSize == 0) {
+            return LocaleController.getString("MyTonWallet")
+        }
+        val mnemonicCount = countAccountsByType("mnemonic")
+        return "${LocaleController.getString("My Wallet")} ${mnemonicCount + 1}"
+    }
+
+    fun getSuggestedViewName(totalAccountsSize: Int): String {
+        val viewCount = countAccountsByType("view")
+        return "${LocaleController.getString("Wallet")} ${viewCount + 1}"
+    }
+
+    private fun countAccountsByType(type: String): Int {
+        return accountIds().count { accountId ->
+            getAccount(accountId)?.optString("type") == type
+        }
     }
 }

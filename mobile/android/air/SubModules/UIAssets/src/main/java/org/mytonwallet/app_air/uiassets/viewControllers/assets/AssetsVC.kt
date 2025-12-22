@@ -14,6 +14,7 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.LinearLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
 import androidx.core.content.ContextCompat
+import androidx.core.view.isGone
 import androidx.core.view.setPadding
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.ItemTouchHelper
@@ -50,6 +51,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.recyclerView.CustomItemTouchHelper
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedControllerItemVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -57,7 +59,6 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.models.MScreenMode
 import org.mytonwallet.app_air.walletcore.models.NftCollection
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -69,7 +70,7 @@ import kotlin.math.min
 @SuppressLint("ViewConstructor")
 class AssetsVC(
     context: Context,
-    private val screenMode: MScreenMode,
+    defaultAccountId: String,
     private val mode: Mode,
     private var injectedWindow: WWindow? = null,
     val collectionMode: CollectionMode? = null,
@@ -78,6 +79,8 @@ class AssetsVC(
     private val onHeightChanged: (() -> Unit)? = null,
     private val onScroll: ((rv: RecyclerView) -> Unit)? = null,
     private val onReorderingRequested: (() -> Unit)? = null,
+    private val onNftsShown: (() -> Unit)? = null,
+    private val shouldAnimateHeight: (() -> Boolean)? = null,
 ) : WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource, AssetsVM.Delegate,
     WSegmentedControllerItemVC,
@@ -152,7 +155,7 @@ class AssetsVC(
     override val shouldDisplayTopBar = isShowingSingleCollection
 
     private val assetsVM by lazy {
-        AssetsVM(collectionMode, screenMode, this)
+        AssetsVM(collectionMode, defaultAccountId, this)
     }
 
     private val thereAreMoreToShow: Boolean
@@ -184,6 +187,8 @@ class AssetsVC(
         get() {
             return mode == Mode.COMPLETE
         }
+
+    private var animationsPaused: Boolean? = null
 
     private val itemTouchHelper by lazy {
         val callback = object : CustomItemTouchHelper.SimpleCallback(
@@ -417,7 +422,7 @@ class AssetsVC(
             navVC.setRoot(
                 AssetsTabVC(
                     context,
-                    screenMode,
+                    assetsVM.showingAccountId,
                     defaultSelectedIdentifier = collectionMode?.collectionAddress
                         ?: AssetsTabVC.TAB_COLLECTIBLES
                 )
@@ -598,8 +603,22 @@ class AssetsVC(
         }
     }
 
+    fun configure(accountId: String) {
+        if (assetsVM.showingAccountId == accountId) return
+        emptyView?.isGone = true
+        isShowingEmptyView = false
+        assetsVM.configure(accountId)
+        currentHeight = finalHeight
+    }
+
+    private var _isDarkThemeApplied: Boolean? = null
     override fun updateTheme() {
         super.updateTheme()
+
+        val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
+        if (!darkModeChanged)
+            return
+        _isDarkThemeApplied = ThemeManager.isDark
 
         if (mode == Mode.THUMB) {
             view.background = null
@@ -652,6 +671,9 @@ class AssetsVC(
     }
 
     fun setAnimations(paused: Boolean) {
+        if (animationsPaused == paused)
+            return
+        animationsPaused = paused
         val layoutManager = recyclerView.layoutManager as? LinearLayoutManager
         layoutManager?.let {
             val firstVisible = it.findFirstVisibleItemPosition()
@@ -677,7 +699,12 @@ class AssetsVC(
     }
 
     private fun onNftTap(nft: ApiNft) {
-        val assetVC = NftVC(context, screenMode, nft, assetsVM.nfts!!)
+        val assetVC = NftVC(
+            context,
+            assetsVM.showingAccountId,
+            nft,
+            assetsVM.nfts!!
+        )
         val window = injectedWindow ?: window!!
         val tabNav = window.navigationControllers.last().tabBarController?.navigationController
         if (tabNav != null)
@@ -724,7 +751,11 @@ class AssetsVC(
         indexPath: IndexPath
     ) {
         val cell = cellHolder.cell as AssetCell
-        cell.configure(assetsVM.nfts!![indexPath.row], assetsVM.isInDragMode)
+        cell.configure(
+            assetsVM.nfts!![indexPath.row],
+            assetsVM.isInDragMode,
+            animationsPaused == false
+        )
     }
 
     var isShowingEmptyView = false
@@ -782,6 +813,7 @@ class AssetsVC(
         }
     }
 
+    private var prevShowAllViewToTop = 0
     override fun nftsUpdated() {
         assetsVM.nfts?.size?.let { nftsCount ->
             setNavSubtitle(
@@ -800,16 +832,26 @@ class AssetsVC(
         showAllView.visibility = if (thereAreMoreToShow) View.VISIBLE else View.GONE
 
         if (mode == Mode.THUMB) {
-            view.setConstraints {
-                toTopPx(showAllView, finalHeight - 56.dp)
+            val newShowAllViewToTop = finalHeight - 56.dp
+            if (prevShowAllViewToTop != newShowAllViewToTop) {
+                prevShowAllViewToTop = newShowAllViewToTop
+                view.setConstraints {
+                    toTopPx(showAllView, newShowAllViewToTop)
+                }
             }
 
             animateHeight()
         }
     }
 
+    override fun nftsShown() {
+        onNftsShown?.invoke()
+    }
+
     private fun animateHeight() {
-        currentHeight?.let {
+        if (currentHeight == finalHeight)
+            return
+        if (currentHeight != null && shouldAnimateHeight?.invoke() != false) {
             ValueAnimator.ofInt(currentHeight!!, finalHeight).apply {
                 duration = AnimationConstants.VERY_QUICK_ANIMATION
                 interpolator = CubicBezierInterpolator.EASE_BOTH
@@ -825,7 +867,7 @@ class AssetsVC(
 
                 start()
             }
-        } ?: run {
+        } else {
             currentHeight = finalHeight
             onHeightChanged?.invoke()
         }
@@ -859,6 +901,7 @@ class AssetsVC(
 
     override fun onDestroy() {
         super.onDestroy()
+        assetsVM.onDestroy()
         recyclerView.onDestroy()
         itemTouchHelper.attachToRecyclerView(null)
         recyclerView.adapter = null
@@ -894,8 +937,9 @@ class AssetsVC(
     }
 
     fun reloadList() {
-        assetsVM.updateNftsArray(keepOrder = false)
-        rvAdapter.reloadData()
+        assetsVM.loadCachedNftsAsync(keepOrder = false, onFinished = {
+            rvAdapter.reloadData()
+        })
         /*if (hasChanged) {
             recyclerView.fadeOut(AnimationConstants.VERY_QUICK_ANIMATION) {
                 rvAdapter.reloadData()

@@ -375,23 +375,7 @@ private let log = Log("SendModel")
     func onContinueStateChanged(canContinue: Bool, insufficientFunds: Bool, draftData: DraftData) {
         continueStateChanged?(canContinue, insufficientFunds, draftData)
     }
-    
-    @MainActor func onAddressCopy() {
-        AppActions.copyString(resolvedAddress, toastMessage: lang("Address was copied!"))
-    }
-    
-    func onOpenAddressInExplorer() {
-        if let chain = self.tokenChain {
-            let url = ExplorerHelper.addressUrl(chain: chain, address: resolvedAddress ?? addressOrDomain)
-            AppActions.openInBrowser(url)
-        }
-    }
-    
-    func onSaveToFavorites() {
-        showToast?(nil, "Not implemented")
-        Haptics.play(.error)
-    }
-    
+        
     // MARK: -
     
     func updateBaseCurrencyAmount(_ amount: BigInt?) {

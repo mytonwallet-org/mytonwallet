@@ -365,9 +365,3 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
     ncPreview(vc)
 }
 #endif
-
-extension UISheetPresentationController.Detent {
-    static func full() -> UISheetPresentationController.Detent {
-        value(forKey: "_fullDetent") as! UISheetPresentationController.Detent
-    }
-}

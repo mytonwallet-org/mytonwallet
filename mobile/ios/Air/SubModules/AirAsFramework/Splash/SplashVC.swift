@@ -134,13 +134,6 @@ extension SplashVC: SplashVMDelegate {
             self?.replaceVC(with: HomeTabBarController(), animationDuration: 0.2)
         }
     }
-    
-    func errorOccured() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
-            self?.splashVM.startApp()
-        }
-    }
-
 }
 
 extension SplashVC: WalletContextDelegate {

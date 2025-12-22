@@ -86,6 +86,9 @@ class EarnVC(
 ) : WViewControllerWithModelStore(context), WRecyclerViewDataSource {
     override val TAG = "Earn"
 
+    override val displayedAccount =
+        DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
+
     override val shouldDisplayTopBar = false
     override val shouldDisplayBottomBar = true
 
@@ -421,6 +424,7 @@ class EarnVC(
         }
         isGone = AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW
         setTextColor(WColor.Tint)
+        isTinted = true
         setPadding(12.dp, 0, 12.dp, 0)
         gravity = Gravity.CENTER
     }

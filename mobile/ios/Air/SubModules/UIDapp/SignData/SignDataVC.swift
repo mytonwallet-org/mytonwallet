@@ -1,7 +1,6 @@
 
 import SwiftUI
 import UIKit
-import Ledger
 import UIPasscode
 import UIComponents
 import WalletCore

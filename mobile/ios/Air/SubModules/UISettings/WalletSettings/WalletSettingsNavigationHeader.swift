@@ -33,7 +33,6 @@ struct WalletSettingsNavigationHeader: View {
                     .id(viewModel.currentFilter)
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))
             }
-            .frame(minWidth: 200, idealWidth: 200)
             .contentTransition(.numericText())
             .animation(.smooth(duration: 0.3), value: count)
             .animation(.smooth(duration: 0.3), value: total)

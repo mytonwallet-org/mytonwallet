@@ -22,6 +22,7 @@ public struct NavigationHeader<Title: View, Subtitle: View>: View {
             _title
             _subtitle
         }
+        .frame(minWidth: 200, idealWidth: 200)
     }
     
     var _title: some View {

@@ -87,6 +87,7 @@ class WAmountEditText(
         }
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         setHintTextColor(WColor.SecondaryText.color)
         updateInputColor()

@@ -40,6 +40,7 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
     var decimalsAlpha = 255
     var smartDecimalsAlpha = false
     var reducedDecimalsAlpha = 191
+
     // When true, decimals use primaryColor when amount < 10, secondaryColor when >= 10
     var smartDecimalsColor = false
     var defaultHeight = 56.dp
@@ -68,6 +69,7 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
         val decimals: Int,
         val currency: String,
         val animated: Boolean,
+        val setInstantly: Boolean,
         val forceCurrencyToRight: Boolean
     )
 
@@ -134,7 +136,8 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
             if (!decimalsPart && !character.isDigit() && i > 0 && character != ' ') {
                 left += primarySize.dp * 0.03f
                 size = decimalsSize.dp
-                color = if (smartDecimalsColor && !isLargeAmount) (primaryColor ?: WColor.PrimaryText.color) else secondaryColor
+                color = if (smartDecimalsColor && !isLargeAmount) (primaryColor
+                    ?: WColor.PrimaryText.color) else secondaryColor
                 decimalsPart = true
                 integerPartWidth = left
             }
@@ -184,7 +187,7 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
                 isAnimating = false
                 applyNextAnimation()
             }, morphingDuration + changeDelay)
-        animateTextChange()
+        animateTextChange(setInstantly = animateConfig.setInstantly)
     }
 
     private fun applyNextAnimation() {
@@ -241,7 +244,7 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
     private val drawingCharacterRects = mutableListOf<WBalanceViewDrawingCharacterRect>()
     private val paintCache = mutableMapOf<Pair<Float, Int>, Paint>()
 
-    private fun animateTextChange() {
+    private fun animateTextChange(setInstantly: Boolean) {
         val newText = _text
         val oldText = _prevText
         val animatingCharacters = mutableListOf<WBalanceViewAnimatingCharacter>()
@@ -307,21 +310,22 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
         animatingCharacters.firstOrNull { it.charAnimationDuration > 1 }?.let {
             morphingDuration = it.delay + it.charAnimationDuration
         }
-        start()
+        start(setInstantly)
     }
 
-    private fun start() {
+    private fun start(setInstantly: Boolean) {
         stop()
 
         if (!isAnimating) {
             elapsedTime = Int.MAX_VALUE
-            reposition(false)
+            reposition(onBackground = !setInstantly)
             return
         }
 
         val totalDuration = morphingDuration
         elapsedTime = 0
-        reposition(onBackground = false)
+        if (setInstantly)
+            reposition(onBackground = false)
         animator = ValueAnimator.ofInt(0, totalDuration).apply {
             duration = totalDuration.toLong()
 

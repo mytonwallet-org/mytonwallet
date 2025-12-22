@@ -11,8 +11,6 @@ import UIComponents
 import WalletCore
 import WalletContext
 import OrderedCollections
-import UIPasscode
-import Ledger
 
 @MainActor
 public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDataProtocol {

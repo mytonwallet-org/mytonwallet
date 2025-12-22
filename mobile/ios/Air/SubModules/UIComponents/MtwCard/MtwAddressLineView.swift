@@ -111,9 +111,9 @@ public struct MtwCardAddressLine: View {
                     if style.largeAccountTypeIcon {
                         switch leadingIcon {
                         case .ledger:
-                            AccountTypeBadge(.hardware, style: .card, increasedOpacity: gradient?.nft?.metadata?.mtwCardType?.isPremium == true)
+                            AccountTypeBadge(.hardware, increasedOpacity: gradient?.nft?.metadata?.mtwCardType?.isPremium == true)
                         case .view:
-                            AccountTypeBadge(.view, style: .card, increasedOpacity: gradient?.nft?.metadata?.mtwCardType?.isPremium == true)
+                            AccountTypeBadge(.view, increasedOpacity: gradient?.nft?.metadata?.mtwCardType?.isPremium == true)
                         }
                     } else {
                         leadingIcon.image

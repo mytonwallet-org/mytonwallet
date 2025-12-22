@@ -18,7 +18,7 @@ final class TokenExpandableChartView: UIView, WThemedView {
 
     static let collapsedHeight = CGFloat(60)
     static var expandedHeight: CGFloat {
-        30 + 16 + 76 + 0.36 * (UIScreen.main.bounds.width - 32 - 6)
+        30 + 16 + 76 + 0.36 * (screenWidth - 32 - 6)
     }
 
     private let parentProcessorQueue: DispatchQueue
@@ -339,7 +339,7 @@ final class TokenExpandableChartView: UIView, WThemedView {
         if let lastHighlight {
             let priceString = formatAmountText(amount: lastHighlight.y,
                                                currency: TokenStore.baseCurrency.sign,
-                                               decimalsCount: tokenDecimals(for: token.price ?? 0, tokenDecimals: token.decimals))
+                                               decimalsCount: min(token.decimals, tokenDecimals(for: lastHighlight.y, tokenDecimals: token.decimals) + 2))
             let attr = NSAttributedString(string: priceString, attributes: [
                 .font: UIFont.systemFont(ofSize: 16, weight: .medium),
                 .foregroundColor: WTheme.primaryLabel
@@ -587,8 +587,8 @@ final class TokenExpandableChartView: UIView, WThemedView {
 
             if viewPortHandler.contentWidth < 0 {
                 return (
-                    UIScreen.main.bounds.width - 60,
-                    0.36 * (UIScreen.main.bounds.width - 78),
+                    screenWidth - 60,
+                    0.36 * (screenWidth - 78),
                     41,
                     -22
                 )

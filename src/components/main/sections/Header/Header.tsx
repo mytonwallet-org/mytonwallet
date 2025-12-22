@@ -135,17 +135,27 @@ function Header({
       areTabsStuck && styles.areTabsStuck,
       isScrolled && styles.isScrolled,
     );
-    const iconsAmount = 1 + (isAppLockEnabled ? 1 : 0) + (IS_TELEGRAM_APP ? 1 : 0) + (canToggleAppLayout ? 1 : 0);
+    const iconsAmount = IS_EXTENSION
+      ? 1 + (isTemporaryAccount ? 1 : 0) + (isAppLockEnabled ? 1 : 0)
+      : 1 + (isAppLockEnabled ? 1 : 0) + (IS_TELEGRAM_APP ? 1 : 0) + (canToggleAppLayout ? 1 : 0);
 
     return (
       <div className={fullClassName}>
         <div className={styles.headerInner} style={`--icons-amount: ${iconsAmount}`}>
-          {isTemporaryAccount ? <BackButton /> : <QrScannerButton isViewMode={isViewMode} />}
+          {IS_EXTENSION ? (
+            <div className={styles.portraitActionsLeft}>
+              {isTemporaryAccount ? <BackButton isIconOnly /> : <QrScannerButton isViewMode={isViewMode} />}
+              <ToggleSensitiveDataButton isSensitiveDataHidden={isSensitiveDataHidden} />
+              {isAppLockEnabled && <AppLockButton />}
+            </div>
+          ) : (
+            isTemporaryAccount ? <BackButton /> : <QrScannerButton isViewMode={isViewMode} />
+          )}
           <AccountSelector withBalance={withBalance} withAccountSelector={!IS_CORE_WALLET} />
 
-          <div className={styles.portraitActions}>
-            {isAppLockEnabled && <AppLockButton />}
-            <ToggleSensitiveDataButton isSensitiveDataHidden={isSensitiveDataHidden} />
+          <div className={styles.portraitActionsRight}>
+            {!IS_EXTENSION && isAppLockEnabled && <AppLockButton />}
+            {!IS_EXTENSION && <ToggleSensitiveDataButton isSensitiveDataHidden={isSensitiveDataHidden} />}
             {IS_TELEGRAM_APP && <ToggleFullscreenButton isFullscreen={isFullscreen} />}
             {canToggleAppLayout && <ToggleLayoutButton />}
           </div>

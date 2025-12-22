@@ -145,22 +145,22 @@ open class WCustomImageView @JvmOverloads constructor(
         }
     }
 
-    private var _placeholderVal: Int? = null
     private fun buildHierarchy(content: Content) {
-        // Ignore rebuild if it's not necessary. Building `hierarchy` can be resource heavy.
-        //  Notice: We assume rounding params are not changed in a specific image-view.
-        val placeholderVal = getCachingPlaceholderValue(content)
-        if (placeholderVal != null && _placeholderVal == placeholderVal &&
-            hierarchy?.actualImageScaleType == content.scaleType
-        )
+        if (hierarchy == null) {
+            hierarchy = GenericDraweeHierarchyBuilder(resources)
+                .setPlaceholderImage(getPlaceholderDrawable(content))
+                .setPlaceholderImageScaleType(content.scaleType)
+                .setActualImageScaleType(content.scaleType)
+                .setRoundingParams(getRoundingParams(content))
+                .build()
             return
-        _placeholderVal = placeholderVal
-        hierarchy = GenericDraweeHierarchyBuilder(resources).apply {
-            setPlaceholderImage(getPlaceholderDrawable(content))
-            setPlaceholderImageScaleType(content.scaleType)
+        }
+
+        hierarchy?.apply {
+            setPlaceholderImage(getPlaceholderDrawable(content), content.scaleType)
             setActualImageScaleType(content.scaleType)
-            setRoundingParams(getRoundingParams(content))
-        }.build()
+            roundingParams = getRoundingParams(content)
+        }
     }
 
     private fun getRoundingMode(content: Content) =

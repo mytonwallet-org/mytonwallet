@@ -208,8 +208,8 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         tableView.addSubview(actionsContainerView)
         actionsTopConstraint = actionsContainerView.topAnchor.constraint(equalTo: tableView.contentLayoutGuide.topAnchor, constant: headerHeightWithoutAssets).withPriority(.init(950))
         NSLayoutConstraint.activate([
-            actionsContainerView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            actionsContainerView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            actionsContainerView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: horizontalPadding),
+            actionsContainerView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -horizontalPadding),
             actionsTopConstraint,
             
             actionsContainerView.heightAnchor.constraint(equalToConstant: actionsRowHeight),
@@ -225,10 +225,10 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         assetsHeightConstraint = assetsView.heightAnchor.constraint(equalToConstant: 0)
 
         NSLayoutConstraint.activate([
-            assetsView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            assetsView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            assetsView.topAnchor.constraint(equalTo: actionsView.bottomAnchor, constant: 16),
-            assetsView.topAnchor.constraint(equalTo: balanceHeaderView.bottomAnchor, constant: 16).withPriority(.init(949)),
+            assetsView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: horizontalPadding),
+            assetsView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -horizontalPadding),
+            assetsView.topAnchor.constraint(equalTo: actionsView.bottomAnchor, constant: sectionSpacing),
+            assetsView.topAnchor.constraint(equalTo: balanceHeaderView.bottomAnchor, constant: sectionSpacing).withPriority(.init(949)),
 
             assetsHeightConstraint,
         ])
@@ -263,7 +263,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         headerContainer.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(headerContainer)
         
-        headerBottomConstraint = headerContainer.bottomAnchor.constraint(equalTo: walletAssetsVC.view.topAnchor, constant: -16).withPriority(.defaultHigh)
+        headerBottomConstraint = headerContainer.bottomAnchor.constraint(equalTo: walletAssetsVC.view.topAnchor, constant: -sectionSpacing).withPriority(.defaultHigh)
         
         NSLayoutConstraint.activate([
             headerContainer.heightAnchor.constraint(equalToConstant: itemHeight),
@@ -275,7 +275,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
 //            headerContainer.bottomAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.topAnchor, constant: 200),
         ])
         
-        let accountSelector = _AccountSelectorView(viewModel: headerViewModel, onIsScrolling: { _ in }, ns: nil)
+        let accountSelector = HomeAccountSelector(viewModel: headerViewModel, onIsScrolling: { _ in })
         headerContainer.addSubview(accountSelector)
         accountSelector.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
@@ -296,7 +296,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         view.addSubview(headerGradientLeading)
         NSLayoutConstraint.activate([
             headerGradientLeading.leadingAnchor.constraint(equalTo: accountSelector.leadingAnchor),
-            headerGradientLeading.widthAnchor.constraint(equalToConstant: 16),
+            headerGradientLeading.widthAnchor.constraint(equalToConstant: horizontalPadding),
             headerGradientLeading.topAnchor.constraint(equalTo: accountSelector.topAnchor),
             headerGradientLeading.bottomAnchor.constraint(equalTo: accountSelector.bottomAnchor),
         ])
@@ -312,7 +312,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         view.addSubview(headerGradientTrailing)
         NSLayoutConstraint.activate([
             headerGradientTrailing.trailingAnchor.constraint(equalTo: accountSelector.trailingAnchor),
-            headerGradientTrailing.widthAnchor.constraint(equalToConstant: 16),
+            headerGradientTrailing.widthAnchor.constraint(equalToConstant: horizontalPadding),
             headerGradientTrailing.topAnchor.constraint(equalTo: accountSelector.topAnchor),
             headerGradientTrailing.bottomAnchor.constraint(equalTo: accountSelector.bottomAnchor),
         ])
@@ -450,9 +450,9 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
             appliedHeaderPlaceholderHeight = headerPlaceholderHeight
             appliedHeaderHeightWithoutAssets = headerHeightWithoutAssets
             let updates = { [self] in
-                headerBottomConstraint.constant = actionsHeight > 0 ? -actionsRowHeight - 32 : -16
-                actionsTopConstraint.constant = headerHeightWithoutAssets + (actionsHeight > 0 ? 0 :  -(actionsRowHeight + 16))
-                assetsHeightConstraint.constant = max(0, assetsHeight - 16)
+                headerBottomConstraint.constant = actionsHeight > 0 ? -actionsRowHeight - (sectionSpacing * 2) : -sectionSpacing
+                actionsTopConstraint.constant = headerHeightWithoutAssets + (actionsHeight > 0 ? 0 :  -(actionsRowHeight + sectionSpacing))
+                assetsHeightConstraint.constant = max(0, assetsHeight - sectionSpacing)
                 reconfigureHeaderPlaceholder(animated: true)
             }
             if animated && skeletonState != .loading {
@@ -467,7 +467,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
             }
         }
     }
-
+    
     override public var isGeneralDataAvailable: Bool {
         homeVM.isGeneralDataAvailable
     }

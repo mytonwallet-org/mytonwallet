@@ -6,7 +6,6 @@
 //
 
 import UIKit
-import WalletCore
 import WalletContext
 import UIComponents
 import SwiftUI
@@ -31,6 +30,10 @@ public final class CustomizeWalletVC: WViewController {
     
     public override func viewDidLoad() {
         super.viewDidLoad()
+        
+        if !isPresentationModal {
+            additionalSafeAreaInsets = insetSectionAdditionalInsets
+        }
         
         navigationItem.title = lang("Customize Wallet")
         addCloseNavigationItemIfNeeded()

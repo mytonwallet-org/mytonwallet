@@ -69,10 +69,6 @@ public class ChangePasscodeVC: WViewController {
             passcodeScreenView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
     }
-    
-    @objc func cancelPressed() {
-        dismiss(animated: true)
-    }
 }
 
 extension ChangePasscodeVC: PasscodeScreenViewDelegate {

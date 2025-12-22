@@ -48,6 +48,7 @@ class WDashedLineMarker(context: Context?) : MarkerView(context, R.layout.frame)
         return MPPointF(-width / 2f, -height.toFloat())
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         linePaint.color = WColor.Tint.color
         circlePaint.color = WColor.Background.color

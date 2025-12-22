@@ -11,7 +11,6 @@ import UIPasscode
 import UIComponents
 import WalletCore
 import WalletContext
-import Ledger
 import Dependencies
 
 public class ConnectDappVC: WViewController, UISheetPresentationControllerDelegate {

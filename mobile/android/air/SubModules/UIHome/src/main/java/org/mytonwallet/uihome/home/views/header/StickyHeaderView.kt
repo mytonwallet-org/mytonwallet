@@ -108,6 +108,7 @@ class StickyHeaderView(
         WLabel(context).apply {
             text = LocaleController.getString("Cancel")
             setTextColor(WColor.Tint.color)
+            isTinted = true
             setStyle(18f, WFont.Medium)
             setPaddingDp(12, 4, 12, 4)
             alpha = 0f
@@ -118,6 +119,7 @@ class StickyHeaderView(
         WLabel(context).apply {
             text = LocaleController.getString("Save")
             setTextColor(WColor.Tint.color)
+            isTinted = true
             setStyle(18f, WFont.Medium)
             setPaddingDp(12, 4, 12, 4)
             alpha = 0f
@@ -249,6 +251,9 @@ class StickyHeaderView(
     }
 
     fun exitActionMode() {
+        if (!cancelButton.isClickable) {
+            return
+        }
         cancelButton.setOnClickListener(null)
         saveButton.setOnClickListener(null)
         cancelButton.fadeOut(animationDuration)

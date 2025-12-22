@@ -7,16 +7,10 @@ import WalletContext
 public struct AccountTypeBadge: View {
     
     var accountType: AccountType
-    public enum Style {
-        case card
-        case list
-    }
-    var style: Style
     var increasedOpacity: Bool
     
-    public init(_ accountType: AccountType, style: Style, increasedOpacity: Bool = false) {
+    public init(_ accountType: AccountType, increasedOpacity: Bool = false) {
         self.accountType = accountType
-        self.style = style
         self.increasedOpacity = increasedOpacity
     }
     
@@ -72,9 +66,9 @@ public struct AccountTypeBadge: View {
         }
         
         VStack {
-            AccountTypeBadge(.mnemonic, style: .card)
-            AccountTypeBadge(.hardware, style: .card)
-            AccountTypeBadge(.view, style: .card)
+            AccountTypeBadge(.mnemonic)
+            AccountTypeBadge(.hardware)
+            AccountTypeBadge(.view)
         }
         .foregroundStyle(.white)
         .scaleEffect(4)

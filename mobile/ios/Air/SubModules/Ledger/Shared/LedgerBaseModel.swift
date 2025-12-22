@@ -107,19 +107,6 @@ public class LedgerBaseModel: @unchecked Sendable {
         }
     }
     
-    func handleError(_ error: any Error) throws {
-        if let bridge = error as? BridgeCallError {
-            if case .customMessage(_, let any) = bridge {
-                if (any as? [String: Any])?["name"] as? String == "ApiUserRejectsError" {
-                    // do not retry
-                    log.info("signAndSend retry handle error triggered")
-                    throw error
-                }
-            }
-        }
-    }
-    
-    
     // MARK: - View model
     
     func handleStop() {

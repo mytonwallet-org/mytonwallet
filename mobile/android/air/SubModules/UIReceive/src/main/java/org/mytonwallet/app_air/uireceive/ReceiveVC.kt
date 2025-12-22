@@ -65,6 +65,9 @@ class ReceiveVC(
 ) : WViewControllerWithModelStore(context) {
     override val TAG = "Receive"
 
+    override val displayedAccount =
+        DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
+
     override val shouldDisplayTopBar = false
 
     override val shouldDisplayBottomBar: Boolean
@@ -434,6 +437,7 @@ class ReceiveVC(
             qrCodeVcTon!!).addressView.viewTreeObserver.addOnPreDrawListener(viewTreeObserver)
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         super.updateTheme()
         view.setBackgroundColor(WColor.SecondaryBackground.color)

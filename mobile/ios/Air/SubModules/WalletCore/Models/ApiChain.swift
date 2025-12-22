@@ -196,3 +196,22 @@ public enum ApiChain: String, Equatable, Hashable, Codable, Comparable, Sendable
         }
     }
 }
+
+public func getChainBySlug(_ tokenSlug: String) -> ApiChain? {
+    let items = tokenSlug.split(separator: "-")
+    if items.count == 1 {
+        return getChainByNativeSlug(tokenSlug)
+    }
+    if items.count == 2 {
+        return ApiChain(rawValue: String(items[0]))
+    }
+    return nil
+}
+
+public func getChainByNativeSlug(_ tokenSlug: String) -> ApiChain? {
+    switch tokenSlug {
+    case ApiChain.ton.tokenSlug: .ton
+    case ApiChain.tron.tokenSlug: .tron
+    default: nil
+    }
+}

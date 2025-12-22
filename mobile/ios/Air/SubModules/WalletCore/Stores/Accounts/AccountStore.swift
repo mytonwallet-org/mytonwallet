@@ -107,6 +107,14 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         access(keyPath: \._accountsById)
         return accountsById[accountId] ?? DUMMY_ACCOUNT
     }
+    
+    private func getCurrentAccount() -> MAccount {
+        get(accountId: currentAccountId)
+    }
+    
+    public func get(accountIdOrCurrent: String?) -> MAccount {
+        get(accountId: accountIdOrCurrent ?? currentAccountId)
+    }
 
     // MARK: - Database
 

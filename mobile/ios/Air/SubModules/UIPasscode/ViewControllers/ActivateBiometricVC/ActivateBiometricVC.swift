@@ -7,7 +7,6 @@
 
 import UIKit
 import UIComponents
-import WalletCore
 import WalletContext
 import LocalAuthentication
 

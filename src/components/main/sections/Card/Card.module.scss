@@ -253,6 +253,17 @@ $signSizeDiff: 0.375rem;
   cursor: var(--custom-cursor, pointer);
   position: relative;
 
+  @include mixins.transition(opacity 200ms);
+
+  &:hover,
+  &:focus-visible {
+    opacity: 0.85;
+  }
+
+  &:active {
+    transition: none;
+  }
+
   & > .iconCaretSmall {
     position: relative;
     top: 0.0625rem;

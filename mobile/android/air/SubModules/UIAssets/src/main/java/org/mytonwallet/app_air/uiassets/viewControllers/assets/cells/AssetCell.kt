@@ -20,11 +20,12 @@ import org.mytonwallet.app_air.uicomponents.widgets.WImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
-import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
+import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 
 @SuppressLint("ViewConstructor")
@@ -100,18 +101,32 @@ class AssetCell(
         updateTheme()
     }
 
+    private var _isDarkThemeApplied: Boolean? = null
     override fun updateTheme() {
+        val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
+        if (!darkModeChanged)
+            return
+        _isDarkThemeApplied = ThemeManager.isDark
         addRippleEffect(WColor.SecondaryBackground.color, 16f.dp)
         titleLabel.setTextColor(WColor.PrimaryText.color)
         subtitleLabel.setTextColor(WColor.SecondaryText.color)
     }
 
     private var nft: ApiNft? = null
+    private var isInDragMode = false
+    private var animationsPaused = false
     fun configure(
         nft: ApiNft,
-        isInDragMode: Boolean
+        isInDragMode: Boolean,
+        animationsPaused: Boolean
     ) {
+        if (this.nft == nft && this.isInDragMode == isInDragMode && this.animationsPaused == animationsPaused) {
+            updateTheme()
+            return
+        }
         this.nft = nft
+        this.isInDragMode = isInDragMode
+        this.animationsPaused = animationsPaused
         imageView.loadUrl(nft.thumbnail ?: "")
         if (mode == AssetsVC.Mode.COMPLETE) {
             nft.name?.let {
@@ -129,10 +144,12 @@ class AssetCell(
             animationView.visibility = GONE
             if (nft.metadata?.lottie?.isNotBlank() == true) {
                 animationView.visibility = VISIBLE
-                animationView.playFromUrl(nft.metadata!!.lottie!!, onStart = {})
+                animationView.playFromUrl(
+                    url = nft.metadata!!.lottie!!,
+                    play = !animationsPaused,
+                    onStart = {})
             }
         }
-        updateTheme()
         if (isInDragMode) {
             startShake()
         } else {

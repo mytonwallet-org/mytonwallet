@@ -229,6 +229,7 @@ class IntroVC(
         updateTheme()
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         super.updateTheme()
         val backgroundColor = WColor.Background.color

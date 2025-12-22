@@ -22,14 +22,6 @@ public extension UINavigationController {
         coordinator.animate(alongsideTransition: nil) { _ in completion?() }
     }
 
-    func pushViewController(_ viewController: UIViewController,
-                            animated: Bool,
-                            clearStack: Bool) {
-        pushViewController(viewController, animated: animated) { [weak self] in
-            guard let self else {return}
-            viewControllers = [viewControllers[viewControllers.count - 1]]
-        }
-    }
     
     func popViewController(animated: Bool, completion: @escaping () -> Void) {
         popViewController(animated: animated)

@@ -5,14 +5,14 @@ import UIComponents
 import WalletContext
 import WalletCore
 import Kingfisher
-import UIPasscode
 import Dependencies
 import Perception
 
 struct ActivityView: View {
 
-    @ObservedObject var model: ActivityDetailsViewModel
+    var model: ActivityDetailsViewModel
     var onDecryptComment: () -> ()
+    var onTokenTapped: ((ApiToken) -> Void)?
     var decryptedComment: String?
     var isSensitiveDataHidden: Bool
 
@@ -62,7 +62,7 @@ struct ActivityView: View {
                     model.onHeightChange()
                 })
                 .onGeometryChange(for: CGFloat.self, of: { $0.frame(in: .global).maxY }, action: { maxY in
-                    let y = maxY - UIScreen.main.bounds.height + 32.0
+                    let y = maxY - screenHeight + 32.0
                     detailsOpacity = clamp(-y / 70, to: 0...1)
                 })
                 
@@ -121,7 +121,7 @@ struct ActivityView: View {
         switch activity {
         case .transaction(let tx):
             if let token {
-                TransactionActivityHeader(transaction: tx, token: token)
+                TransactionActivityHeader(transaction: tx, token: token, onTokenTapped: onTokenTapped)
             }
         case .swap(let swap):
             if let fromAmount = swap.fromAmountInt64, let toAmount = swap.toAmountInt64, let fromToken = swap.fromToken, let toToken = swap.toToken {
@@ -129,7 +129,8 @@ struct ActivityView: View {
                     fromAmount: fromAmount,
                     fromToken: fromToken,
                     toAmount: toAmount,
-                    toToken: toToken
+                    toToken: toToken,
+                    onTokenTapped: onTokenTapped
                 )
                 .padding(.top, 16)
             }
@@ -139,7 +140,7 @@ struct ActivityView: View {
     @ViewBuilder
     var commentSection: some View {
         if let comment = activity.transaction?.comment {
-            SBubbleView(content: .comment(comment), direction: activity.transaction?.isIncoming == true ? .incoming : .outgoing)
+            SBubbleView(content: .comment(comment), direction: activity.transaction?.isIncoming == true ? .incoming : .outgoing, isError: activity.transaction?.status == .failed)
                 .padding(.horizontal, 44)
         }
     }
@@ -151,13 +152,13 @@ struct ActivityView: View {
         
         if activity.transaction?.encryptedComment != nil {
             if let decryptedComment {
-                SBubbleView(content: .comment(decryptedComment), direction: activity.transaction?.isIncoming == true ? .incoming : .outgoing)
+                SBubbleView(content: .comment(decryptedComment), direction: activity.transaction?.isIncoming == true ? .incoming : .outgoing, isError: activity.transaction?.status == .failed)
                     .padding(.horizontal, 44)
                     .transition(.opacity.combined(with: .scale(scale: 0.7)))
             } else {
                 Button(action: onDecryptComment) {
                     VStack(spacing: 0) {
-                        SBubbleView(content: .encryptedComment, direction: activity.transaction?.isIncoming == true ? .incoming : .outgoing)
+                        SBubbleView(content: .encryptedComment, direction: activity.transaction?.isIncoming == true ? .incoming : .outgoing, isError: activity.transaction?.status == .failed)
                             .padding(.horizontal, 44)
                         if canDecrypt {
                             Text(lang("Tap to reveal"))

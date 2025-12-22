@@ -147,6 +147,7 @@ class ListExpandableTextCell @JvmOverloads constructor(
         )
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         textViewFull.setTextColor(WColor.PrimaryText.color)
         textViewHidden.setTextColor(WColor.PrimaryText.color)

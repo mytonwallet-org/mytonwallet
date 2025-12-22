@@ -51,7 +51,7 @@ sealed class WalletEvent {
     data object AccountSavedAddressesChanged : WalletEvent()
     data object AddNewWalletCompletion : WalletEvent()
     data class TemporaryAccountSaved(val accountId: String) : WalletEvent()
-    data object AccountWillChange : WalletEvent()
+    data class AccountWillChange(val fromHome: Boolean) : WalletEvent()
     data object DappsCountUpdated : WalletEvent()
     data class DappRemoved(val dapp: ApiDapp) : WalletEvent()
     data object StakingDataUpdated : WalletEvent()
@@ -72,6 +72,10 @@ sealed class WalletEvent {
         val activity: MApiTransaction
     ) : WalletEvent()
 
+    data class OpenToken(
+        val slug: String
+    ) : WalletEvent()
+
     data object NftCardUpdated : WalletEvent()
     data object NftDomainDataUpdated : WalletEvent()
     data class LedgerDeviceModelRequest(
@@ -88,5 +92,5 @@ sealed class WalletEvent {
 
     data object NftsReordered : WalletEvent()
     data object HomeNftCollectionsUpdated : WalletEvent()
-    data object ByChainUpdated : WalletEvent()
+    data class ByChainUpdated(val accountId: String) : WalletEvent()
 }

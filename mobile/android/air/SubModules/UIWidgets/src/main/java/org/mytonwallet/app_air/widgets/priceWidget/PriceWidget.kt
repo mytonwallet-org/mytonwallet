@@ -21,7 +21,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.MHistoryTimePeriod
 import org.mytonwallet.app_air.walletbasecontext.utils.formatDateAndTime
 import org.mytonwallet.app_air.walletbasecontext.utils.formatTime
-import org.mytonwallet.app_air.walletbasecontext.utils.thinSpace
+import org.mytonwallet.app_air.walletbasecontext.utils.signSpace
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletsdk.methods.SDKApiMethod
 import org.mytonwallet.app_air.widgets.R
@@ -407,7 +407,7 @@ class PriceWidget : AppWidgetProvider() {
 
         // BITMAPS /////////////////////////////////////////////////////////////////////////////////
         val forcedCompact = isCompact || priceChangePercent == null
-        val sign = if ((priceChangePercent ?: 0.0) > 0) "+$thinSpace" else if ((priceChangePercent ?: 0.0) < 0) "-$thinSpace" else ""
+        val sign = if ((priceChangePercent ?: 0.0) > 0) "+$signSpace" else if ((priceChangePercent ?: 0.0) < 0) "-$signSpace" else ""
         val priceChangeAndDateBitmap = if (priceChangePercent != null) TextUtils.textToBitmap(
             context,
             TextUtils.DrawableText(

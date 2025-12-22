@@ -21,6 +21,7 @@ class WImageButton(context: Context) : AppCompatImageButton(context), WThemedVie
         updateTheme()
     }
 
+    override val isTinted = true
     fun updateColors(tint: WColor, rippleColor: WColor? = null) {
         rippleColor?.let {
             this.rippleColor = rippleColor

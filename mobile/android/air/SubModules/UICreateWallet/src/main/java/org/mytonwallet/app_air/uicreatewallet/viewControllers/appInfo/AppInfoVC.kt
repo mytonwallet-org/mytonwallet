@@ -105,6 +105,7 @@ class AppInfoVC(context: Context) : WViewController(context) {
         text =
             LocaleController.getString("MyTonWallet Resources")
         setTextColor(WColor.Tint)
+        isTinted = true
         setPaddingDp(24, 16, 0, 8)
     }
 
@@ -242,6 +243,7 @@ class AppInfoVC(context: Context) : WViewController(context) {
         }
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         val backgroundColor = WColor.SecondaryBackground.color
         view.setBackgroundColor(backgroundColor)

@@ -182,10 +182,11 @@ $landscapeActionsButtonWidth: 1.375rem;
   width: calc($landscapeActionsButtonWidth * 3 + $landscapeActionsGap * 2);
 }
 
-.portraitActions {
+.portraitActionsRight,
+.portraitActionsLeft {
   position: absolute;
+  z-index: 1;
   top: calc(0.75rem + var(--safe-area-top, 0px));
-  right: calc(1rem + var(--safe-area-right, 0px));
 
   display: flex;
   gap: 1rem;
@@ -193,4 +194,12 @@ $landscapeActionsButtonWidth: 1.375rem;
 
   width: fit-content;
   height: 1.5rem;
+}
+
+.portraitActionsRight {
+  right: calc(1rem + var(--safe-area-right, 0px));
+}
+
+.portraitActionsLeft {
+  left: calc(1rem + var(--safe-area-left, 0px));
 }

@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import WalletCore
 import WalletContext
 
 public struct MtwCardMiniPlaceholders: View {

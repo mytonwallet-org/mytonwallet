@@ -118,6 +118,7 @@ open class RecoveryPhraseVC(context: Context, private val words: Array<String>) 
         gravity = Gravity.CENTER
         setPadding(16.dp, 0, 16.dp, 0)
         setTextColor(WColor.Tint)
+        isTinted = true
         setOnClickListener {
             showAlert(
                 title = LocaleController.getString("Security Warning"),

@@ -7,10 +7,7 @@
 
 import UIKit
 import SwiftUI
-import WalletCore
 import WalletContext
-import UIHome
-import UISettings
 import UIComponents
 
 public class WordDisplayVC: WViewController {

@@ -58,6 +58,9 @@ class LinkToWalletVC(
 ) : WViewController(context) {
     override val TAG = "LinkToWallet"
 
+    override val displayedAccount =
+        DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
+
     override val shouldDisplayTopBar = false
 
     var address: String? = NftStore.nftData?.linkedAddressByAddress?.get(nft.address)

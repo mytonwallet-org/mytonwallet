@@ -8,7 +8,6 @@
 import UIKit
 import UIComponents
 import WalletContext
-import WalletCore
 
 public class ConfirmPasscodeVC: WViewController, PasscodeScreenViewDelegate {
     func animateSuccess() {

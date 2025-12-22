@@ -23,13 +23,9 @@ public class ActivityCell: WHighlightCell {
     static let regular14Font = UIFont.systemFont(ofSize: 14, weight: .regular)
     static let regular16Font = UIFont.systemFont(ofSize: 16, weight: .regular)
     static let medium16Font = UIFont.systemFont(ofSize: 16, weight: .medium)
-    static let rightArrowImage = UIImage(systemName: "chevron.right", withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold))!
-        .withRenderingMode(.alwaysTemplate)
     
     var skeletonView: ActivityCell.Skeleton? = nil
 
-    let dateFormatter = DateFormatter()
-    
     let mainView = UIView()
     let firstTwoRows: UIView = .init()
     
@@ -597,12 +593,13 @@ public class ActivityCell: WHighlightCell {
         
         let hasComment: Bool
         let shouldShowComment = activity?.shouldShowTransactionComment == true
+        let isIncoming = activity?.transaction?.isIncoming == true
         
-        if shouldShowComment, let commment = activity?.transaction?.comment?.nilIfEmpty {
-            commentView.setComment(commment)
+        if shouldShowComment, let tx = activity?.transaction, let commment = tx.comment?.nilIfEmpty {
+            commentView.setComment(commment, direction: isIncoming ? .incoming : .outgoing, isError: tx.status == .failed)
             hasComment = true
-        } else if shouldShowComment, activity?.transaction?.encryptedComment != nil {
-            commentView.setEncryptedComment()
+        } else if shouldShowComment, let tx = activity?.transaction, tx.encryptedComment != nil {
+            commentView.setEncryptedComment(direction: isIncoming ? .incoming : .outgoing, isError: tx.status == .failed)
             hasComment = true
         } else {
             hasComment = false
@@ -611,8 +608,6 @@ public class ActivityCell: WHighlightCell {
         commentView.isHidden = !hasComment
         if hasComment {
             NSLayoutConstraint.activate(commentViewConstraints)
-            let isIncoming = activity?.transaction?.isIncoming == true
-            commentView.setDirection(isIncoming ? .incoming : .outgoing)
             commentViewLeadingConstraint.isActive = isIncoming
             commentViewTrailingConstraint.isActive = !isIncoming
         } else {

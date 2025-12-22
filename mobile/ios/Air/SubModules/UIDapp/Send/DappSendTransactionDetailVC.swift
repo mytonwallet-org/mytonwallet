@@ -5,7 +5,6 @@ import UIPasscode
 import UIComponents
 import WalletCore
 import WalletContext
-import Ledger
 
 
 class DappSendTransactionDetailVC: WViewController {

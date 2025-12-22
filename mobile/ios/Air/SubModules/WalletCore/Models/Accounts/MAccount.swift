@@ -59,8 +59,8 @@ extension MAccount {
         return false
     }
     
-    public var supportedChains: [ApiChain] {
-        ApiChain.allCases.filter { self.supports(chain: $0.rawValue) }
+    public var supportedChains: Set<ApiChain> {
+        Set(byChain.compactMap { chain, _ in ApiChain(rawValue: chain) })
     }
     
     public var isMultichain: Bool {

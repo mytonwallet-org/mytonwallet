@@ -126,10 +126,6 @@ public class HomeTabBarController: UITabBarController, WThemedView {
         }
     }
     
-    @objc func showLock() {
-        _showLock(animated: false)
-    }
-    
     public func _showLock(animated: Bool) {
         log.info("_showLock animated=\(animated)")
         guard AuthSupport.accountsSupportAppLock else { return }
@@ -168,18 +164,7 @@ public class HomeTabBarController: UITabBarController, WThemedView {
         }
     }
     
-    @objc func tryUnlock() {
-        log.info(" ")
-        log.info("tryUnlock")
-        if unlockVC == nil {
-            log.info("tryUnlock lock not found")
-            _showLock(animated: false)
-        }
-        unlockVC?.tryBiometric()
-    }
-    
     @objc func tryUnlockIfLocked() {
-        log.info(" ")
         log.info("tryUnlockIfLocked")
         unlockVC?.tryBiometric()
     }
@@ -275,10 +260,6 @@ public class HomeTabBarController: UITabBarController, WThemedView {
             blurViewSnapshot.trailingAnchor.constraint(equalTo: tabBar.trailingAnchor)
         ])
         blurViewSnapshot.backgroundColor = .clear
-    }
-    
-    private func image(for account: MAccount?) -> UIImage? {
-        return .avatar(for: account, withSize: 25)
     }
     
     private func accountChanged() {

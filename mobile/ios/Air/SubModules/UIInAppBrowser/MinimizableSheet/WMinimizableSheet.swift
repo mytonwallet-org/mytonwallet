@@ -30,6 +30,7 @@ public class WMinimizableSheet: WViewController {
         self.browser = browser
         self.startMinimized = startMinimized
         super.init(nibName: nil, bundle: nil)
+        modalPresentationStyle = .pageSheet
     }
     
     @MainActor required init?(coder: NSCoder) {

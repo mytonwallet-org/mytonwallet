@@ -48,6 +48,9 @@ import kotlin.math.roundToInt
 class RenewVC(context: Context, val nft: ApiNft) : WViewController(context) {
     override val TAG = "Renew"
 
+    override val displayedAccount =
+        DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
+
     override val shouldDisplayTopBar = false
 
     private var realFee = BigInteger.ZERO

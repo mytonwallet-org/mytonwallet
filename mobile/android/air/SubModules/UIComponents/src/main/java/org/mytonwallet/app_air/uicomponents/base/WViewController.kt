@@ -36,6 +36,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uicomponents.widgets.updateThemeForChildren
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -87,7 +88,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
     //////////////////////////////////////////////////
 
     // ContainerView /////////////////////////////////
-    val view: ContainerView by lazy {
+    open val view: ContainerView by lazy {
         ContainerView(WeakReference(this)).apply {
         }
     }
@@ -113,7 +114,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
     private var isViewAppearanceAnimationInProgress = false
 
     @SuppressLint("ViewConstructor")
-    class ContainerView(val viewController: WeakReference<WViewController>) :
+    open class ContainerView(val viewController: WeakReference<WViewController>) :
         WView(viewController.get()!!.context), WProtectedView {
         override fun setupViews() {
             super.setupViews()
@@ -450,34 +451,40 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
     //////////////////////////////////////////////////
 
     private var pendingThemeChange = false
+    private var _isDarkThemeApplied: Boolean? = null
     fun notifyThemeChanged() {
         if (isDisappeared) {
             pendingThemeChange = true
             return
         }
         pendingThemeChange = false
-        updateTheme()
-        updateThemeForChildren(view)
-        topReversedCornerView?.let { topReversedCornerView ->
-            view.setConstraints {
-                toTop(
-                    topReversedCornerView,
-                )
-                (topBlurViewGuideline ?: navigationBar)?.let {
-                    bottomToBottom(
+        val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
+        _isDarkThemeApplied = ThemeManager.isDark
+        if (darkModeChanged || isTinted)
+            updateTheme()
+        updateThemeForChildren(view, onlyTintedViews = !darkModeChanged)
+        if (darkModeChanged) {
+            topReversedCornerView?.let { topReversedCornerView ->
+                view.setConstraints {
+                    toTop(
                         topReversedCornerView,
-                        it,
-                        -ViewConstants.BAR_ROUNDS
                     )
-                    return@setConstraints
+                    (topBlurViewGuideline ?: navigationBar)?.let {
+                        bottomToBottom(
+                            topReversedCornerView,
+                            it,
+                            -ViewConstants.BAR_ROUNDS
+                        )
+                        return@setConstraints
+                    }
                 }
             }
+            if (bottomReversedCornerView?.parent != null)
+                bottomReversedCornerView?.updateLayoutParams {
+                    height = ViewConstants.BAR_ROUNDS.dp.roundToInt() +
+                        (navigationController?.getSystemBars()?.bottom ?: 0)
+                }
         }
-        if (bottomReversedCornerView?.parent != null)
-            bottomReversedCornerView?.updateLayoutParams {
-                height = ViewConstants.BAR_ROUNDS.dp.roundToInt() +
-                    (navigationController?.getSystemBars()?.bottom ?: 0)
-            }
     }
 
     override fun updateTheme() {

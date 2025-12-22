@@ -27,6 +27,7 @@ import android.view.inputmethod.InputMethodManager
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.children
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.helpers.ViewHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedController
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
@@ -469,15 +470,22 @@ fun View.frameAsRectF(padding: Float): RectF {
     )
 }
 
-fun updateThemeForChildren(parentView: ViewGroup) {
+@SuppressLint("NotifyDataSetChanged")
+fun updateThemeForChildren(parentView: ViewGroup, onlyTintedViews: Boolean) {
     for (child in parentView.children) {
-        if (child is WThemedView)
+        if (child is WThemedView && (!onlyTintedViews || child.isTinted))
             child.updateTheme()
-        if (child is ViewGroup && child !is WRecyclerView) // RecyclerViews are handler per-case in vc
-            updateThemeForChildren(child)
+        if (child is ViewGroup && child !is WRecyclerView)
+            updateThemeForChildren(child, onlyTintedViews)
+        else if (child is WRecyclerView && !onlyTintedViews) {
+            (child.adapter as? WRecyclerViewAdapter)?.updateTheme() ?: run {
+                child.adapter?.notifyDataSetChanged()
+            }
+            // Note: Updating tinted RecyclerViews is handled per-case in view-controllers
+        }
         if (child is WSegmentedController) {
             child.items.forEach {
-                updateThemeForChildren(it.viewController.view)
+                updateThemeForChildren(it.viewController.view, onlyTintedViews)
             }
         }
     }

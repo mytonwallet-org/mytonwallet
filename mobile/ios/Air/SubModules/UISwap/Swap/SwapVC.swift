@@ -316,8 +316,8 @@ public class SwapVC: WViewController, WSensitiveDataProtocol {
                     }
                     return
                 }
-                if let transaction = toTonTransaction {
-                    let crossChainSwapVC = CrossChainSwapVC(transaction: transaction)
+                if let swap = toTonTransaction?.swap {
+                    let crossChainSwapVC = CrossChainSwapVC(swap: swap, accountId: nil)
                     navigationController?.pushViewController(crossChainSwapVC, animated: true)
                 } else {
                     dismiss(animated: true)
@@ -380,8 +380,8 @@ public class SwapVC: WViewController, WSensitiveDataProtocol {
                     }
                     return
                 }
-                if let transaction = toTonTransaction {
-                    let crossChainSwapVC = CrossChainSwapVC(transaction: transaction)
+                if let swap = toTonTransaction?.swap {
+                    let crossChainSwapVC = CrossChainSwapVC(swap: swap, accountId: nil)
                     navigationController?.pushViewController(crossChainSwapVC, animated: true)
                 } else {
                     dismiss(animated: true)
@@ -604,17 +604,27 @@ extension SwapVC: SwapVMDelegate {
 
 internal extension WButton {
     func configureTitle(sellingToken: ApiToken, buyingToken: ApiToken) {
-        let s = lang("$swap_from_to", arg1: sellingToken.symbol, arg2: "{{chevron}}", arg3: buyingToken.symbol)
-        let a = s.split(separator: "{{chevron}}")
-        let attr = NSMutableAttributedString()
-        attr.append(NSAttributedString(string: String(a[0])))
-        let config = UIImage.SymbolConfiguration(font: WButton.font, scale: .small)
-        let image = UIImage(systemName: "chevron.forward", withConfiguration: config)!
-        let attachment = NSTextAttachment(image: image)
-        attr.append(NSAttributedString(attachment: attachment))
-        attr.append(NSAttributedString(string: String(a[1])))
-        attr.addAttribute(.font, value: WButton.font, range: NSRange(location: 0, length: attr.length))
-        setAttributedTitle(attr, for: .normal)
+        let containsChevron = lang("$swap_from_to").contains("%3$@")
+        if containsChevron {
+            let s = lang("$swap_from_to", arg1: sellingToken.symbol, arg2: "{{chevron}}", arg3: buyingToken.symbol)
+            let a = s.split(separator: "{{chevron}}")
+            guard a.count >= 2 else { return }
+            let attr = NSMutableAttributedString()
+            attr.append(NSAttributedString(string: String(a[0])))
+            let config = UIImage.SymbolConfiguration(font: WButton.font, scale: .small)
+            let image = UIImage(systemName: "chevron.forward", withConfiguration: config)!
+            let attachment = NSTextAttachment(image: image)
+            attr.append(NSAttributedString(attachment: attachment))
+            attr.append(NSAttributedString(string: String(a[1])))
+            attr.addAttribute(.font, value: WButton.font, range: NSRange(location: 0, length: attr.length))
+            setAttributedTitle(attr, for: .normal)
+        } else {
+            let s = lang("$swap_from_to", arg1: sellingToken.symbol, arg2: buyingToken.symbol)
+            let attr = NSMutableAttributedString()
+            attr.append(NSAttributedString(string: s))
+            attr.addAttribute(.font, value: WButton.font, range: NSRange(location: 0, length: attr.length))
+            setAttributedTitle(attr, for: .normal)
+        }
     }
     
     func configureTitleContinue() {

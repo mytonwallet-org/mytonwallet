@@ -53,15 +53,6 @@ public var devicePlatform: String {
 }
 public let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
 
-// format address to 2-line text
-public func formatAddress(_ address: String) -> String {
-    var address = address
-    if address.count % 2 == 0 {
-        address.insert("\n", at: address.index(address.startIndex, offsetBy: address.count / 2))
-    }
-    return address
-}
-
 public func formatStartEndAddress(_ address: String, prefix: Int = 6, suffix: Int = 6, separator: String = "···") -> String {
     if address.count < prefix + suffix + 3 {
         return address

@@ -9,17 +9,22 @@ object ExploreHistoryStore : IStore {
 
     private val adapter by lazy { WalletCore.moshi.adapter(MExploreHistory::class.java) }
     private var accountId = AccountStore.activeAccountId
+
+    @Volatile
     var exploreHistory: MExploreHistory? = null
         private set
     private var cacheExecutor = Executors.newSingleThreadExecutor()
 
     fun loadBrowserHistory(accountId: String) {
         this.accountId = accountId
-        val exploreHistoryString = WCacheStorage.getExploreHistory(accountId)
-        exploreHistory = exploreHistoryString?.let {
-            val adapter = WalletCore.moshi.adapter(MExploreHistory::class.java)
-            adapter.fromJson(exploreHistoryString)
-        } ?: MExploreHistory()
+        exploreHistory = null
+        cacheExecutor.execute {
+            val exploreHistoryString = WCacheStorage.getExploreHistory(accountId)
+            exploreHistory = exploreHistoryString?.let {
+                val adapter = WalletCore.moshi.adapter(MExploreHistory::class.java)
+                adapter.fromJson(exploreHistoryString)
+            } ?: MExploreHistory()
+        }
     }
 
     fun saveSearchHistory(text: String) {

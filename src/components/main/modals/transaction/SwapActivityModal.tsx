@@ -71,6 +71,7 @@ function SwapActivityModal({
     fetchActivityDetails,
     startSwap,
     closeActivityInfo,
+    selectToken,
   } = getActions();
 
   const lang = useLang();
@@ -186,6 +187,11 @@ function SwapActivityModal({
       tokenOutSlug: toToken!.slug,
       amountIn: fromAmount,
     });
+  });
+
+  const handleTokenClick = useLastCallback((tokenSlug: string) => {
+    closeActivityInfo({ id: id! });
+    selectToken({ slug: tokenSlug });
   });
 
   useEffect(() => {
@@ -468,6 +474,7 @@ function SwapActivityModal({
           tokenOut={toToken}
           amountOut={toAmount}
           isError={isError || isCexError}
+          onTokenClick={handleTokenClick}
         />
         <div className={styles.infoBlock}>
           {renderSwapInfo()}

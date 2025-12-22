@@ -1,6 +1,5 @@
 package org.mytonwallet.uihome.home.views.header
 
-import android.animation.Animator
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.os.Handler
@@ -15,6 +14,9 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.Scroller
 import androidx.core.view.isGone
+import androidx.dynamicanimation.animation.FloatValueHolder
+import androidx.dynamicanimation.animation.SpringAnimation
+import androidx.dynamicanimation.animation.SpringForce
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -72,7 +74,7 @@ open class HomeHeaderView(
     private var onModeChange: ((animated: Boolean) -> Unit)?,
     private var onExpandPressed: (() -> Unit)?,
     private var onHeaderPressed: (() -> Unit)?,
-    private var onHorizontalScrollListener: ((contentAlpha: Float, verticalOffset: Int, actionsFadeOutPercent: Float) -> Unit)? = null,
+    private var onHorizontalScrollListener: ((progress: Float, verticalOffset: Int, actionsFadeOutPercent: Float) -> Unit)? = null,
 ) : WFrameLayout(window), WThemedView, WProtectedView {
 
     companion object {
@@ -123,7 +125,6 @@ open class HomeHeaderView(
 
     // Horizontal scroll state variables ///////////////////////////////////////////////////////////
     private var horizontalScrollOffset = 0f
-    private var targetHorizontalOffset = 0f
     private var initialTouchX = 0f
     private var initialTouchY = 0f
     private var lastTouchX = 0f
@@ -133,7 +134,6 @@ open class HomeHeaderView(
     private val horizontalScroller = Scroller(context)
     private val horizontalGestureDetector = GestureDetector(context, HorizontalGestureListener())
     private var horizontalScrollAnimator: ValueAnimator? = null
-    private var contentAlpha = 1f
     private var balanceExpandProgress = 1f
     ////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -160,7 +160,7 @@ open class HomeHeaderView(
             clipChildren = false
             clipToPadding = false
             maxAllowedWidth = window.windowView.width - 34.dp
-            minPadding = 11.dp
+            minPadding = 16.dp
             additionalRightPadding = 22f.dp.roundToInt()
         },
         WSensitiveDataContainer.MaskConfig(
@@ -455,9 +455,16 @@ open class HomeHeaderView(
     }
 
     fun updateCardImage() {
-        prevCardView.updateCardImage()
-        cardView.updateCardImage()
-        nextCardView.updateCardImage()
+        cardViews.forEach {
+            it.updateCardImage()
+        }
+    }
+
+    fun updateAddressLabel(accountId: String) {
+        cardViews.forEach {
+            if (it.account?.accountId == accountId)
+                it.updateAddressLabel()
+        }
     }
 
     private var prevBalance: Double? = null
@@ -520,10 +527,11 @@ open class HomeHeaderView(
 
     private fun updateBalanceViews(balance: Double?, animated: Boolean) {
         val animateConfig = AnimateConfig(
-            balance?.toBigInteger(WalletCore.baseCurrency.decimalsCount),
-            WalletCore.baseCurrency.decimalsCount,
-            WalletCore.baseCurrency.sign,
-            animated,
+            amount = balance?.toBigInteger(WalletCore.baseCurrency.decimalsCount),
+            decimals = WalletCore.baseCurrency.decimalsCount,
+            currency = WalletCore.baseCurrency.sign,
+            animated = animated,
+            setInstantly = true,
             forceCurrencyToRight = (WalletCore.baseCurrency == MBaseCurrency.RUB)
         )
         animateBalance(animateConfig.copy(animated = animateConfig.animated && mode == Mode.Collapsed))
@@ -553,7 +561,8 @@ open class HomeHeaderView(
                         amount = balance?.toBigInteger(WalletCore.baseCurrency.decimalsCount),
                         WalletCore.baseCurrency.decimalsCount,
                         WalletCore.baseCurrency.sign,
-                        animated = animated && horizontalScrollOffset != 0f,
+                        animated = animated && cardView.alpha > 0.05,
+                        setInstantly = false,
                         false
                     )
                 )
@@ -658,6 +667,21 @@ open class HomeHeaderView(
             }
         })
         skeletonView.stopAnimating()
+    }
+
+    private var isHeavyAnimationIsProgress = false
+    fun heavyAnimationInProgress() {
+        if (isHeavyAnimationIsProgress)
+            return
+        isHeavyAnimationIsProgress = true
+        WGlobalStorage.incDoNotSynchronize()
+    }
+
+    fun heavyAnimationDone() {
+        if (!isHeavyAnimationIsProgress)
+            return
+        isHeavyAnimationIsProgress = false
+        WGlobalStorage.decDoNotSynchronize()
     }
     ////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -798,8 +822,14 @@ open class HomeHeaderView(
 
     // Horizontal Scroll Implementation ///////////////////////////////////////////////////////////
     override fun onInterceptTouchEvent(event: MotionEvent): Boolean {
+        if (parent is WCell)
+            return super.onInterceptTouchEvent(event)
+
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
+                springAnimation?.cancel()
+                springAnimation = null
+                heavyAnimationDone()
                 scrollerOffset = 0f
                 if (!horizontalScroller.isFinished) {
                     horizontalScroller.abortAnimation()
@@ -828,6 +858,7 @@ open class HomeHeaderView(
                         dx > touchSlop && dx > dy -> {
                             scrollDirectionLocked = true
                             isHorizontalScrolling = true
+                            parent.requestDisallowInterceptTouchEvent(true)
                             return true
                         }
                     }
@@ -849,6 +880,7 @@ open class HomeHeaderView(
             MotionEvent.ACTION_DOWN -> return true
 
             MotionEvent.ACTION_MOVE -> {
+                heavyAnimationInProgress()
                 if (!scrollDirectionLocked) {
                     val dx = abs(event.x - initialTouchX)
                     val dy = abs(event.y - initialTouchY)
@@ -880,10 +912,15 @@ open class HomeHeaderView(
             }
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                heavyAnimationDone()
                 if (isHorizontalScrolling) {
-                    targetHorizontalOffset = 0f
-                    if (horizontalScroller.isFinished)
-                        animateToTargetHorizontalOffset()
+                    if (springAnimation?.isRunning != true) {
+                        scrollerOffset = 0f
+                        animateToTargetHorizontalOffset(
+                            targetHorizontalOffset = 0f,
+                            startVelocity = 0f
+                        )
+                    }
                     parent.requestDisallowInterceptTouchEvent(false)
                     isHorizontalScrolling = false
                     scrollDirectionLocked = false
@@ -895,45 +932,48 @@ open class HomeHeaderView(
         return super.onTouchEvent(event)
     }
 
-    private fun animateToTargetHorizontalOffset() {
+    private var springAnimation: SpringAnimation? = null
+    private fun animateToTargetHorizontalOffset(
+        targetHorizontalOffset: Float,
+        startVelocity: Float
+    ) {
         val startOffset = horizontalScrollOffset
         val distance = targetHorizontalOffset - startOffset
 
-        if (abs(distance) > 1) {
-            horizontalScrollAnimator?.cancel()
-            horizontalScrollAnimator =
-                ValueAnimator.ofFloat(startOffset, targetHorizontalOffset).apply {
-                    duration = AnimationConstants.QUICK_ANIMATION
-                    interpolator = CubicBezierInterpolator.EASE_OUT_QUINT
-                    addUpdateListener {
-                        onScrollOffsetChanged(animatedValue as Float)
-                    }
-                    addListener(object : Animator.AnimatorListener {
-                        override fun onAnimationStart(animation: Animator) {}
-                        override fun onAnimationRepeat(animation: Animator) {}
-                        override fun onAnimationCancel(animation: Animator) {}
-                        override fun onAnimationEnd(animation: Animator) {
-                            onScrollOffsetChanged(0f)
-                        }
-                    })
-                    start()
-                }
-        } else {
+        if (abs(distance) <= 1f) {
             onScrollOffsetChanged(0f)
+            return
         }
+
+        springAnimation?.cancel()
+
+        springAnimation = SpringAnimation(FloatValueHolder(startVelocity)).apply {
+            setStartValue(startOffset)
+            spring = SpringForce(targetHorizontalOffset).apply {
+                dampingRatio = SpringForce.DAMPING_RATIO_NO_BOUNCY
+                stiffness = 500f
+            }
+
+            addUpdateListener { _, value, _ ->
+                onScrollOffsetChanged(value + scrollerOffset)
+            }
+
+            addEndListener { _, _, _, _ ->
+                heavyAnimationDone()
+            }
+        }
+
+        heavyAnimationInProgress()
+        springAnimation!!.start()
     }
 
     var changingAccountTo: String? = null
         private set
     private var scrollerOffset = 0f
 
-    fun updateContentAlpha(progress: Float) {
-        val absVal = abs(progress)
-        contentAlpha = 1 - (if (absVal >= 0.48f) 1f else absVal / 0.48f)
-            .let { if (absVal >= 0.98f) 1f else it }
-    }
-
     private fun onScrollOffsetChanged(value: Float) {
+        if (horizontalScrollOffset == value)
+            return
         horizontalScrollOffset = value
         val progress = horizontalScrollOffset / cardView.width
         if (progress > 0.52 || progress < -0.52) {
@@ -974,13 +1014,11 @@ open class HomeHeaderView(
                         }
                     }
                     val progress = horizontalScrollOffset / cardView.width
-                    updateContentAlpha(progress)
                     notifyVerticalOffsetChange(progress)
                     return
                 }
             }
         }
-        updateContentAlpha(progress)
         layoutCardView()
         notifyVerticalOffsetChange(progress)
     }
@@ -1001,20 +1039,20 @@ open class HomeHeaderView(
         }
         val actionsFadeOutPercent = if (progress < 0)
             lerp(
-                if (cardView.account?.isViewOnly == true) 0f else 1f,
-                if (prevCardView.account?.isViewOnly == true) 0f else 1f,
-                -progress
+                if (cardView.account?.isViewOnly != true) 1f else 0f,
+                if (prevCardView.account?.isViewOnly != true) 1f else 0f,
+                -progress * 2
             )
         else
             lerp(
-                if (cardView.account?.isViewOnly == true) 0f else 1f,
-                if (nextCardView.account?.isViewOnly == true) 0f else 1f,
-                progress
+                if (cardView.account?.isViewOnly != true) 1f else 0f,
+                if (nextCardView.account?.isViewOnly != true) 1f else 0f,
+                progress * 2
             )
         onHorizontalScrollListener?.invoke(
-            contentAlpha,
+            progress,
             verticalOffset.roundToInt(),
-            actionsFadeOutPercent
+            actionsFadeOutPercent.coerceIn(0f, 1f)
         )
     }
 
@@ -1025,62 +1063,29 @@ open class HomeHeaderView(
             velocityX: Float,
             velocityY: Float
         ): Boolean {
-            if (mode != Mode.Expanded) {
-                return false
-            }
+            if (mode != Mode.Expanded) return false
 
             val accountIds = overrideAccountIds ?: WGlobalStorage.accountIds()
-            if (accountIds.isEmpty() || accountIds.size == 1) {
-                return false
-            }
+            if (accountIds.size <= 1) return false
 
             val cardWidth = cardView.width + 8.dp
-            val velocity = (-velocityX * 0.5f).toInt()
+            val velocity = -velocityX * 0.5f
+            val flingThreshold = 300
 
-            val flingThreshold = 2000
-            targetHorizontalOffset = when {
-                velocity > flingThreshold && horizontalScrollOffset > 0 -> {
+            val flingScrollTarget = when {
+                velocity > flingThreshold && horizontalScrollOffset > 0 ->
                     cardWidth.toFloat() - 8.dp
-                }
 
-                velocity < -flingThreshold && horizontalScrollOffset < 0 -> {
+                velocity < -flingThreshold && horizontalScrollOffset < 0 ->
                     -cardWidth.toFloat() + 8.dp
-                }
 
-                else -> {
-                    targetHorizontalOffset = 0f
-                    animateToTargetHorizontalOffset()
-                    return true
-                }
+                else -> 0f
             }
-
-            val distance = (targetHorizontalOffset - horizontalScrollOffset).toInt()
-            val duration =
-                (abs(distance).toFloat() / cardWidth * AnimationConstants.QUICK_ANIMATION).toInt()
-                    .coerceIn(250, 400)
-
-            horizontalScroller.startScroll(
-                horizontalScrollOffset.toInt(),
-                0,
-                distance,
-                0,
-                duration
-            )
-            postInvalidateOnAnimation()
+            if (flingScrollTarget == 0f)
+                scrollerOffset = 0f
+            animateToTargetHorizontalOffset(flingScrollTarget, velocityX)
 
             return true
-        }
-    }
-
-    override fun computeScroll() {
-        super.computeScroll()
-
-        if (horizontalScroller.computeScrollOffset()) {
-            onScrollOffsetChanged(scrollerOffset + horizontalScroller.currX.toFloat())
-            postInvalidateOnAnimation()
-        } else if (horizontalScroller.isFinished && horizontalScrollOffset != 0f && targetHorizontalOffset != 0f) {
-            targetHorizontalOffset = 0f
-            animateToTargetHorizontalOffset()
         }
     }
     ////////////////////////////////////////////////////////////////////////////////////////////////

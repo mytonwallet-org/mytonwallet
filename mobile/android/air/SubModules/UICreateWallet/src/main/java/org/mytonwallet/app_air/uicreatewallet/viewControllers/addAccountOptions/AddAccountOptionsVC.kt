@@ -276,6 +276,7 @@ class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
         updateTheme()
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         super.updateTheme()
 

@@ -76,7 +76,7 @@ private class AppActionsImpl: AppActionsProtocol {
     }
     
     static func pushTransactionSuccess(activity: ApiActivity) {
-        let vc = ActivityVC(activity: activity)
+        let vc = ActivityVC(activity: activity, accountId: nil)
         if let nc = topWViewController()?.navigationController {
             nc.pushViewController(vc, animated: true, completion: {
                 nc.viewControllers = [vc]
@@ -150,7 +150,7 @@ private class AppActionsImpl: AppActionsProtocol {
     static func showActivityDetails(accountId: String, activity: ApiActivity) {
         Task {
             let updatedActivity = await ActivityStore.getActivity(accountId: accountId, activityId: activity.id)
-            let vc = ActivityVC(activity: updatedActivity ?? activity)
+            let vc = ActivityVC(activity: updatedActivity ?? activity, accountId: accountId)
             topViewController()?.present(WNavigationController(rootViewController: vc), animated: true)
         }
     }
@@ -218,9 +218,11 @@ private class AppActionsImpl: AppActionsProtocol {
         pushIfNeeded(vc, push: push)
     }
     
-    static func showCrossChainSwapVC(_ transaction: WalletCore.ApiActivity) {
-        let vc = CrossChainSwapVC(transaction: transaction)
-        topViewController()?.present(WNavigationController(rootViewController: vc), animated: true)
+    static func showCrossChainSwapVC(_ transaction: WalletCore.ApiActivity, accountId: String?) {
+        if let swap = transaction.swap {
+            let vc = CrossChainSwapVC(swap: swap, accountId: accountId)
+            topViewController()?.present(WNavigationController(rootViewController: vc), animated: true)
+        }
     }
     
     static func showCustomizeWallet(accountId: String?) {

@@ -20,8 +20,15 @@ class ActivityDateLabel(context: Context) : WLabel(context) {
         setPadding(16.dp, 16.dp, 16.dp, 0)
     }
 
+    private var isFirst = false
     fun configure(dt: Date, isFirst: Boolean) {
+        this.isFirst = isFirst
         setUserFriendlyDate(dt)
+    }
+
+    override fun updateTheme() {
+        super.updateTheme()
+
         setTextColor(WColor.PrimaryText.color)
 
         setBackgroundColor(

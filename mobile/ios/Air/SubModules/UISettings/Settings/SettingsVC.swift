@@ -61,6 +61,8 @@ public class SettingsVC: WViewController, Sendable, WalletCoreData.EventsObserve
     // MARK: - Setup settings
     func setupViews() {
         
+        additionalSafeAreaInsets = insetSectionAdditionalInsets
+
         if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
             addNavigationBar()
             // set title to get blurred background

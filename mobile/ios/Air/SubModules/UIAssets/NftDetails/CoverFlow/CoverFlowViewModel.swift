@@ -9,7 +9,6 @@ import SwiftUI
 import UIKit
 import UIComponents
 import WalletContext
-import WalletCore
 import SwiftUIIntrospect
 
 public enum CoverFlowDefaults {

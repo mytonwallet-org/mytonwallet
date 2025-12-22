@@ -61,4 +61,8 @@ dmg:
       path: "/Applications"
 linux:
   category: "Cryptocurrencies"
-  target: ["AppImage"]
+  target:
+    - target: "AppImage"
+      arch:
+        - x64
+        - arm64

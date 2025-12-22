@@ -16,14 +16,24 @@ struct NftDetailsActionsRow: View {
     @State private var wearMenu: MenuContext = MenuContext()
     @State private var moreMenu: MenuContext = MenuContext()
     
+    var buttonCount: Int {
+        viewModel.nft.isMtwCard ? 4 : 3
+    }
+    
+    var buttonSpacing: CGFloat {
+        S.actionButtonSpacing(forButtonCount: buttonCount)
+    }
+    
     var body: some View {
-        HStack(spacing: IOS_26_MODE_ENABLED ? 16 : 8) {
+        HStack(spacing: IOS_26_MODE_ENABLED ? buttonSpacing : 8) {
             wear
             send
             share
             more
         }
-        .padding(.horizontal, 16)
+        .fixedSize(horizontal: IOS_26_MODE_ENABLED, vertical: false)
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, IOS_26_MODE_ENABLED ? 0 : 16)
         .padding(.top, 16)
         .padding(.bottom, 16)
         .tint(viewModel.isExpanded ? Color.white : Color(WTheme.tint))
@@ -210,6 +220,7 @@ struct ActionButton_New: View {
                     Image.airBundle("ActionButtonBackground")
                         .opacity(viewModel.isExpanded ? 0 : 1)
                     Image.airBundle(icon)
+                        .foregroundStyle(viewModel.isExpanded ? .white : Color.air.tint)
                 }
                 .frame(width: 48, height: 48)
                 .clipShape(.circle)
@@ -218,12 +229,12 @@ struct ActionButton_New: View {
                 Text(title)
                     .font(.system(size: 12, weight: .regular))
                     .frame(height: 13)
+                    .foregroundStyle(viewModel.isExpanded ? .white : .primary)
             }
             .opacity(isEnabled ? 1 : 0.3)
             .frame(width: 64, height: 70)
             .backportGeometryGroup()
         }
-        .foregroundStyle(viewModel.isExpanded ? .white : Color.air.tint)
         .buttonStyle(.plain)
         .animation(.smooth(duration: 0.25), value: isEnabled)
     }
@@ -253,8 +264,10 @@ struct ActionButton_Legacy: View {
             VStack(spacing: 4) {
                 Image.airBundle(icon)
                     .frame(width: 24, height: 24)
+                    .foregroundStyle(.tint)
                 Text(title)
                     .font(.system(size: 12))
+                    .foregroundStyle(.primary)
             }
             .fixedSize()
             .drawingGroup()
@@ -276,7 +289,6 @@ struct ActionButtonStyle: PrimitiveButtonStyle {
             .frame(maxWidth: .infinity)
             .frame(height: 60)
             .opacity(isHighlighted ? 0.5 : 1)
-            .foregroundStyle(.tint)
             .background {
                 ZStack {
                     BackgroundBlur(radius: 20)

@@ -18,7 +18,6 @@ public class BalanceView: UIView, WThemedView {
     private(set) public var scale: CGFloat = 1
 
     private var balance: BigInt? = nil
-    private var isLoading: Bool = false
     
     // Loading gradient
     private let loadingGradientLayer = CAGradientLayer()
@@ -27,12 +26,6 @@ public class BalanceView: UIView, WThemedView {
     
     // Gradient layer for gradient coloring
     private let gradientLayer = CAGradientLayer()
-    
-    public var alignment: NSTextAlignment = .center {
-        didSet {
-            balanceLabel.alignment = alignment
-        }
-    }
     
     private var config: WAnimatedAmountLabelConfig = .card
 
@@ -111,15 +104,6 @@ public class BalanceView: UIView, WThemedView {
             animated: animated)
     }
     
-    public func setLoading(_ isLoading: Bool) {
-        self.isLoading = isLoading
-        if isLoading {
-            animateLoadingGradient()
-        } else {
-            stopLoadingAnimation()
-        }
-    }
-
     /// Update scale of the balance view.
     ///
     /// - Parameters:
@@ -165,27 +149,6 @@ public class BalanceView: UIView, WThemedView {
 //        layer.addSublayer(loadingGradientLayer)
     }
     
-    private func animateLoadingGradient() {
-        let animation = CABasicAnimation(keyPath: "locations")
-        animation.fromValue = [-1.0, -0.75, -0.5, -0.25, 0.0]
-        animation.toValue = [1.5, 1.75, 2.0, 2.25, 2.5]
-        
-        animation.duration = 2.5
-        animation.repeatCount = .infinity
-        animation.isRemovedOnCompletion = false
-        animation.timingFunction = CAMediaTimingFunction(name: .linear)
-        
-        loadingGradientLayer.add(animation, forKey: "glareAnimation")
-        
-        layer.mask = loadingGradientLayer
-    }
-    
-    private func stopLoadingAnimation() {
-        loadingGradientLayer.removeAnimation(forKey: "glareAnimation")
-        
-        layer.mask = nil
-    }
-    
     // MARK: - Gradient layer
     
     private func setupGradientLayer() {
@@ -194,17 +157,6 @@ public class BalanceView: UIView, WThemedView {
         gradientLayer.endPoint = CGPoint(x: 1, y: 0.5)
         layer.addSublayer(gradientLayer)
         gradientLayer.compositingFilter = "sourceAtop"
-        gradientLayer.isHidden = true
-    }
-    
-    public func setGradientColors(leftColor: UIColor, rightColor: UIColor, startPoint: CGFloat? = nil) {
-        gradientLayer.colors = [leftColor.cgColor, rightColor.cgColor]
-        gradientLayer.startPoint.x = startPoint ?? 0
-        gradientLayer.endPoint = CGPoint(x: 1, y: 0.5)
-        gradientLayer.isHidden = false
-    }
-    
-    public func hideGradient() {
         gradientLayer.isHidden = true
     }
 }

@@ -86,25 +86,24 @@ fun String.trimDomain(keepCount: Int, keepTopLevelDomain: Boolean = true): Strin
 }
 
 fun String.insertGroupingSeparator(separator: Char = thinSpace, everyNthPosition: Int = 3): String {
-    var result = StringBuilder()
-    var count = 0
-    var hasDot = this.contains(".")
+    val dotIndex = indexOf('.')
+    val integerPart = if (dotIndex >= 0) substring(0, dotIndex) else this
+    val decimalPart = if (dotIndex >= 0) substring(dotIndex) else ""
 
-    for (char in this.reversed()) {
-        if (hasDot) {
-            result.insert(0, char)
-            if (char == '.') {
-                hasDot = false
-            }
-            continue
+    if (integerPart.isEmpty()) return this
+
+    val capacity =
+        integerPart.length + (integerPart.length - 1) / everyNthPosition + decimalPart.length
+    val result = StringBuilder(capacity)
+
+    integerPart.forEachIndexed { index, char ->
+        if (index > 0 && (integerPart.length - index) % everyNthPosition == 0) {
+            result.append(separator)
         }
-        if (count != 0 && count % everyNthPosition == 0) {
-            result.insert(0, separator)
-        }
-        result.insert(0, char)
-        count += 1
+        result.append(char)
     }
 
+    result.append(decimalPart)
     return result.toString()
 }
 

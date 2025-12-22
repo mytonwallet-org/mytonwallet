@@ -144,18 +144,8 @@ public class ReceiveVC: WViewController, WSegmentedController.Delegate {
         updateTheme()
     }
     
-    public func switchToTokensTab() {
-        segmentedController?.switchTo(tabIndex: 0)
-    }
-    
     public func segmentedController(scrollOffsetChangedTo progress: CGFloat) {
         self.headerViewModel.progress = progress
-    }
-    
-    public func segmentedControllerDidStartDragging() {
-    }
-    
-    public func segmentedControllerDidEndScrolling() {
     }
     
     func makeHeader() -> ReceiveHeaderView {

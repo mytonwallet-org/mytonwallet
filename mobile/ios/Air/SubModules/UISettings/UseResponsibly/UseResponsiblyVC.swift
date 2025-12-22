@@ -9,7 +9,6 @@ import UIKit
 import SwiftUI
 import UIComponents
 import WalletContext
-import WalletCore
 
 public final class UseResponsiblyVC: WViewController {
     

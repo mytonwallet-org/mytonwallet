@@ -209,17 +209,6 @@ public class IconView: UIView, WThemedView {
         }
     }
     
-    public func config(with nft: ApiNft) {
-        imageView.kf.cancelDownloadTask()
-        imageView.contentMode = .scaleAspectFill
-        imageView.image = UIImage(named: "chain_ton", in: AirBundle, compatibleWith: nil)!
-        imageView.isHidden = false
-        largeLabel.text = nil
-        smallLabelTop.text = nil
-        smallLabelBottom.text = nil
-        chainImageViewContainer.isHidden = true
-    }
-    
     public func config(with token: ApiToken?, isStaking: Bool = false, isWalletView: Bool = false, shouldShowChain: Bool) {
         guard let token else {
             imageView.kf.cancelDownloadTask()
@@ -265,15 +254,6 @@ public class IconView: UIView, WThemedView {
         }
     }
     
-    public func config(with recentAddress: MRecentAddress) {
-        imageView.contentMode = .center
-        resolveGradientColors = { (recentAddress.addressAlias ?? recentAddress.address).gradientColors }
-        gradientLayer.colors = resolveGradientColors?()
-        imageView.image = UIImage(named: "AddressIcon", in: AirBundle, compatibleWith: nil)
-        largeLabel.text = nil
-        chainImageViewContainer.isHidden = true
-    }
-    
     public func config(with account: MAccount?, showIcon: Bool = true) {
         imageView.contentMode = .center
         chainImageViewContainer.isHidden = true
@@ -308,12 +288,6 @@ public class IconView: UIView, WThemedView {
     public func config(with earnHistoryItem: MStakingHistoryItem) {
         imageView.contentMode = .scaleAspectFill
         imageView.image = earnHistoryItem.type.image
-    }
-    
-    public func config(with chain: ApiChain) {
-        chainImageViewContainer.isHidden = true
-        imageView.contentMode = .scaleAspectFill
-        imageView.image = chain.image
     }
     
     public func config(with image: UIImage?, tintColor: UIColor? = nil) {

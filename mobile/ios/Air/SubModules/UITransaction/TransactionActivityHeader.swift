@@ -10,6 +10,7 @@ struct TransactionActivityHeader: View {
     
     var transaction: ApiTransactionActivity
     var token: ApiToken
+    var onTokenTapped: ((ApiToken) -> Void)?
     
     private var amount: TokenAmount {
         TokenAmount(transaction.amount, token)
@@ -32,25 +33,30 @@ struct TransactionActivityHeader: View {
     
     @ViewBuilder
     var amountView: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            let amount = self.amount
-            AmountText(
-                amount: amount,
-                format: .init(maxDecimals: amount.defaultDisplayDecimals, showPlus: transaction.isIncoming, showMinus: !transaction.isIncoming),
-                integerFont: .rounded(ofSize: 34, weight: .bold),
-                fractionFont: .rounded(ofSize: 28, weight: .bold),
-                symbolFont: .rounded(ofSize: 28, weight: .bold),
-                integerColor: WTheme.primaryLabel,
-                fractionColor: abs(amount.doubleValue) >= 10 ? WTheme.secondaryLabel : WTheme.primaryLabel,
-                symbolColor: WTheme.secondaryLabel
-            )
-            .sensitiveData(alignment: .center, cols: 12, rows: 3, cellSize: 11, theme: .adaptive, cornerRadius: 10)
-            
-            TokenIconView(token: token)
-                .accessorySize(12)
-                .frame(height: 28)
-                .offset(y: 3.5)
+        Button {
+            onTokenTapped?(token)
+        } label: {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                let amount = self.amount
+                AmountText(
+                    amount: amount,
+                    format: .init(maxDecimals: amount.defaultDisplayDecimals, showPlus: transaction.isIncoming, showMinus: !transaction.isIncoming),
+                    integerFont: .rounded(ofSize: 34, weight: .bold),
+                    fractionFont: .rounded(ofSize: 28, weight: .bold),
+                    symbolFont: .rounded(ofSize: 28, weight: .bold),
+                    integerColor: WTheme.primaryLabel,
+                    fractionColor: abs(amount.doubleValue) >= 10 ? WTheme.secondaryLabel : WTheme.primaryLabel,
+                    symbolColor: WTheme.secondaryLabel
+                )
+                .sensitiveData(alignment: .center, cols: 12, rows: 3, cellSize: 11, theme: .adaptive, cornerRadius: 10)
+                
+                TokenIconView(token: token)
+                    .accessorySize(12)
+                    .frame(height: 28)
+                    .offset(y: 3.5)
+            }
         }
+        .buttonStyle(.plain)
     }
     
     @ViewBuilder

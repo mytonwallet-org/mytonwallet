@@ -9,15 +9,13 @@ import Perception
 import Dependencies
 import UIKitNavigation
 
-private let log = Log("HomeHeaderCell")
-
 @Perceptible
 class Container {
     var headerViewModel: HomeHeaderViewModel?
     var accountViewModel: AccountViewModel?
 }
 
-final class HomeCardCell: UICollectionViewCell {
+final class HomeCard: UICollectionViewCell {
     
     let container = Container()
     
@@ -230,7 +228,7 @@ private struct CardMiniatureContainer: View {
     let _ = UIFont.registerAirFonts()
     let headerViewModel = HomeHeaderViewModel(accountId: "0-mainnet")
     let accountViewModel = AccountViewModel(accountId: "0-mainnet")
-    let cell = HomeCardCell()
+    let cell = HomeCard()
 //    let _ = cell.contentView.layer.borderColor = UIColor.red.cgColor
     let _ = cell.contentView.layer.borderWidth = 1
     let _ = cell.configure(headerViewModel: headerViewModel, accountViewModel: accountViewModel)

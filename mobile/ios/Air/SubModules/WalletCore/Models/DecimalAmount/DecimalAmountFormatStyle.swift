@@ -13,13 +13,15 @@ public struct DecimalAmountFormatStyle<Kind: DecimalBackingType>: FormatStyle {
     public var showMinus: Bool
     public var roundUp: Bool
     public var precision: MFee.FeePrecision?
+    public var showSymbol: Bool
     
-    public init(maxDecimals: Int? = nil, showPlus: Bool = false, showMinus: Bool = true, roundUp: Bool = true, precision: MFee.FeePrecision? = nil) {
+    public init(maxDecimals: Int? = nil, showPlus: Bool = false, showMinus: Bool = true, roundUp: Bool = true, precision: MFee.FeePrecision? = nil, showSymbol: Bool = true) {
         self.maxDecimals = maxDecimals
         self.showPlus = showPlus
         self.showMinus = showMinus
         self.roundUp = roundUp
         self.precision = precision
+        self.showSymbol = showSymbol
     }
     
     public func format(_ value: FormatInput) -> String {
@@ -27,7 +29,7 @@ public struct DecimalAmountFormatStyle<Kind: DecimalBackingType>: FormatStyle {
         let prefix = precision?.prefix ?? ""
         return prefix + formatBigIntText(
             value.amount,
-            currency: value.symbol,
+            currency: showSymbol ? value.symbol : nil,
             negativeSign: showMinus,
             positiveSign: showPlus,
             tokenDecimals: value.decimals,

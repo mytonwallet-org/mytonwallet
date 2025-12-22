@@ -20,7 +20,8 @@ import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.increaseDragSensitivity
+import org.mytonwallet.app_air.uicomponents.extensions.setupSpringFling
+import org.mytonwallet.app_air.uicomponents.extensions.springToItem
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
@@ -79,6 +80,7 @@ class WSegmentedController(
     private var isAnimatingChangeTab = false
     private var lastFullyVisible: Int = 0
     private var isUserInteracting = false
+    private var targetIndex = 0
     private val viewPager: ViewPager2 by lazy {
         val vp = ViewPager2(context)
         vp.id = generateViewId()
@@ -95,8 +97,9 @@ class WSegmentedController(
                     onForceEndReorderingRequested?.invoke()
                 currentOffset = position + positionOffset
                 if (currentOffset == position.toFloat() && lastFullyVisible != position) {
-                    (currentItem as? WSegmentedControllerItemVC)?.onFullyVisible()
+                    (items.getOrNull(lastFullyVisible)?.viewController as? WSegmentedControllerItemVC)?.onPartiallyVisible()
                     lastFullyVisible = position
+                    (items.getOrNull(lastFullyVisible)?.viewController as? WSegmentedControllerItemVC)?.onFullyVisible()
                 } else {
                     (items.getOrNull(lastFullyVisible)?.viewController as? WSegmentedControllerItemVC)?.onPartiallyVisible()
                 }
@@ -104,7 +107,7 @@ class WSegmentedController(
                 clearSegmentedControl.updateThumbPosition(
                     position,
                     offset = currentOffset,
-                    targetIndex = viewPager.currentItem,
+                    targetIndex = targetIndex,
                     force = false,
                     isAnimatingToPosition = isAnimatingChangeTab
                 )
@@ -231,7 +234,15 @@ class WSegmentedController(
         }
 
         if (!isFullScreen)
-            viewPager.increaseDragSensitivity()
+            viewPager.setupSpringFling(onScrollingToTarget = { targetIndex ->
+                if (targetIndex - this.targetIndex > 1)
+                    this.targetIndex = this.targetIndex + 1
+                else if (this.targetIndex - targetIndex > 1)
+                    this.targetIndex = this.targetIndex - 1
+                else
+                    this.targetIndex = targetIndex
+                this.targetIndex
+            })
         setActiveIndex(defaultSelectedIndex)
         if (!applySideGutters)
             reversedCornerView.setHorizontalPadding(0f)
@@ -312,6 +323,7 @@ class WSegmentedController(
             applyItems(selectedItem = max(0, newIndex))
             vpAdapter.reloadData()
             if (newIndex >= 0) {
+                targetIndex = newIndex
                 viewPager.setCurrentItem(newIndex, false)
             }
         }
@@ -348,6 +360,7 @@ class WSegmentedController(
 
     fun setActiveIndex(index: Int) {
         currentOffset = index.toFloat()
+        targetIndex = index
         viewPager.setCurrentItem(index, false)
         clearSegmentedControl.updateThumbPosition(
             index,
@@ -461,13 +474,21 @@ class WSegmentedController(
     ) {
         (cellHolder.cell as WSegmentedControllerPageCell).configure(
             items[indexPath.row].viewController,
-            indexPath.row == lastFullyVisible
+            indexPath.row == lastFullyVisible && currentOffset == lastFullyVisible.toFloat()
         )
+    }
+
+    override fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? {
+        return items[indexPath.row].identifier
     }
 
     override fun onIndexChanged(to: Int, animated: Boolean) {
         isAnimatingChangeTab = true
-        viewPager.setCurrentItem(to, animated)
+        targetIndex = to
+        if (animated)
+            viewPager.springToItem(to, 0f)
+        else
+            viewPager.setCurrentItem(to, false)
     }
 
     override fun onItemMoved(from: Int, to: Int) {
@@ -499,6 +520,7 @@ class WSegmentedController(
         vpAdapter.notifyItemMoved(from, to)
         val newCurrentItem = determineNewSelectedIndex(currentItemIndex, from, to)
         if (newCurrentItem != currentItemIndex) {
+            targetIndex = newCurrentItem
             viewPager.setCurrentItem(newCurrentItem, false)
         }
 
@@ -525,7 +547,8 @@ class WSegmentedController(
     }
 
     fun scrollToFirst() {
-        viewPager.setCurrentItem(0, true)
+        targetIndex = 0
+        viewPager.springToItem(0, 0f)
     }
 
     // Cached items to allow canceling the edit and revert

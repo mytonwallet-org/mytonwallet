@@ -1,5 +1,8 @@
 package org.mytonwallet.app_air.walletcore.api
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -135,7 +138,7 @@ fun WalletCore.activateAccount(
     val prevNextAccountId = nextAccountId
     nextAccountId = accountId
     nextAccountIsPushedTemporary = isPushedTemporary
-    val newestActivitiesTimestampBySlug = WGlobalStorage.getNewestActivitiesBySlug(accountId)
+
     fun fetch() {
         fetchAccount(accountId) { account, err ->
             if (nextAccountId != accountId)
@@ -149,12 +152,14 @@ fun WalletCore.activateAccount(
                 AccountStore.isPushedTemporary = isPushedTemporary
                 notifyAccountChanged(account, fromHome)
                 callback(account, null)
-                WCacheStorage.setInitialScreen(
-                    if (WGlobalStorage.isPasscodeSet())
-                        WCacheStorage.InitialScreen.LOCK
-                    else
-                        WCacheStorage.InitialScreen.HOME
-                )
+                scope.launch {
+                    WCacheStorage.setInitialScreen(
+                        if (WGlobalStorage.isPasscodeSet())
+                            WCacheStorage.InitialScreen.LOCK
+                        else
+                            WCacheStorage.InitialScreen.HOME
+                    )
+                }
             }
         }
     }
@@ -168,17 +173,23 @@ fun WalletCore.activateAccount(
         (AccountStore.activeAccountId != null &&
             (prevNextAccountId ?: AccountStore.activeAccountId) != accountId)
     ) {
-        WalletCore.notifyEvent(WalletEvent.AccountWillChange)
+        WalletCore.notifyEvent(WalletEvent.AccountWillChange(fromHome))
     }
     if (notifySDK) {
-        bridge?.callApi(
-            "activateAccount",
-            "[${JSONObject.quote(accountId)}, ${newestActivitiesTimestampBySlug}]"
-        ) { result, error ->
-            if (error != null || result == null) {
-                callback(null, error)
-            } else {
-                fetch()
+        scope.launch {
+            val newestActivitiesTimestampBySlug =
+                WGlobalStorage.getNewestActivitiesBySlug(accountId)
+            withContext(Dispatchers.Main) {
+                bridge?.callApi(
+                    "activateAccount",
+                    "[${JSONObject.quote(accountId)}, ${newestActivitiesTimestampBySlug}]"
+                ) { result, error ->
+                    if (error != null || result == null) {
+                        callback(null, error)
+                    } else {
+                        fetch()
+                    }
+                }
             }
         }
     } else {

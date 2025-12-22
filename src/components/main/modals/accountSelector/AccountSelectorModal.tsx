@@ -16,7 +16,6 @@ import buildClassName from '../../../../util/buildClassName';
 import { captureEvents, SwipeDirection } from '../../../../util/captureEvents';
 import { vibrate } from '../../../../util/haptics';
 import { disableSwipeToClose, enableSwipeToClose } from '../../../../util/modalSwipeManager';
-import resolveSlideTransitionName from '../../../../util/resolveSlideTransitionName';
 import { IS_LEDGER_SUPPORTED, IS_TOUCH_ENV } from '../../../../util/windowEnvironment';
 
 import useEffectOnce from '../../../../hooks/useEffectOnce';
@@ -408,7 +407,7 @@ function AccountSelectorModal({
 
         <Transition
           ref={contentRef}
-          name={resolveSlideTransitionName()}
+          name="semiFade"
           className={buildClassName(
             modalStyles.transition,
             styles.rootTransition,
