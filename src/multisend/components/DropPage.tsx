@@ -41,6 +41,7 @@ function DropPage({
   const [validationError, setValidationError] = useState<ValidationError | undefined>();
   const [isValidatingCsv, setIsValidatingCsv] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | undefined>();
+  const [isCsvSampleVisible, setIsCsvSampleVisible] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>();
 
   const maxMessages = wallet?.device.features
@@ -48,6 +49,11 @@ function DropPage({
 
   const { shouldRender: shouldRenderError, ref: errorRef } = useShowTransition({
     isOpen: Boolean(validationError),
+    withShouldRender: true,
+  });
+
+  const { shouldRender: shouldRenderCsvSample, ref: csvSampleRef } = useShowTransition({
+    isOpen: isCsvSampleVisible,
     withShouldRender: true,
   });
 
@@ -186,6 +192,35 @@ function DropPage({
     downloadTemplate(MIXED_TRANSFERS_TEMPLATE, 'mytonwallet_multi_transfer_template.csv');
   });
 
+  const handleViewCsvSample = useLastCallback(() => {
+    setIsCsvSampleVisible(true);
+  });
+
+  const handleCloseCsvSample = useLastCallback(() => {
+    setIsCsvSampleVisible(false);
+  });
+
+  const handleCopyCsvSample = useLastCallback(async () => {
+    try {
+      await navigator?.clipboard?.writeText?.(MIXED_TRANSFERS_TEMPLATE);
+      setIsCsvSampleVisible(false);
+    } catch (err) {
+      const textArea = document.createElement('textarea');
+      textArea.value = MIXED_TRANSFERS_TEMPLATE;
+      textArea.style.position = 'fixed';
+      textArea.style.opacity = '0';
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        setIsCsvSampleVisible(false);
+      } catch (fallbackErr) {
+        console.error('Failed to copy:', fallbackErr);
+      }
+      document.body.removeChild(textArea);
+    }
+  });
+
   useEffect(() => {
     if (wallet && pendingFile) {
       const fileToProcess = pendingFile;
@@ -239,6 +274,13 @@ function DropPage({
               >
                 Download CSV Sample
               </Button>
+              <Button
+                onClick={handleViewCsvSample}
+                isSmall
+                className={styles.importButton}
+              >
+                View CSV Sample
+              </Button>
             </div>
             <input
               type="file"
@@ -253,6 +295,29 @@ function DropPage({
             <div ref={errorRef} className={styles.errorMessage}>
               An error occurred (line {validationError?.line},
               column {validationError?.column}). {validationError?.reason}
+            </div>
+          )}
+
+          {shouldRenderCsvSample && (
+            <div ref={csvSampleRef} className={styles.csvSampleOverlay} onClick={handleCloseCsvSample}>
+              <div className={styles.csvSampleModal} onClick={(e) => e.stopPropagation()}>
+                <div className={styles.csvSampleHeader}>
+                  <h3 className={styles.csvSampleTitle}>CSV Sample</h3>
+                  <div className={styles.csvSampleHeaderButtons}>
+                    <Button
+                      onClick={handleCopyCsvSample}
+                      className={styles.csvSampleCopyButton}
+                      isSmall
+                    >
+                      <i className="icon-copy" aria-hidden />
+                    </Button>
+                    <button className={styles.csvSampleClose} onClick={handleCloseCsvSample} title="Close">×</button>
+                  </div>
+                </div>
+                <div className={styles.csvSampleContent}>
+                  <pre className={styles.csvSampleText}>{MIXED_TRANSFERS_TEMPLATE}</pre>
+                </div>
+              </div>
             </div>
           )}
         </div>
