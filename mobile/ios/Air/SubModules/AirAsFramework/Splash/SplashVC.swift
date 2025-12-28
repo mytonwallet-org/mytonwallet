@@ -271,7 +271,7 @@ extension SplashVC: DeeplinkNavigator {
                 AppActions.showSend(prefilledValues: nil)
                 
             case .receive:
-                AppActions.showReceive(chain: nil, showBuyOptions: nil, title: nil)
+                AppActions.showReceive(chain: nil, title: nil)
 
             case .explore:
                 AppActions.showExplore()

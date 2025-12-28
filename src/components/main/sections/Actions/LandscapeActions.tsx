@@ -212,6 +212,7 @@ function LandscapeActions({
         <WithContextMenu
           items={SEND_CONTEXT_MENU_ITEMS}
           rootRef={containerRef}
+          withBackdrop
           menuClassName={styles.menu}
           onItemClick={handleSendMenuItemClick}
         >

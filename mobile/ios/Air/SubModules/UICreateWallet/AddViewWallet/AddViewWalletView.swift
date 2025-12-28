@@ -59,7 +59,7 @@ struct AddViewWalletView: View {
     
     @ViewBuilder
     var description: some View {
-        let symbols = ApiChain.allCases.map(\.symbol)
+        let symbols = ApiChain.allCases.map(\.title)
         Text(langMd("$import_view_account_note", arg1: langJoin(symbols, .or)))
             .font(.system(size: 17))
             .multilineTextAlignment(.center)

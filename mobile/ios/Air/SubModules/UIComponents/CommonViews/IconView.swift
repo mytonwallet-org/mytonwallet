@@ -228,9 +228,7 @@ public class IconView: UIView, WThemedView {
                                   options: [.transition(.fade(0.2)), .keepCurrentImageWhileLoading, .alsoPrefetchToMemory, .cacheOriginalImage])
         } else {
             imageView.kf.cancelDownloadTask()
-            if let chain = availableChains.first(where: { chain in
-                chain.tokenSlug == token.slug
-            }) {
+            if let chain = getChainByNativeSlug(token.slug) {
                 imageView.image = chain.image
             } else {
                 imageView.image = nil
@@ -279,7 +277,7 @@ public class IconView: UIView, WThemedView {
         case .image(_):
             break
         }
-        resolveGradientColors = { account.firstAddress?.gradientColors }
+        resolveGradientColors = { account.firstAddress.gradientColors }
         gradientLayer.colors = resolveGradientColors?()
         gradientLayer.isHidden = false
         imageView.image = nil
@@ -471,17 +469,16 @@ public struct AccountIcon: View {
     public var body: some View {
         ZStack {
             Color.clear
-            if let _colors = account.firstAddress?.gradientColors {
-                let colors = _colors.map { Color($0) }
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: colors,
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
+            let _colors = account.firstAddress.gradientColors
+            let colors = _colors.map { Color($0) }
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: colors,
+                        startPoint: .top,
+                        endPoint: .bottom
                     )
-            }
+                )
             let content = account.avatarContent
             switch content {
             case .initial(let string):

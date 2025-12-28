@@ -20,6 +20,7 @@ object WGlobalStorage {
     private lateinit var globalStorageProvider: IGlobalStorageProvider
     private val cachedAccountNames = mutableMapOf<String, String>()
     private val cachedAccountTonAddresses = mutableMapOf<String, String>()
+
     @Volatile
     private var cachedAccountIds: Array<String>? = null
     private var _isSensitiveDataProtectionOn: Boolean = false
@@ -164,14 +165,10 @@ object WGlobalStorage {
         tonLedgerIndex: Int? = null,
         isTemporary: Boolean = false,
     ) {
-        val accountIds = accountIds()
-        val isViewAccount = accountType == "view"
-        val suggestedName =
-            name ?: if (isTemporary)
-                LocaleController.getString("Wallet")
-            else if (isViewAccount)
-                getSuggestedViewName(accountIds.size)
-            else getSuggestedName(accountIds.size)
+        val suggestedName = name ?: when {
+            isTemporary -> LocaleController.getString("Wallet")
+            else -> getSuggestedName(accountType)
+        }
         save(accountId = accountId, accountName = suggestedName, persist = false)
 
         val byChain = JSONObject()
@@ -981,22 +978,23 @@ object WGlobalStorage {
         }
     }
 
-    fun getSuggestedName(totalAccountsSize: Int): String {
-        if (totalAccountsSize == 0) {
+    fun getSuggestedName(type: String): String {
+        val baseNameKey = when (type) {
+            "mnemonic" -> "My Wallet"
+            "hardware" -> "Ledger"
+            else -> "Wallet"
+        }
+        return getSuggestedAccountName(type, baseNameKey)
+    }
+
+    private fun getSuggestedAccountName(type: String, baseNameKey: String): String {
+        if (accountIds().isEmpty()) {
             return LocaleController.getString("MyTonWallet")
         }
-        val mnemonicCount = countAccountsByType("mnemonic")
-        return "${LocaleController.getString("My Wallet")} ${mnemonicCount + 1}"
+        val count = countAccountsByType(type)
+        return "${LocaleController.getString(baseNameKey)} ${count + 1}"
     }
 
-    fun getSuggestedViewName(totalAccountsSize: Int): String {
-        val viewCount = countAccountsByType("view")
-        return "${LocaleController.getString("Wallet")} ${viewCount + 1}"
-    }
-
-    private fun countAccountsByType(type: String): Int {
-        return accountIds().count { accountId ->
-            getAccount(accountId)?.optString("type") == type
-        }
-    }
+    private fun countAccountsByType(type: String): Int =
+        accountIds().count { accountId -> getAccount(accountId)?.optString("type") == type }
 }

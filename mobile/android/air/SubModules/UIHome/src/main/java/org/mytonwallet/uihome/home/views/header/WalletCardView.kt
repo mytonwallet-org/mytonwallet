@@ -22,6 +22,7 @@ import androidx.core.view.children
 import androidx.core.view.isGone
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
+import com.facebook.fresco.ui.common.OnFadeListener
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WWindow
@@ -43,9 +44,11 @@ import org.mytonwallet.app_air.uicomponents.helpers.spans.WLetterSpacingSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WSpacingSpan
 import org.mytonwallet.app_air.uicomponents.helpers.textOffset
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
+import org.mytonwallet.app_air.uicomponents.image.Content
+import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.AutoScaleContainerView
+import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WGradientMaskView
-import org.mytonwallet.app_air.uicomponents.widgets.WImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WLinearLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WMultichainAddressLabel
@@ -71,6 +74,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletbasecontext.utils.trimAddress
 import org.mytonwallet.app_air.walletbasecontext.utils.trimDomain
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 import org.mytonwallet.app_air.walletcontext.helpers.ShareHelpers
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
@@ -112,8 +116,10 @@ class WalletCardView(
     private var cardNft: ApiNft? = null
     private var balanceAmount: BigInteger? = null
     private var isShowingSkeletons = false
+    private var isPresentingImage = false
 
-    private var statusViewState: UpdateStatusView.State = UpdateStatusView.State.Updated("")
+    var statusViewState: UpdateStatusView.State = UpdateStatusView.State.Updated("")
+        private set
 
     private val cardFullWidth: Int
         get() {
@@ -139,7 +145,26 @@ class WalletCardView(
     }
 
     // CHILDREN ////////////////////////////////////////////////////////////////////////////////////
-    private val img = WImageView(context)
+    private val img = WCustomImageView(context).apply {
+        defaultRounding = Content.Rounding.Radius(0f)
+        fadeListener = object : OnFadeListener {
+            override fun onFadeStarted() {
+                isPresentingImage = true
+                resumeBlurringIfNeeded()
+            }
+
+            override fun onFadeFinished() {
+                isPresentingImage = false
+                pauseBlurring()
+            }
+
+            override fun onShownImmediately() {
+                onFadeStarted()
+                onFadeFinished()
+            }
+
+        }
+    }
 
     private val miniPlaceholders: WView by lazy {
         WView(context, LayoutParams(36.dp, WRAP_CONTENT)).apply {
@@ -191,6 +216,13 @@ class WalletCardView(
             smartDecimalsColor = true
             typeface = WFont.NunitoExtraBold.typeface
             containerWidth = w
+            onAnimationStateChanged = { isAnimating ->
+                if (isAnimating) {
+                    resumeBlurringIfNeeded()
+                } else {
+                    pauseBlurring()
+                }
+            }
         }
         balanceViewMaskWrapper = WGradientMaskView(balanceView)
         linearLayout.addView(balanceViewMaskWrapper, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
@@ -260,15 +292,16 @@ class WalletCardView(
         }
     }
 
-    private val walletTypeView = object : WalletTypeView(context) {
-        override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-            super.onSizeChanged(w, h, oldw, oldh)
-            addressLabel.gradientOffset = -w
-        }
-    }
+    private var walletTypeView: WalletTypeView
 
     private val bottomViewContainer = WLinearLayout(context, LinearLayout.HORIZONTAL).apply {
         gravity = Gravity.CENTER
+        walletTypeView = object : WalletTypeView(context, true) {
+            override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+                super.onSizeChanged(w, h, oldw, oldh)
+                addressLabel.gradientOffset = -w
+            }
+        }
         addView(walletTypeView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
             marginEnd = 3.dp
         })
@@ -297,6 +330,18 @@ class WalletCardView(
         visibility = GONE
     }
 
+    private val balanceChangeBlurView: WBlurryBackgroundView? =
+        if (DevicePerformanceClassifier.isHighClass)
+            WBlurryBackgroundView(
+                context,
+                fadeSide = null
+            ).apply {
+                setOverlayColor(WColor.Transparent)
+                setBackgroundColor(Color.TRANSPARENT, 14f.dp, clipToBounds = true)
+            }
+        else
+            null
+
     private val contentView: WView by lazy {
         val v = WView(context).apply {
             clipChildren = false
@@ -308,6 +353,10 @@ class WalletCardView(
         v.addView(radialGradientView, LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT))
         v.addView(miniPlaceholders)
         v.addView(balanceViewContainer, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        balanceChangeBlurView?.let { balanceChangeBlurView ->
+            v.addView(balanceChangeBlurView, LayoutParams(MATCH_CONSTRAINT, 28.dp))
+            balanceChangeBlurView.setupWith(v)
+        }
         v.addView(balanceChangeLabel, LayoutParams(WRAP_CONTENT, 28.dp))
         v.addView(balanceSkeletonView, LayoutParams(134.dp, 56.dp))
         v.addView(balanceChangeSkeletonView, LayoutParams(134.dp, 28.dp))
@@ -321,6 +370,10 @@ class WalletCardView(
             toTop(miniPlaceholders)
             toTop(balanceViewContainer)
             toCenterX(balanceViewContainer)
+            balanceChangeBlurView?.let {
+                topToTop(balanceChangeBlurView, balanceChangeLabel)
+                centerXToCenterX(balanceChangeBlurView, balanceChangeLabel)
+            }
             toTop(balanceChangeLabel)
             toCenterX(balanceChangeLabel)
             toCenterX(bottomViewContainer)
@@ -339,6 +392,7 @@ class WalletCardView(
             }
         }
 
+        walletTypeView.setupBlurWith(v)
         v
     }
 
@@ -366,6 +420,7 @@ class WalletCardView(
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         startSensorListening()
+        resumeBlurringIfNeeded()
     }
 
     override fun onDetachedFromWindow() {
@@ -396,10 +451,11 @@ class WalletCardView(
         }
         setLabelColors(Color.WHITE, Color.WHITE.colorWithAlpha(191), drawGradient = false)
 
-        balanceChangeLabel.contentView.setBackgroundColor(
-            Color.WHITE.colorWithAlpha(25),
-            14f.dp
-        )
+        if (balanceChangeBlurView == null)
+            balanceChangeLabel.contentView.setBackgroundColor(
+                Color.WHITE.colorWithAlpha(25),
+                14f.dp
+            )
         if (isShowingSkeletons) {
             updateSkeletonViewColors()
         }
@@ -443,7 +499,8 @@ class WalletCardView(
         balanceViewContainer.y = balanceY
         balanceSkeletonView.y = balanceY
         balanceChangeLabel.y = balanceY + 64.dp
-        balanceChangeSkeletonView.y = balanceY + 64.dp
+        balanceChangeBlurView?.y = balanceChangeLabel.y
+        balanceChangeSkeletonView.y = balanceChangeLabel.y
 
         val scale2 = (30f + 8f * expandProgress) / 38f
         balanceView.setScale(
@@ -485,12 +542,15 @@ class WalletCardView(
 
     fun updateBalanceChange(balanceChangeString: String?, animated: Boolean) {
         if (balanceChangeLabel.contentView.text.isEmpty() && animated) {
+            balanceChangeBlurView?.alpha = 0f
+            balanceChangeBlurView?.fadeIn()
             balanceChangeLabel.alpha = 0f
             balanceChangeLabel.fadeIn()
         }
         balanceChangeLabel.contentView.text = balanceChangeString
         balanceChangeLabel.visibility =
             if (balanceChangeLabel.contentView.text.isNullOrEmpty()) INVISIBLE else VISIBLE
+        balanceChangeBlurView?.visibility = balanceChangeLabel.visibility
     }
 
     fun animateBalance(animateConfig: WBalanceView.AnimateConfig) {
@@ -513,7 +573,7 @@ class WalletCardView(
         balanceSkeletonView.visibility = VISIBLE
         balanceSkeletonView.alpha = 1f
         val showBalanceChangePlace = account?.isNew != true && balanceAmount != BigInteger.ZERO
-        balanceChangeSkeletonView.isVisible = showBalanceChangePlace
+        balanceChangeSkeletonView.isGone = !showBalanceChangePlace
         balanceChangeSkeletonView.alpha = 1f
         arrowImageView.visibility = INVISIBLE
         updateSkeletonViewColors()
@@ -586,12 +646,7 @@ class WalletCardView(
         updateTheme()
 
         if (cardNft == null) {
-            img.setImageDrawable(
-                ContextCompat.getDrawable(
-                    context,
-                    org.mytonwallet.app_air.uicomponents.R.drawable.img_card
-                )
-            )
+            img.set(Content(Content.Image.Res(org.mytonwallet.app_air.uicomponents.R.drawable.img_card)))
             contentView.setConstraints {
                 allEdges(img)
             }
@@ -607,7 +662,7 @@ class WalletCardView(
                 org.mytonwallet.app_air.uicomponents.R.drawable.img_card
             )
         )
-        img.loadUrl(cardNft?.metadata?.cardImageUrl(false) ?: "")
+        img.set(Content.ofUrl(cardNft?.metadata?.cardImageUrl(false) ?: ""))
     }
 
     fun updateAddressLabel() {
@@ -733,17 +788,19 @@ class WalletCardView(
                 it.colorWithAlpha(204)
             )
             balanceChangeLabel.contentView.setTextColor(it.colorWithAlpha(204))
-            balanceChangeLabel.contentView.setBackgroundColor(it.colorWithAlpha(25), 13f.dp)
+            if (balanceChangeBlurView == null)
+                balanceChangeLabel.contentView.setBackgroundColor(it.colorWithAlpha(25), 13f.dp)
         } ?: run {
             walletTypeView.setColor(
                 secondaryColor.colorWithAlpha(41),
                 secondaryColor.colorWithAlpha(191)
             )
             balanceChangeLabel.contentView.setTextColor(secondaryColor.colorWithAlpha(191))
-            balanceChangeLabel.contentView.setBackgroundColor(
-                secondaryColor.colorWithAlpha(41),
-                13f.dp
-            )
+            if (balanceChangeBlurView == null)
+                balanceChangeLabel.contentView.setBackgroundColor(
+                    secondaryColor.colorWithAlpha(41),
+                    13f.dp
+                )
         }
     }
 
@@ -1007,5 +1064,26 @@ class WalletCardView(
             verticalOffset = (-6).dp,
             aboveView = false
         )
+    }
+
+    val shouldRenderBlurs: Boolean
+        get() {
+            return isAttachedToWindow && (balanceView.isAnimating || isPresentingImage)
+        }
+
+    private fun resumeBlurringIfNeeded() {
+        if (!shouldRenderBlurs) {
+            return
+        }
+        balanceChangeBlurView?.setBlurAutoUpdate(true)
+        walletTypeView.resumeBlurring()
+    }
+
+    private fun pauseBlurring() {
+        if (shouldRenderBlurs) {
+            return
+        }
+        balanceChangeBlurView?.setBlurAutoUpdate(false)
+        walletTypeView.pauseBlurring()
     }
 }

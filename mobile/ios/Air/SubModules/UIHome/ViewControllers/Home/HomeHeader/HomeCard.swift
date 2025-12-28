@@ -225,7 +225,6 @@ private struct CardMiniatureContainer: View {
 #if DEBUG
 @available(iOS 26, *)
 #Preview(traits: .sizeThatFitsLayout) {
-    let _ = UIFont.registerAirFonts()
     let headerViewModel = HomeHeaderViewModel(accountId: "0-mainnet")
     let accountViewModel = AccountViewModel(accountId: "0-mainnet")
     let cell = HomeCard()

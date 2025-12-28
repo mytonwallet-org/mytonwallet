@@ -585,7 +585,7 @@ extension HomeTabBarController: WalletCoreData.EventsObserver {
     
     private func handleConfig(_ config: ApiUpdate.UpdateConfig) {
         if config.isAppUpdateRequired == true {
-            topWViewController()?.showToast(message: lang("Update %app_name%", arg1: "MyTonWallet"), duration: nil, tapAction: {
+            AppActions.showToast(message: lang("Update %app_name%", arg1: "MyTonWallet"), duration: nil, tapAction: {
                 UIApplication.shared.open(URL(string: "https://get.mytonwallet.io/ios")!)
             })
         }

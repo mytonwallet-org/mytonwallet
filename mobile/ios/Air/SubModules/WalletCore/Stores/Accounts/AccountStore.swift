@@ -309,11 +309,8 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         }
     }
 
-    public func importViewWallet(network: ApiNetwork, tonAddress: String?, tronAddress: String?) async throws -> MAccount {
-        var addressByChain: [String:String] = [:]
-        addressByChain[ApiChain.ton.rawValue] = tonAddress?.nilIfEmpty
-        addressByChain[ApiChain.tron.rawValue] = tronAddress?.nilIfEmpty
-        if addressByChain.isEmpty { throw NilError("At least one address needed") }
+    public func importViewWallet(network: ApiNetwork, addressByChain: [String: String]) async throws -> MAccount {
+        if addressByChain.isEmpty { throw DisplayError(text: "No matching chains") }
 
         let result = try await Api.importViewAccount(network: network, addressByChain: addressByChain, isTemporary: nil)
         let viewCount = AccountStore.accountsById.values.filter { $0.type == .view }.count
@@ -578,7 +575,7 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         do {
             if var info = AppStorageHelper.pushNotifications,
                 let userToken = info.userToken,
-                let tonAddress = account.tonAddress
+                let tonAddress = account.addressByChain[TON_CHAIN]
             {
                 let result = try await Api.subscribeNotifications(props: ApiSubscribeNotificationsProps(
                     userToken: userToken,
@@ -603,7 +600,7 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         do {
             if var info = AppStorageHelper.pushNotifications,
                 let userToken = info.userToken,
-                let tonAddress = account.tonAddress
+                let tonAddress = account.addressByChain[TON_CHAIN]
             {
                 let result = try await Api.unsubscribeNotifications(props: ApiUnsubscribeNotificationsProps(
                     userToken: userToken,
@@ -666,8 +663,8 @@ extension _AccountStore: DependencyKey {
                 title: "MyTonWallet",
                 type: .mnemonic,
                 byChain: [
-                    "ton": AccountChain(address: "UQf7abcd1234efgh5678ijkl9012mnop34Aef3dsdaQ8N", domain: nil),
-                    "tron": AccountChain(address: "TUQf7abcd1234efgh5678ijkl9012mnop34ef3dsdaPqh", domain: nil),
+                    TON_CHAIN: AccountChain(address: "UQf7abcd1234efgh5678ijkl9012mnop34Aef3dsdaQ8N", domain: nil),
+                    TRON_CHAIN: AccountChain(address: "TUQf7abcd1234efgh5678ijkl9012mnop34ef3dsdaPqh", domain: nil),
                 ]
             ),
             MAccount(
@@ -675,8 +672,8 @@ extension _AccountStore: DependencyKey {
                 title: "Personal Wallet",
                 type: .mnemonic,
                 byChain: [
-                    "ton": AccountChain(address: "UQf7abcd1234efgh5678ijkl9012mnop34ef3dsdaQ8N", domain: "tema.ton"),
-                    "tron": AccountChain(address: "TUQf7abcd1234efgh5678ijkl9012mnop34ef3dsdacC9", domain: "screamingseagull.tron"),
+                    TON_CHAIN: AccountChain(address: "UQf7abcd1234efgh5678ijkl9012mnop34ef3dsdaQ8N", domain: "tema.ton"),
+                    TRON_CHAIN: AccountChain(address: "TUQf7abcd1234efgh5678ijkl9012mnop34ef3dsdacC9", domain: "screamingseagull.tron"),
                 ]
             ),
             MAccount(
@@ -684,7 +681,7 @@ extension _AccountStore: DependencyKey {
                 title: "My Saved",
                 type: .view,
                 byChain: [
-                    "ton": AccountChain(address: "UQf7abcd1234efgh5678ijkl9012mnop3456qrst7890d0Gh", domain: nil),
+                    TON_CHAIN: AccountChain(address: "UQf7abcd1234efgh5678ijkl9012mnop3456qrst7890d0Gh", domain: nil),
                 ]
             ),
             MAccount(
@@ -692,7 +689,7 @@ extension _AccountStore: DependencyKey {
                 title: "Just for Test",
                 type: .view,
                 byChain: [
-                    "ton": AccountChain(address: "UQdk9876zyxw5432vuts2109rqpo8765nmlk4321jihg7654z7-d", domain: nil),
+                    TON_CHAIN: AccountChain(address: "UQdk9876zyxw5432vuts2109rqpo8765nmlk4321jihg7654z7-d", domain: nil),
                 ]
             ),
             MAccount(
@@ -700,7 +697,7 @@ extension _AccountStore: DependencyKey {
                 title: "Yet Another Walleeeeeeeeeeeeeeeeeeet",
                 type: .mnemonic,
                 byChain: [
-                    "ton": AccountChain(address: "UQ2c1234abcd5678efgh9012ijkl3456mnop7890qrst2345Kd9A", domain: nil),
+                    TON_CHAIN: AccountChain(address: "UQ2c1234abcd5678efgh9012ijkl3456mnop7890qrst2345Kd9A", domain: nil),
                 ]
             ),
             MAccount(
@@ -708,8 +705,8 @@ extension _AccountStore: DependencyKey {
                 title: "Family Wallet",
                 type: .hardware,
                 byChain: [
-                    "ton": AccountChain(address: "EQ9876abcd5432efgh2109ijkl8765mnop4321qrst7890klmn9-d", domain: nil),
-                    "tron": AccountChain(address: "T9876543210abcdefghijklmnopqrstuvwxyz01234567890Va", domain: nil),
+                    TON_CHAIN: AccountChain(address: "EQ9876abcd5432efgh2109ijkl8765mnop4321qrst7890klmn9-d", domain: nil),
+                    TRON_CHAIN: AccountChain(address: "T9876543210abcdefghijklmnopqrstuvwxyz01234567890Va", domain: nil),
                 ]
             ),
             MAccount(
@@ -717,7 +714,7 @@ extension _AccountStore: DependencyKey {
                 title: "Durov's Wallet",
                 type: .view,
                 byChain: [
-                    "ton": AccountChain(address: "EQabcdef1234567890ghijklmnopqrstuvwxyzABCDEFGHIJKLMNOP", domain: "wolf.t.me"),
+                    TON_CHAIN: AccountChain(address: "EQabcdef1234567890ghijklmnopqrstuvwxyzABCDEFGHIJKLMNOP", domain: "wolf.t.me"),
                 ]
             ),
             MAccount(
@@ -725,8 +722,8 @@ extension _AccountStore: DependencyKey {
                 title: "Old Wallet",
                 type: .mnemonic,
                 byChain: [
-                    "ton": AccountChain(address: "EQ1234abcd5678efgh9012ijkl3456mnop7890qrst2345uvwxwQ9", domain: nil),
-                    "tron": AccountChain(address: "Tabcdef1234567890ghijklmnopqrstuvwxyzABCDEFGHIJKLMN0cH", domain: nil),
+                    TON_CHAIN: AccountChain(address: "EQ1234abcd5678efgh9012ijkl3456mnop7890qrst2345uvwxwQ9", domain: nil),
+                    TRON_CHAIN: AccountChain(address: "Tabcdef1234567890ghijklmnopqrstuvwxyzABCDEFGHIJKLMN0cH", domain: nil),
                 ]
             ),
             MAccount(
@@ -734,7 +731,7 @@ extension _AccountStore: DependencyKey {
                 title: "Super Secret",
                 type: .mnemonic,
                 byChain: [
-                    "ton": AccountChain(address: "UQc81234abcd5678efgh9012ijkl3456mnop7890qrst2345uvwxc4Zs", domain: nil),
+                    TON_CHAIN: AccountChain(address: "UQc81234abcd5678efgh9012ijkl3456mnop7890qrst2345uvwxc4Zs", domain: nil),
                 ]
             ),
             

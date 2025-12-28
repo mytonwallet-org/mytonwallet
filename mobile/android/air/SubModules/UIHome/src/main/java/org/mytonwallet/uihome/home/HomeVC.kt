@@ -852,15 +852,18 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
 
     override fun accountNameChanged(accountName: String, animated: Boolean) {
         headerView.updateAccountName(accountName)
-        if (stickyHeaderView.updateStatusView.state is UpdateStatusView.State.Updated)
+        if (stickyHeaderView.updateStatusView.state is UpdateStatusView.State.Updated) {
             stickyHeaderView.updateStatusView.setState(
-                UpdateStatusView.State.Updated(
-                    if (headerView.mode == HomeHeaderView.Mode.Expanded)
-                        accountName
-                    else
-                        ""
-                ), animated
+                UpdateStatusView.State.Updated(accountName),
+                animated
             )
+            stickyHeaderView.updateStatusView.setAppearance(
+                headerView.mode == HomeHeaderView.Mode.Expanded,
+                animated
+            )
+        } else {
+            stickyHeaderView.updateStatusView.setAppearance(true, animated)
+        }
     }
 
     override fun accountConfigChanged() {

@@ -126,7 +126,7 @@ public func getSwapType(from: String, to: String, accountChains: Set<ApiChain>) 
     let fromChain = getChainBySlug(from)
     let toChain = getChainBySlug(to)
     
-    if let fromChain, fromChain == toChain && fromChain.supportsSwap {
+    if let fromChain, fromChain == toChain && fromChain.isOnchainSwapSupported {
         return .onChain
     }
     if let fromChain, let toChain, accountChains.contains(fromChain) && accountChains.contains(toChain) {

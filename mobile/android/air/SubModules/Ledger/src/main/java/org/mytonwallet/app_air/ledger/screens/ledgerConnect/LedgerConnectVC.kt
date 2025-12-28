@@ -219,6 +219,7 @@ class LedgerConnectVC(
                 )
             )
             ledgerImage.setPaddingDp(16)
+            setPadding(0, 0, 0, 16.dp)
             addView(stepsView, ViewGroup.LayoutParams(0, WRAP_CONTENT))
             addView(connectionTypeView, ViewGroup.LayoutParams(0, 48.dp))
             setConstraints {
@@ -229,8 +230,7 @@ class LedgerConnectVC(
                 toCenterX(stepsView, 48f)
                 toCenterX(connectionTypeView, 40f)
                 topToBottom(connectionTypeView, stepsView, 16f)
-                toBottom(connectionTypeView, 16f)
-                setGoneMargin(stepsView.id, ConstraintSet.BOTTOM, 16.dp)
+                toBottom(connectionTypeView)
             }
         }
     }

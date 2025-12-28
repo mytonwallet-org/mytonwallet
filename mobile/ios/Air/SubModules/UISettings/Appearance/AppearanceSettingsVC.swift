@@ -24,8 +24,6 @@ public final class AppearanceSettingsVC: WViewController {
         
         hostingController = addHostingController(makeView(), constraints: .fill)
         
-        bringNavigationBarToFront()
-        
         updateTheme()
     }
     

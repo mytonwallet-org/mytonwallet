@@ -156,7 +156,6 @@ extension SetPasscodeVC: WKeyboardObserverDelegate {
 #if DEBUG
 @available(iOS 18.0, *)
 #Preview {
-    let _ = UIFont.registerAirFonts()
     UINavigationController(rootViewController: SetPasscodeVC(onCompletion: { _, _, _ in }))
 }
 #endif

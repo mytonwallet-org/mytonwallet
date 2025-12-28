@@ -174,11 +174,10 @@ object AccountStore : IStore {
         if (activeAccountId != account.accountId)
             return
         if (account.name == LocaleController.getString("Wallet")) {
-            val newName = WGlobalStorage.getSuggestedName(
-                WGlobalStorage.accountIds().size
-            )
+            val newName = WGlobalStorage.getSuggestedName(account.accountType.value)
             renameAccount(account, newName)
         }
+        activeAccount?.isTemporary = false
         account.isTemporary = false
         WGlobalStorage.saveTemporaryAccount(account.accountId)
         AirPushNotifications.subscribe(account, ignoreIfLimitReached = true)

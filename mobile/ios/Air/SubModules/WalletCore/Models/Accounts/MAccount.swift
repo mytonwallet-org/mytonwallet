@@ -38,18 +38,12 @@ extension MAccount {
         byChain.mapValues(\.address)
     }
     
-    public var tonAddress: String? {
-        byChain[ApiChain.ton.rawValue]?.address
+    public var firstChain: ApiChain {
+        ApiChain.allCases.first(where: { self.supports(chain: $0.rawValue) }) ?? FALLBACK_CHAIN
     }
     
-    public var tronAddress: String? {
-        byChain[ApiChain.tron.rawValue]?.address
-    }
-    
-    public var firstAddress: String? {
-        ApiChain.allCases
-            .first(where: { self.supports(chain: $0.rawValue) })
-            .flatMap { addressByChain[$0.rawValue] }
+    public var firstAddress: String {
+        addressByChain[firstChain.rawValue] ?? ""
     }
     
     public func supports(chain: String?) -> Bool {

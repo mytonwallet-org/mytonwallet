@@ -7,7 +7,10 @@ extraMetadata:
 files:
   - "dist"
   - "package.json"
+  - "public/icon-256x256.png"
+  - "public/icon-32x32.png"
   - "public/icon-electron-windows.ico"
+  - "public/icon-electron-macos.icns"
   - "!dist/get"
   - "!dist/**/statoscope-build-statistics.json"
   - "!dist/**/statoscope-report.html"
@@ -66,3 +69,5 @@ linux:
       arch:
         - x64
         - arm64
+  icon: "public/icon-256x256.png"
+  

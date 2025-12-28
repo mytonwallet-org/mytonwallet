@@ -120,6 +120,21 @@ class HomeVM(
 
     // The account showing on the home screen
     var loadedAccountId: String? = null
+    val loadedAccount: MAccount?
+        get() {
+            return when (mode) {
+                MScreenMode.Default -> {
+                    if (loadedAccountId == AccountStore.activeAccountId)
+                        AccountStore.activeAccount
+                    else
+                        AccountStore.accountById(loadedAccountId)
+                }
+
+                is MScreenMode.SingleWallet -> {
+                    AccountStore.accountById(mode.accountId)
+                }
+            }
+        }
 
     // Is balance loaded for the account or not
     private val balancesLoaded: Boolean
@@ -225,7 +240,7 @@ class HomeVM(
             delegate.get()?.update(UpdateStatusView.State.Updating, animated)
         } else {
             delegate.get()
-                ?.update(UpdateStatusView.State.Updated(showingAccount?.name ?: ""), animated)
+                ?.update(UpdateStatusView.State.Updated(loadedAccount?.name ?: ""), animated)
         }
     }
 

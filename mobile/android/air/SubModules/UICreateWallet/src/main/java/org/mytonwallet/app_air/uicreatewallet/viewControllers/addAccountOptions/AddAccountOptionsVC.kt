@@ -109,7 +109,7 @@ class AddAccountOptionsVC(context: Context, val isOnIntro: Boolean) :
             item = SettingsItem(
                 SettingsItem.Identifier.NONE,
                 org.mytonwallet.app_air.uicreatewallet.R.drawable.ic_add_secret,
-                LocaleController.getString("12/24 Secret Words"),
+                LocaleController.getPluralOrFormat("%1\$d Secret Words", 12, "12/24"),
                 value = null,
                 hasTintColor = false
             ),

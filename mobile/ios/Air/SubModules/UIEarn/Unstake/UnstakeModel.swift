@@ -91,7 +91,7 @@ final class UnstakeModel: ObservableObject, WalletCoreData.EventsObserver {
         return MFee(precision: .exact, terms: .init(token: nil, native: stakeOperationFee, stars: nil), nativeSum: stakeOperationFee)
     }
     
-    var tokenChain: ApiChain? { availableChain(slug: baseToken.chain) }
+    var tokenChain: ApiChain? { baseToken.chainValue }
     
     // Validation
 
@@ -160,7 +160,7 @@ final class UnstakeModel: ObservableObject, WalletCoreData.EventsObserver {
                 self.draft = draft
             } catch {
                 if !Task.isCancelled {
-                    topViewController()?.showAlert(error: error)
+                    AppActions.showError(error: error)
                 }
                 log.info("\(error)")
             }

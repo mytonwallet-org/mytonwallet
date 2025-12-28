@@ -202,6 +202,5 @@ public final class WalletSettingsVC: WViewController, WSegmentedController.Deleg
 
 @available(iOS 26, *)
 #Preview {
-    let _ = UIFont.registerAirFonts()
-    sheetPreview(WalletSettingsVC())
+    previewSheet(WalletSettingsVC())
 }

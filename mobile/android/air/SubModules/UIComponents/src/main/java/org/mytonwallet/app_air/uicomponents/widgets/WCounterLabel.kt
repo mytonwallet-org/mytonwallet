@@ -27,7 +27,7 @@ class WCounterLabel(context: Context) : View(context), Counter.Callback, WThemed
     }
     private val counter = Counter(textPaint, this)
 
-    private var gradientColors: IntArray? = null
+    private var gradientColors: Array<WColor>? = null
     private var lastGradientWidth: Float = 0f
 
     init {
@@ -75,13 +75,13 @@ class WCounterLabel(context: Context) : View(context), Counter.Callback, WThemed
     }
 
     private fun applyGradient(x1: Float) {
-        if (gradientColors == null) return
+        val gradientColors = gradientColors ?: return
 
         lastGradientWidth = x1
         val gradient = LinearGradient(
             0f, 0f,
             x1, 0f,
-            gradientColors!!,
+            gradientColors.map { it.color }.toIntArray(),
             null, Shader.TileMode.CLAMP
         )
 
@@ -95,7 +95,7 @@ class WCounterLabel(context: Context) : View(context), Counter.Callback, WThemed
         }
     }
 
-    fun setGradientColor(gradientColors: IntArray?) {
+    fun setGradientColor(gradientColors: Array<WColor>?) {
         if (this.gradientColors.contentEquals(gradientColors)) return
 
         this.gradientColors = gradientColors

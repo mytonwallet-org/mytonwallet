@@ -85,13 +85,12 @@ import Dependencies
     
     private func confirmLedger() async {
         guard
-            let fromAddress = accountViewModel.account.tonAddress?.nilIfEmpty,
             let update
         else { return }
         
         let signModel = await LedgerSignModel(
             accountId: accountViewModel.accountId,
-            fromAddress: fromAddress,
+            fromAddress: accountViewModel.account.firstAddress,
             signData: .signLedgerProof(
                 promiseId: update.promiseId,
                 proof: update.proof

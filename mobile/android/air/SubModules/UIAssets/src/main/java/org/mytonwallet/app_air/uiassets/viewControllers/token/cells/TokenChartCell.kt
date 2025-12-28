@@ -13,6 +13,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageView
+import androidx.core.animation.doOnCancel
 import androidx.core.animation.doOnEnd
 import androidx.core.view.isVisible
 import androidx.core.view.setPadding
@@ -44,13 +45,14 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeOutObjectAnimator
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedControlGroup.WSegmentedControlGroup
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.MHistoryTimePeriod
 import org.mytonwallet.app_air.walletbasecontext.utils.formatDateAndTime
-import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.signSpace
+import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
@@ -206,7 +208,7 @@ class TokenChartCell(
         visibility = INVISIBLE
     }
 
-    private val roundDrawable = RoundProgressDrawable(context, 12.dp, 0.5f.dp)
+    private val roundDrawable = RoundProgressDrawable(12.dp, 0.5f.dp)
 
     private val progressViewWidth = 24.dp
     private val progressView = AppCompatImageView(context).apply {
@@ -262,7 +264,7 @@ class TokenChartCell(
             if (historyData.isNullOrEmpty())
                 progressTaskManager.startTask({
                     progressView.visibility = VISIBLE
-                    progressView.fadeIn { }
+                    progressView.fadeIn()
                 }, 1000)
         }
     }
@@ -461,6 +463,11 @@ class TokenChartCell(
     }
 
     private fun setupTexts() {
+        val baseCurrencySign =
+            if (token?.symbol != WalletCore.baseCurrency.currencyCode)
+                WalletCore.baseCurrency.sign
+            else
+                MBaseCurrency.USD.sign
         val price = if (highlightedHistoryData.isNullOrEmpty()) {
             token!!.price
         } else {
@@ -473,7 +480,7 @@ class TokenChartCell(
             val priceBigInt = price?.toBigInteger(9)
             priceLabel.text = priceBigInt?.toString(
                 9,
-                WalletCore.baseCurrency.sign,
+                baseCurrencySign,
                 priceBigInt.smartDecimalsCount(9).coerceAtLeast(2),
                 false,
                 forceCurrencyToRight = false
@@ -505,7 +512,7 @@ class TokenChartCell(
             val priceBigInt = highlight!!.y.toDouble().toBigInteger(decimals)!!
             priceLabel.text = priceBigInt.toString(
                 decimals,
-                WalletCore.baseCurrency.sign,
+                baseCurrencySign,
                 (priceBigInt.smartDecimalsCount(decimals) + 2).coerceAtMost(decimals),
                 false,
                 forceCurrencyToRight = false
@@ -598,7 +605,7 @@ class TokenChartCell(
                         if (this@TokenChartCell.historyData.isNullOrEmpty()) {
                             progressTaskManager.startTaskIfEmpty({
                                 progressView.visibility = VISIBLE
-                                progressView.fadeIn { }
+                                progressView.fadeIn()
                                 chartTimeLineView.periodChanged()
                                 if (areChartsFadeOut)
                                     chartTimeLineView.visibility = INVISIBLE
@@ -613,10 +620,12 @@ class TokenChartCell(
                     AnimatorSet().apply {
                         duration = AnimationConstants.VERY_VERY_QUICK_ANIMATION
                         playTogether(animations)
-                        doOnEnd {
+                        fun cleanup() {
                             WGlobalStorage.decDoNotSynchronize()
                             onEnd()
                         }
+                        doOnEnd { cleanup() }
+                        doOnCancel { cleanup() }
                         WGlobalStorage.incDoNotSynchronize()
                         start()
                     }
@@ -660,6 +669,9 @@ class TokenChartCell(
                         duration = AnimationConstants.VERY_VERY_QUICK_ANIMATION
                         playTogether(animations)
                         doOnEnd {
+                            WGlobalStorage.decDoNotSynchronize()
+                        }
+                        doOnCancel {
                             WGlobalStorage.decDoNotSynchronize()
                         }
                         WGlobalStorage.incDoNotSynchronize()

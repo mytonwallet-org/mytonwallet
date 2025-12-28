@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Path
-import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.util.AttributeSet
@@ -23,6 +22,8 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.gradientColors
 import org.mytonwallet.app_air.walletcore.models.MToken
+import androidx.core.graphics.drawable.toDrawable
+import com.facebook.fresco.ui.common.OnFadeListener
 
 open class WCustomImageView @JvmOverloads constructor(
     context: Context,
@@ -33,6 +34,12 @@ open class WCustomImageView @JvmOverloads constructor(
     companion object {
         const val CHAIN_SIZE = 16
     }
+
+    var fadeListener: OnFadeListener? = null
+        set(value) {
+            field = value
+            hierarchy?.setOnFadeListener(value)
+        }
 
     private var chainDrawable: Drawable? = null
     private var content: Content? = null
@@ -56,7 +63,13 @@ open class WCustomImageView @JvmOverloads constructor(
         val chainRadius = chainSize / 2f
 
         path.reset()
-        path.addRect(0f, 0f, measuredWidth.toFloat(), measuredHeight.toFloat(), Path.Direction.CW)
+        path.addRect(
+            0f,
+            0f,
+            measuredWidth.toFloat(),
+            measuredHeight.toFloat(),
+            Path.Direction.CW
+        )
         path.addCircle(
             measuredWidth - chainRadius,
             measuredHeight - chainRadius,
@@ -153,6 +166,7 @@ open class WCustomImageView @JvmOverloads constructor(
                 .setActualImageScaleType(content.scaleType)
                 .setRoundingParams(getRoundingParams(content))
                 .build()
+            hierarchy.setOnFadeListener(fadeListener)
             return
         }
 
@@ -200,21 +214,7 @@ open class WCustomImageView @JvmOverloads constructor(
 
             else -> when (val placeholder = getPlaceholderMode(content)) {
                 is Content.Placeholder.Default -> throw IllegalArgumentException()
-                is Content.Placeholder.Color -> ColorDrawable(placeholder.color.color)
-            }
-        }
-    }
-
-    private fun getCachingPlaceholderValue(content: Content): Int? {
-        return when (content.image) {
-            is Content.Image.Res -> null
-            is Content.Image.Gradient -> {
-                null
-            }
-
-            else -> when (val placeholder = getPlaceholderMode(content)) {
-                is Content.Placeholder.Default -> throw IllegalArgumentException()
-                is Content.Placeholder.Color -> placeholder.color.color
+                is Content.Placeholder.Color -> placeholder.color.color.toDrawable()
             }
         }
     }

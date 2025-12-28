@@ -69,7 +69,7 @@ public struct SwapOverviewView: View {
             let amount = DecimalAmount(-fromAmount, fromToken)
             AmountText(
                 amount: amount,
-                format: .init(maxDecimals: 2, showMinus: true),
+                format: .init(maxDecimals: 2),
                 integerFont: .rounded(ofSize: 17, weight: .bold),
                 fractionFont: .rounded(ofSize: 17, weight: .bold),
                 symbolFont: .rounded(ofSize: 17, weight: .bold),

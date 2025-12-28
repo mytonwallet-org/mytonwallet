@@ -233,7 +233,7 @@ public class TokenVC: ActivitiesTableViewController, Sendable, WSensitiveDataPro
         let token = self.token
 
         let openInExplorer = UIAction(title: lang("Open in Explorer"), image: UIImage(named: "SendGlobe", in: AirBundle, with: nil)) { _ in
-            openUrl(ExplorerHelper.explorerUrlForToken(token))
+            openUrl(ExplorerHelper.tokenUrl(token: token))
         }
         let explorerSection = UIMenu(options: .displayInline, children: [openInExplorer])
 

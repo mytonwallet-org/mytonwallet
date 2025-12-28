@@ -330,6 +330,5 @@ private extension CollectionDifference<WalletSettingsListVC.Item> {
 
 @available(iOS 26, *)
 #Preview {
-    let _ = UIFont.registerAirFonts()
     WalletSettingsListVC(viewModel: WalletSettingsViewModel(), filter: .all)
 }

@@ -74,11 +74,11 @@ public class LedgerBaseModel: @unchecked Sendable {
                 await updateStep(.connect, status: .done)
             } handleError: { @MainActor error in
                 if CBManager.authorization == .denied {
-                    topViewController()?.showAlert(title: "Bluetooth Access Denied", text: "Bluetooth access is needed to connect Ledger.", button: "Open Settings", buttonPressed: {
+                    topViewController()?.showAlert(title: lang("Bluetooth Access Denied"), text: lang("Bluetooth access is needed to connect Ledger."), button: lang("Open Settings"), buttonPressed: {
                         DispatchQueue.main.async {
                             UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!)
                         }
-                    }, secondaryButton: "Cancel", preferPrimary: true)
+                    }, secondaryButton: lang("Cancel"), preferPrimary: true)
                     throw error
                 }
             }

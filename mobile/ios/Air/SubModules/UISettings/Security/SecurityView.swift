@@ -5,6 +5,7 @@ import UIPasscode
 import UIComponents
 import WalletCore
 import WalletContext
+import Perception
 
 
 struct SecurityView: View {
@@ -15,10 +16,12 @@ struct SecurityView: View {
     @State private var autolockOption: MAutolockOption = AutolockStore.shared.autolockOption
     
     var body: some View {
-        InsetList(topPadding: 8, spacing: 24) {
-            backupSection
-            passcodeSection
-            autolockSection
+        WithPerceptionTracking {
+            InsetList(topPadding: 8, spacing: 24) {
+                backupSection
+                passcodeSection
+                autolockSection
+            }
         }
     }
     

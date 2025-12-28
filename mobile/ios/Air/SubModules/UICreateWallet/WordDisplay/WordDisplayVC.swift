@@ -53,7 +53,6 @@ public class WordDisplayVC: WViewController {
 #if DEBUG
 @available(iOS 18.0, *)
 #Preview {
-    UIFont.registerAirFonts()
     LocalizationSupport.shared.setLanguageCode("ru")
     return WordDisplayVC(
         introModel: IntroModel(password: nil),

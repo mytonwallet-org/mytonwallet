@@ -7,8 +7,13 @@ import path from 'path';
 import { IS_PRODUCTION } from '../config';
 import { initDeeplink } from './deeplink';
 import { setupSecrets } from './secrets';
-import { IS_MAC_OS } from './utils';
+import { IS_LINUX, IS_MAC_OS, MTW_GTK_VERSION } from './utils';
 import { createWindow, setupCloseHandlers, setupElectronActionHandlers } from './window';
+
+// Must be set before app is ready
+if (IS_LINUX) {
+  app.commandLine.appendSwitch('gtk-version', MTW_GTK_VERSION);
+}
 
 initDeeplink();
 

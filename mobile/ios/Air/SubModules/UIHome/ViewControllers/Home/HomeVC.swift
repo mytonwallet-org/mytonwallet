@@ -491,7 +491,23 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
     }
 
     @objc func scanPressed() {
-        AppActions.scanQR()
+        Task {
+            if let result = await AppActions.scanQR() {
+                switch result {
+                case .url(let url):
+                    let deeplinkHandled = WalletContextManager.delegate?.handleDeeplink(url: url) ?? false
+                    if !deeplinkHandled {
+                        AppActions.showError(error: BridgeCallError.customMessage(lang("This QR Code is not supported"), nil))
+                    }
+                    
+                case .address(address: let addr, possibleChains: let chains):
+                    AppActions.showSend(prefilledValues: .init(
+                        address: addr,
+                        token: chains.first?.nativeToken.slug
+                    ))
+                }
+            }
+        }
     }
 
     @objc func lockPressed() {

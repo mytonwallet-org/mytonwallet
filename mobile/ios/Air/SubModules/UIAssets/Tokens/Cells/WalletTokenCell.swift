@@ -184,11 +184,8 @@ public class WalletTokenCell: WHighlightCell {
 
         // price
         if let price = token?.price {
-            let attr = NSMutableAttributedString(string: formatAmountText(
-                amount: price,
-                currency: TokenStore.baseCurrency.sign,
-                decimalsCount: tokenDecimals(for: price, tokenDecimals: MBaseCurrency.displayPrecision)
-            ), attributes: [
+            let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(price, TokenStore.baseCurrency)
+            let attr = NSMutableAttributedString(string: baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true), attributes: [
                 .font: regular14Font,
                 .foregroundColor: WTheme.secondaryLabel
             ])
@@ -206,18 +203,15 @@ public class WalletTokenCell: WHighlightCell {
         } else {
             tokenPriceLabel.text = " "
         }
-        // amount (we set this from staking state if it is STAKE_SLUG!)
-        let decimals = token?.decimals ?? 9
-        amountLabel.text = formatBigIntText(walletToken.balance,
-                                           currency: token?.symbol ?? "",
-                                           tokenDecimals: decimals,
-                                           decimalsCount: tokenDecimals(for: walletToken.balance, tokenDecimals: decimals),
-                                           forceCurrencyToRight: true,
-                                           roundUp: false)
+        if let token {
+            let amount = TokenAmount(walletToken.balance, token)
+            amountLabel.text = amount.formatted(.defaultAdaptive, roundUp: false)
+        }
 
         let amount = walletToken.toBaseCurrency
         if let amount {
-            baseCurrencyAmountLabel.text = formatAmountText(amount: amount, currency: TokenStore.baseCurrency.sign, decimalsCount: tokenDecimals(for: amount, tokenDecimals: MBaseCurrency.displayPrecision))
+            let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(amount, TokenStore.baseCurrency)
+            baseCurrencyAmountLabel.text = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true)
         } else {
             baseCurrencyAmountLabel.text = " "
         }
@@ -234,10 +228,12 @@ public class WalletTokenCell: WHighlightCell {
     public func configureBadge(badgeContent: BadgeContent?) {
         if let badgeContent {
             switch badgeContent {
-            case .activeStaking(let type, let apy):
-                badge.configureStakingActive(yieldType: type, apy: apy)
-            case .inactiveStaking(let type, let apy):
-                badge.configureStakingInactive(yieldType: type, apy: apy)
+            case .staking(let stakingBadge):
+                if stakingBadge.isActive {
+                    badge.configureStakingActive(yieldType: stakingBadge.yieldType, apy: stakingBadge.yieldValue)
+                } else {
+                    badge.configureStakingInactive(yieldType: stakingBadge.yieldType, apy: stakingBadge.yieldValue)
+                }
             case .chain(let chain):
                 badge.configureChain(chain: chain)
             }

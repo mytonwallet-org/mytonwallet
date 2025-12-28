@@ -434,6 +434,9 @@ open class HomeHeaderView(
         cardView = (currentView ?: cardViewsCopy.removeFirstOrNull()!!.apply {
             updateAccountData(activeAccount)
         }).apply {
+            this@HomeHeaderView.updateStatusView.state?.let {
+                setStatusViewState(it, animated = false)
+            }
             if (this@HomeHeaderView.mode == Mode.Expanded)
                 expand(false)
             else
@@ -822,9 +825,6 @@ open class HomeHeaderView(
 
     // Horizontal Scroll Implementation ///////////////////////////////////////////////////////////
     override fun onInterceptTouchEvent(event: MotionEvent): Boolean {
-        if (parent is WCell)
-            return super.onInterceptTouchEvent(event)
-
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
                 springAnimation?.cancel()

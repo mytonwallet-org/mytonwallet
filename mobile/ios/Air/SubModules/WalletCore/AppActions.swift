@@ -12,7 +12,7 @@ import WalletContext
     static func pushTransactionSuccess(activity: ApiActivity)
     static func repeatActivity(_ activity: ApiActivity)
     static func saveTemporaryViewAccount(accountId: String)
-    static func scanQR() -> ()
+    static func scanQR() async -> ScanResult?
     static func setSensitiveDataIsHidden(_ newValue: Bool)
     static func shareUrl(_ url: URL)
     static func showActivityDetails(accountId: String, activity: ApiActivity)
@@ -31,11 +31,12 @@ import WalletContext
     static func showHiddenNfts(accountSource: AccountSource) -> ()
     static func showHome(popToRoot: Bool)
     static func showImportWalletVersion() -> ()
-    static func showReceive(chain: ApiChain?, showBuyOptions: Bool?, title: String?)
+    static func showReceive(chain: ApiChain?, title: String?)
     static func showRenameAccount(accountId: String)
     static func showSend(prefilledValues: SendPrefilledValues?)
     static func showSwap(defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, push: Bool?)
     static func showTemporaryViewAccount(addressOrDomainByChain: [String: String])
+    static func showToast(animationName: String?, message: String, duration: Double, tapAction: (() -> ())?)
     static func showToken(token: ApiToken, isInModal: Bool)
     static func showTokenByAddress(chain: String, tokenAddress: String)
     static func showTokenBySlug(_ slug: String)
@@ -50,6 +51,9 @@ public extension AppActionsProtocol {
     static func openInBrowser(_ url: URL) {
         Self.openInBrowser(url, title: nil, injectTonConnect: true)
     }
+    static func showToast(animationName: String? = nil, message: String, duration: Double? = nil, tapAction: (() -> ())? = nil) {
+        showToast(animationName: animationName, message: message, duration: duration ?? 3, tapAction: tapAction)
+    }
 }
 
 private class DummyAppActionProtocolImpl: AppActionsProtocol {
@@ -59,7 +63,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func openTipsChannel() { }
     static func pushTransactionSuccess(activity: ApiActivity) { }
     static func repeatActivity(_ activity: ApiActivity) { }
-    static func scanQR() -> () { }
+    static func scanQR() async -> ScanResult? { nil }
     static func saveTemporaryViewAccount(accountId: String) { }
     static func setSensitiveDataIsHidden(_ newValue: Bool) { }
     static func shareUrl(_ url: URL) { }
@@ -79,11 +83,12 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showHiddenNfts(accountSource: AccountSource) -> () { }
     static func showHome(popToRoot: Bool) { }
     static func showImportWalletVersion() -> () { }
-    static func showReceive(chain: ApiChain?, showBuyOptions: Bool?, title: String?) { }
+    static func showReceive(chain: ApiChain?, title: String?) { }
     static func showRenameAccount(accountId: String) { }
     static func showSend(prefilledValues: SendPrefilledValues?) { }
     static func showSwap(defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, push: Bool?) { }
     static func showTemporaryViewAccount(addressOrDomainByChain: [String: String]) { }
+    static func showToast(animationName: String?, message: String, duration: Double, tapAction: (() -> ())?) { }
     static func showToken(token: ApiToken, isInModal: Bool) { }
     static func showTokenByAddress(chain: String, tokenAddress: String) { }
     static func showTokenBySlug(_ slug: String) { }

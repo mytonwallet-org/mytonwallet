@@ -199,7 +199,7 @@ public class ImportWalletVC: WViewController {
             textChanged()
         } else {
             Haptics.play(.lightTap)
-            showToast(message: lang("Clipboard empty"))
+            AppActions.showToast(message: lang("Clipboard empty"))
         }
         
     }

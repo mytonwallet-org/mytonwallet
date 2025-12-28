@@ -150,12 +150,11 @@ struct SelectableAccountRow: View {
                     AccountTypeBadge(account.type)
                         .foregroundStyle(Color.air.secondaryLabel)
                 }
-                if let firstAddress = account.firstAddress {
-                    Text("\(formatStartEndAddress(firstAddress))")
-                        .font14h18()
-                        .fixedSize()
-                        .foregroundStyle(Color.air.secondaryLabel)
-                }
+                let firstAddress = account.firstAddress
+                Text("\(formatStartEndAddress(firstAddress))")
+                    .font14h18()
+                    .fixedSize()
+                    .foregroundStyle(Color.air.secondaryLabel)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }

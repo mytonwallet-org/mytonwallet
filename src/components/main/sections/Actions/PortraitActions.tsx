@@ -97,6 +97,7 @@ function PortraitActions({
         <WithContextMenu
           rootRef={containerRef}
           items={SEND_CONTEXT_MENU_ITEMS}
+          withBackdrop
           menuClassName={styles.menu}
           onItemClick={handleSendMenuItemClick}
         >

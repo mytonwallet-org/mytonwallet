@@ -254,6 +254,7 @@ public func formatAmountText(amount: Double,
     return result
 }
 
+/// 0.1 -> 10%
 public func formatPercent(_ value: Double, decimals: Int = 2, showPlus: Bool = true, showMinus: Bool = true) -> String {
     let value = (value * 100).rounded(decimals: decimals)
     return if showPlus && value > 0 {
@@ -367,31 +368,23 @@ public func parseTonTransferUrl(_ url: URL) -> TonTransferUrl? {
     return TonTransferUrl(address: address, amount: amount, comment: comment, token: token, bin: bin, jetton: jetton, stateInit: stateInit)
 }
 
-private func _tokenDecimals(for amountVal: BigInt, tokenDecimals: Int) -> Int {
-    if tokenDecimals <= 2 {
+public func tokenDecimals(for amount: BigInt, tokenDecimals: Int, minimumSignificantDigits: Int = 2) -> Int {
+    if tokenDecimals <= minimumSignificantDigits {
         return tokenDecimals
     }
-    let amount = abs(amountVal)
+    let amount = abs(amount)
     if amount < 2 {
         return tokenDecimals
     }
-    if "\(amount)".count >= tokenDecimals + 2 {
-        return max(2, 1 + tokenDecimals - "\(amount)".count)
+    let len = "\(amount)".count
+    if len >= tokenDecimals + 2 {
+        return max(minimumSignificantDigits, 1 + tokenDecimals - len)
     }
-    let newAmount = abs(amount)
-    var multiplier = 2
-    while "\(newAmount)".count + multiplier < tokenDecimals + 2 {
+    var multiplier = minimumSignificantDigits
+    while len + multiplier < tokenDecimals + 2 {
         multiplier += 1
     }
     return min(tokenDecimals, multiplier)
-}
-
-public func tokenDecimals(for amountVal: BigInt, tokenDecimals: Int) -> Int {
-    return _tokenDecimals(for: amountVal, tokenDecimals: tokenDecimals)
-}
-
-public func tokenDecimals(for amountVal: Double, tokenDecimals: Int) -> Int {
-    return _tokenDecimals(for: doubleToBigInt(amountVal, decimals: tokenDecimals), tokenDecimals: tokenDecimals)
 }
 
 public func doubleToBigInt(_ doubleValue: Double, decimals: Int) -> BigInt {

@@ -330,13 +330,13 @@ class StakingVC(
                 val state = stakingViewModel.stakingState
 
                 fun show() {
-                    detailHeader.fadeIn { }
-                    unstakingDetailView.fadeIn { }
+                    detailHeader.fadeIn()
+                    unstakingDetailView.fadeIn()
                 }
 
                 fun hide() {
-                    detailHeader.fadeOut { }
-                    unstakingDetailView.fadeOut { }
+                    detailHeader.fadeOut()
+                    unstakingDetailView.fadeOut()
                 }
 
                 when (state) {

@@ -41,6 +41,7 @@ dependencies {
     implementation(libs.material)
     implementation(libs.zxing)
     implementation(libs.fresco)
+    implementation(libs.fresco.ui.common)
     implementation(libs.blurview)
     implementation(project("$airSubModulePath:UISend"))
     implementation(project("$airSubModulePath:UISwap"))

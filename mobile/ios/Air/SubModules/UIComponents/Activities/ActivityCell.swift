@@ -327,8 +327,7 @@ public class ActivityCell: WHighlightCell {
                 } else {
                     attr.append(NSAttributedString(string: lang("$transaction_to", arg1: "")))
                 }
-                if AccountStore.account?.isMultichain == true {
-                    let chain = activity.slug.starts(with: "ton") ? "ton" : "tron"
+                if AccountStore.account?.isMultichain == true, let chain = getChainBySlug(activity.slug) {
                     let image = NSTextAttachment(image: .airBundle("ActivityAddress-\(chain)"))
                     image.bounds = .init(x: 0, y: -1.5, width: 13, height: 13)
                     attr.append(NSAttributedString(attachment: image))
@@ -400,7 +399,7 @@ public class ActivityCell: WHighlightCell {
                 let color: UIColor = transaction.type == .stake ? .air.textPurple : transaction.isIncoming ? WTheme.positiveAmount : WTheme.primaryLabel
                 let amountString = amount.formatAttributed(
                     format: .init(
-                        maxDecimals: amount.defaultDisplayDecimals,
+                        preset: .defaultAdaptive,
                         showPlus: displayMode == .noSign ? false : true,
                         showMinus: displayMode == .noSign ? false : true,
                         roundUp: false
@@ -429,14 +428,8 @@ public class ActivityCell: WHighlightCell {
                 
                 let attr = NSMutableAttributedString()
                 
-                let from = formatAmountText(
-                    amount: fromAmount,
-                    currency: fromToken.symbol,
-                    negativeSign: false,
-                    positiveSign: false,
-                    decimalsCount: fromAmount < 0.0002 ? 6 : fromAmount < 0.02 ? 4 : fromAmount < 50 ? 2 : 0,
-                    forceCurrencyToRight: true
-                )
+                let fromDecimalAmount = DecimalAmount.fromDouble(fromAmount, fromToken)
+                let from = fromDecimalAmount.formatted(.compact, showMinus: false)
                 attr.append(NSAttributedString(string: from, attributes: [
                     .foregroundColor: swapFailed ? WTheme.error : WTheme.secondaryLabel,
                 ]))
@@ -453,14 +446,8 @@ public class ActivityCell: WHighlightCell {
                 }
                 attr.append(chevronString)
                 
-                let to = formatAmountText(
-                    amount: toAmount,
-                    currency: toToken.symbol,
-                    negativeSign: false,
-                    positiveSign: false,
-                    decimalsCount: toAmount < 0.0002 ? 6 : toAmount < 0.02 ? 4 : toAmount < 50 ? 2 : 0,
-                    forceCurrencyToRight: true
-                )
+                let toDecimalAmount = DecimalAmount.fromDouble(toAmount, toToken)
+                let to = toDecimalAmount.formatted(.compact, showMinus: false)
                 attr.append(NSAttributedString(string: to, attributes: [
                     .foregroundColor: swapFailed ? WTheme.error : swapInProgress ? WTheme.secondaryLabel : WTheme.positiveAmount,
                 ]))
@@ -504,8 +491,7 @@ public class ActivityCell: WHighlightCell {
                 let color = WTheme.secondaryLabel
                 let amountString = amount.formatAttributed(
                     format: .init(
-                        maxDecimals: doubleValue < 0.0002 ? 6 : doubleValue < 0.02 ? 4 : doubleValue < 50 ? 2 : 0,
-                        showPlus: false,
+                        preset: .compact,
                         showMinus: false,
                         roundUp: false
                     ),
@@ -538,7 +524,7 @@ public class ActivityCell: WHighlightCell {
                 let exchangeAmount = TokenAmount.fromDouble(ex.price, ex.fromToken)
                 let exchangeRateString = exchangeAmount.formatAttributed(
                     format: .init(
-                        maxDecimals: ex.price < 0.001 ? 6 : ex.price < 0.1 ? 4 : ex.price < 50 ? 2 : 0,
+                        preset: .compact,
                         roundUp: false
                     ),
                     integerFont: .systemFont(ofSize: 14, weight: .semibold),

@@ -36,7 +36,7 @@ public struct AccountListCell: View {
             HStack(alignment: .center, spacing: 10) {
                 selectionCircle
                     .frame(width: avatarSize, height: avatarSize)
-                HStack(spacing: 4) {
+                HStack(spacing: 8) {
                     VStack(alignment: .leading, spacing: 0) {
                         HStack(alignment: .center, spacing: 6) {
                             Text(viewModel.account.displayName)
@@ -107,7 +107,7 @@ private struct ListBalanceView: View {
     var body: some View {
         WithPerceptionTracking {
             if let balance = viewModel.balance {
-                Text(balance.formatted(roundUp: true))
+                Text(balance.formatted(.baseCurrencyEquivalent, roundUp: true))
                     .lineLimit(1)
                     .foregroundStyle(Color.air.secondaryLabel)
                     .font(.system(size: 16, weight: .regular))

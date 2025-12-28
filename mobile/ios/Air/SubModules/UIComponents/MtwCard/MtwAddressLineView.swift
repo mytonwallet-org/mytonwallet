@@ -205,7 +205,7 @@ private struct ItemView: View {
     
     func onCopy() {
         UIPasteboard.general.string = item.textToCopy
-        topWViewController()?.showToast(animationName: "Copy", message: lang("Address was copied!"))
+        AppActions.showToast(animationName: "Copy", message: lang("Address was copied!"))
         Haptics.play(.lightTap)
     }
 }

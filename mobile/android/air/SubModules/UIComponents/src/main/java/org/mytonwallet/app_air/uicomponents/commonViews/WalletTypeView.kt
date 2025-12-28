@@ -1,30 +1,40 @@
 package org.mytonwallet.app_air.uicomponents.commonViews
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.Drawable
 import android.view.Gravity
+import android.view.ViewGroup
+import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.LinearLayout
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
+import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcontext.utils.solidColorWithAlpha
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import kotlin.math.roundToInt
 
-open class WalletTypeView(context: Context) : WFrameLayout(context) {
+@SuppressLint("ViewConstructor")
+open class WalletTypeView(
+    context: Context,
+    blurredBackground: Boolean = false
+) : WFrameLayout(context) {
 
     private var eyeDrawable: Drawable? = null
     private var eyeImageView: AppCompatImageView? = null
@@ -33,6 +43,35 @@ open class WalletTypeView(context: Context) : WFrameLayout(context) {
 
     private var hardwareDrawable: Drawable? = null
     private var hardwareTagView: AppCompatImageView? = null
+
+    private val walletTypeBlurView: WBlurryBackgroundView? =
+        if (DevicePerformanceClassifier.isHighClass && blurredBackground)
+            WBlurryBackgroundView(
+                context,
+                fadeSide = null
+            ).apply {
+                setOverlayColor(WColor.Transparent)
+            }
+        else
+            null
+
+    init {
+        walletTypeBlurView?.let {
+            addView(it, LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        }
+    }
+
+    fun setupBlurWith(viewGroup: ViewGroup) {
+        walletTypeBlurView?.setupWith(viewGroup)
+    }
+
+    fun resumeBlurring() {
+        walletTypeBlurView?.setBlurAutoUpdate(true)
+    }
+
+    fun pauseBlurring() {
+        walletTypeBlurView?.setBlurAutoUpdate(false)
+    }
 
     private var account: MAccount? = null
     fun configure(account: MAccount?) {
@@ -70,9 +109,22 @@ open class WalletTypeView(context: Context) : WFrameLayout(context) {
         hardwareDrawable?.setTint(newColor)
         if (viewTagView?.isVisible == true) {
             if (isTemporaryAccount) {
-                setBackgroundColor(Color.TRANSPARENT, 14f.dp, backgroundColor, 1f)
+                (walletTypeBlurView ?: this).setBackgroundColor(
+                    color = Color.TRANSPARENT,
+                    radius = 14f.dp,
+                    clipToBounds = true,
+                    strokeColor = backgroundColor,
+                    strokeWidth = 1
+                )
             } else {
-                setBackgroundColor(backgroundColor, 10f.dp)
+                if (walletTypeBlurView == null)
+                    setBackgroundColor(backgroundColor, 10f.dp)
+                else
+                    walletTypeBlurView.setBackgroundColor(
+                        Color.TRANSPARENT,
+                        10f.dp,
+                        clipToBounds = true
+                    )
                 setOnClickListener(null)
             }
         }
@@ -89,6 +141,7 @@ open class WalletTypeView(context: Context) : WFrameLayout(context) {
             eyeDrawable?.setTint(tintColor)
             viewLabel?.setTextColor(tintColor)
         }
+        walletTypeBlurView?.isVisible = true
 
         setupViewTagBackground(account)
     }
@@ -136,12 +189,25 @@ open class WalletTypeView(context: Context) : WFrameLayout(context) {
 
     private fun setupViewTagBackground(account: MAccount) {
         if (account.isTemporary) {
-            setBackgroundColor(Color.TRANSPARENT, 14f.dp, backgroundColor, 1f)
+            (walletTypeBlurView ?: this).setBackgroundColor(
+                color = Color.TRANSPARENT,
+                radius = 14f.dp,
+                clipToBounds = true,
+                strokeColor = backgroundColor,
+                strokeWidth = 1
+            )
             setOnClickListener {
                 AccountStore.saveTemporaryAccount(account)
             }
         } else {
-            setBackgroundColor(backgroundColor, 10f.dp)
+            if (walletTypeBlurView == null)
+                setBackgroundColor(backgroundColor, 10f.dp)
+            else
+                walletTypeBlurView.setBackgroundColor(
+                    Color.TRANSPARENT,
+                    10f.dp,
+                    clipToBounds = true
+                )
             setOnClickListener(null)
         }
     }
@@ -167,6 +233,16 @@ open class WalletTypeView(context: Context) : WFrameLayout(context) {
             hardwareTagView?.isGone = false
         }
         background = null
+        walletTypeBlurView?.isVisible = false
         setOnClickListener(null)
+    }
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+
+        walletTypeBlurView?.measure(
+            MeasureSpec.makeMeasureSpec(measuredWidth, MeasureSpec.EXACTLY),
+            MeasureSpec.makeMeasureSpec(measuredHeight, MeasureSpec.EXACTLY)
+        )
     }
 }

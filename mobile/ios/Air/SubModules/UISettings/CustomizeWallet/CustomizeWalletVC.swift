@@ -49,7 +49,6 @@ public final class CustomizeWalletVC: WViewController {
 
 @available(iOS 26, *)
 #Preview {
-    let _ = UIFont.registerAirFonts()
     let nc = UINavigationController(rootViewController: CustomizeWalletVC(accountId: nil))
     nc
 }

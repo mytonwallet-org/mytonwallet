@@ -24,13 +24,10 @@ $landscapeActionsButtonWidth: 1.375rem;
 
       width: 100%;
 
-      background-color: var(--background-color);
-      backdrop-filter: saturate(180%) blur(20px);
-
       @include mixins.transition('bottom 150ms, background-color 300ms ease-out');
     }
 
-    :global(html.is-electron:not(.is-linux)) & {
+    :global(html.is-electron) & {
       top: var(--electron-header-height);
     }
 
@@ -45,6 +42,7 @@ $landscapeActionsButtonWidth: 1.375rem;
     &.isScrolled {
       &::before {
         background-color: var(--color-background-tab-bar);
+        backdrop-filter: saturate(180%) blur(20px);
       }
 
       &::after {

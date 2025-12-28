@@ -152,7 +152,7 @@ class RenewVC(context: Context, val nft: ApiNft) : WViewController(context) {
                             )
                         }"
                     feeLabel.alpha = 0f
-                    feeLabel.fadeIn { }
+                    feeLabel.fadeIn()
                 } else {
                     renewButton.isEnabled = false
                     renewButton.setText(LocaleController.getString("Insufficient Balance"))

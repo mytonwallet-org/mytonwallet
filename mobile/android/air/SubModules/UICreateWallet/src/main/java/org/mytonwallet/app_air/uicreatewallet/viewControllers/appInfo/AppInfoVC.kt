@@ -267,12 +267,12 @@ class AppInfoVC(context: Context) : WViewController(context) {
         super.viewDidAppear()
 
         tonParticlesView.isGone = false
-        tonParticlesView.fadeIn { }
+        tonParticlesView.fadeIn()
     }
 
     override fun viewWillDisappear() {
         super.viewWillDisappear()
-        tonParticlesView.fadeOut { }
+        tonParticlesView.fadeOut()
     }
 
     override fun onDestroy() {

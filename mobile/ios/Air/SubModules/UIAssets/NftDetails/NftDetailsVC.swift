@@ -362,6 +362,6 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
     let vc = NftDetailsVC(accountId: "0-mainnet", nft: .sampleMtwCard, listContext: .none)
 //    let _ = vc.viewModel.isExpanded = false
 //    let _ = vc.viewModel.isFullscreenPreviewOpen = true
-    ncPreview(vc)
+    previewNc(vc)
 }
 #endif

@@ -129,7 +129,7 @@ final class SwapVM: ObservableObject {
                                                                   networkFee: swapEstimate?.networkFee.value,
                                                                   dieselFee: swapEstimate?.dieselFee?.value,
                                                                   ourFeePercent: swapEstimate?.ourFeePercent)
-            let fromAddress = try (AccountStore.account?.tonAddress).orThrow()
+            let fromAddress = try (AccountStore.account?.addressByChain[TON_CHAIN]).orThrow()
             let shouldTryDiesel = props.isEnoughNative == false
             let toncoinBalance = (BalanceStore.currentAccountBalances["toncoin"]).flatMap { MDouble.forBigInt($0, decimals: 9) }
             let walletVersion = AccountStore.account?.version
@@ -288,7 +288,7 @@ final class SwapVM: ObservableObject {
     // MARK: - On-Chain swap
     private func onChainSwap(passcode: String) async throws {
         let swapEstimate = try self.swapEstimate.orThrow()
-        let fromAddress = try (AccountStore.account?.tonAddress).orThrow()
+        let fromAddress = try (AccountStore.account?.addressByChain[TON_CHAIN]).orThrow()
         let walletVersion = AccountStore.account?.version
         let shouldTryDiesel = swapEstimate.networkFee.value > 0 &&
             BalanceStore.currentAccountBalances["toncoin"] ?? 0 < BigInt((swapEstimate.networkFee.value + 0.015) * 1e9) && swapEstimate.dieselStatus == .available

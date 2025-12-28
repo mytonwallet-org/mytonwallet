@@ -99,7 +99,7 @@ class PasscodeInputView(
             }
         }
 
-    private val roundDrawable = RoundProgressDrawable(context, 12.dp, 0.5f.dp).apply {
+    private val roundDrawable = RoundProgressDrawable(12.dp, 0.5f.dp).apply {
         color = WColor.Green.color
     }
 

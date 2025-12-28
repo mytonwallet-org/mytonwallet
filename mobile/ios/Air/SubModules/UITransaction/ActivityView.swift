@@ -258,10 +258,10 @@ struct ActivityView: View {
             } value: {
                 let amount = TokenAmount(transaction.amount, token)
                 let inToken = amount
-                    .formatted(showPlus: false, showMinus: false)
+                    .formatted(showMinus: false)
                 let curr = TokenStore.baseCurrency
                 let token = TokenStore.getToken(slug: activity.slug)
-                Text(token?.price != nil ? "\(inToken) (\(amount.convertTo(curr, exchangeRate: token!.price!).formatted(showPlus: false, showMinus: false)))" : inToken)
+                Text(token?.price != nil ? "\(inToken) (\(amount.convertTo(curr, exchangeRate: token!.price!).formatted(showMinus: false)))" : inToken)
                     .sensitiveDataInPlace(cols: 10, rows: 2, cellSize: 9, theme: .adaptive, cornerRadius: 5)
             }
         }
@@ -275,10 +275,7 @@ struct ActivityView: View {
                     .foregroundStyle(Color(WTheme.secondaryLabel))
             } value: {
                 let exchangeAmount = TokenAmount.fromDouble(ex.price, ex.fromToken)
-                let exchangeRateString = exchangeAmount.formatted(
-                    maxDecimals: ex.price < 0.001 ? 6 : ex.price < 0.1 ? 4 : ex.price < 50 ? 2 : 0,
-                    showPlus: false,
-                    showMinus: false,
+                let exchangeRateString = exchangeAmount.formatted(.compact,
                     roundUp: false,
                     precision: swap.status == .pending || swap.status == .pendingTrusted ? .approximate : .exact
                 )
@@ -328,17 +325,14 @@ struct ActivityView: View {
                     .fill(Color(WTheme.secondaryFill).opacity(0.15))
                     .frame(width: 80, height: 18)
             }
-        } else if let token,
-           let nativeToken = token.availableChain?.nativeToken,
-           let fee = _computeDisplayFee(nativeToken: nativeToken) {
-
+        } else if let token, let chain = ApiChain(rawValue: token.chain), let fee = _computeDisplayFee(nativeToken: chain.nativeToken) {
             InsetDetailCell {
                 Text(lang("Fee"))
                     .foregroundStyle(Color(WTheme.secondaryLabel))
             } value: {
                 FeeView(
                     token: token,
-                    nativeToken: nativeToken,
+                    nativeToken: chain.nativeToken,
                     fee: fee,
                     explainedTransferFee: nil,
                     includeLabel: false

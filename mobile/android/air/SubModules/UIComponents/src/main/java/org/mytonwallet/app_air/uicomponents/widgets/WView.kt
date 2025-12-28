@@ -283,6 +283,25 @@ fun View.setBackgroundColor(
 
 fun View.setBackgroundColor(
     color: Int,
+    radius: Float,
+    clipToBounds: Boolean = false,
+    strokeColor: Int? = null,
+    strokeWidth: Int = 0
+) {
+    setBackgroundColor(
+        color = color,
+        topLeftRadius = radius,
+        topRightRadius = radius,
+        bottomRightRadius = radius,
+        bottomLeftRadius = radius,
+        clipToBounds = clipToBounds,
+        strokeColor = strokeColor,
+        strokeWidth = strokeWidth
+    )
+}
+
+fun View.setBackgroundColor(
+    color: Int,
     topLeftRadius: Float,
     topRightRadius: Float,
     bottomRightRadius: Float,

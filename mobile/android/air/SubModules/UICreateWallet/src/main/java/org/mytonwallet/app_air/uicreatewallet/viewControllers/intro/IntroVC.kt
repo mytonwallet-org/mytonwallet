@@ -250,12 +250,12 @@ class IntroVC(
             particlesCleaner = tonParticlesView.addParticleSystem(particleParams)
             tonParticlesView.isGone = false
         }
-        tonParticlesView.fadeIn { }
+        tonParticlesView.fadeIn()
     }
 
     override fun viewWillDisappear() {
         super.viewWillDisappear()
-        tonParticlesView.fadeOut { }
+        tonParticlesView.fadeOut()
     }
 
     override fun onDestroy() {

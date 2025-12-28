@@ -1,9 +1,11 @@
 package org.mytonwallet.uihome.home.views.header
 
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.view.animation.AccelerateDecelerateInterpolator
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
@@ -22,11 +24,11 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
-import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.models.MScreenMode
 import org.mytonwallet.uihome.R
 import org.mytonwallet.uihome.home.views.UpdateStatusView
+import kotlin.math.max
 
 @SuppressLint("ViewConstructor", "ClickableViewAccessibility")
 class StickyHeaderView(
@@ -107,7 +109,7 @@ class StickyHeaderView(
     private val cancelButton: WLabel by lazy {
         WLabel(context).apply {
             text = LocaleController.getString("Cancel")
-            setTextColor(WColor.Tint.color)
+            setTextColor(WColor.Tint)
             isTinted = true
             setStyle(18f, WFont.Medium)
             setPaddingDp(12, 4, 12, 4)
@@ -118,7 +120,7 @@ class StickyHeaderView(
     private val saveButton: WLabel by lazy {
         WLabel(context).apply {
             text = LocaleController.getString("Save")
-            setTextColor(WColor.Tint.color)
+            setTextColor(WColor.Tint)
             isTinted = true
             setStyle(18f, WFont.Medium)
             setPaddingDp(12, 4, 12, 4)
@@ -180,6 +182,10 @@ class StickyHeaderView(
     }
 
     override fun updateTheme() {
+        if (cancelButton.parent == null) {
+            cancelButton.updateTheme()
+            saveButton.updateTheme()
+        }
         updateEyeIcon()
     }
 
@@ -193,11 +199,9 @@ class StickyHeaderView(
 
     fun update(mode: HomeHeaderView.Mode, state: UpdateStatusView.State, handleAnimation: Boolean) {
         if (state is UpdateStatusView.State.Updated && mode == HomeHeaderView.Mode.Collapsed) {
-            updateStatusView.setState(
-                state.copy(""),
-                handleAnimation
-            )
+            updateStatusView.setAppearance(isShowing = false, animated = handleAnimation)
         } else {
+            updateStatusView.setAppearance(isShowing = true, animated = handleAnimation)
             updateStatusView.setState(state, handleAnimation)
         }
     }
@@ -248,6 +252,14 @@ class StickyHeaderView(
                 saveButton.isClickable = true
             }
         }
+        post {
+            animateUpdateStatusViewMargin(
+                8.dp + max(
+                    saveButton.measuredWidth,
+                    cancelButton.measuredWidth
+                )
+            )
+        }
     }
 
     fun exitActionMode() {
@@ -268,6 +280,7 @@ class StickyHeaderView(
                 eyeButton.isClickable = true
             }
         }
+        animateUpdateStatusViewMargin(if (lockButton.isVisible) 96.dp else 56.dp)
     }
 
     private fun updateEyeIcon() {
@@ -277,5 +290,32 @@ class StickyHeaderView(
                 if (WGlobalStorage.getIsSensitiveDataProtectionOn()) org.mytonwallet.app_air.icons.R.drawable.ic_header_eye else org.mytonwallet.app_air.icons.R.drawable.ic_header_eye_hidden
             )
         )
+    }
+
+    private fun animateUpdateStatusViewMargin(newMargin: Int) {
+        if (!WGlobalStorage.getAreAnimationsActive()) {
+            updateStatusView.layoutParams =
+                (updateStatusView.layoutParams as MarginLayoutParams).apply {
+                    marginStart = newMargin
+                    marginEnd = newMargin
+                }
+            return
+        }
+        ValueAnimator.ofInt(
+            (updateStatusView.layoutParams as MarginLayoutParams).marginStart,
+            newMargin
+        ).apply {
+            interpolator = AccelerateDecelerateInterpolator()
+            duration = AnimationConstants.QUICK_ANIMATION
+            addUpdateListener { animation ->
+                val value = animation.animatedValue as Int
+                updateStatusView.layoutParams =
+                    (updateStatusView.layoutParams as MarginLayoutParams).apply {
+                        marginStart = value
+                        marginEnd = value
+                    }
+            }
+            start()
+        }
     }
 }

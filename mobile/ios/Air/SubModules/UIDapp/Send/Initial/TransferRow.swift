@@ -52,7 +52,7 @@ struct TransferRow: View {
             let amount = TokenAmount(transfer.amount, .TONCOIN)
             AmountText(
                 amount: amount,
-                format: .init(maxDecimals: 4, showMinus: true),
+                format: .init(maxDecimals: 4),
                 integerFont: .systemFont(ofSize: 16, weight: .medium),
                 fractionFont: .systemFont(ofSize: 16, weight: .medium),
                 symbolFont: .systemFont(ofSize: 16, weight: .medium),

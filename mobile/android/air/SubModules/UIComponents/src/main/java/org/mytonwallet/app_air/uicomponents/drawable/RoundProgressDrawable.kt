@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.uicomponents.drawable
 
-import android.content.Context
 import android.graphics.Canvas
 import android.graphics.ColorFilter
 import android.graphics.Paint
@@ -13,7 +12,6 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import kotlin.math.min
 
 class RoundProgressDrawable(
-    private val context: Context,
     private val sizeDp: Int = 16,
     strokeWidthDp: Float = 3f
 ) : Drawable() {

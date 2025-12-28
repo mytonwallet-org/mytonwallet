@@ -75,6 +75,16 @@ public final class SegmentedControlModel {
         updateIsScrollingRequired()
     }
     
+    public func distanceToItem(itemId: String) -> CGFloat {
+        guard let rawProgress, let index = getItemIndexById(itemId: itemId) else { return 1 }
+        return min(1, abs(CGFloat(index) - rawProgress))
+    }
+
+    public func directionalDistanceToItem(itemId: String) -> CGFloat {
+        guard let rawProgress, let index = getItemIndexById(itemId: itemId) else { return 1 }
+        return clamp(CGFloat(index) - rawProgress, to: -1...1)
+    }
+
     // MARK: Reordering
     
     public func startReordering() {
@@ -110,11 +120,6 @@ public final class SegmentedControlModel {
         width += CGFloat(items.count - 1) * SegmentedControlConstants.spacing
         width += SegmentedControlConstants.accessoryWidth
         return width > screenWidth - 32.0
-    }
-    
-    func distanceToItem(itemId: String) -> CGFloat {
-        guard let rawProgress, let index = getItemIndexById(itemId: itemId) else { return 1 }
-        return min(1, abs(CGFloat(index) - rawProgress))
     }
     
     func getItemById(itemId: String) -> SegmentedControlItem? {

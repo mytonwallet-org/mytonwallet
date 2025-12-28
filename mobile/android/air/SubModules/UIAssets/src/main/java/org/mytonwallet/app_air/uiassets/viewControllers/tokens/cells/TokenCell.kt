@@ -26,6 +26,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -176,6 +177,9 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
             if (isLast) ViewConstants.BIG_RADIUS.dp else 0f
         )
         topLeftLabel.setTextColor(WColor.PrimaryText.color)
+        topLeftTagLabel.updateTheme()
+        if (isShowingStaticTag)
+            topLeftTagLabel.setBackgroundColor(WColor.BadgeBackground.color, 8f.dp)
         topRightLabel.contentView.setTextColor(WColor.PrimaryText.color)
         bottomRightLabel.contentView.setTextColor(WColor.SecondaryText.color)
         separator.setBackgroundColor(WColor.Separator.color)
@@ -186,7 +190,9 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
 
     private var accountId: String? = null
     private var tokenBalance: MTokenBalance? = null
+    private var baseCurrency: MBaseCurrency? = null
     private var isLast = false
+    private var isShowingStaticTag = false
 
     fun configure(
         accountId: String,
@@ -195,9 +201,12 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         isLast: Boolean
     ) {
         val lastChanged = this.isLast != isLast
+        val baseCurrency = WalletCore.baseCurrency
         this.isLast = isLast
 
-        if (this.accountId == accountId && this.tokenBalance == tokenBalance) {
+        if (this.accountId == accountId &&
+            this.tokenBalance == tokenBalance &&
+            this.baseCurrency == baseCurrency) {
             updateTheme(forceUpdate = lastChanged)
             separator.visibility = if (isLast) INVISIBLE else VISIBLE
             return
@@ -205,6 +214,7 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
 
         this.accountId = accountId
         this.tokenBalance = tokenBalance
+        this.baseCurrency = baseCurrency
         updateTheme(forceUpdate = lastChanged)
 
         val amountCols = 4 + abs(tokenBalance.token.hashCode() % 8)
@@ -246,8 +256,8 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         bottomRightLabel.contentView.setAmount(
             tokenBalance.toBaseCurrency,
             token?.decimals ?: 9,
-            WalletCore.baseCurrency.sign,
-            WalletCore.baseCurrency.decimalsCount,
+            baseCurrency.sign,
+            baseCurrency.decimalsCount,
             true
         )
 
@@ -275,9 +285,10 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
     }
 
     private fun configureStaticTag(text: String) {
+        isShowingStaticTag = true
         topLeftTagLabel.setAmount(text)
         topLeftTagLabel.setGradientColor(
-            intArrayOf(WColor.SecondaryText.color, WColor.SecondaryText.color)
+            arrayOf(WColor.SecondaryText, WColor.SecondaryText)
         )
         topLeftTagLabel.setBackgroundColor(WColor.BadgeBackground.color, 8f.dp)
     }
@@ -303,6 +314,7 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
     }
 
     private fun configureStakingTag(accountId: String, token: MToken?): Boolean {
+        isShowingStaticTag = false
         if (tokenBalance?.isVirtualStakingRow != true && token?.isEarnAvailable != true) {
             return false
         }
@@ -315,9 +327,9 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
 
         if (shouldShow) {
             val gradientColors = if (hasStakingAmount) {
-                intArrayOf(Color.WHITE, Color.WHITE)
+                arrayOf(WColor.White, WColor.White)
             } else {
-                intArrayOf(WColor.EarnGradientLeft.color, WColor.EarnGradientRight.color)
+                arrayOf(WColor.EarnGradientLeft, WColor.EarnGradientRight)
             }
 
             topLeftTagLabel.setGradientColor(gradientColors)

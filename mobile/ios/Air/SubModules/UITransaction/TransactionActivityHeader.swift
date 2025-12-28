@@ -40,7 +40,7 @@ struct TransactionActivityHeader: View {
                 let amount = self.amount
                 AmountText(
                     amount: amount,
-                    format: .init(maxDecimals: amount.defaultDisplayDecimals, showPlus: transaction.isIncoming, showMinus: !transaction.isIncoming),
+                    format: .init(preset: .defaultAdaptive, showPlus: transaction.isIncoming, showMinus: !transaction.isIncoming),
                     integerFont: .rounded(ofSize: 34, weight: .bold),
                     fractionFont: .rounded(ofSize: 28, weight: .bold),
                     symbolFont: .rounded(ofSize: 28, weight: .bold),

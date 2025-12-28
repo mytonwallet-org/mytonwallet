@@ -495,7 +495,7 @@ extension SwapVC: SwapSelectorsDelegate {
     }
     
     private func authorizeDiesel() {
-        let telegramURLString = "https://t.me/MyTonWalletBot?start=auth-\(AccountStore.account?.tonAddress ?? "")"
+        let telegramURLString = "https://t.me/MyTonWalletBot?start=auth-\(AccountStore.account?.addressByChain[TON_CHAIN] ?? "")"
         
         if let telegramURL = URL(string: telegramURLString) {
             if UIApplication.shared.canOpenURL(telegramURL) {

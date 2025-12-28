@@ -403,9 +403,9 @@ class EarnVC(
                 id = View.generateViewId()
                 setStyle(16f)
                 setGradientColor(
-                    intArrayOf(
-                        WColor.EarnGradientLeft.color,
-                        WColor.EarnGradientRight.color
+                    arrayOf(
+                        WColor.EarnGradientLeft,
+                        WColor.EarnGradientRight
                     )
                 )
             },

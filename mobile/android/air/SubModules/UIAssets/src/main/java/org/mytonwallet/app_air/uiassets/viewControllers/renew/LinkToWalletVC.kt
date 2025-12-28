@@ -231,7 +231,7 @@ class LinkToWalletVC(
                             )
                         }"
                     feeLabel.alpha = 0f
-                    feeLabel.fadeIn { }
+                    feeLabel.fadeIn()
                 } else {
                     linkButton.isEnabled = false
                     linkButton.setText(LocaleController.getString("Insufficient Balance"))

@@ -602,7 +602,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         createUpdateButtonIfNeeded()
         updateFloatingButton?.let { button ->
             if (button.alpha < 1f)
-                button.fadeIn { }
+                button.fadeIn()
         }
     }
 

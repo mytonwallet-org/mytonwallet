@@ -261,7 +261,6 @@ extension ActivityVC: UISheetPresentationControllerDelegate {
 #if DEBUG
 //@available(iOS 18, *)
 //#Preview {
-//    let _ = UIFont.registerAirFonts()
 //    ActivityVC(
 //        activity: .transaction(
 //            .init(
