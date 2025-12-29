@@ -7,6 +7,7 @@ import type {
   ApiAccountConfig,
   ApiActivity,
   ApiAnyDisplayError,
+  ApiBackendConfig,
   ApiBalanceBySlug,
   ApiBaseCurrency,
   ApiChain,
@@ -510,6 +511,7 @@ export interface AddressBookItemData {
   name: string;
   address: string;
   chain: ApiChain | undefined;
+  domain?: string;
   isHardware?: boolean;
   isSavedAddress?: boolean;
 }
@@ -780,6 +782,7 @@ export type GlobalState = {
     state: SettingsState;
     theme: Theme;
     animationLevel: AnimationLevel;
+    isSeasonalThemingDisabled?: boolean;
     langCode: LangCode;
     byAccountId: Record<string, AccountSettings>;
     areTinyTransfersHidden?: boolean;
@@ -826,6 +829,8 @@ export type GlobalState = {
   isAppUpdateAvailable?: boolean;
   // Force show the "Update MyTonWallet" pop-up on all platforms
   isAppUpdateRequired?: boolean;
+  seasonalTheme?: ApiBackendConfig['seasonalTheme'];
+  isPromotionModalOpen?: boolean;
   confettiRequestedAt?: number;
   isPinAccepted?: boolean;
   chainForOnRampWidgetModal?: ApiChain;
@@ -1138,6 +1143,7 @@ export interface ActionPayloads {
   closeSettings: undefined;
   setTheme: { theme: Theme };
   setAnimationLevel: { level: AnimationLevel };
+  toggleSeasonalTheming: { isEnabled?: boolean };
   toggleTinyTransfersHidden: { isEnabled?: boolean } | undefined;
   toggleInvestorView: { isEnabled?: boolean } | undefined;
   toggleCanPlaySounds: { isEnabled?: boolean } | undefined;
@@ -1311,6 +1317,8 @@ export interface ActionPayloads {
 
   openMintCardModal: undefined;
   closeMintCardModal: undefined;
+  openPromotionModal: undefined;
+  closePromotionModal: undefined;
   startCardMinting: { type: ApiMtwCardType };
   submitMintCard: { password?: string } | undefined;
   clearMintCardError: undefined;

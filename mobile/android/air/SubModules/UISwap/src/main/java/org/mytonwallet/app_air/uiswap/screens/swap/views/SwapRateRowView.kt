@@ -161,7 +161,7 @@ class SwapRateRowView(
         if (dexView.visibility != dexVisibility) {
             if (dexVisibility == VISIBLE) {
                 dexView.visibility = VISIBLE
-                dexView.fadeIn { }
+                dexView.fadeIn()
             } else {
                 dexView.fadeOut {
                     if (dexVisibility == GONE)

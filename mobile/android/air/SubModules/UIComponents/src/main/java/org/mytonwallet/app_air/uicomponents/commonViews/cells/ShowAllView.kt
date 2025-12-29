@@ -39,6 +39,7 @@ class ShowAllView(
         updateTheme()
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         setBackgroundColor(Color.TRANSPARENT)
         addRippleEffect(WColor.TintRipple.color)

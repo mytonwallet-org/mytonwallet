@@ -45,15 +45,15 @@ class AppearancePaletteAndCardView(
         showBorder = true
     }
 
+    private val circleDrawable = ContextCompat.getDrawable(
+        context,
+        org.mytonwallet.app_air.uicomponents.R.drawable.ic_customize_card
+    )
+
     private val customizeIconView by lazy {
         FrameLayout(context).apply {
             addView(AppCompatImageView(context).apply {
-                setImageDrawable(
-                    ContextCompat.getDrawable(
-                        context,
-                        org.mytonwallet.app_air.uicomponents.R.drawable.ic_customize_card
-                    )
-                )
+                setImageDrawable(circleDrawable)
                 scaleType = ImageView.ScaleType.FIT_XY
             }, LayoutParams(35.dp, 35.dp))
             addView(cardThumbnailView, LayoutParams(24.dp, 16.dp).apply {
@@ -123,6 +123,7 @@ class AppearancePaletteAndCardView(
             ViewConstants.BIG_RADIUS.dp
         )
         titleLabel.setTextColor(WColor.Tint.color)
+        circleDrawable?.setTint(WColor.Tint.color)
         rippleBackground.rippleColor = WColor.BackgroundRipple.color
     }
 

@@ -52,7 +52,7 @@ class ExploreCategoryVC: WViewController {
         super.viewDidLoad()
         exploreVM.refresh()
     }
-    struct Constants {
+    enum Constants {
         static let background = "background"
         static let groupHeader = "groupHeader"
         static let sectionHeader = "sectionHeader"

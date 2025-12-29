@@ -82,6 +82,9 @@ class SendVC(
 ) : WViewControllerWithModelStore(context), WalletCore.EventObserver {
     override val TAG = "Send"
 
+    override val displayedAccount =
+        DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
+
     private val viewModel by lazy { ViewModelProvider(this)[SendViewModel::class.java] }
 
     data class InitialValues(

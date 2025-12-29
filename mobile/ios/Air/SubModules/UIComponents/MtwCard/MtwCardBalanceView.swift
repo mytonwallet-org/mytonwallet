@@ -11,7 +11,7 @@ import WalletContext
 import WalletCore
 import Dependencies
 
-public let fontScalingFactor = max(1, UIScreen.main.bounds.width / 402.0)
+public let fontScalingFactor = max(1, homeCardWidth / (designScreenWidth - 2 * compactInsetSectionHorizontalPadding))
 public let homeCardFontSize: CGFloat = 56 * fontScalingFactor
 public let homeCollapsedFontSize: CGFloat = 40
 
@@ -100,7 +100,7 @@ public struct MtwCardBalanceView: View, Equatable {
             HStack(spacing: 6) {
                 Text(
                     balance.formatAttributed(
-                        format: .init(roundUp: true),
+                        format: .init(preset: .baseCurrencyEquivalent, roundUp: true),
                         integerFont: style.integerFont,
                         fractionFont: style.fractionFont,
                         symbolFont: style.symbolFont,

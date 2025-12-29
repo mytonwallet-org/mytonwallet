@@ -142,11 +142,12 @@ class MiniCardView(context: Context, private val containerWidth: Int) : WView(co
         val balance = BalanceStore.totalBalanceInBaseCurrency(account.accountId)
         balanceView.animateText(
             WBalanceView.AnimateConfig(
-                balance?.toBigInteger(WalletCore.baseCurrency.decimalsCount),
-                WalletCore.baseCurrency.decimalsCount,
-                WalletCore.baseCurrency.sign,
-                false,
-                LocaleController.isRTL
+                amount = balance?.toBigInteger(WalletCore.baseCurrency.decimalsCount),
+                decimals = WalletCore.baseCurrency.decimalsCount,
+                currency = WalletCore.baseCurrency.sign,
+                animated = false,
+                setInstantly = true,
+                forceCurrencyToRight = LocaleController.isRTL
             )
         )
         setPadding(if (isActive()) 3.dp else 1.dp)
@@ -159,11 +160,12 @@ class MiniCardView(context: Context, private val containerWidth: Int) : WView(co
         val balance = BalanceStore.totalBalanceInBaseCurrency(accountId)
         balanceView.animateText(
             WBalanceView.AnimateConfig(
-                balance?.toBigInteger(baseCurrency.decimalsCount),
-                baseCurrency.decimalsCount,
-                baseCurrency.sign,
-                true,
-                LocaleController.isRTL
+                amount = balance?.toBigInteger(baseCurrency.decimalsCount),
+                decimals = baseCurrency.decimalsCount,
+                currency = baseCurrency.sign,
+                animated = true,
+                setInstantly = false,
+                forceCurrencyToRight = LocaleController.isRTL
             )
         )
     }

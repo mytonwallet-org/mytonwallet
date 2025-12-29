@@ -18,7 +18,7 @@ final class TokenExpandableChartView: UIView, WThemedView {
 
     static let collapsedHeight = CGFloat(60)
     static var expandedHeight: CGFloat {
-        30 + 16 + 76 + 0.36 * (UIScreen.main.bounds.width - 32 - 6)
+        30 + 16 + 76 + 0.36 * (screenWidth - 32 - 6)
     }
 
     private let parentProcessorQueue: DispatchQueue
@@ -152,9 +152,8 @@ final class TokenExpandableChartView: UIView, WThemedView {
             guard let amount = Double(newLabel) else {
                 return ""
             }
-            return formatAmountText(amount: amount,
-                                    currency: TokenStore.baseCurrency.sign,
-                                    decimalsCount: tokenDecimals(for: doubleToBigInt(amount, decimals: 9), tokenDecimals: 9))
+            let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(amount, TokenStore.baseCurrency)
+            return baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true)
         }, onHighlightChange: { [weak self] highlight in
             self?.lastHighlight = highlight
             self?.fillLabels()
@@ -337,9 +336,8 @@ final class TokenExpandableChartView: UIView, WThemedView {
             return
         }
         if let lastHighlight {
-            let priceString = formatAmountText(amount: lastHighlight.y,
-                                               currency: TokenStore.baseCurrency.sign,
-                                               decimalsCount: tokenDecimals(for: token.price ?? 0, tokenDecimals: token.decimals))
+            let priceAmount = BaseCurrencyAmount.fromDouble(lastHighlight.y, TokenStore.baseCurrency)
+            let priceString = priceAmount.formatted(.baseCurrencyHighPrecision, roundUp: true)
             let attr = NSAttributedString(string: priceString, attributes: [
                 .font: UIFont.systemFont(ofSize: 16, weight: .medium),
                 .foregroundColor: WTheme.primaryLabel
@@ -356,9 +354,8 @@ final class TokenExpandableChartView: UIView, WThemedView {
             let historyData = scope(data: self.historyData, range: selectedRange)
             let firstPriceInChart = historyData?.first(where: { val in val[1] != 0 })?[1]
             let lastPriceInChart = historyData?.last(where: { val in val[1] != 0 })?[1]
-            let priceString = formatAmountText(amount: lastPriceInChart ?? price,
-                                               currency: TokenStore.baseCurrency.sign,
-                                               decimalsCount: tokenDecimals(for: lastPriceInChart ?? token.price ?? 0, tokenDecimals: token.decimals))
+            let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(lastPriceInChart ?? price, TokenStore.baseCurrency)
+            let priceString = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true)
             let attr = NSAttributedString(string: priceString, attributes: [
                 .font: UIFont.systemFont(ofSize: 16, weight: .medium),
                 .foregroundColor: WTheme.primaryLabel
@@ -390,9 +387,8 @@ final class TokenExpandableChartView: UIView, WThemedView {
             } else {
                 percentChange = nil
             }
-            let priceString = formatAmountText(amount: token.price ?? 0,
-                                               currency: TokenStore.baseCurrency.sign,
-                                               decimalsCount: tokenDecimals(for: token.price ?? 0, tokenDecimals: token.decimals))
+            let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(token.price ?? 0, TokenStore.baseCurrency)
+            let priceString = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true)
             let attr = NSAttributedString(string: priceString, attributes: [
                 .font: UIFont.systemFont(ofSize: 16, weight: .medium),
                 .foregroundColor: WTheme.primaryLabel
@@ -587,8 +583,8 @@ final class TokenExpandableChartView: UIView, WThemedView {
 
             if viewPortHandler.contentWidth < 0 {
                 return (
-                    UIScreen.main.bounds.width - 60,
-                    0.36 * (UIScreen.main.bounds.width - 78),
+                    screenWidth - 60,
+                    0.36 * (screenWidth - 78),
                     41,
                     -22
                 )

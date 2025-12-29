@@ -11,8 +11,6 @@ import UIComponents
 import WalletCore
 import WalletContext
 import OrderedCollections
-import UIPasscode
-import Ledger
 
 @MainActor
 public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDataProtocol {
@@ -118,7 +116,8 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
                             .font(.system(size: 20, weight: .bold))
                         Spacer()
                         if let earnedAmount, earnedAmount > 0 {
-                            Text("\(lang("Earned")): \(formatBigIntText(earnedAmount, currency: earnedSymbol, tokenDecimals: earnedDecimals, decimalsCount: tokenDecimals(for: earnedAmount, tokenDecimals: earnedDecimals)))")
+                            let amount = AnyDecimalAmount(earnedAmount, decimals: earnedDecimals, symbol: earnedSymbol, forceCurrencyToRight: true)
+                            Text("\(lang("Earned")): \(amount.formatted(.defaultAdaptive))")
                                 .font(.system(size: 16))
                                 .foregroundStyle(Color(WTheme.secondaryLabel))
                                 .sensitiveData(alignment: .trailing, cols: 14, rows: 2, cellSize: 8, theme: .adaptive, cornerRadius: 4)
@@ -191,7 +190,7 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
                         self?.claimRewardsViewModel.isConfirming = false
                     }
                 } catch {
-                    topViewController()?.showAlert(error: error)
+                    AppActions.showError(error: error)
                 }
             }
         }

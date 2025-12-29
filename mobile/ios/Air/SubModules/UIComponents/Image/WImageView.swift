@@ -16,9 +16,7 @@ public class WImageView: UIImageView {
                                   options: [.transition(.fade(0.2))])
         } else {
             kf.cancelDownloadTask()
-            if let chain = availableChains.first(where: { chain in
-                chain.tokenSlug == token.slug
-            }) {
+            if let chain = getChainByNativeSlug(token.slug) {
                 image = chain.image
             } else {
                 image = nil

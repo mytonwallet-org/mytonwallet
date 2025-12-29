@@ -39,7 +39,12 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
     open var firstRow: UITableViewCell.Type? { nil }
     open func configureFirstRow(cell: UITableViewCell) {}
     open var isGeneralDataAvailable: Bool { true }
-    open var account: MAccount? { AccountStore.account }
+    open var account: MAccount? {
+        if let accountId = activityViewModel?.accountId {
+            return AccountStore.get(accountId:  accountId)
+        }
+        return nil
+    }
 
     open var activityViewModel: ActivityViewModel? { fatalError("abstract") }
 
@@ -63,8 +68,8 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
                 self.tableView.endUpdates()
             }
         }
-        if case .swap(let swap) = transaction, (swap.status == .pending || swap.status == .pendingTrusted), swap.swapType == .crosschainToWallet, swap.cex?.status.uiStatus == .pending {
-            AppActions.showCrossChainSwapVC(transaction)
+        if case .swap(let swap) = transaction, (swap.status == .pending || swap.status == .pendingTrusted), let account, getSwapType(from: swap.from, to: swap.to, accountChains: account.supportedChains) == .crosschainToWallet, swap.cex?.status.uiStatus == .pending {
+            AppActions.showCrossChainSwapVC(transaction, accountId: account.id)
         } else {
             if let accountId = AccountStore.accountId {
                 AppActions.showActivityDetails(accountId: accountId, activity: transaction)
@@ -75,6 +80,8 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
     // MARK: - Table views
 
     public func setupTableViews(tableViewBottomConstraint: CGFloat) {
+        
+        additionalSafeAreaInsets = insetSectionAdditionalInsets
 
         view.addSubview(tableView)
         NSLayoutConstraint.activate([
@@ -362,7 +369,7 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
     public func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
         if tableView == self.tableView, let sectionId = dataSource?.sectionIdentifier(for: section), case .transactions(_, let date) = sectionId {
             let cell = tableView.dequeueReusableHeaderFooterView(withIdentifier: "Date") as! ActivityDateCell
-            cell.configure(with: date, isFirst: section == 1, shouldFadeOutSkeleton: false)
+            cell.configure(with: date, shouldFadeOutSkeleton: false)
             return cell
         } else if tableView == self.skeletonTableView, section == 1 {
             let cell = tableView.dequeueReusableHeaderFooterView(withIdentifier: "Date") as! ActivityDateCell

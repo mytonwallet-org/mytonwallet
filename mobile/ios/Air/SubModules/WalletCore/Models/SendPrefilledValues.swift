@@ -1,7 +1,7 @@
 
 import WalletContext
 
-public enum NftSendMode {
+public enum NftSendMode: Sendable {
     case send
     case burn
 }

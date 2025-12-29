@@ -87,6 +87,10 @@
 .portraitContainer {
   min-height: calc(var(--vh, 1vh) * 100 - var(--safe-area-top) - #{v.$portraitHeaderHeight});
 
+  &:not(.portraitContainerIsStuck) {
+    z-index: var(--z-container);
+  }
+
   .assetsPanel {
     width: 100%;
     max-width: v.$portraitContentMaxWidth;

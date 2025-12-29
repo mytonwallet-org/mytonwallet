@@ -37,7 +37,6 @@
 		273751852D15F492006D07D1 /* GZip.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB02CBED31B00273547 /* GZip.framework */; };
 		273751872D15F492006D07D1 /* WalletCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BC22CBED31B00273547 /* WalletCore.framework */; };
 		273751892D15F492006D07D1 /* UIDapp.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB82CBED31B00273547 /* UIDapp.framework */; };
-		2737518B2D15F492006D07D1 /* SwiftSignalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB22CBED31B00273547 /* SwiftSignalKit.framework */; };
 		2737518C2D15F492006D07D1 /* UIComponents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB62CBED31B00273547 /* UIComponents.framework */; };
 		2737518D2D15F492006D07D1 /* UIBrowser.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB52CBED31B00273547 /* UIBrowser.framework */; };
 		273751922D15F492006D07D1 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
@@ -56,7 +55,6 @@
 		273751A12D15F492006D07D1 /* WalletContext.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 27CBE7992CAEECD800FB0398 /* WalletContext.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		273751A22D15F492006D07D1 /* UIComponents.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB62CBED31B00273547 /* UIComponents.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		273751A32D15F492006D07D1 /* UISettings.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BBF2CBED31B00273547 /* UISettings.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		273751A42D15F492006D07D1 /* SwiftSignalKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB22CBED31B00273547 /* SwiftSignalKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		273751A52D15F492006D07D1 /* UIInAppBrowser.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BBB2CBED31B00273547 /* UIInAppBrowser.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		273751A72D15F492006D07D1 /* AirAsFramework.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 2791054F2C89BC3B0075D4B5 /* AirAsFramework.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		273751A82D15F492006D07D1 /* UIEarn.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB92CBED31B00273547 /* UIEarn.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -88,8 +86,6 @@
 		27B43BC62CBED31B00273547 /* GZip.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB02CBED31B00273547 /* GZip.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		27B43BC82CBED31B00273547 /* RLottieBinding.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB12CBED31B00273547 /* RLottieBinding.framework */; };
 		27B43BC92CBED31B00273547 /* RLottieBinding.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB12CBED31B00273547 /* RLottieBinding.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		27B43BCA2CBED31B00273547 /* SwiftSignalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB22CBED31B00273547 /* SwiftSignalKit.framework */; };
-		27B43BCB2CBED31B00273547 /* SwiftSignalKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB22CBED31B00273547 /* SwiftSignalKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		27B43BCE2CBED31C00273547 /* UIAssets.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB42CBED31B00273547 /* UIAssets.framework */; };
 		27B43BCF2CBED31C00273547 /* UIAssets.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB42CBED31B00273547 /* UIAssets.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		27B43BD02CBED31C00273547 /* UIBrowser.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB52CBED31B00273547 /* UIBrowser.framework */; };
@@ -209,7 +205,6 @@
 		58F631A02EB8CD8D00A90B79 /* GZip.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB02CBED31B00273547 /* GZip.framework */; };
 		58F631A12EB8CD8D00A90B79 /* WalletCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BC22CBED31B00273547 /* WalletCore.framework */; };
 		58F631A22EB8CD8D00A90B79 /* UIDapp.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB82CBED31B00273547 /* UIDapp.framework */; };
-		58F631A32EB8CD8D00A90B79 /* SwiftSignalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB22CBED31B00273547 /* SwiftSignalKit.framework */; };
 		58F631A42EB8CD8D00A90B79 /* UIComponents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB62CBED31B00273547 /* UIComponents.framework */; };
 		58F631A52EB8CD8D00A90B79 /* UIBrowser.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB52CBED31B00273547 /* UIBrowser.framework */; };
 		58F631A92EB8CD8D00A90B79 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
@@ -229,7 +224,6 @@
 		58F631B82EB8CD8D00A90B79 /* WalletContext.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 27CBE7992CAEECD800FB0398 /* WalletContext.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		58F631B92EB8CD8D00A90B79 /* UIComponents.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB62CBED31B00273547 /* UIComponents.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		58F631BA2EB8CD8D00A90B79 /* UISettings.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BBF2CBED31B00273547 /* UISettings.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		58F631BB2EB8CD8D00A90B79 /* SwiftSignalKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB22CBED31B00273547 /* SwiftSignalKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		58F631BC2EB8CD8D00A90B79 /* UIInAppBrowser.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BBB2CBED31B00273547 /* UIInAppBrowser.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		58F631BD2EB8CD8D00A90B79 /* AirAsFramework.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 2791054F2C89BC3B0075D4B5 /* AirAsFramework.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		58F631BE2EB8CD8D00A90B79 /* UIEarn.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB92CBED31B00273547 /* UIEarn.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -278,7 +272,6 @@
 		58F631FB2EB8CDFA00A90B79 /* GZip.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB02CBED31B00273547 /* GZip.framework */; };
 		58F631FC2EB8CDFA00A90B79 /* WalletCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BC22CBED31B00273547 /* WalletCore.framework */; };
 		58F631FD2EB8CDFA00A90B79 /* UIDapp.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB82CBED31B00273547 /* UIDapp.framework */; };
-		58F631FE2EB8CDFA00A90B79 /* SwiftSignalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB22CBED31B00273547 /* SwiftSignalKit.framework */; };
 		58F631FF2EB8CDFA00A90B79 /* UIComponents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB62CBED31B00273547 /* UIComponents.framework */; };
 		58F632002EB8CDFA00A90B79 /* UIBrowser.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB52CBED31B00273547 /* UIBrowser.framework */; };
 		58F632042EB8CDFA00A90B79 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
@@ -298,7 +291,6 @@
 		58F632132EB8CDFA00A90B79 /* WalletContext.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 27CBE7992CAEECD800FB0398 /* WalletContext.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		58F632142EB8CDFA00A90B79 /* UIComponents.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB62CBED31B00273547 /* UIComponents.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		58F632152EB8CDFA00A90B79 /* UISettings.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BBF2CBED31B00273547 /* UISettings.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		58F632162EB8CDFA00A90B79 /* SwiftSignalKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB22CBED31B00273547 /* SwiftSignalKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		58F632172EB8CDFA00A90B79 /* UIInAppBrowser.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BBB2CBED31B00273547 /* UIInAppBrowser.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		58F632182EB8CDFA00A90B79 /* AirAsFramework.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 2791054F2C89BC3B0075D4B5 /* AirAsFramework.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		58F632192EB8CDFA00A90B79 /* UIEarn.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 27B43BB92CBED31B00273547 /* UIEarn.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -348,7 +340,6 @@
 				273751A12D15F492006D07D1 /* WalletContext.framework in Embed Frameworks */,
 				273751A22D15F492006D07D1 /* UIComponents.framework in Embed Frameworks */,
 				273751A32D15F492006D07D1 /* UISettings.framework in Embed Frameworks */,
-				273751A42D15F492006D07D1 /* SwiftSignalKit.framework in Embed Frameworks */,
 				273751A52D15F492006D07D1 /* UIInAppBrowser.framework in Embed Frameworks */,
 				273751A72D15F492006D07D1 /* AirAsFramework.framework in Embed Frameworks */,
 				273751A82D15F492006D07D1 /* UIEarn.framework in Embed Frameworks */,
@@ -385,7 +376,6 @@
 				27CBE79B2CAEECD800FB0398 /* WalletContext.framework in Embed Frameworks */,
 				27B43BD32CBED31C00273547 /* UIComponents.framework in Embed Frameworks */,
 				27B43BE52CBED31C00273547 /* UISettings.framework in Embed Frameworks */,
-				27B43BCB2CBED31B00273547 /* SwiftSignalKit.framework in Embed Frameworks */,
 				27B43BDD2CBED31C00273547 /* UIInAppBrowser.framework in Embed Frameworks */,
 				279105512C89BC3B0075D4B5 /* AirAsFramework.framework in Embed Frameworks */,
 				27B43BD92CBED31C00273547 /* UIEarn.framework in Embed Frameworks */,
@@ -433,7 +423,6 @@
 				58F631B82EB8CD8D00A90B79 /* WalletContext.framework in Embed Frameworks */,
 				58F631B92EB8CD8D00A90B79 /* UIComponents.framework in Embed Frameworks */,
 				58F631BA2EB8CD8D00A90B79 /* UISettings.framework in Embed Frameworks */,
-				58F631BB2EB8CD8D00A90B79 /* SwiftSignalKit.framework in Embed Frameworks */,
 				58F631BC2EB8CD8D00A90B79 /* UIInAppBrowser.framework in Embed Frameworks */,
 				58F631BD2EB8CD8D00A90B79 /* AirAsFramework.framework in Embed Frameworks */,
 				58F631BE2EB8CD8D00A90B79 /* UIEarn.framework in Embed Frameworks */,
@@ -470,7 +459,6 @@
 				58F632132EB8CDFA00A90B79 /* WalletContext.framework in Embed Frameworks */,
 				58F632142EB8CDFA00A90B79 /* UIComponents.framework in Embed Frameworks */,
 				58F632152EB8CDFA00A90B79 /* UISettings.framework in Embed Frameworks */,
-				58F632162EB8CDFA00A90B79 /* SwiftSignalKit.framework in Embed Frameworks */,
 				58F632172EB8CDFA00A90B79 /* UIInAppBrowser.framework in Embed Frameworks */,
 				58F632182EB8CDFA00A90B79 /* AirAsFramework.framework in Embed Frameworks */,
 				58F632192EB8CDFA00A90B79 /* UIEarn.framework in Embed Frameworks */,
@@ -679,7 +667,6 @@
 				273751852D15F492006D07D1 /* GZip.framework in Frameworks */,
 				273751872D15F492006D07D1 /* WalletCore.framework in Frameworks */,
 				273751892D15F492006D07D1 /* UIDapp.framework in Frameworks */,
-				2737518B2D15F492006D07D1 /* SwiftSignalKit.framework in Frameworks */,
 				2737518C2D15F492006D07D1 /* UIComponents.framework in Frameworks */,
 				2737518D2D15F492006D07D1 /* UIBrowser.framework in Frameworks */,
 				9FCA57A786A1B5604534ADEC /* Pods_MyTonWalletAir.framework in Frameworks */,
@@ -718,7 +705,6 @@
 				27B43BC52CBED31B00273547 /* GZip.framework in Frameworks */,
 				27B43BEB2CBED31C00273547 /* WalletCore.framework in Frameworks */,
 				27B43BD62CBED31C00273547 /* UIDapp.framework in Frameworks */,
-				27B43BCA2CBED31B00273547 /* SwiftSignalKit.framework in Frameworks */,
 				27B43BD22CBED31C00273547 /* UIComponents.framework in Frameworks */,
 				27B43BD02CBED31C00273547 /* UIBrowser.framework in Frameworks */,
 				ECF68AE79A630AA6CE8A6B80 /* (null) in Frameworks */,
@@ -771,7 +757,6 @@
 				58F631A02EB8CD8D00A90B79 /* GZip.framework in Frameworks */,
 				58F631A12EB8CD8D00A90B79 /* WalletCore.framework in Frameworks */,
 				58F631A22EB8CD8D00A90B79 /* UIDapp.framework in Frameworks */,
-				58F631A32EB8CD8D00A90B79 /* SwiftSignalKit.framework in Frameworks */,
 				58F631A42EB8CD8D00A90B79 /* UIComponents.framework in Frameworks */,
 				58F631A52EB8CD8D00A90B79 /* UIBrowser.framework in Frameworks */,
 				0A5CBED435F033B692B7658D /* Pods_MyTonWallet_NoExtensions.framework in Frameworks */,
@@ -808,7 +793,6 @@
 				58F631FB2EB8CDFA00A90B79 /* GZip.framework in Frameworks */,
 				58F631FC2EB8CDFA00A90B79 /* WalletCore.framework in Frameworks */,
 				58F631FD2EB8CDFA00A90B79 /* UIDapp.framework in Frameworks */,
-				58F631FE2EB8CDFA00A90B79 /* SwiftSignalKit.framework in Frameworks */,
 				58F631FF2EB8CDFA00A90B79 /* UIComponents.framework in Frameworks */,
 				58F632002EB8CDFA00A90B79 /* UIBrowser.framework in Frameworks */,
 			);

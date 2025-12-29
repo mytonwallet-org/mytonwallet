@@ -1,3 +1,4 @@
+@use "../../styles/mixins";
 
 .infoBlock {
   position: relative;
@@ -39,6 +40,16 @@
       grid-template-areas: "token amount"
                            "chain amount";
       grid-template-columns: 1fr auto;
+    }
+  }
+
+  &.clickable {
+    cursor: var(--custom-cursor, pointer);
+
+    @include mixins.transition(opacity 150ms);
+
+    &:hover {
+      opacity: 0.85;
     }
   }
 }
@@ -128,6 +139,7 @@
 
 .infoSeparator {
   position: absolute;
+  z-index: 1;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);

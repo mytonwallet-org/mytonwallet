@@ -1,14 +1,11 @@
 import Foundation
-import SwiftSignalKit
 import Compression
 import RLottieBinding
 import GZip
 import UIKit
-
-private let sharedQueue = Queue()
+import Dispatch
 
 public enum AnimatedStickerMode {
-    case cached
     case direct
 }
 
@@ -62,208 +59,7 @@ private protocol AnimatedStickerFrameSource: AnyObject {
     func skipToEnd()
 }
 
-private final class AnimatedStickerFrameSourceWrapper {
-    let value: AnimatedStickerFrameSource
-    
-    init(_ value: AnimatedStickerFrameSource) {
-        self.value = value
-    }
-}
-
-@available(iOS 9.0, *)
-private final class AnimatedStickerCachedFrameSource: AnimatedStickerFrameSource {
-    private let queue: Queue
-    private var data: Data
-    private var dataComplete: Bool
-    private let notifyUpdated: () -> Void
-    
-    private var scratchBuffer: Data
-    let width: Int
-    let bytesPerRow: Int
-    let height: Int
-    let frameRate: Int
-    let frameCount: Int
-    var frameIndex: Int
-    private let initialOffset: Int
-    private var offset: Int
-    var decodeBuffer: Data
-    var frameBuffer: Data
-    var playbackSpeed = 1
-
-    init?(queue: Queue, data: Data, complete: Bool, notifyUpdated: @escaping () -> Void) {
-        self.queue = queue
-        self.data = data
-        self.dataComplete = complete
-        self.notifyUpdated = notifyUpdated
-        self.scratchBuffer = Data(count: compression_decode_scratch_buffer_size(COMPRESSION_LZFSE))
-        
-        var offset = 0
-        var width = 0
-        var height = 0
-        var bytesPerRow = 0
-        var frameRate = 0
-        var frameCount = 0
-        
-        if !self.data.withUnsafeBytes({ (buffer: UnsafeRawBufferPointer) -> Bool in
-            guard let bytes = buffer.bindMemory(to: UInt8.self).baseAddress else {
-                return false
-            }
-            var frameRateValue: Int32 = 0
-            var frameCountValue: Int32 = 0
-            var widthValue: Int32 = 0
-            var heightValue: Int32 = 0
-            var bytesPerRowValue: Int32 = 0
-            memcpy(&frameRateValue, bytes.advanced(by: offset), 4)
-            offset += 4
-            memcpy(&frameCountValue, bytes.advanced(by: offset), 4)
-            offset += 4
-            memcpy(&widthValue, bytes.advanced(by: offset), 4)
-            offset += 4
-            memcpy(&heightValue, bytes.advanced(by: offset), 4)
-            offset += 4
-            memcpy(&bytesPerRowValue, bytes.advanced(by: offset), 4)
-            offset += 4
-            frameRate = Int(frameRateValue)
-            frameCount = Int(frameCountValue)
-            width = Int(widthValue)
-            height = Int(heightValue)
-            bytesPerRow = Int(bytesPerRowValue)
-            
-            return true
-        }) {
-            return nil
-        }
-        
-        self.bytesPerRow = bytesPerRow
-        
-        self.width = width
-        self.height = height
-        self.frameRate = frameRate
-        self.frameCount = frameCount
-        
-        self.frameIndex = 0
-        self.initialOffset = offset
-        self.offset = offset
-        
-        self.decodeBuffer = Data(count: self.bytesPerRow * height)
-        self.frameBuffer = Data(count: self.bytesPerRow * height)
-        let frameBufferLength = self.frameBuffer.count
-        self.frameBuffer.withUnsafeMutableBytes { (buffer: UnsafeMutableRawBufferPointer) in
-            guard let bytes = buffer.bindMemory(to: UInt8.self).baseAddress else {
-                return
-            }
-            memset(bytes, 0, frameBufferLength)
-        }
-    }
-    
-    deinit {
-        assert(self.queue.isCurrent())
-    }
-    
-    func takeFrame() -> AnimatedStickerFrame? {
-        var frameData: Data?
-        var isLastFrame = false
-        
-        let dataLength = self.data.count
-        let decodeBufferLength = self.decodeBuffer.count
-        let frameBufferLength = self.frameBuffer.count
-        
-        let frameIndex = self.frameIndex
-        
-        self.data.withUnsafeBytes { (buffer: UnsafeRawBufferPointer) in
-            guard let bytes = buffer.bindMemory(to: UInt8.self).baseAddress else {
-                return
-            }
-            if self.offset + 4 > dataLength {
-                if self.dataComplete {
-                    self.frameIndex = 0
-                    self.offset = self.initialOffset
-                    self.frameBuffer.withUnsafeMutableBytes { (buffer: UnsafeMutableRawBufferPointer) in
-                        guard let bytes = buffer.bindMemory(to: UInt8.self).baseAddress else {
-                            return
-                        }
-                        memset(bytes, 0, frameBufferLength)
-                    }
-                }
-                return
-            }
-            
-            var frameLength: Int32 = 0
-            memcpy(&frameLength, bytes.advanced(by: self.offset), 4)
-            
-            if self.offset + 4 + Int(frameLength) > dataLength {
-                return
-            }
-            
-            self.offset += 4
-            
-            self.scratchBuffer.withUnsafeMutableBytes { (scratchBuffer: UnsafeMutableRawBufferPointer) in
-                guard let scratchBytes = scratchBuffer.bindMemory(to: UInt8.self).baseAddress else {
-                    return
-                }
-                self.decodeBuffer.withUnsafeMutableBytes { (decodeBuffer: UnsafeMutableRawBufferPointer) in
-                    guard let decodeBytes = decodeBuffer.bindMemory(to: UInt8.self).baseAddress else {
-                        return
-                    }
-                    self.frameBuffer.withUnsafeMutableBytes { (frameBuffer: UnsafeMutableRawBufferPointer) in
-                        guard let frameBytes = frameBuffer.bindMemory(to: UInt8.self).baseAddress else {
-                            return
-                        }
-                        compression_decode_buffer(decodeBytes, decodeBufferLength, bytes.advanced(by: self.offset), Int(frameLength), UnsafeMutableRawPointer(scratchBytes), COMPRESSION_LZFSE)
-                        
-                        var lhs = UnsafeMutableRawPointer(frameBytes).assumingMemoryBound(to: UInt64.self)
-                        var rhs = UnsafeRawPointer(decodeBytes).assumingMemoryBound(to: UInt64.self)
-                        for _ in 0 ..< decodeBufferLength / 8 {
-                            lhs.pointee = lhs.pointee ^ rhs.pointee
-                            lhs = lhs.advanced(by: 1)
-                            rhs = rhs.advanced(by: 1)
-                        }
-                        var lhsRest = UnsafeMutableRawPointer(frameBytes).assumingMemoryBound(to: UInt8.self).advanced(by: (decodeBufferLength / 8) * 8)
-                        var rhsRest = UnsafeMutableRawPointer(decodeBytes).assumingMemoryBound(to: UInt8.self).advanced(by: (decodeBufferLength / 8) * 8)
-                        for _ in (decodeBufferLength / 8) * 8 ..< decodeBufferLength {
-                            lhsRest.pointee = rhsRest.pointee ^ lhsRest.pointee
-                            lhsRest = lhsRest.advanced(by: 1)
-                            rhsRest = rhsRest.advanced(by: 1)
-                        }
-                        
-                        frameData = Data(bytes: frameBytes, count: decodeBufferLength)
-                    }
-                }
-            }
-            
-            self.frameIndex += playbackSpeed
-            self.offset += Int(frameLength)
-            if self.offset == dataLength && self.dataComplete {
-                isLastFrame = true
-                self.frameIndex = 0
-                self.offset = self.initialOffset
-                self.frameBuffer.withUnsafeMutableBytes { (buffer: UnsafeMutableRawBufferPointer) in
-                    guard let bytes = buffer.bindMemory(to: UInt8.self).baseAddress else {
-                        return
-                    }
-                    memset(bytes, 0, frameBufferLength)
-                }
-            }
-        }
-        
-        if let frameData = frameData {
-            return AnimatedStickerFrame(data: frameData, type: .yuva, width: self.width, height: self.height, bytesPerRow: self.bytesPerRow, index: frameIndex, isLastFrame: isLastFrame)
-        } else {
-            return nil
-        }
-    }
-    
-    func updateData(data: Data, complete: Bool) {
-        self.data = data
-        self.dataComplete = complete
-    }
-    
-    func skipToEnd() {
-    }
-}
-
 private final class AnimatedStickerDirectFrameSource: AnimatedStickerFrameSource {
-    private let queue: Queue
     private let data: Data
     private let width: Int
     private let height: Int
@@ -277,8 +73,7 @@ private final class AnimatedStickerDirectFrameSource: AnimatedStickerFrameSource
     var frameIndex: Int = 0
     var playbackSpeed = 1
 
-    init?(queue: Queue, data: Data, width: Int, height: Int) {
-        self.queue = queue
+    init?(data: Data, width: Int, height: Int) {
         self.data = data
         self.width = width
         self.height = height
@@ -291,9 +86,6 @@ private final class AnimatedStickerDirectFrameSource: AnimatedStickerFrameSource
         self.animation = animation
         self.frameCount = Int(animation.frameCount)
         self.frameRate = Int(animation.frameRate)
-    }
-    
-    deinit {
     }
     
     func takeFrame() -> AnimatedStickerFrame? {
@@ -316,19 +108,13 @@ private final class AnimatedStickerDirectFrameSource: AnimatedStickerFrameSource
 }
 
 private final class AnimatedStickerFrameQueue {
-    private let queue: Queue
     private let length: Int
     private let source: AnimatedStickerFrameSource
     private var frames: [AnimatedStickerFrame] = []
     
-    init(queue: Queue, length: Int, source: AnimatedStickerFrameSource) {
-        self.queue = queue
+    init(length: Int, source: AnimatedStickerFrameSource) {
         self.length = length
         self.source = source
-    }
-    
-    deinit {
-        assert(self.queue.isCurrent())
     }
     
     func take() -> AnimatedStickerFrame? {
@@ -354,44 +140,17 @@ private final class AnimatedStickerFrameQueue {
     }
 }
 
-public struct AnimatedStickerStatus: Equatable {
-    public let playing: Bool
-    public let duration: Double
-    public let timestamp: Double
-    
-    public init(playing: Bool, duration: Double, timestamp: Double) {
-        self.playing = playing
-        self.duration = duration
-        self.timestamp = timestamp
-    }
-}
-
-public protocol AnimatedStickerNodeSource {
-    func cachedDataPath(width: Int, height: Int) -> Signal<(String, Bool), NoError>
-    func directDataPath() -> Signal<String, NoError>
-}
-
-public final class AnimatedStickerNodeLocalFileSource: AnimatedStickerNodeSource {
+public struct AnimatedStickerNodeLocalFileSource {
     public let path: String
     
     public init(path: String) {
         self.path = path
     }
-    
-    public func directDataPath() -> Signal<String, NoError> {
-        return .single(self.path)
-    }
-    
-    public func cachedDataPath(width: Int, height: Int) -> Signal<(String, Bool), NoError> {
-        return .never()
-    }
 }
 
 final class AnimatedStickerNode: UIView {
-    private let queue: Queue
-    private let disposable = MetaDisposable()
-    private let fetchDisposable = MetaDisposable()
-    //private let eventsNode: AnimatedStickerNodeDisplayEvents
+    private let queue = DispatchQueue(label: "org.mytonwallet.animatedsticker.queue", qos: .userInitiated)
+    private var timer: DispatchSourceTimer?
     
     public var automaticallyLoadFirstFrame: Bool = false
     public var playToCompletionOnStop: Bool = false
@@ -399,11 +158,10 @@ final class AnimatedStickerNode: UIView {
     public var started: () -> Void = {}
     private var reportedStarted = false
     
-    private let timer = Atomic<SwiftSignalKit.Timer?>(value: nil)
-    private let frameSource = Atomic<QueueLocalObject<AnimatedStickerFrameSourceWrapper>?>(value: nil)
+    private var frameSource: AnimatedStickerFrameSource?
+    private var frameQueue: AnimatedStickerFrameQueue?
     
     private var directData: (Data, String, Int, Int)?
-    private var cachedData: (Data, Bool)?
     
     private var renderer: (AnimationRenderer & UIView)?
     
@@ -411,8 +169,6 @@ final class AnimatedStickerNode: UIView {
     private var canDisplayFirstFrame: Bool = false
     var playbackMode: AnimatedStickerPlaybackMode = .loop {
         didSet {
-            // we check if animation toggled and we can go to the desired mode faster, with reverse playback
-            let frameSource: AnimatedStickerFrameSource? = frameSource.with { $0 }?.syncWith { $0 }?.value
             guard let frameSource else {return}
             switch oldValue {
             case .toggle(let on):
@@ -438,11 +194,6 @@ final class AnimatedStickerNode: UIView {
         }
     }
     
-    private let playbackStatus = Promise<AnimatedStickerStatus>()
-    public var status: Signal<AnimatedStickerStatus, NoError> {
-        return self.playbackStatus.get()
-    }
-    
     public var visibility = false {
         didSet {
             if self.visibility != oldValue {
@@ -460,19 +211,6 @@ final class AnimatedStickerNode: UIView {
     }
     
     override init(frame: CGRect) {
-        self.queue = sharedQueue
-//        self.eventsNode = AnimatedStickerNodeDisplayEvents()
-//
-//        super.init()
-//
-//        self.eventsNode.updated = { [weak self] value in
-//            guard let strongSelf = self else {
-//                return
-//            }
-//            strongSelf.isDisplaying = value
-//        }
-//        self.addSubnode(self.eventsNode)
-
         super.init(frame: frame)
     }
     
@@ -481,9 +219,8 @@ final class AnimatedStickerNode: UIView {
     }
     
     deinit {
-        self.disposable.dispose()
-        self.fetchDisposable.dispose()
-        self.timer.swap(nil)?.invalidate()
+        timer?.cancel()
+        timer = nil
     }
     
     func didLoad() {
@@ -497,7 +234,7 @@ final class AnimatedStickerNode: UIView {
         self.addSubview(self.renderer!)
     }
 
-    public func setup(source: AnimatedStickerNodeSource,
+    public func setup(source: AnimatedStickerNodeLocalFileSource,
                       width: Int,
                       height: Int,
                       playbackMode: AnimatedStickerPlaybackMode = .loop,
@@ -506,61 +243,25 @@ final class AnimatedStickerNode: UIView {
             return
         }
         self.playbackMode = playbackMode
-        switch mode {
-        case .direct:
-            let f: (String) -> Void = { [weak self] path in
-                guard let strongSelf = self else {
-                    return
-                }
-                if let directData = try? Data(contentsOf: URL(fileURLWithPath: path), options: [.mappedRead]) {
-                    strongSelf.directData = (directData, path, width, height)
-                }
-                if case let .still(position) = playbackMode {
-                    strongSelf.seekTo(position)
-                } else if strongSelf.isPlaying {
-                    strongSelf.play()
-                } else if strongSelf.canDisplayFirstFrame {
-                    strongSelf.play(firstFrame: true)
-                }
-            }
-            self.disposable.set((source.directDataPath()
-            |> deliverOnMainQueue).start(next: { path in
-                f(path)
-            }))
-        case .cached:
-            self.disposable.set((source.cachedDataPath(width: width, height: height)
-            |> deliverOnMainQueue).start(next: { [weak self] path, complete in
-                guard let strongSelf = self else {
-                    return
-                }
-                if let data = try? Data(contentsOf: URL(fileURLWithPath: path), options: [.mappedRead]) {
-                    if let (_, currentComplete) = strongSelf.cachedData {
-                        if !currentComplete {
-                            strongSelf.cachedData = (data, complete)
-                            strongSelf.frameSource.with { frameSource in
-                                frameSource?.with { frameSource in
-                                    if let frameSource = frameSource.value as? AnimatedStickerCachedFrameSource {
-                                        frameSource.updateData(data: data, complete: complete)
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        strongSelf.cachedData = (data, complete)
-                        if strongSelf.isPlaying {
-                            strongSelf.play()
-                        } else if strongSelf.canDisplayFirstFrame {
-                            strongSelf.play(firstFrame: true)
-                        }
-                    }
-                }
-            }))
+        guard mode == .direct else { return }
+        let path = source.path
+        if let directData = try? Data(contentsOf: URL(fileURLWithPath: path), options: [.mappedRead]) {
+            self.directData = (directData, path, width, height)
+        }
+        if case let .still(position) = playbackMode {
+            self.seekTo(position)
+        } else if self.isPlaying {
+            self.play()
+        } else if self.canDisplayFirstFrame {
+            self.play(firstFrame: true)
         }
     }
     
     public func reset() {
-        self.disposable.set(nil)
-        self.fetchDisposable.set(nil)
+        timer?.cancel()
+        timer = nil
+        frameSource = nil
+        frameQueue = nil
     }
     
     private func updateIsPlaying() {
@@ -585,178 +286,89 @@ final class AnimatedStickerNode: UIView {
     private var isSetUpForPlayback = false
     
     public func play(firstFrame: Bool = false) {
-        if self.isSetUpForPlayback {
-            let directData = self.directData
-            let cachedData = self.cachedData
-            let queue = self.queue
-            let timerHolder = self.timer
-            let frameSourceHolder = self.frameSource
-            self.queue.async { [weak self] in
-                var maybeFrameSource: AnimatedStickerFrameSource? = frameSourceHolder.with { $0 }?.syncWith { $0 }?.value
-                if maybeFrameSource == nil {
-                    let notifyUpdated: (() -> Void)? = nil
-                    if let directData = directData {
-                        maybeFrameSource = AnimatedStickerDirectFrameSource(queue: queue, data: directData.0, width: directData.2, height: directData.3)
-                    } else if let (cachedData, cachedDataComplete) = cachedData {
-                        if #available(iOS 9.0, *) {
-                            maybeFrameSource = AnimatedStickerCachedFrameSource(queue: queue, data: cachedData, complete: cachedDataComplete, notifyUpdated: {
-                                notifyUpdated?()
-                            })
-                        }
-                    }
-                    let _ = frameSourceHolder.swap(maybeFrameSource.flatMap { maybeFrameSource in
-                        return QueueLocalObject(queue: queue, generate: {
-                            return AnimatedStickerFrameSourceWrapper(maybeFrameSource)
-                        })
-                    })
-                }
-                guard let frameSource = maybeFrameSource else {
-                    return
-                }
-                let frameQueue = QueueLocalObject<AnimatedStickerFrameQueue>(queue: queue, generate: {
-                    return AnimatedStickerFrameQueue(queue: queue, length: 1, source: frameSource)
-                })
-                timerHolder.swap(nil)?.invalidate()
-                
-                let duration: Double = frameSource.frameRate > 0 ? Double(frameSource.frameCount) / Double(frameSource.frameRate) : 0
-                let frameRate = frameSource.frameRate
-                
-                let timer = SwiftSignalKit.Timer(timeout: 1.0 / Double(frameRate), repeat: !firstFrame, completion: {
-                    let maybeFrame = frameQueue.syncWith { frameQueue in
-                        return frameQueue.take()
-                    }
-                    if let maybeFrame = maybeFrame, let frame = maybeFrame {
-                        Queue.mainQueue().async {
-                            guard let strongSelf = self else {
-                                return
-                            }
-                            
-                            strongSelf.renderer?.render(queue: strongSelf.queue, width: frame.width, height: frame.height, bytesPerRow: frame.bytesPerRow, data: frame.data, type: frame.type, completion: {
-                                guard let strongSelf = self else {
-                                    return
-                                }
-                                if !strongSelf.reportedStarted {
-                                    strongSelf.reportedStarted = true
-                                    strongSelf.started()
-                                }
-                            })
-                            
-                            if case .once = strongSelf.playbackMode, frame.isLastFrame {
-                                strongSelf.stop()
-                                strongSelf.isPlaying = false
-                            }
-                            // check if mode is `toggle`, and we are in the desired state. If so, pause!
-                            if case .toggle(true) = strongSelf.playbackMode, frameSource.frameIndex == frameSource.frameCount / 2 {
-                                strongSelf.pause()
-                                strongSelf.isPlaying = false
-                            }
-                            if case .toggle(false) = strongSelf.playbackMode, frameSource.frameIndex == 1 { // == 1 means it rendered frame 0
-                                strongSelf.pause()
-                                strongSelf.isPlaying = false
-                            }
-
-                            let timestamp: Double = frameRate > 0 ? Double(frame.index) / Double(frameRate) : 0
-                            strongSelf.playbackStatus.set(.single(AnimatedStickerStatus(playing: strongSelf.isPlaying, duration: duration, timestamp: timestamp)))
-                        }
-                    }
-                    frameQueue.with { frameQueue in
-                        frameQueue.generateFramesIfNeeded()
-                    }
-                }, queue: queue)
-                let _ = timerHolder.swap(timer)
-                timer.start()
-            }
-        } else {
+        if !self.isSetUpForPlayback {
             self.isSetUpForPlayback = true
-            let directData = self.directData
-            let cachedData = self.cachedData
-            let queue = self.queue
-            let timerHolder = self.timer
-            let frameSourceHolder = self.frameSource
-            self.queue.async { [weak self] in
-                var maybeFrameSource: AnimatedStickerFrameSource?
-                let notifyUpdated: (() -> Void)? = nil
-                if let directData = directData {
-                    maybeFrameSource = AnimatedStickerDirectFrameSource(queue: queue, data: directData.0, width: directData.2, height: directData.3)
-                } else if let (cachedData, cachedDataComplete) = cachedData {
-                    if #available(iOS 9.0, *) {
-                        maybeFrameSource = AnimatedStickerCachedFrameSource(queue: queue, data: cachedData, complete: cachedDataComplete, notifyUpdated: {
-                            notifyUpdated?()
-                        })
-                    }
-                }
-                let _ = frameSourceHolder.swap(maybeFrameSource.flatMap { maybeFrameSource in
-                    return QueueLocalObject(queue: queue, generate: {
-                        return AnimatedStickerFrameSourceWrapper(maybeFrameSource)
-                    })
-                })
-                guard let frameSource = maybeFrameSource else {
-                    return
-                }
-                let frameQueue = QueueLocalObject<AnimatedStickerFrameQueue>(queue: queue, generate: {
-                    return AnimatedStickerFrameQueue(queue: queue, length: 1, source: frameSource)
-                })
-                timerHolder.swap(nil)?.invalidate()
-                
-                let duration: Double = frameSource.frameRate > 0 ? Double(frameSource.frameCount) / Double(frameSource.frameRate) : 0
-                let frameRate = frameSource.frameRate
-                
-                let timer = SwiftSignalKit.Timer(timeout: 1.0 / Double(frameRate), repeat: !firstFrame, completion: {
-                    let maybeFrame = frameQueue.syncWith { frameQueue in
-                        return frameQueue.take()
-                    }
-                    if let maybeFrame = maybeFrame, let frame = maybeFrame {
-                        Queue.mainQueue().async {
-                            guard let strongSelf = self else {
-                                return
-                            }
-                            
-                            strongSelf.renderer?.render(queue: strongSelf.queue, width: frame.width, height: frame.height, bytesPerRow: frame.bytesPerRow, data: frame.data, type: frame.type, completion: {
-                                guard let strongSelf = self else {
-                                    return
-                                }
-                                if !strongSelf.reportedStarted {
-                                    strongSelf.reportedStarted = true
-                                    strongSelf.started()
-                                }
-                            })
-                            
-                            if case .once = strongSelf.playbackMode, frame.isLastFrame {
-                                strongSelf.stop()
-                                strongSelf.isPlaying = false
-                            }
-                            // check if mode is `toggle`, and we are in the desired state. If so, pause!
-                            if case .toggle(true) = strongSelf.playbackMode, frameSource.frameIndex == frameSource.frameCount / 2 {
-                                strongSelf.pause()
-                                strongSelf.isPlaying = false
-                            }
-                            if case .toggle(false) = strongSelf.playbackMode, frameSource.frameIndex == 1 { // == 1 means it rendered frame 0
-                                strongSelf.pause()
-                                strongSelf.isPlaying = false
-                            }
-                            
-                            let timestamp: Double = frameRate > 0 ? Double(frame.index) / Double(frameRate) : 0
-                            strongSelf.playbackStatus.set(.single(AnimatedStickerStatus(playing: strongSelf.isPlaying, duration: duration, timestamp: timestamp)))
-                        }
-                    }
-                    frameQueue.with { frameQueue in
-                        frameQueue.generateFramesIfNeeded()
-                    }
-                }, queue: queue)
-                let _ = timerHolder.swap(timer)
-                timer.start()
-            }
         }
+        startPlayback(firstFrame: firstFrame)
+    }
+    
+    private func startPlayback(firstFrame: Bool) {
+        guard let directData else {
+            return
+        }
+        if frameSource == nil {
+            frameSource = AnimatedStickerDirectFrameSource(data: directData.0, width: directData.2, height: directData.3)
+        }
+        guard let frameSource else {
+            return
+        }
+        frameQueue = AnimatedStickerFrameQueue(length: 1, source: frameSource)
+        timer?.cancel()
+        timer = nil
+        
+        if firstFrame {
+            if let frame = frameQueue?.take() {
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    self.renderer?.render(queue: self.queue, width: frame.width, height: frame.height, bytesPerRow: frame.bytesPerRow, data: frame.data, type: frame.type, completion: { [weak self] in
+                        guard let self else { return }
+                        if !self.reportedStarted {
+                            self.reportedStarted = true
+                            self.started()
+                        }
+                    })
+                }
+            }
+            return
+        }
+        
+        let frameRate = frameSource.frameRate
+        let interval = frameRate > 0 ? 1.0 / Double(frameRate) : 0.033
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now(), repeating: interval, leeway: .milliseconds(1))
+        timer.setEventHandler { [weak self] in
+            guard let self, let frameQueue = self.frameQueue else { return }
+            let frame = frameQueue.take()
+            guard let frame else { return }
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.renderer?.render(queue: self.queue, width: frame.width, height: frame.height, bytesPerRow: frame.bytesPerRow, data: frame.data, type: frame.type, completion: { [weak self] in
+                    guard let self else { return }
+                    if !self.reportedStarted {
+                        self.reportedStarted = true
+                        self.started()
+                    }
+                })
+                
+                if case .once = self.playbackMode, frame.isLastFrame {
+                    self.stop()
+                    self.isPlaying = false
+                }
+                if case .toggle(true) = self.playbackMode, frameSource.frameIndex == frameSource.frameCount / 2 {
+                    self.pause()
+                    self.isPlaying = false
+                }
+                if case .toggle(false) = self.playbackMode, frameSource.frameIndex == 1 {
+                    self.pause()
+                    self.isPlaying = false
+                }
+            }
+            frameQueue.generateFramesIfNeeded()
+        }
+        self.timer = timer
+        timer.resume()
     }
     
     public func pause() {
-        self.timer.swap(nil)?.invalidate()
+        timer?.cancel()
+        timer = nil
     }
     
     public func stop() {
         self.isSetUpForPlayback = false
         self.reportedStarted = false
-        self.timer.swap(nil)?.invalidate()
+        timer?.cancel()
+        timer = nil
         if self.playToCompletionOnStop {
             self.seekTo(.start)
         }
@@ -765,56 +377,30 @@ final class AnimatedStickerNode: UIView {
     public func seekTo(_ position: AnimatedStickerPlaybackPosition) {
         self.isPlaying = false
         
-        let directData = self.directData
-        let cachedData = self.cachedData
-        let queue = self.queue
-        let timerHolder = self.timer
-        self.queue.async { [weak self] in
-            var maybeFrameSource: AnimatedStickerFrameSource?
-            if let directData = directData {
-                maybeFrameSource = AnimatedStickerDirectFrameSource(queue: queue, data: directData.0, width: directData.2, height: directData.3)
-                if position == .end {
-                    maybeFrameSource?.skipToEnd()
-                }
-            } else if let (cachedData, cachedDataComplete) = cachedData {
-                if #available(iOS 9.0, *) {
-                    maybeFrameSource = AnimatedStickerCachedFrameSource(queue: queue, data: cachedData, complete: cachedDataComplete, notifyUpdated: {})
-                }
-            }
-            guard let frameSource = maybeFrameSource else {
-                return
-            }
-            let frameQueue = QueueLocalObject<AnimatedStickerFrameQueue>(queue: queue, generate: {
-                return AnimatedStickerFrameQueue(queue: queue, length: 1, source: frameSource)
-            })
-            timerHolder.swap(nil)?.invalidate()
-            
-            let duration: Double = frameSource.frameRate > 0 ? Double(frameSource.frameCount) / Double(frameSource.frameRate) : 0
-            
-            let maybeFrame = frameQueue.syncWith { frameQueue in
-                return frameQueue.take()
-            }
-            if let maybeFrame = maybeFrame, let frame = maybeFrame {
-                Queue.mainQueue().async {
-                    guard let strongSelf = self else {
-                        return
+        guard let directData else {
+            return
+        }
+        frameSource = AnimatedStickerDirectFrameSource(data: directData.0, width: directData.2, height: directData.3)
+        if position == .end {
+            frameSource?.skipToEnd()
+        }
+        guard let frameSource else {
+            return
+        }
+        frameQueue = AnimatedStickerFrameQueue(length: 1, source: frameSource)
+        timer?.cancel()
+        timer = nil
+        
+        if let frame = frameQueue?.take() {
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.renderer?.render(queue: self.queue, width: frame.width, height: frame.height, bytesPerRow: frame.bytesPerRow, data: frame.data, type: frame.type, completion: { [weak self] in
+                    guard let self else { return }
+                    if !self.reportedStarted {
+                        self.reportedStarted = true
+                        self.started()
                     }
-                    
-                    strongSelf.renderer?.render(queue: strongSelf.queue, width: frame.width, height: frame.height, bytesPerRow: frame.bytesPerRow, data: frame.data, type: frame.type, completion: {
-                        guard let strongSelf = self else {
-                            return
-                        }
-                        if !strongSelf.reportedStarted {
-                            strongSelf.reportedStarted = true
-                            strongSelf.started()
-                        }
-                    })
-
-                    strongSelf.playbackStatus.set(.single(AnimatedStickerStatus(playing: false, duration: duration, timestamp: 0.0)))
-                }
-            }
-            frameQueue.with { frameQueue in
-                frameQueue.generateFramesIfNeeded()
+                })
             }
         }
     }

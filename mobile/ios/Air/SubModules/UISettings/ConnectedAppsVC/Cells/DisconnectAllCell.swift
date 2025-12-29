@@ -8,7 +8,6 @@
 import Foundation
 import UIKit
 import UIComponents
-import WalletCore
 import WalletContext
 
 public class DisconnectAllCell: UITableViewCell, WThemedView {

@@ -89,9 +89,10 @@ class TokenVC(context: Context, private var account: MAccount, var token: MToken
         val TRANSACTION_CELL = WCell.Type(4)
         val EMPTY_VIEW_CELL = WCell.Type(5)
         val TRANSACTION_SMALL_CELL = WCell.Type(6)
+        val TRANSACTION_SMALL_FIRST_IN_DAY_CELL = WCell.Type(7)
 
-        val SKELETON_HEADER_CELL = WCell.Type(6)
-        val SKELETON_CELL = WCell.Type(7)
+        val SKELETON_HEADER_CELL = WCell.Type(8)
+        val SKELETON_CELL = WCell.Type(9)
 
         const val HEADER_SECTION = 0
         const val TRANSACTION_SECTION = 1
@@ -213,6 +214,7 @@ class TokenVC(context: Context, private var account: MAccount, var token: MToken
                 CHART_CELL,
                 TRANSACTION_CELL,
                 TRANSACTION_SMALL_CELL,
+                TRANSACTION_SMALL_FIRST_IN_DAY_CELL,
                 EMPTY_VIEW_CELL,
                 SKELETON_CELL
             )
@@ -456,7 +458,7 @@ class TokenVC(context: Context, private var account: MAccount, var token: MToken
         headerView.updateScroll(dy)
         val actionsLayoutFadeOutPercent =
             max(0f, min(1f, 1 + (headerView.contentHeight - dy.toFloat() - 12.dp) / 92.dp))
-        actionsView?.fadeOutPercent = actionsLayoutFadeOutPercent
+        actionsView?.fadeInPercent = actionsLayoutFadeOutPercent
         val alpha = min(
             1f,
             max(
@@ -557,14 +559,15 @@ class TokenVC(context: Context, private var account: MAccount, var token: MToken
             }
 
             else -> {
-                if (indexPath.row < (showingTransactions?.size ?: 0)) {
-                    showingTransactions!![indexPath.row].let { transaction ->
-                        if (transaction.isNft ||
-                            (transaction as? MApiTransaction.Transaction)?.hasComment == true
-                        ) TRANSACTION_CELL else TRANSACTION_SMALL_CELL
-                    }
-                } else
-                    HEADER_CELL
+                val tx = showingTransactions?.getOrNull(indexPath.row)
+                return tx?.let { transaction ->
+                    if (transaction.isNft ||
+                        (transaction as? MApiTransaction.Transaction)?.hasComment == true
+                    ) TRANSACTION_CELL else if (indexPath.row == 0 || !transaction.dt.isSameDayAs(
+                            showingTransactions!![indexPath.row - 1].dt
+                        )
+                    ) TRANSACTION_SMALL_FIRST_IN_DAY_CELL else TRANSACTION_SMALL_CELL
+                } ?: HEADER_CELL
             }
         }
     }
@@ -617,7 +620,8 @@ class TokenVC(context: Context, private var account: MAccount, var token: MToken
             }
 
             TRANSACTION_CELL -> {
-                val cell = ActivityCell(recyclerView, withoutTagAndComment = false)
+                val cell =
+                    ActivityCell(recyclerView, withoutTagAndComment = false, isFirstInDay = null)
                 cell.onTap = { transaction ->
                     onTransactionTap(transaction)
                 }
@@ -625,7 +629,17 @@ class TokenVC(context: Context, private var account: MAccount, var token: MToken
             }
 
             TRANSACTION_SMALL_CELL -> {
-                val cell = ActivityCell(recyclerView, withoutTagAndComment = true)
+                val cell =
+                    ActivityCell(recyclerView, withoutTagAndComment = true, isFirstInDay = false)
+                cell.onTap = { transaction ->
+                    onTransactionTap(transaction)
+                }
+                cell
+            }
+
+            TRANSACTION_SMALL_FIRST_IN_DAY_CELL -> {
+                val cell =
+                    ActivityCell(recyclerView, withoutTagAndComment = true, isFirstInDay = true)
                 cell.onTap = { transaction ->
                     onTransactionTap(transaction)
                 }
@@ -751,6 +765,7 @@ class TokenVC(context: Context, private var account: MAccount, var token: MToken
         super.updateTheme()
         view.setBackgroundColor(WColor.SecondaryBackground.color)
         updateSkeletonState()
+        headerView.updateTheme()
         rvAdapter.reloadData()
     }
 

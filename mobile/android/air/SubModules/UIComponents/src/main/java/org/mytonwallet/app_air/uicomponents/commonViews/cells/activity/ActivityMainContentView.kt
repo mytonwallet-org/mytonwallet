@@ -148,7 +148,6 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
         if (transaction.isEmulation) {
             topLeftLabel.setPadding(0, 10.dp, 0, 0)
         }
-        updateTheme()
     }
 
     fun updateTheme() {

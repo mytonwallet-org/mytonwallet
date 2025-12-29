@@ -6,15 +6,12 @@
 //
 
 import Foundation
-import UICreateWallet
 import WalletContext
 import WalletCore
 
 private let log = Log("SplashVM")
 
 protocol SplashVMDelegate: AnyObject {
-    func errorOccured()
-    
     // called when user does not have a wallet yet
     func navigateToIntro()
     

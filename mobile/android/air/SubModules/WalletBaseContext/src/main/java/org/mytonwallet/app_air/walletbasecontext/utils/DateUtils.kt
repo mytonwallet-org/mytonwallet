@@ -35,19 +35,24 @@ fun Date.isSameYearAs(date2: Date): Boolean {
     return thisYear == otherYear
 }
 
+private val dateFormatCache = mutableMapOf<Pair<String, Locale>, SimpleDateFormat>()
 fun Date.formatDateAndTime(format: String? = null): String {
-    val isRussian = WBaseStorage.getActiveLanguage() == WLanguage.RUSSIAN.langCode
-    val defaultFormat = when {
-        isRussian && isSameYearAs(Date()) -> "d MMM, HH:mm"
+    val now = Date()
+    val isSameYear = isSameYearAs(now)
+    val languageCode = WBaseStorage.getActiveLanguage()
+    val isRussian = languageCode == WLanguage.RUSSIAN.langCode
+    val pattern = format ?: when {
+        isRussian && isSameYear -> "d MMM, HH:mm"
         isRussian -> "d MMM yyyy, HH:mm"
-        isSameYearAs(Date()) -> "MMM dd, HH:mm"
+        isSameYear -> "MMM dd, HH:mm"
         else -> "MMM dd yyyy, HH:mm"
     }
-    val dateFormat = SimpleDateFormat(
-        format ?: defaultFormat,
-        Locale(WBaseStorage.getActiveLanguage())
-    );
-    return dateFormat.format(this);
+    val locale = Locale(languageCode)
+    val key = pattern to locale
+    val formatter = dateFormatCache.getOrPut(key) {
+        SimpleDateFormat(pattern, locale)
+    }
+    return formatter.format(this)
 }
 
 fun Date.formatDateAndTime(period: MHistoryTimePeriod): String {

@@ -11,7 +11,6 @@ import UIPasscode
 import UIComponents
 import WalletCore
 import WalletContext
-import Ledger
 import Dependencies
 
 public class ConnectDappVC: WViewController, UISheetPresentationControllerDelegate {
@@ -100,6 +99,6 @@ public class ConnectDappVC: WViewController, UISheetPresentationControllerDelega
 #Preview {
 //    let vc = ConnectDappVC(placeholderAccountId: "0-maiinet")
     let vc = ConnectDappVC(request: .sample, onConfirm: { _, _ in }, onCancel: {})
-    sheetPreview(vc)
+    previewSheet(vc)
 }
 #endif

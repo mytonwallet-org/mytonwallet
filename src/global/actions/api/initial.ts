@@ -20,6 +20,7 @@ addActionHandler('initApi', async (global, actions) => {
     isNativeBottomSheet: IS_DELEGATED_BOTTOM_SHEET,
     isIosApp: IS_IOS_APP,
     isAndroidApp: IS_ANDROID_APP,
+    langCode: global.settings.langCode,
     referrer: new URLSearchParams(window.location.search).get('r') ?? undefined,
     accountIds,
   });

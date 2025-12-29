@@ -12,7 +12,7 @@ import WalletContext
 public struct TokenAmountEntrySection: View {
     
     @Binding public var amount: BigInt?
-    public var token: ApiToken?
+    public var token: ApiToken
     public var balance: BigInt?
     public var showMaxAmount: Bool
     public var insufficientFunds: Bool
@@ -27,7 +27,7 @@ public struct TokenAmountEntrySection: View {
     
     public init(
         amount: Binding<BigInt?>,
-        token: ApiToken?,
+        token: ApiToken,
         balance: BigInt?,
         showMaxAmount: Bool = true,
         insufficientFunds: Bool,
@@ -81,7 +81,7 @@ public struct TokenAmountEntrySection: View {
                 Text(lang("Amount"))
                 Spacer()
                 let balance = balance ?? 0
-                if let token, showMaxAmount {
+                if showMaxAmount {
                     UseAllButton(
                         amount: DecimalAmount(balance, token),
                         onTap: {
@@ -105,7 +105,7 @@ public struct TokenAmountEntrySection: View {
         if switchedToBaseCurrencyInput {
             TokenStore.baseCurrency.decimalsCount
         } else {
-            token?.decimals ?? 9
+            token.decimals
         }
     }
 
@@ -114,20 +114,18 @@ public struct TokenAmountEntrySection: View {
         HStack(spacing: 1) {
             if switchedToBaseCurrencyInput {
                 let amount = amount ?? 0
-                if let token {
-                    Text(
-                        amount: DecimalAmount(amount, token),
-                        format: .init()
-                    )
-                    Image("SendInCurrency", bundle: AirBundle)
-                }
+                Text(
+                    amount: DecimalAmount(amount, token),
+                    format: .init()
+                )
+                Image("SendInCurrency", bundle: AirBundle)
                 
             } else {
                 let amount = amountInBaseCurrency ?? 0
                 let baseCurrency = TokenStore.baseCurrency
                 Text(
-                    amount: DecimalAmount(amount, baseCurrency),
-                    format: .init()
+                    amount: BaseCurrencyAmount(amount, baseCurrency),
+                    format: .init(preset: .baseCurrencyEquivalent)
                 )
                 if allowSwitchingToBaseCurrency {
                     Image("SendInCurrency", bundle: AirBundle)
@@ -148,7 +146,7 @@ public struct TokenAmountEntrySection: View {
     
     @ViewBuilder
     var feeView: some View {
-        if let token, let nativeToken = TokenStore.tokens[ApiChain(rawValue: token.chain)?.tokenSlug ?? ""] {
+        if let nativeToken = TokenStore.tokens[ApiChain(rawValue: token.chain)?.nativeToken.slug ?? ""] {
             FeeView(token: token, nativeToken: nativeToken, fee: fee, explainedTransferFee: explainedFee, includeLabel: true)
                 .transition(.opacity)
         }

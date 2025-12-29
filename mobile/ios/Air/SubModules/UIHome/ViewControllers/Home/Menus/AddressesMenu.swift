@@ -9,7 +9,7 @@ import Dependencies
 struct AddressesMenuContentRow: Identifiable {
     var chain: ApiChain
     var accountChain: AccountChain
-    var id: String { "0-" + chain.tokenSlug }
+    var id: String { "0-" + chain.nativeToken.slug }
 }
 
 nonisolated func makeAddressesMenuConfig(accountId: String) -> () -> MenuConfig {
@@ -40,7 +40,7 @@ nonisolated func makeAddressesMenuConfig(accountId: String) -> () -> MenuConfig 
             action: {
                 MainActor.assumeIsolated {
                     UIPasteboard.general.url = account.shareLink
-                    topWViewController()?.showToast(animationName: "Copy", message: lang("Link was copied!"))
+                    AppActions.showToast(animationName: "Copy", message: lang("Link was copied!"))
                     Haptics.play(.lightTap)
                 }
             },
@@ -57,7 +57,7 @@ fileprivate struct AddressRowView: View {
     
     var body: some View {
         HStack(spacing: 10) {
-            if let token = TokenStore.tokens[row.chain.tokenSlug] {
+            if let token = TokenStore.tokens[row.chain.nativeToken.slug] {
                 WUIIconViewToken(token: token, isWalletView: false, showldShowChain: false, size: 28, chainSize: 0, chainBorderWidth: 0, chainBorderColor: .clear, chainHorizontalOffset: 0, chainVerticalOffset: 0)
                     .frame(width: 28, height: 28)
             }
@@ -86,7 +86,7 @@ fileprivate struct AddressRowView: View {
                                     onCopySecondary()
                                 }
                         }
-                        Text(row.chain.symbol)
+                        Text(row.chain.title)
 //                            .fixedSize()
                     }
                     .font(.system(size: 13, weight: .regular))
@@ -118,7 +118,7 @@ fileprivate struct AddressRowView: View {
     func onCopy() {
         if let domain = row.accountChain.domain {
             UIPasteboard.general.string = domain
-            topWViewController()?.showToast(animationName: "Copy", message: lang("Domain was copied!"))
+            AppActions.showToast(animationName: "Copy", message: lang("Domain was copied!"))
             Haptics.play(.lightTap)
             menuContext.dismiss()
         } else {
@@ -128,7 +128,7 @@ fileprivate struct AddressRowView: View {
     
     func onCopySecondary() {
         UIPasteboard.general.string = row.accountChain.address
-        topWViewController()?.showToast(animationName: "Copy", message: lang("Your address was copied!"))
+        AppActions.showToast(animationName: "Copy", message: lang("Your address was copied!"))
         Haptics.play(.lightTap)
         menuContext.dismiss()
     }

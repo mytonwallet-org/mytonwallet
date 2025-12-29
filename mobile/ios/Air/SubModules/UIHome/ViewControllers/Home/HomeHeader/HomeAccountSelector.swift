@@ -16,9 +16,7 @@ import Perception
 import Dependencies
 import Combine
 
-private let itemSpacing: CGFloat = 8 + itemWidth
-
-class _AccountSelectorView: UIView, UICollectionViewDelegate {
+class HomeAccountSelector: UIView, UICollectionViewDelegate {
     
     let viewModel: HomeHeaderViewModel
     var onIsScrolling: (Bool) -> ()
@@ -42,10 +40,9 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
         set { _ = newValue }
     }
     
-    init(viewModel: HomeHeaderViewModel, onIsScrolling: @escaping (Bool) -> (), ns: Namespace.ID?) {
+    init(viewModel: HomeHeaderViewModel, onIsScrolling: @escaping (Bool) -> ()) {
         self.viewModel = viewModel
         self.onIsScrolling = onIsScrolling
-//        self.ns = ns
         super.init(frame: .zero)
         setup()
     }
@@ -57,46 +54,11 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
     func setup() {
         translatesAutoresizingMaskIntoConstraints = false
         
-        let item = NSCollectionLayoutItem(layoutSize: .init(widthDimension: .absolute(itemWidth), heightDimension: .absolute(itemHeight)))
-        
-        let group = NSCollectionLayoutGroup.vertical(layoutSize: .init(widthDimension: .absolute(itemWidth), heightDimension: .absolute(itemHeight)), subitems: [item])
-        
-        let section = NSCollectionLayoutSection(group: group)
-        section.orthogonalScrollingBehavior = .continuousGroupLeadingBoundary
-        if #available(iOS 17.0, *) {
-            section.orthogonalScrollingProperties.decelerationRate = .fast
-        }
-        let inset: CGFloat = 16
-        section.contentInsets = .init(top: 0, leading: inset, bottom: 0, trailing: inset)
-        section.interGroupSpacing = 8
-        
-        section.visibleItemsInvalidationHandler = { [unowned self] items, scrollOffset, env in
-            guard !items.isEmpty else { return }
-            var minDistance: CGFloat = .infinity
-            var minDistanceIndex = 0
-            
-            for item in items {
-                let idx = CGFloat(item.indexPath.row)
-                let position = idx - scrollOffset.x/itemSpacing
-                
-                let absDistance = abs(position)
-                if absDistance < minDistance {
-                    minDistance = absDistance
-                    minDistanceIndex = item.indexPath.row
-                }
-            }
-            
-            self.updateFocusedItem(idx: minDistanceIndex)
-            scrollingUpdates.send(minDistance > 1e-3)
-        }
-        
-        let layout = UICollectionViewCompositionalLayout(section: section)
-        
-        collectionView = _CollectionView(frame: .zero, collectionViewLayout: layout)
+        collectionView = _CollectionView(frame: .zero, collectionViewLayout: makeLayout())
         
         let homeHeaderViewModel = self.viewModel
         
-        let cellRegistration = UICollectionView.CellRegistration<HomeCardCell, String> { cell, _, accountId in
+        let cellRegistration = UICollectionView.CellRegistration<HomeCard, String> { cell, _, accountId in
             let accountViewModel = AccountViewModel(accountId: accountId)
             cell.configure(headerViewModel: homeHeaderViewModel, accountViewModel: accountViewModel)
         }
@@ -150,6 +112,44 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
             .store(in: &cancellables)
     }
     
+    func makeLayout() -> UICollectionViewCompositionalLayout {
+
+        let item = NSCollectionLayoutItem(layoutSize: .init(widthDimension: .absolute(itemWidth), heightDimension: .absolute(itemHeight)))
+        
+        let group = NSCollectionLayoutGroup.vertical(layoutSize: .init(widthDimension: .absolute(itemWidth), heightDimension: .absolute(itemHeight)), subitems: [item])
+        
+        let section = NSCollectionLayoutSection(group: group)
+        section.orthogonalScrollingBehavior = .continuousGroupLeadingBoundary
+        if #available(iOS 17.0, *) {
+            section.orthogonalScrollingProperties.decelerationRate = .fast
+        }
+        section.contentInsets = .init(top: 0, leading: inset, bottom: 0, trailing: inset)
+        section.interGroupSpacing = spacing
+        
+        section.visibleItemsInvalidationHandler = { [unowned self] items, scrollOffset, env in
+            guard !items.isEmpty else { return }
+            var minDistance: CGFloat = .infinity
+            var minDistanceIndex = 0
+            
+            for item in items {
+                let idx = CGFloat(item.indexPath.row)
+                let position = idx - scrollOffset.x/itemWidthWithSpacing
+                
+                let absDistance = abs(position)
+                if absDistance < minDistance {
+                    minDistance = absDistance
+                    minDistanceIndex = item.indexPath.row
+                }
+            }
+            
+            self.updateFocusedItem(idx: minDistanceIndex)
+            scrollingUpdates.send(minDistance > 1e-3)
+        }
+        
+        let layout = UICollectionViewCompositionalLayout(section: section)
+        return layout
+    }
+    
     override func didMoveToSuperview() {
         super.didMoveToSuperview()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) { [self] in
@@ -163,18 +163,10 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
     }
     
     override func layoutSubviews() {
-        collectionView.frame = self.bounds //.insetBy(dx: negativeHorizontalInset, dy: 0)
-    }
-    
-    func scrollViewDidScroll(_ scrollView: UIScrollView) {
-    }
-    
-    override func systemLayoutSizeFitting(_ targetSize: CGSize) -> CGSize {
-        return super.systemLayoutSizeFitting(targetSize)
-    }
-    
-    override func systemLayoutSizeFitting(_ targetSize: CGSize, withHorizontalFittingPriority horizontalFittingPriority: UILayoutPriority, verticalFittingPriority: UILayoutPriority) -> CGSize {
-        return super.systemLayoutSizeFitting(targetSize, withHorizontalFittingPriority: horizontalFittingPriority, verticalFittingPriority: verticalFittingPriority)
+        if collectionView.frame != self.bounds {
+            collectionView.frame = self.bounds
+            collectionView.setCollectionViewLayout(makeLayout(), animated: true)
+        }
     }
     
     override var intrinsicContentSize: CGSize {
@@ -204,7 +196,7 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
         if let indexPath = dataSource.indexPath(for: .coverFlowItem(id)), let scrollView = collectionView.subviews.compactMap({ $0 as? UIScrollView }).first {
             if !scrollView.isTracking && !scrollView.isDecelerating {
                 let idx = CGFloat(indexPath.row)
-                let offset = CGPoint(x: -scrollView.adjustedContentInset.left + idx * itemSpacing, y: 0)
+                let offset = CGPoint(x: -scrollView.adjustedContentInset.left + idx * itemWidthWithSpacing, y: 0)
                 scrollView.setContentOffset(offset, animated: animated)
             }
         }

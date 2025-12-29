@@ -9,37 +9,16 @@ import WalletCore
 import WalletContext
 
 public enum BadgeContent {
-    case activeStaking(ApiYieldType, Double)
-    case inactiveStaking(ApiYieldType, Double)
+    case staking(StakingBadgeContent)
     case chain(ApiChain)
 }
 
-func badgeContent(accountId: String, slug: String, isStaking: Bool) -> BadgeContent? {
-    lazy var stakingData = StakingStore.byId(accountId)
-    lazy var balances = BalanceStore.getAccountBalances(accountId: accountId)
-    if slug == TONCOIN_SLUG, let apy = stakingData?.tonState?.apy {
-        let hasBalance = balances[STAKED_TON_SLUG] ?? 0 > 0
-        if isStaking && hasBalance {
-            return .activeStaking(.apy, apy)
-        } else if !isStaking && !hasBalance {
-            return .inactiveStaking(.apy, apy)
-        }
-    } else if slug == MYCOIN_SLUG, let apy = stakingData?.mycoinState?.apy {
-        let hasBalance = balances[STAKED_MYCOIN_SLUG] ?? 0 > 0
-        if isStaking && hasBalance {
-            return .activeStaking(.apr, apy)
-        } else if !isStaking && !hasBalance {
-            return .inactiveStaking(.apr, apy)
-        }
-    } else if slug == TON_USDE_SLUG, let apy = stakingData?.ethenaState?.apy {
-        let hasBalance = balances[TON_TSUSDE_SLUG] ?? 0 > 0
-        if isStaking && hasBalance {
-            return .activeStaking(.apy, apy)
-        } else if !isStaking && !hasBalance {
-            return .inactiveStaking(.apy, apy)
-        }
-    } else if (slug == TON_USDT_SLUG || slug == TRON_USDT_SLUG) && AccountStore.accountsById[accountId]?.isMultichain == true {
-        return .chain(slug == TON_USDT_SLUG ? .ton : .tron)
+func getBadgeContent(accountId: String, slug: String, isStaking: Bool) -> BadgeContent? {
+    @AccountViewModel(accountId: accountId) var account
+    if let stakingBadge = $account.getStakingBadgeContent(tokenSlug: slug, isStaking: isStaking) {
+        return .staking(stakingBadge)
+    } else if let chain = account.supportedChains.first(where: { $0.usdtSlug[account.network] == slug }) {
+        return .chain(chain)
     }
     return nil
 }

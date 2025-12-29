@@ -27,3 +27,4 @@ coverage/
 src/i18n/en.json
 notarization-error.log
 .patch-version
+mobile/ios/Air/scripts/strings/.venv

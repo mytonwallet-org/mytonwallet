@@ -10,7 +10,6 @@ import UIKit
 import UIComponents
 import WalletCore
 import WalletContext
-import SwiftSignalKit
 
 
 struct CrossChainToTonView: View {
@@ -76,7 +75,7 @@ struct CrossChainToTonView: View {
     
     var qr: some View {
         WUIQRCodeContainerView(
-            url: sellingToken.chain == "ton" ? ApiChain.ton.invoiceUrl(address: address) : address,
+            url: sellingToken.chainValue.config.formatTransferUrl?(address, nil, nil, nil) ?? address,
             imageURL: sellingToken.image ?? "",
             size: 262,
             onTap: onQRTap
@@ -165,13 +164,13 @@ struct CrossChainToTonView: View {
     
     func copyAddress() {
         UIPasteboard.general.string = address
-        topWViewController()?.showToast(message: lang("Transaction ID was copied!"))
+        AppActions.showToast(message: lang("Transaction ID was copied!"))
         Haptics.play(.lightTap)
     }
     
     func copyTx() {
         UIPasteboard.general.string = exchangerTxId
-        topWViewController()?.showToast(message: lang("Transaction ID was copied!"))
+        AppActions.showToast(message: lang("Transaction ID was copied!"))
         Haptics.play(.lightTap)
     }
     
@@ -188,22 +187,20 @@ struct CrossChainToTonView: View {
     }
     
     func shareIt(image: UIImage) {
-        let _ = (qrCode(string: ApiChain.ton.invoiceUrl(address: address),
-                        color: .black,
-                        backgroundColor: .white,
-                        icon: .custom(UIImage(named: "chain_ton", in: AirBundle, compatibleWith: nil)))
-                 |> map { _, generator -> UIImage? in
-            let imageSize = CGSize(width: 768.0, height: 768.0)
-            let context = generator(TransformImageArguments(corners: ImageCorners(), imageSize: imageSize, boundingSize: imageSize, intrinsicInsets: UIEdgeInsets(), scale: 1.0))
-            return context?.generateImage()
+        guard let (_, generator) = generateQrCode(string: ApiChain.ton.formatTransferUrl?(address, nil, nil, nil) ?? address,
+                                                  color: .black,
+                                                  backgroundColor: .white,
+                                                  icon: .custom(UIImage(named: "chain_ton", in: AirBundle, compatibleWith: nil))) else {
+            return
         }
-                 |> deliverOnMainQueue).start(next: { image in
-            guard let image = image else { return }
-            
-            let activityController = UIActivityViewController(activityItems: [image],
-                                                              applicationActivities: nil)
-            topViewController()?.present(activityController, animated: true)
-        })
+        
+        let imageSize = CGSize(width: 768.0, height: 768.0)
+        let context = generator(TransformImageArguments(corners: ImageCorners(), imageSize: imageSize, boundingSize: imageSize, intrinsicInsets: UIEdgeInsets(), scale: 1.0))
+        guard let qrImage = context?.generateImage() else { return }
+        
+        let activityController = UIActivityViewController(activityItems: [qrImage],
+                                                          applicationActivities: nil)
+        topViewController()?.present(activityController, animated: true)
     }
 }
 

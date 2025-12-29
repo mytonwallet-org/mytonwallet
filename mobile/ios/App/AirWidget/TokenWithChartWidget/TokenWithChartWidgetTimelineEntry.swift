@@ -13,7 +13,7 @@ public struct TokenWithChartWidgetTimelineEntry: TimelineEntry {
     public var date: Date
     public var token: ApiToken
     public var image: UIImage?
-    public var currencyRate: DisplayCurrencyAmount
+    public var currencyRate: BaseCurrencyAmount
     public var period: PricePeriod
     public var chartData: [(Double, Double)]
     public var chartStyle: ChartStyle
@@ -27,9 +27,9 @@ public struct TokenWithChartWidgetTimelineEntry: TimelineEntry {
         return nil
     }
     
-    var changeInCurrency: DisplayCurrencyAmount? {
+    var changeInCurrency: BaseCurrencyAmount? {
         if let first = chartData.first?.1, let last = chartData.last?.1 {
-            return DisplayCurrencyAmount.fromDouble(last - first, currencyRate.displayCurrency)
+            return BaseCurrencyAmount.fromDouble(last - first, currencyRate.baseCurrency)
         }
         return nil
     }
@@ -41,9 +41,9 @@ public struct TokenWithChartWidgetTimelineEntry: TimelineEntry {
         return nil
     }
     
-    var firstValue: DisplayCurrencyAmount? {
+    var firstValue: BaseCurrencyAmount? {
         if let value = chartData.first?.1 {
-            return DisplayCurrencyAmount.fromDouble(value, currencyRate.displayCurrency)
+            return BaseCurrencyAmount.fromDouble(value, currencyRate.baseCurrency)
         }
         return nil
     }
@@ -64,7 +64,7 @@ public extension TokenWithChartWidgetTimelineEntry {
             date: .now,
             token: token,
             image: nil, 
-            currencyRate: DisplayCurrencyAmount.fromDouble(4.21, .USD),
+            currencyRate: BaseCurrencyAmount.fromDouble(4.21, .USD),
             period: .month,
             chartData: [],
             chartStyle: .vivid,

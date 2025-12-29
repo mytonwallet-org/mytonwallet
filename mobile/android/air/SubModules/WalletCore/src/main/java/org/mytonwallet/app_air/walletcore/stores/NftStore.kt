@@ -12,10 +12,14 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.NftCollection
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 
 object NftStore : IStore {
     private var cacheExecutor = Executors.newSingleThreadExecutor()
+
+    private val cachedNftCollections = ConcurrentHashMap<String, List<NftCollection>>()
+    private val cachedHasHiddenNfts = ConcurrentHashMap<String, Boolean>()
 
     data class NftData(
         val accountId: String,
@@ -39,28 +43,13 @@ object NftStore : IStore {
         private set
 
     fun loadCachedNfts(accountId: String) {
-        wipeData()
+        clearActiveNftData()
         nftData = NftData(
             accountId = accountId,
         )
-        resetWhitelistAndBlacklist()
-        Executors.newSingleThreadExecutor().execute {
-            val nftsString = WCacheStorage.getNfts(accountId) ?: run {
-                if (AccountStore.activeAccount?.tonAddress == null)
-                    "[]"
-                else
-                    null
-            }
-            if (nftsString != null) {
-                val nftsJSONArray = JSONArray(nftsString)
-                val nftsArray = ArrayList<ApiNft>()
-                for (i in 0 until nftsJSONArray.length()) {
-                    val nftJson = nftsJSONArray.get(i) as JSONObject
-                    ApiNft.fromJson(nftJson)?.let { nft ->
-                        nftsArray.add(nft)
-                    }
-                }
-
+        cacheExecutor.execute {
+            resetWhitelistAndBlacklist()
+            fetchCachedNfts(accountId)?.let { nftsArray ->
                 Handler(Looper.getMainLooper()).post {
                     if (AccountStore.activeAccountId != accountId)
                         return@post
@@ -130,55 +119,74 @@ object NftStore : IStore {
     ) {
         val nftData = nftData
 
-        if (accountId != nftData?.accountId)
-            return
-        if (!isReorder &&
-            nftData.cachedNfts != null &&
-            nfts != null &&
-            nftData.cachedNfts?.size == nfts.size &&
-            nftData.cachedNfts?.all { cached -> nfts.any { new -> cached.isSame(new) } } == true
-        ) {
+        if (accountId != nftData?.accountId) {
+            // Update cached values for not-active account
+            cacheExecutor.execute {
+                nfts?.let { nfts ->
+                    val collections = getCollectionsFromNfts(nfts)
+                    writeCollectionsToCache(accountId, collections)
+                    val hasHiddenNft = nfts.find { it.isHidden == true } != null
+                    WCacheStorage.setHasHiddenNft(accountId, hasHiddenNft)
+                    cachedHasHiddenNfts[accountId] = hasHiddenNft
+                } ?: run {
+                    WCacheStorage.setNftCollections(accountId, null)
+                    cachedNftCollections.remove(accountId)
+                    WCacheStorage.setHasHiddenNft(accountId, null)
+                    cachedHasHiddenNfts.remove(accountId)
+                }
+            }
             return
         }
 
-        nftData.cachedNfts = when {
-            isReorder || nfts.isNullOrEmpty() || nftData.cachedNfts.isNullOrEmpty() -> nfts
-            else -> {
-                val nftMap = nfts.associateBy { it.address }
-                val cachedAddresses =
-                    nftData.cachedNfts?.mapTo(mutableSetOf()) { it.address } ?: emptyList()
-
-                val newNfts = nfts.filterNot { it.address in cachedAddresses }
-
-                val updatedCachedNfts = nftData.cachedNfts?.mapNotNull { cached ->
-                    nftMap[cached.address]
-                }
-
-                newNfts + (updatedCachedNfts ?: emptyList())
+        cacheExecutor.execute {
+            if (!isReorder &&
+                nftData.cachedNfts != null &&
+                nfts != null &&
+                nftData.cachedNfts?.size == nfts.size &&
+                nftData.cachedNfts?.all { cached -> nfts.any { new -> cached.isSame(new) } } == true
+            ) {
+                return@execute
             }
-        }?.toMutableList()
-        writeToCache()
 
-        if (notifyObservers)
-            WalletCore.notifyEvent(if (isReorder) WalletEvent.NftsReordered else WalletEvent.NftsUpdated)
-        if (!WGlobalStorage.getWasTelegramGiftsAutoAdded(accountId) &&
-            nftData.cachedNfts?.any {
-                it.isTelegramGift == true
-            } == true
-        ) {
-            val homeNftCollections =
-                WGlobalStorage.getHomeNftCollections(accountId)
-            if (!homeNftCollections.contains(NftCollection.TELEGRAM_GIFTS_SUPER_COLLECTION)) {
-                homeNftCollections.add(NftCollection.TELEGRAM_GIFTS_SUPER_COLLECTION)
-                WGlobalStorage.setWasTelegramGiftsAutoAdded(
-                    accountId,
-                    true
-                )
-                WGlobalStorage.setHomeNftCollections(
-                    accountId,
-                    homeNftCollections
-                )
-                WalletCore.notifyEvent(WalletEvent.HomeNftCollectionsUpdated)
+            nftData.cachedNfts = when {
+                isReorder || nfts.isNullOrEmpty() || nftData.cachedNfts.isNullOrEmpty() -> nfts
+                else -> {
+                    val nftMap = nfts.associateBy { it.address }
+                    val cachedAddresses =
+                        nftData.cachedNfts?.mapTo(mutableSetOf()) { it.address } ?: emptyList()
+
+                    val newNfts = nfts.filterNot { it.address in cachedAddresses }
+
+                    val updatedCachedNfts = nftData.cachedNfts?.mapNotNull { cached ->
+                        nftMap[cached.address]
+                    }
+
+                    newNfts + (updatedCachedNfts ?: emptyList())
+                }
+            }?.toMutableList()
+            writeToCache()
+
+            if (notifyObservers)
+                WalletCore.notifyEvent(if (isReorder) WalletEvent.NftsReordered else WalletEvent.NftsUpdated)
+            if (!WGlobalStorage.getWasTelegramGiftsAutoAdded(accountId) &&
+                nftData.cachedNfts?.any {
+                    it.isTelegramGift == true
+                } == true
+            ) {
+                val homeNftCollections =
+                    WGlobalStorage.getHomeNftCollections(accountId)
+                if (!homeNftCollections.contains(NftCollection.TELEGRAM_GIFTS_SUPER_COLLECTION)) {
+                    homeNftCollections.add(NftCollection.TELEGRAM_GIFTS_SUPER_COLLECTION)
+                    WGlobalStorage.setWasTelegramGiftsAutoAdded(
+                        accountId,
+                        true
+                    )
+                    WGlobalStorage.setHomeNftCollections(
+                        accountId,
+                        homeNftCollections
+                    )
+                    WalletCore.notifyEvent(WalletEvent.HomeNftCollectionsUpdated)
+                }
             }
         }
     }
@@ -224,6 +232,12 @@ object NftStore : IStore {
     }
 
     override fun clearCache() {
+        clearActiveNftData()
+        cachedNftCollections.clear()
+        cachedHasHiddenNfts.clear()
+    }
+
+    private fun clearActiveNftData() {
         nftData = null
         cacheExecutor.shutdownNow()
         cacheExecutor = Executors.newSingleThreadExecutor()
@@ -233,14 +247,17 @@ object NftStore : IStore {
         val nftData = nftData ?: return
         cacheExecutor.execute {
             nftData.accountId.let { accountId ->
-                nftData.cachedNfts?.let {
+                nftData.cachedNfts?.let { cachedNfts ->
                     val arr = JSONArray()
-                    for (it in nftData.cachedNfts) {
+                    for (it in cachedNfts) {
                         arr.put(it.toDictionary())
                     }
                     WCacheStorage.setNfts(accountId, arr.toString())
-                } ?: run {
-                    WCacheStorage.setNfts(accountId, null)
+                    val collections = getCollectionsFromNfts(cachedNfts)
+                    writeCollectionsToCache(accountId, collections)
+                    val hasHiddenNft = cachedNfts.find { it.isHidden == true } != null
+                    WCacheStorage.setHasHiddenNft(accountId, hasHiddenNft)
+                    cachedHasHiddenNfts[accountId] = hasHiddenNft
                 }
             }
         }
@@ -293,9 +310,12 @@ object NftStore : IStore {
     }
 
     fun getCollections(): List<NftCollection> {
+        return getCollectionsFromNfts(nftData?.cachedNfts ?: emptyList())
+    }
+
+    fun getCollectionsFromNfts(nfts: List<ApiNft>): List<NftCollection> {
         val uniqueCollections = linkedSetOf<NftCollection>()
 
-        val nfts = nftData?.cachedNfts ?: emptyList()
         for (nft in nfts) {
             if (!nft.shouldHide() && !nft.isStandalone()) {
                 nft.collectionAddress?.let {
@@ -309,5 +329,96 @@ object NftStore : IStore {
         }
 
         return uniqueCollections.toList().sortedWith(compareBy { it.name })
+    }
+
+    fun getCollections(accountId: String): List<NftCollection> {
+        // Try to read from local cache, for some reason shared preferences may return slowly.
+        cachedNftCollections[accountId]?.let {
+            return it
+        }
+        // Try to read from cache
+        WCacheStorage.getNftCollections(accountId)?.let {
+            val nftCollectionsJSONArray = JSONArray(it)
+            val nftCollectionsArray = ArrayList<NftCollection>()
+            for (i in 0 until nftCollectionsJSONArray.length()) {
+                val nftJson = nftCollectionsJSONArray.get(i) as JSONObject
+                NftCollection.fromJson(nftJson)?.let { nftCollection ->
+                    nftCollectionsArray.add(nftCollection)
+                }
+            }
+            return nftCollectionsArray
+        }
+        // Cache not found, extract them and write to cache
+        val nfts = if (nftData?.accountId == accountId) {
+            nftData?.cachedNfts
+        } else {
+            fetchCachedNfts(accountId)
+        }
+        cacheExecutor.execute {
+            writeCollectionsToCache(accountId, getCollectionsFromNfts(nfts ?: emptyList()))
+        }
+        val hasHiddenNft = nfts?.find { it.isHidden == true } != null
+        WCacheStorage.setHasHiddenNft(accountId, hasHiddenNft)
+        cachedHasHiddenNfts[accountId] = hasHiddenNft
+        val collections = getCollectionsFromNfts(nfts ?: emptyList())
+        cachedNftCollections[accountId] = collections
+        return collections
+    }
+
+    fun getHasHiddenNft(accountId: String): Boolean {
+        // Try to read from local cache, for some reason shared preferences may return slowly.
+        cachedHasHiddenNfts[accountId]?.let {
+            return it
+        }
+        // Try to read from cache
+        WCacheStorage.getHasHiddenNft(accountId)?.let {
+            return it
+        }
+        // Cache not found, extract them
+        val nfts = if (nftData?.accountId == accountId) {
+            nftData?.cachedNfts
+        } else {
+            fetchCachedNfts(accountId)
+        }
+        val hasHiddenNft = nfts?.find { it.isHidden == true } != null
+        WCacheStorage.setHasHiddenNft(accountId, hasHiddenNft)
+        cachedHasHiddenNfts[accountId] = hasHiddenNft
+        cacheExecutor.execute {
+            writeCollectionsToCache(accountId, getCollectionsFromNfts(nfts ?: emptyList()))
+        }
+        return hasHiddenNft
+    }
+
+    private fun writeCollectionsToCache(accountId: String, collections: List<NftCollection>) {
+        val arrCollections = JSONArray()
+        for (it in collections) {
+            arrCollections.put(it.toDictionary())
+        }
+        WCacheStorage.setNftCollections(
+            accountId,
+            arrCollections.toString()
+        )
+        cachedNftCollections[accountId] = collections
+    }
+
+    fun fetchCachedNfts(accountId: String): List<ApiNft>? {
+        val nftsString = WCacheStorage.getNfts(accountId) ?: run {
+            if (WGlobalStorage.getAccountTonAddress(accountId) == null)
+                "[]"
+            else
+                null
+        }
+        if (nftsString != null) {
+            val nftsJSONArray = JSONArray(nftsString)
+            val nftsArray = ArrayList<ApiNft>()
+            for (i in 0 until nftsJSONArray.length()) {
+                val nftJson = nftsJSONArray.get(i) as JSONObject
+                ApiNft.fromJson(nftJson)?.let { nft ->
+                    nftsArray.add(nft)
+                }
+            }
+            return nftsArray
+        }
+        return null
     }
 }

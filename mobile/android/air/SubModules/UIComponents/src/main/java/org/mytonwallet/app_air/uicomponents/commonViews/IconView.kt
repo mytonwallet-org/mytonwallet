@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.uicomponents.commonViews
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Canvas
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import androidx.annotation.DrawableRes
@@ -46,6 +47,12 @@ class IconView(
     private val swapGradientCache = mutableMapOf<MApiTransaction.UIStatus, GradientDrawable>()
     private var failedTransactionDrawable: GradientDrawable? = null
 
+    private var abbreviationText: String = ""
+    private var currentSize: Int = viewSize
+    private val textPaint = AccountAvatarRenderer.createTextPaint(
+        AccountAvatarRenderer.getTextSizeForViewSize(viewSize)
+    )
+
     init {
         isFocusable = false
         isClickable = false
@@ -58,36 +65,52 @@ class IconView(
             toBottom(activityImageView)
         }
 
+        setWillNotDraw(false)
         updateTheme()
     }
 
     fun setSize(size: Int) {
+        currentSize = size
         activityImageView.layoutParams.apply {
             width = size
             height = size
         }
-
+        textPaint.textSize = AccountAvatarRenderer.getTextSizeForViewSize(size)
         requestLayout()
     }
 
     fun updateTheme() {
+        AccountAvatarRenderer.updatePaintTheme(textPaint)
         clearCache()
     }
 
-    fun config(account: MAccount, padding: Int = 10.dp) {
+    fun config(account: MAccount, abbreviationTextSize: Float = 18f.dp) {
         val address = account.firstAddress ?: ""
         activityImageView.imageView.background = getCachedGradientDrawable(address.gradientColors)
+        activityImageView.imageView.setPadding(0)
+        activityImageView.imageView.setImageDrawable(null)
 
-        activityImageView.imageView.setPadding(padding)
-        activityImageView.imageView.setImageDrawable(
-            ContextCompat.getDrawable(
-                context,
-                R.drawable.ic_address
+        abbreviationText = account.abbreviation
+        textPaint.textSize = abbreviationTextSize
+
+        invalidate()
+    }
+
+    override fun dispatchDraw(canvas: Canvas) {
+        super.dispatchDraw(canvas)
+        if (abbreviationText.isNotEmpty()) {
+            AccountAvatarRenderer.drawCenteredText(
+                canvas,
+                abbreviationText,
+                activityImageView.left + activityImageView.width / 2f,
+                activityImageView.top + activityImageView.height / 2f,
+                textPaint
             )
-        )
+        }
     }
 
     fun config(transaction: MApiTransaction.Transaction) {
+        abbreviationText = ""
         val iconRes = transaction.type?.getIcon() ?: if (transaction.isIncoming) {
             org.mytonwallet.app_air.walletcontext.R.drawable.ic_act_received
         } else {
@@ -127,6 +150,7 @@ class IconView(
     }
 
     fun config(swap: MApiTransaction.Swap) {
+        abbreviationText = ""
         val subImageAnimation = if (swap.isInProgress) {
             if (ThemeManager.isDark)
                 R.raw.clock_dark_gray
@@ -153,6 +177,7 @@ class IconView(
         alwaysShowChain: Boolean = false,
         showPercentBadge: Boolean = false
     ) {
+        abbreviationText = ""
         activityImageView.imageView.setPadding(0)
         val token = TokenStore.getToken(walletToken.token)
 
@@ -173,6 +198,7 @@ class IconView(
     }
 
     fun config(token: MToken?, alwaysShowChain: Boolean = true) {
+        abbreviationText = ""
         if (token != null) {
             activityImageView.set(Content.of(token, alwaysShowChain))
         } else {
@@ -185,6 +211,7 @@ class IconView(
         gradientStartColor: String?,
         gradientEndColor: String?,
     ) {
+        abbreviationText = ""
         activityImageView.imageView.setPadding(17.dp)
 
         iconDrawableRes?.let { res ->
@@ -198,6 +225,7 @@ class IconView(
     }
 
     fun setImageDrawable(drawable: Drawable?, padding: Int = 0) {
+        abbreviationText = ""
         activityImageView.imageView.setPadding(padding)
         activityImageView.imageView.setImageDrawable(drawable)
         activityImageView.imageView.background = null

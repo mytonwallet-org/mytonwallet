@@ -28,11 +28,16 @@
   height: 100%;
   margin: auto;
   padding: 0 1rem;
-
-  :global(html.is-electron.is-windows) & {
+  :global(html.is-electron.is-windows) &,
+  :global(html.is-electron.is-linux) & {
     justify-content: flex-start;
     max-width: 100%;
   }
+}
+
+.buttons,
+.windowsButton {
+  -webkit-app-region: no-drag; // only on actual interactive controls
 }
 
 .applicationName {
@@ -56,7 +61,8 @@
     right: 0.75rem;
   }
 
-  :global(html.is-electron.is-windows) & {
+  :global(html.is-electron.is-windows) &,
+  :global(html.is-electron.is-linux) & {
     -webkit-app-region: no-drag;
   }
 }

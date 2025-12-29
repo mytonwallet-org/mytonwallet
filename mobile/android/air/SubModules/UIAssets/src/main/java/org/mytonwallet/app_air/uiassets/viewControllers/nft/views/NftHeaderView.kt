@@ -317,7 +317,7 @@ open class NftHeaderView(
         animationView.isGone =
             !isAnimatedNft || avatarCoverFlowView.scrollState != WCoverFlowView.ScrollState.IDLE
         if (isAnimatedNft) {
-            animationView.playFromUrl(nft.metadata!!.lottie!!, onStart = {})
+            animationView.playFromUrl(nft.metadata!!.lottie!!, play = true, onStart = {})
         }
         updateTitleLabel()
         updateSubtitleText()

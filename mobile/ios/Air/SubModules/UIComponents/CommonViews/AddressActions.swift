@@ -18,7 +18,7 @@ public func makeTappableAddressMenu(displayName: String?, chain: String, address
             .wideSeparator(),
             .button(id: "0-copy", title: lang("Copy"), trailingIcon: .air("SendCopy")) {
                 UIPasteboard.general.string = address
-                topWViewController()?.showToast(animationName: "Copy", message: lang("Address was copied!"))
+                AppActions.showToast(animationName: "Copy", message: lang("Address was copied!"))
                 Haptics.play(.lightTap)
             },
             .button(id: "0-open-explorer", title: lang("Open in Explorer"), trailingIcon: .air("SendGlobe")) {

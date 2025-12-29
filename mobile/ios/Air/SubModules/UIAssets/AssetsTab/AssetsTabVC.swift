@@ -127,10 +127,4 @@ public class AssetsTabVC: WViewController, WSegmentedController.Delegate, Wallet
     public func segmentedController(scrollOffsetChangedTo progress: CGFloat) {
         (children.last as? NftsVC)?.updateIsVisible(progress > 0.3)
     }
-
-    public func segmentedControllerDidStartDragging() {
-    }
-
-    public func segmentedControllerDidEndScrolling() {
-    }
 }

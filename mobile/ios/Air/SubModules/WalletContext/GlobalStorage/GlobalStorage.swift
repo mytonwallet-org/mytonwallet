@@ -248,15 +248,5 @@ extension _GlobalStorage {
             }
             self.observers = observers
         }
-        
-        func syncIfNeeded() {
-            syncIfInBackground()
-        }
-        
-        private func syncIfInBackground() {
-            if UIApplication.shared.applicationState == .background {
-                onAutosync()
-            }
-        }
     }
 }

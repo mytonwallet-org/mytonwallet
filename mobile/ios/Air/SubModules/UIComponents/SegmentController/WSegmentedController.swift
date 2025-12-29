@@ -31,14 +31,22 @@ extension WSegmentedControllerContent {
     }
 }
 
+@MainActor public protocol WSegmentedControllerDelegate: AnyObject {
+    func segmentedController(scrollOffsetChangedTo progress: CGFloat)
+    func segmentedControllerDidStartDragging()
+    func segmentedControllerDidEndScrolling()
+}
+
+public extension WSegmentedControllerDelegate {
+    func segmentedController(scrollOffsetChangedTo progress: CGFloat) {}
+    func segmentedControllerDidStartDragging() {}
+    func segmentedControllerDidEndScrolling() {}
+}
+
 @MainActor
 public class WSegmentedController: WTouchPassView {
 
-    @MainActor public protocol Delegate: AnyObject {
-        func segmentedController(scrollOffsetChangedTo progress: CGFloat)
-        func segmentedControllerDidStartDragging()
-        func segmentedControllerDidEndScrolling()
-    }
+    public typealias Delegate = WSegmentedControllerDelegate
 
     public enum AnimationSpeed {
         case fast
@@ -430,6 +438,10 @@ extension WSegmentedController: UIScrollViewDelegate {
                 segmentedControl.model.setRawProgress(progress)
                 scrollView.setContentOffset(targetContentOffset.pointee, animated: false)
                 delegate?.segmentedController(scrollOffsetChangedTo: progress)
+            }
+        } completion: { [weak self] _ in
+            if !scrollView.isTracking {
+                self?.delegate?.segmentedControllerDidEndScrolling()
             }
         }
     }

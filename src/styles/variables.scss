@@ -204,9 +204,11 @@
   --header-padding-bottom: 0.8125rem;
 
   --z-below: -1;
+  --z-container: 1;
   --z-card: 10;
   --z-sticky-card: 10;
-  --z-header: 11;
+  --z-suggestions: 11;
+  --z-header: 12;
   --z-loading-overlay: 98;
   --z-media-viewer: 99;
   --z-modal: 100;

@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.uicomponents.widgets
 import android.content.Context
 import android.graphics.drawable.Drawable
 import android.text.SpannedString
+import android.util.Size
 import androidx.core.content.ContextCompat
 import androidx.core.text.buildSpannedString
 import androidx.core.text.inSpans
@@ -254,8 +255,8 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
                 it.setBounds(
                     0,
                     -FontManager.activeFont.textOffset,
-                    style.postfixIconSize,
-                    style.postfixIconSize
+                    style.postfixIconSize.width,
+                    style.postfixIconSize.height
                 )
                 inSpans(
                     VerticalImageSpan(
@@ -313,7 +314,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         val chainIconSize: Int,
         val prefixIconSize: Int,
         val prefixIconMargin: Int,
-        val postfixIconSize: Int,
+        val postfixIconSize: Size,
         val postfixIconMargin: Int,
         val chainIconResMap: Map<String, Int>,
         val tintChainIcon: Boolean,
@@ -367,7 +368,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
             chainIconSize = 16.dp,
             prefixIconSize = 16.dp,
             prefixIconMargin = 0.dp,
-            postfixIconSize = 16.dp,
+            postfixIconSize = Size(16.dp, 16.dp),
             postfixIconMargin = 0.dp,
             chainIconResMap = mapOf(
                 MBlockchain.ton.name to R.drawable.ic_blockchain_ton_128,
@@ -381,7 +382,9 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         )
 
         val walletExpandStyle: Style = walletStyle.copy(
-            postfixIconResList = listOf(R.drawable.ic_arrow_bottom_24)
+            postfixIconResList = listOf(R.drawable.ic_arrows_14),
+            postfixIconSize = Size(7.dp, 14.dp),
+            postfixIconMargin = 4.5f.dp.roundToInt()
         )
 
         // Customization screen styles
@@ -428,7 +431,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
             chainIconSize = 9.dp,
             prefixIconSize = 12.dp,
             prefixIconMargin = 4.dp,
-            postfixIconSize = 12.dp,
+            postfixIconSize = Size(12.dp, 12.dp),
             postfixIconMargin = 0.dp,
             chainIconResMap = mapOf(
                 MBlockchain.ton.name to R.drawable.ic_symbol_ton,
@@ -495,7 +498,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
             chainIconSize = 10.dp,
             prefixIconSize = 12.dp,
             prefixIconMargin = 4.dp,
-            postfixIconSize = 12.dp,
+            postfixIconSize = Size(12.dp, 12.dp),
             postfixIconMargin = 0.dp,
             chainIconResMap = mapOf(
                 MBlockchain.ton.name to R.drawable.ic_symbol_ton,
@@ -542,7 +545,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
             chainIconSize = 12.dp,
             prefixIconSize = 16.dp,
             prefixIconMargin = 5.dp,
-            postfixIconSize = 0.dp,
+            postfixIconSize = Size(0, 0),
             postfixIconMargin = 0.dp,
             chainIconResMap = mapOf(
                 MBlockchain.ton.name to R.drawable.ic_symbol_ton,

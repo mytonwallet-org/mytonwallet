@@ -26,7 +26,7 @@ private let log = Log("DeleteAccount")
                         let _ = try await AccountStore.removeAccount(accountId: removingAccountId, nextAccountId: nextAccount!)
                     }
                 } catch {
-                    topViewController()?.showAlert(error: error)
+                    AppActions.showError(error: error)
                 }
             }
         },

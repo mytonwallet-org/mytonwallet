@@ -84,28 +84,24 @@ class SensitiveDataMaskView(context: Context) : View(context) {
     }
 
     fun initMask(): Boolean {
-        if (stepsMatrix.size == rows &&
-            (
-                (stepsMatrix.size == 0 && cols == 0) ||
-                    (stepsMatrix.size > 0 && stepsMatrix.first().size == cols)
-                )
-        )
-            return false
+        val isAlreadyInitialized =
+            stepsMatrix.size == rows &&
+                (rows == 0 && cols == 0 || stepsMatrix.firstOrNull()?.size == cols)
+
+        if (isAlreadyInitialized) return false
+
         opacityMatrix.clear()
         stepsMatrix.clear()
 
-        for (row in 0 until rows) {
-            val opacityRow = mutableListOf<Float>()
-            val stepsRow = mutableListOf<Float>()
-
-            for (col in 0 until cols) {
-                opacityRow.add(FROM + Random.nextFloat() * (TO - FROM))
-                stepsRow.add(STEPS.random())
-            }
-
-            opacityMatrix.add(opacityRow)
-            stepsMatrix.add(stepsRow)
+        repeat(rows) {
+            opacityMatrix.add(
+                MutableList(cols) { FROM + Random.nextFloat() * (TO - FROM) }
+            )
+            stepsMatrix.add(
+                MutableList(cols) { STEPS.random() }
+            )
         }
+
         return true
     }
 

@@ -111,9 +111,9 @@ public struct MtwCardAddressLine: View {
                     if style.largeAccountTypeIcon {
                         switch leadingIcon {
                         case .ledger:
-                            AccountTypeBadge(.hardware, style: .card, increasedOpacity: gradient?.nft?.metadata?.mtwCardType?.isPremium == true)
+                            AccountTypeBadge(.hardware, increasedOpacity: gradient?.nft?.metadata?.mtwCardType?.isPremium == true)
                         case .view:
-                            AccountTypeBadge(.view, style: .card, increasedOpacity: gradient?.nft?.metadata?.mtwCardType?.isPremium == true)
+                            AccountTypeBadge(.view, increasedOpacity: gradient?.nft?.metadata?.mtwCardType?.isPremium == true)
                         }
                     } else {
                         leadingIcon.image
@@ -205,7 +205,7 @@ private struct ItemView: View {
     
     func onCopy() {
         UIPasteboard.general.string = item.textToCopy
-        topWViewController()?.showToast(animationName: "Copy", message: lang("Address was copied!"))
+        AppActions.showToast(animationName: "Copy", message: lang("Address was copied!"))
         Haptics.play(.lightTap)
     }
 }

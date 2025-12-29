@@ -386,8 +386,12 @@ addActionHandler('signOut', async (global, actions, payload) => {
     const currentAccountId = selectCurrentAccountId(global)!;
     const removingAccountId = accountId ?? currentAccountId;
     const shouldSwitchAccount = removingAccountId === currentAccountId;
+    const isRemovingTemporaryAccount = removingAccountId === global.currentTemporaryViewAccountId;
+    // If removing temporary account, we should switch to previous account (aka `global.currentAccountId`), not to the first of the `accountIds`.
     const nextAccountId = shouldSwitchAccount
-      ? accountIds.find((id) => id !== removingAccountId)!
+      ? (isRemovingTemporaryAccount && global.currentAccountId
+        ? global.currentAccountId
+        : accountIds.find((id) => id !== removingAccountId)!)
       : undefined;
     const nextNewestActivityTimestamps = nextAccountId
       ? selectNewestActivityTimestamps(global, nextAccountId)
