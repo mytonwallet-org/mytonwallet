@@ -4,12 +4,14 @@ import android.content.Context
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import android.widget.FrameLayout
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
+import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -17,7 +19,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 
-class ActivitySingleTagView(context: Context) : FrameLayout(context) {
+class ActivitySingleTagView(context: Context) : WFrameLayout(context), WThemedView {
 
     val imageView = WCustomImageView(context).apply {
         defaultRounding = Content.Rounding.Radius(12f.dp)
@@ -34,8 +36,6 @@ class ActivitySingleTagView(context: Context) : FrameLayout(context) {
     }
 
     init {
-        id = generateViewId()
-
         addView(imageView, LayoutParams(56.dp, 56.dp))
         addView(titleLabel, LayoutParams(WRAP_CONTENT, 24.dp).apply {
             marginStart = 66.dp
@@ -59,6 +59,9 @@ class ActivitySingleTagView(context: Context) : FrameLayout(context) {
         }
         titleLabel.text = nft.name
         subtitleLabel.text = nft.collectionName
+    }
+
+    override fun updateTheme() {
         setBackgroundColor(
             WColor.TrinaryBackground.color,
             12f.dp,
@@ -74,7 +77,7 @@ class ActivitySingleTagView(context: Context) : FrameLayout(context) {
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(56.dp, MeasureSpec.EXACTLY))
+        super.onMeasure(widthMeasureSpec, 56.dp.exactly)
     }
 
 }

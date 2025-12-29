@@ -10,6 +10,7 @@ import renderText from '../../global/helpers/renderText';
 import {
   selectAccount,
   selectAccountStakingState,
+  selectCurrentAccountId,
   selectCurrentAccountTokens,
   selectIsHardwareAccount,
   selectIsMultichainAccount,
@@ -230,7 +231,7 @@ function StakingClaimModal({
 }
 
 export default memo(withGlobal((global): StateProps => {
-  const accountId = global.currentAccountId;
+  const accountId = selectCurrentAccountId(global);
   const { byChain } = selectAccount(global, accountId!) || {};
   const isHardwareAccount = selectIsHardwareAccount(global);
 

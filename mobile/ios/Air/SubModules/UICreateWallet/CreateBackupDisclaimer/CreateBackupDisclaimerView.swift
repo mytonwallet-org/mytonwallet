@@ -9,7 +9,6 @@ import UIKit
 import SwiftUI
 import UIComponents
 import WalletContext
-import WalletCore
 
 enum Step: Comparable {
     case zero, one, two, three
@@ -19,22 +18,14 @@ struct CreateBackupDisclaimerView: View {
 
     let introModel: IntroModel
 
-    var navigationBarInset: CGFloat
-    var onScroll: (CGFloat) -> ()
-
-    @Namespace private var ns
-    
     @State private var currentStep: Step = .zero
     
     var body: some View {
         InsetList(topPadding: 0, spacing: 40) {
             header
-                .scrollPosition(ns: ns, offset: -40, callback: onScroll)
             threeSteps
         }
-        .navigationBarInset(navigationBarInset)
         .backportScrollBounceBehaviorBasedOnSize()
-        .coordinateSpace(name: ns)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             goToWords
         }

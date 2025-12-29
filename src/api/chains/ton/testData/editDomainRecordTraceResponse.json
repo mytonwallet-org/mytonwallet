@@ -1,0 +1,373 @@
+{
+  "traces": [
+    {
+      "trace_id": "PT49fkE5yonPN74chbzHibMOS4jeFp8GAL0ksaDtD4w=",
+      "external_hash": "3yBNhXeVki4mCjfGkzdOc0ioZQ/xL5wuV8zZGe+XBXs=",
+      "mc_seqno_start": "53252117",
+      "mc_seqno_end": "53252117",
+      "start_lt": "62855792000001",
+      "start_utime": 1761222409,
+      "end_lt": "62855792000003",
+      "end_utime": 1761222409,
+      "trace_info": {
+        "trace_state": "complete",
+        "messages": 2,
+        "transactions": 2,
+        "pending_messages": 0,
+        "classification_state": "unclassified"
+      },
+      "is_incomplete": false,
+      "actions": [
+        {
+          "trace_id": "PT49fkE5yonPN74chbzHibMOS4jeFp8GAL0ksaDtD4w=",
+          "action_id": "4aqrJFPPgvwp+Nx1VvOizGOf/jI2Yt1akNdf6vRWKtI=",
+          "start_lt": "62855792000002",
+          "end_lt": "62855792000003",
+          "start_utime": 1761222409,
+          "end_utime": 1761222409,
+          "trace_end_lt": "62855792000003",
+          "trace_end_utime": 1761222409,
+          "trace_mc_seqno_end": 53252117,
+          "transactions": [
+            "1qhOAB0DyTmXuRdabpyFBiMa13NDx4ivT7asCqwgPGY=",
+            "PT49fkE5yonPN74chbzHibMOS4jeFp8GAL0ksaDtD4w="
+          ],
+          "success": true,
+          "type": "change_dns",
+          "details": {
+            "key": "e8d44050873dba865aa7c170ab4cce64d90839a34dcfd6cf71d14e0205443b1b",
+            "value": {
+              "sum_type": "DNSSmcAddress",
+              "dns_smc_address": "0:B9A7DCE19431B56044254C69858E8DC11FEC5C0761DED415E386FBE4B4E116F5",
+              "dns_adnl_address": null,
+              "dns_text": null,
+              "dns_next_resolver_address": null,
+              "dns_storage_address": null,
+              "flags": 0
+            },
+            "source": "0:B9A7DCE19431B56044254C69858E8DC11FEC5C0761DED415E386FBE4B4E116F5",
+            "asset": "0:ADD6BFB08D3523A2DC839EA3E3A21155EB92192DF1E15C04DAEF9E31D2912823",
+            "nft_collection": "0:22737CCF71EE3DEAE9050E16DCA36F0556C28A9765945FF889C1A2FCEC20714A"
+          },
+          "trace_external_hash": "3yBNhXeVki4mCjfGkzdOc0ioZQ/xL5wuV8zZGe+XBXs=",
+          "trace_external_hash_norm": "LrgXSYy8FPia+7EF3yx3I2SjRBLFEqcplg4dQEldUoM="
+        }
+      ],
+      "trace": {
+        "tx_hash": "PT49fkE5yonPN74chbzHibMOS4jeFp8GAL0ksaDtD4w=",
+        "in_msg_hash": "3yBNhXeVki4mCjfGkzdOc0ioZQ/xL5wuV8zZGe+XBXs=",
+        "children": [
+          {
+            "tx_hash": "1qhOAB0DyTmXuRdabpyFBiMa13NDx4ivT7asCqwgPGY=",
+            "in_msg_hash": "chc+oxQnKnP9lO4y9UR++10tvjgf/U1W6b2mP+bAp78=",
+            "children": []
+          }
+        ]
+      },
+      "transactions_order": [
+        "PT49fkE5yonPN74chbzHibMOS4jeFp8GAL0ksaDtD4w=",
+        "1qhOAB0DyTmXuRdabpyFBiMa13NDx4ivT7asCqwgPGY="
+      ],
+      "transactions": {
+        "1qhOAB0DyTmXuRdabpyFBiMa13NDx4ivT7asCqwgPGY=": {
+          "account": "0:ADD6BFB08D3523A2DC839EA3E3A21155EB92192DF1E15C04DAEF9E31D2912823",
+          "hash": "1qhOAB0DyTmXuRdabpyFBiMa13NDx4ivT7asCqwgPGY=",
+          "lt": "62855792000003",
+          "now": 1761222409,
+          "mc_block_seqno": 53252117,
+          "trace_id": "PT49fkE5yonPN74chbzHibMOS4jeFp8GAL0ksaDtD4w=",
+          "prev_trans_hash": "E5/7KDW9AvEbeoYLTEiM3K/qPYuxmAbHmnpZ8A7eATo=",
+          "prev_trans_lt": "53584183000001",
+          "orig_status": "active",
+          "end_status": "active",
+          "total_fees": "20444238",
+          "total_fees_extra_currencies": {},
+          "description": {
+            "type": "ord",
+            "aborted": false,
+            "destroyed": false,
+            "credit_first": false,
+            "storage_ph": {
+              "storage_fees_collected": "16931838",
+              "status_change": "unchanged"
+            },
+            "credit_ph": {
+              "credit": "15000000"
+            },
+            "compute_ph": {
+              "skipped": false,
+              "success": true,
+              "msg_state_used": false,
+              "account_activated": false,
+              "gas_fees": "3512400",
+              "gas_used": "8781",
+              "gas_limit": "37500",
+              "mode": 0,
+              "exit_code": 0,
+              "vm_steps": 204,
+              "vm_init_state_hash": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+              "vm_final_state_hash": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+            },
+            "action": {
+              "success": true,
+              "valid": true,
+              "no_funds": false,
+              "status_change": "unchanged",
+              "result_code": 0,
+              "tot_actions": 0,
+              "spec_actions": 0,
+              "skipped_actions": 0,
+              "msgs_created": 0,
+              "action_list_hash": "lqKW0iTyhcZ77pPDD4owkVfw2qNdxbh+QQt4YwoJz8c=",
+              "tot_msg_size": {
+                "cells": "0",
+                "bits": "0"
+              }
+            }
+          },
+          "block_ref": {
+            "workchain": 0,
+            "shard": "8000000000000000",
+            "seqno": 58231372
+          },
+          "in_msg": {
+            "hash": "chc+oxQnKnP9lO4y9UR++10tvjgf/U1W6b2mP+bAp78=",
+            "source": "0:B9A7DCE19431B56044254C69858E8DC11FEC5C0761DED415E386FBE4B4E116F5",
+            "destination": "0:ADD6BFB08D3523A2DC839EA3E3A21155EB92192DF1E15C04DAEF9E31D2912823",
+            "value": "15000000",
+            "value_extra_currencies": {},
+            "fwd_fee": "491471",
+            "ihr_fee": "0",
+            "extra_flags": null,
+            "created_lt": "62855792000002",
+            "created_at": "1761222409",
+            "opcode": "0x4eb1f0f9",
+            "decoded_opcode": "change_dns_record",
+            "ihr_disabled": true,
+            "bounce": true,
+            "bounced": false,
+            "import_fee": null,
+            "message_content": {
+              "hash": "wqXN9D+jIegGjLlAI5mM5MTcK6Txd7vPCWZPEDQHFVE=",
+              "body": "te6cckEBAgEAVgABWE6x8PkAAAAAAAAAAOjUQFCHPbqGWqfBcKtMzmTZCDmjTc/Wz3HRTgIFRDsbAQBJn9OAFzT7nDKGNqwIhKmNMLHRuCP9i4DsO9qCvHDffJacIt6gEI4Y6Qg=",
+              "decoded": {
+                "type": "@type",
+                "data": "change_dns_record"
+              }
+            },
+            "init_state": null
+          },
+          "out_msgs": [],
+          "account_state_before": {
+            "hash": "CzDbXAaZylRiX+QZQIF1698UzmKvCfBBcnnTR3T6xBU=",
+            "balance": "994446542",
+            "extra_currencies": {},
+            "account_status": "active",
+            "frozen_hash": null,
+            "data_hash": "jJ0yIT7wupyYMVuHC3ejPqmPJ78zDNzBYYQWJ99/DDA=",
+            "code_hash": "8iWat+auQDdcslpe+Ww6mz0orRVPePQSqqMG6o3rY9I="
+          },
+          "account_state_after": {
+            "hash": "MT5EZ+dHRkiO0d0pcbLWYKAPKWMNgYqV/zMn3+ZdUWg=",
+            "balance": "989002304",
+            "extra_currencies": {},
+            "account_status": "active",
+            "frozen_hash": null,
+            "data_hash": "eZBr8QvOSz91AP90aIEWHVHxEI2Jy51xPVm+y6ZXRhc=",
+            "code_hash": "8iWat+auQDdcslpe+Ww6mz0orRVPePQSqqMG6o3rY9I="
+          },
+          "emulated": false
+        },
+        "PT49fkE5yonPN74chbzHibMOS4jeFp8GAL0ksaDtD4w=": {
+          "account": "0:B9A7DCE19431B56044254C69858E8DC11FEC5C0761DED415E386FBE4B4E116F5",
+          "hash": "PT49fkE5yonPN74chbzHibMOS4jeFp8GAL0ksaDtD4w=",
+          "lt": "62855792000001",
+          "now": 1761222409,
+          "mc_block_seqno": 53252117,
+          "trace_id": "PT49fkE5yonPN74chbzHibMOS4jeFp8GAL0ksaDtD4w=",
+          "prev_trans_hash": "7uCbmS9IFjdl0lqYuIM12H0wpMDPUBzrVcssk0uM1EA=",
+          "prev_trans_lt": "62855079000016",
+          "orig_status": "active",
+          "end_status": "active",
+          "total_fees": "2343811",
+          "total_fees_extra_currencies": {},
+          "description": {
+            "type": "ord",
+            "aborted": false,
+            "destroyed": false,
+            "credit_first": true,
+            "storage_ph": {
+              "storage_fees_collected": "82",
+              "status_change": "unchanged"
+            },
+            "compute_ph": {
+              "skipped": false,
+              "success": true,
+              "msg_state_used": false,
+              "account_activated": false,
+              "gas_fees": "1197600",
+              "gas_used": "2994",
+              "gas_limit": "0",
+              "gas_credit": "10000",
+              "mode": 0,
+              "exit_code": 0,
+              "vm_steps": 66,
+              "vm_init_state_hash": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+              "vm_final_state_hash": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+            },
+            "action": {
+              "success": true,
+              "valid": true,
+              "no_funds": false,
+              "status_change": "unchanged",
+              "total_fwd_fees": "737200",
+              "total_action_fees": "245729",
+              "result_code": 0,
+              "tot_actions": 1,
+              "spec_actions": 0,
+              "skipped_actions": 0,
+              "msgs_created": 1,
+              "action_list_hash": "5fUBj3sYQAPSNoRaa7w4OSAdc8n5CanZKpumvspTJCw=",
+              "tot_msg_size": {
+                "cells": "3",
+                "bits": "1340"
+              }
+            }
+          },
+          "block_ref": {
+            "workchain": 0,
+            "shard": "8000000000000000",
+            "seqno": 58231372
+          },
+          "in_msg": {
+            "hash": "3yBNhXeVki4mCjfGkzdOc0ioZQ/xL5wuV8zZGe+XBXs=",
+            "source": null,
+            "destination": "0:B9A7DCE19431B56044254C69858E8DC11FEC5C0761DED415E386FBE4B4E116F5",
+            "value": null,
+            "value_extra_currencies": null,
+            "fwd_fee": null,
+            "ihr_fee": null,
+            "extra_flags": null,
+            "created_lt": null,
+            "created_at": null,
+            "opcode": "0xcc3073c4",
+            "decoded_opcode": "",
+            "ihr_disabled": null,
+            "bounce": null,
+            "bounced": null,
+            "import_fee": "0",
+            "message_content": {
+              "hash": "YzIMuTMo5BcFdEI/N3kU8j90rHKmkXKQ857bi8dvQMs=",
+              "body": "te6cckEBAwEA2QABmswwc8S1rlttfXntxaEdlxkPt6snLrQ1wgXjbEupH42ZZoIpwk6iDo1hOuhXERUzNauHz1wszpuTEMuMDwkChAEpqaMXaPofhAAACEQDAQG+YgBW61/YRpqR0W5Bz1Hx0Qiq9ckMlvjwrgJtd88Y6UiUEZ8nDgAAAAAAAAAAAAAAAAAATrHw+QAAAAAAAAAA6NRAUIc9uoZap8Fwq0zOZNkIOaNNz9bPcdFOAgVEOxsCAEmf04AXNPucMoY2rAiEqY0wsdG4I/2LgOw72oK8cN98lpwi3qAQTYgJQA==",
+              "decoded": {
+                "type": "msg_seqno",
+                "data": "2116"
+              }
+            },
+            "init_state": null,
+            "hash_norm": "LrgXSYy8FPia+7EF3yx3I2SjRBLFEqcplg4dQEldUoM="
+          },
+          "out_msgs": [
+            {
+              "hash": "chc+oxQnKnP9lO4y9UR++10tvjgf/U1W6b2mP+bAp78=",
+              "source": "0:B9A7DCE19431B56044254C69858E8DC11FEC5C0761DED415E386FBE4B4E116F5",
+              "destination": "0:ADD6BFB08D3523A2DC839EA3E3A21155EB92192DF1E15C04DAEF9E31D2912823",
+              "value": "15000000",
+              "value_extra_currencies": {},
+              "fwd_fee": "491471",
+              "ihr_fee": "0",
+              "extra_flags": null,
+              "created_lt": "62855792000002",
+              "created_at": "1761222409",
+              "opcode": "0x4eb1f0f9",
+              "decoded_opcode": "change_dns_record",
+              "ihr_disabled": true,
+              "bounce": true,
+              "bounced": false,
+              "import_fee": null,
+              "message_content": {
+                "hash": "wqXN9D+jIegGjLlAI5mM5MTcK6Txd7vPCWZPEDQHFVE=",
+                "body": "te6cckEBAgEAVgABWE6x8PkAAAAAAAAAAOjUQFCHPbqGWqfBcKtMzmTZCDmjTc/Wz3HRTgIFRDsbAQBJn9OAFzT7nDKGNqwIhKmNMLHRuCP9i4DsO9qCvHDffJacIt6gEI4Y6Qg=",
+                "decoded": {
+                  "type": "@type",
+                  "data": "change_dns_record"
+                }
+              },
+              "init_state": null
+            }
+          ],
+          "account_state_before": {
+            "hash": "3fQnjm8VFSx4tSlH8IU0OROryeXDhcE6SCS+gs32NFc=",
+            "balance": "8239649779",
+            "extra_currencies": {},
+            "account_status": "active",
+            "frozen_hash": null,
+            "data_hash": "MYtw4dhSaL+TRtoOojtuzCEoouhB1SWWfxWzRSdYkH0=",
+            "code_hash": "hNr6RJ+Ypph3ibojI1gHK8D3bcRSQAKl0JGLmnXS1Zk="
+          },
+          "account_state_after": {
+            "hash": "G/cBDsL9XiIQa69ScLLytlVBiE8oHrNw9xF8uAU2J9c=",
+            "balance": "8221814497",
+            "extra_currencies": {},
+            "account_status": "active",
+            "frozen_hash": null,
+            "data_hash": "hW+KW61vzDDYg/21tnFPf7Ux3UtwB2WhkoULucSjp7g=",
+            "code_hash": "hNr6RJ+Ypph3ibojI1gHK8D3bcRSQAKl0JGLmnXS1Zk="
+          },
+          "emulated": false
+        }
+      }
+    }
+  ],
+  "address_book": {
+    "0:22737CCF71EE3DEAE9050E16DCA36F0556C28A9765945FF889C1A2FCEC20714A": {
+      "user_friendly": "EQAic3zPce496ukFDhbco28FVsKKl2WUX_iJwaL87CBxSiLQ",
+      "domain": null
+    },
+    "0:ADD6BFB08D3523A2DC839EA3E3A21155EB92192DF1E15C04DAEF9E31D2912823": {
+      "user_friendly": "EQCt1r-wjTUjotyDnqPjohFV65IZLfHhXATa754x0pEoI8_W",
+      "domain": null
+    },
+    "0:B9A7DCE19431B56044254C69858E8DC11FEC5C0761DED415E386FBE4B4E116F5": {
+      "user_friendly": "UQC5p9zhlDG1YEQlTGmFjo3BH-xcB2He1BXjhvvktOEW9Xi0",
+      "domain": "mytonwallet-dev.ton"
+    }
+  },
+  "metadata": {
+    "0:22737CCF71EE3DEAE9050E16DCA36F0556C28A9765945FF889C1A2FCEC20714A": {
+      "is_indexed": true,
+      "token_info": [
+        {
+          "valid": true,
+          "type": "nft_collections",
+          "name": "Gram DNS Domains",
+          "description": "Exclusive .gram DNS domains – the privilege of being a part of the decentralized future based on Gram.",
+          "image": "https://gramcoin.org/img/icon.png",
+          "extra": {
+            "_image_big": "https://imgproxy.toncenter.com/E3HvtiB-sHg4h_wTCyOC1n1NCga1cmOWpvN0jWjAgw4/pr:big/aHR0cHM6Ly9ncmFtY29pbi5vcmcvaW1nL2ljb24ucG5n",
+            "_image_medium": "https://imgproxy.toncenter.com/4NU17h_h_8CugNZt56YbPFA48nd4BPQKFryI_579w7M/pr:medium/aHR0cHM6Ly9ncmFtY29pbi5vcmcvaW1nL2ljb24ucG5n",
+            "_image_small": "https://imgproxy.toncenter.com/aqXjvy6cJXzTnfRvdx1Fj9ElrEicPi2YcwkugFB4aSQ/pr:small/aHR0cHM6Ly9ncmFtY29pbi5vcmcvaW1nL2ljb24ucG5n"
+          }
+        }
+      ]
+    },
+    "0:ADD6BFB08D3523A2DC839EA3E3A21155EB92192DF1E15C04DAEF9E31D2912823": {
+      "is_indexed": true,
+      "token_info": [
+        {
+          "valid": true,
+          "type": "nft_items",
+          "name": "marsonkotovi4.gram",
+          "description": "A .gram blockchain domain. Gram DNS is a service that allows users to assign a human-readable name to crypto wallets, smart contracts, and websites.",
+          "image": "https://dns-cdn.gramcoin.org/dnsimage/marsonkotovi4.png",
+          "nft_index": "62098834295120963927411126347242136284360673055441170963365674062424074453162",
+          "extra": {
+            "_image_big": "https://imgproxy.toncenter.com/UveSDnW38PhunpLNO-6jzGGvLPAfAVSbGwQLMNZrJ-Y/pr:big/aHR0cHM6Ly9kbnMtY2RuLmdyYW1jb2luLm9yZy9kbnNpbWFnZS9tYXJzb25rb3Rvdmk0LnBuZw",
+            "_image_medium": "https://imgproxy.toncenter.com/04yZRxl4g6l2PDFQxfrdYddlRIpp8M3uXDAXvCnZHUc/pr:medium/aHR0cHM6Ly9kbnMtY2RuLmdyYW1jb2luLm9yZy9kbnNpbWFnZS9tYXJzb25rb3Rvdmk0LnBuZw",
+            "_image_small": "https://imgproxy.toncenter.com/OspVIcp2SlaS9YWlWpgp7WTYE9tsH09qnOCuPRUhAN8/pr:small/aHR0cHM6Ly9kbnMtY2RuLmdyYW1jb2luLm9yZy9kbnNpbWFnZS9tYXJzb25rb3Rvdmk0LnBuZw"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -7,7 +7,7 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-public class SendDappVC: WViewController {
+public class SendDappVC: WViewController, UISheetPresentationControllerDelegate {
     
     var request: MDappSendTransactions?
     var onConfirm: ((String?) -> ())?
@@ -99,7 +99,7 @@ public class SendDappVC: WViewController {
     
     private func setupViews() {
         
-        addNavigationBar(title: nil, subtitle: nil, closeIcon: true)
+        addCloseNavigationItemIfNeeded()
 
         hostingController = addHostingController(makeView(), constraints: .fill)
         
@@ -111,8 +111,6 @@ public class SendDappVC: WViewController {
             contentView.rightAnchor.constraint(equalTo: view.rightAnchor)
         ])
 
-        bringNavigationBarToFront()
-        
         updateTheme()
         
         sendButton.isEnabled = if let request {
@@ -120,6 +118,8 @@ public class SendDappVC: WViewController {
         } else {
             false
         }
+        
+        sheetPresentationController?.delegate = self
     }
     
     private func makeView() -> SendDappViewOrPlaceholder {
@@ -129,14 +129,12 @@ public class SendDappVC: WViewController {
                 account: account,
                 request: request,
                 onShowDetail: showDetail(_:),
-                onScroll: { [weak self] in self?.updateNavigationBarProgressiveBlur($0) }
             )))
         } else {
             let account = placeholderAccountId.flatMap { AccountStore.accountsById[$0] }
             return SendDappViewOrPlaceholder(content: .placeholder(TonConnectPlaceholder(
                 account: account,
                 connectionType: .sendTransaction,
-                navigationBarInset: 32
             )))
         }
     }
@@ -166,7 +164,7 @@ public class SendDappVC: WViewController {
             title: lang("Confirm Sending"),
             subtitle: request.dapp.url,
             onDone: { [weak self] passcode in
-                self?.onConfirm?(passcode)
+                self?._onConfirm(passcode)
                 self?.dismiss(animated: true)
             },
             cancellable: true
@@ -176,13 +174,12 @@ public class SendDappVC: WViewController {
     private func confirmLedger() async {
         guard
             let account = AccountStore.account,
-            let fromAddress = account.tonAddress?.nilIfEmpty,
             let request
         else { return }
         
         let signModel = await LedgerSignModel(
             accountId: account.id,
-            fromAddress: fromAddress,
+            fromAddress: account.firstAddress,
             signData: .signDappTransfers(update: request)
         )
         let vc = LedgerSignVC(
@@ -191,7 +188,7 @@ public class SendDappVC: WViewController {
             headerView: EmptyView()
         )
         vc.onDone = { vc in
-            self.onConfirm?("ledger")
+            self._onConfirm("ledger")
             self.dismiss(animated: true, completion: {
                 self.presentingViewController?.dismiss(animated: true)
             })
@@ -205,9 +202,23 @@ public class SendDappVC: WViewController {
         present(vc, animated: true)
     }
     
+    func _onConfirm(_ password: String?) {
+        onConfirm?(password)
+        onConfirm = nil
+        onCancel = nil
+    }
+    
     @objc func _onCancel() {
-        onCancel?()
-        self.dismiss(animated: true)
+        if let onCancel {
+            onCancel()
+            onConfirm = nil
+            self.onCancel = nil
+            self.dismiss(animated: true)
+        }
+    }
+
+    public func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        _onCancel()
     }
 }
 
@@ -217,7 +228,6 @@ public class SendDappVC: WViewController {
 //#Preview {
 //    let activity1 = ApiActivity.transaction(ApiTransactionActivity(id: "d", kind: "transaction", timestamp: 0, amount: -123456789, fromAddress: "foo", toAddress: "bar", comment: nil, encryptedComment: nil, fee: 12345, slug: TON_USDT_SLUG, isIncoming: false, normalizedAddress: nil, externalMsgHashNorm: nil, shouldHide: nil, type: nil, metadata: nil, nft: nil, isPending: nil))
 //    let activity2 = ApiActivity.transaction(ApiTransactionActivity(id: "d2", kind: "transaction", timestamp: 0, amount: -456789, fromAddress: "foo", toAddress: "bar", comment: nil, encryptedComment: nil, fee: 12345, slug: TON_USDT_SLUG, isIncoming: false, normalizedAddress: nil, externalMsgHashNorm: nil, shouldHide: nil, type: .callContract, metadata: nil, nft: nil, isPending: nil))
-//    let _ = UIFont.registerAirFonts()
 //
 //    let request = MDappSendTransactions(
 //        promiseId: "",

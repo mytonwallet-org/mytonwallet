@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.uicomponents.commonViews.cells.activity
 
 import android.content.Context
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
@@ -19,8 +20,15 @@ class ActivityDateLabel(context: Context) : WLabel(context) {
         setPadding(16.dp, 16.dp, 16.dp, 0)
     }
 
+    private var isFirst = false
     fun configure(dt: Date, isFirst: Boolean) {
+        this.isFirst = isFirst
         setUserFriendlyDate(dt)
+    }
+
+    override fun updateTheme() {
+        super.updateTheme()
+
         setTextColor(WColor.PrimaryText.color)
 
         setBackgroundColor(
@@ -31,7 +39,7 @@ class ActivityDateLabel(context: Context) : WLabel(context) {
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(48.dp, MeasureSpec.EXACTLY))
+        super.onMeasure(widthMeasureSpec, 48.dp.exactly)
     }
 
 }

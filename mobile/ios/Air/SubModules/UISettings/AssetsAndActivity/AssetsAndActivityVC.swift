@@ -86,7 +86,7 @@ public class AssetsAndActivityVC: WViewController {
         return Array(tokens)
     }
     
-    private var baseCurrency: MBaseCurrency { TokenStore.baseCurrency ?? .USD }
+    private var baseCurrency: MBaseCurrency { TokenStore.baseCurrency }
     
     private func setupViews() {
         title = lang("Assets & Activity")
@@ -154,7 +154,8 @@ public class AssetsAndActivityVC: WViewController {
                         HStack(spacing: 0) {
                             Text(lang("Hidden NFTs"))
                             Spacer()
-                            Text("\(NftStore.currentAccountHiddenNftsCount)")
+                            let accountId = AccountStore.currentAccountId
+                            Text("\(NftStore.getAccountHiddenNftsCount(accountId: accountId))")
                                 .padding(.horizontal, 8)
                                 .foregroundStyle(Color(WTheme.secondaryLabel))
                             Image.airBundle("RightArrowIcon")
@@ -241,7 +242,8 @@ public class AssetsAndActivityVC: WViewController {
         var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
         snapshot.appendSections([.baseCurrency])
         snapshot.appendItems([.baseCurrency])
-        if NftStore.currentAccountHasHiddenNfts {
+        let accountId = AccountStore.currentAccountId
+        if NftStore.getAccountHasHiddenNfts(accountId: accountId) {
             snapshot.appendSections([.hiddenNfts])
             snapshot.appendItems([.hiddenNfts])
         }
@@ -268,6 +270,14 @@ public class AssetsAndActivityVC: WViewController {
         addTokenSeparator.backgroundColor = WTheme.separator
         addTokenView.highlightBackgroundColor = WTheme.highlight
         addTokenView.backgroundColor = WTheme.groupedItem
+    }
+    
+    public override func viewWillLayoutSubviews() {
+        // prevent unwanted animation on iOS 26
+        UIView.performWithoutAnimation {
+            tableView.frame = view.bounds
+        }
+        super.viewWillLayoutSubviews()
     }
     
     public override func scrollToTop(animated: Bool) {
@@ -410,7 +420,7 @@ extension AssetsAndActivityVC: UITableViewDelegate {
             case .baseCurrency, .hideNoCost, .token:
                 break
             case .hiddenNfts:
-                AppActions.showHiddenNfts()
+                AppActions.showHiddenNfts(accountSource: .current)
             case .addToken:
                 addTokenPressed()
             }

@@ -29,10 +29,10 @@ public class EmptyEarnView: WTouchPassStackView, WThemedView {
         return iv
     }()
     
-    private let earnFromTokensLabel = {
+    private lazy var earnFromTokensLabel = {
         let lbl = UILabel()
         lbl.font = .systemFont(ofSize: 17)
-        lbl.text = lang("Earn from your tokens while holding them")
+        lbl.text = lang("Earn from your tokens while holding them", arg1: config.baseToken.symbol)
         lbl.textAlignment = .center
         lbl.numberOfLines = 0
         return lbl

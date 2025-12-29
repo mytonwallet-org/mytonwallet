@@ -6,7 +6,7 @@ import { getActions, withGlobal } from '../../global';
 import type { ApiChain, ApiLedgerWalletInfo } from '../../api/types';
 import type { Account } from '../../global/types';
 
-import { TOKEN_FONT_ICONS } from '../../config';
+import { TOKEN_CUSTOM_STYLES } from '../../config';
 import { selectNetworkAccounts } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { getChainConfig } from '../../util/chain';
@@ -62,7 +62,7 @@ function LedgerSelectWallets({
   } = getActions();
   const lang = useLang();
   const balanceToken = getChainConfig(chain).nativeToken;
-  const balanceTokenFontIcon = (TOKEN_FONT_ICONS as Record<string, string | undefined>)[balanceToken.slug];
+  const balanceTokenFontIcon = TOKEN_CUSTOM_STYLES[balanceToken.slug]?.fontIcon;
 
   const { renderedValue: renderedWallets, vtnStyle } = useViewTransitionedState(
     hardwareWallets,

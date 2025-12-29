@@ -11,6 +11,11 @@ import kotlin.math.pow
 import kotlin.math.roundToInt
 
 sealed class ScrollState() {
+    companion object {
+        const val TITLE_SCALE_FACTOR = 0.323f
+        const val SUBTITLE_SCALE_FACTOR = 0.15f
+    }
+
     // AVATAR IMAGE ////////////////////////////////////////////////////////////////////////////////
     abstract val avatarWidth: Int
     abstract val avatarHeight: Int
@@ -45,7 +50,9 @@ sealed class ScrollState() {
             }
         override val avatarTranslationY: Float
             get() {
-                return lerp(headerView.topExtraPadding.toFloat(), (-17f).dp, percent)
+                return with(headerView) {
+                    lerp(topExtraPadding.toFloat(), topExtraPadding - 105f.dp, percent)
+                }
             }
         override val avatarScale: Float
             get() {
@@ -58,7 +65,7 @@ sealed class ScrollState() {
                     headerView.titleLabel.text.toString()
                 ) else 0f
             }
-        override val titleScale = 1 - percent * 0.323f
+        override val titleScale = 1 - percent * TITLE_SCALE_FACTOR
         override val titleTranslationX: Float
             get() {
                 return lerp(headerView.titleCompactTranslationX, 96f.dp, percent)
@@ -75,15 +82,15 @@ sealed class ScrollState() {
                     headerView.subtitleLabel.text.toString()
                 ) else 0f
             }
-        override val subtitleScale = titleScale
+        override val subtitleScale = 1 - percent * SUBTITLE_SCALE_FACTOR
         override val subtitleTranslationX: Float
             get() {
-                return lerp(headerView.subtitleCompactTranslationX, 100.3f.dp, percent)
+                return lerp(headerView.subtitleCompactTranslationX, 98f.dp, percent)
             }
         override val subtitleTranslationY: Float
             get() {
                 with(headerView) {
-                    return lerp(topExtraPadding + 193f.dp, topExtraPadding - 31f.dp, percent)
+                    return lerp(topExtraPadding + 193f.dp, topExtraPadding - 28f.dp, percent)
                 }
             }
         override val subtitleAlpha = 1f

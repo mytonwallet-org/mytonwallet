@@ -54,6 +54,8 @@ import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 class IntroVC(
     context: Context,
 ) : WViewController(context), IntroVM.Delegate {
+    override val TAG = "Intro"
+
     private val introVM by lazy {
         IntroVM(this)
     }
@@ -227,6 +229,7 @@ class IntroVC(
         updateTheme()
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         super.updateTheme()
         val backgroundColor = WColor.Background.color
@@ -247,12 +250,12 @@ class IntroVC(
             particlesCleaner = tonParticlesView.addParticleSystem(particleParams)
             tonParticlesView.isGone = false
         }
-        tonParticlesView.fadeIn { }
+        tonParticlesView.fadeIn()
     }
 
     override fun viewWillDisappear() {
         super.viewWillDisappear()
-        tonParticlesView.fadeOut { }
+        tonParticlesView.fadeOut()
     }
 
     override fun onDestroy() {

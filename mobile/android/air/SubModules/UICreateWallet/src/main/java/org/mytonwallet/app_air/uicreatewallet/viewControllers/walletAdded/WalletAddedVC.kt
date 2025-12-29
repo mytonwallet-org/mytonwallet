@@ -19,6 +19,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStrin
 import org.mytonwallet.uihome.tabs.TabsVC
 
 class WalletAddedVC(context: Context, isNew: Boolean) : WViewController(context) {
+    override val TAG = "WalletAdded"
 
     override val shouldDisplayTopBar = false
 
@@ -36,9 +37,12 @@ class WalletAddedVC(context: Context, isNew: Boolean) : WViewController(context)
             mediaSize = 160.dp,
             title = LocaleController.getString("All Set!"),
             subtitle = (
-                LocaleController.getString(if (isNew) "\$finalized_wallet_creation" else "\$finalized_wallet_import") +
+                (if (isNew)
+                    LocaleController.getString("\$wallet_create_done")
+                else
+                    LocaleController.getPlural(1, "\$wallet_import_done")) +
                     "\n\n" +
-                    LocaleController.getString("\$store_securely")
+                    LocaleController.getString("\$wallet_done_description")
                 ).toProcessedSpannableStringBuilder(),
             onStarted = {
                 animationStarted()

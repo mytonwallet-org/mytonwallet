@@ -10,8 +10,16 @@ $landscapeBaseBalanceSize: 3rem;
 $signSizeDiff: 0.375rem;
 
 .containerWrapper {
+  --z-card-decoration: 2;
+  --z-card-promo: 3;
+  --z-card-promo-overlay: 5;
+  --z-card-mascot: 4;
+  --z-card-content: 6;
+
   position: relative;
   z-index: var(--z-card);
+
+  overflow: visible;
 
   box-sizing: border-box;
   width: 100%;
@@ -43,6 +51,80 @@ $signSizeDiff: 0.375rem;
   margin-left: auto
 }
 
+.promoLayer {
+  pointer-events: none;
+
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+
+  overflow: visible;
+}
+
+.promoBg,
+.promoOverlay {
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  right: 0;
+
+  &_img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.promoBg {
+  z-index: var(--z-card-promo);
+}
+
+.promoOverlay {
+  z-index: var(--z-card-promo-overlay);
+}
+
+.promoMascot {
+  pointer-events: auto;
+  cursor: var(--custom-cursor, pointer);
+
+  position: absolute;
+  z-index: var(--z-card-mascot);
+  top: 0;
+  right: 0;
+  transform: translate(
+    var(--promo-mascot-right, 0px),
+    calc(var(--promo-mascot-top, 0px) * -1)
+  ) rotate(var(--promo-mascot-rotation, 0deg));
+
+  overflow: visible;
+
+  width: var(--promo-mascot-width, 4rem);
+  height: var(--promo-mascot-height, 4rem);
+}
+
+.promoMascot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.seasonalGarland {
+  pointer-events: auto;
+
+  position: absolute;
+  z-index: var(--z-card-decoration);
+  top: 0;
+  right: 0;
+  left: 0;
+
+  overflow: visible;
+
+  width: 100%;
+}
+
 .container {
   --main-text: var(--color-card-text);
   --second-text: var(--color-card-second-text);
@@ -51,6 +133,7 @@ $signSizeDiff: 0.375rem;
   top: 0;
   left: 0;
 
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -99,8 +182,8 @@ $signSizeDiff: 0.375rem;
     filter: brightness(65%);
   }
 
-  &.tokenCard {
-    z-index: 2;
+  &.chartCard {
+    z-index: 10;
     transform: translateY(0.625rem) scale(1.05);
 
     height: calc(100% - 0.375rem);
@@ -155,8 +238,10 @@ $signSizeDiff: 0.375rem;
 }
 
 .containerInner {
+  pointer-events: none;
+
   position: absolute;
-  z-index: 2;
+  z-index: var(--z-card-content);
   top: 0;
   left: 0;
 
@@ -168,6 +253,13 @@ $signSizeDiff: 0.375rem;
   height: 100%;
   padding: max(3.75rem, 17.4927%) 1rem 0.25rem;
 
+  > * {
+    pointer-events: auto;
+  }
+
+  @media (max-width: 360px) {
+    padding: max(2rem, 14%) 1rem 0.25rem;
+  }
 }
 
 .balanceSlide {
@@ -250,6 +342,17 @@ $signSizeDiff: 0.375rem;
   cursor: var(--custom-cursor, pointer);
   position: relative;
 
+  @include mixins.transition(opacity 200ms);
+
+  &:hover,
+  &:focus-visible {
+    opacity: 0.85;
+  }
+
+  &:active {
+    transition: none;
+  }
+
   & > .iconCaretSmall {
     position: relative;
     top: 0.0625rem;
@@ -265,8 +368,21 @@ $signSizeDiff: 0.375rem;
   left: var(--offset-x-value, var(--offset-x));
 }
 
-.addressContainer {
+.cardAddressContainer {
+  height: 1.125rem;
   margin: auto auto 0.75rem;
+}
+
+.cardAddressSlide {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.addressContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
   .iconCaretSmall {
     vertical-align: -0.1875rem;
@@ -274,7 +390,35 @@ $signSizeDiff: 0.375rem;
 }
 
 .minimized {
-  margin-bottom: 0 !important;
+  margin: auto auto 0;
+}
+
+.saveTemporaryButton {
+  cursor: var(--custom-cursor, pointer);
+
+  display: inline-flex;
+  gap: 0.125rem;
+  align-items: center;
+
+  height: 1.75rem;
+  margin-top: -0.375rem;
+  margin-right: 0.5rem;
+  margin-bottom: -0.375rem;
+  padding: 0.25rem 0.5rem;
+  border: 0.0625rem solid var(--color-card-button-border);
+  border-radius: var(--border-radius-tiny);
+
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-card-text);
+
+  background: rgba(255, 255, 255, 0.001);
+  backdrop-filter: blur(16px);
+}
+
+.addIcon {
+  font-size: 1.25rem !important;
 }
 
 .addressLabel {
@@ -282,7 +426,7 @@ $signSizeDiff: 0.375rem;
   align-items: center;
 
   height: 1rem;
-  margin-right: 0.25rem;
+  margin-right: 0.5rem;
   padding: 0 0.25rem;
   border-radius: 0.3125rem;
 
@@ -290,7 +434,7 @@ $signSizeDiff: 0.375rem;
   font-weight: 700;
   line-height: 1rem;
   color: var(--second-text);
-  vertical-align: -0.0625rem;
+  vertical-align: 0.125rem;
 
   background-color: var(--color-card-button);
 
@@ -302,6 +446,9 @@ $signSizeDiff: 0.375rem;
 
 .address {
   cursor: var(--custom-cursor, pointer);
+
+  display: inline-flex;
+  align-items: center;
 
   width: auto;
   height: auto;
@@ -372,18 +519,24 @@ $signSizeDiff: 0.375rem;
   padding: 0.6875rem 0.9375rem 0.6875rem 0.75rem !important;
 
   @media (pointer: coarse) {
-    padding: 0.75rem 0.9375rem 0.75rem 0.75rem !important;
+    padding: 0.5625rem 0.9375rem 0.5625rem 0.625rem !important;
   }
 }
 
 .menuIcon {
-  width: 1.375rem;
-  height: 1.375rem;
+  width: 1.625rem;
+  height: 1.625rem;
 
   @media (pointer: coarse) {
-    width: 1.5rem;
-    height: 1.5rem;
+    width: 1.75rem;
+    height: 1.75rem;
   }
+}
+
+.menuItemContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
 }
 
 .menuItemName {
@@ -412,16 +565,27 @@ $signSizeDiff: 0.375rem;
 .menuExplorerIcon {
   cursor: var(--custom-cursor, pointer);
 
-  position: relative;
-  top: -0.0625rem;
-
   order: 3;
 
-  color: var(--color-gray-3);
+  margin-right: -0.375rem;
+  margin-left: auto;
+  padding-left: 1rem;
 
-  &:hover,
-  &:focus {
-    color: var(--color-accent);
+  font-size: 1.5rem;
+  line-height: 1.5rem;
+  color: var(--color-accent);
+
+  @include mixins.transition(color 150ms);
+
+  &:active {
+    color: var(--color-accent-button-background-hover);
+  }
+
+  @media (hover: hover) {
+    &:hover,
+    &:focus-visible {
+      color: var(--color-accent-button-background-hover);
+    }
   }
 }
 
@@ -448,42 +612,31 @@ $signSizeDiff: 0.375rem;
 .addressText {
   cursor: var(--custom-cursor, pointer);
   color: var(--color-gray-3);
+
+  @include mixins.transition(color 200ms);
+
+  @media (hover: hover) {
+    &:hover,
+    &:focus {
+      color: var(--color-gray-1);
+    }
+  }
 }
 
 .separator {
   margin: 0 4px;
-  color: var(--color-gray-3);
+  color: var(--color-gray-2);
 }
 
-.explorerButton {
-  font-size: 1.25rem;
-  line-height: 1;
-  color: var(--action-color, var(--second-text));
-  text-decoration: none !important;
+.chainRow {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1rem;
+  color: var(--color-gray-2);
+  white-space: nowrap;
 
-  @include mixins.transition($color-transition);
-
-  &:active {
-    // Optimization
-    transition: none;
-  }
-
-  &:hover,
-  &:focus-visible {
-    color: var(--action-color-hover, var(--main-text));
-  }
-
-  :global(.MtwCard__black) &,
-  :global(.MtwCard__platinum) &,
-  :global(.MtwCard__gold) &,
-  :global(.MtwCard__silver) & {
-    color: var(--action-color, var(--second-text));
-    transition: opacity 150ms;
-
-    &:hover,
-    &:focus-visible {
-      opacity: 0.65;
-    }
+  @media (pointer: coarse) {
+    font-size: 0.8125rem;
   }
 }
 
@@ -540,10 +693,26 @@ $signSizeDiff: 0.375rem;
   width: 1.875rem;
 }
 
+.multichainList {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  align-items: center;
+}
+
+.multichainItem {
+  display: inline-flex;
+  align-items: center;
+}
+
+.multichainAddress {
+  display: inline-flex;
+}
+
 .tokenInfo {
   display: grid;
-  grid-template-areas: "back icon header" "back icon subheader";
-  grid-template-columns: min-content min-content minmax(0, 1fr); // `minmax` forces the column to stay within the grid boundaries and to cut the content with ellipsis
+  grid-template-areas: "icon header" "icon subheader";
+  grid-template-columns: min-content minmax(0, 1fr); // `minmax` forces the column to stay within the grid boundaries and to cut the content with ellipsis
   align-items: center;
 }
 
@@ -748,17 +917,6 @@ $signSizeDiff: 0.375rem;
   pointer-events: none;
   width: 100%;
   height: auto;
-}
-
-.backButton {
-  grid-area: back;
-
-  margin: 0.25rem 0 0 -0.875rem;
-  padding-right: 0.125rem;
-  padding-left: 0.375rem;
-
-  font-size: 1.25rem;
-  color: var(--color-card-text);
 }
 
 .periodChooser {

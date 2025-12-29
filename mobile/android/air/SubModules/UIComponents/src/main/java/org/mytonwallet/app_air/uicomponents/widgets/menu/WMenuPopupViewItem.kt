@@ -6,22 +6,24 @@ import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import android.widget.FrameLayout
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.icons.R
+import org.mytonwallet.app_air.uicomponents.extensions.atMost
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
-class WMenuPopupViewItem(context: Context, val item: WMenuPopup.Item) : FrameLayout(context),
+class WMenuPopupViewItem(context: Context, val item: WMenuPopup.Item) : WFrameLayout(context),
     WThemedView {
 
     private val hasSubtitle = !item.getSubTitle().isNullOrEmpty()
@@ -49,14 +51,14 @@ class WMenuPopupViewItem(context: Context, val item: WMenuPopup.Item) : FrameLay
                 item.getIcon() != null ||
                 item.getIsSubItem() ||
                 item.config is WMenuPopup.Item.Config.SelectableItem
-            )
-                58.dp
-            else
+            ) {
+                item.getTextMargin() ?: 58.dp
+            } else {
                 16.dp
+            }
         }
 
     init {
-        id = generateViewId()
         addView(label, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
             if (hasSubtitle) {
                 gravity = if (LocaleController.isRTL) Gravity.RIGHT else Gravity.LEFT
@@ -75,7 +77,7 @@ class WMenuPopupViewItem(context: Context, val item: WMenuPopup.Item) : FrameLay
         addView(subtitleLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
             gravity = Gravity.BOTTOM or
                 if (LocaleController.isRTL) Gravity.RIGHT else Gravity.LEFT
-            bottomMargin = if (item.hasSeparator) 18.dp else 11.dp
+            bottomMargin = if (item.hasSeparator) 15.dp else 8.dp
             if (LocaleController.isRTL)
                 rightMargin = textMargin
             else
@@ -84,7 +86,7 @@ class WMenuPopupViewItem(context: Context, val item: WMenuPopup.Item) : FrameLay
         item.getIcon()?.let {
             val iconSize = item.getIconSize() ?: if (hasSubtitle) 36.dp else 30.dp
             addView(iconView, LayoutParams(iconSize, iconSize).apply {
-                val startMargin = if (hasSubtitle)
+                val startMargin = item.getIconMargin() ?: if (hasSubtitle)
                     10.dp
                 else
                     (16.dp - ((item.getIconSize() ?: 30.dp) - 30.dp) / 3f).roundToInt()
@@ -132,10 +134,7 @@ class WMenuPopupViewItem(context: Context, val item: WMenuPopup.Item) : FrameLay
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         label.maxWidth = w - textMargin - 16.dp
-        label.measure(
-            MeasureSpec.makeMeasureSpec(w - textMargin - 16.dp, MeasureSpec.AT_MOST),
-            MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
-        )
+        label.measure((w - textMargin - 16.dp).atMost, 0.unspecified)
     }
 
     override fun updateTheme() {

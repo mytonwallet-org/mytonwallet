@@ -6,7 +6,7 @@ import {
   type OnApiUpdate,
 } from '../types';
 
-import { TOKEN_INFO } from '../../config';
+import { getTokenInfo } from '../../util/chain';
 import Deferred from '../../util/Deferred';
 import { buildCollectionByKey, omitUndefined } from '../../util/iteratees';
 import { tokenRepository } from '../db';
@@ -15,7 +15,7 @@ export const tokensPreload = new Deferred();
 const tokensCache: {
   bySlug: Record<string, ApiTokenWithPrice>;
 } = {
-  bySlug: { ...TOKEN_INFO },
+  bySlug: { ...getTokenInfo() },
 };
 
 export async function loadTokensCache() {

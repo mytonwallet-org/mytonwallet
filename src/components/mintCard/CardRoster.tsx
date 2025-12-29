@@ -3,15 +3,13 @@ import React, {
 } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
-import type { ApiCardInfo, ApiCardsInfo, ApiMtwCardType } from '../../api/types';
+import type { ApiCardInfo, ApiCardsInfo, ApiMtwCardType, ApiTokenWithPrice } from '../../api/types';
 import type { LangFn } from '../../hooks/useLang';
 
 import { MTW_CARDS_MINT_BASE_URL } from '../../config';
-import { selectCurrentToncoinBalance } from '../../global/selectors';
+import { selectCurrentAccountTokenBalance, selectCurrentToncoinBalance, selectMycoin } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { captureEvents, SwipeDirection } from '../../util/captureEvents';
-import { formatNumber } from '../../util/formatNumber';
-import { round } from '../../util/round';
 import { IS_TOUCH_ENV } from '../../util/windowEnvironment';
 
 import useLang from '../../hooks/useLang';
@@ -19,6 +17,7 @@ import useLastCallback from '../../hooks/useLastCallback';
 
 import Button from '../ui/Button';
 import Transition from '../ui/Transition';
+import AvailabilityIndicator from './AvailabilityIndicator';
 import CardPros from './CardPros';
 
 import modalStyles from '../ui/Modal.module.scss';
@@ -37,7 +36,9 @@ interface OwnProps {
 }
 
 interface StateProps {
-  tonBalance: bigint;
+  mycoinBalance: bigint;
+  toncoinBalance: bigint;
+  mycoin?: ApiTokenWithPrice;
 }
 
 enum CardSlides {
@@ -50,7 +51,7 @@ enum CardSlides {
 
 const TOTAL_SLIDES = Object.values(CardSlides).length / 2;
 
-function CardRoster({ cardsInfo, tonBalance }: OwnProps & StateProps) {
+function CardRoster({ cardsInfo, mycoin, mycoinBalance, toncoinBalance }: OwnProps & StateProps) {
   const { closeMintCardModal } = getActions();
 
   const lang = useLang();
@@ -124,7 +125,9 @@ function CardRoster({ cardsInfo, tonBalance }: OwnProps & StateProps) {
   function renderContent(isActive: boolean, isFrom: boolean, currentKey: CardSlides) {
     const defaultProps = {
       lang,
-      tonBalance,
+      mycoin,
+      mycoinBalance,
+      toncoinBalance,
       currentKey,
     };
 
@@ -188,8 +191,12 @@ function CardRoster({ cardsInfo, tonBalance }: OwnProps & StateProps) {
 }
 
 export default memo(withGlobal<OwnProps>((global): StateProps => {
+  const mycoin = selectMycoin(global);
+
   return {
-    tonBalance: selectCurrentToncoinBalance(global),
+    mycoinBalance: mycoin ? selectCurrentAccountTokenBalance(global, mycoin.slug) : 0n,
+    toncoinBalance: selectCurrentToncoinBalance(global),
+    mycoin,
   };
 })(CardRoster));
 
@@ -197,15 +204,19 @@ function renderMediaCard({
   lang,
   title,
   type,
+  mycoin,
   cardInfo,
-  tonBalance,
+  mycoinBalance,
+  toncoinBalance,
   currentKey,
 }: {
   lang: LangFn;
   title: string;
   type: ApiMtwCardType;
   cardInfo?: ApiCardInfo;
-  tonBalance?: bigint;
+  mycoin?: ApiTokenWithPrice;
+  mycoinBalance?: bigint;
+  toncoinBalance?: bigint;
   currentKey: number;
 }) {
   return (
@@ -228,10 +239,17 @@ function renderMediaCard({
           <div className={styles.slideInner}>
             {renderDots(currentKey)}
             <div className={styles.cardType}>{title}</div>
-            {renderAvailability(lang, cardInfo)}
+            <AvailabilityIndicator cardInfo={cardInfo} />
           </div>
         </div>
-        <CardPros type={type} price={cardInfo?.price} balance={tonBalance} isAvailable={Boolean(cardInfo?.notMinted)} />
+        <CardPros
+          type={type}
+          price={cardInfo?.price}
+          mycoinBalance={mycoinBalance}
+          toncoinBalance={toncoinBalance}
+          mycoin={mycoin}
+          isAvailable={Boolean(cardInfo?.notMinted)}
+        />
       </div>
     )
   );
@@ -245,35 +263,6 @@ function renderDots(currentKey: number) {
           <div key={index} className={buildClassName(styles.dot, index === currentKey && styles.dotActive)} />
         );
       })}
-    </div>
-  );
-}
-
-function renderAvailability(lang: LangFn, cardInfo?: ApiCardInfo) {
-  const { all, notMinted } = cardInfo || {};
-  if (!all || !notMinted) {
-    return (
-      <div className={styles.avaliability}>
-        <div className={styles.soldOut}>{lang('This card has been sold out')}</div>
-      </div>
-    );
-  }
-
-  const sold = all - notMinted;
-  const leftAmount = lang('%amount% left', { amount: formatNumber(notMinted) });
-  const soldAmount = lang('%amount% sold', { amount: formatNumber(sold) });
-
-  return (
-    <div className={styles.avaliability}>
-      <div
-        className={styles.progress}
-        style={`--progress: ${round(notMinted / all, 2)};}`}
-      >
-        <div className={buildClassName(styles.amount, styles.amountInner, styles.amountLeft)}>{leftAmount}</div>
-        <div className={buildClassName(styles.amount, styles.amountInner, styles.amountSold)}>{soldAmount}</div>
-      </div>
-      <div className={buildClassName(styles.amount, styles.amountLeft)}>{leftAmount}</div>
-      <div className={buildClassName(styles.amount, styles.amountSold)}>{soldAmount}</div>
     </div>
   );
 }

@@ -357,6 +357,10 @@
           "complexTypes": []
         },
         {
+          "text": "'transaction'",
+          "complexTypes": []
+        },
+        {
           "text": "'transaction-info'",
           "complexTypes": []
         },
@@ -406,6 +410,10 @@
         },
         {
           "text": "'onramp-widget'",
+          "complexTypes": []
+        },
+        {
+          "text": "'offramp-widget'",
           "complexTypes": []
         },
         {

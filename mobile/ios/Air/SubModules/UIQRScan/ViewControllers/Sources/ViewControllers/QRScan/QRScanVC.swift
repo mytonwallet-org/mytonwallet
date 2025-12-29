@@ -9,31 +9,28 @@ import UIKit
 import UIComponents
 import WalletContext
 import WalletCore
-import SwiftSignalKit
 import AVFoundation
 
 public class QRScanVC: WViewController {
     
-    public enum ScanResult {
-        case url(url: URL)
-        case address(address: String, possibleChains: [ApiChain])
-    }
-    
     private var recognizedStrings: Set<String> = []
     
-    // MARK: - Initializer
-    private let callback: ((_ result: ScanResult) -> Void)
-    public init(callback: @escaping ((_ result: ScanResult) -> Void)) {
+    private var callback: ((_ result: ScanResult?) -> ())?
+    private var lastScannedString: String?
+    private var messageHandlingTask: Task<Void, Never>?
+    
+    public init(callback: @escaping ((_ result: ScanResult?) -> Void)) {
         self.callback = callback
         super.init(nibName: nil, bundle: nil)
     }
+    
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
     deinit {
-        self.codeDisposable?.dispose()
-        self.inForegroundDisposable?.dispose()
+        messageHandlingTask?.cancel()
+        callback?(nil)
     }
 
     public override func loadView() {
@@ -45,7 +42,7 @@ public class QRScanVC: WViewController {
     
     private func setupViews() {
         title = lang("Scan QR Code")
-        addCloseToNavBar(color: .white)
+        addCloseNavigationItemIfNeeded()
         let textAttributes = [NSAttributedString.Key.foregroundColor: UIColor.white]
         navigationController?.navigationBar.titleTextAttributes = textAttributes
 
@@ -56,7 +53,7 @@ public class QRScanVC: WViewController {
 
     private func authorizeAccessToCamera(completion: @escaping (_ granted: Bool) -> Void) {
         AVCaptureDevice.requestAccess(for: AVMediaType.video) { response in
-            Queue.mainQueue().async {
+            DispatchQueue.main.async {
                 if response {
                     completion(true)
                 } else {
@@ -79,22 +76,10 @@ public class QRScanVC: WViewController {
         })
     }
     
-    private var codeDisposable: Disposable?
-    private var inForegroundDisposable: Disposable?
-
-    var inForeground: Signal<Bool, NoError> {
-        return .single(true)
-    }
-    
     public override func viewDidLoad() {
         super.viewDidLoad()
         
         setupViews()
-        self.inForegroundDisposable = (inForeground
-        |> deliverOnMainQueue).start(next: { [weak self] inForeground in
-            guard let self else {return}
-            qrScanView?.updateInForeground(inForeground)
-        })
     }
     
     public override func viewWillAppear(_ animated: Bool) {
@@ -108,6 +93,36 @@ public class QRScanVC: WViewController {
 
         qrScanView = QRScanView()
         qrScanView?.translatesAutoresizingMaskIntoConstraints = false
+        qrScanView?.onCodeDetected = { [weak self] code in
+            guard let self else {
+                return
+            }
+            guard let message = code?.message else {
+                self.lastScannedString = nil
+                self.messageHandlingTask?.cancel()
+                self.messageHandlingTask = nil
+                return
+            }
+            guard message != self.lastScannedString else {
+                return
+            }
+            self.lastScannedString = message
+            
+            self.messageHandlingTask?.cancel()
+            self.messageHandlingTask = Task { [weak self] in
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                guard !Task.isCancelled else {
+                    return
+                }
+                await MainActor.run { [weak self] in
+                    guard let self else {
+                        return
+                    }
+                    self.handleScannedString(message)
+                    self.messageHandlingTask = nil
+                }
+            }
+        }
 
         view.insertSubview(qrScanView!, at: 0)
         NSLayoutConstraint.activate([
@@ -117,41 +132,6 @@ public class QRScanVC: WViewController {
             qrScanView!.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
 
-        self.codeDisposable = (qrScanView!.focusedCode.get()
-        |> map { code -> String? in
-            return code?.message
-        }
-        |> distinctUntilChanged
-        |> mapToSignal { code -> Signal<String?, NoError> in
-            return .single(code) |> delay(0.5, queue: Queue.mainQueue())
-        }).start(next: { [weak self] string in
-            guard let self, let string else { return }
-            
-            var result: ScanResult
-
-            let chains = availableChains.filter { $0.validate(address: string) }
-            if chains.count > 0 {
-                result = .address(address: string, possibleChains: chains)
-            } else if let url = URL(string: string) {
-                result = .url(url: url)
-            } else {
-                if !recognizedStrings.contains(string) {
-                    recognizedStrings.insert(string)
-                    showAlert(error: ApiAnyDisplayError.invalidAddressFormat)
-                }
-                return
-            }
-            
-            if navigationController?.viewControllers.count ?? 0 > 1 {
-                callback(result)
-                navigationController?.popViewController(animated: true)
-            } else {
-                dismiss(animated: true) { [weak self] in
-                    guard let self else {return}
-                    callback(result)
-                }
-            }
-        })
     }
     
     private func showNoAccessView() {
@@ -169,4 +149,36 @@ public class QRScanVC: WViewController {
         }
     }
     
+    private func handleScannedString(_ string: String) {
+        var result: ScanResult?
+
+        let chains = ApiChain.allCases.filter { $0.isValidAddressOrDomain(string) }
+        if chains.count > 0 {
+            result = .address(address: string, possibleChains: chains)
+        } else if let url = URL(string: string) {
+            result = .url(url: url)
+        } else {
+            if !recognizedStrings.contains(string) {
+                recognizedStrings.insert(string)
+                showAlert(error: ApiAnyDisplayError.invalidAddressFormat)
+            }
+            return
+        }
+        
+        guard let result else {
+            return
+        }
+        
+        if navigationController?.viewControllers.count ?? 0 > 1 {
+            callback?(result)
+            callback = nil
+            navigationController?.popViewController(animated: true)
+        } else {
+            dismiss(animated: true) { [weak self] in
+                guard let self else {return}
+                callback?(result)
+                callback = nil
+            }
+        }
+    }
 }

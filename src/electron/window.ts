@@ -1,6 +1,4 @@
-import {
-  app, BrowserWindow, ipcMain, shell, systemPreferences,
-} from 'electron';
+import { app, BrowserWindow, ipcMain, shell, systemPreferences } from 'electron';
 import windowStateKeeper from 'electron-window-state';
 import path from 'path';
 
@@ -13,9 +11,17 @@ import { processDeeplink } from './deeplink';
 import { captureStorage, restoreStorage } from './storageUtils';
 import tray from './tray';
 import {
-  checkIsWebContentsUrlAllowed, forceQuit, IS_FIRST_RUN,
-  IS_MAC_OS, IS_PREVIEW, IS_WINDOWS, mainWindow, setMainWindow,
-  store, WINDOW_STATE_FILE,
+  checkIsWebContentsUrlAllowed,
+  forceQuit,
+  IS_FIRST_RUN,
+  IS_LINUX,
+  IS_MAC_OS,
+  IS_PREVIEW,
+  IS_WINDOWS,
+  mainWindow,
+  setMainWindow,
+  store,
+  WINDOW_STATE_FILE,
 } from './utils';
 
 const ALLOWED_DEVICE_ORIGINS = ['http://localhost:4321', 'file://', BASE_URL];
@@ -31,17 +37,26 @@ export function createWindow() {
     show: false,
     x: windowState.x,
     y: windowState.y,
+
     minWidth: 360,
     minHeight: 690,
     width: windowState.width,
     height: windowState.height,
+
+    titleBarStyle: 'hidden',
     title: 'MyTonWallet',
+    frame: false,
+
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       devTools: !IS_PRODUCTION,
       backgroundThrottling: false,
     },
-    titleBarStyle: 'hidden',
+
+    ...(IS_LINUX && {
+      icon: path.join(__dirname, '../public/icon-256x256.png'),
+    }),
+
     ...(IS_MAC_OS && {
       trafficLightPosition: { x: 19, y: 17 },
     }),
@@ -74,7 +89,7 @@ export function createWindow() {
     setupWindowsTitleBar();
   }
 
-  if (IS_WINDOWS && tray.isEnabled) {
+  if ((IS_WINDOWS || IS_LINUX) && tray.isEnabled) {
     tray.create();
   }
 
@@ -102,10 +117,10 @@ function loadWindowUrl(): void {
     void mainWindow.loadURL('http://localhost:4321');
     mainWindow.webContents.openDevTools();
   } else if (getIsAutoUpdateEnabled()) {
-    void mainWindow.loadURL(BASE_URL!);
+    void mainWindow.loadURL(BASE_URL);
   } else if (getIsAutoUpdateEnabled() === undefined && IS_FIRST_RUN) {
     store.set(AUTO_UPDATE_SETTING_KEY, true);
-    void mainWindow.loadURL(BASE_URL!);
+    void mainWindow.loadURL(BASE_URL);
   } else {
     void mainWindow.loadURL(`file://${__dirname}/index.html`);
   }

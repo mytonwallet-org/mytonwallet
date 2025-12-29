@@ -104,10 +104,11 @@ struct SwapCexDetailsView: View {
             InsetCell {
                 VStack(alignment: .trailing, spacing: 4) {
                     HStack(spacing: 0) {
-                        Text(lang("Price per") + " 1 " + exchangeRate.toToken.symbol)
+                        Text(lang("Exchange Rate"))
                             .foregroundStyle(Color(WTheme.secondaryLabel))
                         Spacer(minLength: 4)
-                        Text("~\(formatAmountText(amount: exchangeRate.price, decimalsCount: min(6, sellingToken.decimals))) \(exchangeRate.fromToken.symbol)")
+                        let priceAmount = DecimalAmount.fromDouble(exchangeRate.price, exchangeRate.fromToken)
+                        Text("\(exchangeRate.toToken.symbol) ≈ \(priceAmount.formatted(maxDecimals: min(6, sellingToken.decimals)))")
                     }
                 }
             }
@@ -116,7 +117,7 @@ struct SwapCexDetailsView: View {
     
     @ViewBuilder
     var blockchainFeeRow: some View {
-        if let amnt = selectorsVM.sellingTokenAmount, let fee = self.fee, let nativeToken = TokenStore.tokens[amnt.token.chainValue.tokenSlug] {
+        if let amnt = selectorsVM.sellingTokenAmount, let fee = self.fee, let nativeToken = TokenStore.tokens[amnt.token.nativeTokenSlug] {
             InsetDetailCell {
                 Text(lang("Blockchain Fee"))
                     .foregroundStyle(Color(WTheme.secondaryLabel))

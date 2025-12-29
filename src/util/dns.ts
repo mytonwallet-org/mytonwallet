@@ -1,10 +1,23 @@
 import type { ApiNft } from '../api/types';
 
-import { TON_DNS_COLLECTION, TON_DNS_RENEWAL_WARNING_DAYS, TON_DNS_ZONES } from '../config';
+import {
+  TON_DNS_RENEWAL_WARNING_DAYS,
+  TON_DNS_ZONES,
+} from '../config';
 import { getCountDaysToDate } from './dateFormat';
 
-export function isDnsDomain(value: string) {
+// NOTE: Use "domain" when referring to the specific domain zone (e.g. `isDotTonDomainNft`) and "DNS" otherwise.
+
+export function isTonChainDns(value: string) {
   return getDnsDomainZone(value) !== undefined;
+}
+
+export function isTonBlockchainDnsNft(nft: ApiNft | undefined): nft is ApiNft {
+  return TON_DNS_ZONES.some((zone) => zone.resolver === nft?.collectionAddress);
+}
+
+export function isLinkableDnsNft(nft: ApiNft | undefined): nft is ApiNft {
+  return TON_DNS_ZONES.find((zone) => zone.resolver === nft?.collectionAddress)?.isLinkable ?? false;
 }
 
 export function getDnsDomainZone(domain: string) {
@@ -36,12 +49,16 @@ export function getDnsZoneByCollection(collectionAddress: string) {
   return TON_DNS_ZONES.find((zone) => zone.resolver === collectionAddress);
 }
 
-export function isTonDnsNft(nft: ApiNft | undefined): nft is ApiNft {
-  return nft?.collectionAddress === TON_DNS_COLLECTION;
+export function isDotTonDomainNft(nft: ApiNft | undefined): nft is ApiNft {
+  return TON_DNS_ZONES.find((zone) => zone.resolver === nft?.collectionAddress)?.collectionName === 'TON DNS Domains';
 }
 
-export function getTonDnsExpirationDate(nft: ApiNft | undefined, dnsExpiration: Record<string, number> | undefined) {
-  return isTonDnsNft(nft) ? dnsExpiration?.[nft.address] : undefined;
+export function isRenewableDnsNft(nft: ApiNft | undefined): nft is ApiNft {
+  return TON_DNS_ZONES.find((zone) => zone.resolver === nft?.collectionAddress)?.isRenewable ?? false;
+}
+
+export function getDnsExpirationDate(nft: ApiNft | undefined, dnsExpiration: Record<string, number> | undefined) {
+  return isRenewableDnsNft(nft) ? dnsExpiration?.[nft.address] : undefined;
 }
 
 export function filterExpiringDomains(
@@ -54,8 +71,11 @@ export function filterExpiringDomains(
   if (nftByAddress && dnsExpiration) {
     for (const address of nftAddresses) {
       const nft = nftByAddress[address];
-      if (getCountDaysToDate(getTonDnsExpirationDate(nft, dnsExpiration) ?? Infinity) <= TON_DNS_RENEWAL_WARNING_DAYS) {
-        expiringDomains.push(nft);
+      if (isRenewableDnsNft(nft)) {
+        const daysToExpire = getCountDaysToDate(getDnsExpirationDate(nft, dnsExpiration) ?? Infinity);
+        if (daysToExpire <= TON_DNS_RENEWAL_WARNING_DAYS) {
+          expiringDomains.push(nft);
+        }
       }
     }
   }
@@ -75,7 +95,7 @@ export function getDomainsExpirationDate(
   return nfts.reduce<number | undefined>(
     (minDate, nftOrAddress) => {
       const nft = typeof nftOrAddress === 'string' ? nftByAddress?.[nftOrAddress] : nftOrAddress;
-      const expirationDate = getTonDnsExpirationDate(nft, dnsExpiration);
+      const expirationDate = getDnsExpirationDate(nft, dnsExpiration);
       return expirationDate
         ? Math.min(expirationDate, minDate ?? Infinity)
         : minDate;

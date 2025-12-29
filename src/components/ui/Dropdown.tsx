@@ -17,9 +17,10 @@ export interface DropdownItem<T extends string = string> {
   name: string;
   selectedName?: string;
   description?: string | TeactNode;
-  icon?: string;
+  icon?: string | TeactNode;
   overlayIcon?: string;
   fontIcon?: string;
+  fontIconClassName?: string;
   isDisabled?: boolean;
   isDangerous?: boolean;
   withDelimiter?: boolean;

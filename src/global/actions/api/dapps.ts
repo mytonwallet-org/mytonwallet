@@ -24,6 +24,7 @@ import {
   updateCurrentDappTransfer,
   updateDappConnectRequest,
 } from '../../reducers';
+import { selectCurrentAccountId } from '../../selectors';
 import { switchAccount } from './auth';
 
 import { getIsPortrait } from '../../../hooks/useDeviceScreen';
@@ -135,7 +136,7 @@ addActionHandler('submitDappTransfer', async (global, actions, { password } = {}
   }
 
   if (!await prepareDappOperation(
-    global.currentAccountId!,
+    selectCurrentAccountId(global)!,
     TransferState.ConfirmHardware,
     updateCurrentDappTransfer,
     true,
@@ -146,7 +147,7 @@ addActionHandler('submitDappTransfer', async (global, actions, { password } = {}
 
   global = getGlobal();
   const { transactions, validUntil, vestingAddress } = global.currentDappTransfer;
-  const accountId = global.currentAccountId!;
+  const accountId = selectCurrentAccountId(global)!;
   const signedTransactions = await callApi('signTransfers', accountId, transactions!, {
     password,
     validUntil,
@@ -167,7 +168,7 @@ addActionHandler('submitDappSignData', async (global, actions, { password } = {}
   }
 
   if (!await prepareDappOperation(
-    global.currentAccountId!,
+    selectCurrentAccountId(global)!,
     0 as never, // Ledger doesn't support SignData yet, so this value is never used
     updateCurrentDappSignData,
     true,
@@ -178,7 +179,7 @@ addActionHandler('submitDappSignData', async (global, actions, { password } = {}
 
   global = getGlobal();
   const { dapp, payloadToSign } = global.currentDappSignData;
-  const accountId = global.currentAccountId!;
+  const accountId = selectCurrentAccountId(global)!;
   const signedData = await callApi('signData', accountId, dapp!.url, payloadToSign!, password);
 
   if (!handleDappSignatureResult(signedData, updateCurrentDappSignData)) {

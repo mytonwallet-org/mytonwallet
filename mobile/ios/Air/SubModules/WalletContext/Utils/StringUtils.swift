@@ -120,10 +120,8 @@ public extension String {
         return shortText
     }
 
-    var base64ToHex: String? {
-        guard let data = Data(base64Encoded: self) else {
-            return nil
-        }
+    var base64ToHex: String {
+        let data = Data(base64Encoded: self)!
         let hexString = data.map { String(format: "%02x", $0) }.joined()
         return hexString
     }
@@ -138,5 +136,9 @@ public extension String {
             }
         }
         return count
+    }
+    
+    var reverse: String {
+        String(self.reversed())
     }
 }

@@ -23,11 +23,15 @@ import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uistake.earn.EarnRootVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.models.MAssetsAndActivityData
+import org.mytonwallet.app_air.walletcore.models.MScreenMode
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
@@ -37,11 +41,16 @@ import java.util.concurrent.Executors
 @SuppressLint("ViewConstructor")
 class TokensVC(
     context: Context,
+    private var showingAccountId: String,
     private val mode: Mode,
     private val onHeightChanged: (() -> Unit)? = null,
+    private val onAssetsShown: (() -> Unit)? = null,
     private val onScroll: ((rv: RecyclerView) -> Unit)? = null
 ) : WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource, WalletCore.EventObserver {
+    override val TAG = "Tokens"
+
+    private var isShowingAccountMultichain = false
 
     enum class Mode {
         HOME,
@@ -68,7 +77,9 @@ class TokensVC(
     private var thereAreMoreToShow: Boolean = false
 
     private val rvAdapter =
-        WRecyclerViewAdapter(WeakReference(this), arrayOf(TOKEN_CELL))
+        WRecyclerViewAdapter(WeakReference(this), arrayOf(TOKEN_CELL)).apply {
+            setHasStableIds(true)
+        }
 
     private val scrollListener = object : RecyclerView.OnScrollListener() {
         override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
@@ -122,7 +133,13 @@ class TokensVC(
         v.onTap = {
             val window = this.window!!
             val navVC = WNavigationController(window)
-            navVC.setRoot(AssetsTabVC(context, defaultSelectedIdentifier = AssetsTabVC.TAB_COINS))
+            navVC.setRoot(
+                AssetsTabVC(
+                    context,
+                    showingAccountId = showingAccountId,
+                    defaultSelectedIdentifier = AssetsTabVC.TAB_COINS
+                )
+            )
             window.present(navVC)
         }
         v.visibility = View.GONE
@@ -148,13 +165,19 @@ class TokensVC(
             recyclerView.disallowInterceptOnOverscroll()
 
         WalletCore.registerObserver(this)
-        dataUpdated()
+        dataUpdated(forceUpdate = false)
 
         updateTheme()
     }
 
+    private var _isDarkThemeApplied: Boolean? = null
     override fun updateTheme() {
         super.updateTheme()
+
+        val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
+        if (!darkModeChanged)
+            return
+        _isDarkThemeApplied = ThemeManager.isDark
 
         if (mode == Mode.HOME) {
             view.background = null
@@ -164,11 +187,31 @@ class TokensVC(
         rvAdapter.reloadData()
     }
 
+    fun configure(accountId: String) {
+        showingAccountId = accountId
+        isShowingAccountMultichain = WGlobalStorage.isMultichain(accountId)
+        dataUpdated(forceUpdate = true)
+    }
+
     var prevSize = -1
-    private fun dataUpdated() {
-        Executors.newSingleThreadExecutor().execute {
-            val allWalletTokens =
-                AccountStore.assetsAndActivityData.getAllTokens(addVirtualStakingTokens = true)
+    private val executor = Executors.newSingleThreadExecutor()
+    private fun dataUpdated(forceUpdate: Boolean) {
+        executor.execute {
+            val isSingleWalletActive =
+                MScreenMode.SingleWallet(showingAccountId).isScreenActive
+
+            if (!forceUpdate && !isSingleWalletActive) return@execute
+
+            val allWalletTokens: Array<MTokenBalance> =
+                if (isSingleWalletActive) {
+                    AccountStore.assetsAndActivityData.getAllTokens(
+                        addVirtualStakingTokens = true
+                    )
+                } else {
+                    MAssetsAndActivityData(showingAccountId).getAllTokens(
+                        addVirtualStakingTokens = true
+                    )
+                }
             val filteredWalletTokens = allWalletTokens.filter {
                 val token = TokenStore.getToken(it.token)
                 it.isVirtualStakingRow || token?.isHidden() != true
@@ -183,6 +226,7 @@ class TokensVC(
                     onHeightChanged?.invoke()
                 }
                 rvAdapter.reloadData()
+                onAssetsShown?.invoke()
             }
         }
     }
@@ -200,7 +244,7 @@ class TokensVC(
             is WalletEvent.AccountChanged,
             WalletEvent.StakingDataUpdated,
             WalletEvent.BaseCurrencyChanged -> {
-                dataUpdated()
+                dataUpdated(forceUpdate = false)
             }
 
             else -> {}
@@ -232,7 +276,8 @@ class TokensVC(
                             window?.present(navVC)
                             return@let
                         }
-                        val tokenVC = TokenVC(context, it)
+                        val account = AccountStore.activeAccount ?: return@let
+                        val tokenVC = TokenVC(context, account, it)
                         navigationController?.push(tokenVC)
                     }
                 }
@@ -251,13 +296,22 @@ class TokensVC(
         indexPath: IndexPath
     ) {
         (cellHolder.cell as TokenCell).configure(
+            showingAccountId,
+            isShowingAccountMultichain,
             walletTokens[indexPath.row],
             isLast = indexPath.row == walletTokens.size - 1
         )
     }
 
+    override fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? {
+        walletTokens[indexPath.row].apply {
+            return "${isVirtualStakingRow}_$token"
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        WalletCore.unregisterObserver(this)
         recyclerView.onDestroy()
         recyclerView.adapter = null
         recyclerView.removeAllViews()

@@ -28,13 +28,16 @@ final class SwapVM: ObservableObject {
     @Published private(set) var lateInit: ApiSwapCexEstimateResponse.LateInitProperties? = nil
     @Published private(set) var cexEstimate: ApiSwapCexEstimateResponse? = nil
     @Published private(set) var isValidPair = true
-    @Published private(set) var swapType = SwapType.inChain
+    @Published private(set) var swapType = SwapType.onChain
     @Published private(set) var dex: ApiSwapDexLabel? = nil
     @Published private(set) var slippage: Double = 5.0
     
     private weak var delegate: SwapVMDelegate?
     private weak var tokensSelector: SwapSelectorsVM?
     private var prevPair = ""
+    
+    let accountViewModel = AccountViewModel(source: .current)
+    var account: MAccount { accountViewModel.account }
     
     init(delegate: SwapVMDelegate, tokensSelector: SwapSelectorsVM) {
         self.delegate = delegate
@@ -44,13 +47,7 @@ final class SwapVM: ObservableObject {
     // MARK: - Swap data changed
     
     func updateSwapType(selling: TokenAmount, buying: TokenAmount) {
-        swapType = if buying.token.chain != "ton" {
-            .crossChainFromTon
-        } else if selling.token.chain != "ton" {
-            .crossChainToTon
-        } else {
-            .inChain
-        }
+        swapType = getSwapType(from: selling.token.slug, to: buying.token.slug, accountChains: account.supportedChains)
     }
     
     func updateDexPreference(_ dex: ApiSwapDexLabel?) {
@@ -100,7 +97,7 @@ final class SwapVM: ObservableObject {
         let from = selling.token.swapIdentifier
         let to = buying.token.swapIdentifier
         
-        if swapType != .inChain {
+        if swapType != .onChain {
             let options: ApiSwapCexEstimateOptions
             if changedFrom == .selling {
                 // normal request
@@ -132,7 +129,7 @@ final class SwapVM: ObservableObject {
                                                                   networkFee: swapEstimate?.networkFee.value,
                                                                   dieselFee: swapEstimate?.dieselFee?.value,
                                                                   ourFeePercent: swapEstimate?.ourFeePercent)
-            let fromAddress = try (AccountStore.account?.tonAddress).orThrow()
+            let fromAddress = try (AccountStore.account?.addressByChain[TON_CHAIN]).orThrow()
             let shouldTryDiesel = props.isEnoughNative == false
             let toncoinBalance = (BalanceStore.currentAccountBalances["toncoin"]).flatMap { MDouble.forBigInt($0, decimals: 9) }
             let walletVersion = AccountStore.account?.version
@@ -198,17 +195,17 @@ final class SwapVM: ObservableObject {
         }
         if sellToken.isOnChain == true {
             if let sellingAmount = tokensSelector.sellingAmount, balanceIn < sellingAmount {
-                swapError = WStrings.InsufficientBalance_Text(symbol: sellToken.symbol)
+                swapError = lang("Insufficient Balance")
             }
         }
         if swapEstimate.toAmount?.value == 0 && lateInit.isEnoughNative == false {
-            swapError = WStrings.InsufficientBalance_Text(symbol: sellToken.symbol.uppercased())
+            swapError = lang("Insufficient Balance")
         }
         if lateInit.isEnoughNative == false && (lateInit.isDiesel != true || swapEstimate.dieselStatus.canContinue != true) {
             if lateInit.isDiesel == true, let swapDieselError = swapEstimate.dieselStatus.errorString {
                 swapError = swapDieselError
             } else {
-                swapError = WStrings.InsufficientBalance_Text(symbol: sellToken.chain.uppercased())
+                swapError = lang("Insufficient Balance")
             }
         }
         return swapError
@@ -226,17 +223,17 @@ final class SwapVM: ObservableObject {
         }
         if sellToken.isOnChain == true {
             if let sellingAmount = tokensSelector.sellingAmount, balanceIn < sellingAmount {
-                swapError = WStrings.InsufficientBalance_Text(symbol: sellToken.symbol)
+                swapError = lang("Insufficient Balance")
             }
         }
         if swapEstimate.toAmount.value == 0 && swapEstimate.isEnoughNative == false {
-            swapError = WStrings.InsufficientBalance_Text(symbol: sellToken.symbol.uppercased())
+            swapError = lang("Insufficient Balance")
         }
         if swapEstimate.isEnoughNative == false && (swapEstimate.isDiesel != true || swapEstimate.dieselStatus?.canContinue != true) {
             if swapEstimate.isDiesel == true, let swapDieselError = swapEstimate.dieselStatus?.errorString {
                 swapError = swapDieselError
             } else {
-                swapError = WStrings.InsufficientBalance_Text(symbol: sellToken.chain.uppercased())
+                swapError = lang("Insufficient Balance")
             }
         }
         if let fromMin = swapEstimate.fromMin {
@@ -277,21 +274,21 @@ final class SwapVM: ObservableObject {
     
     func swapNow(sellingToken: ApiToken, buyingToken: ApiToken, passcode: String, onTaskDone: @escaping (ApiActivity?, Error?) -> Void) {
         switch swapType {
-        case .inChain:
+        case .onChain:
             swapInChain(sellingToken: sellingToken, buyingToken: buyingToken, passcode: passcode, onTaskDone: onTaskDone)
-        case .crossChainToTon:
+        case .crosschainInsideWallet:
             crossChainToTonSwap(sellingToken: sellingToken, buyingToken: buyingToken, passcode: passcode, onTaskDone: onTaskDone)
-        case .crossChainFromTon:
+        case .crosschainToWallet:
+            crossChainToTonSwap(sellingToken: sellingToken, buyingToken: buyingToken, passcode: passcode, onTaskDone: onTaskDone)
+        case .crosschainFromWallet:
             crossChainFromTonSwap(sellingToken: sellingToken, buyingToken: buyingToken, passcode: passcode, onTaskDone: onTaskDone)
-        @unknown default:
-            onTaskDone(nil, BridgeCallError.unknown())
         }
     }
     
     // MARK: - On-Chain swap
     private func onChainSwap(passcode: String) async throws {
         let swapEstimate = try self.swapEstimate.orThrow()
-        let fromAddress = try (AccountStore.account?.tonAddress).orThrow()
+        let fromAddress = try (AccountStore.account?.addressByChain[TON_CHAIN]).orThrow()
         let walletVersion = AccountStore.account?.version
         let shouldTryDiesel = swapEstimate.networkFee.value > 0 &&
             BalanceStore.currentAccountBalances["toncoin"] ?? 0 < BigInt((swapEstimate.networkFee.value + 0.015) * 1e9) && swapEstimate.dieselStatus == .available

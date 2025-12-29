@@ -1,4 +1,4 @@
-package org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.icon
+/*package org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.icon
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -79,3 +79,4 @@ class AppearanceAppIconItemView(
     }
 
 }
+*/

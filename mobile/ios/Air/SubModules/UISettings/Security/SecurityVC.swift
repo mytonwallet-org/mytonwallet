@@ -3,7 +3,6 @@ import SwiftUI
 import UIKit
 import UIPasscode
 import UIComponents
-import WalletCore
 import WalletContext
 
 private let log = Log("SecurityVC")
@@ -31,12 +30,9 @@ internal class SecurityVC: WViewController, Sendable {
     
     private func setupViews() {
         
-        addNavigationBar(title: lang("Security"), addBackButton: { [weak self] in self?.navigationController?.popViewController(animated: true) })
-        navigationBarProgressiveBlurDelta = 10
+        navigationItem.title = lang("Security")
         
         self.hostingController = addHostingController(makeView(), constraints: .fill)
-
-        bringNavigationBarToFront()
         
         updateTheme()
     }
@@ -44,8 +40,6 @@ internal class SecurityVC: WViewController, Sendable {
     func makeView() -> SecurityView {
         return SecurityView(
             password: password,
-            navigationBarInset: navigationBarHeight,
-            onScroll: { [weak self] y in self?.updateNavigationBarProgressiveBlur(y) }
         )
     }
     

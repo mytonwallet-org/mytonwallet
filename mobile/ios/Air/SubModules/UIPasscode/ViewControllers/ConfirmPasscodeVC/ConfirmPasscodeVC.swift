@@ -8,7 +8,6 @@
 import UIKit
 import UIComponents
 import WalletContext
-import WalletCore
 
 public class ConfirmPasscodeVC: WViewController, PasscodeScreenViewDelegate {
     func animateSuccess() {
@@ -40,7 +39,6 @@ public class ConfirmPasscodeVC: WViewController, PasscodeScreenViewDelegate {
 
     var headerView: HeaderView!
     var passcodeInputView: PasscodeInputView!
-    var passcodeOptionsView: PasscodeOptionsView!
     var passcodeScreenView: PasscodeScreenView!
     
     var bottomConstraint: NSLayoutConstraint!
@@ -118,16 +116,6 @@ public class ConfirmPasscodeVC: WViewController, PasscodeScreenViewDelegate {
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
     }
-
-    @objc func passcodeOptionsPressed() {
-        passcodeOptionsView.toggle()
-    }
-    
-    @objc func backgroundPressed() {
-        if passcodeOptionsView.visibility {
-            passcodeOptionsView.toggle()
-        }
-    }
 }
 
 extension ConfirmPasscodeVC: PasscodeInputViewDelegate {
@@ -164,11 +152,11 @@ extension ConfirmPasscodeVC: PasscodeInputViewDelegate {
 #if DEBUG
 @available(iOS 18.0, *)
 #Preview {
-    let _ = UIFont.registerAirFonts()
+    let setVC = SetPasscodeVC(onCompletion: { _, _, _ in})
     UINavigationController(
         rootViewController: ConfirmPasscodeVC(
             onCompletion: { _, _, _ in },
-            setPasscodeVC: SetPasscodeVC(onCompletion: { _, _, _ in}),
+            setPasscodeVC: setVC,
             selectedPasscode: "1111")
     )
 }

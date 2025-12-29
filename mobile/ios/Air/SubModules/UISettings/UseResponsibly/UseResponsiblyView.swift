@@ -9,26 +9,17 @@ import UIKit
 import SwiftUI
 import UIComponents
 import WalletContext
-import WalletCore
 
 struct UseResponsiblyView: View {
 
-    var navigationBarInset: CGFloat
-    var onScroll: (CGFloat) -> ()
-
-    @Namespace private var ns
-    
     var body: some View {
         InsetList(topPadding: 0) {
             header
-                .scrollPosition(ns: ns, offset: -40, callback: onScroll)
             longDescription
             links
                 .padding(.bottom, 32)
         }
-        .navigationBarInset(navigationBarInset)
         .backportScrollBounceBehaviorBasedOnSize()
-        .coordinateSpace(name: ns)
     }
     
     @ViewBuilder
@@ -49,9 +40,9 @@ struct UseResponsiblyView: View {
     @ViewBuilder
     var longDescription: some View {
         let text = [
-            lang("$auth_responsibly_description1", arg1: lang("MyTonWallet")),
+            lang("$auth_responsibly_description1", arg1: APP_NAME),
             lang("$auth_responsibly_description2"),
-            lang("$auth_responsibly_description3", arg1: lang("MyTonWallet")),
+            lang("$auth_responsibly_description3", arg1: APP_NAME),
             lang("$auth_responsibly_description4"),
         ].joined(separator: "\n\n")
         InsetSection {

@@ -1,4 +1,5 @@
-import dotenv from 'dotenv';
+import './dev/loadEnv';
+
 import HtmlPlugin from 'html-webpack-plugin';
 import MiniCssExtractPlugin from 'mini-css-extract-plugin';
 import path from 'path';
@@ -7,9 +8,7 @@ import {
   EnvironmentPlugin, NormalModuleReplacementPlugin, ProvidePlugin,
 } from 'webpack';
 
-dotenv.config();
-
-const { APP_ENV = 'production', GIVEAWAYS_API_URL = 'http://0.0.0.0:5005/' } = process.env;
+import { APP_ENV, GIVEAWAYS_API_URL } from './src/giveaways/config';
 
 const cspConnectSrcExtra = APP_ENV === 'development'
   ? `http://localhost:5005 ${GIVEAWAYS_API_URL}`

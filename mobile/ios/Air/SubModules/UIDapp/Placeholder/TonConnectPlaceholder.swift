@@ -1,8 +1,6 @@
 
 import SwiftUI
 import UIKit
-import Ledger
-import UIPasscode
 import UIComponents
 import WalletCore
 import WalletContext
@@ -12,8 +10,6 @@ struct TonConnectPlaceholder: View {
     var account: MAccount?
     var connectionType: ApiDappConnectionType
     
-    var navigationBarInset: CGFloat
-
     var body: some View {
         InsetList {
             TonConnectHeaderPlaceholder(account: account, redacted: connectionType == .connect)
@@ -29,7 +25,6 @@ struct TonConnectPlaceholder: View {
                 textPlaceholder
             }
         }
-        .navigationBarInset(navigationBarInset)
         .safeAreaInset(edge: .bottom) {
             buttons
                 .disabled(true)

@@ -32,9 +32,12 @@ struct SwapChangellyView: View {
     }
     
     var header: some View {
-        HStack(spacing: 0) {
-            Text(lang("Cross-chain swap by %1$@", arg1: ""))
-            Image("SwapChangellyLogo", bundle: AirBundle)
+        HStack(spacing: 4) {
+            Image("ChangellyLogo", bundle: AirBundle)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(height: 16)
+            Text(lang("Cross-chain exchange provided by Changelly"))
         }
         .foregroundStyle(Color(WTheme.secondaryLabel))
     }
@@ -45,7 +48,7 @@ struct SwapChangellyView: View {
         let disclaimer = lang("$swap_changelly_agreement_message",
             arg1: "[\(lang("$swap_changelly_terms_of_use"))](https://changelly.com/terms-of-use)",
             arg2: "[\(lang("$swap_changelly_privacy_policy"))](https://changelly.com/privacy-policy)",
-            arg3: "[\(lang("Changelly AML/KYC"))](https://changelly.com/aml-kyc)"
+            arg3: "[Changelly AML/KYC](https://changelly.com/aml-kyc)"
         )
         return Text(LocalizedStringKey(disclaimer))
             .lineSpacing(3)

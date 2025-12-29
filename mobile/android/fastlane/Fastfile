@@ -3,7 +3,7 @@ default_platform(:android)
 def update_version_and_build_number
   beta_build_number = google_play_track_version_codes(
    package_name: CredentialsManager::AppfileConfig.try_fetch_value(:package_name),
-   track: "beta",
+   track: "closed-beta",
    json_key: CredentialsManager::AppfileConfig.try_fetch_value(:json_key_file),
   )[0]
 
@@ -45,7 +45,7 @@ platform :android do
       }
     )
 
-    upload_to_play_store(track: "beta", skip_upload_apk: true)
+    upload_to_play_store(track: "closed-beta", skip_upload_apk: true)
   end
 
   desc "Release a new version to the Google Play"

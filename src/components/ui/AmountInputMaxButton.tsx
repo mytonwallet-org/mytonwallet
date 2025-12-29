@@ -2,6 +2,7 @@ import React, { memo } from '../../lib/teact/teact';
 
 import type { ApiToken } from '../../api/types';
 
+import buildClassName from '../../util/buildClassName';
 import { toDecimal } from '../../util/decimals';
 import { formatCurrency, formatCurrencySimple } from '../../util/formatNumber';
 
@@ -19,6 +20,7 @@ interface OwnProps {
   isSensitiveDataHidden?: boolean;
   /** If true, the label will say "All" instead of "Max" and all the amount digits will be shown (made for unstaking) */
   isAllMode?: boolean;
+  isDisabled?: boolean;
   onAmountClick(maxAmount?: bigint): void;
 }
 
@@ -32,6 +34,7 @@ function AmountInputMaxButton({
   isLoading,
   isSensitiveDataHidden,
   isAllMode,
+  isDisabled,
   onAmountClick,
 }: OwnProps) {
   const lang = useLang();
@@ -58,16 +61,17 @@ function AmountInputMaxButton({
       {content && (
         <span className={styles.content}>
           {lang(isAllMode ? '$all_balance' : '$max_balance', {
-            balance: (
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => onAmountClick(maxAmount)}
-                className={styles.link}
-              >
-                {content}
-              </div>
-            ),
+            balance: isDisabled ? <div className={styles.amount}>{content}</div>
+              : (
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onAmountClick(maxAmount)}
+                  className={buildClassName(styles.amount, styles.link)}
+                >
+                  {content}
+                </div>
+              ),
           })}
         </span>
       )}

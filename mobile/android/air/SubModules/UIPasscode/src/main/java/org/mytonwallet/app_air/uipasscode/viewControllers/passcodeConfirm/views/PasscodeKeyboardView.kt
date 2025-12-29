@@ -2,22 +2,24 @@ package org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.widget.FrameLayout
 import androidx.core.content.ContextCompat
 import androidx.core.view.children
 import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.helpers.HapticFeedbackHelper
+import org.mytonwallet.app_air.uicomponents.extensions.exactly
+import org.mytonwallet.app_air.uicomponents.helpers.HapticType
+import org.mytonwallet.app_air.uicomponents.helpers.Haptics
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
-import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
+import org.mytonwallet.app_air.uicomponents.widgets.fadeInObjectAnimator
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.unlockView
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
 import org.mytonwallet.app_air.walletcore.stores.AuthStore
 import kotlin.math.min
 
@@ -27,7 +29,7 @@ class PasscodeKeyboardView(
     val light: Boolean?,
     showMotionBackgroundDrawable: Boolean,
     ignoreBiometry: Boolean
-) : FrameLayout(context), WThemedView {
+) : WFrameLayout(context), WThemedView {
     companion object {
         private const val GAP = 8
         private const val HEIGHT = 80
@@ -42,11 +44,9 @@ class PasscodeKeyboardView(
         fun onNumberInput(number: Int)
     }
 
-    private val hapticFeedbackHelper = HapticFeedbackHelper(context)
     private lateinit var deleteButton: PasscodeNumberView
 
     init {
-        id = generateViewId()
         for (a in 0..11) {
             addView(
                 PasscodeNumberView(
@@ -60,7 +60,7 @@ class PasscodeKeyboardView(
                         11 -> { // backspace
                             deleteButton = this
                             setOnClickListener {
-                                hapticFeedbackHelper.provideHapticFeedback()
+                                Haptics.play(this, HapticType.LIGHT_TAP)
                                 listener?.onNumberDelete()
                             }
                         }
@@ -71,7 +71,7 @@ class PasscodeKeyboardView(
                                 R.drawable.ic_biometric
                             )
                             setOnClickListener {
-                                hapticFeedbackHelper.provideHapticFeedback()
+                                Haptics.play(this, HapticType.LIGHT_TAP)
                                 listener?.onBiometricsCheck()
                             }
                             isGone =
@@ -81,7 +81,7 @@ class PasscodeKeyboardView(
 
                         else -> {
                             setOnClickListener {
-                                hapticFeedbackHelper.provideHapticFeedback()
+                                Haptics.play(this, HapticType.LIGHT_TAP)
                                 num?.let { listener?.onNumberInput(it) }
                             }
                         }
@@ -112,9 +112,7 @@ class PasscodeKeyboardView(
 
         for (i in 0 until childCount) {
             val child = getChildAt(i)
-            val childWidthSpec = MeasureSpec.makeMeasureSpec(buttonWidth, MeasureSpec.EXACTLY)
-            val childHeightSpec = MeasureSpec.makeMeasureSpec(buttonSize, MeasureSpec.EXACTLY)
-            child.measure(childWidthSpec, childHeightSpec)
+            child.measure(buttonWidth.exactly, buttonSize.exactly)
         }
 
         setMeasuredDimension(width, measuredHeight)
@@ -186,7 +184,7 @@ class PasscodeKeyboardView(
             it.apply {
                 if (alpha == 1f)
                     return@apply
-                fadeIn()
+                fadeInObjectAnimator()?.start()
             }
         }
     }

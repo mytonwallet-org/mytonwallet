@@ -26,6 +26,7 @@ interface OwnProps {
   stateInit?: string;
   chain?: ApiChain;
   isStatic?: boolean;
+  isReadonly?: boolean;
   isCommentRequired?: boolean;
   isEncryptedCommentSupported: boolean;
   onCommentChange: (value: string) => void;
@@ -38,6 +39,7 @@ function CommentSection({
   stateInit,
   chain,
   isStatic,
+  isReadonly,
   isCommentRequired,
   isEncryptedCommentSupported,
   onCommentChange,
@@ -51,8 +53,8 @@ function CommentSection({
   });
 
   const dropdownItems = useMemo(
-    () => isEncryptedCommentSupported ? COMMENT_DROPDOWN_ITEMS : COMMENT_DROPDOWN_ITEMS.slice(0, 1),
-    [isEncryptedCommentSupported],
+    () => isEncryptedCommentSupported && !isReadonly ? COMMENT_DROPDOWN_ITEMS : COMMENT_DROPDOWN_ITEMS.slice(0, 1),
+    [isEncryptedCommentSupported, isReadonly],
   );
 
   function renderCommentLabel() {
@@ -61,7 +63,6 @@ function CommentSection({
         items={dropdownItems}
         selectedValue={COMMENT_DROPDOWN_ITEMS[shouldEncrypt ? 1 : 0].value}
         theme="inherit"
-        disabled={chain === 'tron'}
         menuPositionX="left"
         shouldTranslateOptions
         onChange={handleCommentOptionsChange}
@@ -109,7 +110,7 @@ function CommentSection({
       placeholder={isCommentRequired ? lang('Required') : lang('Optional')}
       value={comment}
       isMultiline
-      isDisabled={chain === 'tron'}
+      isDisabled={isReadonly}
       onInput={onCommentChange}
       isRequired={isCommentRequired}
     />

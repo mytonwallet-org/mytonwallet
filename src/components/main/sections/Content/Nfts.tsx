@@ -11,10 +11,14 @@ import {
   TELEGRAM_GIFTS_SUPER_COLLECTION,
 } from '../../../../config';
 import renderText from '../../../../global/helpers/renderText';
-import { selectCurrentAccountState, selectIsCurrentAccountViewMode } from '../../../../global/selectors';
+import {
+  selectCurrentAccountId,
+  selectCurrentAccountState,
+  selectIsCurrentAccountViewMode,
+} from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
 import captureEscKeyListener from '../../../../util/captureEscKeyListener';
-import { getTonDnsExpirationDate } from '../../../../util/dns';
+import { getDnsExpirationDate } from '../../../../util/dns';
 import { stopEvent } from '../../../../util/domEvents';
 import { openUrl } from '../../../../util/openUrl';
 import { getHostnameFromUrl } from '../../../../util/url';
@@ -22,7 +26,6 @@ import { ANIMATED_STICKERS_PATHS } from '../../../ui/helpers/animatedAssets';
 import { getScrollContainerClosestSelector } from '../../helpers/scrollableContainer';
 
 import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
-import { useIntersectionObserver } from '../../../../hooks/useIntersectionObserver';
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
 
@@ -48,7 +51,6 @@ interface StateProps {
   isViewAccount?: boolean;
 }
 
-const INTERSECTION_THROTTLE = 200;
 const INITIAL_SLICE_LENGTH = 50;
 const SCROLL_THRESHOLD = 800;
 
@@ -141,11 +143,6 @@ function Nfts({
     };
   }, [nfts?.length, scrollContainerClosest]);
 
-  const { observe: observeIntersection } = useIntersectionObserver({
-    throttleMs: INTERSECTION_THROTTLE,
-    isDisabled: !nfts?.length,
-  });
-
   function handleNftMarketplaceClick(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
     stopEvent(e);
 
@@ -199,9 +196,8 @@ function Nfts({
           key={nft.address}
           nft={nft}
           selectedAddresses={selectedAddresses}
-          tonDnsExpiration={getTonDnsExpirationDate(nft, dnsExpiration)}
+          tonDnsExpiration={getDnsExpirationDate(nft, dnsExpiration)}
           isViewAccount={isViewAccount}
-          observeIntersection={observeIntersection}
         />
       ))}
     </div>
@@ -242,7 +238,7 @@ export default memo(
         currentCollectionAddress,
       } = selectCurrentAccountState(global)?.nfts || {};
 
-      return stickToFirst(`${global.currentAccountId}_${currentCollectionAddress || 'all'}`);
+      return stickToFirst(`${selectCurrentAccountId(global)}_${currentCollectionAddress || 'all'}`);
     },
   )(Nfts),
 );

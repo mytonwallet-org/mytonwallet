@@ -85,7 +85,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         case .newActivities(let update):
             handleNewActivities(update: update)
         case .newLocalActivity(let update):
-            await handleNewLocalActivities(update: update)
+            handleNewLocalActivities(update: update)
         default:
             break
         }
@@ -470,7 +470,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
             $0.idsBySlug = idsBySlug
             $0.newestActivitiesBySlug = newestActivitiesBySlug
             $0.localActivityIds = localActivityIds
-            if let chain {
+            if chain != nil {
                 $0.pendingActivityIds = pendingIds
             }
         }
@@ -560,13 +560,6 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
             
             return localActivity
         }
-    }
-    
-    private func selectAccountTxTokenSlugs(accountId: String, chain: ApiChain) -> [String]? {
-        if let idsBySlug = getAccountState(accountId).idsBySlug {
-            return idsBySlug.keys.filter { $0.hasPrefix(chain.rawValue)}
-        }
-        return nil
     }
     
     private func selectLastMainTxTimestamp(accountId: String) -> Int64? {

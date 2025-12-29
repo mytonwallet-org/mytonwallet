@@ -37,6 +37,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
@@ -45,12 +46,12 @@ import org.mytonwallet.app_air.walletcore.models.MExploreSite
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 import org.mytonwallet.app_air.walletcore.stores.ExploreHistoryStore
 import java.lang.ref.WeakReference
-import kotlin.math.ceil
 import kotlin.math.max
 
 @SuppressLint("ViewConstructor")
 class ExploreVC(context: Context) : WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource, ExploreVM.Delegate {
+    override val TAG = "Explore"
 
     override val ignoreSideGuttering: Boolean = true
 
@@ -166,7 +167,7 @@ class ExploreVC(context: Context) : WViewController(context),
     override fun updateTheme() {
         super.updateTheme()
         view.setBackgroundColor(WColor.SecondaryBackground.color)
-        rvAdapter.reloadData()
+        rvAdapter.updateTheme()
     }
 
     override fun insetsUpdated() {
@@ -188,6 +189,7 @@ class ExploreVC(context: Context) : WViewController(context),
     }
 
     override fun viewWillDisappear() {
+        // We don't want to hide keyboard on search, so super.viewWillDisappear is not called here.
         isDisappeared = true
     }
 
@@ -251,9 +253,8 @@ class ExploreVC(context: Context) : WViewController(context),
     val catsCount: Int
         get() {
             val colCount = calculateNoOfColumns()
-            return ceil(
-                (exploreVM.showingExploreCategories?.size ?: 0) / colCount.toFloat()
-            ).toInt() * colCount
+            return ((exploreVM.showingExploreCategories?.size
+                ?: 0) / colCount.toFloat()).ceilToInt() * colCount
         }
 
     val showLargeConnectedApps: Boolean

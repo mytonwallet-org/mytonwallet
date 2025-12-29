@@ -8,7 +8,6 @@
 import Foundation
 import UIKit
 import UIComponents
-import WalletCore
 import WalletContext
 
 public class DisconnectAllCell: UITableViewCell, WThemedView {
@@ -64,7 +63,7 @@ public class DisconnectAllCell: UITableViewCell, WThemedView {
         titleLabel = UILabel()
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         titleLabel.font = .systemFont(ofSize: 17)
-        titleLabel.text = lang("Disconnect All")
+        titleLabel.text = lang("Disconnect All Dapps")
         containerView.addSubview(titleLabel)
         NSLayoutConstraint.activate([
             titleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 68),

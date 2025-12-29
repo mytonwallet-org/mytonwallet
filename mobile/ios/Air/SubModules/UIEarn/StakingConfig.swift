@@ -29,9 +29,9 @@ public struct StakingConfig: Identifiable, Equatable, Hashable {
 }
 
 public extension StakingConfig {
-    
-    static let tonLiquid = StakingConfig(
-        id: "liquid",
+
+    static var ton = StakingConfig(
+        id: "ton",
         baseToken: .TONCOIN,
         stakedToken: .STAKED_TON,
         displayTitle: "TON",
@@ -42,23 +42,6 @@ public extension StakingConfig {
             lang("$safe_staking_description3"),
         ],
     )
-    
-    static let tonNominators = StakingConfig(
-        id: "nominators",
-        baseToken: .TONCOIN,
-        stakedToken: .STAKED_TON,
-        displayTitle: "TON",
-        explainTitle: lang("Why is staking safe?"),
-        explainContent: [
-            lang("$safe_staking_description1"),
-            lang("$safe_staking_description2"),
-            lang("$safe_staking_description3"),
-        ],
-    )
-    
-    static var ton: StakingConfig {
-        StakingStore.currentAccount?.shouldUseNominators == true ? tonNominators : tonLiquid
-    }
 
     static let mycoin = StakingConfig(
         id: MYCOIN_STAKING_POOL,
@@ -95,7 +78,16 @@ public extension StakingConfig {
     var stakedToken: ApiToken { TokenStore.tokens[stakedTokenSlug] ?? _stakedToken }
     var nativeToken: ApiToken { TokenStore.tokens[nativeTokenSlug] ?? .TONCOIN }
     
-    var stakingState: ApiStakingState? { StakingStore.currentAccount?.stateById[id] }
+    var stakingState: ApiStakingState? {
+        if self == .ton {
+            if StakingStore.currentAccount?.shouldUseNominators == true {
+                return StakingStore.currentAccount?.stateById["nominators"]
+            } else {
+                return StakingStore.currentAccount?.stateById["liquid"]
+            }
+        }
+        return StakingStore.currentAccount?.stateById[id]
+    }
 
     var fullStakingBalance: BigInt? {
         stakingState.flatMap(getFullStakingBalance(state:))

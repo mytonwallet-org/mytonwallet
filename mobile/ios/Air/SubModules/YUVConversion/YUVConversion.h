@@ -15,4 +15,4 @@ FOUNDATION_EXPORT const unsigned char YUVConversionVersionString[];
 
 // In this header, you should import all the public headers of your framework using statements like #import <YUVConversion/PublicHeader.h>
 
-#import "YUV.h"
+#import <YUVConversion/YUV.h>

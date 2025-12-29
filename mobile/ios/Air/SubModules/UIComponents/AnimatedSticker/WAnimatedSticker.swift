@@ -79,6 +79,10 @@ public class WAnimatedSticker: UIView {
         animatedSticker?.playbackMode = .toggle(on)
         animatedSticker?.play()
     }
+    
+    public func playOnce() {
+        _ = animatedSticker?.playIfNeeded()
+    }
 }
 
 
@@ -87,11 +91,17 @@ public struct WUIAnimatedSticker: UIViewRepresentable {
     var name: String
     var size: CGFloat
     var loop: Bool
+    var playTrigger: Int
     
-    public init(_ name: String, size: CGFloat, loop: Bool) {
+    public init(_ name: String, size: CGFloat, loop: Bool, playTrigger: Int = 0) {
         self.name = name
         self.size = size
         self.loop = loop
+        self.playTrigger = playTrigger
+    }
+    
+    public func makeCoordinator() -> Coordinator {
+        Coordinator(playTrigger: playTrigger)
     }
     
     public func makeUIView(context: Context) -> WAnimatedSticker {
@@ -102,10 +112,21 @@ public struct WUIAnimatedSticker: UIViewRepresentable {
     }
     
     public func updateUIView(_ sticker: WAnimatedSticker, context: Context) {
+        if playTrigger != context.coordinator.playTrigger {
+            context.coordinator.playTrigger = playTrigger
+            sticker.playOnce()
+        }
     }
     
     public func sizeThatFits(_ proposal: ProposedViewSize, uiView: WAnimatedSticker, context: Context) -> CGSize? {
         CGSize(width: size, height: size)
+    }
+    
+    public final class Coordinator {
+        var playTrigger: Int
+        init(playTrigger: Int) {
+            self.playTrigger = playTrigger
+        }
     }
 }
 

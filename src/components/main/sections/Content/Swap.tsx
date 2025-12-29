@@ -7,8 +7,8 @@ import type { Account, AppTheme } from '../../../../global/types';
 import type { Color as PendingIndicatorColor } from './ActivityStatusIcon';
 
 import { TONCOIN, WHOLE_PART_DELIMITER } from '../../../../config';
-import { getIsInternalSwap, resolveSwapAsset } from '../../../../global/helpers';
-import { getIsActivityPendingForUser } from '../../../../util/activities';
+import { resolveSwapAsset } from '../../../../global/helpers';
+import { getIsActivityPendingForUser, getShouldSkipSwapWaitingStatus } from '../../../../util/activities';
 import buildClassName from '../../../../util/buildClassName';
 import { formatTime } from '../../../../util/dateFormat';
 import { formatCurrencyExtended } from '../../../../util/formatNumber';
@@ -30,6 +30,7 @@ type OwnProps = {
   isLast?: boolean;
   activity: ApiSwapActivity;
   isActive?: boolean;
+  className?: string;
   appTheme: AppTheme;
   accountChains: Account['byChain'] | undefined;
   isSensitiveDataHidden?: boolean;
@@ -48,6 +49,7 @@ function Swap({
   activity,
   isLast,
   isActive,
+  className,
   appTheme,
   accountChains,
   isSensitiveDataHidden,
@@ -84,14 +86,6 @@ function Swap({
     || CHANGELLY_EXPIRED_STATUSES.has(cex?.status ?? '');
   const isHold = cex?.status === 'hold';
   const amountCols = useMemo(() => getPseudoRandomNumber(5, 13, timestamp.toString()), [timestamp]);
-
-  const isFromToncoin = from === TONCOIN.slug;
-  const isInternalSwap = getIsInternalSwap({
-    from: fromToken,
-    to: toToken,
-    toAddress: cex?.payoutAddress,
-    accountChains,
-  });
 
   function renderIcon() {
     let statusClass: string | undefined = styles.colorSwap;
@@ -174,9 +168,7 @@ function Swap({
       state = lang('On Hold');
     } else if (cexStatus === 'failed' || isError) {
       state = lang('Failed');
-    } else if (cexStatus === 'waiting' && !isFromToncoin && !isInternalSwap) {
-      // Skip the 'waiting' status for transactions from Toncoin to account or from Tron to Ton
-      // inside the multichain wallet for delayed status updates from Сhangelly
+    } else if (cexStatus === 'waiting' && !getShouldSkipSwapWaitingStatus(activity, accountChains ?? {})) {
       state = lang('Waiting for Payment');
     } else if (isPending) {
       state = lang('In Progress');
@@ -227,6 +219,7 @@ function Swap({
         isLast && styles.itemLast,
         isActive && styles.active,
         onClick && styles.interactive,
+        className,
       )}
       onClick={onClick && (() => onClick(id))}
       isSimple

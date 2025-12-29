@@ -209,17 +209,6 @@ public class IconView: UIView, WThemedView {
         }
     }
     
-    public func config(with nft: ApiNft) {
-        imageView.kf.cancelDownloadTask()
-        imageView.contentMode = .scaleAspectFill
-        imageView.image = UIImage(named: "chain_ton", in: AirBundle, compatibleWith: nil)!
-        imageView.isHidden = false
-        largeLabel.text = nil
-        smallLabelTop.text = nil
-        smallLabelBottom.text = nil
-        chainImageViewContainer.isHidden = true
-    }
-    
     public func config(with token: ApiToken?, isStaking: Bool = false, isWalletView: Bool = false, shouldShowChain: Bool) {
         guard let token else {
             imageView.kf.cancelDownloadTask()
@@ -239,9 +228,7 @@ public class IconView: UIView, WThemedView {
                                   options: [.transition(.fade(0.2)), .keepCurrentImageWhileLoading, .alsoPrefetchToMemory, .cacheOriginalImage])
         } else {
             imageView.kf.cancelDownloadTask()
-            if let chain = availableChains.first(where: { chain in
-                chain.tokenSlug == token.slug
-            }) {
+            if let chain = getChainByNativeSlug(token.slug) {
                 imageView.image = chain.image
             } else {
                 imageView.image = nil
@@ -254,7 +241,7 @@ public class IconView: UIView, WThemedView {
             chainImageView.tintColor = .white
             chainImageView.backgroundColor = WTheme.positiveAmount
             chainImageViewContainer.isHidden = false
-        } else if shouldShowChain {
+        } else if shouldShowChain && !token.isNative {
             let chain = token.chain
             chainImageView.contentMode = .scaleToFill
             chainImageView.image = UIImage(named: "chain_\(chain)", in: AirBundle, compatibleWith: nil)
@@ -263,15 +250,6 @@ public class IconView: UIView, WThemedView {
         } else {
             chainImageViewContainer.isHidden = true
         }
-    }
-    
-    public func config(with recentAddress: MRecentAddress) {
-        imageView.contentMode = .center
-        resolveGradientColors = { (recentAddress.addressAlias ?? recentAddress.address).gradientColors }
-        gradientLayer.colors = resolveGradientColors?()
-        imageView.image = UIImage(named: "AddressIcon", in: AirBundle, compatibleWith: nil)
-        largeLabel.text = nil
-        chainImageViewContainer.isHidden = true
     }
     
     public func config(with account: MAccount?, showIcon: Bool = true) {
@@ -298,10 +276,8 @@ public class IconView: UIView, WThemedView {
             break
         case .image(_):
             break
-        @unknown default:
-            break
         }
-        resolveGradientColors = { account.firstAddress?.gradientColors }
+        resolveGradientColors = { account.firstAddress.gradientColors }
         gradientLayer.colors = resolveGradientColors?()
         gradientLayer.isHidden = false
         imageView.image = nil
@@ -310,12 +286,6 @@ public class IconView: UIView, WThemedView {
     public func config(with earnHistoryItem: MStakingHistoryItem) {
         imageView.contentMode = .scaleAspectFill
         imageView.image = earnHistoryItem.type.image
-    }
-    
-    public func config(with chain: ApiChain) {
-        chainImageViewContainer.isHidden = true
-        imageView.contentMode = .scaleAspectFill
-        imageView.image = chain.image
     }
     
     public func config(with image: UIImage?, tintColor: UIColor? = nil) {
@@ -484,5 +454,47 @@ public struct WUIIconViewToken: UIViewRepresentable {
     public func updateUIView(_ uiView: UIViewType, context: Context) {
         uiView.setChainSize(chainSize, borderWidth: chainBorderWidth, borderColor: chainBorderColor, horizontalOffset: chainHorizontalOffset, verticalOffset: chainVerticalOffset)
         uiView.config(with: token, isStaking: isStaking, isWalletView: isWalletView, shouldShowChain: showldShowChain)
+    }
+}
+
+
+public struct AccountIcon: View {
+    
+    var account: MAccount
+    
+    public init(account: MAccount) {
+        self.account = account
+    }
+    
+    public var body: some View {
+        ZStack {
+            Color.clear
+            let _colors = account.firstAddress.gradientColors
+            let colors = _colors.map { Color($0) }
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: colors,
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+            let content = account.avatarContent
+            switch content {
+            case .initial(let string):
+                Text(verbatim: string)
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .fixedSize()
+            case .sixCharaters(_, _):
+                EmptyView()
+            case .typeIcon:
+                EmptyView()
+            case .image(_):
+                EmptyView()
+            }
+        }
+        .foregroundStyle(.white)
+        .frame(width: 40, height: 40)
+        .drawingGroup()
     }
 }

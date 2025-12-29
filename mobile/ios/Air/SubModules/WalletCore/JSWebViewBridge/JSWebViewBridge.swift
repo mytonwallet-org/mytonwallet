@@ -109,8 +109,6 @@ class JSWebViewBridge: UIViewController {
     private var webView: WKWebView?
     private let start = Date()
 
-    let webViewQueue = DispatchQueue(label: "org.mytonwallet.app.webViewBridge_background", attributes: .concurrent)
-    
     private let updateQueue = DispatchQueue(label: "onUpdate", qos: .background, attributes: [.concurrent])
 
     override func viewDidLoad() {
@@ -224,19 +222,6 @@ class JSWebViewBridge: UIViewController {
             }
         }
         throw BridgeCallError(message: error.localizedDescription, payload: error)
-    }
-    
-    func callApi(methodName: String, args: [AnyEncodable?], callback: @escaping (Result<Any?, BridgeCallError>) -> Void) {
-        Task {
-            do {
-                let result = try await _callApiImpl(methodName: methodName, args: args)
-                callback(.success(result))
-            } catch let error as BridgeCallError {
-                callback(.failure(error))
-            } catch {
-                callback(.failure(.unknown(baseError: error)))
-            }
-        }
     }
     
     func callApiRaw<each E: Encodable>(_ methodName: String, _ args: repeat each E) async throws -> Any? {
@@ -462,10 +447,15 @@ extension JSWebViewBridge: WKScriptMessageHandler {
                 #endif
                 switch updateType {
                 case "updateAccount":
-                    #warning("TODO: updateAccount")
-                    break
+                    do {
+                        let update = try JSONSerialization.decode(ApiUpdate.UpdateAccount.self, from: data)
+                        WalletCoreData.notify(event: .updateAccount(update))
+                    } catch {
+                        log.fault("failed to decode updateAccount \(error, .public)")
+                    }
+
                 case "updateAccountConfig":
-                    #warning("TODO: updateAccountConfig")
+                    // TODO: updateAccountConfig
                     break
                     
                 case "initialActivities":
@@ -509,7 +499,7 @@ extension JSWebViewBridge: WKScriptMessageHandler {
                         return
                     }
                     AccountStore.walletVersionsData = walletVersionsData
-                    WalletCoreData.notify(event: .walletVersionsDataReceived, for: accountId)
+                    WalletCoreData.notify(event: .walletVersionsDataReceived)
                     break
                 case "updateSwapTokens":
                     do {
@@ -593,11 +583,11 @@ extension JSWebViewBridge: WKScriptMessageHandler {
                         return
                     }
                     log.info("updatingStatus \(data["kind"] ?? "?", .public)=\(isUpdating)", fileOnly: true)
-                    WalletCoreData.notify(event: .updatingStatusChanged, for: nil)
+                    WalletCoreData.notify(event: .updatingStatusChanged)
                     break
                 case "updateConfig":
                     do {
-                        var update = try JSONSerialization.decode(ApiUpdate.UpdateConfig.self, from: data)
+                        let update = try JSONSerialization.decode(ApiUpdate.UpdateConfig.self, from: data)
 //                        update.isLimited = true
                         ConfigStore.shared.config = update
                     } catch {
@@ -624,24 +614,24 @@ extension JSWebViewBridge: WKScriptMessageHandler {
                 case "dappSendTransactions":
                     do {
                         let value = try JSONSerialization.decode(MDappSendTransactions.self, from: data)
-                        WalletCoreData.notify(event: .dappSendTransactions(value), for: nil)
+                        WalletCoreData.notify(event: .dappSendTransactions(value))
                     } catch {
                         assertionFailure()
                     }
                 case "dappSignData":
                     do {
                         let value = try JSONSerialization.decode(ApiUpdate.DappSignData.self, from: data)
-                        WalletCoreData.notify(event: .dappSignData(value), for: nil)
+                        WalletCoreData.notify(event: .dappSignData(value))
                     } catch {
                         assertionFailure()
                     }
 
                 case "dappDisconnect":
                     if let accountId = data["acountId"] as? String, let origin = data["origin"] as? String {
-                        WalletCoreData.notify(event: .dappDisconnect(accountId: accountId, origin: origin), for: nil)
+                        WalletCoreData.notify(event: .dappDisconnect(accountId: accountId, origin: origin))
                     }
                 case "updateDapps":
-                    WalletCoreData.notify(event: .updateDapps, for: nil)
+                    WalletCoreData.notify(event: .updateDapps)
 
                 case "dappTransferComplete":
                     break
@@ -678,7 +668,6 @@ extension JSWebViewBridge: WKScriptMessageHandler {
                                 UIApplication.shared.open(URL(string: "tg://resolve")!)
                             }
                         }
-                        #warning("TODO: openUrl")
                         break
                     } catch {
                         log.error("openUrl: \(error, .public)")

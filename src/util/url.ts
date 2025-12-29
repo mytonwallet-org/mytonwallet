@@ -1,7 +1,7 @@
 import type { ApiChain, ApiNft } from '../api/types';
 import type { LangCode } from '../global/types';
 
-import { EMPTY_HASH_VALUE, MTW_CARDS_BASE_URL, MYTONWALLET_BLOG } from '../config';
+import { EMPTY_HASH_VALUE, MTW_CARDS_BASE_URL, MYTONWALLET_BLOG, SELF_UNIVERSAL_HOST_URL } from '../config';
 import { base64ToHex } from './base64toHex';
 import { getChainConfig } from './chain';
 import { logDebugError } from './logs';
@@ -48,6 +48,11 @@ export function isValidUrl(url: string, validProtocols = VALID_PROTOCOLS) {
     logDebugError('isValidUrl', e);
     return false;
   }
+}
+
+export function normalizeUrl(url: string): string {
+  const withoutProtocol = url.replace(/^https?:\/\//, '');
+  return `https://${withoutProtocol}`;
 }
 
 export function getHostnameFromUrl(url: string) {
@@ -119,10 +124,19 @@ export function isTelegramUrl(url: string) {
   return url.startsWith('https://t.me/');
 }
 
-export function getCardNftImageUrl(nft: ApiNft): string | undefined {
-  return `${MTW_CARDS_BASE_URL}${nft.metadata.mtwCardId}.webp`;
+export function getCardNftImageUrl(nft: ApiNft): string {
+  return `${MTW_CARDS_BASE_URL}${nft.metadata.mtwCardId}.svg`;
 }
 
 export function getBlogUrl(lang: LangCode): string {
   return MYTONWALLET_BLOG[lang] || MYTONWALLET_BLOG.en!;
+}
+
+export function getViewAccountUrl(addressByChain: Partial<Record<ApiChain, string>>): string {
+  const params = new URLSearchParams();
+  Object.entries(addressByChain).forEach(([chain, address]) => {
+    params.append(chain, address);
+  });
+
+  return `${SELF_UNIVERSAL_HOST_URL}/view?${params.toString()}`;
 }

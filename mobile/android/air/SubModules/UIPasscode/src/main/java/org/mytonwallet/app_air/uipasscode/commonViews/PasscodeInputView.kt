@@ -13,14 +13,15 @@ import android.view.ViewGroup
 import android.view.inputmethod.BaseInputConnection
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
-import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.view.setPadding
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.drawable.RoundProgressDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.helpers.HapticFeedbackHelper
+import org.mytonwallet.app_air.uicomponents.helpers.Haptics
+import org.mytonwallet.app_air.uicomponents.helpers.HapticType
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
@@ -30,10 +31,10 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uicomponents.widgets.shakeView
 import org.mytonwallet.app_air.uicomponents.widgets.showKeyboard
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import java.lang.ref.WeakReference
 
@@ -42,9 +43,10 @@ class PasscodeInputView(
     context: Context,
     val delegate: WeakReference<Delegate>?,
     val forceLightScreen: Boolean = false,
+    val forceDarkScreen: Boolean = false,
     val margins: Int = 16,
     val showKeyboardOnFocus: Boolean,
-) : FrameLayout(context), View.OnKeyListener, WThemedView {
+) : WFrameLayout(context), View.OnKeyListener, WThemedView {
 
     interface Delegate {
         fun didChangePasscode(passcode: String)
@@ -58,7 +60,6 @@ class PasscodeInputView(
         }
 
     init {
-        id = generateViewId()
         isFocusableInTouchMode = true
         isFocusable = true
         setOnKeyListener(this)
@@ -98,7 +99,7 @@ class PasscodeInputView(
             }
         }
 
-    private val roundDrawable = RoundProgressDrawable(context, 12.dp, 0.5f.dp).apply {
+    private val roundDrawable = RoundProgressDrawable(12.dp, 0.5f.dp).apply {
         color = WColor.Green.color
     }
 
@@ -161,9 +162,10 @@ class PasscodeInputView(
     }
 
     override fun updateTheme() {
-        val primaryText = if (forceLightScreen) Color.WHITE else WColor.Tint.color
+        val primaryText = if (forceLightScreen) Color.WHITE else
+            if (forceDarkScreen) Color.BLACK else WColor.Tint.color
         val secondaryText =
-            if (forceLightScreen || ThemeManager.isDark)
+            if (!forceDarkScreen && (forceLightScreen || ThemeManager.isDark))
                 Color.WHITE.colorWithAlpha(85) else Color.BLACK.colorWithAlpha(85)
         circleViews.forEachIndexed { index, wView ->
             if (index < passcode.length) {
@@ -189,7 +191,7 @@ class PasscodeInputView(
     fun resetInput() {
         passcode = ""
         shakeView()
-        HapticFeedbackHelper(context).provideErrorFeedback()
+        Haptics.play(this, HapticType.ERROR)
     }
 
     var isShowingIndicator = false

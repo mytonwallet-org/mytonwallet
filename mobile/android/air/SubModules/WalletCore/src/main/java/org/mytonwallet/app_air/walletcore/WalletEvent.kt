@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.walletcore
 
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
+import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 
 sealed class WalletEvent {
@@ -26,15 +27,31 @@ sealed class WalletEvent {
     ) : WalletEvent()
 
     data object NftsUpdated : WalletEvent()
-    data object ReceivedNewNFT : WalletEvent()
-    data class AccountChanged(
-        val accountId: String? = null
+    data class CollectionNftsReceived(
+        val accountId: String,
+        val collectionAddress: String,
+        val nfts: List<ApiNft>
     ) : WalletEvent()
 
+    data object ReceivedNewNFT : WalletEvent()
+
+    // TODO:: Merge these 2 account change events
+    data class AccountChanged(
+        val accountId: String? = null,
+        val fromHome: Boolean = false,
+        val isSavingTemporaryAccount: Boolean = false,
+    ) : WalletEvent()
+
+    data class AccountChangedInApp(val persistedAccountsModified: Boolean) : WalletEvent()
+
+    data class AccountRemoved(val accountId: String) : WalletEvent()
+
     data object AccountNameChanged : WalletEvent()
+    data object AccountsReordered : WalletEvent()
     data object AccountSavedAddressesChanged : WalletEvent()
     data object AddNewWalletCompletion : WalletEvent()
-    data object AccountChangedInApp : WalletEvent()
+    data class TemporaryAccountSaved(val accountId: String) : WalletEvent()
+    data class AccountWillChange(val fromHome: Boolean) : WalletEvent()
     data object DappsCountUpdated : WalletEvent()
     data class DappRemoved(val dapp: ApiDapp) : WalletEvent()
     data object StakingDataUpdated : WalletEvent()
@@ -55,6 +72,10 @@ sealed class WalletEvent {
         val activity: MApiTransaction
     ) : WalletEvent()
 
+    data class OpenToken(
+        val slug: String
+    ) : WalletEvent()
+
     data object NftCardUpdated : WalletEvent()
     data object NftDomainDataUpdated : WalletEvent()
     data class LedgerDeviceModelRequest(
@@ -71,4 +92,5 @@ sealed class WalletEvent {
 
     data object NftsReordered : WalletEvent()
     data object HomeNftCollectionsUpdated : WalletEvent()
+    data class ByChainUpdated(val accountId: String) : WalletEvent()
 }

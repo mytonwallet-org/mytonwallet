@@ -1,32 +1,27 @@
 import { Address } from '@ton/core';
 
-import { resolveAddress } from '../api/chains/ton/address';
-import { isDnsDomain } from './dns';
+import type { ApiNetwork } from '../api/types';
+
+import { resolveAddressByDomain } from '../api/chains/ton/address';
+import { isTonChainDns } from './dns';
 import withCache from './withCache';
 
-export { isValidAddressOrDomain } from './isValidAddressOrDomain';
+export { isValidAddressOrDomain } from './isValidAddress';
 
-const resolveAddressWithCache = withCache(resolveAddress);
+const resolveDomainWithCache = withCache(resolveAddressByDomain);
 
-export async function resolveOrValidate(addressOrDomain: string) {
-  if (isDnsDomain(addressOrDomain)) {
+export async function resolveOrValidate(addressOrDomain: string, network: ApiNetwork = 'mainnet') {
+  if (isTonChainDns(addressOrDomain)) {
     try {
-      const network = 'mainnet';
-      const resolveResult = await resolveAddressWithCache(network, addressOrDomain);
+      const resolvedAddress = await resolveDomainWithCache(network, addressOrDomain);
 
-      if (resolveResult === 'dnsNotResolved') {
+      if (!resolvedAddress) {
         return {
           error: `Could not resolve TON domain: ${addressOrDomain}. Please check if the domain is valid and exists.`,
         };
       }
 
-      if (resolveResult === 'invalidAddress') {
-        return {
-          error: `Invalid TON domain format: ${addressOrDomain}. Please use a valid .ton domain.`,
-        };
-      }
-
-      return { resolvedAddress: resolveResult.address };
+      return { resolvedAddress };
     } catch (domainError) {
       return {
         // eslint-disable-next-line @stylistic/max-len

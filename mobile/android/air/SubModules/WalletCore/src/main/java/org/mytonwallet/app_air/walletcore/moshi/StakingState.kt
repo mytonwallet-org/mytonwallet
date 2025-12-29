@@ -174,6 +174,19 @@ sealed class StakingState {
         }
     }
 
+    val shouldShowWithdrawButton: Boolean
+        get() {
+            return when (this) {
+                is Ethena -> {
+                    totalBalance > BigInteger.ZERO
+                }
+
+                else -> {
+                    balance > BigInteger.ZERO
+                }
+            }
+        }
+
     val totalBalance: BigInteger
         get() {
             return when (this) {

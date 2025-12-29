@@ -55,3 +55,23 @@ public let MTW_TIPS_CHANNEL_NAME_RU = "MyTonWalletTipsRu"
 public let HELP_CENTER_URL = "https://help.mytonwallet.io"
 
 public let MTW_CARDS_COLLECTION = "EQCQE2L9hfwx1V8sgmF9keraHx1rNK9VmgR1ctVvINBGykyM"
+
+public let CARD_RATIO: CGFloat = 208/358
+public let SMALL_CARD_RATIO: CGFloat = 116/80
+public let MEDIUM_CARD_RATIO: CGFloat = 110/75
+public let LARGE_CARD_RATIO: CGFloat = 274/176
+
+public var APP_NAME: String { lang("MyTonWallet") }
+
+public var IS_DEBUG_OR_TESTFLIGHT: Bool {
+    #if DEBUG
+    return true
+    #else
+    return Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt"
+    #endif
+}
+
+public let SELF_PROTOCOL = "mtw://"
+public let SHORT_UNIVERSAL_URL = "https://my.tt/"
+public let SELF_UNIVERSAL_URLS = [SHORT_UNIVERSAL_URL,  "https://go.mytonwallet.org/"]
+

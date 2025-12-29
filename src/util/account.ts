@@ -47,9 +47,9 @@ export function generateAccountTitle(params: {
   }, { view: 0, hardware: 0, mnemonic: 0 });
 
   const walletTypeConfig: Record<AccountType, { prefix: string; count: string | number }> = {
-    view: { prefix: 'View Wallet', count: walletCounts.view + 1 },
+    view: { prefix: 'Wallet', count: walletCounts.view + 1 },
     hardware: { prefix: 'Ledger', count: `#${walletCounts.hardware + 1}` },
-    mnemonic: { prefix: 'Wallet', count: walletCounts.mnemonic + 1 },
+    mnemonic: { prefix: 'My Wallet', count: walletCounts.mnemonic + 1 },
   };
 
   const config = walletTypeConfig[accountType];

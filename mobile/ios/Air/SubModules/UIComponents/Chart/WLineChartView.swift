@@ -57,7 +57,7 @@ public class WLineChartView: LineChartView {
             let point = gestureRecognizer.location(in: gestureRecognizer.view)
             guard let highlight = getHighlightByTouchPoint(point) else { return }
             if highlighted.first?.x != highlight.x {
-                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                Haptics.play(.chartSelection)
             }
             highlightValue(highlight)
             onHighlightChange?(highlight)
@@ -266,7 +266,7 @@ class CustomLineChartRenderer: LineChartRenderer {
         else
         {
             drawLine(context: context, spline: cubicPath1, drawingColor: drawingColor, lineWidth: dataSet.lineWidth)
-            drawLine(context: context, spline: cubicPath2, drawingColor: WTheme.groupedBackground, lineWidth: dataSet.lineWidth)
+            drawLine(context: context, spline: cubicPath2, drawingColor: drawingColor.withAlphaComponent(0.25), lineWidth: dataSet.lineWidth)
         }
     }
     

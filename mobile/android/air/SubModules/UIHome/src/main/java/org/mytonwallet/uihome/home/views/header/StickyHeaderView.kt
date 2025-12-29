@@ -1,18 +1,21 @@
 package org.mytonwallet.uihome.home.views.header
 
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import android.widget.FrameLayout
+import android.view.animation.AccelerateDecelerateInterpolator
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.commonViews.HeaderActionsView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
@@ -21,20 +24,20 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
-import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.models.MScreenMode
 import org.mytonwallet.uihome.R
 import org.mytonwallet.uihome.home.views.UpdateStatusView
+import kotlin.math.max
 
-@SuppressLint("ViewConstructor")
+@SuppressLint("ViewConstructor", "ClickableViewAccessibility")
 class StickyHeaderView(
     context: Context,
+    private val screenMode: MScreenMode,
     private val onActionClick: (HeaderActionsView.Identifier) -> Unit
-) : FrameLayout(context), WThemedView, WProtectedView {
+) : WFrameLayout(context), WThemedView, WProtectedView {
 
     init {
-        id = generateViewId()
         clipChildren = false
         clipToPadding = false
     }
@@ -49,7 +52,11 @@ class StickyHeaderView(
     }
 
     val updateStatusView: UpdateStatusView by lazy {
-        UpdateStatusView(context)
+        UpdateStatusView(context).apply {
+            onTap = {
+                onActionClick(HeaderActionsView.Identifier.WALLET_SETTINGS)
+            }
+        }
     }
 
     private val lockButton: WImageButton by lazy {
@@ -83,11 +90,27 @@ class StickyHeaderView(
         }
         v
     }
+    private val backButton: WImageButton by lazy {
+        WImageButton(context).apply {
+            setOnClickListener {
+                onActionClick(HeaderActionsView.Identifier.BACK)
+            }
+            val arrowDrawable =
+                ContextCompat.getDrawable(
+                    context,
+                    org.mytonwallet.app_air.uicomponents.R.drawable.ic_nav_back
+                )
+            setImageDrawable(arrowDrawable)
+            updateColors(WColor.SecondaryText, WColor.BackgroundRipple)
+        }
+    }
+
 
     private val cancelButton: WLabel by lazy {
         WLabel(context).apply {
             text = LocaleController.getString("Cancel")
-            setTextColor(WColor.Tint.color)
+            setTextColor(WColor.Tint)
+            isTinted = true
             setStyle(18f, WFont.Medium)
             setPaddingDp(12, 4, 12, 4)
             alpha = 0f
@@ -97,7 +120,8 @@ class StickyHeaderView(
     private val saveButton: WLabel by lazy {
         WLabel(context).apply {
             text = LocaleController.getString("Save")
-            setTextColor(WColor.Tint.color)
+            setTextColor(WColor.Tint)
+            isTinted = true
             setStyle(18f, WFont.Medium)
             setPaddingDp(12, 4, 12, 4)
             alpha = 0f
@@ -110,14 +134,29 @@ class StickyHeaderView(
             LayoutParams(WRAP_CONTENT, WNavigationBar.DEFAULT_HEIGHT.dp).apply {
                 gravity = Gravity.CENTER or Gravity.TOP
             })
-        addView(scanButton, LayoutParams(40.dp, 40.dp).apply {
-            gravity = Gravity.START or Gravity.CENTER_VERTICAL
-            if (LocaleController.isRTL)
-                rightMargin = 8.dp
-            else
-                leftMargin = 8.dp
-            topMargin = 1.dp
-        })
+        when (screenMode) {
+            MScreenMode.Default -> {
+                addView(scanButton, LayoutParams(40.dp, 40.dp).apply {
+                    gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                    if (LocaleController.isRTL)
+                        rightMargin = 8.dp
+                    else
+                        leftMargin = 8.dp
+                    topMargin = 1.dp
+                })
+            }
+
+            is MScreenMode.SingleWallet -> {
+                addView(backButton, LayoutParams(40.dp, 40.dp).apply {
+                    gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                    if (LocaleController.isRTL)
+                        rightMargin = 8.dp
+                    else
+                        leftMargin = 8.dp
+                    topMargin = 1.dp
+                })
+            }
+        }
         addView(lockButton, LayoutParams(40.dp, 40.dp).apply {
             gravity = Gravity.END or Gravity.CENTER_VERTICAL
             if (LocaleController.isRTL)
@@ -143,6 +182,10 @@ class StickyHeaderView(
     }
 
     override fun updateTheme() {
+        if (cancelButton.parent == null) {
+            cancelButton.updateTheme()
+            saveButton.updateTheme()
+        }
         updateEyeIcon()
     }
 
@@ -151,21 +194,15 @@ class StickyHeaderView(
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        super.onMeasure(
-            widthMeasureSpec,
-            MeasureSpec.makeMeasureSpec(HomeHeaderView.navDefaultHeight, MeasureSpec.EXACTLY)
-        )
+        super.onMeasure(widthMeasureSpec, HomeHeaderView.navDefaultHeight.exactly)
     }
 
     fun update(mode: HomeHeaderView.Mode, state: UpdateStatusView.State, handleAnimation: Boolean) {
-        if (mode == HomeHeaderView.Mode.Expanded && state == UpdateStatusView.State.Updated) {
-            updateStatusView.setState(
-                state,
-                handleAnimation,
-                AccountStore.activeAccount?.name ?: ""
-            )
+        if (state is UpdateStatusView.State.Updated && mode == HomeHeaderView.Mode.Collapsed) {
+            updateStatusView.setAppearance(isShowing = false, animated = handleAnimation)
         } else {
-            updateStatusView.setState(state, handleAnimation, "")
+            updateStatusView.setAppearance(isShowing = true, animated = handleAnimation)
+            updateStatusView.setState(state, handleAnimation)
         }
     }
 
@@ -173,11 +210,12 @@ class StickyHeaderView(
         lockButton.visibility =
             if (WGlobalStorage.isPasscodeSet()) VISIBLE else GONE
         val statusViewMargin = if (lockButton.isVisible) 96.dp else 56.dp
-        updateStatusView.layoutParams =
-            (updateStatusView.layoutParams as MarginLayoutParams).apply {
+        (updateStatusView.layoutParams as? MarginLayoutParams)?.let { layoutParams ->
+            updateStatusView.layoutParams = layoutParams.apply {
                 marginStart = statusViewMargin
                 marginEnd = statusViewMargin
             }
+        }
     }
 
     val animationDuration = AnimationConstants.QUICK_ANIMATION / 2
@@ -214,9 +252,20 @@ class StickyHeaderView(
                 saveButton.isClickable = true
             }
         }
+        post {
+            animateUpdateStatusViewMargin(
+                8.dp + max(
+                    saveButton.measuredWidth,
+                    cancelButton.measuredWidth
+                )
+            )
+        }
     }
 
     fun exitActionMode() {
+        if (!cancelButton.isClickable) {
+            return
+        }
         cancelButton.setOnClickListener(null)
         saveButton.setOnClickListener(null)
         cancelButton.fadeOut(animationDuration)
@@ -231,6 +280,7 @@ class StickyHeaderView(
                 eyeButton.isClickable = true
             }
         }
+        animateUpdateStatusViewMargin(if (lockButton.isVisible) 96.dp else 56.dp)
     }
 
     private fun updateEyeIcon() {
@@ -240,5 +290,32 @@ class StickyHeaderView(
                 if (WGlobalStorage.getIsSensitiveDataProtectionOn()) org.mytonwallet.app_air.icons.R.drawable.ic_header_eye else org.mytonwallet.app_air.icons.R.drawable.ic_header_eye_hidden
             )
         )
+    }
+
+    private fun animateUpdateStatusViewMargin(newMargin: Int) {
+        if (!WGlobalStorage.getAreAnimationsActive()) {
+            updateStatusView.layoutParams =
+                (updateStatusView.layoutParams as MarginLayoutParams).apply {
+                    marginStart = newMargin
+                    marginEnd = newMargin
+                }
+            return
+        }
+        ValueAnimator.ofInt(
+            (updateStatusView.layoutParams as MarginLayoutParams).marginStart,
+            newMargin
+        ).apply {
+            interpolator = AccelerateDecelerateInterpolator()
+            duration = AnimationConstants.QUICK_ANIMATION
+            addUpdateListener { animation ->
+                val value = animation.animatedValue as Int
+                updateStatusView.layoutParams =
+                    (updateStatusView.layoutParams as MarginLayoutParams).apply {
+                        marginStart = value
+                        marginEnd = value
+                    }
+            }
+            start()
+        }
     }
 }

@@ -9,6 +9,7 @@ import { SettingsState } from '../../../../global/types';
 import { ANIMATED_STICKER_SMALL_SIZE_PX, IS_CORE_WALLET } from '../../../../config';
 import {
   selectAccountStakingStates,
+  selectCurrentAccountId,
   selectCurrentAccountState,
   selectCurrentAccountTokens,
   selectIsCurrentAccountViewMode,
@@ -330,13 +331,13 @@ function Assets({
 export default memo(
   withGlobal<OwnProps>(
     (global): StateProps => {
-      const accountId = global.currentAccountId!;
+      const currentAccountId = selectCurrentAccountId(global)!;
       const tokens = selectCurrentAccountTokens(global);
       const swapTokens = selectSwapTokens(global);
       const accountState = selectCurrentAccountState(global);
       const { isInvestorViewEnabled } = global.settings;
 
-      const states = selectAccountStakingStates(global, accountId);
+      const states = selectAccountStakingStates(global, currentAccountId);
       const isViewMode = selectIsCurrentAccountViewMode(global);
 
       return {
@@ -347,7 +348,7 @@ export default memo(
         currentTokenSlug: accountState?.currentTokenSlug,
         baseCurrency: global.settings.baseCurrency,
         mycoin: selectMycoin(global),
-        isMultichainAccount: selectIsMultichainAccount(global, global.currentAccountId!),
+        isMultichainAccount: selectIsMultichainAccount(global, currentAccountId),
         isSensitiveDataHidden: global.settings.isSensitiveDataHidden,
         theme: global.settings.theme,
         states,
@@ -356,6 +357,6 @@ export default memo(
         isStakingDisabled: selectIsStakingDisabled(global),
       };
     },
-    (global, _, stickToFirst) => stickToFirst(global.currentAccountId),
+    (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),
   )(Assets),
 );

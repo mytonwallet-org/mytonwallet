@@ -9,6 +9,7 @@ import android.text.TextPaint
 import android.view.View
 import org.mytonwallet.app_air.uicomponents.drawable.counter.Counter
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -25,6 +26,9 @@ class WCounterLabel(context: Context) : View(context), Counter.Callback, WThemed
         textSize = 16f.dp
     }
     private val counter = Counter(textPaint, this)
+
+    private var gradientColors: Array<WColor>? = null
+    private var lastGradientWidth: Float = 0f
 
     init {
         updateTheme()
@@ -50,13 +54,16 @@ class WCounterLabel(context: Context) : View(context), Counter.Callback, WThemed
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         super.onMeasure(
-            MeasureSpec.makeMeasureSpec(
-                counter.requiredWidth + paddingLeft + paddingRight,
-                MeasureSpec.EXACTLY
-            ),
+            (counter.requiredWidth + paddingLeft + paddingRight).exactly,
             heightMeasureSpec
         )
-        applyGradient(measuredWidth.toFloat())
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        if (w.toFloat() != lastGradientWidth && gradientColors != null) {
+            applyGradient(w.toFloat())
+        }
     }
 
     override fun onCounterAppearanceChanged(counter: Counter, sizeChanged: Boolean) {
@@ -68,12 +75,13 @@ class WCounterLabel(context: Context) : View(context), Counter.Callback, WThemed
     }
 
     private fun applyGradient(x1: Float) {
-        if (gradientColors == null) return
+        val gradientColors = gradientColors ?: return
 
+        lastGradientWidth = x1
         val gradient = LinearGradient(
             0f, 0f,
             x1, 0f,
-            gradientColors!!,
+            gradientColors.map { it.color }.toIntArray(),
             null, Shader.TileMode.CLAMP
         )
 
@@ -87,8 +95,9 @@ class WCounterLabel(context: Context) : View(context), Counter.Callback, WThemed
         }
     }
 
-    private var gradientColors: IntArray? = null
-    fun setGradientColor(gradientColors: IntArray?) {
+    fun setGradientColor(gradientColors: Array<WColor>?) {
+        if (this.gradientColors.contentEquals(gradientColors)) return
+
         this.gradientColors = gradientColors
         applyGradient(measuredWidth.toFloat())
     }

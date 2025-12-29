@@ -1,10 +1,9 @@
-import React, { memo, useMemo } from '../../lib/teact/teact';
+import React, { memo } from '../../lib/teact/teact';
 import { withGlobal } from '../../global';
 
 import type { Account, UserSwapToken } from '../../global/types';
 import { SwapType } from '../../global/types';
 
-import { getIsInternalSwap } from '../../global/helpers';
 import { selectCurrentAccount } from '../../global/selectors';
 import { getIsSupportedChain } from '../../util/chain';
 import getChainNetworkName from '../../util/swap/getChainNetworkName';
@@ -49,20 +48,12 @@ function SwapResult({
   secondButtonText,
   swapType,
   toAddress = '',
-  accountChains,
   isSensitiveDataHidden,
   onFirstButtonClick,
   onSecondButtonClick,
   isFirstButtonDisabled,
 }: OwnProps & StateProps) {
   const lang = useLang();
-
-  const isInternalSwap = getIsInternalSwap({
-    from: tokenIn, to: tokenOut, toAddress, accountChains,
-  });
-  const isToAddressInCurrentWallet = useMemo(() => {
-    return Boolean(toAddress && Object.values(accountChains ?? {}).some(({ address }) => address === toAddress));
-  }, [accountChains, toAddress]);
 
   function renderButtons() {
     if (!firstButtonText && !secondButtonText) {
@@ -88,7 +79,7 @@ function SwapResult({
   }
 
   function renderSticker() {
-    if (swapType === SwapType.CrosschainFromWallet && !isInternalSwap) return undefined;
+    if (swapType === SwapType.CrosschainFromWallet) return undefined;
 
     return (
       <AnimatedIconWithPreview
@@ -113,7 +104,7 @@ function SwapResult({
   }
 
   function renderChangellyInfo() {
-    if (swapType !== SwapType.CrosschainFromWallet || isToAddressInCurrentWallet) {
+    if (swapType !== SwapType.CrosschainFromWallet) {
       return undefined;
     }
     const chain = getIsSupportedChain(tokenOut?.chain) ? tokenOut.chain : undefined;
@@ -122,7 +113,7 @@ function SwapResult({
       <div className={styles.changellyInfoBlock}>
         <span className={styles.changellyDescription}>
           {
-            lang('$swap_changelly_from_ton_description', {
+            lang('$swap_changelly_from_wallet_description', {
               blockchain: (
                 <span className={styles.changellyDescriptionBold}>
                   {getChainNetworkName(tokenOut?.chain)}

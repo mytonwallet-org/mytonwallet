@@ -1,0 +1,128 @@
+.row {
+  --background-color: var(--color-background-first);
+
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+
+  height: 4rem;
+  padding: 0.6875rem 0.75rem;
+
+  background-color: var(--background-color);
+
+  transition: background-color 150ms;
+
+  &.interactive {
+    cursor: var(--custom-cursor, pointer);
+
+    @media (hover: hover) {
+      &:hover {
+        --background-color: var(--color-interactive-item-hover);
+      }
+
+      &:active {
+        // Optimization
+        transition: none;
+      }
+    }
+  }
+
+  &.selected {
+    .avatar {
+      /* stylelint-disable-next-line plugin/whole-pixel */
+      border: 0.09375rem solid var(--background-color);
+      box-shadow: 0 0 0 0.09375rem var(--color-accent);
+    }
+  }
+
+  &.disabled {
+    cursor: default;
+    opacity: 0.5;
+
+    @media (hover: hover) {
+      &:hover {
+        --background-color: var(--color-background-first);
+      }
+    }
+  }
+}
+
+.avatar {
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+
+.info {
+  overflow: hidden;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+
+  min-width: 0;
+}
+
+.titleRow {
+  overflow: hidden;
+  display: flex;
+  gap: 0.375rem;
+  align-items: center;
+}
+
+.title {
+  overflow: hidden;
+
+  font-size: 1rem;
+  font-weight: 650;
+  color: var(--color-black);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nftIndicator {
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.icon {
+  flex-shrink: 0;
+  margin-inline-end: 0.25rem;
+  font-size: 0.8125rem;
+  vertical-align: -0.125rem;
+}
+
+.address {
+  overflow: hidden;
+
+  padding-top: 0.125rem;
+
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 0.875rem;
+  color: var(--color-gray-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  :global([class^="icon-chain-"]) {
+    margin-inline-end: 0.125rem;
+    vertical-align: -0.125rem;
+  }
+}
+
+.balance {
+  flex-shrink: 0;
+
+  margin-left: auto;
+
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--color-gray-2);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.currencySymbol,
+.fractionPart {
+  font-size: 0.875rem;
+  color: var(--color-gray-1);
+}

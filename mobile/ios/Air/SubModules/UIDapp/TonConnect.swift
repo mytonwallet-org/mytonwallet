@@ -1,7 +1,6 @@
 
 import SwiftUI
 import UIKit
-import UIPasscode
 import UIComponents
 import WalletCore
 import WalletContext
@@ -24,6 +23,7 @@ public final class TonConnect: WalletCoreData.EventsObserver {
     public static let shared = TonConnect()
     
     private weak var placeholderNc: WNavigationController?
+    private weak var lastPresented: UIViewController?
     
     init() {
         WalletCoreData.add(eventObserver: self)
@@ -36,7 +36,7 @@ public final class TonConnect: WalletCoreData.EventsObserver {
     public func handleDeeplink(_ url: String) {
         Task { @MainActor in
             do {
-                showOverlay()
+                showOverlayIfNeeded()
                 let identifier = "\(Date().timeIntervalSince1970)"
                 let returnStrategy = try await Api.startSseConnection(params: ApiSseConnectionParams(
                         url: url,
@@ -63,7 +63,7 @@ public final class TonConnect: WalletCoreData.EventsObserver {
             } catch {
                 log.error("failed to handle deeplink: \(error, .public)")
                 dismissOverlayIfNeeded()
-                topViewController()?.showAlert(error: error)
+                AppActions.showError(error: error)
             }
         }
     }
@@ -89,17 +89,17 @@ public final class TonConnect: WalletCoreData.EventsObserver {
         }
     }
     
-    @MainActor func showOverlay() {
-        if let window = UIApplication.shared.sceneKeyWindow, !window.subviews.any({ $0 is TonConnectOverlayView }) {
-            let overlay = TonConnectOverlayView()
-            window.addSubview(overlay)
-            NSLayoutConstraint.activate([
-                overlay.topAnchor.constraint(equalTo: window.topAnchor),
-                overlay.bottomAnchor.constraint(equalTo: window.bottomAnchor),
-                overlay.leadingAnchor.constraint(equalTo: window.leadingAnchor),
-                overlay.trailingAnchor.constraint(equalTo: window.trailingAnchor),
-            ])
-        }
+    @MainActor func showOverlayIfNeeded() {
+        guard lastPresented == nil else { return }
+        guard let window = UIApplication.shared.sceneKeyWindow, !window.subviews.any({ $0 is TonConnectOverlayView }) else { return }
+        let overlay = TonConnectOverlayView()
+        window.addSubview(overlay)
+        NSLayoutConstraint.activate([
+            overlay.topAnchor.constraint(equalTo: window.topAnchor),
+            overlay.bottomAnchor.constraint(equalTo: window.bottomAnchor),
+            overlay.leadingAnchor.constraint(equalTo: window.leadingAnchor),
+            overlay.trailingAnchor.constraint(equalTo: window.trailingAnchor),
+        ])
     }
     
     @MainActor func dismissOverlayIfNeeded() {
@@ -125,7 +125,7 @@ public final class TonConnect: WalletCoreData.EventsObserver {
         }
         let nc = WNavigationController(rootViewController: vc)
         self.placeholderNc = nc
-        topViewController()?.present(nc, animated: true)
+        presentAndRecord(nc)
     }
     
     @MainActor func handleConnect(update: ApiUpdate.DappConnect) async {
@@ -144,7 +144,7 @@ public final class TonConnect: WalletCoreData.EventsObserver {
                 onConfirm: { [weak self] accountId, password in self?.confirmConnect(request: update, accountId: accountId, passcode: password) },
                 onCancel: { [weak self] in self?.cancelConnect(request: update) }
             )
-            topViewController()?.present(vc, animated: true)
+            presentAndRecord(vc)
         }
     }
     
@@ -202,7 +202,7 @@ public final class TonConnect: WalletCoreData.EventsObserver {
             if let sheet = nc.sheetPresentationController {
                 sheet.detents = [.large()]
             }
-            topViewController()?.present(nc, animated: true)
+            presentAndRecord(nc)
         }
     }
     
@@ -255,7 +255,7 @@ public final class TonConnect: WalletCoreData.EventsObserver {
                 onCancel: { self.cancelSignData(update: update) }
             )
             let nc = WNavigationController(rootViewController: vc)
-            topViewController()?.present(nc, animated: true)
+            presentAndRecord(nc)
         }
     }
     
@@ -289,5 +289,10 @@ public final class TonConnect: WalletCoreData.EventsObserver {
         } catch {
             log.fault("failed to switch to account \(accountId, .public) error:\(error, .public)")
         }
+    }
+    
+    @MainActor func presentAndRecord(_ vc: UIViewController) {
+        self.lastPresented = vc
+        topViewController()?.present(vc, animated: true)
     }
 }

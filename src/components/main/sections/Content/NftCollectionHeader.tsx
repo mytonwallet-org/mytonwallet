@@ -10,8 +10,8 @@ import {
   GETGEMS_BASE_TESTNET_URL,
   IS_CORE_WALLET,
   NFT_FRAGMENT_COLLECTIONS,
+  RENEWABLE_TON_DNS_COLLECTIONS,
   TELEGRAM_GIFTS_SUPER_COLLECTION,
-  TON_DNS_COLLECTION,
 } from '../../../../config';
 import { selectCurrentAccountState, selectIsCurrentAccountViewMode } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
@@ -82,7 +82,7 @@ function NftCollectionHeader({
   }, [currentCollectionAddress, isTelegramGifts, nfts]);
 
   const dnsExpireInDays = useMemo(() => {
-    if (currentCollectionAddress !== TON_DNS_COLLECTION) return undefined;
+    if (!RENEWABLE_TON_DNS_COLLECTIONS.has(currentCollectionAddress!)) return undefined;
     const date = getDomainsExpirationDate(collectionNfts, undefined, dnsExpiration);
 
     return date ? getCountDaysToDate(date) : undefined;
@@ -90,7 +90,7 @@ function NftCollectionHeader({
 
   const collectionName = isTelegramGifts
     ? lang('Telegram Gifts')
-    : collectionNfts[0].collectionName ?? lang('Unnamed Collection');
+    : collectionNfts?.[0]?.collectionName ?? lang('Unnamed Collection');
 
   const menuItems: DropdownItem<MenuHandler>[] = useMemo(() => {
     const isInTabs = collectionTabs?.includes(currentCollectionAddress!);
@@ -100,7 +100,7 @@ function NftCollectionHeader({
         name: 'Send All',
         value: 'sendAll',
       } satisfies DropdownItem<MenuHandler>,
-      collectionNfts[0].isOnFragment && {
+      collectionNfts?.[0]?.isOnFragment && {
         name: 'Fragment',
         value: 'fragment',
         fontIcon: 'external',
@@ -115,7 +115,7 @@ function NftCollectionHeader({
         value: 'tonExplorer',
         fontIcon: 'external',
       },
-      !isViewMode && currentCollectionAddress === TON_DNS_COLLECTION && {
+      !isViewMode && RENEWABLE_TON_DNS_COLLECTIONS.has(currentCollectionAddress!) && {
         name: collectionNfts.length > 1 ? 'Renew All' : 'Renew',
         value: 'renew',
         description: dnsExpireInDays && dnsExpireInDays < 0

@@ -9,7 +9,12 @@ import type { IAnchorPosition, SavedAddress } from '../../global/types';
 import type { Layout } from '../../hooks/useMenuPosition';
 import type { DropdownItem } from './Dropdown';
 
-import { selectCurrentAccountState, selectIsMultichainAccount } from '../../global/selectors';
+import { closeAllOverlays } from '../../global/helpers/misc';
+import {
+  selectCurrentAccountId,
+  selectCurrentAccountState,
+  selectIsMultichainAccount,
+} from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import captureKeyboardListeners from '../../util/captureKeyboardListeners';
 import { getChainTitle } from '../../util/chain';
@@ -35,6 +40,7 @@ import Input from './Input';
 import MenuBackdrop from './MenuBackdrop';
 import Modal from './Modal';
 import Transition from './Transition';
+import WalletAvatar from './WalletAvatar';
 
 import styles from './InteractiveTextField.module.scss';
 import modalStyles from './Modal.module.scss';
@@ -68,7 +74,7 @@ interface StateProps {
   isTestnet?: boolean;
 }
 
-type MenuHandler = 'copy' | 'share' | 'addressBook' | 'explorer';
+type MenuHandler = 'copy' | 'share' | 'addressBook' | 'explorer' | 'viewInApp';
 
 const SAVED_ADDRESS_NAME_MAX_LENGTH = 255;
 const MENU_VERTICAL_OFFSET_PX = -16;
@@ -98,7 +104,7 @@ function InteractiveTextField({
   noDimming,
   withShareInMenu,
 }: OwnProps & StateProps) {
-  const { showNotification, addSavedAddress } = getActions();
+  const { showToast, addSavedAddress, openTemporaryViewAccount } = getActions();
 
   const addressNameRef = useRef<HTMLInputElement>();
   const contentRef = useRef<HTMLDivElement>();
@@ -119,6 +125,7 @@ function InteractiveTextField({
   const explorerTitle = lang('View on Explorer');
   const withSavedAddresses = Boolean(!isScam && !noSavedAddress && address);
   const withExplorer = Boolean(!noExplorer && addressUrl);
+  const isAddressCanBeViewed = Boolean(withSavedAddresses && !isAddressAlreadySaved);
 
   useEffect(() => {
     if (isSaveAddressModalOpen) {
@@ -132,7 +139,7 @@ function InteractiveTextField({
     }
 
     addSavedAddress({ address, chain, name: savedAddressName });
-    showNotification({ message: lang('Address was saved!'), icon: 'icon-star' });
+    showToast({ message: lang('Address was saved!'), icon: 'icon-star' });
     closeSaveAddressModal();
   });
 
@@ -146,7 +153,7 @@ function InteractiveTextField({
 
   const handleCopy = useLastCallback(() => {
     if (!copyNotification) return;
-    showNotification({ message: copyNotification, icon: 'icon-copy' });
+    showToast({ message: copyNotification, icon: 'icon-copy' });
     void copyTextToClipboard(address || text);
   });
 
@@ -156,6 +163,16 @@ function InteractiveTextField({
 
   const handleTonExplorerOpen = useLastCallback(() => {
     void openUrl(addressUrl!, { title: getExplorerName(chain!), subtitle: getHostnameFromUrl(addressUrl!) });
+  });
+
+  const handleViewInApp = useLastCallback(async () => {
+    if (!address || !chain) return;
+    await closeAllOverlays();
+    openTemporaryViewAccount({
+      addressByChain: {
+        [chain]: address,
+      },
+    });
   });
 
   const {
@@ -171,13 +188,16 @@ function InteractiveTextField({
     share: handleShare,
     addressBook: isAddressAlreadySaved ? openDeletedSavedAddressModal : openSaveAddressModal,
     explorer: handleTonExplorerOpen,
+    viewInApp: handleViewInApp,
   }, {
     isAddressAlreadySaved,
-    isWalletAddress: Boolean(address && chain && noSavedAddress && !isTransaction),
+    isAddressCanBeViewed,
     isTransaction,
     withSavedAddresses,
     withExplorer,
     withShare: withShareInMenu,
+    address,
+    addressName,
   });
 
   const shouldUseMenu = !spoiler && IS_TOUCH_ENV && menuItems.length > 1;
@@ -334,6 +354,18 @@ function InteractiveTextField({
             <i className={buildClassName(styles.icon, styles.iconShare, 'icon-link')} aria-hidden />
           </span>
         )}
+        {isAddressCanBeViewed && (
+          <span
+            className={styles.button}
+            title={lang('View in App')}
+            aria-label={lang('View in App')}
+            tabIndex={0}
+            role="button"
+            onClick={handleViewInApp}
+          >
+            <i className={buildClassName(styles.icon, 'icon-eye-outlined')} aria-hidden />
+          </span>
+        )}
         {withExplorer && (
           <a
             href={addressUrl}
@@ -421,11 +453,12 @@ function InteractiveTextField({
 
 export default memo(withGlobal<OwnProps>(
   (global): StateProps => {
+    const accountId = selectCurrentAccountId(global);
     const accountState = selectCurrentAccountState(global);
 
     return {
       savedAddresses: accountState?.savedAddresses,
-      isMultichainAccount: selectIsMultichainAccount(global, global.currentAccountId!),
+      isMultichainAccount: accountId ? selectIsMultichainAccount(global, accountId) : false,
       isTestnet: global.settings.isTestnet,
     };
   },
@@ -437,9 +470,11 @@ function useDropdownMenu(
     withSavedAddresses?: boolean;
     withExplorer?: boolean;
     isAddressAlreadySaved?: boolean;
-    isWalletAddress?: boolean;
+    isAddressCanBeViewed?: boolean;
     isTransaction?: boolean;
     withShare?: boolean;
+    address?: string;
+    addressName?: string;
   },
 ) {
   const [menuPositionY, setMenuPositionY] = useState<'top' | 'bottom'>('top');
@@ -449,16 +484,30 @@ function useDropdownMenu(
 
   const menuItems = useMemo<DropdownItem<MenuHandler>[]>(() => {
     const {
-      isAddressAlreadySaved, isWalletAddress, isTransaction, withSavedAddresses, withExplorer, withShare,
+      isAddressAlreadySaved, isAddressCanBeViewed, isTransaction, withSavedAddresses, withExplorer, withShare,
+      address, addressName,
     } = options;
 
     const items: DropdownItem<MenuHandler>[] = [{
-      name: withSavedAddresses || isWalletAddress
+      name: withSavedAddresses || isAddressCanBeViewed
         ? 'Copy Address'
         : (isTransaction ? 'Copy Transaction ID' : 'Copy'),
       fontIcon: 'copy',
       value: 'copy',
     }];
+
+    if (isAddressCanBeViewed) {
+      const shortAddress = shortenAddress(address!);
+      items.unshift({
+        name: addressName || shortAddress!,
+        description: addressName ? shortAddress : undefined,
+        icon: <WalletAvatar title={addressName || shortAddress} className={styles.menuAvatar} />,
+        fontIcon: 'chevron-right',
+        fontIconClassName: styles.menuIconChevronRight,
+        value: 'viewInApp',
+        withDelimiterAfter: true,
+      });
+    }
 
     if (withSavedAddresses) {
       items.push({

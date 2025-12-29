@@ -7,7 +7,11 @@ import type { Account, AccountState } from '../../../global/types';
 
 import { IS_CORE_WALLET } from '../../../config';
 import renderText from '../../../global/helpers/renderText';
-import { selectNetworkAccounts, selectOrderedAccounts } from '../../../global/selectors';
+import {
+  selectCurrentAccountId,
+  selectNetworkAccounts,
+  selectOrderedAccounts,
+} from '../../../global/selectors';
 import { getAccountTitle } from '../../../util/account';
 import buildClassName from '../../../util/buildClassName';
 import { IS_IOS_APP } from '../../../util/windowEnvironment';
@@ -158,7 +162,7 @@ function LogOutModal({
     <Modal
       isOpen={isOpen}
       isCompact
-      title={IS_IOS_APP ? lang('Remove Wallet') : lang('Log Out')}
+      title={lang('Remove')}
       onClose={handleClose}
       isInAppLock={isInAppLock}
     >
@@ -195,7 +199,8 @@ export default memo(
   withGlobal<OwnProps>((global, ownProps): StateProps => {
     const accounts = selectNetworkAccounts(global) || {};
     const orderedAccounts = selectOrderedAccounts(global);
-    const accountId = ownProps.targetAccountId ?? global.currentAccountId!;
+    const fallbackAccountId = selectCurrentAccountId(global);
+    const accountId = ownProps.targetAccountId ?? fallbackAccountId!;
     const currentAccountState = global.byAccountId[accountId];
     const accountIds = Object.keys(accounts);
     const hasManyAccounts = accountIds.length > 1;

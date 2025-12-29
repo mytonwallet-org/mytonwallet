@@ -25,6 +25,8 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.HapticType
+import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -54,12 +56,17 @@ import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.lang.ref.WeakReference
 
+// TODO:: Refactor required. The current implementation is too tightly coupled with Ton and Tron.
 @SuppressLint("ViewConstructor")
 class ReceiveVC(
     context: Context,
     private val defaultChain: MBlockchain = MBlockchain.ton,
     private var openBuyWithCardInstantly: Boolean = false,
 ) : WViewControllerWithModelStore(context) {
+    override val TAG = "Receive"
+
+    override val displayedAccount =
+        DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
 
     override val shouldDisplayTopBar = false
 
@@ -68,9 +75,10 @@ class ReceiveVC(
 
     private val receiveViewModel by lazy { ViewModelProvider(this)[ReceiveViewModel::class.java] }
 
+    private val walletAddressTon = AccountStore.activeAccount?.tonAddress
     private val walletAddressTron = AccountStore.activeAccount?.tronAddress
 
-    val qrCodeVcTon = QRCodeVC(context, MBlockchain.ton)
+    val qrCodeVcTon = if (walletAddressTon != null) QRCodeVC(context, MBlockchain.ton) else null
     val qrCodeVcTron = if (walletAddressTron != null) QRCodeVC(context, MBlockchain.tron) else null
     private var isShowingTon = true
         set(value) {
@@ -87,38 +95,55 @@ class ReceiveVC(
     private val qrSegmentView: WSegmentedController by lazy {
         val segmentedController = WSegmentedController(
             navigationController!!,
-            arrayListOf(
-                WSegmentedControllerItem(qrCodeVcTon, null)
-            ).apply {
+            arrayListOf<WSegmentedControllerItem>().apply {
+                if (qrCodeVcTon != null) {
+                    add(WSegmentedControllerItem(qrCodeVcTon, null))
+                }
                 if (qrCodeVcTron != null) {
                     add(WSegmentedControllerItem(qrCodeVcTron, null))
                 }
             },
             isTransparent = true,
             applySideGutters = false,
-            defaultSelectedIndex = if (defaultChain == MBlockchain.tron) 1 else 0,
+            defaultSelectedIndex = if (defaultChain == MBlockchain.tron && walletAddressTon != null) 1 else 0,
             onOffsetChange = { position, currentOffset ->
-                blueColorView.alpha = 1f - currentOffset.coerceIn(0f, 1f)
-                redColorView.alpha = currentOffset
+                if (walletAddressTon == null) {
+                    blueColorView.alpha = 0f
+                    redColorView.alpha = 1f
+                } else {
+                    blueColorView.alpha = 1f - currentOffset.coerceIn(0f, 1f)
+                    redColorView.alpha = currentOffset
+                }
 
-                if (qrCodeVcTron != null) {
+                if (qrCodeVcTon != null)
                     animateQrView(
                         qrCodeVcTon.qrCodeView,
                         qrCodeVcTon.ornamentView,
                         -1,
                         currentOffset
                     )
+                if (qrCodeVcTron != null) {
                     animateQrView(
                         qrCodeVcTron.qrCodeView,
                         qrCodeVcTron.ornamentView,
                         1,
-                        1f - currentOffset.coerceIn(0f, 1f)
+                        if (qrCodeVcTon == null)
+                            currentOffset
+                        else
+                            1f - currentOffset.coerceIn(
+                                0f,
+                                1f
+                            )
                     )
 
                     val height =
-                        ((1 - currentOffset) * qrCodeHeight(qrCodeVcTon)) + (currentOffset * qrCodeHeight(
-                            qrCodeVcTron
-                        ))
+                        if (qrCodeVcTon != null) {
+                            ((1 - currentOffset) * qrCodeHeight(qrCodeVcTon)) + (currentOffset * qrCodeHeight(
+                                qrCodeVcTron
+                            ))
+                        } else {
+                            qrCodeHeight(qrCodeVcTron)
+                        }
                     val layoutParams = qrSegmentView.layoutParams
                     layoutParams.height = height.toInt()
                     qrSegmentView.layoutParams = layoutParams
@@ -173,7 +198,7 @@ class ReceiveVC(
     private val copyAddressView: WView by lazy {
         val v = WView(context)
         v.addView(copyAddressLabel)
-        v.addView(copyAddressSeparator, LayoutParams(0, 1))
+        v.addView(copyAddressSeparator, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
         v.setConstraints {
             toStart(copyAddressLabel, 20f)
             toCenterY(copyAddressLabel)
@@ -186,6 +211,7 @@ class ReceiveVC(
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val clip = ClipData.newPlainText("Wallet Address", currentQRCode.walletAddress)
             clipboard.setPrimaryClip(clip)
+            Haptics.play(v, HapticType.LIGHT_TAP)
             Toast.makeText(
                 context,
                 LocaleController.getString("Your address was copied!"),
@@ -225,7 +251,7 @@ class ReceiveVC(
         v.isGone = AccountStore.activeAccount?.supportsBuyWithCard != true
         if (v.isVisible) {
             v.addView(buyWithCardLabel)
-            v.addView(buyWithCardSeparator, LayoutParams(0, 1))
+            v.addView(buyWithCardSeparator, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
             v.setConstraints {
                 toStart(buyWithCardLabel, 20f)
                 toCenterY(buyWithCardLabel)
@@ -270,7 +296,7 @@ class ReceiveVC(
         v.isGone = AccountStore.activeAccount?.supportsBuyWithCrypto != true
         if (v.isVisible) {
             v.addView(buyWithCryptoLabel)
-            v.addView(buyWithCryptoSeparator, LayoutParams(0, 1))
+            v.addView(buyWithCryptoSeparator, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
             v.setConstraints {
                 toStart(buyWithCryptoLabel, 20f)
                 toCenterY(buyWithCryptoLabel)
@@ -343,7 +369,7 @@ class ReceiveVC(
             qrSegmentView,
             LayoutParams(MATCH_PARENT, qrHeight)
         )
-        if (qrCodeVcTron == null) v.addView(
+        if (qrSegmentView.items.size == 1) v.addView(
             titleLabel,
             LayoutParams(WRAP_CONTENT, WNavigationBar.DEFAULT_HEIGHT.dp)
         )
@@ -367,7 +393,7 @@ class ReceiveVC(
         val layerPaint = Paint().apply {
             isAntiAlias = true
         }
-        qrCodeVcTon.qrCodeView.setLayerType(View.LAYER_TYPE_HARDWARE, layerPaint)
+        qrCodeVcTon?.qrCodeView?.setLayerType(View.LAYER_TYPE_HARDWARE, layerPaint)
         qrCodeVcTron?.qrCodeView?.setLayerType(View.LAYER_TYPE_HARDWARE, layerPaint)
 
         view.addView(scrollView, LayoutParams(0, 0))
@@ -402,15 +428,16 @@ class ReceiveVC(
 
         arrayListOf(redColorView, blueColorView).forEach { colorView ->
             val layoutParams = colorView.layoutParams
-            layoutParams.height = qrTransparentHeight(qrCodeVcTon)
+            layoutParams.height = qrTransparentHeight(qrCodeVcTon ?: qrCodeVcTron!!)
             colorView.layoutParams = layoutParams
         }
         (if (defaultChain == MBlockchain.tron && qrCodeVcTron != null)
             qrCodeVcTron
         else
-            qrCodeVcTon).addressView.viewTreeObserver.addOnPreDrawListener(viewTreeObserver)
+            qrCodeVcTon!!).addressView.viewTreeObserver.addOnPreDrawListener(viewTreeObserver)
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         super.updateTheme()
         view.setBackgroundColor(WColor.SecondaryBackground.color)
@@ -565,8 +592,8 @@ class ReceiveVC(
 
     private val activeVC: QRCodeVC
         get() {
-            return if (qrSegmentView.currentOffset > 0 && qrCodeVcTron != null)
-                qrCodeVcTron
+            return if (qrCodeVcTon == null || (qrSegmentView.currentOffset > 0 && qrCodeVcTron != null))
+                qrCodeVcTron!!
             else
                 qrCodeVcTon
         }
@@ -584,7 +611,7 @@ class ReceiveVC(
                 layoutParams.height = qrHeight
                 qrSegmentView.layoutParams = layoutParams
                 if (segmentViewHeight != null && layoutParams.height > segmentViewHeight!!)
-                    qrCodeVcTon.addressView.viewTreeObserver.removeOnPreDrawListener(this)
+                    qrCodeVcTon?.addressView?.viewTreeObserver?.removeOnPreDrawListener(this)
                 segmentViewHeight = layoutParams.height
                 return true
             }
@@ -629,7 +656,7 @@ class ReceiveVC(
         copyAddressView.setOnClickListener(null)
         buyWithCardView.setOnClickListener(null)
         buyWithCryptoView.setOnClickListener(null)
-        qrCodeVcTon.addressView.viewTreeObserver.removeOnPreDrawListener(viewTreeObserver)
+        qrCodeVcTon?.addressView?.viewTreeObserver?.removeOnPreDrawListener(viewTreeObserver)
         viewTreeObserver = null
     }
 

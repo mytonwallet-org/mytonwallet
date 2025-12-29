@@ -74,6 +74,10 @@ class ConfirmNftVC(
 ) :
     WViewController(context),
     ConfirmNftVM.Delegate, WalletCore.EventObserver {
+    override val TAG = "ConfirmNft"
+
+    override val displayedAccount =
+        DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
 
     sealed class Mode {
         data class Send(
@@ -201,12 +205,14 @@ class ConfirmNftVC(
             val addressAttr = SpannableStringBuilder(formattedAddress).apply {
                 AddressPopupHelpers.configSpannableAddress(
                     WeakReference(this@ConfirmNftVC),
+                    null,
                     this,
                     length - formattedAddress.length,
                     formattedAddress.length,
                     TONCOIN_SLUG,
                     address,
-                    0
+                    0,
+                    showTemporaryViewOption = false
                 )
                 updateDotsTypeface()
                 setSpan(
@@ -333,7 +339,7 @@ class ConfirmNftVC(
             topToTop(
                 bottomReversedCornerViewUpsideDown,
                 confirmButton,
-                -20f - ViewConstants.BIG_RADIUS
+                -ViewConstants.GAP - ViewConstants.BIG_RADIUS
             )
             toBottom(bottomReversedCornerViewUpsideDown)
             toBottomPx(
@@ -491,12 +497,14 @@ class ConfirmNftVC(
                     append(" $address")
                     AddressPopupHelpers.configSpannableAddress(
                         WeakReference(this@ConfirmNftVC),
+                        null,
                         this,
                         length - address.length,
                         address.length,
                         TONCOIN_SLUG,
                         viewModel.resolvedAddress!!,
-                        startOffset.roundToInt()
+                        startOffset.roundToInt(),
+                        showTemporaryViewOption = false
                     )
                     updateDotsTypeface(sendingToString.length + 1)
                     setSpan(

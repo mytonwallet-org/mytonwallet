@@ -116,9 +116,13 @@ public class WLineChartViewRenderer extends LineChartRenderer {
         mBitmapCanvas.drawPath(cubicPath, mRenderPaint);
 
         if (highlightedX >= 0) {
-            mRenderPaint.setColor(grayColor);
+            int originalColor = mRenderPaint.getColor();
+            int lineColor = dataSet.getColor();
+            int translucentColor = Color.argb(64, Color.red(lineColor), Color.green(lineColor), Color.blue(lineColor));
+            mRenderPaint.setColor(translucentColor);
             trans.pathValueToPixel(cubicPathRight);
             mBitmapCanvas.drawPath(cubicPathRight, mRenderPaint);
+            mRenderPaint.setColor(originalColor);
         }
 
         mRenderPaint.setPathEffect(null);

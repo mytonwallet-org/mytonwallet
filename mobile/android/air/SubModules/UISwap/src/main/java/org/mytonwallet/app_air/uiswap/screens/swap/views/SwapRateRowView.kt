@@ -15,8 +15,8 @@ import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.widgets.WGradientLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
+import org.mytonwallet.app_air.uicomponents.widgets.WLinearGradientLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.animateHeight
@@ -50,7 +50,7 @@ class SwapRateRowView(
         setStyle(16f)
     }
 
-    private val bestRateLabel = WGradientLabel(context).apply {
+    private val bestRateLabel = WLinearGradientLabel(context).apply {
         setStyle(12f, WFont.Bold)
         setGradientColor(
             intArrayOf(
@@ -161,7 +161,7 @@ class SwapRateRowView(
         if (dexView.visibility != dexVisibility) {
             if (dexVisibility == VISIBLE) {
                 dexView.visibility = VISIBLE
-                dexView.fadeIn { }
+                dexView.fadeIn()
             } else {
                 dexView.fadeOut {
                     if (dexVisibility == GONE)

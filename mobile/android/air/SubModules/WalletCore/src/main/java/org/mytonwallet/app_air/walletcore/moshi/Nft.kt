@@ -1,11 +1,6 @@
 package org.mytonwallet.app_air.walletcore.moshi
 
-import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.ColorFilter
-import android.graphics.drawable.Drawable
-import android.graphics.drawable.GradientDrawable
-import android.graphics.drawable.LayerDrawable
 import android.net.Uri
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
@@ -15,11 +10,10 @@ import org.mytonwallet.app_air.walletcontext.utils.WEquatable
 import org.mytonwallet.app_air.walletcore.TON_DNS_COLLECTION
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
-import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardBorderShineType.DOWN
-import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardBorderShineType.LEFT
-import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardBorderShineType.RADIOACTIVE
-import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardBorderShineType.RIGHT
-import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardBorderShineType.UP
+import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardType.BLACK
+import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardType.GOLD
+import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardType.PLATINUM
+import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardType.SILVER
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
 
@@ -87,132 +81,84 @@ data class ApiNftMetadata(
     @Json(name = "mtwCardBorderShineType") val mtwCardBorderShineType: ApiMtwCardBorderShineType? = null,
     @Json(name = "attributes") val attributes: List<Attribute>? = null,
 ) {
+    companion object {
+        const val MTW_CARD_BASE_URL = "https://static.mytonwallet.org/cards/"
+    }
+
     data class Attribute(
         @Json(name = "trait_type") val traitType: String?,
         @Json(name = "value") val value: String?
     )
 
-    val cardImageUrl: String
+    fun cardImageUrl(mini: Boolean): String {
+        return "${MTW_CARD_BASE_URL}${if (mini) "mini@3x/" else ""}$mtwCardId.webp"
+    }
+
+    val mtwCardColors: Pair<Int, Int>
         get() {
-            return "https://static.mytonwallet.org/cards/$mtwCardId.webp"
-        }
-
-    fun gradient(radius: Float): LayerDrawable {
-        return when (mtwCardBorderShineType) {
-            UP -> LayerDrawable(
-                arrayOf(
-                    ScaledDrawable(createRadialGradient(0.5f, 0f, radius), 0.5f, 1.0f),
-                    createLinearGradient()
-                )
-            )
-
-            DOWN -> LayerDrawable(
-                arrayOf(
-                    ScaledDrawable(createRadialGradient(0.5f, 1f, radius), 0.5f, 1.0f),
-                    createLinearGradient()
-                )
-            )
-
-            LEFT -> LayerDrawable(
-                arrayOf(
-                    ScaledDrawable(createRadialGradient(0f, 0.5f, radius), 1.0f, 0.5f),
-                    createLinearGradient()
-                )
-            )
-
-            RIGHT -> LayerDrawable(
-                arrayOf(
-                    ScaledDrawable(createRadialGradient(1f, 0.5f, radius), 1.0f, 0.5f),
-                    createLinearGradient()
-                )
-            )
-
-            RADIOACTIVE, null -> {
-                LayerDrawable(
-                    arrayOf(
-                        createLinearGradient()
-                    )
-                )
-            }
-        }
-    }
-
-    class ScaledDrawable(
-        private val drawable: Drawable,
-        private val scaleX: Float,
-        private val scaleY: Float
-    ) : Drawable() {
-
-        override fun draw(canvas: Canvas) {
-            canvas.save()
-            val centerX = bounds.exactCenterX()
-            val centerY = bounds.exactCenterY()
-            canvas.scale(scaleX, scaleY, centerX, centerY)
-            drawable.bounds = bounds
-            drawable.draw(canvas)
-            canvas.restore()
-        }
-
-        override fun setAlpha(alpha: Int) {
-            drawable.alpha = alpha
-        }
-
-        override fun setColorFilter(colorFilter: ColorFilter?) {
-            drawable.colorFilter = colorFilter
-        }
-
-        override fun getOpacity(): Int {
-            return drawable.opacity
-        }
-    }
-
-    private fun createRadialGradient(
-        centerX: Float,
-        centerY: Float,
-        radius: Float
-    ): GradientDrawable {
-        return GradientDrawable().apply {
-            gradientType = GradientDrawable.RADIAL_GRADIENT
-            gradientRadius = radius
-            setGradientCenter(centerX, centerY)
-            colors = intArrayOf(
-                Color.WHITE,
-                Color.argb(0, 255, 255, 255)
-            )
-        }
-    }
-
-    val gradientColors: IntArray
-        get() {
-            if (mtwCardBorderShineType == RADIOACTIVE) {
-                val greenColor = Color.parseColor("#5CE850")
-                return intArrayOf(greenColor, greenColor)
-            }
             return when (mtwCardType) {
-                ApiMtwCardType.BLACK -> {
-                    intArrayOf(
-                        Color.rgb(41, 41, 41),
-                        Color.rgb(20, 21, 24),
+                SILVER -> {
+                    Pair(
+                        Color.rgb(39, 39, 39),
+                        Color.rgb(152, 152, 152),
+                    )
+                }
+
+                GOLD -> {
+                    Pair(
+                        Color.rgb(76, 52, 3),
+                        Color.rgb(176, 125, 29),
+                    )
+                }
+
+                PLATINUM -> {
+                    Pair(
+                        Color.rgb(255, 255, 255),
+                        Color.rgb(119, 119, 127),
+                    )
+                }
+
+                BLACK -> {
+                    Pair(
+                        Color.rgb(206, 206, 207),
+                        Color.rgb(68, 69, 70),
                     )
                 }
 
                 else -> {
-                    intArrayOf(
-                        Color.argb(217, 186, 188, 194),
-                        Color.argb(128, 140, 148, 176),
-                    )
+                    return if (mtwCardTextType == ApiMtwCardTextType.LIGHT) {
+                        Pair(Color.WHITE, Color.WHITE)
+                    } else {
+                        Pair(Color.BLACK, Color.BLACK)
+                    }
                 }
             }
         }
 
-    private fun createLinearGradient(): GradientDrawable {
-        return GradientDrawable(
-            GradientDrawable.Orientation.LEFT_RIGHT,
-            gradientColors
-        ).apply {
-            gradientType = GradientDrawable.LINEAR_GRADIENT
+    val overlayLabelBackground: Int?
+        get() {
+            return when (mtwCardType) {
+                SILVER -> {
+                    Color.rgb(68, 68, 68)
+                }
+
+                GOLD -> {
+                    Color.rgb(101, 71, 10)
+                }
+
+                PLATINUM -> {
+                    Color.rgb(222, 222, 224)
+                }
+
+                BLACK -> {
+                    Color.rgb(171, 172, 173)
+                }
+
+                else -> {
+                    return null
+                }
+            }
         }
-    }
 }
 
 @JsonClass(generateAdapter = true)

@@ -13,6 +13,7 @@ import me.vkryl.android.animator.ReplaceAnimator
 import me.vkryl.android.animatorx.BoolAnimator
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.helpers.ViewHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
@@ -224,10 +225,7 @@ open class WTokenSymbolIconView(context: Context) : FrameLayout(context), Replac
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        super.onMeasure(
-            MeasureSpec.makeMeasureSpec(calcMeasuredWidth(), MeasureSpec.EXACTLY),
-            MeasureSpec.makeMeasureSpec(36.dp, MeasureSpec.EXACTLY)
-        )
+        super.onMeasure(calcMeasuredWidth().exactly, 36.dp.exactly)
         prepare()
     }
 

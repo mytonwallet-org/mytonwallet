@@ -29,6 +29,7 @@ $iconGapSize: 1rem;
   justify-content: center;
 
   max-width: 100%;
+  padding: 0;
   border: none;
 
   font-size: 1.0625rem;
@@ -52,7 +53,7 @@ $iconGapSize: 1rem;
 .accountTitleInteractive {
   cursor: var(--custom-cursor, pointer);
 
-  @include mixins.transition(opacity 300ms);
+  @include mixins.transition(opacity 150ms);
 
   &:focus-visible,
   &:hover {

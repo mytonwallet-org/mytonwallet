@@ -22,8 +22,10 @@ private let log = Log("DebugView")
 struct DebugView: View {
     
     @State private var showDeleteAllAlert: Bool = false
-    @AppStorage("debug_languageSwitcher") private var languageSwitcher = false
-    
+    @AppStorage("debug_hideSegmentedControls") private var hideSegmentedControls = false
+    @AppStorage("debug_glassOpacity") var glassOpacity: Double = 1
+    @AppStorage("debug_gradientIsHidden") var gradientIsHidden: Bool = true
+
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -73,6 +75,30 @@ struct DebugView: View {
                                 log.error("\(error, .public)")
                             }
                             dismiss()
+                        }
+                    }
+                }
+                
+                if IS_DEBUG_OR_TESTFLIGHT {
+                    Section {} footer: {
+                        Text("**TESTFLIGHT ONLY**")
+                            .foregroundStyle(.orange)
+                    }
+
+                    if #available(iOS 26, iOSApplicationExtension 26, *) {
+                        Section {
+                            Toggle("Hide segmented controls", isOn: $hideSegmentedControls)
+                        }
+                        
+                        Section {
+                            Slider(value: $glassOpacity, in: 0...1) {
+                                Text("Glass opacity")
+                            }
+                            Toggle(isOn: $gradientIsHidden) {
+                                Text("Gradient is hidden")
+                            }
+                        } header: {
+                            Text("Glass opacity")
                         }
                     }
                 }

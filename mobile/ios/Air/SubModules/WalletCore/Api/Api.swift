@@ -16,7 +16,7 @@ public class Api {
     
     static var bridge: JSWebViewBridge  {
         get throws {
-            try Api.shared.orThrow().webViewBridge
+            try Api.shared.orThrow("bridge not ready").webViewBridge
         }
     }
     

@@ -12,7 +12,9 @@ import WalletContext
 import SwiftUI
 import Kingfisher
 
-let HIDE_STATUS_BAR_OFFSET: CGFloat = 35
+let hideStatusBarOffset: CGFloat = 35
+let maxWidth: CGFloat = 600
+var effectiveScreenWidth: CGFloat { min(screenWidth, maxWidth) }
 
 public class ExploreVC: WViewController {
 
@@ -30,7 +32,7 @@ public class ExploreVC: WViewController {
     }
     
     public override var prefersStatusBarHidden: Bool {
-        previousOffset > HIDE_STATUS_BAR_OFFSET
+        previousOffset > hideStatusBarOffset
     }
     
     enum Section: Equatable, Hashable {
@@ -136,8 +138,9 @@ public class ExploreVC: WViewController {
         NSLayoutConstraint.activate([
             collectionView.topAnchor.constraint(equalTo: view.topAnchor),
             collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            collectionView.leftAnchor.constraint(equalTo: view.leftAnchor),
-            collectionView.rightAnchor.constraint(equalTo: view.rightAnchor)
+            collectionView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            collectionView.widthAnchor.constraint(equalTo: view.widthAnchor).withPriority(.defaultHigh),
+            collectionView.widthAnchor.constraint(lessThanOrEqualToConstant: maxWidth),
         ])
         collectionView.contentInset.top = 0
         collectionView.contentInset.bottom = 70 + 21 + 16
@@ -187,7 +190,7 @@ public class ExploreVC: WViewController {
             cell.configurationUpdateHandler = {
                 [weak self] cell,
                 state in
-                let width = ((self?.view?.frame.width)?.nilIfZero ?? 400) - 20 * 2
+                let width = effectiveScreenWidth - 20 * 2
                 cell.contentConfiguration = UIHostingConfiguration {
                     FeaturedDappCell(
                         item: site,
@@ -268,8 +271,8 @@ public class ExploreVC: WViewController {
                 cell.contentConfiguration = UIHostingConfiguration {
                     TrendingHeader(title: title)
                 }
-                .margins(.top, indexPath.section == 0 ? 24 : 20)
-                .margins(.bottom, 0)
+                .margins(.top, indexPath.section == 0 ? 32 : 28)
+                .margins(.bottom, 4)
                 .margins(.horizontal, 4)
             }
         }
@@ -317,7 +320,7 @@ public class ExploreVC: WViewController {
     
     func makeLayout() -> UICollectionViewCompositionalLayout {
         
-        let groupSize = floor((UIScreen.main.bounds.width - 16 * 2 - 12) / 2)
+        let groupSize = floor((effectiveScreenWidth - 16 * 2 - 12) / 2)
         
         let connectedSection: NSCollectionLayoutSection
         do {
@@ -325,7 +328,7 @@ public class ExploreVC: WViewController {
             if preferLargeIcons {
                 let interItemSpacing: CGFloat = 12
                 let minItemWidth: CGFloat = 60
-                let availableWidth = UIScreen.main.bounds.width - horizontalInset * 2
+                let availableWidth = effectiveScreenWidth - horizontalInset * 2
                 let columns = max(1, Int(floor((availableWidth + interItemSpacing) / (minItemWidth + interItemSpacing))))
                 let itemFraction = CGFloat(1.0) / CGFloat(columns)
 
@@ -593,7 +596,7 @@ extension ExploreVC: UICollectionViewDelegate {
     
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
         let y = scrollView.contentOffset.y + scrollView.adjustedContentInset.top
-        let changed = (y > HIDE_STATUS_BAR_OFFSET) != (self.previousOffset > HIDE_STATUS_BAR_OFFSET)
+        let changed = (y > hideStatusBarOffset) != (self.previousOffset > hideStatusBarOffset)
         self.previousOffset = y
         if changed {
             DispatchQueue.main.async {
@@ -713,13 +716,6 @@ final class CategoryDappsAnimator: NSObject, UIViewControllerAnimatedTransitioni
                 transitionContext.completeTransition(!transitionContext.transitionWasCancelled)
             }
         }
-    }
-}
-
-
-fileprivate extension NSCollectionLayoutSize {
-    convenience init(_ width: NSCollectionLayoutDimension, _ height: NSCollectionLayoutDimension) {
-        self.init(widthDimension: width, heightDimension: height)
     }
 }
 

@@ -1,6 +1,7 @@
 import React, { memo, useState } from '../../../lib/teact/teact';
 
 import buildClassName from '../../../util/buildClassName';
+import { getChainTitle } from '../../../util/chain';
 
 import useHistoryBack from '../../../hooks/useHistoryBack';
 import useLang from '../../../hooks/useLang';
@@ -81,6 +82,7 @@ function BackupSafetyRules({
             backupType === 'key'
               ? '$safety_rules_private_key_one'
               : '$safety_rules_one',
+            { chain: getChainTitle('ton') },
           )}
           textSecond={lang(
             backupType === 'key'

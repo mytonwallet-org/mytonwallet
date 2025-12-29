@@ -25,6 +25,7 @@ import {
 } from '../../config';
 import { getHelpCenterUrl } from '../../global/helpers/getHelpCenterUrl';
 import {
+  selectCurrentAccountId,
   selectCurrentAccountState,
   selectCurrentAccountTokens,
   selectIsCurrentAccountViewMode,
@@ -902,7 +903,8 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
   const { isCopyStorageEnabled, supportAccountsCount = 1, isNftBuyingDisabled } = global.restrictions;
 
   const { currentVersion, byId: versionsById } = global.walletVersions ?? {};
-  const versions = versionsById?.[global.currentAccountId!];
+  const currentAccountId = selectCurrentAccountId(global);
+  const versions = versionsById?.[currentAccountId!];
   const { dapps = MEMO_EMPTY_ARRAY } = selectCurrentAccountState(global) || {};
 
   return {

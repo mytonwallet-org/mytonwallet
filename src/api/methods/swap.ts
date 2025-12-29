@@ -96,6 +96,24 @@ export async function swapSubmit(
   const { address } = tonWallet;
   const authToken = await getBackendAuthToken(accountId, password);
 
+  const from = getSwapItemSlug(historyItem, historyItem.from);
+  const to = getSwapItemSlug(historyItem, historyItem.to);
+
+  const localActivityId = buildLocalTxId(swapId);
+  const localSwap: ApiSwapActivity = {
+    ...historyItem,
+    id: localActivityId,
+    from,
+    to,
+    kind: 'swap',
+  };
+
+  onUpdate({
+    type: 'newLocalActivities',
+    accountId,
+    activities: [localSwap],
+  });
+
   try {
     const transferList = parseSwapTransfers(transfers);
 
@@ -111,6 +129,13 @@ export async function swapSubmit(
     });
 
     if ('error' in result) {
+      // Update local activity to show error state
+      onUpdate({
+        type: 'newLocalActivities',
+        accountId,
+        activities: [{ ...localSwap, status: 'failed' }],
+      });
+
       await patchSwapItem({
         address, swapId, authToken, error: result.error,
       });
@@ -119,15 +144,8 @@ export async function swapSubmit(
 
     delete result.messages[0].stateInit;
 
-    const from = getSwapItemSlug(historyItem, historyItem.from);
-    const to = getSwapItemSlug(historyItem, historyItem.to);
-
-    const swap: ApiSwapActivity = {
-      ...historyItem,
-      id: buildLocalTxId(result.msgHashNormalized),
-      from,
-      to,
-      kind: 'swap',
+    const updatedSwap: ApiSwapActivity = {
+      ...localSwap,
       externalMsgHashNorm: result.msgHashNormalized,
       extra: omitUndefined({
         withW5Gasless: result.withW5Gasless,
@@ -137,17 +155,23 @@ export async function swapSubmit(
     onUpdate({
       type: 'newLocalActivities',
       accountId,
-      activities: [swap],
+      activities: [updatedSwap],
     });
 
     await patchSwapItem({
       address, swapId, authToken, msgHash: result.msgHash,
     });
 
-    void callHook('onSwapCreated', accountId, swap.timestamp - 1);
+    void callHook('onSwapCreated', accountId, updatedSwap.timestamp - 1);
 
-    return { activityId: swap.id };
+    return { activityId: updatedSwap.id };
   } catch (err: any) {
+    onUpdate({
+      type: 'newLocalActivities',
+      accountId,
+      activities: [{ ...localSwap, status: 'failed' }],
+    });
+
     await patchSwapItem({
       address, swapId, authToken, error: errorToString(err),
     });

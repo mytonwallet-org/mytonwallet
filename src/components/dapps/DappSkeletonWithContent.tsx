@@ -21,8 +21,8 @@ function DappSkeletonWithContent({ rows }: OwnProps) {
     <div className={buildClassName(modalStyles.transitionContent, styles.skeletonBackground)}>
       <div className={styles.transactionDirection}>
         <div className={styles.transactionDirectionLeftSkeleton}>
-          <Skeleton className={buildClassName(styles.nameSkeleton, styles.nameDappSkeleton)} />
-          <Skeleton className={buildClassName(styles.descSkeleton, styles.descDappSkeleton)} />
+          <Skeleton className={buildClassName(styles.nameSkeleton, styles.accountTitleSkeleton)} />
+          <Skeleton className={buildClassName(styles.descSkeleton, styles.accountBalanceSkeleton)} />
         </div>
         <div className={styles.transactionDirectionRightSkeleton}>
           <Skeleton className={styles.dappInfoIconSkeleton} />

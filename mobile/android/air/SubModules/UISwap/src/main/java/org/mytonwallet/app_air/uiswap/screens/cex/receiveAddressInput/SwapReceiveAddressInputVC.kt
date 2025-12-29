@@ -43,6 +43,7 @@ class SwapReceiveAddressInputVC(
     private val estimate: SwapEstimateResponse,
     private val callback: (String) -> Unit
 ) : WViewControllerWithModelStore(context) {
+    override val TAG = "SwapReceiveAddressInput"
 
     private val scrollView = ScrollView(context).apply {
         id = View.generateViewId()

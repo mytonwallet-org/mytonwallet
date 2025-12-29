@@ -295,6 +295,15 @@ public class BottomSheetPlugin: CAPPlugin, FloatingPanelControllerDelegate {
 
         animateTo(to: halfSize ? .half : .full, duration: animated ? nil : 0)
     }
+    
+    public override func shouldOverrideLoad(_ navigationAction: WKNavigationAction) -> NSNumber? {
+        if let url = navigationAction.request.url, url.host == "my.tt" {
+            let mtw = URL(string: url.absoluteString.replacingOccurrences(of: "https://my.tt/", with: "mtw://"))!
+            UIApplication.shared.open(mtw)
+            return true
+        }
+        return false
+    }
 
     @objc func toggleSelfFullSize(_ call: CAPPluginCall) {
         guard ensureLocalOrigin() else {

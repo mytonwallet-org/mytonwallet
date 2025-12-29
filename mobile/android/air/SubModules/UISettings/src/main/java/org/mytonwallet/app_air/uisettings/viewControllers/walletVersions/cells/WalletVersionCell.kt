@@ -59,7 +59,7 @@ class WalletVersionCell(
         addView(topLeftLabel)
         addView(bottomLeftLabel)
         addView(rightLabel)
-        addView(separator, LayoutParams(0, 1))
+        addView(separator, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
         setConstraints {
             toTop(topLeftLabel, 14f)
             toStart(topLeftLabel, 20f)

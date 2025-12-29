@@ -2,7 +2,11 @@ import React, { memo } from '../../../../lib/teact/teact';
 import { withGlobal } from '../../../../global';
 
 import { IS_CORE_WALLET, IS_EXTENSION, IS_TELEGRAM_APP } from '../../../../config';
-import { selectCurrentAccountState, selectIsCurrentAccountViewMode } from '../../../../global/selectors';
+import {
+  selectCurrentAccountId,
+  selectCurrentAccountState,
+  selectIsCurrentAccountViewMode,
+} from '../../../../global/selectors';
 import { IS_ANDROID, IS_ELECTRON, IS_IOS } from '../../../../util/windowEnvironment';
 
 import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
@@ -10,8 +14,8 @@ import useLang from '../../../../hooks/useLang';
 
 import BackupWarning from './BackupWarning';
 import RenewDomainWarning from './RenewDomainWarning';
+import ScamWalletWarning from './ScamWalletWarning';
 import SecurityWarning from './SecurityWarning';
-import TronScamWarning from './TronScamWarning';
 
 import styles from './Warnings.module.scss';
 
@@ -48,7 +52,7 @@ function Warnings({
         <>
           <BackupWarning isRequired={isBackupRequired} onOpenBackupWallet={onOpenBackupWallet} />
           <RenewDomainWarning />
-          <TronScamWarning />
+          <ScamWalletWarning />
         </>
       )}
       {IS_UNSAFE_WEB && <SecurityWarning />}
@@ -65,6 +69,6 @@ export default memo(
         isViewMode: selectIsCurrentAccountViewMode(global),
       };
     },
-    (global, _, stickToFirst) => stickToFirst(global.currentAccountId),
+    (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),
   )(Warnings),
 );

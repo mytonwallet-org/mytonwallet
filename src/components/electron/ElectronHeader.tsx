@@ -2,7 +2,7 @@ import type { TeactNode } from '../../lib/teact/teact';
 import React, { memo, useRef } from '../../lib/teact/teact';
 
 import { APP_NAME } from '../../config';
-import { IS_WINDOWS } from '../../util/windowEnvironment';
+import { IS_LINUX, IS_WINDOWS } from '../../util/windowEnvironment';
 
 import useElectronDrag from '../../hooks/useElectronDrag';
 import useLastCallback from '../../hooks/useLastCallback';
@@ -42,18 +42,21 @@ function ElectronHeader({ children, withTitle }: Props) {
     void window.electron?.handleDoubleClick();
   });
 
-  if (IS_WINDOWS) {
-    return (
-      <div ref={containerRef} className={styles.container} onDoubleClick={handleDoubleClick}>
-        <div className={styles.wrapper}>
-          {Boolean(children) && <div className={styles.buttons}>{children}</div>}
+  const showWindowButtons = IS_WINDOWS || IS_LINUX;
 
-          {withTitle && <div className={styles.applicationName}>{APP_NAME}</div>}
-        </div>
+  return (
+    <div ref={containerRef} className={styles.container} onDoubleClick={handleDoubleClick}>
+      <div className={styles.wrapper}>
+        {withTitle && <div className={styles.applicationName}>{APP_NAME}</div>}
 
-        <div className={styles.windowsButtons}>
+        <div className={styles.buttons}>
           <UpdateApp />
+          {children}
+        </div>
+      </div>
 
+      {showWindowButtons && (
+        <div className={styles.windowsButtons}>
           <div className={styles.windowsButton} onClick={handleMinimize}>
             <i className="icon-windows-minimize" />
           </div>
@@ -66,21 +69,7 @@ function ElectronHeader({ children, withTitle }: Props) {
             <i className="icon-windows-close" />
           </div>
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div ref={containerRef} className={styles.container} onDoubleClick={handleDoubleClick}>
-      <div className={styles.wrapper}>
-        {withTitle && <div className={styles.applicationName}>{APP_NAME}</div>}
-
-        <div className={styles.buttons}>
-          <UpdateApp />
-
-          {children}
-        </div>
-      </div>
+      )}
     </div>
   );
 }

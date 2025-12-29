@@ -6,11 +6,11 @@ import type { Account, UserSwapToken } from '../../global/types';
 import {
   CHANGELLY_LIVE_CHAT_URL, CHANGELLY_SUPPORT_EMAIL, CHANGELLY_WAITING_DEADLINE,
 } from '../../config';
-import { getIsInternalSwap } from '../../global/helpers';
 import buildClassName from '../../util/buildClassName';
 import { getIsSupportedChain } from '../../util/chain';
 import { formatCurrencyExtended } from '../../util/formatNumber';
 import getChainNetworkName from '../../util/swap/getChainNetworkName';
+import { getIsInternalSwap } from '../../util/swap/getSwapType';
 
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
@@ -90,7 +90,6 @@ function SwapWaitTokens({
           {lang('Memo')}
         </span>
         <InteractiveTextField
-          chain="ton"
           address={payinExtraId}
           copyNotification={lang('Memo was copied!')}
           noSavedAddress
@@ -156,7 +155,7 @@ function SwapWaitTokens({
 
     return (
       <div className={styles.changellyInfoBlock}>
-        <span className={styles.changellyDescription}>{lang('$swap_changelly_to_ton_description1', {
+        <span className={styles.changellyDescription}>{lang('$swap_changelly_to_wallet_description1', {
           value: (
             <span className={styles.changellyDescriptionBold}>
               {formatCurrencyExtended(Number(amountIn), tokenIn?.symbol ?? '', true)}

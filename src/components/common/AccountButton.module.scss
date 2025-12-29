@@ -155,6 +155,7 @@
 
 .accountAddress {
   overflow: hidden;
+  display: inline-flex;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

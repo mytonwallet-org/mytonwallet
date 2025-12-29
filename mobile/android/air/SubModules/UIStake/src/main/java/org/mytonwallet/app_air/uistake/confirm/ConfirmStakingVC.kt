@@ -23,6 +23,7 @@ class ConfirmStakingVC(
     val showPositiveSignForAmount: Boolean,
     val messageString: String,
 ) : WViewController(context) {
+    override val TAG = "ConfirmStaking"
 
     private var isDoingTask = false
 

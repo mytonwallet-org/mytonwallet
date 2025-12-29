@@ -1,7 +1,6 @@
 
 import UIKit
 import WebKit
-import UIDapp
 import UIComponents
 import WalletCore
 import WalletContext

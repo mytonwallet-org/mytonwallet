@@ -61,14 +61,6 @@ public struct ApiSseConnectionParams: Encodable {
     }
 }
 
-public struct DeviceInfo: Encodable {
-    public let platform: String
-    public let appName: String
-    public let appVersion: String
-    public let maxProtocolVersion: Int
-    public let features: [AnyEncodable]
-}
-
 public enum ReturnStrategy: Equatable, Hashable, Codable {
     case none
     case back
@@ -107,21 +99,4 @@ public enum ReturnStrategy: Equatable, Hashable, Codable {
             try container.encode(url)
         }
     }
-}
-
-func makeDeviceInfo() -> DeviceInfo {
-    let sendTransactionFeature: [String: AnyEncodable] = [
-        "name": AnyEncodable("SendTransaction"),
-        "maxMessages": AnyEncodable(4)
-    ]
-    return DeviceInfo(
-        platform: devicePlatform,
-        appName: appName,
-        appVersion: appVersion,
-        maxProtocolVersion: supportedTonConnectVersion,
-        features: [
-            AnyEncodable("SendTransaction"),
-            AnyEncodable(sendTransactionFeature)
-        ]
-    )
 }

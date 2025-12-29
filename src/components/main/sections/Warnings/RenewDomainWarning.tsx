@@ -6,7 +6,7 @@ import type { ApiNft } from '../../../../api/types';
 import { selectCurrentAccountState } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
 import { getCountDaysToDate } from '../../../../util/dateFormat';
-import { filterExpiringDomains, getDomainsExpirationDate, getTonDnsExpirationDate } from '../../../../util/dns';
+import { filterExpiringDomains, getDnsExpirationDate, getDomainsExpirationDate } from '../../../../util/dns';
 import { stopEvent } from '../../../../util/domEvents';
 
 import useCurrentOrPrev from '../../../../hooks/useCurrentOrPrev';
@@ -54,7 +54,7 @@ function RenewDomainWarning({ orderedAddresses, byAddress, dnsExpiration }: Stat
     const now = Date.now();
 
     return renderedNftForRenewal.filter((nft) => {
-      const date = getTonDnsExpirationDate(nft, dnsExpiration);
+      const date = getDnsExpirationDate(nft, dnsExpiration);
       return date && date < now;
     });
   }, [dnsExpiration, expireInDays, renderedNftForRenewal]);

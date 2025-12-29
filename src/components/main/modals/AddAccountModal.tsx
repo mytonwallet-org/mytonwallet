@@ -3,8 +3,8 @@ import { getActions, withGlobal } from '../../../global';
 
 import { SettingsState } from '../../../global/types';
 
-import { IS_CORE_WALLET } from '../../../config';
-import { selectIsPasswordPresent } from '../../../global/selectors';
+import { IS_CORE_WALLET, MNEMONIC_COUNTS } from '../../../config';
+import { selectCurrentAccountId, selectIsPasswordPresent } from '../../../global/selectors';
 import { getHasInMemoryPassword, getInMemoryPassword } from '../../../util/authApi/inMemoryPasswordStore';
 import buildClassName from '../../../util/buildClassName';
 import { getChainsSupportingLedger } from '../../../util/chain';
@@ -186,7 +186,7 @@ function AddAccountModal({
         <div className={styles.actionsSection}>
           <ListItem
             icon="key"
-            label={lang(IS_CORE_WALLET ? '24 Secret Words' : '12/24 Secret Words')}
+            label={lang('%counts% Secret Words', { counts: MNEMONIC_COUNTS.join('/') })}
             onClick={handleImportAccountClick}
             isLoading={isNewAccountImporting && isLoading}
           />
@@ -304,7 +304,8 @@ function AddAccountModal({
 export default memo(withGlobal((global): StateProps => {
   const isPasswordPresent = selectIsPasswordPresent(global);
   const { byId: versionById } = global.walletVersions ?? {};
-  const versions = versionById?.[global.currentAccountId!];
+  const currentAccountId = selectCurrentAccountId(global);
+  const versions = currentAccountId ? versionById?.[currentAccountId] : undefined;
   const withOtherWalletVersions = !!versions?.length;
 
   const { auth: { forceAddingTonOnlyAccount, initialState } } = global;

@@ -55,6 +55,10 @@ class SendConfirmVC(
     private val transferOptions: MApiSubmitTransferOptions,
     private val slug: String
 ) : WViewController(context) {
+    override val TAG = "SendConfirm"
+
+    override val displayedAccount =
+        DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
 
     private var task: ((passcode: String?) -> Unit)? = null
 
@@ -298,7 +302,7 @@ class SendConfirmVC(
             topToTop(
                 bottomReversedCornerViewUpsideDown,
                 cancelButton,
-                -20f - ViewConstants.BIG_RADIUS
+                -ViewConstants.GAP - ViewConstants.BIG_RADIUS
             )
             toBottom(bottomReversedCornerViewUpsideDown)
             topToTop(confirmButton, cancelButton)

@@ -2,7 +2,7 @@ import React, { memo, useEffect } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import { TONCOIN } from '../../config';
-import { selectAccountStakingHistory, selectAccountStakingState } from '../../global/selectors';
+import { selectAccountStakingHistory, selectAccountStakingState, selectCurrentAccountId } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 
 import Modal from '../ui/Modal';
@@ -49,7 +49,7 @@ function StakingInfoModal({
 }
 
 export default memo(withGlobal<OwnProps>((global): StateProps => {
-  const accountId = global.currentAccountId;
+  const accountId = selectCurrentAccountId(global);
   const stakingHistory = accountId
     ? selectAccountStakingHistory(global, accountId)
     : undefined;

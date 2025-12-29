@@ -65,6 +65,7 @@ type OwnProps = {
   isLast?: boolean;
   isActive?: boolean;
   withChainIcon?: boolean;
+  className?: string;
   annualYield: number | undefined;
   yieldType: ApiYieldType | undefined;
   appTheme: AppTheme;
@@ -93,6 +94,7 @@ function Transaction({
   tokensBySlug,
   transaction,
   isActive,
+  className,
   annualYield,
   yieldType,
   savedAddresses,
@@ -368,6 +370,7 @@ function Transaction({
         onClick && styles.interactive,
         attachmentsTakeSubheader === 'full' ? styles.attachmentsInFullSubheader
           : attachmentsTakeSubheader === 'left' ? styles.attachmentsInLeftSubheader : undefined,
+        className,
       )}
       onClick={onClick && (() => onClick(id))}
       isSimple

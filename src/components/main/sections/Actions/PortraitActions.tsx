@@ -24,6 +24,7 @@ interface OwnProps {
   isSwapDisabled?: boolean;
   isStakingDisabled?: boolean;
   isOnRampDisabled?: boolean;
+  isOffRampDisabled?: boolean;
   containerRef: ElementRef<HTMLDivElement>;
   onEarnClick: NoneToVoidFunction;
 }
@@ -34,6 +35,7 @@ function PortraitActions({
   isStakingDisabled,
   isSwapDisabled,
   isOnRampDisabled,
+  isOffRampDisabled,
   containerRef,
   onEarnClick,
 }: OwnProps) {
@@ -45,8 +47,17 @@ function PortraitActions({
 
   const isOnRampAllowed = !isTestnet && !isOnRampDisabled;
   const addBuyButtonName = IS_CORE_WALLET
-    ? 'Receive'
-    : (!isSwapDisabled || isOnRampAllowed ? 'Add / Buy' : 'Add');
+    ? lang('Receive')
+    : (!isSwapDisabled || isOnRampAllowed
+      ? (lang.code === 'en'
+        ? (<span className={styles.name}>{lang('Add')}<span className={styles.divider}>/</span>{lang('Buy')}</span>)
+        : lang('Add / Buy')
+      )
+      : lang('Add')
+    );
+  const sendButtonName = IS_CORE_WALLET || isOffRampDisabled || lang.code !== 'en'
+    ? lang('Send')
+    : <span className={styles.name}>{lang('Send')}<span className={styles.divider}>/</span>{lang('Sell')}</span>;
 
   const handleStartSwap = useLastCallback(() => {
     void vibrate();
@@ -81,11 +92,12 @@ function PortraitActions({
           onClick={handleAddBuyClick}
         >
           <i className={buildClassName(styles.buttonIcon, 'icon-action-add')} aria-hidden />
-          {lang(addBuyButtonName)}
+          {addBuyButtonName}
         </Button>
         <WithContextMenu
           rootRef={containerRef}
           items={SEND_CONTEXT_MENU_ITEMS}
+          withBackdrop
           menuClassName={styles.menu}
           onItemClick={handleSendMenuItemClick}
         >
@@ -98,7 +110,7 @@ function PortraitActions({
               ref={buttonProps.ref as ElementRef<HTMLButtonElement>}
             >
               <i className={buildClassName(styles.buttonIcon, 'icon-action-send')} aria-hidden />
-              {lang('Send')}
+              {sendButtonName}
             </Button>
           )}
         </WithContextMenu>

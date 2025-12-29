@@ -171,16 +171,6 @@ $previewCardHeight: 11rem;
   padding: 1rem;
 
   color: var(--main-text);
-
-  &:global(.MtwCard__darkText) {
-    --main-text: var(--color-card-text-dark);
-    --second-text: var(--color-card-second-text-dark);
-  }
-
-  &:global(.MtwCard__lightText) {
-    --main-text: var(--color-card-text);
-    --second-text: var(--color-card-second-text);
-  }
 }
 
 .walletName {
@@ -227,7 +217,7 @@ $previewCardHeight: 11rem;
 }
 
 .primaryFractionPart {
-  font-size: calc(2.375rem * var(--font-size-scale-preview, 1));
+  font-size: calc(2rem * var(--font-size-scale-preview, 1));
   font-weight: 800;
   color: var(--second-text);
 

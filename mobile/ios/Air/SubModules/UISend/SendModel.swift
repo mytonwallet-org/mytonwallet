@@ -7,31 +7,94 @@
 
 import Foundation
 import SwiftUI
-import Combine
 import UIKit
 import UIComponents
-import UIQRScan
 import WalletCore
 import WalletContext
+import Perception
+import SwiftNavigation
+import Dependencies
 
 private let log = Log("SendModel")
 
-@MainActor public final class SendModel: ObservableObject, Sendable {
-    
-    public typealias PrefilledValues = SendPrefilledValues
+let debounceAddressResolution: Duration = .seconds(0.250)
+let debounceCheckTransactionDraft: Duration = .seconds(0.250)
 
-    init(prefilledValues: PrefilledValues? = nil) {
+struct DraftData {
+    enum DraftStatus: Equatable {
+        case none
+        case loading
+        case invalid
+        case valid
+    }
+    
+    var status: DraftStatus
+    var address: String?
+    var tokenSlug: String?
+    var amount: BigInt?
+    var comment: String?
+    var transactionDraft: ApiCheckTransactionDraftResult?
+}
+
+@Perceptible @MainActor
+public final class SendModel: Sendable {
+    
+    @PerceptionIgnored
+    @AccountViewModel(source: .current) var account: MAccount
+    
+    @PerceptionIgnored
+    @Dependency(\.tokenStore.baseCurrency) var baseCurrency
+    
+    // MARK: - User input
+    
+    var addressOrDomain: String = ""
+    
+    var amount: BigInt? = nil
+    var amountInBaseCurrency: BigInt? = nil
+    var switchedToBaseCurrencyInput: Bool = false
+    
+    var isMessageEncrypted: Bool = false
+    var comment: String = ""
+    var binaryPayload: String?
+    
+    var nfts: [ApiNft]?
+    var nftSendMode: NftSendMode?
+    let stateInit: String?
+    
+    // MARK: - Wallet state
+    
+    var accountBalance: BigInt? = nil
+    var maxToSend: BigInt? = nil
+    
+    var draftData: DraftData = .init(status: .none, transactionDraft: nil)
+    
+    var explainedFee: ExplainedTransferFee?
+    
+    @PerceptionIgnored
+    @TokenProvider var token: ApiToken
+    
+    @PerceptionIgnored
+    private var observeAddress: ObserveToken?
+    @PerceptionIgnored
+    private var observeDraft: ObserveToken?
+    @PerceptionIgnored
+    private var observeExplainedFee: ObserveToken?
+    @PerceptionIgnored
+    var resolveAddressTask: Task<Void, any Error>?
+    @PerceptionIgnored
+    var checkTransactionDraftTask: Task<Void, any Error>?
+
+    private let flow: any SendFlow
+
+    init(prefilledValues: SendPrefilledValues? = nil) {
+        @Dependency(\.tokenStore) var tokenStore
+        @Dependency(\.accountStore) var accountStore
         if let prefilledValues {
             if let address = prefilledValues.address {
                 self.addressOrDomain = address
             }
             if let amount = prefilledValues.amount {
                 self.amount = amount
-            }
-            if let jetton = prefilledValues.jetton?.nilIfEmpty, let tokenSlug = TokenStore.tokens.first(where: { tokenSlug, token in token.tokenAddress == jetton })?.key {
-                self.tokenSlug = tokenSlug
-            } else if let token = prefilledValues.token {
-                self.tokenSlug = token
             }
             if let commentOrMemo = prefilledValues.commentOrMemo {
                 self.comment = commentOrMemo
@@ -47,173 +110,185 @@ private let log = Log("SendModel")
             }
         }
         
-        self.stateInit = prefilledValues?.stateInit
+        let tokenSlug: String = if let jetton = prefilledValues?.jetton?.nilIfEmpty, let tokenSlug = tokenStore.tokens.first(where: { tokenSlug, token in token.tokenAddress == jetton })?.key {
+            tokenSlug
+        } else if let token = prefilledValues?.token {
+            token
+        } else {
+            accountStore.get(accountIdOrCurrent: nil).firstChain.nativeToken.slug
+        }
 
+        self.stateInit = prefilledValues?.stateInit
+        let isNftFlow = (prefilledValues?.nftSendMode != nil) || ((prefilledValues?.nfts?.isEmpty == false))
+        self.flow = isNftFlow ? NftSendFlow() : TokenSendFlow()
+        self._token = TokenProvider(tokenSlug: tokenSlug)
         if nftSendMode == .burn {
             self.addressOrDomain = BURN_ADDRESS
         }
         
         setupObservers()
 
-        WalletCoreData.add(eventObserver: self)
         updateAccountBalance()
     }
     
-    // View controller callbacks
-    
-    var present: ((UIViewController) -> ())? = nil
-    var dismiss: ((UIViewController) -> ())? = nil
-    var push: ((UIViewController) -> ())? = nil
-    var showAlert: ((any Error) -> ())? = nil
-    var showToast: ((_ animationName: String?, _ message: String) -> ())? = nil
-    var continueStateChanged: ((Bool, Bool, DraftData) -> ())? = nil
-    
-    // User input
-    
-    @Published var addressOrDomain: String = "" {
-        didSet {
-            validateAddressOrDomain(addressOrDomain, tokenSlug: tokenSlug)
-            onContinueStateChanged(canContinue: canContinue, insufficientFunds: insufficientFunds, draftData: draftData)
-        }
-    }
-    @Published var tokenSlug: String = "toncoin" {
-        didSet {
-            validateAddressOrDomain(addressOrDomain, tokenSlug: tokenSlug)
-            onContinueStateChanged(canContinue: canContinue, insufficientFunds: insufficientFunds, draftData: draftData)
-        }
-    }
-    @Published var switchedToBaseCurrencyInput: Bool = false
-    @Published var amount: BigInt? = nil
-    @Published var amountInBaseCurrency: BigInt? = nil
-    @Published var isMessageEncrypted: Bool = false
-    @Published var comment: String = ""
-    @Published var binaryPayload: String?
-    @Published var nfts: [ApiNft]?
-    @Published var nftSendMode: NftSendMode?
-    let stateInit: String?
-    var isSendNft: Bool { nftSendMode != nil }
-    
-    // Wallet state
-    
-    @Published var accountBalance: BigInt? = nil
-    @Published var maxToSend: BigInt? = nil {
-        didSet {
-            onContinueStateChanged(canContinue: canContinue, insufficientFunds: insufficientFunds, draftData: draftData)
-        }
-    }
-    
-    @Published var draftData: DraftData = .init(status: .none, transactionDraft: nil) {
-        didSet {
-            updateFee()
-            onContinueStateChanged(canContinue: canContinue, insufficientFunds: insufficientFunds, draftData: draftData)
-        }
-    }
-
-    var explainedFee: TransferHelpers.ExplainedTransferFee? {
-        if let token, let toAddressDraft {
-            return TransferHelpers.explainApiTransferFee(chain: token.chain, isNativeToken: token.isNative, input: toAddressDraft)
-        }
-        return nil
-    }
-    var token: ApiToken? { TokenStore.tokens[tokenSlug] }
-    var tokenChain: ApiChain? { (token?.chain).flatMap(availableChain(slug:)) }
-    var nativeToken: ApiToken? { TokenStore.tokens[tokenChain?.tokenSlug ?? ""] }
-    
-    struct DraftData {
-        enum DraftStatus: Equatable {
-            case none
-            case loading
-            case invalid
-            case valid
-        }
-        
-        let status: DraftStatus
-        let address: String?
-        let tokenSlug: String?
-        let amount: BigInt?
-        let comment: String?
-        let transactionDraft: ApiCheckTransactionDraftResult?
-        
-        init(status: DraftStatus,
-             address: String? = nil,
-             tokenSlug: String? = nil,
-             amount: BigInt? = nil,
-             comment: String? = nil,
-             transactionDraft: ApiCheckTransactionDraftResult?) {
-            self.status = status
-            self.address = address
-            self.tokenSlug = tokenSlug
-            self.amount = amount
-            self.comment = comment
-            self.transactionDraft = transactionDraft
-        }
-    }
-
-    private var observers: Set<AnyCancellable> = []
-
     private func setupObservers() {
-        Publishers.CombineLatest($accountBalance, $tokenSlug)
-            .sink { [weak self] v in
-                let (accountBalance, tokenSlug) = v
-                guard let self else { return }
-                let token = TokenStore.tokens[tokenSlug]
-                guard let token, let toAddressDraft else {
-                    maxToSend = accountBalance
-                    return
+        
+        observeAddress = observe { [weak self] in
+            guard let self else { return }
+            _ = (self.account.id, self.addressOrDomain)
+            resolveAddress()
+        }
+        observeDraft = observe { [weak self] in
+            guard let self else { return }
+            _ = (self.account.id, self.addressOrDomain, self.token, self.amount, self.commentPayload)
+            self.checkTransactionDraft()
+        }
+        observeExplainedFee = observe { [weak self] in
+            guard let self else { return }
+            _ = draftData
+            self.updateMaxToSend()
+        }
+    }
+
+    deinit {
+        resolveAddressTask?.cancel()
+        checkTransactionDraftTask?.cancel()
+    }
+    
+    // MARK: - Address resolution
+    
+    var isAddressLoading: Bool = false
+    
+    func resolveAddress() {
+        resolveAddressTask?.cancel()
+        resolveAddressTask = Task {
+            do {
+                let compatibleChains = account.supportedChains.filter { $0.isValidAddressOrDomain(addressOrDomain) }
+                if compatibleChains.isEmpty {
+                    addressInfos = nil
+                }
+                isAddressLoading = true
+                try await Task.sleep(for: debounceAddressResolution)
+                var addressInfos: [ApiChain: ApiGetAddressInfoResult] = [:]
+                for chain in compatibleChains {
+                    addressInfos[chain] = try await Api.getAddressInfo(chain: chain, network: account.network, address: addressOrDomain)
+                    try Task.checkCancellation()
+                }
+                self.addressInfos = addressInfos
+                isAddressLoading = false
+            } catch {
+                if !Task.isCancelled {
+                    addressInfos = [:]
+                    isAddressLoading = false
                 }
             }
-            .store(in: &observers)
-
-        $amount
-            .debounce(for: 0.25, scheduler: RunLoop.main)
-            .sink { [weak self] _ in
-                guard let self else { return }
-                validateAddressOrDomain(addressOrDomain, tokenSlug: tokenSlug)
-                updateFee()
-                onContinueStateChanged(canContinue: canContinue, insufficientFunds: insufficientFunds, draftData: draftData)
-            }
-            .store(in: &observers)
-        
-        $comment
-            .debounce(for: 0.35, scheduler: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.validateAndEstimate()
-            }
-            .store(in: &observers)
+        }
     }
     
-    private func updateFee() {
-        let token = TokenStore.tokens[tokenSlug]
-        guard let token, let toAddressDraft else {
+    var addressInfos: [ApiChain: ApiGetAddressInfoResult]?
+    
+    // MARK: - Check transaction draft
+    
+    func checkTransactionDraft() {
+        checkTransactionDraftTask?.cancel()
+        checkTransactionDraftTask = Task {
+            let context = makeFlowContext()
+            do {
+                draftData.status = .loading
+                try await Task.sleep(for: debounceCheckTransactionDraft)
+                let result = try await flow.validateDraft(context: context)
+                self.applyDraftResult(result)
+            } catch {
+                if error is CancellationError { return }
+                self.handleValidationError(error, context: context)
+            }
+        }
+    }
+    
+    private func updateMaxToSend() {
+        guard let explainedFee else {
+            maxToSend = accountBalance
             return
         }
         let isNative = token.isNative
         maxToSend = TransferHelpers.getMaxTransferAmount(tokenBalance: accountBalance,
                                                          isNativeToken: isNative,
-                                                         fullFee: explainedFee?.fullFee?.terms,
-                                                         canTransferFullBalance: explainedFee!.canTransferFullBalance)
+                                                         fullFee: explainedFee.fullFee?.terms,
+                                                         canTransferFullBalance: explainedFee.canTransferFullBalance)
         if amount == accountBalance, amount ?? 0 > maxToSend ?? 0 {
             amount = maxToSend
         }
     }
     
-    // Validation
+    private func setLoadingDraft(context: SendFlowContext) {
+        let keepTransactionDraftWhenLoading = context.address == draftData.address && context.token.slug == draftData.tokenSlug
+        draftData = DraftData(
+            status: .loading,
+            address: context.address,
+            tokenSlug: context.token.slug,
+            amount: context.amount,
+            comment: context.comment,
+            transactionDraft: keepTransactionDraftWhenLoading ? draftData.transactionDraft : nil
+        )
+    }
+    
+    private func applyDraftResult(_ result: SendFlowDraftResult) {
+        explainedFee = result.explainedFee
+        draftData = result.draftData
+        updateRequireMemo(result.requiresMemo)
+    }
+    
+    private func handleValidationError(_ error: Error, context: SendFlowContext) {
+        if error is CancellationError { return }
+        log.error("validate error: \(error, .public)")
+        if !error.localizedDescription.contains("Invalid amount provided") {
+            AppActions.showError(error: error)
+        }
+        explainedFee = nil
+        draftData = .init(
+            status: .none,
+            address: context.address,
+            tokenSlug: context.token.slug,
+            amount: context.amount,
+            comment: context.comment,
+            transactionDraft: nil
+        )
+        updateRequireMemo(false)
+    }
+    
+    func updateAccountBalance() {
+        self.accountBalance = $account.balances[token.slug]
+        if let amountInBaseCurrency, switchedToBaseCurrencyInput && amount != accountBalance {
+            updateAmountFromBaseCurrency(amountInBaseCurrency)
+        } else {
+            updateBaseCurrencyAmount(amount)
+        }
+    }
+    
+    func updateRequireMemo(_ isRequired: Bool) {
+        if isRequired {
+            isMessageEncrypted = false
+        }
+    }
+    
+    // MARK: - Validation
+    
     var isCommentRequired: Bool {
-        toAddressDraft?.isMemoRequired ?? false
+        draftData.transactionDraft?.isMemoRequired ?? false
     }
     
     var isEncryptedMessageAvailable: Bool {
-        !isCommentRequired && nftSendMode == nil && AccountStore.account?.isHardware != true
+        !isCommentRequired && nftSendMode == nil && account.isHardware != true
     }
     
     var resolvedAddress: String? {
-        toAddressDraft?.resolvedAddress
+        draftData.transactionDraft?.resolvedAddress
     }
     
     var toAddressInvalid: Bool {
         if draftData.status == .invalid,
            draftData.address == self.addressOrDomain,
-           draftData.tokenSlug == self.tokenSlug {
+           draftData.tokenSlug == self.token.slug {
             return true
         }
         return false
@@ -226,8 +301,12 @@ private let log = Log("SendModel")
 
     var isAddressCompatibleWithToken: Bool {
         if addressOrDomain.isEmpty { return true } // do not validate before user inputs address
-        guard let token else { return false }
-        return token.chainValue.validate(address: draftData.address ?? "") == true
+        let chain = token.chainValue
+        let address = draftData.address ?? ""
+        return chain.isValidAddressOrDomain(address) &&
+            (
+                chain.isSendToSelfAllowed || address != account.addressByChain[chain.rawValue]
+            )
     }
 
     var canContinue: Bool {
@@ -239,20 +318,19 @@ private let log = Log("SendModel")
         (amount ?? 0 > 0 || nfts?.count ?? 0 > 0)
     }
     
-    var toAddressDraft: ApiCheckTransactionDraftResult? {
-        draftData.transactionDraft
-    }
-    
     var dieselStatus: DieselStatus? {
         draftData.transactionDraft?.diesel?.status
     }
     
     var showingFee: MFee? {
         let fee = draftData.transactionDraft?.fee
-        let isToncoinFullBalance = tokenSlug == "toncoin" && accountBalance == amount
-        let nativeTokenBalance = BalanceStore.currentAccountBalances[nativeToken?.slug ?? ""] ?? 0
-        let isEnoughNativeCoin = isToncoinFullBalance ?
-            (fee != nil && fee! < nativeTokenBalance) : (fee != nil && (fee! + (tokenSlug == "toncoin" ? amount ?? 0 : 0)) <= nativeTokenBalance);
+        let isNativeFullBalance = token.isNative && token.chainValue.canTransferFullNativeBalance && accountBalance == amount
+        let nativeTokenBalance = $account.balances[token.nativeTokenSlug] ?? 0
+        let isEnoughNativeCoin = if isNativeFullBalance {
+            fee != nil && fee! < nativeTokenBalance
+        } else {
+            fee != nil && (fee! + (token.isNative && token.chainValue.canTransferFullNativeBalance ? amount ?? 0 : 0)) <= nativeTokenBalance
+        }
         let isGaslessWithStars = dieselStatus == .starsFee
         let isDieselAvailable = dieselStatus == .available || isGaslessWithStars
         let withDiesel = explainedFee?.isGasless == true
@@ -269,174 +347,10 @@ private let log = Log("SendModel")
     }
     
     var explainedTransferFee: ExplainedTransferFee? {
-        if let draft = draftData.transactionDraft {
-            return explainApiTransferFee(input: draft, tokenSlug: tokenSlug)
-        }
-        return nil
+        explainedFee ?? draftData.transactionDraft.flatMap { explainApiTransferFee(input: $0, tokenSlug: token.slug) }
     }
     
-    // MARK: - View callbacks
-    
-    func onBackgroundTapped() {
-        topViewController()?.view.endEditing(true)
-    }
-    
-    func onAddressPastePressed() {
-        if let pastedAddress = UIPasteboard.general.string, !pastedAddress.isEmpty {
-            // todo: handle urls; extract that code from qr code scanning to avoid duplication
-            self.addressOrDomain = pastedAddress
-            validateAddressOrDomain(nil, tokenSlug: tokenSlug)
-            topViewController()?.view.endEditing(true)
-        } else {
-            showToast?(nil, lang("Clipboard empty"))
-        }
-    }
-    
-    func onScanPressed() {
-        let qrScanVC = QRScanVC(callback: { [weak self] result in
-            guard let self else {return}
-            topViewController()?.view.endEditing(true)
-            switch result {
-            case .url(let url):
-                guard let parsedWalletURL = parseTonTransferUrl(url) else {
-                    return
-                }
-                self.tokenSlug = parsedWalletURL.token ?? "toncoin"
-                self.addressOrDomain = parsedWalletURL.address
-                if let amount = parsedWalletURL.amount {
-                    self.amount = amount
-                    self.updateBaseCurrencyAmount(amount)
-                }
-                if let bin = parsedWalletURL.bin?.nilIfEmpty {
-                    self.binaryPayload = bin
-                } else if let comment = parsedWalletURL.comment { 
-                    self.comment = comment
-                    self.isMessageEncrypted = false
-                }
-            
-            case .address(let address, let possibleChains):
-                if !possibleChains.isEmpty {
-                    self.addressOrDomain = address
-                }
-
-            @unknown default:
-                break
-            }
-            
-        })
-        present?(WNavigationController(rootViewController: qrScanVC))
-    }
-    
-    func onTokenTapped() {
-        let vc = SendCurrencyVC(walletTokens: [], currentTokenSlug: self.tokenSlug, onSelect: { token in })
-        vc.onSelect = { [weak self] newToken in
-            guard let self else { return }
-            
-            let oldDecimals = self.token?.decimals ?? 9
-            self.tokenSlug = newToken.slug
-            
-            if switchedToBaseCurrencyInput {
-                // keep base currency the same and adjust token amount
-                if let baseCurrency = self.amountInBaseCurrency {
-                    self.updateAmountFromBaseCurrency(baseCurrency)
-                }
-            } else {
-                // new token might have different decimals, but we want user visible number to remain the same
-                if let amount = self.amount {
-                    let newAmount = convertDecimalsKeepingDoubleValue(amount, fromDecimals: oldDecimals, toDecimals: newToken.decimals)
-                    self.amount = newAmount
-                    self.updateBaseCurrencyAmount(newAmount)
-                }
-            }
-            
-            self.updateAccountBalance()
-            self.dismiss?(vc)
-        }
-        let nav = WNavigationController(rootViewController: vc)
-        present?(nav)
-    }
-    
-    func onComposeContinue() {
-        topViewController()?.view.endEditing(true)
-        let vc = SendConfirmVC(model: self)
-        push?(vc)
-    }
-    
-    func onUseAll() {
-        guard let maxToSend else {
-            return
-        }
-        self.amount = maxToSend
-        self.amountInBaseCurrency = if let token, let baseCurrency = TokenStore.baseCurrency {
-            convertAmount(maxToSend, price: token.price ?? 0, tokenDecimals: token.decimals, baseCurrencyDecimals: baseCurrency.decimalsCount)
-        } else {
-            0
-        }
-        topViewController()?.view.endEditing(true)
-    }
-    
-    func onContinueStateChanged(canContinue: Bool, insufficientFunds: Bool, draftData: DraftData) {
-        continueStateChanged?(canContinue, insufficientFunds, draftData)
-    }
-    
-    @MainActor func onAddressCopy() {
-        AppActions.copyString(resolvedAddress, toastMessage: lang("Address was copied!"))
-    }
-    
-    func onOpenAddressInExplorer() {
-        if let chain = self.tokenChain {
-            let url = ExplorerHelper.addressUrl(chain: chain, address: resolvedAddress ?? addressOrDomain)
-            AppActions.openInBrowser(url)
-        }
-    }
-    
-    func onSaveToFavorites() {
-        showToast?(nil, "Not implemented")
-        UINotificationFeedbackGenerator().notificationOccurred(.error)
-    }
-    
-    // MARK: -
-    
-    func updateBaseCurrencyAmount(_ amount: BigInt?) {
-        guard let amount else { return }
-        self.amountInBaseCurrency = if let token, let baseCurrency = TokenStore.baseCurrency {
-            convertAmount(amount, price: token.price ?? 0, tokenDecimals: token.decimals, baseCurrencyDecimals: baseCurrency.decimalsCount)
-        } else {
-            0
-        }
-        accountBalance = BalanceStore.currentAccountBalances[tokenSlug] ?? 0
-    }
-    
-    func updateAmountFromBaseCurrency(_ baseCurrency: BigInt) {
-        guard let token else { return }
-        let price = token.price ?? 0
-        let baseCurrencyDecimals = TokenStore.baseCurrency?.decimalsCount ?? 2
-        if price > 0 {
-            self.amount = convertAmountReverse(baseCurrency, price: price, tokenDecimals: token.decimals, baseCurrencyDecimals: baseCurrencyDecimals)
-        } else {
-            self.amount = 0
-            self.switchedToBaseCurrencyInput = false
-        }
-        accountBalance = BalanceStore.currentAccountBalances[tokenSlug] ?? 0
-    }
-    
-    func validateAddressOrDomain(_ addressOrDomain: String?, tokenSlug: String?) {
-        guard let chain = ApiChain(rawValue: token?.chain ?? "") else{
-            return
-        }
-        let address = addressOrDomain ?? self.addressOrDomain
-        let tokenSlug = tokenSlug ?? self.tokenSlug
-        if chain.validate(address: address) == false {
-            draftData = .init(status: .invalid, address: address, tokenSlug: tokenSlug, amount: amount, comment: comment, transactionDraft: nil)
-        } else {
-            validateAndEstimate()
-        }
-    }
-    
-    func _prepareCommentOptions() -> AnyTransferPayload? {
-        let isBase64Data: Bool?
-        let comment: String?
-        let shouldEncrypt: Bool?
+    var commentPayload: AnyTransferPayload? {
         if let binaryPayload = self.binaryPayload?.nilIfEmpty {
             return .base64(data: binaryPayload)
         } else if let _comment = self.comment.nilIfEmpty {
@@ -446,148 +360,117 @@ private let log = Log("SendModel")
         }
     }
     
-    func makeCheckTransactionOptions(addressOrDomain: String, amount: BigInt?, comment: String?) -> ApiCheckTransactionDraftOptions? {
-        guard let token = token else {
-            return nil
-        }
-        return ApiCheckTransactionDraftOptions(
-            accountId: AccountStore.accountId!,
-            toAddress: addressOrDomain,
-            amount: amount ?? 0,
-            payload: _prepareCommentOptions(),
-            stateInit: stateInit,
-            tokenAddress: token.tokenAddress,
-            allowGasless: true
-        )
-    }
+    // MARK: - View controller callbacks
     
-    func makeSubmitTransferOptions(passcode: String?, addressOrDomain: String, amount: BigInt?, comment: String?) async throws -> ApiSubmitTransferOptions? {
-        guard let token = token else {
-            return nil
-        }
-        let accountId = AccountStore.accountId!
-        let draft = draftData.transactionDraft
-        return ApiSubmitTransferOptions(
-            accountId: accountId,
-            toAddress: addressOrDomain,
-            amount: amount ?? 0,
-            payload: _prepareCommentOptions(),
-            stateInit: stateInit,
-            tokenAddress: token.tokenAddress,
-            realFee: explainedFee?.realFee?.nativeSum,
-            isGasless: explainedFee?.isGasless,
-            dieselAmount: draftData.transactionDraft?.diesel?.tokenAmount,
-            isGaslessWithStars: nil,
-            password: passcode,
-            fee: explainedFee?.fullFee?.nativeSum,
-            noFeeCheck: nil,
-        )
-    }
-    
-    private func validateAndEstimate() {
-        Task {
-            if nftSendMode == nil {
-                await validateAndEstimateBase()
-            } else {
-                await validateAndEstimateNft()
-            }
-        }
-    }
-    
-    @MainActor private func validateAndEstimateBase() async {
-        do {
-            if addressOrDomain == draftData.address,
-               tokenSlug == draftData.tokenSlug,
-               (
-                draftData.status == .invalid ||
-                (amount == draftData.amount &&
-                 comment == draftData.comment)
-               ) {
-                // no need to re-check
-                return
-            }
-            let keepTransactionDraftWhenLoading = addressOrDomain == draftData.address && tokenSlug == draftData.tokenSlug
-            self.draftData = .init(status: .loading, address: addressOrDomain, tokenSlug: tokenSlug, transactionDraft: keepTransactionDraftWhenLoading ? draftData.transactionDraft : nil)
-            
-            guard let chain = token?.chainValue,
-                  let draftOptions = makeCheckTransactionOptions(addressOrDomain: addressOrDomain, amount: amount, comment: comment) else {
-                self.draftData = .init(status: .none, transactionDraft: nil)
-                return
-            }
-            log.info("checkTransactionDraft \(chain, .public) \(draftOptions.amount as Any, .public)")
-            let draft = try await Api.checkTransactionDraft(chain: chain, options: draftOptions)
-            try handleDraftError(draft)
-            switch draft.error {
-            case .domainNotResolved:
-                self.draftData = .init(status: .invalid, address: addressOrDomain, transactionDraft: nil)
-                return
-            case .walletNotInitialized:
-                self.draftData = .init(status: .none, address: addressOrDomain, transactionDraft: nil)
-                showAlert?(BridgeCallError.message(.walletNotInitialized, nil))
-                return
-            default:
-                break
-            }
-            self.draftData = .init(status: .valid, address: addressOrDomain, tokenSlug: tokenSlug, amount: amount, comment: comment, transactionDraft: draft)
-            requireMemo(draft.isMemoRequired ?? false)
-        } catch {
-            if !Task.isCancelled {
-                log.error("validate error: \(error, .public)")
-                if !error.localizedDescription.contains("Invalid amount provided") {
-                    showAlert?(error)
-                }
-                self.draftData = .init(status: .none, address: addressOrDomain, tokenSlug: tokenSlug, amount: amount, comment: comment, transactionDraft: nil)
-                requireMemo(false)
-            }
-        }
-    }
-    
-    @MainActor private func validateAndEstimateNft() async {
-        do {
-            let draftData = self.draftData
-            let keepTransactionDraftWhenLoading = addressOrDomain == draftData.address && tokenSlug == draftData.tokenSlug
-            self.draftData = .init(status: .loading, address: addressOrDomain, tokenSlug: tokenSlug, transactionDraft: keepTransactionDraftWhenLoading ? draftData.transactionDraft : nil)
-
-            let nfts = self.nfts ?? []
-            let accountId = AccountStore.accountId!
-            let toAddress = self.addressOrDomain
-            let comment = self.comment.nilIfEmpty
-            let estimate = try await Api.checkNftTransferDraft(options: .init(accountId: accountId, nfts: nfts, toAddress: toAddress, comment: comment))
-            try handleDraftError(estimate)
-            self.draftData = .init(status: .valid, address: toAddress, tokenSlug: tokenSlug, amount: amount, comment: comment, transactionDraft: estimate)
-        } catch {
-            if !Task.isCancelled {
-                showAlert?(error)
-            }
-            self.draftData = .init(status: .none, address: addressOrDomain, tokenSlug: tokenSlug, amount: amount, comment: comment, transactionDraft: nil)
-        }
+    var continueState: (canContinue: Bool, insufficientFunds: Bool, draftData: DraftData, isAddressLoading: Bool) {
+        return (canContinue, insufficientFunds, draftData, isAddressLoading)
     }
 
-    func updateAccountBalance() {
-        self.accountBalance = BalanceStore.currentAccountBalances[tokenSlug]
-        if let amountInBaseCurrency, switchedToBaseCurrencyInput && amount != accountBalance {
-            updateAmountFromBaseCurrency(amountInBaseCurrency)
+    // MARK: - View callbacks
+    
+    func onScanResult(_ result: ScanResult) {
+        switch result {
+        case .url(let url):
+            guard let parsedWalletURL = parseTonTransferUrl(url) else {
+                return
+            }
+            self.$token.slug = parsedWalletURL.token ?? "toncoin"
+            self.addressOrDomain = parsedWalletURL.address
+            if let amount = parsedWalletURL.amount {
+                self.amount = amount
+                self.updateBaseCurrencyAmount(amount)
+            }
+            if let bin = parsedWalletURL.bin?.nilIfEmpty {
+                self.binaryPayload = bin
+            } else if let comment = parsedWalletURL.comment {
+                self.comment = comment
+                self.isMessageEncrypted = false
+            }
+        
+        case .address(let address, let possibleChains):
+            if !possibleChains.isEmpty {
+                self.addressOrDomain = address
+            }
+        }
+    }
+    
+    func onTokenSelected(newToken: ApiToken) {
+        let oldDecimals = self.token.decimals
+        self.$token.slug = newToken.slug
+        
+        if switchedToBaseCurrencyInput {
+            // keep base currency the same and adjust token amount
+            if let baseCurrency = self.amountInBaseCurrency {
+                self.updateAmountFromBaseCurrency(baseCurrency)
+            }
         } else {
-            updateBaseCurrencyAmount(amount)
+            // new token might have different decimals, but we want user visible number to remain the same
+            if let amount = self.amount {
+                let newAmount = convertDecimalsKeepingDoubleValue(amount, fromDecimals: oldDecimals, toDecimals: newToken.decimals)
+                self.amount = newAmount
+                self.updateBaseCurrencyAmount(newAmount)
+            }
         }
+        
+        self.updateAccountBalance()
     }
     
-    func requireMemo(_ isReqired: Bool) {
-        if isReqired {
-            isMessageEncrypted = false
+    func onUseAll() {
+        guard let maxToSend else {
+            return
         }
+        self.amount = maxToSend
+        self.amountInBaseCurrency = convertAmount(maxToSend, price: token.price ?? 0, tokenDecimals: token.decimals, baseCurrencyDecimals: baseCurrency.decimalsCount)
+        topViewController()?.view.endEditing(true)
+    }
+    
+    // MARK: - Syncing amounts
+    
+    func updateBaseCurrencyAmount(_ amount: BigInt?) {
+        guard let amount else { return }
+        self.amountInBaseCurrency = convertAmount(amount, price: token.price ?? 0, tokenDecimals: token.decimals, baseCurrencyDecimals: baseCurrency.decimalsCount)
+        accountBalance = $account.balances[token.slug] ?? 0
+    }
+    
+    func updateAmountFromBaseCurrency(_ baseCurrency: BigInt) {
+        let price = token.price ?? 0
+        let baseCurrencyDecimals = self.baseCurrency.decimalsCount
+        if price > 0 {
+            self.amount = convertAmountReverse(baseCurrency, price: price, tokenDecimals: token.decimals, baseCurrencyDecimals: baseCurrencyDecimals)
+        } else {
+            self.amount = 0
+            self.switchedToBaseCurrencyInput = false
+        }
+        accountBalance = $account.balances[token.slug] ?? 0
+    }
+    
+    // MARK: - Send flow
+    
+    func submit(password: String?) async throws {
+        let context = makeFlowContext()
+        try await flow.submit(context: context, password: password, explainedFee: explainedFee)
+    }
+    
+    func makeLedgerPayload() async throws -> SignData {
+        let context = makeFlowContext()
+        return try await flow.ledgerPayload(context: context, explainedFee: explainedFee)
+    }
+    
+    private func makeFlowContext() -> SendFlowContext {
+        SendFlowContext(
+            accountId: account.id,
+            address: addressOrDomain,
+            resolvedAddress: resolvedAddress,
+            token: token,
+            amount: amount,
+            comment: comment.nilIfEmpty,
+            binaryPayload: binaryPayload,
+            payload: commentPayload,
+            stateInit: stateInit,
+            nfts: nfts,
+            nftSendMode: nftSendMode,
+            diesel: draftData.transactionDraft?.diesel,
+            transactionDraft: draftData.transactionDraft
+        )
     }
 }
-
-
-extension SendModel: WalletCoreData.EventsObserver {
-    public func walletCore(event: WalletCoreData.Event) {
-        switch event {
-        case .balanceChanged, .tokensChanged:
-            updateAccountBalance()
-        default:
-            break
-        }
-    }
-}
-

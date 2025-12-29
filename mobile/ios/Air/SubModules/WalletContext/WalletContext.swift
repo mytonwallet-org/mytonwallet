@@ -31,7 +31,6 @@ public protocol WalletContextDelegate: NSObject {
     func handleDeeplink(url: URL) -> Bool
     var isWalletReady: Bool { get }
     var isAppUnlocked: Bool { get }
-    var isCapacitorAppAvailable: Bool { get }
 }
 
 public class WalletContextManager {

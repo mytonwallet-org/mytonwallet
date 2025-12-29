@@ -1,5 +1,9 @@
 import { TON_DNS_ZONES } from '../config';
-import { getDnsDomainZone, getDnsZoneByCollection, isDnsDomain } from './dns';
+import {
+  getDnsDomainZone,
+  getDnsZoneByCollection,
+  isTonChainDns,
+} from './dns';
 
 const correctDomains = [
   {
@@ -46,7 +50,6 @@ const incorrectDomains = [
   'foo_bar.ton',
   'h@cker.t.me',
   'foo-bar.vip',
-  'foo-bar.gram',
   ' domain.ton',
 
   // Too short
@@ -70,18 +73,18 @@ const incorrectDomains = [
   'one.two.three.domain.gram',
 ];
 
-describe('isDnsDomain', () => {
+describe('isTonBlockchainDns', () => {
   it.each(correctDomains.flatMap(({ domains }) => domains))(
     'returns true for $full',
     (domain) => {
-      expect(isDnsDomain(domain.full)).toBe(true);
+      expect(isTonChainDns(domain.full)).toBe(true);
     },
   );
 
   it.each(incorrectDomains)(
     'returns false for %s',
     (domain) => {
-      expect(isDnsDomain(domain)).toBe(false);
+      expect(isTonChainDns(domain)).toBe(false);
     },
   );
 });

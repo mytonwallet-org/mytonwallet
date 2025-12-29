@@ -26,11 +26,14 @@ env:
   PROXY_HOSTS: ${{ vars.PROXY_HOSTS }}
   STAKING_POOLS: ${{ vars.STAKING_POOLS }}
   PUBLISH_REPO: ${{ vars.PUBLISH_REPO }}
+  BRILLIANT_API_BASE_URL: ${{ vars.BRILLIANT_API_BASE_URL }}
+  SWAP_FEE_ADDRESS: ${{ vars.SWAP_FEE_ADDRESS }}
+  DIESEL_ADDRESS: ${{ vars.DIESEL_ADDRESS }}
 
 jobs:
   electron-release:
     name: Build, package and publish Electron
-    runs-on: macos-13
+    runs-on: macos-15
     environment: production
     timeout-minutes: 30
     steps:
@@ -85,24 +88,28 @@ jobs:
         with:
           name: ${{ env.APP_NAME }}-x64.dmg
           path: dist-electron/${{ env.APP_NAME }}-x64.dmg
+          if-no-files-found: error
 
       - name: Upload macOS arm64 artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.APP_NAME }}-arm64.dmg
           path: dist-electron/${{ env.APP_NAME }}-arm64.dmg
+          if-no-files-found: error
 
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.APP_NAME }}-x86_64.AppImage
           path: dist-electron/${{ env.APP_NAME }}-x86_64.AppImage
+          if-no-files-found: error
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.APP_NAME }}-x64-unsigned.exe
           path: dist-electron/${{ env.APP_NAME }}-x64.exe
+          if-no-files-found: error
 
   electron-sign-for-windows:
     name: Sign and re-publish Windows package
@@ -169,6 +176,7 @@ jobs:
 
       - name: Build and package
         run: |
+          export APP_COMMIT_HASH=${{ github.sha }}
           if [ -z "$PUBLISH_REPO" ]; then
             npm run extension-chrome:package:staging
             npm run extension-firefox:package:staging
@@ -263,6 +271,7 @@ jobs:
           unzip ${{ env.FIREFOX_FILE_NAME }} -d $UNZIP_DIR
           npx web-ext-submit --source-dir=$UNZIP_DIR
           echo "APP_NAME=\"${APP_NAME}\"
+          APP_COMMIT_HASH=${{ github.sha }}
           PROXY_HOSTS=\"${PROXY_HOSTS}\"
           STAKING_POOLS=\"${STAKING_POOLS}\"" >.env
           bash deploy/firefox_pack_sources.sh
@@ -364,8 +373,8 @@ jobs:
       - name: Set up JDK 21
         uses: actions/setup-java@v3
         with:
-          java-version: '21'
-          distribution: 'temurin'
+          java-version: "21"
+          distribution: "temurin"
           cache: gradle
 
       - name: Setup Android SDK
@@ -424,7 +433,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Prepare the Node environment
         uses: ./.github/actions/prepare_node
         with:
@@ -483,8 +491,8 @@ jobs:
           IOS_AUTH_KEY_BASE64: ${{ secrets.IOS_AUTH_KEY_BASE64 }}
           FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: 300
         run: |
-          sudo xcode-select --switch /Applications/Xcode_26.0.app/Contents/Developer
-          export DEVELOPER_DIR=/Applications/Xcode_26.0.app/Contents/Developer
+          sudo xcode-select --switch /Applications/Xcode_26.1.app/Contents/Developer
+          export DEVELOPER_DIR=/Applications/Xcode_26.1.app/Contents/Developer
           xcodebuild -version
           xcodebuild -showsdks
           xcodebuild -downloadPlatform iOS || true

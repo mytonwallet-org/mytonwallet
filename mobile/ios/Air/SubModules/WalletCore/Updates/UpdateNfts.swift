@@ -6,7 +6,7 @@ extension ApiUpdate {
         public var type = "updateNfts"
         public var accountId: String
         public var nfts: [ApiNft]
-        public var shouldAppend: Bool?
+        public var collectionAddress: String?
     }
     
     public struct NftReceived: Equatable, Hashable, Codable, Sendable {

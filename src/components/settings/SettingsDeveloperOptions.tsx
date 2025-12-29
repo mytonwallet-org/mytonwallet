@@ -6,7 +6,7 @@ import type { Account } from '../../global/types';
 import type { DropdownItem } from '../ui/Dropdown';
 
 import { APP_COMMIT_HASH, APP_ENV, APP_VERSION, IS_CORE_WALLET, IS_EXTENSION, IS_TELEGRAM_APP } from '../../config';
-import { selectIsMultichainAccount } from '../../global/selectors';
+import { selectCurrentAccountId, selectIsMultichainAccount } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { copyTextToClipboard } from '../../util/clipboard';
 import { getBuildPlatform, getFlagsValue } from '../../util/getBuildPlatform';
@@ -69,7 +69,7 @@ function SettingsDeveloperOptions({
     closeSettings,
     openAddAccountModal,
     copyStorageData,
-    showNotification,
+    showToast,
   } = getActions();
   const lang = useLang();
   const currentNetwork = NETWORK_OPTIONS[isTestnet ? 1 : 0].value;
@@ -90,7 +90,7 @@ function SettingsDeveloperOptions({
 
     if (!CAN_DOWNLOAD_LOGS) {
       await copyTextToClipboard(logsString);
-      showNotification({ message: lang('Logs were copied!'), icon: 'icon-copy' });
+      showToast({ message: lang('Logs were copied!'), icon: 'icon-copy' });
       onClose();
     } else {
       const filename = `${IS_CORE_WALLET ? 'tonwallet' : 'mytonwallet'}_logs_${new Date().toISOString()}.json`;
@@ -182,7 +182,7 @@ function SettingsDeveloperOptions({
 }
 
 export default memo(withGlobal<OwnProps>((global): StateProps => {
-  const currentAccountId = global.currentAccountId;
+  const currentAccountId = selectCurrentAccountId(global);
   const accountsById = global.accounts?.byId;
   const canViewAllWalletVersions = !selectIsMultichainAccount(global, currentAccountId!);
 

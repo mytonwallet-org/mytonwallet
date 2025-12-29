@@ -47,12 +47,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, MtwAppDelegateProtocol {
         #endif
     }
 
-    @MainActor func switchToAir() {
+    func switchToAir() {
         cleanWebViews()
         UIApplication.shared.connectedSceneDelegate?.switchToAir()
     }
     
-    @MainActor func switchToCapacitor() {
+    func switchToCapacitor() {
         UIApplication.shared.connectedSceneDelegate?.switchToCapacitor()
     }
     

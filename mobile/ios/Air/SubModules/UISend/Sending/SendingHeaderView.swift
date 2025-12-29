@@ -11,32 +11,35 @@ import UIKit
 import UIComponents
 import WalletCore
 import WalletContext
+import Perception
 
 struct SendingHeaderView: View {
     
-    @EnvironmentObject private var model: SendModel
+    let model: SendModel
     
     var body: some View {
-        let text = lang("Send to") + " "
-        if let nft = model.nfts?.first {
-            NftOverviewView(
-                nft: nft,
-                isOutgoing: true,
-                text: text,
-                addressName: model.toAddressDraft?.addressName,
-                resolvedAddress: model.toAddressDraft?.resolvedAddress,
-                addressOrDomain: model.addressOrDomain
-            )
-        } else {
-            TransactionOverviewView(
-                amount: model.amount ?? 0,
-                token: model.token!,
-                isOutgoing: true,
-                text: text,
-                addressName: model.toAddressDraft?.addressName,
-                resolvedAddress: model.toAddressDraft?.resolvedAddress,
-                addressOrDomain: model.addressOrDomain
-            )
+        WithPerceptionTracking {
+            let text = lang("Send to") + " "
+            if let nft = model.nfts?.first {
+                NftOverviewView(
+                    nft: nft,
+                    isOutgoing: true,
+                    text: text,
+                    addressName: model.draftData.transactionDraft?.addressName,
+                    resolvedAddress: model.draftData.transactionDraft?.resolvedAddress,
+                    addressOrDomain: model.addressOrDomain
+                )
+            } else {
+                TransactionOverviewView(
+                    amount: model.amount ?? 0,
+                    token: model.token,
+                    isOutgoing: true,
+                    text: text,
+                    addressName: model.draftData.transactionDraft?.addressName,
+                    resolvedAddress: model.draftData.transactionDraft?.resolvedAddress,
+                    addressOrDomain: model.addressOrDomain
+                )
+            }
         }
     }
 }

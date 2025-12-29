@@ -16,7 +16,7 @@ import SwiftUI
 struct BuyWithCardHeader: View {
     
     @ObservedObject var model: BuyWithCardModel
-    @StateObject var menuContext = MenuContext()
+    @State var menuContext = MenuContext()
     
     var body: some View {
         VStack(alignment: .center, spacing: 0) {

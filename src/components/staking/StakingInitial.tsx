@@ -22,12 +22,14 @@ import renderText from '../../global/helpers/renderText';
 import {
   selectAccountStakingState,
   selectAccountStakingStates,
+  selectCurrentAccountId,
   selectCurrentAccountState,
   selectCurrentAccountTokens,
   selectIsCurrentAccountViewMode,
 } from '../../global/selectors';
 import { bigintMax } from '../../util/bigint';
 import buildClassName from '../../util/buildClassName';
+import { getChainTitle } from '../../util/chain';
 import { toBig, toDecimal } from '../../util/decimals';
 import { stopEvent } from '../../util/domEvents';
 import { getTonStakingFees } from '../../util/fee/getTonOperationFees';
@@ -237,7 +239,7 @@ function StakingInitial({
         default:
           text = [
             `1. ${lang('$safe_staking_description1')}`,
-            `2. ${lang('$safe_staking_description2')}`,
+            `2. ${lang('$safe_staking_description2').replace('%chain%', getChainTitle('ton'))}`,
             `3. ${lang('$safe_staking_description3')}`,
           ];
       }
@@ -326,7 +328,7 @@ function StakingInitial({
 
   // It is necessary to use useCallback instead of useLastCallback here
   const renderBottomRight = useCallback((className?: string) => {
-    let content: string | TeactNode[] | React.JSX.Element = ' ';
+    let content: string | TeactNode[] | React.JSX.Element;
 
     if (error) {
       content = (
@@ -378,7 +380,7 @@ function StakingInitial({
           {renderText(lang('$safe_staking_description1'))}
         </p>
         <p className={modalStyles.text}>
-          {renderText(lang('$safe_staking_description2'))}
+          {renderText(lang('$safe_staking_description2', { chain: getChainTitle('ton') }))}
         </p>
         <p className={modalStyles.text}>
           {renderText(lang('$safe_staking_description3'))}
@@ -558,9 +560,9 @@ function StakingInitial({
 }
 
 export default memo(
-  withGlobal(
+  withGlobal<OwnProps>(
     (global): StateProps => {
-      const accountId = global.currentAccountId;
+      const currentAccountId = selectCurrentAccountId(global);
       const accountState = selectCurrentAccountState(global);
       const tokens = selectCurrentAccountTokens(global);
       const tokenBySlug = global.tokenInfo.bySlug;
@@ -573,8 +575,8 @@ export default memo(
         error: apiError,
       } = global.currentStaking;
 
-      const states = accountId ? selectAccountStakingStates(global, accountId) : undefined;
-      const stakingState = selectAccountStakingState(global, global.currentAccountId!);
+      const states = currentAccountId ? selectAccountStakingStates(global, currentAccountId) : undefined;
+      const stakingState = currentAccountId ? selectAccountStakingState(global, currentAccountId) : undefined;
 
       return {
         isViewMode: selectIsCurrentAccountViewMode(global),
@@ -591,6 +593,6 @@ export default memo(
         currencyRates: global.currencyRates,
       };
     },
-    (global, _, stickToFirst) => stickToFirst(global.currentAccountId),
+    (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),
   )(StakingInitial),
 );

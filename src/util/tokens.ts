@@ -1,7 +1,7 @@
 import type { ApiChain, ApiToken, ApiTokenWithPrice } from '../api/types';
 import type { UserToken } from '../global/types';
 
-import { PRICELESS_TOKEN_HASHES, STAKED_TOKEN_SLUGS, TONCOIN } from '../config';
+import { PRICELESS_TOKEN_HASHES, STAKED_TOKEN_SLUGS } from '../config';
 import { findChainConfig, getChainConfig, getSupportedChains } from './chain';
 import { pick } from './iteratees';
 
@@ -11,10 +11,6 @@ const chainByNativeSlug = Object.fromEntries(
 
 export function getIsNativeToken(slug?: string) {
   return slug ? slug in chainByNativeSlug : false;
-}
-
-export function getIsTonToken(slug: string, withNative?: boolean) {
-  return Boolean(slug.startsWith('ton-') || (withNative && slug === TONCOIN.slug));
 }
 
 export function getNativeToken(chain: ApiChain): ApiToken {

@@ -47,14 +47,15 @@ struct StakingConfirmHeaderView: View {
     @ViewBuilder
     var amountView: some View {
         let showPlus = mode == .claim || mode == .unstake
+        let isLargeAmount = abs(tokenAmount.doubleValue) >= 10
         AmountText(
             amount: tokenAmount,
-            format: .init(maxDecimals: 4, showPlus: showPlus, showMinus: false),
+            format: .init(preset: .defaultAdaptive, showPlus: showPlus, showMinus: false),
             integerFont: .rounded(ofSize: 34, weight: .bold),
             fractionFont: .rounded(ofSize: 28, weight: .bold),
             symbolFont: .rounded(ofSize: 28, weight: .bold),
             integerColor: WTheme.primaryLabel,
-            fractionColor: WTheme.primaryLabel,
+            fractionColor: isLargeAmount ? WTheme.secondaryLabel : WTheme.primaryLabel,
             symbolColor: WTheme.secondaryLabel
         )
     }
@@ -67,7 +68,7 @@ struct StakingConfirmHeaderView: View {
         case .unstake:
             lang("Request for unstaking")
         case .claim:
-            lang("Accumulated rewards")
+            lang("Accumulated Rewards")
         }
         Text(hint)
     }

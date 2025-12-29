@@ -2,10 +2,24 @@ import type { ChainSdk } from '../../types/chains';
 
 import { decryptComment, fetchActivityDetails, fetchActivitySlice } from './activities';
 import { normalizeAddress } from './address';
-import { getWalletFromAddress, getWalletFromBip39Mnemonic, getWalletsFromLedgerAndLoadBalance } from './auth';
+import {
+  fetchPrivateKeyString,
+  getWalletFromAddress,
+  getWalletFromBip39Mnemonic,
+  getWalletFromPrivateKey,
+  getWalletsFromLedgerAndLoadBalance,
+} from './auth';
 import { getIsLedgerAppOpen } from './other';
 import { setupActivePolling, setupInactivePolling } from './polling';
-import { checkTransactionDraft, fetchEstimateDiesel, submitGasfullTransfer, submitGaslessTransfer } from './transfer';
+import { fetchToken, importToken } from './tokens';
+import { fetchTransactionById } from './transactionInfo';
+import {
+  checkToAddress,
+  checkTransactionDraft,
+  fetchEstimateDiesel,
+  submitGasfullTransfer,
+  submitGaslessTransfer,
+} from './transfer';
 import { verifyLedgerWalletAddress } from './wallet';
 
 const tonSdk: ChainSdk<'ton'> = {
@@ -14,16 +28,22 @@ const tonSdk: ChainSdk<'ton'> = {
   decryptComment,
   normalizeAddress,
   getWalletFromBip39Mnemonic,
+  getWalletFromPrivateKey,
   getWalletFromAddress,
   getWalletsFromLedgerAndLoadBalance,
   setupActivePolling,
   setupInactivePolling,
+  fetchToken,
+  importToken,
   checkTransactionDraft,
   fetchEstimateDiesel,
   submitGasfullTransfer,
   submitGaslessTransfer,
+  getAddressInfo: checkToAddress,
   verifyLedgerWalletAddress,
+  fetchPrivateKeyString,
   getIsLedgerAppOpen,
+  fetchTransactionById,
 };
 
 export default tonSdk;
@@ -34,9 +54,7 @@ export {
   generateMnemonic,
   rawSign,
   validateMnemonic,
-  fetchPrivateKey,
   getWalletFromMnemonic,
-  getWalletFromPrivateKey,
   getOtherVersionWallet,
 } from './auth';
 export {
@@ -55,7 +73,6 @@ export {
   checkTransactionDraft,
   submitGasfullTransfer,
   checkMultiTransactionDraft,
-  checkToAddress,
   submitMultiTransfer,
   signTransfers,
 } from './transfer';
@@ -74,9 +91,7 @@ export {
   submitUnstakeEthenaLocked,
 } from './staking';
 export {
-  fetchToken,
   insertMintlessPayload,
-  importToken,
 } from './tokens';
 export {
   validateDexSwapTransfers,

@@ -19,13 +19,15 @@ public enum DisplayAssetTab: Hashable {
 @MainActor
 public final class WalletAssetsViewModel: WalletCoreData.EventsObserver {
     
-    public static let shared = WalletAssetsViewModel()
+    public static let shared = WalletAssetsViewModel(accountSource: .current)
     
     public var displayTabs: [DisplayAssetTab] = []
     
     public weak var delegate: WalletAssetsViewModelDelegate?
     
-    private var accountId: String
+    private let accountIdProvider: AccountIdProvider
+    private var accountId: String { accountIdProvider.accountId }
+    
     private var _tabs: [WalletAssetsTab]?
     private var isAutoTelegramGiftsHidden: Bool = false
     private var observation: Task<Void, Never>?
@@ -34,8 +36,8 @@ public final class WalletAssetsViewModel: WalletCoreData.EventsObserver {
     private var db: (any DatabaseWriter)? { WalletCore.db }
     private var nftStore: _NftStore { NftStore }
     
-    public init() {
-        self.accountId = AccountStore.accountId ?? DUMMY_ACCOUNT.id
+    public init(accountSource: AccountSource) {
+        self.accountIdProvider = AccountIdProvider(source: accountSource)
         WalletCoreData.add(eventObserver: self)
         let snapshot = try? WalletCore.db?.read { db in
             try AssetTabsSnapshot.fetchOne(db, key: accountId)
@@ -54,8 +56,7 @@ public final class WalletAssetsViewModel: WalletCoreData.EventsObserver {
     
     private func handleEvent(_ event: WalletCoreData.Event) async {
         switch event {
-        case .accountChanged(let accountId, _):
-            self.accountId = accountId
+        case .accountChanged(_, _):
             setupTabsObservation()
         case .nftsChanged(accountId: accountId):
             if self.accountId == accountId {
@@ -64,6 +65,11 @@ public final class WalletAssetsViewModel: WalletCoreData.EventsObserver {
         default:
             break
         }
+    }
+    
+    public func changeAccountTo(accountId: String) {
+        self.accountIdProvider.accountId = accountId
+        setupTabsObservation()
     }
     
     private func setupTabsObservation() {
@@ -105,8 +111,10 @@ public final class WalletAssetsViewModel: WalletCoreData.EventsObserver {
         } else {
             displayTabs = [.tokens, .nfts, .nftSuperCollection(TELEGRAM_GIFTS_SUPER_COLLECTION)].compactMap(storedTabToDisplay)
         }
-        self.displayTabs = displayTabs
-        delegate?.displayTabsChanged()
+        if self.displayTabs != displayTabs {
+            self.displayTabs = displayTabs
+            delegate?.displayTabsChanged()
+        }
     }
     
     func storedTabToDisplay(_ tab: WalletAssetsTab) -> DisplayAssetTab? {

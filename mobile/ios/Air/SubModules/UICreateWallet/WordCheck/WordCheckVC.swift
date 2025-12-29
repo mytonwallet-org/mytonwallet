@@ -6,11 +6,9 @@
 //
 
 import UIKit
-import UIHome
 import UIPasscode
 import UIComponents
 import SwiftUI
-import WalletCore
 import WalletContext
 
 class WordCheckVC: WViewController {
@@ -38,10 +36,6 @@ class WordCheckVC: WViewController {
     
     func setupViews() {
         
-        addNavigationBar(
-            addBackButton: weakifyGoBack(),
-        )
-        
         hostingController = addHostingController(makeView(), constraints: .fill)
         
         bringNavigationBarToFront()
@@ -53,8 +47,6 @@ class WordCheckVC: WViewController {
         WordCheckView(
             introModel: introModel,
             model: model,
-            navigationBarInset: navigationBarHeight,
-            onScroll: weakifyUpdateProgressiveBlur(),
         )
     }
     

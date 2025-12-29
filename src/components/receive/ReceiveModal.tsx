@@ -1,7 +1,7 @@
 import React, { memo, useEffect } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
-import { selectIsHardwareAccount, selectIsMultichainAccount } from '../../global/selectors';
+import { selectCurrentAccountId, selectIsHardwareAccount, selectIsMultichainAccount } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { IS_IOS_APP } from '../../util/windowEnvironment';
 
@@ -68,8 +68,9 @@ function ReceiveModal({
 
 export default memo(withGlobal((global): StateProps => {
   const { isSwapDisabled, isOnRampDisabled } = global.restrictions;
+  const currentAccountId = selectCurrentAccountId(global);
   const isLedger = selectIsHardwareAccount(global);
-  const isMultichainAccount = selectIsMultichainAccount(global, global.currentAccountId!);
+  const isMultichainAccount = selectIsMultichainAccount(global, currentAccountId!);
 
   return {
     isOpen: global.isReceiveModalOpen,

@@ -5,28 +5,24 @@ import UIPasscode
 import UIComponents
 import WalletCore
 import WalletContext
+import Perception
 
 
 struct SecurityView: View {
     
     var password: String
-    var navigationBarInset: CGFloat
-    var onScroll: (CGFloat) -> ()
-    
-    @Namespace private var ns
     
     @State private var biometrics: Bool = AppStorageHelper.isBiometricActivated()
     @State private var autolockOption: MAutolockOption = AutolockStore.shared.autolockOption
     
     var body: some View {
-        InsetList(topPadding: 8, spacing: 24) {
-            backupSection
-                .scrollPosition(ns: ns, offset: 8, callback: onScroll)
-            passcodeSection
-            autolockSection
+        WithPerceptionTracking {
+            InsetList(topPadding: 8, spacing: 24) {
+                backupSection
+                passcodeSection
+                autolockSection
+            }
         }
-        .coordinateSpace(name: ns)
-        .navigationBarInset(navigationBarInset)
     }
     
     // MARK: - Backup

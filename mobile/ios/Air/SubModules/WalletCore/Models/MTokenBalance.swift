@@ -8,7 +8,7 @@
 import Foundation
 import WalletContext
 
-public struct MTokenBalance: Equatable, Sendable {
+public struct MTokenBalance: Equatable, Hashable, Sendable {
     public static func == (lhs: MTokenBalance, rhs: MTokenBalance) -> Bool {
         lhs.tokenSlug == rhs.tokenSlug && lhs.isStaking == rhs.isStaking
     }

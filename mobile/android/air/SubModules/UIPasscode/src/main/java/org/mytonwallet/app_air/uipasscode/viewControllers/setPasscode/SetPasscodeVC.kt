@@ -11,7 +11,7 @@ import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.HeaderAndActionsView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
-import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
+import org.mytonwallet.app_air.uicomponents.widgets.fadeInObjectAnimator
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.shakeView
 import org.mytonwallet.app_air.uipasscode.commonViews.PasscodeInputView
@@ -32,6 +32,7 @@ class SetPasscodeVC(
     private val confirmingPasscode: String?,
     private val onCompletion: (passcode: String, isBiometricRequested: Boolean) -> Unit
 ) : WViewController(context), PasscodeInputView.Delegate {
+    override val TAG = "SetPasscode"
 
     override val shouldDisplayTopBar = false
 
@@ -48,8 +49,8 @@ class SetPasscodeVC(
             title = LocaleController.getString("The wallet is ready"),
             subtitle = LocaleController.getString(if (confirmingPasscode == null) "Create a code to protect it" else "Enter your code again"),
             onStarted = {
-                passcodeInputView.fadeIn()
-                switchLengthButton.fadeIn()
+                passcodeInputView.fadeInObjectAnimator()?.start()
+                switchLengthButton.fadeInObjectAnimator()?.start()
             },
             textsGap = 13f
         )

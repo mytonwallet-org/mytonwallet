@@ -103,7 +103,6 @@ public struct WPreviewActivityCell: UIViewRepresentable {
 //@available(iOS 18, *)
 //#Preview {
 //    let activity = ApiActivity.transaction(ApiTransactionActivity(id: "d", kind: "transaction", timestamp: 0, amount: 123456789, fromAddress: "foo", toAddress: "bar", comment: nil, encryptedComment: nil, fee: 12345, slug: TON_USDT_SLUG, isIncoming: false, normalizedAddress: nil, externalMsgHashNorm: nil, shouldHide: nil, type: nil, metadata: nil, nft: nil, status: .pending))
-//    let _ = UIFont.registerAirFonts()
 //
 //    WPreviewActivityCell(activity: activity)
 //        .padding()

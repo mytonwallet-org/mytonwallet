@@ -5,21 +5,22 @@ import type {
   ApiTransferPayload,
 } from '../../../api/types';
 import type { GlobalState } from '../../types';
+import { ApiCommonError } from '../../../api/types';
 import { ApiTransactionDraftError } from '../../../api/types';
 import { ScamWarningType, TransferState } from '../../types';
 
-import { NFT_BATCH_SIZE } from '../../../config';
+import { NFT_BATCH_SIZE, TONCOIN } from '../../../config';
 import { bigintDivideToNumber } from '../../../util/bigint';
 import { getDoesUsePinPad } from '../../../util/biometrics';
 import { getChainConfig } from '../../../util/chain';
 import { explainApiTransferFee, getDieselTokenAmount } from '../../../util/fee/transferFee';
 import { split } from '../../../util/iteratees';
+import { getTranslation } from '../../../util/langProvider';
 import { callActionInNative } from '../../../util/multitab';
 import { shouldShowDomainScamWarning, shouldShowSeedPhraseScamWarning } from '../../../util/scamDetection';
-import { getIsTonToken } from '../../../util/tokens';
 import { IS_DELEGATING_BOTTOM_SHEET } from '../../../util/windowEnvironment';
 import { callApi } from '../../../api';
-import { handleTransferResult, prepareTransfer } from '../../helpers/transfer';
+import { handleTransferResult, isErrorTransferResult, prepareTransfer } from '../../helpers/transfer';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import {
   clearCurrentTransfer,
@@ -33,6 +34,7 @@ import {
 import {
   selectAccountState,
   selectCurrentAccount,
+  selectCurrentAccountId,
   selectCurrentAccountTokens,
   selectCurrentNetwork,
   selectIsHardwareAccount,
@@ -60,12 +62,13 @@ addActionHandler('submitTransferInitial', async (global, actions, payload) => {
 
   setGlobal(updateCurrentTransferLoading(global, true));
 
+  const currentAccountId = selectCurrentAccountId(global)!;
   const isNftTransfer = Boolean(nfts?.length);
   let result: ApiCheckTransactionDraftResult | undefined;
 
   if (isNftTransfer) {
     result = await callApi('checkNftTransferDraft', {
-      accountId: global.currentAccountId!,
+      accountId: currentAccountId,
       nfts,
       toAddress,
       comment,
@@ -73,7 +76,7 @@ addActionHandler('submitTransferInitial', async (global, actions, payload) => {
   } else {
     const { tokenAddress, chain } = selectToken(global, tokenSlug);
     result = await callApi('checkTransactionDraft', chain, {
-      accountId: global.currentAccountId!,
+      accountId: currentAccountId,
       tokenAddress,
       toAddress,
       amount,
@@ -128,7 +131,7 @@ addActionHandler('fetchTransferFee', async (global, actions, payload) => {
   const { tokenAddress, chain } = selectToken(global, tokenSlug);
 
   const result = await callApi('checkTransactionDraft', chain, {
-    accountId: global.currentAccountId!,
+    accountId: selectCurrentAccountId(global)!,
     toAddress,
     payload: getTransferPayload(chain, binPayload, comment, shouldEncrypt),
     tokenAddress,
@@ -163,7 +166,7 @@ addActionHandler('fetchTransferFee', async (global, actions, payload) => {
     }
   }
 
-  if (result?.error !== ApiTransactionDraftError.DomainNotResolved && shouldShowDomainScamWarning(toAddress)) {
+  if (result?.error !== ApiCommonError.DomainNotResolved && shouldShowDomainScamWarning(toAddress)) {
     global = getGlobal();
     global = updateCurrentTransfer(global, { scamWarningType: ScamWarningType.DomainLike });
     setGlobal(global);
@@ -178,7 +181,7 @@ addActionHandler('fetchNftFee', async (global, actions, payload) => {
   setGlobal(global);
 
   const result = await callApi('checkNftTransferDraft', {
-    accountId: global.currentAccountId!,
+    accountId: selectCurrentAccountId(global)!,
     nfts,
     toAddress,
     comment: getNftTransferComment(chain, comment),
@@ -203,7 +206,7 @@ addActionHandler('fetchNftFee', async (global, actions, payload) => {
   if (result?.error) {
     actions.showError({
       error: result?.error === ApiTransactionDraftError.InsufficientBalance
-        ? 'Insufficient TON for fee.'
+        ? getTranslation('Insufficient %token% for fee.', { token: TONCOIN.symbol })
         : result.error,
     });
   }
@@ -249,7 +252,7 @@ addActionHandler('submitTransfer', async (global, actions, { password } = {}) =>
     for (const chunk of chunks) {
       const batchResult = await callApi(
         'submitNftTransfers',
-        global.currentAccountId!,
+        selectCurrentAccountId(global)!,
         password,
         chunk,
         resolvedAddress!,
@@ -269,7 +272,7 @@ addActionHandler('submitTransfer', async (global, actions, { password } = {}) =>
     const { tokenAddress, chain } = selectToken(global, tokenSlug);
 
     const options: ApiSubmitTransferOptions = {
-      accountId: global.currentAccountId!,
+      accountId: selectCurrentAccountId(global)!,
       password,
       toAddress: resolvedAddress!,
       amount: amount!,
@@ -298,9 +301,7 @@ addActionHandler('submitTransfer', async (global, actions, { password } = {}) =>
       || undefined,
   }));
 
-  if (getIsTonToken(tokenSlug)) {
-    actions.fetchTransferDieselState({ tokenSlug });
-  }
+  actions.fetchTransferDieselState({ tokenSlug });
 });
 
 addActionHandler('cancelTransfer', (global, actions, { shouldReset } = {}) => {
@@ -329,7 +330,7 @@ addActionHandler('fetchTransferDieselState', async (global, actions, { tokenSlug
   const { tokenAddress, chain } = selectToken(global, tokenSlug);
   if (!tokenAddress) return;
 
-  const diesel = await callApi('fetchEstimateDiesel', global.currentAccountId!, chain, tokenAddress);
+  const diesel = await callApi('fetchEstimateDiesel', selectCurrentAccountId(global)!, chain, tokenAddress);
   if (!diesel) return;
 
   global = getGlobal();
@@ -337,16 +338,17 @@ addActionHandler('fetchTransferDieselState', async (global, actions, { tokenSlug
     return;
   }
 
-  const accountState = selectAccountState(global, global.currentAccountId!);
+  const currentAccountId = selectCurrentAccountId(global)!;
+  const accountState = selectAccountState(global, currentAccountId);
   global = preserveMaxTransferAmount(global, updateCurrentTransfer(global, { diesel }));
   if (accountState?.isDieselAuthorizationStarted && diesel.status !== 'not-authorized') {
-    global = updateAccountState(global, global.currentAccountId!, { isDieselAuthorizationStarted: undefined });
+    global = updateAccountState(global, currentAccountId, { isDieselAuthorizationStarted: undefined });
   }
   setGlobal(global);
 });
 
-addActionHandler('checkTransferAddress', async (global, actions, { address }) => {
-  if (!address) {
+addActionHandler('checkTransferAddress', async (global, actions, { address, chain }) => {
+  if (!address || !chain) {
     global = updateCurrentTransfer(global, { toAddressName: undefined, resolvedAddress: undefined });
     setGlobal(global);
 
@@ -354,10 +356,10 @@ addActionHandler('checkTransferAddress', async (global, actions, { address }) =>
   }
 
   const network = selectCurrentNetwork(global);
-  const result = await callApi('getAddressInfo', network, address);
+  const result = await callApi('getAddressInfo', chain, network, address);
 
   global = getGlobal();
-  if (!result || 'error' in result) {
+  if (isErrorTransferResult(result)) {
     global = updateCurrentTransfer(global, { toAddressName: undefined, resolvedAddress: undefined });
   } else {
     global = updateCurrentTransfer(global, {

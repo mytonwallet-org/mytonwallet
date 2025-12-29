@@ -126,6 +126,7 @@ export interface ApiSubmitGasfullTransferResult {
    * method caller can fill by themselves.
    */
   localActivityParams?: Partial<Omit<ApiLocalTransactionParams, 'id' | 'normalizedAddress'>>;
+  /** The backend requires it when selling TON or TON tokens currently */
   msgHashForCexSwap?: string;
 }
 

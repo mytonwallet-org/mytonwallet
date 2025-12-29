@@ -144,6 +144,7 @@
   --color-card-apy-text: #FFF;
   --color-card-apy-background: rgba(86, 233, 145, 0.7);
   --color-card-connected-bg: rgba(0, 0, 0, 0.16);
+  --color-card-button-border: #FFFFFF40;
 
   --color-add-wallet-text: #616770;
   --color-add-wallet-text-hover: #434953;
@@ -203,16 +204,18 @@
   --header-padding-bottom: 0.8125rem;
 
   --z-below: -1;
+  --z-container: 1;
   --z-card: 10;
   --z-sticky-card: 10;
-  --z-header: 11;
+  --z-suggestions: 11;
+  --z-header: 12;
   --z-loading-overlay: 98;
   --z-media-viewer: 99;
   --z-modal: 100;
   --z-menu-backdrop: 199;
   --z-menu-bubble: calc(var(--z-menu-backdrop) + 1);
   --z-over-menu-bubble: calc(var(--z-menu-bubble) + 1);
-  --z-notification: 250;
+  --z-toast: 250;
   --z-tooltip: 300;
   --z-confetti: 400;
   --z-portal-menu: 2500;

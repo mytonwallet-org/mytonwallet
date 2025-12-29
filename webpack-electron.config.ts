@@ -1,12 +1,9 @@
+import './dev/loadEnv';
+
 import path from 'path';
 import { EnvironmentPlugin } from 'webpack';
 
-import { PRODUCTION_URL } from './src/config';
-
-// GitHub workflow uses an empty string as the default value if it's not in repository variables, so we cannot define a default value here
-process.env.BASE_URL = process.env.BASE_URL || PRODUCTION_URL;
-
-const { APP_ENV = 'production', BASE_URL } = process.env;
+import { APP_ENV, BASE_URL } from './src/config';
 
 export default {
   mode: 'production',

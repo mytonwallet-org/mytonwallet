@@ -1,11 +1,15 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.assetsAndActivities
 
 import android.content.Context
-import android.os.Handler
-import android.os.Looper
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -21,9 +25,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.utils.EquatableChange
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
-import org.mytonwallet.app_air.walletcontext.utils.diff
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MToken
@@ -32,15 +34,17 @@ import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.lang.ref.WeakReference
 import java.math.BigInteger
-import java.util.concurrent.Executors
 
 class AssetsAndActivitiesVC(context: Context) : WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource, WalletCore.EventObserver {
+    override val TAG = "AssetsAndActivities"
 
     companion object {
         val HEADER_CELL = WCell.Type(1)
         val TOKEN_CELL = WCell.Type(2)
     }
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override val shouldDisplayBottomBar = true
 
@@ -131,6 +135,11 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
         recyclerView.layoutManager?.smoothScrollToPosition(recyclerView, null, 0)
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        scope.cancel()
+    }
+
     private fun reloadTokens() {
         allTokens = AccountStore.assetsAndActivityData.getAllTokens().mapNotNull { tokenBalance ->
             TokenStore.getToken(tokenBalance.token)
@@ -183,17 +192,24 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
                         val oldHiddenTokens = oldHiddenTokens
                         data.hiddenTokens.clear()
                         data.visibleTokens.clear()
-                        AccountStore.updateAssetsAndActivityData(data, notify = true)
-                        val indexPaths = ArrayList<IndexPath>()
-                        Executors.newSingleThreadExecutor().execute {
-                            this.oldHiddenTokens =
+                        AccountStore.updateAssetsAndActivityData(
+                            data,
+                            notify = true,
+                            saveToStorage = true
+                        )
+                        val indexes = ArrayList<Int>()
+                        scope.launch {
+                            this@AssetsAndActivitiesVC.oldHiddenTokens =
                                 allTokens.map { it.isHidden() } as ArrayList<Boolean>
                             allTokens.forEachIndexed { index, mToken ->
                                 if (mToken.isHidden() != oldHiddenTokens[index])
-                                    indexPaths.add(IndexPath(1, index))
+                                    indexes.add(index)
                             }
-                            Handler(Looper.getMainLooper()).post {
-                                rvAdapter.applyChanges(indexPaths.map { EquatableChange.Update(it) })
+                            withContext(Dispatchers.Main) {
+                                val aboveItemsCount = recyclerViewNumberOfItems(recyclerView, 0)
+                                indexes.forEach {
+                                    rvAdapter.notifyItemChanged(aboveItemsCount + it)
+                                }
                             }
                         }
                     })
@@ -230,13 +246,19 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
                             }
                             AccountStore.updateAssetsAndActivityData(
                                 assetsAndActivityData,
-                                notify = true
+                                notify = true,
+                                saveToStorage = true
                             )
 
                             cell.closeSwipe()
                             val prevAllTokens = allTokens
                             reloadTokens()
-                            rvAdapter.applyChanges(prevAllTokens.diff(allTokens, section = 1))
+                            rvAdapter.applyChanges(
+                                prevAllTokens,
+                                allTokens,
+                                1,
+                                false
+                            )
                         }
                     } else null
                 )
@@ -272,7 +294,12 @@ class AssetsAndActivitiesVC(context: Context) : WViewController(context),
             WalletEvent.AssetsAndActivityDataUpdated -> {
                 val prevAllTokens = allTokens
                 reloadTokens()
-                rvAdapter.applyChanges(prevAllTokens.diff(allTokens, section = 1))
+                rvAdapter.applyChanges(
+                    prevAllTokens,
+                    allTokens,
+                    1,
+                    true
+                )
             }
 
             else -> {}

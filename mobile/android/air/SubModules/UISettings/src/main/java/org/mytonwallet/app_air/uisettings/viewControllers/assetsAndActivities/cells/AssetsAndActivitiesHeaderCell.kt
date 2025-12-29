@@ -64,7 +64,10 @@ class AssetsAndActivitiesHeaderCell(
         val v = WView(context)
         v.addView(baseCurrencyLabel)
         v.addView(currentBaseCurrencyLabel)
-        v.addView(baseCurrencySeparatorView, ViewGroup.LayoutParams(MATCH_PARENT, 1))
+        v.addView(
+            baseCurrencySeparatorView,
+            ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.SEPARATOR_HEIGHT)
+        )
         v.setConstraints {
             toStart(baseCurrencyLabel, 20f)
             toCenterY(baseCurrencyLabel)
@@ -227,7 +230,8 @@ class AssetsAndActivitiesHeaderCell(
                         }
                         AccountStore.updateAssetsAndActivityData(
                             assetsAndActivityData,
-                            notify = true
+                            notify = true,
+                            saveToStorage = true
                         )
                     }
                 })
@@ -245,7 +249,7 @@ class AssetsAndActivitiesHeaderCell(
         addView(hideTokensWithNoCostRow, LayoutParams(MATCH_PARENT, 56.dp))
         addView(tokensOnHomeScreenView, LayoutParams(MATCH_PARENT, 48.dp))
         addView(addTokenView, LayoutParams(MATCH_PARENT, 56.dp))
-        addView(separatorView, LayoutParams(0, 1))
+        addView(separatorView, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
 
         setConstraints {
             toTop(baseCurrencyView)

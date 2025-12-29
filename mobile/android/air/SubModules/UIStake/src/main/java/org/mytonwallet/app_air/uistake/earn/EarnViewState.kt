@@ -5,9 +5,11 @@ import java.math.BigInteger
 
 data class EarnViewState(
     var stakingBalance: String? = null,
+    var stakingBalanceIsLarge: Boolean = false,
     val enableAddStakeButton: Boolean = false,
     val showAddStakeButton: Boolean = false,
     val showUnstakeButton: Boolean = false,
+    val showBiggerUnstakeButton: Boolean = false,
 
     var totalProfit: String? = null,
     val canAddStake: Boolean,

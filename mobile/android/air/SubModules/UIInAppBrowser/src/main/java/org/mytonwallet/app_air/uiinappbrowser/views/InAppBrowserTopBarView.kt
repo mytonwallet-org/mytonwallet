@@ -24,6 +24,8 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.resize
+import org.mytonwallet.app_air.uicomponents.helpers.HapticType
+import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
@@ -401,6 +403,7 @@ class InAppBrowserTopBarView(
                             viewController.config.url
                         )
                     clipboard.setPrimaryClip(clip)
+                    Haptics.play(context, HapticType.LIGHT_TAP)
                 },
                 WMenuPopup.Item(
                     null,

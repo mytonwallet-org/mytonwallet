@@ -35,6 +35,7 @@ import { setBackendConfigCache } from '../common/cache';
 import { pollingLoop } from '../common/polling/utils';
 import { getTokensCache, loadTokensCache, sendUpdateTokens, tokensPreload, updateTokens } from '../common/tokens';
 import { MINUTE, SEC } from '../constants';
+import { storage } from '../storages';
 import { resolveDataPreloadPromise } from './preload';
 import { tryUpdateStakingCommonData } from './staking';
 import { swapGetAssets } from './swap';
@@ -192,6 +193,7 @@ export async function tryUpdateConfig() {
       now: serverUtc,
       country: countryCode,
       swapVersion,
+      seasonalTheme,
       isUpdateRequired: isAppUpdateRequired,
     } = config;
 
@@ -203,6 +205,7 @@ export async function tryUpdateConfig() {
       countryCode,
       isAppUpdateRequired,
       swapVersion,
+      seasonalTheme,
     });
 
     const localUtc = (new Date()).getTime();
@@ -285,7 +288,11 @@ function setupAccountConfigPolling(accountId: string, account: ApiAccountAny) {
     period: ACCOUNT_CONFIG_INTERVAL,
     async poll() {
       try {
-        const accountConfig = await callBackendPost<ApiAccountConfig>('/account-config', partialAccount);
+        const langCode = await storage.getItem('langCode');
+        const accountConfig = await callBackendPost<ApiAccountConfig>('/account-config', {
+          ...partialAccount,
+          langCode,
+        });
 
         if (!areDeepEqual(accountConfig, lastResult)) {
           lastResult = accountConfig;

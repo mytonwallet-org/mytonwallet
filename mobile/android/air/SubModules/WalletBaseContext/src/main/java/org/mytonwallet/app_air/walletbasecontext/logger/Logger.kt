@@ -6,6 +6,7 @@ import android.util.Log
 import androidx.core.content.FileProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -29,6 +30,7 @@ object Logger {
         //JS_LOG("JSLog"),
         JS_WEBVIEW_BRIDGE("JSBridge"),
         PASSCODE_CONFIRM("PassConf"),
+        SCREEN("Screen"),
         SECURE_STORAGE("SecStore"),
         SHIDDevice("SHID"),
     }
@@ -60,6 +62,7 @@ object Logger {
     private val buffer = ByteArrayOutputStream()
     private val lock = ReentrantLock()
     private var logFile: File? = null
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     fun initialize(context: Context) {
         val logsDir = File(context.filesDir, "logs").apply { mkdirs() }
@@ -84,7 +87,7 @@ object Logger {
     }
 
     fun e(tag: LogTag, message: String) {
-        d(tag, LogMessage(message))
+        e(tag, LogMessage(message))
     }
 
     fun w(tag: LogTag, message: LogMessage) {
@@ -93,7 +96,7 @@ object Logger {
     }
 
     fun w(tag: LogTag, message: String) {
-        d(tag, LogMessage(message))
+        w(tag, LogMessage(message))
     }
 
     fun d(tag: LogTag, message: LogMessage) {
@@ -113,13 +116,18 @@ object Logger {
     fun i(tag: LogTag, message: String) {
         i(tag, LogMessage(message))
     }
+
+    fun forceSynchronize() {
+        scope.launch {
+            synchronize()
+        }
+    }
     ////////////////////////////////////////////////////////////////////////////////////////////////
 
     private fun log(tag: LogTag, level: LogLevel, message: LogMessage) {
-        val entry =
-            LogEntry(tag.tag, level, message, System.currentTimeMillis())
-
-        CoroutineScope(Dispatchers.IO).launch {
+        scope.launch {
+            val entry =
+                LogEntry(tag.tag, level, message, System.currentTimeMillis())
             write(entry)
         }
     }
@@ -135,7 +143,7 @@ object Logger {
         }
     }
 
-    fun synchronize() {
+    private fun synchronize() {
         lock.withLock {
             if (buffer.size() == 0) return
             val logFile = logFile ?: return

@@ -136,7 +136,7 @@
   }
 }
 
-.avaliability {
+.availability {
   position: absolute;
   right: 1rem;
   bottom: 0;
@@ -207,6 +207,11 @@
   }
 }
 
+.center {
+  width: 100%;
+  text-align: center;
+}
+
 .dots {
   display: flex;
   gap: 0.5rem;
@@ -266,4 +271,8 @@
   align-items: center;
   margin-bottom: 2rem;
   padding: 0 0.5rem;
+}
+
+.mintCardBannerText {
+  gap: 0.25rem;
 }

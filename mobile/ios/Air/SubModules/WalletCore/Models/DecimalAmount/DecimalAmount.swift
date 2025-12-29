@@ -2,14 +2,18 @@
 import Foundation
 import WalletContext
 
-public protocol DecimalBackingType: Equatable, Hashable {
+public protocol DecimalBackingType: Equatable, Hashable, Sendable {
     var decimals: Int { get }
     var displaySymbol: String? { get }
     var forceCurrencyToRight: Bool { get }
+    var preferredDecimals: Int? { get }
 }
 
+public extension DecimalBackingType {
+    var preferredDecimals: Int? { nil }
+}
 
-public struct DecimalAmount<Backing: DecimalBackingType>: Equatable, Hashable {
+public struct DecimalAmount<Backing: DecimalBackingType>: Equatable, Hashable, Sendable {
     
     public var optionalAmount: BigInt?
     
@@ -65,10 +69,6 @@ extension DecimalAmount {
             amount
         }
         return rounded
-    }
-    
-    public var defaultDisplayDecimals: Int {
-        tokenDecimals(for: amount, tokenDecimals: decimals)
     }
     
     public var doubleValue: Double {

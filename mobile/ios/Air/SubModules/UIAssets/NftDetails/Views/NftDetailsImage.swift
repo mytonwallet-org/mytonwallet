@@ -15,17 +15,20 @@ struct NftDetailsImage: View {
     @ObservedObject var viewModel: NftDetailsViewModel
     private var listContextProvider: NftListContextProvider { viewModel.listContextProvider }
     
-    @StateObject private var coverFlowViewModel = CoverFlowViewModel<ApiNft>(
-        items: Array((NftStore.currentAccountShownNfts ?? [:]).values.map(\.nft)),
-        selectedItem: "",
-        onTap: { },
-        onLongTap: { }
-    )
+    @StateObject private var coverFlowViewModel: CoverFlowViewModel<ApiNft>
     
     @Namespace private var ns
     
     init(viewModel: NftDetailsViewModel) {
         self.viewModel = viewModel
+        self._coverFlowViewModel = StateObject(
+            wrappedValue: CoverFlowViewModel<ApiNft>(
+                items: (NftStore.getAccountShownNfts(accountId: viewModel.accountId))?.values.map(\.nft) ?? [viewModel.nft],
+                selectedItem: "",
+                onTap: { },
+                onLongTap: { }
+            )
+        )
     }
     
     @State var hideImage = false
@@ -40,8 +43,8 @@ struct NftDetailsImage: View {
                 .aspectRatio(1, contentMode: .fit)
 //                .overlay { Color.blue }
                 .clipShape(.rect(cornerRadius: viewModel.state == .collapsed ? 12 : 0))
-                .frame(height: viewModel.state != .collapsed ? nil : 144)
-                .padding(.top, viewModel.state != .collapsed ? 0 : viewModel.safeAreaInsets.top + 44)
+                .frame(height: viewModel.state != .collapsed ? nil : collapsedImageSize)
+                .padding(.top, viewModel.state != .collapsed ? 0 : viewModel.collapsedTopInset)
                 .padding(.bottom, viewModel.isExpanded ? mirrorHeight : 16)
                 .gesture(LongPressGesture(minimumDuration: 0.25, maximumDistance: 20)
                     .onEnded { _ in
@@ -66,16 +69,13 @@ struct NftDetailsImage: View {
                         coverFlowViewModel.selectedItem = id
                     }
                 )
-//                CoverFlow(isExpanded: false, viewModel: coverFlowViewModel) { nft in
-//                    NftCoverFlowItem(nft: nft, hideImage: hideImage)
-//                }
                 .id("coverFlow")
                 .visualEffect { [isExpanded = viewModel.isExpanded] content, geom in
                     content
-                        .scaleEffect(isExpanded ? UIScreen.main.bounds.size.width/144.0 : 1.0, anchor: .top)
+                        .scaleEffect(isExpanded ? screenWidth/collapsedImageSize : 1.0, anchor: .top)
                 }
                 .opacity(viewModel.state != .collapsed ? 0 : 1)
-                .padding(.top, viewModel.state != .collapsed ? 0 : viewModel.safeAreaInsets.top + 44)
+                .padding(.top, viewModel.collapsedTopInset)
                 .padding(.bottom, viewModel.isExpanded ? mirrorHeight : 16)
             }
         }
@@ -92,7 +92,7 @@ struct NftDetailsImage: View {
         }
         .coordinateSpace(name: ns)
         .onChange(of: coverFlowViewModel.selectedItem) { nftId in
-            if let nft = NftStore.currentAccountNfts?[nftId]?.nft {
+            if let nft = NftStore.getAccountNfts(accountId: viewModel.accountId)?[nftId]?.nft {
                 withAnimation(.smooth(duration: 0.1)) {
                     viewModel.nft = nft
                 }
@@ -101,20 +101,5 @@ struct NftDetailsImage: View {
         .onPreferenceChange(CoverFlowIsScrollingPreference.self) { isScrolling in
             self.hideImage = isScrolling
         }
-    }
-}
-
-
-struct NftCoverFlowItem: View {
-    
-    var nft: ApiNft
-    var hideImage: Bool
-    
-    @Environment(\.coverFlowIsCurrent) private var isCurrent
-    
-    var body: some View {
-        NftImage(nft: nft, animateIfPossible: false)
-//            .opacity(isCurrent && !hideImage ? 0 : 1)
-            .contentShape(.containerRelative)
     }
 }

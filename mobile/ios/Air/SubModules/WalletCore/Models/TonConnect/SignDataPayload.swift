@@ -32,7 +32,6 @@ public enum SignDataPayload: Equatable, Hashable, Codable, Sendable {
     }
 
     public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
         case .text(let text):
             try text.encode(to: encoder)

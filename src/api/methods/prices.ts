@@ -2,8 +2,7 @@ import type { ApiBaseCurrency, ApiHistoryList, ApiPriceHistoryPeriod } from '../
 
 import { DEFAULT_PRICE_CURRENCY, TONCOIN } from '../../config';
 import { callBackendGet } from '../common/backend';
-import { tokensPreload } from '../common/tokens';
-import { getTokenBySlug } from './tokens';
+import { getTokenBySlug, tokensPreload } from '../common/tokens';
 
 export async function fetchPriceHistory(
   slug: string,
@@ -22,5 +21,19 @@ export async function fetchPriceHistory(
   return callBackendGet(`/prices/chart/${assetId}`, {
     base: baseCurrency,
     period,
+  });
+}
+
+export async function fetchTokenNetWorthHistory(
+  accountAddress: string,
+  assetId: string,
+  period: ApiPriceHistoryPeriod,
+  baseCurrency: ApiBaseCurrency = DEFAULT_PRICE_CURRENCY,
+): Promise<ApiHistoryList | { error: string }> {
+  return callBackendGet('/portfolio/net-worth-by-asset', {
+    base: baseCurrency,
+    period,
+    walletAddress: accountAddress,
+    assetAddress: assetId,
   });
 }

@@ -39,38 +39,7 @@ public actor SharedStore {
         return tokens
     }
 
-    public func tokens(sortedByName: Bool = true) async -> [ApiToken] {
-        let tokens = await cache.tokens
-        let values = Array(tokens.values)
-        if sortedByName {
-            return values.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-        }
-        return values
-    }
-
-    public func token(slug: String) async -> ApiToken? {
-        let tokens = await cache.tokens
-        return tokens[slug]
-    }
-
     public func ratesDictionary() async -> [String: MDouble] {
         await cache.rates
-    }
-
-    public func rate(for currency: MBaseCurrency) async -> MDouble? {
-        let rates = await cache.rates
-        return rates[currency.rawValue]
-    }
-
-    public func rateValue(for currency: MBaseCurrency) async -> Double? {
-        let rates = await cache.rates
-        guard let rate = rates[currency.rawValue] else { return nil }
-        return rate.value
-    }
-
-    public func baseCurrencyRate() async -> Double {
-        let base = await cache.baseCurrency
-        let rates = await cache.rates
-        return rates[base.rawValue]?.value ?? base.fallbackExchangeRate
     }
 }

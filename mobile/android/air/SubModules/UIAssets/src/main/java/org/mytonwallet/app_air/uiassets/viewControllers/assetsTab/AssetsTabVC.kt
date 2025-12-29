@@ -10,10 +10,10 @@ import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedController
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedControllerItem
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.NftCollection
@@ -22,8 +22,15 @@ import org.mytonwallet.app_air.walletcore.stores.NftStore
 import java.util.concurrent.Executors
 
 @SuppressLint("ViewConstructor")
-class AssetsTabVC(context: Context, defaultSelectedIdentifier: String?) : WViewController(context),
+class AssetsTabVC(
+    context: Context,
+    val showingAccountId: String,
+    defaultSelectedIdentifier: String?
+) :
+    WViewController(context),
     WalletCore.EventObserver {
+    override val TAG = "AssetsTab"
+
     companion object {
         const val TAB_COINS = "app:coins"
         const val TAB_COLLECTIBLES = "app:collectibles"
@@ -50,12 +57,13 @@ class AssetsTabVC(context: Context, defaultSelectedIdentifier: String?) : WViewC
     override val isSwipeBackAllowed = false
 
     private val tokensVC: TokensVC by lazy {
-        TokensVC(context, TokensVC.Mode.ALL)
+        TokensVC(context, showingAccountId, TokensVC.Mode.ALL)
     }
 
     private val collectiblesVC: AssetsVC by lazy {
         AssetsVC(
             context,
+            showingAccountId,
             AssetsVC.Mode.COMPLETE,
             injectedWindow = window,
             isShowingSingleCollection = false
@@ -86,6 +94,7 @@ class AssetsTabVC(context: Context, defaultSelectedIdentifier: String?) : WViewC
                         onMenuPressed = if (showCollectionsMenu) {
                             { v ->
                                 CollectionsMenuHelpers.presentCollectionsMenuOn(
+                                    showingAccountId,
                                     v,
                                     navigationController!!,
                                     null
@@ -111,6 +120,7 @@ class AssetsTabVC(context: Context, defaultSelectedIdentifier: String?) : WViewC
                                 identifier = TAB_COLLECTIBLES,
                                 onMenuPressed = if (showCollectionsMenu) { v ->
                                     CollectionsMenuHelpers.presentCollectionsMenuOn(
+                                        showingAccountId,
                                         v,
                                         navigationController!!,
                                         null
@@ -129,6 +139,7 @@ class AssetsTabVC(context: Context, defaultSelectedIdentifier: String?) : WViewC
                             if (collectionMode != null) {
                                 val vc = AssetsVC(
                                     context,
+                                    showingAccountId,
                                     AssetsVC.Mode.COMPLETE,
                                     injectedWindow = window,
                                     collectionMode = collectionMode,
@@ -221,6 +232,7 @@ class AssetsTabVC(context: Context, defaultSelectedIdentifier: String?) : WViewC
                 onMenuPressed = if (showCollectionsMenu) {
                     { v ->
                         CollectionsMenuHelpers.presentCollectionsMenuOn(
+                            showingAccountId,
                             v,
                             navigationController!!,
                             onReorderTapped = null

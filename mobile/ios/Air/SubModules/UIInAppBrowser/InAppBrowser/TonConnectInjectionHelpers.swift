@@ -18,13 +18,6 @@ class InAppBrowserTonConnectInjectionHelpers {
         case event = "event"
     }
     
-    struct WebViewBridgeMessage {
-        let type: String
-        let invocationId: String
-        let name: String
-        let args: [Any]
-    }
-    
     static func objectToInject() -> String {
         let funcs = ["connect", "restoreConnection", "disconnect", "send", "window:open", "window:close"].reduce("") { acc, funcName in
             return acc + """

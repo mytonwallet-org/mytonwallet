@@ -33,11 +33,8 @@ struct SendDappContentView: View {
     var account: MAccount
     var request: MDappSendTransactions
     var onShowDetail: (ApiDappTransfer) -> ()
-    var onScroll: (CGFloat) -> ()
     
     var transactionsCount: Int { request.transactions.count }
-    
-    @Namespace var ns
     
     var body: some View {
         InsetList {
@@ -47,7 +44,6 @@ struct SendDappContentView: View {
                 account: account,
                 isDangerous: request.combinedInfo.isDangerous
             )
-            .scrollPosition(ns: ns, offset: -88, callback: onScroll)
             
             if request.combinedInfo.isDangerous {
                 SendDappWarningView()
@@ -63,7 +59,6 @@ struct SendDappContentView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             Color.clear.frame(height: 80)
         }
-        .coordinateSpace(name: ns)
     }
     
     @ViewBuilder

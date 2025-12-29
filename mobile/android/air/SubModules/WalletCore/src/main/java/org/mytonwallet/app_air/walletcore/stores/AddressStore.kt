@@ -35,9 +35,7 @@ object AddressStore : IStore {
                     addressesArray.add(savedAddress)
                 }
             }
-            val accounts = WalletCore.getAllAccounts().filter {
-                it.accountId != AccountStore.activeAccountId
-            }
+            val accounts = WalletCore.getAllAccounts()
             val otherAccountAddresses = mutableListOf<MSavedAddress>()
             for (account in accounts) {
                 for (chain in account.addressByChain.keys) {

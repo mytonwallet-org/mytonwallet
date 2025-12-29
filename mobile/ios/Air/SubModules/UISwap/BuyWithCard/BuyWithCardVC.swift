@@ -77,7 +77,7 @@ public class BuyWithCardVC: WViewController, UIScrollViewDelegate {
     private func loadOnramp(currency: MBaseCurrency) {
         
         if currency == .RUB {
-            open(url: "https://dreamwalkers.io/ru/mytonwallet/?wallet=\(AccountStore.account?.tonAddress ?? "")&give=CARDRUB&take=TON&type=buy")
+            open(url: "https://dreamwalkers.io/ru/mytonwallet/?wallet=\(AccountStore.account?.addressByChain[TON_CHAIN] ?? "")&give=CARDRUB&take=TON&type=buy")
         } else {
             guard let address = AccountStore.account?.addressByChain[model.chain.rawValue] else { return }
             Task {

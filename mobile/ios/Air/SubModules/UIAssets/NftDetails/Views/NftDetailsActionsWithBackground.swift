@@ -12,6 +12,8 @@ struct ActionsWithBackground: View {
     
     var body: some View {
         NftDetailsActionsRow(viewModel: viewModel)
+            .fixedSize(horizontal: IOS_26_MODE_ENABLED, vertical: false)
+            .frame(maxWidth: .infinity)
             .offset(y: viewModel.isFullscreenPreviewOpen ? 100 : 0)
             .background(alignment: .bottom) {
                 darkenAndBlurBackground
@@ -83,7 +85,7 @@ struct ActionsWithBackground: View {
 #if DEBUG
 @available(iOS 18, *)
 #Preview {
-    @Previewable var viewModel = NftDetailsViewModel(nft: .sampleMtwCard, listContext: .none, navigationBarInset: 0)
+    @Previewable var viewModel = NftDetailsViewModel(accountId: "0-mainnet", nft: .sampleMtwCard, listContext: .none, navigationBarInset: 0)
     @Previewable @Namespace var ns
     ZStack {
         Color.blue.opacity(0.2)

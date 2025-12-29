@@ -18,7 +18,7 @@ PODS:
     - Capacitor
   - CapacitorKeyboard (7.0.3):
     - Capacitor
-  - CapacitorMlkitBarcodeScanning (7.2.1):
+  - CapacitorMlkitBarcodeScanning (7.3.0):
     - Capacitor
     - GoogleMLKit/BarcodeScanning (= 7.0.0)
   - CapacitorNativeSettings (7.0.1):
@@ -254,7 +254,7 @@ SPEC CHECKSUMS:
   CapacitorFilesystem: e6261c410436f54908c11f94336c5b58286b1db0
   CapacitorHaptics: 1f1e17041f435d8ead9ff2a34edd592c6aa6a8d6
   CapacitorKeyboard: 62f36104f26d53d8b3a2a43f2a69fe714f1777d5
-  CapacitorMlkitBarcodeScanning: 147c172f6e423618b156e050f715cfb963680ef4
+  CapacitorMlkitBarcodeScanning: 05b2dfc7a70099f6d4594365c521534d79a17b1d
   CapacitorNativeSettings: bef37b3c7e2184da7416a3f162c71de19fd27593
   CapacitorPluginSafeArea: d6b696287c91ab0e790d01213124a3cdba97dc43
   CapacitorPushNotifications: 6a2794788c583dd89215f1805ca4bced1b13dbdf

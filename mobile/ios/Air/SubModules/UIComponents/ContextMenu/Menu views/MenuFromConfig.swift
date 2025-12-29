@@ -21,13 +21,13 @@ public enum IconConfig: View {
 
 public enum MenuItem: Identifiable, View {
     
-    case button(id: String, title: String, leadingIcon: IconConfig? = nil, trailingIcon: IconConfig? = nil, isDangerous: Bool = false, action: () -> Void, dismissOnSelect: Bool = true, reportWidth: Bool = true)
-    case customView(id: String, view: () -> AnyView, height: CGFloat)
+    case button(id: String, title: String, leadingIcon: IconConfig? = nil, trailingIcon: IconConfig? = nil, isDangerous: Bool = false, action: @MainActor () -> Void, dismissOnSelect: Bool = true, reportWidth: Bool = true)
+    case customView(id: String, view: () -> AnyView, height: CGFloat, width: CGFloat? = nil)
     case wideSeparator(id: String = UUID().uuidString)
     
     public var id: String {
         switch self {
-        case .button(let id, _, _, _, _, _, _, _), .customView(let id, _, _), .wideSeparator(let id):
+        case .button(let id, _, _, _, _, _, _, _), .customView(let id, _, _, _), .wideSeparator(let id):
             return id
         }
     }
@@ -37,7 +37,7 @@ public enum MenuItem: Identifiable, View {
         case let .button(id, title, leadingIcon, trailingIcon, isDangerous, action, dismissOnSelect, _):
             WMenuButton(id: id, title: title, leadingIcon: leadingIcon, trailingIcon: trailingIcon, action: action, dismissOnSelect: dismissOnSelect)
                 .foregroundStyle(isDangerous ? .red : .primary)
-        case .customView(_, let view, _):
+        case .customView(_, let view, _, _):
             view()
         case .wideSeparator:
             WideSeparator()
@@ -48,7 +48,7 @@ public enum MenuItem: Identifiable, View {
         switch self {
         case .button:
             44
-        case .customView(_, _, let height):
+        case .customView(_, _, let height, _):
             height
         case .wideSeparator:
             8
@@ -69,7 +69,9 @@ public enum MenuItem: Identifiable, View {
                 }
                 return width
             }
-        case .customView, .wideSeparator:
+        case .customView(_, _, _, let width):
+            return width
+        case .wideSeparator:
             break
         }
         return nil
@@ -176,7 +178,7 @@ public struct MenuViewFromConfig: View {
 
 @available(iOS 18, *)
 #Preview {
-    @Previewable @StateObject var menuContext = MenuContext()
+    @Previewable @State var menuContext = MenuContext()
     
     MenuViewFromConfig(menuConfig: MenuConfig(menuItems: [
         MenuItem.button(id: "0-0", title: "Item 0000", action: {}, reportWidth: true),
@@ -194,6 +196,6 @@ public struct MenuViewFromConfig: View {
 //        MenuItem.button(id: "0-10", title: "Item 10"),
     ]), width: 200)
         .environment(\.containerSize, CGSize(width: 300, height: 500))
-        .environmentObject(menuContext)
+        .environment(menuContext)
         .padding()
 }

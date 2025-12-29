@@ -8,7 +8,6 @@
 import UIKit
 import SwiftUI
 import UIComponents
-import WalletCore
 import WalletContext
 
 final class DepositLinkVC: WViewController {
@@ -28,17 +27,11 @@ final class DepositLinkVC: WViewController {
         
         view.backgroundColor = WTheme.sheetBackground
         
-        addNavigationBar(
-            title: lang("Deposit Link"),
-            closeIcon: true,
-            addBackButton: { [weak self] in self?.navigationController?.popViewController(animated: true) }
-        )
+        navigationItem.title = lang("Deposit Link")
+        addCloseNavigationItemIfNeeded()
         
-        let hc = addHostingController(DepositLinkView(
-            topPadding: navigationBarHeight,
-            onScroll: { [weak self] y in self?.updateNavigationBarProgressiveBlur(y) }
-        ), constraints: .fill)
-        self.hostingController = hc
+        let hostingController = addHostingController(DepositLinkView(), constraints: .fill)
+        self.hostingController = hostingController
         
         bringNavigationBarToFront()
     }

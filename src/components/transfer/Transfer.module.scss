@@ -371,3 +371,10 @@ textarea.inputStatic {
     height: auto !important;
   }
 }
+
+.closeButton {
+  position: absolute;
+  z-index: 3;
+  top: 1rem;
+  right: 0;
+}

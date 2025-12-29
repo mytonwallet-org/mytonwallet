@@ -2,6 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Frameworks/WalletContext.framework/Nunito-ExtraBold.ttf</string>
+		<string>Frameworks/WalletContext.framework/SFCompactDisplayMedium.otf</string>
+		<string>Frameworks/WalletContext.framework/SFCompactRoundedBold.otf</string>
+		<string>Frameworks/WalletContext.framework/SFCompactRoundedMedium.otf</string>
+		<string>Frameworks/WalletContext.framework/SFCompactRoundedSemibold.otf</string>
+	</array>
 	<key>CADisableMinimumFrameDuration</key>
 	<true/>
 	<key>CADisableMinimumFrameDurationOnPhone</key>

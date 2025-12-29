@@ -13,7 +13,6 @@ import WalletCore
 import WalletContext
 import UIPasscode
 
-
 class SendComposeVC: WViewController, WSensitiveDataProtocol {
 
     let model: SendModel
@@ -26,9 +25,6 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
     public init(model: SendModel) {
         self.model = model
         super.init(nibName: nil, bundle: nil)
-        model.showToast = { [weak self] animationName, message in
-            self?.showToast(animationName: animationName, message: message)
-        }
     }
     
     required init?(coder: NSCoder) {
@@ -39,9 +35,10 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
         super.viewDidLoad()
         setupViews()
         WKeyboardObserver.observeKeyboard(delegate: self)
-        model.continueStateChanged = { [weak self] canContinue, insufficientFunds, draftStatus in
+        observe { [weak self] in
             guard let self else { return }
-            if draftStatus.status == .loading {
+            let (canContinue, insufficientFunds, draftStatus, isAddressLoading) = model.continueState
+            if draftStatus.status == .loading || isAddressLoading {
                 continueButton.showLoading = true
                 continueButton.isEnabled = false
             } else {
@@ -52,10 +49,10 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
                                        draftStatus.address == model.addressOrDomain, !model.addressOrDomain.isEmpty {
                     lang("Invalid address")
                 } else if insufficientFunds {
-                    WStrings.InsufficientBalance_Text(symbol: model.token?.symbol ?? "TON")
+                    lang("Insufficient Balance")
                 } else {
-                    if model.toAddressDraft?.diesel?.status == .notAuthorized {
-                        WStrings.Swap_AuthorizeDiesel_Text(symbol: model.token?.symbol.uppercased() ?? "")
+                    if model.draftData.transactionDraft?.diesel?.status == .notAuthorized {
+                        lang("Authorize %token% Fee", arg1: model.token.symbol)
                     } else {
                         lang("Continue")
                     }
@@ -69,12 +66,8 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
     
     private func setupViews() {
         
-        let title = model.nftSendMode != nil ? lang("Send NFT") : lang("Send")
-        addNavigationBar(
-            centerYOffset: 1,
-            title: title,
-            closeIcon: true)
-        navigationBarProgressiveBlurDelta = 12
+        navigationItem.title = model.nftSendMode != nil ? lang("Send NFT") : lang("Send")
+        addCloseNavigationItemIfNeeded()
         
         let hostingController = UIHostingController(rootView: makeView())
         self.hostingController = hostingController
@@ -101,8 +94,6 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
         constraint.isActive = true
         self.continueButtonConstraint = constraint
         
-        bringNavigationBarToFront()
-        
         updateTheme()
         
         updateSensitiveData()
@@ -116,8 +107,6 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
         SendComposeView(
             model: model,
             isSensitiveDataHidden: AppStorageHelper.isSensitiveDataHidden,
-            navigationBarInset: navigationBarHeight,
-            onScrollPositionChange: { [weak self] y in self?.updateNavigationBarProgressiveBlur(y) }
         )
     }
     
@@ -127,31 +116,35 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
     
     @objc func continuePressed() {
         view.resignFirstResponder()
-        if model.toAddressDraft?.diesel?.status == .notAuthorized {
+        if model.draftData.transactionDraft?.diesel?.status == .notAuthorized {
             authorizeDiesel()
+            return
         }
-        if let token = model.token, token.isPricelessToken || token.isStakedToken {
+        if model.token.isPricelessToken || model.token.isStakedToken {
             let alert = UIAlertController(title: lang("Warning"), message: lang("$service_token_transfer_warning"), preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: lang("Cancel"), style: .cancel) { _ in
                 return
             })
             alert.addAction(UIAlertAction(title: lang("OK"), style: .default) { _ in
-                self.model.onComposeContinue()
+                self._onContinue()
             })
             present(alert, animated: true, completion: nil)
         } else {
-            model.onComposeContinue()
+            _onContinue()
         }
     }
     
+    func _onContinue() {
+        topViewController()?.view.endEditing(true)
+        let vc = SendConfirmVC(model: model)
+        navigationController?.pushViewController(vc, animated: true)
+    }
+    
     private func authorizeDiesel() {
-        let telegramURLString = "https://t.me/MyTonWalletBot?start=auth-\(AccountStore.account?.tonAddress ?? "")"
-        
-        if let telegramURL = URL(string: telegramURLString) {
-            if UIApplication.shared.canOpenURL(telegramURL) {
-                UIApplication.shared.open(telegramURL, options: [:], completionHandler: nil)
-            }
-        }
+        guard let tonAddress = model.account.addressByChain[TON_CHAIN] else { return }
+        let telegramURLString = "https://t.me/MyTonWalletBot?start=auth-\(tonAddress)"
+        let telegramURL = URL(string: telegramURLString)!
+        UIApplication.shared.open(telegramURL, options: [:], completionHandler: nil)
     }
 }
 

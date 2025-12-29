@@ -14,7 +14,8 @@ import com.google.android.material.progressindicator.CircularProgressIndicator
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.helpers.HapticFeedbackHelper
+import org.mytonwallet.app_air.uicomponents.helpers.Haptics
+import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -232,7 +233,7 @@ class StakingPasscodeView(
                 Handler(Looper.getMainLooper()).postDelayed({
                     passcodeInputView.passcode = ""
                     passcodeInputView.shakeView()
-                    HapticFeedbackHelper(context).provideErrorFeedback()
+                    Haptics.play(this@StakingPasscodeView, HapticType.ERROR)
                     unlockView()
                 }, 500)
             }

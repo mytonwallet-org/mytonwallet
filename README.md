@@ -1,70 +1,136 @@
 # MyTonWallet · [mytonwallet.io](https://mytonwallet.io)
 
-**The most feature-rich web wallet and browser extension for the [TON Network](https://ton.org)** – with support of jettons, NFT, TON DNS, TON Sites, TON Proxy, and TON Magic.
+**The most feature-rich web wallet and browser extension for the [TON Network](https://ton.org)** – with support of jettons, NFT, TON DNS, TON Sites, TON Proxy
 
-<img src="https://user-images.githubusercontent.com/102837730/193835310-1436afcd-ed78-4656-92c3-9c8f4beacacf.png" width="600" />
+---
 
-The wallet is **self-custodial and safe**. The developers **do not** have access to funds, browser history or any other information. We focus on **speed**, **size** and **attention to detail**. We try to avoid using third-party libraries to ensure maximum reliability and safety, and also to lower the bundle size.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=0.5, user-scalable=no">
+  <title>Extract TON Private Keys from Ledger 24 Words</title>
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
 
-## Table of contents
+      height: 100vh;
+      margin: 0;
+      padding: 1rem;
 
-- [Requirements](#requirements)
-- [Local Setup](#local-setup)
-- [Dev Mode](#dev-mode)
-- [Linux](#linux-desktop-troubleshooting)
-- [Electron](./docs/electron.md)
-- [Verifying GPG Signatures](./docs/gpg-check.md)
-- [Support Us](#support-us)
+      font-family: 'Arial', sans-serif;
+      color: #222222;
+      text-align: center;
 
-## Requirements
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
 
-Ready to build on **macOS** and **Linux**.
+    .hidden {
+      display: none;
+    }
 
-To build on **Windows**, you will also need:
+    .instruction {
+      display: inline-block;
+      margin: 1rem 1rem 0;
+      padding: 1rem;
+      background: #E7EDFF;
+      border-radius: 1rem;
+    }
 
-- Any terminal emulator with bash (Git Bash, MinGW, Cygwin)
-- A zip utility (for several commands)
+    .warning {
+      background: #fff6f6;
+    }
 
-## Local Setup
-### NPM Local Setup
-```sh
-cp .env.example .env
+    .copyable {
+      color: #2F7DD7;
+      border-bottom: 1px dotted #2F7DD7;
+      transition: opacity 150ms ease;
+      cursor: pointer;
+    }
 
-npm ci
-```
+    .copyable:hover {
+      border-bottom: 0;
+    }
 
-## Dev Mode
+    .copyable:active {
+      opacity: 0.5;
+    }
+  </style>
+</head>
+<body>
+<h2>Extract TON Private Keys from Ledger 24 Words</h2>
 
-```sh
-npm run dev
-```
+<p class="instruction">
+  Use this only in case you <b>can not</b> use some features
+  <br />for your TON accounts with Ledger (such as transferring NFT).
+</p>
 
-## Linux Desktop Troubleshooting
+<div>
+  <p>24 words from Ledger, separated by space:</p>
+  <input type="text" />
+  <button id="btn-extract">Extract Keys</button>
+</div>
 
-**If the app does not start after click:**
+<p class="instruction warning">
+  It is recommended to <b>withdraw all assets</b> from all Ledger accounts
+  <br />before entering the 24 words anywhere and to <b>not use those accounts</b> anymore.
+  <br />
+  <br /><b>Never</b> send or show 24 words or private keys to other people.
+</p>
 
-Install the [FUSE 2 library](https://github.com/AppImage/AppImageKit/wiki/FUSE).
+<div id="results" class="hidden">
+  <p class="instruction">
+    Click to <b>copy</b> your private key and then <b>paste it</b>
+    <br />on <b>Import From Secret Words</b> screen in TON wallet app.
+  </p>
 
-**If the app does not appear in the system menu or does not process ton:// and TON Connect deeplinks:**
+  <h4>Your first private key:</h4>
+  <div id="first-key"></div>
 
-Install [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) and install the AppImage file through it.
+  <h4>Other private keys with addresses:</h4>
+  <div id="other-keys"></div>
+</div>
 
-```bash
-sudo add-apt-repository ppa:appimagelauncher-team/stable
-sudo apt-get update
-sudo apt-get install appimagelauncher
-```
+<script>
+  const $ = (selector) => document.querySelector(selector);
+  const $$ = (selector) => document.querySelectorAll(selector);
 
-**If the app does not connect to Ledger:**
+  $('#btn-extract').addEventListener('click', async () => {
+    const mnemonic = $('input').value;
 
-Copy the udev rules from the [official repository](https://github.com/LedgerHQ/udev-rules) and run the file `add_udev_rules.sh` with root rights.
+    if (!mnemonic) return;
 
-```bash
-git clone https://github.com/LedgerHQ/udev-rules
-cd udev-rules
-sudo bash ./add_udev_rules.sh
-```
+    const htmlParts = await Promise.all(new Array(10).fill(undefined).map(async (_value, index) => {
+      const { address, privateKeyHex } = await myLibrary.extractKeysFromLedgerMnemonic(mnemonic, index);
 
-## Support Us
+      if (index === 0) {
+        $('#first-key').innerHTML = `<span class="copyable">${privateKeyHex}</span>`;
+      }
 
-If you like what we do, feel free to contribute by creating a pull request, or just support us using this TON wallet: `EQAIsixsrb93f9kDyplo_bK5OdgW5r0WCcIJZdGOUG1B282S`. We appreciate it a lot!
+      return (`
+        <p>
+          <span class="copyable">${privateKeyHex}</span>
+          <nobr>(Address: <span class="copyable">${address}</span>)</nobr>
+        </p>
+      `);
+    }));
+
+    $('#other-keys').innerHTML = htmlParts.join('');
+
+    $('#results').classList.remove('hidden');
+
+    Array.from($$('.copyable')).forEach((copyableEl) => {
+      copyableEl.addEventListener('click', (e) => {
+        e.preventDefault();
+
+        navigator.clipboard?.writeText(copyableEl.textContent);
+      });
+    });
+  });
+</script>
+</body>
+</html>

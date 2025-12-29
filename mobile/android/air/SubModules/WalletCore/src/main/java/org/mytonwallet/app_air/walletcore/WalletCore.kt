@@ -12,17 +12,18 @@ import android.os.Looper
 import android.view.ViewGroup
 import androidx.core.view.isVisible
 import com.squareup.moshi.Moshi
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setDefaultAccentColor
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setNftAccentColor
-import org.mytonwallet.app_air.walletbasecontext.theme.WColor
-import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
+import org.mytonwallet.app_air.walletcontext.utils.ensureMainThread
 import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.api.requestDAppList
 import org.mytonwallet.app_air.walletcore.helpers.PoisoningCacheHelper
@@ -61,6 +62,7 @@ const val MAIN_NETWORK = "mainnet"
 const val TEST_NETWORK = "testnet"
 const val BURN_ADDRESS = "UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ"
 const val TON_DNS_COLLECTION = "EQC3dNlesgVD8YbAazcauIrXBPfiVhMMr5YYk2in0Mtsz0Bz"
+const val MTW_CARDS_COLLECTION = "EQCQE2L9hfwx1V8sgmF9keraHx1rNK9VmgR1ctVvINBGykyM"
 
 val STAKING_SLUGS = listOf(
     STAKE_SLUG, STAKED_MYCOIN_SLUG, STAKED_USDE_SLUG
@@ -101,6 +103,8 @@ val DEFAULT_SWAP_VERSION = 3
 val MAX_PRICE_IMPACT_VALUE = 5.0
 
 object WalletCore {
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     val moshi: Moshi by lazy {
         MoshiBuilder.build()
     }
@@ -114,6 +118,8 @@ object WalletCore {
         private set
     var activeNetwork = "mainnet"
     var isMultichain = false
+    var nextAccountId: String? = null
+    var nextAccountIsPushedTemporary: Boolean? = null
 
     var baseCurrency = MBaseCurrency.valueOf(WGlobalStorage.getBaseCurrency())
 
@@ -140,13 +146,13 @@ object WalletCore {
     // Notify observers ////////////////////////////////////////////////////////////////////////////
     private val expiredItems = ArrayList<WeakReference<EventObserver>>()
     fun notifyEvent(walletEvent: WalletEvent) {
-        Handler(Looper.getMainLooper()).post {
+        ensureMainThread {
             lock = true
             for (eventObserver in eventObservers) {
                 if (eventObserver.get() == null)
                     expiredItems.add(eventObserver)
             }
-            if (expiredItems.size > 0) {
+            if (expiredItems.isNotEmpty()) {
                 eventObservers.removeAll(expiredItems.toSet())
                 expiredItems.clear()
             }
@@ -156,23 +162,32 @@ object WalletCore {
         }
     }
 
-    fun notifyAccountChanged(activeAccount: MAccount) {
+    fun notifyAccountChanged(activeAccount: MAccount, fromHome: Boolean) {
         val accountId = activeAccount.accountId
+        if (nextAccountIsPushedTemporary == true)
+            WGlobalStorage.setTemporaryAccountId(accountId)
+        else
+            WGlobalStorage.setActiveAccountId(accountId, persistInstantly = !fromHome)
+        nextAccountIsPushedTemporary = null
+        nextAccountId = null
         AccountStore.updateActiveAccount(accountId)
-        WGlobalStorage.setActiveAccountId(accountId)
         PoisoningCacheHelper.clearPoisoningCache()
         AddressStore.loadFromCache(accountId)
         NftStore.loadCachedNfts(accountId)
         ExploreHistoryStore.loadBrowserHistory(accountId)
         AccountStore.walletVersionsData = null
-        AccountStore.updateAssetsAndActivityData(MAssetsAndActivityData(accountId), notify = false)
-        val prevAccentColor = WColor.Tint.color
-        updateAccentColor(accountId = accountId)
-        if (WColor.Tint.color != prevAccentColor) {
-            WalletContextManager.delegate?.themeChanged()
-        }
+        AccountStore.updateAssetsAndActivityData(
+            MAssetsAndActivityData(accountId),
+            notify = false,
+            saveToStorage = false
+        )
         //WalletContextManager.delegate?.protectedModeChanged()
-        notifyEvent(WalletEvent.AccountChanged(accountId = accountId))
+        notifyEvent(
+            WalletEvent.AccountChanged(
+                accountId = accountId,
+                fromHome = fromHome
+            )
+        )
     }
 
     fun updateAccentColor(accountId: String?) {
@@ -186,6 +201,7 @@ object WalletCore {
     }
 
     fun switchingToLegacy() {
+        AccountStore.removeTemporaryAccounts()
         destroyBridge()
         WSecureStorage.clearCache()
         WGlobalStorage.setTokenInfo(TokenStore.getTokenInfo())
@@ -429,6 +445,7 @@ object WalletCore {
 
             is ApiUpdate.ApiUpdateCurrencyRates -> {
                 TokenStore.updateCurrencyRates(update)
+                BalanceStore.resetBalanceInBaseCurrency()
             }
 
             is ApiUpdate.ApiUpdateUpdateAccount -> {
@@ -445,7 +462,10 @@ object WalletCore {
             }
     }
 
-    fun ensureAccountActivated(accountId: String, onCompletion: (accountChanged: Boolean) -> Unit) {
+    fun ensureAccountActivated(
+        accountId: String,
+        onCompletion: (accountChanged: Boolean) -> Unit
+    ) {
         if (AccountStore.activeAccountId == accountId) {
             onCompletion(false)
             return

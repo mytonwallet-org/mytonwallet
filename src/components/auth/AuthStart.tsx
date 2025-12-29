@@ -5,6 +5,7 @@ import { type Theme } from '../../global/types';
 
 import { APP_NAME, IS_CORE_WALLET } from '../../config';
 import renderText from '../../global/helpers/renderText';
+import { selectCurrentAccountId } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { getChainsSupportingLedger } from '../../util/chain';
 import { stopEvent } from '../../util/domEvents';
@@ -238,7 +239,7 @@ function AuthStart({
 
 export default memo(withGlobal<OwnProps>((global): StateProps => {
   return {
-    hasAccounts: Boolean(global.currentAccountId),
+    hasAccounts: Boolean(selectCurrentAccountId(global)),
     isLoading: global.auth.isLoading,
     theme: global.settings.theme,
   };

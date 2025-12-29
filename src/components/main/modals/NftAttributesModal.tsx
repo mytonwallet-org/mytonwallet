@@ -7,7 +7,7 @@ import { type IAnchorPosition, MediaType } from '../../../global/types';
 import { selectCurrentAccountState } from '../../../global/selectors';
 import buildClassName from '../../../util/buildClassName';
 import { getCountDaysToDate } from '../../../util/dateFormat';
-import { getTonDnsExpirationDate } from '../../../util/dns';
+import { getDnsExpirationDate } from '../../../util/dns';
 import { stopEvent } from '../../../util/domEvents';
 import { disableSwipeToClose, enableSwipeToClose } from '../../../util/modalSwipeManager';
 import { IS_ELECTRON, IS_MAC_OS } from '../../../util/windowEnvironment';
@@ -45,7 +45,7 @@ function NftAttributesModal({ nft, dnsExpiration }: StateProps) {
   const { metadata: { lottie, attributes } } = renderedNft || { metadata: {} };
   const attributesCount = attributes?.length || 0;
   const [isFolded, setIsFolded] = useState(attributesCount > FOLD_LIMIT);
-  const tonDnsExpiration = getTonDnsExpirationDate(renderedNft, dnsExpiration);
+  const tonDnsExpiration = getDnsExpirationDate(renderedNft, dnsExpiration);
   const dnsExpireInDays = tonDnsExpiration ? getCountDaysToDate(tonDnsExpiration) : undefined;
   const list = attributes?.slice(0, isFolded ? FOLD_LIMIT : undefined) || [];
   const isNoData = !renderedNft?.description && list.length === 0;
@@ -164,7 +164,7 @@ function NftAttributesModal({ nft, dnsExpiration }: StateProps) {
             {Boolean(renderedNft.image) && (
               <img
                 src={renderedNft.image}
-                alt={renderedNft.name}
+                alt=""
                 role="button"
                 tabIndex={0}
                 className={styles.fullImage}

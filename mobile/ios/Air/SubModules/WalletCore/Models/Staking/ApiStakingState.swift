@@ -51,7 +51,7 @@ public enum ApiStakingState: Equatable, Hashable, Codable, Sendable {
             try ApiStakingStateJetton.encode(to: encoder)
         case .ethena(let ethena):
             try ethena.encode(to: encoder)
-        case .unknown(let type):
+        case .unknown:
             break
         }
     }
@@ -84,7 +84,7 @@ extension ApiStakingState: MBaseStakingState { // less cringey way to do this?
         case .nominators(let v): v.annualYield
         case .jetton(let v): v.annualYield
         case .ethena(let v): v.annualYield
-        case .unknown(let type): .zero
+        case .unknown: .zero
         }
     }
     
@@ -94,7 +94,7 @@ extension ApiStakingState: MBaseStakingState { // less cringey way to do this?
         case .nominators(let v): v.yieldType
         case .jetton(let v): v.yieldType
         case .ethena(let v): v.yieldType
-        case .unknown(let type): .apy
+        case .unknown: .apy
         }
     }
     
@@ -104,7 +104,7 @@ extension ApiStakingState: MBaseStakingState { // less cringey way to do this?
         case .nominators(let v): v.balance
         case .jetton(let v): v.balance
         case .ethena(let v): v.balance
-        case .unknown(let type): .zero
+        case .unknown: .zero
         }
     }
     
@@ -124,7 +124,7 @@ extension ApiStakingState: MBaseStakingState { // less cringey way to do this?
         case .nominators(let v): v.unstakeRequestAmount
         case .jetton(let v): v.unstakeRequestAmount
         case .ethena(let v): v.unstakeRequestAmount
-        case .unknown(let type): nil
+        case .unknown: nil
         }
     }
     
@@ -132,9 +132,9 @@ extension ApiStakingState: MBaseStakingState { // less cringey way to do this?
         switch self {
         case .liquid(let v): return v.end
         case .nominators(let v): return v.end
-        case .jetton(let v): return nil
-        case .ethena(let v): return nil
-        case .unknown(let type): return nil
+        case .jetton: return nil
+        case .ethena: return nil
+        case .unknown: return nil
         }
     }
     
@@ -148,7 +148,7 @@ extension ApiStakingState: MBaseStakingState { // less cringey way to do this?
 
 public extension ApiStakingState {
     
-    var type: MStakingType {
+    var type: ApiStakingType {
         switch self {
         case .liquid: .liquid
         case .nominators: .nominators
@@ -183,118 +183,10 @@ public protocol MBaseStakingState: Identifiable {
     var unstakeRequestAmount: BigInt? { get }
 }
 
-public enum MStakingType: String, Equatable, Hashable, Codable, Sendable {
+public enum ApiStakingType: String, Equatable, Hashable, Codable, Sendable {
     case nominators = "nominators"
     case liquid = "liquid"
     case jetton = "jetton"
     case ethena = "ethena"
     case unknown
-}
-public typealias ApiStakingType = MStakingType
-
-public enum MLoyaltyType: String, Equatable, Hashable, Codable, Sendable {
-    case black = "black"
-    case platinum = "platinum"
-    case gold = "gold"
-    case silver = "silver"
-    case standard = "standard"
-}
-
-public struct MNominatorsPool: Equatable, Hashable, Codable, Sendable {
-    public let address: String
-    public let apy: Double
-    public let start: Int64?
-    public let end: Int64?
-    
-    public init(dictionary: [String: Any]) {
-        self.address = dictionary["address"] as? String ?? ""
-        self.apy = dictionary["apy"] as? Double ?? 0
-        self.start = dictionary["start"] as? Int64
-        self.end = dictionary["end"] as? Int64
-    }
-}
-
-
-// MARK: - Common data
-
-public struct MStakingCommonData: Equatable, Hashable, Codable, Sendable {
-    public var liquid: MStakingCommonDataLiquid
-    public var jettonPools: [MStakingJettonPool]
-    public var round: MStakingCommonDataRound
-    public var prevRound: MStakingCommonDataRound
-}
-
-extension MStakingCommonData {
-    public var mycoinPool: MStakingJettonPool? {
-        jettonPools.first(where: { $0.token == MYCOIN_SLUG })
-    }
-}
-
-
-public struct MStakingCommonDataLiquid: Equatable, Hashable, Codable, Sendable {
-    public var currentRate: MDouble
-    public var nextRoundRate: MDouble
-    public var collection: String?
-    public var apy: MDouble
-    public var available: BigInt
-    public var loyaltyApy: [MLoyaltyType: MDouble]
-    
-    enum CodingKeys: CodingKey {
-        case currentRate
-        case nextRoundRate
-        case collection
-        case apy
-        case available
-        case loyaltyApy
-    }
-    
-    public init(from decoder: any Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.currentRate = try container.decode(MDouble.self, forKey: .currentRate)
-        self.nextRoundRate = try container.decode(MDouble.self, forKey: .nextRoundRate)
-        self.collection = try container.decodeIfPresent(String.self, forKey: .collection)
-        self.apy = try container.decode(MDouble.self, forKey: .apy)
-        self.available = try container.decode(BigInt.self, forKey: .available)
-        
-        let dict = try container.decode([String : MDouble].self, forKey: .loyaltyApy)
-        let kv: [(MLoyaltyType, MDouble)] = dict.compactMap { k, v in
-            if let type = MLoyaltyType(rawValue: k) {
-                return (type, v)
-            }
-            Log.shared.error("Unknown loyalty type: \(k, .public)")
-            return nil
-        }
-        self.loyaltyApy = Dictionary(uniqueKeysWithValues: kv)
-    }
-    
-    public func encode(to encoder: any Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(self.currentRate, forKey: .currentRate)
-        try container.encode(self.nextRoundRate, forKey: .nextRoundRate)
-        try container.encodeIfPresent(self.collection, forKey: .collection)
-        try container.encode(self.apy, forKey: .apy)
-        try container.encode(self.available, forKey: .available)
-        
-        let kv = self.loyaltyApy.map { k, v in (k.rawValue, v) }
-        let dict = Dictionary(uniqueKeysWithValues: kv)
-        try container.encode(dict, forKey: .loyaltyApy)
-    }
-}
-
-public struct MStakingJettonPool: Equatable, Hashable, Codable, Sendable  {
-    public var pool: String
-    public var token: String
-    public var periods: [MStakingJettonPoolPeriod]
-}
-
-public struct MStakingJettonPoolPeriod: Equatable, Hashable, Codable, Sendable  {
-    public var period: MDouble
-    public var token: String
-    public var unstakeCommission: MDouble
-}
-
-public struct MStakingCommonDataRound: Equatable, Hashable, Codable, Sendable {
-    public var start: Int
-    public var end: Int
-    public var unlock: Int
 }

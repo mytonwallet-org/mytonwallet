@@ -1,4 +1,3 @@
-import type { GlobalState } from '../../global/types';
 import type { ApiTonWalletVersion } from '../chains/ton/types';
 import type {
   ApiAccountAny,
@@ -6,28 +5,24 @@ import type {
   ApiAccountWithMnemonic,
   ApiActivityTimestamps,
   ApiAnyDisplayError,
+  ApiBip39Account,
   ApiChain,
   ApiImportAddressByChain,
   ApiLedgerAccount,
   ApiLedgerAccountInfo,
-  ApiLedgerDriver,
   ApiLedgerWalletInfo,
   ApiNetwork,
-  ApiTonAccount,
   ApiTonWallet,
   ApiViewAccount,
-  ApiWalletByChain,
 } from '../types';
 import { ApiCommonError } from '../types';
 
-import { DEFAULT_WALLET_VERSION, IS_BIP39_MNEMONIC_ENABLED, IS_CORE_WALLET } from '../../config';
+import { IS_TON_MNEMONIC_ONLY } from '../../config';
 import { parseAccountId } from '../../util/account';
-import isMnemonicPrivateKey from '../../util/isMnemonicPrivateKey';
 import { range } from '../../util/iteratees';
 import { createTaskQueue } from '../../util/schedulers';
 import chains from '../chains';
 import * as ton from '../chains/ton';
-import { toBase64Address } from '../chains/ton/util/tonCore';
 import {
   fetchStoredAccounts,
   fetchStoredChainAccount,
@@ -62,35 +57,112 @@ export function generateMnemonic(isBip39: boolean) {
   return ton.generateMnemonic();
 }
 
-export function createWallet(
-  network: ApiNetwork,
-  mnemonic: string[],
-  password: string,
-  version?: ApiTonWalletVersion,
-) {
-  if (!version) version = DEFAULT_WALLET_VERSION;
+export async function validateMnemonic(mnemonic: string[]) {
+  if (!IS_TON_MNEMONIC_ONLY && validateBip39Mnemonic(mnemonic)) {
+    return true;
+  }
 
-  return importMnemonic(network, mnemonic, password, version);
-}
-
-export function validateMnemonic(mnemonic: string[]) {
-  return (validateBip39Mnemonic(mnemonic) && IS_BIP39_MNEMONIC_ENABLED) || ton.validateMnemonic(mnemonic);
+  return await ton.validateMnemonic(mnemonic);
 }
 
 export async function importMnemonic(
-  network: ApiNetwork,
+  networks: ApiNetwork[],
   mnemonic: string[],
   password: string,
   version?: ApiTonWalletVersion,
 ) {
-  const isPrivateKey = isMnemonicPrivateKey(mnemonic);
-  let isBip39Mnemonic = validateBip39Mnemonic(mnemonic);
+  const isBip39Mnemonic = !IS_TON_MNEMONIC_ONLY && validateBip39Mnemonic(mnemonic);
   const isTonMnemonic = await ton.validateMnemonic(mnemonic);
 
-  if (!isPrivateKey && !isTonMnemonic && (!isBip39Mnemonic || !IS_BIP39_MNEMONIC_ENABLED)) {
+  if (!isBip39Mnemonic && !isTonMnemonic) {
     throw new Error('Invalid mnemonic');
   }
 
+  const mnemonicEncrypted = await getEncryptedMnemonic(mnemonic, password);
+  if (typeof mnemonicEncrypted !== 'string') {
+    return mnemonicEncrypted;
+  }
+
+  try {
+    return await Promise.all(networks.map(async (network) => {
+      let account: ApiAccountWithMnemonic;
+      let tonWallet: ApiTonWallet & { lastTxId?: string } | undefined;
+      let shouldForceTonMnemonic = false;
+
+      if (isBip39Mnemonic && isTonMnemonic) {
+        tonWallet = await ton.getWalletFromMnemonic(network, mnemonic, version);
+        if (tonWallet.lastTxId) {
+          shouldForceTonMnemonic = true;
+        }
+      }
+
+      if (isBip39Mnemonic && !shouldForceTonMnemonic) {
+        account = {
+          type: 'bip39',
+          mnemonicEncrypted,
+          byChain: {},
+        };
+
+        await Promise.all((Object.keys(chains) as (keyof typeof chains)[]).map(async (_chain) => {
+          // TypeScript emits false notices, because it doesn't see relations between the key and value types in record
+          // mapping. We lock the key type to one of the possible values to resolve the TS notices and have at least
+          // some type checking.
+          const chain = _chain as 'ton';
+          account.byChain[chain] = await chains[chain].getWalletFromBip39Mnemonic(network, mnemonic);
+        }));
+      } else {
+        tonWallet ||= await ton.getWalletFromMnemonic(network, mnemonic, version);
+        account = {
+          type: 'ton',
+          mnemonicEncrypted,
+          byChain: {
+            ton: tonWallet,
+          },
+        };
+      }
+
+      const accountId = await addAccount(network, account);
+      void activateAccount(accountId);
+
+      return {
+        accountId,
+        byChain: getAccountChains(account),
+      };
+    }));
+  } catch (err) {
+    return handleServerError(err);
+  }
+}
+
+export async function importPrivateKey(
+  chain: ApiChain,
+  networks: ApiNetwork[],
+  privateKey: string,
+  password: string,
+) {
+  const privateKeyEncrypted = await getEncryptedMnemonic([privateKey], password);
+  if (typeof privateKeyEncrypted !== 'string') {
+    return privateKeyEncrypted;
+  }
+
+  return Promise.all(networks.map(async (network) => {
+    const wallet = await chains[chain].getWalletFromPrivateKey(network, privateKey);
+    const account: ApiBip39Account = {
+      type: 'bip39',
+      mnemonicEncrypted: privateKeyEncrypted,
+      byChain: { [chain]: wallet },
+    };
+    const accountId = await addAccount(network, account);
+    void activateAccount(accountId);
+
+    return {
+      accountId,
+      byChain: getAccountChains(account),
+    };
+  }));
+}
+
+async function getEncryptedMnemonic(mnemonic: string[], password: string) {
   const mnemonicEncrypted = await encryptMnemonic(mnemonic, password);
 
   // This is a defensive approach against potential corrupted encryption reported by some users
@@ -101,88 +173,7 @@ export async function importMnemonic(
     return { error: ApiCommonError.DebugError };
   }
 
-  let account: ApiAccountAny;
-  let tonWallet: ApiTonWallet & { lastTxId?: string } | undefined;
-
-  try {
-    if (isBip39Mnemonic && isTonMnemonic) {
-      tonWallet = await ton.getWalletFromMnemonic(mnemonic, network, version);
-      if (tonWallet.lastTxId) {
-        isBip39Mnemonic = false;
-      }
-    }
-
-    if (isBip39Mnemonic) {
-      account = {
-        type: 'bip39',
-        mnemonicEncrypted,
-        byChain: {},
-      };
-
-      await Promise.all((Object.keys(chains) as (keyof typeof chains)[]).map(async (chain) => {
-        const wallet = await chains[chain].getWalletFromBip39Mnemonic(network, mnemonic);
-        account.byChain[chain as 'ton'] = wallet as ApiWalletByChain['ton'];
-      }));
-    } else {
-      if (!tonWallet) {
-        tonWallet = isPrivateKey
-          ? await ton.getWalletFromPrivateKey(mnemonic[0], network, version)
-          : await ton.getWalletFromMnemonic(mnemonic, network, version);
-      }
-      account = {
-        type: 'ton',
-        mnemonicEncrypted,
-        byChain: {
-          ton: tonWallet,
-        },
-      };
-    }
-
-    const accountId = await addAccount(network, account);
-    const secondNetworkAccount = IS_CORE_WALLET ? await createAccountWithSecondNetwork({
-      accountId, network, mnemonic, mnemonicEncrypted, version,
-    }) : undefined;
-    void activateAccount(accountId);
-
-    return {
-      accountId,
-      byChain: getAccountChains(account),
-      secondNetworkAccount,
-    };
-  } catch (err) {
-    return handleServerError(err);
-  }
-}
-
-export async function createAccountWithSecondNetwork(options: {
-  accountId: string;
-  network: ApiNetwork;
-  mnemonic: string[];
-  mnemonicEncrypted: string;
-  version?: ApiTonWalletVersion;
-}): Promise<GlobalState['auth']['secondNetworkAccount']> {
-  const {
-    mnemonic, version, mnemonicEncrypted,
-  } = options;
-  const { network, accountId } = options;
-  const tonWallet = await ton.getWalletFromMnemonic(mnemonic, network, version);
-
-  const secondNetwork = network === 'testnet' ? 'mainnet' : 'testnet';
-  tonWallet.address = toBase64Address(tonWallet.address, false, secondNetwork);
-  const account: ApiTonAccount = {
-    type: 'ton',
-    mnemonicEncrypted,
-    byChain: {
-      ton: tonWallet,
-    },
-  };
-  const secondAccountId = await addAccount(secondNetwork, account, parseAccountId(accountId).id);
-
-  return {
-    accountId: secondAccountId,
-    byChain: getAccountChains(account),
-    network: secondNetwork,
-  };
+  return mnemonicEncrypted;
 }
 
 export async function importLedgerAccount(network: ApiNetwork, accountInfo: ApiLedgerAccountInfo) {
@@ -291,7 +282,11 @@ export async function changePassword(oldPassword: string, password: string) {
   }
 }
 
-export async function importViewAccount(network: ApiNetwork, addressByChain: ApiImportAddressByChain) {
+export async function importViewAccount(
+  network: ApiNetwork,
+  addressByChain: ApiImportAddressByChain,
+  isTemporary?: true,
+) {
   try {
     const account: ApiViewAccount = {
       type: 'view',
@@ -301,14 +296,17 @@ export async function importViewAccount(network: ApiNetwork, addressByChain: Api
     let error: { error: string; chain: ApiChain } | undefined;
 
     await Promise.all(Object.entries(addressByChain).map(async ([_chain, address]) => {
-      const chain = _chain as ApiChain;
+      // TypeScript emits false notices, because it doesn't see relations between the key and value types in record
+      // mapping. We lock the key type to one of the possible values to resolve the TS notices and have at least
+      // some type checking.
+      const chain = _chain as 'ton';
       const wallet = await chains[chain].getWalletFromAddress(network, address);
       if ('error' in wallet) {
         error = { ...wallet, chain };
         return;
       }
 
-      account.byChain[chain as 'ton'] = wallet.wallet as ApiWalletByChain['ton'];
+      account.byChain[chain] = wallet.wallet;
       if (wallet.title) title = wallet.title;
     }));
 
@@ -321,6 +319,7 @@ export async function importViewAccount(network: ApiNetwork, addressByChain: Api
       accountId,
       title,
       byChain: getAccountChains(account),
+      ...(isTemporary && { isTemporary: true }),
     };
   } catch (err) {
     return handleServerError(err);
@@ -335,7 +334,6 @@ export async function importNewWalletVersion(
   isNew: true;
   accountId: string;
   address: string;
-  ledger?: { index: number; driver: ApiLedgerDriver };
 } | {
   isNew: false;
   accountId: string;
@@ -361,16 +359,11 @@ export async function importNewWalletVersion(
     };
   }
 
-  const ledger = account.type === 'ledger'
-    ? { index: account.byChain.ton.index, driver: account.driver }
-    : undefined;
-
   const newAccountId = await addAccount(network, newAccount);
 
   return {
     isNew: true,
     accountId: newAccountId,
     address: newAccount.byChain.ton.address,
-    ledger,
   };
 }

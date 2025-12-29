@@ -1,16 +1,19 @@
 import type { ElementRef } from '../../lib/teact/teact';
 import React, { memo } from '../../lib/teact/teact';
 
-import type { SearchSuggestions } from './helpers/utils';
+import type { SearchSuggestions, WalletSuggestion } from './helpers/utils';
 
 import buildClassName from '../../util/buildClassName';
 import { stopEvent } from '../../util/domEvents';
+import { shortenAddress } from '../../util/shortenAddress';
 import { getHostnameFromUrl } from '../../util/url';
 
 import useLang from '../../hooks/useLang';
+import useLastCallback from '../../hooks/useLastCallback';
 
 import Menu from '../ui/Menu';
 import MenuItem from '../ui/MenuItem';
+import WalletAvatar from '../ui/WalletAvatar';
 import Site from './Site';
 
 import styles from './Explore.module.scss';
@@ -24,6 +27,7 @@ interface OwnProps {
   onSiteClick: (e: React.SyntheticEvent<HTMLDivElement | HTMLAnchorElement>, url: string) => void;
   onSiteClear: (e: React.MouseEvent, url: string) => void;
   onClose: NoneToVoidFunction;
+  onWalletClick: (wallet: WalletSuggestion) => void;
 }
 
 export const SUGGESTION_ITEM_CLASS_NAME = styles.suggestion;
@@ -34,6 +38,7 @@ function ExploreSearchSuggestions({
   searchSuggestions,
   searchValue,
   activeIndex,
+  onWalletClick,
   onSiteClick,
   onSiteClear,
   onClose,
@@ -41,6 +46,13 @@ function ExploreSearchSuggestions({
   const lang = useLang();
 
   const historyLength = searchSuggestions?.history?.length ?? 0;
+  const sitesLength = searchSuggestions?.sites?.length ?? 0;
+  const handleWalletClick = useLastCallback((
+    e: React.SyntheticEvent<HTMLDivElement | HTMLAnchorElement>,
+    wallet: WalletSuggestion,
+  ) => {
+    onWalletClick(wallet);
+  });
 
   return (
     <Menu
@@ -57,9 +69,9 @@ function ExploreSearchSuggestions({
         const isActive = index === activeIndex;
 
         return (
-          <MenuItem
+          <MenuItem<string>
             key={`history-${url}`}
-            className={styles.suggestion}
+            className={buildClassName(styles.suggestion, styles.suggestionWithSeparator)}
             role="option"
             isSelected={isActive}
             onClick={onSiteClick}
@@ -92,9 +104,41 @@ function ExploreSearchSuggestions({
             key={`site-${site.url}-${site.name}`}
             role="option"
             isSelected={isSelected}
-            className={styles.suggestion}
+            isInList
+            className={buildClassName(styles.suggestion, index === 0 && styles.siteWithSeparator)}
             site={site}
           />
+        );
+      })}
+      {searchSuggestions?.wallets?.map((wallet, index) => {
+        const walletIndex = historyLength + sitesLength + index;
+        const isSelected = walletIndex === activeIndex;
+        const { address, chain, title: walletTitle } = wallet;
+        const shortenedAddress = shortenAddress(address)!;
+        const title = walletTitle ?? shortenedAddress;
+        const description = walletTitle ? shortenedAddress : undefined;
+
+        return (
+          <MenuItem<WalletSuggestion>
+            key={`wallet-${chain}-${address}-${walletTitle ?? ''}`}
+            className={buildClassName(
+              styles.suggestion,
+              styles.suggestionWithSeparator,
+              index === 0 && sitesLength + historyLength > 0 && styles.suggestionWithSeparatorFullWidth,
+            )}
+            role="option"
+            isSelected={isSelected}
+            onClick={handleWalletClick}
+            clickArg={wallet}
+          >
+            <div className={styles.walletSuggestion}>
+              <WalletAvatar title={title} className={styles.walletSuggestionAvatar} />
+              <div className={styles.walletSuggestionInfo}>
+                <span className={styles.walletSuggestionTitle}>{title}</span>
+                {description && <span className={styles.walletSuggestionSubtitle}>{description}</span>}
+              </div>
+            </div>
+          </MenuItem>
         );
       })}
     </Menu>

@@ -7,6 +7,7 @@ import org.mytonwallet.app_air.walletcore.moshi.adapter.BigDecimalJsonAdapter
 import org.mytonwallet.app_air.walletcore.moshi.adapter.BigIntegerJsonAdapter
 import org.mytonwallet.app_air.walletcore.moshi.adapter.JSONArrayAdapter
 import org.mytonwallet.app_air.walletcore.moshi.adapter.JSONObjectAdapter
+import org.mytonwallet.app_air.walletcore.moshi.adapter.NftAttributeAdapter
 import org.mytonwallet.app_air.walletcore.moshi.adapter.ReturnStrategyAdapter
 import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.EnumJsonAdapterFactory
 import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.SealedJsonAdapterFactory
@@ -16,6 +17,7 @@ class MoshiBuilder {
     companion object {
         fun build(): Moshi {
             return Moshi.Builder()
+                .add(NftAttributeAdapter())
                 .add(BigIntegerJsonAdapter())
                 .add(BigDecimalJsonAdapter())
                 .add(SealedJsonAdapterFactory())

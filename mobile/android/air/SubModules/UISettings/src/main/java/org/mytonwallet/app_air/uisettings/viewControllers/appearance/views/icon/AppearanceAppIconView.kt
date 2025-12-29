@@ -1,4 +1,4 @@
-package org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.icon
+/*package org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.icon
 
 import android.content.Context
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
@@ -100,3 +100,4 @@ class AppearanceAppIconView(
     }
 
 }
+*/

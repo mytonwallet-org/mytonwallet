@@ -1,7 +1,7 @@
 import type { GlobalState } from '../types';
 
 import { explainApiTransferFee, getMaxTransferAmount } from '../../util/fee/transferFee';
-import { isValidAddressOrDomain } from '../../util/isValidAddressOrDomain';
+import { isValidAddressOrDomain } from '../../util/isValidAddress';
 import { getChainBySlug } from '../../util/tokens';
 import { selectCurrentAccount } from './accounts';
 import { selectChainTokenWithMaxBalanceSlow, selectCurrentAccountTokenBalance } from './tokens';
@@ -53,4 +53,10 @@ export function selectTokenMatchingCurrentTransferAddressSlow(global: GlobalStat
 
   // If the address matches no available chain, don't change the selected token
   return currentTokenSlug;
+}
+
+export function selectIsOffRampAllowed(global: GlobalState) {
+  const { settings: { isTestnet }, restrictions: { isOffRampDisabled } } = global;
+
+  return !isTestnet && !isOffRampDisabled;
 }

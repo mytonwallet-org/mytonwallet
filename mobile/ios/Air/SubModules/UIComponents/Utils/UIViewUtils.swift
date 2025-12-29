@@ -18,8 +18,8 @@ public extension UIView {
     ) {
         if #available(iOS 26.0, *) {
             UIView.animate(
-                withDuration: duration,
-                delay: 0,
+                withDuration: duration + 0.1,
+                delay: 0.005,
                 usingSpringWithDamping: 1.0,
                 initialSpringVelocity: 0,
                 options: [.allowUserInteraction],

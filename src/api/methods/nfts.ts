@@ -19,7 +19,7 @@ export async function fetchNftsFromCollection(accountId: string, collectionAddre
 
   const nfts = await ton.getAccountNfts(accountId, { collectionAddress });
 
-  onUpdate({ type: 'updateNfts', accountId, nfts, shouldAppend: true });
+  onUpdate({ type: 'updateNfts', accountId, nfts, collectionAddress });
 }
 
 export function checkNftTransferDraft(options: {

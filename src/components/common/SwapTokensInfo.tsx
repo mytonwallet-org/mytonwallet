@@ -3,7 +3,6 @@ import React, { memo, useMemo } from '../../lib/teact/teact';
 import type { ApiSwapAsset } from '../../api/types';
 import type { UserSwapToken } from '../../global/types';
 
-import { TOKEN_WITH_LABEL } from '../../config';
 import buildClassName from '../../util/buildClassName';
 import { formatCurrencyExtended } from '../../util/formatNumber';
 import getPseudoRandomNumber from '../../util/getPseudoRandomNumber';
@@ -22,13 +21,20 @@ interface OwnProps {
   tokenOut?: UserSwapToken | ApiSwapAsset;
   amountOut?: string;
   isError?: boolean;
+  onTokenClick?: (slug: string) => void;
 }
 
 function SwapTokensInfo({
-  isSensitiveDataHidden, tokenIn, amountIn, tokenOut, amountOut, isError = false,
+  isSensitiveDataHidden, tokenIn, amountIn, tokenOut, amountOut, isError = false, onTokenClick,
 }: OwnProps) {
   const amountInCols = useMemo(() => getPseudoRandomNumber(5, 13, amountIn ?? ''), [amountIn]);
   const amountOutCols = useMemo(() => getPseudoRandomNumber(5, 13, amountOut ?? ''), [amountOut]);
+
+  function handleTokenClick(token?: UserSwapToken | ApiSwapAsset) {
+    if (onTokenClick && token?.slug) {
+      onTokenClick(token.slug);
+    }
+  }
 
   function renderTokenInfo(
     amountCols: number,
@@ -37,10 +43,19 @@ function SwapTokensInfo({
     isReceived = false,
   ) {
     const amountWithSign = isReceived ? amount : `-${amount}`;
-    const withLabel = Boolean(token && TOKEN_WITH_LABEL[token.slug]);
+    const withLabel = Boolean(token && token.label);
+    const isClickable = Boolean(onTokenClick && token?.slug);
 
     return (
-      <div className={buildClassName(styles.infoRow, !token && styles.noIcon, isReceived && styles.noCurrency)}>
+      <div
+        className={buildClassName(
+          styles.infoRow,
+          !token && styles.noIcon,
+          isReceived && styles.noCurrency,
+          isClickable && styles.clickable,
+        )}
+        onClick={isClickable ? () => handleTokenClick(token) : undefined}
+      >
         {Boolean(token) && (
           <TokenIcon
             token={token}
@@ -52,7 +67,7 @@ function SwapTokensInfo({
         <span className={styles.infoRowToken}>
           {token?.name}
           {withLabel && (
-            <span className={buildClassName(styles.label, styles.chainLabel)}>{TOKEN_WITH_LABEL[token!.slug]}</span>
+            <span className={buildClassName(styles.label, styles.chainLabel)}>{token!.label}</span>
           )}
         </span>
         <SensitiveData

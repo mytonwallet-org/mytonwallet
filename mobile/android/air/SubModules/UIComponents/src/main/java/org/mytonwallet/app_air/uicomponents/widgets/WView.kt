@@ -12,6 +12,7 @@ import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.Path
+import android.graphics.RectF
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.graphics.drawable.ShapeDrawable
@@ -26,6 +27,7 @@ import android.view.inputmethod.InputMethodManager
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.children
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.helpers.ViewHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedController
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
@@ -33,7 +35,7 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 @SuppressLint("ViewConstructor")
 open class WView(
     context: Context,
-    layoutParams: LayoutParams = LayoutParams(MATCH_PARENT, MATCH_PARENT)
+    layoutParams: ViewGroup.LayoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
 ) :
     ConstraintLayout(context) {
     init {
@@ -76,7 +78,7 @@ open class WView(
     ) {
         val currentDrawable = this.background as? GradientDrawable
 
-        if (!WGlobalStorage.getAreAnimationsActive()) {
+        if (!WGlobalStorage.getAreAnimationsActive() || duration == 0L) {
             val gradientDrawable = (currentDrawable ?: GradientDrawable()).apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = radius
@@ -84,6 +86,7 @@ open class WView(
                 setStroke(borderWidth, newBorderColor)
             }
             this.background = gradientDrawable
+            currentBackgroundColor = newBackgroundColor
             onCompletion?.invoke()
             return
         }
@@ -280,6 +283,25 @@ fun View.setBackgroundColor(
 
 fun View.setBackgroundColor(
     color: Int,
+    radius: Float,
+    clipToBounds: Boolean = false,
+    strokeColor: Int? = null,
+    strokeWidth: Int = 0
+) {
+    setBackgroundColor(
+        color = color,
+        topLeftRadius = radius,
+        topRightRadius = radius,
+        bottomRightRadius = radius,
+        bottomLeftRadius = radius,
+        clipToBounds = clipToBounds,
+        strokeColor = strokeColor,
+        strokeWidth = strokeWidth
+    )
+}
+
+fun View.setBackgroundColor(
+    color: Int,
     topLeftRadius: Float,
     topRightRadius: Float,
     bottomRightRadius: Float,
@@ -456,15 +478,33 @@ fun View.animateHeight(newValue: Int) {
     }
 }
 
-fun updateThemeForChildren(parentView: ViewGroup) {
+fun View.frameAsRectF(padding: Float): RectF {
+    val location = IntArray(2)
+    getLocationOnScreen(location)
+    return RectF(
+        location[0].toFloat() - padding,
+        location[1].toFloat() - padding,
+        (location[0] + width).toFloat() + padding,
+        (location[1] + height).toFloat() + padding
+    )
+}
+
+@SuppressLint("NotifyDataSetChanged")
+fun updateThemeForChildren(parentView: ViewGroup, onlyTintedViews: Boolean) {
     for (child in parentView.children) {
-        if (child is WThemedView)
+        if (child is WThemedView && (!onlyTintedViews || child.isTinted))
             child.updateTheme()
-        if (child is ViewGroup)
-            updateThemeForChildren(child)
+        if (child is ViewGroup && child !is WRecyclerView)
+            updateThemeForChildren(child, onlyTintedViews)
+        else if (child is WRecyclerView && !onlyTintedViews) {
+            (child.adapter as? WRecyclerViewAdapter)?.updateTheme() ?: run {
+                child.adapter?.notifyDataSetChanged()
+            }
+            // Note: Updating tinted RecyclerViews is handled per-case in view-controllers
+        }
         if (child is WSegmentedController) {
             child.items.forEach {
-                updateThemeForChildren(it.viewController.view)
+                updateThemeForChildren(it.viewController.view, onlyTintedViews)
             }
         }
     }

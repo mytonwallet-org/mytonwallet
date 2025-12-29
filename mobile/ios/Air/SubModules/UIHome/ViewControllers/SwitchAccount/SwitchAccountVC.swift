@@ -25,7 +25,6 @@ public class SwitchAccountVC: WViewController {
     private let blurView = BlurredMenuBackground()
     
     private var tableView: UITableView!
-    private var feedbackGenerator: UIImpactFeedbackGenerator!
     private var switchedAccount: Bool = false
     
     private var calculatedHeight:  CGFloat {
@@ -138,8 +137,7 @@ public class SwitchAccountVC: WViewController {
             tabBarIcon.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: IOS_26_MODE_ENABLED ? -50 : 0),
         ])
         
-        feedbackGenerator = UIImpactFeedbackGenerator(style: .rigid)
-        feedbackGenerator.prepare()
+        Haptics.prepare(.selection)
         
         updateTheme()
     }
@@ -163,7 +161,7 @@ public class SwitchAccountVC: WViewController {
                let cell = tableView.cellForRow(at: indexPath) {
                 for it in tableView.visibleCells {
                     if it == cell, it.isHighlighted == false {
-                        feedbackGenerator.impactOccurred(intensity: 0.60)
+                        Haptics.play(.selection)
                     }
                     it.isHighlighted = it == cell
                 }
@@ -171,7 +169,7 @@ public class SwitchAccountVC: WViewController {
                 if tableView.visibleCells.contains(where: { it in
                     it.isHighlighted
                 }) {
-                    feedbackGenerator.impactOccurred(intensity: 0.30)
+                    Haptics.play(.selection)
                 }
                 
                 unhighlightAllCells()
@@ -246,6 +244,7 @@ public class SwitchAccountVC: WViewController {
             do {
                 _ = try await AccountStore.activateAccount(accountId: account.id)
                 self.dismiss(animated: false)
+                AppActions.showHome(popToRoot: true)
             } catch {
                 fatalError("failed to activate account: \(account.id)")
             }

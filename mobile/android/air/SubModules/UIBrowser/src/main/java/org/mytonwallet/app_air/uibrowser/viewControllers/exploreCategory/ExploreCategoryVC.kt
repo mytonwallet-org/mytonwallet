@@ -28,6 +28,7 @@ import java.lang.ref.WeakReference
 class ExploreCategoryVC(context: Context, val category: MExploreCategory) :
     WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource {
+    override val TAG = "ExploreCategory"
 
     companion object {
         val EXPLORE_SITE_CELL = WCell.Type(1)

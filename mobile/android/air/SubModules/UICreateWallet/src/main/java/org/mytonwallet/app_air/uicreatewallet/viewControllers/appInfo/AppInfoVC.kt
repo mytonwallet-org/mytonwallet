@@ -40,6 +40,7 @@ import java.lang.ref.WeakReference
 import kotlin.math.max
 
 class AppInfoVC(context: Context) : WViewController(context) {
+    override val TAG = "AppInfo"
 
     override val shouldDisplayTopBar = false
     override val shouldDisplayBottomBar = true
@@ -104,6 +105,7 @@ class AppInfoVC(context: Context) : WViewController(context) {
         text =
             LocaleController.getString("MyTonWallet Resources")
         setTextColor(WColor.Tint)
+        isTinted = true
         setPaddingDp(24, 16, 0, 8)
     }
 
@@ -241,6 +243,7 @@ class AppInfoVC(context: Context) : WViewController(context) {
         }
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         val backgroundColor = WColor.SecondaryBackground.color
         view.setBackgroundColor(backgroundColor)
@@ -264,12 +267,12 @@ class AppInfoVC(context: Context) : WViewController(context) {
         super.viewDidAppear()
 
         tonParticlesView.isGone = false
-        tonParticlesView.fadeIn { }
+        tonParticlesView.fadeIn()
     }
 
     override fun viewWillDisappear() {
         super.viewWillDisappear()
-        tonParticlesView.fadeOut { }
+        tonParticlesView.fadeOut()
     }
 
     override fun onDestroy() {

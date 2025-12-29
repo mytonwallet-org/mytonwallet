@@ -35,7 +35,6 @@ import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MToken
-import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.math.BigInteger
@@ -47,6 +46,7 @@ import kotlin.math.roundToInt
 class TokenHeaderView(
     val navigationController: WNavigationController,
     private val navigationBar: WNavigationBar,
+    private val accountId: String,
     var token: MToken
 ) :
     WView(navigationController.context), WThemedView {
@@ -129,6 +129,7 @@ class TokenHeaderView(
         typeface = WFont.NunitoExtraBold.typeface
         clipChildren = false
         clipToPadding = false
+        smartDecimalsColor = true
     }
     private val balanceView = WSensitiveDataContainer(
         AutoScaleContainerView(balanceContentView).apply {
@@ -180,6 +181,7 @@ class TokenHeaderView(
     }
 
     override fun updateTheme() {
+        balanceContentView.updateTheme()
         updateBackgroundColor()
         balanceContentView.apply {
             typeface = WFont.NunitoExtraBold.typeface
@@ -252,7 +254,7 @@ class TokenHeaderView(
     fun reloadData() {
         token = TokenStore.getToken(token.slug) ?: token
         val balance =
-            BalanceStore.getBalances(AccountStore.activeAccountId!!)?.get(token.slug)
+            BalanceStore.getBalances(accountId)?.get(token.slug)
                 ?: BigInteger.ZERO
         balanceContentView.animateText(
             AnimateConfig(
@@ -260,6 +262,7 @@ class TokenHeaderView(
                 token.decimals,
                 token.symbol,
                 prevBalance != null,
+                setInstantly = false,
                 forceCurrencyToRight = true
             )
         )
@@ -271,7 +274,7 @@ class TokenHeaderView(
                 }
             }
         equivalentLabel.contentView.text = balanceInBaseCurrency?.toString(
-            WalletCore.baseCurrency.decimalsCount,
+            9,
             WalletCore.baseCurrency.sign,
             WalletCore.baseCurrency.decimalsCount,
             true

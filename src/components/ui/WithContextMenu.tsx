@@ -15,6 +15,8 @@ interface Props<T extends string> {
   items: DropdownItem<T>[];
   rootRef?: ElementRef<HTMLDivElement>;
   onItemClick: (value: T) => void;
+  withBackdrop?: boolean;
+  layout?: Partial<Layout>;
   children: (buttonProps: {
     ref: ElementRef<HTMLDivElement | HTMLButtonElement>;
     onMouseDown: (e: React.MouseEvent) => void;
@@ -29,6 +31,8 @@ export default function WithContextMenu<T extends string>({
   items,
   rootRef,
   onItemClick,
+  withBackdrop,
+  layout: layoutOverrides,
   children,
   menuClassName,
   menuPositionY = 'bottom',
@@ -40,10 +44,11 @@ export default function WithContextMenu<T extends string>({
   const getTriggerElement = useLastCallback(() => buttonRef.current);
   const getRootElement = useLastCallback(() => rootRef?.current ?? document.body);
   const getMenuElement = useLastCallback(() => menuRef.current);
-  const getLayout: () => Layout = useLastCallback(() => ({
+  const getLayout = useLastCallback((): Layout => ({
     withPortal: true,
     doNotCoverTrigger: true,
-    centerHorizontally: true,
+    isCenteredHorizontally: true,
+    ...(layoutOverrides || {}),
   }));
 
   const {
@@ -64,7 +69,7 @@ export default function WithContextMenu<T extends string>({
 
   return (
     <>
-      {isPortrait && (
+      {isPortrait && withBackdrop && (
         <MenuBackdrop
           isMenuOpen={isContextMenuOpen}
           contentRef={buttonRef}

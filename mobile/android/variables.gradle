@@ -13,6 +13,6 @@ ext {
     androidxJunitVersion = '1.2.1'
     androidxEspressoCoreVersion = '3.6.1'
     cordovaAndroidVersion = '10.1.1'
-    mlkitBarcodeScanningVersion = '17.2.0'
+    mlkitBarcodeScanningVersion = '17.3.0'
     androidxMaterialVersion = '1.12.0'
 }

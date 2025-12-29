@@ -30,6 +30,7 @@ public class WMinimizableSheet: WViewController {
         self.browser = browser
         self.startMinimized = startMinimized
         super.init(nibName: nil, bundle: nil)
+        modalPresentationStyle = .pageSheet
     }
     
     @MainActor required init?(coder: NSCoder) {
@@ -119,7 +120,7 @@ public class WMinimizableSheet: WViewController {
         }
     }
     
-    public override func closeButtonPressed() {
+    func closeButtonPressed() {
         delegate?.minimizableSheetDidClose(self)
         presentingViewController?.dismiss(animated: true)
         WalletCoreData.notify(event: .minimizedSheetChanged(.closed))

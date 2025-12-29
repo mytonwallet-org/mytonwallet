@@ -11,7 +11,7 @@ First, Make sure you've installed these on your system:
 - Xcode (recommended version: latest release version)
 - NodeJS (recommended version: 24)
 
-This repository is used as a Git submodule within [MyTonWallet](https://github.com/mytonwalletorg/mytonwallet).
+This directory is part of the MyTonWallet monorepo. [MyTonWallet](https://github.com/mytonwalletorg/mytonwallet).
 
 After cloning the `air` branch, follow the build instructions and run:
 
@@ -20,7 +20,8 @@ npm run build
 npm run mobile:run:ios
 ```
 
-If you've modified SDK files (src/api/*), please run the SDK file generator command:
+If you've modified SDK files (src/api/\*), please run the SDK file generator command:
+
 ```
 npm run mobile:build:sdk
 ```
@@ -47,27 +48,26 @@ To learn more about this bridge, read [this doc](docs/js-bridge.md).
 
 ### Shared Storages:
 
-* GlobalStorage
+- GlobalStorage
 
   Global storage stores all the non-critical data, including cached activities, settings and so on.
 
   It stores data in the web-view local-storage on both Legacy(Capacitor) app and the new Air(Native) app.
 
-* SecureStorage
+- SecureStorage
 
   Sensitive encrypted data are stored using this storage, into Keychain.
 
 ### Air Exclusive Storages:
 
-* GRDB Sqlite DB
+- GRDB Sqlite DB
 
   Stores non-sensitive account data like account type, wallet name and so on. Used to handle unexpected localstorage removal.
 
-* Logs
+- Logs
 
   Logs are stored in a .tsv file
 
-* Nfts and Staking data
+- Nfts and Staking data
 
   Nfts and Staking data are stored in .json files
-

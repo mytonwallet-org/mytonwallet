@@ -4,6 +4,7 @@ import { addExtraClass, removeExtraClass, setExtraStyles } from '../lib/teact/te
 import type { IAnchorPosition } from '../types';
 
 import { requestForcedReflow } from '../lib/fasterdom/fasterdom';
+import buildStyle from '../util/buildStyle';
 import { clamp } from '../util/math';
 import windowSize from '../util/windowSize';
 import { useStateRef } from './useStateRef';
@@ -31,9 +32,9 @@ interface MenuDimensions {
 }
 
 interface GatherBoundsParams {
-  getTriggerElement?: () => (HTMLElement | null | undefined);
-  getRootElement: () => (HTMLElement | null | undefined);
-  getMenuElement: () => (HTMLElement | null | undefined);
+  getTriggerElement?: () => HTMLElement | undefined | null;
+  getRootElement: () => HTMLElement | undefined | null;
+  getMenuElement: () => HTMLElement | undefined | null;
   layout: Layout;
   anchor: IAnchorPosition;
 }
@@ -72,7 +73,7 @@ export interface Layout {
   extraMarginTop?: number;
   menuElMinWidth?: number;
   doNotCoverTrigger?: boolean;
-  centerHorizontally?: boolean;
+  isCenteredHorizontally?: boolean;
   deltaX?: number;
   topShiftY?: number;
   shouldAvoidNegativePosition?: boolean;
@@ -312,13 +313,13 @@ function applyBoundaryConstraints(
     withPortal = false,
     isDense = false,
     menuElMinWidth = 0,
-    centerHorizontally = false,
+    isCenteredHorizontally = false,
   } = layout;
 
   let { x, y } = coordinates;
 
   // Centering the menu with respect to the trigger
-  if (centerHorizontally) {
+  if (isCenteredHorizontally) {
     x = triggerRect.left + (triggerRect.width - menuDimensions.width) / 2;
 
     // Check that the menu does not extend beyond the edges of the screen
@@ -367,7 +368,7 @@ function applyBoundaryConstraints(
   }
 
   // Handle portal edge constraints
-  if (withPortal && !centerHorizontally) {
+  if (withPortal && !isCenteredHorizontally) {
     if (positionX === 'left') {
       x = Math.min(x, rootRect.width - menuDimensions.width - POSITIONING.VISUAL_COMFORT_SPACE);
     } else {
@@ -463,7 +464,12 @@ function processDynamically(
     layout.withPortal || false,
   );
 
-  const style = `left: ${finalCoordinates.x}px; top: ${finalCoordinates.y}px; --menu-width: ${menuDimensions.width}px;`;
+  const style = buildStyle(
+    `left: ${finalCoordinates.x}px`,
+    `top: ${finalCoordinates.y}px`,
+    `--menu-width: ${menuDimensions.width}px`,
+    `--trigger-width: ${triggerRect.width}px`,
+  );
 
   let bubbleStyle;
   if (withMaxHeight) {

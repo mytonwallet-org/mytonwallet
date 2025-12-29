@@ -46,6 +46,7 @@ class WordCheckVC(
     private val initialWordIndices: List<Int>,
     private val mode: WordCheckMode
 ) : WViewController(context), WalletCreationVM.Delegate {
+    override val TAG = "WordCheck"
 
     private val walletCreationVM by lazy {
         WalletCreationVM(this)
@@ -228,7 +229,7 @@ class WordCheckVC(
                     )
                 }
                 Handler(Looper.getMainLooper()).postDelayed({
-                    wordsDoNotMatchLabel.fadeIn { }
+                    wordsDoNotMatchLabel.fadeIn()
                 }, AnimationConstants.VERY_QUICK_ANIMATION)
                 updateHeaderDescription()
             }, 1000)
@@ -293,7 +294,7 @@ class WordCheckVC(
         val allSelected = wordCheckerViews.all {
             it.isWordSelected && !it.isValidatedAndWrong
         }
-        wordsDoNotMatchLabel.fadeOut { }
+        wordsDoNotMatchLabel.fadeOut()
         if (allSelected)
             checkPressed()
     }

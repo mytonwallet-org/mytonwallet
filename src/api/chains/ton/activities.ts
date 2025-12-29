@@ -4,34 +4,27 @@ import type {
   ApiFetchActivitySliceOptions,
   ApiNetwork,
   ApiSwapActivity,
-  ApiTransactionActivity,
 } from '../../types';
 import type { AnyAction, CallContractAction, JettonTransferAction, SwapAction } from './toncenter/types';
-import type { ParsedTrace, ParsedTracePart } from './types';
+import type { ParsedAction, ParsedTrace, TraceOutput } from './types';
 
-import { PUSH_ADDRESS, STON_PTON_ADDRESS, TONCOIN } from '../../../config';
+import { TONCOIN } from '../../../config';
 import { parseAccountId } from '../../../util/account';
 import { getActivityTokenSlugs, getIsActivityPending } from '../../../util/activities';
 import { mergeSortedActivities } from '../../../util/activities/order';
 import { fromDecimal, toDecimal } from '../../../util/decimals';
-import { extractKey, findDifference, intersection, split } from '../../../util/iteratees';
+import { extractKey, findDifference, split } from '../../../util/iteratees';
 import { logDebug, logDebugError } from '../../../util/logs';
 import { pause } from '../../../util/schedulers';
 import withCacheAsync from '../../../util/withCacheAsync';
 import { getSigner } from './util/signer';
-import { resolveTokenWalletAddress, toBase64Address } from './util/tonCore';
+import { resolveTokenWalletAddress } from './util/tonCore';
 import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/accounts';
 import { getTokenBySlug, tokensPreload } from '../../common/tokens';
 import { SEC } from '../../constants';
 import { OpCode, OUR_FEE_PAYLOAD_BOC } from './constants';
-import { fetchActions, fetchTransactions, parseActionActivityId, parseLiquidityDeposit } from './toncenter';
+import { fetchActions, fetchTransactions, parseActionActivityId } from './toncenter';
 import { fetchAndParseTrace } from './traces';
-
-type ActivityDetailsResult = {
-  activity: ApiActivity;
-  sentForFee: bigint;
-  excess: bigint;
-};
 
 const GET_TRANSACTIONS_LIMIT = 128;
 
@@ -164,7 +157,7 @@ export async function fetchActivityDetails(
 ): Promise<ApiActivity | undefined> {
   const { network } = parseAccountId(accountId);
   const { address: walletAddress } = await fetchStoredWallet(accountId, 'ton');
-  let result: ActivityDetailsResult | undefined;
+  let result: ApiActivity | undefined;
 
   // The trace can be unavailable immediately after the action is received, so a couple of delayed retries are made
   for (let attempt = 0; attempt < TRACE_ATTEMPT_COUNT && !result; attempt++) {
@@ -182,99 +175,67 @@ export async function fetchActivityDetails(
       continue;
     }
 
-    result = calculateActivityDetails(activity, parsedTrace);
+    activity = fillActivityDetails(activity, parsedTrace);
   }
 
   if (!result) {
     logDebugError('Trace unavailable for activity', activity.id);
   }
 
-  return result?.activity;
+  return activity;
 }
 
-export function calculateActivityDetails(
-  activity: ApiActivity,
-  parsedTrace: ParsedTrace,
-  isEmulation?: boolean,
-): ActivityDetailsResult | undefined {
+export function fillActivityDetails(activity: ApiActivity, parsedTrace: ParsedTrace): ApiActivity {
   const { actionId } = parseActionActivityId(activity.id);
-  const { actions, byTransactionIndex } = parsedTrace;
+  const { traceOutput, parsedAction } = findParsedAction(parsedTrace, actionId) ?? {};
 
-  const action = actions.find(({ action_id }) => action_id === actionId);
-  if (!action) {
-    // This can happen when the trace is requested too early, for example right after receiving the action from a socket
-    return undefined;
+  if (!traceOutput || !parsedAction) {
+    return { ...activity, shouldLoadDetails: undefined };
   }
 
-  const actionHashes = new Set(action.transactions);
-
-  const tracePart = byTransactionIndex.find((item) => {
-    return intersection(item.hashes, actionHashes).size;
-  })!;
-
-  let result: ActivityDetailsResult;
+  const { action } = parsedAction;
+  const { realFee } = traceOutput;
 
   if (activity.kind === 'swap') {
-    result = setSwapDetails({
-      parsedTrace, activity, action: action as SwapAction, tracePart,
-    });
+    const ourFee = getSwapOurFee(activity, parsedTrace.actions, action as SwapAction);
+    const networkFee = toDecimal(realFee, TONCOIN.decimals);
+    activity = { ...activity, ourFee, networkFee };
   } else {
-    result = setTransactionDetails({
-      parsedTrace, activity, action, tracePart, actions, actionId, isEmulation,
-    });
+    activity = { ...activity, fee: realFee };
   }
+
+  activity = { ...activity, shouldLoadDetails: undefined };
 
   logDebug('Calculation of fee for action', {
     actionId: action.action_id,
     externalMsgHashNorm: activity.externalMsgHashNorm,
     activityStatus: activity.status,
-    networkFee: toDecimal(tracePart.networkFee),
-    realFee: toDecimal(getActivityRealFee(result.activity)),
-    sentForFee: toDecimal(result.sentForFee),
-    excess: toDecimal(result.excess),
+    networkFee: toDecimal(traceOutput.networkFee),
+    realFee: toDecimal(getActivityRealFee(activity)),
     details: action.details,
   });
 
-  return result;
+  return activity;
 }
 
-function setSwapDetails(options: {
-  parsedTrace: ParsedTrace;
-  action: SwapAction;
-  activity: ApiSwapActivity;
-  tracePart: ParsedTracePart;
-}): ActivityDetailsResult {
-  const { action, tracePart, parsedTrace: { actions } } = options;
-  let { activity } = options;
-
-  const { details } = action;
-
-  let sentForFee = tracePart.sent;
-  let excess = tracePart.received;
-
-  // When the transaction is failed, its `sent` and `received` are always 0 (as defined in `parseFailedTransactions`)
-  if (tracePart.isSuccess) {
-    const isToncoinIn = !details.asset_in;
-    const isToncoinOut = details.asset_out
-      ? toBase64Address(details.asset_out) === STON_PTON_ADDRESS
-      : true;
-
-    if (isToncoinIn) {
-      sentForFee -= BigInt(details.dex_incoming_transfer.amount);
-    } else if (isToncoinOut) {
-      excess -= BigInt(details.dex_outgoing_transfer.amount);
+function findParsedAction(parsedTrace: ParsedTrace, actionId: string): {
+  traceOutput: TraceOutput;
+  parsedAction: ParsedAction;
+} | undefined {
+  for (const traceOutput of parsedTrace.traceOutputs) {
+    for (const parsedAction of traceOutput.walletActions) {
+      if (parsedAction.action.action_id === actionId) {
+        return { traceOutput, parsedAction };
+      }
     }
   }
 
-  const realFee = tracePart.networkFee + sentForFee - excess;
+  return undefined;
+}
 
-  activity = {
-    ...activity,
-    networkFee: toDecimal(realFee),
-  };
-
+function getSwapOurFee(activity: ApiSwapActivity, actions: AnyAction[], action: SwapAction): string {
   let ourFee: bigint | undefined;
-  if (!details.asset_in) {
+  if (!action.details.asset_in) {
     const ourFeeAction = actions.find((_action) => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
       return _action.type === 'call_contract' && Number(_action.details.opcode) === OpCode.OurFee;
@@ -293,131 +254,10 @@ function setSwapDetails(options: {
 
   if (ourFee) {
     const tokenIn = getTokenBySlug(activity.from);
-    activity.ourFee = toDecimal(ourFee, tokenIn?.decimals);
+    return toDecimal(ourFee, tokenIn?.decimals);
+  } else {
+    return '0';
   }
-
-  delete activity.shouldLoadDetails;
-
-  return { activity, sentForFee, excess };
-}
-
-function setTransactionDetails(options: {
-  parsedTrace: ParsedTrace;
-  actions: AnyAction[];
-  actionId: string;
-  action: AnyAction;
-  activity: ApiTransactionActivity;
-  tracePart: ParsedTracePart;
-  isEmulation?: boolean;
-}): ActivityDetailsResult {
-  const {
-    actions,
-    actionId,
-    action,
-    tracePart,
-    parsedTrace,
-    isEmulation,
-  } = options;
-
-  let { activity } = options;
-  let { networkFee, sent: sentForFee, received: excess } = tracePart;
-  const { addressBook, totalSent, totalReceived, totalNetworkFee } = parsedTrace;
-
-  // The flag indicates that this activity is already accounted for in the excess of another activity to avoid double counting
-  const isExcessAccounted = isEmulation
-    && isActivityExcessAccounted(actions, actionId, tracePart, parsedTrace, activity.fromAddress);
-
-  switch (action.type) {
-    case 'ton_transfer':
-    case 'call_contract': {
-      const isPush = toBase64Address(action.details.destination) === PUSH_ADDRESS;
-      const hasExcess = isExcessAccounted || isPush;
-      if (!hasExcess) {
-        sentForFee -= BigInt(action.details.value);
-      }
-      break;
-    }
-    case 'nft_transfer': {
-      if (action.details.is_purchase) {
-        sentForFee -= BigInt(action.details.price!);
-      }
-      break;
-    }
-    case 'stake_deposit': {
-      sentForFee -= BigInt(action.details.amount);
-      break;
-    }
-    case 'stake_withdrawal': {
-      excess -= BigInt(action.details.amount);
-      break;
-    }
-    case 'dex_deposit_liquidity': {
-      // Liquidity deposit can be either a dual transaction or two separate single transactions.
-      // We display the deposit as separate actions, so we divide by the number of actions.
-      const activitiesPerAction = BigInt(parseLiquidityDeposit(action, {
-        addressBook,
-        // The below fields don't matter here, they are only to satisfy the type requirements:
-        network: 'mainnet',
-        walletAddress: '',
-        metadata: {},
-        nftSuperCollectionsByCollectionAddress: {},
-      }).length);
-
-      networkFee = totalNetworkFee / activitiesPerAction;
-      sentForFee = totalSent / activitiesPerAction;
-      excess = totalReceived / activitiesPerAction;
-
-      if (!action.details.asset_1) {
-        sentForFee -= BigInt(action.details.amount_1 ?? 0n) / activitiesPerAction;
-      } else if (!action.details.asset_2) {
-        sentForFee -= BigInt(action.details.amount_2 ?? 0n) / activitiesPerAction;
-      }
-      break;
-    }
-    case 'dex_withdraw_liquidity': {
-      if (!action.details.asset_1) {
-        excess -= BigInt(action.details.amount_1);
-      } else if (!action.details.asset_2) {
-        excess -= BigInt(action.details.amount_2);
-      }
-
-      sentForFee /= 2n;
-      excess /= 2n;
-      break;
-    }
-  }
-
-  // When the transaction is failed, its `sent` and `received` are always 0 (as defined in `parseFailedTransactions`)
-  if (!tracePart.isSuccess) {
-    sentForFee = 0n;
-    excess = 0n;
-  }
-
-  const realFee = networkFee + sentForFee - excess;
-
-  activity = {
-    ...activity,
-    fee: realFee,
-  };
-
-  delete activity.shouldLoadDetails;
-
-  return { activity, sentForFee, excess: isExcessAccounted ? 0n : excess };
-}
-
-function isActivityExcessAccounted(
-  actions: AnyAction[],
-  actionId: string,
-  tracePart: ParsedTracePart,
-  parsedTrace: ParsedTrace,
-  fromAddress: string,
-): boolean {
-  return actions.some((otherAction) =>
-    otherAction.action_id !== actionId
-    && (otherAction.type === 'ton_transfer' || otherAction.type === 'call_contract')
-    && intersection(new Set(otherAction.transactions), tracePart.hashes).size
-    && parsedTrace.addressBook[otherAction.details.destination]?.user_friendly === fromAddress,
-  );
 }
 
 export function getActivityRealFee(activity: ApiActivity) {

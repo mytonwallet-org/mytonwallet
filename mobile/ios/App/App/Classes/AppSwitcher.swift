@@ -21,17 +21,16 @@ private let log = Log("AppSwitcher")
     
     let window: WWindow
 
-    var webView: WKWebView? = nil
-    
     init(window: WWindow) {
         log.info("AppSwitcher.init")
         self.window = window
         AirLauncher.set(window: window)
     }
     
-    @MainActor func startTheApp() {
-        log.info("startTheApp isOnTheAir=\(AirLauncher.isOnTheAir) isCapacitorAppAvailable=\(AirLauncher.isCapacitorAppAvailable)")
-        if AirLauncher.isOnTheAir || !AirLauncher.isCapacitorAppAvailable {
+    func startTheApp() {
+        let canSwitchToCapacitor = (UIApplication.shared.delegate as? AppDelegate)?.canSwitchToCapacitor ?? true
+        log.info("startTheApp isOnTheAir=\(AirLauncher.isOnTheAir) canSwitchToCapacitor=\(canSwitchToCapacitor)")
+        if AirLauncher.isOnTheAir || !canSwitchToCapacitor {
             Task(priority: .userInitiated) {
                 await AirLauncher.soarIntoAir()
             }

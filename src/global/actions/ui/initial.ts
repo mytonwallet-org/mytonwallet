@@ -1,5 +1,5 @@
 import type {
-  Account, AccountSettings, AccountState, NotificationType,
+  Account, AccountSettings, AccountState, ToastType,
 } from '../../types';
 import { AppState } from '../../types';
 
@@ -44,6 +44,7 @@ import { errorCodeToMessage } from '../../helpers/errors';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import { updateCurrentAccountId, updateCurrentAccountState } from '../../reducers';
 import {
+  selectCurrentAccountId,
   selectCurrentNetwork,
   selectNetworkAccounts,
   selectNetworkAccountsMemoized,
@@ -188,7 +189,10 @@ addActionHandler('selectToken', (global, actions, { slug } = {}) => {
       actions.changeTransferToken({ tokenSlug: slug });
     }
   } else {
-    const currentActivityToken = global.byAccountId[global.currentAccountId!].currentTokenSlug;
+    const currentAccountId = selectCurrentAccountId(global);
+    if (!currentAccountId) return;
+
+    const currentActivityToken = global.byAccountId[currentAccountId].currentTokenSlug;
 
     const isDefaultFirstTokenOutSwap = global.currentSwap.tokenOutSlug === DEFAULT_SWAP_FIRST_TOKEN_SLUG
       && global.currentSwap.tokenInSlug === DEFAULT_SWAP_SECOND_TOKEN_SLUG;
@@ -231,36 +235,36 @@ addActionHandler('showError', (global, actions, { error } = {}) => {
   });
 });
 
-addActionHandler('showNotification', (global, actions, payload) => {
+addActionHandler('showToast', (global, actions, payload) => {
   if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('showNotification', payload);
+    callActionInMain('showToast', payload);
     return undefined;
   }
 
   const { message, icon } = payload;
 
-  const newNotifications: NotificationType[] = [...global.notifications];
-  const existingNotificationIndex = newNotifications.findIndex((n) => n.message === message);
-  if (existingNotificationIndex !== -1) {
-    newNotifications.splice(existingNotificationIndex, 1);
+  const newToasts: ToastType[] = [...global.toasts];
+  const existingToastIndex = newToasts.findIndex((n) => n.message === message);
+  if (existingToastIndex !== -1) {
+    newToasts.splice(existingToastIndex, 1);
   }
 
-  newNotifications.push({ message, icon });
+  newToasts.push({ message, icon });
 
   return {
     ...global,
-    notifications: newNotifications,
+    toasts: newToasts,
   };
 });
 
-addActionHandler('dismissNotification', (global) => {
-  const newNotifications = [...global.notifications];
+addActionHandler('dismissToast', (global) => {
+  const newToasts = [...global.toasts];
 
-  newNotifications.pop();
+  newToasts.pop();
 
   return {
     ...global,
-    notifications: newNotifications,
+    toasts: newToasts,
   };
 });
 
@@ -379,10 +383,15 @@ addActionHandler('signOut', async (global, actions, payload) => {
       actions.init();
     }
   } else {
-    const removingAccountId = accountId ?? global.currentAccountId!;
-    const shouldSwitchAccount = removingAccountId === global.currentAccountId;
+    const currentAccountId = selectCurrentAccountId(global)!;
+    const removingAccountId = accountId ?? currentAccountId;
+    const shouldSwitchAccount = removingAccountId === currentAccountId;
+    const isRemovingTemporaryAccount = removingAccountId === global.currentTemporaryViewAccountId;
+    // If removing temporary account, we should switch to previous account (aka `global.currentAccountId`), not to the first of the `accountIds`.
     const nextAccountId = shouldSwitchAccount
-      ? accountIds.find((id) => id !== removingAccountId)!
+      ? (isRemovingTemporaryAccount && global.currentAccountId
+        ? global.currentAccountId
+        : accountIds.find((id) => id !== removingAccountId)!)
       : undefined;
     const nextNewestActivityTimestamps = nextAccountId
       ? selectNewestActivityTimestamps(global, nextAccountId)
@@ -403,6 +412,7 @@ addActionHandler('signOut', async (global, actions, payload) => {
 
     global = {
       ...global,
+      currentTemporaryViewAccountId: undefined,
       accounts: {
         ...global.accounts!,
         byId: accountsById,

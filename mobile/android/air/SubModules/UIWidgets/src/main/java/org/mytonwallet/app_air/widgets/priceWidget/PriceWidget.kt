@@ -21,6 +21,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.MHistoryTimePeriod
 import org.mytonwallet.app_air.walletbasecontext.utils.formatDateAndTime
 import org.mytonwallet.app_air.walletbasecontext.utils.formatTime
+import org.mytonwallet.app_air.walletbasecontext.utils.signSpace
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletsdk.methods.SDKApiMethod
 import org.mytonwallet.app_air.widgets.R
@@ -123,6 +124,10 @@ class PriceWidget : AppWidgetProvider() {
         val tokenSymbol: String?
             get() {
                 return token?.optString("symbol") ?: DEFAULT_TOKEN
+            }
+        val tokenSlug: String?
+            get() {
+                return token?.optString("slug")
             }
         val assetId: String?
             get() {
@@ -368,13 +373,12 @@ class PriceWidget : AppWidgetProvider() {
             context,
             views,
             R.id.container,
-            "mtw://",
+            "mtw://token/${config.tokenSlug}",
             PriceWidget::class.java,
             appWidgetId
         )
 
         // PREPARE VALUES //////////////////////////////////////////////////////////////////////////
-        val baseCurrency = config.cachedChartCurrency?.let { MBaseCurrency.parse(it) }
         val priceChartData = config.cachedChart.toTypedArray()
         val baseColor = config.token?.optString("color", DEFAULT_COLOR)?.let {
             if (it != "null")
@@ -402,14 +406,19 @@ class PriceWidget : AppWidgetProvider() {
 
         // BITMAPS /////////////////////////////////////////////////////////////////////////////////
         val forcedCompact = isCompact || priceChangePercent == null
-        val sign = if ((priceChangePercent ?: 0.0) > 0) "+" else ""
+        val change = priceChangePercent ?: 0.0
+        val sign = when {
+            change > 0 -> "+$signSpace"
+            change < 0 -> "-$signSpace"
+            else -> ""
+        }
         val priceChangeAndDateBitmap = if (priceChangePercent != null) TextUtils.textToBitmap(
             context,
             TextUtils.DrawableText(
                 "$sign${
                     String.format(
                         "%.2f",
-                        priceChangePercent
+                        kotlin.math.abs(priceChangePercent)
                     )
                 }% · ${Date(priceChartData.last()[0].toLong() * 1000).formatTime()}",
                 size = 15,
@@ -426,6 +435,11 @@ class PriceWidget : AppWidgetProvider() {
                 FontUtils.semiBold(context)
             )
         )
+        val baseCurrency =
+            if (config.cachedChartCurrency != config.tokenSymbol)
+                config.cachedChartCurrency?.let { MBaseCurrency.parse(it) }
+            else
+                MBaseCurrency.USD
         val firstPriceSmallBitmap = if (forcedCompact) null else TextUtils.textToBitmap(
             context,
             TextUtils.DrawableText(
@@ -523,7 +537,7 @@ class PriceWidget : AppWidgetProvider() {
                         "$sign${
                             String.format(
                                 "%.2f",
-                                priceChangePercent
+                                kotlin.math.abs(priceChangePercent ?: 0.0)
                             )
                         }% · ${
                             priceChangeValue?.absoluteValue?.toString(

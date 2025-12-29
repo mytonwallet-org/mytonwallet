@@ -13,36 +13,23 @@ public let DUMMY_ACCOUNT = MAccount(id: "dummy-mainnet", title: " ", type: .view
 
 // see src/global/types.ts > Account
 
-public struct MAccount: Equatable, Hashable, Sendable, Codable, FetchableRecord, PersistableRecord {
+public struct MAccount: Equatable, Hashable, Sendable, Codable, Identifiable, FetchableRecord, PersistableRecord {
     
     public let id: String
     
     public var title: String?
     public var type: AccountType
     public var byChain: [String: AccountChain] // keys have to be strings because encoding won't work with ApiChain as keys
-    
+    public var isTemporary: Bool?
+
     static public var databaseTableName: String = "accounts"
 
-    public init(id: String, title: String?, type: AccountType, byChain: [String : AccountChain]) {
+    public init(id: String, title: String?, type: AccountType, byChain: [String : AccountChain], isTemporary: Bool? = nil) {
         self.id = id
         self.title = title
         self.type = type
         self.byChain = byChain
-    }
-}
-
-public struct AccountChain: Equatable, Hashable, Sendable, Codable {
-    public var address: String
-    public var domain: String?
-    public var isMultisig: Bool?
-    /** Is set only in hardware accounts */
-    public var ledgerIndex: Int?
-    
-    public init(address: String, domain: String? = nil, isMultisig: Bool? = nil, ledgerIndex: Int? = nil) {
-        self.address = address
-        self.domain = domain
-        self.isMultisig = isMultisig
-        self.ledgerIndex = ledgerIndex
+        self.isTemporary = isTemporary
     }
 }
 
@@ -51,18 +38,12 @@ extension MAccount {
         byChain.mapValues(\.address)
     }
     
-    public var tonAddress: String? {
-        byChain[ApiChain.ton.rawValue]?.address
+    public var firstChain: ApiChain {
+        ApiChain.allCases.first(where: { self.supports(chain: $0.rawValue) }) ?? FALLBACK_CHAIN
     }
     
-    public var tronAddress: String? {
-        byChain[ApiChain.tron.rawValue]?.address
-    }
-    
-    public var firstAddress: String? {
-        ApiChain.allCases
-            .first(where: { self.supports(chain: $0.rawValue) })
-            .flatMap { addressByChain[$0.rawValue] }
+    public var firstAddress: String {
+        addressByChain[firstChain.rawValue] ?? ""
     }
     
     public func supports(chain: String?) -> Bool {
@@ -72,8 +53,8 @@ extension MAccount {
         return false
     }
     
-    public var supportedChains: [ApiChain] {
-        ApiChain.allCases.filter { self.supports(chain: $0.rawValue) }
+    public var supportedChains: Set<ApiChain> {
+        Set(byChain.compactMap { chain, _ in ApiChain(rawValue: chain) })
     }
     
     public var isMultichain: Bool {
@@ -86,6 +67,10 @@ extension MAccount {
     
     public var isView: Bool {
         type == .view
+    }
+    
+    public var isTemporaryView: Bool {
+        isTemporary == true
     }
     
     public var network: ApiNetwork {
@@ -110,6 +95,23 @@ extension MAccount {
             return tonDict["version"] as? String
         }
         return nil
+    }
+    
+    public var orderedChains: [(ApiChain, AccountChain)] {
+        ApiChain.allCases.compactMap { chain  in
+            if let info = byChain[chain.rawValue] {
+                return (chain, info)
+            }
+            return nil
+        }
+    }
+    
+    public var shareLink: URL {
+        var components = URLComponents(string: SHORT_UNIVERSAL_URL + "view")!
+        components.queryItems = orderedChains.map { (chain, info) in
+            URLQueryItem(name: chain.rawValue, value: info.preferredCopyString)
+        }
+        return components.url!
     }
 }
 

@@ -24,12 +24,15 @@ type OwnProps = {
   emoji?: EmojiIcon;
   size?: 'small' | 'medium';
   type?: 'hint' | 'warning';
+  direction?: 'top' | 'bottom';
   iconClassName?: string;
   tooltipClassName?: string;
+  canHoverOnTooltip?: boolean;
 };
 
 const ARROW_WIDTH = 0.6875 * REM;
 const GAP = 2 * REM;
+const CLOSE_TIMER_DELAY = 150;
 
 /** The component is designed to be positioned inline in text. Use a space symbol to create a gap on the left. */
 const IconWithTooltip: FC<OwnProps> = ({
@@ -37,8 +40,10 @@ const IconWithTooltip: FC<OwnProps> = ({
   emoji,
   size = 'medium',
   type = 'hint',
+  direction = 'top',
   iconClassName,
   tooltipClassName,
+  canHoverOnTooltip = false,
 }) => {
   const [isOpen, open, close] = useFlag();
   const { shouldRender, ref: tooltipContainerRef } = useShowTransition({
@@ -52,6 +57,8 @@ const IconWithTooltip: FC<OwnProps> = ({
 
   const tooltipStyle = useRef<string>();
   const arrowStyle = useRef<string>();
+
+  const closeTimerRef = useRef<number | undefined>();
 
   const randomTooltipKey = useUniqueId();
 
@@ -73,7 +80,9 @@ const IconWithTooltip: FC<OwnProps> = ({
   useEffect(() => {
     if (!iconRef.current || !tooltipRef.current) return;
 
-    const { top, left, width } = iconRef.current.getBoundingClientRect();
+    const {
+      top, left, width, height: iconHeight,
+    } = iconRef.current.getBoundingClientRect();
     const {
       width: tooltipWidth,
       height: tooltipHeight,
@@ -83,14 +92,44 @@ const IconWithTooltip: FC<OwnProps> = ({
     const arrowPosition = left - tooltipCenter + width / 2 - ARROW_WIDTH / 2;
     const horizontalOffset = arrowPosition < GAP ? GAP - arrowPosition : 0;
 
-    const tooltipVerticalStyle = `top: ${top - tooltipHeight - ARROW_WIDTH}px;`;
+    const isTop = direction === 'top';
+    const tooltipTop = isTop
+      ? top - tooltipHeight - ARROW_WIDTH
+      : top + iconHeight + ARROW_WIDTH;
+    const arrowTop = isTop
+      ? tooltipHeight - ARROW_WIDTH / 2 - 1
+      : -ARROW_WIDTH / 2 + 1;
+
+    const tooltipVerticalStyle = `top: ${tooltipTop}px;`;
     const tooltipHorizontalStyle = `left: ${tooltipCenter - horizontalOffset}px;`;
     const arrowHorizontalStyle = `left: ${arrowPosition + horizontalOffset}px;`;
-    const arrowVerticalStyle = `top: ${tooltipHeight - ARROW_WIDTH / 2 - 1}px;`;
+    const arrowVerticalStyle = `top: ${arrowTop}px;`;
 
     tooltipStyle.current = `${tooltipVerticalStyle} ${tooltipHorizontalStyle}`;
     arrowStyle.current = `${arrowVerticalStyle} ${arrowHorizontalStyle}`;
-  }, [shouldRender]);
+  }, [shouldRender, direction]);
+
+  function startCloseTimer() {
+    closeTimerRef.current = window.setTimeout(() => close(), CLOSE_TIMER_DELAY);
+  }
+
+  function clearCloseTimer() {
+    if (closeTimerRef.current) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = undefined;
+    }
+  }
+
+  useEffect(() => {
+    return clearCloseTimer;
+  }, [isOpen]);
+
+  const handleTooltipClick = useLastCallback((e: React.MouseEvent) => {
+    // Allow click events on links
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'A' || target.closest('a')) return;
+    stopEvent(e);
+  });
 
   function renderIcon() {
     const commonClassName = buildClassName(styles.icon, iconClassName, styles[size], colorClassName);
@@ -104,7 +143,7 @@ const IconWithTooltip: FC<OwnProps> = ({
           data-tooltip-key={randomTooltipKey}
           onClick={onClick}
           onMouseEnter={open}
-          onMouseLeave={close}
+          onMouseLeave={canHoverOnTooltip ? startCloseTimer : close}
         >
           <Emoji from={emoji} />
         </span>
@@ -122,7 +161,7 @@ const IconWithTooltip: FC<OwnProps> = ({
         data-tooltip-key={randomTooltipKey}
         onClick={onClick}
         onMouseEnter={open}
-        onMouseLeave={close}
+        onMouseLeave={canHoverOnTooltip ? startCloseTimer : close}
       />
     );
   }
@@ -133,9 +172,11 @@ const IconWithTooltip: FC<OwnProps> = ({
         <Portal>
           <div
             ref={tooltipContainerRef}
-            className={styles.container}
-            onClick={stopEvent}
+            className={buildClassName(styles.container, styles[direction])}
             style={tooltipStyle.current}
+            onMouseEnter={canHoverOnTooltip ? clearCloseTimer : undefined}
+            onMouseLeave={canHoverOnTooltip ? startCloseTimer : close}
+            onClick={handleTooltipClick}
           >
             <div
               ref={tooltipRef}

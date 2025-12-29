@@ -58,6 +58,7 @@ struct TokenWithChartWidgetView: View {
         .containerBackground(for: .widget) {
             background
         }
+        .widgetURL(entry.token.internalDeeplinkUrl)
     }
     
     @ViewBuilder
@@ -105,7 +106,7 @@ struct TokenWithChartWidgetView: View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 0) {
                 if let firstDate = entry.firstDate, let firstValue = entry.firstValue {
-                    Text(firstValue.formatted(maxDecimals: firstValue.adaptiveDecimals()))
+                    Text(firstValue.formatted(.baseCurrencyPrice))
                         .font(.system(size: 17, weight: .semibold))
                         .lineLimit(1)
                         .foregroundStyle(.white)
@@ -116,7 +117,7 @@ struct TokenWithChartWidgetView: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 0) {
-                Text(entry.currencyRate.formatted(maxDecimals: entry.currencyRate.adaptiveDecimals()))
+                Text(entry.currencyRate.formatted(.baseCurrencyPrice))
                     .font(.system(size: 17, weight: .semibold))
                     .lineLimit(1)
                     .foregroundStyle(.white)

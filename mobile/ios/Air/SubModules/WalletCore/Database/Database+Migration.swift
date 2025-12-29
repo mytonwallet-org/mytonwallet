@@ -170,10 +170,11 @@ func makeMigrator() -> DatabaseMigrator {
         for newAccount in newAccounts {
             try newAccount.update(db)
         }
-        #if DEBUG
-//        let accounts = try! MAccount.fetchAll(db)
-//        print(accounts)
-        #endif
+    }
+    migrator.registerMigration("v8") { db in
+        try db.alter(table: "accounts") { t in
+            t.add(column: "isTemporary", .boolean)
+        }
     }
     return migrator
 }

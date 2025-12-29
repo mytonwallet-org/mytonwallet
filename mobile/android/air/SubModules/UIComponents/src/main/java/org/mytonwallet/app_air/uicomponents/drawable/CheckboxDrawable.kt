@@ -47,6 +47,8 @@ class CheckboxDrawable(private val invalidateCallback: (() -> Unit)? = null) : D
         private set
 
     fun setChecked(isChecked: Boolean, animated: Boolean) {
+        if (this.isChecked == isChecked)
+            return
         this.isChecked = isChecked
         animator?.cancel()
         if (animated)

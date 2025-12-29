@@ -273,7 +273,7 @@ enum class MApiAnyDisplayError {
                     INCORRECT_DEVICE_TIME -> "The time on your device is incorrect, sync it and try again"
                     UNSUCCESSFUL_TRANSFER -> "Transfer was unsuccessful. Try again later."
                     NOT_SUPPORTED_HARDWARE_OPERATION -> "\$ledger_outdated" // most likely
-                    HARDWARE_BLIND_SIGNING_NOT_ENABLED -> "\$hardware_blind_sign_not_enabled_internal"
+                    HARDWARE_BLIND_SIGNING_NOT_ENABLED -> "\$hardware_blind_sign_not_enabled"
                     WRONG_ADDRESS -> "WrongAddress"
                     WRONG_NETWORK -> "WrongNetwork"
                     else -> null

@@ -14,7 +14,7 @@ import styles from './TransactionAmount.module.scss';
 
 interface OwnProps {
   amount: bigint;
-  token?: Pick<ApiTokenWithPrice, 'decimals' | 'symbol' | 'priceUsd'>;
+  token?: Pick<ApiTokenWithPrice, 'decimals' | 'symbol' | 'priceUsd' | 'slug'>;
   isIncoming?: boolean;
   isScam?: boolean;
   isFailed?: boolean;
@@ -23,6 +23,7 @@ interface OwnProps {
   isSensitiveDataHidden?: true;
   baseCurrency: ApiBaseCurrency;
   currencyRates: ApiCurrencyRates;
+  onTokenClick?: (slug: string) => void;
 }
 
 function TransactionAmount({
@@ -36,10 +37,17 @@ function TransactionAmount({
   isSensitiveDataHidden,
   baseCurrency,
   currencyRates,
+  onTokenClick,
 }: OwnProps) {
   const typeClass = isFailed || isScam
     ? styles.operationNegative
     : isIncoming ? styles.operationPositive : undefined;
+
+  function handleClick() {
+    if (onTokenClick && token?.slug) {
+      onTokenClick(token.slug);
+    }
+  }
 
   function renderAmount() {
     const { decimals, symbol } = token ?? UNKNOWN_TOKEN;
@@ -47,6 +55,7 @@ function TransactionAmount({
     const [wholePart, fractionPart]
       = formatCurrencyExtended(amountString, '', noSign, decimals, !isIncoming).split('.');
     const withStatus = Boolean(status);
+    const isClickable = Boolean(onTokenClick && token?.slug);
 
     return (
       <SensitiveData
@@ -63,7 +72,9 @@ function TransactionAmount({
             status && styles.withStatus,
             typeClass,
             'rounded-font',
+            isClickable && styles.clickable,
           )}
+          onClick={isClickable ? handleClick : undefined}
         >
           {wholePart.trim().replace('\u202F', '')}
           {fractionPart && <span className={styles.amountFraction}>.{fractionPart.trim()}</span>}

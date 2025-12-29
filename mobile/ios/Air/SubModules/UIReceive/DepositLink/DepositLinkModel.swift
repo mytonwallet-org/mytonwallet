@@ -33,19 +33,19 @@ final class DepositLinkModel: ObservableObject, TokenSelectionVCDelegate {
 
         $tokenAmount
             .sink { tokenAmount in
-                self.baseCurrencyAmount = tokenAmount.convertTo(TokenStore.baseCurrency ?? .USD, exchangeRate: tokenAmount.token.price ?? 0.0).amount
+                self.baseCurrencyAmount = tokenAmount.convertTo(TokenStore.baseCurrency, exchangeRate: tokenAmount.token.price ?? 0.0).amount
             }
             .store(in: &cancellables)
         
         $tokenAmount
             .combineLatest($comment, $account)
-            .map { [chain] (tokenAmount, comment, account) in
-                chain.invoiceUrl(
-                    address: account.addressByChain[chain.rawValue]!,
-                    comment: comment.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
-                    amount: tokenAmount.amount.nilIfZero,
-                    jetton: tokenAmount.token.slug != TONCOIN_SLUG ? tokenAmount.token.tokenAddress : nil
-                )
+            .map { [chain] (tokenAmount, comment, account) -> String in
+                chain.formatTransferUrl?(
+                    account.addressByChain[chain.rawValue]!,
+                    tokenAmount.amount.nilIfZero,
+                    comment.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
+                    tokenAmount.token.tokenAddress,
+                ) ?? ""
             }
             .sink { [weak self] url in
                 self?.url = url

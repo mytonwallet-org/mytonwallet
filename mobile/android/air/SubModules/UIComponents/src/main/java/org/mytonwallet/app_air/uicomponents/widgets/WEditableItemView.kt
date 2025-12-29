@@ -13,13 +13,14 @@ import me.vkryl.android.animator.ReplaceAnimator
 import me.vkryl.android.animatorx.BoolAnimator
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.helpers.ViewHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -167,10 +168,7 @@ class WEditableItemView(context: Context) : FrameLayout(context), ReplaceAnimato
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        super.onMeasure(
-            MeasureSpec.makeMeasureSpec(calcMeasuredWidth(), MeasureSpec.EXACTLY),
-            MeasureSpec.makeMeasureSpec(36.dp, MeasureSpec.EXACTLY)
-        )
+        super.onMeasure(calcMeasuredWidth().exactly, 36.dp.exactly)
         prepare()
     }
 

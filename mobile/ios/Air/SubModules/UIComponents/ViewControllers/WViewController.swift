@@ -16,6 +16,7 @@ private let log = Log("WViewController")
 open class WViewController: UIViewController, WThemedView {
 
     open var navigationBar: WNavigationBar? = nil
+    open var customNavigationBarBackground: UIView? = nil
     
     open var bottomButton: WButton? = nil
     open var bottomButtonConstraint: NSLayoutConstraint? = nil
@@ -114,6 +115,22 @@ open class WViewController: UIViewController, WThemedView {
         }
         return false
     }
+
+    public func addCloseNavigationItemIfNeeded() {
+        guard isPresentationModal else { return }
+        navigationItem.rightBarButtonItem = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { _ in
+            topViewController()?.dismiss(animated: true)
+        })
+    }
+    
+    public func configureNavigationItemWithTransparentBackground() {
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithTransparentBackground()
+        appearance.backgroundColor = .clear
+        appearance.backgroundEffect = nil
+        navigationItem.standardAppearance = appearance
+        navigationItem.scrollEdgeAppearance = appearance
+    }
     
     public func bringNavigationBarToFront() {
         if let navigationBar {
@@ -147,30 +164,7 @@ open class WViewController: UIViewController, WThemedView {
             self?.updateNavigationBarProgressiveBlur(y)
         }
     }
-    
-    @available(*, deprecated, message: "Use addNavigationBar instead")
-    open func addCloseToNavBar(color: UIColor? = nil) {
-        let closeButton = UIButton(type: .system)
-        closeButton.translatesAutoresizingMaskIntoConstraints = false
-        closeButton.backgroundColor = WTheme.backgroundReverse.withAlphaComponent(0.09)
-        closeButton.layer.cornerRadius = 16
-        closeButton.layer.masksToBounds = true
-        NSLayoutConstraint.activate([
-            closeButton.widthAnchor.constraint(equalToConstant: 32),
-            closeButton.heightAnchor.constraint(equalToConstant: 32)
-        ])
-        closeButton.setImage(UIImage(systemName: "xmark",
-                                     withConfiguration: UIImage.SymbolConfiguration(pointSize: 13,
-                                                                                    weight: .semibold))!,
-                             for: .normal)
-        closeButton.tintColor = color ?? WTheme.secondaryLabel
-        closeButton.addTarget(self, action: #selector(closeButtonPressed), for: .touchUpInside)
-        navigationItem.setRightBarButton(UIBarButtonItem(customView: closeButton), animated: false)
-    }
-    @objc open func closeButtonPressed() {
-        dismiss(animated: true)
-    }
-    
+        
     public var canGoBack: Bool {
         if let navigationController, navigationController.viewControllers.count > 1 {
             return true
@@ -191,6 +185,21 @@ open class WViewController: UIViewController, WThemedView {
             return { [weak self] in self?.goBack() }
         }
         return nil
+    }
+    
+    public func addCustomNavigationBarBackground(constant: CGFloat = 6) {
+        let customBackground = HostingView {
+            NavigationBarBackground()
+        }
+        customBackground.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(customBackground)
+        NSLayoutConstraint.activate([
+            customBackground.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            customBackground.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            customBackground.topAnchor.constraint(equalTo: view.topAnchor),
+            customBackground.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: constant),
+        ])
+        self.customNavigationBarBackground = customBackground
     }
     
     // MARK: - Hosting controller
@@ -311,7 +320,7 @@ open class WViewController: UIViewController, WThemedView {
     var toastView: UIView? = nil
     private var toastHider: DispatchWorkItem?
     private var toastAction: (() -> ())?
-    public func showToast(animationName: String? = nil, message: String, duration: Double? = 3, tapAction: (() -> ())? = nil) {
+    public func showToast(animationName: String? = nil, message: String, duration: Double, tapAction: (() -> ())? = nil) {
         hideToastView()
         toastView = UIView()
         let blurView = WBlurView.attach(to: toastView!, background: .black.withAlphaComponent(0.75))
@@ -374,13 +383,12 @@ open class WViewController: UIViewController, WThemedView {
             self.view.layoutIfNeeded()
         }
         toastHider?.cancel()
-        toastHider = DispatchWorkItem { [weak self] in
+        let toastHider = DispatchWorkItem { [weak self] in
             guard let self else {return}
             hideToastView()
         }
-        if let duration {
-            DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: toastHider!)
-        }
+        self.toastHider = toastHider
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: toastHider)
     }
     
     private func hideToastView() {

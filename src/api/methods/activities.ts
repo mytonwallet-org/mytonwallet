@@ -1,9 +1,15 @@
-import type { ApiActivity, ApiChain, ApiFetchActivitySliceOptions, ApiTransactionActivity } from '../types';
+import type {
+  ApiActivity,
+  ApiChain,
+  ApiFetchActivitySliceOptions,
+  ApiNetwork,
+  ApiTransactionActivity,
+} from '../types';
 
 import { DEBUG } from '../../config';
 import { getActivityChains } from '../../util/activities';
 import { areActivitiesSortedAndUnique, mergeSortedActivitiesToMaxTime } from '../../util/activities/order';
-import { logDebugError } from '../../util/logs';
+import { logDebug, logDebugError } from '../../util/logs';
 import { getChainBySlug } from '../../util/tokens';
 import chains from '../chains';
 import { fetchStoredAccount } from '../common/accounts';
@@ -78,6 +84,17 @@ export async function fetchActivityDetails(accountId: string, activity: ApiActiv
   }
 
   return activity;
+}
+
+export async function fetchTransactionById(
+  chain: ApiChain,
+  network: ApiNetwork,
+  txHash: string,
+  walletAddress: string,
+): Promise<ApiActivity[]> {
+  logDebug('fetchTransactionById', { chain, network, txHash, walletAddress });
+
+  return chains[chain].fetchTransactionById(network, walletAddress, txHash);
 }
 
 async function fetchAndCheckActivitySlice(chain: ApiChain, options: ApiFetchActivitySliceOptions) {

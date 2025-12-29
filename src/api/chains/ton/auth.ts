@@ -5,7 +5,6 @@ import nacl from 'tweetnacl';
 import type { ApiAccountWithMnemonic, ApiAnyDisplayError, ApiNetwork, ApiTonWallet } from '../../types';
 import type { ApiTonWalletVersion } from './types';
 import type { TonWallet } from './util/tonCore';
-import { ApiAuthError } from '../../types';
 
 import { DEFAULT_WALLET_VERSION } from '../../../config';
 import * as HDKey from '../../../lib/ed25519-hd-key';
@@ -31,6 +30,11 @@ export function validateMnemonic(mnemonic: string[]) {
 
 export function privateKeyHexToKeyPair(privateKeyHex: string) {
   return nacl.sign.keyPair.fromSeed(hexToBytes(privateKeyHex));
+}
+
+export async function fetchPrivateKeyString(accountId: string, password: string, account?: ApiAccountWithMnemonic) {
+  const privateKey = await fetchPrivateKey(accountId, password, account);
+  return privateKey && bytesToHex(privateKey);
 }
 
 export async function fetchPrivateKey(accountId: string, password: string, account?: ApiAccountWithMnemonic) {
@@ -85,30 +89,30 @@ export function getWalletFromBip39Mnemonic(
   version?: ApiTonWalletVersion,
 ): Promise<ApiTonWallet> {
   const { publicKey } = bip39MnemonicToKeyPair(mnemonic);
-  return getWalletFromKeys(publicKey, network, version);
+  return getWalletFromKeys(network, publicKey, version);
 }
 
 export async function getWalletFromMnemonic(
-  mnemonic: string[],
   network: ApiNetwork,
+  mnemonic: string[],
   version?: ApiTonWalletVersion,
 ): Promise<ApiTonWallet & { lastTxId?: string }> {
   const { publicKey } = await tonWebMnemonic.mnemonicToKeyPair(mnemonic);
-  return getWalletFromKeys(publicKey, network, version);
+  return getWalletFromKeys(network, publicKey, version);
 }
 
 export function getWalletFromPrivateKey(
-  privateKey: string,
   network: ApiNetwork,
+  privateKey: string,
   version?: ApiTonWalletVersion,
 ): Promise<ApiTonWallet> {
   const { publicKey } = privateKeyHexToKeyPair(privateKey);
-  return getWalletFromKeys(publicKey, network, version);
+  return getWalletFromKeys(network, publicKey, version);
 }
 
-export async function getWalletFromKeys(
-  publicKey: Uint8Array,
+async function getWalletFromKeys(
   network: ApiNetwork,
+  publicKey: Uint8Array,
   version?: ApiTonWalletVersion,
 ): Promise<ApiTonWallet & { lastTxId?: string }> {
   let wallet: TonWallet;
@@ -161,10 +165,9 @@ export function getOtherVersionWallet(
 export async function getWalletFromAddress(
   network: ApiNetwork,
   addressOrDomain: string,
-): Promise<{ title?: string; wallet: ApiTonWallet } | { error: ApiAuthError }> {
+): Promise<{ title?: string; wallet: ApiTonWallet } | { error: ApiAnyDisplayError }> {
   const resolvedAddress = await resolveAddress(network, addressOrDomain, true);
-  if (resolvedAddress === 'dnsNotResolved') return { error: ApiAuthError.DomainNotResolved };
-  if (resolvedAddress === 'invalidAddress') return { error: ApiAuthError.InvalidAddress };
+  if ('error' in resolvedAddress) return resolvedAddress;
   const rawAddress = resolvedAddress.address;
 
   const [walletInfo, publicKey] = await Promise.all([

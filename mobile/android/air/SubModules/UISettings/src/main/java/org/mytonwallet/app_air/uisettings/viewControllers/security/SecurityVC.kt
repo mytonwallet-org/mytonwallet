@@ -41,6 +41,10 @@ import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 
 class SecurityVC(context: Context, private var currentPasscode: String) : WViewController(context) {
+    override val TAG = "Security"
+
+    override val displayedAccount =
+        DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
 
     override val shouldDisplayBottomBar = true
 

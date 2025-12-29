@@ -113,15 +113,62 @@ function TokenPriceChart({
     return d;
   }
 
+  function getAreaPath() {
+    const linePath = getPath();
+    const firstPoint = points[0];
+    const lastPoint = points[points.length - 1];
+
+    // Close the path by going down to the bottom, across, and back up to the start
+    return `${linePath} L ${lastPoint.x} 3 L ${firstPoint.x} 3 Z`;
+  }
+
   function renderSvg() {
     const activePoint = points[selectedIndex] || points[points.length - 1];
+    const gradientId = 'chartGradient';
+    const gradientDimmedId = 'chartGradientDimmed';
+    const isHovering = selectedIndex >= 0;
+    const clipX = activePoint.x;
+    const svgWidth = width + 6;
+    const svgHeight = height + 6;
 
-    const svg = `<svg viewBox="0 0 ${width + 6} ${height + 6}" height="${height + 6}" width="${width + 6}"
+    const svg = `<svg viewBox="0 0 ${svgWidth} ${svgHeight}" height="${svgHeight}" width="${svgWidth}"
         xmlns="http://www.w3.org/2000/svg" style="transform: scale(1,-1)">
-        <g fill="none" stroke="white">
-          <path stroke-linejoin="round" stroke-width="1.5" d="${getPath()}" style="stroke-linecap: round" />
-          <circle r="2.5" fill="white" cx="${activePoint.x}" cy="${activePoint.y}" />
-        </g>
+        <defs>
+          <linearGradient id="${gradientId}" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%25" stop-color="white" stop-opacity="0.25" />
+            <stop offset="100%25" stop-color="white" stop-opacity="0" />
+          </linearGradient>
+          <linearGradient id="${gradientDimmedId}" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%25" stop-color="white" stop-opacity="0.0625" />
+            <stop offset="100%25" stop-color="white" stop-opacity="0" />
+          </linearGradient>
+          <clipPath id="clipLeft">
+            <rect x="0" y="0" width="${clipX}" height="${svgHeight}" />
+          </clipPath>
+          <clipPath id="clipRight">
+            <rect x="${clipX}" y="0" width="${svgWidth - clipX}" height="${svgHeight}" />
+          </clipPath>
+        </defs>
+        ${isHovering ? `
+          <g clip-path="url(%23clipLeft)">
+            <path d="${getAreaPath()}" fill="url(%23${gradientId})" />
+          </g>
+          <g clip-path="url(%23clipRight)">
+            <path d="${getAreaPath()}" fill="url(%23${gradientDimmedId})" />
+          </g>
+          <g fill="none" stroke="white" clip-path="url(%23clipLeft)">
+            <path stroke-linejoin="round" stroke-width="1.5" d="${getPath()}" style="stroke-linecap: round" />
+          </g>
+          <g fill="none" stroke="white" opacity="0.25" clip-path="url(%23clipRight)">
+            <path stroke-linejoin="round" stroke-width="1.5" d="${getPath()}" style="stroke-linecap: round" />
+          </g>
+        ` : `
+          <path d="${getAreaPath()}" fill="url(%23${gradientId})" />
+          <g fill="none" stroke="white">
+            <path stroke-linejoin="round" stroke-width="1.5" d="${getPath()}" style="stroke-linecap: round" />
+          </g>
+        `}
+        <circle r="2.5" fill="white" cx="${activePoint.x}" cy="${activePoint.y}" />
       </svg>`;
 
     return `data:image/svg+xml;utf8,${(svg)}`;

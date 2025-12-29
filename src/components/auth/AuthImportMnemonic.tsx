@@ -3,15 +3,14 @@ import React, {
 } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
-import {
-  ANIMATED_STICKER_SMALL_SIZE_PX, IS_BIP39_MNEMONIC_ENABLED, MNEMONIC_COUNT, MNEMONIC_COUNTS, PRIVATE_KEY_HEX_LENGTH,
-} from '../../config';
+import { ANIMATED_STICKER_SMALL_SIZE_PX, MNEMONIC_COUNT, MNEMONIC_COUNTS, PRIVATE_KEY_HEX_LENGTH } from '../../config';
 import renderText from '../../global/helpers/renderText';
 import buildClassName from '../../util/buildClassName';
 import captureKeyboardListeners from '../../util/captureKeyboardListeners';
 import { readClipboardContent } from '../../util/clipboard';
 import isMnemonicPrivateKey from '../../util/isMnemonicPrivateKey';
 import { compact } from '../../util/iteratees';
+import { formatEnumeration } from '../../util/langProvider';
 import { IS_CLIPBOARDS_SUPPORTED } from '../../util/windowEnvironment';
 import { callApi } from '../../api';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
@@ -51,7 +50,7 @@ const AuthImportMnemonic = ({ isActive, isLoading, error }: OwnProps & StateProp
     afterImportMnemonic,
     resetAuth,
     cleanAuthError,
-    showNotification,
+    showToast,
   } = getActions();
 
   const lang = useLang();
@@ -115,7 +114,7 @@ const AuthImportMnemonic = ({ isActive, isLoading, error }: OwnProps & StateProp
         handlePasteMnemonic(newValue);
       }
     } catch (err: any) {
-      showNotification({ message: lang('Error reading clipboard') });
+      showToast({ message: lang('Error reading clipboard') });
       setShouldRenderPasteButton(false);
     }
   });
@@ -149,7 +148,10 @@ const AuthImportMnemonic = ({ isActive, isLoading, error }: OwnProps & StateProp
   const handleSubmit = useLastCallback(async () => {
     if (isSubmitDisabled) return;
 
-    const mnemonicValues = compact(Object.values(mnemonic));
+    const mnemonicValues = compact(Object.values(mnemonic))
+      .map((word) => word.trim().toLowerCase())
+      .filter(Boolean);
+
     if (mnemonicValues.length === 12) {
       const isShortMnemonicValid = await callApi('validateMnemonic', mnemonicValues);
       if (!isShortMnemonicValid) return;
@@ -197,9 +199,9 @@ const AuthImportMnemonic = ({ isActive, isLoading, error }: OwnProps & StateProp
           {lang('Enter Secret Words')}
         </div>
         <div className={buildClassName(styles.info, styles.infoSmallFont, styles.infoPull)}>
-          {renderText(lang(IS_BIP39_MNEMONIC_ENABLED
-            ? '$auth_import_mnemonic_description'
-            : '$auth_import_24_mnemonic_description'))}
+          {renderText(lang('$auth_import_mnemonic_description', {
+            counts: formatEnumeration(lang, [...MNEMONIC_COUNTS], 'or', true),
+          }))}
         </div>
 
         {shouldRenderPasteButton && (
@@ -261,6 +263,7 @@ function parsePastedText(str = '') {
   return str
     .replace(/(?:\r\n)+|[\r\n\s;,\t]+/g, ' ')
     .trim()
+    .toLowerCase()
     .split(' ')
     .map((w) => w.slice(0, MAX_LENGTH));
 }

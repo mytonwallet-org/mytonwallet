@@ -66,7 +66,7 @@ function Actions({
     startSwap({
       tokenInSlug,
       tokenOutSlug: getNativeToken(chain).slug,
-      amountIn: String(amountIn),
+      amountIn,
     });
     onClose?.();
   });

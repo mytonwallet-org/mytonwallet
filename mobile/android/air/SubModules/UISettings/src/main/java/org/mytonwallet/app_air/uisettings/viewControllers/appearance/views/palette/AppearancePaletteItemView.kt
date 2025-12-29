@@ -6,10 +6,8 @@ import android.graphics.Color
 import android.graphics.drawable.Drawable
 import android.view.Gravity
 import android.view.View
-import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import android.widget.FrameLayout
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.toColorInt
@@ -18,6 +16,7 @@ import com.google.android.material.progressindicator.CircularProgressIndicator
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setMarginsDp
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.DEFAULT_TINT_DARK
@@ -31,7 +30,7 @@ class AppearancePaletteItemView(
     context: Context,
     val nftAccentId: Int?,
     val onTap: (nftAccentId: Int?, state: State) -> Unit
-) : FrameLayout(context), WThemedView {
+) : WFrameLayout(context), WThemedView {
     enum class State {
         LOADING,
         LOCKED,
@@ -42,7 +41,6 @@ class AppearancePaletteItemView(
     var state: State = State.LOADING
 
     init {
-        id = generateViewId()
         setOnClickListener {
             onTap(nftAccentId, state)
         }
@@ -143,8 +141,8 @@ class AppearancePaletteItemView(
             }
             addView(
                 progressIndicator,
-                ViewGroup.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-                    Gravity.CENTER
+                LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                    gravity = Gravity.CENTER
                 }
             )
         }

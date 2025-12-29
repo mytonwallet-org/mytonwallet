@@ -19,19 +19,21 @@ import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.drawable.RoundProgressDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.getCenterAlignBaseline
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import kotlin.math.ceil
+import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
 import kotlin.math.min
 import kotlin.math.roundToInt
 
 class WButton(context: Context) : View(context), WThemedView {
     private val ripple = WRippleDrawable.create(120f.dp)
-    private val progressDrawable = RoundProgressDrawable(context)
+    private val progressDrawable = RoundProgressDrawable()
     var buttonHeight = 50.dp
+    var clickableError = false
 
     private val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = WFont.Medium.typeface
@@ -157,7 +159,7 @@ class WButton(context: Context) : View(context), WThemedView {
     }
 
     private fun checkEnabled() {
-        super.setEnabled(isEnabledAnimator.value && !isLoadingAnimator.value && !isErrorAnimator.value)
+        super.setEnabled(isEnabledAnimator.value && !isLoadingAnimator.value && (!isErrorAnimator.value || clickableError))
     }
 
     override fun verifyDrawable(who: Drawable): Boolean {
@@ -189,15 +191,16 @@ class WButton(context: Context) : View(context), WThemedView {
             val x = (measuredWidth - it.item.width) / 2f
             val y = baselineY + offset - it.item.layout.getLineBaseline(0)
 
-            canvas.save()
+            val alpha = (scale * it.visibility * 255).roundToInt()
+            canvas.saveLayerAlpha(0f, 0f, measuredWidth.toFloat(), measuredHeight.toFloat(), alpha)
 
             val s = fromTo(0.8f, 1f, it.visibility)
             canvas.scale(s, s, measuredWidth / 2f, measuredHeight / 2f)
 
             canvas.translate(x, y)
             it.item.layout.paint.color = textPaint.color
-            it.item.layout.paint.alpha = (scale * it.visibility * 255).roundToInt()
             it.item.layout.draw(canvas)
+
             canvas.restore()
         }
 
@@ -223,9 +226,15 @@ class WButton(context: Context) : View(context), WThemedView {
         }
 
         val maxWidth = measuredWidth - paddingLeft - paddingRight
-        val textWidth = min(ceil(textPaint.measureText(text.toString())).roundToInt(), maxWidth)
+        val staticLayout = StaticLayout.Builder.obtain(
+            text, 0, text.length, textPaint, Int.MAX_VALUE
+        ).build()
+
+        val textWidth = 0.until(staticLayout.lineCount).maxOf { i ->
+            staticLayout.getLineWidth(i)
+        }
         val layout = StaticLayout(
-            text, textPaint, textWidth,
+            text, textPaint, (textWidth).ceilToInt(),
             Layout.Alignment.ALIGN_NORMAL, 1f, 0f, false
         )
 
@@ -236,10 +245,7 @@ class WButton(context: Context) : View(context), WThemedView {
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        super.onMeasure(
-            widthMeasureSpec,
-            MeasureSpec.makeMeasureSpec(buttonHeight, MeasureSpec.EXACTLY)
-        )
+        super.onMeasure(widthMeasureSpec, buttonHeight.exactly)
 
         val s = progressDrawable.minimumWidth
         val x = (measuredWidth - s) / 2
@@ -261,7 +267,7 @@ class WButton(context: Context) : View(context), WThemedView {
             return
         }
 
-        val textWidth = min(ceil(textPaint.measureText(oldItem.text)).roundToInt(), maxWidth)
+        val textWidth = min((textPaint.measureText(oldItem.text)).ceilToInt(), maxWidth)
         if (oldItem.width == textWidth) {
             return
         }
@@ -278,6 +284,7 @@ class WButton(context: Context) : View(context), WThemedView {
         updateColors()
     }
 
+    override val isTinted = true
     private fun updateColors() {
         val tint = if (type == Type.DESTRUCTIVE) WColor.Error.color else WColor.Tint.color
         val tintColor = fromToArgb(
@@ -294,7 +301,7 @@ class WButton(context: Context) : View(context), WThemedView {
             is Type.Primary, Type.Destructive -> fromToArgb(
                 WColor.Error.color,
                 WColor.Background.color,
-                0.5f
+                if (isEnabledAnimator.value && clickableError) 0f else 0.5f
             )
 
             is Type.Secondary -> if (type.withBackground) {

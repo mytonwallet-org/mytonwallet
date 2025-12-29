@@ -26,6 +26,7 @@ public class TokenVC: ActivitiesTableViewController, Sendable, WSensitiveDataPro
 
     var windowSafeAreaGuide = UILayoutGuide()
     var windowSafeAreaGuideContraint: NSLayoutConstraint!
+    var emptyWalletViewTopConstraint: NSLayoutConstraint!
 
     public init(accountId: String, token: ApiToken, isInModal: Bool) async {
         self.accountId = accountId
@@ -56,9 +57,8 @@ public class TokenVC: ActivitiesTableViewController, Sendable, WSensitiveDataPro
     )
 
     private func updateHeaderHeight() {
-        UIView.performWithoutAnimation {
-            reconfigureHeaderPlaceholder()
-        }
+        reconfigureHeaderPlaceholder(animated: false)
+        emptyWalletViewTopConstraint.constant = firstRowPlaceholderHeight - 48
     }
 
     public override var headerPlaceholderHeight: CGFloat {
@@ -103,8 +103,6 @@ public class TokenVC: ActivitiesTableViewController, Sendable, WSensitiveDataPro
         return expandableNavigationView
     }()
 
-    private var tokenHeaderCell: TokenHeaderCell? = nil
-
     public override func loadView() {
         super.loadView()
         setupViews()
@@ -129,7 +127,6 @@ public class TokenVC: ActivitiesTableViewController, Sendable, WSensitiveDataPro
 
         view.addLayoutGuide(windowSafeAreaGuide)
         windowSafeAreaGuideContraint = windowSafeAreaGuide.topAnchor.constraint(equalTo: view.topAnchor, constant: 0)
-        windowSafeAreaGuideContraint.isActive = true
 
         super.setupTableViews(tableViewBottomConstraint: 0)
         UIView.performWithoutAnimation {
@@ -139,12 +136,16 @@ public class TokenVC: ActivitiesTableViewController, Sendable, WSensitiveDataPro
         }
 
         view.addSubview(expandableNavigationView)
+        emptyWalletViewTopConstraint = emptyWalletView.topAnchor.constraint(equalTo: expandableNavigationView.bottomAnchor,
+                                                                            constant: firstRowPlaceholderHeight - 48)
         NSLayoutConstraint.activate([
+            windowSafeAreaGuideContraint,
+
             expandableNavigationView.topAnchor.constraint(equalTo: view.topAnchor),
             expandableNavigationView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             expandableNavigationView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
 
-            emptyWalletView.topAnchor.constraint(equalTo: expandableNavigationView.bottomAnchor, constant: 8)
+            emptyWalletViewTopConstraint
         ])
 
         if !isInModal {
@@ -218,8 +219,8 @@ public class TokenVC: ActivitiesTableViewController, Sendable, WSensitiveDataPro
                 } else {
                     targetContentOffset.pointee.y = 0
                 }
-            } else if realTargetY < expandableContentView.actionsOffset + 60 {
-                targetContentOffset.pointee.y = expandableContentView.actionsOffset + 60
+            } else if realTargetY < expandableContentView.actionsOffset + actionsRowHeight {
+                targetContentOffset.pointee.y = expandableContentView.actionsOffset + actionsRowHeight
             }
         }
     }
@@ -232,7 +233,7 @@ public class TokenVC: ActivitiesTableViewController, Sendable, WSensitiveDataPro
         let token = self.token
 
         let openInExplorer = UIAction(title: lang("Open in Explorer"), image: UIImage(named: "SendGlobe", in: AirBundle, with: nil)) { _ in
-            openUrl(ExplorerHelper.explorerUrlForToken(token))
+            openUrl(ExplorerHelper.tokenUrl(token: token))
         }
         let explorerSection = UIMenu(options: .displayInline, children: [openInExplorer])
 
@@ -267,8 +268,6 @@ extension TokenVC: TokenVMDelegate {
             self.tokenVM = TokenVM(accountId: newAccountId, selectedToken: token, tokenVMDelegate: self)
             self.tokenVM.refreshTransactions()
         }
-    }
-    func cacheNotFound() {
     }
 }
 

@@ -55,6 +55,7 @@ object TokenStore : IStore {
                 _swapAssetsFlow.value = assetsArray.map { MApiSwapAsset.from(it) }
             }
         }
+        BalanceStore.resetBalanceInBaseCurrency()
     }
 
     @Volatile
@@ -84,12 +85,10 @@ object TokenStore : IStore {
         }
 
     fun getToken(slug: String?, searchMinterAddress: Boolean = false): MToken? {
-        slug?.let {
-            return@getToken tokens[slug] ?: swapAssets?.find {
-                it.slug == slug || (searchMinterAddress && it.tokenAddress == slug)
-            }
-        }
-        return null
+        val key = slug ?: return null
+
+        return tokens[key]
+            ?: swapAssets?.find { it.slug == key || (searchMinterAddress && it.tokenAddress == key) }
     }
 
     fun setToken(slug: String, token: MToken) {

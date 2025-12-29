@@ -32,18 +32,18 @@ import org.mytonwallet.app_air.uicomponents.widgets.suggestion.WSuggestionView
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.intro.IntroVC
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.walletAdded.WalletAddedVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.setPasscode.SetPasscodeVC
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.constants.PossibleWords
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
-import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import java.lang.ref.WeakReference
 import kotlin.math.max
 
@@ -54,6 +54,7 @@ class ImportWalletVC(
     private val passedPasscode: String?
 ) :
     WViewController(context), WThemedView, ImportWalletVM.Delegate, WEditText.Delegate {
+    override val TAG = "ImportWallet"
 
     override val shouldDisplayTopBar = false
     override val ignoreSideGuttering = true
@@ -92,7 +93,17 @@ class ImportWalletVC(
         WLabel(context).apply {
             setStyle(16f)
             setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
-            text = LocaleController.getString("\$auth_import_mnemonic_description")
+            text = LocaleController.getStringWithKeyValues(
+                "\$auth_import_mnemonic_description",
+                listOf(
+                    Pair(
+                        "%counts%", LocaleController.getFormattedEnumeration(
+                            listOf("12", "24"),
+                            "or"
+                        )
+                    )
+                )
+            )
                 .toProcessedSpannableStringBuilder()
             textAlignment = TEXT_ALIGNMENT_CENTER
         }
@@ -287,6 +298,7 @@ class ImportWalletVC(
             makeFieldVisible(activeField!!)
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         scrollingContentView.setBackgroundColor(WColor.SecondaryBackground.color)
         titleLabel.setTextColor(WColor.PrimaryText.color)

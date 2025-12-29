@@ -12,13 +12,14 @@ import { ScamWarningType, TransferState } from '../../global/types';
 import { DEFAULT_PRICE_CURRENCY, TONCOIN, UNKNOWN_TOKEN } from '../../config';
 import { getHelpCenterUrl } from '../../global/helpers/getHelpCenterUrl';
 import {
+  selectCurrentAccountId,
   selectCurrentAccountState,
   selectCurrentAccountTokenBalance,
   selectCurrentAccountTokens,
   selectIsAllowSuspiciousActions,
   selectIsHardwareAccount,
   selectIsMultichainAccount,
-  selectIsMultisigAccount,
+  selectIsMultisigWallet,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { getChainConfig } from '../../util/chain';
@@ -30,7 +31,7 @@ import {
   isBalanceSufficientForTransfer,
 } from '../../util/fee/transferFee';
 import { vibrate } from '../../util/haptics';
-import { isValidAddressOrDomain } from '../../util/isValidAddressOrDomain';
+import { isValidAddressOrDomain } from '../../util/isValidAddress';
 import { debounce } from '../../util/schedulers';
 import { trimStringByMaxBytes } from '../../util/text';
 import { getChainBySlug, getIsNativeToken, getIsServiceToken, getNativeToken } from '../../util/tokens';
@@ -45,7 +46,7 @@ import { useAmountInputState } from '../ui/hooks/useAmountInputState';
 
 import FeeDetailsModal from '../common/FeeDetailsModal';
 import AddressInput from '../ui/AddressInput';
-import AmountInputSection from '../ui/AmountInput';
+import AmountInput from '../ui/AmountInput';
 import Button from '../ui/Button';
 import FeeLine from '../ui/FeeLine';
 import Modal from '../ui/Modal';
@@ -53,6 +54,7 @@ import Transition from '../ui/Transition';
 import CommentSection from './CommentSection';
 import NftChips from './NftChips';
 import NftInfo from './NftInfo';
+import SentTabs from './SentTabs';
 
 import modalStyles from '../ui/Modal.module.scss';
 import styles from './Transfer.module.scss';
@@ -91,6 +93,7 @@ interface StateProps {
   isSensitiveDataHidden?: true;
   scamWarningType?: ScamWarningType;
   isAllowSuspiciousActions: boolean;
+  isTransferReadonly?: boolean;
 }
 
 const COMMENT_MAX_SIZE_BYTES = 5000;
@@ -130,6 +133,7 @@ function TransferInitial({
   isSensitiveDataHidden,
   scamWarningType,
   isAllowSuspiciousActions,
+  isTransferReadonly,
 }: OwnProps & StateProps) {
   const {
     submitTransferInitial,
@@ -293,7 +297,7 @@ function TransferInitial({
 
   function clearForm() {
     handleAddressInput('');
-    checkTransferAddress({ address: '' });
+    checkTransferAddress({});
     setTransferAmount({ amount: undefined });
     setTransferComment({ comment: undefined });
     setTransferShouldEncrypt({ shouldEncrypt: false });
@@ -305,6 +309,10 @@ function TransferInitial({
     } else {
       clearForm();
     }
+  });
+
+  const handleCloseClick = useLastCallback(() => {
+    cancelTransfer({ shouldReset: true });
   });
 
   const handleScamWarningModalClose = useLastCallback(() => {
@@ -406,6 +414,7 @@ function TransferInitial({
     amount,
     token: transferToken,
     baseCurrency,
+    isAmountReadonly: isTransferReadonly,
     onAmountChange: handleAmountChange,
     onTokenChange: handleTokenChange,
   });
@@ -485,6 +494,17 @@ function TransferInitial({
           shouldCleanup
           slideClassName={buildClassName(styles.formSlide, isStatic && styles.formSlide_static, slideClassName)}
         >
+          {!isStatic && (
+            <Button
+              isRound
+              className={buildClassName(modalStyles.closeButton, styles.closeButton)}
+              ariaLabel={lang('Close')}
+              onClick={handleCloseClick}
+            >
+              <i className={buildClassName(modalStyles.closeIcon, 'icon-close')} aria-hidden />
+            </Button>
+          )}
+          <SentTabs isInsideModal={!isStatic} />
           {nfts?.length === 1 && <NftInfo nft={nfts[0]} isStatic={isStatic} withMediaViewer />}
           {Boolean(nfts?.length) && nfts.length > 1 && <NftChips nfts={nfts} isStatic={isStatic} />}
 
@@ -497,6 +517,7 @@ function TransferInitial({
             savedAddresses={savedAddresses}
             validateAddress={checkTransferAddress}
             isStatic={isStatic}
+            isReadonly={isTransferReadonly}
             withQrScan
             address={resolvedAddress || toAddress}
             addressName={toAddressName}
@@ -506,7 +527,7 @@ function TransferInitial({
           />
 
           {!isNftTransfer && (
-            <AmountInputSection
+            <AmountInput
               {...amountInputProps}
               ref={amountInputRef}
               maxAmount={maxAmount}
@@ -530,6 +551,7 @@ function TransferInitial({
               stateInit={stateInit}
               chain={chain}
               isStatic={isStatic}
+              isReadonly={isTransferReadonly}
               isCommentRequired={isCommentRequired}
               isEncryptedCommentSupported={isEncryptedCommentSupported}
               onCommentChange={handleCommentChange}
@@ -628,9 +650,11 @@ export default memo(
         diesel,
         stateInit,
         scamWarningType,
+        isTransferReadonly,
       } = global.currentTransfer;
 
       const isLedger = selectIsHardwareAccount(global);
+      const currentAccountId = selectCurrentAccountId(global)!;
       const accountState = selectCurrentAccountState(global);
       const { baseCurrency = DEFAULT_PRICE_CURRENCY, isSensitiveDataHidden } = global.settings;
       const isActive = ACTIVE_STATES.has(state);
@@ -660,14 +684,15 @@ export default memo(
         nativeTokenBalance: selectCurrentAccountTokenBalance(global, getNativeToken(chain).slug),
         diesel,
         isDieselAuthorizationStarted: accountState?.isDieselAuthorizationStarted,
-        isMultichainAccount: selectIsMultichainAccount(global, global.currentAccountId!),
-        isMultisig: selectIsMultisigAccount(global, global.currentAccountId!, chain),
+        isMultichainAccount: selectIsMultichainAccount(global, currentAccountId),
+        isMultisig: selectIsMultisigWallet(global, currentAccountId, chain),
         isSensitiveDataHidden,
         scamWarningType,
-        isAllowSuspiciousActions: selectIsAllowSuspiciousActions(global, global.currentAccountId!),
+        isAllowSuspiciousActions: selectIsAllowSuspiciousActions(global, currentAccountId),
+        isTransferReadonly,
       };
     },
-    (global, _, stickToFirst) => stickToFirst(global.currentAccountId),
+    (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),
   )(TransferInitial),
 );
 

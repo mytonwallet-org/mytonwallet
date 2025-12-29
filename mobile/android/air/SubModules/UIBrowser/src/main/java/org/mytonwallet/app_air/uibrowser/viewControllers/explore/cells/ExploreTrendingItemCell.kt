@@ -14,6 +14,7 @@ import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WFadedEdgeView
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
@@ -34,7 +35,7 @@ class ExploreTrendingItemCell(
         context,
         LayoutParams(
             if (site.extendedIcon.isNotBlank()) cellWidth * 2 else cellWidth,
-            cellWidth
+            cellWidth + 12.dp
         )
     ),
     WThemedView {
@@ -46,6 +47,10 @@ class ExploreTrendingItemCell(
                 site.extendedIcon.ifBlank { site.iconUrl ?: "" }
             )
         )
+    }
+
+    private val imageViewContainer = WFrameLayout(context).apply {
+        addView(imageView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
     }
 
     private val thumbImageView = WCustomImageView(context).apply {
@@ -86,7 +91,7 @@ class ExploreTrendingItemCell(
         fadeSide = WBlurryBackgroundView.Side.TOP,
         overrideBlurRadius = 30f
     ).apply {
-        setupWith(this@ExploreTrendingItemCell)
+        setupWith(imageViewContainer)
         setOverlayColor(WColor.Transparent, 130)
     }
 
@@ -116,18 +121,18 @@ class ExploreTrendingItemCell(
 
     private val badgeLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(12f, WFont.Medium)
-            setPadding(2.dp, 0, 2.dp, 2)
+            setStyle(10f, WFont.SemiBold)
+            setPadding(4.dp, 2.dp, 4.dp, 2.dp)
             text = site.badgeText
         }
     }
 
     private val contentView = WView(context).apply {
-        addView(imageView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        addView(imageViewContainer, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         addView(bottomView, ViewGroup.LayoutParams(MATCH_PARENT, 80.dp))
 
         setConstraints {
-            allEdges(imageView)
+            allEdges(imageViewContainer)
             toCenterX(bottomView)
             toBottom(bottomView)
         }
@@ -144,12 +149,12 @@ class ExploreTrendingItemCell(
         if (site.badgeText.isNotBlank())
             addView(badgeLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         setConstraints {
-            toTop(contentView, 3f)
+            toTop(contentView, 6f)
             toBottom(contentView)
             toStart(contentView)
             toEnd(contentView, 6f)
             if (site.badgeText.isNotBlank()) {
-                toEnd(badgeLabel, 3f)
+                toEnd(badgeLabel, 27f)
                 toTop(badgeLabel, 0f)
             }
         }
@@ -161,6 +166,7 @@ class ExploreTrendingItemCell(
         updateTheme()
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         titleLabel.setTextColor(Color.WHITE)
         subtitleLabel.setTextColor(Color.WHITE.colorWithAlpha(153))
@@ -172,7 +178,7 @@ class ExploreTrendingItemCell(
             contentView.background = border
         }
         if (site.badgeText.isNotBlank()) {
-            badgeLabel.setBackgroundColor(WColor.Tint.color, 4f.dp, true)
+            badgeLabel.setBackgroundColor(WColor.Tint.color, 6f.dp, true)
             badgeLabel.setTextColor(WColor.TextOnTint.color)
         }
     }

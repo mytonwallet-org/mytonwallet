@@ -1,11 +1,13 @@
 import React, { memo } from '../../lib/teact/teact';
 import { getActions } from '../../global';
 
-import type { ApiMtwCardType } from '../../api/types';
+import type { ApiMtwCardType, ApiTokenWithPrice } from '../../api/types';
 
-import { DEFAULT_FEE, TONCOIN } from '../../config';
+import { TONCOIN } from '../../config';
 import buildClassName from '../../util/buildClassName';
-import { fromDecimal } from '../../util/decimals';
+import { fromDecimal, toDecimal } from '../../util/decimals';
+import { getToncoinAmountForTransfer } from '../../util/fee/getTonOperationFees';
+import { formatNumber } from '../../util/formatNumber';
 
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
@@ -16,28 +18,61 @@ import styles from './CardPros.module.scss';
 
 interface OwnProps {
   type: ApiMtwCardType;
+  mycoin?: ApiTokenWithPrice;
   price?: number;
-  balance?: bigint;
+  mycoinBalance?: bigint;
+  toncoinBalance?: bigint;
   isAvailable?: boolean;
 }
 
-function CardPros({ type, price, balance, isAvailable }: OwnProps) {
-  const { startCardMinting, showDialog } = getActions();
+const SWAP_AMOUNT_RESERVE_MULTIPLIER = 105n; // 100% + 5% reserve
+
+function CardPros({ type, mycoin, price, mycoinBalance, toncoinBalance, isAvailable }: OwnProps) {
+  const { startCardMinting, showDialog, startSwap, setSwapAmountOut, closeMintCardModal } = getActions();
 
   const lang = useLang();
-  const isEnoughBalance = price && balance ? fromDecimal(price, TONCOIN.decimals) + DEFAULT_FEE < balance : false;
+  const isEnoughMycoinBalance = price && mycoinBalance && mycoin
+    ? fromDecimal(price, mycoin.decimals) <= mycoinBalance
+    : false;
+
+  // Calculate required TON for token transfer: base transfer amount + network fee
+  const requiredToncoinForFee = mycoin ? getToncoinAmountForTransfer(mycoin, false).amountWithDefaultFee : 0n;
+  const isEnoughToncoinBalance = toncoinBalance ? requiredToncoinForFee <= toncoinBalance : false;
+  const isSubmitDisabled = !isAvailable || !mycoin;
 
   const handleSubmit = useLastCallback(() => {
-    if (!isEnoughBalance) {
-      showDialog({
-        title: lang('Insufficient Balance'),
-        message: lang('Please top up your TON balance.'),
-      });
+    if (isEnoughMycoinBalance && isEnoughToncoinBalance) {
+      startCardMinting({ type });
 
       return;
     }
 
-    startCardMinting({ type });
+    if (!isEnoughMycoinBalance) {
+      if (!mycoin || !price) {
+        return;
+      }
+
+      const requiredAmount = fromDecimal(price, mycoin.decimals);
+      const missingAmount = mycoinBalance
+        ? requiredAmount - mycoinBalance
+        : requiredAmount;
+
+      const missingAmountWithReserve = missingAmount * SWAP_AMOUNT_RESERVE_MULTIPLIER / 100n;
+      const missingAmountDecimal = toDecimal(missingAmountWithReserve, mycoin.decimals);
+      closeMintCardModal();
+      startSwap({
+        tokenInSlug: TONCOIN.slug,
+        tokenOutSlug: mycoin.slug,
+      });
+      setSwapAmountOut({ amount: missingAmountDecimal });
+      return;
+    }
+
+    showDialog({
+      title: lang('Insufficient Fee'),
+      message: lang('Please top up your %token% balance.', { token: TONCOIN.symbol }),
+    });
+    return;
   });
 
   return (
@@ -67,13 +102,13 @@ function CardPros({ type, price, balance, isAvailable }: OwnProps) {
       {!!price && (
         <Button
           isPrimary
-          isDisabled={!isAvailable}
+          isDisabled={isSubmitDisabled}
           className={styles.button}
-          onClick={handleSubmit}
+          onClick={isSubmitDisabled ? undefined : handleSubmit}
         >
-          {lang('Upgrade for %currency% %amount%', {
-            amount: price,
-            currency: <i className={buildClassName(styles.currencyIcon, 'icon-ton')} aria-label="TON" />,
+          {lang('Upgrade for %amount% %currency%', {
+            amount: formatNumber(price),
+            currency: mycoin?.symbol || 'MY',
           })}
         </Button>
       )}

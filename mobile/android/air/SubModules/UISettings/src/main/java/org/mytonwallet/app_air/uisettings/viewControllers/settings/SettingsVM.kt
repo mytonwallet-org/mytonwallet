@@ -1,5 +1,10 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.settings
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.mytonwallet.app_air.uisettings.R
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsItem
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsSection
@@ -12,6 +17,8 @@ import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.DappsStore
 
 class SettingsVM {
+
+    private var fillAccountsJob: Job? = null
 
     val settingsSections = listOf(
         SettingsSection(
@@ -59,14 +66,34 @@ class SettingsVM {
         }
     }
 
-    fun fillOtherAccounts() {
+    fun fillOtherAccounts(async: Boolean, onComplete: (() -> Unit)? = null) {
         val accountsSectionIndex =
             settingsSections.indexOfFirst { it.section == SettingsSection.Section.ACCOUNTS }
         if (accountsSectionIndex == -1) return
 
+        if (async) {
+            fillAccountsJob?.cancel()
+            fillAccountsJob = CoroutineScope(Dispatchers.Main).launch {
+                val items = withContext(Dispatchers.Default) {
+                    buildAccountItems()
+                }
+                settingsSections[accountsSectionIndex].children = items
+                onComplete?.invoke()
+            }
+        } else {
+            settingsSections[accountsSectionIndex].children = buildAccountItems()
+            onComplete?.invoke()
+        }
+    }
+
+    private fun buildAccountItems(): List<SettingsItem> {
         val items = mutableListOf<SettingsItem>()
-        val accounts = WalletCore.getAllAccounts()
-        for (account in accounts) {
+        val allAccountsExceptActive =
+            WalletCore.getAllAccounts().filter { it.accountId != AccountStore.activeAccountId }
+        val firstAccounts =
+            allAccountsExceptActive.take(if (allAccountsExceptActive.size > 6) 5 else 6)
+        val next3Accounts = allAccountsExceptActive.drop(firstAccounts.size).take(3)
+        for (account in firstAccounts) {
             if (account.accountId == AccountStore.activeAccountId) continue
 
             val balanceAmount = BalanceStore.totalBalanceInBaseCurrency(account.accountId)
@@ -84,7 +111,20 @@ class SettingsVM {
                     title = account.name,
                     value = balance,
                     hasTintColor = false,
-                    account = account
+                    accounts = listOf(account)
+                )
+            )
+        }
+
+        if (next3Accounts.isNotEmpty()) {
+            items.add(
+                SettingsItem(
+                    identifier = SettingsItem.Identifier.SHOW_ALL_WALLETS,
+                    icon = null,
+                    title = LocaleController.getString("Show All Wallets"),
+                    value = null,
+                    hasTintColor = false,
+                    accounts = next3Accounts
                 )
             )
         }
@@ -98,7 +138,7 @@ class SettingsVM {
             )
         )
 
-        settingsSections[accountsSectionIndex].children = items
+        return items
     }
 
     fun updateWalletConfigSection() {

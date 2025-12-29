@@ -5,10 +5,11 @@ import type { Theme } from '../../../../global/types';
 import type { StakingStateStatus } from '../../../../util/staking';
 import { ActiveTab } from '../../../../global/types';
 
-import { ANIMATED_STICKER_ICON_PX, DEFAULT_LANDSCAPE_ACTION_TAB_ID } from '../../../../config';
+import { ANIMATED_STICKER_ICON_PX, DEFAULT_LANDSCAPE_ACTION_TAB_ID, IS_CORE_WALLET } from '../../../../config';
 import { requestMutation } from '../../../../lib/fasterdom/fasterdom';
 import {
   selectAccountState,
+  selectCurrentAccountId,
   selectCurrentAccountSettings,
   selectIsStakingDisabled,
   selectIsSwapDisabled,
@@ -42,6 +43,7 @@ interface OwnProps {
   containerRef: ElementRef<HTMLDivElement>;
   stakingStatus: StakingStateStatus;
   isLedger?: boolean;
+  isOffRampDisabled: boolean;
   theme: Theme;
 }
 
@@ -72,6 +74,7 @@ function LandscapeActions({
   isTestnet,
   isSwapDisabled,
   isOnRampDisabled,
+  isOffRampDisabled,
   isStakingDisabled,
   accentColorIndex,
 }: OwnProps & StateProps) {
@@ -97,6 +100,18 @@ function LandscapeActions({
   const isLastTab = (isStakingDisabled && isSwapDisabled && activeTabIndex === ActiveTab.Transfer)
     || (isStakingDisabled && !isSwapDisabled && activeTabIndex === ActiveTab.Swap)
     || (!isStakingDisabled && activeTabIndex === ActiveTab.Stake);
+  const addBuyButtonName = IS_CORE_WALLET
+    ? lang('Receive')
+    : (!isSwapDisabled || isOnRampAllowed
+      ? (lang.code === 'en'
+        ? (<span className={styles.name}>{lang('Add')}<span className={styles.divider}>/</span>{lang('Buy')}</span>)
+        : lang('Add / Buy')
+      )
+      : lang('Add')
+    );
+  const sendButtonName = IS_CORE_WALLET || isOffRampDisabled || lang.code !== 'en'
+    ? lang('Send')
+    : <span className={styles.name}>{lang('Send')}<span className={styles.divider}>/</span>{lang('Sell')}</span>;
 
   const [isAddBuyAnimating, playAddBuyAnimation, stopAddBuyAnimation] = useFlag();
   const [isSendAnimating, playSendAnimation, stopSendAnimation] = useFlag();
@@ -188,13 +203,16 @@ function LandscapeActions({
             iconPreviewClass="icon-action-add"
             onEnded={stopAddBuyAnimation}
           />
-          <span className={styles.tabText}>{lang(!isSwapDisabled || isOnRampAllowed ? 'Add / Buy' : 'Add')}</span>
+          <span className={styles.tabText}>
+            {addBuyButtonName}
+          </span>
 
           <span className={styles.tabDecoration} aria-hidden />
         </div>
         <WithContextMenu
           items={SEND_CONTEXT_MENU_ITEMS}
           rootRef={containerRef}
+          withBackdrop
           menuClassName={styles.menu}
           onItemClick={handleSendMenuItemClick}
         >
@@ -225,7 +243,9 @@ function LandscapeActions({
                 iconPreviewClass="icon-action-send"
                 onEnded={stopSendAnimation}
               />
-              <span className={styles.tabText}>{lang('Send')}</span>
+              <span className={styles.tabText}>
+                {sendButtonName}
+              </span>
               <span className={styles.tabDecoration} aria-hidden />
               <span className={styles.tabDelimiter} aria-hidden />
             </div>
@@ -405,7 +425,8 @@ function useTabHeightAnimation(
 export default memo(
   withGlobal<OwnProps>(
     (global): StateProps => {
-      const accountState = selectAccountState(global, global.currentAccountId!) ?? {};
+      const currentAccountId = selectCurrentAccountId(global);
+      const accountState = selectAccountState(global, currentAccountId!) ?? {};
 
       const { isOnRampDisabled } = global.restrictions;
 
@@ -418,6 +439,6 @@ export default memo(
         accentColorIndex: selectCurrentAccountSettings(global)?.accentColorIndex,
       };
     },
-    (global, _, stickToFirst) => stickToFirst(global.currentAccountId),
+    (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),
   )(LandscapeActions),
 );

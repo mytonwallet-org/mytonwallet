@@ -22,6 +22,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.DateUtils
+import org.mytonwallet.app_air.walletbasecontext.utils.signSpace
 import kotlin.math.abs
 
 class EarnItemCell(context: Context) : WCell(context), WThemedView {
@@ -134,7 +135,7 @@ class EarnItemCell(context: Context) : WCell(context), WThemedView {
         addView(amountLabel)
         addView(fiatValueLabel)
 
-        addView(separatorView, LayoutParams(LayoutParams.MATCH_CONSTRAINT, 1))
+        addView(separatorView, LayoutParams(LayoutParams.MATCH_CONSTRAINT, ViewConstants.SEPARATOR_HEIGHT))
 
         addRippleEffect(WColor.SecondaryBackground.color)
 
@@ -220,8 +221,8 @@ class EarnItemCell(context: Context) : WCell(context), WThemedView {
         updateTheme()
 
         titleLabel.setTextIfChanged(item.getTitle())
-        if (item is EarnItem.Profit || item is EarnItem.ProfitGroup) {
-            amountLabel.contentView.text = "+${item.formattedAmount} $tokenSymbol"
+        if (item is EarnItem.Profit || item is EarnItem.ProfitGroup || item is EarnItem.Unstaked) {
+            amountLabel.contentView.text = "+$signSpace${item.formattedAmount} $tokenSymbol"
             amountLabel.contentView.setTextColor(WColor.Green.color)
             amountLabel.maskView.skin = SensitiveDataMaskView.Skin.GREEN
         } else {
@@ -245,7 +246,7 @@ class EarnItemCell(context: Context) : WCell(context), WThemedView {
 
             val firstDate = DateUtils.formatDayMonth(item.profitItems.first().timestamp)
             val lastDate = DateUtils.formatDayMonth(item.profitItems.last().timestamp)
-            itemDateLabel.text = "$firstDate\u2025$lastDate"
+            itemDateLabel.text = "$firstDate…$lastDate"
         } else {
             groupIcon.visibility = GONE
             groupIconShadow1.visibility = GONE

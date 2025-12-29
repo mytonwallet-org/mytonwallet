@@ -9,6 +9,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.UIMode
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.models.MAutoLockOption
+import org.mytonwallet.app_air.walletcontext.models.MWalletSettingsViewMode
 
 object WGlobalStorage {
     val isInitialized: Boolean
@@ -19,6 +20,9 @@ object WGlobalStorage {
     private lateinit var globalStorageProvider: IGlobalStorageProvider
     private val cachedAccountNames = mutableMapOf<String, String>()
     private val cachedAccountTonAddresses = mutableMapOf<String, String>()
+
+    @Volatile
+    private var cachedAccountIds: Array<String>? = null
     private var _isSensitiveDataProtectionOn: Boolean = false
 
     fun init(globalStorageProvider: IGlobalStorageProvider) {
@@ -26,11 +30,27 @@ object WGlobalStorage {
         _isSensitiveDataProtectionOn =
             WGlobalStorage.globalStorageProvider.getBool(IS_SENSITIVE_DATA_HIDDEN) == true
         migrate()
+        removeTemporaryAccounts()
+    }
+
+    @Volatile
+    var temporaryAddedAccountIds: MutableList<String> = mutableListOf()
+        private set
+
+    private fun removeTemporaryAccounts() {
+        temporaryAddedAccountIds =
+            accountIds().filter { globalStorageProvider.getBool("accounts.byId.$it.isTemporary") == true }
+                .toMutableList()
+        temporaryAddedAccountIds.toList().forEach {
+            removeAccount(it)
+        }
+        setTemporaryAccountId(null)
     }
 
     fun clearCachedData() {
         cachedAccountNames.clear()
         cachedAccountTonAddresses.clear()
+        cachedAccountIds = null
         _isSensitiveDataProtectionOn =
             globalStorageProvider.getBool(IS_SENSITIVE_DATA_HIDDEN) == true
     }
@@ -46,7 +66,7 @@ object WGlobalStorage {
     }
 
     private const val CURRENT_ACCOUNT_ID = "currentAccountId"
-    private const val ACCENT_COLOR_ID = "settings.themeColor"
+    private const val CURRENT_TEMPORARY_VIEW_ACCOUNT_ID = "currentTemporaryViewAccountId"
     private const val ACTIVE_THEME = "settings.theme"
     private const val ACTIVE_FONT = "settings.font"
     private const val ACTIVE_UI_MODE = "settings.uiMode"
@@ -66,6 +86,7 @@ object WGlobalStorage {
     private const val STATE_VERSION = "stateVersion"
     private const val PUSH_NOTIFICATIONS_TOKEN = "pushNotifications.userToken"
     private const val PUSH_NOTIFICATIONS_ENABLED_ACCOUNTS = "pushNotifications.enabledAccounts"
+    private const val ORDERED_ACCOUNT_IDS = "settings.orderedAccountIds"
 
     fun save(accountId: String, accountName: String?, persist: Boolean = true) {
         // Save null names as empty string in the cache to return it without accessing storage
@@ -84,6 +105,10 @@ object WGlobalStorage {
             }
         }
         return cachedAccountNames[accountId]
+    }
+
+    fun accountExists(accountId: String): Boolean {
+        return globalStorageProvider.getDict("accounts.byId.$accountId") != null
     }
 
     fun getAccountTonAddress(accountId: String): String? {
@@ -110,7 +135,24 @@ object WGlobalStorage {
     }
 
     fun accountIds(): Array<String> {
-        return globalStorageProvider.keysIn("byAccountId")
+        cachedAccountIds?.let {
+            return it
+        }
+        val allIds = globalStorageProvider.keysIn("accounts.byId").filter {
+            !temporaryAddedAccountIds.contains(it)
+        }.toTypedArray()
+        val orderedIds = globalStorageProvider.getArray(ORDERED_ACCOUNT_IDS)
+            ?.let { array ->
+                (0 until array.length())
+                    .mapNotNull { array.getString(it) }
+            }
+            ?.filter { it in allIds }
+            ?.takeIf { it.isNotEmpty() }
+            ?: return allIds
+        val missing = allIds.filterNot { it in orderedIds }
+        val arr = (orderedIds + missing).toTypedArray()
+        cachedAccountIds = arr
+        return arr
     }
 
     fun addAccount(
@@ -121,15 +163,12 @@ object WGlobalStorage {
         name: String? = null,
         importedAt: Long?,
         tonLedgerIndex: Int? = null,
+        isTemporary: Boolean = false,
     ) {
-        val accountIds = accountIds()
-        val suggestedName =
-            name
-                ?: (if (accountIds.isEmpty()) LocaleController.getString("My Wallet") else "${
-                    LocaleController.getString(
-                        "My Wallet"
-                    )
-                } ${accountIds.size}")
+        val suggestedName = name ?: when {
+            isTemporary -> LocaleController.getString("Wallet")
+            else -> getSuggestedName(accountType)
+        }
         save(accountId = accountId, accountName = suggestedName, persist = false)
 
         val byChain = JSONObject()
@@ -165,11 +204,49 @@ object WGlobalStorage {
                 value = importedAt,
                 persistInstantly = IGlobalStorageProvider.PERSIST_NO
             )
+        if (isTemporary) {
+            globalStorageProvider.set(
+                "accounts.byId.$accountId.isTemporary",
+                value = true,
+                persistInstantly = IGlobalStorageProvider.PERSIST_NO
+            )
+            temporaryAddedAccountIds.add(accountId)
+        }
         globalStorageProvider.set(
             "byAccountId.$accountId.isBackupRequired",
             value = false,
             persistInstantly = IGlobalStorageProvider.PERSIST_INSTANT
         )
+        cachedAccountIds = null
+    }
+
+    fun saveAccountByChain(accountId: String, byChain: JSONObject) {
+        if (byChain.length() > 0) {
+            globalStorageProvider.set(
+                "accounts.byId.$accountId.byChain",
+                byChain,
+                IGlobalStorageProvider.PERSIST_NORMAL
+            )
+        }
+    }
+
+    fun saveTemporaryAccount(accountId: String) {
+        temporaryAddedAccountIds.remove(accountId)
+        setActiveAccountId(accountId, false)
+        globalStorageProvider.remove(
+            "accounts.byId.$accountId.isTemporary",
+            persistInstantly = IGlobalStorageProvider.PERSIST_INSTANT
+        )
+        cachedAccountIds = null
+    }
+
+    fun setOrderedAccountIds(accountIds: JSONArray) {
+        globalStorageProvider.set(
+            ORDERED_ACCOUNT_IDS,
+            accountIds,
+            IGlobalStorageProvider.PERSIST_INSTANT
+        )
+        cachedAccountIds = null
     }
 
     fun isPasscodeSet(): Boolean {
@@ -181,6 +258,8 @@ object WGlobalStorage {
     }
 
     fun removeAccount(accountId: String) {
+        cachedAccountNames.remove(accountId)
+        cachedAccountTonAddresses.remove(accountId)
         globalStorageProvider.remove(
             keys = arrayOf(
                 "accounts.byId.$accountId",
@@ -188,9 +267,12 @@ object WGlobalStorage {
                 "settings.byAccountId.$accountId",
             ), persistInstantly = IGlobalStorageProvider.PERSIST_INSTANT
         )
+        cachedAccountIds = null
     }
 
     fun deleteAllWallets() {
+        setTemporaryAccountId(null)
+        setActiveAccountId(null, false)
         globalStorageProvider.remove(
             keys = arrayOf(
                 "accounts.byId",
@@ -198,15 +280,27 @@ object WGlobalStorage {
                 "settings.byAccountId"
             ), persistInstantly = IGlobalStorageProvider.PERSIST_INSTANT
         )
-        setActiveAccountId(null)
     }
 
+    // Active account id is the permanent default account id (not pushed temporary screens)
     fun getActiveAccountId(): String? {
         return globalStorageProvider.getString(CURRENT_ACCOUNT_ID)
     }
 
-    fun setActiveAccountId(id: String?) {
-        globalStorageProvider.set(CURRENT_ACCOUNT_ID, id, IGlobalStorageProvider.PERSIST_INSTANT)
+    fun setActiveAccountId(id: String?, persistInstantly: Boolean) {
+        globalStorageProvider.set(
+            CURRENT_ACCOUNT_ID,
+            id,
+            if (persistInstantly) IGlobalStorageProvider.PERSIST_INSTANT else IGlobalStorageProvider.PERSIST_NORMAL
+        )
+    }
+
+    fun setTemporaryAccountId(id: String?) {
+        globalStorageProvider.set(
+            CURRENT_TEMPORARY_VIEW_ACCOUNT_ID,
+            id,
+            IGlobalStorageProvider.PERSIST_INSTANT
+        )
     }
 
     fun getAssetsAndActivityData(accountId: String): JSONObject? {
@@ -238,14 +332,6 @@ object WGlobalStorage {
 
     fun isBiometricActivated(): Boolean {
         return globalStorageProvider.getString(BIOMETRIC_KIND) == "native-biometrics"
-    }
-
-    fun getAccentColorId(): Int {
-        return globalStorageProvider.getInt(ACCENT_COLOR_ID) ?: 1
-    }
-
-    fun setAccentColorId(id: Int) {
-        globalStorageProvider.set(ACCENT_COLOR_ID, id, IGlobalStorageProvider.PERSIST_INSTANT)
     }
 
     fun getActiveTheme(): String {
@@ -466,6 +552,10 @@ object WGlobalStorage {
 
     fun getCardBackgroundNft(accountId: String): JSONObject? {
         return globalStorageProvider.getDict("settings.byAccountId.$accountId.cardBackgroundNft")
+    }
+
+    fun getCardBackgroundNftAddress(accountId: String): String? {
+        return globalStorageProvider.getString("settings.byAccountId.$accountId.cardBackgroundNft.address")
     }
 
     fun setCardBackgroundNft(accountId: String, nft: JSONObject?) {
@@ -708,6 +798,10 @@ object WGlobalStorage {
         return globalStorageProvider.getBool("byAccountId.$accountId.isCardMinting") == true
     }
 
+    fun isMultichain(accountId: String): Boolean {
+        return globalStorageProvider.keysIn("accounts.byId.$accountId.byChain").size > 1
+    }
+
     fun setCurrencyRates(rates: Map<String, Double>) {
         return globalStorageProvider.set(
             "currencyRates",
@@ -718,6 +812,18 @@ object WGlobalStorage {
 
     fun getCurrencyRates(): JSONObject? {
         return globalStorageProvider.getDict("currencyRates")
+    }
+
+    fun setAccountSelectorViewMode(mode: MWalletSettingsViewMode) {
+        return globalStorageProvider.set(
+            "accountSelectorViewMode",
+            mode.value,
+            IGlobalStorageProvider.PERSIST_NORMAL
+        )
+    }
+
+    fun getAccountSelectorViewMode(): MWalletSettingsViewMode? {
+        return MWalletSettingsViewMode.fromValue(globalStorageProvider.getString("accountSelectorViewMode"))
     }
 
     private const val LAST_STATE: Int = 47
@@ -871,4 +977,24 @@ object WGlobalStorage {
             )
         }
     }
+
+    fun getSuggestedName(type: String): String {
+        val baseNameKey = when (type) {
+            "mnemonic" -> "My Wallet"
+            "hardware" -> "Ledger"
+            else -> "Wallet"
+        }
+        return getSuggestedAccountName(type, baseNameKey)
+    }
+
+    private fun getSuggestedAccountName(type: String, baseNameKey: String): String {
+        if (accountIds().isEmpty()) {
+            return LocaleController.getString("MyTonWallet")
+        }
+        val count = countAccountsByType(type)
+        return "${LocaleController.getString(baseNameKey)} ${count + 1}"
+    }
+
+    private fun countAccountsByType(type: String): Int =
+        accountIds().count { accountId -> getAccount(accountId)?.optString("type") == type }
 }

@@ -11,6 +11,7 @@ import { addPastActivities, updateActivity } from '../../reducers';
 import {
   selectAccount,
   selectAccountState,
+  selectCurrentAccountId,
   selectIsHistoryEndReached,
   selectLastActivityTimestamp,
 } from '../../selectors';
@@ -22,7 +23,7 @@ const pastActivityThrottle: Record<string, NoneToVoidFunction> = {};
 const initialActivityWaitingByAccountId: Record<string, Promise<unknown>> = {};
 
 addActionHandler('fetchPastActivities', (global, actions, { slug, shouldLoadWithBudget }) => {
-  const accountId = global.currentAccountId!;
+  const accountId = selectCurrentAccountId(global)!;
   const throttleKey = `${accountId} ${slug ?? '__main__'}`;
 
   // Besides the throttling itself, the `throttle` avoids concurrent activity loading
@@ -90,7 +91,7 @@ async function fetchPastActivities(accountId: string, slug?: string) {
 }
 
 addActionHandler('fetchActivityDetails', async (global, actions, { id }) => {
-  const accountId = global.currentAccountId!;
+  const accountId = selectCurrentAccountId(global)!;
   const activity = selectAccountState(global, accountId)?.activities?.byId[id];
 
   if (!activity?.shouldLoadDetails) {

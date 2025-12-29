@@ -94,13 +94,17 @@ public struct _WThemeType {
 // MARK: - Theme and Theme generator
 nonisolated(unsafe) public var WTheme: _WThemeType = generateTheme()
 
-// This method changes WTheme to a new theme with customized colors
-public func changeThemeColors(to index: Int?) {
-    let accentColor: UIColor = if let index, index < ACCENT_COLORS.count {
+public func getAccentColorByIndex(_ index: Int?) -> UIColor {
+    if let index, index < ACCENT_COLORS.count {
         ACCENT_COLORS[index]
     } else {
         UIColor.airBundle("TC1_PrimaryColor")
     }
+}
+
+// This method changes WTheme to a new theme with customized colors
+public func changeThemeColors(to index: Int?) {
+    let accentColor = getAccentColorByIndex(index)
     WColors = _WColorsType(primary: accentColor)
     WTheme = generateTheme()
 }
@@ -157,71 +161,6 @@ fileprivate func generateTheme() -> _WThemeType {
         error: .airBundle("TextRed")
     )
 }
-
-// MARK: - Available customized themes
-public struct WAppearanceThemeColorsType {
-    public let id: Int
-    public let primary: UIColor
-}
-
-public var WAppearanceThemeColors: [WAppearanceThemeColorsType] = [
-    WAppearanceThemeColorsType(
-        id: 1,
-        primary: UIColor(named: "TC1_PrimaryColor", in: AirBundle, compatibleWith: nil)!
-    ),
-    WAppearanceThemeColorsType(
-        id: 2,
-        primary: UIColor(named: "TC2_PrimaryColor", in: AirBundle, compatibleWith: nil)!
-    ),
-    WAppearanceThemeColorsType(
-        id: 3,
-        primary: UIColor(named: "TC3_PrimaryColor", in: AirBundle, compatibleWith: nil)!
-    ),
-    WAppearanceThemeColorsType(
-        id: 4,
-        primary: UIColor(named: "TC4_PrimaryColor", in: AirBundle, compatibleWith: nil)!
-    ),
-    WAppearanceThemeColorsType(
-        id: 5,
-        primary: UIColor(named: "TC5_PrimaryColor", in: AirBundle, compatibleWith: nil)!
-    ),
-    WAppearanceThemeColorsType(
-        id: 6,
-        primary: UIColor(named: "TC6_PrimaryColor", in: AirBundle, compatibleWith: nil)!
-    ),
-    WAppearanceThemeColorsType(
-        id: 7,
-        primary: UIColor(named: "TC7_PrimaryColor", in: AirBundle, compatibleWith: nil)!
-    ),
-    WAppearanceThemeColorsType(
-        id: 8,
-        primary: UIColor(red: 1, green: 0.69, blue: 0.48, alpha: 1)
-    ),
-    WAppearanceThemeColorsType(
-        id: 9,
-        primary: UIColor(red: 0.72, green: 0.43, blue: 0.47, alpha: 1)
-    ),
-    WAppearanceThemeColorsType(
-        id: 10,
-        primary: UIColor(red: 0.59, green: 0.54, blue: 0.82, alpha: 1)
-    ),
-    WAppearanceThemeColorsType(
-        id: 11,
-        primary: UIColor(red: 0.9, green: 0.45, blue: 0.8, alpha: 1)
-    ),
-    WAppearanceThemeColorsType(
-        id: 12,
-        primary: UIColor(red: 0.42, green: 0.63, blue: 0.48, alpha: 1)
-    ),
-    WAppearanceThemeColorsType(
-        id: 13,
-        primary: UIColor(red: 0.2, green: 0.56, blue: 0.8, alpha: 1)
-    ),
-    WAppearanceThemeColorsType(
-        id: 14,
-        primary: .label
-    )
-]
 
 // MARK: - Themed views
 public protocol WThemedView: AnyObject {

@@ -7,7 +7,6 @@
 
 import UIKit
 import WalletContext
-import WalletCore
 
 public class ActivityDateCell: UITableViewHeaderFooterView {
 
@@ -52,9 +51,14 @@ public class ActivityDateCell: UITableViewHeaderFooterView {
     func updateTheme() {
         contentView.backgroundColor = .clear
     }
-
+    
+    public override func prepareForReuse() {
+        super.prepareForReuse()
+        contentView.alpha = 1
+    }
+    
     // MARK: - Configure using ApiActivity
-    public func configure(with itemDate: Date, isFirst: Bool, shouldFadeOutSkeleton: Bool) {
+    public func configure(with itemDate: Date, shouldFadeOutSkeleton: Bool) {
         if shouldFadeOutSkeleton {
             fadeOutSkeleton()
         } else {

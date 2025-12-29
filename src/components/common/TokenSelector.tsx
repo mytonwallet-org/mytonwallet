@@ -10,32 +10,30 @@ import React, {
 } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
-import type { ApiBaseCurrency, ApiChain } from '../../api/types';
+import type { ApiBaseCurrency, ApiChain, ApiSwapVersion } from '../../api/types';
 import {
   type AssetPairs, SettingsState, type UserSwapToken, type UserToken,
 } from '../../global/types';
 
-import {
-  ANIMATED_STICKER_MIDDLE_SIZE_PX,
-  TON_USDT_MAINNET_SLUG,
-  TON_USDT_TESTNET_SLUG,
-  TRC20_USDT_MAINNET_SLUG,
-  TRC20_USDT_TESTNET_SLUG,
-} from '../../config';
+import { ANIMATED_STICKER_MIDDLE_SIZE_PX } from '../../config';
 import {
   selectAvailableUserForSwapTokens,
   selectCurrentAccount,
+  selectCurrentAccountId,
   selectIsMultichainAccount,
   selectPopularTokens,
   selectSwapTokens,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
+import { getChainConfig, getSupportedChains, getTrustedUsdtSlugs } from '../../util/chain';
 import { toDecimal } from '../../util/decimals';
 import { formatCurrency, getShortCurrencySymbol } from '../../util/formatNumber';
 import getPseudoRandomNumber from '../../util/getPseudoRandomNumber';
-import { isValidAddressOrDomain } from '../../util/isValidAddressOrDomain';
+import { getChainFromAddress } from '../../util/isValidAddress';
 import { disableSwipeToClose, enableSwipeToClose } from '../../util/modalSwipeManager';
 import getChainNetworkName from '../../util/swap/getChainNetworkName';
+import { isSwapPairValid } from '../../util/swap/isSwapPairValid';
+import { getChainBySlug } from '../../util/tokens';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
 import useFocusAfterAnimation from '../../hooks/useFocusAfterAnimation';
@@ -83,9 +81,10 @@ interface StateProps {
   swapTokens?: UserSwapToken[];
   tokenInSlug?: string;
   pairsBySlug?: Record<string, AssetPairs>;
-  shouldShowAllPairs?: boolean;
+  swapVersion: ApiSwapVersion;
   baseCurrency: ApiBaseCurrency;
   isLoading?: boolean;
+  error?: string;
   isMultichain: boolean;
   availableChains?: Partial<Record<ApiChain, unknown>>;
   isSensitiveDataHidden?: true;
@@ -113,9 +112,10 @@ function TokenSelector({
   baseCurrency,
   tokenInSlug,
   pairsBySlug,
-  shouldShowAllPairs,
+  swapVersion,
   isActive,
   isLoading,
+  error,
   shouldHideMyTokens,
   shouldHideNotSupportedTokens = false,
   isMultichain,
@@ -164,14 +164,14 @@ function TokenSelector({
 
   // It is necessary to use useCallback instead of useLastCallback here
   const filterTokens = useCallback((tokens: TokenType[]) => {
-    return filterAndSortTokens(tokens, isMultichain, tokenInSlug, pairsBySlug, shouldShowAllPairs);
-  }, [pairsBySlug, tokenInSlug, isMultichain, shouldShowAllPairs]);
+    return shouldFilter
+      ? filterAndSortTokens(tokens, availableChains, tokenInSlug, pairsBySlug, swapVersion)
+      : tokens;
+  }, [shouldFilter, availableChains, tokenInSlug, pairsBySlug, swapVersion]);
 
   const token = useMemo(
-    () => shouldFilter
-      ? tokenProp ? filterTokens([tokenProp])[0] : undefined
-      : tokenProp,
-    [tokenProp, filterTokens, shouldFilter],
+    () => tokenProp ? filterTokens([tokenProp])[0] : undefined,
+    [tokenProp, filterTokens],
   );
 
   const userTokens = useMemo(
@@ -189,21 +189,9 @@ function TokenSelector({
     [popularTokensProp, shouldHideNotSupportedTokens, availableChains, selectedChains],
   );
 
-  const { userTokensWithFilter, popularTokensWithFilter, swapTokensWithFilter } = useMemo(() => {
-    if (!shouldFilter) {
-      return {
-        userTokensWithFilter: userTokens,
-        popularTokensWithFilter: popularTokens,
-        swapTokensWithFilter: swapTokens,
-      };
-    }
-
-    return {
-      userTokensWithFilter: filterTokens(userTokens),
-      popularTokensWithFilter: filterTokens(popularTokens),
-      swapTokensWithFilter: filterTokens(swapTokens),
-    };
-  }, [filterTokens, popularTokens, shouldFilter, swapTokens, userTokens]);
+  const userTokensWithFilter = useMemo(() => filterTokens(userTokens), [filterTokens, userTokens]);
+  const popularTokensWithFilter = useMemo(() => filterTokens(popularTokens), [filterTokens, popularTokens]);
+  const swapTokensWithFilter = useMemo(() => filterTokens(swapTokens), [filterTokens, swapTokens]);
 
   const filteredTokenList = useMemo(() => {
     const tokensToFilter = shouldUseSwapTokens ? swapTokensWithFilter : allTokens;
@@ -251,12 +239,15 @@ function TokenSelector({
         factors.nameMatchLength = lowerCaseSearchValue.length;
       }
 
-      if (searchResultToken.slug === TON_USDT_MAINNET_SLUG || searchResultToken.slug === TON_USDT_TESTNET_SLUG) {
-        factors.specialOrder = 2;
-      }
-
-      if (searchResultToken.slug === TRC20_USDT_MAINNET_SLUG || searchResultToken.slug === TRC20_USDT_TESTNET_SLUG) {
-        factors.specialOrder = 1;
+      if (getTrustedUsdtSlugs().has(searchResultToken.slug)) {
+        const chain = getChainBySlug(searchResultToken.slug);
+        const supportedChains = getSupportedChains();
+        const chainPriority = supportedChains.indexOf(chain);
+        if (chainPriority !== -1) {
+          // Subtracting, because the lower chain index should have higher priority, and `specialOrder` expects higher
+          // numbers for higher priority.
+          factors.specialOrder = supportedChains.length - chainPriority;
+        }
       }
 
       acc[searchResultToken.slug] = factors;
@@ -281,7 +272,7 @@ function TokenSelector({
   useSyncEffect(() => {
     setIsResetButtonVisible(Boolean(searchValue.length));
 
-    const isValidAddress = isValidAddressOrDomain(searchValue, 'ton');
+    const isValidAddress = !!getImportChainByAddress(searchValue, availableChains);
     let newRenderingKey = SearchState.Initial;
 
     if (isLoading && isValidAddress) {
@@ -299,11 +290,12 @@ function TokenSelector({
     if (newRenderingKey !== SearchState.Initial) {
       setSearchTokenList(filteredTokenList);
     }
-  }, [searchTokenList.length, isLoading, searchValue, token, filteredTokenList]);
+  }, [searchTokenList.length, isLoading, searchValue, token, filteredTokenList, availableChains]);
 
   useEffect(() => {
-    if ('ton' in availableChains && isValidAddressOrDomain(searchValue, 'ton')) {
-      importToken({ address: searchValue, isSwap: true });
+    const chain = getImportChainByAddress(searchValue, availableChains);
+    if (chain) {
+      importToken({ chain, address: searchValue });
       setRenderingKey(SearchState.Loading);
     } else {
       resetImportToken();
@@ -447,7 +439,7 @@ function TokenSelector({
           noLoop={false}
           nonInteractive
         />
-        <span className={styles.tokenNotFoundTitle}>{lang('Not Found')}</span>
+        <span className={styles.tokenNotFoundTitle}>{lang(error ?? 'Not Found')}</span>
         <span className={styles.tokenNotFoundDesc}>{lang('Try another keyword or address.')}</span>
       </div>
     );
@@ -523,21 +515,23 @@ function TokenSelector({
 
 export default memo(withGlobal<OwnProps>((global, ownProps): StateProps => {
   const { baseCurrency, isSensitiveDataHidden } = global.settings;
-  const { isLoading, token } = global.settings.importToken ?? {};
-  const { tokenInSlug, shouldShowAllPairs } = global.currentSwap ?? {};
+  const { isLoading, token, error } = global.settings.importToken ?? {};
+  const { tokenInSlug } = global.currentSwap ?? {};
+  const { swapVersion } = global;
   const pairsBySlug = global.swapPairs?.bySlug;
   const userTokens = selectAvailableUserForSwapTokens(global, ownProps.isSwapOut);
   const popularTokens = selectPopularTokens(global);
   const swapTokens = selectSwapTokens(global);
-  const isMultichain = selectIsMultichainAccount(global, global.currentAccountId!);
+  const isMultichain = selectIsMultichainAccount(global, selectCurrentAccountId(global)!);
   const availableChains = selectCurrentAccount(global)?.byChain;
 
   return {
     baseCurrency,
     isLoading,
     token,
+    error,
     pairsBySlug,
-    shouldShowAllPairs,
+    swapVersion,
     tokenInSlug,
     userTokens,
     popularTokens,
@@ -626,24 +620,19 @@ function Token({
 
 function filterAndSortTokens(
   tokens: TokenType[],
-  isMultichain: boolean,
-  tokenInSlug?: string,
-  pairsBySlug?: Record<string, AssetPairs>,
-  shouldShowAllPairs?: boolean,
+  availableChains: Partial<Record<ApiChain, unknown>>,
+  tokenInSlug: string | undefined,
+  pairsBySlug: Record<string, AssetPairs> | undefined,
+  swapVersion: ApiSwapVersion,
 ) {
   if (!tokens.length || !tokenInSlug) return [];
 
-  return tokens.map((token) => {
-    let canSwap: boolean;
-
-    if (shouldShowAllPairs) {
-      canSwap = true;
-    } else {
-      const pair = pairsBySlug?.[tokenInSlug]?.[token.slug];
-      canSwap = Boolean(isMultichain ? pair : (pair && !pair.isMultichain));
-    }
-    return { ...token, canSwap };
-  }).sort((a, b) => Number(b.canSwap) - Number(a.canSwap));
+  return tokens
+    .map((token) => ({
+      ...token,
+      canSwap: isSwapPairValid(tokenInSlug, token.slug, pairsBySlug, swapVersion, availableChains),
+    }))
+    .sort((a, b) => Number(b.canSwap) - Number(a.canSwap));
 }
 
 function compareTokens(a: TokenSortFactors, b: TokenSortFactors) {
@@ -676,4 +665,14 @@ function filterSupportedTokens<T extends TokenType>(
 
     return !selectedChains || selectedChains.has(token.chain as ApiChain);
   });
+}
+
+function getImportChainByAddress(address: string, availableChains: Partial<Record<ApiChain, unknown>>) {
+  const availableChainsSupportingImport = Object.fromEntries(
+    (Object.keys(availableChains) as ApiChain[])
+      .filter((chain) => getChainConfig(chain).canImportTokens)
+      .map((chain) => [chain, undefined]),
+  ) as Record<ApiChain, unknown>;
+
+  return getChainFromAddress(address, availableChainsSupportingImport);
 }

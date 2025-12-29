@@ -19,7 +19,7 @@ object LocaleController {
             }
         },
 
-        /*WLanguage.SPANISH.langCode to { n -> if (n == 0) 1 else if (n != 1) 6 else 2 },
+        WLanguage.SPANISH.langCode to { n -> if (n == 0) 1 else if (n != 1) 6 else 2 },
         WLanguage.POLISH.langCode to { n ->
             when {
                 n == 0 -> 1
@@ -40,7 +40,7 @@ object LocaleController {
         },
         WLanguage.CHINESE_SIMPLIFIED.langCode to { n -> if (n == 0) 1 else 6 },
         WLanguage.CHINESE_TRADITIONAL.langCode to { n -> if (n == 0) 1 else 6 },
-        WLanguage.PERSIAN.langCode to { n -> if (n == 0) 1 else if (n != 1) 6 else 2 },*/
+        //WLanguage.PERSIAN.langCode to { n -> if (n == 0) 1 else if (n != 1) 6 else 2 },
     )
 
     val PLURAL_OPTIONS = listOf(
@@ -118,6 +118,23 @@ object LocaleController {
         )
     }
 
+    fun getPluralOrFormat(
+        key: String,
+        amount: Int,
+        value: String = amount.toString(),
+    ): String {
+        val rule: ((Int) -> Int)? = PLURAL_RULES[activeLanguage.langCode]
+        val optionIndex = rule?.invoke(amount) ?: 0
+        val pluralKey = key + "." + PLURAL_OPTIONS.getOrElse(optionIndex) { PLURAL_OPTIONS[0] }
+        return if (dictionary.contains(pluralKey))
+            getFormattedString(
+                pluralKey,
+                listOf(value)
+            )
+        else
+            getFormattedString(key, listOf(value))
+    }
+
     fun getFormattedString(key: String, values: List<String>): String {
         var result = getString(key)
         values.forEachIndexed { index, value ->
@@ -153,6 +170,22 @@ object LocaleController {
             }
         }
         return result
+    }
+
+    fun getFormattedEnumeration(
+        items: List<String>,
+        joiner: String = "and"
+    ): String {
+        val middleJoiner = getString("\$joining_comma")
+        val lastJoiner = getString(if (joiner == "and") "\$joining_and" else "\$joining_or")
+        return buildString {
+            items.forEachIndexed { i, item ->
+                if (i > 0) {
+                    append(if (i == items.lastIndex) lastJoiner else middleJoiner)
+                }
+                append(item)
+            }
+        }
     }
 
     val isRTL: Boolean

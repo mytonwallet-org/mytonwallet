@@ -46,6 +46,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.SwapSearchEditText
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -56,6 +57,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.SettingsVC
+import org.mytonwallet.app_air.uiassets.viewControllers.token.TokenVC
 import org.mytonwallet.app_air.uitransaction.viewControllers.TransactionVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
@@ -67,8 +69,11 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MExploreHistory
+import org.mytonwallet.app_air.walletcore.models.MScreenMode
+import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.ExploreHistoryStore
+import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.uihome.R
 import org.mytonwallet.uihome.home.HomeVC
 import kotlin.math.max
@@ -77,6 +82,7 @@ import kotlin.math.roundToInt
 class TabsVC(context: Context) : WViewController(context), WThemedView, WProtectedView,
     WalletCore.EventObserver,
     WNavigationController.ITabBarController {
+    override val TAG = "Tabs"
 
     companion object {
         const val ID_HOME = 1
@@ -113,6 +119,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         bottomNavigationView.id = View.generateViewId()
         bottomNavigationView.elevation = 0f
         bottomNavigationView.itemPaddingBottom += BOTTOM_TABS_PADDING_OFFSET.dp
+        bottomNavigationView.setPadding(25.dp, 0, 25.dp, 0)
 
         // Add menu items to BottomNavigationView
         val menu = bottomNavigationView.menu
@@ -145,9 +152,9 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         bottomNavigationView.setOnItemSelectedListener { item ->
             if (bottomNavigationView.selectedItemId == item.itemId) {
                 stackNavigationControllers[item.itemId]?.apply {
-                    if (viewControllers.size == 1)
+                    if (viewControllers.size == 1) {
                         scrollToTop()
-                    else
+                    } else
                         popToRoot()
                 }
                 return@setOnItemSelectedListener true
@@ -155,6 +162,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             bottomNavigationView.post {
                 hideTooltips()
             }
+            (contentView[0] as? WNavigationController)?.viewWillDisappear()
 
             val nav = getNavigationStack(item.itemId)
             searchVisible.animatedValue = item.itemId == ID_EXPLORE
@@ -263,9 +271,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         }
     }
 
-    private val bottomNavigationFrameLayout = FrameLayout(context).apply {
-        id = View.generateViewId()
-    }
+    private val bottomNavigationFrameLayout = WFrameLayout(context)
 
     private val keyboardVisible = FloatAnimator(220L, AnimatorUtils.DECELERATE_INTERPOLATOR, 0f) {
         render()
@@ -382,56 +388,48 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         updateTheme()
     }
 
+    private var cachedTintColor: Int? = null
+    override val isTinted = true
     override fun updateTheme() {
         super.updateTheme()
 
-        val states = arrayOf(
-            intArrayOf(android.R.attr.state_checked),
-            intArrayOf(-android.R.attr.state_checked)
-        )
-        val colors = intArrayOf(
-            WColor.Tint.color,
-            WColor.SecondaryText.color
-        )
-        val colorStateList = ColorStateList(states, colors)
-        val indicator = WColor.Tint.color.colorWithAlpha(38)
-        val indicatorColors = intArrayOf(
-            Color.TRANSPARENT,
-            indicator,
-        )
-        val indicatorColorStateList = ColorStateList(states, indicatorColors)
+        val tintColor = WColor.Tint.color
+        if (cachedTintColor != tintColor) {
+            cachedTintColor = tintColor
 
-        bottomNavigationView.itemIconTintList = colorStateList
-        bottomNavigationView.itemTextColor = colorStateList
-        bottomNavigationView.itemActiveIndicatorColor = indicatorColorStateList
+            val states = arrayOf(
+                intArrayOf(android.R.attr.state_checked),
+                intArrayOf(-android.R.attr.state_checked)
+            )
+            val colors = intArrayOf(
+                WColor.Tint.color,
+                WColor.SecondaryText.color
+            )
+            val colorStateList = ColorStateList(states, colors)
+            val indicator = WColor.Tint.color.colorWithAlpha(38)
+            val indicatorColors = intArrayOf(
+                Color.TRANSPARENT,
+                indicator,
+            )
+            val indicatorColorStateList = ColorStateList(states, indicatorColors)
 
-        view.alpha = 0f
-        view.post {
-            view.fadeIn()
+            bottomNavigationView.itemIconTintList = colorStateList
+            bottomNavigationView.itemTextColor = colorStateList
+            bottomNavigationView.itemActiveIndicatorColor = indicatorColorStateList
         }
 
         for (navView in stackNavigationControllers.values) {
             if (navView.parent != null)
                 continue
-            fun updateThemeForChildren(parentView: ViewGroup) {
-                for (child in parentView.children) {
-                    if (child is WThemedView)
-                        child.updateTheme()
-                    if (child is ViewGroup)
-                        updateThemeForChildren(child)
-                }
-            }
-            updateThemeForChildren(navView)
+            navView.updateTheme()
         }
 
         updateFloatingButtonBackground?.apply {
-            backgroundColor = WColor.Tint.color
+            backgroundColor = tintColor
         }
 
-        searchView.highlightColor = WColor.Tint.color.colorWithAlpha(51)
+        searchView.highlightColor = tintColor.colorWithAlpha(51)
         checkForMatchingUrl(searchKeyword)
-
-        render()
     }
 
     override fun viewWillAppear() {
@@ -529,7 +527,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         navigationController.setRoot(
             when (id) {
                 ID_HOME -> {
-                    HomeVC(context)
+                    HomeVC(context, MScreenMode.Default)
                 }
 
                 ID_EXPLORE -> {
@@ -551,7 +549,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         return navigationController
     }
 
-    private val activeNavigationController: WNavigationController?
+    val activeNavigationController: WNavigationController?
         get() {
             return stackNavigationControllers[bottomNavigationView.selectedItemId]
         }
@@ -604,7 +602,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         createUpdateButtonIfNeeded()
         updateFloatingButton?.let { button ->
             if (button.alpha < 1f)
-                button.fadeIn { }
+                button.fadeIn()
         }
     }
 
@@ -672,11 +670,17 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
     override fun onWalletEvent(walletEvent: WalletEvent) {
         when (walletEvent) {
             is WalletEvent.AccountChanged -> {
+                if (!AccountStore.isPushedTemporary && !walletEvent.isSavingTemporaryAccount)
+                    navigationController?.popToRoot(false)
+            }
+
+            is WalletEvent.TemporaryAccountSaved -> {
                 navigationController?.popToRoot(false)
             }
 
-            WalletEvent.AccountChangedInApp, WalletEvent.AddNewWalletCompletion -> {
-                bottomNavigationView.selectedItemId = ID_HOME
+            is WalletEvent.AccountChangedInApp, WalletEvent.AddNewWalletCompletion -> {
+                if (bottomNavigationView.selectedItemId != ID_HOME)
+                    bottomNavigationView.selectedItemId = ID_HOME
                 dismissMinimized(false)
             }
 
@@ -709,6 +713,13 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
                     nav.setRoot(transactionVC)
                     window?.present(nav)
                 }
+            }
+
+            is WalletEvent.OpenToken -> {
+                val account = AccountStore.activeAccount ?: return
+                val token = TokenStore.getToken(walletEvent.slug) ?: return
+                val tokenVC = TokenVC(context, account, token)
+                getNavigationStack(ID_HOME).push(tokenVC)
             }
 
             is WalletEvent.ConfigReceived -> {

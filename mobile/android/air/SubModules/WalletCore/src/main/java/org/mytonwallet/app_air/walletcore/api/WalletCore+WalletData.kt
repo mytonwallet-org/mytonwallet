@@ -1,7 +1,8 @@
 package org.mytonwallet.app_air.walletcore.api
 
-import android.os.Handler
-import android.os.Looper
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
@@ -10,7 +11,6 @@ import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
-import java.util.concurrent.Executors
 
 fun WalletCore.fetchAllActivitySlice(
     accountId: String,
@@ -29,8 +29,7 @@ fun WalletCore.fetchAllActivitySlice(
         if (error != null || result == null) {
             callback(null, error)
         } else {
-            val executor = Executors.newSingleThreadExecutor()
-            executor.run {
+            scope.launch {
                 try {
                     val transactions = ArrayList<MApiTransaction>()
                     val transactionJSONArray = JSONArray(result)
@@ -39,11 +38,11 @@ fun WalletCore.fetchAllActivitySlice(
                         val transaction = MApiTransaction.fromJson(transactionObj)!!
                         transactions.add(transaction)
                     }
-                    Handler(Looper.getMainLooper()).post {
+                    withContext(Dispatchers.Main) {
                         callback(transactions, null)
                     }
                 } catch (_: Exception) {
-                    Handler(Looper.getMainLooper()).post {
+                    withContext(Dispatchers.Main) {
                         callback(null, null)
                     }
                 }
@@ -75,8 +74,7 @@ fun WalletCore.fetchTokenActivitySlice(
         if (error != null || result == null) {
             callback(null, error, accountId)
         } else {
-            val executor = Executors.newSingleThreadExecutor()
-            executor.run {
+            scope.launch {
                 try {
                     val transactions = ArrayList<MApiTransaction>()
                     val transactionJSONArray =
@@ -86,11 +84,11 @@ fun WalletCore.fetchTokenActivitySlice(
                         val transaction = MApiTransaction.fromJson(transactionObj)!!
                         transactions.add(transaction)
                     }
-                    Handler(Looper.getMainLooper()).post {
+                    withContext(Dispatchers.Main) {
                         callback(transactions, null, accountId)
                     }
                 } catch (_: Error) {
-                    Handler(Looper.getMainLooper()).post {
+                    withContext(Dispatchers.Main) {
                         callback(null, null, accountId)
                     }
                 }
@@ -112,8 +110,7 @@ fun WalletCore.fetchPriceHistory(
         if (error != null || result == null) {
             callback(null, error)
         } else {
-            val executor = Executors.newSingleThreadExecutor()
-            executor.execute {
+            scope.launch {
                 try {
                     val arrayOfArray = JSONArray(result)
                     val parsedList = Array(arrayOfArray.length()) { i ->
@@ -122,11 +119,11 @@ fun WalletCore.fetchPriceHistory(
                         }
                     }
 
-                    Handler(Looper.getMainLooper()).post {
+                    withContext(Dispatchers.Main) {
                         callback(parsedList, null)
                     }
                 } catch (_: Error) {
-                    Handler(Looper.getMainLooper()).post {
+                    withContext(Dispatchers.Main) {
                         callback(null, null)
                     }
                 }

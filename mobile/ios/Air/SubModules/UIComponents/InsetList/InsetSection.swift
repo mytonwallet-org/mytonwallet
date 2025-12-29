@@ -1,6 +1,5 @@
 
 import SwiftUI
-import WalletCore
 import WalletContext
 
 
@@ -41,11 +40,12 @@ public struct InsetSection<Content: View, Header: View, Footer: View>: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
-                .font13()
-                .textCase(.uppercase)
+                .font(IOS_26_MODE_ENABLED ? .system(size: 17, weight: .semibold) : .system(size: 13))
+                .textCase(IOS_26_MODE_ENABLED ? nil : .uppercase)
                 .foregroundStyle(.secondary)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 5)
+                .padding(.horizontal, IOS_26_MODE_ENABLED ? 20 : 16)
+                .padding(.top, IOS_26_MODE_ENABLED ? 4 : 7)
+                .padding(.bottom, 5)
 
             ZStack {
                 Color(resolvedBackgroundColor)
@@ -58,8 +58,9 @@ public struct InsetSection<Content: View, Header: View, Footer: View>: View {
             footer
                 .font13()
                 .foregroundStyle(.secondary)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 5)
+                .padding(.horizontal, IOS_26_MODE_ENABLED ? 20 : 16)
+                .padding(.top, IOS_26_MODE_ENABLED ? 8 : 7)
+                .padding(.bottom, IOS_26_MODE_ENABLED ? 6 : 5)
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, horizontalPadding ?? 16)

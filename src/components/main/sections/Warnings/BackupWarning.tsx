@@ -3,6 +3,7 @@ import { withGlobal } from '../../../../global';
 
 import type { Theme } from '../../../../global/types';
 
+import { selectCurrentAccountId } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
 
 import useBrowserUiColor from '../../../../hooks/useBrowserUiColor';
@@ -71,6 +72,6 @@ export default memo(
         theme: global.settings.theme,
       };
     },
-    (global, _, stickToFirst) => stickToFirst(global.currentAccountId),
+    (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),
   )(BackupWarning),
 );

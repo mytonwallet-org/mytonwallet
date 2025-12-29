@@ -36,6 +36,7 @@ class PreviewVC(
     val initialRounding: Float,
     val onPreviewDismissed: () -> Unit
 ) : WViewController(context) {
+    override val TAG = "Preview"
 
     override val shouldDisplayTopBar = false
     override val shouldDisplayBottomBar = false

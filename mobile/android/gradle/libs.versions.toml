@@ -48,6 +48,7 @@ androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecyc
 lottie = { group = "com.airbnb.android", name = "lottie", version.ref = "lottie" }
 fresco = { group = "com.facebook.fresco", name = "fresco", version.ref = "fresco" }
 fresco-middleware = { group = "com.facebook.fresco", name = "middleware", version.ref = "fresco" }
+fresco-ui-common = { group = "com.facebook.fresco", name = "ui-common", version.ref = "fresco" }
 zxing = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "cameraCore" }
 camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "cameraView" }

@@ -115,7 +115,7 @@ function useStorageClearedDialog(operationType?: OperationType) {
       }),
       buttons: {
         cancel: { title: 'Cancel' },
-        confirm: { title: 'Log Out', isDestructive: true, action: 'signOutAll' },
+        confirm: { title: 'Remove', isDestructive: true, action: 'signOutAll' },
       },
       noBackdropClose: true,
       isInAppLock: operationType === 'unlock',

@@ -47,9 +47,20 @@ extension View {
     public func font17h22() -> some View {
         self
             .font(.body)
-            .lineSpacing(2)
-            .padding(.top, 1)
-            .padding(.bottom, 1)
+            .lineSpacing(1)
+            .frame(minHeight: 22)
+    }
+    
+    public func airFont15h18(weight: Font.Weight) -> some View {
+        self
+            .font(.system(size: 15, weight: weight))
+            .frame(minHeight: 18)
+    }
+    
+    public func airFont24h32(weight: Font.Weight) -> some View {
+        self
+            .font(.system(size: 24, weight: weight))
+            .frame(minHeight: 32)
     }
     
     public func navigationBarInset(_ inset: CGFloat?) -> some View {
@@ -107,5 +118,43 @@ extension View {
         self
             .scaleEffect(isHighlighted && isEnabled ? scale : 1)
             .animation(isHighlighted ? .smooth(duration: 0.3) : .smooth(duration: 0.25), value: isHighlighted)
+    }
+}
+
+
+enum WindowSizeKey: EnvironmentKey {
+    static var defaultValue: CGSize {
+        MainActor.assumeIsolated {
+            UIApplication.shared.sceneWindows.first?.bounds.size ?? .zero
+        }
+    }
+}
+
+public extension EnvironmentValues {
+    var windowSize: CGSize {
+        get { self[WindowSizeKey.self] }
+        set { self[WindowSizeKey.self] = newValue }
+    }
+}
+
+public extension View {
+    
+    func sourceAtop<V: View>(@ViewBuilder _ stylingView: () -> V) -> some View {
+        self
+            .overlay {
+                stylingView()
+                    .blendMode(.sourceAtop)
+                    .allowsHitTesting(false)
+            }
+            .compositingGroup()
+        
+    }
+    
+    func scaleEffectIgnoredByLayout(_ scale: CGFloat) -> some View {
+        self.modifier(_ScaleEffect(scale: CGSize(width: scale, height: scale)).ignoredByLayout())
+    }
+
+    func offsetIgnoredByLayout(x: CGFloat = 0, y: CGFloat = 0) -> some View {
+        self.modifier(_OffsetEffect(offset: CGSize(width: x, height: y)).ignoredByLayout())
     }
 }

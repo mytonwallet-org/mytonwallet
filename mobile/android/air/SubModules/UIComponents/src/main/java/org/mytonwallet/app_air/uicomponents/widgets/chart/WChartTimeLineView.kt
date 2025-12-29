@@ -17,6 +17,7 @@ import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
@@ -71,8 +72,10 @@ class WChartTimeLineView(
         layoutDirection = LAYOUT_DIRECTION_LTR
 
         addView(chartView, LayoutParams(MATCH_PARENT, MATCH_PARENT).apply {
-            leftMargin = 20.dp
-            rightMargin = 20.dp
+            leftMargin = 21.dp
+            rightMargin = 21.dp
+            topMargin = 2.dp
+            bottomMargin = 2.dp
         })
         addView(leftOverlay, LayoutParams(0.dp, MATCH_PARENT).apply {
             leftMargin = 20.dp
@@ -237,6 +240,7 @@ class WChartTimeLineView(
         setFilledDataset()
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         chartView.setBackgroundColor(Color.TRANSPARENT, 8f.dp, true)
         val overlayAlpha = if (ThemeManager.isDark) 50 else 10
@@ -248,7 +252,7 @@ class WChartTimeLineView(
             Color.BLACK.colorWithAlpha(overlayAlpha),
             0f, 12f.dp, 12f.dp, 0f
         )
-        thumbCenterDrawable.setStroke(2.dp, WColor.Thumb.color)
+        thumbCenterDrawable.setStroke(1.dp, WColor.Thumb.color)
         val thumbDrawable = ContextCompat.getDrawable(
             context,
             if (ThemeManager.isDark)
@@ -328,7 +332,7 @@ class WChartTimeLineView(
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(40.dp, MeasureSpec.EXACTLY))
+        super.onMeasure(widthMeasureSpec, 36.dp.exactly)
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {

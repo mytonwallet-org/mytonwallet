@@ -7,9 +7,9 @@ import { getActions } from '../../global';
 import type { ApiBaseCurrency } from '../../api/types';
 import { SettingsState, type UserToken } from '../../global/types';
 
-import { DEFAULT_ENABLED_TOKEN_SLUGS } from '../../config';
 import { bigintMultiplyToNumber } from '../../util/bigint';
 import buildClassName from '../../util/buildClassName';
+import { getDefaultEnabledSlugs } from '../../util/chain';
 import { toDecimal } from '../../util/decimals';
 import { formatCurrency, getShortCurrencySymbol } from '../../util/formatNumber';
 import { isBetween } from '../../util/math';
@@ -149,7 +149,7 @@ function SettingsTokens({
     const knobStyle = 'left: 1rem;';
 
     const isDeleteButtonVisible = amount === 0n
-      && !Object.values(DEFAULT_ENABLED_TOKEN_SLUGS).some((tokenSlugs) => tokenSlugs.includes(slug));
+      && !(['mainnet', 'testnet'] as const).some((network) => getDefaultEnabledSlugs(network).has(slug));
 
     const isDragDisabled = isSortByValueEnabled || tokens!.length <= 1;
 

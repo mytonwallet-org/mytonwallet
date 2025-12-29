@@ -6,6 +6,7 @@ import type { ApiTonConnectProof } from '../tonConnect/types';
 import type { ApiActivity } from './activities';
 import type {
   ApiAccountConfig,
+  ApiBackendConfig,
   ApiSwapAsset,
   ApiSwapVersion,
   ApiVestingInfo,
@@ -210,7 +211,7 @@ export type ApiUpdateNfts = {
   type: 'updateNfts';
   accountId: string;
   nfts: ApiNft[];
-  shouldAppend?: boolean;
+  collectionAddress?: string;
 };
 
 export type ApiUpdateNftReceived = {
@@ -253,6 +254,7 @@ export type ApiUpdateConfig = {
   countryCode?: ApiCountryCode;
   isAppUpdateRequired: boolean;
   swapVersion?: ApiSwapVersion;
+  seasonalTheme: ApiBackendConfig['seasonalTheme'];
 };
 
 export type ApiUpdateWalletVersions = {

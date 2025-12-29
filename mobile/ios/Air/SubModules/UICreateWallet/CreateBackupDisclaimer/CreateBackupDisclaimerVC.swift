@@ -9,7 +9,6 @@ import UIKit
 import SwiftUI
 import UIComponents
 import WalletContext
-import WalletCore
 
 final class CreateBackupDisclaimerVC: WViewController {
     
@@ -33,14 +32,7 @@ final class CreateBackupDisclaimerVC: WViewController {
     
     private func setupViews() {
         
-        addNavigationBar(
-            addBackButton: weakifyGoBack()
-        )
-        navigationBarProgressiveBlurDelta = 32
-        
         hostingController = addHostingController(makeView(), constraints: .fill)
-        
-        bringNavigationBarToFront()
         
         updateTheme()
     }
@@ -48,8 +40,6 @@ final class CreateBackupDisclaimerVC: WViewController {
     private func makeView() -> CreateBackupDisclaimerView {
         CreateBackupDisclaimerView(
             introModel: introModel,
-            navigationBarInset: navigationBarHeight,
-            onScroll: { [weak self] y in self?.updateNavigationBarProgressiveBlur(y) }
         )
     }
     

@@ -120,10 +120,12 @@ addActionHandler('apiUpdate', (global, actions, update) => {
       if (IS_DELEGATING_BOTTOM_SHEET) {
         callActionInNative('apiUpdate', update);
       }
-      const { accountId, shouldAppend } = update;
+      const { accountId, collectionAddress } = update;
       const nfts = buildCollectionByKey(update.nfts, 'address');
       const currentNfts = selectAccountState(global, accountId)?.nfts;
       const newOrderedAddresses = Object.keys(nfts);
+
+      const shouldAppend = !!collectionAddress;
 
       global = updateAccountState(global, accountId, {
         nfts: {
@@ -134,6 +136,10 @@ addActionHandler('apiUpdate', (global, actions, update) => {
               ? ([] as string[]).concat(currentNfts?.orderedAddresses ?? [], newOrderedAddresses)
               : ([] as string[]).concat(newOrderedAddresses, currentNfts?.orderedAddresses ?? []),
           ),
+          isLoadedByAddress: {
+            ...currentNfts?.isLoadedByAddress,
+            ...(shouldAppend ? { [collectionAddress]: true } : {}),
+          },
         },
       });
 
@@ -231,14 +237,16 @@ addActionHandler('apiUpdate', (global, actions, update) => {
         countryCode,
         isAppUpdateRequired,
         swapVersion,
+        seasonalTheme,
       } = update;
 
-      const shouldRestrictSwapsAndOnRamp = (IS_IOS_APP && isLimitedRegion) || IS_CORE_WALLET;
+      const shouldRestrictSwapsAndOnOffRamp = (IS_IOS_APP && isLimitedRegion) || IS_CORE_WALLET;
       global = updateRestrictions(global, {
         isLimitedRegion,
-        isSwapDisabled: shouldRestrictSwapsAndOnRamp,
-        isOnRampDisabled: shouldRestrictSwapsAndOnRamp,
-        isNftBuyingDisabled: shouldRestrictSwapsAndOnRamp,
+        isSwapDisabled: shouldRestrictSwapsAndOnOffRamp,
+        isOnRampDisabled: shouldRestrictSwapsAndOnOffRamp,
+        isOffRampDisabled: shouldRestrictSwapsAndOnOffRamp,
+        isNftBuyingDisabled: shouldRestrictSwapsAndOnOffRamp,
         isCopyStorageEnabled,
         supportAccountsCount,
         countryCode,
@@ -247,6 +255,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
         ...global,
         isAppUpdateRequired: IS_CORE_WALLET ? undefined : isAppUpdateRequired,
         swapVersion: swapVersion ?? SWAP_API_VERSION,
+        seasonalTheme,
       };
       setGlobal(global);
       break;

@@ -475,15 +475,14 @@ async function parseSocketActions(network: ApiNetwork, message: ActionsSocketMes
       continue;
     }
 
-    activitiesByAddress[address] = parseActions(
+    activitiesByAddress[address] = parseActions(actions, {
       network,
-      address,
-      actions,
-      message.address_book,
-      message.metadata,
+      walletAddress: address,
+      addressBook: message.address_book,
+      metadata: message.metadata,
       nftSuperCollectionsByCollectionAddress,
-      message.type === 'pending_actions',
-    );
+      isPending: message.type === 'pending_actions',
+    })[0].activities;
   }
 
   return activitiesByAddress;

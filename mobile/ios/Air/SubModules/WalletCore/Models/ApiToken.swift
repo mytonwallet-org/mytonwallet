@@ -209,15 +209,9 @@ extension ApiToken {
         }
     }
     
+    @available(*, deprecated)
     public var isOnChain: Bool {
-        return chain == "ton" || (chain == "tron" && AccountStore.account?.tronAddress != nil)
-    }
-    
-    public var availableChain: ApiChain? {
-        if isOnChain {
-            return WalletCore.availableChain(slug: chain)
-        }
-        return nil
+        AccountStore.account?.supports(chain: chain) ?? false
     }
     
     public var chainValue: ApiChain {
@@ -239,7 +233,11 @@ extension ApiToken {
     }
     
     public var isNative: Bool {
-        slug == chainValue.tokenSlug
+        slug == nativeTokenSlug
+    }
+    
+    public var nativeTokenSlug: String {
+        chainValue.nativeToken.slug
     }
     
     public var priority: Int {
@@ -259,6 +257,10 @@ extension ApiToken {
             return true
         }
         return false
+    }
+    
+    public var internalDeeplinkUrl: URL {
+        URL(string: "\(SELF_PROTOCOL)token/\(slug)")!
     }
 }
 

@@ -13,7 +13,12 @@ import androidx.webkit.WebViewCompat
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.Types
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import okio.IOException
 import org.json.JSONArray
 import org.json.JSONObject
@@ -40,7 +45,6 @@ import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.lang.reflect.Type
 import java.math.BigInteger
-import java.util.concurrent.Executors
 
 /*const val CONSOLE_OVERRIDE_SCRIPT = """
     (function() {
@@ -232,9 +236,10 @@ class JSWebViewBridge(context: Context) : WebView(context) {
             }
         }
 
+        private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
         @Deprecated("Use moshi ApiUpdate")
         private fun parseUpdate(updateString: String) {
-            val executor = Executors.newSingleThreadExecutor()
             val objectJSONObject = JSONObject(updateString)
             val updateType = objectJSONObject.optString("type")
             when (updateType) {
@@ -242,10 +247,10 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                     val accountId = objectJSONObject.optString("accountId")
                     Handler(Looper.getMainLooper()).post {
                         val balances = HashMap<String, BigInteger>()
-                        executor.execute {
+                        scope.launch {
                             val balancesToUpdate =
                                 objectJSONObject.optJSONObject("balances")
-                                    ?: return@execute
+                                    ?: return@launch
                             for (token in balancesToUpdate.keys()) {
                                 val valueString: String =
                                     balancesToUpdate.optString(token).substringAfter("bigint:")
@@ -255,7 +260,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                                     )
                                 balances[token] = value
                             }
-                            Handler(Looper.getMainLooper()).post {
+                            withContext(Dispatchers.Main) {
                                 BalanceStore.setBalances(accountId, balances, false) {
                                     if (AccountStore.activeAccount?.accountId != accountId) {
                                         WalletCore.notifyEvent(WalletEvent.NotActiveAccountBalanceChanged)
@@ -303,9 +308,10 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                         TokenStore.setToken(it, tokensObject[it]!!)
                     }
                     TokenStore.updateTokensCache()
+                    BalanceStore.resetBalanceInBaseCurrency()
+                    if (tokensObject.size < 7)
+                        return
                     Handler(Looper.getMainLooper()).post {
-                        if (tokensObject.size < 7)
-                            return@post
                         WalletCore.notifyEvent(WalletEvent.TokensChanged)
                     }
                 }
@@ -331,9 +337,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                             TokenStore.isLoadingSwapAssets = false
                             WalletCore.notifyEvent(WalletEvent.TokensChanged)
                         }
-                    } catch (e: Error) {
-                        Handler(Looper.getMainLooper()).post {
-                        }
+                    } catch (_: Error) {
                     }
                 }
 
@@ -396,26 +400,39 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                     val stakingAdapter: JsonAdapter<MUpdateStaking> =
                         WalletCore.moshi.adapter(MUpdateStaking::class.java)
                     val stakingData = stakingAdapter.fromJson(updateString)
+                    StakingStore.setStakingState(accountId, stakingData)
 
                     Handler(Looper.getMainLooper()).post {
-                        StakingStore.setStakingState(accountId, stakingData)
                         WalletCore.notifyEvent(WalletEvent.StakingDataUpdated)
                     }
                 }
 
                 "updateNfts" -> {
                     val accountId = objectJSONObject.optString("accountId")
+                    val collectionAddress = objectJSONObject.optString("collectionAddress")
                     Handler(Looper.getMainLooper()).post {
                         NftStore.checkCardNftOwnership(accountId)
-                    }
-                    if (AccountStore.activeAccount?.accountId != accountId) {
-                        return
                     }
                     val nftsJSONArray =
                         objectJSONObject.optJSONArray("nfts") ?: return
                     val nfts = ArrayList<ApiNft>()
                     for (index in 0..<nftsJSONArray.length()) {
                         nfts.add(ApiNft.fromJson(nftsJSONArray.getJSONObject(index))!!)
+                    }
+                    if (collectionAddress.isNotEmpty()) {
+                        Handler(Looper.getMainLooper()).post {
+                            WalletCore.notifyEvent(
+                                WalletEvent.CollectionNftsReceived(
+                                    accountId,
+                                    collectionAddress,
+                                    nfts
+                                )
+                            )
+                        }
+                        return
+                    }
+                    if (AccountStore.activeAccount?.accountId != accountId) {
+                        return
                     }
                     Handler(Looper.getMainLooper()).post {
                         NftStore.setNfts(
@@ -496,14 +513,32 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                     }
                 }
 
+                "updateAccount" -> {
+                    val accountId = objectJSONObject.optString("accountId") ?: return
+                    val chain = objectJSONObject.optString("chain") ?: return
+                    val domain: String? =
+                        when (val value = objectJSONObject.opt("domain")) {
+                            is String -> value
+                            else -> null
+                        }
+                    val account = AccountStore.accountById(accountId) ?: return
+                    val byChain = account.byChain.toMutableMap()
+                    val accountChain = byChain[chain] ?: return
+                    byChain[chain] = accountChain.copy(domain = domain)
+                    val activeAccount = AccountStore.activeAccount
+                    if (activeAccount?.accountId == accountId) {
+                        activeAccount.byChain = byChain.toMap()
+                    }
+                    AccountStore.updateAccountByChain(accountId, byChain)
+                }
+
                 else -> {}
             }
         }
 
         @JavascriptInterface
         fun onUpdate(updateString: String) {
-            val executor = Executors.newSingleThreadExecutor()
-            executor.execute {
+            scope.launch {
 
                 parseUpdate(updateString)
 
@@ -601,11 +636,11 @@ class JSWebViewBridge(context: Context) : WebView(context) {
     ) : Error("ApiError: $methodName-$raw")
 
     suspend fun <T> callApiAsync(methodName: String, args: String, clazz: Type): T {
-        val result = callApiAsyncRaw<T>(methodName, args, clazz)
+        val result = callApiAsyncRaw(methodName, args, clazz)
         return parseResult(methodName, args, result, clazz)
     }
 
-    private suspend fun <T> callApiAsyncRaw(methodName: String, args: String, clazz: Type): String =
+    private suspend fun callApiAsyncRaw(methodName: String, args: String, clazz: Type): String =
         suspendCancellableCoroutine { continuation ->
             continuation.invokeOnCancellation { }
             Handler(Looper.getMainLooper()).post {
@@ -620,7 +655,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                                         parsed = err,
                                         parsedResult = try {
                                             parseResult(methodName, args, res!!, clazz)
-                                        } catch (eee: Throwable) {
+                                        } catch (_: Throwable) {
                                             null
                                         }
                                     )

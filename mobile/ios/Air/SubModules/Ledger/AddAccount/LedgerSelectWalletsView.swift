@@ -8,11 +8,8 @@ import SwiftUI
 struct LedgerSelectWalletsView: View {
     
     @ObservedObject var model: LedgerAddAccountModel
-    var navigationBarHeight: CGFloat
-    var onScroll: (CGFloat) -> ()
     var onWalletsCountChange: (Int) -> ()
     
-    @Namespace private var ns
     @State private var angle: Angle = .zero
     @State private var continueLoading = false
     
@@ -51,9 +48,7 @@ struct LedgerSelectWalletsView: View {
                 .allowsHitTesting(!model.isLoadingMore)
                 .opacity(!model.isLoadingMore ? 1 : 0.4)
             }
-            .scrollPosition(ns: ns, offset: navigationBarHeight + 8, callback: onScroll)
         }
-        .navigationBarInset(navigationBarHeight)
         .safeAreaInset(edge: .bottom) {
             Button(action: onContinue) {
                 Text(lang("Continue"))
@@ -65,7 +60,6 @@ struct LedgerSelectWalletsView: View {
             .padding(.vertical, 32)
             .environment(\.isLoading, continueLoading)
         }
-        .coordinateSpace(name: ns)
         .onChange(of: model.selectedCount) { count in
             onWalletsCountChange(count)
         }

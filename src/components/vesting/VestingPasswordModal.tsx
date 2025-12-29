@@ -9,8 +9,10 @@ import { CLAIM_AMOUNT, TONCOIN } from '../../config';
 import renderText from '../../global/helpers/renderText';
 import {
   selectAccount,
+  selectCurrentAccountId,
   selectCurrentAccountState,
   selectCurrentAccountTokens,
+  selectIsCurrentAccountViewMode,
   selectIsHardwareAccount,
   selectIsMultichainAccount,
   selectMycoin,
@@ -48,7 +50,9 @@ interface StateProps {
   mycoin?: ApiTokenWithPrice;
   isHardwareAccount?: boolean;
   isMultichainAccount: boolean;
+  isViewMode?: boolean;
 }
+
 function VestingPasswordModal({
   isOpen,
   vesting,
@@ -60,6 +64,7 @@ function VestingPasswordModal({
   state = VestingUnfreezeState.Password,
   isHardwareAccount,
   isMultichainAccount,
+  isViewMode,
 }: StateProps) {
   const { submitClaimingVesting, cancelClaimingVesting, clearVestingError } = getActions();
 
@@ -79,12 +84,12 @@ function VestingPasswordModal({
   }, [vesting]);
 
   const handleSubmit = useLastCallback((password: string) => {
-    if (hasAmountError) return;
+    if (isViewMode || hasAmountError) return;
     submitClaimingVesting({ password });
   });
 
   const handleHardwareSubmit = useLastCallback(() => {
-    if (hasAmountError) return;
+    if (isViewMode || hasAmountError) return;
     submitClaimingVesting();
   });
 
@@ -180,7 +185,8 @@ function VestingPasswordModal({
 }
 
 export default memo(withGlobal((global): StateProps => {
-  const { byChain } = selectAccount(global, global.currentAccountId!) || {};
+  const currentAccountId = selectCurrentAccountId(global)!;
+  const { byChain } = selectAccount(global, currentAccountId) || {};
   const accountState = selectCurrentAccountState(global);
   const isHardwareAccount = selectIsHardwareAccount(global);
 
@@ -203,6 +209,7 @@ export default memo(withGlobal((global): StateProps => {
     state: unfreezeState,
     mycoin: selectMycoin(global),
     isHardwareAccount,
-    isMultichainAccount: selectIsMultichainAccount(global, global.currentAccountId!),
+    isMultichainAccount: selectIsMultichainAccount(global, currentAccountId),
+    isViewMode: selectIsCurrentAccountViewMode(global),
   };
 })(VestingPasswordModal));

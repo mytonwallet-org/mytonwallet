@@ -6,7 +6,7 @@ import {
   CLAIM_ADDRESS,
   CLAIM_AMOUNT,
   CLAIM_COMMENT,
-  MYCOIN,
+  MYCOIN_MAINNET,
   MYCOIN_TESTNET,
 } from '../../../config';
 import { callActionInMain } from '../../../util/multitab';
@@ -16,10 +16,10 @@ import { handleTransferResult } from '../../helpers/transfer';
 import { prepareTransfer } from '../../helpers/transfer';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import { updateVesting } from '../../reducers';
-import { selectVestingPartsReadyToUnfreeze } from '../../selectors';
+import { selectCurrentAccountId, selectVestingPartsReadyToUnfreeze } from '../../selectors';
 
 addActionHandler('submitClaimingVesting', async (global, actions, { password } = {}) => {
-  const accountId = global.currentAccountId!;
+  const accountId = selectCurrentAccountId(global)!;
   const updateVestingState: FormReducer<VestingUnfreezeState> = (global, update) => {
     return updateVesting(global, accountId, update);
   };
@@ -37,7 +37,9 @@ addActionHandler('submitClaimingVesting', async (global, actions, { password } =
   const unfreezeRequestedIds = selectVestingPartsReadyToUnfreeze(global, accountId);
 
   const options: ApiSubmitTransferOptions = {
-    accountId: global.currentAccountId!,
+    // This may be different from the `accountId` if the user switched accounts
+    // while the transfer is preparing
+    accountId: selectCurrentAccountId(global)!,
     password,
     toAddress: CLAIM_ADDRESS,
     amount: CLAIM_AMOUNT,
@@ -62,5 +64,8 @@ addActionHandler('submitClaimingVesting', async (global, actions, { password } =
 addActionHandler('loadMycoin', (global, actions) => {
   const { isTestnet } = global.settings;
 
-  actions.importToken({ address: isTestnet ? MYCOIN_TESTNET.minterAddress : MYCOIN.minterAddress });
+  actions.importToken({
+    chain: 'ton',
+    address: isTestnet ? MYCOIN_TESTNET.minterAddress : MYCOIN_MAINNET.minterAddress,
+  });
 });

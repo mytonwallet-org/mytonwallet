@@ -2,6 +2,8 @@
 import UIKit
 import WalletContext
 
+// Please keep methods in alphabetical order
+
 @MainActor public protocol AppActionsProtocol {
     static func copyString(_ string: String?, toastMessage: String)
     static func lockApp(animated: Bool)
@@ -9,25 +11,37 @@ import WalletContext
     static func openTipsChannel()
     static func pushTransactionSuccess(activity: ApiActivity)
     static func repeatActivity(_ activity: ApiActivity)
-    static func scanQR() -> ()
+    static func saveTemporaryViewAccount(accountId: String)
+    static func scanQR() async -> ScanResult?
     static func setSensitiveDataIsHidden(_ newValue: Bool)
     static func shareUrl(_ url: URL)
     static func showActivityDetails(accountId: String, activity: ApiActivity)
+    static func showActivityDetailsById(chain: ApiChain, txId: String)
     static func showAddToken()
     static func showAddWallet(showCreateWallet: Bool, showSwitchToOtherVersion: Bool)
-    static func showAssets(selectedTab: Int, collectionsFilter: NftCollectionFilter) -> ()
+    static func showAssets(accountSource: AccountSource, selectedTab: Int, collectionsFilter: NftCollectionFilter) -> ()
     static func showBuyWithCard(chain: ApiChain?, push: Bool?)
     static func showConnectedDapps(push: Bool)
-    static func showCrossChainSwapVC(_ transaction: ApiActivity)
-    static func showEarn(token: ApiToken?)
+    static func showCrossChainSwapVC(_ transaction: ApiActivity, accountId: String?)
+    static func showCustomizeWallet(accountId: String?)
+    static func showDeleteAccount(accountId: String)
+    static func showEarn(tokenSlug: String?)
     static func showError(error: Error?)
-    static func showHiddenNfts() -> ()
+    static func showExplore()
+    static func showHiddenNfts(accountSource: AccountSource) -> ()
+    static func showHome(popToRoot: Bool)
     static func showImportWalletVersion() -> ()
-    static func showReceive(chain: ApiChain?, showBuyOptions: Bool?, title: String?)
+    static func showReceive(chain: ApiChain?, title: String?)
+    static func showRenameAccount(accountId: String)
     static func showSend(prefilledValues: SendPrefilledValues?)
     static func showSwap(defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, push: Bool?)
+    static func showTemporaryViewAccount(addressOrDomainByChain: [String: String])
+    static func showToast(animationName: String?, message: String, duration: Double, tapAction: (() -> ())?)
     static func showToken(token: ApiToken, isInModal: Bool)
+    static func showTokenByAddress(chain: String, tokenAddress: String)
+    static func showTokenBySlug(_ slug: String)
     static func showUpgradeCard()
+    static func showWalletSettings()
     static func transitionToNewRootViewController(_ newRootController: UIViewController, animationDuration: Double?)
 }
 
@@ -36,6 +50,9 @@ import WalletContext
 public extension AppActionsProtocol {
     static func openInBrowser(_ url: URL) {
         Self.openInBrowser(url, title: nil, injectTonConnect: true)
+    }
+    static func showToast(animationName: String? = nil, message: String, duration: Double? = nil, tapAction: (() -> ())? = nil) {
+        showToast(animationName: animationName, message: message, duration: duration ?? 3, tapAction: tapAction)
     }
 }
 
@@ -46,24 +63,36 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func openTipsChannel() { }
     static func pushTransactionSuccess(activity: ApiActivity) { }
     static func repeatActivity(_ activity: ApiActivity) { }
-    static func scanQR() -> () { }
+    static func scanQR() async -> ScanResult? { nil }
+    static func saveTemporaryViewAccount(accountId: String) { }
     static func setSensitiveDataIsHidden(_ newValue: Bool) { }
     static func shareUrl(_ url: URL) { }
     static func showActivityDetails(accountId: String, activity: ApiActivity) { }
+    static func showActivityDetailsById(chain: ApiChain, txId: String) { }
     static func showAddToken() { }
     static func showAddWallet(showCreateWallet: Bool, showSwitchToOtherVersion: Bool) { }
-    static func showAssets(selectedTab: Int, collectionsFilter: NftCollectionFilter) -> () { }
+    static func showAssets(accountSource: AccountSource, selectedTab: Int, collectionsFilter: NftCollectionFilter) -> () { }
     static func showBuyWithCard(chain: ApiChain?, push: Bool?) { }
     static func showConnectedDapps(push: Bool) { }
-    static func showCrossChainSwapVC(_ transaction: ApiActivity) { }
-    static func showEarn(token: ApiToken?) { }
+    static func showCrossChainSwapVC(_ transaction: ApiActivity, accountId: String?) { }
+    static func showCustomizeWallet(accountId: String?) { }
+    static func showDeleteAccount(accountId: String) { }
+    static func showEarn(tokenSlug: String?) { }
     static func showError(error: Error?) { }
-    static func showHiddenNfts() -> () { }
+    static func showExplore() { }
+    static func showHiddenNfts(accountSource: AccountSource) -> () { }
+    static func showHome(popToRoot: Bool) { }
     static func showImportWalletVersion() -> () { }
-    static func showReceive(chain: ApiChain?, showBuyOptions: Bool?, title: String?) { }
+    static func showReceive(chain: ApiChain?, title: String?) { }
+    static func showRenameAccount(accountId: String) { }
     static func showSend(prefilledValues: SendPrefilledValues?) { }
     static func showSwap(defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, push: Bool?) { }
+    static func showTemporaryViewAccount(addressOrDomainByChain: [String: String]) { }
+    static func showToast(animationName: String?, message: String, duration: Double, tapAction: (() -> ())?) { }
     static func showToken(token: ApiToken, isInModal: Bool) { }
+    static func showTokenByAddress(chain: String, tokenAddress: String) { }
+    static func showTokenBySlug(_ slug: String) { }
     static func showUpgradeCard() { }
+    static func showWalletSettings() { }
     static func transitionToNewRootViewController(_ newRootController: UIViewController, animationDuration: Double?) { }
 }

@@ -14,6 +14,7 @@ import {
 import { requestMeasure, requestMutation } from '../../../../lib/fasterdom/fasterdom';
 import {
   selectAccountStakingStates,
+  selectCurrentAccountId,
   selectCurrentAccountState,
   selectCurrentAccountTokens,
   selectDoesAccountSupportNft,
@@ -110,6 +111,7 @@ function Content({
 
   const lang = useLang();
   const { isPortrait, isLandscape } = useDeviceScreen();
+  const containerRef = useRef<HTMLDivElement>();
   const tabsRef = useRef<HTMLDivElement>();
   const hasNftSelection = Boolean(selectedAddresses?.length);
 
@@ -177,6 +179,19 @@ function Content({
     return items;
   }, [lang, nfts, blacklistedNftAddresses, whitelistedNftAddresses]);
 
+  const visibleCollectionTabs = useMemo(() => (
+    collectionTabs?.filter((address) => nftCollections.some((nc) => nc.value === address)) ?? []
+  ), [collectionTabs, nftCollections]);
+
+  // Auto close collection when all nfts of this collection have left the wallet
+  useEffect(() => {
+    if (!currentCollectionAddress) return;
+    const isExisting = nftCollections.some((nc) => nc.value === currentCollectionAddress);
+    if (!isExisting) {
+      closeNftCollection();
+    }
+  }, [currentCollectionAddress, nftCollections, closeNftCollection]);
+
   const shouldRenderHiddenNftsSection = useMemo(() => {
     if (IS_CORE_WALLET) return false;
 
@@ -219,7 +234,7 @@ function Content({
     return [
       mainContentTabs.length,
       mainContentTabs.concat(
-        collectionTabs?.map((collectionAddress, index) => {
+        visibleCollectionTabs.map((collectionAddress, index) => {
           const collection = nftCollections.find((nc) => nc.value === collectionAddress);
           if (!collection) return undefined;
 
@@ -234,7 +249,7 @@ function Content({
       ),
     ];
   }, [
-    collectionTabs, doesSupportNft, isPortrait, lang, nftCollections,
+    visibleCollectionTabs, doesSupportNft, isPortrait, lang, nftCollections,
     shouldRenderHiddenNftsSection, shouldShowSeparateAssetsPanel,
   ]);
 
@@ -254,10 +269,10 @@ function Content({
   const contentTransitionKey = useMemo(() => {
     if (!currentCollectionAddress || tabs[activeTabIndex].id === ContentTab.Nft) return activeTabIndex;
 
-    const nftCollectionIndex = collectionTabs?.indexOf(currentCollectionAddress) ?? -1;
+    const nftCollectionIndex = visibleCollectionTabs.indexOf(currentCollectionAddress);
 
     return nftCollectionIndex === -1 ? activeTabIndex : mainContentTabsCount + nftCollectionIndex;
-  }, [activeTabIndex, collectionTabs, currentCollectionAddress, mainContentTabsCount, tabs]);
+  }, [activeTabIndex, visibleCollectionTabs, currentCollectionAddress, mainContentTabsCount, tabs]);
 
   useEffectOnce(() => {
     if (activeContentTab === undefined) {
@@ -269,7 +284,7 @@ function Content({
     // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
     const tabIndex = tabs.findIndex(({ id }) => id === tab);
     if (tabIndex >= mainContentTabsCount) {
-      const collectionAddress = collectionTabs![tabIndex - mainContentTabsCount];
+      const collectionAddress = visibleCollectionTabs[tabIndex - mainContentTabsCount];
       openNftCollection({ address: collectionAddress }, { forceOnHeavyAnimation: true });
       return;
     }
@@ -308,7 +323,7 @@ function Content({
 
     onTabsStuck?.(isStuck);
     requestMutation(() => {
-      e.target.classList.toggle(styles.tabsContainerStuck, isStuck);
+      containerRef.current?.classList.toggle(styles.portraitContainerIsStuck, isStuck);
     });
   });
 
@@ -498,7 +513,7 @@ function Content({
           ref={transitionRef}
           name={isPortrait ? 'slide' : 'slideFade'}
           activeKey={contentTransitionKey}
-          renderCount={mainContentTabsCount + (collectionTabs?.length ?? 0)}
+          renderCount={mainContentTabsCount + visibleCollectionTabs.length}
           className={buildClassName(styles.slides, 'content-transition')}
           slideClassName={buildClassName(styles.slide, 'custom-scroll')}
           onStop={handleContentTransitionStop}
@@ -511,7 +526,7 @@ function Content({
   }
 
   return (
-    <div className={containerClassName}>
+    <div ref={containerRef} className={containerClassName}>
       {shouldShowSeparateAssetsPanel && (
         <div className={styles.assetsPanel}>
           <Assets
@@ -536,7 +551,7 @@ function Content({
 export default memo(
   withGlobal<OwnProps>(
     (global): StateProps => {
-      const accountId = global.currentAccountId;
+      const accountId = selectCurrentAccountId(global);
       const {
         activeContentTab,
         blacklistedNftAddresses,
@@ -553,7 +568,7 @@ export default memo(
       } = selectCurrentAccountState(global) ?? {};
 
       const tokens = selectCurrentAccountTokens(global);
-      const tokensCount = selectEnabledTokensCountMemoizedFor(global.currentAccountId!)(tokens);
+      const tokensCount = accountId ? selectEnabledTokensCountMemoizedFor(accountId)(tokens) : 0;
       const hasVesting = Boolean(vesting?.info?.length);
       const states = accountId ? selectAccountStakingStates(global, accountId) : undefined;
       const doesSupportNft = selectDoesAccountSupportNft(global);
@@ -574,6 +589,6 @@ export default memo(
         collectionTabs,
       };
     },
-    (global, _, stickToFirst) => stickToFirst(global.currentAccountId),
+    (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),
   )(Content),
 );

@@ -1,7 +1,7 @@
 export const GIVEAWAYS_API_URL = process.env.GIVEAWAYS_API_URL || 'https://api.mytonwallet.org/giveaways';
 export const GIVEAWAY_CAPTCHA_PUBLIC_KEY = process.env.GIVEAWAY_CAPTCHA_PUBLIC_KEY;
 
-export const APP_ENV = process.env.APP_ENV;
+export const APP_ENV = process.env.APP_ENV || 'production';
 export const DEBUG = APP_ENV !== 'production' && APP_ENV !== 'perf' && APP_ENV !== 'test';
 export const STRICTERDOM_ENABLED = DEBUG;
 

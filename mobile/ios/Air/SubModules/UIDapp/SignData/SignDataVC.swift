@@ -1,13 +1,12 @@
 
 import SwiftUI
 import UIKit
-import Ledger
 import UIPasscode
 import UIComponents
 import WalletCore
 import WalletContext
 
-class SignDataVC: WViewController {
+class SignDataVC: WViewController, UISheetPresentationControllerDelegate {
     
     var update: ApiUpdate.DappSignData?
     var onConfirm: ((String?) -> ())?
@@ -64,6 +63,8 @@ class SignDataVC: WViewController {
         bringNavigationBarToFront()
         
         updateTheme()
+        
+        sheetPresentationController?.delegate = self
     }
     
     private func makeView() -> SignDataViewOrPlaceholder {
@@ -74,15 +75,12 @@ class SignDataVC: WViewController {
                 account: account,
                 onConfirm: { [weak self] in self?._onConfirm() },
                 onCancel: { [weak self] in self?._onCancel() },
-                navigationBarInset: navigationBarHeight,
-                onScroll: weakifyUpdateProgressiveBlur(),
             )))
         } else {
             let account = placeholderAccountId.flatMap { AccountStore.accountsById[$0] }
             return SignDataViewOrPlaceholder(content: .placeholder(TonConnectPlaceholder(
                 account: account,
                 connectionType: .signData,
-                navigationBarInset: navigationBarHeight
             )))
         }
     }
@@ -99,6 +97,8 @@ class SignDataVC: WViewController {
                 subtitle: update.dapp.name,
                 onDone: { passcode in
                     onConfirm(passcode)
+                    self.onConfirm = nil
+                    self.onCancel = nil
                     self.dismiss(animated: true)
                 },
                 cancellable: true
@@ -107,7 +107,15 @@ class SignDataVC: WViewController {
     }
 
     func _onCancel() {
-        navigationController?.presentingViewController?.dismiss(animated: true)
-        onCancel?()
+        if let onCancel {
+            navigationController?.presentingViewController?.dismiss(animated: true)
+            onCancel()
+            self.onConfirm = nil
+            self.onCancel = nil
+        }
+    }
+    
+    public func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        _onCancel()
     }
 }

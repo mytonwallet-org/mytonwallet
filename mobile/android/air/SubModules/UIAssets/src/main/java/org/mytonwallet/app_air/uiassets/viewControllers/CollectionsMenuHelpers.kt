@@ -61,6 +61,7 @@ object CollectionsMenuHelpers {
     }
 
     fun presentCollectionsMenuOn(
+        showingAccountId: String,
         view: View,
         navigationController: WNavigationController,
         onReorderTapped: (() -> Unit)?
@@ -97,6 +98,7 @@ object CollectionsMenuHelpers {
                             navigationController.push(
                                 AssetsVC(
                                     view.context,
+                                    showingAccountId,
                                     AssetsVC.Mode.COMPLETE,
                                     isShowingSingleCollection = true,
                                     collectionMode = CollectionMode.SingleCollection(
@@ -115,6 +117,7 @@ object CollectionsMenuHelpers {
                             navigationController.push(
                                 AssetsVC(
                                     view.context,
+                                    showingAccountId,
                                     AssetsVC.Mode.COMPLETE,
                                     collectionMode = CollectionMode.TelegramGifts,
                                     isShowingSingleCollection = true
@@ -138,7 +141,8 @@ object CollectionsMenuHelpers {
             ),
             hasSeparator = shouldShowReorder
         ) {
-            val hiddenNFTsVC = HiddenNFTsVC(view.context)
+            val hiddenNFTsVC =
+                HiddenNFTsVC(view.context, showingAccountId)
             (navigationController.tabBarController?.navigationController
                 ?: navigationController).push(hiddenNFTsVC)
         }
@@ -156,6 +160,7 @@ object CollectionsMenuHelpers {
                     navigationController.push(
                         AssetsVC(
                             view.context,
+                            showingAccountId,
                             AssetsVC.Mode.COMPLETE,
                             collectionMode = CollectionMode.SingleCollection(
                                 nftCollection

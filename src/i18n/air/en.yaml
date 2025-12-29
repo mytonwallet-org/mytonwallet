@@ -1,39 +1,17 @@
-Air: Air
-Classic: Classic
 More: More
-No: "No"
-Skip: Skip
 at: at
 MyTonWallet: MyTonWallet
 MyTonWallet Resources: MyTonWallet Resources
 I agree to %term%: I agree to %term%
-use the wallet responsibly: use the wallet responsibly
-$import_hint: "Use secret words, or instantly migrate an unlimited number of wallets from another MyTonWallet app:"
-Proceed: Proceed
-$secret_words_warning: Storing words in a digital environment, including the **%1$@**, is not safe. Make sure you have your recovery phrase securely saved.
-Other apps will be able to read your recovery phrase!: Other apps will be able to read your recovery phrase!
-Incorrect words: Incorrect words
 See Words: See Words
 Wrong Phrase: Wrong Phrase
-$finalized_wallet_creation: "**Done! You have created a wallet.**"
-$finalized_wallet_import: "**Done! You have imported a wallet.**"
-$store_securely: "You can now securely store, receive, and send coins and other digital assets."
 Permission Denied: Permission Denied
-Finalizing…: Finalizing…
-Please update Ledger TON app.: Please update Ledger TON app.
-Please verify the address on your Ledger: Please verify the address on your Ledger
 USB: USB
 Bluetooth: Bluetooth
-Set a Passcode: Set a Passcode
-Enter the %1$@ digits in the passcode.: Enter the %1$@ digits in the passcode.
-Use 4-digit Passcode: Use 4-digit Passcode
-Use 6-digit Passcode: Use 6-digit Passcode
-Use Biometrics?: Use Biometrics?
 Locked: Locked
 Enter Passcode: Enter Passcode
 Enter passcode or use fingerprint: Enter passcode or use fingerprint
 Use PIN: Use PIN
-$remove_all_wallets_desc: This will remove all wallets from the app. Make sure your **secret recovery phrases** are backed up.
 Try again in %1$@: Try again in %1$@
 Try again in %1$@ and %2$@: Try again in %1$@ and %2$@
 Screen Recording Detected: Screen Recording Detected
@@ -42,21 +20,15 @@ $screen_recording_info: |
   This screen may contain sensitive or private information.
   Please make sure you're aware of what will be shared.
 I Understand, Proceed: I Understand, Proceed
-Home: Home
 Waiting for Network: Waiting for Network
 Updating: Updating
 My Wallet: My Wallet
 $no_activity_history: |
-  There is no activity history
-  in this wallet yet.
-Your Wallet Address: Your Wallet Address
+  There is no activity history in this wallet yet.
 Standalone: Standalone
 Processing Excess: Processing Excess
 Bidding Auction: Bidding Auction
-Receive With QR or Invoice: Receive With QR or Invoice
 "Enter wallet name:": "Enter wallet name:"
-No NFTs yet: No Collectibles
-$nft_explore_offer: Explore Marketplace
 All Telegram Gifts: All Telegram Gifts
 Add Crypto: Add Crypto
 Share QR Code: Share QR Code
@@ -71,25 +43,17 @@ To: To
 Changelly ID: Changelly ID
 Copy Changelly ID: Copy Changelly ID
 Changelly ID Copied!: Changelly ID Copied!
-Received NFT: Received NFT
-Sent NFT: Sent NFT
 from: from
 to: to
 Currency: Currency
 Choose Currency to Send: Choose Currency to Send
 Send to: Send to
 Add a message, if needed: Add a message, if needed
-Max: Max
-"%1$@ Balance": "%1$@ Balance"
 Sending To: Sending To
-Coins have been sent to %1$@: Coins have been sent to %1$@
-Encryption is not possible. The recipient is not a wallet or has no outgoing transactions.: Encryption is not possible. The recipient is not a wallet or has no outgoing transactions.
 Show All Collectibles: Show All Collectibles
 You have no NFT in this wallet yet: |
   You have no NFT in this
   wallet yet.
-Add Tab to Home: Add Tab to Home
-Remove Home Tab: Remove Home Tab
 Collapse: Collapse
 Standalone NFT: Standalone NFT
 Linked Address: Linked Address
@@ -101,23 +65,15 @@ W: W
 M: M
 3M: 3M
 Y: "Y"
-All: All
 No price data: No price data
 Happening Now: Happening Now
-Popular Apps: Popular Apps
 No Dapps Found!: No Dapps Found!
 Open: Open
 Edit Wallet Name: Edit Wallet Name
 Add Account: Add Account
-Copy to Clipboard: Copy to Clipboard
-Open wallet without checking: Open wallet without checking
-All Set!: All Set!
-Open Wallet: Open Wallet
 Questions and Answers: Questions and Answers
-Rename Wallet: Rename Wallet
 Wallet Name: Wallet Name
 "MyTonWallet Air v%1$@ (%2$@)": "MyTonWallet Air v%1$@ (%2$@)"
-MyTonWallet allows you to seamlessly switch between multiple accounts.: MyTonWallet allows you to seamlessly switch between multiple accounts.
 App Icon: App Icon
 App Font: App Font
 Rounded Toolbars: Rounded Toolbars
@@ -132,7 +88,6 @@ Never: Never
 "%1$@ seconds": "%1$@ seconds"
 "%1$@ minutes": "%1$@ minutes"
 Unstake Request: Unstake Request
-Your staking balance: Your staking balance
 Add Stake: Add Stake
 History: History
 Earn up to %1$@ per year from your tokens: Earn up to %1$@ per year from your tokens
@@ -144,9 +99,7 @@ up to %1$@: up to %1$@
 Current APY: Current APY
 Est. earning per year: Est. earning per year
 in: in
-Enter URL: Enter URL
 Error: Error
-Canceled by the user: Canceled by the user
 Network Error: Network Error
 Buy: Buy
 Sell: Sell
@@ -162,25 +115,17 @@ Receive to: Receive to
 Enter %1$@ address: Enter %1$@ address
 "Send %1$@ this address:": "Send %1$@ this address:"
 Swap is not supported on this account.: Swap is not supported on this account.
-Send Transaction?: Send Transaction?
-"%1$@ transactions": "%1$@ transactions"
-To %1$@: To %1$@
 "%1$@ will be returned": "%1$@ will be returned"
-Total amount in %1$@: Total amount in %1$@
-$dapps_init_info: Connected apps can only see your wallet and will not be able to move your assets without permission
 Connecting your wallet: Connecting your wallet
 Action is not possible on a view-only wallet.: Action is not possible on a view-only wallet.
 Logged in with MyTonWallet: Logged in with MyTonWallet
 You have no apps connected to this wallet.: You have no apps connected to this wallet.
 Asset: Asset
 Sent to: Sent to
-in %1$@: in %1$@
 via %agg%: via %agg%
-Switch to %1$@: Switch to %1$@
 Switch to Legacy Version: Switch to Classic Version
 Hide tab: Hide tab
 Received from: Received from
-Reorder: Reorder
 Your Recovery Phrase: Your Recovery Phrase
 day:
   zeroValue: "%1$d day"
@@ -206,51 +151,31 @@ Confirm Actions:
   zeroValue: "Confirm %1$d Actions"
   oneValue: Confirm Action
   otherValue: Confirm Actions
-# Added missing keys from Swift code analysis
-" via ": " via "
 "%lld transfer": "%lld transfer"
 "A ~ Z": "A ~ Z"
 "Accumulated rewards": "Accumulated rewards"
-"An Error Occurred": "An Error Occurred"
-Animations: Animations
-"Best rate": "Best rate"
 "Biometric authentication not available.": "Biometric authentication not available."
-"Both decentralized exchange and app fees (~0.875%) are already included in the price you see and will not be charged additionally.": "Both decentralized exchange and app fees (~0.875%) are already included in the price you see and will not be charged additionally."
-"Built-in Dex Aggregator": "Built-in Dex Aggregator"
-"Changelly AML/KYC": "Changelly AML/KYC"
-"Changelly Live Chat|support@changelly.org": "Changelly Live Chat|support@changelly.org"
 "Changelly Payment Address": "Changelly Payment Address"
 "Choose Currency": "Choose Currency"
 "Choose Wallet": "Choose Wallet"
 "Choose Wallet to Use On": "Choose Wallet to Use On"
+"Wallet to use on": "Wallet to use on"
 "Clipboard empty": "Clipboard empty"
 "Confirm Connect": "Confirm Connect"
 "Connect Wallet": "Connect Wallet"
-"Connected apps can only see your wallet and will not be able to move your assets without permission.": "Connected apps can only see your wallet and will not be able to move your assets without permission."
-"Disconnect All": "Disconnect All"
+"Connected apps can only see your wallet address and will not be able to move your assets without permission.": "Connected apps can only see your wallet address and will not be able to move your assets without permission."
+"Connect to %1$@?": "Connect to %1$@?"
 "Don’t show tokens on your account with value less than $0.01. You can also selectively enable and disable particular tokens using the list below.": "Don’t show tokens on your account with value less than $0.01. You can also selectively enable and disable particular tokens using the list below."
 "Don’t show transactions of less than $0.01. Such small transactions are often used for spam and scam.": "Don’t show transactions of less than $0.01. Such small transactions are often used for spam and scam."
-"Enable Face ID": "Enable Face ID"
-"Enable Touch ID": "Enable Touch ID"
-"Enter Amounts": "Enter Amounts"
-"Enter Receiving Address": "Enter Receiving Address"
-"Enter passcode": "Enter passcode"
-"Enter passcode or use Face ID": "Enter passcode or use Face ID"
 "Enter passcode or use Touch ID": "Enter passcode or use Touch ID"
 "Enter your Wallet Passcode": "Enter your Wallet Passcode"
-"Enter your current passcode": "Enter your current passcode"
 "Estimated APY": "Estimated APY"
 "Expired swap": "Expired swap"
-"Face ID allows you to open your wallet faster without having to enter your password.": "Face ID allows you to open your wallet faster without having to enter your password."
 "Failed swap": "Failed swap"
 "Import failed": "Import failed"
 "Install Palette": "Install Palette"
-"Insufficient fee: %1$@ TON": "Insufficient fee: %1$@ TON"
 Ledger: Ledger
-"Let’s check that you wrote them down correctly. Please enter the words %1$@, %2$@ and %3$@.": "Let’s check that you wrote them down correctly. Please enter the words %1$@, %2$@ and %3$@."
-"Looks like you entered an invalid mnemonic phrase.": "Looks like you entered an invalid mnemonic phrase."
 "Main Currency": "Main Currency"
-"Minimum %1$@ TON": "Minimum %1$@ TON"
 "Moving to staking balance": "Moving to staking balance"
 "My assets": "My assets"
 MyTonWallet uses biometric authentication to unlock and authorize transactions: MyTonWallet uses biometric authentication to unlock and authorize transactions
@@ -261,71 +186,45 @@ MyTonWallet uses biometric authentication to unlock and authorize transactions: 
 OK: OK
 "Open Collection": "Open Collection"
 "Open in Explorer": "Open in Explorer"
-"Other Device": "Other Device"
-"Other Settings": "Other Settings"
 "Passcode changed": "Passcode changed"
-"Paste from Clipboard": "Paste from Clipboard"
 "Please make sure your internet connection is working and try again.": "Please make sure your internet connection is working and try again."
-"Please provide an address of your wallet in another blockchain to receive bought tokens.": "Please provide an address of your wallet in another blockchain to receive bought tokens."
 "Please set a passcode on your device, and then try to use biometric authentication.": "Please set a passcode on your device, and then try to use biometric authentication."
 Please try again: Please try again
 "Please wait...": "Please wait..."
 Popular: Popular
 "Preview is currently unavailable.": "Preview is currently unavailable."
-"Price per 1 %1$@": "Price per 1 %1$@"
-"Re-enter the %1$@ digits in the passcode.": "Re-enter the %1$@ digits in the passcode."
 Read-only account: Read-only account
 Receiving address: Receiving address
 Remove: Remove
 "Request for unstaking": "Request for unstaking"
-"Routing Fees": "Routing Fees"
 "Save to Favorites": "Save to Favorites"
-"Securely store and send crypto.": "Securely store and send crypto."
-"See words": "See words"
-"Send %1$@ to this address": "Send %1$@ to this address"
-Add comment or memo: Add comment or memo
 Set a passcode: Set a passcode
 "Show All %1$@": "Show All %1$@"
-"Sorry. Please try again.": "Sorry. Please try again."
 "Staking Details": "Staking Details"
-StateInit: StateInit
 "TON Wallet Versions": "TON Wallet Versions"
 "Tap to reveal": "Tap to reveal"
-"Test Time!": "Test Time!"
 "The current version of Ledger only supports English-language comments without special characters.": "The current version of Ledger only supports English-language comments without special characters."
-"The secret words you have entered do not match the ones in the list.": "The secret words you have entered do not match the ones in the list."
 "The time on your device is incorrect, sync it and try again.": "The time on your device is incorrect, sync it and try again."
 "There is no activity history for this wallet yet.": "There is no activity history for this wallet yet."
-"This is how the TON Blockchain works.": "This is how the TON Blockchain works."
-"This is the least amount of new tokens you": "This is the least amount of new tokens you"
 "This type of transaction is not yet supported by Ledger.": "This type of transaction is not yet supported by Ledger."
-"Touch ID allows you to open your wallet faster without having to enter your password.": "Touch ID allows you to open your wallet faster without having to enter your password."
 "Transaction to this smart contract is not yet supported by Ledger.": "Transaction to this smart contract is not yet supported by Ledger."
 Transfer Details: Transfer Details
 "Transferring NFT is not yet supported by Ledger.": "Transferring NFT is not yet supported by Ledger."
 Unavailable: Unavailable
 "Updating…": "Updating…"
+This is how the TON Blockchain works.: This is how the TON Blockchain works.
 "Waiting for network…": "Waiting for network…"
-Wallet Created: Wallet Created
 Wallet is Locked: Wallet is Locked
 Warning: Warning
 Wear: Wear
-"You can restore access to your wallet by entering 24 words you wrote when down you creating the wallet.": "You can restore access to your wallet by entering 24 words you wrote when down you creating the wallet."
-"You will receive your unstaked deposit in %1$@.": "You will receive your unstaked deposit in %1$@."
 Your Address: Your Address
-"Your TON Wallet has just been created.": "Your TON Wallet has just been created."
-"Your wallet has just been imported!": "Your wallet has just been imported!"
 Passcodes don't match. Please try again.: Passcodes don't match. Please try again.
 Secret phrase was copied to clipboard: Secret phrase was copied to clipboard
 clipboard: clipboard
 screenshot: screenshot
-Security Warning: Security Warning
-Make sure you have your recovery phrase securely saved.: Make sure you have your recovery phrase securely saved.
-Without it, you won't be able to access your wallet.: Without it, you won't be able to access your wallet.
 Copy Anyway: Copy Anyway
 12 Words: 12 Words
 24 Words: 24 Words
-"Please choose the correct words **%1$@**, **%2$@**, **%3$@**:": "Please choose the correct words **%1$@**, **%2$@**, **%3$@**:"
 "Words don’t match, please try again.": Words don’t match, please try again.
 Load 5 More Wallets: Load 5 More Wallets
 $n_wallets_selected:
@@ -357,7 +256,6 @@ Token: Token
 All Tokens: All Tokens
 Customize Widget: Customize Widget
 $accumulated_rewards: Accumulated Rewards
-$claim: Claim
 Recent Searches: Recent Searches
 Clear All: Clear All
 Suggestions: Suggestions
@@ -368,3 +266,31 @@ $visited_ago: Visited %1$d ago
 Notifications are disabled: Notifications are disabled
 Enable in Settings: Enable in Settings
 Search in Google: Search in Google
+$remove_wallets:
+  zeroValue: "Remove Wallet"
+  oneValue: "Remove Wallet"
+  otherValue: "Remove %1$d Wallets"
+Contract Initialization Data was copied!: Contract Initialization Data was copied!
+Encryption is not possible. The recipient is not a wallet or has no outgoing transactions.: Encryption is not possible. The recipient is not a wallet or has no outgoing transactions.
+just now: just now
+"No": "No"
+Search: Search
+Show All Wallets: Show All Wallets
+Sign Out: Sign Out
+State init supplied without message body: State init supplied without message body
+Swap Failed: Swap Failed
+The wallet is ready: The wallet is ready
+Unexpected error. Please let the support know.: Unexpected error. Please let the support know.
+Unlock it and open the TON App: Unlock it and open the TON App
+Use 4-digit Passcode: Use 4-digit Passcode
+Use 6-digit Passcode: Use 6-digit Passcode
+You don’t have any cards to customize yet: You don’t have any cards to customize yet
+Authorize %token% Fee: Authorize %token% Fee
+Awaiting Previous Fee: Awaiting Previous Fee
+Lock: Lock
+MyTonWallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.: MyTonWallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.
+Receive: Receive
+Scan: Scan
+Search or enter address: Search or enter address
+View as Grid: View as Grid
+$secret_words_warning: Storing words in a digital environment, including the **%1$d**, is not safe. Make sure you have your recovery phrase securely saved.

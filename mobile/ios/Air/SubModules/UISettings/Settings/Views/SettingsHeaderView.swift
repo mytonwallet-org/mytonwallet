@@ -227,16 +227,12 @@ class SettingsHeaderView: WTouchPassView, WThemedView {
         guard let account = AccountStore.account else {
             return
         }
-        let formattedAddress = formatStartEndAddress(account.tonAddress ?? "")
-        let currency = TokenStore.baseCurrency
+        let formattedAddress = formatStartEndAddress(account.firstAddress)
         
         addressLabel.text = formattedAddress
         
-        if let totalBalanceInBaseCurrency = BalanceStore.totalBalanceInBaseCurrency {
-            let totalBalanceString = formatAmountText(amount: totalBalanceInBaseCurrency,
-                                                      currency: currency?.sign,
-                                                      decimalsCount: currency?.decimalsCount)
-            balanceLabel.text = totalBalanceString
+        if let totalBalance = BalanceStore.accountBalanceData[account.id]?.totalBalance {
+            balanceLabel.text = totalBalance.formatted()
             separatorDotLabel.isHidden = false
             walletBalanceContainer.isDisabled = false
             walletBalanceContainer.isHidden = false
@@ -296,7 +292,7 @@ class SettingsHeaderView: WTouchPassView, WThemedView {
     }
     
     @objc private func qrPressed() {
-        AppActions.showReceive(chain: nil, showBuyOptions: false, title: lang("Your Address"))
+        AppActions.showReceive(chain: nil, title: lang("Your Address"))
     }
 }
 
