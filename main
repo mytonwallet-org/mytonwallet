@@ -1,0 +1,14 @@
+project/
+├── main.js (یا main.ts)
+├── config/
+│   └── ton.config.js
+├── wallet/
+│   ├── init.js
+│   ├── transfer.js
+│   └── balance.js
+├── contracts/
+│   └── jetton.js
+├── security/
+│   └── signer.js
+└── utils/
+    └── helpers.js
