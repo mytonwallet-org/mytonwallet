@@ -412,6 +412,7 @@ open class NftHeaderView(
     }
 
     fun onDestroy() {
+        avatarCoverFlowView.onDestroy()
     }
 
     fun onPreviewStarted() {

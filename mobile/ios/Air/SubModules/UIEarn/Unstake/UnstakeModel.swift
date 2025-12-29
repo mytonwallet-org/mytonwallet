@@ -12,6 +12,8 @@ import UIKit
 import UIComponents
 import WalletCore
 import WalletContext
+import Perception
+import SwiftNavigation
 
 private let log = Log("StakeUnstakeModel")
 
@@ -22,8 +24,10 @@ private let log = Log("StakeUnstakeModel")
 //
 
 @MainActor
-final class UnstakeModel: ObservableObject, WalletCoreData.EventsObserver {
+@Perceptible
+final class UnstakeModel: WalletCoreData.EventsObserver {
     
+    @PerceptionIgnored
     let config: StakingConfig
     
     public init(config: StakingConfig, stakingState: ApiStakingState) {
@@ -35,9 +39,9 @@ final class UnstakeModel: ObservableObject, WalletCoreData.EventsObserver {
     
     // MARK: External dependencies
     
-    @Published var stakingState: ApiStakingState
-    @Published var nativeBalance: BigInt = 0
-    @Published var stakedTokenBalance: BigInt = 0
+    var stakingState: ApiStakingState
+    var nativeBalance: BigInt = 0
+    var stakedTokenBalance: BigInt = 0
     var baseCurrency: MBaseCurrency { TokenStore.baseCurrency }
     
     public func walletCore(event: WalletCoreData.Event) {
@@ -72,10 +76,10 @@ final class UnstakeModel: ObservableObject, WalletCoreData.EventsObserver {
     
     // User input
     
-    @Published var switchedToBaseCurrencyInput: Bool = false
-    @Published var amount: BigInt? = nil
-    @Published var amountInBaseCurrency: BigInt? = nil
-    @Published var isAmountFieldFocused: Bool = false
+    var switchedToBaseCurrencyInput: Bool = false
+    var amount: BigInt? = nil
+    var amountInBaseCurrency: BigInt? = nil
+    var isAmountFieldFocused: Bool = false
     
     // Wallet state
     
@@ -84,7 +88,7 @@ final class UnstakeModel: ObservableObject, WalletCoreData.EventsObserver {
     var nativeTokenSlug: String { config.nativeTokenSlug }
     var stakedTokenSlug: String { config.stakedTokenSlug }
 
-    @Published var draft: ApiCheckTransactionDraftResult?
+    var draft: ApiCheckTransactionDraftResult?
     
     var fee: MFee? {
         let stakeOperationFee = getStakeOperationFee(stakingType: stakingState.type, stakeOperation: .unstake).real
@@ -95,21 +99,22 @@ final class UnstakeModel: ObservableObject, WalletCoreData.EventsObserver {
     
     // Validation
 
-    @Published var insufficientFunds: Bool = false
+    var insufficientFunds: Bool = false
 
-    @Published var shouldRenderBalanceWithSmallFee = false
+    var shouldRenderBalanceWithSmallFee = false
     
     enum WithdrawalType {
         case instant
         case loading
         case timed(TimeInterval)
     }
-    @Published var withdrawalType: WithdrawalType = .instant
+    var withdrawalType: WithdrawalType = .instant
     
     var canContinue: Bool {
         !insufficientFunds && (amount ?? 0 > 0)
     }
     
+    @PerceptionIgnored
     private var observers: Set<AnyCancellable> = []
         
     // MARK: - View callbacks

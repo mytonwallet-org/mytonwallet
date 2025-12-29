@@ -3,6 +3,8 @@ import UIKit
 import UIComponents
 import WalletContext
 import WalletCore
+import Perception
+import SwiftNavigation
 
 @MainActor
 public class NftDetailsVC: WViewController, UIScrollViewDelegate {
@@ -18,6 +20,8 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
     private var scrollContentHeightConstraint: NSLayoutConstraint?
     private var fullscreenPreviewConstraint: NSLayoutConstraint?
     private var reportedHeight: CGFloat?
+    private var isOpenObserver: ObserveToken?
+    private var contentHeightObserver: ObserveToken?
     
     var backButton: HostingView? = nil
     
@@ -124,19 +128,15 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
             updateFullscreenPreview(viewModel.isFullscreenPreviewOpen)
         }
         
-        Task { [viewModel, weak self] in
-            for await isOpen in viewModel.$isFullscreenPreviewOpen.values {
-                if let self {
-                    updateFullscreenPreview(isOpen)
-                }
-            }
+        isOpenObserver = observe { [weak self] in
+            guard let self else { return }
+            updateFullscreenPreview(viewModel.isFullscreenPreviewOpen)
         }
         
-        Task { [viewModel, weak self] in
-            for await contentHeight in viewModel.$contentHeight.values {
-                if let self, self.viewModel.state == .collapsed {
-                    self.reportedHeight = contentHeight
-                }
+        contentHeightObserver = observe { [weak self] in
+            guard let self else { return }
+            if viewModel.state == .collapsed {
+                reportedHeight = viewModel.contentHeight
             }
         }
                 

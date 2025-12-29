@@ -17,7 +17,7 @@ class TokenVM(
     val context: Context,
     private val accountId: String,
     val token: MToken,
-    delegate: Delegate
+    val delegate: WeakReference<Delegate>
 ) : WalletCore.EventObserver,
     IActivityLoader.Delegate {
 
@@ -34,8 +34,6 @@ class TokenVM(
         fun accountRemoved()
         fun cacheNotFound()
     }
-
-    val delegate: WeakReference<Delegate> = WeakReference(delegate)
 
     var selectedPeriod: MHistoryTimePeriod =
         MHistoryTimePeriod.entries

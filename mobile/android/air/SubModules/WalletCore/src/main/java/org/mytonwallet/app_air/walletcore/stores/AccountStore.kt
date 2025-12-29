@@ -123,7 +123,9 @@ object AccountStore : IStore {
             isNextAccountPushedTemporary
         ) { done, error ->
             if (error != null || done != true) {
-                throw Error()
+                Logger.d(Logger.LogTag.ACCOUNT, "Remove account failed: $removingAccountId / error: $error")
+                onCompletion?.invoke(done, error)
+                return@removeAccount
             }
 
             Logger.d(Logger.LogTag.ACCOUNT, "Remove account: $removingAccountId")

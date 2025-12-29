@@ -9,6 +9,7 @@ import Foundation
 import UIComponents
 import WalletCore
 import WalletContext
+import Perception
 
 public let HISTORY_LIMIT = 100
 private let log = Log("EarnVM")
@@ -21,12 +22,15 @@ protocol EarnMVDelegate: WViewController {
 }
 
 
-public final class EarnVM: ObservableObject, WalletCoreData.EventsObserver {
+@MainActor
+@Perceptible
+public final class EarnVM: WalletCoreData.EventsObserver {
     
     public static let sharedTon = EarnVM(config: .ton)
     public static let sharedMycoin = EarnVM(config: .mycoin)
     public static let sharedEthena = EarnVM(config: .ethena)
     
+    @PerceptionIgnored
     weak var delegate: EarnMVDelegate? = nil {
         didSet {
             shownListOnce = false
@@ -40,23 +44,36 @@ public final class EarnVM: ObservableObject, WalletCoreData.EventsObserver {
     var stakedToken: ApiToken { config.stakedToken }
     var stakingState: ApiStakingState? { config.stakingState }
 
+    @PerceptionIgnored
     private var accountId: String? = nil
+    @PerceptionIgnored
     private var isLoadingStakingHistoryPage: Int? = nil
+    @PerceptionIgnored
     private var isLoadedAllHistoryItems = false
+    @PerceptionIgnored
     private var lastLoadedPage = 0
     // set current last staking item timestamp to paginate
+    @PerceptionIgnored
     var lastStakingItem: Int64? = nil
+    @PerceptionIgnored
     var historyItems: [MStakingHistoryItem]? = nil
+    @PerceptionIgnored
     private var shownListOnce: Bool = false
 
     // unstake
+    @PerceptionIgnored
     private(set) var lastUnstakeActivityItem: (String, Int64)? = nil
+    @PerceptionIgnored
     private var isLoadedAllUnstakeActivityItems = false
+    @PerceptionIgnored
     private var isLoadingUnstakeActivities = false
 
     // stake
+    @PerceptionIgnored
     private(set) var lastActivityItem: (String, Int64)? = nil
+    @PerceptionIgnored
     private var isLoadedAllActivityItems = false
+    @PerceptionIgnored
     private var isLoadingActivities = false
 
     private init(config: StakingConfig) {

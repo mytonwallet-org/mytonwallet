@@ -430,7 +430,9 @@ export async function getStakingStates(
     promises.push(buildNominatorsState(options));
   }
 
-  if (TON_USDE.slug in balances && (!commonData.ethena.isDisabled || DEBUG)) {
+  const hasEthenaBalance = TON_USDE.slug in balances || TON_TSUSDE.slug in balances;
+
+  if (hasEthenaBalance && (!commonData.ethena.isDisabled || DEBUG)) {
     promises.push(buildEthenaState(options));
   }
 

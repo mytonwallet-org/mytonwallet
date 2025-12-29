@@ -9,6 +9,7 @@ import SwiftUI
 import UIKit
 import UIComponents
 import WalletContext
+import Perception
 
 final class ExploreSearch: HostingView {
     
@@ -33,69 +34,74 @@ final class ExploreSearch: HostingView {
     }
 }
 
-final class ExploreSearchViewModel: ObservableObject {
-    @Published var string: String = ""
-    @Published var isActive: Bool = false
+@Perceptible
+final class ExploreSearchViewModel {
+    var string: String = ""
+    var isActive: Bool = false
+    
+    @PerceptionIgnored
     var frame: CGRect?
     
+    @PerceptionIgnored
     var onChange: (String) -> () = { _ in }
+    
+    @PerceptionIgnored
     var onSubmit: (String) -> () = { _ in }
 }
 
 @available(iOS 26, *)
 struct ExploreSearchView: View {
     
-    @ObservedObject var viewModel: ExploreSearchViewModel
+    var viewModel: ExploreSearchViewModel
     @FocusState private var isFocused
     @Namespace private var ns
     
     var body: some View {
-        searchBar
+        WithPerceptionTracking {
+            @Perception.Bindable var viewModel = viewModel
+            GlassEffectContainer {
+                let glass = Image(systemName: "magnifyingglass")
+                HStack {
+                    HStack {
+                        glass
+                        TextField(text: $viewModel.string, prompt: Text(lang("Search app or enter address")).foregroundStyle(viewModel.isActive ? .secondary : Color(WTheme.primaryLabel)), label: { EmptyView() })
+                            .fixedSize(horizontal: !viewModel.isActive, vertical: true)
+                            .focused($isFocused)
+                            .multilineTextAlignment(.leading)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                            .keyboardType(.webSearch)
+                            .submitLabel(.go)
+                    }
+                    .font(viewModel.isActive ? .system(size: 17, weight: .regular) : .system(size: 15, weight: .medium))
+                    .padding(.all, viewModel.isActive ? 16 : 12)
+                    .padding(.trailing, 4)
+                    .glassEffect()
+                    .glassEffectID("4", in: ns)
+                    .contentShape(.rect)
+                    .scrollDismissesKeyboard(.immediately)
+                }
+                .padding()
+                .geometryGroup()
+                .scrollDismissesKeyboard(.immediately)
+                
+            }
+            .scrollDismissesKeyboard(.immediately)
+            .onChange(of: isFocused) { isFocused in
+                withAnimation(.smooth(duration: isFocused ? 0.25 : 0.2)) {
+                    viewModel.isActive = isFocused
+                }
+            }
+            .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }, action: { viewModel.frame = $0 })
+            .onChange(of: viewModel.string) { _, string in
+                viewModel.onChange(string)
+            }
+            .onSubmit {
+                viewModel.onSubmit(viewModel.string)
+            }
             .fixedSize(horizontal: false, vertical: true)
             .frame(height: 80, alignment: .bottom)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-    }
-    
-    var searchBar: some View {
-        GlassEffectContainer {
-            let glass = Image(systemName: "magnifyingglass")
-            HStack {
-                HStack {
-                    glass
-                    TextField(text: $viewModel.string, prompt: Text(lang("Search app or enter address")).foregroundStyle(viewModel.isActive ? .secondary : Color(WTheme.primaryLabel)), label: { EmptyView() })
-                        .fixedSize(horizontal: !viewModel.isActive, vertical: true)
-                        .focused($isFocused)
-                        .multilineTextAlignment(.leading)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                        .keyboardType(.webSearch)
-                        .submitLabel(.go)
-                }
-                .font(viewModel.isActive ? .system(size: 17, weight: .regular) : .system(size: 15, weight: .medium))
-                .padding(.all, viewModel.isActive ? 16 : 12)
-                .padding(.trailing, 4)
-                .glassEffect()
-                .glassEffectID("4", in: ns)
-                .contentShape(.rect)
-                .scrollDismissesKeyboard(.immediately)
-            }
-            .padding()
-            .geometryGroup()
-            .scrollDismissesKeyboard(.immediately)
-
-        }
-        .scrollDismissesKeyboard(.immediately)
-        .onChange(of: isFocused) { isFocused in
-            withAnimation(.smooth(duration: isFocused ? 0.25 : 0.2)) {
-                viewModel.isActive = isFocused
-            }
-        }
-        .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }, action: { viewModel.frame = $0 })
-        .onChange(of: viewModel.string) { _, string in
-            viewModel.onChange(string)
-        }
-        .onSubmit {
-            viewModel.onSubmit(viewModel.string)
         }
     }
 }

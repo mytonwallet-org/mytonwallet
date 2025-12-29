@@ -74,7 +74,7 @@ public struct ApiNftMetadata: Equatable, Hashable, Codable, Sendable {
 
 extension ApiNftMetadata {
     public var mtwCardBackgroundUrl: URL? {
-        if let mtwCardId { return URL(string: "https://static.mytonwallet.org/cards/\(mtwCardId).webp")! }
+        if let mtwCardId { return URL(string: "https://static.mytonwallet.org/cards/v2/cards/\(mtwCardId).webp")! }
         return nil
     }
 }

@@ -3,15 +3,17 @@ import SwiftUI
 import UIComponents
 import WalletContext
 import Kingfisher
+import Perception
 
 private let extraPadding: CGFloat = 10
 
 @MainActor
-final class MinimizedSheetViewModel: ObservableObject {
-    @Published var title: String?
-    @Published var iconUrl: String?
-    @Published var titleTapAction: () -> ()
-    @Published var closeAction: () -> ()
+@Perceptible
+final class MinimizedSheetViewModel {
+    var title: String?
+    var iconUrl: String?
+    var titleTapAction: () -> ()
+    var closeAction: () -> ()
     
     init(title: String?, iconUrl: String? = nil, titleTapAction: @escaping () -> Void, closeAction: @escaping () -> Void) {
         self.title = title
@@ -36,16 +38,17 @@ final class MinimizedSheetView: HostingView {
 
 struct _MinimizedSheetView: View {
     
-    @ObservedObject var viewModel: MinimizedSheetViewModel
+    var viewModel: MinimizedSheetViewModel
     
     var body: some View {
-        HStack(spacing: 4) {
-            xMark
-            titleView
-            xMark
-                .hidden()
+        WithPerceptionTracking {
+            HStack(spacing: 4) {
+                xMark
+                titleView
+                xMark
+                    .hidden()
+            }            
         }
-        
     }
     
     @ViewBuilder
@@ -54,8 +57,7 @@ struct _MinimizedSheetView: View {
             Image.airBundle("MinimizedBrowserXMark24")
                 .foregroundStyle(Color(WTheme.primaryLabel))
                 .padding(10)
-//                .border(Color.red)
-.contentShape(.containerRelative)
+                .contentShape(.containerRelative)
                 .containerShape(.rect)
         }
         .buttonStyle(.plain)

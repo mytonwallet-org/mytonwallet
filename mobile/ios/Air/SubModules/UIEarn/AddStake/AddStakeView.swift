@@ -4,48 +4,52 @@ import SwiftUI
 import UIComponents
 import WalletCore
 import WalletContext
+import Perception
 
 struct AddStakeView: View {
     
-    @ObservedObject var model: AddStakeModel
+    var model: AddStakeModel
     var navigationBarInset: CGFloat
     var onScrollPositionChange: (CGFloat) -> ()
     
     @Namespace private var ns
     
     var body: some View {
-        InsetList {
-            AmountSection(model: model)
-                .background {
-                    GeometryReader { geom in
-                        Color.clear.onChange(of: geom.frame(in: .named(ns)).origin.y) { y in
-                            onScrollPositionChange(y + 2)
+        WithPerceptionTracking {
+            @Perception.Bindable var model = model
+            InsetList {
+                AmountSection(model: model)
+                    .background {
+                        GeometryReader { geom in
+                            Color.clear.onChange(of: geom.frame(in: .named(ns)).origin.y) { y in
+                                onScrollPositionChange(y + 2)
+                            }
                         }
                     }
-                }
 
-            StakeInfoSection(model: model)
-                    .padding(.top, -8)
-        }
-        .padding(.top, -8)
-        .coordinateSpace(name: ns)
-        .navigationBarInset(navigationBarInset)
-        .contentShape(.rect)
-        .onTapGesture {
-            model.onBackgroundTapped()
-        }
-        .onChange(of: model.amount) { amount in
-            if let amount, model.switchedToBaseCurrencyInput == false {
-                model.updateBaseCurrencyAmount(amount)
+                StakeInfoSection(model: model)
+                        .padding(.top, -8)
             }
-        }
-        .onChange(of: model.amountInBaseCurrency) { baseCurrencyAmount in
-            if let baseCurrencyAmount, model.switchedToBaseCurrencyInput == true {
-                model.updateAmountFromBaseCurrency(baseCurrencyAmount)
+            .padding(.top, -8)
+            .coordinateSpace(name: ns)
+            .navigationBarInset(navigationBarInset)
+            .contentShape(.rect)
+            .onTapGesture {
+                model.onBackgroundTapped()
             }
-        }
-        .task(id: model.amount) {
-            await model.updateFee()
+            .onChange(of: model.amount) { amount in
+                if let amount, model.switchedToBaseCurrencyInput == false {
+                    model.updateBaseCurrencyAmount(amount)
+                }
+            }
+            .onChange(of: model.amountInBaseCurrency) { baseCurrencyAmount in
+                if let baseCurrencyAmount, model.switchedToBaseCurrencyInput == true {
+                    model.updateAmountFromBaseCurrency(baseCurrencyAmount)
+                }
+            }
+            .task(id: model.amount) {
+                await model.updateFee()
+            }
         }
     }
 }
@@ -53,22 +57,25 @@ struct AddStakeView: View {
 
 fileprivate struct AmountSection: View {
     
-    @ObservedObject var model: AddStakeModel
+    var model: AddStakeModel
     
     var body: some View {
-        TokenAmountEntrySection(
-            amount: $model.amount,
-            token: displayToken,
-            balance: model.maxAmount,
-            insufficientFunds: model.insufficientFunds,
-            amountInBaseCurrency: $model.amountInBaseCurrency,
-            switchedToBaseCurrencyInput: $model.switchedToBaseCurrencyInput,
-            fee: model.fee,
-            explainedFee: nil,
-            isFocused: $model.isAmountFieldFocused,
-            onTokenSelect: nil,
-            onUseAll: { model.onUseAll() }
-        )
+        WithPerceptionTracking {
+            @Perception.Bindable var model = model
+            TokenAmountEntrySection(
+                amount: $model.amount,
+                token: displayToken,
+                balance: model.maxAmount,
+                insufficientFunds: model.insufficientFunds,
+                amountInBaseCurrency: $model.amountInBaseCurrency,
+                switchedToBaseCurrencyInput: $model.switchedToBaseCurrencyInput,
+                fee: model.fee,
+                explainedFee: nil,
+                isFocused: $model.isAmountFieldFocused,
+                onTokenSelect: nil,
+                onUseAll: { model.onUseAll() }
+            )
+        }
     }
     
     /// even when withdrawing "staked", show normal token
@@ -80,39 +87,41 @@ fileprivate struct AmountSection: View {
 
 fileprivate struct StakeInfoSection: View {
     
-    @ObservedObject var model: AddStakeModel
+    var model: AddStakeModel
     
     var body: some View {
-        InsetSection {
-            InsetCell {
-                HStack {
-                    Text(lang("Current APY"))
-                        .font17h22()
-                    Spacer()
-                    apyBadge
-                }
-                .padding(.top, -1)
-                .padding(.bottom, -1)
-            }
-            InsetCell {
-                HStack {
-                    Text(lang("Est. earning per year"))
-                        .font17h22()
-                    Spacer()
-                    estEarning
-                }
-                .padding(.top, -1)
-            }
-            InsetButtonCell(action: { model.onWhyIsSafe?() }) {
-                Text(model.config.explainTitle)
-                    .font17h22()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .tint(Color(WTheme.tint))
+        WithPerceptionTracking {
+            InsetSection {
+                InsetCell {
+                    HStack {
+                        Text(lang("Current APY"))
+                            .font17h22()
+                        Spacer()
+                        apyBadge
+                    }
                     .padding(.top, -1)
-            }
-        } header: {
-            Text(lang("Staking Details"))
-        } footer: {}
+                    .padding(.bottom, -1)
+                }
+                InsetCell {
+                    HStack {
+                        Text(lang("Est. earning per year"))
+                            .font17h22()
+                        Spacer()
+                        estEarning
+                    }
+                    .padding(.top, -1)
+                }
+                InsetButtonCell(action: { model.onWhyIsSafe?() }) {
+                    Text(model.config.explainTitle)
+                        .font17h22()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .tint(Color(WTheme.tint))
+                        .padding(.top, -1)
+                }
+            } header: {
+                Text(lang("Staking Details"))
+            } footer: {}
+        }
     }
     
     @ViewBuilder

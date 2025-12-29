@@ -3,6 +3,7 @@ import SwiftUI
 import UIComponents
 import WalletCore
 import WalletContext
+import Perception
 
 
 struct SwapAgregatorView: View {
@@ -169,7 +170,7 @@ struct SwapAgregatorView: View {
 
 struct SwapAgregatorContainerView: View {
     
-    @ObservedObject var model: SwapDetailsVM
+    var model: SwapDetailsVM
     
     @State private var show = false
     @State private var dismissing = false
@@ -182,34 +183,37 @@ struct SwapAgregatorContainerView: View {
     }
     
     var body: some View {
-        ZStack(alignment: .center) {
-            Color.clear.ignoresSafeArea()
-            if show {
-                Color.black.opacity(dismissing ? 0 : 0.4).ignoresSafeArea()
-                    .transition(.opacity)
-                    .contentShape(.rect)
-                    .onTapGesture {
-                        if dy == 0 {
-                            dismiss()
+        WithPerceptionTracking {
+            @Perception.Bindable var model = model
+            ZStack(alignment: .center) {
+                Color.clear.ignoresSafeArea()
+                if show {
+                    Color.black.opacity(dismissing ? 0 : 0.4).ignoresSafeArea()
+                        .transition(.opacity)
+                        .contentShape(.rect)
+                        .onTapGesture {
+                            if dy == 0 {
+                                dismiss()
+                            }
                         }
-                    }
-                    .gesture(dragGesture)
-                contents
-                    .transition(.asymmetric(
-                        insertion: .scale(scale: 1.15).combined(with: .opacity),
-                        removal: .identity
-                    ))
-                    .opacity(dismissing ? 0 : 1)
-                    .gesture(dragGesture)
+                        .gesture(dragGesture)
+                    contents
+                        .transition(.asymmetric(
+                            insertion: .scale(scale: 1.15).combined(with: .opacity),
+                            removal: .identity
+                        ))
+                        .opacity(dismissing ? 0 : 1)
+                        .gesture(dragGesture)
+                }
             }
-        }
-        .onAppear {
-            withAnimation(.spring(duration: 0.3)) {
-                show = true
+            .onAppear {
+                withAnimation(.spring(duration: 0.3)) {
+                    show = true
+                }
             }
-        }
-        .onAppear {
-            buttonState = model.selectedDex
+            .onAppear {
+                buttonState = model.selectedDex
+            }
         }
     }
     

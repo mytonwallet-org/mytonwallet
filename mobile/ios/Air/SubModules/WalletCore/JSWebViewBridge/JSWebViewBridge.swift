@@ -643,7 +643,6 @@ extension JSWebViewBridge: WKScriptMessageHandler {
                     break
                     
                 case "updateAccountDomainData":
-                    #warning("TODO: updateAccountDomainData")
                     break
 
                 case "showError":

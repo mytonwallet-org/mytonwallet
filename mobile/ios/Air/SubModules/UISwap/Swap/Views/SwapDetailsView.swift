@@ -10,7 +10,8 @@ import UIKit
 import UIComponents
 import WalletCore
 import WalletContext
-import Combine
+import Perception
+import SwiftNavigation
 
 public let DEFAULT_SLIPPAGE = BigInt(5_0)
 public let MAX_SLIPPAGE_VALUE = BigInt(50_0)
@@ -19,13 +20,16 @@ private let slippageFont = UIFont.systemFont(ofSize: 20, weight: .semibold)
 let DEFAULT_OUR_SWAP_FEE = 0.875
 
 @MainActor
-class SwapDetailsVM: ObservableObject {
+@Perceptible
+class SwapDetailsVM {
     
-    @Published var isExpanded = false
-    @Published var slippageExpanded = false
-    @Published var slippage: BigInt? = DEFAULT_SLIPPAGE
+    var isExpanded = false
+    var slippageExpanded = false
+    var slippage: BigInt? = DEFAULT_SLIPPAGE
     
+    @PerceptionIgnored
     var onSlippageChanged: (Double) -> () = { _ in }
+    @PerceptionIgnored
     var onPreferredDexChanged: (ApiSwapDexLabel?) -> () = { _ in }
 
     var fromToken: ApiToken { tokensSelectorVM.sellingToken }
@@ -33,9 +37,12 @@ class SwapDetailsVM: ObservableObject {
     var swapEstimate: ApiSwapEstimateResponse? { swapVM.swapEstimate }
     var selectedDex: ApiSwapDexLabel? { swapVM.dex }
     
+    @PerceptionIgnored
     private var swapVM: SwapVM
+    @PerceptionIgnored
     private var tokensSelectorVM: SwapSelectorsVM
-    private var observer: AnyCancellable?
+    @PerceptionIgnored
+    private var observer: ObserveToken?
     
     public var displayImpactWarning: Double? {
         if let impact = displayEstimate?.impact, impact > MAX_PRICE_IMPACT_VALUE {
@@ -47,11 +54,10 @@ class SwapDetailsVM: ObservableObject {
     init(swapVM: SwapVM, tokensSelectorVM: SwapSelectorsVM) {
         self.swapVM = swapVM
         self.tokensSelectorVM = tokensSelectorVM
-        observer = $slippage.sink { [weak self] value in
-            if let value {
-                let doubleValue = value.doubleAbsRepresentation(decimals: SLIPPAGE_DECIMALS)
-                self?.onSlippageChanged(doubleValue)
-            }
+        observer = observe { [weak self] in
+            guard let self, let value = slippage else { return }
+            let doubleValue = value.doubleAbsRepresentation(decimals: SLIPPAGE_DECIMALS)
+            onSlippageChanged(doubleValue)
         }
     }
     
@@ -86,9 +92,9 @@ extension ApiSwapEstimateResponse {
 
 struct SwapDetailsView: View {
 
-    @ObservedObject var swapVM: SwapVM
-    @ObservedObject var selectorsVM: SwapSelectorsVM
-    @ObservedObject var model: SwapDetailsVM
+    var swapVM: SwapVM
+    var selectorsVM: SwapSelectorsVM
+    var model: SwapDetailsVM
     var sellingToken: ApiToken { model.fromToken }
     var buyingToken: ApiToken { model.toToken }
     var exchangeRate: SwapRate? { model.displayExchangeRate }
@@ -104,26 +110,27 @@ struct SwapDetailsView: View {
     }
     
     var body: some View {
-        
-        InsetSection(horizontalPadding: 0) {
-            header
-                
-            if model.isExpanded {
-                pricePerCoinRow
-                slippageRow
-                blockchainFeeRow
-                routingFeesRow
-                priceImpactRow
-                minimumReceivedRow
+        WithPerceptionTracking {
+            InsetSection(horizontalPadding: 0) {
+                header
+                    
+                if model.isExpanded {
+                    pricePerCoinRow
+                    slippageRow
+                    blockchainFeeRow
+                    routingFeesRow
+                    priceImpactRow
+                    minimumReceivedRow
+                }
             }
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxHeight: model.isExpanded ? nil : 44, alignment: .top)
+            .clipShape(.rect(cornerRadius: S.insetSectionCornerRadius))
+            .frame(height: 400, alignment: .top)
+            .tint(Color(WTheme.tint))
+            .animation(.spring(duration: model.isExpanded ? 0.45 : 0.3), value: model.isExpanded)
+            .animation(.snappy, value: model.slippageExpanded)
         }
-        .fixedSize(horizontal: false, vertical: true)
-        .frame(maxHeight: model.isExpanded ? nil : 44, alignment: .top)
-        .clipShape(.rect(cornerRadius: S.insetSectionCornerRadius))
-        .frame(height: 400, alignment: .top)
-        .tint(Color(WTheme.tint))
-        .animation(.spring(duration: model.isExpanded ? 0.45 : 0.3), value: model.isExpanded)
-        .animation(.snappy, value: model.slippageExpanded)
     }
     
     var header: some View {
@@ -227,7 +234,9 @@ struct SwapDetailsView: View {
         }
     }
     
+    @ViewBuilder
     var slippageRow: some View {
+        @Perception.Bindable var model = model
         VStack(spacing: 0) {
             InsetDetailCell(alignment: .firstTextBaseline) {
                 Text(lang("Slippage"))

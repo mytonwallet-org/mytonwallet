@@ -12,11 +12,14 @@ import UIKit
 import UIComponents
 import WalletCore
 import WalletContext
+import Perception
+import SwiftNavigation
 
 private let log = Log("StakeUnstakeModel")
 
 @MainActor
-final class AddStakeModel: ObservableObject, WalletCoreData.EventsObserver {
+@Perceptible
+final class AddStakeModel: WalletCoreData.EventsObserver {
     
     let config: StakingConfig
     
@@ -29,9 +32,9 @@ final class AddStakeModel: ObservableObject, WalletCoreData.EventsObserver {
     
     // MARK: External dependencies
     
-    @Published var stakingState: ApiStakingState
-    @Published var nativeBalance: BigInt = 0
-    @Published var baseTokenBalance: BigInt = 0
+    var stakingState: ApiStakingState
+    var nativeBalance: BigInt = 0
+    var baseTokenBalance: BigInt = 0
     var baseCurrency: MBaseCurrency { TokenStore.baseCurrency }
 
     public func walletCore(event: WalletCoreData.Event) {
@@ -97,10 +100,10 @@ final class AddStakeModel: ObservableObject, WalletCoreData.EventsObserver {
     
     // MARK: User input
     
-    @Published var switchedToBaseCurrencyInput: Bool = false
-    @Published var amount: BigInt? = nil
-    @Published var amountInBaseCurrency: BigInt? = nil
-    @Published var isAmountFieldFocused: Bool = false
+    var switchedToBaseCurrencyInput: Bool = false
+    var amount: BigInt? = nil
+    var amountInBaseCurrency: BigInt? = nil
+    var isAmountFieldFocused: Bool = false
     
     // MARK: Wallet state
     
@@ -108,7 +111,7 @@ final class AddStakeModel: ObservableObject, WalletCoreData.EventsObserver {
     var nativeTokenSlug: String { config.nativeTokenSlug }
     var tokenSlug: String { baseToken.slug }
     
-    @Published var draft: ApiCheckTransactionDraftResult?
+    var draft: ApiCheckTransactionDraftResult?
     
     var fee: MFee? {
         let stakeOperationFee = getStakeOperationFee(stakingType: stakingState.type, stakeOperation: .stake).real
@@ -119,13 +122,14 @@ final class AddStakeModel: ObservableObject, WalletCoreData.EventsObserver {
     
     // Validation
 
-    @Published var insufficientFunds: Bool = false
-    @Published var shouldRenderBalanceWithSmallFee = false
+    var insufficientFunds: Bool = false
+    var shouldRenderBalanceWithSmallFee = false
     
     var canContinue: Bool {
         !insufficientFunds && (amount ?? 0 > 0)
     }
     
+    @PerceptionIgnored
     private var observers: Set<AnyCancellable> = []
     
     

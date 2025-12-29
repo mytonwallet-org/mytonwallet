@@ -62,6 +62,9 @@ class TonConnectInjectedInterface(
         }
     }
 
+    fun updateAccountId(accountId: String) {
+        dApp.accountId = accountId
+    }
 
     @JavascriptInterface
     fun invokeFunc(json: String) {

@@ -11,27 +11,31 @@ import UIComponents
 import WalletCore
 import WalletContext
 import SwiftUI
+import Perception
 
 
 struct BuyWithCardHeader: View {
     
-    @ObservedObject var model: BuyWithCardModel
+    var model: BuyWithCardModel
     @State var menuContext = MenuContext()
     
     var body: some View {
-        VStack(alignment: .center, spacing: 0) {
-            Text(lang("Buy with Card"))
-                .font(.system(size: 17, weight: .semibold))
-            Text("\(lang(model.selectedCurrency.name)) \(Image(systemName: "chevron.down"))")
-                .font(.system(size: 13, weight: .regular))
-                .imageScale(.small)
-                .frame(minWidth: 200)
-                .foregroundStyle(.secondary)
+        WithPerceptionTracking {
+            @Perception.Bindable var model = model
+            VStack(alignment: .center, spacing: 0) {
+                Text(lang("Buy with Card"))
+                    .font(.system(size: 17, weight: .semibold))
+                Text("\(lang(model.selectedCurrency.name)) \(Image(systemName: "chevron.down"))")
+                    .font(.system(size: 13, weight: .regular))
+                    .imageScale(.small)
+                    .frame(minWidth: 200)
+                    .foregroundStyle(.secondary)
+            }
+            .contentShape(.rect)
+            .menuSource(menuContext: menuContext)
+            .onChange(of: model.selectedCurrency, perform: configureMenu)
+            .onAppear { configureMenu(model.selectedCurrency) }
         }
-        .contentShape(.rect)
-        .menuSource(menuContext: menuContext)
-        .onChange(of: model.selectedCurrency, perform: configureMenu)
-        .onAppear { configureMenu(model.selectedCurrency) }
     }
     
     func configureMenu(_ selection: MBaseCurrency) {

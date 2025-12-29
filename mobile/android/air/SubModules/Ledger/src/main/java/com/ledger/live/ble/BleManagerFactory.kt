@@ -8,4 +8,7 @@ object BleManagerFactory {
     fun newInstance(context: Context): BleManager = synchronized(this) {
         INSTANCE ?: BleManager(context).also { INSTANCE = it }
     }
+    fun destroy() {
+        INSTANCE = null
+    }
 }

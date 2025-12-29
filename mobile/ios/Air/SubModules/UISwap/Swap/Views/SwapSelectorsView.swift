@@ -5,32 +5,35 @@
 //  Created by Sina on 5/10/24.
 //
 
-import Combine
 import SwiftUI
 import UIKit
 import UIComponents
 import WalletCore
 import WalletContext
+import Perception
 
 @MainActor
 struct SwapSelectorsView: View {
     
-    @ObservedObject var model: SwapSelectorsVM
+    var model: SwapSelectorsVM
     
     var body: some View {
-        _SwapSelectorsView(
-            sellingAmount: $model.sellingAmount,
-            sellingToken: model.sellingToken,
-            buyingAmount: $model.buyingAmount,
-            buyingToken: model.buyingToken,
-            tokenBalance: model.maxAmount,
-            sellingFocused: $model.sellingFocused,
-            buyingFocused: $model.buyingFocused,
-            onUseAll: model.onUseAll,
-            onReverse: model.onReverse,
-            onSellingTokenPicker: model.onSellingTokenPicker,
-            onBuyingTokenPicker: model.onBuyingTokenPicker
-        )
+        WithPerceptionTracking {
+            @Perception.Bindable var model = model
+            _SwapSelectorsView(
+                sellingAmount: $model.sellingAmount,
+                sellingToken: model.sellingToken,
+                buyingAmount: $model.buyingAmount,
+                buyingToken: model.buyingToken,
+                tokenBalance: model.maxAmount,
+                sellingFocused: $model.sellingFocused,
+                buyingFocused: $model.buyingFocused,
+                onUseAll: model.onUseAll,
+                onReverse: model.onReverse,
+                onSellingTokenPicker: model.onSellingTokenPicker,
+                onBuyingTokenPicker: model.onBuyingTokenPicker
+            )
+        }
     }
 }
 

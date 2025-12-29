@@ -11,32 +11,38 @@ import WalletCore
 import UIPasscode
 import Ledger
 import Combine
+import Perception
+import SwiftNavigation
 
-@MainActor final class ClaimRewardsModel: ObservableObject {
+@MainActor
+@Perceptible
+final class ClaimRewardsModel {
     
-    @Published var stakingState: ApiStakingState?
-    @Published var token: ApiToken = .TONCOIN
-    @Published var amount: TokenAmount = TokenAmount(0, .TONCOIN)
-    @Published var isConfirming: Bool = false
+    var stakingState: ApiStakingState?
+    var token: ApiToken = .TONCOIN
+    var amount: TokenAmount = TokenAmount(0, .TONCOIN)
+    var isConfirming: Bool = false
+    @PerceptionIgnored
     var onClaim: () -> () = { }
+    @PerceptionIgnored
     weak var viewController: UIViewController?
+    @PerceptionIgnored
     private var claimRewardsError: BridgeCallError?
-    private var observables: Set<AnyCancellable> = []
+    @PerceptionIgnored
+    private var observeToken: ObserveToken?
     
     init() {
-        $stakingState
-            .sink { [weak self] stakingState in
-                guard let self else { return }
-                switch stakingState {
-                case .jetton(let jetton):
-                    self.amount = TokenAmount(jetton.unclaimedRewards, token)
-                case .ethena(let ethena):
-                    self.amount = TokenAmount(ethena.unstakeRequestAmount ?? 0, token)
-                case .liquid, .nominators, .unknown, nil:
-                    break
-                }
+        observeToken = observe { [weak self] in
+            guard let self else { return }
+            switch stakingState {
+            case .jetton(let jetton):
+                amount = TokenAmount(jetton.unclaimedRewards, token)
+            case .ethena(let ethena):
+                amount = TokenAmount(ethena.unstakeRequestAmount ?? 0, token)
+            case .liquid, .nominators, .unknown, nil:
+                break
             }
-            .store(in: &observables)
+        }
     }
     
     // MARK: Confirm action

@@ -19,6 +19,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
@@ -66,7 +67,13 @@ class SettingsHeaderView(
     }
 
     private val walletBalanceLabel: WLabel by lazy {
-        WLabel(context).apply {
+        object : WLabel(context) {
+            override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+                super.onSizeChanged(w, h, oldw, oldh)
+
+                updateWalletNamePadding()
+            }
+        }.apply {
             setStyle(18f, WFont.Regular)
         }
     }
@@ -92,7 +99,7 @@ class SettingsHeaderView(
             toEnd(walletBalanceLabel, 20f)
             centerYToCenterY(walletBalanceLabel, walletIcon)
             startToEnd(walletNameLabel, walletIcon, 16f)
-            endToStart(walletNameLabel, walletBalanceLabel, 12f)
+            toEnd(walletNameLabel)
             topToTop(walletNameLabel, walletIcon, 12f)
             startToEnd(addressLabel, walletIcon, 16f)
             endToStart(addressLabel, walletBalanceLabel, 12f)
@@ -258,6 +265,7 @@ class SettingsHeaderView(
                 walletIcon.height * walletIcon.scaleY + px32 - (walletNameLabel.width / 2 * (1 - walletNameLabel.scaleX))
         }
         updateWalletDataLayoutParams()
+        updateWalletNamePadding()
 
         // update header height
         val lp = layoutParams
@@ -294,5 +302,15 @@ class SettingsHeaderView(
                 walletIcon.height * walletIcon.scaleY + px32 - (addressLabel.width / 2 * (1 - addressLabel.scaleX))
             walletBalanceLabel.translationX = -(1 - expandPercentage) * px98
         }
+    }
+
+    private fun updateWalletNamePadding() {
+        // Interpolates right padding based on expansion state:
+        // - Collapsed: 68dp = 108dp (right-side icons) − 40dp (reduced wallet icon size)
+        // - Expanded: walletBalanceLabel.width + 32dp (spacing)
+        // The interpolation factor is walletBalanceLabel.alpha (0 = collapsed, 1 = expanded).
+        val rightPadding = lerp(68f.dp, walletBalanceLabel.width + 32f.dp, walletBalanceLabel.alpha).roundToInt()
+        walletNameLabel.setPadding(0, 0, rightPadding, 0)
+        walletNameLabel.isSelected = expandPercentage % 1 == 0f
     }
 }

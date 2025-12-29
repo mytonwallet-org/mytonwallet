@@ -11,6 +11,7 @@ import UIComponents
 import WalletCore
 import WalletContext
 import SwiftUI
+import Perception
 
 private let log = Log("SwapVM")
 
@@ -22,18 +23,22 @@ protocol SwapVMDelegate: AnyObject {
 
 
 @MainActor
-final class SwapVM: ObservableObject {
+@Perceptible
+final class SwapVM {
     
-    @Published private(set) var swapEstimate: ApiSwapEstimateResponse? = nil
-    @Published private(set) var lateInit: ApiSwapCexEstimateResponse.LateInitProperties? = nil
-    @Published private(set) var cexEstimate: ApiSwapCexEstimateResponse? = nil
-    @Published private(set) var isValidPair = true
-    @Published private(set) var swapType = SwapType.onChain
-    @Published private(set) var dex: ApiSwapDexLabel? = nil
-    @Published private(set) var slippage: Double = 5.0
+    private(set) var swapEstimate: ApiSwapEstimateResponse? = nil
+    private(set) var lateInit: ApiSwapCexEstimateResponse.LateInitProperties? = nil
+    private(set) var cexEstimate: ApiSwapCexEstimateResponse? = nil
+    private(set) var isValidPair = true
+    private(set) var swapType = SwapType.onChain
+    private(set) var dex: ApiSwapDexLabel? = nil
+    private(set) var slippage: Double = 5.0
     
+    @PerceptionIgnored
     private weak var delegate: SwapVMDelegate?
+    @PerceptionIgnored
     private weak var tokensSelector: SwapSelectorsVM?
+    @PerceptionIgnored
     private var prevPair = ""
     
     let accountViewModel = AccountViewModel(source: .current)

@@ -11,12 +11,13 @@ import UIComponents
 import WalletCore
 import WalletContext
 import SwiftUI
-import Combine
+import Perception
+import SwiftNavigation
 
 public class BuyWithCardVC: WViewController, UIScrollViewDelegate {
     
     let model: BuyWithCardModel
-    var observer: AnyCancellable?
+    var observer: ObserveToken?
     
     public init(chain: ApiChain) {
         self.model = BuyWithCardModel(chain: chain, selectedCurrency: TokenStore.baseCurrency)
@@ -30,9 +31,9 @@ public class BuyWithCardVC: WViewController, UIScrollViewDelegate {
     public override func viewDidLoad() {
         super.viewDidLoad()
         setupViews()
-        loadOnramp(currency: model.selectedCurrency)
-        observer = model.$selectedCurrency.sink { [weak self] currency in
-            self?.loadOnramp(currency: currency)
+        observer = observe { [weak self] in
+            guard let self else { return }
+            loadOnramp(currency: model.selectedCurrency)
         }
     }
 

@@ -13,7 +13,6 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ImageView
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.content.ContextCompat
-import org.mytonwallet.app_air.uicomponents.commonViews.RadialGradientView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -34,8 +33,6 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
-import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardTextType
-import org.mytonwallet.app_air.walletcore.moshi.ApiMtwCardType
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import kotlin.math.roundToInt
@@ -58,9 +55,6 @@ class WalletCustomizationCardCell(context: Context, val cellWidth: Int) :
 
     private val imageView = WImageView(context, 20.dp).apply {
         scaleType = ImageView.ScaleType.CENTER_CROP
-    }
-    private val radialGradientView = RadialGradientView(context).apply {
-        cornerRadius = 20f.dp
     }
 
     private val titleLabel = WLabel(context).apply {
@@ -111,7 +105,6 @@ class WalletCustomizationCardCell(context: Context, val cellWidth: Int) :
         super.setupViews()
 
         addView(imageView, LayoutParams(0, 0))
-        addView(radialGradientView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
         addView(titleLabel, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         addView(balanceContainerView, LayoutParams(0, MATCH_PARENT))
         addView(addressLabel, LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
@@ -161,15 +154,7 @@ class WalletCustomizationCardCell(context: Context, val cellWidth: Int) :
             setConstraints {
                 allEdges(imageView)
             }
-            radialGradientView.visibility = GONE
             return
-        }
-        if (cardNft?.metadata?.mtwCardType == ApiMtwCardType.STANDARD) {
-            radialGradientView.isTextLight =
-                cardNft?.metadata?.mtwCardTextType == ApiMtwCardTextType.LIGHT
-            radialGradientView.visibility = VISIBLE
-        } else {
-            radialGradientView.visibility = GONE
         }
         imageView.hierarchy.setPlaceholderImage(
             ContextCompat.getDrawable(

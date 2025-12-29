@@ -9,6 +9,7 @@ import UIKit
 import SwiftUI
 import UIComponents
 import WalletContext
+import Perception
 import WalletCore
 import Combine
 
@@ -147,11 +148,13 @@ class _CoverFlowView: UIView, UICollectionViewDelegate {
             }
         }
         
-        var snapshot = dataSource.snapshot()
-        snapshot.appendSections([.main])
-        snapshot.appendItems(nftListContextProvider.nfts.map(\.id).map(Item.coverFlowItem))
-        
-        dataSource.apply(snapshot)
+        observe { [weak self] in
+            guard let self else { return }
+            var snapshot = dataSource.snapshot()
+            snapshot.appendSections([.main])
+            snapshot.appendItems(nftListContextProvider.nfts.map(\.id).map(Item.coverFlowItem))
+            dataSource.apply(snapshot)
+        }        
         
         addSubview(collectionView)
         collectionView.translatesAutoresizingMaskIntoConstraints = false
@@ -258,9 +261,11 @@ struct CoverFlowView: View {
     @State private var isScrolling = false
     
     var body: some View {
-        _CoverFlowViewRepresentable(viewModel: viewModel, selectedId: selectedId, onSelect: _onSelect, onIsScrolling: onIsScrolling)
-            .frame(maxWidth: .infinity)
-            .preference(key: CoverFlowIsScrollingPreference.self, value: isScrolling)
+        WithPerceptionTracking {
+            _CoverFlowViewRepresentable(viewModel: viewModel, selectedId: selectedId, onSelect: _onSelect, onIsScrolling: onIsScrolling)
+                .frame(maxWidth: .infinity)
+                .preference(key: CoverFlowIsScrollingPreference.self, value: isScrolling)
+        }
     }
     
     func onIsScrolling(_ isScrolling: Bool) {

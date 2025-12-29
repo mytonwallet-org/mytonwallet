@@ -8,10 +8,14 @@
 import SwiftUI
 import WalletContext
 import UIComponents
+import Perception
 
-final class WordCheckModel: ObservableObject {
+@Perceptible
+final class WordCheckModel {
     
+    @PerceptionIgnored
     var words: [WordAtIdx]
+    @PerceptionIgnored
     var allWords: [String]
     
     init(words: [String], allWords: [String]) {
@@ -21,11 +25,11 @@ final class WordCheckModel: ObservableObject {
         self.tests = makeTest(includeWords: [], words: words, allWords: allWords)
     }
     
-    @Published var tests: [Test]
-    @Published var revealCorrect: Bool = false
-    @Published var showTryAgain: Bool = false
-    @Published var hideAll: Bool = false
-    @Published var intractionDisabled: Bool = false
+    var tests: [Test]
+    var revealCorrect: Bool = false
+    var showTryAgain: Bool = false
+    var hideAll: Bool = false
+    var interactionDisabled: Bool = false
     
     var allSelected: Bool { tests.allSatisfy { $0.selection != nil } }
     var allCorrect: Bool { tests.allSatisfy { $0.selection == $0.correctWord.word } }

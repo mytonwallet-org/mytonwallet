@@ -5,26 +5,30 @@ import UIComponents
 import WalletContext
 import WalletCore
 import Kingfisher
+import Perception
 
 struct ActionsWithBackground: View {
     
-    @ObservedObject var viewModel: NftDetailsViewModel
+    var viewModel: NftDetailsViewModel
     
     var body: some View {
-        NftDetailsActionsRow(viewModel: viewModel)
-            .fixedSize(horizontal: IOS_26_MODE_ENABLED, vertical: false)
-            .frame(maxWidth: .infinity)
-            .offset(y: viewModel.isFullscreenPreviewOpen ? 100 : 0)
-            .background(alignment: .bottom) {
-                darkenAndBlurBackground
-            }
-            .background(alignment: .top) {
-                mirroredImageBackground
-            }
-            .mask {
-                Rectangle().padding(.top, -500)
-            }
-            .opacity(viewModel.shouldShowControls ? 1 : 0)
+        WithPerceptionTracking {
+            @Perception.Bindable var viewModel = viewModel
+            NftDetailsActionsRow(viewModel: viewModel)
+                .fixedSize(horizontal: IOS_26_MODE_ENABLED, vertical: false)
+                .frame(maxWidth: .infinity)
+                .offset(y: viewModel.isFullscreenPreviewOpen ? 100 : 0)
+                .background(alignment: .bottom) {
+                    darkenAndBlurBackground
+                }
+                .background(alignment: .top) {
+                    mirroredImageBackground
+                }
+                .mask {
+                    Rectangle().padding(.top, -500)
+                }
+                .opacity(viewModel.shouldShowControls ? 1 : 0)
+        }
     }
     
     @ViewBuilder

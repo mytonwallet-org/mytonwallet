@@ -26,7 +26,6 @@ import com.facebook.fresco.ui.common.OnFadeListener
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WWindow
-import org.mytonwallet.app_air.uicomponents.commonViews.RadialGradientView
 import org.mytonwallet.app_air.uicomponents.commonViews.WalletTypeView
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -326,9 +325,6 @@ class WalletCardView(
     private val shiningView = WShiningView(context).apply {
         visibility = GONE
     }
-    private val radialGradientView = RadialGradientView(context).apply {
-        visibility = GONE
-    }
 
     private val balanceChangeBlurView: WBlurryBackgroundView? =
         if (DevicePerformanceClassifier.isHighClass)
@@ -350,7 +346,6 @@ class WalletCardView(
         val maxBottomContainerWidth = max(240.dp, window.windowView.width - (34 + 96).dp)
         v.addView(img, LayoutParams(MATCH_PARENT, MATCH_PARENT))
         v.addView(shiningView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
-        v.addView(radialGradientView, LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT))
         v.addView(miniPlaceholders)
         v.addView(balanceViewContainer, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         balanceChangeBlurView?.let { balanceChangeBlurView ->
@@ -365,7 +360,6 @@ class WalletCardView(
 
         v.setConstraints {
             allEdges(img)
-            allEdges(radialGradientView, 1f)
             toCenterX(miniPlaceholders)
             toTop(miniPlaceholders)
             toTop(balanceViewContainer)
@@ -443,7 +437,6 @@ class WalletCardView(
                 )
             val colors = cardNft?.metadata?.mtwCardColors ?: return@let
             setLabelColors(colors.first, colors.second, drawGradient = true)
-            radialGradientView.configure(cardNft)
             return
         } ?: run {
             stopSensorListening()
@@ -651,11 +644,9 @@ class WalletCardView(
                 allEdges(img)
             }
             shiningView.visibility = GONE
-            radialGradientView.visibility = GONE
             return
         }
         shiningView.visibility = VISIBLE
-        radialGradientView.configure(cardNft)
         img.hierarchy.setPlaceholderImage(
             ContextCompat.getDrawable(
                 context,
@@ -721,7 +712,6 @@ class WalletCardView(
         setBackgroundColor(Color.TRANSPARENT, radius, true)
         img.setBackgroundColor(Color.TRANSPARENT, radius, true)
         shiningView.radius = radius
-        radialGradientView.cornerRadius = radius
     }
 
     fun updateMintIconVisibility() {

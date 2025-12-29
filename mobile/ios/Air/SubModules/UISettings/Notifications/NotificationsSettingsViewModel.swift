@@ -5,6 +5,8 @@ import UIKit
 import UIComponents
 import WalletContext
 import WalletCore
+import Perception
+import SwiftNavigation
 
 private let log = Log("NotificationsVC")
 
@@ -16,16 +18,20 @@ struct SelectableAccount: Equatable, Hashable, Identifiable {
     var id: String { account.id }
 }
 
-final class NotificationsSettingsViewModel: ObservableObject, WalletCoreData.EventsObserver {
+@Perceptible
+final class NotificationsSettingsViewModel: WalletCoreData.EventsObserver {
     
-    @Published var notificationsAreAllowed: Bool = true
-    @Published var selectableAccounts: [SelectableAccount]
-    @Published var playSounds: Bool = AppStorageHelper.sounds
+    var notificationsAreAllowed: Bool = true
+    var selectableAccounts: [SelectableAccount]
+    var playSounds: Bool = AppStorageHelper.sounds
     
     var selectedCount: Int { selectableAccounts.count(where: \.isSelected) }
     var canSelectAnother: Bool { selectedCount < MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT}
     
-    var observer: Task<Void, any Error>?
+    @PerceptionIgnored
+    var observeSelectedAccounts: ObserveToken?
+    @PerceptionIgnored
+    var applyTask: Task<Void, any Error>?
     
     init() {
         let enabledIds = AccountStore.notificationsEnabledAccountIds
@@ -34,18 +40,17 @@ final class NotificationsSettingsViewModel: ObservableObject, WalletCoreData.Eve
                 SelectableAccount(account: $0, isSelected: enabledIds.contains($0.id) )
             }
         
-        observer = Task {
-            for await selectableAccounts in $selectableAccounts.debounce(for: 0.2, scheduler: RunLoop.main).values {
-                try Task.checkCancellation()
-                await AccountStore.selectedNotificationsAccounts(accounts: selectableAccounts.filter(\.isSelected).map(\.account))
+        observeSelectedAccounts = observe { [weak self] in
+            guard let self else { return }
+            let selectedAccounts = selectableAccounts.filter(\.isSelected).map(\.account)
+            applyTask?.cancel()
+            applyTask = Task {
+                try await Task.sleep(for: .seconds(0.2))
+                await AccountStore.selectedNotificationsAccounts(accounts: selectedAccounts)
             }
         }
         
         checkIfNotificationsAreEnabled()
-    }
-    
-    deinit {
-        observer?.cancel()
     }
     
     func walletCore(event: WalletCoreData.Event) {

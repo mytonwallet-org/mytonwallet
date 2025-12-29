@@ -5,10 +5,11 @@ import UIComponents
 import WalletContext
 import WalletCore
 import SwiftUIIntrospect
+import Perception
 
 struct NftDetailsView: View {
 
-    @ObservedObject var viewModel: NftDetailsViewModel
+    var viewModel: NftDetailsViewModel
     
     var nft: ApiNft { viewModel.nft }
     var navigationBarInset: CGFloat { viewModel.navigationBarInset }
@@ -17,25 +18,28 @@ struct NftDetailsView: View {
     @State private var reloadCard: Int = 0
     
     var body: some View {
-        ZStack(alignment: .top) {
+        WithPerceptionTracking {
+            @Perception.Bindable var viewModel = viewModel
+            ZStack(alignment: .top) {
 
-            Color.clear
-            VStack(spacing: 0) {
-                listContent
-                    .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
-                        viewModel.contentHeight = height
-                    }
-                Spacer(minLength: 0)
+                Color.clear
+                VStack(spacing: 0) {
+                    listContent
+                        .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
+                            viewModel.contentHeight = height
+                        }
+                    Spacer(minLength: 0)
+                }
+                
+                
             }
-            
-            
+            .overlay(alignment: .top) {
+                fullscreenViewerTarget
+            }
+            .padding(.top, -viewModel.safeAreaInsets.top)
+            .ignoresSafeArea(edges: .top)
+            .coordinateSpace(name: ns)
         }
-        .overlay(alignment: .top) {
-            fullscreenViewerTarget
-        }
-        .padding(.top, -viewModel.safeAreaInsets.top)
-        .ignoresSafeArea(edges: .top)
-        .coordinateSpace(name: ns)
     }
 
     @ViewBuilder
@@ -64,14 +68,16 @@ struct NftDetailsView: View {
     var fullscreenViewerTarget: some View {
         let screenSize = screenSize
         GeometryReader { geom in
-            Color.red
-                .opacity(0.2)
-                .opacity(0)
-                .matchedGeometryEffect(id: "fullScreenTarget", in: ns, anchor: .top, isSource: true)
-                .frame(width: screenSize.width, height: screenSize.width)
-                .offset(y: (screenSize.height - screenSize.width)/2)
-                .offset(y: viewModel.isFullscreenPreviewOpen ? 0 : viewModel.y)
-                .allowsHitTesting(false)
+            WithPerceptionTracking {
+                Color.red
+                    .opacity(0.2)
+                    .opacity(0)
+                    .matchedGeometryEffect(id: "fullScreenTarget", in: ns, anchor: .top, isSource: true)
+                    .frame(width: screenSize.width, height: screenSize.width)
+                    .offset(y: (screenSize.height - screenSize.width)/2)
+                    .offset(y: viewModel.isFullscreenPreviewOpen ? 0 : viewModel.y)
+                    .allowsHitTesting(false)
+            }
         }
     }
 }

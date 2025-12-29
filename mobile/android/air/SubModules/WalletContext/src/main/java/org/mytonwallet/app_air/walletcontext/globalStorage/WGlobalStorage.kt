@@ -273,6 +273,7 @@ object WGlobalStorage {
     fun deleteAllWallets() {
         setTemporaryAccountId(null)
         setActiveAccountId(null, false)
+        cachedAccountIds = null
         globalStorageProvider.remove(
             keys = arrayOf(
                 "accounts.byId",

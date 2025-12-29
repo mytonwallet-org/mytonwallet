@@ -41,6 +41,7 @@ public class MainActivity extends BaseActivity {
     if (!shouldStartOnAir) {
       if (airLauncher != null) {
         airLauncher.switchingToClassic();
+        AirLauncher.setInstance(null);
       }
       // Open LegacyActivity and pass all the data there
       Intent intent = new Intent(activity, LegacyActivity.class);

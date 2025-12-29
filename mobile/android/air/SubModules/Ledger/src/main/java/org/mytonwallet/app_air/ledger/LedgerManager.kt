@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.ledger
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import com.ledger.live.ble.BleManagerFactory
 import org.json.JSONObject
 import org.mytonwallet.app_air.ledger.connectionManagers.ILedgerConnectionManager
 import org.mytonwallet.app_air.ledger.connectionManagers.LedgerBleManager
@@ -85,6 +86,7 @@ object LedgerManager : WalletCore.EventObserver {
         activeManager?.stopConnection()
         activeManager = null
         onUpdate = null
+        BleManagerFactory.destroy()
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {

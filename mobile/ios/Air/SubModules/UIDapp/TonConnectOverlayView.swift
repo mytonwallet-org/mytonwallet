@@ -9,6 +9,7 @@ import UIKit
 import SwiftUI
 import UIComponents
 import WalletContext
+import Perception
 
 let CLOSE_BUTTON_DELAY = Duration.seconds(7)
 
@@ -28,9 +29,11 @@ final class TonConnectOverlayView: HostingView {
     }
 }
 
-final class _TonConnectOverlayViewModel: ObservableObject {
+@Perceptible
+final class _TonConnectOverlayViewModel {
+    @PerceptionIgnored
     weak var view: TonConnectOverlayView?
-    @Published var isDismissing = false
+    var isDismissing = false
     
     func dismissSelf() {
         withAnimation(.smooth(duration: 0.2)) {
@@ -44,14 +47,15 @@ final class _TonConnectOverlayViewModel: ObservableObject {
 
 struct _TonConnectOverlayView: View {
     
-    @ObservedObject var viewModel: _TonConnectOverlayViewModel
+    var viewModel: _TonConnectOverlayViewModel
     
     @State private var isShown = false
     @State private var closeShown = false
     @State private var angle: Angle = .zero
     
     var body: some View {
-        Color.clear
+        WithPerceptionTracking {
+            Color.clear
             .overlay {
                 if isShown {
                     ZStack {
@@ -98,5 +102,6 @@ struct _TonConnectOverlayView: View {
             .onTapGesture {
                 viewModel.dismissSelf()
             }
+        }
     }
 }

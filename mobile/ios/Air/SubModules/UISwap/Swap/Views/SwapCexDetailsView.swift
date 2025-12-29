@@ -11,13 +11,14 @@ import UIComponents
 import WalletCore
 import WalletContext
 import Combine
+import Perception
 
 private let log = Log("SwapCexDetailsView")
 
 struct SwapCexDetailsView: View {
 
-    @ObservedObject var swapVM: SwapVM
-    @ObservedObject var selectorsVM: SwapSelectorsVM
+    var swapVM: SwapVM
+    var selectorsVM: SwapSelectorsVM
     
     var sellingToken: ApiToken { selectorsVM.sellingToken }
     var buyingToken: ApiToken { selectorsVM.buyingToken }
@@ -41,22 +42,23 @@ struct SwapCexDetailsView: View {
     @State private var isExpanded = false
     
     var body: some View {
-        
-        InsetSection(horizontalPadding: 0) {
-            header
-                
-            if isExpanded {
-                pricePerCoinRow
-                blockchainFeeRow
+        WithPerceptionTracking {
+            InsetSection(horizontalPadding: 0) {
+                header
+                    
+                if isExpanded {
+                    pricePerCoinRow
+                    blockchainFeeRow
+                }
             }
-        }
-        .fixedSize(horizontal: false, vertical: true)
-        .frame(maxHeight: isExpanded ? nil : 44, alignment: .top)
-        .frame(height: 400, alignment: .top)
-        .tint(Color(WTheme.tint))
-        .animation(.spring(duration: isExpanded ? 0.45 : 0.3), value: isExpanded)
-        .task(id: selectorsVM.sellingTokenAmount) {
-            await fetchEstimate()
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxHeight: isExpanded ? nil : 44, alignment: .top)
+            .frame(height: 400, alignment: .top)
+            .tint(Color(WTheme.tint))
+            .animation(.spring(duration: isExpanded ? 0.45 : 0.3), value: isExpanded)
+            .task(id: selectorsVM.sellingTokenAmount) {
+                await fetchEstimate()
+            }
         }
     }
     

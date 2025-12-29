@@ -41,6 +41,7 @@ struct ActivityView: View {
 
     var body: some View {
         WithPerceptionTracking {
+            @Perception.Bindable var model = model
             InsetList(spacing: 16) {
                 
                 VStack(spacing: 20) {

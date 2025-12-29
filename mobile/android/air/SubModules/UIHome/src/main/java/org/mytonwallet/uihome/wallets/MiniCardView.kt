@@ -12,7 +12,6 @@ import android.widget.ImageView
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.content.ContextCompat
 import androidx.core.view.setPadding
-import org.mytonwallet.app_air.uicomponents.commonViews.RadialGradientView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
@@ -47,9 +46,6 @@ class MiniCardView(context: Context, private val containerWidth: Int) : WView(co
 
     private val imageView = WImageView(context, 12.dp).apply {
         scaleType = ImageView.ScaleType.CENTER_CROP
-    }
-    private val radialGradientView = RadialGradientView(context).apply {
-        cornerRadius = 12f.dp
     }
 
     private val balanceView = WBalanceView(context).apply {
@@ -93,7 +89,6 @@ class MiniCardView(context: Context, private val containerWidth: Int) : WView(co
     private val containerView by lazy {
         WView(context).apply {
             addView(imageView, LayoutParams(0, 0))
-            addView(radialGradientView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
             addView(balanceContainerView, LayoutParams(0, MATCH_PARENT))
             addView(addressLabel, LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
 
@@ -180,15 +175,7 @@ class MiniCardView(context: Context, private val containerWidth: Int) : WView(co
 
         if (cardNft == null) {
             imageView.loadRes(org.mytonwallet.app_air.uicomponents.R.drawable.img_card)
-            radialGradientView.visibility = GONE
             return
-        }
-        if (cardNft?.metadata?.mtwCardType == ApiMtwCardType.STANDARD) {
-            radialGradientView.isTextLight =
-                cardNft?.metadata?.mtwCardTextType == ApiMtwCardTextType.LIGHT
-            radialGradientView.visibility = VISIBLE
-        } else {
-            radialGradientView.visibility = GONE
         }
         imageView.hierarchy.setPlaceholderImage(
             ContextCompat.getDrawable(

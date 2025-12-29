@@ -209,7 +209,6 @@ extension ApiToken {
         }
     }
     
-    @available(*, deprecated)
     public var isOnChain: Bool {
         AccountStore.account?.supports(chain: chain) ?? false
     }

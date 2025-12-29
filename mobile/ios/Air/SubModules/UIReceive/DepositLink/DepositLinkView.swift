@@ -9,71 +9,75 @@ import SwiftUI
 import UIComponents
 import WalletContext
 import WalletCore
+import Perception
 
 struct DepositLinkView: View {
     
-    @StateObject private var model: DepositLinkModel = .init(nativeToken: .toncoin)
+    @State private var model: DepositLinkModel = .init(nativeToken: .toncoin)
     
     @FocusState private var commentIsFocused: Bool
     
     var body: some View {
-        InsetList {
-            
-            Text(lang("$receive_invoice_description"))
-                .foregroundStyle(.secondary)
-                .font13()
-                .padding(.horizontal, 32)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, 8)
+        WithPerceptionTracking {
+            @Perception.Bindable var model = model
+            InsetList {
+                
+                Text(lang("$receive_invoice_description"))
+                    .foregroundStyle(.secondary)
+                    .font13()
+                    .padding(.horizontal, 32)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 8)
+                    .padding(.bottom, -8)
+    
+                TokenAmountEntrySection(
+                    amount: $model.tokenAmount.optionalAmount,
+                    token: model.tokenAmount.token,
+                    balance: nil,
+                    showMaxAmount: false,
+                    insufficientFunds: false,
+                    amountInBaseCurrency: $model.baseCurrencyAmount,
+                    switchedToBaseCurrencyInput: $model.switchedToBaseCurrency,
+                    allowSwitchingToBaseCurrency: false,
+                    fee: nil,
+                    explainedFee: nil,
+                    isFocused: $model.amountFocused,
+                    onTokenSelect: model.onTokenTapped,
+                    onUseAll: {}
+                )
                 .padding(.bottom, -8)
-
-            TokenAmountEntrySection(
-                amount: $model.tokenAmount.optionalAmount,
-                token: model.tokenAmount.token,
-                balance: nil,
-                showMaxAmount: false,
-                insufficientFunds: false,
-                amountInBaseCurrency: $model.baseCurrencyAmount,
-                switchedToBaseCurrencyInput: $model.switchedToBaseCurrency,
-                allowSwitchingToBaseCurrency: false,
-                fee: nil,
-                explainedFee: nil,
-                isFocused: $model.amountFocused,
-                onTokenSelect: model.onTokenTapped,
-                onUseAll: {}
-            )
-            .padding(.bottom, -8)
-            
-            InsetSection {
-                InsetCell {
-                    TextField(
-                        lang("Optional"),
-                        text: $model.comment,
-                        axis: .vertical
-                    )
-                    .writingToolsDisabled()
-                    .focused($commentIsFocused)
-                }
-                .contentShape(.rect)
-                .onTapGesture {
-                    commentIsFocused = true
-                }
-            } header: {
-                Text(lang("Comment"))
-            }
-            
-            if let url = model.url {
+                
                 InsetSection {
                     InsetCell {
-                        TappableDepositLink(depostitLink: url)
+                        TextField(
+                            lang("Optional"),
+                            text: $model.comment,
+                            axis: .vertical
+                        )
+                        .writingToolsDisabled()
+                        .focused($commentIsFocused)
+                    }
+                    .contentShape(.rect)
+                    .onTapGesture {
+                        commentIsFocused = true
                     }
                 } header: {
-                    Text(lang("Share this URL to receive %token%", arg1: model.tokenAmount.token.symbol))
+                    Text(lang("Comment"))
+                }
+                
+                if let url = model.url {
+                    InsetSection {
+                        InsetCell {
+                            TappableDepositLink(depostitLink: url)
+                        }
+                    } header: {
+                        Text(lang("Share this URL to receive %token%", arg1: model.tokenAmount.token.symbol))
+                    }
                 }
             }
-        }
-        .onTapGesture {
-            topViewController()?.view.endEditing(true)
+            .onTapGesture {
+                topViewController()?.view.endEditing(true)
+            }
         }
     }
 }

@@ -111,6 +111,8 @@ public class AirLauncher {
   }
 
   public void switchingToClassic() {
+    capacitorGlobalStorageProvider.onDestroy();
+    capacitorGlobalStorageProvider = null;
     isOnTheAir = false;
   }
 

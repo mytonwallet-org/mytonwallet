@@ -113,13 +113,28 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         TonConnectController(window!!)
     }
 
-    private var prevActivityListView = ActivityListView(context, this, this).apply {
-        isInvisible = true
-    }
-    private var currentActivityListView = ActivityListView(context, this, this)
-    private var nextActivityListView = ActivityListView(context, this, this).apply {
-        isInvisible = true
-    }
+    private var prevActivityListView =
+        ActivityListView(
+            context,
+            WeakReference(this),
+            WeakReference(this)
+        ).apply {
+            isInvisible = true
+        }
+    private var currentActivityListView =
+        ActivityListView(
+            context,
+            WeakReference(this),
+            WeakReference(this)
+        )
+    private var nextActivityListView =
+        ActivityListView(
+            context,
+            WeakReference(this),
+            WeakReference(this)
+        ).apply {
+            isInvisible = true
+        }
     private val allActivityListViews =
         listOf(prevActivityListView, currentActivityListView, nextActivityListView)
     private val activityListViewsContainer = WFrameLayout(context).apply {

@@ -1698,7 +1698,6 @@
 				UIComponents/MtwCard/MtwCardBackground.swift,
 				UIComponents/MtwCard/MtwCardBalanceGradient.swift,
 				UIComponents/MtwCard/MtwCardBalanceView.swift,
-				UIComponents/MtwCard/MtwCardHighlight.swift,
 				UIComponents/MtwCard/MtwCardMiniPlaceholders.swift,
 				UIComponents/MtwCard/MtwCardSelection.swift,
 				"UIComponents/MtwCard/Styling/MtwCard+Colors.swift",

@@ -173,7 +173,7 @@ private let UPDATING_DELAY = 2
     
     // MARK: - Init wallet info
     func initWalletInfo() {
-        DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 2) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             EarnVM.sharedTon.preload()
 //            EarnVM.sharedMycoin.preload()
         }

@@ -188,8 +188,8 @@ class WGradientMaskView(child: View) : FrameLayout(child.context) {
     }
 
     fun onDestroy() {
+        animator.cancel()
         fadeAnimator?.cancel()
         fadeAnimator = null
-        stopMasking()
     }
 }

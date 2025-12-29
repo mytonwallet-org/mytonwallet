@@ -26,7 +26,7 @@ export function callWindow<T extends keyof WindowMethods>(methodName: T, ...args
   if (IS_AIR_APP) return airAppCallWindow(methodName, ...args) as EnsurePromise<WindowMethodResponse<T>>;
 
   if (!connector) {
-    throw new Error('API is not initialized');
+    throw new Error(`API is not initialized when calling ${methodName}`);
   }
 
   return connector.request({ name: methodName, args }) as EnsurePromise<WindowMethodResponse<T>>;

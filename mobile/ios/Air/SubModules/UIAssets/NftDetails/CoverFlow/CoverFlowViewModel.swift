@@ -10,6 +10,7 @@ import UIKit
 import UIComponents
 import WalletContext
 import SwiftUIIntrospect
+import Perception
 
 public enum CoverFlowDefaults {
     static let itemSpacing: Double = -60
@@ -20,12 +21,15 @@ public enum CoverFlowDefaults {
     static let offsetMultiplier2: Double = -50
 }
 
-final class CoverFlowViewModel<Item: Identifiable>: ObservableObject {
+@Perceptible
+final class CoverFlowViewModel<Item: Identifiable> {
     
-    @Published var items: [Item]
-    @Published var selectedItem: Item.ID
+    var items: [Item]
+    var selectedItem: Item.ID
     
+    @PerceptionIgnored
     var onTap: () -> ()
+    @PerceptionIgnored
     var onLongTap: () -> ()
     
     init(items: [Item], selectedItem: Item.ID, onTap: @escaping () -> Void, onLongTap: @escaping () -> Void) {
@@ -34,12 +38,6 @@ final class CoverFlowViewModel<Item: Identifiable>: ObservableObject {
         self.onTap = onTap
         self.onLongTap = onLongTap
     }
-}
-
-extension EnvironmentValues {
-    @Entry var coverFlowItemSize: CGFloat = 144.0
-    @Entry var coverFlowIsCurrent: Bool = false
-    @Entry var coverFlowDistance: CGFloat = 1
 }
 
 enum CoverFlowIsScrollingPreference: PreferenceKey {

@@ -92,6 +92,11 @@ class WCoverFlowView @JvmOverloads constructor(
         createPlaceholderDrawable()
     }
 
+    fun onDestroy() {
+        onCoverSelectedListener = null
+        onScrollStateChangeListener = null
+    }
+
     private fun createPlaceholderDrawable() {
         val bitmap = createBitmap(COVER_WIDTH.toInt(), COVER_HEIGHT.toInt())
         val canvas = Canvas(bitmap)

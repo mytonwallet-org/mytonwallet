@@ -11,6 +11,8 @@ import UIKit
 import UIComponents
 import WalletCore
 import WalletContext
+import Perception
+import SwiftNavigation
 
 enum SwapSide {
     case selling
@@ -25,14 +27,16 @@ enum SwapSide {
 
 
 @MainActor
-final class SwapSelectorsVM: ObservableObject {
+@Perceptible
+final class SwapSelectorsVM {
     
-    @Published var sellingAmount: BigInt?
+    var sellingAmount: BigInt?
+    @PerceptionIgnored
     var isUsingMax: Bool = false
-    @Published var sellingToken: ApiToken
+    var sellingToken: ApiToken
     
-    @Published var buyingAmount: BigInt?
-    @Published var buyingToken: ApiToken
+    var buyingAmount: BigInt?
+    var buyingToken: ApiToken
     
     var sellingTokenAmount: TokenAmount? {
         if let sellingAmount {
@@ -47,28 +51,38 @@ final class SwapSelectorsVM: ObservableObject {
         return nil
     }
 
-    @Published var maxAmount: BigInt?
+    var maxAmount: BigInt?
     
-    @Published var sellingFocused: Bool = false
-    @Published var buyingFocused: Bool = false
+    var sellingFocused: Bool = false
+    var buyingFocused: Bool = false
     
+    @PerceptionIgnored
     var onUseAll: () -> () = { }
+    @PerceptionIgnored
     var onReverse: () -> () = { }
+    @PerceptionIgnored
     var onSellingTokenPicker: () -> () = { }
+    @PerceptionIgnored
     var onBuyingTokenPicker: () -> () = { }
     
+    @PerceptionIgnored
     weak var delegate: SwapSelectorsDelegate? = nil
 
+    @PerceptionIgnored
     private var lastEdited: SwapSide = .selling
+    @PerceptionIgnored
     private var currentSelector: SwapSide? = nil
     struct LastEffectiveExchangeRate {
         var sellingToken: ApiToken
         var buyingToken: ApiToken
         var exchangeRate: Double
     }
+    @PerceptionIgnored
     private var lastEffectiveExchangeRate: LastEffectiveExchangeRate? = nil
+    @PerceptionIgnored
     private var suspendUpdates = false
-    private var observables: Set<AnyCancellable> = []
+    @PerceptionIgnored
+    private var observeTokens: [ObserveToken] = []
     
     private var localExchangeRate: Double? {
         let selling = sellingToken.price ?? 0
@@ -89,26 +103,17 @@ final class SwapSelectorsVM: ObservableObject {
     }
     
     private func setupObservers() {
+        observeTokens += observe { [weak self] in
+            guard let self, suspendUpdates == false, sellingFocused else { return }
+            lastEdited = .selling
+            updateLocal(amount: sellingAmount, token: sellingToken, side: .selling)
+        }
         
-        Publishers.CombineLatest3($sellingFocused, $sellingAmount, $sellingToken)
-            .filter { (isFocused, _, _) in isFocused } // only receive updates when user is editing
-            .removeDuplicates(by: { $0 == $1 })
-            .sink { [weak self] (isFocused, amount, token) in
-                guard let self, suspendUpdates == false else { return }
-                lastEdited = .selling
-                updateLocal(amount: amount, token: token, side: .selling)
-            }
-            .store(in: &observables)
-        
-        Publishers.CombineLatest3($buyingFocused, $buyingAmount, $buyingToken)
-            .filter { (isFocused, _, _) in isFocused }
-            .removeDuplicates(by: { $0 == $1 })
-            .sink { [weak self] (isFocused, amount, token) in
-                guard let self, suspendUpdates == false else { return }
-                lastEdited = .buying
-                updateLocal(amount: amount, token: token, side: .buying)
-            }
-            .store(in: &observables)
+        observeTokens += observe { [weak self] in
+            guard let self, suspendUpdates == false, buyingFocused else { return }
+            lastEdited = .buying
+            updateLocal(amount: buyingAmount, token: buyingToken, side: .buying)
+        }
     }
     
     private func setupCallbacks() {

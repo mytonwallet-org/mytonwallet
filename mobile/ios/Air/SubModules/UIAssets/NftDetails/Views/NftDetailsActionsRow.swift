@@ -6,10 +6,11 @@ import WalletContext
 import WalletCore
 import Kingfisher
 import Dependencies
+import Perception
 
 struct NftDetailsActionsRow: View {
     
-    @ObservedObject var viewModel: NftDetailsViewModel
+    var viewModel: NftDetailsViewModel
     
     @Environment(\.colorScheme) private var colorScheme
     
@@ -25,32 +26,34 @@ struct NftDetailsActionsRow: View {
     }
     
     var body: some View {
-        HStack(spacing: IOS_26_MODE_ENABLED ? buttonSpacing : 8) {
-            wear
-            send
-            share
-            more
-        }
-        .fixedSize(horizontal: IOS_26_MODE_ENABLED, vertical: false)
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, IOS_26_MODE_ENABLED ? 0 : 16)
-        .padding(.top, 16)
-        .padding(.bottom, 16)
-        .tint(viewModel.isExpanded ? Color.white : Color(WTheme.tint))
-        .environmentObject(viewModel)
-        .fixedSize(horizontal: false, vertical: true)
-        .task {
-            wearMenu.onAppear = {
-                viewModel.selectedSubmenu = "wear"
+        WithPerceptionTracking {
+            @Perception.Bindable var viewModel = viewModel
+            HStack(spacing: IOS_26_MODE_ENABLED ? buttonSpacing : 8) {
+                wear
+                send
+                share
+                more
             }
-            wearMenu.onDismiss = {
-                viewModel.selectedSubmenu = nil
-            }
-            moreMenu.onAppear = {
-                viewModel.selectedSubmenu = "more"
-            }
-            moreMenu.onDismiss = {
-                viewModel.selectedSubmenu = nil
+            .fixedSize(horizontal: IOS_26_MODE_ENABLED, vertical: false)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, IOS_26_MODE_ENABLED ? 0 : 16)
+            .padding(.top, 16)
+            .padding(.bottom, 16)
+            .tint(viewModel.isExpanded ? Color.white : Color(WTheme.tint))
+            .fixedSize(horizontal: false, vertical: true)
+            .task {
+                wearMenu.onAppear = {
+                    viewModel.selectedSubmenu = "wear"
+                }
+                wearMenu.onDismiss = {
+                    viewModel.selectedSubmenu = nil
+                }
+                moreMenu.onAppear = {
+                    viewModel.selectedSubmenu = "more"
+                }
+                moreMenu.onDismiss = {
+                    viewModel.selectedSubmenu = nil
+                }
             }
         }
     }
@@ -169,7 +172,7 @@ struct NftDetailsActionsRow: View {
 
 struct ActionButton: View {
 
-    @ObservedObject var viewModel: NftDetailsViewModel
+    var viewModel: NftDetailsViewModel
     
     var id: String
     var title: String
@@ -196,7 +199,7 @@ struct ActionButton: View {
 @available(iOS 26, *)
 struct ActionButton_New: View {
 
-    @ObservedObject var viewModel: NftDetailsViewModel
+    var viewModel: NftDetailsViewModel
     
     var id: String
     var title: String
@@ -214,35 +217,38 @@ struct ActionButton_New: View {
     }
 
     var body: some View {
-        Button(action: action) {
-            VStack(spacing: 8) {
-                ZStack {
-                    Image.airBundle("ActionButtonBackground")
-                        .opacity(viewModel.isExpanded ? 0 : 1)
-                    Image.airBundle(icon)
-                        .foregroundStyle(viewModel.isExpanded ? .white : Color.air.tint)
+        WithPerceptionTracking {
+            @Perception.Bindable var viewModel = viewModel
+            Button(action: action) {
+                VStack(spacing: 8) {
+                    ZStack {
+                        Image.airBundle("ActionButtonBackground")
+                            .opacity(viewModel.isExpanded ? 0 : 1)
+                        Image.airBundle(icon)
+                            .foregroundStyle(viewModel.isExpanded ? .white : Color.air.tint)
+                    }
+                    .frame(width: 48, height: 48)
+                    .clipShape(.circle)
+                    .glassEffect(.clear.interactive())
+                    
+                    Text(title)
+                        .font(.system(size: 12, weight: .regular))
+                        .frame(height: 13)
+                        .foregroundStyle(viewModel.isExpanded ? .white : .primary)
                 }
-                .frame(width: 48, height: 48)
-                .clipShape(.circle)
-                .glassEffect(.clear.interactive())
-                
-                Text(title)
-                    .font(.system(size: 12, weight: .regular))
-                    .frame(height: 13)
-                    .foregroundStyle(viewModel.isExpanded ? .white : .primary)
+                .opacity(isEnabled ? 1 : 0.3)
+                .frame(width: 64, height: 70)
+                .backportGeometryGroup()
             }
-            .opacity(isEnabled ? 1 : 0.3)
-            .frame(width: 64, height: 70)
-            .backportGeometryGroup()
+            .buttonStyle(.plain)
+            .animation(.smooth(duration: 0.25), value: isEnabled)
         }
-        .buttonStyle(.plain)
-        .animation(.smooth(duration: 0.25), value: isEnabled)
     }
 }
 
 struct ActionButton_Legacy: View {
 
-    @ObservedObject var viewModel: NftDetailsViewModel
+    var viewModel: NftDetailsViewModel
     
     var id: String
     var title: String
@@ -260,27 +266,30 @@ struct ActionButton_Legacy: View {
     }
 
     var body: some View {
-        Button(action: action) {
-            VStack(spacing: 4) {
-                Image.airBundle(icon)
-                    .frame(width: 24, height: 24)
-                    .foregroundStyle(.tint)
-                Text(title)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.primary)
+        WithPerceptionTracking {
+            @Perception.Bindable var viewModel = viewModel
+            Button(action: action) {
+                VStack(spacing: 4) {
+                    Image.airBundle(icon)
+                        .frame(width: 24, height: 24)
+                        .foregroundStyle(.tint)
+                    Text(title)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.primary)
+                }
+                .fixedSize()
+                .drawingGroup()
+                .opacity(isEnabled ? 1 : 0.3)
             }
-            .fixedSize()
-            .drawingGroup()
-            .opacity(isEnabled ? 1 : 0.3)
+            .buttonStyle(ActionButtonStyle(viewModel: viewModel))
+            .animation(.smooth(duration: 0.25), value: isEnabled)
         }
-        .buttonStyle(ActionButtonStyle())
-        .animation(.smooth(duration: 0.25), value: isEnabled)
     }
 }
 
 struct ActionButtonStyle: PrimitiveButtonStyle {
 
-    @EnvironmentObject var viewModel: NftDetailsViewModel
+    var viewModel: NftDetailsViewModel
     
     @State private var isHighlighted: Bool = false
 

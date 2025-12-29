@@ -83,6 +83,7 @@ data class ApiNftMetadata(
 ) {
     companion object {
         const val MTW_CARD_BASE_URL = "https://static.mytonwallet.org/cards/"
+        const val MTW_CARD_V2_BASE_URL = "https://static.mytonwallet.org/cards/v2/cards/"
     }
 
     data class Attribute(
@@ -91,7 +92,10 @@ data class ApiNftMetadata(
     )
 
     fun cardImageUrl(mini: Boolean): String {
-        return "${MTW_CARD_BASE_URL}${if (mini) "mini@3x/" else ""}$mtwCardId.webp"
+        return if (mini)
+            "${MTW_CARD_BASE_URL}mini@3x/$mtwCardId.webp"
+        else
+            "${MTW_CARD_V2_BASE_URL}$mtwCardId.webp"
     }
 
     val mtwCardColors: Pair<Int, Int>

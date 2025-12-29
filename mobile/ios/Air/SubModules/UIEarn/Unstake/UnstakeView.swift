@@ -4,48 +4,52 @@ import SwiftUI
 import UIComponents
 import WalletCore
 import WalletContext
+import Perception
 
 struct UnstakeView: View {
     
-    @ObservedObject var model: UnstakeModel
+    var model: UnstakeModel
     var navigationBarInset: CGFloat
     var onScrollPositionChange: (CGFloat) -> ()
     
     @Namespace private var ns
     
     var body: some View {
-        InsetList {
-            AmountSection(model: model)
-                .background {
-                    GeometryReader { geom in
-                        Color.clear.onChange(of: geom.frame(in: .named(ns)).origin.y) { y in
-                            onScrollPositionChange(y + 2)
+        WithPerceptionTracking {
+            @Perception.Bindable var model = model
+            InsetList {
+                AmountSection(model: model)
+                    .background {
+                        GeometryReader { geom in
+                            Color.clear.onChange(of: geom.frame(in: .named(ns)).origin.y) { y in
+                                onScrollPositionChange(y + 2)
+                            }
                         }
                     }
-                }
 
-            UnstakeInfoSection(model: model)
-                .padding(.top, -8)
-        }
-        .padding(.top, -8)
-        .coordinateSpace(name: ns)
-        .navigationBarInset(navigationBarInset)
-        .contentShape(.rect)
-        .onTapGesture {
-            model.onBackgroundTapped()
-        }
-        .onChange(of: model.amount) { amount in
-            if let amount, model.switchedToBaseCurrencyInput == false {
-                model.updateBaseCurrencyAmount(amount)
+                UnstakeInfoSection(model: model)
+                    .padding(.top, -8)
             }
-        }
-        .onChange(of: model.amountInBaseCurrency) { baseCurrencyAmount in
-            if let baseCurrencyAmount, model.switchedToBaseCurrencyInput == true {
-                model.updateAmountFromBaseCurrency(baseCurrencyAmount)
+            .padding(.top, -8)
+            .coordinateSpace(name: ns)
+            .navigationBarInset(navigationBarInset)
+            .contentShape(.rect)
+            .onTapGesture {
+                model.onBackgroundTapped()
             }
-        }
-        .task(id: model.amount) {
-            await model.updateFee()
+            .onChange(of: model.amount) { amount in
+                if let amount, model.switchedToBaseCurrencyInput == false {
+                    model.updateBaseCurrencyAmount(amount)
+                }
+            }
+            .onChange(of: model.amountInBaseCurrency) { baseCurrencyAmount in
+                if let baseCurrencyAmount, model.switchedToBaseCurrencyInput == true {
+                    model.updateAmountFromBaseCurrency(baseCurrencyAmount)
+                }
+            }
+            .task(id: model.amount) {
+                await model.updateFee()
+            }
         }
     }
 }
@@ -53,22 +57,25 @@ struct UnstakeView: View {
 
 fileprivate struct AmountSection: View {
     
-    @ObservedObject var model: UnstakeModel
+    var model: UnstakeModel
     
     var body: some View {
-        TokenAmountEntrySection(
-            amount: $model.amount,
-            token: displayToken,
-            balance: model.maxAmount,
-            insufficientFunds: model.insufficientFunds,
-            amountInBaseCurrency: $model.amountInBaseCurrency,
-            switchedToBaseCurrencyInput: $model.switchedToBaseCurrencyInput,
-            fee: model.fee,
-            explainedFee: nil,
-            isFocused: $model.isAmountFieldFocused,
-            onTokenSelect: nil,
-            onUseAll: { model.onUseAll() }
-        )
+        WithPerceptionTracking {
+            @Perception.Bindable var model = model   
+            TokenAmountEntrySection(
+                amount: $model.amount,
+                token: displayToken,
+                balance: model.maxAmount,
+                insufficientFunds: model.insufficientFunds,
+                amountInBaseCurrency: $model.amountInBaseCurrency,
+                switchedToBaseCurrencyInput: $model.switchedToBaseCurrencyInput,
+                fee: model.fee,
+                explainedFee: nil,
+                isFocused: $model.isAmountFieldFocused,
+                onTokenSelect: nil,
+                onUseAll: { model.onUseAll() }
+            )
+        }
     }
     
     /// even when withdrawing "staked", show normal token
@@ -86,35 +93,37 @@ fileprivate struct AmountSection: View {
 
 fileprivate struct UnstakeInfoSection: View {
     
-    @ObservedObject var model: UnstakeModel
+    var model: UnstakeModel
     
     var body: some View {
-        InsetSection {
-            InsetCell {
-                HStack {
-                    Text(lang("Receiving"))
-                        .font17h22()
-                        .foregroundStyle(Color(WTheme.secondaryLabel))
-                    Spacer()
-                    receivingBadge
-                }
-            }
-            if case .liquid(let liquid) = model.stakingState {
-                let amnt = TokenAmount(liquid.instantAvailable, TokenStore.tokens[TONCOIN_SLUG]!)
+        WithPerceptionTracking {
+            InsetSection {
                 InsetCell {
                     HStack {
-                        Text(lang("Instant Withdrawal"))
+                        Text(lang("Receiving"))
                             .font17h22()
                             .foregroundStyle(Color(WTheme.secondaryLabel))
                         Spacer()
-                        Text(lang("up to %1$@", arg1: amnt.formatted(maxDecimals: 0)))
+                        receivingBadge
                     }
-                    .padding(.top, -1)
                 }
-            }
-        } header: {
-            Text(lang("Details"))
-        } footer: {}
+                if case .liquid(let liquid) = model.stakingState {
+                    let amnt = TokenAmount(liquid.instantAvailable, TokenStore.tokens[TONCOIN_SLUG]!)
+                    InsetCell {
+                        HStack {
+                            Text(lang("Instant Withdrawal"))
+                                .font17h22()
+                                .foregroundStyle(Color(WTheme.secondaryLabel))
+                            Spacer()
+                            Text(lang("up to %1$@", arg1: amnt.formatted(maxDecimals: 0)))
+                        }
+                        .padding(.top, -1)
+                    }
+                }
+            } header: {
+                Text(lang("Details"))
+            } footer: {}
+        }
     }
     
     

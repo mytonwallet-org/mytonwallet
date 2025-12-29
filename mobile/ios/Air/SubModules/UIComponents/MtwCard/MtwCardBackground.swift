@@ -42,9 +42,6 @@ public struct MtwCardBackground: View {
                 }
             }
             .overlay {
-                MtwCardHighlight(nft: nft)
-            }
-            .overlay {
                 if !hideBorder {
                     MtwCardBorder(nft: nft, borderWidthMultiplier: borderWidthMultiplier)
                 }

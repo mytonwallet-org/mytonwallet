@@ -2,33 +2,36 @@
 import UIComponents
 import WalletContext
 import SwiftUI
+import Perception
 
 
 struct LedgerAddAccountView: View {
     
-    @ObservedObject var viewModel: LedgerViewModel
+    var viewModel: LedgerViewModel
     
     var body: some View {
-        VStack(spacing: 32) {
-            Image.airBundle("LedgerConnect")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .padding(.top, 50)
-                .padding(.bottom, 30)
-            ZStack {
-                Color(WTheme.background)
-                    .clipShape(.rect(cornerRadius: 16))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .ignoresSafeArea()
-                VStack(spacing: 0) {
-                    LedgerStepsView(viewModel: viewModel)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                        .padding(.top, 20)
-                    buttons
+        WithPerceptionTracking {
+            VStack(spacing: 32) {
+                Image.airBundle("LedgerConnect")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .padding(.top, 50)
+                    .padding(.bottom, 30)
+                ZStack {
+                    Color(WTheme.background)
+                        .clipShape(.rect(cornerRadius: 16))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .ignoresSafeArea()
+                    VStack(spacing: 0) {
+                        LedgerStepsView(viewModel: viewModel)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                            .padding(.top, 20)
+                        buttons
+                    }
                 }
             }
+            .navigationBarInset(60)
         }
-        .navigationBarInset(60)
     }
     
     @ViewBuilder

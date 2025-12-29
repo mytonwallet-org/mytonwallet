@@ -494,6 +494,11 @@ class InAppBrowserVC(
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
         when (walletEvent) {
+            is WalletEvent.AccountChanged -> {
+                val accountId = AccountStore.activeAccountId ?: return
+                injectedInterface?.updateAccountId(accountId)
+            }
+
             is WalletEvent.DappRemoved -> {
                 if (config.url.removeSuffix("/") == walletEvent.dapp.url) {
                     webView.loadUrl(config.url)

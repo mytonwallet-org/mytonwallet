@@ -6,6 +6,7 @@ import OrderedCollections
 import SwiftUI
 import UIKit
 import UIComponents
+import Perception
 
 private let START_STEPS: OrderedDictionary<StepId, StepStatus> = [
     .connect: .current,
@@ -14,7 +15,9 @@ private let START_STEPS: OrderedDictionary<StepId, StepStatus> = [
 ]
 private let log = Log("LedgerAddAccountModel")
 
-@MainActor public final class LedgerAddAccountModel: LedgerBaseModel, @unchecked Sendable, ObservableObject {
+@MainActor
+@Perceptible
+public final class LedgerAddAccountModel: LedgerBaseModel, @unchecked Sendable {
     
     struct DiscoveredWallet: Identifiable, @unchecked Sendable {
         var id: Int
@@ -30,9 +33,10 @@ private let log = Log("LedgerAddAccountModel")
         }
     }
     
+    @PerceptionIgnored
     var currentWalletAddresses: Set<String> = []
-    @Published var discoveredWallets: [DiscoveredWallet] = []
-    @Published var isLoadingMore: Bool = false
+    var discoveredWallets: [DiscoveredWallet] = []
+    var isLoadingMore: Bool = false
     
     var selectedCount: Int { discoveredWallets.count(where: { $0.status == .selected }) }
     var canContinue: Bool { discoveredWallets.any { $0.status == .selected } }

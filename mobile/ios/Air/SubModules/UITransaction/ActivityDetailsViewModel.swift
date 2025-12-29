@@ -5,7 +5,7 @@ import WalletCore
 import Perception
 
 @Perceptible
-final class ActivityDetailsViewModel: ObservableObject {
+final class ActivityDetailsViewModel {
     var activity: ApiActivity
     var detailsExpanded: Bool
     var scrollingDisabled: Bool = true

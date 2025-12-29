@@ -46,12 +46,6 @@ public class AddStakeVC: WViewController, WalletCoreData.EventsObserver {
     
     public func walletCore(event: WalletCoreData.Event) {
         switch event {
-        case .stakingAccountData(let data):
-            if data.accountId == AccountStore.accountId {
-                model.objectWillChange.send()
-            }
-        case .accountChanged:
-            model.objectWillChange.send()
         default:
             break
         }

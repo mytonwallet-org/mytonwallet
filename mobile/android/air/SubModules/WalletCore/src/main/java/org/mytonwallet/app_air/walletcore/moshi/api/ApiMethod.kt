@@ -429,7 +429,7 @@ sealed class ApiMethod<T> {
             data class DAppArg(
                 val url: String,
                 val isUrlEnsured: Boolean,
-                val accountId: String,
+                var accountId: String,
             )
 
             class TonConnectConnect(

@@ -8,12 +8,15 @@
 import SwiftUI
 import WalletCore
 import WalletContext
+import Perception
 
-final class NftListContextProvider: ObservableObject {
+@Perceptible
+final class NftListContextProvider {
     
+    @PerceptionIgnored
     var accountId: String
     let filter: NftCollectionFilter
-    @Published var nfts: [ApiNft]
+    var nfts: [ApiNft]
 
     init(accountId: String, filter: NftCollectionFilter) {
         self.accountId = accountId

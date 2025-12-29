@@ -6,7 +6,9 @@
 //
 
 import SwiftUI
+import Perception
 
-final class ScrollingContext: ObservableObject {
-    @Published var isScrolling: Bool = false
+@Perceptible
+final class ScrollingContext {
+    var isScrolling: Bool = false
 }

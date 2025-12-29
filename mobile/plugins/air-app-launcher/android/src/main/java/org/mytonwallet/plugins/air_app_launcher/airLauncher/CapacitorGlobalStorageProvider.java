@@ -4,6 +4,7 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.view.ViewGroup;
 import android.webkit.ValueCallback;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -304,5 +305,11 @@ public class CapacitorGlobalStorageProvider implements IGlobalStorageProvider {
 
   public interface OnReadyCallback {
     void onReady(boolean success);
+  }
+
+  void onDestroy() {
+    if (webView.getParent() != null)
+      ((ViewGroup) webView.getParent()).removeView(webView);
+    webView = null;
   }
 }

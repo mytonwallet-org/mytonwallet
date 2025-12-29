@@ -487,7 +487,6 @@ public class ActivityCell: WHighlightCell {
         case .transaction(let transaction):
             if displayMode != .hide, let token = TokenStore.tokens[transaction.slug], let price = token.price {
                 let amount: BaseCurrencyAmount = TokenAmount(transaction.amount, token).convertTo(TokenStore.baseCurrency, exchangeRate: price)
-                let doubleValue = amount.doubleValue
                 let color = WTheme.secondaryLabel
                 let amountString = amount.formatAttributed(
                     format: .init(

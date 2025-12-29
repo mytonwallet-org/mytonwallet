@@ -11,14 +11,16 @@ import UIComponents
 import WalletCore
 import WalletContext
 import SwiftUI
+import Perception
 
 
 
-final class BuyWithCardModel: ObservableObject {
+@Perceptible
+final class BuyWithCardModel {
     
     let supportedCurrencies: [MBaseCurrency] = [.USD, .EUR, .RUB]
     let chain: ApiChain
-    @Published var selectedCurrency: MBaseCurrency
+    var selectedCurrency: MBaseCurrency
     
     init(chain: ApiChain, selectedCurrency: MBaseCurrency?) {
         self.chain = chain

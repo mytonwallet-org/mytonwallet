@@ -9,66 +9,69 @@ import SwiftUI
 import WalletContext
 import UIComponents
 import Flow
+import Perception
 
 struct WordCheckView: View {
     
     var introModel: IntroModel
-    @ObservedObject var model: WordCheckModel
+    var model: WordCheckModel
     
     @State private var isLoading = false
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 40) {
-                VStack(spacing: 20) {
-                    WUIAnimatedSticker("animation_bill", size: 124, loop: false)
-                        .frame(width: 124, height: 124)
-                        .padding(.top, -8)
+        WithPerceptionTracking {
+            ScrollView {
+                VStack(spacing: 40) {
                     VStack(spacing: 20) {
-                        title
-                        description
+                        WUIAnimatedSticker("animation_bill", size: 124, loop: false)
+                            .frame(width: 124, height: 124)
+                            .padding(.top, -8)
+                        VStack(spacing: 20) {
+                            title
+                            description
+                        }
+                    }
+                    grid
+                        .opacity(model.hideAll ? 0 : 1)
+                    if !isLoading {
+                        error
+                            .opacity(model.hideAll ? 0 : 1)
+                            .transition(.opacity.combined(with: .scale(scale: 0.8)).animation(.default))
+                    } else {
+                        Button(lang("Continue"), action: {})
+                            .environment(\.isLoading, true)
+                            .transition(.opacity.combined(with: .scale(scale: 0.8)).animation(.default.delay(0.3)))
+                            .buttonStyle(.airClearBackground)
                     }
                 }
-                grid
-                    .opacity(model.hideAll ? 0 : 1)
-                if !isLoading {
-                    error
-                        .opacity(model.hideAll ? 0 : 1)
-                        .transition(.opacity.combined(with: .scale(scale: 0.8)).animation(.default))
-                } else {
-                    Button(lang("Continue"), action: {})
-                        .environment(\.isLoading, true)
-                        .transition(.opacity.combined(with: .scale(scale: 0.8)).animation(.default.delay(0.3)))
-                        .buttonStyle(.airClearBackground)
-                }
             }
-        }
-        .scrollIndicators(.hidden)
-        .backportScrollBounceBehaviorBasedOnSize()
-        .backportScrollClipDisabled()
-        .padding(.horizontal, 32)
-        .padding(.bottom, 8)
-        .allowsHitTesting(!model.intractionDisabled)
-        .onChange(of: model.allSelected) { allSelected in
-            if allSelected {
-                if !model.revealCorrect {
-                    Task { @MainActor in
-                        model.intractionDisabled = true
-                        try? await Task.sleep(for: .seconds(0.5))
-                        model.revealCorrect = true
-                        try? await Task.sleep(for: .seconds(0.5))
-                        model.intractionDisabled = false
-                        if model.allCorrect {
-                            isLoading = true
-                            introModel.onCheckPassed()
-                        } else {
-                            withAnimation(.smooth(duration: 0.2)) {
-                                model.hideAll = true
-                            }
-                            try? await Task.sleep(for: .seconds(0.25))
-                            model.resetKeepingIncorrect()
-                            withAnimation(.smooth(duration: 1.50)) {
-                                model.hideAll = false
+            .scrollIndicators(.hidden)
+            .backportScrollBounceBehaviorBasedOnSize()
+            .backportScrollClipDisabled()
+            .padding(.horizontal, 32)
+            .padding(.bottom, 8)
+            .allowsHitTesting(!model.interactionDisabled)
+            .onChange(of: model.allSelected) { allSelected in
+                if allSelected {
+                    if !model.revealCorrect {
+                        Task { @MainActor in
+                            model.interactionDisabled = true
+                            try? await Task.sleep(for: .seconds(0.5))
+                            model.revealCorrect = true
+                            try? await Task.sleep(for: .seconds(0.5))
+                            model.interactionDisabled = false
+                            if model.allCorrect {
+                                isLoading = true
+                                introModel.onCheckPassed()
+                            } else {
+                                withAnimation(.smooth(duration: 0.2)) {
+                                    model.hideAll = true
+                                }
+                                try? await Task.sleep(for: .seconds(0.25))
+                                model.resetKeepingIncorrect()
+                                withAnimation(.smooth(duration: 1.50)) {
+                                    model.hideAll = false
+                                }
                             }
                         }
                     }
@@ -96,6 +99,7 @@ struct WordCheckView: View {
     
     @ViewBuilder
     var grid: some View {
+        @Perception.Bindable var model = model
         Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 16, verticalSpacing: 24) {
             ForEach($model.tests) { $test in
                 GridRow {

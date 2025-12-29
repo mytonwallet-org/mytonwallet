@@ -11,32 +11,35 @@ import UIKit
 import UIComponents
 import WalletContext
 import WalletCore
+import Perception
 
-final class ThemeSettingsViewModel: ObservableObject {
-    @Published var theme: NightMode = AppStorageHelper.activeNightMode
+@Perceptible final class ThemeSettingsViewModel {
+    var theme: NightMode = AppStorageHelper.activeNightMode
 }
 
 struct ThemeSection: View {
     
-    @StateObject var viewModel = ThemeSettingsViewModel()
+    @State var viewModel = ThemeSettingsViewModel()
     
     var body: some View {
-        HStack(spacing: 0) {
-            ThemeOption(
-                theme: .light,
-                isCurrent: viewModel.theme == .light,
-                onTap: { selectTheme(.light)}
-            )
-            ThemeOption(
-                theme: .system,
-                isCurrent: viewModel.theme == .system,
-                onTap: { selectTheme(.system) }
-            )
-            ThemeOption(
-                theme: .dark,
-                isCurrent: viewModel.theme == .dark,
-                onTap: { selectTheme(.dark)}
-            )
+        WithPerceptionTracking {
+            HStack(spacing: 0) {
+                ThemeOption(
+                    theme: .light,
+                    isCurrent: viewModel.theme == .light,
+                    onTap: { selectTheme(.light)}
+                )
+                ThemeOption(
+                    theme: .system,
+                    isCurrent: viewModel.theme == .system,
+                    onTap: { selectTheme(.system) }
+                )
+                ThemeOption(
+                    theme: .dark,
+                    isCurrent: viewModel.theme == .dark,
+                    onTap: { selectTheme(.dark)}
+                )
+            }
         }
     }
     

@@ -46,12 +46,22 @@ import java.lang.ref.WeakReference
 @SuppressLint("ViewConstructor")
 class ActivityListView<T>(
     context: Context,
-    private val dataSource: T,
-    private val delegate: Delegate
+    private val dataSourceRef: WeakReference<T>,
+    private val delegateRef: WeakReference<Delegate>
 ) :
     WFrameLayout(context), WThemedView,
     WRecyclerViewAdapter.WRecyclerViewDataSource,
     IActivityLoader.Delegate where T : WViewController, T : ActivityListView.DataSource {
+
+    val delegate: Delegate?
+        get() {
+            return delegateRef.get()
+        }
+
+    val dataSource: T?
+        get() {
+            return dataSourceRef.get()
+        }
 
     companion object {
         val HEADER_CELL = WCell.Type(1)
@@ -136,7 +146,7 @@ class ActivityListView<T>(
         }
         (recyclerView.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(0, 0)
         if (isVisible)
-            delegate.updateScroll(0)
+            delegate?.updateScroll(0)
     }
 
     fun onDestroy() {
@@ -150,6 +160,7 @@ class ActivityListView<T>(
         recyclerView.removeAllViews()
         skeletonRecyclerView.adapter = null
         skeletonRecyclerView.removeAllViews()
+        skeletonView.onDestroy()
         homeAssetsCell?.onDestroy()
     }
 
@@ -191,7 +202,7 @@ class ActivityListView<T>(
     internal var activityLoaderHelper: IActivityLoader? = null
 
     private val skeletonRecyclerView: WRecyclerView by lazy {
-        object : WRecyclerView(dataSource) {
+        object : WRecyclerView(dataSource!!) {
             @SuppressLint("ClickableViewAccessibility")
             override fun onTouchEvent(event: MotionEvent): Boolean {
                 return false
@@ -228,6 +239,7 @@ class ActivityListView<T>(
     private var scrollListener = object : RecyclerView.OnScrollListener() {
         override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
             super.onScrolled(recyclerView, dx, dy)
+            val dataSource = dataSource ?: return
             if (ignoreScrolls || !isVisible)
                 return
             val firstVisibleItem =
@@ -242,13 +254,14 @@ class ActivityListView<T>(
             } else if (dy < -3 || computedOffset < 100.dp) {
                 dataSource.navigationController?.tabBarController?.scrollingUp()
             }
-            delegate.updateScroll(computedOffset)
+            delegate?.updateScroll(computedOffset)
             //endSorting()
         }
 
         private var prevState = RecyclerView.SCROLL_STATE_IDLE
         override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
             super.onScrollStateChanged(recyclerView, newState)
+            val dataSource = dataSource ?: return
             if (newState == RecyclerView.SCROLL_STATE_DRAGGING && prevState == RecyclerView.SCROLL_STATE_SETTLING) {
                 // Scrolling again, without going to idle => end previous scroll
                 scrollEnded()
@@ -276,7 +289,7 @@ class ActivityListView<T>(
             if (recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE) {
                 dataSource.heavyAnimationInProgress()
                 if (recyclerView.computeVerticalScrollOffset() == 0) {
-                    delegate.pauseBlurViews()
+                    delegate?.pauseBlurViews()
                 }
             } else {
                 dataSource.executeWithLowPriority {
@@ -296,6 +309,7 @@ class ActivityListView<T>(
             setLayoutManager(rvLayoutManager)
             addOnScrollListener(scrollListener)
             setOnOverScrollListener { isTouchActive, newState, suggestedOffset, velocity ->
+                val dataSource = dataSource ?: return@setOnOverScrollListener
                 if (showingTransactions == null || !isGeneralDataAvailable)
                     return@setOnOverScrollListener
                 var offset = suggestedOffset
@@ -333,7 +347,7 @@ class ActivityListView<T>(
                         recyclerView.scrollBy(0, newOffset)
                         recyclerView.smoothScrollBy(0, -recyclerView.computeVerticalScrollOffset())
                     }
-                    delegate.headerModeChanged()
+                    delegate?.headerModeChanged()
                     if (offset == 0f) {
                         ignoreScrolls = false
                     }
@@ -341,7 +355,7 @@ class ActivityListView<T>(
                 }
                 if (offset == 0f)
                     ignoreScrolls = false
-                delegate.updateScroll(
+                delegate?.updateScroll(
                     -offset.toInt() + recyclerView.computeVerticalScrollOffset(),
                     velocity,
                     isGoingBack
@@ -350,14 +364,14 @@ class ActivityListView<T>(
             }
             onFlingListener = object : RecyclerView.OnFlingListener() {
                 override fun onFling(velocityX: Int, velocityY: Int): Boolean {
-                    return if (dataSource.headerView.mode == HomeHeaderView.Mode.Expanded)
+                    return if (dataSource?.headerView?.mode == HomeHeaderView.Mode.Expanded)
                         adjustScrollingPosition()
                     else
                         false
                 }
             }
             descendantFocusability = FOCUS_BLOCK_DESCENDANTS
-            setPadding(0, 0, 0, dataSource.navigationController?.getSystemBars()?.bottom ?: 0)
+            setPadding(0, 0, 0, dataSource?.navigationController?.getSystemBars()?.bottom ?: 0)
             clipToPadding = false
             setItemAnimator(null)
         }
@@ -417,7 +431,7 @@ class ActivityListView<T>(
             ViewConstants.HORIZONTAL_PADDINGS.dp,
             recyclerView.paddingTop,
             ViewConstants.HORIZONTAL_PADDINGS.dp,
-            dataSource.navigationController?.getSystemBars()?.bottom ?: 0
+            dataSource?.navigationController?.getSystemBars()?.bottom ?: 0
         )
         skeletonRecyclerView.setPadding(
             ViewConstants.HORIZONTAL_PADDINGS.dp,
@@ -428,6 +442,7 @@ class ActivityListView<T>(
     }
 
     private fun updateHeaderCellHeight() {
+        val dataSource = dataSource ?: return
         val newHeight = dataSource.activityListViewHeaderHeight() + dataSource.swipeItemsOffset()
         if (newHeight == headerCell.layoutParams.height)
             return
@@ -438,6 +453,7 @@ class ActivityListView<T>(
 
     var showActions: Boolean = false
     fun updateActionsCell(): Boolean {
+        val dataSource = dataSource ?: return false
         val shouldShowActions = dataSource.activityListReserveActionsCell()
         if (showActions != shouldShowActions) {
             showActions = shouldShowActions
@@ -448,6 +464,7 @@ class ActivityListView<T>(
     }
 
     private fun updateSkeletonHeaderCellHeight() {
+        val dataSource = dataSource ?: return
         val newHeight = dataSource.activityListViewHeaderHeight() +
             dataSource.swipeItemsOffset() +
             (if (dataSource.activityListReserveActionsCell()) HeaderActionsView.Companion.HEIGHT.dp else 0)
@@ -535,6 +552,7 @@ class ActivityListView<T>(
     }
 
     fun headerModeChanged() {
+        val dataSource = dataSource ?: return
         updateHeaderHeights()
         skeletonRecyclerView.post {
             rvSkeletonAdapter.notifyItemChanged(0)
@@ -567,8 +585,9 @@ class ActivityListView<T>(
     }
 
     fun scrollEnded(overrideOffset: Int? = null) {
+        val dataSource = dataSource ?: return
         if (dataSource.recyclerViewModeValue() != dataSource.headerView.mode) {
-            delegate.headerModeChanged()
+            delegate?.headerModeChanged()
             if (rvLayoutManager.findFirstVisibleItemPosition() == 0) {
                 // Correct the scroll offset of the recycler view
                 val correctionOffset = dataSource.headerView.diffPx
@@ -598,6 +617,7 @@ class ActivityListView<T>(
     }
 
     private fun adjustScrollingPosition(): Boolean {
+        val dataSource = dataSource ?: return false
         val scrollOffset = recyclerView.computeVerticalScrollOffset()
         when (dataSource.recyclerViewModeValue()) {
             HomeHeaderView.Mode.Expanded -> {
@@ -672,7 +692,7 @@ class ActivityListView<T>(
             recyclerView -> {
                 return when (section) {
                     HEADER_SECTION -> {
-                        if (dataSource.activityListReserveActionsCell()) 2 else 1
+                        if (dataSource?.activityListReserveActionsCell() == true) 2 else 1
                     }
 
                     ASSETS_SECTION -> 2
@@ -774,6 +794,7 @@ class ActivityListView<T>(
         rv: RecyclerView,
         cellType: WCell.Type
     ): WCell {
+        val dataSource = dataSource ?: throw Error()
         when (rv) {
             recyclerView -> {
                 return when (cellType) {
@@ -797,17 +818,17 @@ class ActivityListView<T>(
                                 navigationController = dataSource.navigationController!!,
                                 showingAccountId = showingAccountId ?: "",
                                 heightChanged = {
-                                    delegate.resumeBottomBlurViews()
+                                    delegate?.resumeBottomBlurViews()
                                 },
                                 onAssetsShown = {
                                     assetsShown = true
                                     updateSkeletonState()
                                 },
                                 onReorderingRequested = {
-                                    delegate.startSorting()
+                                    delegate?.startSorting()
                                 },
                                 onForceEndReorderingRequested = {
-                                    delegate.endSorting()
+                                    delegate?.endSorting()
                                 }
                             )
                         return homeAssetsCell!!
@@ -820,7 +841,7 @@ class ActivityListView<T>(
                             isFirstInDay = null
                         )
                         cell.onTap = { transaction ->
-                            delegate.onTransactionTap(transaction)
+                            delegate?.onTransactionTap(transaction)
                         }
                         cell
                     }
@@ -832,7 +853,7 @@ class ActivityListView<T>(
                             isFirstInDay = false
                         )
                         cell.onTap = { transaction ->
-                            delegate.onTransactionTap(transaction)
+                            delegate?.onTransactionTap(transaction)
                         }
                         cell
                     }
@@ -844,7 +865,7 @@ class ActivityListView<T>(
                             isFirstInDay = true
                         )
                         cell.onTap = { transaction ->
-                            delegate.onTransactionTap(transaction)
+                            delegate?.onTransactionTap(transaction)
                         }
                         cell
                     }
@@ -957,10 +978,10 @@ class ActivityListView<T>(
                         (cellHolder.cell as EmptyCell).let { cell ->
                             cell.updateTheme()
                             cell.layoutParams = cell.layoutParams.apply {
-                                height = (dataSource.view.parent as View).height - (
-                                    (dataSource.navigationController?.getSystemBars()?.top
+                                height = (dataSource?.view?.parent as View).height - (
+                                    (dataSource?.navigationController?.getSystemBars()?.top
                                         ?: 0) +
-                                        (dataSource.navigationController?.getSystemBars()?.bottom
+                                        (dataSource?.navigationController?.getSystemBars()?.bottom
                                             ?: 0) +
                                         75.dp + // TabBar
                                         HomeHeaderView.Companion.navDefaultHeight +

@@ -7,56 +7,59 @@ import Perception
 
 struct ClaimRewardsView: View {
     
-    @ObservedObject var viewModel: ClaimRewardsModel
+    var viewModel: ClaimRewardsModel
     
     var body: some View {
-        HStack {
-            if viewModel.isConfirming {
-                ClaimRewardsConfirmContent(viewModel: viewModel)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .transition(
-                        .asymmetric(
-                            insertion: .opacity
-                                .combined(with: .offset(y: 70))
-                                .combined(with: .scale(scale: 0.95))
-                                .animation(.spring(duration: 0.25).delay(0.1)),
-                            removal: .opacity
-                                .combined(with: .offset(y: 70))
-                                .combined(with: .scale(scale: 0.95))
-                                .animation(.smooth(duration: 0.2))
-                        )
-                    )
-            } else {
-                ClaimRewardsButtonContent(viewModel: viewModel)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .transition(
-                        .asymmetric(
-                            insertion: .opacity
-                                .combined(with: .offset(y: -20))
-                                .combined(with: .scale(scale: 0.95))
-                                .animation(.spring(duration: 0.2).delay(0.1)),
-                            removal: .opacity
-                                .combined(with: .offset(y: -20))
-                                .combined(with: .scale(scale: 0.95))
-                                .animation(.smooth(duration: 0.2))
+        WithPerceptionTracking {
+            @Perception.Bindable var viewModel = viewModel
+            HStack {
+                if viewModel.isConfirming {
+                    ClaimRewardsConfirmContent(viewModel: viewModel)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .transition(
+                            .asymmetric(
+                                insertion: .opacity
+                                    .combined(with: .offset(y: 70))
+                                    .combined(with: .scale(scale: 0.95))
+                                    .animation(.spring(duration: 0.25).delay(0.1)),
+                                removal: .opacity
+                                    .combined(with: .offset(y: 70))
+                                    .combined(with: .scale(scale: 0.95))
+                                    .animation(.smooth(duration: 0.2))
                             )
-                    )
+                        )
+                } else {
+                    ClaimRewardsButtonContent(viewModel: viewModel)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .transition(
+                            .asymmetric(
+                                insertion: .opacity
+                                    .combined(with: .offset(y: -20))
+                                    .combined(with: .scale(scale: 0.95))
+                                    .animation(.spring(duration: 0.2).delay(0.1)),
+                                removal: .opacity
+                                    .combined(with: .offset(y: -20))
+                                    .combined(with: .scale(scale: 0.95))
+                                    .animation(.smooth(duration: 0.2))
+                                )
+                        )
+                }
             }
+            .background {
+                Rectangle().fill(.background)
+            }
+            .clipShape(.rect(cornerRadius: 30))
+            .contentShape(.rect(cornerRadius: 30))
+            .shadow(color: .black.opacity(0.2), radius: 16, x: 0, y: 4)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .background {
+                whiteGradient
+                    .allowsHitTesting(false)
+            }
+            .frame(height: 300, alignment: .bottom)
+            .frame(height: 100, alignment: .bottom)
         }
-        .background {
-            Rectangle().fill(.background)
-        }
-        .clipShape(.rect(cornerRadius: 30))
-        .contentShape(.rect(cornerRadius: 30))
-        .shadow(color: .black.opacity(0.2), radius: 16, x: 0, y: 4)
-        .padding(.horizontal, 24)
-        .padding(.vertical, 12)
-        .background {
-            whiteGradient
-                .allowsHitTesting(false)
-        }
-        .frame(height: 300, alignment: .bottom) // prevent hosting view resizing 
-        .frame(height: 100, alignment: .bottom) // limit background hit testing
     }
     
     var whiteGradient: some View {
@@ -73,7 +76,7 @@ struct ClaimRewardsView: View {
 }
 
 struct ClaimRewardsButtonContent: View {
-    @ObservedObject var viewModel: ClaimRewardsModel
+    var viewModel: ClaimRewardsModel
     
     var body: some View {
         WithPerceptionTracking {
@@ -128,31 +131,33 @@ struct ClaimRewardsButtonContent: View {
 }
 
 struct ClaimRewardsConfirmContent: View {
-    @ObservedObject var viewModel: ClaimRewardsModel
+    var viewModel: ClaimRewardsModel
     
     var body: some View {
-        VStack {
-            Text(lang("Claim Rewards"))
-                .fontWeight(.semibold)
-                .padding(.vertical, 12)
-                .padding(.bottom, 6)
-            amountSection
-            HStack {
-                Button(lang("Cancel")) {
-                    withAnimation(.spring(duration: 0.25)) {
-                        viewModel.isConfirming = false
+        WithPerceptionTracking {
+            VStack {
+                Text(lang("Claim Rewards"))
+                    .fontWeight(.semibold)
+                    .padding(.vertical, 12)
+                    .padding(.bottom, 6)
+                amountSection
+                HStack {
+                    Button(lang("Cancel")) {
+                        withAnimation(.spring(duration: 0.25)) {
+                            viewModel.isConfirming = false
+                        }
                     }
+                    .buttonStyle(WUIButtonStyle(style: .secondary))
+                    Button(lang("Confirm")) {
+                        viewModel.onClaim()
+                    }
+                    .buttonStyle(WUIButtonStyle(style: .primary))
                 }
-                .buttonStyle(WUIButtonStyle(style: .secondary))
-                Button(lang("Confirm")) {
-                    viewModel.onClaim()
-                }
-                .buttonStyle(WUIButtonStyle(style: .primary))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.vertical, 10)
         }
-        .padding(.vertical, 10)
     }
     
     var amountSection: some View {
@@ -201,7 +206,7 @@ struct ClaimRewardsConfirmContent: View {
 #if DEBUG
 @available(iOS 18, *)
 #Preview {
-    @Previewable @StateObject var viewModel = ClaimRewardsModel()
+    @Previewable @State var viewModel = ClaimRewardsModel()
     let _ = (viewModel.amount = TokenAmount(132_000_001, .MYCOIN))
     ClaimRewardsView(viewModel: viewModel)
         .fixedSize(horizontal: false, vertical: true)

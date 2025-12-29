@@ -105,7 +105,7 @@ class TokenVC(context: Context, private var account: MAccount, var token: MToken
     private var tokenChartCell: TokenChartCell? = null
 
     private val tokenVM by lazy {
-        TokenVM(context, account.accountId, token, this)
+        TokenVM(context, account.accountId, token, WeakReference(this))
     }
 
     @Volatile

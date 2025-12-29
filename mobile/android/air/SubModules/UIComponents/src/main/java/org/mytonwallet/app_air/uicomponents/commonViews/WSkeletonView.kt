@@ -144,4 +144,10 @@ class SkeletonView(
         else
             intArrayOf(0x00FFFFFF, 0x44FFFFFF, 0x00FFFFFF)
     }
+
+    fun onDestroy() {
+        stopAnimating()
+        maskViews = emptyList()
+        maskCornerRadius = HashMap()
+    }
 }

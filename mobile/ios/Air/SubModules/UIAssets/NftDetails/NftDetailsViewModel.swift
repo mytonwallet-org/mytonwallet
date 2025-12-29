@@ -3,9 +3,11 @@ import UIKit
 import UIComponents
 import WalletContext
 import WalletCore
+import Perception
 
 @MainActor
-final class NftDetailsViewModel: ObservableObject {
+@Perceptible
+final class NftDetailsViewModel {
     
     enum State {
         case collapsed
@@ -13,18 +15,19 @@ final class NftDetailsViewModel: ObservableObject {
         case preview
     }
    
-    @Published var isExpanded = true
-    @Published var nft: ApiNft
-    @Published var navigationBarInset: CGFloat
-    @Published var safeAreaInsets: UIEdgeInsets = .zero
-    @Published var y: CGFloat = 0
-    @Published var isFullscreenPreviewOpen = false
-    @Published var selectedSubmenu: String?
-    @Published var contentHeight: CGFloat = 2000.0
-    @Published var isAnimatingSince: Date?
+    var isExpanded = true
+    var nft: ApiNft
+    var navigationBarInset: CGFloat
+    var safeAreaInsets: UIEdgeInsets = .zero
+    var y: CGFloat = 0
+    var isFullscreenPreviewOpen = false
+    var selectedSubmenu: String?
+    var contentHeight: CGFloat = 2000.0
+    var isAnimatingSince: Date?
     
     var isAnimating: Bool { isAnimatingSince != nil }
     
+    @PerceptionIgnored
     var accountId: String
     
     let listContextProvider: NftListContextProvider
@@ -37,6 +40,7 @@ final class NftDetailsViewModel: ObservableObject {
     var shouldMaskAndClip: Bool { !isExpanded && !isFullscreenPreviewOpen }
     var shouldShowControls: Bool { !isFullscreenPreviewOpen }
     
+    @PerceptionIgnored
     weak var viewController: NftDetailsVC?
     
     init(accountId: String, isExpanded: Bool = true, isFullscreenPreviewOpen: Bool = false, nft: ApiNft, listContext: NftCollectionFilter, navigationBarInset: CGFloat) {

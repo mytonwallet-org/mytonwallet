@@ -3,65 +3,69 @@ import UIComponents
 import WalletContext
 import WalletCore
 import SwiftUI
+import Perception
 
 
 struct LedgerSelectWalletsView: View {
     
-    @ObservedObject var model: LedgerAddAccountModel
+    var model: LedgerAddAccountModel
     var onWalletsCountChange: (Int) -> ()
     
     @State private var angle: Angle = .zero
     @State private var continueLoading = false
     
     var body: some View {
-        InsetList {
-            InsetSection {
-                ForEach($model.discoveredWallets, id: \.id) { $discoveredWallet in
-                    WalletRow(discoveredWallet: $discoveredWallet)
-                }
-                InsetButtonCell(horizontalPadding: 0, verticalPadding: 0, action: onLoadMore) {
-                    HStack(spacing: 0) {
-                        if model.isLoadingMore {
-                            Image.airBundle("ActivityIndicator")
-                                .renderingMode(.template)
-                                .rotationEffect(angle)
-                                .onAppear {
-                                    withAnimation(.linear(duration: 0.625).repeatForever(autoreverses: false)) {
-                                        angle += .radians(2 * .pi)
-                                    }
-                                }
-
-                                .frame(width: 22)
-                                .padding(.horizontal, 20)
-                                .transition(.scale.combined(with: .opacity))
-                        } else {
-                            Image(systemName: "chevron.down")
-                                .frame(width: 22)
-                                .padding(.horizontal, 20)
-                                .transition(.scale.combined(with: .opacity))
-                        }
-                        Text(lang("Load 5 More Wallets"))
-                            .frame(maxWidth: .infinity, alignment: .leading)
+        WithPerceptionTracking {
+            @Perception.Bindable var model = model
+            InsetList {
+                InsetSection {
+                    ForEach($model.discoveredWallets, id: \.id) { $discoveredWallet in
+                        WalletRow(discoveredWallet: $discoveredWallet)
                     }
-                    .frame(height: 48)
+                    InsetButtonCell(horizontalPadding: 0, verticalPadding: 0, action: onLoadMore) {
+                        HStack(spacing: 0) {
+                            if model.isLoadingMore {
+                                Image.airBundle("ActivityIndicator")
+                                    .renderingMode(.template)
+                                    .rotationEffect(angle)
+                                    .onAppear {
+                                        withAnimation(.linear(duration: 0.625).repeatForever(autoreverses: false)) {
+                                            angle += .radians(2 * .pi)
+                                        }
+                                    }
+
+                                    .frame(width: 22)
+                                    .padding(.horizontal, 20)
+                                    .transition(.scale.combined(with: .opacity))
+                            } else {
+                                Image(systemName: "chevron.down")
+                                    .frame(width: 22)
+                                    .padding(.horizontal, 20)
+                                    .transition(.scale.combined(with: .opacity))
+                            }
+                            Text(lang("Load 5 More Wallets"))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .frame(height: 48)
+                    }
+                    .allowsHitTesting(!model.isLoadingMore)
+                    .opacity(!model.isLoadingMore ? 1 : 0.4)
                 }
-                .allowsHitTesting(!model.isLoadingMore)
-                .opacity(!model.isLoadingMore ? 1 : 0.4)
             }
-        }
-        .safeAreaInset(edge: .bottom) {
-            Button(action: onContinue) {
-                Text(lang("Continue"))
+            .safeAreaInset(edge: .bottom) {
+                Button(action: onContinue) {
+                    Text(lang("Continue"))
+                }
+                .buttonStyle(.airPrimary)
+                .disabled(!model.canContinue)
+                .animation(.smooth(duration: 0.3), value: model.canContinue)
+                .padding(.horizontal, 32)
+                .padding(.vertical, 32)
+                .environment(\.isLoading, continueLoading)
             }
-            .buttonStyle(.airPrimary)
-            .disabled(!model.canContinue)
-            .animation(.smooth(duration: 0.3), value: model.canContinue)
-            .padding(.horizontal, 32)
-            .padding(.vertical, 32)
-            .environment(\.isLoading, continueLoading)
-        }
-        .onChange(of: model.selectedCount) { count in
-            onWalletsCountChange(count)
+            .onChange(of: model.selectedCount) { count in
+                onWalletsCountChange(count)
+            }
         }
     }
     

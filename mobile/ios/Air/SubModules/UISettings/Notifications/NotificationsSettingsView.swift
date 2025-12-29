@@ -5,53 +5,56 @@ import UIKit
 import UIComponents
 import WalletContext
 import WalletCore
+import Perception
 
 private let log = Log("NotificationsVC")
 
 struct NotificationsSettingsView: View {
     
-    @ObservedObject var viewModel: NotificationsSettingsViewModel
+    var viewModel: NotificationsSettingsViewModel
     
     @State private var areNotificationsOn: Bool = false
     
     var body: some View {
-        InsetList(topPadding: 16, spacing: 24) {
-            if viewModel.notificationsAreAllowed {
-                notificationsSection
-                walletSelectionSection
-            } else {
-                enableNotificationsSection
-            }
-            soundsSection
-                .padding(.top, 8)
-                .padding(.bottom, 48)
-        }
-        .onChange(of: areNotificationsOn) { areNotificationsOn in
-            withAnimation {
-                if areNotificationsOn {
-                    viewModel.toggledOn()
+        WithPerceptionTracking {
+            InsetList(topPadding: 16, spacing: 24) {
+                if viewModel.notificationsAreAllowed {
+                    notificationsSection
+                    walletSelectionSection
                 } else {
-                    viewModel.toggledOff()
+                    enableNotificationsSection
+                }
+                soundsSection
+                    .padding(.top, 8)
+                    .padding(.bottom, 48)
+            }
+            .onChange(of: areNotificationsOn) { areNotificationsOn in
+                withAnimation {
+                    if areNotificationsOn {
+                        viewModel.toggledOn()
+                    } else {
+                        viewModel.toggledOff()
+                    }
                 }
             }
-        }
-        .onChange(of: viewModel.selectedCount) { selectedCount in
-            withAnimation {
+            .onChange(of: viewModel.selectedCount) { _ in
+                withAnimation {
+                    areNotificationsOn = viewModel.selectedCount > 0
+                }
+            }
+            .onAppear {
                 areNotificationsOn = viewModel.selectedCount > 0
             }
-        }
-        .onAppear {
-            areNotificationsOn = viewModel.selectedCount > 0
-        }
-        .task {
-            for await _ in NotificationCenter.default.notifications(named: UIScene.didActivateNotification) {
-                viewModel.checkIfNotificationsAreEnabled()
+            .task {
+                for await _ in NotificationCenter.default.notifications(named: UIScene.didActivateNotification) {
+                    viewModel.checkIfNotificationsAreEnabled()
+                }
             }
-        }
-        .onChange(of: viewModel.playSounds) { playSounds in
-            Task {
-                AppStorageHelper.sounds = playSounds
-                try await GlobalStorage.syncronize()
+            .onChange(of: viewModel.playSounds) { playSounds in
+                Task {
+                    AppStorageHelper.sounds = playSounds
+                    try await GlobalStorage.syncronize()
+                }
             }
         }
     }
@@ -90,7 +93,9 @@ struct NotificationsSettingsView: View {
         }
     }
     
+    @ViewBuilder
     var walletSelectionSection: some View {
+        @Perception.Bindable var viewModel = viewModel
         InsetSection {
             ForEach($viewModel.selectableAccounts) { $selectableAccount in
                 SelectableAccountRow(
@@ -103,7 +108,9 @@ struct NotificationsSettingsView: View {
         }
     }
     
+    @ViewBuilder
     var soundsSection: some View {
+        @Perception.Bindable var viewModel = viewModel
         InsetSection {
             InsetCell(verticalPadding: 0) {
                 HStack {

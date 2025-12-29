@@ -2,6 +2,7 @@ import SwiftUI
 import UIComponents
 import WalletContext
 import WalletCore
+import Perception
 
 private let tableBorderWidth: CGFloat = 1
 private let tableBorderColor: Color = Color(UIColor(light: "DEDDE0", dark: "2E2D20"))
@@ -26,21 +27,22 @@ let animatedTransition: AnyTransition = .asymmetric(
 
 struct NftDetailsDetailsView: View {
     
-    @ObservedObject var viewModel: NftDetailsViewModel
+    var viewModel: NftDetailsViewModel
     @State private var isDebugMenuPresented = false
     
     var nft: ApiNft { viewModel.nft }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            descriptionSection
-//            debugSettingsButton
-            attributesSection
-                .transition(animatedTransition)
-                .id(nft.id)
-                
-        }
-        .padding(.top, viewModel.isExpanded ? 16 : 8)
+        WithPerceptionTracking {
+            @Perception.Bindable var viewModel = viewModel
+            VStack(alignment: .leading, spacing: 24) {
+                descriptionSection
+                attributesSection
+                    .transition(animatedTransition)
+                    .id(nft.id)
+                    
+            }
+            .padding(.top, viewModel.isExpanded ? 16 : 8)
 //        .sheet(isPresented: $isDebugMenuPresented) {
 //            if #available(iOS 18, *) {
 //                DebugSettingsView()
@@ -48,6 +50,7 @@ struct NftDetailsDetailsView: View {
 //                    .presentationBackgroundInteraction(.enabled)
 //            }
 //        }
+        }
     }
     
     @ViewBuilder

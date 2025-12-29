@@ -107,9 +107,9 @@ $landscapeActionsButtonWidth: 1.375rem;
   cursor: var(--custom-cursor, pointer);
 
   position: absolute;
-  top: calc(0.625rem + var(--safe-area-top, 0px));
+  top: 50%;
   left: 0;
-  transform: none;
+  transform: translateY(calc(var(--safe-area-top, 0px) / 2 - 50%));
 
   display: inline-flex;
   align-items: center;
@@ -119,10 +119,6 @@ $landscapeActionsButtonWidth: 1.375rem;
   font-size: 1.0625rem;
   line-height: 1.25rem;
   color: var(--color-accent);
-
-  @include mixins.respond-above(xs) {
-    top: calc(0.75rem + var(--safe-area-top, 0px));
-  }
 }
 
 .chartCardBackIcon {
@@ -141,10 +137,6 @@ $landscapeActionsButtonWidth: 1.375rem;
   --tab-gap-size: 0.5rem;
 
   width: fit-content;
-}
-
-.tokenModeTabsOverlay {
-  background-color: var(--color-activity-blue-background);
 }
 
 .tokenModeTitle {
