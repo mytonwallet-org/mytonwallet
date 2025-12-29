@@ -22,7 +22,7 @@ extension WViewController {
     ) async throws {
         let account = try AccountStore.account.orThrow("no active account")
         if account.isHardware {
-            let fromAddress = try account.tonAddress.orThrow("no ton address in account")
+            let fromAddress = account.firstAddress
             try await _pushLedger(
                 title: title,
                 headerView: headerView,

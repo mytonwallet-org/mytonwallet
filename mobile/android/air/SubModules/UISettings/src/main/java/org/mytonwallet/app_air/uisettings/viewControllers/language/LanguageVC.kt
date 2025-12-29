@@ -32,17 +32,17 @@ class LanguageVC(context: Context) : WViewController(context),
 
     companion object {
         val languages = arrayOf(
+            WLanguage.ENGLISH,
+            WLanguage.SPANISH,
+            WLanguage.RUSSIAN,
             WLanguage.CHINESE_SIMPLIFIED,
             WLanguage.CHINESE_TRADITIONAL,
-            WLanguage.ENGLISH,
-            WLanguage.GERMAN,
-            //WLanguage.PERSIAN,
-            WLanguage.POLISH,
-            WLanguage.RUSSIAN,
-            WLanguage.SPANISH,
-            WLanguage.THAI,
             WLanguage.TURKISH,
+            WLanguage.GERMAN,
+            WLanguage.THAI,
             WLanguage.UKRAINIAN,
+            WLanguage.POLISH,
+            //WLanguage.PERSIAN,
         )
 
         val HEADER_CELL = WCell.Type(1)

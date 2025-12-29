@@ -6,7 +6,6 @@
 //
 
 import UIKit
-import UIQRScan
 import UIComponents
 import WalletCore
 import WalletContext
@@ -66,22 +65,21 @@ class CrossChainFromTonView: UIStackView, WThemedView {
     }
     
     @objc private func scanPressed() {
-        let qrScanVC = QRScanVC(callback: { [weak self] result in
-            guard let self else {return}
-            switch result {
-            case .url(_):
-                return
-            case .address(let address, let possibleChains):
-                guard possibleChains.contains(where: { it in
-                    it.rawValue == self.buyingToken.chain
-                }) else {
+        Task {
+            if let result = await AppActions.scanQR() {
+                switch result {
+                case .url(_):
                     return
+                case .address(let address, let possibleChains):
+                    guard possibleChains.contains(where: { it in
+                        it.rawValue == self.buyingToken.chain
+                    }) else {
+                        return
+                    }
+                    addressTextField.textView.text = address
+                    addressTextField.textViewDidChange(addressTextField.textView)
                 }
-                addressTextField.textView.text = address
-                addressTextField.textViewDidChange(addressTextField.textView)
             }
-        })
-        topViewController()?.present(WNavigationController(rootViewController: qrScanVC), animated: true)
+        }
     }
-    
 }

@@ -138,18 +138,6 @@ public extension EnvironmentValues {
 }
 
 public extension View {
-    func sourceAtop<FS: ShapeStyle>(_ style: FS) -> some View {
-        self
-            .overlay {
-                Rectangle()
-                    .fill()
-                    .foregroundStyle(style)
-                    .blendMode(.sourceAtop)
-                    .padding(-8)
-            }
-            .compositingGroup()
-
-    }
     
     func sourceAtop<V: View>(@ViewBuilder _ stylingView: () -> V) -> some View {
         self

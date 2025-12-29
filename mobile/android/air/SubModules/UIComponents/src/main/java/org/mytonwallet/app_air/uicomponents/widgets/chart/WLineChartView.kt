@@ -61,6 +61,8 @@ class WLineChartView(context: Context, labeled: Boolean) : LineChart(context), W
             xAxis.isEnabled = false
         }
         axisLeft.isEnabled = false
+        axisLeft.spaceTop = 1f.dp
+        axisLeft.spaceBottom = 0f
         axisRight.isEnabled = false
         legend.isEnabled = false
         isDoubleTapToZoomEnabled = false

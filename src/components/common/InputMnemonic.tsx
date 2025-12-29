@@ -209,7 +209,7 @@ function InputMnemonic({
 }
 
 function isCorrectMnemonic(mnemonic: string, wordlist: string[]) {
-  return mnemonic.length === PRIVATE_KEY_HEX_LENGTH || wordlist.includes(mnemonic);
+  return mnemonic.length === PRIVATE_KEY_HEX_LENGTH || wordlist.includes(mnemonic.toLowerCase());
 }
 
 export default memo(InputMnemonic);

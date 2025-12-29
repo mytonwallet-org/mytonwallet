@@ -9,7 +9,6 @@ import Foundation
 import SwiftUI
 import UIKit
 import UIComponents
-import Ledger
 import WalletCore
 import WalletContext
 import UIPasscode

@@ -8,7 +8,6 @@
 import UIKit
 import UIComponents
 import WalletContext
-import SwiftSignalKit
 import QuartzCore
 
 class QRScanView: UIView, UIScrollViewDelegate {
@@ -35,9 +34,10 @@ class QRScanView: UIView, UIScrollViewDelegate {
     //private var titleView: UILabel!
     
     private var camera: Camera!
-    private let codeDisposable = MetaDisposable()
+    private var codesTask: Task<Void, Never>?
+    private var lastCodeDeliveryDate: Date?
     
-    let focusedCode = ValuePromise<CameraCode?>(ignoreRepeated: true)
+    var onCodeDetected: ((CameraCode?) -> Void)?
     
     init() {
         super.init(frame: .zero)
@@ -50,8 +50,8 @@ class QRScanView: UIView, UIScrollViewDelegate {
     }
     
     deinit {
-        self.codeDisposable.dispose()
-        self.camera.stopCapture(invalidate: true)
+        codesTask?.cancel()
+        camera.stopCapture(invalidate: true)
     }
     
     func updateInForeground(_ inForeground: Bool) {
@@ -177,24 +177,47 @@ class QRScanView: UIView, UIScrollViewDelegate {
         self.camera.attachPreviewNode(previewView)
         self.camera.startCapture()
         
-        let throttledSignal = self.camera.detectedCodes
-        |> mapToThrottled { next -> Signal<[CameraCode], NoError> in
-            return .single(next) |> then(.complete() |> delay(0.3, queue: Queue.concurrentDefaultQueue()))
-        }
-        
-        self.codeDisposable.set((throttledSignal
-                                 |> deliverOnMainQueue).start(next: { [weak self] codes in
-            guard let strongSelf = self else {
+        codesTask = Task { [weak self] in
+            guard let self else {
                 return
             }
-            if let code = codes.first, CGRect(x: 0.3, y: 0.3, width: 0.4, height: 0.4).contains(code.boundingBox.center) {
-                strongSelf.focusedCode.set(code)
-                strongSelf.updateFocusedRect(code.boundingBox)
-            } else {
-                strongSelf.focusedCode.set(nil)
-                strongSelf.updateFocusedRect(nil)
+            for await codes in self.camera.detectedCodes {
+                guard !Task.isCancelled else {
+                    break
+                }
+                await MainActor.run { [weak self] in
+                    guard let self else {
+                        return
+                    }
+                    self.handleDetectedCodes(codes)
+                }
             }
-        }))
+        }
+    }
+    
+    @MainActor
+    private func handleDetectedCodes(_ codes: [CameraCode]) {
+        if shouldThrottleCodeDelivery() {
+            return
+        }
+        
+        if let code = codes.first, CGRect(x: 0.3, y: 0.3, width: 0.4, height: 0.4).contains(code.boundingBox.center) {
+            updateFocusedRect(code.boundingBox)
+            onCodeDetected?(code)
+        } else {
+            updateFocusedRect(nil)
+            onCodeDetected?(nil)
+        }
+    }
+    
+    @MainActor
+    private func shouldThrottleCodeDelivery() -> Bool {
+        let now = Date()
+        if let lastCodeDeliveryDate, now.timeIntervalSince(lastCodeDeliveryDate) < 0.3 {
+            return true
+        }
+        lastCodeDeliveryDate = now
+        return false
     }
     
     // MARK: - Called when focused rect change

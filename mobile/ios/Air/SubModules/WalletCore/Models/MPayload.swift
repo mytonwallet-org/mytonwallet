@@ -3,15 +3,6 @@ import WalletContext
 
 // MARK: This code has been generated based on TypeScript definitions. Do not edit manually.
 
-public typealias Cell = AnyEncodable
-
-public enum AnyPayload {
-    case string(String)
-    case cell(Cell) // from external import
-    case uint8Array([UInt8])
-}
-
-
 public enum ApiParsedPayload: Equatable, Hashable, Codable, Sendable {
     case comment(ApiCommentPayload)
     case encryptedComment(ApiEncryptedCommentPayload)

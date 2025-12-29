@@ -70,8 +70,12 @@ const selectPopularTokensMemoizedFor = withCache((accountId: string) => memoize(
     'USDT',
     'BTC',
     'ETH',
-    'jUSDT',
-    'jWBTC',
+    'SOL',
+    'TRX',
+    'XLM',
+    'XMR',
+    'USDC',
+    'LTC',
   ];
   const orderMap = new Map(popularTokenOrder.map((item, index) => [item, index]));
 

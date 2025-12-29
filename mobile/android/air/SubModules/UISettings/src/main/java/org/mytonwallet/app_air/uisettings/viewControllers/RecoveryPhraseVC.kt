@@ -118,6 +118,7 @@ open class RecoveryPhraseVC(context: Context, private val words: Array<String>) 
         gravity = Gravity.CENTER
         setPadding(16.dp, 0, 16.dp, 0)
         setTextColor(WColor.Tint)
+        isTinted = true
         setOnClickListener {
             showAlert(
                 title = LocaleController.getString("Security Warning"),
@@ -220,17 +221,12 @@ open class RecoveryPhraseVC(context: Context, private val words: Array<String>) 
     override fun setupViews() {
         super.setupViews()
 
-        if (wordsCount == 24) {
-            // This standard case has much better localization support
-            setNavTitle(LocaleController.getString("24 Secret Words"))
-        } else {
-            setNavTitle(
-                LocaleController.getFormattedString(
-                    "%1\$d Secret Words",
-                    listOf(wordsCount.toString())
-                )
+        setNavTitle(
+            LocaleController.getPluralOrFormat(
+                "%1\$d Secret Words",
+                wordsCount,
             )
-        }
+        )
         setupNavBar(true)
         setTopBlur(visible = false, animated = false)
 

@@ -34,6 +34,7 @@ public final class BubbleView: UIView {
     private let bubbleLayer: CAShapeLayer = CAShapeLayer()
     let label = UILabel()
     private var direction: Direction = .incoming
+    private var isError: Bool = false
     
     public init() {
         super.init(frame: .zero)
@@ -71,20 +72,21 @@ public final class BubbleView: UIView {
             label.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
         ])
         
-        setDirection(.incoming)
+        setDirection(.incoming, isError: false)
     }
 
     public override func layoutSubviews() {
         super.layoutSubviews()
-        
-        var bubbleBounds = bounds
-        if bubbleBounds.height <= 40 {
-            bubbleBounds.size.height = 32
-        }
-        bubbleBounds = bubbleBounds.offsetBy(dx: direction == .incoming ? -4 : 4, dy: 0)
-        if bubbleBounds != bubbleLayer.frame {
-            bubbleLayer.frame = bubbleBounds
-            bubbleLayer.path = makeShape(bounds: bubbleLayer.bounds)
+        UIView.performWithoutAnimation {
+            var bubbleBounds = bounds
+            if bubbleBounds.height <= 40 {
+                bubbleBounds.size.height = 32
+            }
+            bubbleBounds = bubbleBounds.offsetBy(dx: direction == .incoming ? -4 : 4, dy: 0)
+            if bubbleBounds != bubbleLayer.frame {
+                bubbleLayer.frame = bubbleBounds
+                bubbleLayer.path = makeShape(bounds: bubbleLayer.bounds)
+            }
         }
     }
 
@@ -96,15 +98,18 @@ public final class BubbleView: UIView {
         }
     }
     
-    public func setComment(_ text: String) {
+    public func setComment(_ text: String, direction: Direction, isError: Bool) {
         let attr = NSMutableAttributedString()
         
         _sharedSetText(attr: attr, text: text.trimmingCharacters(in: .whitespacesAndNewlines), font: .systemFont(ofSize: fontSize))
         
         label.transform = .init(translationX: 0, y: 0.333)
+        
+        setDirection(direction, isError: isError)
     }
     
-    public func setEncryptedComment() {
+    public func setEncryptedComment(direction: Direction, isError: Bool) {
+        
         let attr = NSMutableAttributedString()
 
         let attachment = NSTextAttachment()
@@ -117,6 +122,8 @@ public final class BubbleView: UIView {
         _sharedSetText(attr: attr, text: lang("Encrypted Message"), font: .italicSystemFont(ofSize: fontSize))
         
         label.transform = .init(translationX: 0, y: -0.333)
+        
+        setDirection(direction, isError: isError)
     }
     
     private func _sharedSetText(attr: NSMutableAttributedString, text: String, font: UIFont) {
@@ -138,11 +145,16 @@ public final class BubbleView: UIView {
         setNeedsLayout()
     }
     
-    public func setDirection(_ direction: Direction) {
+    private func setDirection(_ direction: Direction, isError: Bool) {
         self.direction = direction
-        bubbleLayer.fillColor = direction.color.cgColor
+        self.isError = isError
+        bubbleLayer.fillColor =  isError ? UIColor.red.cgColor : direction.color.cgColor
         bubbleLayer.transform = direction.transform
         setNeedsLayout()
+    }
+    
+    public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        bubbleLayer.fillColor =  isError ? UIColor.red.cgColor : direction.color.cgColor
     }
 }
 
@@ -225,12 +237,6 @@ fileprivate extension NSMutableAttributedString {
          space.bounds = CGRect(x:0, y: 0, width: width, height: 0)
          append(NSAttributedString(attachment: space))
     }
-    
-    func appendVerticalSpacer(_ height: Double) {
-        let space = NSTextAttachment(image: UIImage())
-        space.bounds = CGRect(x: 0, y: 0, width: 1, height: height)
-        append(NSAttributedString(attachment: space))
-   }
 }
 
 
@@ -245,10 +251,12 @@ public struct SBubbleView: UIViewRepresentable {
     
     var content: Content
     var direction: BubbleView.Direction
+    var isError: Bool
     
-    public init(content: Content, direction: BubbleView.Direction) {
+    public init(content: Content, direction: BubbleView.Direction, isError: Bool) {
         self.content = content
         self.direction = direction
+        self.isError = isError
     }
     
     public func makeUIView(context: Context) -> BubbleView {
@@ -261,11 +269,10 @@ public struct SBubbleView: UIViewRepresentable {
     public func updateUIView(_ bubbleView: BubbleView, context: Context) {
         switch content {
         case .comment(let string):
-            bubbleView.setComment(string)
+            bubbleView.setComment(string, direction: direction, isError: isError)
         case .encryptedComment:
-            bubbleView.setEncryptedComment()
+            bubbleView.setEncryptedComment(direction: direction, isError: isError)
         }
-        bubbleView.setDirection(direction)
     }
     
     public func sizeThatFits(_ proposal: ProposedViewSize, uiView bubbleView: BubbleView, context: Context) -> CGSize? {

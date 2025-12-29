@@ -106,7 +106,7 @@ extension WalletVersionsVC: UITableViewDelegate, UITableViewDataSource {
             }
             let cell = tableView.dequeueReusableCell(withIdentifier: "VersionCell", for: indexPath) as! TitleSubtitleSelectableCell
             cell.configure(title: walletVersionsData?.currentVersion ?? "",
-                           subtitle: formatStartEndAddress(AccountStore.account?.tonAddress ?? ""),
+                           subtitle: formatStartEndAddress(AccountStore.account?.addressByChain[TON_CHAIN] ?? ""),
                            isSelected: true,
                            isFirst: true,
                            isLast: true,
@@ -126,7 +126,8 @@ extension WalletVersionsVC: UITableViewDelegate, UITableViewDataSource {
             let version = walletVersionsData!.versions[indexPath.row - 1]
             let value: String
             if let balance = MTokenBalance(tokenSlug: "toncoin", balance: version.balance, isStaking: false).toBaseCurrency {
-                value = formatAmountText(amount: balance, currency: TokenStore.baseCurrency.sign, decimalsCount: TokenStore.baseCurrency.decimalsCount)
+                let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(balance, TokenStore.baseCurrency)
+                value = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true)
             } else {
                 value = ""
             }

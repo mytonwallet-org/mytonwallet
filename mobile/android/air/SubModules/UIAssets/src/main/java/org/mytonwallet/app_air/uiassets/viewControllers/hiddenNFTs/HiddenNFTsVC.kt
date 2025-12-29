@@ -19,11 +19,10 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
-import org.mytonwallet.app_air.walletcore.models.MScreenMode
 import org.mytonwallet.app_air.walletcore.stores.NftStore
 import java.lang.ref.WeakReference
 
-class HiddenNFTsVC(context: Context, private val screenMode: MScreenMode) :
+class HiddenNFTsVC(context: Context, private val showingAccountId: String) :
     WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource {
     override val TAG = "HiddenNFTs"
@@ -163,7 +162,7 @@ class HiddenNFTsVC(context: Context, private val screenMode: MScreenMode) :
 
             else -> {
                 HiddenNFTsItemCell(recyclerView, onSelect = { nft ->
-                    push(NftVC(context, screenMode, nft, blacklistedNFTs + hiddenNFTs))
+                    push(NftVC(context, showingAccountId, nft, blacklistedNFTs + hiddenNFTs))
                 })
             }
         }

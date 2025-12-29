@@ -213,9 +213,8 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
                                 tokenDecimals: token.decimals,
                                 decimalsCount: tokenDecimals(for: walletToken?.balance ?? 0, tokenDecimals: token.decimals),
                                 animated: nil)
-                equivalentLabel.text = formatAmountText(amount: walletToken?.toBaseCurrency ?? 0,
-                                                        currency: TokenStore.baseCurrency.sign,
-                                                        decimalsCount: tokenDecimals(for: walletToken?.toBaseCurrency ?? 0, tokenDecimals: 9))
+                let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(walletToken?.toBaseCurrency ?? 0, TokenStore.baseCurrency)
+                equivalentLabel.text = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true)
             }
         }
     }
@@ -257,7 +256,7 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
 
 extension TokenExpandableContentView: TokenActionsView.Delegate {
     func addPressed() {
-        AppActions.showReceive(chain: token?.chainValue, showBuyOptions: nil, title: nil)
+        AppActions.showReceive(chain: token?.chainValue, title: nil)
     }
 
     func sendPressed() {
@@ -267,7 +266,12 @@ extension TokenExpandableContentView: TokenActionsView.Delegate {
     }
 
     func swapPressed() {
-        AppActions.showSwap(defaultSellingToken: token?.slug, defaultBuyingToken: token?.slug == "toncoin" ? nil : "toncoin", defaultSellingAmount: nil, push: nil)
+        AppActions.showSwap(
+            defaultSellingToken: token?.slug,
+            defaultBuyingToken: token?.slug == "toncoin" ? nil : "toncoin",
+            defaultSellingAmount: nil,
+            push: nil
+        )
     }
 
     func earnPressed() {

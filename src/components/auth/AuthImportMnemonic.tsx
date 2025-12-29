@@ -148,7 +148,10 @@ const AuthImportMnemonic = ({ isActive, isLoading, error }: OwnProps & StateProp
   const handleSubmit = useLastCallback(async () => {
     if (isSubmitDisabled) return;
 
-    const mnemonicValues = compact(Object.values(mnemonic));
+    const mnemonicValues = compact(Object.values(mnemonic))
+      .map((word) => word.trim().toLowerCase())
+      .filter(Boolean);
+
     if (mnemonicValues.length === 12) {
       const isShortMnemonicValid = await callApi('validateMnemonic', mnemonicValues);
       if (!isShortMnemonicValid) return;
@@ -260,6 +263,7 @@ function parsePastedText(str = '') {
   return str
     .replace(/(?:\r\n)+|[\r\n\s;,\t]+/g, ' ')
     .trim()
+    .toLowerCase()
     .split(' ')
     .map((w) => w.slice(0, MAX_LENGTH));
 }

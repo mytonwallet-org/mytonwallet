@@ -234,7 +234,6 @@ public class NftsVC: WViewController, WSegmentedControllerContent, WalletAssetsV
         if compactMode {
             columnCount = min(3, max(1, displayNfts?.count ?? 0))
         } else {
-            let screenWidth = UIScreen.main.bounds.width
             let usableWidth = screenWidth - 2 * horizontalMargins
             let minItemWidth: CGFloat = 163
             columnCount = max(1, Int((usableWidth + spacing) / (minItemWidth + spacing)))
@@ -599,21 +598,6 @@ extension NftsVC: UICollectionViewDelegate {
             view: cell.contentView,
             parameters: parameters
         )
-    }
-    
-    private func _viewByClassName(view: UIView, className: String) -> UIView? {
-        let name = NSStringFromClass(type(of: view))
-        if name == className {
-            return view
-        }
-        else {
-            for subview in view.subviews {
-                if let view = _viewByClassName(view: subview, className: className) {
-                    return view
-                }
-            }
-        }
-        return nil
     }
     
     public func collectionView(_ collectionView: UICollectionView, willDisplayContextMenu configuration: UIContextMenuConfiguration, animator: (any UIContextMenuInteractionAnimating)?) {

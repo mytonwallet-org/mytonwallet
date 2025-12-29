@@ -82,12 +82,12 @@ class SettingsVC(context: Context) : WViewController(context),
         get() = headerView
 
     private val px104 = 104.dp
-
     private val px52 = 52.dp
 
     override val isSwipeBackAllowed: Boolean = false
 
     private val settingsVM = SettingsVM()
+    private var pendingReload = false
 
     private val rvAdapter =
         WRecyclerViewAdapter(
@@ -218,7 +218,7 @@ class SettingsVC(context: Context) : WViewController(context),
                 qrButton,
                 (navigationController?.getSystemBars()?.top ?: 0) + ViewConstants.GAP.dp
             )
-            toEnd(qrButton, 64f)
+            toEnd(qrButton, 56f)
         }
 
         updateTheme()
@@ -227,13 +227,29 @@ class SettingsVC(context: Context) : WViewController(context),
             settingsVM.fillOtherAccounts(async = false)
             settingsVM.updateWalletConfigSection()
             settingsVM.updateWalletDataSection()
+            reloadData()
+        }
+    }
+
+    override fun viewWillAppear() {
+        super.viewWillAppear()
+        if (pendingReload) {
             rvAdapter.reloadData()
+            pendingReload = false
         }
     }
 
     override fun viewDidAppear() {
         super.viewDidAppear()
         headerView.viewDidAppear()
+    }
+
+    override fun viewDidEnterForeground() {
+        super.viewDidEnterForeground()
+        if (pendingReload) {
+            rvAdapter.reloadData()
+            pendingReload = false
+        }
     }
 
     override fun viewWillDisappear() {
@@ -244,7 +260,6 @@ class SettingsVC(context: Context) : WViewController(context),
     override fun updateTheme() {
         super.updateTheme()
         view.setBackgroundColor(WColor.SecondaryBackground.color)
-        rvAdapter.updateTheme()
         if (headerView.parent == headerCell)
             headerView.updateTheme()
 
@@ -270,7 +285,7 @@ class SettingsVC(context: Context) : WViewController(context),
     }
 
     override fun updateProtectedView() {
-        rvAdapter.reloadData()
+        reloadData()
     }
 
     override fun insetsUpdated() {
@@ -503,6 +518,14 @@ class SettingsVC(context: Context) : WViewController(context),
         }
     }
 
+    private fun reloadData() {
+        if (view.isAttachedToWindow)
+            rvAdapter.reloadData()
+        else {
+            pendingReload = true
+        }
+    }
+
     override fun recyclerViewNumberOfSections(rv: RecyclerView): Int {
         return settingsVM.settingsSections.size + 2
     }
@@ -612,9 +635,11 @@ class SettingsVC(context: Context) : WViewController(context),
         when (walletEvent) {
             is WalletEvent.AccountChanged -> {
                 headerView.configure()
-                settingsVM.fillOtherAccounts(async = walletEvent.fromHome, onComplete = {
-                    rvAdapter.reloadData()
-                })
+                settingsVM.fillOtherAccounts(
+                    async = walletEvent.fromHome,
+                    onComplete = {
+                        reloadData()
+                    })
                 settingsVM.updateWalletDataSection()
             }
 
@@ -624,7 +649,7 @@ class SettingsVC(context: Context) : WViewController(context),
 
             WalletEvent.AccountsReordered -> {
                 settingsVM.fillOtherAccounts(async = true, onComplete = {
-                    rvAdapter.reloadData()
+                    reloadData()
                 })
             }
 
@@ -634,39 +659,39 @@ class SettingsVC(context: Context) : WViewController(context),
 
             WalletEvent.NotActiveAccountBalanceChanged -> {
                 settingsVM.fillOtherAccounts(async = true, onComplete = {
-                    rvAdapter.reloadData()
+                    reloadData()
                 })
             }
 
             WalletEvent.BaseCurrencyChanged -> {
                 headerView.configureDescriptionLabel()
                 settingsVM.fillOtherAccounts(async = true, onComplete = {
-                    rvAdapter.reloadData()
+                    reloadData()
                 })
             }
 
             WalletEvent.TokensChanged -> {
                 headerView.configureDescriptionLabel()
                 settingsVM.fillOtherAccounts(async = true, onComplete = {
-                    rvAdapter.reloadData()
+                    reloadData()
                 })
             }
 
             WalletEvent.StakingDataUpdated -> {
                 headerView.configureDescriptionLabel()
                 settingsVM.fillOtherAccounts(async = true, onComplete = {
-                    rvAdapter.reloadData()
+                    reloadData()
                 })
             }
 
             WalletEvent.DappsCountUpdated -> {
                 settingsVM.updateWalletConfigSection()
-                rvAdapter.reloadData()
+                reloadData()
             }
 
-            WalletEvent.ByChainUpdated -> {
+            is WalletEvent.ByChainUpdated -> {
                 settingsVM.fillOtherAccounts(async = true, onComplete = {
-                    rvAdapter.reloadData()
+                    reloadData()
                 })
                 headerView.configure()
             }
@@ -679,7 +704,7 @@ class SettingsVC(context: Context) : WViewController(context),
         when (update) {
             is ApiUpdate.ApiUpdateWalletVersions -> {
                 settingsVM.updateWalletDataSection()
-                rvAdapter.reloadData()
+                reloadData()
             }
 
             else -> {}

@@ -21,6 +21,8 @@ public enum HapticType {
     /// Drag and drop, reordering operations
     case drag
     
+    case chartSelection
+
     /// Successful completion of an action
     case success
     
@@ -34,44 +36,35 @@ public enum Haptics {
     
     // MARK: - Prepared Generators
     
-    private static var selectionGenerator: UISelectionFeedbackGenerator?
-    private static var lightTapGenerator: UIImpactFeedbackGenerator?
-    private static var transitionGenerator: UIImpactFeedbackGenerator?
-    private static var dragGenerator: UIImpactFeedbackGenerator?
-    private static var notificationGenerator: UINotificationFeedbackGenerator?
+    private static let selectionGenerator = UISelectionFeedbackGenerator()
+    private static let softImpactGenerator = UIImpactFeedbackGenerator(style: .soft)
+    private static let rigidImpactGenerator = UIImpactFeedbackGenerator(style: .rigid)
+    private static let lightImpactGenerator = UIImpactFeedbackGenerator(style: .light)
+    private static let notificationGenerator = UINotificationFeedbackGenerator()
     
     /// Prepare generators ahead of time for lower latency feedback
     public static func prepare(_ type: HapticType) {
         switch type {
         case .selection:
-            if selectionGenerator == nil {
-                selectionGenerator = UISelectionFeedbackGenerator()
-            }
-            selectionGenerator?.prepare()
+            selectionGenerator.prepare()
             
         case .lightTap:
-            if lightTapGenerator == nil {
-                lightTapGenerator = UIImpactFeedbackGenerator(style: .soft)
-            }
-            lightTapGenerator?.prepare()
+            softImpactGenerator.prepare()
             
         case .transition:
-            if transitionGenerator == nil {
-                transitionGenerator = UIImpactFeedbackGenerator(style: .soft)
-            }
-            transitionGenerator?.prepare()
+            softImpactGenerator.prepare()
             
         case .drag:
-            if dragGenerator == nil {
-                dragGenerator = UIImpactFeedbackGenerator(style: .rigid)
-            }
-            dragGenerator?.prepare()
+            rigidImpactGenerator.prepare()
             
-        case .success, .error:
-            if notificationGenerator == nil {
-                notificationGenerator = UINotificationFeedbackGenerator()
-            }
-            notificationGenerator?.prepare()
+        case .chartSelection:
+            lightImpactGenerator.prepare()
+
+        case .success:
+            notificationGenerator.prepare()
+
+        case .error:
+            notificationGenerator.prepare()
         }
     }
     
@@ -82,46 +75,25 @@ public enum Haptics {
     public static func play(_ type: HapticType) {
         switch type {
         case .selection:
-            if let generator = selectionGenerator {
-                generator.selectionChanged()
-            } else {
-                UISelectionFeedbackGenerator().selectionChanged()
-            }
+            selectionGenerator.selectionChanged()
             
         case .lightTap:
-            if let generator = lightTapGenerator {
-                generator.impactOccurred()
-            } else {
-                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-            }
+            softImpactGenerator.impactOccurred()
             
         case .transition:
-            if let generator = transitionGenerator {
-                generator.impactOccurred(intensity: 0.75)
-            } else {
-                UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.75)
-            }
+            softImpactGenerator.impactOccurred(intensity: 0.75)
             
         case .drag:
-            if let generator = dragGenerator {
-                generator.impactOccurred()
-            } else {
-                UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
-            }
-            
+            rigidImpactGenerator.impactOccurred()
+
+        case .chartSelection:
+            lightImpactGenerator.impactOccurred(intensity: 0.75)
+
         case .success:
-            if let generator = notificationGenerator {
-                generator.notificationOccurred(.success)
-            } else {
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
-            }
+            notificationGenerator.notificationOccurred(.success)
             
         case .error:
-            if let generator = notificationGenerator {
-                generator.notificationOccurred(.error)
-            } else {
-                UINotificationFeedbackGenerator().notificationOccurred(.error)
-            }
+            notificationGenerator.notificationOccurred(.error)
         }
     }
 }

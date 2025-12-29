@@ -4,7 +4,6 @@ import SwiftUI
 import UIKit
 import UIComponents
 import WalletContext
-import WalletCore
 import Perception
 
 private let log = Log("AppearanceSettingsView")

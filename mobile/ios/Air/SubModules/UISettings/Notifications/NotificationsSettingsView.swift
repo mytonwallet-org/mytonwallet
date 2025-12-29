@@ -147,15 +147,14 @@ struct SelectableAccountRow: View {
                 HStack(spacing: 6) {
                     Text(account.displayName)
                         .font(.system(size: 16, weight: .medium))
-                    AccountTypeBadge(account.type, style: .list)
+                    AccountTypeBadge(account.type)
                         .foregroundStyle(Color.air.secondaryLabel)
                 }
-                if let firstAddress = account.firstAddress {
-                    Text("\(formatStartEndAddress(firstAddress))")
-                        .font14h18()
-                        .fixedSize()
-                        .foregroundStyle(Color.air.secondaryLabel)
-                }
+                let firstAddress = account.firstAddress
+                Text("\(formatStartEndAddress(firstAddress))")
+                    .font14h18()
+                    .fixedSize()
+                    .foregroundStyle(Color.air.secondaryLabel)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }

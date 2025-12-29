@@ -25,7 +25,7 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
         case emptyPlaceholder
     }
 
-    public let accountId: String
+    nonisolated public let accountId: String
     public let token: ApiToken?
 
     @MainActor public var activitiesById: [String: ApiActivity]?

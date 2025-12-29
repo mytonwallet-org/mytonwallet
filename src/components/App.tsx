@@ -223,7 +223,7 @@ function App({
 
   return (
     <>
-      {IS_ELECTRON && !IS_LINUX && <ElectronHeader withTitle />}
+      {IS_ELECTRON && <ElectronHeader withTitle />}
 
       <Transition
         name={transitionName}

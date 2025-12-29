@@ -229,6 +229,7 @@ class IntroVC(
         updateTheme()
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         super.updateTheme()
         val backgroundColor = WColor.Background.color
@@ -249,12 +250,12 @@ class IntroVC(
             particlesCleaner = tonParticlesView.addParticleSystem(particleParams)
             tonParticlesView.isGone = false
         }
-        tonParticlesView.fadeIn { }
+        tonParticlesView.fadeIn()
     }
 
     override fun viewWillDisappear() {
         super.viewWillDisappear()
-        tonParticlesView.fadeOut { }
+        tonParticlesView.fadeOut()
     }
 
     override fun onDestroy() {

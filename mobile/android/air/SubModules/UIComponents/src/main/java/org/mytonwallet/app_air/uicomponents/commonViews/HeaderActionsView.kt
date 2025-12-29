@@ -197,6 +197,7 @@ class HeaderActionsView(
         )
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         val iconBackgroundColor =
             if (ThemeManager.isDark) "#2A2A2E".toColorInt() else "#FCFCFD".toColorInt()
@@ -291,18 +292,18 @@ class HeaderActionsView(
         }
     }
 
-    var fadeOutPercent: Float = 0f
+    var fadeInPercent: Float = 1f
         set(value) {
             if (field == value)
                 return
             field = value
+            val alphaValue = ((value - 0.4f) * 5 / 3).coerceAtLeast(0f)
+            alpha = alphaValue
             itemViews.forEach {
-                val alphaValue = (value - 0.4f) * 5 / 3
                 it[0].apply {
                     scaleX = alphaValue
                     scaleY = alphaValue
                 }
-                it.alpha = alphaValue
             }
         }
 

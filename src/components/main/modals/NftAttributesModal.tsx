@@ -164,7 +164,7 @@ function NftAttributesModal({ nft, dnsExpiration }: StateProps) {
             {Boolean(renderedNft.image) && (
               <img
                 src={renderedNft.image}
-                alt={renderedNft.name}
+                alt=""
                 role="button"
                 tabIndex={0}
                 className={styles.fullImage}

@@ -9,7 +9,6 @@ import SwiftUI
 import WalletContext
 import WalletCore
 import UIComponents
-import UIPasscode
 
 struct ImportExistingPickerView: View {
     
@@ -48,13 +47,6 @@ struct ImportExistingPickerView: View {
     func onView() {
         introModel.onAddViewWallet()
     }
-    
-    func onWalletVersion() {
-        dismiss()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            AppActions.showImportWalletVersion()
-        }
-    }
 }
 
 
@@ -77,13 +69,5 @@ private struct Item: View {
             .foregroundStyle(Color(WTheme.primaryLabel))
             .backportGeometryGroup()
         }
-    }
-}
-
-private struct Divider: View {
-    var body: some View {
-        Capsule()
-            .frame(width: 64, height: 0.667)
-            .offset(y: 1.333)
     }
 }

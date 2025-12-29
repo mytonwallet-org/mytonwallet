@@ -177,7 +177,7 @@ class SwapSlippageRowView(
             slippageEditText.setText("${if (currentVal % 1 == 0f) currentVal.toInt() else currentVal}")
             slippageEditText.setTextColor(WColor.PrimaryText.color)
             animateHeight(96.dp)
-            editorView.fadeIn { }
+            editorView.fadeIn()
             valueView.fadeOut {
                 doneButton.fadeIn {
                     animationInProgress = false

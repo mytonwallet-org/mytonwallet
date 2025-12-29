@@ -64,39 +64,3 @@ open class WTouchPassStackView: UIStackView {
         return false
     }
 }
-
-open class WTouchPassTableView: UITableView {
-    // pass touch events to the below view
-    public override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        let hitView = super.hitTest(point, with: event)
-        if hitView == self {
-            return nil
-        } else {
-            return hitView
-        }
-    }
-}
-
-open class WTouchPassCollectionView: UICollectionView {
-    // pass touch events to the below view
-    public override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        let hitView = super.hitTest(point, with: event)
-        if hitView == self {
-            return nil
-        } else {
-            return hitView
-        }
-    }
-}
-
-open class WTouchPassScrollView: UIScrollView {
-    // pass touch events to the below view
-    public override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        let hitView = super.hitTest(point, with: event)
-        if hitView == self {
-            return nil
-        } else {
-            return hitView
-        }
-    }
-}

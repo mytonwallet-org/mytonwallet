@@ -330,7 +330,7 @@ class AssetsAndActivitiesTokenCell(
             }
         }
 
-        AccountStore.updateAssetsAndActivityData(data, notify = true)
+        AccountStore.updateAssetsAndActivityData(data, notify = true, saveToStorage = true)
     }
 
 }

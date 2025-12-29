@@ -319,9 +319,38 @@ export type ApiCardsInfo = Record<ApiMtwCardType, ApiCardInfo>;
 
 export type ApiAccountConfig = {
   cardsInfo?: ApiCardsInfo;
+  activePromotion?: ApiPromotion;
 };
 
 export type ApiSwapVersion = 2 | 3;
+
+export type ApiPromotion = {
+  id: string;
+  kind: 'cardOverlay';
+  cardOverlay: {
+    mascotIcon?: {
+      url: string;
+      top: number;
+      right: number;
+      height: number;
+      width: number;
+      rotation: number;
+    };
+    onClickAction: 'openPromotionModal' | 'openMintCardModal';
+  };
+  modal?: {
+    backgroundImageUrl: string;
+    backgroundFallback: string;
+    heroImageUrl?: string;
+    title: string;
+    description: string;
+    availabilityIndicator?: string;
+    actionButton?: {
+      title: string;
+      url: string;
+    };
+  };
+};
 
 export type ApiBackendConfig = {
   isLimited: boolean;
@@ -333,4 +362,5 @@ export type ApiBackendConfig = {
   isVestingEnabled?: boolean;
   isWebSocketEnabled?: boolean;
   swapVersion?: ApiSwapVersion;
+  seasonalTheme?: 'newYear';
 };

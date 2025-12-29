@@ -200,7 +200,7 @@ struct PaletteGrid: View {
                             paletteColor: color,
                             state: .locked,
                             onTap: { _ in
-                                topWViewController()?.showToast(
+                                AppActions.showToast(
                                     message: lang("Get a unique MyTonWallet Card to unlock new palettes."),
                                     tapAction: AppActions.showUpgradeCard
                                 )

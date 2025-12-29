@@ -324,7 +324,12 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
     override fun updateTheme() {
         super.updateTheme()
         updateBackground()
+        titleLabel.setTextColor(WColor.PrimaryText.color)
         subtitleLabel.setTextColor(WColor.SecondaryText.color)
+        segmentedController.updateTheme()
+        segmentedController.items.forEach {
+            it.viewController.updateTheme()
+        }
     }
 
     override fun insetsUpdated() {
@@ -402,7 +407,7 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                 }
             }
 
-            WalletEvent.AccountNameChanged, WalletEvent.NftCardUpdated, WalletEvent.ByChainUpdated -> {
+            WalletEvent.AccountNameChanged, WalletEvent.NftCardUpdated, is WalletEvent.ByChainUpdated -> {
                 updateAccounts()
                 walletsViewControllers.forEach {
                     it.reloadData()

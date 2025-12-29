@@ -21,8 +21,6 @@ private let log = Log("AppSwitcher")
     
     let window: WWindow
 
-    var webView: WKWebView? = nil
-    
     init(window: WWindow) {
         log.info("AppSwitcher.init")
         self.window = window

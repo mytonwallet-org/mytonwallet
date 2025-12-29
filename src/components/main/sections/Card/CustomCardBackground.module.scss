@@ -31,11 +31,12 @@
     bottom: 0;
     left: 0;
 
-    padding: 1px;
+    /* stylelint-disable-next-line plugin/whole-pixel */
+    padding: 1.5px;
     border-radius: var(--border-radius-card);
 
-    background: radial-gradient(24.09% 50.19% at 74.09% 0%, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%),
-    linear-gradient(258.65deg, rgba(140, 148, 176, 0.5) 33.29%, rgba(186, 188, 194, 0.85) 48.38%);
+    background: radial-gradient(10.48% 50.24% at 50% 100.43%, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%),
+    linear-gradient(258.69deg, rgba(140, 148, 176, 0.5) 33.2%, rgba(186, 188, 194, 0.85) 48.38%);
 
     /* Trim so that the gradient appears only on the borders */
     mask:
@@ -44,6 +45,10 @@
 
     -webkit-mask-composite: xor;
     mask-composite: exclude;
+  }
+
+  &:global(.MtwCard__black)::before {
+    padding: 2px;
   }
 
   &:global(.MtwCard__standard) {
@@ -69,22 +74,22 @@
 // Card's border with shine
 .borderShine_down::before {
   background-image: radial-gradient(10.43% 49.81% at 50% 100%, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%),
-                    linear-gradient(258.65deg, rgba(140, 148, 176, 0.5) 33.29%, rgba(186, 188, 194, 0.85) 48.38%) !important;
+                    linear-gradient(258.69deg, rgba(140, 148, 176, 0.5) 33.2%, rgba(186, 188, 194, 0.85) 48.38%) !important;
 }
 
 .borderShine_left::before {
   background-image: radial-gradient(50% 28.86% at 0% 50.19%, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%),
-                    linear-gradient(258.65deg, rgba(140, 148, 176, 0.5) 33.29%, rgba(186, 188, 194, 0.85) 48.38%) !important;
+                    linear-gradient(258.69deg, rgba(140, 148, 176, 0.5) 33.2%, rgba(186, 188, 194, 0.85) 48.38%) !important;
 }
 
 .borderShine_up::before {
   background-image: radial-gradient(10.51% 50.19% at 50% 0%, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%),
-                    linear-gradient(258.65deg, rgba(140, 148, 176, 0.5) 33.29%, rgba(186, 188, 194, 0.85) 48.38%) !important;
+                    linear-gradient(258.69deg, rgba(140, 148, 176, 0.5) 33.2%, rgba(186, 188, 194, 0.85) 48.38%) !important;
 }
 
 .borderShine_right::before {
   background-image: radial-gradient(50% 28.86% at 100% 50.19%, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%),
-                    linear-gradient(258.65deg, rgba(140, 148, 176, 0.5) 33.29%, rgba(186, 188, 194, 0.85) 48.38%) !important;
+                    linear-gradient(258.69deg, rgba(140, 148, 176, 0.5) 33.2%, rgba(186, 188, 194, 0.85) 48.38%) !important;
 }
 
 .borderShine_radioactive::before {
@@ -92,67 +97,26 @@
 }
 
 :global(.MtwCard__black)::before {
-  /* stylelint-disable-next-line plugin/whole-pixel */
-  padding: 1.5px !important;
-  background-image: radial-gradient(30.47% 83.28% at 79.45% 3.2%, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%),
-                    linear-gradient(258.65deg, #141518 33.29%, #292929 48.38%) !important;
+  background-image: radial-gradient(23.98% 49.81% at 73.98% 0.37%, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%),
+                    linear-gradient(258.61deg, rgba(255, 255, 255, 0.24) 33.38%, rgba(255, 255, 255, 0.48) 48.39%) !important;
+
+  :global(html.theme-dark) & {
+    background-image: radial-gradient(23.98% 49.81% at 73.98% 0.37%, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%),
+                      linear-gradient(258.61deg, rgba(255, 255, 255, 0.06) 33.38%, rgba(255, 255, 255, 0.12) 48.39%) !important;
+  }
 }
 
-:global(.MtwCard__platinum)::before,
-:global(.MtwCard__gold)::before,
+:global(.MtwCard__platinum)::before {
+  background-image: radial-gradient(23.98% 49.81% at 73.98% 0.37%, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%),
+                    linear-gradient(258.61deg, rgba(119, 119, 127, 0.5) 33.38%, rgba(255, 255, 255, 0.5) 48.39%) !important;
+}
+
+:global(.MtwCard__gold)::before {
+  background-image: radial-gradient(23.98% 49.81% at 73.98% 0.37%, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%),
+                    linear-gradient(258.61deg, rgba(76, 52, 3, 0.5) 33.38%, rgba(176, 125, 29, 0.5) 48.39%) !important;
+}
+
 :global(.MtwCard__silver)::before {
   background-image: radial-gradient(23.98% 49.81% at 73.98% 0.37%, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%),
-                    linear-gradient(258.61deg, rgba(140, 148, 176, 0.5) 33.38%, rgba(186, 188, 194, 0.85) 48.39%) !important;
-}
-
-.shadow {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-
-  overflow: hidden;
-
-  width: 62%;
-  border-radius: var(--border-radius-card) 0 0 var(--border-radius-card);
-
-  &::before,
-  &::after {
-    content: "";
-
-    position: absolute;
-    top: 0;
-    left: 0;
-
-    width: 100%;
-    height: 100%;
-  }
-
-  :global(.MtwCard__standard.MtwCard__lightText) & {
-    &::before {
-      z-index: 2;
-      background: radial-gradient(161.19% 173.04% at -61.19% 50%, rgba(0, 0, 0, 0.16) 35%, rgba(0, 0, 0, 0) 100%);
-      mix-blend-mode: normal;
-    }
-
-    &::after {
-      z-index: 1;
-      background: radial-gradient(161.19% 173.04% at -61.19% 50%, #000000 35%, rgba(0, 0, 0, 0) 100%);
-      mix-blend-mode: overlay;
-    }
-  }
-
-  :global(.MtwCard__standard.MtwCard__darkText) & {
-    &::before {
-      z-index: 2;
-      background: radial-gradient(161.19% 173.04% at -61.19% 50%, rgba(255, 255, 255, 0.16) 35%, rgba(255, 255, 255, 0) 100%);
-      mix-blend-mode: normal;
-    }
-
-    &::after {
-      z-index: 1;
-      background: radial-gradient(161.19% 173.04% at -61.19% 50%, #FFFFFF 35%, rgba(255, 255, 255, 0) 100%);
-      mix-blend-mode: overlay;
-    }
-  }
+                    linear-gradient(258.61deg, rgba(39, 39, 39, 0.5) 33.38%, rgba(152, 152, 152, 0.5) 48.39%) !important;
 }

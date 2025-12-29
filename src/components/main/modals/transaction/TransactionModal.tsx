@@ -109,6 +109,7 @@ function TransactionModal({
     setIsPinAccepted,
     clearIsPinAccepted,
     setLandscapeActionsActiveTabIndex,
+    selectToken,
   } = getActions();
 
   const { isPortrait } = useDeviceScreen();
@@ -254,6 +255,11 @@ function TransactionModal({
     }
   });
 
+  const handleTokenClick = useLastCallback((tokenSlug: string) => {
+    closeActivityInfo({ id: id! });
+    selectToken({ slug: tokenSlug });
+  });
+
   function renderContent(isActive: boolean, isFrom: boolean, currentKey: SLIDES) {
     switch (currentKey) {
       case SLIDES.initial:
@@ -295,6 +301,7 @@ function TransactionModal({
               onSendClick={handleSendClick}
               onStartStakingClick={handleStartStakingClick}
               onUnstakeMoreClick={handleUnstakeMoreClick}
+              onTokenClick={handleTokenClick}
             />
           </>
         );

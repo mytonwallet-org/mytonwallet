@@ -14,6 +14,7 @@ interface OwnProps {
   imageClassName?: string;
   children?: TeactJsx;
   fallback?: TeactJsx;
+  onLoad?: NoneToVoidFunction;
 }
 
 function ImageComponent({
@@ -25,6 +26,7 @@ function ImageComponent({
   imageClassName,
   children,
   fallback,
+  onLoad,
 }: OwnProps) {
   const ref = useRef<HTMLImageElement>();
   const [isLoaded, markIsLoaded] = useFlag(preloadedImageUrls.has(url));
@@ -33,6 +35,7 @@ function ImageComponent({
   const handleLoad = () => {
     markIsLoaded();
     preloadedImageUrls.add(url);
+    onLoad?.();
   };
 
   const shouldShowFallback = (hasError || !url) && !!fallback;

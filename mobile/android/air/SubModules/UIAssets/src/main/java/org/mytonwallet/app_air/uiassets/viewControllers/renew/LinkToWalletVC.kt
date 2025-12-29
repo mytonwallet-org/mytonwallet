@@ -58,6 +58,9 @@ class LinkToWalletVC(
 ) : WViewController(context) {
     override val TAG = "LinkToWallet"
 
+    override val displayedAccount =
+        DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
+
     override val shouldDisplayTopBar = false
 
     var address: String? = NftStore.nftData?.linkedAddressByAddress?.get(nft.address)
@@ -228,7 +231,7 @@ class LinkToWalletVC(
                             )
                         }"
                     feeLabel.alpha = 0f
-                    feeLabel.fadeIn { }
+                    feeLabel.fadeIn()
                 } else {
                     linkButton.isEnabled = false
                     linkButton.setText(LocaleController.getString("Insufficient Balance"))

@@ -229,7 +229,7 @@ class WordCheckVC(
                     )
                 }
                 Handler(Looper.getMainLooper()).postDelayed({
-                    wordsDoNotMatchLabel.fadeIn { }
+                    wordsDoNotMatchLabel.fadeIn()
                 }, AnimationConstants.VERY_QUICK_ANIMATION)
                 updateHeaderDescription()
             }, 1000)
@@ -294,7 +294,7 @@ class WordCheckVC(
         val allSelected = wordCheckerViews.all {
             it.isWordSelected && !it.isValidatedAndWrong
         }
-        wordsDoNotMatchLabel.fadeOut { }
+        wordsDoNotMatchLabel.fadeOut()
         if (allSelected)
             checkPressed()
     }

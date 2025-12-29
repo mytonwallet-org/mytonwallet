@@ -2,10 +2,14 @@ import React, {
   type ElementRef,
   memo, useEffect, useLayoutEffect, useMemo, useRef, useState,
 } from '../../../../lib/teact/teact';
-import { withGlobal } from '../../../../global';
+import { getActions, withGlobal } from '../../../../global';
 
 import type { ApiBaseCurrency, ApiCurrencyRates, ApiNft, ApiStakingState } from '../../../../api/types';
+import type { ApiBackendConfig } from '../../../../api/types/backend';
+import type { ApiPromotion } from '../../../../api/types/backend';
 import type { IAnchorPosition, TokenChartMode, UserToken } from '../../../../global/types';
+import type { LangFn } from '../../../../hooks/useLang';
+import type { DropdownItem } from '../../../ui/Dropdown';
 
 import { IS_CORE_WALLET } from '../../../../config';
 import {
@@ -19,6 +23,7 @@ import {
 import buildClassName from '../../../../util/buildClassName';
 import captureEscKeyListener from '../../../../util/captureEscKeyListener';
 import { formatCurrency, getShortCurrencySymbol } from '../../../../util/formatNumber';
+import { preloadedImageUrls } from '../../../../util/preloadImage';
 import { IS_IOS, IS_SAFARI } from '../../../../util/windowEnvironment';
 import { calculateFullBalance } from './helpers/calculateFullBalance';
 import getSensitiveDataMaskSkinFromCardNft from './helpers/getSensitiveDataMaskSkinFromCardNft';
@@ -26,6 +31,7 @@ import getSensitiveDataMaskSkinFromCardNft from './helpers/getSensitiveDataMaskS
 import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
 import useFontScale from '../../../../hooks/useFontScale';
 import useHistoryBack from '../../../../hooks/useHistoryBack';
+import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
 import useShowTransition from '../../../../hooks/useShowTransition';
 import useSyncEffect from '../../../../hooks/useSyncEffect';
@@ -33,17 +39,23 @@ import useUpdateIndicator from '../../../../hooks/useUpdateIndicator';
 import useWindowSize from '../../../../hooks/useWindowSize';
 
 import MintCardButton from '../../../mintCard/MintCardButton';
+import NewYearGarland from '../../../mintCard/NewYearGarland';
 import AnimatedCounter from '../../../ui/AnimatedCounter';
+import Image from '../../../ui/Image';
 import LoadingDots from '../../../ui/LoadingDots';
 import SensitiveData from '../../../ui/SensitiveData';
 import Spinner from '../../../ui/Spinner';
 import Transition from '../../../ui/Transition';
+import WithContextMenu from '../../../ui/WithContextMenu';
 import CardAddress from './CardAddress';
 import ChartCard from './ChartCard';
 import CurrencySwitcherMenu from './CurrencySwitcherMenu';
 import CustomCardManager from './CustomCardManager';
 
 import styles from './Card.module.scss';
+
+import promoBgMaskUrl from '../../../../assets/cards/promo_card_bg.png';
+import promoOverlayMaskUrl from '../../../../assets/cards/promo_card_overlay.png';
 
 interface OwnProps {
   ref?: ElementRef<HTMLDivElement>;
@@ -64,9 +76,106 @@ interface StateProps {
   isSensitiveDataHidden?: true;
   isNftBuyingDisabled: boolean;
   isViewMode: boolean;
+  animationLevel: number;
+  isSeasonalThemingDisabled?: boolean;
+  seasonalTheme?: ApiBackendConfig['seasonalTheme'];
+  activePromotion?: ApiPromotion;
 }
 
 let mainKey = 0;
+
+function useSeasonalTheming({
+  seasonalTheme,
+  isSeasonalThemingDisabled,
+  toggleSeasonalTheming,
+  lang,
+  showToast,
+}: {
+  seasonalTheme?: ApiBackendConfig['seasonalTheme'];
+  isSeasonalThemingDisabled?: boolean;
+  toggleSeasonalTheming: (options: { isEnabled: boolean }) => void;
+  lang: LangFn;
+  showToast: (options: { message: string }) => void;
+}) {
+  const handleDisableSeasonalTheming = useLastCallback(() => {
+    toggleSeasonalTheming({ isEnabled: false });
+    showToast({
+      message: lang('You can always enable seasonal theming again in the appearance settings.'),
+    });
+  });
+
+  const seasonalContextMenuItems = useMemo<DropdownItem<'disable'>[]>(() => ([
+    {
+      value: 'disable',
+      name: lang('Disable Seasonal Theming'),
+      fontIcon: 'eye-closed',
+    },
+  ]), [lang]);
+
+  const shouldRenderSeasonalGarland = seasonalTheme === 'newYear' && !isSeasonalThemingDisabled;
+
+  return {
+    shouldRenderSeasonalGarland,
+    seasonalContextMenuItems,
+    handleDisableSeasonalTheming,
+  };
+}
+
+function usePromotionModal({
+  activePromotion,
+  promoBgMaskUrl: promoBgMaskUrlParam,
+  promoOverlayMaskUrl: promoOverlayMaskUrlParam,
+  openPromotionModal,
+  openMintCardModal,
+}: {
+  activePromotion?: ApiPromotion;
+  promoBgMaskUrl: string;
+  promoOverlayMaskUrl: string;
+  openPromotionModal: NoneToVoidFunction;
+  openMintCardModal: NoneToVoidFunction;
+}) {
+  const shouldRenderPromo = Boolean(activePromotion?.kind === 'cardOverlay');
+  const mascotIcon = activePromotion?.cardOverlay?.mascotIcon;
+
+  const promoMascotStyle = useMemo(() => (mascotIcon
+    ? `--promo-mascot-top: ${mascotIcon.top}px; `
+    + `--promo-mascot-right: ${mascotIcon.right}px; `
+    + `--promo-mascot-height: ${mascotIcon.height / 200 * 100}%;`
+    + `--promo-mascot-width: ${mascotIcon.width / 345 * 100}%;`
+    + `--promo-mascot-rotation: ${mascotIcon.rotation}deg;`
+    : undefined), [mascotIcon]);
+
+  // Mascot image should appear only after the card overlay is loaded
+  const [isPromoBgLoaded, setIsPromoBgLoaded] = useState(preloadedImageUrls.has(promoBgMaskUrlParam));
+  const [isPromoOverlayLoaded, setIsPromoOverlayLoaded] = useState(preloadedImageUrls.has(promoOverlayMaskUrlParam));
+  const isPromoImagesLoaded = isPromoBgLoaded && isPromoOverlayLoaded;
+  const handlePromoBgLoad = useLastCallback(() => setIsPromoBgLoaded(true));
+  const handlePromoOverlayLoad = useLastCallback(() => setIsPromoOverlayLoaded(true));
+
+  const handlePromoClick = useLastCallback(() => {
+    const { onClickAction } = activePromotion?.cardOverlay || {};
+    switch (onClickAction) {
+      case 'openPromotionModal':
+        openPromotionModal();
+        break;
+      case 'openMintCardModal':
+        openMintCardModal();
+        break;
+      default:
+        break;
+    }
+  });
+
+  return {
+    shouldRenderPromo,
+    promoMascotStyle,
+    isPromoImagesLoaded,
+    mascotIcon,
+    handlePromoBgLoad,
+    handlePromoOverlayLoad,
+    handlePromoClick,
+  };
+}
 
 function Card({
   ref,
@@ -84,8 +193,15 @@ function Card({
   isNftBuyingDisabled,
   cardNft,
   isViewMode,
+  animationLevel,
+  isSeasonalThemingDisabled,
+  seasonalTheme,
+  activePromotion,
 }: OwnProps & StateProps) {
+  const { toggleSeasonalTheming, showToast, openPromotionModal, openMintCardModal } = getActions();
+  const lang = useLang();
   const amountRef = useRef<HTMLDivElement>();
+  const cardRef = useRef<HTMLDivElement>();
   const shortBaseSymbol = getShortCurrencySymbol(baseCurrency);
   const [customCardClassName, setCustomCardClassName] = useState<string | undefined>(undefined);
   const [withTextGradient, setWithTextGradient] = useState<boolean>(false);
@@ -127,6 +243,34 @@ function Card({
   const handleCardChange = useLastCallback((hasGradient: boolean, className?: string) => {
     setCustomCardClassName(className);
     setWithTextGradient(hasGradient);
+  });
+
+  const {
+    shouldRenderSeasonalGarland,
+    seasonalContextMenuItems,
+    handleDisableSeasonalTheming,
+  } = useSeasonalTheming({
+    seasonalTheme,
+    isSeasonalThemingDisabled,
+    toggleSeasonalTheming,
+    lang,
+    showToast,
+  });
+
+  const {
+    shouldRenderPromo,
+    promoMascotStyle,
+    isPromoImagesLoaded,
+    handlePromoBgLoad,
+    handlePromoOverlayLoad,
+    handlePromoClick,
+    mascotIcon,
+  } = usePromotionModal({
+    activePromotion,
+    promoBgMaskUrl,
+    promoOverlayMaskUrl,
+    openPromotionModal,
+    openMintCardModal,
   });
 
   const values = useMemo(() => {
@@ -255,13 +399,65 @@ function Card({
   }
 
   return (
-    <div ref={ref} className={styles.containerWrapper}>
+    <div
+      ref={(el) => {
+        cardRef.current = el || undefined;
+        if (ref) {
+          ref.current = el;
+        }
+      }}
+      className={styles.containerWrapper}
+    >
       <Transition activeKey={isUpdating ? 1 : 0} name="fade" shouldCleanup className={styles.loadingDotsContainer}>
         {isUpdating ? <LoadingDots isActive isDoubled /> : undefined}
       </Transition>
 
       <div className={buildClassName(styles.container, currentTokenSlug && styles.backstage, customCardClassName)}>
         <CustomCardManager nft={cardNft} onCardChange={handleCardChange} />
+        {shouldRenderSeasonalGarland && (
+          <WithContextMenu
+            layout={{
+              isCenteredHorizontally: false,
+              doNotCoverTrigger: false,
+            }}
+            items={seasonalContextMenuItems}
+            onItemClick={handleDisableSeasonalTheming}
+          >
+            {(menuProps) => (
+              <div
+                ref={menuProps.ref as ElementRef<HTMLDivElement>}
+                onMouseDown={menuProps.onMouseDown}
+                onContextMenu={menuProps.onContextMenu}
+                className={buildClassName(styles.seasonalGarland, menuProps.className)}
+              >
+                <NewYearGarland animationLevel={animationLevel} />
+              </div>
+            )}
+          </WithContextMenu>
+        )}
+
+        {shouldRenderPromo && (
+          <div className={styles.promoLayer}>
+            <Image
+              url={promoBgMaskUrl}
+              alt=""
+              className={styles.promoBg}
+              imageClassName={styles.promoBg_img}
+              isSlow
+              loading="eager"
+              onLoad={handlePromoBgLoad}
+            />
+            <Image
+              url={promoOverlayMaskUrl}
+              alt=""
+              className={styles.promoOverlay}
+              imageClassName={styles.promoOverlay_img}
+              isSlow
+              loading="eager"
+              onLoad={handlePromoOverlayLoad}
+            />
+          </div>
+        )}
 
         <div className={buildClassName(styles.containerInner, customCardClassName)}>
           {values ? renderBalance() : renderLoader()}
@@ -278,6 +474,21 @@ function Card({
           )}
         </div>
       </div>
+
+      {shouldRenderPromo && (
+        <div
+          // This class name should be applied only once. When the mascot is present, it should be applied to the image instead.
+          className={!(mascotIcon && isPromoImagesLoaded) ? styles.promoMascot : undefined}
+          style={promoMascotStyle}
+          role="button"
+          tabIndex={0}
+          onClick={handlePromoClick}
+        >
+          {mascotIcon && isPromoImagesLoaded && (
+            <Image url={mascotIcon.url} alt="" loading="eager" className={styles.promoMascot} />
+          )}
+        </div>
+      )}
 
       {shouldRenderChartCard && (
         <ChartCard
@@ -312,6 +523,10 @@ export default memo(
         cardNft,
         isSensitiveDataHidden: global.settings.isSensitiveDataHidden,
         isNftBuyingDisabled: global.restrictions.isNftBuyingDisabled,
+        animationLevel: global.settings.animationLevel,
+        isSeasonalThemingDisabled: global.settings.isSeasonalThemingDisabled,
+        seasonalTheme: global.seasonalTheme,
+        activePromotion: accountState?.config?.activePromotion,
       };
     },
     (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),

@@ -7,7 +7,6 @@
 
 import UIKit
 import UIComponents
-import WalletCore
 import WalletContext
 
 
@@ -45,10 +44,5 @@ class CollectiblesEmptyView: UICollectionViewCell, WThemedView {
     }
     
     func updateTheme() {
-    }
-    
-    @objc func explorePressed() {
-        let url = URL(string: NFT_MARKETPLACE_URL)!
-        AppActions.openInBrowser(url)
     }
 }

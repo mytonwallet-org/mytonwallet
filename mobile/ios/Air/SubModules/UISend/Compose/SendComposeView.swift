@@ -7,43 +7,36 @@ import UIComponents
 import WalletCore
 import WalletContext
 import Perception
+import Dependencies
 
 public struct SendComposeView: View {
     
-    @ObservedObject var model: SendModel
+    let model: SendModel
     var isSensitiveDataHidden: Bool
             
     @State private var addressFocused: Bool = false
     @State private var amountFocused: Bool = false
     
     public var body: some View {
-        InsetList {
-            ToSection(isFocused: $addressFocused, onSubmit: onAddressSubmit)
-            AmountSection(focused: $amountFocused)
-            NftSection()
-            CommentOrMemoSection(commentIsEnrypted: $model.isMessageEncrypted, commentOrMemo: $model.comment)
-                .safeAreaInset(edge: .bottom, spacing: 0) {
-                    Color.clear.frame(height: 60)
-                }
-        }
-        .safeAreaInset(edge: .bottom) {
-            Color.clear.frame(height: 140)
-        }
-        .contentShape(.rect)
-        .onTapGesture {
-            model.onBackgroundTapped()
-        }
-
-        .navigationTitle(Text(lang("Send")))
-        .environmentObject(model)
-
-        .onChange(of: addressFocused) { focus in
-            model.validateAddressOrDomain(nil, tokenSlug: nil)
-        }
-        .onAppear {
-            if model.addressOrDomain != "" {
-                model.validateAddressOrDomain(model.addressOrDomain, tokenSlug: model.tokenSlug)
+        WithPerceptionTracking {
+            @Perception.Bindable var model = model
+            InsetList {
+                ToSection(model: self.model, isFocused: $addressFocused, onSubmit: onAddressSubmit)
+                AmountSection(model: self.model, focused: $amountFocused)
+                NftSection(model: self.model)
+                CommentOrMemoSection(model: self.model, commentIsEnrypted: $model.isMessageEncrypted, commentOrMemo: $model.comment)
+                    .safeAreaInset(edge: .bottom, spacing: 0) {
+                        Color.clear.frame(height: 60)
+                    }
             }
+            .safeAreaInset(edge: .bottom) {
+                Color.clear.frame(height: 140)
+            }
+            .contentShape(.rect)
+            .onTapGesture {
+                topViewController()?.view.endEditing(true)
+            }
+            .navigationTitle(Text(lang("Send")))
         }
     }
     
@@ -58,10 +51,9 @@ public struct SendComposeView: View {
 
 fileprivate struct ToSection: View {
     
+    let model: SendModel
     @Binding var isFocused: Bool
     var onSubmit: () -> ()
-    
-    @EnvironmentObject private var model: SendModel
     
     private var showName: Bool {
         if model.draftData.address == model.addressOrDomain,
@@ -82,59 +74,62 @@ fileprivate struct ToSection: View {
     }
 
     var body: some View {
-        InsetSection {
-            InsetCell {
-                HStack {
-                    AddressTextField(
-                        value: $model.addressOrDomain,
-                        isFocused: $isFocused,
-                        onNext: {
-                            onSubmit()
+        WithPerceptionTracking {
+            @Perception.Bindable var model = model
+            InsetSection {
+                InsetCell {
+                    HStack {
+                        AddressTextField(
+                            value: $model.addressOrDomain,
+                            isFocused: $isFocused,
+                            onNext: {
+                                onSubmit()
+                            }
+                        )
+                        .offset(y: 1)
+                        .background(alignment: .leading) {
+                            if model.addressOrDomain.isEmpty {
+                                Text(lang("Wallet address or domain"))
+                                    .foregroundStyle(Color(UIColor.placeholderText))
+                            }
                         }
-                    )
-                    .offset(y: 1)
-                    .background(alignment: .leading) {
+                        
                         if model.addressOrDomain.isEmpty {
-                            Text(lang("Wallet address or domain"))
-                                .foregroundStyle(Color(UIColor.placeholderText))
+                            HStack(spacing: 12) {
+                                Button(action: onAddressPastePressed) {
+                                    Text(lang("Paste"))
+                                }
+                                Button(action: onScanPressed) {
+                                    Image("ScanIcon", bundle: AirBundle)
+                                        .renderingMode(.template)
+                                }
+                            }
+                            .offset(x: 4)
+                            .padding(.vertical, -1)
+                        } else {
+                            Button(action: { model.addressOrDomain = "" }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .tint(Color(WTheme.secondaryLabel))
+                                    .scaleEffect(0.9)
+                            }
                         }
                     }
-                    
-                    if model.addressOrDomain.isEmpty {
-                        HStack(spacing: 12) {
-                            Button(action: { model.onAddressPastePressed() }) {
-                                Text(lang("Paste"))
-                            }
-                            Button(action: { model.onScanPressed() }) {
-                                Image("ScanIcon", bundle: AirBundle)
-                                    .renderingMode(.template)
-                            }
-                        }
-                        .offset(x: 4)
-                        .padding(.vertical, -1)
-                    } else {
-                        Button(action: { model.addressOrDomain = "" }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .tint(Color(WTheme.secondaryLabel))
-                                .scaleEffect(0.9)
-                        }
-                    }
+                    .buttonStyle(.borderless)
                 }
-                .buttonStyle(.borderless)
-            }
-            .contentShape(.rect)
-            .onTapGesture {
-                isFocused = true
-            }
-        } header: {
-            Text(lang("Recipient Address"))
-        } footer: {
-            footer
-        }
-        .onAppear {
-            if model.addressOrDomain.isEmpty {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
+                .contentShape(.rect)
+                .onTapGesture {
                     isFocused = true
+                }
+            } header: {
+                Text(lang("Recipient Address"))
+            } footer: {
+                footer
+            }
+            .onAppear {
+                if model.addressOrDomain.isEmpty {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
+                        isFocused = true
+                    }
                 }
             }
         }
@@ -142,7 +137,7 @@ fileprivate struct ToSection: View {
     
     @ViewBuilder
     var footer: some View {
-        if let name = model.toAddressDraft?.addressName, showName {
+        if let name = model.draftData.transactionDraft?.addressName, showName {
             Text(verbatim: name)
         } else if let resolvedAddress = model.resolvedAddress, showResolvedAddress {
             Text(AttributedString(formatAddressAttributed(
@@ -156,6 +151,24 @@ fileprivate struct ToSection: View {
         }
 
     }
+    
+    func onAddressPastePressed() {
+        if let pastedAddress = UIPasteboard.general.string, !pastedAddress.isEmpty {
+            model.addressOrDomain = pastedAddress
+            topViewController()?.view.endEditing(true)
+        } else {
+            AppActions.showToast(message: lang("Clipboard empty"))
+        }
+    }
+    
+    func onScanPressed() {
+        Task {
+            if let result = await AppActions.scanQR() {
+                topViewController()?.view.endEditing(true)
+                model.onScanResult(result)
+            }
+        }
+    }
 }
 
 
@@ -163,36 +176,51 @@ fileprivate struct ToSection: View {
 
 fileprivate struct AmountSection: View {
     
+    let model: SendModel
     @Binding var focused: Bool
     
-    @EnvironmentObject private var model: SendModel
-    
     var body: some View {
-        if model.nftSendMode == nil {
-            TokenAmountEntrySection(
-                amount: $model.amount,
-                token: model.token,
-                balance: model.maxToSend,
-                insufficientFunds: model.insufficientFunds,
-                amountInBaseCurrency: $model.amountInBaseCurrency,
-                switchedToBaseCurrencyInput: $model.switchedToBaseCurrencyInput,
-                fee: model.showingFee,
-                explainedFee: model.explainedTransferFee,
-                isFocused: $focused,
-                onTokenSelect: model.onTokenTapped,
-                onUseAll: model.onUseAll
-            )
-            .onChange(of: model.amount) { amount in
-                if let amount, model.switchedToBaseCurrencyInput == false {
-                    model.updateBaseCurrencyAmount(amount)
+        WithPerceptionTracking {
+            @Perception.Bindable var model = model
+            if model.nftSendMode == nil {
+                TokenAmountEntrySection(
+                    amount: $model.amount,
+                    token: model.token,
+                    balance: model.maxToSend,
+                    insufficientFunds: model.insufficientFunds,
+                    amountInBaseCurrency: $model.amountInBaseCurrency,
+                    switchedToBaseCurrencyInput: $model.switchedToBaseCurrencyInput,
+                    fee: model.showingFee,
+                    explainedFee: model.explainedTransferFee,
+                    isFocused: $focused,
+                    onTokenSelect: onTokenTapped,
+                    onUseAll: model.onUseAll
+                )
+                .onChange(of: model.amount) { amount in
+                    if let amount, model.switchedToBaseCurrencyInput == false {
+                        model.updateBaseCurrencyAmount(amount)
+                    }
                 }
-            }
-            .onChange(of: model.amountInBaseCurrency) { baseCurrencyAmount in
-                if let baseCurrencyAmount, model.switchedToBaseCurrencyInput == true {
-                    model.updateAmountFromBaseCurrency(baseCurrencyAmount)
+                .onChange(of: model.amountInBaseCurrency) { baseCurrencyAmount in
+                    if let baseCurrencyAmount, model.switchedToBaseCurrencyInput == true {
+                        model.updateAmountFromBaseCurrency(baseCurrencyAmount)
+                    }
                 }
             }
         }
+    }
+    
+    func onTokenTapped() {
+        let walletTokens = model.$account.balances.map { (key: String, value: BigInt) in
+            MTokenBalance(tokenSlug: key, balance: value, isStaking: false)
+        }
+        let vc = SendCurrencyVC(accountId: model.account.id, isMultichain: model.account.isMultichain, walletTokens: walletTokens, currentTokenSlug: model.token.slug, onSelect: { token in })
+        vc.onSelect = { [weak model] newToken in
+            model?.onTokenSelected(newToken: newToken)
+            topViewController()?.dismiss(animated: true)
+        }
+        let nav = WNavigationController(rootViewController: vc)
+        topViewController()?.present(nav, animated: true)
     }
 }
 
@@ -202,19 +230,21 @@ fileprivate struct AmountSection: View {
 
 internal struct NftSection: View {
 
-    @EnvironmentObject private var model: SendModel
+    let model: SendModel
 
+    @Dependency(\.tokenStore) private var tokenStore
+    
     var body: some View {
-        if let nfts = model.nfts, nfts.count > 0 {
-            InsetSection {
-                ForEach(nfts, id: \.id) { nft in
-                    NftPreviewRow(nft: nft)
-                }
-            } header: {
-                Text("^[\(nfts.count) Assets](inflect: true)")
-            } footer: {
-                if let token = model.token, let nativeToken = token.availableChain?.nativeToken {
-                    FeeView(token: token, nativeToken: nativeToken, fee: model.showingFee, explainedTransferFee: nil, includeLabel: true)
+        WithPerceptionTracking {
+            if let nfts = model.nfts, nfts.count > 0 {
+                InsetSection {
+                    ForEach(nfts, id: \.id) { nft in
+                        NftPreviewRow(nft: nft)
+                    }
+                } header: {
+                    Text("^[\(nfts.count) Assets](inflect: true)")
+                } footer: {
+                    FeeView(token: model.token, nativeToken: tokenStore.getNativeToken(chain: model.token.chainValue), fee: model.showingFee, explainedTransferFee: nil, includeLabel: true)
                 }
             }
         }
@@ -225,11 +255,11 @@ internal struct NftSection: View {
 
 
 private struct CommentOrMemoSection: View {
+    
+    let model: SendModel
 
     @Binding var commentIsEnrypted: Bool
     @Binding var commentOrMemo: String
-    
-    @EnvironmentObject private var model: SendModel
 
     @FocusState private var isFocused: Bool
 
@@ -264,7 +294,6 @@ private struct CommentOrMemoSection: View {
                 Menu {
                     Button(action: {
                         commentIsEnrypted = false
-                        model.validateAddressOrDomain(nil, tokenSlug: nil)
                     }) {
                         Text(lang("Comment or Memo"))
                             .textCase(nil)
@@ -272,7 +301,6 @@ private struct CommentOrMemoSection: View {
                     
                     Button(action: {
                         commentIsEnrypted = true
-                        model.validateAddressOrDomain(nil, tokenSlug: nil)
                     }) {
                         Text(lang("Encrypted Message"))
                             .textCase(nil)

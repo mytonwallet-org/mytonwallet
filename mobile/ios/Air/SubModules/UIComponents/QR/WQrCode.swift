@@ -8,7 +8,6 @@
 import UIKit
 import GZip
 import RLottieBinding
-import SwiftSignalKit
 
 // This view is a wrapper around `TransformImageView` which in fact is `TransformImageNode` from the original app
 public class WQrCode: UIView {
@@ -30,8 +29,9 @@ public class WQrCode: UIView {
         addSubview(transformImageView!)
 
         // set loading signal
-        transformImageView?.setSignal(qrCode(string: url, color: .black, backgroundColor: .white, icon: .cutout) |> beforeNext { size, _ in
-        } |> map { $0.1 }, attemptSynchronously: true)
+        if let (_, generator) = generateQrCode(string: url, color: .black, backgroundColor: .white, icon: .cutout) {
+            transformImageView?.setContent(generator, attemptSynchronously: false)
+        }
         
         // get makeImageLayout function from qrcode view
         let makeImageLayout = self.transformImageView!.asyncLayout()
@@ -44,7 +44,6 @@ public class WQrCode: UIView {
                                                                  emptyColor: nil))
         // apply!
         let _ = imageApply()
-        
     }
 
 }

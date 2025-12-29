@@ -48,9 +48,9 @@ class SwapChangellyView @JvmOverloads constructor(
 
     init {
         titleTextView.text = LocaleController.getSpannableStringWithKeyValues(
-            "Cross-chain swap by %1$@", listOf(
+            "Cross-chain exchange provided by Changelly", listOf(
                 Pair(
-                    "%1$@",
+                    "Changelly",
                     SpanHelpers.buildSpannableImage(titleLogoDrawable)
                 )
             )

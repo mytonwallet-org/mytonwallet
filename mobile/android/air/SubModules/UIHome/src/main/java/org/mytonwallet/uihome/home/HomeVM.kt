@@ -1,6 +1,5 @@
 package org.mytonwallet.uihome.home
 
-import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
@@ -9,8 +8,6 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.requestDAppList
 import org.mytonwallet.app_air.walletcore.api.swapGetAssets
-import org.mytonwallet.app_air.walletcore.helpers.ActivityLoader
-import org.mytonwallet.app_air.walletcore.helpers.IActivityLoader
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MScreenMode
@@ -22,64 +19,37 @@ import org.mytonwallet.uihome.home.views.UpdateStatusView
 import java.lang.ref.WeakReference
 
 class HomeVM(
-    private val context: Context,
     private val mode: MScreenMode,
     delegate: Delegate
-) : WalletCore.EventObserver,
-    IActivityLoader.Delegate {
+) : WalletCore.EventObserver {
 
     interface Delegate {
         fun update(state: UpdateStatusView.State, animated: Boolean)
         fun updateHeaderCards(expand: Boolean)
         fun updateBalance(accountChangedFromOtherScreens: Boolean)
         fun reloadCard()
+        fun reloadCardAddress(accountId: String)
 
         // animated update transactions
         fun transactionsUpdated(isUpdateEvent: Boolean)
-        fun cacheNotFound()
-        fun loadedAll()
 
         fun loadStakingData()
         fun stakingDataUpdated()
 
-        // fun forceReload()
-        fun instantScrollToTop()
-
-        fun updateActionsView()
-        fun reloadTabs(accountChanged: Boolean)
+        fun configureAccountViews(shouldLoadNewWallets: Boolean)
+        fun reloadTabs()
         fun accountNameChanged(accountName: String, animated: Boolean)
         fun accountConfigChanged()
-        fun accountWillChange()
+        fun accountWillChange(fromHome: Boolean)
         fun removeScreenFromStack()
 
         fun pop()
         fun popToRoot()
     }
 
-    val delegate: WeakReference<Delegate> = WeakReference(delegate)
-
-    var waitingForNetwork = false
-
-    // unique identifier to detect and ignore revoked requests
-    internal var accountCode = 0L
-
-    // Activities variables
-    internal var activityLoaderHelper: IActivityLoader? = null
+    // PUBLIC VARIABLES ////////////////////////////////////////////////////////////////////////////
     internal var calledReady = false
 
-    // loaded data
-    private val showingAccountId: String?
-        get() {
-            return when (mode) {
-                MScreenMode.Default -> {
-                    WGlobalStorage.getActiveAccountId()
-                }
-
-                is MScreenMode.SingleWallet -> {
-                    mode.accountId
-                }
-            }
-        }
     val showingAccount: MAccount?
         get() {
             return when (mode) {
@@ -92,11 +62,87 @@ class HomeVM(
                 }
             }
         }
+
+    // Tokens, Balance and Staking data are loaded or not
+    val isGeneralDataAvailable: Boolean
+        get() {
+            return TokenStore.swapAssets != null &&
+                TokenStore.loadedAllTokens &&
+                !BalanceStore.getBalances(showingAccountId).isNullOrEmpty() &&
+                StakingStore.getStakingState(showingAccountId ?: "") != null
+        }
+
+    // Called on bridge ready to setup the observer
+    fun setupObservers() {
+        WalletCore.registerObserver(this)
+        if (!WalletCore.isConnected()) {
+            connectionLost()
+        }
+        startUpdatingTimer()
+    }
+
+    fun destroy() {
+        stopUpdatingTimer()
+        WalletCore.unregisterObserver(this)
+    }
+
+    // Remove temporary account
+    fun removeTemporaryAccount() {
+        val removingAccountId = showingAccountId ?: return
+        val shouldRemoveCurrentAccount =
+            WGlobalStorage.temporaryAddedAccountIds.contains(removingAccountId)
+        if (!shouldRemoveCurrentAccount)
+            return
+        Logger.d(Logger.LogTag.ACCOUNT, "Removing temporary account $removingAccountId")
+        AccountStore.removeAccount(removingAccountId, null, null) { _, _ ->
+            WGlobalStorage.temporaryAddedAccountIds.remove(removingAccountId)
+        }
+    }
+
+    // PRIVATE VARIABLES ///////////////////////////////////////////////////////////////////////////
+    private val delegate: WeakReference<Delegate> = WeakReference(delegate)
+
+    private var waitingForNetwork = false
+
+    // The account that should be shown on the home screen
+    private val showingAccountId: String?
+        get() {
+            return when (mode) {
+                MScreenMode.Default -> {
+                    WGlobalStorage.getActiveAccountId()
+                }
+
+                is MScreenMode.SingleWallet -> {
+                    mode.accountId
+                }
+            }
+        }
+
+    // The account showing on the home screen
+    var loadedAccountId: String? = null
+    val loadedAccount: MAccount?
+        get() {
+            return when (mode) {
+                MScreenMode.Default -> {
+                    if (loadedAccountId == AccountStore.activeAccountId)
+                        AccountStore.activeAccount
+                    else
+                        AccountStore.accountById(loadedAccountId)
+                }
+
+                is MScreenMode.SingleWallet -> {
+                    AccountStore.accountById(mode.accountId)
+                }
+            }
+        }
+
+    // Is balance loaded for the account or not
     private val balancesLoaded: Boolean
         get() {
             return !BalanceStore.getBalances(accountId = showingAccountId).isNullOrEmpty()
         }
 
+    // UpdateStatusView handler
     private val handler = Handler(Looper.getMainLooper())
     private val updateRunnable = Runnable {
         checkUpdatingTimer = null
@@ -120,54 +166,7 @@ class HomeVM(
         checkUpdatingTimer = null
     }
 
-    fun delegateIsReady() {
-        WalletCore.registerObserver(this)
-        if (!WalletCore.isConnected()) {
-            connectionLost()
-        }
-        startUpdatingTimer()
-    }
-
-    val isGeneralDataAvailable: Boolean
-        get() {
-            return TokenStore.swapAssets != null &&
-                TokenStore.loadedAllTokens &&
-                !BalanceStore.getBalances(showingAccountId).isNullOrEmpty() &&
-                StakingStore.getStakingState(showingAccountId ?: "") != null
-        }
-
-    var assetsShown = false
-
-    // Called on start or account change
-    fun initWalletInfo() {
-        // fetch all data
-        val accountId = showingAccountId ?: return
-        accountCode = System.currentTimeMillis()
-        activityLoaderHelper?.clean()
-        activityLoaderHelper =
-            ActivityLoader(context, accountId, null, WeakReference(this))
-        activityLoaderHelper?.askForActivities()
-        assetsShown = false
-        // Load staking data
-        delegate.get()?.loadStakingData()
-        delegate.get()?.updateActionsView()
-
-        WalletCore.requestDAppList()
-    }
-
-    fun changingAccount() {
-        delegate.get()?.accountWillChange()
-        activityLoaderHelper?.clean()
-        activityLoaderHelper = null
-        delegate.get()?.transactionsUpdated(isUpdateEvent = false)
-    }
-
-    // called on pull to refresh / selected slug change / after network reconnection / when retrying failed tries
-    private fun HomeVM.refreshTransactions() {
-        // init requests
-        initWalletInfo()
-    }
-
+    // Check if everything is ready and notify transaction list to reload
     private fun dataUpdated(updateBalance: Boolean = true) {
         // make sure balances are loaded
         if (!balancesLoaded) {
@@ -213,8 +212,9 @@ class HomeVM(
             return
         }
 
-        if (updateBalance)
+        if (updateBalance) {
             updateBalanceView(false)
+        }
 
         delegate.get()?.transactionsUpdated(isUpdateEvent = false)
     }
@@ -225,11 +225,10 @@ class HomeVM(
     }
 
     private fun baseCurrencyChanged() {
-        delegate.get()?.updateBalance(false)
-        // reload tableview to make it clear as the tokens are not up to date
-        delegate.get()?.transactionsUpdated(isUpdateEvent = false)
-        // make header empty like initialization view
+        // Reload balance view
         updateBalanceView(false)
+        // Reload tableview to make it clear as the tokens are not up to date
+        delegate.get()?.transactionsUpdated(isUpdateEvent = false)
     }
 
     private fun updateStatus(animated: Boolean = true) {
@@ -241,7 +240,7 @@ class HomeVM(
             delegate.get()?.update(UpdateStatusView.State.Updating, animated)
         } else {
             delegate.get()
-                ?.update(UpdateStatusView.State.Updated(showingAccount?.name ?: ""), animated)
+                ?.update(UpdateStatusView.State.Updated(loadedAccount?.name ?: ""), animated)
         }
     }
 
@@ -253,26 +252,14 @@ class HomeVM(
     private fun accountChanged(fromHome: Boolean, isSavingTemporaryWallet: Boolean) {
         calledReady = false
 
-        activityLoaderHelper?.clean()
-        activityLoaderHelper = null
-        // reload tableview to make it clear as the tokens are not up to date
-        delegate.get()?.transactionsUpdated(isUpdateEvent = false)
-        // get all data again
-        initWalletInfo()
         // make header empty like initialization view
         if (!fromHome) {
             delegate.get()?.updateHeaderCards(isSavingTemporaryWallet)
         }
-        updateBalanceView(!fromHome)
-        delegate.get()?.instantScrollToTop()
 
         // update actions view
-        delegate.get()?.reloadTabs(true)
-        delegate.get()?.accountNameChanged(showingAccount?.name ?: "", false)
-        delegate.get()?.accountConfigChanged()
-        delegate.get()?.updateActionsView()
-
-        dataUpdated(updateBalance = false)
+        delegate.get()?.configureAccountViews(shouldLoadNewWallets = !fromHome)
+        delegate.get()?.updateBalance(accountChangedFromOtherScreens = !fromHome)
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
@@ -286,13 +273,14 @@ class HomeVM(
             }
 
             is WalletEvent.AccountWillChange -> {
-                if (!mode.isScreenActive || activityLoaderHelper?.accountId == WalletCore.nextAccountId)
+                if (!mode.isScreenActive || loadedAccountId == WalletCore.nextAccountId)
                     return
-                changingAccount()
+                delegate.get()?.accountWillChange(walletEvent.fromHome)
+                updateBalanceView(!walletEvent.fromHome)
             }
 
             is WalletEvent.AccountChanged -> {
-                if (!mode.isScreenActive || activityLoaderHelper?.accountId == AccountStore.activeAccountId)
+                if (!mode.isScreenActive || loadedAccountId == AccountStore.activeAccountId)
                     return
                 accountChanged(walletEvent.fromHome, walletEvent.isSavingTemporaryAccount)
             }
@@ -318,7 +306,8 @@ class HomeVM(
             WalletEvent.NetworkConnected -> {
                 if (waitingForNetwork) {
                     waitingForNetwork = false
-                    refreshTransactions()
+                    delegate.get()?.loadStakingData()
+                    WalletCore.requestDAppList()
                 } else {
                     waitingForNetwork = false
                     updateStatus()
@@ -338,7 +327,7 @@ class HomeVM(
             WalletEvent.NftsUpdated, WalletEvent.HomeNftCollectionsUpdated -> {
                 if (!mode.isScreenActive)
                     return
-                delegate.get()?.reloadTabs(false)
+                delegate.get()?.reloadTabs()
             }
 
             WalletEvent.UpdatingStatusChanged -> {
@@ -353,8 +342,8 @@ class HomeVM(
                 when (mode) {
                     MScreenMode.Default -> {
                         if (AccountStore.isPushedTemporary) {
-                            if (walletEvent.accountId == activityLoaderHelper?.accountId) {
-                                changingAccount()
+                            if (walletEvent.accountId == loadedAccountId) {
+                                delegate.get()?.accountWillChange(fromHome = false)
                                 accountChanged(fromHome = false, isSavingTemporaryWallet = false)
                             } else {
                                 delegate.get()?.updateHeaderCards(false)
@@ -363,7 +352,7 @@ class HomeVM(
                     }
 
                     is MScreenMode.SingleWallet -> {
-                        if (walletEvent.accountId == activityLoaderHelper?.accountId)
+                        if (walletEvent.accountId == loadedAccountId)
                             delegate.get()?.removeScreenFromStack()
                         // else: doesn't matter
                     }
@@ -372,8 +361,7 @@ class HomeVM(
 
             is WalletEvent.ByChainUpdated -> {
                 delegate.get()?.apply {
-                    reloadCard()
-                    reloadTabs(false)
+                    reloadCardAddress(walletEvent.accountId)
                 }
             }
 
@@ -381,34 +369,4 @@ class HomeVM(
         }
     }
 
-    override fun activityLoaderDataLoaded(isUpdateEvent: Boolean) {
-        delegate.get()?.transactionsUpdated(isUpdateEvent = isUpdateEvent)
-        dataUpdated()
-    }
-
-    override fun activityLoaderCacheNotFound() {
-        delegate.get()?.cacheNotFound()
-    }
-
-    override fun activityLoaderLoadedAll() {
-        delegate.get()?.loadedAll()
-    }
-
-    fun destroy() {
-        stopUpdatingTimer()
-        WalletCore.unregisterObserver(this)
-    }
-
-    // Remove temporary account
-    fun removeTemporaryAccount() {
-        val removingAccountId = showingAccountId ?: return
-        val shouldRemoveCurrentAccount =
-            WGlobalStorage.temporaryAddedAccountIds.contains(removingAccountId)
-        if (!shouldRemoveCurrentAccount)
-            return
-        Logger.d(Logger.LogTag.ACCOUNT, "Removing temporary account $removingAccountId")
-        AccountStore.removeAccount(removingAccountId, null, null) { _, _ ->
-            WGlobalStorage.temporaryAddedAccountIds.remove(removingAccountId)
-        }
-    }
 }

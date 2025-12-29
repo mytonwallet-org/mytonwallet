@@ -1,6 +1,6 @@
 import nacl from 'tweetnacl';
 
-import type { Theme } from '../../global/types';
+import type { LangCode, Theme } from '../../global/types';
 import type { StorageKey } from '../storages/types';
 import type { ApiAnyDisplayError, ApiBaseCurrency, ApiChain } from '../types';
 
@@ -60,6 +60,14 @@ export function ping() {
 }
 
 export { setIsAppFocused, getLogs };
+
+export function getLangCode() {
+  return storage.getItem('langCode') as Promise<LangCode | undefined>;
+}
+
+export function setLangCode(langCode: LangCode) {
+  return storage.setItem('langCode', langCode);
+}
 
 export async function getMoonpayOnrampUrl(chain: ApiChain, address: string, theme: Theme, currency: ApiBaseCurrency) {
   try {

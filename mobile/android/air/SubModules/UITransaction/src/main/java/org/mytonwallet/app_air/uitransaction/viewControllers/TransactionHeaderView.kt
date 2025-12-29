@@ -46,7 +46,8 @@ import kotlin.math.roundToInt
 @SuppressLint("ViewConstructor")
 class TransactionHeaderView(
     val viewController: WeakReference<WViewController>,
-    var transaction: MApiTransaction
+    var transaction: MApiTransaction,
+    private val onTokenClick: ((String) -> Unit)? = null
 ) : WView(
     viewController.get()!!.context,
     LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
@@ -93,6 +94,28 @@ class TransactionHeaderView(
             topToBottom(addressLabel, amountContainerView, 6f)
             toBottom(addressLabel)
             toCenterX(addressLabel)
+        }
+
+        if (onTokenClick != null) {
+            amountView.isClickable = true
+            amountView.isFocusable = true
+            amountView.setOnTouchListener { v, event ->
+                when (event.action) {
+                    android.view.MotionEvent.ACTION_DOWN -> {
+                        v.alpha = 0.6f
+                    }
+                    android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                        v.alpha = 1f
+                        if (event.action == android.view.MotionEvent.ACTION_UP) {
+                            val tx = transaction
+                            if (tx is MApiTransaction.Transaction) {
+                                onTokenClick.invoke(tx.slug)
+                            }
+                        }
+                    }
+                }
+                true
+            }
         }
 
         updateTheme()

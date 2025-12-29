@@ -68,7 +68,7 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
             field = value
             updateTintColor()
             updateTheme()
-            updateThemeForChildren(view)
+            updateThemeForChildren(view, true)
         }
 
     private fun updateTintColor() {
@@ -342,13 +342,14 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
 
     private val touchHandler by lazy {
         DirectionalTouchHandler(
-            scrollView,
-            cardsView,
-            listOf(),
-            listOf(cardsView)
-        ) {
-            true
-        }
+            verticalView = scrollView,
+            horizontalView = cardsView,
+            interceptedViews = listOf(),
+            interceptedByVerticalScrollViews = listOf(cardsView),
+            isDirectionalScrollAllowed = { _, _ ->
+                true
+            }
+        )
     }
 
     override fun setupViews() {

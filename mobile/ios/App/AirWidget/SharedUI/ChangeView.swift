@@ -12,13 +12,13 @@ import WalletCore
 struct ChangeView: View {
     
     var changePercent: Double?
-    var changeInCurrency: DisplayCurrencyAmount?
+    var changeInCurrency: BaseCurrencyAmount?
     var useColors: Bool
     
     var body: some View {
         if let change = changePercent, let changeInCurrency = changeInCurrency {
             let percent = "\(formatAmountText(amount: change, negativeSign: false, positiveSign: true, decimalsCount: 2))%"
-            let curr = changeInCurrency.formatted(maxDecimals: changeInCurrency.adaptiveDecimals(), showPlus: false, showMinus: false)
+            let curr = changeInCurrency.formatted(.baseCurrencyPrice, showPlus: false, showMinus: false)
             ViewThatFits(in: .horizontal) {
                 Text("\(percent) · \(curr)")
                     .fixedSize()

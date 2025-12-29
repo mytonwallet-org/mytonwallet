@@ -53,15 +53,6 @@ public var devicePlatform: String {
 }
 public let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
 
-// format address to 2-line text
-public func formatAddress(_ address: String) -> String {
-    var address = address
-    if address.count % 2 == 0 {
-        address.insert("\n", at: address.index(address.startIndex, offsetBy: address.count / 2))
-    }
-    return address
-}
-
 public func formatStartEndAddress(_ address: String, prefix: Int = 6, suffix: Int = 6, separator: String = "···") -> String {
     if address.count < prefix + suffix + 3 {
         return address
@@ -263,6 +254,7 @@ public func formatAmountText(amount: Double,
     return result
 }
 
+/// 0.1 -> 10%
 public func formatPercent(_ value: Double, decimals: Int = 2, showPlus: Bool = true, showMinus: Bool = true) -> String {
     let value = (value * 100).rounded(decimals: decimals)
     return if showPlus && value > 0 {
@@ -376,31 +368,23 @@ public func parseTonTransferUrl(_ url: URL) -> TonTransferUrl? {
     return TonTransferUrl(address: address, amount: amount, comment: comment, token: token, bin: bin, jetton: jetton, stateInit: stateInit)
 }
 
-private func _tokenDecimals(for amountVal: BigInt, tokenDecimals: Int) -> Int {
-    if tokenDecimals <= 2 {
+public func tokenDecimals(for amount: BigInt, tokenDecimals: Int, minimumSignificantDigits: Int = 2) -> Int {
+    if tokenDecimals <= minimumSignificantDigits {
         return tokenDecimals
     }
-    let amount = abs(amountVal)
+    let amount = abs(amount)
     if amount < 2 {
         return tokenDecimals
     }
-    if "\(amount)".count >= tokenDecimals + 2 {
-        return max(2, 1 + tokenDecimals - "\(amount)".count)
+    let len = "\(amount)".count
+    if len >= tokenDecimals + 2 {
+        return max(minimumSignificantDigits, 1 + tokenDecimals - len)
     }
-    let newAmount = abs(amount)
-    var multiplier = 2
-    while "\(newAmount)".count + multiplier < tokenDecimals + 2 {
+    var multiplier = minimumSignificantDigits
+    while len + multiplier < tokenDecimals + 2 {
         multiplier += 1
     }
     return min(tokenDecimals, multiplier)
-}
-
-public func tokenDecimals(for amountVal: BigInt, tokenDecimals: Int) -> Int {
-    return _tokenDecimals(for: amountVal, tokenDecimals: tokenDecimals)
-}
-
-public func tokenDecimals(for amountVal: Double, tokenDecimals: Int) -> Int {
-    return _tokenDecimals(for: doubleToBigInt(amountVal, decimals: tokenDecimals), tokenDecimals: tokenDecimals)
 }
 
 public func doubleToBigInt(_ doubleValue: Double, decimals: Int) -> BigInt {

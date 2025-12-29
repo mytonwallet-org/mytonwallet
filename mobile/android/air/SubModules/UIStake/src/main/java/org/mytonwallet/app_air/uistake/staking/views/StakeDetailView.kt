@@ -90,9 +90,9 @@ class StakeDetailView(
             ConstraintLayout.LayoutParams.WRAP_CONTENT
         )
         setGradientColor(
-            intArrayOf(
-                WColor.EarnGradientLeft.color,
-                WColor.EarnGradientRight.color
+            arrayOf(
+                WColor.EarnGradientLeft,
+                WColor.EarnGradientRight
             )
         )
         setPadding(4.dp, 7.dp, 0, 0)

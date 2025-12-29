@@ -47,14 +47,6 @@ public final class LedgerConnectionManager: WalletCoreData.EventsObserver, @unch
         }
     }
     
-    public func scan() async throws -> AsyncThrowingStream<[PeripheralInfo], any Error> {
-        bleTransport.scan(duration: 30)
-    }
-    
-    public func connect(toPeripheralID id: PeripheralIdentifier) async throws -> PeripheralIdentifier {
-        try await bleTransport.connect(toPeripheralID: id, disconnectedCallback: handleBleDisconnected)
-    }
-    
     public func scanAndConnectToFirst(timeout: Double) async throws -> PeripheralIdentifier {
         if !bleTransport.isConnected {
             let id = try await bleTransport.create(scanDuration: timeout, disconnectedCallback: handleBleDisconnected)
@@ -70,13 +62,6 @@ public final class LedgerConnectionManager: WalletCoreData.EventsObserver, @unch
         let ledgerInfo = LedgerAppInfo(version: appInfo.version)
         self.ledgerInfo = ledgerInfo
         return ledgerInfo
-    }
-    
-    public func getPublicKey(walletIndex: Int) async throws -> [UInt8] {
-        let string = try await bleTransport.exchange(apdu: APDUHelpers.getPublicKey(isTestnet: false, workChain: 0, index: walletIndex))
-        let prefix = String(string.dropLast(4))
-        let publicKey = APDUHelpers.decode(hex: prefix)
-        return publicKey
     }
     
     private func handleBleDisconnected() {

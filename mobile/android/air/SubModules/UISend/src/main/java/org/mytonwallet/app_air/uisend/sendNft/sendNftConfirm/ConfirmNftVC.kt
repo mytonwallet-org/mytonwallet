@@ -76,6 +76,9 @@ class ConfirmNftVC(
     ConfirmNftVM.Delegate, WalletCore.EventObserver {
     override val TAG = "ConfirmNft"
 
+    override val displayedAccount =
+        DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
+
     sealed class Mode {
         data class Send(
             val toAddress: String,
