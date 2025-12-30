@@ -102,14 +102,6 @@ class WalletsVC(
                     recyclerView.scrollTo(0, 0)
                 if (!recyclerView.isNestedScrollingEnabled)
                     recyclerView.isNestedScrollingEnabled = true
-                if (emptyView?.isVisible == true)
-                    view.setConstraints {
-                        toTopPx(
-                            emptyView!!,
-                            if (viewMode == MWalletSettingsViewMode.LIST) topInset + 24.dp else -topInset - ViewConstants.TOP_RADIUS.dp.roundToInt() - 34.dp
-                        )
-                        toCenterX(emptyView!!, 16f)
-                    }
             }
         }
     var isReordering = false
@@ -348,6 +340,7 @@ class WalletsVC(
         updateTheme()
         updateEmptyView()
         didSetup = true
+        updateBottomViewsYPosition()
     }
 
     override fun didSetupViews() {
@@ -459,28 +452,21 @@ class WalletsVC(
                                 else -> "Add your first one to begin."
                             }
                         ),
-                    ).apply {
-                        z = 3f
-                    }
+                    )
                 view.addView(
                     emptyView!!,
                     ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT)
                 )
+                bottomReversedCornerViewUpsideDown.bringToFront()
                 view.setConstraints {
-                    toCenterX(emptyView!!)
+                    toCenterX(emptyView!!, 16f)
+                    setVerticalBias(emptyView!!.id, 0f)
                     toTopPx(
                         emptyView!!,
-                        if (viewMode == MWalletSettingsViewMode.LIST) topInset + 24.dp else -topInset - ViewConstants.TOP_RADIUS.dp.roundToInt() - 34.dp
+                        topInset + 120.dp
                     )
-                    bottomToTop(emptyView!!, bottomReversedCornerViewUpsideDown, 78f)
                 }
             } else if ((emptyView?.alpha ?: 0f) < 1) {
-                view.setConstraints {
-                    toTopPx(
-                        emptyView!!,
-                        if (viewMode == MWalletSettingsViewMode.LIST) topInset + 24.dp else -topInset - ViewConstants.TOP_RADIUS.dp.roundToInt() - 34.dp
-                    )
-                }
                 if (emptyView?.startedAnimation == true)
                     emptyView?.fadeIn()
             }
@@ -491,6 +477,16 @@ class WalletsVC(
                 }
             }
         }
+    }
+
+    private fun updateBottomViewsYPosition() {
+        val modalExpandOffset = modalExpandOffset ?: 0
+        bottomReversedCornerViewUpsideDown.translationY =
+            WalletsTabsVC.DEFAULT_HEIGHT.toFloat().dp -
+                (window?.windowView?.height ?: 0) +
+                bottomInset +
+                modalExpandOffset
+        emptyView?.translationY = (modalExpandOffset / 2f).coerceAtLeast(0f)
     }
 
     fun notifyBalanceChange(async: Boolean) {
@@ -730,12 +726,7 @@ class WalletsVC(
         super.onModalSlide(expandOffset, expandProgress)
         if (!didSetup)
             return
-        bottomReversedCornerViewUpsideDown.translationY =
-            WalletsTabsVC.DEFAULT_HEIGHT.toFloat().dp -
-                (window?.windowView?.height ?: 0) +
-                bottomInset +
-                expandOffset
-        emptyView?.translationY = bottomReversedCornerViewUpsideDown.translationY / 4
+        updateBottomViewsYPosition()
     }
 
     override fun onDestroy() {

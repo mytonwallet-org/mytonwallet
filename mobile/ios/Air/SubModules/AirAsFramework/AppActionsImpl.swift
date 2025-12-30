@@ -23,6 +23,8 @@ import Dependencies
     AppActions = AppActionsImpl.self
 }
 
+private let log = Log("AppActions")
+
 @MainActor
 private class AppActionsImpl: AppActionsProtocol {
     
@@ -381,7 +383,8 @@ private class AppActionsImpl: AppActionsProtocol {
     }
     
     static func showUpgradeCard() {
-        AppActions.openInBrowser(URL(string:  "https://getgems.io/collection/EQCQE2L9hfwx1V8sgmF9keraHx1rNK9VmgR1ctVvINBGykyM")!, title: "MyTonWallet NFT Cards", injectTonConnect: true)
+        log.info("showUpgradeCard - switchToCapacitor")
+        WalletContextManager.delegate?.switchToCapacitor()
     }
     
     static func showWalletSettings() {

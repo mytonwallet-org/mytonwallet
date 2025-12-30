@@ -26,7 +26,6 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
-import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
@@ -54,7 +53,6 @@ import org.mytonwallet.app_air.uiswap.screens.swap.views.SwapSwapAssetsButton
 import org.mytonwallet.app_air.uiswap.screens.swap.views.dexAggregatorDialog.DexAggregatorDialog
 import org.mytonwallet.app_air.uiswap.views.SwapConfirmView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -77,12 +75,6 @@ class SwapVC(
     override val TAG = "Swap"
 
     private val swapViewModel by lazy { ViewModelProvider(this)[SwapViewModel::class.java] }
-
-    private val separatorBackgroundDrawable: SeparatorBackgroundDrawable by lazy {
-        SeparatorBackgroundDrawable().apply {
-            backgroundWColor = WColor.Background
-        }
-    }
 
     private val scrollView = NestedScrollView(context).apply {
         id = View.generateViewId()
@@ -413,16 +405,11 @@ class SwapVC(
         super.updateTheme()
         view.setBackgroundColor(WColor.SecondaryBackground.color)
         estShowMoreContainer.setBackgroundColor(WColor.Background.color)
-        if (ThemeManager.uiMode.hasRoundedCorners) {
-            estOuterContainer.setBackgroundColor(
-                WColor.Background.color,
-                ViewConstants.BIG_RADIUS.dp,
-                true
-            )
-        } else {
-            estOuterContainer.background = separatorBackgroundDrawable
-            separatorBackgroundDrawable.invalidateSelf()
-        }
+        estOuterContainer.setBackgroundColor(
+            WColor.Background.color,
+            ViewConstants.BIG_RADIUS.dp,
+            true
+        )
     }
 
     var isSwapDone = false
@@ -436,7 +423,11 @@ class SwapVC(
                 }
                 push(
                     TokenSelectorVC(
-                        context, titleToShow, event.assets
+                        context,
+                        titleToShow,
+                        event.assets,
+                        showMyAssets = true,
+                        showChain = true,
                     ).apply {
                         setOnAssetSelectListener { asset ->
                             if (event.mode == SwapViewModel.Mode.SEND) {

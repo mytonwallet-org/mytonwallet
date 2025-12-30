@@ -210,7 +210,7 @@ class SettingsHeaderView(
             background = null
         } else {
             setBackgroundColor(
-                (if (ThemeManager.uiMode.hasRoundedCorners) WColor.SecondaryBackground else WColor.Background).color.colorWithAlpha(
+                WColor.SecondaryBackground.color.colorWithAlpha(
                     (alpha * 255).roundToInt()
                 )
             )

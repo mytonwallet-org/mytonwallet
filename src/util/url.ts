@@ -124,8 +124,8 @@ export function isTelegramUrl(url: string) {
   return url.startsWith('https://t.me/');
 }
 
-export function getCardNftImageUrl(nft: ApiNft): string {
-  return `${MTW_CARDS_BASE_URL}${nft.metadata.mtwCardId}.svg`;
+export function getCardNftImageUrl(nft: ApiNft, format: 'svg' | 'webp' = 'svg'): string {
+  return `${MTW_CARDS_BASE_URL}${nft.metadata.mtwCardId}.${format}`;
 }
 
 export function getBlogUrl(lang: LangCode): string {

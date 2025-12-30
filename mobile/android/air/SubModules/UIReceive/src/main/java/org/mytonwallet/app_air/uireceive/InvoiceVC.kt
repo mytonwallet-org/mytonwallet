@@ -231,7 +231,8 @@ class InvoiceVC(context: Context) : WViewController(context) {
                     TokenStore.tokens.values.filter {
                         it.chain == MBlockchain.ton.name
                     },
-                    true
+                    showMyAssets = true,
+                    showChain = false,
                 ).apply {
                     setOnAssetSelectListener { asset ->
                         token = TokenStore.getToken(asset.slug)

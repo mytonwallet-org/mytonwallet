@@ -418,7 +418,7 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
                 return status != comparing.status || cex?.status != comparing.cex?.status || hashes?.size != comparing.hashes?.size
             }
             if (this is Transaction) {
-                return isLocal() != comparing.isLocal()
+                return isLocal() != comparing.isLocal() || status != (comparing as? Transaction)?.status
             }
         }
         return false

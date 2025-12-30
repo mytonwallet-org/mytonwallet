@@ -27,8 +27,8 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.AccountDialogHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
-import org.mytonwallet.app_air.uicomponents.widgets.WEvaporateLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
+import org.mytonwallet.app_air.uicomponents.widgets.WReplaceableLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WScaleLabel
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedController
@@ -94,7 +94,7 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
         WScaleLabel(context).apply {
             setStyle(20F, WFont.SemiBold)
             view.post {
-                animateText(titleText)
+                updateTitleBar(animated = false)
                 post {
                     setProgress(1f)
                 }
@@ -102,17 +102,7 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
         }
     }
 
-    val subtitleLabel: WEvaporateLabel by lazy {
-        WEvaporateLabel(context).apply {
-            setStyle(12f)
-            view.post {
-                animateText(subtitleText)
-                post {
-                    setProgress(1f)
-                }
-            }
-        }
-    }
+    val subtitleLabel = WReplaceableLabel(context)
 
     val totalBalanceContainerView = WSensitiveDataContainer(
         subtitleLabel,
@@ -177,7 +167,9 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
             navTopPadding = 42.dp,
             onOffsetChange = { _, currentOffset ->
                 val nearestIndex = currentOffset.roundToInt()
-                if (nearestIndex == segmentedController.currentIndex)
+                if (segmentedController.targetIndex == null ||
+                    segmentedController.targetIndex == nearestIndex
+                )
                     onTabChanged(nearestIndex)
             }
         ).apply {
@@ -325,7 +317,6 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
         super.updateTheme()
         updateBackground()
         titleLabel.setTextColor(WColor.PrimaryText.color)
-        subtitleLabel.setTextColor(WColor.SecondaryText.color)
         segmentedController.updateTheme()
         segmentedController.items.forEach {
             it.viewController.updateTheme()
@@ -454,9 +445,19 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
             ) + " "
         }
 
-    private fun updateTitleBar() {
+    private fun updateTitleBar(animated: Boolean = true) {
         titleLabel.animateText(titleText)
-        subtitleLabel.animateText(subtitleText)
+        subtitleLabel.setText(
+            WReplaceableLabel.Config(
+                text = subtitleText ?: "",
+                isLoading = false,
+                isExpandable = false,
+                textColor = WColor.SecondaryText,
+                textSize = 12f,
+                font = WFont.Regular
+            ),
+            animated = animated
+        )
     }
 
     override fun getModalHalfExpandedHeight(): Int? {

@@ -135,8 +135,8 @@ open class WZoomableImageView @JvmOverloads constructor(
         }
     }
 
-    fun setAsset(token: MToken, alwaysShowChain: Boolean = false) {
-        set(Content.of(token, alwaysShowChain), null)
+    fun setAsset(token: MToken, showChain: Boolean = false) {
+        set(Content.of(token, showChain), null)
     }
 
     fun set(content: Content, lowResUrl: String? = null) {

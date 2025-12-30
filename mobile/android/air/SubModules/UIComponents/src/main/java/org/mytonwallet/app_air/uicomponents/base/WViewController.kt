@@ -450,20 +450,20 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
     }
     //////////////////////////////////////////////////
 
-    private var pendingThemeChange = false
+    var pendingThemeChange = false
     private var _isDarkThemeApplied: Boolean? = null
-    fun notifyThemeChanged() {
+    open fun notifyThemeChanged() {
         if (isDisappeared) {
             pendingThemeChange = true
             return
         }
-        pendingThemeChange = false
-        val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
+        val themeChanged = ThemeManager.isDark != _isDarkThemeApplied || pendingThemeChange
         _isDarkThemeApplied = ThemeManager.isDark
-        if (darkModeChanged || isTinted)
+        pendingThemeChange = false
+        if (themeChanged || isTinted)
             updateTheme()
-        updateThemeForChildren(view, onlyTintedViews = !darkModeChanged)
-        if (darkModeChanged) {
+        updateThemeForChildren(view, onlyTintedViews = !themeChanged)
+        if (themeChanged) {
             topReversedCornerView?.let { topReversedCornerView ->
                 view.setConstraints {
                     toTop(

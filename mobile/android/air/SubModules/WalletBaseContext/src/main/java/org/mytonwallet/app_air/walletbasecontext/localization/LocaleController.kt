@@ -101,21 +101,11 @@ object LocaleController {
     }
 
     fun getPlural(amount: Int, key: String): String {
-        val rule: ((Int) -> Int)? = PLURAL_RULES[activeLanguage.langCode]
-        val optionIndex = rule?.invoke(amount) ?: 0
-        return getFormattedString(
-            key + "." + PLURAL_OPTIONS.getOrElse(optionIndex) { PLURAL_OPTIONS[0] },
-            listOf(amount.toString())
-        )
+        return getPluralOrFormat(key, amount)
     }
 
     fun getPluralWord(amount: Int, key: String): String {
-        val rule: ((Int) -> Int)? = PLURAL_RULES[activeLanguage.langCode]
-        val optionIndex = rule?.invoke(amount) ?: 0
-        return getFormattedString(
-            key + "." + PLURAL_OPTIONS.getOrElse(optionIndex) { PLURAL_OPTIONS[0] },
-            listOf("")
-        )
+        return getPluralOrFormat(key, amount, "")
     }
 
     fun getPluralOrFormat(
@@ -131,8 +121,16 @@ object LocaleController {
                 pluralKey,
                 listOf(value)
             )
-        else
-            getFormattedString(key, listOf(value))
+        else {
+            val fallbackKey = key + "." + PLURAL_OPTIONS[6]
+            if (dictionary.contains(fallbackKey))
+                getFormattedString(
+                    fallbackKey,
+                    listOf(value)
+                )
+            else
+                getFormattedString(key, listOf(value))
+        }
     }
 
     fun getFormattedString(key: String, values: List<String>): String {

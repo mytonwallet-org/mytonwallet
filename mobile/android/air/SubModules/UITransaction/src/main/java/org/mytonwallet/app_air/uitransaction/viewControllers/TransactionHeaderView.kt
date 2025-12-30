@@ -35,6 +35,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
+import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -145,7 +146,7 @@ class TransactionHeaderView(
                     }
                     ssb
                 },
-                Content.of(token, !token.isBlockchainNative)
+                Content.of(token, showChain = WalletCore.isMultichain)
             )
         } else {
             tokenIconView.setImageDrawable(null)

@@ -19,7 +19,6 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcore.WalletCore
-import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import kotlin.math.abs
@@ -131,7 +130,12 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
     private var tokenBalance: MTokenBalance? = null
     private var isLast = false
 
-    fun configure(tokenBalance: MTokenBalance, isLast: Boolean, hideSeparator: Boolean = isLast) {
+    fun configure(
+        tokenBalance: MTokenBalance,
+        showChain: Boolean,
+        isLast: Boolean,
+        hideSeparator: Boolean = isLast
+    ) {
         this.tokenBalance = tokenBalance
         this.isLast = isLast
         updateTheme()
@@ -142,7 +146,7 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
 
         val token = TokenStore.getToken(tokenBalance.token)
 
-        iconView.config(token, alwaysShowChain = WalletCore.isMultichain)
+        iconView.config(token, showChain = showChain)
 
         topLeftLabel.text = token?.name ?: ""
 

@@ -133,7 +133,7 @@ class SwapAssetInputView(context: Context) : WCell(context), WThemedView {
         }
 
         currentAsset = asset
-        assetView.setAsset(asset)
+        assetView.setAsset(asset, showChain = true)
         asset?.let {
             amountEditText.amountTextWatcher.decimals = it.decimals
             amountEditText.amountTextWatcher.afterTextChanged(amountEditText.text)

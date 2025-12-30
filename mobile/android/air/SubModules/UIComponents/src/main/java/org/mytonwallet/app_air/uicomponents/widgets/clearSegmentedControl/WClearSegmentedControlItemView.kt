@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.uicomponents.widgets.clearSegmentedControl
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
 import android.content.Context
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.LinearInterpolator
@@ -23,7 +24,9 @@ import org.mytonwallet.app_air.uicomponents.widgets.clearSegmentedControl.WClear
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import java.lang.Float.max
+import kotlin.math.roundToInt
 
 open class WClearSegmentedControlItemView(context: Context) :
     WCell(context, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT)),
@@ -36,7 +39,7 @@ open class WClearSegmentedControlItemView(context: Context) :
     private var shakeAnimator: ObjectAnimator? = null
 
     // Trailing image animator
-    private var crossfadeAnimator: ObjectAnimator? = null
+    private var crossfadeAnimator: ValueAnimator? = null
 
     enum class TrailingButton {
         Arrow,
@@ -64,8 +67,8 @@ open class WClearSegmentedControlItemView(context: Context) :
         trailingImageView = AppCompatImageView(context).apply {
             id = generateViewId()
             layoutParams = LayoutParams(
-                7.dp,
-                14.dp
+                20.dp,
+                20.dp
             )
             setImageDrawable(arrowDrawable)
             alpha = 0f
@@ -77,7 +80,7 @@ open class WClearSegmentedControlItemView(context: Context) :
 
         setConstraints {
             toCenterX(textView)
-            toEnd(trailingImageView, 16f)
+            toEnd(trailingImageView, 8f)
             toCenterY(trailingImageView)
         }
 
@@ -135,7 +138,8 @@ open class WClearSegmentedControlItemView(context: Context) :
         crossfadeAnimator = null
     }
 
-    var selectedEndPadding = 12.dp
+    var selectedEndPadding = 11f.dp
+    var selectedYPadding = 3f.dp
     var arrowVisibility: Float? = null
         set(value) {
             val value = value ?: 0f
@@ -145,13 +149,7 @@ open class WClearSegmentedControlItemView(context: Context) :
                 alpha = max(0f, value - 0.7f) * 10 / 3
                 isVisible = value > 0
 
-                val endPadding = if (value > 0) {
-                    16.dp + (selectedEndPadding * value).toInt()
-                } else {
-                    16.dp
-                }
-
-                textView.setPaddingLocalized(16.dp, 5.dp, endPadding, 5.dp)
+                updatePaddings()
             }
         }
 
@@ -174,20 +172,22 @@ open class WClearSegmentedControlItemView(context: Context) :
                 }
             })
 
-        selectedEndPadding = when (button) {
-            Arrow -> {
-                12.dp
-            }
+        val startEndPadding = selectedEndPadding
+        val targetEndPadding = when (button) {
+            Arrow -> 11f.dp
+            Remove -> 16f.dp
+        }
 
-            Remove -> {
-                16.dp
-            }
+        val startYPadding = selectedYPadding
+        val targetYPadding = when (button) {
+            Arrow -> 3f.dp
+            Remove -> 0f.dp
         }
 
         crossfadeAnimator?.cancel()
 
         crossfadeAnimator =
-            ObjectAnimator.ofFloat(trailingImageView, "alpha", trailingImageView.alpha, 0f).apply {
+            ValueAnimator.ofFloat(trailingImageView.alpha, 0f).apply {
                 duration = if ((arrowVisibility ?: 0f) > 0f)
                     AnimationConstants.VERY_QUICK_ANIMATION / 2
                 else
@@ -196,6 +196,13 @@ open class WClearSegmentedControlItemView(context: Context) :
                 doOnCancel {
                     removeAllListeners()
                     trailingImageView.setImageDrawable(newDrawable)
+                }
+                addUpdateListener { animation ->
+                    trailingImageView.alpha = animation.animatedValue as Float
+                    val animatedFraction = animation.animatedFraction
+                    selectedEndPadding = lerp(startEndPadding, targetEndPadding, animatedFraction)
+                    selectedYPadding = lerp(startYPadding, targetYPadding, animatedFraction)
+                    updatePaddings()
                 }
                 addListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: Animator) {
@@ -226,6 +233,18 @@ open class WClearSegmentedControlItemView(context: Context) :
             setBackgroundColor(paintColor ?: WColor.SecondaryBackground.color, 16f.dp)
         else
             background = null
+    }
+
+    private fun updatePaddings() {
+        val arrowVisibility = arrowVisibility ?: 0f
+        val endPadding = if (arrowVisibility > 0) {
+            16.dp + (selectedEndPadding * arrowVisibility).toInt()
+        } else {
+            16.dp
+        }
+
+        textView.setPaddingLocalized(16.dp, 5.dp, endPadding, 5.dp)
+        trailingImageView.setPadding(0, selectedYPadding.roundToInt(), 0, selectedYPadding.roundToInt())
     }
 
 }

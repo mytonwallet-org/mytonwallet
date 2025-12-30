@@ -926,9 +926,6 @@ class WalletCardView(
             val height = 16.dp
             setBounds(0, -FontManager.activeFont.textOffset, width, height)
         }
-        val tonAccountChain = account?.byChain?.get(MBlockchain.ton.name)
-        val shareText =
-            tonAccountChain?.address?.let { address -> "https://my.tt/view?ton=$address" }
         val items =
             listOf(MBlockchain.ton, MBlockchain.tron).mapNotNull { chain ->
                 val fullAddress = account?.addressByChain[chain.name]
@@ -1021,6 +1018,12 @@ class WalletCardView(
                     }
                 }
             }.toMutableList()
+        val shareText = account?.byChain?.entries?.joinToString(
+            prefix = "https://my.tt/view?",
+            separator = "&"
+        ) { (chain, chainAccount) ->
+            "$chain=${chainAccount.address}"
+        }
         shareText?.let { shareText ->
             items.lastOrNull()?.also { it.hasSeparator = true }
             items.add(

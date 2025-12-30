@@ -80,7 +80,13 @@ class WSegmentedController(
     private var isAnimatingChangeTab = false
     private var lastFullyVisible: Int = 0
     private var isUserInteracting = false
-    private var targetIndex = 0
+    private var notNullTargetIndex = 0
+    var targetIndex: Int? = null
+        private set(value) {
+            field = value
+            if (value != null)
+                notNullTargetIndex = value
+        }
     private val viewPager: ViewPager2 by lazy {
         val vp = ViewPager2(context)
         vp.id = generateViewId()
@@ -107,7 +113,7 @@ class WSegmentedController(
                 clearSegmentedControl.updateThumbPosition(
                     position,
                     offset = currentOffset,
-                    targetIndex = targetIndex,
+                    targetIndex = targetIndex ?: notNullTargetIndex,
                     force = false,
                     isAnimatingToPosition = isAnimatingChangeTab
                 )
@@ -122,23 +128,29 @@ class WSegmentedController(
 
             override fun onPageScrollStateChanged(state: Int) {
                 super.onPageScrollStateChanged(state)
-                if (state == ViewPager2.SCROLL_STATE_IDLE) {
-                    val blurAlpha = blurState[viewPager.currentItem] ?: 0f
-                    if (blurAlpha > 0) {
-                        reversedCornerView.resumeBlurring()
-                        reversedCornerView.setBlurAlpha(blurAlpha.coerceIn(0f, 1f))
-                    } else {
-                        reversedCornerView.pauseBlurring(blurAlpha < 0)
+                when (state) {
+                    ViewPager2.SCROLL_STATE_DRAGGING -> {
+                        targetIndex = null
                     }
-                    reversedCornerView.alpha = 1f
-                    isAnimatingChangeTab = false
-                    clearSegmentedControl.updateThumbPosition(
-                        viewPager.currentItem,
-                        offset = currentOffset,
-                        targetIndex = viewPager.currentItem,
-                        force = true,
-                        isAnimatingToPosition = false
-                    )
+                    ViewPager2.SCROLL_STATE_IDLE -> {
+                        val blurAlpha = blurState[viewPager.currentItem] ?: 0f
+                        if (blurAlpha > 0) {
+                            reversedCornerView.resumeBlurring()
+                            reversedCornerView.setBlurAlpha(blurAlpha.coerceIn(0f, 1f))
+                        } else {
+                            reversedCornerView.pauseBlurring(blurAlpha < 0)
+                        }
+                        reversedCornerView.alpha = 1f
+                        isAnimatingChangeTab = false
+                        clearSegmentedControl.updateThumbPosition(
+                            viewPager.currentItem,
+                            offset = currentOffset,
+                            targetIndex = viewPager.currentItem,
+                            force = true,
+                            isAnimatingToPosition = false
+                        )
+                    }
+                    else -> {}
                 }
             }
         })
@@ -235,13 +247,13 @@ class WSegmentedController(
 
         if (!isFullScreen)
             viewPager.setupSpringFling(onScrollingToTarget = { targetIndex ->
-                if (targetIndex - this.targetIndex > 1)
-                    this.targetIndex = this.targetIndex + 1
-                else if (this.targetIndex - targetIndex > 1)
-                    this.targetIndex = this.targetIndex - 1
+                if (targetIndex - this.notNullTargetIndex > 1)
+                    this.targetIndex = this.notNullTargetIndex + 1
+                else if (this.notNullTargetIndex - targetIndex > 1)
+                    this.targetIndex = this.notNullTargetIndex - 1
                 else
                     this.targetIndex = targetIndex
-                this.targetIndex
+                this.notNullTargetIndex
             })
         setActiveIndex(defaultSelectedIndex)
         if (!applySideGutters)

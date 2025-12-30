@@ -36,8 +36,8 @@ class StakingMessageHelpers {
 
                     USDE_SLUG ->
                         LocaleController.getString("\$safe_staking_ethena_description1") + "\n\n" +
-                            LocaleController.getString("\$safe_staking_ethena_description1") + "\n\n" +
-                            LocaleController.getString("\$safe_staking_ethena_description1")
+                            LocaleController.getString("\$safe_staking_ethena_description2") + "\n\n" +
+                            LocaleController.getString("\$safe_staking_ethena_description3")
 
                     else -> return null
                 }

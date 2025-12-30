@@ -50,7 +50,7 @@ class TokensVC(
     WRecyclerViewAdapter.WRecyclerViewDataSource, WalletCore.EventObserver {
     override val TAG = "Tokens"
 
-    private var isShowingAccountMultichain = false
+    private var isShowingAccountMultichain = WGlobalStorage.isMultichain(showingAccountId)
 
     enum class Mode {
         HOME,

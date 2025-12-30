@@ -39,7 +39,8 @@ class TokenSelectorVC(
     context: Context,
     private val titleToShow: String,
     private val assets: List<IApiToken>,
-    private val showMyAssets: Boolean = true
+    private val showMyAssets: Boolean,
+    private val showChain: Boolean,
 ) : WViewController(context), WThemedView, WRecyclerViewAdapter.WRecyclerViewDataSource,
     WalletCore.EventObserver {
     override val TAG = "TokenSelector"
@@ -217,6 +218,7 @@ class TokenSelectorVC(
 
                     cell.configure(
                         token,
+                        showChain = showChain,
                         isLast = isLastOverall,
                         hideSeparator = isLastInSection
                     )

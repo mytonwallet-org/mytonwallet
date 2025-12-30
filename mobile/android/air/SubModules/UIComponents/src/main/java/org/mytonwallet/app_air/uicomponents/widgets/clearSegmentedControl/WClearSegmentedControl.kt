@@ -87,7 +87,7 @@ class WClearSegmentedControl(
 
     // Used to animate dragMode enter/exit animations
     private var dragModePresentationFraction: Float = 0f
-    private var targetPosition: Float = 0f
+    private var targetPosition: Float? = null
     private var lastPosition: Float = -1f
     private var items: MutableList<Item> = mutableListOf()
     private var selectedItem: Int = 0
@@ -128,7 +128,7 @@ class WClearSegmentedControl(
             updateThumbPositionInternal(
                 currentPosition,
                 ensureVisibleThumb = false,
-                targetIndex = targetPosition.toInt()
+                targetIndex = targetPosition?.toInt()
             )
         }
     }
@@ -138,7 +138,7 @@ class WClearSegmentedControl(
             updateThumbPositionInternal(
                 currentPosition,
                 ensureVisibleThumb = false,
-                targetIndex = targetPosition.toInt()
+                targetIndex = targetPosition?.toInt()
             )
         }
         doOnEnd {
@@ -146,7 +146,7 @@ class WClearSegmentedControl(
             updateThumbPositionInternal(
                 currentPosition,
                 ensureVisibleThumb = false,
-                targetIndex = targetPosition.toInt()
+                targetIndex = targetPosition?.toInt()
             )
         }
     }
@@ -449,7 +449,7 @@ class WClearSegmentedControl(
                 updateThumbPositionInternal(
                     position = currentPosition,
                     ensureVisibleThumb = false,
-                    targetIndex = targetPosition.toInt()
+                    targetIndex = targetPosition?.toInt()
                 )
             }
         })
@@ -696,7 +696,7 @@ class WClearSegmentedControl(
     fun updateThumbPosition(
         index: Int,
         offset: Float,
-        targetIndex: Int,
+        targetIndex: Int?,
         force: Boolean,
         isAnimatingToPosition: Boolean
     ) {
@@ -714,7 +714,7 @@ class WClearSegmentedControl(
 
     fun updateThumbPosition(
         position: Float,
-        targetPosition: Int,
+        targetPosition: Int?,
         animated: Boolean,
         force: Boolean,
         isAnimatingToPosition: Boolean,
@@ -727,7 +727,7 @@ class WClearSegmentedControl(
         animator.cancel()
 
         if (animated) {
-            this.targetPosition = targetPosition.toFloat()
+            this.targetPosition = targetPosition?.toFloat()
             startAnimation()
         } else {
             currentPosition = clampedPosition
@@ -742,7 +742,7 @@ class WClearSegmentedControl(
 
     private fun startAnimation() {
         animator.apply {
-            setFloatValues(currentPosition, targetPosition)
+            setFloatValues(currentPosition, targetPosition ?: 0f)
             duration = ANIMATION_DURATION
             interpolator = AccelerateDecelerateInterpolator()
             start()

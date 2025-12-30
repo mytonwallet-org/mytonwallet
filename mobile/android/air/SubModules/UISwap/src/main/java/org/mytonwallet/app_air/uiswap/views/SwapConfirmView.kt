@@ -112,8 +112,8 @@ class SwapConfirmView(context: Context) :
         fromAmount: BigInteger?,
         toAmount: BigInteger?
     ) {
-        tokenToSendIconView.set(Content.of(fromToken))
-        tokenToReceiveIconView.set(Content.of(toToken))
+        tokenToSendIconView.set(Content.of(fromToken, showChain = true))
+        tokenToReceiveIconView.set(Content.of(toToken, showChain = true))
 
         val sendAmount =
             fromAmount?.negate()?.toString(

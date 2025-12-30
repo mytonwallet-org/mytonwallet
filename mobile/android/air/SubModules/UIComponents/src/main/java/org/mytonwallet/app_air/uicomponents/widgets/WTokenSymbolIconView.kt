@@ -135,18 +135,18 @@ open class WTokenSymbolIconView(context: Context) : FrameLayout(context), Replac
 
     var defaultSymbol: String? = null
 
-    fun setTonAsset(alwaysShowChain: Boolean = false) {
+    fun setTonAsset(showChain: Boolean = false) {
         setAsset(
             MApiSwapAsset(
                 slug = MBlockchain.ton.nativeSlug,
                 symbol = "TON",
                 chain = "ton",
                 decimals = 9
-            ), alwaysShowChain
+            ), showChain
         )
     }
 
-    fun setAsset(asset: MToken, alwaysShowChain: Boolean) {
+    fun setAsset(asset: MToken, showChain: Boolean) {
         setAsset(
             ApiTokenWithPrice(
                 slug = asset.slug,
@@ -158,11 +158,11 @@ open class WTokenSymbolIconView(context: Context) : FrameLayout(context), Replac
                 priceUsd = asset.priceUsd,
                 percentChange24h = asset.percentChange24hReal,
             ),
-            alwaysShowChain
+            showChain
         )
     }
 
-    fun setAsset(asset: IApiToken?, alwaysShowChain: Boolean = false) {
+    fun setAsset(asset: IApiToken?, showChain: Boolean = false) {
         if (this.asset == asset && !animator.isEmpty) {
             return
         }
@@ -178,7 +178,7 @@ open class WTokenSymbolIconView(context: Context) : FrameLayout(context), Replac
                 chainSize = 10.dp
                 chainSizeGap = 1f.dp
             }.apply {
-                set(Content.of(it, alwaysShowChain))
+                set(Content.of(it, showChain))
             }
         }
 

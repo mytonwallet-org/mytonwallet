@@ -186,6 +186,7 @@ class SendTokenVC(
 
                     cell.configure(
                         tokenBalance = token,
+                        showChain = false,
                         isLast = isLastOverall,
                         hideSeparator = isLastInSection
                     )

@@ -18,15 +18,12 @@ import org.mytonwallet.app_air.uicomponents.image.WActivityImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.utils.gradientColors
-import org.mytonwallet.app_air.walletcore.STAKE_SLUG
-import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
-import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
 @Deprecated("use WCustomImageView")
 @SuppressLint("ViewConstructor")
@@ -174,33 +171,30 @@ class IconView(
 
     fun config(
         walletToken: MTokenBalance,
-        alwaysShowChain: Boolean = false,
+        showChain: Boolean = false,
         showPercentBadge: Boolean = false
     ) {
         abbreviationText = ""
         activityImageView.imageView.setPadding(0)
-        val token = TokenStore.getToken(walletToken.token)
 
-        if (token != null) {
-            val correctTokenToShow =
-                if (token.slug == STAKE_SLUG)
-                    TokenStore.getToken(TONCOIN_SLUG) ?: token else token
-            activityImageView.set(
-                Content.of(
-                    correctTokenToShow,
-                    if (alwaysShowChain) Content.SHOW_CHAIN_ALWAYS else Content.SHOW_CHAIN_DEFAULT,
-                    showPercentBadge
-                )
+        activityImageView.set(
+            Content.of(
+                walletToken,
+                showChain,
+                showPercentBadge
             )
-        } else {
-            activityImageView.clear()
-        }
+        )
     }
 
-    fun config(token: MToken?, alwaysShowChain: Boolean = true) {
+    fun config(token: MToken?, showChain: Boolean = true) {
         abbreviationText = ""
         if (token != null) {
-            activityImageView.set(Content.of(token, alwaysShowChain))
+            activityImageView.set(
+                Content.of(
+                    token,
+                    showChain
+                )
+            )
         } else {
             activityImageView.clear()
         }

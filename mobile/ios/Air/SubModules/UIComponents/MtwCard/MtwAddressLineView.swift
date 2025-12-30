@@ -126,6 +126,13 @@ public struct MtwCardAddressLine: View {
                     gradient.matchedGeometryEffect(id: "address", in: ns, isSource: false)
                 }
             }
+            .background {
+                if style.largeAccountTypeIcon && addressLine.leadingIcon == .view {
+                    BackgroundBlur(radius: 12)
+                        .clipShape(.rect(cornerRadius: viewBadgeCornerRadius))
+                        .padding(.vertical, -viewBadgeVerticalPadding)
+                }
+            }
             HStack(spacing: style.chainSpacing) {
                 ForEach(addressLine.items) { item in
                     ItemView(item: item, itemsCount: itemsCount, style: style, gradient: gradient, ns: ns)

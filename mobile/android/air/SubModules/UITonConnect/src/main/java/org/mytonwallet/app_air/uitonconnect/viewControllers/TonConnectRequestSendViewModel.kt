@@ -100,7 +100,7 @@ class TonConnectRequestSendViewModel private constructor(
         val token: ApiTokenWithPrice?,
         val isUnknown: Boolean,
     ) {
-        val icon = token?.let { Content.Companion.of(it) }
+        val icon = token?.let { Content.Companion.of(it, showChain = false) }
             ?: (if (slug == "toncoin" || isUnknown) Content.Companion.chain(MBlockchain.ton) else null)
     }
 

@@ -133,13 +133,17 @@ private struct _BalanceChangeContent: View {
         HStack {
             if let text {
                 Text(text)
-                        .font(.compactMedium(size: 17))
-                        .opacity(0.8)
-                        .padding(.horizontal, 8)
-                        .background {
+                    .font(.compactMedium(size: 17))
+                    .opacity(0.8)
+                    .padding(.horizontal, 8)
+                    .background {
+                        ZStack {
+                            BackgroundBlur(radius: 12)
                             Capsule()
                                 .opacity(0.10)
-                            .frame(height: 26)
+                        }
+                        .clipShape(.capsule)
+                        .frame(height: 26)
                     }
                     .sensitiveData(alignment: .center, cols: 10, rows: 2, cellSize: 13, theme: .light, cornerRadius: 13)
             } else {

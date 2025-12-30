@@ -30,7 +30,6 @@ class WReplaceableLabel(context: Context) : WFrameLayout(context), WThemedView {
     private val configs = mutableListOf<Config>()
 
     private val prevLabel = WLabel(context).apply {
-        setStyle(20f, WFont.SemiBold)
         setSingleLine()
         isHorizontalFadingEdgeEnabled = true
         ellipsize = TextUtils.TruncateAt.MARQUEE
@@ -38,7 +37,6 @@ class WReplaceableLabel(context: Context) : WFrameLayout(context), WThemedView {
     }
 
     private val currentLabel = WLabel(context).apply {
-        setStyle(16f, WFont.Medium)
         setSingleLine()
         isHorizontalFadingEdgeEnabled = true
         ellipsize = TextUtils.TruncateAt.MARQUEE
@@ -71,6 +69,10 @@ class WReplaceableLabel(context: Context) : WFrameLayout(context), WThemedView {
     data class Config(
         val text: String,
         val isLoading: Boolean,
+        val isExpandable: Boolean,
+        val textColor: WColor,
+        val textSize: Float,
+        val font: WFont,
     )
 
     fun setText(config: Config, animated: Boolean = true) {
@@ -80,7 +82,11 @@ class WReplaceableLabel(context: Context) : WFrameLayout(context), WThemedView {
             animator?.cancel()
             animationProgress = 0f
             applyConfig(prevLabel, config)
-            applyPadding(prevLabel, if (config.isLoading) 1f else 0f)
+            applyPadding(
+                prevLabel,
+                if (config.isLoading) 1f else 0f,
+                if (config.isExpandable) 1f else 0f
+            )
             applyConfig(currentLabel, null)
             scheduleSelection()
             invalidate()
@@ -112,20 +118,18 @@ class WReplaceableLabel(context: Context) : WFrameLayout(context), WThemedView {
         label.apply {
             text = config.text
             val progress = if (config.isLoading) 1f else 0f
-            applyPadding(label, progress)
-            setTextColor(if (config.isLoading) WColor.SecondaryText else WColor.PrimaryText)
-            if (config.isLoading)
-                setStyle(16f, WFont.Medium)
-            else
-                setStyle(20f, WFont.SemiBold)
+            val expand = if (config.isExpandable) 1f else 0f
+            applyPadding(label, progress, expand)
+            setTextColor(config.textColor)
+            setStyle(config.textSize, config.font)
         }
     }
 
-    private fun applyPadding(label: WLabel, progressVisibility: Float) {
+    private fun applyPadding(label: WLabel, progressVisibility: Float, expandVisibility: Float) {
         label.setPadding(
             (progressVisibility * 24.dp).roundToInt(),
             0,
-            ((1 - progressVisibility) * expandSize).roundToInt(),
+            (expandVisibility * expandSize).roundToInt(),
             0
         )
     }
@@ -170,6 +174,14 @@ class WReplaceableLabel(context: Context) : WFrameLayout(context), WThemedView {
             )
         else
             if (configs.firstOrNull()?.isLoading == true) 1f else 0f
+        val expandVisibility = if (configs.size > 1)
+            lerp(
+                if (configs.firstOrNull()?.isExpandable == true) 1f else 0f,
+                if (configs.getOrNull(1)?.isExpandable == true) 1f else 0f,
+                animationProgress
+            )
+        else
+            if (configs.firstOrNull()?.isExpandable == true) 1f else 0f
         val widthValue = if (configs.size > 1)
             lerp(
                 prevLabel.measuredWidth.toFloat(),
@@ -180,7 +192,7 @@ class WReplaceableLabel(context: Context) : WFrameLayout(context), WThemedView {
             prevLabel.measuredWidth
         configLabels()
         drawProgress(canvas, widthValue, progressVisibility)
-        drawExpand(canvas, widthValue, 1 - progressVisibility)
+        drawExpand(canvas, widthValue, expandVisibility)
     }
 
     private fun configLabels() {

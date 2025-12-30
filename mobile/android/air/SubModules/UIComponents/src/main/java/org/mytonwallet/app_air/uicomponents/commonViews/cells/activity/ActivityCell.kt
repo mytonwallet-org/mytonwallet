@@ -118,7 +118,8 @@ class ActivityCell(
         isLastInDay: Boolean,
         isLast: Boolean
     ) {
-        if (this.transaction?.isChanged(transaction) == false &&
+        if (this.transaction?.isSame(transaction) == true &&
+            this.transaction?.isChanged(transaction) == false &&
             WalletCore.baseCurrency == baseCurrency &&
             TokenStore.baseCurrencyRate == baseCurrencyRate &&
             this.isFirst == isFirst &&

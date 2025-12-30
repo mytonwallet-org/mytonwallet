@@ -42,6 +42,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
+import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferOptions
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import java.lang.ref.WeakReference
@@ -74,7 +75,7 @@ class SendConfirmVC(
             val amount = SpannableStringBuilder(config.request.amountEquivalent.getFmt(false))
             CoinUtils.setSpanToFractionalPart(amount, WForegroundColorSpan(WColor.SecondaryText))
             set(
-                Content.of(config.request.token),
+                Content.of(config.request.token, showChain = WalletCore.isMultichain),
                 amount = amount,
                 currency = config.request.amountEquivalent.getFmt(true),
                 fee = LocaleController.getString("\$fee_value_with_colon").replace(

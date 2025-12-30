@@ -60,7 +60,7 @@ export async function getAccentColorIndexFromNft(nft: ApiNft) {
     return ACCENT_BNW_INDEX;
   }
 
-  const src = getCardNftImageUrl(nft);
+  const src = getCardNftImageUrl(nft, 'webp');
   if (!src) return undefined;
 
   try {

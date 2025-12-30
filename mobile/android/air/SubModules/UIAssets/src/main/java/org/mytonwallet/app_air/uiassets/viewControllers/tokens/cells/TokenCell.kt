@@ -227,7 +227,7 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         val token = TokenStore.getToken(tokenBalance.token)
         iconView.config(
             tokenBalance,
-            alwaysShowChain = isMultichain,
+            showChain = isMultichain,
             showPercentBadge = (tokenBalance.isVirtualStakingRow && tokenBalance.amountValue > BigInteger.ZERO)
         )
         val tokenName = if (tokenBalance.isVirtualStakingRow) {

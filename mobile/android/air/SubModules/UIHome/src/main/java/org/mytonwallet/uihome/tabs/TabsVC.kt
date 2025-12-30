@@ -36,6 +36,7 @@ import com.google.android.material.navigation.NavigationBarView
 import me.vkryl.android.AnimatorUtils
 import me.vkryl.android.animatorx.BoolAnimator
 import me.vkryl.android.animatorx.FloatAnimator
+import org.mytonwallet.app_air.uiassets.viewControllers.token.TokenVC
 import org.mytonwallet.app_air.uibrowser.viewControllers.explore.ExploreVC
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
@@ -57,7 +58,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.SettingsVC
-import org.mytonwallet.app_air.uiassets.viewControllers.token.TokenVC
 import org.mytonwallet.app_air.uitransaction.viewControllers.TransactionVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
@@ -299,14 +299,14 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         minimizedNav?.alpha = visibilityFraction
         val bottomNavigationLayoutLayoutParams = bottomNavigationFrameLayout.layoutParams
         if (bottomNavigationLayoutLayoutParams != null) {
-            bottomNavigationLayoutLayoutParams.height =
-                ((navigationController?.getSystemBars()?.bottom
-                    ?: 0) + (visibilityFraction * contentHeight).roundToInt())
-            bottomNavigationFrameLayout.layoutParams = bottomNavigationLayoutLayoutParams
-            bottomCornerView.layoutParams = bottomCornerView.layoutParams.apply {
-                height =
-                    bottomNavigationLayoutLayoutParams.height + ViewConstants.BAR_ROUNDS.dp.roundToInt()
+            val newHeight =
+                ((navigationController?.getSystemBars()?.bottom ?: 0) +
+                    (visibilityFraction * contentHeight).roundToInt())
+            if (bottomNavigationLayoutLayoutParams.height != newHeight) {
+                bottomNavigationLayoutLayoutParams.height = newHeight
+                bottomNavigationFrameLayout.layoutParams = bottomNavigationLayoutLayoutParams
             }
+            updateBottomBlurHeight()
         }
         searchView.translationY =
             (SEARCH_HEIGHT + SEARCH_TOP_MARGIN).dp - BOTTOM_TABS_LAYOUT_HEIGHT.dp - BOTTOM_TABS_BOTTOM_MARGIN.dp - BOTTOM_TABS_TOP_MARGIN.dp / 2 - (additionalHeight - searchAdditionalTopMargin).toFloat()
@@ -318,6 +318,16 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             minimizedNav?.y = minimizedNavY!! + visibilityTranslationY
         }
         onUpdateAdditionalHeight()
+    }
+
+    private fun updateBottomBlurHeight() {
+        val bottomNavigationLayoutLayoutParams = bottomNavigationFrameLayout.layoutParams ?: return
+        val newBottomViewHeight =
+            bottomNavigationLayoutLayoutParams.height + ViewConstants.BAR_ROUNDS.dp.roundToInt()
+        if (bottomCornerView.layoutParams.height != newBottomViewHeight)
+            bottomCornerView.layoutParams = bottomCornerView.layoutParams.apply {
+                height = newBottomViewHeight
+            }
     }
 
     private fun onUpdateAdditionalHeight() {
@@ -386,6 +396,16 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         }
         checkForUpdate()
         updateTheme()
+    }
+
+    override fun notifyThemeChanged() {
+        super.notifyThemeChanged()
+        if (isDisappeared) {
+            stackNavigationControllers.values.forEach {
+                it.viewControllers.lastOrNull()?.pendingThemeChange = true
+            }
+            return
+        }
     }
 
     private var cachedTintColor: Int? = null
@@ -508,6 +528,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         if (searchMatchedSite != null && !isKeyboardOpen) {
             clearSearchAutoComplete()
         }
+        updateBottomBlurHeight()
     }
 
     fun switchToExplore() {

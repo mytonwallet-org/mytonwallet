@@ -160,7 +160,7 @@ class TokenHeaderView(
         addView(balanceView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(equivalentLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
 
-        iconView.set(Content.of(token = token, alwaysShowChain = true))
+        iconView.set(Content.of(token = token, showChain = true))
 
         setConstraints {
             toTopPx(iconView, navDefaultHeight + 24.dp)

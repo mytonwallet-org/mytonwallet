@@ -208,7 +208,8 @@ class AssetsAndActivitiesHeaderCell(
                     TokenStore.swapAssets2?.filter {
                         MBlockchain.supportedChainValues.contains(it.chain)
                     } ?: emptyList(),
-                    false
+                    showMyAssets = false,
+                    showChain = false,
                 ).apply {
                     setOnAssetSelectListener { asset ->
                         val assetsAndActivityData = AccountStore.assetsAndActivityData

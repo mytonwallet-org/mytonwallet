@@ -112,7 +112,7 @@ class ActivityAmountView(context: Context) : WFrameLayout(context), WThemedView,
                 else -> WColor.PrimaryText.color
             }
         )
-        mainIconView.set(Content.of(token, showChainConfig = Content.SHOW_CHAIN_NEVER))
+        mainIconView.set(Content.of(token, showChain = false))
         secondIconView.visibility = GONE
         borderView.visibility = GONE
 
@@ -134,10 +134,10 @@ class ActivityAmountView(context: Context) : WFrameLayout(context), WThemedView,
         }
         val isFailed = swap.status == ApiSwapStatus.EXPIRED || swap.status == ApiSwapStatus.FAILED
 
-        mainIconView.set(Content.of(fromToken, showChainConfig = Content.SHOW_CHAIN_NEVER))
+        mainIconView.set(Content.of(fromToken, showChain = false))
         borderView.visibility = VISIBLE
         secondIconView.visibility = VISIBLE
-        secondIconView.set(Content.of(toToken, showChainConfig = Content.SHOW_CHAIN_NEVER))
+        secondIconView.set(Content.of(toToken, showChain = false))
         updateViewOrder()
 
         val builder = SpannableStringBuilder()

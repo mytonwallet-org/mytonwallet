@@ -151,6 +151,7 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
             val prevBarRounds = topReversedCornerView?.cornerRadius ?: 0f
             WGlobalStorage.setActiveUiMode(uiMode)
             ThemeManager.uiMode = uiMode
+            pendingThemeChange = true
             WalletContextManager.delegate?.themeChanged()
             topReversedCornerView?.animateRadius(
                 prevBarRounds,

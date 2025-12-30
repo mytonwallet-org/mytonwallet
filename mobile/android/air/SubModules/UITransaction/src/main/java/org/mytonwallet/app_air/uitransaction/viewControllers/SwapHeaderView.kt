@@ -150,7 +150,7 @@ class SwapHeaderView(
         if (transaction.fromToken != null) {
             tokenToSendIconView.setAsset(
                 transaction.fromToken!!,
-                !transaction.fromToken!!.isBlockchainNative
+                showChain = true
             )
 
             val sendAmount = transaction.fromAmount.toString(
@@ -172,7 +172,7 @@ class SwapHeaderView(
         if (transaction.toToken != null) {
             tokenToReceiveIconView.setAsset(
                 transaction.toToken!!,
-                !transaction.toToken!!.isBlockchainNative
+                showChain = true
             )
 
             val receiveAmount = transaction.toAmount.toDouble().toString(

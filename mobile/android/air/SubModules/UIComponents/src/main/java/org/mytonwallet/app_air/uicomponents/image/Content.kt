@@ -5,8 +5,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletcore.STAKE_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
-import org.mytonwallet.app_air.walletcore.models.MToken
+import org.mytonwallet.app_air.walletcore.models.MTokenBalance
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
+import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
 data class Content(
     val image: Image,
@@ -41,39 +42,40 @@ data class Content(
     }
 
     companion object {
-        fun of(token: IApiToken, alwaysShowChain: Boolean = false): Content {
+        fun of(token: IApiToken, showChain: Boolean): Content {
             val resId = token.mBlockchain?.icon ?: 0
-            val showChainBadge = alwaysShowChain && !token.isBlockchainNative
 
-            if (token.isUsdt) {
-                return Content(
-                    image = Image.Res(R.drawable.ic_coin_usdt_40),
-                    subImageRes = if (showChainBadge) resId else 0,
-                )
-            } else if (resId != 0 && token.isBlockchainNative) {
-                return Content(
+            return if (resId != 0 && token.isBlockchainNative) {
+                Content(
                     image = Image.Res(resId),
                     subImageRes = 0,
                 )
             } else {
-                return Content(
-                    image = Image.Url(token.image ?: ""),
-                    subImageRes = if (showChainBadge) resId else 0,
+                Content(
+                    image = if (token.isUsdt)
+                        Image.Res(R.drawable.ic_coin_usdt_40)
+                    else
+                        Image.Url(token.image ?: ""),
+                    subImageRes = if (showChain) resId else 0,
                 )
             }
         }
 
-        const val SHOW_CHAIN_ALWAYS = 2
-        const val SHOW_CHAIN_DEFAULT = 1
-        const val SHOW_CHAIN_NEVER = 0
         fun of(
-            token: MToken,
-            showChainConfig: Int = SHOW_CHAIN_DEFAULT,
+            tokenBalance: MTokenBalance,
+            showChain: Boolean,
             showPercentBadge: Boolean = false
-        ): Content {
+        ): Content? {
+            val balanceToken = TokenStore.getToken(tokenBalance.token) ?: run {
+                return null
+            }
+            val token =
+                if (balanceToken.slug == STAKE_SLUG)
+                    TokenStore.getToken(TONCOIN_SLUG) ?: balanceToken
+                else
+                    balanceToken
             val blockchain = token.mBlockchain
             val chainIconRes = blockchain?.icon ?: 0
-            val subImageRes = if (showChainConfig == SHOW_CHAIN_ALWAYS) chainIconRes else 0
             val isTonOrStake = token.slug == TONCOIN_SLUG || token.slug == STAKE_SLUG
 
             val mainImage: Image = when {
@@ -91,7 +93,7 @@ data class Content(
 
             val finalSubImageRes = when {
                 showPercentBadge -> R.drawable.ic_percent
-                showChainConfig == SHOW_CHAIN_ALWAYS && !token.isBlockchainNative -> chainIconRes
+                showChain && !token.isBlockchainNative -> chainIconRes
                 else -> 0
             }
 

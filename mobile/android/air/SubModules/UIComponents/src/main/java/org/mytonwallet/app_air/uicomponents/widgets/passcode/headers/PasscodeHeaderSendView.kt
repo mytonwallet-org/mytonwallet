@@ -23,6 +23,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
+import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
 import java.lang.ref.WeakReference
 import kotlin.math.roundToInt
@@ -178,7 +179,7 @@ class PasscodeHeaderSendView(
             )
         }
 
-        config(Content.of(token), amount, address)
+        config(Content.of(token, WalletCore.isMultichain), amount, address)
     }
 
     fun config(

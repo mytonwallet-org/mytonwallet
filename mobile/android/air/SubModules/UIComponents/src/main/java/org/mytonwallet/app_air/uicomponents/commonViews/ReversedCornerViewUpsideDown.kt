@@ -141,21 +141,10 @@ class ReversedCornerViewUpsideDown(
 
     override fun updateTheme() {
         if (blurryBackgroundView == null) {
-            backgroundView.setBackgroundColor(
-                if (ThemeManager.uiMode.hasRoundedCorners)
-                    WColor.SecondaryBackground.color
-                else
-                    WColor.Background.color
-            )
+            backgroundView.setBackgroundColor(WColor.SecondaryBackground.color)
         }
 
-        cornerRadius = ViewConstants.BAR_ROUNDS.dp
-
-        radii = floatArrayOf(0f, 0f, 0f, 0f, cornerRadius, cornerRadius, cornerRadius, cornerRadius)
-        paint.color =
-            if (blurRootView != null) Color.TRANSPARENT else WColor.SecondaryBackground.color
-
-        pathDirty = true
+        updateRadius()
 
         if (!isPlaying) {
             resumeBlurring()
@@ -163,6 +152,16 @@ class ReversedCornerViewUpsideDown(
         } else {
             postInvalidateOnAnimation()
         }
+    }
+
+    private fun updateRadius() {
+        if (cornerRadius == ViewConstants.BAR_ROUNDS.dp)
+            return
+        cornerRadius = ViewConstants.BAR_ROUNDS.dp
+        radii = floatArrayOf(0f, 0f, 0f, 0f, cornerRadius, cornerRadius, cornerRadius, cornerRadius)
+        paint.color =
+            if (blurRootView != null) Color.TRANSPARENT else WColor.SecondaryBackground.color
+        pathDirty = true
     }
 
     fun pauseBlurring() {

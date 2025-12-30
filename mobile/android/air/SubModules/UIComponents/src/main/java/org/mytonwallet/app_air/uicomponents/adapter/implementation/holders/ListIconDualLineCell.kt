@@ -124,7 +124,7 @@ class ListIconDualLineCell(context: Context) : FrameLayout(context), WThemedView
     }
 
     fun configure(asset: MApiSwapAsset, balance: BigInteger, separator: Boolean) {
-        tokenImage.set(Content.of(asset))
+        tokenImage.set(Content.of(asset, showChain = false))
         tokenTitle.text = asset.name ?: asset.symbol
 
         if (balance > BigInteger.ZERO) {

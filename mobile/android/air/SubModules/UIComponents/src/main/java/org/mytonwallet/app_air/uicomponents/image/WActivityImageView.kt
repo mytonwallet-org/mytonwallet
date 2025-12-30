@@ -45,8 +45,11 @@ class WActivityImageView(context: Context) : WView(context),
         )
     }
 
-    fun set(content: Content, lowResUrl: String? = null) {
-        this.content = content
+    fun set(content: Content?, lowResUrl: String? = null) {
+        this.content = content ?: run {
+            clear()
+            return
+        }
 
         val imageContent = if (content.subImageAnimation != 0) {
             content.copy(subImageRes = 0)
@@ -96,9 +99,9 @@ class WActivityImageView(context: Context) : WView(context),
 
     fun setAsset(
         token: org.mytonwallet.app_air.walletcore.models.MToken,
-        alwaysShowChain: Boolean = false
+        showChain: Boolean = false
     ) {
-        imageView.setAsset(token, alwaysShowChain)
+        imageView.setAsset(token, showChain)
     }
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
