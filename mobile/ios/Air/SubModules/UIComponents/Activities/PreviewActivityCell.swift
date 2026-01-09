@@ -26,7 +26,7 @@ public class PreviewActivityCell: ActivityCell {
         ])
     }
     
-    public func configure(withPreviewActivity activity: ApiActivity, delegate: Delegate?, shouldFadeOutSkeleton: Bool) {
+    public func configure(withPreviewActivity activity: ApiActivity, accountContext: AccountContext, delegate: Delegate?, shouldFadeOutSkeleton: Bool) {
         
         if shouldFadeOutSkeleton {
             skeletonView?.layer.maskedCorners = contentView.layer.maskedCorners
@@ -41,6 +41,8 @@ public class PreviewActivityCell: ActivityCell {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         
+        self.configureViewModel(accountId: accountContext.accountId, activity: activity)
+        
         iconView.config(with: activity)
         
         let shouldShowCenteredTitle = activity.shouldShowCenteredTitle
@@ -48,7 +50,7 @@ public class PreviewActivityCell: ActivityCell {
             configureCenteredLabel(activity: activity)
         }
         configureTitle(activity: activity, isEmulation: true)
-        configureDetails(activity: activity, isEmulation: true)
+        configureDetails(activity: activity, accountContext: accountContext, isEmulation: true)
         centeredLabel.isHidden = !shouldShowCenteredTitle
         titleLabel.isHidden = shouldShowCenteredTitle
         detailsLabel.isHidden = shouldShowCenteredTitle
@@ -77,9 +79,11 @@ public class PreviewActivityCell: ActivityCell {
 public struct WPreviewActivityCell: UIViewRepresentable {
     
     public var activity: ApiActivity
+    public var accountContext: AccountContext
     
-    public init(activity: ApiActivity) {
+    public init(activity: ApiActivity, accountContext: AccountContext) {
         self.activity = activity
+        self.accountContext = accountContext
     }
     
     public func makeUIView(context: Context) -> PreviewActivityCell {
@@ -87,7 +91,7 @@ public struct WPreviewActivityCell: UIViewRepresentable {
     }
     
     public func updateUIView(_ cell: PreviewActivityCell, context: Context) {
-        cell.configure(withPreviewActivity: activity, delegate: nil, shouldFadeOutSkeleton: false)
+        cell.configure(withPreviewActivity: activity, accountContext: accountContext, delegate: nil, shouldFadeOutSkeleton: false)
     }
     
     public func sizeThatFits(_ proposal: ProposedViewSize, uiView cell: PreviewActivityCell, context: Context) -> CGSize? {

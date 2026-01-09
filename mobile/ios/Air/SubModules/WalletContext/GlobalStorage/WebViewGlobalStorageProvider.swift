@@ -111,7 +111,7 @@ final class WebViewGlobalStorageProvider: NSObject, WKNavigationDelegate {
         guard let webView, webView.url == capacitorUrl, webView.isLoading == false else {
             throw .notReady
         }
-        let result: Any
+        let result: Any?
         do {
             log.info("[wv] getItem called")
             result = try await webView.evaluateJavaScript("localStorage.getItem('\(globalStateKey)')")
@@ -123,7 +123,7 @@ final class WebViewGlobalStorageProvider: NSObject, WKNavigationDelegate {
             throw .localStorageIsNull
         }
         guard let string = result as? String else {
-            throw .localStorageIsNotAString(result)
+            throw .localStorageIsNotAString(result as Any)
         }
         return string.count
     }

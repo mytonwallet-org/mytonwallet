@@ -25,6 +25,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -267,16 +268,25 @@ class TokenHeaderView(
             )
         )
         prevBalance = balance
+        val fallbackToUsd = token.symbol == WalletCore.baseCurrency.currencyCode
+        val tokenPrice = if (fallbackToUsd)
+            token.priceUsd
+        else
+            token.price
         val balanceInBaseCurrency =
             balance?.let { balance ->
-                token.price?.let { tokenPrice ->
+                tokenPrice?.let { tokenPrice ->
                     balance.doubleAbsRepresentation(token.decimals) * tokenPrice
                 }
             }
+        val equivalentCurrency = if (fallbackToUsd)
+            MBaseCurrency.USD
+        else
+            WalletCore.baseCurrency
         equivalentLabel.contentView.text = balanceInBaseCurrency?.toString(
             9,
-            WalletCore.baseCurrency.sign,
-            WalletCore.baseCurrency.decimalsCount,
+            equivalentCurrency.sign,
+            equivalentCurrency.decimalsCount,
             true
         )
     }

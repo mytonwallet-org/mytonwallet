@@ -90,7 +90,7 @@ private let log = Log("Home-WalletAssets")
             
             tabsViewModel.changeAccountTo(accountId: accountId)
             if let first = tabsViewModel.displayTabs.first, let vc = tabViewControllers[first] {
-                if vc is WalletTokensView {
+                if vc is WalletTokensVC {
                     tokensVC?.switchAcccountTo(accountId: accountId, animated: true)
                 }
             }
@@ -178,13 +178,13 @@ private let log = Log("Home-WalletAssets")
         self.tokensVC = tokensVC
         addChild(tokensVC)
         tokensVC.didMove(toParent: self)
-        
+
         let nftsVC = NftsVC(accountSource: accountSource, compactMode: true, filter: .none)
         self.nftsVC = nftsVC
         addChild(nftsVC)
         nftsVC.didMove(toParent: self)
-        
-        view = WalletAssetsView(walletTokensView: tokensVC.tokensView, walletCollectiblesView: nftsVC, onScrollingOffsetChanged: nil)
+
+        view = WalletAssetsView(walletTokensVC: tokensVC, walletCollectiblesView: nftsVC, onScrollingOffsetChanged: nil)
     }
     
     public override func viewDidLoad() {
@@ -205,7 +205,7 @@ private let log = Log("Home-WalletAssets")
         
         updateTheme()
         
-        tabViewControllers[.tokens] = tokensVC?.tokensView
+        tabViewControllers[.tokens] = tokensVC
         tabViewControllers[.nfts] = nftsVC
 
         WalletCoreData.add(eventObserver: self)
@@ -279,7 +279,7 @@ private let log = Log("Home-WalletAssets")
     }
     
     public var skeletonViewCandidates: [UIView] {
-        walletAssetsView.walletTokensView.visibleCells
+        walletAssetsView.walletTokensVC.visibleCells
     }
     
     func onReorder() {

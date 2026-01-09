@@ -15,17 +15,19 @@ import WalletContext
 import Perception
 import SwiftNavigation
 
-private let log = Log("StakeUnstakeModel")
+private let log = Log("AddStakeModel")
 
-@MainActor
-@Perceptible
+@MainActor @Perceptible
 final class AddStakeModel: WalletCoreData.EventsObserver {
     
     let config: StakingConfig
+    @PerceptionIgnored
+    @AccountContext private var account: MAccount
     
-    public init(config: StakingConfig, stakingState: ApiStakingState) {
+    public init(config: StakingConfig, stakingState: ApiStakingState, accountContext: AccountContext) {
         self.config = config
         self.stakingState = stakingState
+        self._account = accountContext
         updateAccountBalances()
         WalletCoreData.add(eventObserver: self)
     }
@@ -42,8 +44,8 @@ final class AddStakeModel: WalletCoreData.EventsObserver {
         case .balanceChanged, .tokensChanged:
             updateAccountBalances()
         case .stakingAccountData(let data):
-            if data.accountId == AccountStore.accountId {
-                if let stakingState = config.stakingState {
+            if data.accountId == $account.accountId {
+                if let stakingState = config.stakingState(stakingData: $account.stakingData) {
                     self.stakingState = stakingState
                 }
             }
@@ -53,8 +55,8 @@ final class AddStakeModel: WalletCoreData.EventsObserver {
     }
     
     func updateAccountBalances() {
-        let nativeBalance = BalanceStore.currentAccountBalances[nativeTokenSlug] ?? 0
-        let baseTokenBalance = BalanceStore.currentAccountBalances[tokenSlug] ?? 0
+        let nativeBalance = $account.balances[nativeTokenSlug] ?? 0
+        let baseTokenBalance = $account.balances[tokenSlug] ?? 0
         self.nativeBalance = nativeBalance
         self.baseTokenBalance = baseTokenBalance
         
@@ -101,7 +103,14 @@ final class AddStakeModel: WalletCoreData.EventsObserver {
     // MARK: User input
     
     var switchedToBaseCurrencyInput: Bool = false
-    var amount: BigInt? = nil
+    var amount: BigInt? = nil {
+        didSet {
+            if oldValue != amount {
+                draft = nil
+                draftAmount = nil
+            }
+        }
+    }
     var amountInBaseCurrency: BigInt? = nil
     var isAmountFieldFocused: Bool = false
     
@@ -112,6 +121,7 @@ final class AddStakeModel: WalletCoreData.EventsObserver {
     var tokenSlug: String { baseToken.slug }
     
     var draft: ApiCheckTransactionDraftResult?
+    var draftAmount: BigInt?
     
     var fee: MFee? {
         let stakeOperationFee = getStakeOperationFee(stakingType: stakingState.type, stakeOperation: .stake).real
@@ -168,22 +178,22 @@ final class AddStakeModel: WalletCoreData.EventsObserver {
     }
 
     func updateFee() async {
-        if let accountId = AccountStore.accountId, let amount = amount {
-            do {
-                let draft: ApiCheckTransactionDraftResult =  try await Api.checkStakeDraft(accountId: accountId, amount: amount, state: stakingState)
-                try handleDraftError(draft)
-                if Task.isCancelled {
-                    if self.draft == nil {
-                        self.draft = draft
-                    }
-                    return
-                }
-                self.draft = draft
-            } catch {
-                if !Task.isCancelled {
-                    AppActions.showError(error: error)
-                }
-                log.info("\(error)")
+        guard let amount else {
+            draft = nil
+            draftAmount = nil
+            return
+        }
+        draft = nil
+        draftAmount = nil
+        do {
+            let draft =  try await Api.checkStakeDraft(accountId: account.id, amount: amount, state: stakingState)
+            try handleDraftError(draft)
+            guard !Task.isCancelled, self.amount == amount else { return }
+            self.draft = draft
+            self.draftAmount = amount
+        } catch {
+            if !Task.isCancelled {
+                AppActions.showError(error: error)
             }
         }
     }

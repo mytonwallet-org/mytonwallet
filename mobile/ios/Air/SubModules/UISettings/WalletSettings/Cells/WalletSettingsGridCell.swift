@@ -19,29 +19,29 @@ let borderWidth = 1.5
 
 struct WalletSettingsGridCell: View {
     
-    let viewModel: AccountViewModel
+    let accountContext: AccountContext
     
     var body: some View {
         WithPerceptionTracking {
             VStack(spacing: 7) {
                 MtwCard(aspectRatio: SMALL_CARD_RATIO)
                     .background {
-                        MtwCardBackground(nft: viewModel.nft, hideBorder: true)
+                        MtwCardBackground(nft: accountContext.nft, hideBorder: true)
                     }
                     .overlay {
-                        _BalanceView(viewModel: viewModel)
+                        _BalanceView(accountContext: accountContext)
                     }
                     .overlay(alignment: .bottom) {
-                        GridAddressLine(addressLine: viewModel.account.addressLine, nft: viewModel.nft)
+                        GridAddressLine(addressLine: accountContext.account.addressLine, nft: accountContext.nft)
                             .foregroundStyle(.white)
                             .padding(8)
                         
                     }
                     .clipShape(.containerRelative)
-                    .mtwCardSelection(isSelected: viewModel.isCurrent, cornerRadius: 12, lineWidth: borderWidth)
+                    .mtwCardSelection(isSelected: accountContext.isCurrent, cornerRadius: 12, lineWidth: borderWidth)
                     .containerShape(.rect(cornerRadius: 12))
                     
-                Text(viewModel.account.displayName)
+                Text(accountContext.account.displayName)
                     .font(.system(size: 13, weight: .medium))
                     .lineLimit(1)
                     .allowsTightening(true)
@@ -55,17 +55,17 @@ struct WalletSettingsGridCell: View {
 
 private struct _BalanceView: View {
     
-    var viewModel: AccountViewModel
+    var accountContext: AccountContext
     
     var body: some View {
         WithPerceptionTracking {
-            MtwCardBalanceView(balance: viewModel.balance, style: .grid)
+            MtwCardBalanceView(balance: accountContext.balance, style: .grid)
                 .frame(height: 24, alignment: .center)
                 .padding(.leading, 6)
                 .padding(.trailing, 5)
                 .padding(.bottom, 6)
                 .sourceAtop {
-                    MtwCardBalanceGradient(nft: viewModel.nft)
+                    MtwCardBalanceGradient(nft: accountContext.nft)
                 }
         }
     }

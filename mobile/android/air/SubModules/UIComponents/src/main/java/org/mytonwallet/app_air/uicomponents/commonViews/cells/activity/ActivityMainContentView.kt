@@ -207,7 +207,7 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
     }
 
     private fun configureScamLabel() {
-        if (transaction?.isPoisoningOrScam() != true) {
+        if (transaction?.isScam != true) {
             scamLabel.visibility = GONE
             topLeftLabel.setPadding(0, 0, 0, 0)
             return

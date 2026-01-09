@@ -289,6 +289,11 @@ private class AppActionsImpl: AppActionsProtocol {
         }
     }
     
+    static func showSaveAddressDialog(accountContext: AccountContext, chain: ApiChain, address: String) {
+        let alert = makeSaveAddressAlertController(accountContext: accountContext, chain: chain, address: address)
+        topViewController()?.present(alert, animated: true)
+    }
+    
     static func showSend(prefilledValues: SendPrefilledValues?) {
         if AccountStore.account?.supportsSend != true {
             AppActions.showError(error: BridgeCallError.customMessage(lang("Read-only account"), nil))
@@ -327,16 +332,15 @@ private class AppActionsImpl: AppActionsProtocol {
         topWViewController()?.showToast(animationName: animationName, message: message, duration: duration, tapAction: tapAction)
     }
     
-    static func showToken(token: ApiToken, isInModal: Bool) {
-        guard let accountId = AccountStore.accountId else { return }
+    static func showToken(accountSource: AccountSource, token: ApiToken, isInModal: Bool) {
         Task {
-            let tokenVC: TokenVC = await TokenVC(accountId: accountId, token: token, isInModal: isInModal)
+            let tokenVC: TokenVC = await TokenVC(accountSource: accountSource, token: token, isInModal: isInModal)
             topWViewController()?.navigationController?.pushViewController(tokenVC, animated: true)
         }
     }
 
     static func showTokenByAddress(chain: String, tokenAddress: String) {
-        guard let accountId = AccountStore.accountId else { return }
+        guard AccountStore.accountId != nil else { return }
         guard let apiChain = ApiChain(rawValue: chain) else { return }
 
         Task {
@@ -349,7 +353,7 @@ private class AppActionsImpl: AppActionsProtocol {
                     return
                 }
                 await MainActor.run {
-                    presentOrPushToken(accountId: accountId, token: token)
+                    presentOrPushToken(accountSource: .current, token: token)
                 }
             } catch {
                 await MainActor.run {
@@ -360,17 +364,16 @@ private class AppActionsImpl: AppActionsProtocol {
     }
 
     static func showTokenBySlug(_ slug: String) {
-        guard let accountId = AccountStore.accountId else { return }
         guard let token = TokenStore.getToken(slug: slug) else {
             AppActions.showError(error: BridgeCallError.customMessage(lang("$unknown_token_address"), nil))
             return
         }
-        presentOrPushToken(accountId: accountId, token: token)
+        presentOrPushToken(accountSource: .current, token: token)
     }
 
-    private static func presentOrPushToken(accountId: String, token: ApiToken) {
+    private static func presentOrPushToken(accountSource: AccountSource, token: ApiToken) {
         Task {
-            let tokenVC: TokenVC = await TokenVC(accountId: accountId,
+            let tokenVC: TokenVC = await TokenVC(accountSource: accountSource,
                                                  token: token,
                                                  isInModal: tabVC?.selectedViewController?.children.first is HomeVC != true)
             if let nav = (topViewController() as? HomeTabBarController)?.selectedViewController as? UINavigationController,

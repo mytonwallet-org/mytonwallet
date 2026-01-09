@@ -205,7 +205,7 @@ Save Address: Zapisz adres
 Name: Nazwa
 Save: Zapisz
 Copy: Kopia
-Remove From Saved: Usuń z zapisanych
+Remove from Saved: Usuń z zapisanych
 View on Explorer: Zobacz w eksploratorze
 No suggestions, you're on your own!: Żadnych sugestii, jesteś zdany na siebie!
 Play Sounds: Odtwarzaj dźwięki
@@ -966,6 +966,7 @@ Security Warning: Ostrzeżenie bezpieczeństwa
 Go back to Words: Wróć do słów
 I’m sure. Continue: Jestem pewien. Kontynuuj
 $copy_mnemonic_warning: Przechowywanie słów w środowisku cyfrowym, w tym w **schowku**, nie jest bezpieczne. Upewnij się, że masz bezpiecznie zapisaną frazę odzyskiwania.
+$screenshot_mnemonic_warning: Przechowywanie słów w środowisku cyfrowym, w tym w **zrzucie ekranu**, nie jest bezpieczne. Upewnij się, że masz bezpiecznie zapisaną frazę odzyskiwania.
 Other apps will be able to read your recovery phrase!: Inne aplikacje będą mogły odczytać twoją frazę odzyskiwania!
 I’m sure. Copy anyway: Jestem pewien. Kopiuj mimo to
 $auth_biometric_info: Możesz połączyć swoje dane biometryczne dla **większej wygody.**
@@ -1035,3 +1036,4 @@ Wallet to use on %host%: Portfel dla %host%
 Selected Wallet: Wybrany portfel
 Connect Wallet: Połącz portfel
 Insufficient Fee: Niewystarczająca opłata
+$saved_addresses_header: Zapisane

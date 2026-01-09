@@ -1,0 +1,32 @@
+# https://github.com/nicklockwood/SwiftFormat/blob/main/Rules.md
+
+--exclude  mobile/ios/App/Pods,mobile/ios/Air/SubModules/UICharts,mobile/ios/Air/SubModules/BigIntLib
+
+# options
+
+--swiftversion 5.9
+--trim-whitespace nonblank-lines
+--void-type tuple
+--ifdef no-indent
+--strip-unused-args closure-only
+
+# rules
+
+--disable all
+--enable redundantOptionalBinding
+--enable preferKeyPath
+#--enable indent
+#--enable consecutiveSpaces
+--enable blankLinesAtEndOfScope
+--enable redundantBreak
+--enable trailingClosures
+--enable trailingSpace
+--enable headerFileName
+--enable redundantFileprivate
+--enable redundantPublic
+--enable linebreakAtEndOfFile
+--enable consistentSwitchCaseSpacing
+--enable duplicateImports
+--enable semicolons
+#--enable unusedArguments
+

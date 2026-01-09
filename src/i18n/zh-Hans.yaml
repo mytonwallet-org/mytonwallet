@@ -201,7 +201,7 @@ Save Address: 储存地址
 Name: 名称
 Save: 储存
 Copy: 复制
-Remove From Saved: 从已保存中移除
+Remove from Saved: 从已保存中移除
 View on Explorer: 在浏览器中查看
 No suggestions, you're on your own!: 没有建议，请靠自己！
 Play Sounds: 播放声音
@@ -946,6 +946,7 @@ Security Warning: 安全警告
 Go back to Words: 返回单词
 I’m sure. Continue: 我确定。继续
 $copy_mnemonic_warning: 在数字环境（包括**剪贴板**）中存储单词不安全。请确保您已安全保存恢复短语。
+$screenshot_mnemonic_warning: 在数字环境（包括**屏幕截图**）中存储单词不安全。请确保您已安全保存恢复短语。
 Other apps will be able to read your recovery phrase!: 其他应用将能够读取您的恢复短语！
 I’m sure. Copy anyway: 我确定。仍然复制
 $auth_biometric_info: 您可以连接生物识别数据以**获得更多便利。**
@@ -1014,3 +1015,4 @@ Wallet to use on %host%: 用于 %host% 的钱包
 Selected Wallet: 已选钱包
 Connect Wallet: 连接钱包
 Insufficient Fee: 手续费不足
+$saved_addresses_header: 已保存

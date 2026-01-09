@@ -12,13 +12,17 @@ public extension UIApplication {
         return nil
     }
     
-    @MainActor var sceneKeyWindow: WWindow? {
+    @MainActor var anySceneKeyWindow: UIWindow? {
         for scene in connectedScenes {
             if let scene = scene as? UIWindowScene, let keyWindow = scene.windows.first(where: { $0.isKeyWindow }) {
-                return keyWindow as? WWindow
+                return keyWindow
             }
         }
         return nil
+    }
+
+    @MainActor var sceneKeyWindow: WWindow? {
+        anySceneKeyWindow as? WWindow
     }
     
     @MainActor var sceneWindows: [WWindow] {
@@ -27,6 +31,7 @@ public extension UIApplication {
             .flatMap(\.windows)
             .compactMap { $0 as? WWindow }
     }
+    
 }
 
 public extension UIViewController {

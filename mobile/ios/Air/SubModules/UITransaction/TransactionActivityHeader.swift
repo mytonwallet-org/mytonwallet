@@ -8,8 +8,10 @@ import Kingfisher
 
 struct TransactionActivityHeader: View {
     
+    var account: AccountContext
     var transaction: ApiTransactionActivity
     var token: ApiToken
+    var amountDisplayMode: ApiActivity.AmountDisplayMode
     var onTokenTapped: ((ApiToken) -> Void)?
     
     private var amount: TokenAmount {
@@ -19,20 +21,26 @@ struct TransactionActivityHeader: View {
     var body: some View {
         VStack(spacing: 12) {
             iconView
-            amountView
+            if amountDisplayMode != .hide {
+                amountView
+            }
             toView
         }
     }
     
     @ViewBuilder
     var iconView: some View {
-        ActivtyIconView(activity: .transaction(transaction))
-            .accessorySize(30)
-            .frame(height: 80)
+        ActivityIconView(activity: .transaction(transaction), size: 80, accessorySize: 30)
+            .frame(width: 80, height: 80)
     }
     
     @ViewBuilder
     var amountView: some View {
+        let shouldShowSign = amountDisplayMode != .noSign
+        let isStake = transaction.type == .stake
+        let amountColor: UIColor = isStake ? .air.textPurple : WTheme.primaryLabel
+        let fractionColor: UIColor = isStake ? .air.textPurple : abs(amount.doubleValue) >= 10 ? WTheme.secondaryLabel : WTheme.primaryLabel
+        let symbolColor: UIColor = isStake ? .air.textPurple : WTheme.secondaryLabel
         Button {
             onTokenTapped?(token)
         } label: {
@@ -40,18 +48,21 @@ struct TransactionActivityHeader: View {
                 let amount = self.amount
                 AmountText(
                     amount: amount,
-                    format: .init(preset: .defaultAdaptive, showPlus: transaction.isIncoming, showMinus: !transaction.isIncoming),
+                    format: .init(
+                        preset: .defaultAdaptive,
+                        showPlus: shouldShowSign ? transaction.isIncoming : false,
+                        showMinus: shouldShowSign ? !transaction.isIncoming : false
+                    ),
                     integerFont: .rounded(ofSize: 34, weight: .bold),
                     fractionFont: .rounded(ofSize: 28, weight: .bold),
                     symbolFont: .rounded(ofSize: 28, weight: .bold),
-                    integerColor: WTheme.primaryLabel,
-                    fractionColor: abs(amount.doubleValue) >= 10 ? WTheme.secondaryLabel : WTheme.primaryLabel,
-                    symbolColor: WTheme.secondaryLabel
+                    integerColor: amountColor,
+                    fractionColor: fractionColor,
+                    symbolColor: symbolColor
                 )
                 .sensitiveData(alignment: .center, cols: 12, rows: 3, cellSize: 11, theme: .adaptive, cornerRadius: 10)
                 
-                TokenIconView(token: token)
-                    .accessorySize(12)
+                TokenIconView(token: token, accessorySize: 12)
                     .frame(height: 28)
                     .offset(y: 3.5)
             }
@@ -65,7 +76,7 @@ struct TransactionActivityHeader: View {
             (Text(transaction.isIncoming ? lang("Received from") :  lang("Sent to")) + Text(" "))
                 .font17h22()
             let addressToShow = transaction.addressToShow
-            TappableAddress(name: addressToShow, chain: token.chain, resolvedAddress: transaction.normalizedAddress, addressOrName: addressToShow)
+            TappableAddress(account: account, name: addressToShow, chain: token.chain, addressOrName: addressToShow)
         }
     }
 }
@@ -73,12 +84,12 @@ struct TransactionActivityHeader: View {
 
 struct SIconView<Content: View, Attachment: View>: View {
     
+    var accessorySize: CGFloat?
     var content: Content
     var attachment: Attachment
     
-    @Environment(\.accessorySize) private var accessorySize
-    
-    init(@ViewBuilder content: () -> Content, @ViewBuilder attachment: () -> Attachment) {
+    init(accessorySize: CGFloat?, @ViewBuilder content: () -> Content, @ViewBuilder attachment: () -> Attachment) {
+        self.accessorySize = accessorySize
         self.content = content()
         self.attachment = attachment()
     }
@@ -121,40 +132,13 @@ struct SIconView<Content: View, Attachment: View>: View {
 }
 
 
-struct ActivtyIconView: View {
-    
-    var activity: ApiActivity
-    
-    var body: some View {
-        
-        let colors = activity.iconColors.map { Color($0) }
-        let content = activity.avatarContent
-        
-        if case .image(let image) = content {
-            
-            SIconView {
-                Image.airBundle(image)
-                    .resizable()
-                    .background {
-                        LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
-                    }
-            } attachment: {
-                if activity.isLocal {
-                    Image.airBundle("ActivityWaiting")
-                        .resizable()
-                }
-            }
-        }
-    }
-}
-
-
 struct TokenIconView: View {
     
     var token: ApiToken
+    var accessorySize: CGFloat?
     
     var body: some View {
-        SIconView {
+        SIconView(accessorySize: accessorySize) {
             if let image = token.image?.nilIfEmpty, let url = URL(string: image) {
                 KFImage(url)
                     .cacheOriginalImage()
@@ -166,16 +150,5 @@ struct TokenIconView: View {
                     .resizable()
             
         }
-    }
-}
-
-
-public extension EnvironmentValues {
-    @Entry var accessorySize: CGFloat? = nil
-}
-
-public extension View {
-    func accessorySize(_ size: CGFloat) -> some View {
-        self.environment(\.accessorySize, size)
     }
 }

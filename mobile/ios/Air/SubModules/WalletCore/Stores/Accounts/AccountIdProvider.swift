@@ -37,6 +37,8 @@ public final class AccountIdProvider {
                 guard let self else { return }
                 self.accountId = currentAccountId
             }
+        case .constant(let account):
+            self.accountId  = account.id
         }
     }
 }

@@ -17,9 +17,10 @@ public class TokenVC: ActivitiesTableViewController, Sendable, WSensitiveDataPro
 
     private var tokenVM: TokenVM!
 
-    private var accountId: String
+    @AccountContext private var account: MAccount
     private let token: ApiToken
     private let isInModal: Bool
+    private var accountContext: AccountContext { $account }
 
     var _activityViewModel: ActivityViewModel?
     public override var activityViewModel: ActivityViewModel? { self._activityViewModel }
@@ -28,13 +29,14 @@ public class TokenVC: ActivitiesTableViewController, Sendable, WSensitiveDataPro
     var windowSafeAreaGuideContraint: NSLayoutConstraint!
     var emptyWalletViewTopConstraint: NSLayoutConstraint!
 
-    public init(accountId: String, token: ApiToken, isInModal: Bool) async {
-        self.accountId = accountId
+    public init(accountSource: AccountSource, token: ApiToken, isInModal: Bool) async {
+        self._account = AccountContext(source: accountSource)
         self.token = token
         self.isInModal = isInModal
         super.init(nibName: nil, bundle: nil)
+        let accountId = $account.accountId
         self._activityViewModel = await ActivityViewModel(accountId: accountId, token: token, delegate: self)
-        tokenVM = TokenVM(accountId: AccountStore.account?.id ?? "",
+        tokenVM = TokenVM(accountId: accountId,
                                            selectedToken: token,
                                            tokenVMDelegate: self)
         tokenVM.refreshTransactions()
@@ -49,6 +51,7 @@ public class TokenVC: ActivitiesTableViewController, Sendable, WSensitiveDataPro
     }
 
     private lazy var expandableContentView = TokenExpandableContentView(
+        accountContext: accountContext,
         isInModal: isInModal,
         parentProcessorQueue: processorQueue,
         onHeightChange: { [weak self] in
@@ -261,9 +264,9 @@ extension TokenVC: TokenVMDelegate {
         reconfigureFirstRowCell()
     }
     func accountChanged() {
-        guard let newAccountId = AccountStore.accountId else { return }
+        guard accountContext.source == .current else { return }
+        let newAccountId = accountContext.accountId
         Task {
-            self.accountId = newAccountId
             self._activityViewModel = await ActivityViewModel(accountId: newAccountId, token: token, delegate: self)
             self.tokenVM = TokenVM(accountId: newAccountId, selectedToken: token, tokenVMDelegate: self)
             self.tokenVM.refreshTransactions()
@@ -283,4 +286,3 @@ extension TokenVC: ActivityViewModelDelegate {
         super.transactionsUpdated(accountChanged: false, isUpdateEvent: false)
     }
 }
-

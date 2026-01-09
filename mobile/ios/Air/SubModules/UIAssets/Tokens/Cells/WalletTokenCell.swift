@@ -161,6 +161,8 @@ public class WalletTokenCell: WHighlightCell {
                           isLast: Bool,
                           animated: Bool = true,
                           badgeContent: BadgeContent?,
+                          network: ApiNetwork,
+                          isMultichain: Bool,
                           onSelect: @escaping () -> Void
     ) {
         let tokenChanged = self.walletToken?.tokenSlug != walletToken.tokenSlug
@@ -173,7 +175,7 @@ public class WalletTokenCell: WHighlightCell {
         // configure icon view
         if tokenChanged || self.tokenImage != token?.image?.nilIfEmpty {
             self.tokenImage = token?.image?.nilIfEmpty
-            iconView.config(with: token, isStaking: walletToken.isStaking, isWalletView: true, shouldShowChain: AccountStore.account?.isMultichain == true)
+            iconView.config(with: token, isStaking: walletToken.isStaking, isWalletView: true, shouldShowChain: isMultichain || token?.chainValue.usdtSlug[network] == walletToken.tokenSlug)
         }
 
         // label

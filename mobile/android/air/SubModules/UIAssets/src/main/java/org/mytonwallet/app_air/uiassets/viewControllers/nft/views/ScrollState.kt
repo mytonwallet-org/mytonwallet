@@ -199,7 +199,7 @@ sealed class ScrollState() {
             get() {
                 with(headerView) {
                     return lerp(
-                        topExtraPadding + 162f.dp,
+                        topExtraPadding + 157f.dp,
                         viewWidth - TEXTS_FROM_BOTTOM.dp - (realScrollOffset - OVERSCROLL_OFFSET.dp),
                         expandStartPercent + percent * (1 - expandStartPercent)
                     )
@@ -215,11 +215,10 @@ sealed class ScrollState() {
                     percent
                 )
             }
+        private val startSubtitleY = 6.dp * expandStartPercent
         override val subtitleTranslationY: Float
             get() {
-                with(headerView) {
-                    return titleTranslationY + 32.dp + 6.dp * percent
-                }
+                return titleTranslationY + 36.dp + startSubtitleY + (6.dp - startSubtitleY) * percent
             }
         override val subtitleAlpha: Float
             get() {
@@ -258,7 +257,7 @@ sealed class ScrollState() {
         override val subtitlePivotX = 0f
         override val subtitleScale = 1f
         override val subtitleTranslationX = 0.5f.dp
-        override val subtitleTranslationY = titleTranslationY + 38.dp
+        override val subtitleTranslationY = titleTranslationY + 42.dp
         override val subtitleAlpha = 0.75f
     }
 }

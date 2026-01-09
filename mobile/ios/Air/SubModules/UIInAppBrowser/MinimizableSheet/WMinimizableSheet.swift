@@ -168,9 +168,7 @@ extension WMinimizableSheet: UISheetPresentationControllerDelegate {
             } else {
                 44
             }
-            if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-                sheet.preferredCornerRadius = 12
-            }
+            sheet.preferredCornerRadius = startMinimized ? 12 : nil
             sheet.detents = [.large(), .custom(identifier: .minimized, resolver: { _ in detentValue })]
             sheet.selectedDetentIdentifier  = detent
             sheet.largestUndimmedDetentIdentifier = .minimized
@@ -184,6 +182,14 @@ extension WMinimizableSheet: UISheetPresentationControllerDelegate {
     
     public func sheetPresentationControllerDidChangeSelectedDetentIdentifier(_ sheetPresentationController: UISheetPresentationController) {
         let isMinimized = sheetPresentationController.selectedDetentIdentifier == .minimized
+        let cornerRadius: CGFloat? = isMinimized ? 12.0 : nil
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            if sheetPresentationController.preferredCornerRadius != cornerRadius {
+                sheetPresentationController.animateChanges {
+                    sheetPresentationController.preferredCornerRadius = cornerRadius
+                }
+            }
+        }
         WalletCoreData.notify(event: .minimizedSheetChanged(isMinimized ? .minimized : .expanded))
         if isMinimized {
             delegate?.minimizableSheetDidMinimize(self)

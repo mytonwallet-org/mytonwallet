@@ -108,7 +108,7 @@ struct CardSelectionView: View {
     }
 }
 
-fileprivate struct CardView: View {
+private struct CardView: View {
     let viewModel: CustomizeWalletViewModel
     let nft: ApiNft?
     

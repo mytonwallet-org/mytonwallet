@@ -121,28 +121,32 @@ class MToken(json: JSONObject) : IApiToken, WEquatable<MToken> {
         return dict
     }
 
-    fun isHidden(): Boolean {
-        val shouldHide = AccountStore.assetsAndActivityData.hiddenTokens.contains(slug)
+    fun isHidden(
+        account: MAccount? = null,
+        assetsAndActivityData: MAssetsAndActivityData? = null
+    ): Boolean {
+        val account = account ?: AccountStore.activeAccount ?: return true
+        val assetsAndActivityData = assetsAndActivityData ?: AccountStore.assetsAndActivityData
+        val shouldHide = assetsAndActivityData.hiddenTokens.contains(slug)
         if (shouldHide) {
             return true
         }
-        val isVisibleToken = AccountStore.assetsAndActivityData.visibleTokens.contains(slug)
+        val isVisibleToken = assetsAndActivityData.visibleTokens.contains(slug)
         if (isVisibleToken) {
             return false
         }
-        if ((ALWAYS_SHOWN_TOKENS.contains(slug) &&
-                AccountStore.activeAccount?.addressByChain?.contains(chain) == true) ||
-            (DEFAULT_SHOWN_TOKENS.contains(slug) && AccountStore.activeAccount?.isNew == true)
+        if ((ALWAYS_SHOWN_TOKENS.contains(slug) && account.addressByChain.contains(chain) == true) ||
+            (DEFAULT_SHOWN_TOKENS.contains(slug) && account.isNew == true)
         )
             return false
         if (PRICELESS_TOKEN_HASHES.contains(codeHash) &&
-            (BalanceStore.getBalances(AccountStore.activeAccountId)?.get(slug)
+            (BalanceStore.getBalances(account.accountId)?.get(slug)
                 ?: BigInteger.ZERO) > BigInteger.ZERO
         )
             return false
         if (WGlobalStorage.getAreNoCostTokensHidden()) {
-            val tokenBalance = (BalanceStore.getBalances(AccountStore.activeAccountId)?.get(slug)
-                ?: BigInteger.ZERO)
+            val tokenBalance =
+                (BalanceStore.getBalances(account.accountId)?.get(slug) ?: BigInteger.ZERO)
             return priceUsd * tokenBalance.doubleAbsRepresentation(decimals) < 0.01
         }
         return false

@@ -74,7 +74,7 @@ extension MAccount {
     }
     
     public var network: ApiNetwork {
-        id.contains("mainnet") ? .mainnet  : .testnet
+        getNetwork(accountId: id)
     }
     
     public var supportsSend: Bool {
@@ -124,4 +124,8 @@ public extension MAccount {
             "ton": .init(address: "748327432974324328094328903428"),
         ]
     )
+}
+
+public func getNetwork(accountId: String) -> ApiNetwork {
+    accountId.contains("mainnet") ? .mainnet  : .testnet
 }

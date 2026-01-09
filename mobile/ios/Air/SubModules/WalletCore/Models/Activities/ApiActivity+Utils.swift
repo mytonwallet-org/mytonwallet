@@ -14,6 +14,14 @@ public struct ApiTransactionTypeTitles: ExpressibleByArrayLiteral {
     }
 }
 
+public enum ActivityAccessoryStatus: Sendable {
+    case pending
+    case pendingTrusted
+    case failed
+    case hold
+    case expired
+}
+
 public extension ApiActivity {
     var displayTitle: ApiTransactionTypeTitles {
         let base: ApiTransactionTypeTitles = switch type {
@@ -64,6 +72,48 @@ public extension ApiActivity {
         let displayTitle = self.displayTitle
         let isPending = isLocal || getIsActivityPending(self) || swap?.status == .expired || swap?.status == .failed || swap?.status == .pending
         return isPending ? displayTitle.inProgress : displayTitle.complete
+    }
+}
+
+public func activityAccessoryStatus(for activity: ApiActivity) -> ActivityAccessoryStatus? {
+    if activity.isLocal {
+        return .pendingTrusted
+    }
+    switch activity {
+    case .transaction(let tx):
+        switch tx.status {
+        case .pending:
+            return tx.isIncoming ? .pending : .pendingTrusted
+        case .pendingTrusted:
+            return .pendingTrusted
+        case .failed:
+            return .failed
+        case .completed:
+            return nil
+        }
+    case .swap(let swap):
+        if let cexStatus = swap.cex?.status {
+            switch cexStatus {
+            case .hold:
+                return .hold
+            case .expired, .overdue:
+                return .expired
+            case .failed:
+                return .failed
+            default:
+                break
+            }
+        }
+        switch swap.status {
+        case .pending, .pendingTrusted:
+            return .pendingTrusted
+        case .failed:
+            return .failed
+        case .expired:
+            return .expired
+        case .completed:
+            return nil
+        }
     }
 }
 
@@ -195,7 +245,7 @@ public extension ApiActivity {
     }
     
     var addressToShow: String {
-        return transaction?.metadata?.name ?? (transaction?.isIncoming == true ? transaction?.fromAddress : transaction?.toAddress) ?? " "
+        return transaction?.addressToShow ?? " "
     }
     
     var peerAddress: String? {
@@ -232,9 +282,6 @@ public extension ApiActivity {
                 return false
             }
             guard let token = TokenStore.tokens[slug] else {
-                return false
-            }
-            if token.isPricelessToken {
                 return false
             }
             return abs(bigIntToDouble(amount: transaction.amount, decimals: token.decimals)) * (token.priceUsd ?? 0) < TINY_TRANSFER_MAX_COST

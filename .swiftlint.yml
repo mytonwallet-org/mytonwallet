@@ -1,0 +1,32 @@
+excluded:
+  - mobile/ios/App/Pods
+  - mobile/ios/Air/SubModules/UICharts
+  - mobile/ios/Air/SubModules/BigIntLib
+
+disabled_rules:
+  - trailing_comma
+  - line_length
+  - identifier_name
+  - cyclomatic_complexity
+  - type_body_length
+  - function_body_length
+  - file_length
+  - void_return
+  - redundant_optional_initialization
+  - comment_spacing
+  - leading_whitespace
+  - comma
+  - syntactic_sugar
+  - type_name
+  - force_cast
+  - multiple_closures_with_trailing_closure
+  - empty_enum_arguments
+  - redundant_sendable
+
+vertical_whitespace:
+  max_empty_lines: 2
+trailing_whitespace:
+  ignores_empty_lines: true
+redundant_discardable_let:
+  ignore_swiftui_view_bodies: true
+

@@ -8,6 +8,7 @@ import WalletContext
 
 struct DappSendTransactionDetailView: View {
     
+    var accountContext: AccountContext
     var message: ApiDappTransfer
     
     var isScam: Bool { message.isScam == true }
@@ -23,7 +24,7 @@ struct DappSendTransactionDetailView: View {
             
             InsetSection {
                 InsetCell {
-                    TappableAddressFull(chain: "ton", address: message.toAddress)
+                    TappableAddressFull(accountContext: accountContext, chain: "ton", address: message.toAddress)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.vertical, 3)

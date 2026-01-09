@@ -13,26 +13,26 @@ import WalletContext
 
 struct AccountSelectorCell: View {
     
-    let viewModel: AccountViewModel
+    let accountContext: AccountContext
     
     var body: some View {
         WithPerceptionTracking {
             MtwCard(aspectRatio: LARGE_CARD_RATIO)
                 .background {
-                    CardBackground(viewModel: viewModel)
+                    CardBackground(accountContext: accountContext)
                 }
                 .overlay {
-                    _BalanceView(viewModel: viewModel)
+                    _BalanceView(accountContext: accountContext)
                         .offset(y: -4)
                         .padding(.horizontal, 16)
                 }
                 .overlay(alignment: .top) {
-                    AccountTitle(viewModel: viewModel)
+                    AccountTitle(accountContext: accountContext)
                         .padding(.top, 16.333)
-                        .padding(.horizontal, 20)   
+                        .padding(.horizontal, 20)
                 }
                 .overlay(alignment: .bottom) {
-                    GridAddressLine(viewModel: viewModel)
+                    GridAddressLine(accountContext: accountContext)
                         .padding(.bottom, 17)
                         .padding(.horizontal, 16)
                 }
@@ -44,45 +44,40 @@ struct AccountSelectorCell: View {
 
 private struct CardBackground: View {
     
-    let viewModel: AccountViewModel
+    let accountContext: AccountContext
     
     var body: some View {
         WithPerceptionTracking {
-            MtwCardBackground(nft: viewModel.nft)
+            MtwCardBackground(nft: accountContext.nft)
         }
     }
 }
 
 private struct AccountTitle: View {
     
-    let viewModel: AccountViewModel
+    let accountContext: AccountContext
     
     var body: some View {
         WithPerceptionTracking {
-            Text(viewModel.account.displayName)
+            Text(accountContext.account.displayName)
                 .font(.compactMedium(size: 17))
                 .lineLimit(1)
                 .allowsTightening(true)
-                .padding(.vertical, 20)
-                .frame(maxWidth: .infinity)
-                .sourceAtop {
-                    MtwCardInverseCenteredGradient(nft: viewModel.nft)
-                }
-                .padding(.vertical, -20)
+                .foregroundStyle(MtwCardInverseCenteredGradientStyle(nft: accountContext.nft))
         }
     }
 }
 
 private struct _BalanceView: View {
     
-    var viewModel: AccountViewModel
+    var accountContext: AccountContext
     
     var body: some View {
         WithPerceptionTracking {
-            MtwCardBalanceView(balance: viewModel.balance, style: .customizeWalletCard)
+            MtwCardBalanceView(balance: accountContext.balance, style: .customizeWalletCard)
                 .padding(10)
                 .sourceAtop {
-                    MtwCardBalanceGradient(nft: viewModel.nft)
+                    MtwCardBalanceGradient(nft: accountContext.nft)
                 }
                 .padding(-10)
         }
@@ -91,11 +86,11 @@ private struct _BalanceView: View {
 
 private struct GridAddressLine: View {
     
-    var viewModel: AccountViewModel
+    var accountContext: AccountContext
     
     var body: some View {
         WithPerceptionTracking {
-            MtwCardAddressLine(addressLine: viewModel.account.addressLine, style: .customizeWalletCard, gradient: MtwCardCenteredGradient(nft: viewModel.nft))
+            MtwCardAddressLine(addressLine: accountContext.account.addressLine, style: .customizeWalletCard, gradient: MtwCardCenteredGradient(nft: accountContext.nft))
         }
     }
 }

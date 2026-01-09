@@ -42,10 +42,14 @@ public final class EarnVM: WalletCoreData.EventsObserver {
     var stakedTokenSlug: String { config.stakedTokenSlug }
     var token: ApiToken { config.baseToken }
     var stakedToken: ApiToken { config.stakedToken }
-    var stakingState: ApiStakingState? { config.stakingState }
+    var stakingState: ApiStakingState? { config.stakingState(stakingData: $account.stakingData) }
 
     @PerceptionIgnored
-    private var accountId: String? = nil
+    @AccountContext(source: .current) private var account: MAccount
+    var accountContext: AccountContext { $account }
+
+    @PerceptionIgnored
+    private var currentAccountId: String = DUMMY_ACCOUNT.id
     @PerceptionIgnored
     private var isLoadingStakingHistoryPage: Int? = nil
     @PerceptionIgnored
@@ -78,15 +82,15 @@ public final class EarnVM: WalletCoreData.EventsObserver {
 
     private init(config: StakingConfig) {
         self.config = config
-        self.accountId = AccountStore.accountId
+        self.currentAccountId = $account.accountId
         WalletCoreData.add(eventObserver: self)
     }
     
     public func walletCore(event: WalletCoreData.Event) {
         switch event {
         case .accountChanged(let accountId, _):
-            if accountId != self.accountId {
-                self.accountId = accountId
+            if accountId != self.currentAccountId {
+                self.currentAccountId = accountId
                 isLoadingStakingHistoryPage = nil
                 isLoadedAllHistoryItems = false
                 lastLoadedPage = 0
@@ -106,13 +110,15 @@ public final class EarnVM: WalletCoreData.EventsObserver {
             }
         
         case .stakingAccountData(let data):
-            if data.accountId == self.accountId {
+            if data.accountId == self.currentAccountId {
                 delegate?.stakingStateUpdated()
             }
             
         case .newActivities(let newActivitiesEvent):
-            if newActivitiesEvent.accountId == AccountStore.accountId {
-                merger(newTransactions: newActivitiesEvent.activities)
+            if newActivitiesEvent.accountId == self.currentAccountId {
+                Task {
+                    await merger(newTransactions: newActivitiesEvent.activities)
+                }
             }
 
         default:
@@ -136,7 +142,8 @@ public final class EarnVM: WalletCoreData.EventsObserver {
     }
     
     func loadStakingHistory(page: Int) {
-        guard let accountId = AccountStore.accountId, isLoadingStakingHistoryPage == nil else {
+        let accountId = currentAccountId
+        guard isLoadingStakingHistoryPage == nil else {
             return
         }
         isLoadingStakingHistoryPage = page
@@ -153,14 +160,14 @@ public final class EarnVM: WalletCoreData.EventsObserver {
                     //isLoadedAllHistoryItems = historyItems.isEmpty
                     isLoadedAllHistoryItems = true
                     lastLoadedPage = page
-                    merger(newHistoryItems: historyItems)
+                    await merger(newHistoryItems: historyItems)
                     /*if !historyItems.isEmpty {
                         loadStakingHistory(page: page + 1)
                     }*/
                 } else {
                     isLoadedAllHistoryItems = true
                     lastLoadedPage = page
-                    merger(newHistoryItems: [])
+                    await merger(newHistoryItems: [])
                 }
             } catch {
                 isLoadingStakingHistoryPage = nil
@@ -189,20 +196,18 @@ public final class EarnVM: WalletCoreData.EventsObserver {
             do {
                 log.info("fetchActivitySlice \(tokenSlug)")
                 let newTransactions = try await Api.fetchPastActivities(
-                    accountId: AccountStore.accountId!,
+                    accountId: self.currentAccountId,
                     limit: 50,
                     tokenSlug: tokenSlug,
                     toTimestamp: toTimestamp
                 )
-                DispatchQueue.main.async { [self] in
-                    isLoadingUnstakeActivities = false
-                    if newTransactions.count > 0 {
-                        lastUnstakeActivityItem = (newTransactions.last!.id, newTransactions.last!.timestamp)
-                    } else if newTransactions.count == 0 {
-                        isLoadedAllUnstakeActivityItems = true
-                    }
-                    merger(newTransactions: newTransactions)
+                isLoadingUnstakeActivities = false
+                if newTransactions.count > 0 {
+                    lastUnstakeActivityItem = (newTransactions.last!.id, newTransactions.last!.timestamp)
+                } else if newTransactions.count == 0 {
+                    isLoadedAllUnstakeActivityItems = true
                 }
+                await merger(newTransactions: newTransactions)
             } catch {
                 DispatchQueue.main.asyncAfter(deadline: .now() + (delegate != nil ? 2 : 20)) { [weak self] in
                     guard let self else {return}
@@ -233,20 +238,18 @@ public final class EarnVM: WalletCoreData.EventsObserver {
             do {
                 log.info("fetchActivitySlice \(tokenSlug)")
                 let newTransactions = try await Api.fetchPastActivities(
-                    accountId: AccountStore.accountId!,
+                    accountId: self.currentAccountId,
                     limit: 50,
                     tokenSlug: stakedTokenSlug,
                     toTimestamp: toTimestamp
                 )
-                DispatchQueue.main.async { [self] in
-                    isLoadingActivities = false
-                    if newTransactions.count > 0 {
-                        lastActivityItem = (newTransactions.last!.id, newTransactions.last!.timestamp)
-                    } else if newTransactions.count == 0 {
-                        isLoadedAllActivityItems = true
-                    }
-                    merger(newTransactions: newTransactions)
+                isLoadingActivities = false
+                if newTransactions.count > 0 {
+                    lastActivityItem = (newTransactions.last!.id, newTransactions.last!.timestamp)
+                } else if newTransactions.count == 0 {
+                    isLoadedAllActivityItems = true
                 }
+                await merger(newTransactions: newTransactions)
             } catch {
                 DispatchQueue.main.asyncAfter(deadline: .now() + (delegate != nil ? 2 : 20)) { [weak self] in
                     guard let self else {return}
@@ -267,11 +270,11 @@ public final class EarnVM: WalletCoreData.EventsObserver {
     }
     
     // MARK: - MERGERS to merge activity items and staking history items
-    func merger(newTransactions: [ApiActivity]) {
-        let oldHistoryItems = self.historyItems ?? []
+    @concurrent func merger(newTransactions: [ApiActivity]) async {
+        let oldHistoryItems = await self.historyItems ?? []
         var historyItems = oldHistoryItems
         for transaction in newTransactions {
-            if let item = MStakingHistoryItem(tokenSlug: tokenSlug, stakedTokenSlug: stakedTokenSlug, transaction: transaction) {
+            if let item = await MStakingHistoryItem(tokenSlug: tokenSlug, stakedTokenSlug: stakedTokenSlug, transaction: transaction) {
                 if !historyItems.contains(item) {
                     historyItems.append(item)
                 }
@@ -281,22 +284,20 @@ public final class EarnVM: WalletCoreData.EventsObserver {
             }
         }
         historyItems.sort(by: { $0.timestamp > $1.timestamp })
-        self.historyItems = historyItems
-        
-        if shownListOnce {
-            DispatchQueue.main.async {
+        await MainActor.run { [historyItems] in
+            self.historyItems = historyItems
+
+            if shownListOnce {
                 self.delegate?.newPageLoaded(animateChanges: true)
-            }
-        } else if allLoadedOnce, let delegate {
-            shownListOnce = true
-            DispatchQueue.main.async {
+            } else if allLoadedOnce, let delegate {
+                shownListOnce = true
                 delegate.newPageLoaded(animateChanges: false) // it's first time, should show all using reload data with no diff!
             }
         }
     }
     
-    func merger(newHistoryItems: [MStakingHistoryItem]) {
-        let oldHistoryItems = self.historyItems ?? []
+    @concurrent func merger(newHistoryItems: [MStakingHistoryItem]) async {
+        let oldHistoryItems = await self.historyItems ?? []
         var historyItems = oldHistoryItems
         for item in newHistoryItems {
             if !historyItems.contains(item) {
@@ -304,15 +305,13 @@ public final class EarnVM: WalletCoreData.EventsObserver {
             }
         }
         historyItems.sort(by: { $0.timestamp > $1.timestamp })
-        self.historyItems = historyItems
-
-        if shownListOnce {
-            DispatchQueue.main.async {
+        await MainActor.run { [historyItems] in
+            self.historyItems = historyItems
+            
+            if shownListOnce {
                 self.delegate?.newPageLoaded(animateChanges: true)
-            }
-        } else if allLoadedOnce, let delegate {
-            shownListOnce = true
-            DispatchQueue.main.async {
+            } else if allLoadedOnce, let delegate {
+                shownListOnce = true
                 delegate.newPageLoaded(animateChanges: false) // it's first time, should show all using reload data with no diff!
             }
         }

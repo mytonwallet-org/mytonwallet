@@ -403,7 +403,7 @@ class InvoiceVC(context: Context) : WViewController(context) {
                                 )
                             )
                         }),
-                    offset = 20.dp,
+                    xOffset = 20.dp,
                     popupWidth = WRAP_CONTENT,
                     aboveView = false
                 )

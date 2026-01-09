@@ -39,12 +39,6 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
     open var firstRow: UITableViewCell.Type? { nil }
     open func configureFirstRow(cell: UITableViewCell) {}
     open var isGeneralDataAvailable: Bool { true }
-    open var account: MAccount? {
-        if let accountId = activityViewModel?.accountId {
-            return AccountStore.get(accountId:  accountId)
-        }
-        return nil
-    }
 
     open var activityViewModel: ActivityViewModel? { fatalError("abstract") }
 
@@ -62,18 +56,17 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
     }
 
     public func onSelect(transaction: ApiActivity) {
+        guard let account = activityViewModel?.accountContext.account else { return }
         tableView.beginUpdates()
         defer {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 self.tableView.endUpdates()
             }
         }
-        if case .swap(let swap) = transaction, (swap.status == .pending || swap.status == .pendingTrusted), let account, getSwapType(from: swap.from, to: swap.to, accountChains: account.supportedChains) == .crosschainToWallet, swap.cex?.status.uiStatus == .pending {
+        if case .swap(let swap) = transaction, (swap.status == .pending || swap.status == .pendingTrusted), getSwapType(from: swap.from, to: swap.to, accountChains: account.supportedChains) == .crosschainToWallet, swap.cex?.status.uiStatus == .pending {
             AppActions.showCrossChainSwapVC(transaction, accountId: account.id)
         } else {
-            if let accountId = AccountStore.accountId {
-                AppActions.showActivityDetails(accountId: accountId, activity: transaction)
-            }
+            AppActions.showActivityDetails(accountId: account.id, activity: transaction)
         }
     }
 
@@ -189,12 +182,14 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
                 return cell
 
             case .transaction(_, let transactionId):
-                let showingTransaction = activityViewModel?.activitiesById?[transactionId]
                 let cell = tableView.dequeueReusableCell(withIdentifier: "Transaction", for: indexPath) as! ActivityCell
-                if let showingTransaction {
-                    cell.configure(with: showingTransaction,
-                                delegate: self,
-                                shouldFadeOutSkeleton: false)
+                if let activityViewModel, let showingTransaction = activityViewModel.activitiesById?[transactionId] {
+                    cell.configure(
+                        with: showingTransaction,
+                        accountContext: activityViewModel.accountContext,
+                        delegate: self,
+                        shouldFadeOutSkeleton: false
+                    )
                 } else {
                     cell.configureSkeleton()
                 }
@@ -516,8 +511,9 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
     }
 
     public func updateEmptyView() {
+        guard let account = activityViewModel?.accountContext.account else { return }
         if activityViewModel?.isEmpty == true {
-            emptyWalletView.set(state: .empty(address: account?.firstAddress ?? ""), animated: true)
+            emptyWalletView.set(state: .empty(address: account.firstAddress), animated: true)
         } else {
             emptyWalletView.set(state: .hidden, animated: true)
         }

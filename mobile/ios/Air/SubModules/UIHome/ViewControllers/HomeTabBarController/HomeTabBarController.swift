@@ -85,8 +85,8 @@ public class HomeTabBarController: UITabBarController, WThemedView {
         NotificationCenter.default.addObserver(self, selector: #selector(tryUnlockIfLocked), name: UIApplication.didBecomeActiveNotification, object: nil)
         
         let homeNav = WNavigationController(rootViewController: homeVC)
-        let settingsViewController = SettingsVC()
-        let browserViewController = ExploreTabVC()
+        let settingsViewController = WNavigationController(rootViewController: SettingsVC())
+        let browserViewController = WNavigationController(rootViewController: ExploreTabVC())
         
         homeNav.tabBarItem.image = UIImage(named: "tab_home", in: AirBundle, compatibleWith: nil)
         homeNav.title = lang("Wallet")
@@ -101,7 +101,7 @@ public class HomeTabBarController: UITabBarController, WThemedView {
         self.viewControllers = [
             homeNav,
             browserViewController,
-            WNavigationController(rootViewController: settingsViewController)
+            settingsViewController,
         ]
         
         addBlurEffectBackground()
@@ -308,6 +308,7 @@ public class HomeTabBarController: UITabBarController, WThemedView {
     }
     
     @objc func onTouch(_ gesture: UIGestureRecognizer) {
+        guard !UIAccessibility.buttonShapesEnabled else { return }
         if gesture.state == .began {
             if let view = gesture.view {
                 guard view.center.x > 280 else { return }
@@ -496,7 +497,7 @@ public class HomeTabBarController: UITabBarController, WThemedView {
     private func showSwitchWallet(gesture: UIGestureRecognizer?) {
         
         Haptics.play(.drag)
-        let switchAccountVC = SwitchAccountVC(accounts: AccountStore.allAccounts, iconColor: currentTab == .settings ? WTheme.tint : WTheme.secondaryLabel)
+        let switchAccountVC = SwitchAccountVC(iconColor: currentTab == .settings ? WTheme.tint : WTheme.secondaryLabel)
         switchAccountVC.modalPresentationStyle = .overFullScreen
         switchAccountVC.startingGestureRecognizer = gesture ?? forwardedGestureRecognizer
 //        switchAccountVC.dismissCallback = {
@@ -522,6 +523,9 @@ extension HomeTabBarController: UIGestureRecognizerDelegate {
 extension HomeTabBarController: UITabBarControllerDelegate {
     
     public func tabBarController(_ tabBarController: UITabBarController, shouldSelect viewController: UIViewController) -> Bool {
+        if self.presentedViewController is SwitchAccountVC {
+            return false
+        }
         if viewController === selectedViewController  {
             scrollToTop(tabVC: viewController)
         }

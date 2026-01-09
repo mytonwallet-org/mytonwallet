@@ -12,7 +12,7 @@ import UIKitNavigation
 @Perceptible
 class Container {
     var headerViewModel: HomeHeaderViewModel?
-    var accountViewModel: AccountViewModel?
+    var accountContext: AccountContext?
 }
 
 final class HomeCard: UICollectionViewCell {
@@ -112,9 +112,9 @@ final class HomeCard: UICollectionViewCell {
 //        cardBackground.alpha = 0.1
     }
     
-    func configure(headerViewModel: HomeHeaderViewModel, accountViewModel: AccountViewModel) {
+    func configure(headerViewModel: HomeHeaderViewModel, accountContext: AccountContext) {
         self.container.headerViewModel = headerViewModel
-        self.container.accountViewModel = accountViewModel
+        self.container.accountContext = accountContext
         cardContentMask.bounds = CGRect(x: 0, y: 0, width: itemWidth, height: itemHeight)
         cardContentMask.center = CGPoint(x: itemWidth/2, y: itemHeight/2)
         observeToken?.cancel()
@@ -178,8 +178,8 @@ private struct CollapsedContentContainer: View {
     
     var body: some View {
         WithPerceptionTracking {
-            if let headerViewModel = container.headerViewModel, let accountViewModel = container.accountViewModel {
-                HomeHeaderCollapsedContent(headerViewModel: headerViewModel, accountViewModel: accountViewModel)
+            if let headerViewModel = container.headerViewModel, let accountContext = container.accountContext {
+                HomeHeaderCollapsedContent(headerViewModel: headerViewModel, accountContext: accountContext)
             }
         }
     }
@@ -191,8 +191,8 @@ private struct BackgroundContainer: View {
     
     var body: some View {
         WithPerceptionTracking {
-            if let headerViewModel = container.headerViewModel, let accountViewModel = container.accountViewModel {
-                HomeCardBackground(headerViewModel: headerViewModel, accountViewModel: accountViewModel)
+            if let headerViewModel = container.headerViewModel, let accountContext = container.accountContext {
+                HomeCardBackground(headerViewModel: headerViewModel, accountContext: accountContext)
             }
         }
     }
@@ -203,8 +203,8 @@ private struct CardContentContainer: View {
     
     var body: some View {
         WithPerceptionTracking {
-            if let headerViewModel = container.headerViewModel, let accountViewModel = container.accountViewModel {
-                HomeCardContent(headerViewModel: headerViewModel, accountViewModel: accountViewModel)
+            if let headerViewModel = container.headerViewModel, let accountContext = container.accountContext {
+                HomeCardContent(headerViewModel: headerViewModel, accountContext: accountContext)
             }
         }
     }
@@ -215,8 +215,8 @@ private struct CardMiniatureContainer: View {
     
     var body: some View {
         WithPerceptionTracking {
-            if let headerViewModel = container.headerViewModel, let accountViewModel = container.accountViewModel {
-                HomeCardMiniatureContent(headerViewModel: headerViewModel, accountViewModel: accountViewModel)
+            if let headerViewModel = container.headerViewModel, let accountContext = container.accountContext {
+                HomeCardMiniatureContent(headerViewModel: headerViewModel, accountContext: accountContext)
             }
         }
     }
@@ -226,11 +226,11 @@ private struct CardMiniatureContainer: View {
 @available(iOS 26, *)
 #Preview(traits: .sizeThatFitsLayout) {
     let headerViewModel = HomeHeaderViewModel(accountId: "0-mainnet")
-    let accountViewModel = AccountViewModel(accountId: "0-mainnet")
+    let accountContext = AccountContext(accountId: "0-mainnet")
     let cell = HomeCard()
 //    let _ = cell.contentView.layer.borderColor = UIColor.red.cgColor
     let _ = cell.contentView.layer.borderWidth = 1
-    let _ = cell.configure(headerViewModel: headerViewModel, accountViewModel: accountViewModel)
+    let _ = cell.configure(headerViewModel: headerViewModel, accountContext: accountContext)
     let _ = cell.heightAnchor.constraint(equalToConstant: itemHeight).isActive = true
     let _ = cell.widthAnchor.constraint(equalToConstant: itemWidth).isActive = true
     cell

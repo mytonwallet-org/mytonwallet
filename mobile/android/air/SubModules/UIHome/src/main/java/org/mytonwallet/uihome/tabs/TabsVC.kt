@@ -965,6 +965,11 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             }
     }
 
+    override val pausedBlurViews: Boolean
+        get() {
+            return !bottomCornerView.isPlaying
+        }
+
     override fun pauseBlurring() {
         bottomCornerView.pauseBlurring()
     }

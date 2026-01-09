@@ -28,8 +28,11 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.children
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
+import org.mytonwallet.app_air.uicomponents.extensions.getLocationOnScreen
 import org.mytonwallet.app_air.uicomponents.helpers.ViewHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedController
+import org.mytonwallet.app_air.walletbasecontext.utils.x
+import org.mytonwallet.app_air.walletbasecontext.utils.y
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
 @SuppressLint("ViewConstructor")
@@ -395,6 +398,15 @@ fun View.setBackgroundColor(color: Int, topRadius: Float, bottomRadius: Float) {
     background = shapeDrawable
 }
 
+fun View.setRoundedOutline(radius: Float) {
+    outlineProvider = object : ViewOutlineProvider() {
+        override fun getOutline(view: View, outline: Outline) {
+            outline.setRoundRect(0, 0, view.width, view.height, radius)
+        }
+    }
+    clipToOutline = true
+}
+
 fun View.showKeyboard() {
     val imm = context.getSystemService(Activity.INPUT_METHOD_SERVICE) as InputMethodManager
     imm.showSoftInput(this, InputMethodManager.SHOW_IMPLICIT)
@@ -479,13 +491,12 @@ fun View.animateHeight(newValue: Int) {
 }
 
 fun View.frameAsRectF(padding: Float): RectF {
-    val location = IntArray(2)
-    getLocationOnScreen(location)
+    val location = getLocationOnScreen()
     return RectF(
-        location[0].toFloat() - padding,
-        location[1].toFloat() - padding,
-        (location[0] + width).toFloat() + padding,
-        (location[1] + height).toFloat() + padding
+        location.x.toFloat() - padding,
+        location.y.toFloat() - padding,
+        (location.x + width).toFloat() + padding,
+        (location.y + height).toFloat() + padding
     )
 }
 

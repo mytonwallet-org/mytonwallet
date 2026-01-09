@@ -254,7 +254,7 @@ public func formatAmountText(amount: Double,
     return result
 }
 
-/// 0.1 -> 10%
+/// Expects value 0...1 (0.42 -> 42%)
 public func formatPercent(_ value: Double, decimals: Int = 2, showPlus: Bool = true, showMinus: Bool = true) -> String {
     let value = (value * 100).rounded(decimals: decimals)
     return if showPlus && value > 0 {

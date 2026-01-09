@@ -51,6 +51,7 @@ function ImageComponent({
           alt={alt}
           loading={loading}
           className={imageClassName}
+          style="width: 100%;"
           draggable={false}
           referrerPolicy="same-origin"
           onLoad={!isLoaded ? handleLoad : undefined}

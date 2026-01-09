@@ -77,13 +77,14 @@ struct ClaimRewardsView: View {
 
 struct ClaimRewardsButtonContent: View {
     var viewModel: ClaimRewardsModel
+    private var accountContext: AccountContext { viewModel.accountContext }
     
     var body: some View {
         WithPerceptionTracking {
             HStack(spacing: 10) {
                 icon
                 labels
-                if (AccountStore.account?.supportsEarn == true) {
+                if accountContext.account.supportsEarn {
                     claimButton
                         .padding(.trailing, 5)
                 }
@@ -132,6 +133,7 @@ struct ClaimRewardsButtonContent: View {
 
 struct ClaimRewardsConfirmContent: View {
     var viewModel: ClaimRewardsModel
+    private var accountContext: AccountContext { viewModel.accountContext }
     
     var body: some View {
         WithPerceptionTracking {
@@ -172,7 +174,7 @@ struct ClaimRewardsConfirmContent: View {
             HStack(alignment: .firstTextBaseline) {
                 let currency = TokenStore.baseCurrency
                 let rate = viewModel.amount.token.price ?? 1
-                let balance = BalanceStore.currentAccountBalances[TONCOIN_SLUG] ?? 0
+                let balance = accountContext.balances[TONCOIN_SLUG] ?? 0
                 let fees = getFee(.claimJettons)
                 let isEnoughNative = balance >= fees.gas ?? 0
                 let convAmount = viewModel.amount.convertTo(currency, exchangeRate: rate)
@@ -206,7 +208,7 @@ struct ClaimRewardsConfirmContent: View {
 #if DEBUG
 @available(iOS 18, *)
 #Preview {
-    @Previewable @State var viewModel = ClaimRewardsModel()
+    @Previewable @State var viewModel = ClaimRewardsModel(accountContext: AccountContext(source: .current))
     let _ = (viewModel.amount = TokenAmount(132_000_001, .MYCOIN))
     ClaimRewardsView(viewModel: viewModel)
         .fixedSize(horizontal: false, vertical: true)

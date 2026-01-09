@@ -37,6 +37,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
+import org.mytonwallet.app_air.uicomponents.widgets.menu.WPopupHost
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedController
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
@@ -69,12 +70,22 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         }
     }
 
+    private val popupHost: WPopupHost by lazy {
+        WPopupHost(this).apply {
+            attachWindow(this@WWindow)
+        }
+    }
+
     // Window view is the host for all our navigation controllers and fragments
     val windowView: WView by lazy {
-        WView(
-            this, ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
-        ).apply {
+        object : WView(this, LayoutParams(MATCH_PARENT, MATCH_PARENT)) {
+            override fun onViewAdded(view: View?) {
+                super.onViewAdded(view)
+                bringChildToFront(popupHost)
+            }
+        }.apply {
             addView(touchBlockerView, ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+            addView(popupHost, ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
             fitsSystemWindows = true
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
                 requestedFrameRate = View.REQUESTED_FRAME_RATE_CATEGORY_HIGH
@@ -194,6 +205,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         navigationControllers.forEach {
             it.updateTheme()
         }
+        popupHost.updateTheme()
 
         val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
         if (!darkModeChanged)
@@ -279,6 +291,11 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
     val topViewController: WViewController?
         get() {
             return navigationControllers.lastOrNull()?.viewControllers?.lastOrNull()
+        }
+
+    val topNavigationController: WNavigationController?
+        get() {
+            return navigationControllers.lastOrNull()
         }
 
     // Called to replace all the showing fragment stacks (navigation controllers) with a clean new one!
@@ -450,6 +467,13 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
     }
 
     // Dismiss a specific nav from the memory and hierarchy
+    fun dismissNav(navigationController: WNavigationController?) {
+        navigationControllers.indexOf(navigationController).let { it ->
+            if (it == -1)
+                return@let
+            dismissNav(it)
+        }
+    }
     fun dismissNav(index: Int) {
         if (index == navigationControllers.size - 1) {
             dismissLastNav()

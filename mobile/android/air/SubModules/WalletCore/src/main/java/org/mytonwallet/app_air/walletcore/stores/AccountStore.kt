@@ -13,6 +13,7 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletCore.notifyEvent
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.removeAccount
+import org.mytonwallet.app_air.walletcore.helpers.PoisoningCacheHelper
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MAccount.AccountChain
 import org.mytonwallet.app_air.walletcore.models.MAssetsAndActivityData
@@ -139,6 +140,7 @@ object AccountStore : IStore {
                     AirPushNotifications.unsubscribe(account) {}
             }
             ActivityStore.removeAccount(removingAccountId)
+            PoisoningCacheHelper.removeAccount(removingAccountId)
             DappsStore.removeAccount(removingAccountId)
             NftStore.setNfts(
                 null,

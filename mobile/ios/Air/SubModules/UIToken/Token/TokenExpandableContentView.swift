@@ -31,10 +31,13 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
     private let onHeightChange: () -> Void
     private let parentProcessorQueue: DispatchQueue
     private let isInModal: Bool
+    @AccountContext private var account: MAccount
 
-    init(isInModal: Bool,
+    init(accountContext: AccountContext,
+         isInModal: Bool,
          parentProcessorQueue: DispatchQueue,
          onHeightChange: @escaping () -> Void) {
+        self._account = accountContext
         self.onHeightChange = onHeightChange
         self.parentProcessorQueue = parentProcessorQueue
         self.isInModal = isInModal
@@ -197,26 +200,19 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
     func configure(token: ApiToken) {
         self.token = token
         iconView.config(with: token, isStaking: false, shouldShowChain: true)
-        actionsStackView.swapAvailable = AccountStore.account?.supportsSwap == true
-        actionsStackView.earnAvailable = AccountStore.account?.supportsEarn == true && token.earnAvailable
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self else {
-                return
-            }
-            let walletToken = BalanceStore.currentAccountBalanceData?.walletTokens.first(where: { it in
-                it.tokenSlug == token.slug
-            })
-            DispatchQueue.main.async { [weak self] in
-                guard let self else {return}
-                balanceView.set(balance: walletToken?.balance ?? 0,
-                                currency: token.symbol,
-                                tokenDecimals: token.decimals,
-                                decimalsCount: tokenDecimals(for: walletToken?.balance ?? 0, tokenDecimals: token.decimals),
-                                animated: nil)
-                let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(walletToken?.toBaseCurrency ?? 0, TokenStore.baseCurrency)
-                equivalentLabel.text = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true)
-            }
-        }
+        actionsStackView.swapAvailable = account.supportsSwap
+        actionsStackView.earnAvailable = account.supportsEarn && token.earnAvailable
+        let walletTokens = $account.balanceData?.walletTokens
+        let walletToken = walletTokens?.first { $0.tokenSlug == token.slug }
+        balanceView.set(
+            balance: walletToken?.balance ?? 0,
+            currency: token.symbol,
+            tokenDecimals: token.decimals,
+            decimalsCount: tokenDecimals(for: walletToken?.balance ?? 0, tokenDecimals: token.decimals),
+            animated: nil
+        )
+        let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(walletToken?.toBaseCurrency ?? 0, TokenStore.baseCurrency)
+        equivalentLabel.text = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true)
     }
 
     func update(scrollOffset: CGFloat) {

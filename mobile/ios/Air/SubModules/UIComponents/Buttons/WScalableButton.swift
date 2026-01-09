@@ -37,13 +37,9 @@ public class WScalableButton: UIView {
             let innerButton = GlassActionButton(title: title, image: image, action: { [weak self] in self?.onTap?() })
             self.innerButton = innerButton
         } else {
-            let innerButton = WButton(style: .accent)
+            let innerButton = WAccentButton(title: title, image: image)
             self.innerButton = innerButton
             innerButton.translatesAutoresizingMaskIntoConstraints = false
-            innerButton.setTitle(title, for: .normal)
-            innerButton.setImage(image, for: .normal)
-            innerButton.imageView?.contentMode = .scaleAspectFit
-            innerButton.centerTextAndImage(spacing: 5)
         }
         
         addSubview(innerButton)
@@ -66,9 +62,8 @@ public class WScalableButton: UIView {
         if #available(iOS 26, iOSApplicationExtension 26, *), let innerButton = innerButton as? GlassActionButton {
             innerButton.alpha = scale
             innerButton.transform = CGAffineTransform(scaleX: scale, y: scale)
-        } else if let innerButton = innerButton as? WButton {
-            innerButton.titleLabel?.alpha = scale
-            innerButton.imageView?.alpha = scale
+        } else if let innerButton = innerButton as? WAccentButton {
+            innerButton.alpha = scale
             layer.cornerRadius = radius
             innerButton.transform = CGAffineTransform(scaleX: scale, y: scale)
         }

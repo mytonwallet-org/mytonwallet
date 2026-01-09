@@ -69,7 +69,8 @@ class HomeVM(
             return TokenStore.swapAssets != null &&
                 TokenStore.loadedAllTokens &&
                 !BalanceStore.getBalances(showingAccountId).isNullOrEmpty() &&
-                StakingStore.getStakingState(showingAccountId ?: "") != null
+                (StakingStore.getStakingState(showingAccountId ?: "") != null ||
+                    WGlobalStorage.getAccountTonAddress(showingAccountId ?: "") == null)
         }
 
     // Called on bridge ready to setup the observer
@@ -348,7 +349,9 @@ class HomeVM(
                             } else {
                                 delegate.get()?.updateHeaderCards(false)
                             }
-                        } // else: home screen is already active and will switch if necessary.
+                        } else {
+                            delegate.get()?.updateHeaderCards(false)
+                        }
                     }
 
                     is MScreenMode.SingleWallet -> {
@@ -363,6 +366,11 @@ class HomeVM(
                 delegate.get()?.apply {
                     reloadCardAddress(walletEvent.accountId)
                 }
+            }
+
+            WalletEvent.AccountsReordered -> {
+                delegate.get()?.updateHeaderCards(false)
+                delegate.get()?.configureAccountViews(shouldLoadNewWallets = true)
             }
 
             else -> {}

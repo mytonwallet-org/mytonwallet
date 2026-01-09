@@ -16,15 +16,15 @@ public class WNavigationBarButton {
     public init(text: String? = nil, icon: UIImage? = nil, tintColor: UIColor? = nil, onPress: (() -> Void)? = nil, menu: UIMenu? = nil, showsMenuAsPrimaryAction: Bool = false) {
         let btn = {
             let btn = WButton(style: .clearBackground)
-            if let icon {
-                btn.setImage(icon, for: .normal)
-                if let tintColor {
-                    btn.imageView?.tintColor = tintColor // sometimes it didn't work without this line
-                }
-                btn.centerTextAndImage(spacing: 8)
-            }
+            btn.setImage(icon, for: .normal)
             btn.setTitle(text, for: .normal)
             btn.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
+            if let tintColor {
+                btn.tintColor = tintColor
+            }
+            if icon != nil, text != nil {
+                btn.configuration?.imagePadding = 8
+            }
             btn.translatesAutoresizingMaskIntoConstraints = false
             return btn
         }()
@@ -207,21 +207,33 @@ public class WNavigationBar: WTouchPassView, WThemedView {
         if let leadingItem {
             contentView.addSubview(leadingItem.view)
             NSLayoutConstraint.activate([
-                leadingItem.view.leadingAnchor.constraint(equalTo: leadingAnchor, constant: IOS_26_MODE_ENABLED ? 8 : 16),
+                leadingItem.view.leadingAnchor.constraint(equalTo: leadingAnchor, constant: IOS_26_MODE_ENABLED ? 12 : 16),
                 leadingItem.view.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
                 leadingItem.view.widthAnchor.constraint(greaterThanOrEqualTo: leadingItem.view.heightAnchor),
             ])
+            if IOS_26_MODE_ENABLED {
+                NSLayoutConstraint.activate([
+                    leadingItem.view.widthAnchor.constraint(equalToConstant: 44),
+                    leadingItem.view.heightAnchor.constraint(equalToConstant: 44),
+                ])
+            }
             leadingItem.view.setContentCompressionResistancePriority(.required, for: .horizontal)
         }
 
         if let trailingItem {
             contentView.addSubview(trailingItem.view)
             NSLayoutConstraint.activate([
-                trailingItem.view.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+                trailingItem.view.trailingAnchor.constraint(equalTo: trailingAnchor, constant: IOS_26_MODE_ENABLED ? -12 : -8),
                 trailingItem.view.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
                 trailingItem.view.leadingAnchor.constraint(greaterThanOrEqualTo: titleStackView.trailingAnchor, constant: 4),
                 trailingItem.view.widthAnchor.constraint(greaterThanOrEqualTo: trailingItem.view.heightAnchor),
             ])
+            if IOS_26_MODE_ENABLED {
+                NSLayoutConstraint.activate([
+                    trailingItem.view.widthAnchor.constraint(equalToConstant: 44),
+                    trailingItem.view.heightAnchor.constraint(equalToConstant: 44),
+                ])
+            }
             trailingItem.view.setContentCompressionResistancePriority(.required, for: .horizontal)
         }
 

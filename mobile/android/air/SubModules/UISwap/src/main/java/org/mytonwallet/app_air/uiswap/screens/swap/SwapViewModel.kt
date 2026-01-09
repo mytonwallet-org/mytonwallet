@@ -792,9 +792,8 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                         ) {
                             firstTransactionFee =
                                 (apiError.parsedResult!! as MApiCheckTransactionDraftResult).fee
-                                ?: BigInteger.ZERO
-                        }
-                        else {
+                                    ?: BigInteger.ZERO
+                        } else {
                             throw apiError
                         }
                     }
@@ -937,8 +936,6 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                     ),
                     estimate.request.isDiesel
                 )
-
-                _eventsFlow.tryEmit(Event.SwapComplete(success = true))
             }
 
             estimate.cex?.let { cex ->
@@ -1004,6 +1001,16 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
         }
     }
 
+    private fun checkReceivedActivity(receivedActivity: MApiTransaction) {
+        val isSwapDone = receivedActivity is MApiTransaction.Swap &&
+            receivedActivity.from == swappedEstimateConfig?.request?.tokenToSend?.slug &&
+            receivedActivity.to == swappedEstimateConfig?.request?.tokenToReceive?.slug
+        if (!isSwapDone)
+            return
+        _eventsFlow.tryEmit(Event.SwapComplete(success = true, activity = receivedActivity))
+        swappedEstimateConfig = null
+    }
+
     override fun onWalletEvent(walletEvent: WalletEvent) {
         when (walletEvent) {
             is WalletEvent.AccountChanged,
@@ -1019,14 +1026,16 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                 _inputStateFlow.value = correctVal
             }
 
+            is WalletEvent.NewLocalActivities -> {
+                walletEvent.localActivities?.firstOrNull()?.let {
+                    checkReceivedActivity(it)
+                }
+            }
+
             is WalletEvent.ReceivedPendingActivities -> {
-                val activity = walletEvent.pendingActivities?.firstOrNull { activity ->
-                    activity is MApiTransaction.Swap &&
-                        activity.from == swappedEstimateConfig?.request?.tokenToSend?.slug &&
-                        activity.to == swappedEstimateConfig?.request?.tokenToReceive?.slug
-                } ?: return
-                _eventsFlow.tryEmit(Event.SwapComplete(success = true, activity = activity))
-                swappedEstimateConfig = null
+                walletEvent.pendingActivities?.firstOrNull()?.let {
+                    checkReceivedActivity(it)
+                }
             }
 
             else -> {}

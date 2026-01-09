@@ -58,17 +58,16 @@ extension WalletFilter {
         case .ledger:
             lang("No Ledger wallets yet")
         case .view:
-            lang("No view wallets yet") 
+            lang("No view wallets yet")
         }
     }
     
     var emptySubtitle: String {
         switch self {
-        case .all, .my, .ledger :
+        case .all, .my, .ledger:
             lang("Add your first one to begin.")
         case .view:
             lang("Add the first one to track balances and activity for any address.")
         }
     }
 }
-

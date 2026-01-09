@@ -8,7 +8,7 @@ import Perception
 struct ReceiveHeaderView: View {
     
     var viewModel: SegmentedControlModel
-    var accountViewModel: AccountViewModel
+    var accountContext: AccountContext
         
     var body: some View {
         WithPerceptionTracking {
@@ -31,7 +31,7 @@ struct ReceiveHeaderView: View {
                     ForEach(viewModel.items) { item in
                         WithPerceptionTracking {
                             let chain = item.id
-                            ReceiveHeaderItemView(viewModel: viewModel, chain: chain, address: accountViewModel.account.addressByChain[chain] ?? "")
+                            ReceiveHeaderItemView(viewModel: viewModel, chain: chain, address: accountContext.account.addressByChain[chain] ?? "")
                         }
                     }
                 }

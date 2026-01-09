@@ -1305,7 +1305,6 @@
 				UIHome/ViewControllers/Home/Menus/BaseCurrencyMenu.swift,
 				UIHome/ViewControllers/Home/UpdateStatusView/UpdateStatusView.swift,
 				UIHome/ViewControllers/HomeTabBarController/HomeTabBarController.swift,
-				UIHome/ViewControllers/SwitchAccount/Cells/AccountCell.swift,
 				UIHome/ViewControllers/SwitchAccount/SwitchAccountVC.swift,
 			);
 			target = 27DCAABD2BA5D6B1004F83C8 /* UIHome */;
@@ -1342,7 +1341,6 @@
 				UIAssets/Tokens/Cells/WalletTokenCell.swift,
 				UIAssets/Tokens/Helpers/BadgeContent.swift,
 				UIAssets/Tokens/WalletTokensVC.swift,
-				UIAssets/Tokens/WalletTokensView.swift,
 				"UIAssets/WalletAssets/Semented control items.swift",
 				UIAssets/WalletAssets/WalletAssetsVC.swift,
 				UIAssets/WalletAssets/WalletAssetsView.swift,
@@ -1392,9 +1390,8 @@
 				UISettings/AssetsAndActivity/Cells/AssetsAndActivityBaseCurrencyCell.swift,
 				UISettings/AssetsAndActivity/Cells/AssetsAndActivityHideNoCostCell.swift,
 				UISettings/AssetsAndActivity/Cells/AssetsAndActivityTokenCell.swift,
+				UISettings/BaseCurrency/BaseCurrencyCell.swift,
 				UISettings/BaseCurrency/BaseCurrencyVC.swift,
-				UISettings/ConnectedAppsVC/Cells/DappCell.swift,
-				UISettings/ConnectedAppsVC/Cells/DisconnectAllCell.swift,
 				UISettings/ConnectedAppsVC/ConnectedAppsVC.swift,
 				UISettings/CustomizeWallet/CustomizeWalletVC.swift,
 				UISettings/CustomizeWallet/CustomizeWalletView.swift,
@@ -1412,6 +1409,7 @@
 				UISettings/PlainWebView/PlainWebView.swift,
 				UISettings/RecoveryPhrase/RecoveryPhraseVC.swift,
 				UISettings/RenameAccount/RenameAccount.swift,
+				UISettings/SavedAddresses/SaveAddress.swift,
 				UISettings/Security/SecurityVC.swift,
 				UISettings/Security/SecurityView.swift,
 				UISettings/Settings/Cells/FooterView.swift,
@@ -1431,7 +1429,7 @@
 				UISettings/WalletSettings/WalletSettingsListVC.swift,
 				UISettings/WalletSettings/WalletSettingsNavigationHeader.swift,
 				UISettings/WalletSettings/WalletSettingsVC.swift,
-				UISettings/WalletVersions/Cells/WalletVersionsHintCell.swift,
+				UISettings/WalletVersions/WalletVersionCell.swift,
 				UISettings/WalletVersions/WalletVersionsVC.swift,
 			);
 			target = 27EA17752C2C74C9002892EC /* UISettings */;
@@ -1439,10 +1437,10 @@
 		27ABF47A2CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UIReceive" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				UIReceive/BuyCrypto/BuyCryptoCell.swift,
 				UIReceive/DepositLink/DepositLinkModel.swift,
 				UIReceive/DepositLink/DepositLinkVC.swift,
 				UIReceive/DepositLink/DepositLinkView.swift,
+				UIReceive/Receive/ReceiveCells.swift,
 				UIReceive/Receive/ReceiveHeader.swift,
 				UIReceive/Receive/ReceiveTableVC.swift,
 				UIReceive/Receive/ReceiveVC.swift,
@@ -1452,6 +1450,9 @@
 		27ABF47B2CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UISend" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				UISend/Compose/Address/AddressInputModel.swift,
+				UISend/Compose/Address/AddressSuggestions.swift,
+				UISend/Compose/Address/RecipientAddressSection.swift,
 				UISend/Compose/SendComposeVC.swift,
 				UISend/Compose/SendComposeView.swift,
 				UISend/Confirm/SendConfirmVC.swift,
@@ -1609,6 +1610,7 @@
 				UIComponents/Buttons/EarnGradient.swift,
 				UIComponents/Buttons/GlassActionButton.swift,
 				UIComponents/Buttons/OpenButtonStyle.swift,
+				UIComponents/Buttons/WAccentButton.swift,
 				UIComponents/Buttons/WBaseButton.swift,
 				UIComponents/Buttons/WButton.swift,
 				UIComponents/Buttons/WButtonConfig.swift,
@@ -1629,13 +1631,9 @@
 				UIComponents/CommonViews/BalanceView.swift,
 				UIComponents/CommonViews/BottomActionsView.swift,
 				UIComponents/CommonViews/Cells/ActivityDateCell.swift,
-				UIComponents/CommonViews/Cells/SectionHeaderCell.swift,
-				UIComponents/CommonViews/Cells/TitleSubtitleSelectableCell.swift,
 				UIComponents/CommonViews/FeeDetailsView.swift,
 				UIComponents/CommonViews/FeeView.swift,
 				UIComponents/CommonViews/HeaderView.swift,
-				UIComponents/CommonViews/IconStackView.swift,
-				UIComponents/CommonViews/IconView.swift,
 				UIComponents/CommonViews/ReversedCornerRadiusView.swift,
 				UIComponents/CommonViews/TappableAddress.swift,
 				UIComponents/CommonViews/TappableTransactionId.swift,
@@ -1670,6 +1668,12 @@
 				UIComponents/HighlightView/WHighlightCell.swift,
 				UIComponents/HighlightView/WHighlightStackView.swift,
 				UIComponents/HighlightView/WHighlightView.swift,
+				UIComponents/Icons/AccountIcon.swift,
+				UIComponents/Icons/ActivityIconView.swift,
+				UIComponents/Icons/IconAccessoryView.swift,
+				UIComponents/Icons/IconStackView.swift,
+				UIComponents/Icons/IconView.swift,
+				UIComponents/Icons/WUIIconViewToken.swift,
 				UIComponents/Image/WImageView.swift,
 				UIComponents/Input/AmountInput/WAmountInput.swift,
 				UIComponents/Input/WAddressInput.swift,
@@ -1872,6 +1876,7 @@
 				WalletCore/Models/Nft/NftCollection.swift,
 				WalletCore/Models/Nft/NftCollectionFilter.swift,
 				WalletCore/Models/PrimitiveTypes/MDouble.swift,
+				WalletCore/Models/SavedAddress.swift,
 				WalletCore/Models/ScanResult.swift,
 				WalletCore/Models/SendPrefilledValues.swift,
 				WalletCore/Models/Staking/ApiStakingState.swift,
@@ -1907,11 +1912,12 @@
 				WalletCore/Models/Transfer/ApiSubmitTransferResult.swift,
 				WalletCore/Models/Transfer/ApiTransactionCommonOptions.swift,
 				WalletCore/Models/Util/Fee/TransferFee.swift,
+				WalletCore/Stores/Accounts/AccountContext.swift,
 				WalletCore/Stores/Accounts/AccountIdProvider.swift,
 				WalletCore/Stores/Accounts/AccountSettingsStore.swift,
 				WalletCore/Stores/Accounts/AccountSource.swift,
 				WalletCore/Stores/Accounts/AccountStore.swift,
-				WalletCore/Stores/Accounts/AccountViewModel.swift,
+				WalletCore/Stores/Accounts/SavedAddressesStore.swift,
 				WalletCore/Stores/Activities/ActivityStore.swift,
 				WalletCore/Stores/Activities/ActivityUtils.swift,
 				WalletCore/Stores/Activities/ActivityViewModel.swift,
@@ -1965,7 +1971,6 @@
 				WalletContext/Helpers/DNSHelpers.swift,
 				WalletContext/Helpers/PossibleWords.swift,
 				WalletContext/Helpers/SemanticVersion.swift,
-				WalletContext/Helpers/UrlEscapingHelper.swift,
 				WalletContext/Keychain/CapacitorCredentialsStorage.swift,
 				WalletContext/Keychain/KeychainHelper.swift,
 				WalletContext/Keychain/KeychainStorageProvider.swift,
@@ -1983,6 +1988,7 @@
 				WalletContext/Resources/Animations/Congratulations.tgs,
 				WalletContext/Resources/Animations/Copy.tgs,
 				"WalletContext/Resources/Animations/duck_no-data.tgs",
+				WalletContext/Resources/Animations/duck_wait.tgs,
 				WalletContext/Resources/Animations/Main.tgs,
 				WalletContext/Resources/Animations/NoResults.tgs,
 				WalletContext/Resources/Animations/Password.tgs,
@@ -3328,7 +3334,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2600;
-				LastUpgradeCheck = 1530;
+				LastUpgradeCheck = 2610;
 				TargetAttributes = {
 					272B3CB12D2AD4360024658E = {
 						CreatedOnToolsVersion = 16.1;
@@ -5297,7 +5303,6 @@
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -5312,10 +5317,12 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LOCALIZATION_EXPORT_SUPPORTED = NO;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				OTHER_SWIFT_FLAGS = "-Xfrontend -warn-long-expression-type-checking=100 -Xfrontend -warn-long-function-bodies=200";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -5370,6 +5377,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LOCALIZATION_EXPORT_SUPPORTED = NO;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;

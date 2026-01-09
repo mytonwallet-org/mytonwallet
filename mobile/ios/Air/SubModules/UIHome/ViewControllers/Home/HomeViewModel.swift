@@ -48,20 +48,17 @@ private let UPDATING_DELAY = 2
     @PerceptionIgnored
     @Dependency(\.accountStore) private var accountStore
     
-    let accountViewModel: AccountViewModel
-    let isTrackingActiveAccount: Bool
-    
-    var account: MAccount { accountViewModel.account }
-    var accountId: String { accountViewModel.accountId }
-    var accountSource: AccountSource { accountViewModel.source }
+    @PerceptionIgnored
+    @AccountContext var account: MAccount
+
+    var isTrackingActiveAccount: Bool { $account.source == .current }
     
     init(accountId: String?, delegate: HomeVMDelegate) {
-        self.accountViewModel = AccountViewModel(accountId: accountId)
-        self.isTrackingActiveAccount = accountId == nil
+        self._account = AccountContext(accountId: accountId)
         self.delegate = delegate
         
         if !isTrackingActiveAccount {
-            accountViewModel.onAccountDeleted = { [weak self] in
+            _account.onAccountDeleted = { [weak self] in
                 guard let self else { return }
                 self.delegate?.removeSelfFromStack()
             }
@@ -97,7 +94,7 @@ private let UPDATING_DELAY = 2
     func walletCore(event: WalletCoreData.Event) {
         switch event {
         case .balanceChanged(let accountId, let isFirstUpdate):
-            if accountId == self.accountId {
+            if accountId == self.account.id {
                 dataUpdated()
                 if isFirstUpdate {
                     delegate?.transactionsUpdated(accountChanged: false, isUpdateEvent: false)
@@ -161,14 +158,14 @@ private let UPDATING_DELAY = 2
     
     // while balances are not loaded, do not show anything!
     var balancesLoaded: Bool {
-        BalanceStore.currentAccountBalances.count > 0
+        !$account.balances.isEmpty
     }
     
     var isGeneralDataAvailable: Bool {
         TokenStore.swapAssets != nil &&
         TokenStore.tokens.count > 1 &&
         balancesLoaded &&
-        (BalanceStore.currentAccountBalances[TONCOIN_SLUG] != nil || BalanceStore.currentAccountBalances[TRX_SLUG] != nil)
+        ($account.balances[TONCOIN_SLUG] != nil || $account.balances[TRX_SLUG] != nil)
     }
     
     // MARK: - Init wallet info
@@ -193,7 +190,7 @@ private let UPDATING_DELAY = 2
                 return
             }
             // make sure default event for receiving toncoin is also called
-            if BalanceStore.balancesEventCalledOnce[accountId] == nil {
+            if BalanceStore.balancesEventCalledOnce[account.id] == nil {
                 log.info("balancesEventCalledOnce not loaded yet")
                 return
             }
@@ -234,13 +231,12 @@ private let UPDATING_DELAY = 2
     @MainActor fileprivate func accountChanged(isNew: Bool) {
         guard isTrackingActiveAccount else { return }
         // reset load states, active network requests will also be ignored automatically
-        guard let account = AccountStore.account else { return }
         self.setUpdatingAfterDelayTask?.cancel()
         self.setUpdatingAfterDelayTask = nil
         delegate?.update(state: waitingForNetwork == true ? .waitingForNetwork : .updated, animated: true)
         
         Task {
-            await delegate?.changeAccountTo(accountId: accountId, isNew: isNew)
+            await delegate?.changeAccountTo(accountId: account.id, isNew: isNew)
         }
         // get all data again
         initWalletInfo()

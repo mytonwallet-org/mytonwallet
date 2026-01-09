@@ -13,9 +13,11 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-public class CrossChainSwapVC: WViewController {
+public class CrossChainSwapVC: WViewController, WalletCoreData.EventsObserver {
 
     var crossChainSwapVM: CrossChainSwapVM!
+    private var awaitingActivity = false
+    private var accountId: String?
     
     public convenience init(swap: ApiSwapActivity, accountId: String?) {
         let account = AccountStore.get(accountIdOrCurrent: accountId)
@@ -29,6 +31,7 @@ public class CrossChainSwapVC: WViewController {
                   payinAddress: swap.cex?.payinAddress ?? "",
                   exchangerTxId: swap.cex?.transactionId ?? "",
                   dt: Date(timeIntervalSince1970: TimeInterval(swap.timestamp / 1000)))
+        self.accountId = accountId
     }
     
     init(sellingToken: (ApiToken?, BigInt),
@@ -51,6 +54,8 @@ public class CrossChainSwapVC: WViewController {
             exchangerTxId: exchangerTxId,
             dt: dt
         )
+        accountId = AccountStore.accountId
+        WalletCoreData.add(eventObserver: self)
     }
     
     required init?(coder: NSCoder) {
@@ -222,6 +227,7 @@ public class CrossChainSwapVC: WViewController {
             customHeaderVC: headerVC,
             onAuthTask: { [weak self] passcode, onTaskDone in
                 guard let self else {return}
+                awaitingActivity = true
                 crossChainSwapVM.cexFromTonSwap(toAddress: crossChainSwapVM.addressInputString,
                                                 passcode: passcode,
                                                 onTaskDone: { err in
@@ -232,13 +238,45 @@ public class CrossChainSwapVC: WViewController {
             onDone: { [weak self] _ in
                 guard let self else {return}
                 guard failureError == nil else {
+                    awaitingActivity = false
                     showAlert(error: failureError!)
                     return
                 }
-                dismiss(animated: true)
             })
     }
 
+}
+
+extension CrossChainSwapVC {
+    public func walletCore(event: WalletCoreData.Event) {
+        switch event {
+        case .newLocalActivity(let update):
+            handleNewActivities(accountId: update.accountId, activities: update.activities)
+        case .newActivities(let update):
+            handleNewActivities(accountId: update.accountId, activities: update.activities)
+        default:
+            break
+        }
+    }
+
+    private func handleNewActivities(accountId updateAccountId: String, activities: [ApiActivity]) {
+        let expectedAccountId = accountId ?? AccountStore.accountId
+        guard awaitingActivity, updateAccountId == expectedAccountId else { return }
+        guard let activity = activities.first(where: { activity in
+            if case .swap = activity {
+                return true
+            }
+            return false
+        }) ?? activities.first else { return }
+        awaitingActivity = false
+        dismissAndShowActivity(activity, accountId: updateAccountId)
+    }
+
+    private func dismissAndShowActivity(_ activity: ApiActivity, accountId: String) {
+        navigationController?.dismiss(animated: true) {
+            AppActions.showActivityDetails(accountId: accountId, activity: activity)
+        }
+    }
 }
 
 extension CrossChainSwapVC: WKeyboardObserverDelegate {

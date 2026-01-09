@@ -35,7 +35,9 @@ class WBlurryBackgroundView(
 
     private var configured = false
     override fun onAttachedToWindow() {
-        super.onAttachedToWindow()
+        if (isPlaying != false)
+            super.onAttachedToWindow()
+        // else: should not call the super method to prevent unwanted blur resume!
         if (configured)
             return
         configured = true
@@ -149,5 +151,15 @@ class WBlurryBackgroundView(
                 return
             }
         }
+    }
+
+    private var isPlaying: Boolean? = null
+    fun resumeBlurring() {
+        isPlaying = true
+        setBlurAutoUpdate(true)
+    }
+    fun pauseBlurring() {
+        isPlaying = false
+        setBlurAutoUpdate(false)
     }
 }

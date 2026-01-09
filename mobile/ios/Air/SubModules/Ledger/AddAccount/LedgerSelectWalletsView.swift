@@ -128,7 +128,7 @@ private struct WalletRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             Spacer()
-            Text(discoveredWallet.balance.formatted(maxDecimals: 3))
+            Text(discoveredWallet.balance.formatted(.defaultAdaptive))
                 .foregroundStyle(.secondary)
                 .font(.system(size: 16, weight: .regular))
                 .fixedSize()

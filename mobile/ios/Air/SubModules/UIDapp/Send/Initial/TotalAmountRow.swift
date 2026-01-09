@@ -54,7 +54,7 @@ public struct TotalAmountRow: View {
         if !tokenAmounts.isEmpty {
             let _tokens = tokenAmounts
                 .map { tokenAmount in
-                    tokenAmount.formatted()
+                    tokenAmount.formatted(.none)
                 }
                 .joined(separator: " + ")
             let tokens = Text(_tokens)

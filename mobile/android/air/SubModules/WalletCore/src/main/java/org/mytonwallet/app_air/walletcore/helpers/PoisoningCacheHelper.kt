@@ -7,7 +7,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 class PoisoningCacheHelper {
     companion object {
-        private val cache: MutableMap<String, CacheEntry> = ConcurrentHashMap()
+        private val cache: ConcurrentHashMap<String, MutableMap<String, CacheEntry>> = ConcurrentHashMap()
 
         private data class CacheEntry(
             val timestamp: Long,
@@ -16,43 +16,49 @@ class PoisoningCacheHelper {
         )
 
         private fun getKey(address: String): String {
-            return address.formatStartEndAddress()
+            return address.formatStartEndAddress(prefix = 4, suffix = 4)
         }
 
-        private fun addToCache(address: String, amount: BigInteger, timestamp: Long) {
+        private fun addToCache(accountId: String, address: String, amount: BigInteger, timestamp: Long) {
             val key = getKey(address)
-            cache[key] = CacheEntry(timestamp, amount, address)
+            if (cache[accountId] == null)
+                cache[accountId] = ConcurrentHashMap()
+            cache[accountId]!![key] = CacheEntry(timestamp, amount, address)
         }
 
-        private fun getFromCache(address: String): CacheEntry? {
+        private fun getFromCache(accountId: String, address: String): CacheEntry? {
             val key = getKey(address)
-            return cache[key]
+            return cache[accountId]?.get(key)
         }
 
-        fun updatePoisoningCache(tx: MApiTransaction) {
+        fun updatePoisoningCache(accountId: String, tx: MApiTransaction) {
             if (tx is MApiTransaction.Transaction) {
-                val address = tx.fromAddress
+                val address = tx.peerAddress
                 val amount = tx.amount
                 val timestamp = tx.timestamp
 
-                val cached = getFromCache(address)
+                val cached = getFromCache(accountId, address)
 
-                if (cached == null || cached.timestamp < timestamp || (cached.timestamp == timestamp && cached.amount > amount)) {
-                    addToCache(address, amount, timestamp)
+                if (cached == null || cached.timestamp > timestamp || (cached.timestamp == timestamp && cached.amount < amount)) {
+                    addToCache(accountId, address, amount, timestamp)
                 }
             }
         }
 
-        fun getIsTransactionWithPoisoning(tx: MApiTransaction): Boolean {
+        fun getIsTransactionWithPoisoning(accountId: String, tx: MApiTransaction): Boolean {
             if (tx is MApiTransaction.Transaction) {
                 val address = tx.fromAddress
-                val cached = getFromCache(address)
+                val cached = getFromCache(accountId, address)
                 return cached != null && cached.address != address
             }
             return false
         }
 
-        fun clearPoisoningCache() {
+        fun removeAccount(removingAccountId: String) {
+            cache.remove(removingAccountId)
+        }
+
+        fun clearCache() {
             cache.clear()
         }
     }

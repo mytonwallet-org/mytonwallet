@@ -18,7 +18,7 @@ import Dependencies
 struct HomeHeaderCollapsedContent: View {
     
     let headerViewModel: HomeHeaderViewModel
-    let accountViewModel: AccountViewModel
+    let accountContext: AccountContext
     
     var progress: CGFloat { headerViewModel.collapseProgress }
     
@@ -34,9 +34,9 @@ struct HomeHeaderCollapsedContent: View {
     var body: some View {
         WithPerceptionTracking {
             VStack(spacing: spacing) {
-                _CollapsedBalanceView(viewModel: accountViewModel)
+                _CollapsedBalanceView(accountContext: accountContext)
                     .scaleEffect(balanceScale, anchor: .bottom)
-                _CollapsedDisplayName(viewModel: accountViewModel)
+                _CollapsedDisplayName(accountContext: accountContext)
                     .scaleEffect(subtitleScale, anchor: .top)
             }
 //            .backportGeometryGroup()
@@ -50,22 +50,22 @@ struct HomeHeaderCollapsedContent: View {
 
 private struct _CollapsedBalanceView: View {
     
-    let viewModel: AccountViewModel
+    let accountContext: AccountContext
     
     var body: some View {
         WithPerceptionTracking {
-            MtwCardBalanceView(balance: viewModel.balance, style: .homeCollaped)
+            MtwCardBalanceView(balance: accountContext.balance, style: .homeCollaped)
         }
     }
 }
 
 private struct _CollapsedDisplayName: View {
     
-    let viewModel: AccountViewModel
+    let accountContext: AccountContext
     
     var body: some View {
         WithPerceptionTracking {
-            Text(viewModel.account.displayName)
+            Text(accountContext.account.displayName)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }

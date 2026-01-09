@@ -10,6 +10,8 @@ import UIKit
 import UIComponents
 import WalletContext
 
+private let stickerSize: CGFloat = 120
+
 public class EmptyEarnView: WTouchPassStackView, WThemedView {
     
     let config: StakingConfig
@@ -24,9 +26,16 @@ public class EmptyEarnView: WTouchPassStackView, WThemedView {
         fatalError("init(coder:) has not been implemented")
     }
     
-    private let notFoundImageView = {
-        let iv = UIImageView(image: UIImage(named: "EarnNotFound", in: AirBundle, compatibleWith: nil))
-        return iv
+    private var sticker: WAnimatedSticker = {
+        let sticker = WAnimatedSticker()
+        sticker.animationName = "duck_wait"
+        sticker.setup(width: Int(stickerSize), height: Int(stickerSize), playbackMode: .once)
+        sticker.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            sticker.widthAnchor.constraint(equalToConstant: stickerSize),
+            sticker.heightAnchor.constraint(equalToConstant: stickerSize),
+        ])
+        return sticker
     }()
     
     private lazy var earnFromTokensLabel = {
@@ -38,10 +47,10 @@ public class EmptyEarnView: WTouchPassStackView, WThemedView {
         return lbl
     }()
     
-    let estimatedAPYLabel = {
+    lazy var estimatedAPYLabel = {
         let lbl = UILabel()
         lbl.font = .systemFont(ofSize: 16)
-        lbl.text = lang("Estimated APY")
+        lbl.text = ""
         lbl.textAlignment = .center
         lbl.numberOfLines = 0
         return lbl
@@ -58,7 +67,7 @@ public class EmptyEarnView: WTouchPassStackView, WThemedView {
         spacing = 16
         axis = .vertical
         alignment = .center
-        addArrangedSubview(notFoundImageView)
+        addArrangedSubview(sticker)
         addArrangedSubview(earnFromTokensLabel)
         addArrangedSubview(estimatedAPYLabel)
         addArrangedSubview(whyThisIsSafeButton)

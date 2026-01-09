@@ -299,25 +299,20 @@ extension _TokenStore: WalletCoreData.EventsObserver {
 
         case .updateTokens(let dict):
             self.updateTokensTask?.cancel()
-            self.updateTokensTask = Task.detached {
+            self.updateTokensTask = Task.detached(priority: .low) {
                 do {
                     // debounce
                     try await Task.sleep(for: .seconds(0.2))
+                    
+                    let tokens = try (dict["tokens"] as? [String: Any]).orThrow().mapValues { try ApiToken(any: $0) }
+                    await Task.yield()
                     try Task.checkCancellation()
                     
-                    do {
-                        let _tokens = try (dict["tokens"] as? [String: Any]).orThrow().mapValues { try ApiToken(any: $0) }
-                        let update = ApiUpdate.UpdateTokens(
-                            tokens: _tokens,
-                        )
-                        self.process(newTokens: update.tokens)
+                    self.process(newTokens: tokens)
 
-                    } catch {
-                        log.fault("failed to decode updateTokens \(error, .public)")
-                    }
-
+                } catch is CancellationError {
                 } catch {
-                    log.info("<updateTokens> canceled")
+                    log.fault("failed to decode updateTokens \(error, .public)")
                 }
             }
         

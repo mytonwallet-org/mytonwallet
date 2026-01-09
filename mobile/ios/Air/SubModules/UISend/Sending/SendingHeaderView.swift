@@ -26,7 +26,6 @@ struct SendingHeaderView: View {
                     isOutgoing: true,
                     text: text,
                     addressName: model.draftData.transactionDraft?.addressName,
-                    resolvedAddress: model.draftData.transactionDraft?.resolvedAddress,
                     addressOrDomain: model.addressOrDomain
                 )
             } else {
@@ -36,7 +35,6 @@ struct SendingHeaderView: View {
                     isOutgoing: true,
                     text: text,
                     addressName: model.draftData.transactionDraft?.addressName,
-                    resolvedAddress: model.draftData.transactionDraft?.resolvedAddress,
                     addressOrDomain: model.addressOrDomain
                 )
             }

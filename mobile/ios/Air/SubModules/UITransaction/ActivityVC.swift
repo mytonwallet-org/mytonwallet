@@ -30,7 +30,6 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
     
     private var hostingController: UIHostingController<ActivityView>?
     private var decryptedComment: String? = nil
-    private var contentHeight: CGFloat? = nil
     private var activity: ApiActivity { viewModel.activity }
     private var detentChange: Date = .distantPast
     private var scrollOffset: CGFloat = 0
@@ -89,8 +88,9 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
             model: self.viewModel,
             onDecryptComment: decryptMessage,
             onTokenTapped: { [weak self] token in
-                self?.dismiss(animated: true) {
-                    AppActions.showToken(token: token, isInModal: false)
+                guard let self else { return }
+                dismiss(animated: true) { [accountSource = viewModel.accountContext.source] in
+                    AppActions.showToken(accountSource: accountSource, token: token, isInModal: false)
                 }
             },
             decryptedComment: decryptedComment,
@@ -111,11 +111,9 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
             if let sv = view.superview?.bounds.size, expandedHeight >= sv.height * 0.85 {
                 updateScrollingDisabled(false)
             }
-            if expandedHeight != self.contentHeight {
-                p.animateChanges {
-                    p.detents = makeDetents()
-                }
-                self.contentHeight = expandedHeight
+            
+            p.animateChanges {
+                p.detents = makeDetents()
             }
         }
     }
@@ -200,7 +198,6 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
             Task {
                 await handleActivitiesChanged(accountId: accountId, updatedIds: updatedIds, replacedIds: replacedIds)
             }
-
         default:
             break
         }
@@ -208,11 +205,32 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
     
     func handleActivitiesChanged(accountId: String, updatedIds: [String], replacedIds: [String: String]) async {
         let id = activity.id
+        let hash = activity.parsedTxId.hash
         var newActivity: ApiActivity?
+        
         if let replacementId = replacedIds[id], let replacementActivity = await ActivityStore.getActivity(accountId: accountId, activityId: replacementId) {
             newActivity = replacementActivity
         } else if updatedIds.contains(id), let updatedActivity = await ActivityStore.getActivity(accountId: accountId, activityId: id) {
             newActivity = updatedActivity
+        } else if activity.isLocal, let replacementId = replacedIds.first(where: { getParsedTxId(id: $0.key).hash == hash })?.value, let updatedActivity = await ActivityStore.getActivity(accountId: accountId, activityId: replacementId) {
+            newActivity = updatedActivity
+        }
+        
+        // workaround for unstake request getting replaced by excess
+        if activity.isLocal && activity.type == .unstakeRequest {
+            for updatedId in updatedIds {
+                if let replacementActivity = await ActivityStore.getActivity(accountId: accountId, activityId: updatedId), replacementActivity.type == .unstakeRequest {
+                    newActivity = replacementActivity
+                    break
+                }
+            }
+            // unstake is an even better match than unstakeRequest
+            for updatedId in updatedIds {
+                if let replacementActivity = await ActivityStore.getActivity(accountId: accountId, activityId: updatedId), replacementActivity.type == .unstake {
+                    newActivity = replacementActivity
+                    break
+                }
+            }
         }
 
         if let newActivity {

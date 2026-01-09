@@ -11,14 +11,12 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.PopupWindow
 import android.widget.Toast
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.content.ContextCompat
 import androidx.core.text.buildSpannedString
 import androidx.core.text.inSpans
-import androidx.core.view.children
 import androidx.core.view.isGone
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
@@ -30,6 +28,8 @@ import org.mytonwallet.app_air.uicomponents.commonViews.WalletTypeView
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
+import org.mytonwallet.app_air.uicomponents.extensions.getLocationInWindow
+import org.mytonwallet.app_air.uicomponents.extensions.getLocationOnScreen
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.extensions.updateDotsLetterSpacing
 import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
@@ -46,6 +46,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.AutoScaleContainerView
+import org.mytonwallet.app_air.uicomponents.widgets.IPopup
 import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WGradientMaskView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -72,6 +73,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.signSpace
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletbasecontext.utils.trimAddress
 import org.mytonwallet.app_air.walletbasecontext.utils.trimDomain
+import org.mytonwallet.app_air.walletbasecontext.utils.x
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 import org.mytonwallet.app_air.walletcontext.helpers.ShareHelpers
@@ -159,43 +161,48 @@ class WalletCardView(
 
             override fun onShownImmediately() {
                 onFadeStarted()
-                onFadeFinished()
+                post {
+                    onFadeFinished()
+                }
             }
 
         }
     }
 
-    private val miniPlaceholders: WView by lazy {
-        WView(context, LayoutParams(36.dp, WRAP_CONTENT)).apply {
+    private val miniPlaceholders: MiniPlaceholdersView by lazy {
+        MiniPlaceholdersView(context).apply {
+            layoutParams = LayoutParams(36.dp, WRAP_CONTENT)
             alpha = 0f
             pivotY = 0f
             pivotX = 18f.dp
-            val v1 = WView(context, LayoutParams(16.dp, 2.5f.dp.toInt()))
-            addView(v1)
-            val v2 =
-                WView(context, LayoutParams(5f.dp.toInt(), 1.5f.dp.toInt()))
-            v2.alpha = 0.6f
-            addView(v2)
-            val v3 = WView(context, LayoutParams(8.dp, 1.5f.dp.toInt()))
-            v3.alpha = 0.6f
-            addView(v3)
-            setConstraints {
-                toTop(v1, 6f)
-                toCenterX(v1)
-                topToTop(v2, v1, 4.5f)
-                toCenterX(v2)
-                topToTop(v3, v2, 5.5f)
-                toCenterX(v3)
-            }
         }
     }
 
-    private lateinit var balanceView: WBalanceView
+    private var balanceView = WBalanceView(context).apply {
+        clipChildren = false
+        clipToPadding = false
+        primaryColor = WColor.White.color
+        secondaryColor = WColor.White.color
+        smartDecimalsAlpha = true
+        reducedDecimalsAlpha = 191
+        smartDecimalsColor = true
+        typeface = WFont.NunitoExtraBold.typeface
+        containerWidth = window.windowView.width - 34.dp
+        onAnimationStateChanged = { isAnimating ->
+            if (isAnimating) {
+                resumeBlurringIfNeeded()
+            } else {
+                pauseBlurring()
+            }
+        }
+    }
     private lateinit var balanceViewMaskWrapper: WGradientMaskView
-    private lateinit var arrowImageView: AppCompatImageView
     private val arrowDownDrawable = ContextCompat.getDrawable(
         context, R.drawable.ic_arrow_bottom_rounded
     )
+    private var arrowImageView = AppCompatImageView(context).apply {
+        setImageDrawable(arrowDownDrawable)
+    }
     private val balanceViewContainer: WSensitiveDataContainer<AutoScaleContainerView> by lazy {
         val linearLayout = LinearLayout(context).apply {
             clipChildren = false
@@ -204,30 +211,8 @@ class WalletCardView(
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
-        val w = window.windowView.width - 34.dp
-        balanceView = WBalanceView(context).apply {
-            clipChildren = false
-            clipToPadding = false
-            primaryColor = WColor.White.color
-            secondaryColor = WColor.White.color
-            smartDecimalsAlpha = true
-            reducedDecimalsAlpha = 191
-            smartDecimalsColor = true
-            typeface = WFont.NunitoExtraBold.typeface
-            containerWidth = w
-            onAnimationStateChanged = { isAnimating ->
-                if (isAnimating) {
-                    resumeBlurringIfNeeded()
-                } else {
-                    pauseBlurring()
-                }
-            }
-        }
         balanceViewMaskWrapper = WGradientMaskView(balanceView)
         linearLayout.addView(balanceViewMaskWrapper, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
-        arrowImageView = AppCompatImageView(context).apply {
-            setImageDrawable(arrowDownDrawable)
-        }
         linearLayout.addView(arrowImageView, LayoutParams(18.dp, 18.dp).apply {
             leftMargin = 2.dp
             topMargin = 5.dp
@@ -240,7 +225,7 @@ class WalletCardView(
             AutoScaleContainerView(linearLayout).apply {
                 clipChildren = false
                 clipToPadding = false
-                maxAllowedWidth = w
+                maxAllowedWidth = balanceView.containerWidth
                 minPadding = 16.dp
             },
             WSensitiveDataContainer.MaskConfig(
@@ -755,15 +740,12 @@ class WalletCardView(
                     primaryColor.colorWithAlpha(191)
                 )
             )
-        if (::balanceView.isInitialized) {
-            balanceView.alpha = 1f
-            balanceView.updateColors(primaryColor, secondaryColor, drawGradient)
-        }
+        balanceView.alpha = 1f
+        balanceView.updateColors(primaryColor, secondaryColor, drawGradient)
         arrowDownDrawable?.setTint(secondaryColor)
         addressLabel.setTextColor(primaryColor, secondaryColor, drawGradient)
         updateAddressLabel()
-        for (child in miniPlaceholders.children)
-            child.setBackgroundColor(primaryColor, 1f.dp)
+        miniPlaceholders.setColor(primaryColor)
         mintIcon.setImageDrawable(
             ContextCompat.getDrawable(
                 context,
@@ -857,8 +839,7 @@ class WalletCardView(
     }
 
     private fun balanceViewContainerTapped() {
-        val location = IntArray(2)
-        balanceViewContainer.contentView.getLocationOnScreen(location)
+        val location = balanceViewContainer.contentView.getLocationOnScreen()
         WMenuPopup.present(
             balanceViewContainer.contentView,
             listOf(
@@ -889,8 +870,8 @@ class WalletCardView(
                     WidgetsConfigurations.reloadWidgets(context)
                 }
             },
-            offset = (-location[0] + (window.navigationControllers.last().width / 2) - 112.5f.dp).toInt(),
-            verticalOffset = (-8).dp,
+            xOffset = (-location.x + (window.navigationControllers.last().width / 2) - 112.5f.dp).toInt(),
+            yOffset = (-8).dp,
             popupWidth = 225.dp,
             aboveView = false
         )
@@ -911,10 +892,9 @@ class WalletCardView(
     }
 
     private fun addressLabelTapped() {
-        val location = IntArray(2)
-        addressLabel.getLocationInWindow(location)
+        val location = addressLabel.getLocationInWindow()
 
-        lateinit var popupWindow: PopupWindow
+        lateinit var popup: IPopup
         val menuWidth = 276.dp
         val copyDrawable = ContextCompat.getDrawable(
             context,
@@ -992,7 +972,7 @@ class WalletCardView(
                                             chain.explorerUrl(fullAddress)
                                         )
                                     WalletCore.notifyEvent(walletEvent)
-                                    popupWindow.dismiss()
+                                    popup.dismiss()
                                 }
                                 translationX = 4f.dp
                             }
@@ -1049,12 +1029,12 @@ class WalletCardView(
             )
         }
 
-        popupWindow = WMenuPopup.present(
+        popup = WMenuPopup.present(
             addressLabel,
             items,
             popupWidth = menuWidth,
-            offset = -location[0] + ((parent as View).width / 2) - menuWidth / 2,
-            verticalOffset = (-6).dp,
+            xOffset = -location.x + ((parent as View).width / 2) - menuWidth / 2,
+            yOffset = (-6).dp,
             aboveView = false
         )
     }
@@ -1068,7 +1048,7 @@ class WalletCardView(
         if (!shouldRenderBlurs) {
             return
         }
-        balanceChangeBlurView?.setBlurAutoUpdate(true)
+        balanceChangeBlurView?.resumeBlurring()
         walletTypeView.resumeBlurring()
     }
 
@@ -1076,7 +1056,7 @@ class WalletCardView(
         if (shouldRenderBlurs) {
             return
         }
-        balanceChangeBlurView?.setBlurAutoUpdate(false)
+        balanceChangeBlurView?.pauseBlurring()
         walletTypeView.pauseBlurring()
     }
 }

@@ -132,6 +132,7 @@ public extension Color {
         public let groupedBackground: Color = .airBundle("GroupedBackgroundColor")
         public let sheetBackground: Color = .airBundle("SheetBackgroundColor")
         public let highlight: Color = .airBundle("HighlightColor")
+        public let error: Color = .red
         
         public var tint: Color { Color(WTheme.tint) }
     }

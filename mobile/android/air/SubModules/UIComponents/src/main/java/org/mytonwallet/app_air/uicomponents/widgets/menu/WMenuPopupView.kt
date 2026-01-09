@@ -14,8 +14,11 @@ import androidx.core.view.updateLayoutParams
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
+import org.mytonwallet.app_air.uicomponents.extensions.suppressLayoutCompat
 import org.mytonwallet.app_air.uicomponents.extensions.unspecified
+import org.mytonwallet.app_air.uicomponents.widgets.INavigationPopup
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
+import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.Item.Config
 import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import kotlin.math.min
@@ -28,16 +31,17 @@ class WMenuPopupView(
     val items: List<WMenuPopup.Item>,
     private val onWillDismiss: (() -> Unit)?,
     private val onDismiss: () -> Unit,
-) : WFrameLayout(context) {
+) : WFrameLayout(context), WThemedView {
 
-    var popupWindow: WPopupWindow? = null
+    var popupWindow: INavigationPopup? = null
     private val itemViews = ArrayList<FrameLayout>(items.size)
     private var currentHeight: Int = 0
     private var currentFrameHeight: Int = 0
     private val itemHeights: IntArray = IntArray(items.size)
     private val itemYPositions: IntArray = IntArray(items.size)
     private var isAnimating = false
-    private var finalHeight = 0
+    var finalHeight = 0
+        private set
     var isDismissed = false
     private val contentContainer: FrameLayout
     private val scrollView: ScrollView
@@ -115,14 +119,16 @@ class WMenuPopupView(
             itemViews.add(itemView)
             contentContainer.addView(itemView, LayoutParams(WRAP_CONTENT, itemHeight))
         }
+        finalHeight = min(totalHeight, maxHeight)
     }
 
     fun present(initialHeight: Int) {
         val isFirstPresentation = initialHeight == 0
         isAnimating = true
         measureChildren(MeasureSpec.UNSPECIFIED, MeasureSpec.UNSPECIFIED)
-        val totalHeight = itemYPositions.lastOrNull()?.plus(itemHeights.lastOrNull() ?: 0) ?: 0
-        finalHeight = min(totalHeight, maxHeight)
+        post {
+            contentContainer.suppressLayoutCompat(true)
+        }
         ValueAnimator.ofInt(0, 1).apply {
             duration =
                 if (isFirstPresentation) AnimationConstants.MENU_PRESENT else AnimationConstants.QUICK_ANIMATION
@@ -150,6 +156,7 @@ class WMenuPopupView(
                         itemView.alpha = 1f
                         itemView.translationY = 0f
                     }
+                    contentContainer.suppressLayoutCompat(false)
                 }
             })
             start()
@@ -158,10 +165,11 @@ class WMenuPopupView(
 
     fun dismiss() {
         onWillDismiss?.invoke()
-        (parent as FrameLayout).animate().setDuration(AnimationConstants.MENU_DISMISS)
+        val parentLayout = parent as? FrameLayout ?: return
+        parentLayout.animate().setDuration(AnimationConstants.MENU_DISMISS)
             .setInterpolator(AccelerateDecelerateInterpolator())
             .alpha(0f)
-            .translationY((-8f).dp)
+            .translationY(parentLayout.translationY - 8f.dp)
             .withEndAction {
                 isDismissed = true
                 onDismiss()
@@ -196,6 +204,10 @@ class WMenuPopupView(
         (parent as? ViewGroup)?.updateLayoutParams {
             height = currentFrameHeight
         }
+    }
+
+    override fun updateTheme() {
+        itemViews.filterIsInstance<WThemedView>().forEach { it.updateTheme() }
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {

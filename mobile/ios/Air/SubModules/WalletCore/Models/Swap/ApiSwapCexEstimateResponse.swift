@@ -45,9 +45,10 @@ public struct ApiSwapCexEstimateResponse: Equatable, Hashable, Codable, Sendable
         public var maxAmount: BigInt?
     }
     
-    mutating public func calculateLateInitProperties(selling: TokenAmount, swapType: SwapType) {
+    mutating public func calculateLateInitProperties(selling: TokenAmount, swapType: SwapType, balances: [String: BigInt]) {
         let props = ApiSwapCexEstimateResponse.calculateLateInitProperties(selling: selling,
                                                               swapType: swapType,
+                                                              balances: balances,
                                                               networkFee: nil,
                                                               dieselFee: nil,
                                                               ourFeePercent: nil)
@@ -56,6 +57,7 @@ public struct ApiSwapCexEstimateResponse: Equatable, Hashable, Codable, Sendable
     
     public static func calculateLateInitProperties(selling: TokenAmount,
                                                    swapType: SwapType,
+                                                   balances: [String: BigInt],
                                                    networkFee: Double?,
                                                    dieselFee: Double?,
                                                    ourFeePercent: Double?) -> LateInitProperties {
@@ -63,10 +65,11 @@ public struct ApiSwapCexEstimateResponse: Equatable, Hashable, Codable, Sendable
         let nativeUserTokenIn = selling.token.isOnChain == true ? TokenStore.tokens[tokenInChain?.nativeToken.slug ?? ""] : nil
         let networkFeeData = FeeEstimationHelpers.networkFeeBigInt(sellToken: selling.token, swapType: swapType, networkFee: networkFee)
         let totalNativeAmount = networkFeeData?.fee ?? 0 + (networkFeeData?.isNativeIn == true ? selling.amount : 0)
-        let isEnoughNative = BalanceStore.currentAccountBalances[nativeUserTokenIn?.slug ?? ""] ?? 0 >= totalNativeAmount
+        let isEnoughNative = balances[nativeUserTokenIn?.slug ?? ""] ?? 0 >= totalNativeAmount
         let isDiesel = swapType == SwapType.onChain && !isEnoughNative && DIESEL_TOKENS.contains(selling.token.tokenAddress ?? "")
         let maxAmount = calcMaxToSwap(selling: selling,
                                       swapType: swapType,
+                                      balances: balances,
                                       networkFee: networkFee,
                                       dieselFee: dieselFee,
                                       ourFeePercent: ourFeePercent)
@@ -75,10 +78,11 @@ public struct ApiSwapCexEstimateResponse: Equatable, Hashable, Codable, Sendable
     
     private static func calcMaxToSwap(selling: TokenAmount,
                                       swapType: SwapType,
+                                      balances: [String: BigInt],
                                       networkFee: Double?,
                                       dieselFee: Double?,
                                       ourFeePercent: Double?) -> BigInt? {
-        guard var balance = BalanceStore.currentAccountBalances[selling.token.slug] else {
+        guard var balance = balances[selling.token.slug] else {
             return nil
         }
         if selling.token.slug == ApiChain(rawValue: selling.token.chain)?.nativeToken.slug {

@@ -232,7 +232,7 @@ class SettingsHeaderView: WTouchPassView, WThemedView {
         addressLabel.text = formattedAddress
         
         if let totalBalance = BalanceStore.accountBalanceData[account.id]?.totalBalance {
-            balanceLabel.text = totalBalance.formatted()
+            balanceLabel.text = totalBalance.formatted(.baseCurrencyEquivalent)
             separatorDotLabel.isHidden = false
             walletBalanceContainer.isDisabled = false
             walletBalanceContainer.isHidden = false

@@ -56,6 +56,7 @@ You have no NFT in this wallet yet: |
   У цьому гаманці ще немає
   NFT.
 Collapse: Згорнути
+Expand: Розгорнути
 Standalone NFT: Окремий NFT
 Linked Address: Пов’язана адреса
 Enter Address: Введіть адресу
@@ -226,8 +227,6 @@ Wear: Надіти
 Your Address: Ваша адреса
 Passcodes don't match. Please try again.: Коди не збігаються. Спробуйте ще раз.
 Secret phrase was copied to clipboard: Фразу відновлення скопійовано до буфера обміну
-clipboard: буфер обміну
-screenshot: знімок екрана
 Copy Anyway: Копіювати все одно
 12 Words: 12 слів
 24 Words: 24 слова
@@ -300,5 +299,3 @@ Receive: Отримати
 Scan: Сканувати
 Search or enter address: Знайдіть або введіть адресу
 View as Grid: Показати у вигляді сітки
-$secret_words_warning: Зберігання слів у цифровому середовищі, зокрема **%1$d**, небезпечне. Переконайтеся, що фразу відновлення збережено в безпечному місці.
-

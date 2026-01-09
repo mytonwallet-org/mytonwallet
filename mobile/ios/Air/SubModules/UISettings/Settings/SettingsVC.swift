@@ -90,9 +90,9 @@ public class SettingsVC: WViewController, Sendable, WalletCoreData.EventsObserve
         var _configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
         _configuration.trailingSwipeActionsConfigurationProvider = { [weak self] indexPath in
             if case .account(let accountId) = self?.dataSource.itemIdentifier(for: indexPath) {
-                let deleteAction = UIContextualAction(style: .destructive, title: lang("Remove Wallet"), handler: { contextualAction, view, callback in
+                let deleteAction = UIContextualAction(style: .destructive, title: lang("Remove Wallet")) { _, _, callback in
                     self?.signoutPressed(removingAccountId: accountId, callback: callback)
-                })
+                }
                 let actions = UISwipeActionsConfiguration(actions: [deleteAction])
                 actions.performsFirstActionWithFullSwipe = true
                 return actions
@@ -245,9 +245,9 @@ public class SettingsVC: WViewController, Sendable, WalletCoreData.EventsObserve
         case .tips:
             AppActions.openTipsChannel()
         case .helpCenter:
-            let url = URL(string: HELP_CENTER_URL)!
             let title = lang("Help Center")
-            navigationController?.pushPlainWebView(title: title, url: url)
+            let url = Language.current == .ru ? HELP_CENTER_URL_RU : HELP_CENTER_URL
+            navigationController?.pushPlainWebView(title: title, url: URL(string: url)!)
         case .support:
             UIApplication.shared.open(URL(string: "https://t.me/\(SUPPORT_USERNAME)")!)
         case .about:
@@ -278,7 +278,7 @@ public class SettingsVC: WViewController, Sendable, WalletCoreData.EventsObserve
                             try await AccountStore.resetAccounts()
                         } else {
                             let nextAccount = isCurrentAccount ? AccountStore.accountsById.keys.first(where: { $0 != removingAccountId }) : AccountStore.accountId
-                            let _ = try await AccountStore.removeAccount(accountId: removingAccountId, nextAccountId: nextAccount!)
+                            try await AccountStore.removeAccount(accountId: removingAccountId, nextAccountId: nextAccount!)
                             if isCurrentAccount {
                                 DispatchQueue.main.async {
                                     self.tabBarController?.selectedIndex = 0
@@ -397,7 +397,7 @@ public class SettingsVC: WViewController, Sendable, WalletCoreData.EventsObserve
     // scroll delegation
     public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
         if collectionView.contentSize.height + view.safeAreaInsets.top + view.safeAreaInsets.bottom > collectionView.frame.height {
-            let requiredInset = max(16, collectionView.frame.height + 40 + 16 - collectionView.contentSize.height - view.safeAreaInsets.top - view.safeAreaInsets.bottom)
+            let requiredInset: CGFloat = max(16.0, collectionView.frame.height + 56.0 - collectionView.contentSize.height - view.safeAreaInsets.top - view.safeAreaInsets.bottom)
             collectionView.contentInset.bottom = requiredInset
         }
     }

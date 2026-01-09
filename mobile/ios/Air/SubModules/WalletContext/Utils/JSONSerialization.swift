@@ -36,7 +36,6 @@ public extension Encodable {
     }
 }
 
-#if DEBUG
 public extension Encodable {
     func jsonString() -> String {
         let data = try! JSONEncoder().encode(self)
@@ -48,14 +47,15 @@ public extension Encodable {
         let data = try! encoder.encode(self)
         return String(data: data, encoding: .utf8)!
     }
+#if DEBUG
     func printJsonString() {
         print(jsonString())
     }
     func printJsonStringPretty() {
         print(jsonStringPretty())
     }
-}
 #endif
+}
 
 //public extension Decodable {
 //    init(json: Any) throws {

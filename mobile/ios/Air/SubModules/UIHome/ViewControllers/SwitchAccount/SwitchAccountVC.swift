@@ -10,32 +10,75 @@ import UIPasscode
 import UIComponents
 import WalletCore
 import WalletContext
+import SwiftUI
+
+private let menuCornerRadius: CGFloat = IOS_26_MODE_ENABLED ? 26 : 12
+private let switchAccountDividerHeight: CGFloat = 8
+private let accountRowContentHeight: CGFloat = 40
+private let accountRowVerticalMargin: CGFloat = 10
+private let accountRowHeight: CGFloat = accountRowContentHeight + accountRowVerticalMargin * 2
+private let actionRowIconSize: CGFloat = 30
+private let actionRowVerticalPadding: CGFloat = IOS_26_MODE_ENABLED ? 11 : 7
+private let actionRowHeight: CGFloat = actionRowIconSize + actionRowVerticalPadding * 2
+private let switchAccountMaxAccountsShown: Int = 7
 
 public class SwitchAccountVC: WViewController {
     
-    var dismissCallback: (() -> ())?
+    // MARK: - Diffable Data Source Types
     
-    // MARK: - Initializer
-    private let activeAccount: MAccount
-    private let otherAccounts: [MAccount]
-    
-    var startingGestureRecognizer: UIGestureRecognizer?
-    private var iconColor: UIColor
-    
-    private let blurView = BlurredMenuBackground()
-    
-    private var tableView: UITableView!
-    private var switchedAccount: Bool = false
-    
-    private var calculatedHeight:  CGFloat {
-        88.0 + // first section
-        (otherAccounts.count > 0 ? 8.0 : 0.0) + // divider
-        CGFloat(otherAccounts.count) * 44.0 // other accounts
+    private enum Section: Hashable {
+        case activeSection
+        case divider
+        case otherAccounts
     }
     
-    public init(accounts: [MAccount], iconColor: UIColor) {
+    private enum Item: Hashable {
+        case addAccount
+        case showAllWallets
+        case activeAccount(MAccount)
+        case divider
+        case otherAccount(MAccount)
+    }
+    
+    // MARK: - Properties
+    
+    var dismissCallback: (() -> Void)?
+    var startingGestureRecognizer: UIGestureRecognizer?
+    
+    private let activeAccount: MAccount
+    private let otherAccounts: [MAccount]
+    private var iconColor: UIColor
+    private let blurView = BlurredMenuBackground()
+    private var collectionView: UICollectionView!
+    private var switchedAccount: Bool = false
+    private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
+    private var collectionViewHeightConstraint: NSLayoutConstraint?
+    
+    private var visibleOtherAccounts: [MAccount] {
+        Array(otherAccounts.prefix(max(0, switchAccountMaxAccountsShown - 1)))
+    }
+
+    private var shouldShowAllWalletsRow: Bool {
+        otherAccounts.count > visibleOtherAccounts.count
+    }
+    
+    private var calculatedHeight: CGFloat {
+        var height = actionRowHeight + accountRowHeight
+        if !visibleOtherAccounts.isEmpty {
+            height += switchAccountDividerHeight
+            height += CGFloat(visibleOtherAccounts.count) * accountRowHeight
+            if shouldShowAllWalletsRow {
+                height += actionRowHeight
+            }
+        }
+        return height
+    }
+    
+    // MARK: - Init
+    
+    public init(iconColor: UIColor) {
         self.activeAccount = AccountStore.account!
-        self.otherAccounts = accounts.filter { $0.id != AccountStore.accountId }
+        self.otherAccounts = AccountStore.orderedAccounts.filter { $0.id != AccountStore.accountId }
         self.iconColor = iconColor
         super.init(nibName: nil, bundle: nil)
     }
@@ -44,12 +87,22 @@ public class SwitchAccountVC: WViewController {
         fatalError("init(coder:) has not been implemented")
     }
     
-    // MARK: - Load and SetupView Functions
+    // MARK: - Lifecycle
+    
     public override func loadView() {
         super.loadView()
         view.backgroundColor = .clear
         setupViews()
+        configureDataSource()
+        applySnapshot()
     }
+    
+    public override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateCollectionHeight()
+    }
+    
+    // MARK: - Tab Bar Icon
     
     private lazy var tabImageView: UIImageView = {
         let tabImageView = UIImageView()
@@ -86,6 +139,8 @@ public class SwitchAccountVC: WViewController {
         return v
     }()
     
+    // MARK: - Setup
+    
     private func setupViews() {
         view.backgroundColor = .clear
         
@@ -100,31 +155,34 @@ public class SwitchAccountVC: WViewController {
         blurView.alpha = 0
         blurView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(backPressed)))
         
-        tableView = UITableView()
-        tableView.translatesAutoresizingMaskIntoConstraints = false
-        tableView.delegate = self
-        tableView.dataSource = self
-        tableView.separatorStyle = .none
-        tableView.contentInset.bottom = 16
-        tableView.layer.cornerRadius = 12
-        tableView.bounces = false
-        tableView.isScrollEnabled = false
-        tableView.register(AccountCell.self, forCellReuseIdentifier: "Account")
-        tableView.backgroundColor = .clear
-        tableView.isOpaque = false
-        tableView.backgroundView = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterial))
-        // preparing animation
-        view.addSubview(tableView)
-        let heightConstraint = tableView.heightAnchor.constraint(equalToConstant: calculatedHeight)
+        let layout = UICollectionViewCompositionalLayout { [weak self] sectionIndex, env in
+            self?.layoutSection(for: sectionIndex, environment: env)
+        }
+        
+        collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
+        collectionView.translatesAutoresizingMaskIntoConstraints = false
+        collectionView.delegate = self
+        collectionView.contentInset.bottom = 16
+        collectionView.layer.cornerRadius = menuCornerRadius
+        collectionView.bounces = false
+        collectionView.isScrollEnabled = false
+        collectionView.backgroundColor = .clear
+        collectionView.isOpaque = false
+        collectionView.backgroundView = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterial))
+        collectionView.delaysContentTouches = false
+        collectionView.allowsSelection = true
+        
+        view.addSubview(collectionView)
+        let heightConstraint = collectionView.heightAnchor.constraint(equalToConstant: calculatedHeight)
         heightConstraint.priority = .defaultHigh
+        collectionViewHeightConstraint = heightConstraint
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
-            tableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -68),
-            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            tableView.widthAnchor.constraint(equalToConstant: 228),
+            collectionView.topAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            collectionView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -68),
+            collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            collectionView.widthAnchor.constraint(equalToConstant: 248),
             heightConstraint
         ])
-        
         
         if let recognizer = startingGestureRecognizer {
             recognizer.addTarget(self, action: #selector(handleLongPressGesture(_:)))
@@ -138,46 +196,172 @@ public class SwitchAccountVC: WViewController {
         ])
         
         Haptics.prepare(.selection)
-        
         updateTheme()
     }
     
-    public override func updateTheme() {
+    private func configureDataSource() {
+        let accountRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, String> { cell, _, accountId in
+            let accountContext = AccountContext(accountId: accountId)
+            cell.configurationUpdateHandler = { cell, state in
+                cell.contentConfiguration = UIHostingConfiguration {
+                    AccountListCell(
+                        accountContext: accountContext,
+                        isReordering: state.isEditing,
+                        showCurrentAccountHighlight: true,
+                        showBalance: false
+                    )
+                }
+                .background {
+                    SwitchAccountCellBackground(isHighlighted: state.isHighlighted)
+                }
+                .margins(.horizontal, 12)
+                .margins(.vertical, 10)
+            }
+        }
+        let addAccountRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, Void> { cell, _, _ in
+            cell.configurationUpdateHandler = { cell, state in
+                cell.contentConfiguration = UIHostingConfiguration {
+                    ActionRowView(
+                        title: lang("Add Account"),
+                        icon: Image.airBundle("AddAccountIcon")
+                    )
+                }
+                .background {
+                    SwitchAccountCellBackground(isHighlighted: state.isHighlighted)
+                }
+                .margins(.leading, 0)
+                .margins(.trailing, 12)
+                .margins(.vertical, 0)
+            }
+        }
+        let showAllWalletsRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, Void> { cell, _, _ in
+            cell.configurationUpdateHandler = { cell, state in
+                cell.contentConfiguration = UIHostingConfiguration {
+                    ActionRowView(
+                        title: lang("Show All"),
+                        icon: Image(systemName: "ellipsis"),
+                    )
+                }
+                .background {
+                    SwitchAccountCellBackground(isHighlighted: state.isHighlighted)
+                }
+                .margins(.leading, 0)
+                .margins(.trailing, 12)
+                .margins(.vertical, 0)
+            }
+        }
+        let dividerRegistration = UICollectionView.CellRegistration<UICollectionViewCell, Void> { cell, _, _ in
+            cell.contentView.backgroundColor = WTheme.backgroundReverse.withAlphaComponent(0.1)
+            cell.backgroundColor = .clear
+            cell.isUserInteractionEnabled = false
+        }
         
+        dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) { collectionView, indexPath, item in
+            switch item {
+            case .addAccount:
+                return collectionView.dequeueConfiguredReusableCell(using: addAccountRegistration, for: indexPath, item: ())
+            case .showAllWallets:
+                return collectionView.dequeueConfiguredReusableCell(using: showAllWalletsRegistration, for: indexPath, item: ())
+            case .activeAccount(let account), .otherAccount(let account):
+                return collectionView.dequeueConfiguredReusableCell(using: accountRegistration, for: indexPath, item: account.id)
+            case .divider:
+                return collectionView.dequeueConfiguredReusableCell(using: dividerRegistration, for: indexPath, item: ())
+            }
+        }
     }
+    
+    private func applySnapshot() {
+        var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
+        
+        // Active section
+        snapshot.appendSections([.activeSection])
+        snapshot.appendItems([.addAccount, .activeAccount(activeAccount)], toSection: .activeSection)
+        
+        // Divider and other accounts
+        if !visibleOtherAccounts.isEmpty {
+            snapshot.appendSections([.divider])
+            snapshot.appendItems([.divider], toSection: .divider)
+            
+            snapshot.appendSections([.otherAccounts])
+            snapshot.appendItems(visibleOtherAccounts.map { .otherAccount($0) }, toSection: .otherAccounts)
+            if shouldShowAllWalletsRow {
+                snapshot.appendItems([.showAllWallets], toSection: .otherAccounts)
+            }
+        }
+        
+        dataSource.apply(snapshot, animatingDifferences: false)
+        updateCollectionHeight()
+    }
+    
+    private func layoutSection(for sectionIndex: Int, environment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection? {
+        let sections = dataSource?.snapshot().sectionIdentifiers ?? [.activeSection, .divider, .otherAccounts]
+        guard sectionIndex < sections.count else { return nil }
+        switch sections[sectionIndex] {
+        case .divider:
+            let itemSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .absolute(switchAccountDividerHeight))
+            let item = NSCollectionLayoutItem(layoutSize: itemSize)
+            let groupSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .absolute(switchAccountDividerHeight))
+            let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize, subitems: [item])
+            return NSCollectionLayoutSection(group: group)
+        case .activeSection, .otherAccounts:
+            var configuration = UICollectionLayoutListConfiguration(appearance: .plain)
+            configuration.headerMode = .none
+            configuration.backgroundColor = .clear
+            configuration.separatorConfiguration.color = WTheme.separator
+            configuration.separatorConfiguration.bottomSeparatorInsets.leading = 62
+            configuration.itemSeparatorHandler = { [weak self] indexPath, separatorConfiguration in
+                guard let self else { return separatorConfiguration }
+                let lastIndex = self.collectionView.numberOfItems(inSection: indexPath.section) - 1
+                guard indexPath.item == lastIndex, lastIndex >= 0 else { return separatorConfiguration }
+                var separatorConfiguration = separatorConfiguration
+                separatorConfiguration.bottomSeparatorVisibility = .hidden
+                return separatorConfiguration
+            }
+            return NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: environment)
+        }
+    }
+    
+    private func updateCollectionHeight() {
+        collectionView.collectionViewLayout.invalidateLayout()
+        collectionView.layoutIfNeeded()
+        let contentHeight = collectionView.collectionViewLayout.collectionViewContentSize.height
+        collectionViewHeightConstraint?.constant = contentHeight > 0 ? contentHeight : calculatedHeight
+    }
+    
+    // MARK: - Theme
+    
+    public override func updateTheme() {}
     
     public override var prefersStatusBarHidden: Bool { true }
     
-    @objc func backPressed() {
+    // MARK: - Actions
+    
+    @objc private func backPressed() {
         dismiss(animated: false)
     }
     
     @objc private func handleLongPressGesture(_ recognizer: UILongPressGestureRecognizer) {
-        let location = recognizer.location(in: tableView)
+        let location = recognizer.location(in: collectionView)
         
         switch recognizer.state {
         case .changed:
-            if let indexPath = tableView.indexPathForRow(at: location),
-               let cell = tableView.cellForRow(at: indexPath) {
-                for it in tableView.visibleCells {
-                    if it == cell, it.isHighlighted == false {
+            if let indexPath = collectionView.indexPathForItem(at: location),
+               let cell = collectionView.cellForItem(at: indexPath) {
+                for it in collectionView.visibleCells {
+                    if it == cell, !it.isHighlighted {
                         Haptics.play(.selection)
                     }
                     it.isHighlighted = it == cell
                 }
             } else {
-                if tableView.visibleCells.contains(where: { it in
-                    it.isHighlighted
-                }) {
+                if collectionView.visibleCells.contains(where: { $0.isHighlighted }) {
                     Haptics.play(.selection)
                 }
-                
                 unhighlightAllCells()
             }
-            break
         case .ended:
-            if let indexPath = tableView.indexPathForRow(at: location) {
-                accountSelected(indexPath: indexPath)
+            if let indexPath = collectionView.indexPathForItem(at: location) {
+                handleSelection(at: indexPath)
                 unhighlightAllCells()
             }
         default:
@@ -185,20 +369,21 @@ public class SwitchAccountVC: WViewController {
         }
     }
     
+    // MARK: - Animations
+    
     public override func viewWillAppear(_ animated: Bool) {
+        let collectionHeight = collectionViewHeightConstraint?.constant ?? calculatedHeight
         if IOS_26_MODE_ENABLED {
-            tableView.transform = .init(translationX: 0, y: calculatedHeight/2 - 30).scaledBy(x: 0.25, y: 0.25)
+            collectionView.transform = .init(translationX: 0, y: collectionHeight / 2 - 30).scaledBy(x: 0.25, y: 0.25)
         } else {
-            tableView.transform = .init(translationX: 60.0, y: calculatedHeight/2 - 30).scaledBy(x: 0.25, y: 0.25)
+            collectionView.transform = .init(translationX: 60.0, y: collectionHeight / 2 - 30).scaledBy(x: 0.25, y: 0.25)
         }
-        tableView.transform = .init(translationX: 60.0, y: calculatedHeight/2 - 30).scaledBy(x: 0.25, y: 0.25)
-        //        tabBarIcon.transform = .identity.scaledBy(x: 0.9, y: 0.9) // matching real icon
         
         UIView.transition(with: self.view, duration: 0.2) { [self] in
             blurView.alpha = 1
         }
         UIView.animate(withDuration: 0.35, delay: 0, usingSpringWithDamping: 0.75, initialSpringVelocity: 0.2) { [self] in
-            tableView.transform = .identity
+            collectionView.transform = .identity
             tabBarIcon.transform = .identity.translatedBy(x: 0, y: -5)
             tabImageView.tintColor = WTheme.tint
             tabLabel.textColor = WTheme.tint
@@ -214,13 +399,14 @@ public class SwitchAccountVC: WViewController {
         UIView.transition(with: self.view, duration: duration) { [self] in
             blurView.alpha = 0
         }
+        let collectionHeight = collectionViewHeightConstraint?.constant ?? calculatedHeight
         let targetColor = switchedAccount ? WTheme.secondaryLabel : iconColor
         UIView.animate(withDuration: duration, delay: 0, usingSpringWithDamping: 0.7, initialSpringVelocity: 0.2) { [self] in
             if flag {
-                tableView.transform = .init(translationX: 60.0, y: calculatedHeight/2 - 30).scaledBy(x: 0.25, y: 0.25)
+                collectionView.transform = .init(translationX: 60.0, y: collectionHeight / 2 - 30).scaledBy(x: 0.25, y: 0.25)
             }
             tabBarIcon.transform = .identity
-            tableView.alpha = 0
+            collectionView.alpha = 0
             tabImageView.tintColor = targetColor
             tabLabel.textColor = targetColor
         }
@@ -233,7 +419,7 @@ public class SwitchAccountVC: WViewController {
     }
     
     private func unhighlightAllCells() {
-        for cell in tableView.visibleCells {
+        for cell in collectionView.visibleCells {
             cell.isHighlighted = false
         }
     }
@@ -243,26 +429,29 @@ public class SwitchAccountVC: WViewController {
         Task {
             do {
                 _ = try await AccountStore.activateAccount(accountId: account.id)
-                self.dismiss(animated: false)
-                AppActions.showHome(popToRoot: true)
+                self.dismiss(animated: false) {
+                    AppActions.showHome(popToRoot: true)
+                }
             } catch {
                 fatalError("failed to activate account: \(account.id)")
             }
         }
     }
     
-    public func accountSelected(indexPath: IndexPath) {
-        tableView.deselectRow(at: indexPath, animated: true)
-        switch indexPath.section {
-        case 0:
-            if indexPath.row == 0 {
-                addAccountSelected()
-            } else {
-                switchAccount(to: activeAccount)
-            }
-        case 2:
-            switchAccount(to: otherAccounts[indexPath.row])
-        default:
+    private func handleSelection(at indexPath: IndexPath) {
+        collectionView.deselectItem(at: indexPath, animated: true)
+        guard let item = dataSource.itemIdentifier(for: indexPath) else { return }
+        
+        switch item {
+        case .addAccount:
+            addAccountSelected()
+        case .showAllWallets:
+            showAllWalletsSelected()
+        case .activeAccount(let account):
+            switchAccount(to: account)
+        case .otherAccount(let account):
+            switchAccount(to: account)
+        case .divider:
             break
         }
     }
@@ -272,49 +461,53 @@ public class SwitchAccountVC: WViewController {
             AppActions.showAddWallet(showCreateWallet: true, showSwitchToOtherVersion: true)
         }
     }
+
+    private func showAllWalletsSelected() {
+        dismiss(animated: false) {
+            AppActions.showWalletSettings()
+        }
+    }
 }
 
-extension SwitchAccountVC: UITableViewDelegate, UITableViewDataSource {
-    public func numberOfSections(in tableView: UITableView) -> Int {
-        otherAccounts.count > 0 ? 3 : 1
+extension SwitchAccountVC: UICollectionViewDelegate {
+    public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        handleSelection(at: indexPath)
     }
+}
 
-    public func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        switch section {
-        case 0:
-            return 2
-        case 1:
-            return 1
-        default:
-            return otherAccounts.count
+private struct ActionRowView: View {
+
+    var title: String
+    var icon: Image
+
+    var body: some View {
+        HStack(spacing: 0) {
+            iconView
+                .frame(width: 62)
+            Text(title)
+                .font(.system(size: 17, weight: .regular))
+                .foregroundStyle(Color.air.primaryLabel)
+                .lineLimit(1)
+                .allowsTightening(true)
         }
+        .padding(.vertical, actionRowVerticalPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
     
-    public func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        switch indexPath.section {
-        case 0:
-            let cell = tableView.dequeueReusableCell(withIdentifier: "Account", for: indexPath) as! AccountCell
-            cell.configure(account: indexPath.row == 1 ? activeAccount : nil, hideSeparator: indexPath.row == 1) { [weak self] in
-                self?.accountSelected(indexPath: indexPath)
-            }
-            cell.backgroundColor = .clear
-            return cell
-        case 2:
-            let cell = tableView.dequeueReusableCell(withIdentifier: "Account", for: indexPath) as! AccountCell
-            cell.configure(account: otherAccounts[indexPath.row], hideSeparator: indexPath.row == otherAccounts.count - 1) { [weak self] in
-                self?.accountSelected(indexPath: indexPath)
-            }
-            cell.backgroundColor = .clear
-            return cell
-        default:
-            let cell = UITableViewCell()
-            cell.selectionStyle = .none
-            cell.contentView.backgroundColor = WTheme.backgroundReverse.withAlphaComponent(0.1)
-            return cell
-        }
+    private var iconView: some View {
+        icon
+            .renderingMode(.template)
+            .foregroundStyle(Color.air.tint)
+            .frame(width: actionRowIconSize, height: actionRowIconSize)
+            .font(.system(size: 18, weight: .regular))
     }
+}
+
+private struct SwitchAccountCellBackground: View {
+    var isHighlighted: Bool
     
-    public func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        return indexPath.section == 1 ? 8 : 44
+    var body: some View {
+        Rectangle()
+            .fill(isHighlighted ? Color.air.highlight : .clear)
     }
 }

@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Path
+import android.graphics.drawable.Animatable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.util.AttributeSet
@@ -23,7 +24,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.gradientColors
 import org.mytonwallet.app_air.walletcore.models.MToken
 import androidx.core.graphics.drawable.toDrawable
+import com.facebook.drawee.controller.BaseControllerListener
 import com.facebook.fresco.ui.common.OnFadeListener
+import com.facebook.imagepipeline.image.ImageInfo
 
 open class WCustomImageView @JvmOverloads constructor(
     context: Context,
@@ -139,6 +142,11 @@ open class WCustomImageView @JvmOverloads constructor(
     }
 
     /* Private */
+    private val controllerListener = object : BaseControllerListener<ImageInfo>() {
+        override fun onRelease(id: String?) {
+            fadeListener?.onShownImmediately()
+        }
+    }
 
     private fun buildController(content: Content?, lowResUrl: String?) {
         controller = when (val image = content?.image) {
@@ -148,12 +156,14 @@ open class WCustomImageView @JvmOverloads constructor(
             null -> Fresco.newDraweeControllerBuilder()
                 .setOldController(controller)
                 .setAutoPlayAnimations(true)
+                .setControllerListener(controllerListener)
                 .build()
 
             is Content.Image.Url -> Fresco.newDraweeControllerBuilder()
                 .setOldController(controller)
                 .setImageRequest(ImageRequest.fromUri(image.url))
                 .setLowResImageRequest(ImageRequest.fromUri(lowResUrl))
+                .setControllerListener(controllerListener)
                 .build()
         }
     }

@@ -3,6 +3,8 @@ import SwiftUI
 import UIKit
 import WalletContext
 
+private let errorColor = UIColor(light: "#F86C64", dark: "#E85C54")
+
 public final class BubbleView: UIView {
     
     public enum Direction {
@@ -148,13 +150,13 @@ public final class BubbleView: UIView {
     private func setDirection(_ direction: Direction, isError: Bool) {
         self.direction = direction
         self.isError = isError
-        bubbleLayer.fillColor =  isError ? UIColor.red.cgColor : direction.color.cgColor
+        bubbleLayer.fillColor =  isError ? errorColor.cgColor : direction.color.cgColor
         bubbleLayer.transform = direction.transform
         setNeedsLayout()
     }
     
     public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        bubbleLayer.fillColor =  isError ? UIColor.red.cgColor : direction.color.cgColor
+        bubbleLayer.fillColor =  isError ? errorColor.cgColor : direction.color.cgColor
     }
 }
 

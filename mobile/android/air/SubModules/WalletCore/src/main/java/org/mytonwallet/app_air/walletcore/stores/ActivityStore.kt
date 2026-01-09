@@ -113,6 +113,7 @@ object ActivityStore : IStore {
     ) {
         backgroundQueue.execute {
             val activitiesToSave = ActivityHelpers.filter(
+                accountId,
                 activitiesToSave.filter { !it.isLocal() && (it as? MApiTransaction.Transaction)?.isPending() != true },
                 false,
                 slug
@@ -243,19 +244,20 @@ object ActivityStore : IStore {
         storeActivities(accountId, newActivities)
     }
 
-    fun receivedLocalTransaction(
+    fun receivedLocalTransactions(
         accountId: String,
-        newLocalTransaction: MApiTransaction
+        newLocalTransactions: Array<MApiTransaction>
     ) {
-        addAccountLocalTransactions(accountId, newLocalTransaction)
-        // Store swap transfers
-        if (!newLocalTransaction.isLocal() && !newLocalTransaction.isPending()) {
-            storeActivities(accountId, listOf(newLocalTransaction))
+        addAccountLocalTransactions(accountId, newLocalTransactions)
+        for (newLocalTransaction in newLocalTransactions) {
+            if (!newLocalTransaction.isLocal() && !newLocalTransaction.isPending()) {
+                storeActivities(accountId, listOf(newLocalTransaction))
+            }
         }
         backgroundQueue.execute {
             val walletEvent = WalletEvent.ReceivedNewActivities(
                 accountId = accountId,
-                newActivities = listOf(newLocalTransaction),
+                newActivities = newLocalTransactions.toList(),
                 isUpdateEvent = true,
                 loadedAll = null
             )
@@ -476,7 +478,7 @@ object ActivityStore : IStore {
             if (_cachedTransactions[accountId] == null)
                 _cachedTransactions[accountId] = HashMap()
             _cachedTransactions[accountId]?.set(transaction.id, transaction)
-            PoisoningCacheHelper.updatePoisoningCache(transaction)
+            PoisoningCacheHelper.updatePoisoningCache(accountId, transaction)
         }
     }
 
@@ -486,7 +488,7 @@ object ActivityStore : IStore {
                 _cachedTransactions[accountId] = HashMap()
             for (transaction in transactions) {
                 _cachedTransactions[accountId]?.set(transaction.id, transaction)
-                PoisoningCacheHelper.updatePoisoningCache(transaction)
+                PoisoningCacheHelper.updatePoisoningCache(accountId, transaction)
             }
         }
     }
@@ -498,7 +500,7 @@ object ActivityStore : IStore {
         synchronized(this) {
             _cachedTransactions[accountId] = transactions
             transactions.values.forEach {
-                PoisoningCacheHelper.updatePoisoningCache(it)
+                PoisoningCacheHelper.updatePoisoningCache(accountId, it)
             }
         }
     }
@@ -575,38 +577,6 @@ object ActivityStore : IStore {
         return idsBySlug
     }
 
-    private fun localActivityMatches(
-        it: MApiTransaction,
-        newActivity: MApiTransaction
-    ): Boolean {
-        if (it.extra?.withW5Gasless == true) {
-            when (it) {
-                is MApiTransaction.Swap -> {
-                    if (newActivity is MApiTransaction.Swap) {
-                        return it.from == newActivity.from &&
-                            it.to == newActivity.to &&
-                            it.fromAmount == newActivity.fromAmount
-                    }
-                }
-
-                is MApiTransaction.Transaction -> {
-                    if (newActivity is MApiTransaction.Transaction) {
-                        return !newActivity.isIncoming &&
-                            it.normalizedAddress == newActivity.normalizedAddress &&
-                            it.amount == newActivity.amount &&
-                            it.slug == newActivity.slug
-                    }
-                }
-            }
-        }
-
-        it.externalMsgHashNorm?.let { localHash ->
-            return localHash == newActivity.externalMsgHashNorm && newActivity.shouldHide != true
-        }
-
-        return it.parsedTxId.hash == newActivity.parsedTxId.hash
-    }
-
     // Process newly received list from service or bridge event
     private fun received(
         context: Context,
@@ -621,6 +591,7 @@ object ActivityStore : IStore {
         }
 
         val newActivities = ActivityHelpers.filter(
+            accountId,
             newActivities,
             false,
             null
@@ -631,15 +602,17 @@ object ActivityStore : IStore {
         beginTransaction()
         val localTransactions = getLocalTransactions()[accountId] ?: emptyList()
 
-        if ((accountCachedTransactionsDict?.keys?.size ?: 0) > 0) {
-            val addedActivities = mutableMapOf<String, MApiTransaction>()
-            for (newActivity in newActivities) {
+        if (localTransactions.isNotEmpty())
+            ((pendingActivities ?: emptyList()) + newActivities).forEach { pendingActivity ->
                 localTransactions.firstOrNull {
-                    localActivityMatches(it, newActivity)
+                    ActivityHelpers.localActivityMatches(it, pendingActivity)
                 }?.let { localTransaction ->
                     removeAccountLocalTransaction(accountId, localTransaction.id)
                 }
-
+            }
+        if ((accountCachedTransactionsDict?.keys?.size ?: 0) > 0) {
+            val addedActivities = mutableMapOf<String, MApiTransaction>()
+            for (newActivity in newActivities) {
                 accountCachedTransactionsDict?.get(newActivity.id)?.let { prevTransaction ->
                     if (newActivity.isChanged(prevTransaction)) {
                         updateCachedTransaction(accountId, newActivity)
@@ -667,7 +640,8 @@ object ActivityStore : IStore {
                         act.isIncoming &&
                         act.status == ApiTransactionStatus.COMPLETED &&
                         isNew &&
-                        (!WGlobalStorage.getAreTinyTransfersHidden() || !act.isTinyOrScam())
+                        !act.isPoisoning(accountId) &&
+                        (!WGlobalStorage.getAreTinyTransfersHidden() || !act.isTinyOrScam)
                 }
             ) {
                 AudioHelpers.play(
@@ -693,10 +667,16 @@ object ActivityStore : IStore {
         endTransaction()
     }
 
-    private fun addAccountLocalTransactions(accountId: String, localTransaction: MApiTransaction) {
+    private fun addAccountLocalTransactions(
+        accountId: String,
+        localTransactions: Array<MApiTransaction>
+    ) {
+        val localTransactionIds = localTransactions.map { it.id }
         updateLocalTransactions(
             accountId,
-            (getLocalTransactions()[accountId] ?: emptyList()).plus(localTransaction)
+            (getLocalTransactions()[accountId]
+                ?: emptyList()).filter { !localTransactionIds.contains(it.id) }
+                .plus(localTransactions)
         )
     }
 

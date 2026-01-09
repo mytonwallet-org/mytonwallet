@@ -8,6 +8,7 @@ import android.text.TextUtils
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.image.Content
@@ -69,6 +70,13 @@ class ExploreTrendingItemCell(
         isSelected = true
     }
 
+    private val verifiedDrawable = ContextCompat.getDrawable(
+        titleLabel.context,
+        org.mytonwallet.app_air.uicomponents.R.drawable.ic_verified
+    )!!.apply {
+        setBounds(0, 1.dp, 13.dp, 14.dp)
+    }
+
     private val subtitleLabel = WLabel(context).apply {
         setStyle(13f, WFont.Medium)
         text = site.description
@@ -77,7 +85,7 @@ class ExploreTrendingItemCell(
     }
 
     private val textsContainerView = WView(context).apply {
-        addView(titleLabel, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        addView(titleLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(subtitleLabel, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         setConstraints {
             toTop(titleLabel)
@@ -169,6 +177,18 @@ class ExploreTrendingItemCell(
     override val isTinted = true
     override fun updateTheme() {
         titleLabel.setTextColor(Color.WHITE)
+        if (site.isVerified) {
+            verifiedDrawable.setTint(WColor.Tint.color)
+            titleLabel.apply {
+                setCompoundDrawables(
+                    null,
+                    null,
+                    verifiedDrawable,
+                    null
+                )
+                compoundDrawablePadding = 4.dp
+            }
+        }
         subtitleLabel.setTextColor(Color.WHITE.colorWithAlpha(153))
         if (site.withBorder) {
             val border = GradientDrawable()

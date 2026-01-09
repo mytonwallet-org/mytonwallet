@@ -17,6 +17,7 @@ import UIPasscode
 public class AddStakeVC: WViewController, WalletCoreData.EventsObserver {
 
     let model: AddStakeModel
+    @AccountContext private var account: MAccount
     
     var config: StakingConfig { model.config }
     var stakingState: ApiStakingState { model.stakingState }
@@ -24,11 +25,15 @@ public class AddStakeVC: WViewController, WalletCoreData.EventsObserver {
     var fakeTextField = UITextField(frame: .zero)
     private var continueButton: WButton { self.bottomButton! }
     private var taskError: BridgeCallError? = nil
+    private var awaitingActivity = false
+    private var pendingActivityId: String?
     
-    public init(config: StakingConfig, stakingState: ApiStakingState) {
-        self.model = AddStakeModel(config: config, stakingState: stakingState)
+    public init(config: StakingConfig, stakingState: ApiStakingState, accountContext: AccountContext) {
+        self._account = accountContext
+        self.model = AddStakeModel(config: config, stakingState: stakingState, accountContext: accountContext)
         
         super.init(nibName: nil, bundle: nil)
+        WalletCoreData.add(eventObserver: self)
         
         model.onAmountChanged = { [weak self] amount in
             self?.amountChanged(amount: amount)
@@ -46,14 +51,40 @@ public class AddStakeVC: WViewController, WalletCoreData.EventsObserver {
     
     public func walletCore(event: WalletCoreData.Event) {
         switch event {
+        case .newLocalActivity(let update):
+            handleNewActivities(accountId: update.accountId, activities: update.activities)
+        case .newActivities(let update):
+            handleNewActivities(accountId: update.accountId, activities: update.activities)
         default:
             break
+        }
+    }
+
+    private func handleNewActivities(accountId: String, activities: [ApiActivity]) {
+        guard awaitingActivity, accountId == account.id else { return }
+        let activity = activities.first(where: { $0.id == pendingActivityId }) ??
+        activities.first(where: { $0.isStakingTransaction })
+        guard let activity else { return }
+        awaitingActivity = false
+        pendingActivityId = nil
+        dismissAndShowActivity(activity, accountId: accountId)
+    }
+
+    private func dismissAndShowActivity(_ activity: ApiActivity, accountId: String) {
+        navigationController?.dismiss(animated: true) {
+            AppActions.showActivityDetails(accountId: accountId, activity: activity)
         }
     }
     
     public override func viewDidLoad() {
         super.viewDidLoad()
         setupViews()
+        observe { [weak self] in
+            guard let self else { return }
+            _ = model.draft
+            _ = model.draftAmount
+            amountChanged(amount: model.amount)
+        }
         
         // observe keyboard events
 //        WKeyboardObserver.observeKeyboard(delegate: self)
@@ -121,30 +152,34 @@ public class AddStakeVC: WViewController, WalletCoreData.EventsObserver {
         let calculatedFee = getStakeOperationFee(stakingType: stakingState.type, stakeOperation: .stake).gas ?? 0
         let isNativeToken = model.isNativeToken
         let toncoinBalance = model.nativeBalance
+        let isDraftReady = model.draft != nil && model.draftAmount == amount
         
         if amount < minAmount { // Insufficient min amount for staking
             model.insufficientFunds = true
             let symbol = model.baseToken.symbol
+            continueButton.showLoading = false
             continueButton.setTitle("Minimum 1 \(symbol)", for: .normal)
             continueButton.isEnabled = false
         } else if amount > maxAmount {
             model.insufficientFunds = true
             let symbol = model.baseToken.symbol
+            continueButton.showLoading = false
             continueButton.setTitle("Insufficient \(symbol) Balance", for: .normal)
             continueButton.isEnabled = false
         } else if !isNativeToken && toncoinBalance < calculatedFee {
             model.insufficientFunds = true
+            continueButton.showLoading = false
             continueButton.apply(config: .insufficientFee(minAmount: minAmount))
         } else {
             model.insufficientFunds = false
+            continueButton.showLoading = !isDraftReady
             continueButton.setTitle(self.title, for: .normal)
-            continueButton.isEnabled = amount > 0
+            continueButton.isEnabled = amount > 0 && isDraftReady
         }
     }
     
     @objc func continuePressed() {
         view.endEditing(true)
-        guard let account = AccountStore.account else { return }
         Task {
             do {
                 try await confirmAction(account: account)
@@ -164,19 +199,25 @@ public class AddStakeVC: WViewController, WalletCoreData.EventsObserver {
         
         let amount = try model.amount.orThrow("invalid amount")
         let realFee = getStakeOperationFee(stakingType: stakingState.type, stakeOperation: .stake).real
+        let stakingState = model.stakingState
         
         do {
+            awaitingActivity = true
+            pendingActivityId = nil
             try await self.pushAuthUsingPasswordOrLedger(
                 title: lang("Confirm Staking"),
                 headerView: headerView,
-                passwordAction: { password in
-                    _ = try await Api.submitStake(
+                passwordAction: { [weak self] password in
+                    let activityId = try await Api.submitStake(
                         accountId: account.id,
                         password: password,
                         amount: amount,
-                        state: self.model.stakingState,
+                        state: stakingState,
                         realFee: realFee
                     )
+                    await MainActor.run {
+                        self?.pendingActivityId = activityId
+                    }
                 },
                 ledgerSignData: .staking(
                     isStaking: true,
@@ -186,8 +227,9 @@ public class AddStakeVC: WViewController, WalletCoreData.EventsObserver {
                     realFee: realFee
                 )
             )
-            navigationController?.popToRootViewController(animated: true)
         } catch {
+            awaitingActivity = false
+            pendingActivityId = nil
             showAlert(error: error) { [weak self] in
                 self?.navigationController?.popViewController(animated: true)
             }

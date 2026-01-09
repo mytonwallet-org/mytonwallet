@@ -15,6 +15,10 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.Vec2i
+import org.mytonwallet.app_air.walletbasecontext.utils.vec2i
+import org.mytonwallet.app_air.walletbasecontext.utils.x
+import org.mytonwallet.app_air.walletbasecontext.utils.y
 
 @SuppressLint("ViewConstructor")
 class SkeletonView(
@@ -28,6 +32,9 @@ class SkeletonView(
     private var animator: ValueAnimator? = null
 
     var isAnimating: Boolean = false
+
+    private val myLocation: Vec2i = vec2i()
+    private val location: Vec2i = vec2i()
 
     init {
         id = generateViewId()
@@ -43,19 +50,17 @@ class SkeletonView(
         super.onDraw(canvas)
 
         // To properly calculate coordinates when SkeletonView is not rooted to 0,0 of the screen
-        val myLocation = IntArray(2)
         getLocationOnScreen(myLocation)
 
         canvas.save()
         for ((index, view) in maskViews.withIndex()) {
-            val location = IntArray(2)
             view.getLocationOnScreen(location)
 
-            if (location[0] == 0 && location[1] == 0)
+            if (location.x == 0 && location.y == 0)
                 continue
 
-            val left = location[0].toFloat() - myLocation[0]
-            val top = location[1].toFloat() - myLocation[1]
+            val left = location.x.toFloat() - myLocation.x
+            val top = location.y.toFloat() - myLocation.y
 
             val right = left + view.width
             val bottom = top + view.height

@@ -19,16 +19,18 @@ let avatarSize = 40.0
 
 public struct AccountListCell: View {
     
-    let viewModel: AccountViewModel
+    let accountContext: AccountContext
     var isReordering: Bool
     var showCurrentAccountHighlight: Bool
+    var showBalance: Bool
     
     @State private var _isReordering = false
     
-    public init(viewModel: AccountViewModel, isReordering: Bool, showCurrentAccountHighlight: Bool) {
-        self.viewModel = viewModel
+    public init(accountContext: AccountContext, isReordering: Bool, showCurrentAccountHighlight: Bool, showBalance: Bool = true) {
+        self.accountContext = accountContext
         self.isReordering = isReordering
         self.showCurrentAccountHighlight = showCurrentAccountHighlight
+        self.showBalance = showBalance
     }
     
     public var body: some View {
@@ -39,16 +41,16 @@ public struct AccountListCell: View {
                 HStack(spacing: 8) {
                     VStack(alignment: .leading, spacing: 0) {
                         HStack(alignment: .center, spacing: 6) {
-                            Text(viewModel.account.displayName)
+                            Text(accountContext.account.displayName)
                                 .font(.system(size: 16, weight: .medium))
                                 .lineLimit(1)
                                 .allowsTightening(true)
                                 .foregroundStyle(Color.air.primaryLabel)
                                 .layoutPriority(1)
-                            CardMiniature(viewModel: viewModel)
+                            CardMiniature(accountContext: accountContext)
                         }
                         .frame(height: 22)
-                        ListAddressLine(addressLine: viewModel.account.addressLine)
+                        ListAddressLine(addressLine: accountContext.account.addressLine)
                             .lineLimit(1)
                             .foregroundStyle(Color.air.secondaryLabel)
                             .frame(height: 18)
@@ -60,8 +62,8 @@ public struct AccountListCell: View {
                             .foregroundStyle(.secondary)
                             .opacity(0.5)
                             .transition(.opacity.combined(with: .offset(x: 12)).combined(with: .scale(scale: 0.9)))
-                    } else {
-                        ListBalanceView(viewModel: viewModel)
+                    } else if showBalance {
+                        ListBalanceView(viewModel: accountContext)
                             .fixedSize()
                             .transition(.opacity.combined(with: .offset(x: -16)))
                             .frame(height: 22)
@@ -69,6 +71,9 @@ public struct AccountListCell: View {
                 }
                 .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
                 .alignmentGuide(.listRowSeparatorTrailing) { $0[.trailing] }
+            }
+            .onAppear {
+                _isReordering = isReordering
             }
             .onChange(of: isReordering) { isReordering in
                 withAnimation(.snappy) {
@@ -80,16 +85,16 @@ public struct AccountListCell: View {
     }
     
     private var selectionCircle: some View {
-        AccountIcon(account: viewModel.account)
+        AccountIcon(account: accountContext.account)
             .overlay {
-                if showCurrentAccountHighlight && viewModel.isCurrent {
+                if showCurrentAccountHighlight && accountContext.isCurrent {
                     Circle()
                         .strokeBorder(lineWidth: borderWidth)
                         .blendMode(.destinationOut)
                 }
             }
             .background {
-                if showCurrentAccountHighlight && viewModel.isCurrent {
+                if showCurrentAccountHighlight && accountContext.isCurrent {
                     Circle()
                         .strokeBorder(lineWidth: borderWidth)
                         .foregroundStyle(Color.air.tint)
@@ -102,7 +107,7 @@ public struct AccountListCell: View {
 
 private struct ListBalanceView: View {
     
-    var viewModel: AccountViewModel
+    var viewModel: AccountContext
     
     var body: some View {
         WithPerceptionTracking {
@@ -129,15 +134,20 @@ private struct ListAddressLine: View {
 }
 
 public extension AccountListCell {
-    static func makeRegistration() -> UICollectionView.CellRegistration<UICollectionViewListCell, String> {
+    static func makeRegistration(showBalance: Bool = true) -> UICollectionView.CellRegistration<UICollectionViewListCell, String> {
         UICollectionView.CellRegistration<UICollectionViewListCell, String> { cell, _, accountId in
-            let viewModel = AccountViewModel(accountId: accountId)
+            let accountContext = AccountContext(accountId: accountId)
             cell.configurationUpdateHandler = { cell, state in
                 cell.contentConfiguration = UIHostingConfiguration {
-                    AccountListCell(viewModel: viewModel, isReordering: state.isEditing, showCurrentAccountHighlight: true)
+                    AccountListCell(
+                        accountContext: accountContext,
+                        isReordering: state.isEditing,
+                        showCurrentAccountHighlight: true,
+                        showBalance: showBalance
+                    )
                 }
                 .background {
-                    CellBackgroundHighlight(isHighlighted: state.isHighlighted)
+                    CellBackgroundHighlight(isHighlighted: state.isHighlighted, isSwiped: state.isSwiped)
                 }
                 .margins(.horizontal, 12)
                 .margins(.vertical, 10)

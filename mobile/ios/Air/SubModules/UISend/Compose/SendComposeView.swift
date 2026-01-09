@@ -14,27 +14,33 @@ public struct SendComposeView: View {
     let model: SendModel
     var isSensitiveDataHidden: Bool
             
-    @State private var addressFocused: Bool = false
     @State private var amountFocused: Bool = false
     
     public var body: some View {
         WithPerceptionTracking {
             @Perception.Bindable var model = model
             InsetList {
-                ToSection(model: self.model, isFocused: $addressFocused, onSubmit: onAddressSubmit)
-                AmountSection(model: self.model, focused: $amountFocused)
-                NftSection(model: self.model)
-                CommentOrMemoSection(model: self.model, commentIsEnrypted: $model.isMessageEncrypted, commentOrMemo: $model.comment)
-                    .safeAreaInset(edge: .bottom, spacing: 0) {
-                        Color.clear.frame(height: 60)
+                RecipientAddressSection(model: model.addressInput)
+                if !model.addressInput.isFocused {
+                    Group {
+                        AmountSection(model: self.model, focused: $amountFocused)
+                        NftSection(model: self.model)
+                        CommentOrMemoSection(model: self.model, commentIsEnrypted: $model.isMessageEncrypted, commentOrMemo: $model.comment)
                     }
+                    .transition(.opacity.combined(with: .offset(y: 20)))
+                }
             }
+            .scrollIndicators(.hidden)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Color.clear.frame(height: 60)
+            }
+            .animation(.default, value: model.addressInput.isFocused)
             .safeAreaInset(edge: .bottom) {
                 Color.clear.frame(height: 140)
             }
             .contentShape(.rect)
             .onTapGesture {
-                topViewController()?.view.endEditing(true)
+                endEditing()
             }
             .navigationTitle(Text(lang("Send")))
         }
@@ -44,133 +50,6 @@ public struct SendComposeView: View {
         amountFocused = true
     }
 }
-
-
-// MARK: -
-
-
-fileprivate struct ToSection: View {
-    
-    let model: SendModel
-    @Binding var isFocused: Bool
-    var onSubmit: () -> ()
-    
-    private var showName: Bool {
-        if model.draftData.address == model.addressOrDomain,
-           let name = model.draftData.transactionDraft?.addressName,
-           !name.isEmpty,
-           name != model.draftData.address
-        {
-            return true
-        }
-        return false
-    }
-    private var showResolvedAddress: Bool {
-        if model.draftData.address == model.addressOrDomain,
-           model.draftData.transactionDraft?.resolvedAddress != model.draftData.address {
-            return true
-        }
-        return false
-    }
-
-    var body: some View {
-        WithPerceptionTracking {
-            @Perception.Bindable var model = model
-            InsetSection {
-                InsetCell {
-                    HStack {
-                        AddressTextField(
-                            value: $model.addressOrDomain,
-                            isFocused: $isFocused,
-                            onNext: {
-                                onSubmit()
-                            }
-                        )
-                        .offset(y: 1)
-                        .background(alignment: .leading) {
-                            if model.addressOrDomain.isEmpty {
-                                Text(lang("Wallet address or domain"))
-                                    .foregroundStyle(Color(UIColor.placeholderText))
-                            }
-                        }
-                        
-                        if model.addressOrDomain.isEmpty {
-                            HStack(spacing: 12) {
-                                Button(action: onAddressPastePressed) {
-                                    Text(lang("Paste"))
-                                }
-                                Button(action: onScanPressed) {
-                                    Image("ScanIcon", bundle: AirBundle)
-                                        .renderingMode(.template)
-                                }
-                            }
-                            .offset(x: 4)
-                            .padding(.vertical, -1)
-                        } else {
-                            Button(action: { model.addressOrDomain = "" }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .tint(Color(WTheme.secondaryLabel))
-                                    .scaleEffect(0.9)
-                            }
-                        }
-                    }
-                    .buttonStyle(.borderless)
-                }
-                .contentShape(.rect)
-                .onTapGesture {
-                    isFocused = true
-                }
-            } header: {
-                Text(lang("Recipient Address"))
-            } footer: {
-                footer
-            }
-            .onAppear {
-                if model.addressOrDomain.isEmpty {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
-                        isFocused = true
-                    }
-                }
-            }
-        }
-    }
-    
-    @ViewBuilder
-    var footer: some View {
-        if let name = model.draftData.transactionDraft?.addressName, showName {
-            Text(verbatim: name)
-        } else if let resolvedAddress = model.resolvedAddress, showResolvedAddress {
-            Text(AttributedString(formatAddressAttributed(
-                resolvedAddress,
-                startEnd: true,
-                primaryFont: .systemFont(ofSize: 13, weight: .regular),
-                secondaryFont: .systemFont(ofSize: 13, weight: .regular),
-                primaryColor: WTheme.secondaryLabel,
-                secondaryColor: WTheme.secondaryLabel
-            )))
-        }
-
-    }
-    
-    func onAddressPastePressed() {
-        if let pastedAddress = UIPasteboard.general.string, !pastedAddress.isEmpty {
-            model.addressOrDomain = pastedAddress
-            topViewController()?.view.endEditing(true)
-        } else {
-            AppActions.showToast(message: lang("Clipboard empty"))
-        }
-    }
-    
-    func onScanPressed() {
-        Task {
-            if let result = await AppActions.scanQR() {
-                topViewController()?.view.endEditing(true)
-                model.onScanResult(result)
-            }
-        }
-    }
-}
-
 
 // MARK: -
 
@@ -186,7 +65,7 @@ fileprivate struct AmountSection: View {
                 TokenAmountEntrySection(
                     amount: $model.amount,
                     token: model.token,
-                    balance: model.maxToSend,
+                    balance: model.maxToSend?.amount,
                     insufficientFunds: model.insufficientFunds,
                     amountInBaseCurrency: $model.amountInBaseCurrency,
                     switchedToBaseCurrencyInput: $model.switchedToBaseCurrencyInput,
@@ -310,7 +189,9 @@ private struct CommentOrMemoSection: View {
                     HStack(spacing: 2) {
                         Text(commentIsEnrypted == false ? lang("Comment or Memo") : lang("Encrypted Message"))
                         Image(systemName: "chevron.down")
+                            .imageScale(.small)
                             .scaleEffect(0.8)
+                            .offset(y: 1.333)
                     }
                     .padding(.trailing, 16)
                     .contentShape(.rect)

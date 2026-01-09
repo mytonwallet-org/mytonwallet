@@ -53,6 +53,7 @@ public let MTW_TIPS_CHANNEL_NAME = "MyTonWalletTips"
 public let MTW_TIPS_CHANNEL_NAME_RU = "MyTonWalletTipsRu"
 
 public let HELP_CENTER_URL = "https://help.mytonwallet.io"
+public let HELP_CENTER_URL_RU = "https://help.mytonwallet.io/ru"
 
 public let MTW_CARDS_COLLECTION = "EQCQE2L9hfwx1V8sgmF9keraHx1rNK9VmgR1ctVvINBGykyM"
 

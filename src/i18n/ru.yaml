@@ -207,7 +207,7 @@ Save Address: Сохранить адрес
 Name: Имя
 Save: Сохранить
 Copy: Скопировать
-Remove From Saved: Удалить из сохранённых
+Remove from Saved: Удалить из сохранённых
 View on Explorer: Открыть в эксплорере
 No suggestions, you're on your own!: Ничего не найдено :(
 Play Sounds: Включить звуки
@@ -959,6 +959,7 @@ Security Warning: Предупреждение безопасности
 Go back to Words: Вернуться к словам
 I’m sure. Continue: Я уверен. Продолжить
 $copy_mnemonic_warning: Хранение слов в цифровой среде, включая **буфер обмена**, небезопасно. Убедитесь, что вы сохранили свою фразу восстановления в безопасном месте.
+$screenshot_mnemonic_warning: Хранение слов в цифровой среде, включая **скриншот**, небезопасно. Убедитесь, что вы сохранили свою фразу восстановления в безопасном месте.
 Other apps will be able to read your recovery phrase!: Другие приложения смогут прочитать вашу фразу восстановления!
 I’m sure. Copy anyway: Я уверен. Всё равно скопировать
 $auth_biometric_info: Вы можете подключить свои биометрические данные для **большего удобства.**
@@ -1029,3 +1030,4 @@ Wallet to use on %host%: Кошелёк для %host%
 Selected Wallet: Выбранный кошелёк
 Connect Wallet: Подключить кошелёк
 Insufficient Fee: Недостаточно для комиссии
+$saved_addresses_header: Сохраненные

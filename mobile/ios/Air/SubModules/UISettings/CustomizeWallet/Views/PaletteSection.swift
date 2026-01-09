@@ -180,35 +180,43 @@ struct PaletteGrid: View {
     var body: some View {
         WithPerceptionTracking {
             HFlow(alignment: .center, itemSpacing: spacing, rowSpacing: 16, justified: false, distributeItemsEvenly: false) {
-                ForEach(unlockedColors) { color in
-                    WithPerceptionTracking {
-                        PaletteItemView(
-                            paletteColor: color,
-                            state: color.id == viewModel.currentColorId && !viewModel.isLoading ? .current : .available,
-                            onTap: { source in
-                                if color.id != viewModel.currentColorId {
-                                    showSwoopView(color: color.color, source: source)
-                                }
-                                viewModel.setColorId(color.id)
-                            },
+                unlockedColorsView
+                lockedColorsView
+            }
+        }
+    }
+    
+    var unlockedColorsView: some View {
+        ForEach(unlockedColors) { color in
+            WithPerceptionTracking {
+                PaletteItemView(
+                    paletteColor: color,
+                    state: color.id == viewModel.currentColorId && !viewModel.isLoading ? .current : .available,
+                    onTap: { source in
+                        if color.id != viewModel.currentColorId {
+                            showSwoopView(color: color.color, source: source)
+                        }
+                        viewModel.setColorId(color.id)
+                    },
+                )
+            }
+        }
+    }
+    
+    var lockedColorsView: some View {
+        ForEach(lockedColors) { color in
+            WithPerceptionTracking {
+                PaletteItemView(
+                    paletteColor: color,
+                    state: .locked,
+                    onTap: { _ in
+                        AppActions.showToast(
+                            message: lang("Get a unique MyTonWallet Card to unlock new palettes."),
+                            tapAction: AppActions.showUpgradeCard
                         )
-                    }
-                }
-                ForEach(lockedColors) { color in
-                    WithPerceptionTracking {
-                        PaletteItemView(
-                            paletteColor: color,
-                            state: .locked,
-                            onTap: { _ in
-                                AppActions.showToast(
-                                    message: lang("Get a unique MyTonWallet Card to unlock new palettes."),
-                                    tapAction: AppActions.showUpgradeCard
-                                )
-                                Haptics.play(.lightTap)
-                            },
-                        )
-                    }
-                }
+                        Haptics.play(.lightTap)
+                    },
+                )
             }
         }
     }

@@ -208,7 +208,7 @@ Save Address: Зберегти адресу
 Name: Ім'я
 Save: Зберегти
 Copy: Скопіювати
-Remove From Saved: Видалити зі збережених
+Remove from Saved: Видалити зі збережених
 View on Explorer: Переглянути в Explorer
 No suggestions, you're on your own!: Нічого не знайдено :(
 Play Sounds: Включити звуки
@@ -965,6 +965,7 @@ Security Warning: Попередження безпеки
 Go back to Words: Повернутися до слів
 I’m sure. Continue: Я впевнений. Продовжити
 $copy_mnemonic_warning: Зберігання слів у цифровому середовищі, включаючи **буфер обміну**, не є безпечним. Переконайтеся, що ви зберегли свою фразу відновлення в безпечному місці.
+$screenshot_mnemonic_warning: Зберігання слів у цифровому середовищі, включаючи **знімок екрана**, не є безпечним. Переконайтеся, що ви зберегли свою фразу відновлення в безпечному місці.
 Other apps will be able to read your recovery phrase!: Інші програми зможуть прочитати вашу фразу відновлення!
 I’m sure. Copy anyway: Я впевнений. Все одно копіювати
 $auth_biometric_info: Ви можете підключити свої біометричні дані для **більшої зручності.**
@@ -1034,3 +1035,4 @@ Wallet to use on %host%: Гаманець для %host%
 Selected Wallet: Обраний гаманець
 Connect Wallet: Підключити гаманець
 Insufficient Fee: Недостатньо для комісії
+$saved_addresses_header: Збережені

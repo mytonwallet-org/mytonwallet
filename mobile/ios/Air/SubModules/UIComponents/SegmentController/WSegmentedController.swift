@@ -10,7 +10,7 @@ import UIKit
 import WalletContext
 
 @MainActor
-public protocol WSegmentedControllerContent: AnyObject {
+public protocol WSegmentedControllerContent: UIViewController {
     var onScroll: ((_ y: CGFloat) -> Void)? { get set }
     var onScrollStart: (() -> Void)? { get set }
     var onScrollEnd: (() -> Void)? { get set }

@@ -242,7 +242,7 @@ class ReversedCornerView(
         if (!isPlaying) return
         isPlaying = false
         blurryBackgroundView?.apply {
-            setBlurAutoUpdate(false)
+            blurryBackgroundView.pauseBlurring()
             isGone = !keepBlurAsImage
             alpha = if (keepBlurAsImage) 1f else 0f
             backgroundView.isVisible = true
@@ -258,7 +258,7 @@ class ReversedCornerView(
         blurryBackgroundView?.apply {
             alpha = 1f
             visibility = VISIBLE
-            setBlurAutoUpdate(true)
+            blurryBackgroundView.resumeBlurring()
             backgroundView.isGone = true
         } ?: {
             // No blurs available, show background

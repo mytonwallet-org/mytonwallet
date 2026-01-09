@@ -25,6 +25,7 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
         case emptyPlaceholder
     }
 
+    nonisolated public let accountContext: AccountContext
     nonisolated public let accountId: String
     public let token: ApiToken?
 
@@ -41,6 +42,7 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
     public private(set) var loadMoreTask: Task<Void, Never>?
 
     public init(accountId: String, token: ApiToken?, delegate: any ActivityViewModelDelegate) async {
+        self.accountContext = AccountContext(accountId: accountId)
         self.accountId = accountId
         self.token = token
         await getState(updatedIds: [])
@@ -71,8 +73,9 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
                 if !hideTinyTransfers {
                     return true
                 }
-                if TokenStore.tokens[activity.slug]?.priceUsd == 0 {
-                    return true // priceless tokens
+                let tokenPriceUsd = TokenStore.tokens[activity.slug]?.priceUsd
+                if self.token != nil && tokenPriceUsd == 0 {
+                    return true
                 }
                 if !activity.isTinyOrScamTransaction {
                     return true

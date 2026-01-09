@@ -25,7 +25,7 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
 
     private init() {}
 
-    private var _accountsById: UnfairLock<OrderedDictionary<String, MAccount>> = .init(initialState: [:])
+    private var _accountsById: UnfairLock<[String: MAccount]> = .init(initialState: [:])
     private let _accountId: UnfairLock<String?> = .init(initialState: nil)
     private let _walletVersionsData: UnfairLock<MWalletVersionsData?> = .init(initialState: nil)
     private let _updatingActivities: UnfairLock<Bool> = .init(initialState: false)
@@ -39,11 +39,7 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         return .mainnet
     }
 
-    public var allAccounts: [MAccount] {
-        Array(accountsById.values)
-    }
-
-    public private(set) var accountsById: OrderedDictionary<String, MAccount> {
+    public private(set) var accountsById: [String: MAccount] {
         get {
             access(keyPath: \._accountsById)
             return _accountsById.withLock { $0 }
@@ -183,12 +179,9 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
     }
 
     private func updateFromDb(accounts: [MAccount]) {
-        var accountsById: OrderedDictionary<String, MAccount> = [:]
+        var accountsById: [String: MAccount] = [:]
         for account in accounts {
             accountsById[account.id] = account
-        }
-        accountsById.sort { a1, a2 in
-            a1.value.id.compare(a2.value.id, options: [.numeric], range: nil, locale: nil) == .orderedAscending
         }
         let accountIds = accountsById.compactMap { $1.isTemporaryView ? nil : $0 }
         self.accountsById = accountsById
@@ -242,6 +235,8 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
             accountId
         case .current:
             self.currentAccountId
+        case .constant(let account):
+            account.id
         }
     }
 
@@ -735,9 +730,9 @@ extension _AccountStore: DependencyKey {
                 ]
             ),
             
-        ].orderedDictionaryByKey(\.id)
+        ].dictionaryByKey(\.id)
         accountStore.accountId = "0-mainnet"
-        accountStore.orderedAccountIds = accountStore.accountsById.keys
+        accountStore.orderedAccountIds = OrderedSet(accountStore.accountsById.keys.sorted())
         return accountStore
     }()
 }

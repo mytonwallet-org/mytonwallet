@@ -528,18 +528,39 @@ class ConfirmNftVC(
         }
 
     private var sentNftAddress: String? = null
+    private fun checkReceivedActivity(receivedActivity: MApiTransaction) {
+        if (sentNftAddress == null) {
+            return
+        }
+
+        val txMatch = receivedActivity is MApiTransaction.Transaction && receivedActivity.nft?.address == sentNftAddress
+        if (!txMatch) {
+            return
+        }
+
+        sentNftAddress = null
+        WalletCore.unregisterObserver(this)
+        if (window?.topNavigationController != navigationController) {
+            window?.dismissNav(navigationController)
+            return
+        }
+        window?.dismissLastNav {
+            WalletCore.notifyEvent(WalletEvent.OpenActivity(receivedActivity))
+        }
+    }
+
     override fun onWalletEvent(walletEvent: WalletEvent) {
-        val sentNftAddress = sentNftAddress ?: return
         when (walletEvent) {
+            is WalletEvent.NewLocalActivities -> {
+                walletEvent.localActivities?.forEach {
+                    checkReceivedActivity(it)
+                }
+            }
+
             is WalletEvent.ReceivedPendingActivities -> {
-                val activity = walletEvent.pendingActivities?.firstOrNull { activity ->
-                    activity is MApiTransaction.Transaction &&
-                        activity.nft?.address == sentNftAddress
-                } ?: return
-                this@ConfirmNftVC.sentNftAddress = null
-                navigationController?.popToRoot(onCompletion = {
-                    WalletCore.notifyEvent(WalletEvent.OpenActivity(activity))
-                })
+                walletEvent.pendingActivities?.forEach {
+                    checkReceivedActivity(it)
+                }
             }
 
             else -> {}

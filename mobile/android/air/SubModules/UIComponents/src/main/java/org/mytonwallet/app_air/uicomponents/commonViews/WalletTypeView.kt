@@ -66,11 +66,11 @@ open class WalletTypeView(
     }
 
     fun resumeBlurring() {
-        walletTypeBlurView?.setBlurAutoUpdate(true)
+        walletTypeBlurView?.resumeBlurring()
     }
 
     fun pauseBlurring() {
-        walletTypeBlurView?.setBlurAutoUpdate(false)
+        walletTypeBlurView?.pauseBlurring()
     }
 
     private var account: MAccount? = null

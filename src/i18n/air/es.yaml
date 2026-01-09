@@ -56,6 +56,7 @@ You have no NFT in this wallet yet: |
   Aún no tienes NFT
   en esta cartera.
 Collapse: Contraer
+Expand: Expandir
 Standalone NFT: NFT independiente
 Linked Address: Dirección vinculada
 Enter Address: Introduce la dirección
@@ -221,8 +222,6 @@ Wear: Aplicar
 Your Address: Tu dirección
 Passcodes don't match. Please try again.: Los códigos no coinciden. Inténtalo de nuevo.
 Secret phrase was copied to clipboard: La frase de recuperación se copió al portapapeles
-clipboard: portapapeles
-screenshot: captura de pantalla
 Copy Anyway: Copiar de todos modos
 12 Words: 12 palabras
 24 Words: 24 palabras
@@ -294,5 +293,3 @@ Receive: Recibir
 Scan: Escanear
 Search or enter address: Buscar o introducir dirección
 View as Grid: Ver en cuadrícula
-$secret_words_warning: Guardar palabras en un entorno digital, incluido **%1$d**, no es seguro. Asegúrate de almacenar la frase de recuperación en un lugar protegido.
-

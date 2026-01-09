@@ -18,8 +18,6 @@ import androidx.core.content.ContextCompat
 import androidx.core.widget.addTextChangedListener
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
-import org.mytonwallet.app_air.uicomponents.helpers.HapticType
-import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.commonViews.TemporaryAccountItemView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WEditText
@@ -144,7 +142,7 @@ class AddressPopupHelpers {
                             if (AddressStore.getAddress(address) == null)
                                 "Save Address"
                             else
-                                "Remove From Saved"
+                                "Remove from Saved"
                         ),
                     ) {
                         if (AddressStore.getAddress(address) == null) {
@@ -167,7 +165,7 @@ class AddressPopupHelpers {
                         WalletCore.notifyEvent(walletEvent)
                     }),
                 popupWidth = WRAP_CONTENT,
-                offset = xOffset,
+                xOffset = xOffset,
                 aboveView = false
             )
         }
@@ -237,7 +235,7 @@ class AddressPopupHelpers {
             viewController: WeakReference<WViewController>
         ) {
             viewController.get()?.showAlert(
-                LocaleController.getString("Remove From Saved"),
+                LocaleController.getString("Remove from Saved"),
                 LocaleController.getString("Are you sure you want to remove this address from your saved ones?"),
                 LocaleController.getString("Delete"),
                 {

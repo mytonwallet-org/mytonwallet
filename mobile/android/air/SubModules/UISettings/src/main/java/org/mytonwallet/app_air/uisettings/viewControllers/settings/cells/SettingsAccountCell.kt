@@ -39,6 +39,7 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
     private var account: MAccount? = null
     private var isFirst = false
     private var isLast = false
+    private var showSeparator = false
 
     private val iconView: AccountIconView by lazy {
         AccountIconView(context, AccountIconView.Usage.SELECTABLE_ITEM)
@@ -160,19 +161,28 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
         onTap: () -> Unit
     ) {
         val account = item.accounts!!.first()
+        if (this.account == account &&
+            titleLabel.text == account.name &&
+            this.isFirst == isFirst &&
+            this.isLast == isLast &&
+            this.showSeparator == showSeparator
+        ) {
+            updateTheme()
+            notifyBalanceChange()
+            return
+        }
+
         this.account = account
         this.isFirst = isFirst
         this.isLast = isLast
+        this.showSeparator = showSeparator
         setOnClickListener {
             onTap()
         }
 
         iconView.config(account)
         cardThumbnail.configure(account)
-        if (titleLabel.text != account.name) {
-            titleLabel.text = account.name
-        }
-        notifyBalanceChange()
+        titleLabel.text = account.name
 
         contentView.setConstraints {
             endToStart(
@@ -206,7 +216,13 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
         valueLabel.setMaskCols(8 + abs(account.name.hashCode()) % 8)
     }
 
+    private var _isDarkThemeApplied: Boolean? = null
     override fun updateTheme() {
+        val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
+        if (!darkModeChanged)
+            return
+        _isDarkThemeApplied = ThemeManager.isDark
+
         contentView.setBackgroundColor(
             WColor.Background.color,
             if (isFirst) ViewConstants.BIG_RADIUS.dp else 0f.dp,
@@ -242,15 +258,18 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
             val balanceDouble = withContext(Dispatchers.Default) {
                 BalanceStore.totalBalanceInBaseCurrency(accountId)
             } ?: run {
-                valueLabel.contentView.text = ""
+                if (valueLabel.contentView.text != "")
+                    valueLabel.contentView.text = ""
                 return@launch
             }
-            valueLabel.contentView.text = balanceDouble.toString(
+            val newValue = balanceDouble.toString(
                 baseCurrency.decimalsCount,
                 baseCurrency.sign,
                 baseCurrency.decimalsCount,
                 true,
             )
+            if (valueLabel.contentView.text != newValue)
+                valueLabel.contentView.text = newValue
         }
     }
 

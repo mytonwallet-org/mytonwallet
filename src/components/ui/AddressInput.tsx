@@ -115,6 +115,7 @@ function AddressInput({
   const lang = useLang();
 
   const addressBookTimeoutRef = useRef<number>();
+  const isAddressBookSelectionRef = useRef<boolean>(false);
 
   const [addressForDeletion, setAddressForDeletion] = useState<string | undefined>();
   const [chainForDeletion, setChainForDeletion] = useState<ApiChain | undefined>();
@@ -160,6 +161,7 @@ function AddressInput({
   });
 
   const handleAddressBookItemSelect = useLastCallback((address: string) => {
+    isAddressBookSelectionRef.current = true;
     onInput(address, true);
     onPaste?.(address);
     closeAddressBook();
@@ -252,6 +254,12 @@ function AddressInput({
   });
 
   function handleAddressErrorCheck(address?: string) {
+    // Skip error check if address was just selected from AddressBook
+    if (isAddressBookSelectionRef.current) {
+      isAddressBookSelectionRef.current = false;
+      return;
+    }
+
     if (!address) return;
 
     const isAddressValid = chain ? isValidAddressOrDomain(address, chain) : undefined;
@@ -284,6 +292,7 @@ function AddressInput({
     if (e.relatedTarget?.id === INPUT_CLEAR_BUTTON_ID) {
       handleAddressBookClose();
       handleAddressValidate(value);
+      handleAddressErrorCheck(value);
 
       return;
     }

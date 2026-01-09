@@ -32,6 +32,6 @@ public struct MAccountBalanceData: Equatable, Hashable, Sendable {
 
 extension MAccountBalanceData: CustomStringConvertible {
     public var description: String {
-        return "MAccountBalanceData(\(totalBalance.formatted()) tokens#=\(walletTokens.count))"
+        return "MAccountBalanceData(\(totalBalance.formatted(.baseCurrencyEquivalent)) tokens#=\(walletTokens.count))"
     }
 }

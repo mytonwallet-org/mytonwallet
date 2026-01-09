@@ -31,9 +31,7 @@ public class IconView: UIView, WThemedView {
     public var size: CGFloat = 40
     public var sizeConstraints: [NSLayoutConstraint] = []
     
-    public var chainImageViewContainer: UIView!
-    public var chainImageView: WImageView!
-    public var chainConstraints: [NSLayoutConstraint] = []
+    private var chainAccessoryView: IconAccessoryView!
     public var chainSize: CGFloat = 16
     public var chainBorderWidth: CGFloat = 1
     public var chainBorderColor: UIColor?
@@ -123,32 +121,9 @@ public class IconView: UIView, WThemedView {
         smallLabelTop.textColor = .white
         smallLabelBottom.textColor = .white
 
-        chainImageViewContainer = UIView()
-        chainImageViewContainer.translatesAutoresizingMaskIntoConstraints = false
-        chainImageViewContainer.isHidden = true
-        chainImageViewContainer.layer.masksToBounds = true
-        chainImageViewContainer.layer.cornerRadius = (chainSize + 2*chainBorderWidth) / 2
-        addSubview(chainImageViewContainer)
-        chainImageView = WImageView()
-        chainImageView.translatesAutoresizingMaskIntoConstraints = false
-        chainImageView.contentMode = .scaleToFill
-        chainImageView.layer.cornerRadius = chainSize / 2
-        chainImageView.layer.masksToBounds = true
-        chainImageViewContainer.addSubview(chainImageView)
-        NSLayoutConstraint.activate([
-            chainImageView.centerXAnchor.constraint(equalTo: chainImageViewContainer.centerXAnchor),
-            chainImageView.centerYAnchor.constraint(equalTo: chainImageViewContainer.centerYAnchor),
-        ])
-        
-        self.chainConstraints = [
-            chainImageViewContainer.rightAnchor.constraint(equalTo: rightAnchor, constant: 3),
-            chainImageViewContainer.widthAnchor.constraint(equalToConstant: chainSize + 2*chainBorderWidth),
-            chainImageViewContainer.heightAnchor.constraint(equalToConstant: chainSize + 2*chainBorderWidth),
-            chainImageViewContainer.bottomAnchor.constraint(equalTo: bottomAnchor, constant: 1),
-            chainImageView.widthAnchor.constraint(equalToConstant: chainSize),
-            chainImageView.heightAnchor.constraint(equalToConstant: chainSize),
-        ]
-        NSLayoutConstraint.activate(self.chainConstraints)
+        chainAccessoryView = IconAccessoryView()
+        addSubview(chainAccessoryView)
+        chainAccessoryView.apply(size: chainSize, borderWidth: chainBorderWidth, borderColor: chainBorderColor, horizontalOffset: 3, verticalOffset: 1, in: self)
         
         updateTheme()
     }
@@ -170,7 +145,7 @@ public class IconView: UIView, WThemedView {
     
     public func updateTheme() {
         if self.chainBorderColor == nil {
-            chainImageViewContainer.backgroundColor = WTheme.groupedItem
+            chainAccessoryView.backgroundColor = WTheme.groupedItem
         }
     }
     
@@ -186,35 +161,43 @@ public class IconView: UIView, WThemedView {
             largeLabel.text = nil
             smallLabelTop.text = nil
             smallLabelBottom.text = nil
-            imageView.contentMode = .center
+            imageView.contentMode = .scaleAspectFit
             imageView.image = .airBundle(image)
         }
-        let isFailed = activity.transaction?.status == .failed || activity.swap?.status == .failed || activity.swap?.status == .expired
-        let isPending = activity.isLocal || getIsActivityPending(activity)
-        if isPending && !isFailed {
+        if let accessoryStatus = activityAccessoryStatus(for: activity) {
             setChainSize(18, borderWidth: 1.667, borderColor: WTheme.groupedItem, horizontalOffset: 2 + 1.667, verticalOffset: 2 + 1.667)
-            chainImageView.image = .airBundle("ActivityWaiting")
-            chainImageViewContainer.isHidden = false
-            chainImageViewContainer.alpha = 1
-            chainImageViewContainer.transform = .identity
+            switch accessoryStatus {
+            case .pending:
+                chainAccessoryView.configurePending()
+            case .pendingTrusted:
+                chainAccessoryView.configurePendingTrusted()
+            case .failed:
+                chainAccessoryView.configureError()
+            case .hold:
+                chainAccessoryView.configureHold()
+            case .expired:
+                chainAccessoryView.configureExpired()
+            }
+            chainAccessoryView.isHidden = false
+            chainAccessoryView.alpha = 1
+            chainAccessoryView.transform = .identity
         } else {
             if sameActivity {
                 UIView.animate(withDuration: 0.2) {
-                    self.chainImageViewContainer.alpha = 0
-                    self.chainImageViewContainer.transform = .identity.scaledBy(x: 0.2, y: 0.2)
+                    self.chainAccessoryView.alpha = 0
+                    self.chainAccessoryView.transform = .identity.scaledBy(x: 0.2, y: 0.2)
                 }
             } else {
-                chainImageViewContainer.alpha = 0
+                chainAccessoryView.alpha = 0
             }
         }
     }
-    
+
     public func config(with token: ApiToken?, isStaking: Bool = false, isWalletView: Bool = false, shouldShowChain: Bool) {
         guard let token else {
             imageView.kf.cancelDownloadTask()
             imageView.image = nil
-            chainImageView.kf.cancelDownloadTask()
-            chainImageView.image = nil
+            chainAccessoryView.reset()
             return
         }
         imageView.contentMode = .scaleAspectFill
@@ -235,26 +218,21 @@ public class IconView: UIView, WThemedView {
             }
         }
         if isStaking {
-            chainImageView.contentMode = .center
-            chainImageView.image = .airBundle("Percent")
-            chainImageView.contentMode = .scaleToFill
-            chainImageView.tintColor = .white
-            chainImageView.backgroundColor = WTheme.positiveAmount
-            chainImageViewContainer.isHidden = false
+            chainAccessoryView.configurePercentBadge()
+            chainAccessoryView.isHidden = false
         } else if shouldShowChain && !token.isNative {
             let chain = token.chain
-            chainImageView.contentMode = .scaleToFill
-            chainImageView.image = UIImage(named: "chain_\(chain)", in: AirBundle, compatibleWith: nil)
-            chainImageViewContainer.isHidden = false
+            chainAccessoryView.configureChain(chain)
+            chainAccessoryView.isHidden = false
             updateTheme()
         } else {
-            chainImageViewContainer.isHidden = true
+            chainAccessoryView.isHidden = true
         }
     }
     
     public func config(with account: MAccount?, showIcon: Bool = true) {
         imageView.contentMode = .center
-        chainImageViewContainer.isHidden = true
+        chainAccessoryView.isHidden = true
         guard let account else {
             resolveGradientColors = nil
             gradientLayer.colors = resolveGradientColors?()
@@ -297,7 +275,7 @@ public class IconView: UIView, WThemedView {
         smallLabelTop.text = nil
         smallLabelBottom.text = nil
         gradientLayer.isHidden = true
-        chainImageViewContainer.isHidden = true
+        chainAccessoryView.isHidden = true
     }
     
     private func configAsStakedToken(inWalletTokensList: Bool, token: ApiToken, shouldShowChain: Bool) {
@@ -317,19 +295,14 @@ public class IconView: UIView, WThemedView {
         }
         if shouldShowChain || inWalletTokensList || forceShowPercent {
             if inWalletTokensList || forceShowPercent {
-                chainImageView.contentMode = .center
-                chainImageView.image = UIImage(named: "Percent", in: AirBundle, with: nil)
-                chainImageView.contentMode = .scaleToFill
-                chainImageView.tintColor = .white
-                chainImageView.backgroundColor = WTheme.positiveAmount
+                chainAccessoryView.configurePercentBadge()
             } else {
-                chainImageView.contentMode = .scaleToFill
                 imageView.kf.cancelDownloadTask()
-                chainImageView.image = UIImage(named: "chain_ton", in: AirBundle, compatibleWith: nil)!
+                chainAccessoryView.configureChain(.ton)
             }
-            chainImageViewContainer.isHidden = false
+            chainAccessoryView.isHidden = false
         } else {
-            chainImageViewContainer.isHidden = true
+            chainAccessoryView.isHidden = true
         }
         updateTheme()
     }
@@ -396,105 +369,6 @@ public class IconView: UIView, WThemedView {
         self.chainSize = size
         self.chainBorderWidth = borderWidth
         self.chainBorderColor = borderColor
-        NSLayoutConstraint.deactivate(self.chainConstraints)
-        self.chainConstraints = [
-            chainImageViewContainer.rightAnchor.constraint(equalTo: rightAnchor, constant: horizontalOffset),
-            chainImageViewContainer.widthAnchor.constraint(equalToConstant: chainSize + 2*chainBorderWidth),
-            chainImageViewContainer.heightAnchor.constraint(equalToConstant: chainSize + 2*chainBorderWidth),
-            chainImageViewContainer.bottomAnchor.constraint(equalTo: bottomAnchor, constant: verticalOffset),
-            chainImageView.widthAnchor.constraint(equalToConstant: chainSize),
-            chainImageView.heightAnchor.constraint(equalToConstant: chainSize),
-        ]
-        NSLayoutConstraint.activate(chainConstraints)
-        chainImageViewContainer.layer.cornerRadius = (chainSize + 2*chainBorderWidth) / 2
-        chainImageView.layer.cornerRadius = chainSize / 2
-        chainImageViewContainer.backgroundColor = borderColor
-    }
-}
-
-
-public struct WUIIconViewToken: UIViewRepresentable {
-    
-    public var token: ApiToken?
-    public var isStaking: Bool
-    public var isWalletView: Bool
-    public var showldShowChain: Bool
-    public var size: CGFloat
-    public var chainSize: CGFloat
-    public var chainBorderWidth: CGFloat
-    public var chainBorderColor: UIColor
-    public var chainHorizontalOffset: CGFloat
-    public var chainVerticalOffset: CGFloat
-    
-    public init(token: ApiToken? = nil, isStaking: Bool = false, isWalletView: Bool, showldShowChain: Bool, size: CGFloat, chainSize: CGFloat, chainBorderWidth: CGFloat, chainBorderColor: UIColor, chainHorizontalOffset: CGFloat, chainVerticalOffset: CGFloat) {
-        self.token = token
-        self.isStaking = isStaking
-        self.isWalletView = isWalletView
-        self.showldShowChain = showldShowChain
-        self.size = size
-        self.chainSize = chainSize
-        self.chainBorderWidth = chainBorderWidth
-        self.chainBorderColor = chainBorderColor
-        self.chainHorizontalOffset = chainHorizontalOffset
-        self.chainVerticalOffset = chainVerticalOffset
-    }
-    
-    public func makeUIView(context: Context) -> IconView {
-        let uiView = IconView(size: size)
-        NSLayoutConstraint.activate([
-            uiView.heightAnchor.constraint(equalToConstant: size),
-            uiView.widthAnchor.constraint(equalToConstant: size)
-        ])
-        uiView.setChainSize(chainSize, borderWidth: chainBorderWidth, borderColor: chainBorderColor, horizontalOffset: chainHorizontalOffset, verticalOffset: chainVerticalOffset)
-        uiView.config(with: token, isStaking: isStaking, isWalletView: isWalletView, shouldShowChain: showldShowChain)
-        uiView.imageView.layer.cornerRadius = size/2
-        return uiView
-    }
-    
-    public func updateUIView(_ uiView: UIViewType, context: Context) {
-        uiView.setChainSize(chainSize, borderWidth: chainBorderWidth, borderColor: chainBorderColor, horizontalOffset: chainHorizontalOffset, verticalOffset: chainVerticalOffset)
-        uiView.config(with: token, isStaking: isStaking, isWalletView: isWalletView, shouldShowChain: showldShowChain)
-    }
-}
-
-
-public struct AccountIcon: View {
-    
-    var account: MAccount
-    
-    public init(account: MAccount) {
-        self.account = account
-    }
-    
-    public var body: some View {
-        ZStack {
-            Color.clear
-            let _colors = account.firstAddress.gradientColors
-            let colors = _colors.map { Color($0) }
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: colors,
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-            let content = account.avatarContent
-            switch content {
-            case .initial(let string):
-                Text(verbatim: string)
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
-                    .fixedSize()
-            case .sixCharaters(_, _):
-                EmptyView()
-            case .typeIcon:
-                EmptyView()
-            case .image(_):
-                EmptyView()
-            }
-        }
-        .foregroundStyle(.white)
-        .frame(width: 40, height: 40)
-        .drawingGroup()
+        chainAccessoryView.apply(size: chainSize, borderWidth: chainBorderWidth, borderColor: borderColor, horizontalOffset: horizontalOffset, verticalOffset: verticalOffset, in: self)
     }
 }

@@ -96,9 +96,7 @@ class TokenCell: UITableViewCell, WThemedView {
         if isAvailable {
             if let token {
                 let amount = TokenAmount(walletToken.balance, token)
-                amountLabel.text = amount.formatted(
-                    maxDecimals: token.decimals,
-                )
+                amountLabel.text = amount.formatted(.none, maxDecimals: token.decimals)
             }
         } else {
             amountLabel.text = lang("Unavailable")

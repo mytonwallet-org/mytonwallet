@@ -79,11 +79,11 @@ public struct MFee: Equatable, Hashable, Codable, Sendable {
                 result += " + "
             }
             let starsAmount = AnyDecimalAmount(stars, decimals: 0, symbol: "⭐️", forceCurrencyToRight: true)
-            result += starsAmount.formatted()
+            result += starsAmount.formatted(.none)
         }
         if result.isEmpty {
             let zero = AnyDecimalAmount(0, decimals: 0, symbol: nativeToken.symbol, forceCurrencyToRight: true)
-            result += zero.formatted()
+            result += zero.formatted(.none)
         }
         return precision.prefix + result
     }

@@ -21,6 +21,11 @@ sealed class WalletEvent {
         val loadedAll: Boolean?
     ) : WalletEvent()
 
+    data class NewLocalActivities(
+        val accountId: String? = null,
+        val localActivities: List<MApiTransaction>? = null,
+    ) : WalletEvent()
+
     data class ReceivedPendingActivities(
         val accountId: String? = null,
         val pendingActivities: List<MApiTransaction>? = null,

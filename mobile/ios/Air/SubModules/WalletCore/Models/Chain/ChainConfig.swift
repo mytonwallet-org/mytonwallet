@@ -223,20 +223,26 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         ),
         isNetWorthSupported: true,
         formatTransferUrl: { address, amount, text, jettonAddress in
-            var arguments = ""
+            var components = URLComponents()
+            components.scheme = "ton"
+            components.host = "transfer"
+            components.path = "/\(address)"
+
+            var queryItems: [URLQueryItem] = []
             if let amount = amount?.nilIfZero {
-                arguments += arguments.isEmpty ? "?" : "&"
-                arguments += "amount=\(amount)"
+                queryItems.append(URLQueryItem(name: "amount", value: "\(amount)"))
             }
             if let comment = text?.nilIfEmpty {
-                arguments += arguments.isEmpty ? "?" : "&"
-                arguments += "text=\(urlEncodedStringFromString(comment))"
+                queryItems.append(URLQueryItem(name: "text", value: comment))
             }
             if let jetton = jettonAddress?.nilIfEmpty {
-                arguments += arguments.isEmpty ? "?" : "&"
-                arguments += "jetton=\(urlEncodedStringFromString(jetton))"
+                queryItems.append(URLQueryItem(name: "jetton", value: jetton))
             }
-            return "ton://transfer/\(address)\(arguments)"
+            if !queryItems.isEmpty {
+                components.queryItems = queryItems
+            }
+
+            return components.url?.absoluteString ?? "ton://transfer/\(address)"
         }
     ),
     .tron: ChainConfig(

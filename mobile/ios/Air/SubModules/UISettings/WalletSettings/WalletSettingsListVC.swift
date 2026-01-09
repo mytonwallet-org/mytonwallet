@@ -112,17 +112,17 @@ final class WalletSettingsListVC: WViewController, WSegmentedControllerContent, 
     
     func makeDataSource(collectionView: UICollectionView) -> UICollectionViewDiffableDataSource<Section, Item> {
         let gridCellRegistration = UICollectionView.CellRegistration<UICollectionViewCell, String> { cell, _, walletId in
-            let viewModel = AccountViewModel(accountId: walletId)
-            cell.configurationUpdateHandler = { cell, state in
+            let accountContext = AccountContext(accountId: walletId)
+            cell.configurationUpdateHandler = { cell, _ in
                 cell.contentConfiguration = UIHostingConfiguration {
-                    WalletSettingsGridCell(viewModel: viewModel)
+                    WalletSettingsGridCell(accountContext: accountContext)
                 }
                 .margins(.all, 0)
             }
         }
         let listCellRegistration = AccountListCell.makeRegistration()
         let emptyCellRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, Void> { [filter, viewModel] cell, _, _ in
-            cell.configurationUpdateHandler = { cell, state in
+            cell.configurationUpdateHandler = { cell, _ in
                 cell.contentConfiguration = UIHostingConfiguration {
                     WalletSettingsEmptyCell(filter: filter, viewModel: viewModel)
                 }
@@ -148,7 +148,7 @@ final class WalletSettingsListVC: WViewController, WSegmentedControllerContent, 
             }
             return false
         }
-        dataSource.reorderingHandlers.willReorder = { transaction in
+        dataSource.reorderingHandlers.willReorder = { _ in
         }
         dataSource.reorderingHandlers.didReorder = { [weak self] transaction in
             guard let self else { return }
@@ -172,6 +172,7 @@ final class WalletSettingsListVC: WViewController, WSegmentedControllerContent, 
         gridSection.interGroupSpacing = 4
         
         var listConfiguration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
+        listConfiguration.backgroundColor = .clear
         listConfiguration.headerTopPadding = 8
         
         let emptyItem = NSCollectionLayoutItem(
