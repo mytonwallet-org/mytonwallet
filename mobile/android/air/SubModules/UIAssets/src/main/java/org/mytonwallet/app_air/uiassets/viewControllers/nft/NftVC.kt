@@ -1096,7 +1096,7 @@ class NftVC(
                     }
                 },
             ),
-            verticalOffset = 2.dp,
+            yOffset = 2.dp,
             popupWidth = WRAP_CONTENT,
             aboveView = false
         )

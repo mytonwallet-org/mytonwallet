@@ -6,3 +6,8 @@ import com.squareup.moshi.JsonClass
 data class ApiSubmitTransferResult(
     val activityId: String,
 )
+
+@JsonClass(generateAdapter = true)
+data class ApiSubmitTransfersResult(
+    val activityIds: List<String>,
+)

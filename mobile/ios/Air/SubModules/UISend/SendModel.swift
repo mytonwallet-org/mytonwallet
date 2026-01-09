@@ -17,7 +17,6 @@ import Dependencies
 
 private let log = Log("SendModel")
 
-let debounceAddressResolution: Duration = .seconds(0.250)
 let debounceCheckTransactionDraft: Duration = .seconds(0.250)
 
 struct DraftData {
@@ -29,10 +28,6 @@ struct DraftData {
     }
     
     var status: DraftStatus
-    var address: String?
-    var tokenSlug: String?
-    var amount: BigInt?
-    var comment: String?
     var transactionDraft: ApiCheckTransactionDraftResult?
 }
 
@@ -40,14 +35,17 @@ struct DraftData {
 public final class SendModel: Sendable {
     
     @PerceptionIgnored
-    @AccountViewModel(source: .current) var account: MAccount
+    @AccountContext(source: .current) var account: MAccount
     
     @PerceptionIgnored
     @Dependency(\.tokenStore.baseCurrency) var baseCurrency
     
     // MARK: - User input
     
-    var addressOrDomain: String = ""
+    @PerceptionIgnored
+    var addressInput: AddressInputModel!
+    
+    var addressOrDomain: String { addressInput.draftAddressOrDomain }
     
     var amount: BigInt? = nil
     var amountInBaseCurrency: BigInt? = nil
@@ -63,8 +61,11 @@ public final class SendModel: Sendable {
     
     // MARK: - Wallet state
     
-    var accountBalance: BigInt? = nil
-    var maxToSend: BigInt? = nil
+    var accountBalance: TokenAmount? {
+        guard let balance = $account.balances[token.slug] else { return nil }
+        return TokenAmount(balance, token)
+    }
+    var maxToSend: TokenAmount? = nil
     
     var draftData: DraftData = .init(status: .none, transactionDraft: nil)
     
@@ -74,13 +75,7 @@ public final class SendModel: Sendable {
     @TokenProvider var token: ApiToken
     
     @PerceptionIgnored
-    private var observeAddress: ObserveToken?
-    @PerceptionIgnored
-    private var observeDraft: ObserveToken?
-    @PerceptionIgnored
-    private var observeExplainedFee: ObserveToken?
-    @PerceptionIgnored
-    var resolveAddressTask: Task<Void, any Error>?
+    private var observers: [ObserveToken] = []
     @PerceptionIgnored
     var checkTransactionDraftTask: Task<Void, any Error>?
 
@@ -89,9 +84,21 @@ public final class SendModel: Sendable {
     init(prefilledValues: SendPrefilledValues? = nil) {
         @Dependency(\.tokenStore) var tokenStore
         @Dependency(\.accountStore) var accountStore
+        
+        let tokenSlug: String = if let jetton = prefilledValues?.jetton?.nilIfEmpty, let tokenSlug = tokenStore.tokens.first(where: { tokenSlug, token in token.tokenAddress == jetton })?.key {
+            tokenSlug
+        } else if let token = prefilledValues?.token {
+            token
+        } else {
+            accountStore.get(accountIdOrCurrent: nil).firstChain.nativeToken.slug
+        }
+        self._token = TokenProvider(tokenSlug: tokenSlug)
+
+        addressInput = AddressInputModel(account: _account, token: _token)
+
         if let prefilledValues {
             if let address = prefilledValues.address {
-                self.addressOrDomain = address
+                self.addressInput.textFieldInput = address
             }
             if let amount = prefilledValues.amount {
                 self.amount = amount
@@ -110,20 +117,12 @@ public final class SendModel: Sendable {
             }
         }
         
-        let tokenSlug: String = if let jetton = prefilledValues?.jetton?.nilIfEmpty, let tokenSlug = tokenStore.tokens.first(where: { tokenSlug, token in token.tokenAddress == jetton })?.key {
-            tokenSlug
-        } else if let token = prefilledValues?.token {
-            token
-        } else {
-            accountStore.get(accountIdOrCurrent: nil).firstChain.nativeToken.slug
-        }
-
         self.stateInit = prefilledValues?.stateInit
         let isNftFlow = (prefilledValues?.nftSendMode != nil) || ((prefilledValues?.nfts?.isEmpty == false))
         self.flow = isNftFlow ? NftSendFlow() : TokenSendFlow()
-        self._token = TokenProvider(tokenSlug: tokenSlug)
+
         if nftSendMode == .burn {
-            self.addressOrDomain = BURN_ADDRESS
+            self.addressInput.textFieldInput = BURN_ADDRESS
         }
         
         setupObservers()
@@ -133,17 +132,12 @@ public final class SendModel: Sendable {
     
     private func setupObservers() {
         
-        observeAddress = observe { [weak self] in
-            guard let self else { return }
-            _ = (self.account.id, self.addressOrDomain)
-            resolveAddress()
-        }
-        observeDraft = observe { [weak self] in
+        observers += observe { [weak self] in
             guard let self else { return }
             _ = (self.account.id, self.addressOrDomain, self.token, self.amount, self.commentPayload)
             self.checkTransactionDraft()
         }
-        observeExplainedFee = observe { [weak self] in
+        observers += observe { [weak self] in
             guard let self else { return }
             _ = draftData
             self.updateMaxToSend()
@@ -151,48 +145,15 @@ public final class SendModel: Sendable {
     }
 
     deinit {
-        resolveAddressTask?.cancel()
         checkTransactionDraftTask?.cancel()
     }
-    
-    // MARK: - Address resolution
-    
-    var isAddressLoading: Bool = false
-    
-    func resolveAddress() {
-        resolveAddressTask?.cancel()
-        resolveAddressTask = Task {
-            do {
-                let compatibleChains = account.supportedChains.filter { $0.isValidAddressOrDomain(addressOrDomain) }
-                if compatibleChains.isEmpty {
-                    addressInfos = nil
-                }
-                isAddressLoading = true
-                try await Task.sleep(for: debounceAddressResolution)
-                var addressInfos: [ApiChain: ApiGetAddressInfoResult] = [:]
-                for chain in compatibleChains {
-                    addressInfos[chain] = try await Api.getAddressInfo(chain: chain, network: account.network, address: addressOrDomain)
-                    try Task.checkCancellation()
-                }
-                self.addressInfos = addressInfos
-                isAddressLoading = false
-            } catch {
-                if !Task.isCancelled {
-                    addressInfos = [:]
-                    isAddressLoading = false
-                }
-            }
-        }
-    }
-    
-    var addressInfos: [ApiChain: ApiGetAddressInfoResult]?
     
     // MARK: - Check transaction draft
     
     func checkTransactionDraft() {
         checkTransactionDraftTask?.cancel()
         checkTransactionDraftTask = Task {
-            let context = makeFlowContext()
+            let context = makeDraftContext()
             do {
                 draftData.status = .loading
                 try await Task.sleep(for: debounceCheckTransactionDraft)
@@ -211,25 +172,15 @@ public final class SendModel: Sendable {
             return
         }
         let isNative = token.isNative
-        maxToSend = TransferHelpers.getMaxTransferAmount(tokenBalance: accountBalance,
-                                                         isNativeToken: isNative,
-                                                         fullFee: explainedFee.fullFee?.terms,
-                                                         canTransferFullBalance: explainedFee.canTransferFullBalance)
-        if amount == accountBalance, amount ?? 0 > maxToSend ?? 0 {
-            amount = maxToSend
+        let balance = accountBalance?.amount
+        let maxAmount = TransferHelpers.getMaxTransferAmount(tokenBalance: balance,
+                                                             isNativeToken: isNative,
+                                                             fullFee: explainedFee.fullFee?.terms,
+                                                             canTransferFullBalance: explainedFee.canTransferFullBalance)
+        maxToSend = maxAmount.map { TokenAmount($0, token) }
+        if let balance, amount == balance, amount ?? 0 > (maxAmount ?? 0) {
+            amount = maxAmount
         }
-    }
-    
-    private func setLoadingDraft(context: SendFlowContext) {
-        let keepTransactionDraftWhenLoading = context.address == draftData.address && context.token.slug == draftData.tokenSlug
-        draftData = DraftData(
-            status: .loading,
-            address: context.address,
-            tokenSlug: context.token.slug,
-            amount: context.amount,
-            comment: context.comment,
-            transactionDraft: keepTransactionDraftWhenLoading ? draftData.transactionDraft : nil
-        )
     }
     
     private func applyDraftResult(_ result: SendFlowDraftResult) {
@@ -238,7 +189,7 @@ public final class SendModel: Sendable {
         updateRequireMemo(result.requiresMemo)
     }
     
-    private func handleValidationError(_ error: Error, context: SendFlowContext) {
+    private func handleValidationError(_ error: Error, context: SendDraftContext) {
         if error is CancellationError { return }
         log.error("validate error: \(error, .public)")
         if !error.localizedDescription.contains("Invalid amount provided") {
@@ -247,18 +198,14 @@ public final class SendModel: Sendable {
         explainedFee = nil
         draftData = .init(
             status: .none,
-            address: context.address,
-            tokenSlug: context.token.slug,
-            amount: context.amount,
-            comment: context.comment,
             transactionDraft: nil
         )
         updateRequireMemo(false)
     }
     
     func updateAccountBalance() {
-        self.accountBalance = $account.balances[token.slug]
-        if let amountInBaseCurrency, switchedToBaseCurrencyInput && amount != accountBalance {
+        let balance = accountBalance?.amount
+        if let amountInBaseCurrency, switchedToBaseCurrencyInput && amount != balance {
             updateAmountFromBaseCurrency(amountInBaseCurrency)
         } else {
             updateBaseCurrencyAmount(amount)
@@ -286,23 +233,24 @@ public final class SendModel: Sendable {
     }
     
     var toAddressInvalid: Bool {
-        if draftData.status == .invalid,
-           draftData.address == self.addressOrDomain,
-           draftData.tokenSlug == self.token.slug {
+        if draftData.status == .invalid {
             return true
         }
         return false
     }
     
     var insufficientFunds: Bool {
-        if let amount, let accountBalance { return amount > maxToSend ?? accountBalance }
+        if let amount, let balance = accountBalance?.amount {
+            let maxAmount = maxToSend?.amount ?? balance
+            return amount > maxAmount
+        }
         return false
     }
 
     var isAddressCompatibleWithToken: Bool {
         if addressOrDomain.isEmpty { return true } // do not validate before user inputs address
         let chain = token.chainValue
-        let address = draftData.address ?? ""
+        let address = draftData.transactionDraft?.resolvedAddress ?? addressOrDomain
         return chain.isValidAddressOrDomain(address) &&
             (
                 chain.isSendToSelfAllowed || address != account.addressByChain[chain.rawValue]
@@ -324,7 +272,7 @@ public final class SendModel: Sendable {
     
     var showingFee: MFee? {
         let fee = draftData.transactionDraft?.fee
-        let isNativeFullBalance = token.isNative && token.chainValue.canTransferFullNativeBalance && accountBalance == amount
+        let isNativeFullBalance = token.isNative && token.chainValue.canTransferFullNativeBalance && accountBalance?.amount == amount
         let nativeTokenBalance = $account.balances[token.nativeTokenSlug] ?? 0
         let isEnoughNativeCoin = if isNativeFullBalance {
             fee != nil && fee! < nativeTokenBalance
@@ -335,13 +283,13 @@ public final class SendModel: Sendable {
         let isDieselAvailable = dieselStatus == .available || isGaslessWithStars
         let withDiesel = explainedFee?.isGasless == true
         let dieselAmount = draftData.transactionDraft?.diesel?.tokenAmount ?? 0
-        let isEnoughDiesel = withDiesel && amount ?? 0 > 0 && accountBalance ?? 0 > 0 && dieselAmount > 0
+        let isEnoughDiesel = withDiesel && amount ?? 0 > 0 && (accountBalance?.amount ?? 0) > 0 && dieselAmount > 0
           ? (isGaslessWithStars
             ? true
-            : (accountBalance ?? 0) - (amount ?? 0) >= dieselAmount)
-          : false;
+            : (accountBalance?.amount ?? 0) - (amount ?? 0) >= dieselAmount)
+          : false
         let isInsufficientFee = (fee != nil && !isEnoughNativeCoin && !isDieselAvailable) || (withDiesel && !isEnoughDiesel)
-        let isInsufficientBalance = accountBalance != nil && amount != nil && amount! > accountBalance!
+        let isInsufficientBalance = accountBalance != nil && amount != nil && amount! > (accountBalance?.amount ?? 0)
         let shouldShowFull = isInsufficientFee && !isInsufficientBalance
         return shouldShowFull ? explainedFee?.fullFee : explainedFee?.realFee
     }
@@ -363,7 +311,7 @@ public final class SendModel: Sendable {
     // MARK: - View controller callbacks
     
     var continueState: (canContinue: Bool, insufficientFunds: Bool, draftData: DraftData, isAddressLoading: Bool) {
-        return (canContinue, insufficientFunds, draftData, isAddressLoading)
+        return (canContinue, insufficientFunds, draftData, addressInput.isAddressLoading)
     }
 
     // MARK: - View callbacks
@@ -375,7 +323,7 @@ public final class SendModel: Sendable {
                 return
             }
             self.$token.slug = parsedWalletURL.token ?? "toncoin"
-            self.addressOrDomain = parsedWalletURL.address
+            self.addressInput.textFieldInput = parsedWalletURL.address
             if let amount = parsedWalletURL.amount {
                 self.amount = amount
                 self.updateBaseCurrencyAmount(amount)
@@ -389,7 +337,7 @@ public final class SendModel: Sendable {
         
         case .address(let address, let possibleChains):
             if !possibleChains.isEmpty {
-                self.addressOrDomain = address
+                self.addressInput.textFieldInput = address
             }
         }
     }
@@ -419,9 +367,9 @@ public final class SendModel: Sendable {
         guard let maxToSend else {
             return
         }
-        self.amount = maxToSend
-        self.amountInBaseCurrency = convertAmount(maxToSend, price: token.price ?? 0, tokenDecimals: token.decimals, baseCurrencyDecimals: baseCurrency.decimalsCount)
-        topViewController()?.view.endEditing(true)
+        self.amount = maxToSend.amount
+        self.amountInBaseCurrency = convertAmount(maxToSend.amount, price: token.price ?? 0, tokenDecimals: token.decimals, baseCurrencyDecimals: baseCurrency.decimalsCount)
+        endEditing()
     }
     
     // MARK: - Syncing amounts
@@ -429,7 +377,6 @@ public final class SendModel: Sendable {
     func updateBaseCurrencyAmount(_ amount: BigInt?) {
         guard let amount else { return }
         self.amountInBaseCurrency = convertAmount(amount, price: token.price ?? 0, tokenDecimals: token.decimals, baseCurrencyDecimals: baseCurrency.decimalsCount)
-        accountBalance = $account.balances[token.slug] ?? 0
     }
     
     func updateAmountFromBaseCurrency(_ baseCurrency: BigInt) {
@@ -441,36 +388,43 @@ public final class SendModel: Sendable {
             self.amount = 0
             self.switchedToBaseCurrencyInput = false
         }
-        accountBalance = $account.balances[token.slug] ?? 0
     }
     
     // MARK: - Send flow
     
     func submit(password: String?) async throws {
-        let context = makeFlowContext()
+        let context = makeSubmitContext()
         try await flow.submit(context: context, password: password, explainedFee: explainedFee)
     }
     
     func makeLedgerPayload() async throws -> SignData {
-        let context = makeFlowContext()
+        let context = makeSubmitContext()
         return try await flow.ledgerPayload(context: context, explainedFee: explainedFee)
     }
     
-    private func makeFlowContext() -> SendFlowContext {
-        SendFlowContext(
+    private func makeDraftContext() -> SendDraftContext {
+        SendDraftContext(
             accountId: account.id,
             address: addressOrDomain,
-            resolvedAddress: resolvedAddress,
             token: token,
             amount: amount,
-            comment: comment.nilIfEmpty,
-            binaryPayload: binaryPayload,
             payload: commentPayload,
             stateInit: stateInit,
             nfts: nfts,
-            nftSendMode: nftSendMode,
-            diesel: draftData.transactionDraft?.diesel,
-            transactionDraft: draftData.transactionDraft
+            nftSendMode: nftSendMode
+        )
+    }
+    
+    private func makeSubmitContext() -> SendSubmitContext {
+        SendSubmitContext(
+            accountId: account.id,
+            token: token,
+            amount: amount,
+            payload: commentPayload,
+            stateInit: stateInit,
+            nfts: nfts,
+            transactionDraft: draftData.transactionDraft,
+            diesel: draftData.transactionDraft?.diesel
         )
     }
 }

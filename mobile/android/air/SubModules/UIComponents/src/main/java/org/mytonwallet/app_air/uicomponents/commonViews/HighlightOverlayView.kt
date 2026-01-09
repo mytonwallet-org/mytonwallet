@@ -13,6 +13,10 @@ import android.view.View
 import androidx.core.view.isVisible
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
+import org.mytonwallet.app_air.walletbasecontext.utils.Vec2i
+import org.mytonwallet.app_air.walletbasecontext.utils.vec2i
+import org.mytonwallet.app_air.walletbasecontext.utils.x
+import org.mytonwallet.app_air.walletbasecontext.utils.y
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 
 @SuppressLint("ViewConstructor")
@@ -39,8 +43,8 @@ class HighlightOverlayView(
     private val holePath = Path()
     private val exclusionPath = Path()
     private val cornerCutoutPath = Path()
-    private val viewLocation = IntArray(2)
-    private val thisLocation = IntArray(2)
+    private val viewLocation: Vec2i = vec2i()
+    private val thisLocation: Vec2i = vec2i()
     private val viewRect = RectF()
     private val cutoutRect = RectF()
     private val radiiTop = floatArrayOf(
@@ -79,8 +83,8 @@ class HighlightOverlayView(
         view.getLocationInWindow(viewLocation)
         getLocationInWindow(thisLocation)
 
-        val left = (viewLocation[0] - thisLocation[0]).toFloat()
-        val top = (viewLocation[1] - thisLocation[1]).toFloat()
+        val left = (viewLocation.x - thisLocation.x).toFloat()
+        val top = (viewLocation.y - thisLocation.y).toFloat()
         val width = view.width.toFloat()
         val height = view.height.toFloat()
         val radius = ViewConstants.BAR_ROUNDS.dp

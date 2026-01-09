@@ -55,6 +55,7 @@ You have no NFT in this wallet yet: |
   You have no NFT in this
   wallet yet.
 Collapse: Collapse
+Expand: Expand
 Standalone NFT: Standalone NFT
 Linked Address: Linked Address
 Enter Address: Enter Address
@@ -220,8 +221,6 @@ Wear: Wear
 Your Address: Your Address
 Passcodes don't match. Please try again.: Passcodes don't match. Please try again.
 Secret phrase was copied to clipboard: Secret phrase was copied to clipboard
-clipboard: clipboard
-screenshot: screenshot
 Copy Anyway: Copy Anyway
 12 Words: 12 Words
 24 Words: 24 Words
@@ -293,4 +292,3 @@ Receive: Receive
 Scan: Scan
 Search or enter address: Search or enter address
 View as Grid: View as Grid
-$secret_words_warning: Storing words in a digital environment, including the **%1$d**, is not safe. Make sure you have your recovery phrase securely saved.

@@ -319,10 +319,7 @@ class AddressInputLayout(
         autoCompleteView.attachToAddressInput(this, autoCompleteConfig)
         val totalHeight =
             ((viewController.navigationController?.parent as? ViewGroup)?.height ?: 0)
-        val location = IntArray(2)
-        viewController.view.getLocationInWindow(location)
-        autoCompleteView.maxYInWindow =
-            totalHeight - keyboardHeight - 16.dp
+        autoCompleteView.maxYInWindow = totalHeight - keyboardHeight - 16.dp
     }
 
     fun getKeyword(): String {

@@ -56,6 +56,7 @@ You have no NFT in this wallet yet: |
   Bu cüzdanda henüz
   NFT yok.
 Collapse: Daralt
+Expand: Genişlet
 Standalone NFT: Bağımsız NFT
 Linked Address: Bağlı adres
 Enter Address: Adres girin
@@ -221,8 +222,6 @@ Wear: Kullan
 Your Address: Adresiniz
 Passcodes don't match. Please try again.: Parolalar eşleşmiyor. Lütfen tekrar deneyin.
 Secret phrase was copied to clipboard: Gizli ifade panoya kopyalandı
-clipboard: pano
-screenshot: ekran görüntüsü
 Copy Anyway: Yine de kopyala
 12 Words: 12 Kelime
 24 Words: 24 Kelime
@@ -294,5 +293,3 @@ Receive: Al
 Scan: Tara
 Search or enter address: Adres arayın veya girin
 View as Grid: Izgara olarak görüntüle
-$secret_words_warning: Kelimeleri dijital ortamda, **%1$d** dahil, saklamak güvenli değildir. Lütfen kurtarma ifadenizi güvenli bir yerde sakladığınızdan emin olun.
-

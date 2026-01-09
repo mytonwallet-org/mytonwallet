@@ -32,6 +32,7 @@ private let log = Log("ExploreVM")
     var exploreSites: OrderedDictionary<String, ApiSite> = [:]
     var exploreCategories: OrderedDictionary<Int, ApiSiteCategory> = [:]
     var connectedDapps: OrderedDictionary<String, ApiDapp> = [:]
+    var featuredTitle: String?
     private var loadExploreSitesTask: Task<Void, Never>?
     
     init() {
@@ -74,15 +75,15 @@ private let log = Log("ExploreVM")
         guard self.loadExploreSitesTask == nil || self.loadExploreSitesTask?.isCancelled == true else { return }
         self.loadExploreSitesTask = Task { [weak self] in
             do {
-                let result = try await Api.loadExploreSites()
+                let result = try await Api.loadExploreSites(langCode: LocalizationSupport.shared.langCode)
                 self?.updateExploreSites(result)
             } catch {
                 log.error("failed to fetch explore sites \(error, .public)")
-                if self?.waitingForNetwork == false {
+                if let self, !waitingForNetwork {
                     try? await Task.sleep(for: .seconds(3))
                     if !Task.isCancelled {
-                        if self?.exploreSites == nil {
-                            self?.refresh()
+                        if exploreSites.isEmpty {
+                            refresh()
                         }
                     }
                 }
@@ -94,11 +95,10 @@ private let log = Log("ExploreVM")
     }
     
     func updateExploreSites(_ result: ApiExploreSitesResult) {
+        featuredTitle = result.featuredTitle
         exploreSites = OrderedDictionary(result.sites.map { ($0.url, $0) }, uniquingKeysWith: { $1 })
         exploreCategories = OrderedDictionary(result.categories.map { ($0.id, $0) }, uniquingKeysWith: { $1 })
-        DispatchQueue.main.async {
-            self.delegate?.exploreSitsUpdated()
-        }
+        self.delegate?.exploreSitsUpdated()
     }
     
     private func loadDapps() {

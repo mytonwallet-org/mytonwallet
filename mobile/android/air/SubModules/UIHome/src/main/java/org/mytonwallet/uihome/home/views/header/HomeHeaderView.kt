@@ -470,6 +470,11 @@ open class HomeHeaderView(
         }
     }
 
+    val isAnimating: Boolean
+        get() {
+            return springAnimation?.isRunning == true
+        }
+
     private var prevBalance: Double? = null
 
     fun updateBalance(accountName: String, animated: Boolean = true) {
@@ -864,6 +869,11 @@ open class HomeHeaderView(
                     }
                 }
             }
+
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                if (onTouchEnd())
+                    return true
+            }
         }
         return false
     }
@@ -913,23 +923,29 @@ open class HomeHeaderView(
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 heavyAnimationDone()
-                if (isHorizontalScrolling) {
-                    if (springAnimation?.isRunning != true) {
-                        scrollerOffset = 0f
-                        animateToTargetHorizontalOffset(
-                            targetHorizontalOffset = 0f,
-                            startVelocity = 0f
-                        )
-                    }
-                    parent.requestDisallowInterceptTouchEvent(false)
-                    isHorizontalScrolling = false
-                    scrollDirectionLocked = false
+                if (onTouchEnd())
                     return true
-                }
             }
         }
 
         return super.onTouchEvent(event)
+    }
+
+    private fun onTouchEnd(): Boolean {
+        if (isHorizontalScrolling || horizontalScrollOffset != 0f) {
+            if (springAnimation?.isRunning != true) {
+                scrollerOffset = 0f
+                animateToTargetHorizontalOffset(
+                    targetHorizontalOffset = 0f,
+                    startVelocity = 0f
+                )
+            }
+            parent.requestDisallowInterceptTouchEvent(false)
+            isHorizontalScrolling = false
+            scrollDirectionLocked = false
+            return true
+        }
+        return false
     }
 
     private var springAnimation: SpringAnimation? = null
@@ -955,7 +971,8 @@ open class HomeHeaderView(
             }
 
             addUpdateListener { _, value, _ ->
-                onScrollOffsetChanged(value + scrollerOffset)
+                val offset = value + scrollerOffset
+                onScrollOffsetChanged(if (abs(offset) < 2) 0f else offset)
             }
 
             addEndListener { _, _, _, _ ->

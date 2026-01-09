@@ -7,6 +7,17 @@ public enum AnyTransferPayload: Equatable, Hashable, Sendable {
     case base64(data: String)
 }
 
+public extension AnyTransferPayload {
+    var comment: String? {
+        switch self {
+        case .comment(let text, let shouldEncrypt):
+            shouldEncrypt == true ? nil : text
+        default:
+            nil
+        }
+    }
+}
+
 extension AnyTransferPayload: Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)

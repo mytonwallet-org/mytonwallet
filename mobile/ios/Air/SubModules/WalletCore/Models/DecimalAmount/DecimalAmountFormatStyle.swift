@@ -27,7 +27,7 @@ public struct DecimalAmountFormatStyle<Kind: DecimalBackingType>: FormatStyle {
     
     public func format(_ value: FormatInput) -> String {
         let prefix = precision?.prefix ?? ""
-        let maxDecimals = adaptivePreset.flatMap { $0.resolve(value) } ?? maxDecimals
+        let maxDecimals = adaptivePreset?.resolve(value) ?? maxDecimals
         return prefix + formatBigIntText(
             value.amount,
             currency: showSymbol ? value.symbol : nil,
@@ -42,13 +42,13 @@ public struct DecimalAmountFormatStyle<Kind: DecimalBackingType>: FormatStyle {
 }
 
 extension DecimalAmount {
-    public func formatted(_ preset: AdaptivePreset<Backing>? = nil, maxDecimals: Int? = nil, showPlus: Bool = false, showMinus: Bool = true, roundUp: Bool = true, precision: MFee.FeePrecision? = nil) -> String {
+    public func formatted(_ preset: AdaptivePreset<Backing>?, maxDecimals: Int? = nil, showPlus: Bool = false, showMinus: Bool = true, roundUp: Bool = true, precision: MFee.FeePrecision? = nil) -> String {
         DecimalAmountFormatStyle(preset: preset, maxDecimals: maxDecimals, showPlus: showPlus, showMinus: showMinus, roundUp: roundUp, precision: precision).format(self)
     }
 }
 
 extension DecimalAmount: CustomStringConvertible {
     public var description: String {
-        self.formatted()
+        self.formatted(.none)
     }
 }

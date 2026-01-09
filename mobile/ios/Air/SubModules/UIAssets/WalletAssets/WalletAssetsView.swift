@@ -11,21 +11,21 @@ import UIComponents
 import WalletContext
 
 class WalletAssetsView: WTouchPassView, WThemedView {
-    
+
     var bottomConstraint: NSLayoutConstraint!
-    
-    let walletTokensView: WalletTokensView
+
+    let walletTokensVC: WalletTokensVC
     let walletCollectiblesView: NftsVC
-    
+
     lazy var contentVcs: [any WSegmentedControllerContent] = [
-        walletTokensView,
+        walletTokensVC,
         walletCollectiblesView
     ]
     lazy var contentItems: [SegmentedControlItem] = [
         SegmentedControlItem(
             id: "tokens_placeholder",
             title: lang("Assets"),
-            viewController: walletTokensView
+            viewController: walletTokensVC
         ),
         SegmentedControlItem(
             id: "nfts_placeholder",
@@ -33,12 +33,12 @@ class WalletAssetsView: WTouchPassView, WThemedView {
             viewController: walletCollectiblesView
         ),
     ]
-    
+
     var onScrollingOffsetChanged: ((CGFloat) -> Void)?
     var scrollProgress: CGFloat = 0
-    
-    init(walletTokensView: WalletTokensView, walletCollectiblesView: NftsVC, onScrollingOffsetChanged:  ((CGFloat) -> Void)?) {
-        self.walletTokensView = walletTokensView
+
+    init(walletTokensVC: WalletTokensVC, walletCollectiblesView: NftsVC, onScrollingOffsetChanged: ((CGFloat) -> Void)?) {
+        self.walletTokensVC = walletTokensVC
         self.walletCollectiblesView = walletCollectiblesView
         self.onScrollingOffsetChanged = onScrollingOffsetChanged
         super.init(frame: .zero)

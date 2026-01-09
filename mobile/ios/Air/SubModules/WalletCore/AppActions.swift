@@ -33,11 +33,12 @@ import WalletContext
     static func showImportWalletVersion() -> ()
     static func showReceive(chain: ApiChain?, title: String?)
     static func showRenameAccount(accountId: String)
+    static func showSaveAddressDialog(accountContext: AccountContext, chain: ApiChain, address: String)
     static func showSend(prefilledValues: SendPrefilledValues?)
     static func showSwap(defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, push: Bool?)
     static func showTemporaryViewAccount(addressOrDomainByChain: [String: String])
     static func showToast(animationName: String?, message: String, duration: Double, tapAction: (() -> ())?)
-    static func showToken(token: ApiToken, isInModal: Bool)
+    static func showToken(accountSource: AccountSource, token: ApiToken, isInModal: Bool)
     static func showTokenByAddress(chain: String, tokenAddress: String)
     static func showTokenBySlug(_ slug: String)
     static func showUpgradeCard()
@@ -85,11 +86,12 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showImportWalletVersion() -> () { }
     static func showReceive(chain: ApiChain?, title: String?) { }
     static func showRenameAccount(accountId: String) { }
+    static func showSaveAddressDialog(accountContext: AccountContext, chain: ApiChain, address: String) { }
     static func showSend(prefilledValues: SendPrefilledValues?) { }
     static func showSwap(defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, push: Bool?) { }
     static func showTemporaryViewAccount(addressOrDomainByChain: [String: String]) { }
     static func showToast(animationName: String?, message: String, duration: Double, tapAction: (() -> ())?) { }
-    static func showToken(token: ApiToken, isInModal: Bool) { }
+    static func showToken(accountSource: AccountSource, token: ApiToken, isInModal: Bool) { }
     static func showTokenByAddress(chain: String, tokenAddress: String) { }
     static func showTokenBySlug(_ slug: String) { }
     static func showUpgradeCard() { }

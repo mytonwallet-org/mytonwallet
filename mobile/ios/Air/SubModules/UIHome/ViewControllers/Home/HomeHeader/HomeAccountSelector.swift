@@ -59,8 +59,8 @@ class HomeAccountSelector: UIView, UICollectionViewDelegate {
         let homeHeaderViewModel = self.viewModel
         
         let cellRegistration = UICollectionView.CellRegistration<HomeCard, String> { cell, _, accountId in
-            let accountViewModel = AccountViewModel(accountId: accountId)
-            cell.configure(headerViewModel: homeHeaderViewModel, accountViewModel: accountViewModel)
+            let accountContext = AccountContext(accountId: accountId)
+            cell.configure(headerViewModel: homeHeaderViewModel, accountContext: accountContext)
         }
         
         dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) { collectionView, indexPath, itemIdentifier in

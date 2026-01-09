@@ -28,7 +28,7 @@ struct WalletSettingsNavigationHeader: View {
                 Text(lang("$wallets_amount", arg1: count))
                     .fixedSize()
             } subtitle: {
-                Text(lang("$total_balance", arg1: total.formatted()))
+                Text(lang("$total_balance", arg1: total.formatted(.baseCurrencyEquivalent)))
                     .fixedSize()
                     .id(viewModel.currentFilter)
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))

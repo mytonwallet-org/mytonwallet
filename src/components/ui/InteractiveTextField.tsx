@@ -121,7 +121,7 @@ function InteractiveTextField({
   }, [address, chain, savedAddresses]);
 
   addressUrl = addressUrl ?? (chain ? getExplorerAddressUrl(chain, address, isTestnet) : undefined);
-  const saveAddressTitle = lang(isAddressAlreadySaved ? 'Remove From Saved' : 'Save Address');
+  const saveAddressTitle = lang(isAddressAlreadySaved ? 'Remove from Saved' : 'Save Address');
   const explorerTitle = lang('View on Explorer');
   const withSavedAddresses = Boolean(!isScam && !noSavedAddress && address);
   const withExplorer = Boolean(!noExplorer && addressUrl);
@@ -511,7 +511,7 @@ function useDropdownMenu(
 
     if (withSavedAddresses) {
       items.push({
-        name: isAddressAlreadySaved ? 'Remove From Saved' : 'Save Address',
+        name: isAddressAlreadySaved ? 'Remove from Saved' : 'Save Address',
         fontIcon: isAddressAlreadySaved ? 'star-filled' : 'star',
         value: 'addressBook',
       });

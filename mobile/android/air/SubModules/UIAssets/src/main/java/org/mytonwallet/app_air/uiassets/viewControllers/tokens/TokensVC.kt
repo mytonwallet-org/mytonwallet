@@ -30,6 +30,7 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MAssetsAndActivityData
 import org.mytonwallet.app_air.walletcore.models.MScreenMode
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
@@ -51,6 +52,19 @@ class TokensVC(
     override val TAG = "Tokens"
 
     private var isShowingAccountMultichain = WGlobalStorage.isMultichain(showingAccountId)
+    private var _showingAccount: MAccount? = null
+    private val showingAccount: MAccount
+        get() {
+            _showingAccount?.let {
+                if (it.accountId == showingAccountId)
+                    return it
+            }
+            _showingAccount = if (showingAccountId == AccountStore.activeAccountId)
+                AccountStore.activeAccount
+            else
+                AccountStore.accountById(showingAccountId)
+            return _showingAccount!!
+        }
 
     enum class Mode {
         HOME,
@@ -202,19 +216,18 @@ class TokensVC(
 
             if (!forceUpdate && !isSingleWalletActive) return@execute
 
-            val allWalletTokens: Array<MTokenBalance> =
-                if (isSingleWalletActive) {
-                    AccountStore.assetsAndActivityData.getAllTokens(
-                        addVirtualStakingTokens = true
-                    )
-                } else {
-                    MAssetsAndActivityData(showingAccountId).getAllTokens(
-                        addVirtualStakingTokens = true
-                    )
-                }
+            val assetsAndActivityData = if (isSingleWalletActive) {
+                AccountStore.assetsAndActivityData
+            } else {
+                MAssetsAndActivityData(showingAccountId)
+            }
+            val allWalletTokens: Array<MTokenBalance> = assetsAndActivityData.getAllTokens(
+                addVirtualStakingTokens = true
+            )
+
             val filteredWalletTokens = allWalletTokens.filter {
                 val token = TokenStore.getToken(it.token)
-                it.isVirtualStakingRow || token?.isHidden() != true
+                it.isVirtualStakingRow || token?.isHidden(showingAccount, assetsAndActivityData) != true
             }
             Handler(Looper.getMainLooper()).post {
                 walletTokens = if (mode == Mode.HOME) filteredWalletTokens.take(5)

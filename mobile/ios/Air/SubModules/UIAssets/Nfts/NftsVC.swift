@@ -375,7 +375,7 @@ public class NftsVC: WViewController, WSegmentedControllerContent, WalletAssetsV
         case 3:
             seeAll + 24 + (view.frame.width - 48) / 3
         default:
-            seeAll + 32 + 2 * (view.frame.width - 48) / 3
+            seeAll + 32.0 + 2.0 * (view.frame.width - 48.0) / 3.0
         }
         return height
     }

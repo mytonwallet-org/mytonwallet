@@ -10,15 +10,13 @@ public struct NftOverviewView: View {
     var isOutgoing: Bool
     var text: String?
     var addressName: String?
-    var resolvedAddress: String?
     var addressOrDomain: String
     
-    public init(nft: ApiNft, isOutgoing: Bool, text: String? = nil, addressName: String? = nil, resolvedAddress: String? = nil, addressOrDomain: String) {
+    public init(nft: ApiNft, isOutgoing: Bool, text: String? = nil, addressName: String? = nil, addressOrDomain: String) {
         self.nft = nft
         self.isOutgoing = isOutgoing
         self.text = text
         self.addressName = addressName
-        self.resolvedAddress = resolvedAddress
         self.addressOrDomain = addressOrDomain
     }
     
@@ -40,7 +38,7 @@ public struct NftOverviewView: View {
                 Text(text)
                     .font17h22()
             }
-            TappableAddress(name: addressName, chain: "ton", resolvedAddress: resolvedAddress, addressOrName: addressOrDomain)
+            TappableAddress(account: AccountContext(source: .current), name: addressName, chain: "ton", addressOrName: addressOrDomain)
         }
     }
 }

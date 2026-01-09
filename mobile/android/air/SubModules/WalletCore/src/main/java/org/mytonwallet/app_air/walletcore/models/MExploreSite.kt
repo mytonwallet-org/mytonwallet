@@ -24,6 +24,7 @@ class MExploreSite(json: JSONObject) : WEquatable<MExploreSite>, IDapp {
 
     override val name: String? = json.optString("name")
     val canBeRestricted: Boolean = json.optBoolean("canBeRestricted")
+    val isVerified: Boolean = json.optBoolean("isVerified")
     val isExternal: Boolean = json.optBoolean("isExternal")
     val manifestUrl: String? = json.optString("manifestUrl")
     val description: String? = json.optString("description")

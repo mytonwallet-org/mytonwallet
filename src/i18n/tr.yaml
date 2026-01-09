@@ -203,7 +203,7 @@ Save Address: Adresi kaydet
 Name: İsim
 Save: Kaydet
 Copy: Kopyala
-Remove From Saved: Kaydedilenlerden Kaldır
+Remove from Saved: Kaydedilenlerden Kaldır
 View on Explorer: Explorer'da Görüntüle
 No suggestions, you're on your own!: Önerimiz bulunmuyor, tek başınasınız!
 Play Sounds: Sesleri çal
@@ -951,6 +951,7 @@ Security Warning: Güvenlik Uyarısı
 Go back to Words: Kelimelere Geri Dön
 I’m sure. Continue: Eminim. Devam Et
 $copy_mnemonic_warning: Kelimeleri **pano** dahil dijital bir ortamda saklamak güvenli değildir. Kurtarma ifadenizi güvenli bir şekilde kaydettiğinizden emin olun.
+$screenshot_mnemonic_warning: Kelimeleri **ekran görüntüsü** dahil dijital bir ortamda saklamak güvenli değildir. Kurtarma ifadenizi güvenli bir şekilde kaydettiğinizden emin olun.
 Other apps will be able to read your recovery phrase!: Diğer uygulamalar kurtarma ifadenizi okuyabilecek!
 I’m sure. Copy anyway: Eminim. Yine de Kopyala
 $auth_biometric_info: "**Daha fazla konfor** için biyometrik verilerinizi bağlayabilirsiniz."
@@ -1019,3 +1020,4 @@ Wallet to use on %host%: '%host% için cüzdan'
 Selected Wallet: Seçili cüzdan
 Connect Wallet: Cüzdanı bağla
 Insufficient Fee: Yetersiz ücret
+$saved_addresses_header: Kaydedildi

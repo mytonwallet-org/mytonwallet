@@ -70,12 +70,12 @@ public class ChooseWalletVC: WViewController, UICollectionViewDelegate {
             supplementaryView.contentConfiguration = content
         }
         let cellRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, String> { [allowViewAccounts] cell, _, accountId in
-            let viewModel = AccountViewModel(accountId: accountId)
+            let accountContext = AccountContext(accountId: accountId)
             cell.configurationUpdateHandler = { cell, state in
                 cell.contentConfiguration = UIHostingConfiguration {
                     WithPerceptionTracking {
-                        let isDisabled = allowViewAccounts ? false : viewModel.account.isView
-                        AccountListCell(viewModel: viewModel, isReordering: state.isEditing, showCurrentAccountHighlight: true)
+                        let isDisabled = allowViewAccounts ? false : accountContext.account.isView
+                        AccountListCell(accountContext: accountContext, isReordering: state.isEditing, showCurrentAccountHighlight: true)
                             .allowsHitTesting(!isDisabled)
                             .opacity(isDisabled ? 0.4 : 1)
                     }

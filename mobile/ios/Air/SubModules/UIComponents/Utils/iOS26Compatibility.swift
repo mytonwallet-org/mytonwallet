@@ -78,10 +78,6 @@ public enum S {
         IOS_26_MODE_ENABLED ? 26 : 12
     }
 
-    public static var featuredDappCornerRadius: CGFloat {
-        IOS_26_MODE_ENABLED ? 22 : 14
-    }
-
     public static var menuCornerRadius: CGFloat {
         IOS_26_MODE_ENABLED ? 26 : 12
     }

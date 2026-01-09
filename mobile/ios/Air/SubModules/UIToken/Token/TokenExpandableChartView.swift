@@ -330,7 +330,7 @@ final class TokenExpandableChartView: UIView, WThemedView {
     // MARK: - Data mehods
 
     private func fillLabels() {
-        guard let token, let price = token.price else {
+        guard let token, let tokenPrice = token.price else {
             // TODO: No price available message
             priceValueLabel.text = nil
             return
@@ -353,20 +353,17 @@ final class TokenExpandableChartView: UIView, WThemedView {
         } else if selectedRange != 0...1 {
             let historyData = scope(data: self.historyData, range: selectedRange)
             let firstPriceInChart = historyData?.first(where: { val in val[1] != 0 })?[1]
-            let lastPriceInChart = historyData?.last(where: { val in val[1] != 0 })?[1]
-            let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(lastPriceInChart ?? price, TokenStore.baseCurrency)
+            let lastPrice: Double = historyData?.last(where: { val in val[1] != 0 })?[1] ?? tokenPrice
+            let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(lastPrice, TokenStore.baseCurrency)
             let priceString = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true)
             let attr = NSAttributedString(string: priceString, attributes: [
                 .font: UIFont.systemFont(ofSize: 16, weight: .medium),
                 .foregroundColor: WTheme.primaryLabel
             ])
             priceValueLabel.attributedText = attr
-
-            let percentChange: Double?
-            if let firstPriceInChart, let lastPriceInChart {
-                percentChange = (lastPriceInChart - firstPriceInChart) / firstPriceInChart
-            } else {
-                percentChange = nil
+            var percentChange: Double?
+            if let firstPriceInChart {
+                percentChange = (lastPrice - firstPriceInChart) / firstPriceInChart
             }
             if let percentChange {
                 let percent = NSAttributedString(string: formatPercent(percentChange), attributes: [
@@ -379,15 +376,12 @@ final class TokenExpandableChartView: UIView, WThemedView {
             }
 
         } else {
-            let percentChange: Double?
-            if let firstPriceInChart = historyData?.first(where: { val in
-                val[1] != 0
-            })?[1] {
-                percentChange = ((token.price ?? 0) - firstPriceInChart) / firstPriceInChart
-            } else {
-                percentChange = nil
+            let lastPrice: Double = historyData?.last(where: { val in val[1] != 0 })?[1] ?? tokenPrice
+            var percentChange: Double?
+            if let firstPriceInChart = historyData?.first(where: { val in val[1] != 0 })?[1] {
+                percentChange = (lastPrice - firstPriceInChart) / firstPriceInChart
             }
-            let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(token.price ?? 0, TokenStore.baseCurrency)
+            let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(lastPrice, TokenStore.baseCurrency)
             let priceString = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true)
             let attr = NSAttributedString(string: priceString, attributes: [
                 .font: UIFont.systemFont(ofSize: 16, weight: .medium),

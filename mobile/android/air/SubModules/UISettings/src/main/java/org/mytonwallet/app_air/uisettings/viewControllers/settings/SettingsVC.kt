@@ -645,6 +645,9 @@ class SettingsVC(context: Context) : WViewController(context),
 
             WalletEvent.AccountNameChanged -> {
                 headerView.configure()
+                settingsVM.fillOtherAccounts(async = true, onComplete = {
+                    reloadData()
+                })
             }
 
             WalletEvent.AccountsReordered -> {

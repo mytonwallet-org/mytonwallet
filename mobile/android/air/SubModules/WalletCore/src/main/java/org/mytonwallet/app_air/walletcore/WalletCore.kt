@@ -165,13 +165,12 @@ object WalletCore {
     fun notifyAccountChanged(activeAccount: MAccount, fromHome: Boolean) {
         val accountId = activeAccount.accountId
         if (nextAccountIsPushedTemporary == true)
-            WGlobalStorage.setTemporaryAccountId(accountId)
+            WGlobalStorage.setTemporaryAccountId(accountId, true)
         else
             WGlobalStorage.setActiveAccountId(accountId, persistInstantly = !fromHome)
         nextAccountIsPushedTemporary = null
         nextAccountId = null
         AccountStore.updateActiveAccount(accountId)
-        PoisoningCacheHelper.clearPoisoningCache()
         AddressStore.loadFromCache(accountId)
         NftStore.loadCachedNfts(accountId)
         ExploreHistoryStore.loadBrowserHistory(accountId)

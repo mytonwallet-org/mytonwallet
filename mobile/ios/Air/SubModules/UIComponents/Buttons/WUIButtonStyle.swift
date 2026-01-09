@@ -29,15 +29,11 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
         switch style {
         case .primary:
             UIColor.white // FIXME: Doesn't work for white theme color
-        case .secondary:
-            .tintColor
-        case .clearBackground:
-            .tintColor
-        default:
+        case .secondary, .clearBackground:
             .tintColor
         }
     }
-    
+
     var backgroundColor: UIColor {
         switch style {
         case .primary:
@@ -45,8 +41,6 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
         case .secondary:
             .tintColor.withAlphaComponent(0.15)
         case .clearBackground:
-            .clear
-        default:
             .clear
         }
     }
@@ -58,7 +52,7 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
                     .glassEffect(Glass.regular.tint(Color(backgroundColor)).interactive(isEnabled), in: .capsule)
             } else {
                 content(configuration: configuration)
-                    .background(Color(backgroundColor), in: .rect(cornerRadius: WButton._borderRadius))
+                    .background(Color(backgroundColor), in: .rect(cornerRadius: WButton.borderRadius))
             }
         }
         .opacity(isEnabled ? 1 : 0.5)

@@ -56,6 +56,7 @@ You have no NFT in this wallet yet: |
   คุณยังไม่มี NFT
   ในกระเป๋านี้
 Collapse: ย่อ
+Expand: ขยาย
 Standalone NFT: NFT แยกเดี่ยว
 Linked Address: ที่อยู่ที่เชื่อมโยง
 Enter Address: ใส่ที่อยู่
@@ -221,8 +222,6 @@ Wear: ใช้งาน
 Your Address: ที่อยู่ของคุณ
 Passcodes don't match. Please try again.: รหัสผ่านไม่ตรงกัน โปรดลองอีกครั้ง
 Secret phrase was copied to clipboard: คัดลอกวลีกู้คืนไปยังคลิปบอร์ดแล้ว
-clipboard: คลิปบอร์ด
-screenshot: ภาพหน้าจอ
 Copy Anyway: คัดลอกต่อไป
 12 Words: 12 คำ
 24 Words: 24 คำ
@@ -294,5 +293,3 @@ Receive: รับ
 Scan: สแกน
 Search or enter address: ค้นหาหรือใส่ที่อยู่
 View as Grid: ดูแบบตาราง
-$secret_words_warning: การเก็บคำในรูปแบบดิจิทัล รวมถึง **%1$d** ไม่ปลอดภัย โปรดตรวจสอบให้แน่ใจว่าคุณเก็บวลีกู้คืนไว้ในที่ปลอดภัย
-

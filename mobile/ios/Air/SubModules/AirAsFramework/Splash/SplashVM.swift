@@ -68,9 +68,9 @@ class SplashVM: NSObject {
             } catch {
                 log.fault("failed to activate account: \(error, .public) id=\(activeAccountId, .public)")
                 // try to activate any other account
-                for account in AccountStore.allAccounts {
+                for accountId in AccountStore.orderedAccountIds {
                     do {
-                        _ = try await AccountStore.activateAccount(accountId: account.id)
+                        let account = try await AccountStore.activateAccount(accountId: accountId)
                         self.fetched(account: account)
                         return
                     } catch {

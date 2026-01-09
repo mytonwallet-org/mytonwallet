@@ -174,7 +174,7 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
         val hasComment: Boolean
             get() {
                 return (!comment.isNullOrEmpty() || encryptedComment != null) &&
-                    (!isIncoming || !isPoisoningOrScam()) &&
+                    (!isIncoming || !isScam) &&
                     !isStaking
             }
 
@@ -315,19 +315,7 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
                 token.chain
             ) else if (this is Swap) MBlockchain.ton else return null
 
-        return when (chain) {
-            MBlockchain.ton -> {
-                getTxIdentifier()?.split(":")?.firstOrNull()
-            }
-
-            MBlockchain.tron -> {
-                getTxIdentifier()?.split("|")?.firstOrNull()
-            }
-
-            else -> {
-                null
-            }
-        }
+        return chain.idToTxHash(getTxIdentifier())
     }
 
     fun getTxSlug(): String {
@@ -354,6 +342,18 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
         }
     }
 
+    fun isTrustedPending(): Boolean {
+        return when (this) {
+            is Swap -> {
+                status == ApiSwapStatus.PENDING_TRUSTED
+            }
+
+            is Transaction -> {
+                status == ApiTransactionStatus.PENDING_TRUSTED
+            }
+        }
+    }
+
     fun isLocal(): Boolean {
         return id.endsWith(":local") == true
     }
@@ -362,38 +362,39 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
         return id.endsWith(":backend-swap") == true
     }
 
-    fun isPoisoningOrScam(): Boolean {
-        return when (this) {
-            is Transaction -> {
-                if (metadata?.isScam == true) {
-                    return true
-                }
-                if (PoisoningCacheHelper.getIsTransactionWithPoisoning(this))
-                    return true
-                return false
-            }
-
-            else -> false
-        }
+    fun isPoisoning(accountId: String): Boolean {
+        return PoisoningCacheHelper.getIsTransactionWithPoisoning(accountId, this)
     }
 
-    fun isTinyOrScam(): Boolean {
-        return when (this) {
-            is Transaction -> {
-                if (isPoisoningOrScam())
-                    return true
-                val token = TokenStore.getToken(getTxSlug()) ?: return false
-                if (nft != null || type != null) {
-                    return false
+    val isScam: Boolean
+        get() {
+            return when (this) {
+                is Transaction -> {
+                    return metadata?.isScam == true
                 }
-                token.priceUsd * amount.doubleAbsRepresentation(
-                    token.decimals
-                ) < 0.01
-            }
 
-            else -> false
+                else -> false
+            }
         }
-    }
+
+    val isTinyOrScam: Boolean
+        get() {
+            return when (this) {
+                is Transaction -> {
+                    if (isScam)
+                        return true
+                    val token = TokenStore.getToken(getTxSlug()) ?: return false
+                    if (nft != null || type != null) {
+                        return false
+                    }
+                    token.priceUsd * amount.doubleAbsRepresentation(
+                        token.decimals
+                    ) < 0.01
+                }
+
+                else -> false
+            }
+        }
 
     override fun isSame(comparing: WEquatable<*>): Boolean {
         val comparingActivity = comparing as? MApiTransaction ?: return false
@@ -474,7 +475,10 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
             })
         }
 
-    fun addressToShow(addressPrefixCount: Int = 4, addressSuffixCount: Int = 4): Pair<String, Boolean>? {
+    fun addressToShow(
+        addressPrefixCount: Int = 4,
+        addressSuffixCount: Int = 4
+    ): Pair<String, Boolean>? {
         return (when (this) {
             is Transaction -> {
                 AddressStore.getAddress(peerAddress)?.name?.let { name ->
@@ -482,7 +486,12 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
                 } ?: run {
                     if (metadata?.name?.isNotEmpty() == true)
                         Pair(metadata.name, true) else
-                        Pair(peerAddress.formatStartEndAddress(addressPrefixCount, addressSuffixCount), false)
+                        Pair(
+                            peerAddress.formatStartEndAddress(
+                                addressPrefixCount,
+                                addressSuffixCount
+                            ), false
+                        )
                 }
             }
 

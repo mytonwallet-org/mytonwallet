@@ -491,6 +491,10 @@ class SwapVC(
                     if (isSwapDone)
                         return
                     isSwapDone = true
+                    if (window?.topNavigationController != navigationController) {
+                        window?.dismissNav(navigationController)
+                        return
+                    }
                     window?.dismissLastNav {
                         event.activity?.let { activity ->
                             WalletCore.notifyEvent(WalletEvent.OpenActivity(activity))

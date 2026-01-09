@@ -183,7 +183,7 @@ class ActivityLoader(
                     storeListActivityIds()
                 }
                 val fetchMore =
-                    (ActivityHelpers.filter(budgetTransactions, true, null)?.size ?: 0) < 60
+                    (ActivityHelpers.filter(accountId, budgetTransactions, true, null)?.size ?: 0) < 60
                 isPreparingBudget = false
                 if (isWaitingForBudget) {
                     useBudgetTransactions()
@@ -219,18 +219,17 @@ class ActivityLoader(
             }
 
             currentAllTransactions.removeAll { it.isLocal() }
-            ActivityStore.getLocalTransactions()[accountId]?.let {
-                currentAllTransactions.addAll(it)
-            }
-
-            // Replace pending transactions
             currentAllTransactions.removeAll {
                 it.isPending()
             }
+
+            ActivityStore.getLocalTransactions()[accountId]?.let {
+                currentAllTransactions.addAll(it)
+            }
             ActivityStore.getPendingTransactions(accountId).let { pendingTransactions ->
-                val pendingIds = pendingTransactions.map { it.id }
+                val pendingIds = pendingTransactions.map { it.getTxHash() }
                 currentAllTransactions.removeAll {
-                    pendingIds.contains(it.id)
+                    pendingIds.contains(it.getTxHash())
                 }
                 currentAllTransactions.addAll(pendingTransactions.filter {
                     ActivityHelpers.activityBelongsToSlug(it, selectedSlug)
@@ -270,7 +269,7 @@ class ActivityLoader(
     }
 
     private fun sortAndUpdateShowingTransactions(isUpdateEvent: Boolean) {
-        val showingTransactions = ActivityHelpers.filter(allTransactions, true, null)
+        val showingTransactions = ActivityHelpers.filter(accountId, allTransactions, true, null)
         this.showingTransactions = showingTransactions
         Handler(Looper.getMainLooper()).post {
             delegate?.get()?.activityLoaderDataLoaded(isUpdateEvent)

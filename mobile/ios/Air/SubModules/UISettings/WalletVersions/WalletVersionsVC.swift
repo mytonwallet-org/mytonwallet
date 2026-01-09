@@ -10,156 +10,231 @@ import UIKit
 import UIComponents
 import WalletCore
 import WalletContext
+import SwiftUI
 
-fileprivate let rightArrowImage = UIImage(named: "RightArrowIcon", in: AirBundle, compatibleWith: nil)!.withRenderingMode(.alwaysTemplate)
+public class WalletVersionsVC: WViewController, UICollectionViewDelegate {
 
-public class WalletVersionsVC: WViewController {
-    
+    private enum Section: Hashable {
+        case currentVersion
+        case otherVersions
+
+        var headerTitle: String {
+            switch self {
+            case .currentVersion:
+                lang("Current Wallet Version")
+            case .otherVersions:
+                lang("Tokens on Other Versions")
+            }
+        }
+    }
+
+    private enum Item: Hashable {
+        case currentWallet
+        case otherVersion(String)
+    }
+
     private let isModal: Bool
+    private var collectionView: UICollectionView!
+    private var walletVersionsData: MWalletVersionsData?
+    private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
+
     public init(isModal: Bool = false) {
         self.isModal = isModal
         super.init(nibName: nil, bundle: nil)
     }
-    
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
-    // MARK: - Load and SetupView Functions
-    public override func loadView() {
-        super.loadView()
+
+    public override func viewDidLoad() {
+        super.viewDidLoad()
         setupViews()
+        configureDataSource()
+        applySnapshot()
     }
-    
-    private var tableView: UITableView!
-    private var footerLabel: UILabel!
-    private var walletVersionsData: MWalletVersionsData? = nil
+
     private func setupViews() {
         title = lang("TON Wallet Versions")
-
         walletVersionsData = AccountStore.walletVersionsData
+        view.backgroundColor = isModal ? WTheme.sheetBackground : WTheme.groupedBackground
 
-        tableView = UITableView()
-        tableView.translatesAutoresizingMaskIntoConstraints = false
-        tableView.delegate = self
-        tableView.dataSource = self
-        tableView.register(SectionHeaderCell.self, forCellReuseIdentifier: "Header")
-        tableView.register(TitleSubtitleSelectableCell.self, forCellReuseIdentifier: "VersionCell")
-        tableView.register(WalletVersionsHintCell.self, forCellReuseIdentifier: "Hint")
-        tableView.separatorStyle = .none
-        tableView.delaysContentTouches = false
-        view.addSubview(tableView)
+        var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
+        configuration.backgroundColor = .clear
+        configuration.headerMode = .supplementary
+        configuration.footerMode = .supplementary
+        let layout = UICollectionViewCompositionalLayout.list(using: configuration)
+
+        collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
+        collectionView.backgroundColor = .clear
+        collectionView.delegate = self
+        collectionView.delaysContentTouches = false
+        collectionView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(collectionView)
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: view.topAnchor),
-            tableView.leftAnchor.constraint(equalTo: view.leftAnchor),
-            tableView.rightAnchor.constraint(equalTo: view.rightAnchor),
-            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+            collectionView.topAnchor.constraint(equalTo: view.topAnchor),
+            collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
-        
-        addNavigationBar(navHeight: 40,
-                                       topOffset: -5,
-                                       title: title,
-                                       addBackButton: { [weak self] in
-            guard let self else {return}
-            navigationController?.popViewController(animated: true)
-        })
-        tableView.contentInset.top = navigationBarHeight
-        tableView.verticalScrollIndicatorInsets.top = navigationBarHeight
-        tableView.contentOffset.y = -navigationBarHeight
 
-        updateTheme()
-    }
-    
-    public override func updateTheme() {
-        view.backgroundColor = isModal ? WTheme.groupedBackground : WTheme.groupedBackground
-        tableView.backgroundColor = view.backgroundColor
-    }
-
-    public override func scrollToTop(animated: Bool) {
-        tableView?.setContentOffset(CGPoint(x: 0, y: -tableView.adjustedContentInset.top), animated: animated)
-    }
-}
-
-extension WalletVersionsVC: UITableViewDelegate, UITableViewDataSource {
-    public func numberOfSections(in tableView: UITableView) -> Int {
-        return 3
-    }
-    public func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        switch section {
-        case 0:
-            return 2
-        case 1:
-            return 1 + (walletVersionsData?.versions.count ?? 0)
-        case 2:
-            return 1
-        default:
-            return 0
-        }
-    }
-    public func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        switch indexPath.section {
-        case 0:
-            if indexPath.row == 0 {
-                let cell = tableView.dequeueReusableCell(withIdentifier: "Header", for: indexPath) as! SectionHeaderCell
-                cell.configure(title: lang("Current Wallet Version").uppercased())
-                return cell
-            }
-            let cell = tableView.dequeueReusableCell(withIdentifier: "VersionCell", for: indexPath) as! TitleSubtitleSelectableCell
-            cell.configure(title: walletVersionsData?.currentVersion ?? "",
-                           subtitle: formatStartEndAddress(AccountStore.account?.addressByChain[TON_CHAIN] ?? ""),
-                           isSelected: true,
-                           isFirst: true,
-                           isLast: true,
-                           isInModal: false,
-                           subtitleColor: WTheme.secondaryLabel,
-                           onSelect: { [weak self] in
+        addNavigationBar(
+            navHeight: 40,
+            topOffset: -5,
+            title: title,
+            addBackButton: { [weak self] in
                 self?.navigationController?.popViewController(animated: true)
-            })
-            return cell
-        case 1:
-            if indexPath.row == 0 {
-                let cell = tableView.dequeueReusableCell(withIdentifier: "Header", for: indexPath) as! SectionHeaderCell
-                cell.configure(title: lang("Tokens on Other Versions").uppercased(), spacing: 8)
-                return cell
             }
-            let cell = tableView.dequeueReusableCell(withIdentifier: "VersionCell", for: indexPath) as! TitleSubtitleSelectableCell
-            let version = walletVersionsData!.versions[indexPath.row - 1]
-            let value: String
-            if let balance = MTokenBalance(tokenSlug: "toncoin", balance: version.balance, isStaking: false).toBaseCurrency {
-                let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(balance, TokenStore.baseCurrency)
-                value = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true)
-            } else {
-                value = ""
-            }
-            cell.configure(title: version.version,
-                           subtitle: formatStartEndAddress(version.address),
-                           isSelected: false,
-                           isFirst: indexPath.row == 1,
-                           isLast: indexPath.row == walletVersionsData?.versions.count,
-                           isInModal: false,
-                           value: value,
-                           rightIcon: rightArrowImage,
-                           subtitleColor: WTheme.secondaryLabel,
-                           onSelect: { [weak self] in
-                if let self, let accountId = AccountStore.accountId, let version = ApiTonWalletVersion(rawValue: version.version) {
-                    Task { @MainActor in
-                        do {
-                            _ = try await AccountStore.importNewWalletVersion(accountId: accountId, version: version)
-                            self.navigationController?.popViewController(animated: false)
-                        } catch {
-                            self.showAlert(error: error)
-                        }
-                    }
+        )
+        collectionView.contentInset.top = navigationBarHeight
+        collectionView.verticalScrollIndicatorInsets.top = navigationBarHeight
+        collectionView.contentOffset.y = -navigationBarHeight
+    }
+
+    private func configureDataSource() {
+        let headerRegistration = UICollectionView.SupplementaryRegistration<UICollectionViewCell>(
+            elementKind: UICollectionView.elementKindSectionHeader
+        ) { [weak self] cell, _, indexPath in
+            guard let section = self?.dataSource.sectionIdentifier(for: indexPath.section) else { return }
+            var content = UIListContentConfiguration.groupedHeader()
+            content.text = section.headerTitle
+            cell.contentConfiguration = content
+        }
+
+        let footerRegistration = UICollectionView.SupplementaryRegistration<UICollectionViewCell>(
+            elementKind: UICollectionView.elementKindSectionFooter
+        ) { [weak self] cell, _, indexPath in
+            guard let self, let section = dataSource.sectionIdentifier(for: indexPath.section) else { return }
+            if section == .otherVersions || (section == .currentVersion && walletVersionsData?.versions.isEmpty != false) {
+                cell.contentConfiguration = UIHostingConfiguration {
+                    WalletVersionsFooter()
                 }
-            })
-            return cell
-        case 2:
-            return tableView.dequeueReusableCell(withIdentifier: "Hint", for: indexPath)
-        default:
-            fatalError()
+                .margins(.horizontal, 20)
+                .margins(.vertical, 8)
+            }
+        }
+
+        let currentVersionRegistration = WalletVersionCell.makeCurrentVersionRegistration(
+            walletVersionsData: walletVersionsData,
+            account: AccountStore.account
+        )
+
+        let otherVersionRegistration = WalletVersionCell.makeOtherVersionRegistration(
+            versions: walletVersionsData?.versions ?? []
+        )
+
+        dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) { collectionView, indexPath, item in
+            switch item {
+            case .currentWallet:
+                collectionView.dequeueConfiguredReusableCell(using: currentVersionRegistration, for: indexPath, item: ())
+            case .otherVersion(let versionId):
+                collectionView.dequeueConfiguredReusableCell(using: otherVersionRegistration, for: indexPath, item: versionId)
+            }
+        }
+
+        dataSource.supplementaryViewProvider = { collectionView, kind, indexPath in
+            switch kind {
+            case UICollectionView.elementKindSectionHeader:
+                collectionView.dequeueConfiguredReusableSupplementary(using: headerRegistration, for: indexPath)
+            case UICollectionView.elementKindSectionFooter:
+                collectionView.dequeueConfiguredReusableSupplementary(using: footerRegistration, for: indexPath)
+            default:
+                nil
+            }
         }
     }
+
+    private func applySnapshot() {
+        var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
+
+        snapshot.appendSections([.currentVersion])
+        snapshot.appendItems([.currentWallet], toSection: .currentVersion)
+
+        if let versions = walletVersionsData?.versions, !versions.isEmpty {
+            snapshot.appendSections([.otherVersions])
+            snapshot.appendItems(versions.map { .otherVersion($0.version) }, toSection: .otherVersions)
+        }
+
+        dataSource.apply(snapshot, animatingDifferences: false)
+    }
+
+    public func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
+        guard let item = dataSource.itemIdentifier(for: indexPath) else { return false }
+        switch item {
+        case .currentWallet:
+            return false
+        case .otherVersion:
+            return true
+        }
+    }
+
+    public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        collectionView.deselectItem(at: indexPath, animated: true)
+        guard let item = dataSource.itemIdentifier(for: indexPath) else { return }
+        switch item {
+        case .currentWallet:
+            navigationController?.popViewController(animated: true)
+        case .otherVersion(let versionId):
+            guard let version = walletVersionsData?.versions.first(where: { $0.version == versionId }),
+                  let accountId = AccountStore.accountId,
+                  let apiVersion = ApiTonWalletVersion(rawValue: version.version) else { return }
+            Task { @MainActor in
+                do {
+                    _ = try await AccountStore.importNewWalletVersion(accountId: accountId, version: apiVersion)
+                    navigationController?.popViewController(animated: false)
+                } catch {
+                    showAlert(error: error)
+                }
+            }
+        }
+    }
+
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
         navigationBar?.showSeparator = scrollView.contentOffset.y + scrollView.contentInset.top + view.safeAreaInsets.top > 0
     }
+
+    public override func viewWillLayoutSubviews() {
+        UIView.performWithoutAnimation {
+            collectionView.frame = view.bounds
+        }
+        super.viewWillLayoutSubviews()
+    }
+
+    public override func scrollToTop(animated: Bool) {
+        collectionView?.setContentOffset(CGPoint(x: 0, y: -collectionView.adjustedContentInset.top), animated: animated)
+    }
 }
+
+private struct WalletVersionsFooter: View {
+    var body: some View {
+        let hintText = Language.current == .en
+            ? lang("You have tokens on other versions of your wallet. You can import them from here.") + "\n\nRead more about types of wallet contracts on ton.org"
+            : lang("You have tokens on other versions of your wallet. You can import them from here.")
+
+        Text(makeAttributedHint(hintText))
+            .font(.system(size: 13))
+            .foregroundStyle(Color.air.secondaryLabel)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .environment(\.openURL, OpenURLAction { url in
+                AppActions.openInBrowser(url, title: nil, injectTonConnect: false)
+                return .handled
+            })
+    }
+
+    private func makeAttributedHint(_ text: String) -> AttributedString {
+        var attributed = AttributedString(text)
+        if let range = attributed.range(of: "ton.org") {
+            attributed[range].foregroundColor = Color.air.tint
+            attributed[range].link = URL(string: "https://ton.org")
+        }
+        return attributed
+    }
+}
+
+#if DEBUG
+@available(iOS 26, *)
+#Preview {
+    let vc = WalletVersionsVC(isModal: false)
+    UINavigationController(rootViewController: vc)
+}
+#endif

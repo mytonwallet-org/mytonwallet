@@ -369,6 +369,8 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             }
 
             HeaderActionsView.Identifier.WALLET_SETTINGS -> {
+                if (headerView.mode == HomeHeaderView.Mode.Collapsed)
+                    return
                 val navVC = WNavigationController(
                     window!!, WNavigationController.PresentationConfig(
                         overFullScreen = false,
@@ -453,6 +455,8 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
     }
 
     private fun expand() {
+        if (headerView.mode == HomeHeaderView.Mode.Expanded)
+            return
         currentActivityListView.expandingProgrammatically = true
         topBlurReversedCornerView.pauseBlurring(false)
         topBlurReversedCornerView.isGone = true
@@ -533,7 +537,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             )
             view.setConstraints {
                 toCenterX(actionsView)
-                topToBottom(actionsView, headerView)
+                toTopPx(actionsView, headerView.height)
             }
         }
     }
@@ -598,9 +602,8 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         if (rvMode == HomeHeaderView.Mode.Expanded ||
             headerView.mode == HomeHeaderView.Mode.Expanded
         ) {
-            if (pausedBlurViews == true)
+            if (pausedBlurViews)
                 return
-            pausedBlurViews = true
             topBlurReversedCornerView.isGone = true
             topBlurReversedCornerView.pauseBlurring(false)
             bottomReversedCornerView?.pauseBlurring()
@@ -608,11 +611,16 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         }
     }
 
-    private var pausedBlurViews: Boolean? = null
+    private val pausedBlurViews: Boolean
+        get() {
+            return bottomReversedCornerView?.let { !it.isPlaying }
+                ?: navigationController?.tabBarController?.pausedBlurViews
+                ?: false
+        }
+
     private fun resumeBlurViews() {
-        if (pausedBlurViews == false)
+        if (!pausedBlurViews)
             return
-        pausedBlurViews = false
         topBlurReversedCornerView.isGone = false
         topBlurReversedCornerView.resumeBlurring()
         resumeBottomBlurViews()

@@ -83,6 +83,8 @@ final class SwapSelectorsVM {
     private var suspendUpdates = false
     @PerceptionIgnored
     private var observeTokens: [ObserveToken] = []
+    @PerceptionIgnored
+    @AccountContext var account: MAccount
     
     private var localExchangeRate: Double? {
         let selling = sellingToken.price ?? 0
@@ -91,12 +93,13 @@ final class SwapSelectorsVM {
         return selling / buying
     }
 
-    init(sellingAmount: BigInt?, sellingToken: ApiToken, buyingAmount: BigInt?, buyingToken: ApiToken, maxAmount: BigInt?) {
+    init(sellingAmount: BigInt?, sellingToken: ApiToken, buyingAmount: BigInt?, buyingToken: ApiToken, maxAmount: BigInt?, accountContext: AccountContext) {
         self.sellingAmount = sellingAmount
         self.sellingToken = sellingToken
         self.buyingAmount = buyingAmount
         self.buyingToken = buyingToken
         self.maxAmount = maxAmount
+        self._account = accountContext
         
         setupObservers()
         setupCallbacks()
@@ -105,14 +108,22 @@ final class SwapSelectorsVM {
     private func setupObservers() {
         observeTokens += observe { [weak self] in
             guard let self, suspendUpdates == false, sellingFocused else { return }
-            lastEdited = .selling
-            updateLocal(amount: sellingAmount, token: sellingToken, side: .selling)
+            let sellingAmount = self.sellingAmount
+            let sellingToken = self.sellingToken
+            Task {
+                self.lastEdited = .selling
+                self.updateLocal(amount: sellingAmount, token: sellingToken, side: .selling)
+            }
         }
         
         observeTokens += observe { [weak self] in
             guard let self, suspendUpdates == false, buyingFocused else { return }
-            lastEdited = .buying
-            updateLocal(amount: buyingAmount, token: buyingToken, side: .buying)
+            let buyingAmount = self.buyingAmount
+            let buyingToken = self.buyingToken
+            Task {
+                self.lastEdited = .buying
+                self.updateLocal(amount: buyingAmount, token: buyingToken, side: .buying)
+            }
         }
     }
     
@@ -133,8 +144,8 @@ final class SwapSelectorsVM {
             let tmp = (sellingAmount ?? 0, buyingAmount ?? 0, sellingToken, buyingToken)
             (buyingAmount, sellingAmount, buyingToken, sellingToken) = tmp
             self.lastEdited = lastEdited
-            if AccountStore.account?.supports(chain: sellingToken.chain) == true {
-                self.updateMaxAmount(sellingToken, amount: BalanceStore.currentAccountBalances[sellingToken.slug] ?? 0)
+            if account.supports(chain: sellingToken.chain) {
+                self.updateMaxAmount(sellingToken, amount: $account.balances[sellingToken.slug] ?? 0)
             } else {
                 self.updateMaxAmount(nil, amount: nil)
             }
@@ -240,7 +251,7 @@ final class SwapSelectorsVM {
     
     func updateMaxAmount(_ token: ApiToken?, amount: BigInt?) {
         let token = token ?? sellingToken
-        let balance = amount ?? BalanceStore.currentAccountBalances[token.slug]
+        let balance = amount ?? $account.balances[token.slug]
         self.maxAmount = balance.flatMap { max(0, $0) }
         if (isUsingMax) {
             if let amount, let sellingAmount, sellingAmount != amount {
@@ -268,7 +279,7 @@ final class SwapSelectorsVM {
         if lastEdited != .selling && !sellingFocused && swapEstimate.fromAmount > 0 { // if it's zero, keep local estimate
             sellingAmount = DecimalAmount.fromDouble(swapEstimate.fromAmount, sellingToken).roundedForSwap.amount
         }
-        if !buyingFocused && swapEstimate.toAmount > 0 {
+        if lastEdited != .buying && !buyingFocused && swapEstimate.toAmount > 0 {
             buyingAmount = DecimalAmount.fromDouble(swapEstimate.toAmount, buyingToken).roundedForSwap.amount
         }
         if swapEstimate.toAmount > 0, swapEstimate.fromAmount > 0 {
@@ -309,7 +320,7 @@ extension SwapSelectorsVM: TokenSelectionVCDelegate {
             sellingAmount = newAmount
             sellingToken = newToken
             lastEdited = .selling
-            maxAmount = BalanceStore.currentAccountBalances[newToken.slug]
+            maxAmount = $account.balances[newToken.slug]
             updateLocal(amount: newAmount, token: sellingToken, side: .selling)
         } else {
             if newToken.slug == sellingToken.slug {

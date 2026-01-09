@@ -346,9 +346,23 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                     if (AccountStore.activeAccount?.accountId != accountId) {
                         return
                     }
-                    val json = objectJSONObject.optJSONObject("activity") ?: return
-                    val transaction = MApiTransaction.fromJson(json)!!
-                    ActivityStore.receivedLocalTransaction(accountId, transaction)
+                    val transactionJSONArray = objectJSONObject.optJSONArray("activities") ?: return
+                    val localTransactions = ArrayList<MApiTransaction>()
+                    for (index in 0..<transactionJSONArray.length()) {
+                        val transactionObj = transactionJSONArray.getJSONObject(index)
+                        val transaction = MApiTransaction.fromJson(transactionObj)!!
+                        localTransactions.add(transaction)
+                    }
+                    ActivityStore.receivedLocalTransactions(
+                        accountId,
+                        localTransactions.toTypedArray()
+                    )
+                    WalletCore.notifyEvent(
+                        WalletEvent.NewLocalActivities(
+                            accountId,
+                            localTransactions
+                        )
+                    )
                 }
 
                 "newActivities" -> {
@@ -372,6 +386,16 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                             val transactionObj = pendingTransactionsJSONArray.getJSONObject(index)
                             val transaction = MApiTransaction.fromJson(transactionObj)!!
                             pendingTransactions.add(transaction)
+                        }
+                        transactions.forEach { transaction ->
+                            if (transaction is MApiTransaction.Swap &&
+                                transaction.isPending() &&
+                                pendingTransactions.find { pendingTransaction ->
+                                    pendingTransaction.getTxHash() == transaction.getTxHash()
+                                } == null
+                            ) {
+                                pendingTransactions.add(transaction)
+                            }
                         }
                         if (pendingTransactions.isNotEmpty()) {
                             Handler(Looper.getMainLooper()).post {

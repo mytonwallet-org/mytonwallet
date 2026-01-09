@@ -32,6 +32,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.utils.isSameDayAs
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.helpers.ActivityLoader
 import org.mytonwallet.app_air.walletcore.helpers.IActivityLoader
@@ -191,7 +192,8 @@ class ActivityListView<T>(
             return TokenStore.swapAssets != null &&
                 TokenStore.loadedAllTokens &&
                 !BalanceStore.getBalances(showingAccountId).isNullOrEmpty() &&
-                StakingStore.getStakingState(showingAccountId ?: "") != null
+                (StakingStore.getStakingState(showingAccountId ?: "") != null ||
+                    WGlobalStorage.getAccountTonAddress(showingAccountId ?: "") == null)
         }
 
     val showingTransactions: List<MApiTransaction>?
@@ -229,7 +231,7 @@ class ActivityListView<T>(
 
     val rvLayoutManager = object : LinearLayoutManagerAccurateOffset(context) {
         override fun canScrollVertically(): Boolean {
-            return !skeletonView.isVisible
+            return !skeletonView.isVisible && dataSource?.headerView?.isAnimating != true
         }
     }.apply {
         isSmoothScrollbarEnabled = true

@@ -56,6 +56,7 @@ You have no NFT in this wallet yet: |
   這個錢包目前還沒有
   NFT。
 Collapse: 摺疊
+Expand: 展開
 Standalone NFT: 獨立 NFT
 Linked Address: 已連結地址
 Enter Address: 輸入地址
@@ -215,8 +216,6 @@ Wear: 套用
 Your Address: 你的地址
 Passcodes don't match. Please try again.: 密碼不一致，請再試一次。
 Secret phrase was copied to clipboard: 備份助記詞已複製到剪貼簿
-clipboard: 剪貼簿
-screenshot: 擷取畫面
 Copy Anyway: 仍要複製
 12 Words: 12 個單字
 24 Words: 24 個單字
@@ -286,5 +285,3 @@ Receive: 收款
 Scan: 掃描
 Search or enter address: 搜尋或輸入地址
 View as Grid: 以格狀顯示
-$secret_words_warning: 在數位環境儲存單字（包含 **%1$d**）並不安全。請確保你已安全保存備份助記詞。
-

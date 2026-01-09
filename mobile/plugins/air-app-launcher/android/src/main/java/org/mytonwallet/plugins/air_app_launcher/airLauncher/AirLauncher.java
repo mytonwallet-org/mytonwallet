@@ -111,6 +111,7 @@ public class AirLauncher {
   }
 
   public void switchingToClassic() {
+    capacitorGlobalStorageProvider.persistChanges(IGlobalStorageProvider.PERSIST_INSTANT);
     capacitorGlobalStorageProvider.onDestroy();
     capacitorGlobalStorageProvider = null;
     isOnTheAir = false;

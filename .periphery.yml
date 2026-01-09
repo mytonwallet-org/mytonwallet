@@ -1,0 +1,4 @@
+project: mobile/ios/App/App.xcworkspace
+retain_codable_properties: true
+schemes:
+- MyTonWallet_AirOnly

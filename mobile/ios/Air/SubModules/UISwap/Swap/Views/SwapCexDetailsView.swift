@@ -64,10 +64,10 @@ struct SwapCexDetailsView: View {
     
     func fetchEstimate() async {
         do {
-            if let amnt = selectorsVM.sellingTokenAmount, let account = AccountStore.account, let tokenAddress = amnt.token.tokenAddress {
+            if let amnt = selectorsVM.sellingTokenAmount, let tokenAddress = amnt.token.tokenAddress {
                 let token = amnt.token
                 let chain = token.chainValue
-                let dieselEstimate = try await Api.fetchEstimateDiesel(accountId: account.id, chain: token.chainValue, tokenAddress: tokenAddress)
+                let dieselEstimate = try await Api.fetchEstimateDiesel(accountId: swapVM.account.id, chain: token.chainValue, tokenAddress: tokenAddress)
                 if let dieselEstimate {
                     let fee = TransferHelpers.explainDieselEstimate(chain: chain.rawValue, isNativeToken: token.isNative, dieselEstimate: dieselEstimate)
                     self.fee = fee
@@ -110,7 +110,7 @@ struct SwapCexDetailsView: View {
                             .foregroundStyle(Color(WTheme.secondaryLabel))
                         Spacer(minLength: 4)
                         let priceAmount = DecimalAmount.fromDouble(exchangeRate.price, exchangeRate.fromToken)
-                        Text("\(exchangeRate.toToken.symbol) ≈ \(priceAmount.formatted(maxDecimals: min(6, sellingToken.decimals)))")
+                        Text("\(exchangeRate.toToken.symbol) ≈ \(priceAmount.formatted(.none, maxDecimals: min(6, sellingToken.decimals)))")
                     }
                 }
             }

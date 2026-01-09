@@ -98,10 +98,12 @@ struct NotificationsSettingsView: View {
         @Perception.Bindable var viewModel = viewModel
         InsetSection {
             ForEach($viewModel.selectableAccounts) { $selectableAccount in
-                SelectableAccountRow(
-                    selectableAccount: $selectableAccount,
-                    canSelectAnother: viewModel.canSelectAnother
-                )
+                WithPerceptionTracking {
+                    SelectableAccountRow(
+                        selectableAccount: $selectableAccount,
+                        canSelectAnother: viewModel.canSelectAnother
+                    )
+                }
             }
         } header: {
             Text(lang("Select up to %count% wallets for notifications", arg1: "\(MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT)"))

@@ -1,5 +1,3 @@
-
-
 import UIKit
 import SwiftUI
 import WalletContext
@@ -8,14 +6,12 @@ import Dependencies
 import SwiftNavigation
 
 @Perceptible @propertyWrapper
-public class AccountViewModel {
-    
-    public let source: AccountSource
+public class AccountContext {
     
     private(set) public var account: MAccount = DUMMY_ACCOUNT
 
     public var wrappedValue: MAccount { account }
-    public var projectedValue: AccountViewModel { self }
+    public var projectedValue: AccountContext { self }
 
     @PerceptionIgnored
     public var onAccountDeleted: () -> () = { }
@@ -30,6 +26,8 @@ public class AccountViewModel {
     @Dependency(\.balanceStore) private var balanceStore
     @PerceptionIgnored
     @Dependency(\.stakingStore) private var stakingStore
+    @PerceptionIgnored
+    @Dependency(\.savedAddresses) private var savedAddressesStore
     
     private let accountIdProvider: AccountIdProvider
     @PerceptionIgnored
@@ -40,25 +38,40 @@ public class AccountViewModel {
     }
     
     public init(source: AccountSource) {
-        self.source = source
         self.accountIdProvider = AccountIdProvider(source: source)
         observeAccount = observe { [weak self] in
             guard let self else { return }
-            if let account = accountStore.accountsById[self.accountId] {
+            updateAccount()
+        }
+    }
+    
+    private func updateAccount() {
+        if case .constant(let account) = source {
                 self.account = account
-            } else {
-                onAccountDeleted()
-            }
+        } else if let account = accountStore.accountsById[self.accountId] {
+            self.account = account
+        } else {
+            // `account` property is not changed to keep UI stable during account deletion. Views can continue displaying the last valid account data while animation plays.
+            onAccountDeleted()
         }
     }
     
     public var accountId: String {
         get { accountIdProvider.accountId }
-        set { accountIdProvider.accountId = newValue }
+        set {
+            accountIdProvider.accountId = newValue
+            updateAccount()
+        }
+    }
+    public var source: AccountSource {
+        accountIdProvider.source
     }
 
     public var isCurrent: Bool {
         account.id == accountStore.currentAccountId
+    }
+    public var balanceData: MAccountBalanceData? {
+        balanceStore.accountBalanceData[accountId]
     }
     public var balance: BaseCurrencyAmount? {
         balanceStore.accountBalanceData[accountId]?.totalBalance
@@ -89,6 +102,25 @@ public class AccountViewModel {
             return StakingBadgeContent(isActive: true, yieldType: stakingState.yieldType, yieldValue: stakingState.apy)
         } else if !isStaking, stakingState.balance == 0 {
             return StakingBadgeContent(isActive: false, yieldType: stakingState.yieldType, yieldValue: stakingState.apy)
+        }
+        return nil
+    }
+    public var savedAddresses: SavedAddresses {
+        savedAddressesStore.for(accountId: accountId)
+    }
+    public func getLocalName(chain: ApiChain, address: String) -> String? {
+        let saved = savedAddresses.get(chain: chain, address: address)
+        if let saved {
+            return saved.name
+        }
+        let matchingAccount = accountStore.orderedAccounts.first { account in
+            if let info = account.byChain[chain.rawValue], info.address == address || info.domain == address {
+                return true
+            }
+            return false
+        }
+        if let matchingAccount {
+            return matchingAccount.displayName
         }
         return nil
     }

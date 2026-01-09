@@ -149,3 +149,7 @@ public extension UIViewController {
     }
     return nil
 }
+
+@MainActor public func endEditing() {
+    UIApplication.shared.anySceneKeyWindow?.endEditing(true)
+}

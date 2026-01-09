@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.walletcore.api
 import com.squareup.moshi.Types
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.moshi.ApiSubmitTransferResult
 import org.mytonwallet.app_air.walletcore.moshi.MStakeHistoryItem
 import org.mytonwallet.app_air.walletcore.moshi.MStakingStateResponse
 import org.mytonwallet.app_air.walletcore.moshi.StakingState
@@ -44,10 +45,10 @@ suspend fun WalletCore.submitStake(
     val stakingStateArgument = moshi.adapter(StakingState::class.java).toJson(stakingState)
     val args =
         "[$quotedAccountId,$quotedPasscode,\"bigint:$amount\",$stakingStateArgument,\"bigint:$realFee\"]"
-    bridge!!.callApiAsync<Any>(
+    bridge!!.callApiAsync<ApiSubmitTransferResult>(
         "submitStake",
         args,
-        Any::class.java
+        ApiSubmitTransferResult::class.java
     )
 }
 
@@ -64,9 +65,9 @@ suspend fun WalletCore.submitUnstake(
     val argumentStakingState = moshi.adapter(StakingState::class.java).toJson(stakingState)
     val args =
         "[$quotedAccountId,$quotedPasscode,\"bigint:${unstakeDraft.tokenAmount}\",$argumentStakingState,\"bigint:$realFee\"]"
-    bridge!!.callApiAsync<Any>(
+    bridge!!.callApiAsync<ApiSubmitTransferResult>(
         "submitUnstake",
         args,
-        Any::class.java
+        ApiSubmitTransferResult::class.java
     )
 }

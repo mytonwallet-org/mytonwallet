@@ -17,6 +17,7 @@ import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.commonViews.AddressInputLayout
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.getLocationInWindow
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -27,6 +28,9 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.vec2i
+import org.mytonwallet.app_air.walletbasecontext.utils.x
+import org.mytonwallet.app_air.walletbasecontext.utils.y
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.models.MSavedAddress
@@ -171,15 +175,13 @@ class WAutoCompleteView(
 
     private fun updateLayout() {
         val input = attachedInput?.get() ?: return
-        val inputLocationInWindow = IntArray(2)
-        input.getLocationInWindow(inputLocationInWindow)
-        val inputBottomInWindow = inputLocationInWindow[1] + input.height + 8f.dp
+        val inputLocationInWindow = input.getLocationInWindow()
+        val inputBottomInWindow = inputLocationInWindow.y + input.height + 8f.dp
 
-        val parentLocation = IntArray(2)
-        (parent as? ViewGroup)?.getLocationInWindow(parentLocation)
+        val parentLocation = (parent as? ViewGroup)?.getLocationInWindow() ?: vec2i()
 
-        x = (inputLocationInWindow[0] - parentLocation[0]).toFloat()
-        y = inputBottomInWindow - parentLocation[1]
+        x = (inputLocationInWindow.x - parentLocation.x).toFloat()
+        y = inputBottomInWindow - parentLocation.y
 
         layoutParams = (layoutParams as? LayoutParams)?.apply {
             val allowedHeight =

@@ -12,11 +12,11 @@ import Dependencies
 struct HomeCardBackground: View {
     
     var headerViewModel: HomeHeaderViewModel
-    var accountViewModel: AccountViewModel
+    var accountContext: AccountContext
     
     var body: some View {
         WithPerceptionTracking {
-            _StaticBackground(viewModel: accountViewModel)
+            _StaticBackground(accountContext: accountContext)
                 .opacity(headerViewModel.isCardHidden ? 0 : 1)
         }
     }
@@ -24,11 +24,11 @@ struct HomeCardBackground: View {
 
 private struct _StaticBackground: View {
     
-    let viewModel: AccountViewModel
+    let accountContext: AccountContext
     
     var body: some View {
         WithPerceptionTracking {
-            MtwCardBackground(nft: viewModel.nft, hideBorder: false)
+            MtwCardBackground(nft: accountContext.nft, hideBorder: false)
                 .aspectRatio(1/CARD_RATIO, contentMode: .fit)
                 .clipShape(.rect(cornerRadius: 26))
                 .containerShape(.rect(cornerRadius: 26))

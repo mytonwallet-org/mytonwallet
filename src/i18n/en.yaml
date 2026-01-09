@@ -196,7 +196,7 @@ Save Address: Save Address
 Name: Name
 Save: Save
 Copy: Copy
-Remove From Saved: Remove From Saved
+Remove from Saved: Remove from Saved
 View on Explorer: View on Explorer
 No suggestions, you're on your own!: No suggestions, you're on your own!
 Play Sounds: Play Sounds
@@ -942,6 +942,7 @@ Security Warning: Security Warning
 Go back to Words: Go back to Words
 I’m sure. Continue: I’m sure. Continue
 $copy_mnemonic_warning: Storing words in a digital environment, including the **clipboard**, is not safe. Make sure you have your recovery phrase securely saved.
+$screenshot_mnemonic_warning: Storing words in a digital environment, including the **screenshot**, is not safe. Make sure you have your recovery phrase securely saved.
 Other apps will be able to read your recovery phrase!: Other apps will be able to read your recovery phrase!
 I’m sure. Copy anyway: I’m sure. Copy anyway
 $auth_biometric_info: You can connect your biometric data for **more convenience.**
@@ -1010,3 +1011,4 @@ Wallet to use on %host%: Wallet to use on %host%
 Selected Wallet: Selected Wallet
 Connect Wallet: Connect Wallet
 Insufficient Fee: Insufficient Fee
+$saved_addresses_header: Saved

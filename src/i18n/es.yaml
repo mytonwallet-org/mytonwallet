@@ -202,7 +202,7 @@ Save Address: Guardar dirección
 Name: Nombre
 Save: Guardar
 Copy: Copiar
-Remove From Saved: Eliminar de guardados
+Remove from Saved: Eliminar de guardados
 View on Explorer: Ver en el explorador
 No suggestions, you're on your own!: Sin sugerencias, ¡estás solo!
 Play Sounds: Reproducir sonidos
@@ -953,6 +953,7 @@ Security Warning: Advertencia de seguridad
 Go back to Words: Volver a palabras
 I’m sure. Continue: Estoy seguro. Continuar
 $copy_mnemonic_warning: Almacenar palabras en un entorno digital, incluido el **portapapeles**, no es seguro. Asegúrate de tener tu frase de recuperación guardada de forma segura.
+$screenshot_mnemonic_warning: Almacenar palabras en un entorno digital, incluida la **captura de pantalla**, no es seguro. Asegúrate de tener tu frase de recuperación guardada de forma segura.
 Other apps will be able to read your recovery phrase!: ¡Otras aplicaciones podrán leer tu frase de recuperación!
 I’m sure. Copy anyway: Estoy seguro. Copiar de todos modos
 $auth_biometric_info: Puedes conectar tus datos biométricos para **mayor comodidad.**
@@ -1021,3 +1022,4 @@ Wallet to use on %host%: Billetera para %host%
 Selected Wallet: Billetera seleccionada
 Connect Wallet: Conectar billetera
 Insufficient Fee: Comisión insuficiente
+$saved_addresses_header: Guardado

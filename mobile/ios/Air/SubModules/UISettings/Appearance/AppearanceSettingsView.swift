@@ -55,4 +55,3 @@ struct AppearanceSettingsView: View {
         }
     }
 }
-

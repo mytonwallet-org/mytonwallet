@@ -23,7 +23,7 @@ private let log = Log("DeleteAccount")
                         try await AccountStore.resetAccounts()
                     } else {
                         let nextAccount = isCurrentAccount ? AccountStore.accountsById.keys.first(where: { $0 != removingAccountId }) : AccountStore.accountId
-                        let _ = try await AccountStore.removeAccount(accountId: removingAccountId, nextAccountId: nextAccount!)
+                        _ = try await AccountStore.removeAccount(accountId: removingAccountId, nextAccountId: nextAccount!)
                     }
                 } catch {
                     AppActions.showError(error: error)

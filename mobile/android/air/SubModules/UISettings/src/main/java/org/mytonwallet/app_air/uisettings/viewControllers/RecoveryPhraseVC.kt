@@ -89,14 +89,11 @@ open class RecoveryPhraseVC(context: Context, private val words: Array<String>) 
         setTextColor(WColor.Red)
     }
 
-    private fun warningText(relatedTo: String): SpannableStringBuilder {
+    private fun warningText(key: String): SpannableStringBuilder {
         return SpannableStringBuilder().apply {
             append(
-                LocaleController.getFormattedString(
-                    "\$secret_words_warning", listOf(
-                        relatedTo
-                    )
-                ).toProcessedSpannableStringBuilder()
+                LocaleController.getString(key)
+                    .toProcessedSpannableStringBuilder()
             )
             append("\n\n")
             val redWarningStart = length
@@ -122,7 +119,7 @@ open class RecoveryPhraseVC(context: Context, private val words: Array<String>) 
         setOnClickListener {
             showAlert(
                 title = LocaleController.getString("Security Warning"),
-                text = warningText(LocaleController.getString("clipboard")),
+                text = warningText("\$copy_mnemonic_warning"),
                 button = LocaleController.getString("Copy Anyway"),
                 buttonPressed = {
                     val clipboard =
@@ -276,7 +273,7 @@ open class RecoveryPhraseVC(context: Context, private val words: Array<String>) 
         view.post {
             showAlert(
                 title = LocaleController.getString("Security Warning"),
-                text = warningText(LocaleController.getString("screenshot")),
+                text = warningText("\$screenshot_mnemonic_warning"),
                 button = LocaleController.getString("See Words"),
             )
         }

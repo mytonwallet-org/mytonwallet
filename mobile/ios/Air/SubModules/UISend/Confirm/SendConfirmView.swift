@@ -87,7 +87,7 @@ fileprivate struct AddressCellView: View {
             .contentShape(.rect)
             .menuSource(menuContext: menuContext)
             .task {
-                menuContext.makeConfig = makeTappableAddressMenu(displayName: nil, chain: model.token.chain, address: model.resolvedAddress ?? model.addressOrDomain)
+                menuContext.makeConfig = makeTappableAddressMenu(accountContext: model.$account, displayName: nil, chain: model.token.chain, address: model.addressOrDomain)
             }
         }
     }

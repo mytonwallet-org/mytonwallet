@@ -80,8 +80,13 @@ public enum ApiTransactionStatus: String, Equatable, Codable, Hashable, Sendable
 }
 
 public extension ApiTransactionActivity {
+    
+    var peerAddress: String? {
+        isIncoming ? fromAddress : toAddress
+    }
+    
     var addressToShow: String {
-        metadata?.name ?? (isIncoming ? fromAddress : toAddress) ?? ""
+        metadata?.name ?? peerAddress ?? ""
     }
 }
 

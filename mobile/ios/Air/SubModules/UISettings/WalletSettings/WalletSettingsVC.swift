@@ -153,10 +153,6 @@ public final class WalletSettingsVC: WViewController, WSegmentedController.Deleg
         }
     }
     
-    public override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-    }
-    
     func makeLeadingBarItem() {
         if viewModel.isReordering {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {

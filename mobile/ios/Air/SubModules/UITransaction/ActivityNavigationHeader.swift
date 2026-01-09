@@ -39,7 +39,7 @@ struct ActivityNavigationHeader: View {
                 return .refunded
             } else if swap.cex?.status == .failed || swap.status == .failed || swap.status == .expired {
                 return .failed
-            } else if swap.cex?.status == .waiting && !getShouldSkipSwapWaitingStatus(activity: viewModel.activity, accountChains: viewModel.accountViewModel.account.supportedChains) {
+            } else if swap.cex?.status == .waiting && !getShouldSkipSwapWaitingStatus(activity: viewModel.activity, accountChains: viewModel.accountContext.account.supportedChains) {
                 return .waitingForPayment
             }
         }

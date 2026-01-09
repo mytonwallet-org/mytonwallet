@@ -45,6 +45,7 @@ class WNavigationController(
 
     interface ITabBarController {
         val navigationController: WNavigationController?
+        val pausedBlurViews: Boolean
         fun getBottomNavigationHeight(): Int
         fun minimize(
             nav: WNavigationController,

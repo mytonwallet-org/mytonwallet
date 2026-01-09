@@ -55,6 +55,7 @@ You have no NFT in this wallet yet: |
   У вас пока нет NFT в
   этом кошельке.
 Collapse: Свернуть
+Expand: Развернуть
 Standalone NFT: Отдельный NFT
 Linked Address: Связанный адрес
 Enter Address: Введите адрес
@@ -225,8 +226,6 @@ Wear: Надеть
 Your Address: Ваш адрес
 Passcodes don't match. Please try again.: Пароли не совпадают. Повторите попытку.
 Secret phrase was copied to clipboard: Секретная фраза скопирована
-clipboard: буфер обмена
-screenshot: скриншот
 Copy Anyway: Скопировать
 12 Words: 12 слов
 24 Words: 24 слова
@@ -299,4 +298,3 @@ Receive: Получить
 Scan: Сканировать
 Search or enter address: Найдите или введите адрес
 View as Grid: Показать в виде сетки
-$secret_words_warning: Хранение слов в цифровой среде, включая **%1$d**, не безопасно. Убедитесь, что у вас есть безопасно сохранённая фраза восстановления.

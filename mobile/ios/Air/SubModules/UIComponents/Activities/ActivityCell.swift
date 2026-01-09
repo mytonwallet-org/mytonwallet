@@ -3,7 +3,28 @@ import Kingfisher
 import UIKit
 import WalletContext
 import WalletCore
+import Perception
+import Dependencies
+import SwiftNavigation
 
+@Perceptible
+public class ActivityCellViewModel {
+    
+    @PerceptionIgnored
+    var activity: ApiActivity
+    
+    @PerceptionIgnored
+    var tokenStore: _TokenStore
+    @PerceptionIgnored
+    @AccountContext var account: MAccount
+    
+    init(accountId: String?, activity: ApiActivity) {
+        @Dependency(\.tokenStore) var tokenStore
+        self.tokenStore = tokenStore
+        self._account = AccountContext(accountId: accountId)
+        self.activity = activity
+    }
+}
 
 public class ActivityCell: WHighlightCell {
 
@@ -59,6 +80,10 @@ public class ActivityCell: WHighlightCell {
     var activity: ApiActivity?
     var trackedValue: Double?
 
+    var viewModel: ActivityCellViewModel!
+    
+    var observeAccountAndActivity: ObserveToken?
+    
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         setupViews()
@@ -245,7 +270,7 @@ public class ActivityCell: WHighlightCell {
     
     // MARK: - Configure
     
-    public func configure(with activity: ApiActivity, delegate: Delegate, shouldFadeOutSkeleton: Bool) {
+    public func configure(with activity: ApiActivity, accountContext: AccountContext, delegate: Delegate, shouldFadeOutSkeleton: Bool) {
         
         if shouldFadeOutSkeleton {
             skeletonView?.layer.maskedCorners = contentView.layer.maskedCorners
@@ -260,10 +285,12 @@ public class ActivityCell: WHighlightCell {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         
+        self.configureViewModel(accountId: accountContext.accountId, activity: activity)
+        
         iconView.config(with: activity)
         
         configureTitle(activity: activity)
-        configureDetails(activity: activity)
+        configureDetails(activity: activity, accountContext: accountContext)
         configureAmount(activity: activity)
         configureAmount2(activity: activity)
         configureSensitiveData(activity: activity)
@@ -280,12 +307,31 @@ public class ActivityCell: WHighlightCell {
         CATransaction.commit()
     }
     
+    func configureViewModel(accountId: String, activity: ApiActivity) {
+        if viewModel == nil {
+            viewModel = ActivityCellViewModel(accountId: accountId, activity: activity)
+            observeAccountAndActivity = observe { [weak self] in
+                guard let self else { return }
+                let activity = viewModel.activity
+                if let chain = getChainBySlug(activity.slug), let peerAddress = activity.peerAddress {
+                    _ = viewModel.$account.getLocalName(chain: chain, address: peerAddress)
+                }
+                configureDetails(activity: activity, accountContext: viewModel.$account)
+                configureAmount(activity: activity)
+                configureAmount2(activity: activity)
+            }
+        } else {
+            viewModel.$account.accountId = accountId
+            viewModel.activity = activity
+        }
+    }
+    
     public func updateToken() {
         if let activity {
             if (!amountIcon1.isHidden && amountIcon1.imageView.image == nil) || (!amountIcon2.isHidden && amountIcon2.imageView.image == nil) {
                 configureAmount(activity: activity)
             }
-            if !amount2Label.isHidden, case .transaction(let tx) = activity, let token = TokenStore.tokens[tx.slug], token.price != self.trackedValue {
+            if !amount2Label.isHidden, case .transaction(let tx) = activity, let token = viewModel.tokenStore[tx.slug], token.price != self.trackedValue {
                 configureAmount2(activity: activity)
             }
         }
@@ -308,7 +354,7 @@ public class ActivityCell: WHighlightCell {
         }
     }
     
-    func configureDetails(activity: ApiActivity, isEmulation: Bool = false) {
+    func configureDetails(activity: ApiActivity, accountContext: AccountContext, isEmulation: Bool = false) {
         
         let attr = NSMutableAttributedString()
         
@@ -327,22 +373,24 @@ public class ActivityCell: WHighlightCell {
                 } else {
                     attr.append(NSAttributedString(string: lang("$transaction_to", arg1: "")))
                 }
-                if AccountStore.account?.isMultichain == true, let chain = getChainBySlug(activity.slug) {
+                if accountContext.account.isMultichain, let chain = getChainBySlug(activity.slug) {
                     let image = NSTextAttachment(image: .airBundle("ActivityAddress-\(chain)"))
                     image.bounds = .init(x: 0, y: -1.5, width: 13, height: 13)
                     attr.append(NSAttributedString(attachment: image))
                 }
                 let address: String
-                if transaction.metadata?.name != nil {
-                    address = activity.addressToShow
+                let peerAddress = transaction.peerAddress
+                if let peerAddress, let chain = getChainBySlug(transaction.slug), let localName = viewModel.$account.getLocalName(chain: chain, address: peerAddress) {
+                    address = localName
+                } else if let name = transaction.metadata?.name {
+                    address = name
                 } else {
-                    let len = 4
-                    address = formatStartEndAddress(activity.addressToShow, prefix: len, suffix: len)
+                    address = formatStartEndAddress(peerAddress ?? "", prefix: 4, suffix: 4)
                 }
                 attr.append(NSAttributedString(string: address, attributes: [
                     .font: UIFont.systemFont(ofSize: 14, weight: .semibold)
                 ]))
-            } else if activity.shouldShowTransactionAnnualYield, let stakingState = StakingStore.currentAccount?.bySlug(activity.slug) {
+            } else if activity.shouldShowTransactionAnnualYield, let stakingState = accountContext.stakingData?.bySlug(activity.slug) {
                 if !attr.string.isEmpty {
                     attr.append(NSAttributedString(string: " · "))
                 }
@@ -394,7 +442,7 @@ public class ActivityCell: WHighlightCell {
 
         switch activity {
         case .transaction(let transaction):
-            if displayMode != .hide, let token = TokenStore.tokens[transaction.slug] {
+            if displayMode != .hide, let token = viewModel.tokenStore[transaction.slug] {
                 let amount = TokenAmount(transaction.amount, token)
                 let color: UIColor = transaction.type == .stake ? .air.textPurple : transaction.isIncoming ? WTheme.positiveAmount : WTheme.primaryLabel
                 let amountString = amount.formatAttributed(
@@ -485,8 +533,8 @@ public class ActivityCell: WHighlightCell {
         
         switch activity {
         case .transaction(let transaction):
-            if displayMode != .hide, let token = TokenStore.tokens[transaction.slug], let price = token.price {
-                let amount: BaseCurrencyAmount = TokenAmount(transaction.amount, token).convertTo(TokenStore.baseCurrency, exchangeRate: price)
+            if displayMode != .hide, let token = viewModel.tokenStore[transaction.slug], let price = token.price {
+                let amount: BaseCurrencyAmount = TokenAmount(transaction.amount, token).convertTo(viewModel.tokenStore.baseCurrency, exchangeRate: price)
                 let color = WTheme.secondaryLabel
                 let amountString = amount.formatAttributed(
                     format: .init(

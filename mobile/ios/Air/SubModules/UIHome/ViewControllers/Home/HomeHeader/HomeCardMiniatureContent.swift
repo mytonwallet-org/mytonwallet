@@ -12,7 +12,7 @@ import Dependencies
 struct HomeCardMiniatureContent: View {
     
     var headerViewModel: HomeHeaderViewModel
-    var accountViewModel: AccountViewModel
+    var accountContext: AccountContext
     
     var body: some View {
         WithPerceptionTracking {
@@ -20,7 +20,7 @@ struct HomeCardMiniatureContent: View {
                 .overlay(alignment: .bottom) {
                     MtwCardMiniPlaceholders()
                         .sourceAtop {
-                            MtwCardInverseCenteredGradient(nft: accountViewModel.nft)
+                            MtwCardInverseCenteredGradient(nft: accountContext.nft)
                         }
                         .padding(.bottom, 18)
                         .scaleEffect(itemWidth/34)

@@ -6,27 +6,21 @@
 //
 
 import UIKit
-import SwiftUI
 import WalletContext
-
 
 public enum WButtonStyle {
     case primary
     case secondary
     case clearBackground
-    case accent
-    case none
 }
 
 public class WButton: WBaseButton, WThemedView {
 
-    public static let defaultHeight = CGFloat(50.0)
-    public static let defaultHeightAccent = CGFloat(60.0)
-    static let _borderRadius = 12.0
+    public static let defaultHeight: CGFloat = 50
+    static let borderRadius: CGFloat = 12
     public static let font = UIFont.systemFont(ofSize: 17, weight: .semibold)
-    static let _accentFont = UIFont.systemFont(ofSize: 12, weight: .regular)
 
-    private(set) public var style = WButtonStyle.primary
+    public private(set) var style = WButtonStyle.primary
 
     public convenience init(style: WButtonStyle = .primary) {
         self.init(type: .system)
@@ -35,40 +29,20 @@ public class WButton: WBaseButton, WThemedView {
     }
     
     private func setup() {
-        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *), style != .accent {
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
             configuration = style == .primary ? .prominentGlass() : .glass()
         } else {
             // disable default styling of iOS 15+ to prevent tint/font set conflict issues
             // setting configuration to .none on interface builder makes text disappear
             configuration = .none
-            
-            // set corner radius
-            layer.cornerRadius = Self._borderRadius
-            // set height anchor as default value
+            layer.cornerRadius = Self.borderRadius
         }
-        let _height: CGFloat
-        switch style {
-        case .accent:
-            _height = WButton.defaultHeightAccent
-            break
-        default:
-            _height = WButton.defaultHeight
-            break
-        }
-        let heightConstraint = heightAnchor.constraint(
-            equalToConstant: _height
-        )
+
+        let heightConstraint = heightAnchor.constraint(equalToConstant: Self.defaultHeight)
         heightConstraint.priority = UILayoutPriority(800)
         heightConstraint.isActive = true
-        // set font
-        switch style {
-        case .accent:
-            titleLabel?.font = Self._accentFont
-        default:
-            titleLabel?.font = Self.font
-        }
-    
-        // set theme colors
+
+        titleLabel?.font = Self.font
         updateTheme()
     }
     
@@ -81,99 +55,22 @@ public class WButton: WBaseButton, WThemedView {
     }
     
     public func updateTheme() {
-        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *), style != .accent {
+        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
             tintColor = WTheme.tint
         } else {
             switch style {
             case .primary:
-                if !forcedBackgroundColor {
-                    super.backgroundColor = isEnabled ? WTheme.primaryButton.background : WTheme.primaryButton.disabledBackground
-                }
-                if !forcedTintColor {
-                    super.tintColor = isEnabled ? primaryButtonTint : WTheme.primaryButton.disabledTint
-                }
-                
+                backgroundColor = isEnabled ? WTheme.primaryButton.background : WTheme.primaryButton.disabledBackground
+                tintColor = isEnabled ? primaryButtonTint : WTheme.primaryButton.disabledTint
+
             case .secondary:
-                if !forcedBackgroundColor {
-                    super.backgroundColor = isEnabled ? WTheme.tint.withAlphaComponent(0.15) : .clear
-                }
-                if !forcedTintColor {
-                    super.tintColor = isEnabled ? WTheme.tint : WTheme.tint.withAlphaComponent(0.5)
-                }
-                
+                backgroundColor = isEnabled ? WTheme.tint.withAlphaComponent(0.15) : .clear
+                tintColor = isEnabled ? WTheme.tint : WTheme.tint.withAlphaComponent(0.5)
+
             case .clearBackground:
-                super.backgroundColor = .clear
-                if !forcedTintColor {
-                    super.tintColor = isEnabled ? WTheme.tint : WTheme.tint.withAlphaComponent(0.5)
-                }
-                
-            case .accent:
-                if !forcedBackgroundColor {
-                    super.backgroundColor = WTheme.accentButton.background
-                }
-                if !forcedTintColor {
-                    super.tintColor = WTheme.accentButton.tint
-                }
-                
-            default:
-                break
+                backgroundColor = .clear
+                tintColor = isEnabled ? WTheme.tint : WTheme.tint.withAlphaComponent(0.5)
             }
-        }
-    }
-    
-    var forcedTintColor: Bool = false
-    public override var tintColor: UIColor! {
-        get {
-            return super.tintColor
-        }
-        set {
-            forcedTintColor = true
-            super.tintColor = newValue
-        }
-    }
-    
-    var forcedBackgroundColor: Bool = false
-    public override var backgroundColor: UIColor? {
-        get {
-            return super.backgroundColor
-        }
-        set {
-            forcedBackgroundColor = true
-            super.backgroundColor = newValue
-        }
-    }
-
-    // used to place a gap between the image and text
-    public func centerTextAndImage(spacing: CGFloat) {
-        switch style {
-        case .primary, .secondary, .clearBackground, .none:
-            let insetAmount = spacing / 2
-           imageEdgeInsets = UIEdgeInsets(top: 0, left: -insetAmount, bottom: 0, right: insetAmount)
-           titleEdgeInsets = UIEdgeInsets(top: 0, left: insetAmount, bottom: 0, right: -insetAmount)
-           contentEdgeInsets = UIEdgeInsets(top: 0, left: insetAmount, bottom: 0, right: insetAmount)
-
-        case .accent:
-            guard let imageSize = self.imageView?.image?.size,
-                        let text = self.titleLabel?.text,
-                        let font = self.titleLabel?.font
-                        else { return }
-            let labelString = NSString(string: text)
-            let titleSize = labelString.size(withAttributes: [.font: font])
-            self.titleEdgeInsets = UIEdgeInsets(top: 0,
-                                                left: -imageSize.width,
-                                                bottom: -(imageSize.height + spacing),
-                                                right: 0)
-
-            self.imageEdgeInsets = UIEdgeInsets(top: -(titleSize.height + spacing),
-                                                    left: 0,
-                                                    bottom: 0,
-                                                    right: -titleSize.width)
-            
-            let edgeOffset = abs(titleSize.height - imageSize.height) / 2.0;
-            self.contentEdgeInsets = UIEdgeInsets(top: edgeOffset,
-                                                  left: 0,
-                                                  bottom: edgeOffset,
-                                                  right: 0)
         }
     }
 
@@ -184,25 +81,31 @@ public class WButton: WBaseButton, WThemedView {
     }
     
     // MARK: - Loading View
-    private var loadingView: WActivityIndicator? = nil
+
+    private var loadingView: WActivityIndicator?
+
     public var showLoading: Bool = false {
         didSet {
             if showLoading {
-                if loadingView == nil {
-                    loadingView = WActivityIndicator()
-                    loadingView!.translatesAutoresizingMaskIntoConstraints = false
-                    loadingView?.tintColor = style == .secondary ? WTheme.primaryButton.background :  .white
-                    addSubview(loadingView!)
-                    NSLayoutConstraint.activate([
-                        loadingView!.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-                        loadingView!.centerYAnchor.constraint(equalTo: centerYAnchor)
-                    ])
-                }
-                loadingView?.startAnimating(animated: true)
+                let indicator = loadingView ?? createLoadingView()
+                indicator.startAnimating(animated: true)
             } else {
                 loadingView?.stopAnimating(animated: true)
             }
         }
+    }
+
+    private func createLoadingView() -> WActivityIndicator {
+        let indicator = WActivityIndicator()
+        indicator.translatesAutoresizingMaskIntoConstraints = false
+        indicator.tintColor = style == .secondary ? WTheme.primaryButton.background : .white
+        addSubview(indicator)
+        NSLayoutConstraint.activate([
+            indicator.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            indicator.centerYAnchor.constraint(equalTo: centerYAnchor)
+        ])
+        loadingView = indicator
+        return indicator
     }
     
     public func apply(config: WButtonConfig) {

@@ -5,6 +5,8 @@ import WalletCore
 import WalletContext
 import UIComponents
 
+private let featuredDappCornerRadius: CGFloat = IOS_26_MODE_ENABLED ? 22 : 14
+
 struct FeaturedDappCell: View {
     
     var item: ApiSite
@@ -39,11 +41,11 @@ struct FeaturedDappCell: View {
         .contentShape(.containerRelative)
         .highlightOverlay(isHighlighted)
         .clipShape(.containerRelative)
-        .containerShape(.rect(cornerRadius: S.featuredDappCornerRadius))
+        .containerShape(.rect(cornerRadius: featuredDappCornerRadius))
         .overlay {
             if item.withBorder == true {
-                RoundedRectangle(cornerRadius: S.featuredDappCornerRadius)
-                    .stroke(Color(WTheme.tint), lineWidth: 2)
+                RoundedRectangle(cornerRadius: featuredDappCornerRadius)
+                    .stroke(badgeShapeStyle, lineWidth: 2)
             }
         }
         .overlay(alignment: .topTrailing) {
@@ -53,56 +55,57 @@ struct FeaturedDappCell: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 4)
                     .padding(.vertical, 2)
-                    .background(Color(WTheme.tint), in: .rect(cornerRadius: 6))
+                    .frame(minHeight: 18)
+                    .background(badgeShapeStyle, in: .rect(cornerRadius: 6))
                     .padding(.top, -6)
                     .padding(.trailing, 20)
             }
         }
     }
     
+    private var badgeShapeStyle: AnyShapeStyle {
+        guard let colors = item.borderColor, !colors.isEmpty else {
+            return AnyShapeStyle(.tint)
+        }
+        let mappedColors = colors.map { Color(UIColor(hex: $0)) }
+        let gradientColors = mappedColors.count == 1 ? [mappedColors[0], mappedColors[0]] : mappedColors
+        return AnyShapeStyle(LinearGradient(colors: gradientColors, startPoint: .trailing, endPoint: .leading))
+    }
+    
     @ViewBuilder
     var overlayContent: some View {
         VStack(alignment: .leading, spacing: 12) {
-//            titleLabels
             openSection
         }
         .environment(\.colorScheme, .light)
     }
     
     @ViewBuilder
-    var titleLabels: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if let kicker = item.test_kicker {
-                Text(kicker)
-                    .textCase(.uppercase)
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(Material.thin)
-            }
-            Text(item.test_shortTitle)
-                .font(.system(size: 29, weight: .bold))
-                .foregroundStyle(.white)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 20)
-    }
-    
-    @ViewBuilder
     var openSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 0) {
-                KFImage(URL(string: item.icon))
-                    .resizable()
-                    .loadDiskFileSynchronously(false)
-                    .aspectRatio(1, contentMode: .fill)
-                    .frame(width: 48, height: 48)
-                    .clipShape(.rect(cornerRadius: 11))
-                    .padding(.trailing, 10)
+                if false {
+                    KFImage(URL(string: item.icon))
+                        .resizable()
+                        .loadDiskFileSynchronously(false)
+                        .aspectRatio(1, contentMode: .fill)
+                        .frame(width: 48, height: 48)
+                        .clipShape(.rect(cornerRadius: 11))
+                        .padding(.trailing, 10)
+                }
                 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(item.name)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(2)
+                    HStack(alignment: .firstTextBaseline, spacing: 5) {
+                        Text(item.name)
+                            .lineLimit(2)
+                        if item.isVerified == true {
+                            Image(systemName: "checkmark.seal.fill")
+                                .imageScale(.small)
+                                .foregroundStyle(.blue)
+                        }
+                    }
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.white)
                     Text(item.description)
                         .font(.system(size: 13, weight: .regular))
                         .foregroundStyle(Material.thin)

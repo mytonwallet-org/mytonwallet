@@ -26,17 +26,11 @@ public final class _BalanceStore {
     public func getAccountBalances(accountId: String) -> [String: BigInt] {
         balances[accountId] ?? [:]
     }
-    public var currentAccountBalances: [String: BigInt] {
-        getAccountBalances(accountId: AccountStore.accountId ?? "")
-    }
 
     private let _accountBalanceData: UnfairLock<[String: MAccountBalanceData]> = .init(initialState: [:])
     public var accountBalanceData: [String: MAccountBalanceData] {
         access(keyPath: \._accountBalanceData)
         return _accountBalanceData.withLock { $0 }
-    }
-    public var currentAccountBalanceData: MAccountBalanceData? {
-        _accountBalanceData.withLock { $0[AccountStore.accountId ?? ""] }
     }
 
     private let _balancesEventCalledOnce: UnfairLock<[String: Bool]> = .init(initialState: [:])

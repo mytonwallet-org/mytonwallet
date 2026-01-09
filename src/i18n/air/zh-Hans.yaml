@@ -56,6 +56,7 @@ You have no NFT in this wallet yet: |
   你在这个钱包里
   还没有 NFT。
 Collapse: 收起
+Expand: 展开
 Standalone NFT: 独立 NFT
 Linked Address: 已绑定地址
 Enter Address: 输入地址
@@ -221,8 +222,6 @@ Wear: 应用
 Your Address: 你的地址
 Passcodes don't match. Please try again.: 密码不一致，请重试。
 Secret phrase was copied to clipboard: 恢复助记词已复制到剪贴板
-clipboard: 剪贴板
-screenshot: 屏幕截图
 Copy Anyway: 仍要复制
 12 Words: 12 个单词
 24 Words: 24 个单词
@@ -294,5 +293,3 @@ Receive: 接收
 Scan: 扫描
 Search or enter address: 搜索或输入地址
 View as Grid: 网格视图
-$secret_words_warning: 在数字环境中存储助记词（包括 **%1$d**）并不安全。务必确保你已妥善保管恢复助记词。
-

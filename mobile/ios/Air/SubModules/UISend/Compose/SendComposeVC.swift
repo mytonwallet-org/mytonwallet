@@ -18,9 +18,9 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
     let model: SendModel
     var hostingController: UIHostingController<SendComposeView>?
     var continueButtonConstraint: NSLayoutConstraint?
+    var continueButtonFallbackConstraint: NSLayoutConstraint?
     
     private var continueButton: WButton { self.bottomButton! }
-    private var startWithKeyboardActive: Bool { model.addressOrDomain.isEmpty }
     
     public init(model: SendModel) {
         self.model = model
@@ -34,7 +34,6 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
     public override func viewDidLoad() {
         super.viewDidLoad()
         setupViews()
-        WKeyboardObserver.observeKeyboard(delegate: self)
         observe { [weak self] in
             guard let self else { return }
             let (canContinue, insufficientFunds, draftStatus, isAddressLoading) = model.continueState
@@ -46,7 +45,7 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
                 continueButton.isEnabled = canContinue
                 
                 let title: String = if draftStatus.status == .invalid,
-                                       draftStatus.address == model.addressOrDomain, !model.addressOrDomain.isEmpty {
+                                       draftStatus.transactionDraft?.resolvedAddress == model.addressOrDomain, !model.addressOrDomain.isEmpty {
                     lang("Invalid address")
                 } else if insufficientFunds {
                     lang("Insufficient Balance")
@@ -60,6 +59,20 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
                 if continueButton.title(for: .normal) != title {
                     continueButton.setTitle(title, for: .normal)
                 }
+            }
+        }
+        observe { [weak self] in
+            guard let self else { return }
+            navigationItem.setLeftBarButtonItems(model.addressInput.isFocused ? [
+                UIBarButtonItem(title: "", image: UIImage(systemName: "chevron.backward"), primaryAction: UIAction { _ in endEditing() })
+            ] : nil, animated: true)
+        }
+        observe { [weak self] in
+            guard let self else { return }
+            let canContinue = model.canContinue
+            UIView.animate(withDuration: 0.3) {
+                self.continueButtonConstraint?.isActive = canContinue
+                self.view.layoutIfNeeded()
             }
         }
     }
@@ -89,10 +102,16 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
         continueButton.isEnabled = model.canContinue
         continueButton.addTarget(self, action: #selector(continuePressed), for: .touchUpInside)
         
-        let c = startWithKeyboardActive ? -max(WKeyboardObserver.keyboardHeight, 291) + 50 : -34
-        let constraint = continueButton.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -16 + c)
-        constraint.isActive = true
+        let constraint = continueButton.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor, constant: -16)
         self.continueButtonConstraint = constraint
+
+        let constraint2 = continueButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16).withPriority(.defaultHigh)
+        self.continueButtonFallbackConstraint = constraint2
+
+        NSLayoutConstraint.activate([
+            constraint,
+            constraint2,
+        ])
         
         updateTheme()
         
@@ -135,7 +154,7 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
     }
     
     func _onContinue() {
-        topViewController()?.view.endEditing(true)
+        endEditing()
         let vc = SendConfirmVC(model: model)
         navigationController?.pushViewController(vc, animated: true)
     }
@@ -149,22 +168,11 @@ class SendComposeVC: WViewController, WSensitiveDataProtocol {
 }
 
 
-extension SendComposeVC: WKeyboardObserverDelegate {
-    public func keyboardWillShow(info: WKeyboardDisplayInfo) {
-        UIView.animate(withDuration: info.animationDuration) { [self] in
-            if let continueButtonConstraint {
-                continueButtonConstraint.constant = -info.height - 16
-                view.layoutIfNeeded()
-            }
-        }
-    }
-    
-    public func keyboardWillHide(info: WKeyboardDisplayInfo) {
-        UIView.animate(withDuration: info.animationDuration) { [self] in
-            if let continueButtonConstraint {
-                continueButtonConstraint.constant =  -view.safeAreaInsets.bottom - 16
-                view.layoutIfNeeded()
-            }
-        }
-    }
+
+#if DEBUG
+@available(iOS 18, *)
+#Preview {
+    let vc = SendComposeVC(model: SendModel())
+    previewSheet(vc)
 }
+#endif

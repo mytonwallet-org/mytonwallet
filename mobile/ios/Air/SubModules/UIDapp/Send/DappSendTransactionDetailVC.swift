@@ -9,9 +9,11 @@ import WalletContext
 
 class DappSendTransactionDetailVC: WViewController {
     
+    let accountContext: AccountContext
     private let message: ApiDappTransfer
     
-    init(message: ApiDappTransfer) {
+    init(accountContext: AccountContext, message: ApiDappTransfer) {
+        self.accountContext = accountContext
         self.message = message
         super.init(nibName: nil, bundle: nil)
     }
@@ -29,6 +31,7 @@ class DappSendTransactionDetailVC: WViewController {
     
     func makeView() -> DappSendTransactionDetailView {
         return DappSendTransactionDetailView(
+            accountContext: accountContext,
             message: message,
         )
     }

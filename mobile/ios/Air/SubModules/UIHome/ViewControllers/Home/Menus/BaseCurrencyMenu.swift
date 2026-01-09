@@ -38,7 +38,7 @@ func makeBaseCurrencyMenuConfig(accountId: String) -> () -> MenuConfig {
                                     Text(bc.name)
                                         .font(.system(size: 17))
                                         .lineLimit(1)
-                                    Text(amount.formatted())
+                                    Text(amount.formatted(.baseCurrencyEquivalent))
                                         .font(.system(size: 15))
                                         .padding(.bottom, 1)
                                         .foregroundStyle(Color(WTheme.secondaryLabel))

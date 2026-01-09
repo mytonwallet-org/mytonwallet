@@ -17,6 +17,8 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
     
     var hostingController: UIHostingController<SendDappViewOrPlaceholder>?
     
+    @AccountContext(source: .current) var account: MAccount
+    
     public init(
         request: MDappSendTransactions,
         onConfirm: @escaping (String?) -> (),
@@ -49,7 +51,7 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
             self.hostingController?.rootView = makeView()
         }
         UIView.animate(withDuration: 0.3) {
-            self.sendButton.isEnabled = !request.combinedInfo.isScam && request.currentAccountHasSufficientBalance()
+            self.sendButton.isEnabled = !request.combinedInfo.isScam && request.hasSufficientBalance(accountContext: self.$account)
         }
     }
 
@@ -114,7 +116,7 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
         updateTheme()
         
         sendButton.isEnabled = if let request {
-            !request.combinedInfo.isScam && request.currentAccountHasSufficientBalance()
+            !request.combinedInfo.isScam && request.hasSufficientBalance(accountContext: $account)
         } else {
             false
         }
@@ -124,14 +126,12 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
     
     private func makeView() -> SendDappViewOrPlaceholder {
         if let request {
-            let account = AccountStore.accountsById[request.accountId] ?? DUMMY_ACCOUNT
             return SendDappViewOrPlaceholder(content: .sendDapp(SendDappContentView(
-                account: account,
+                accountContext: _account,
                 request: request,
                 onShowDetail: showDetail(_:),
             )))
         } else {
-            let account = placeholderAccountId.flatMap { AccountStore.accountsById[$0] }
             return SendDappViewOrPlaceholder(content: .placeholder(TonConnectPlaceholder(
                 account: account,
                 connectionType: .sendTransaction,
@@ -140,7 +140,7 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
     }
     
     private func showDetail(_ tx: ApiDappTransfer) {
-        navigationController?.pushViewController(DappSendTransactionDetailVC(message: tx), animated: true)
+        navigationController?.pushViewController( DappSendTransactionDetailVC(accountContext: _account, message: tx), animated: true)
     }
     
     public override func updateTheme() {
@@ -148,7 +148,7 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
     }
     
     @objc func onSend() {
-        if AccountStore.account?.isHardware == true {
+        if account.isHardware {
             Task {
                 await confirmLedger()
             }
@@ -172,10 +172,7 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
     }
     
     private func confirmLedger() async {
-        guard
-            let account = AccountStore.account,
-            let request
-        else { return }
+        guard let request else { return }
         
         let signModel = await LedgerSignModel(
             accountId: account.id,

@@ -8,6 +8,7 @@
 public enum AccountSource: Equatable, Hashable, Codable, Sendable {
     case accountId(String)
     case current
+    case constant(MAccount)
     
     public init(_ accountId: String?) {
         if let accountId {

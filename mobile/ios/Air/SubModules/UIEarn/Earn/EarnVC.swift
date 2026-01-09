@@ -16,13 +16,15 @@ import OrderedCollections
 public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDataProtocol {
     
     private let earnVM: EarnVM
+    private var accountContext: AccountContext { earnVM.accountContext }
+    private var stakingData: MStakingData? { accountContext.stakingData }
     
     var config: StakingConfig { earnVM.config }
     var tokenSlug: String { config.baseTokenSlug }
     var stakedTokenSlug: String { config.stakedTokenSlug }
     var token: ApiToken { config.baseToken }
     var stakedToken: ApiToken { config.stakedToken }
-    var stakingState: ApiStakingState? { config.stakingState }
+    var stakingState: ApiStakingState? { config.stakingState(stakingData: stakingData) }
 
     var areProfitsCollapsed = true
     
@@ -48,7 +50,7 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
     private var emptyView: EmptyEarnView!
     private var indicatorView: WActivityIndicator!
     private var belowSafeAreaView: UIView!
-    private let claimRewardsViewModel = ClaimRewardsModel()
+    private lazy var claimRewardsViewModel = ClaimRewardsModel(accountContext: accountContext)
     private var claimRewardsView: HostingView!
     
     enum Section: Hashable {
@@ -89,7 +91,7 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
             switch itemIdentifier {
             case .header:
                 let cell = tableView.dequeueReusableCell(withIdentifier: "EarnHeader", for: indexPath) as! EarnHeaderCell
-                cell.configure(config: config, delegate: self)
+                cell.configure(config: config, stakingData: stakingData, supportsEarn: accountContext.account.supportsEarn, delegate: self)
                 return cell
 
             case .historyHeader:
@@ -98,7 +100,7 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
                 let earnedDecimals: Int
                 let earnedSymbol: String
                 if tokenSlug == TONCOIN_SLUG {
-                    earnedAmount = StakingStore.currentAccount?.totalProfit
+                    earnedAmount = stakingData?.totalProfit
                     earnedDecimals = 9
                     earnedSymbol = "TON"
                 } else if case .jetton(let jetton) = self.stakingState {
@@ -183,11 +185,12 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
         
         claimRewardsViewModel.viewController = self
         claimRewardsViewModel.onClaim = { [weak self] in
+            guard let self else { return }
             Task {
                 do {
-                    try await self?.claimRewardsViewModel.confirmAction(account: AccountStore.account.orThrow())
+                    try await self.claimRewardsViewModel.confirmAction(account: self.accountContext.account)
                     withAnimation(.default.delay(0.3)) {
-                        self?.claimRewardsViewModel.isConfirming = false
+                        self.claimRewardsViewModel.isConfirming = false
                     }
                 } catch {
                     AppActions.showError(error: error)
@@ -231,14 +234,14 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
     func stakeUnstakePressed(isStake: Bool) {
         if let stakingState = earnVM.stakingState {
             if isStake {
-                let vc = AddStakeVC(config: config, stakingState: stakingState)
+                let vc = AddStakeVC(config: config, stakingState: stakingState, accountContext: accountContext)
                 navigationController?.pushViewController(vc, animated: true)
 
             } else {
-                if config.readyToUnstakeAmount != nil {
+                if config.readyToUnstakeAmount(stakingData: stakingData) != nil {
                     claimRewardsViewModel.onClaim()
                 } else {
-                    let vc = UnstakeVC(config: config, stakingState: stakingState)
+                    let vc = UnstakeVC(config: config, stakingState: stakingState, accountContext: accountContext)
                     navigationController?.pushViewController(vc, animated: true)
                 }
             }
@@ -248,7 +251,8 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
     private func updateLoadingState() {
         if emptyView.alpha == 0 && earnVM.historyItems != nil, earnVM.allLoadedOnce, let apy = stakingState?.apy {
             indicatorView.stopAnimating(animated: true)
-            emptyView.estimatedAPYLabel.text = "\(lang("Estimated APY")) \(apy)%"
+            let apyString = formatPercent(apy/100)
+            emptyView.estimatedAPYLabel.text = "\(lang("Est. %annual_yield%", arg1: apyString))"
             if earnVM.historyItems?.count == 0 {
                 UIView.animate(withDuration: 0.5) { [weak self] in
                     guard let self else {return}
@@ -368,7 +372,7 @@ extension EarnVC: UITableViewDelegate {
                 let areProfitsCollapsed = self.areProfitsCollapsed
                 if hisoryItem.type == .profit {
                     return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { _ in
-                        let action = UIAction(title: areProfitsCollapsed ? "Expand" : "Collapse") { [weak self] v in
+                        let action = UIAction(title: areProfitsCollapsed ? lang("Expand") : lang("Collapse")) { [weak self] v in
                             self?.areProfitsCollapsed.toggle()
                             self?.applySnapshot(animated: true)
                         }

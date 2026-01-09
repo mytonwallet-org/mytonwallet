@@ -146,18 +146,18 @@ class WMenuPopupViewItem(context: Context, val item: WMenuPopup.Item) : WFrameLa
                     setTint(it)
                 }
             }
-            iconView!!.setImageDrawable(drawable)
+            iconView?.setImageDrawable(drawable)
         }
         label.setTextColor(item.getTitleColor() ?: WColor.PrimaryText.color)
         subtitleLabel.setTextColor(WColor.SecondaryText.color)
         if (item.hasSeparator)
-            separatorView!!.setBackgroundColor(WColor.SecondaryBackground.color)
+            separatorView?.setBackgroundColor(WColor.PopupSeparator.color)
         if (!item.getSubItems().isNullOrEmpty()) {
             val drawable =
                 ContextCompat.getDrawable(context, R.drawable.ic_menu_arrow_right)?.apply {
                     setTint(WColor.PrimaryLightText.color)
                 }
-            arrowView!!.setImageDrawable(drawable)
+            arrowView?.setImageDrawable(drawable)
         }
     }
 

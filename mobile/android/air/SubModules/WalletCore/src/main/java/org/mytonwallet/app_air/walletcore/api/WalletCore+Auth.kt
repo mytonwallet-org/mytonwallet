@@ -16,6 +16,7 @@ import org.mytonwallet.app_air.walletcore.POPULAR_WALLET_VERSIONS
 import org.mytonwallet.app_air.walletcore.TEST_NETWORK
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.helpers.PoisoningCacheHelper
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
@@ -232,6 +233,7 @@ fun WalletCore.resetAccounts(
         } else {
             AirPushNotifications.unsubscribeAll()
             WalletCore.stores.forEach { it.wipeData() }
+            PoisoningCacheHelper.clearCache()
             WCacheStorage.clean(accountIds)
             WCacheStorage.setInitialScreen(WCacheStorage.InitialScreen.INTRO)
             callback(true, null)

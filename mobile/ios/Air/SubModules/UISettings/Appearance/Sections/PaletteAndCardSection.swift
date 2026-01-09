@@ -17,7 +17,7 @@ import Dependencies
 
 struct PaletteAndCardSection: View {
     
-    @State var viewModel = AccountViewModel(source: .current)
+    @State var accountContext = AccountContext(source: .current)
     
     var body: some View {
         InsetSection {
@@ -32,7 +32,7 @@ struct PaletteAndCardSection: View {
     var cell: some View {
         InsetButtonCell(action: onTap) {
             HStack(spacing: 16) {
-                PaletteAndCardIcon(viewModel: viewModel)
+                PaletteAndCardIcon(accountContext: accountContext)
                 Text(lang("Customize Wallet"))
                     .foregroundStyle(Color.air.primaryLabel)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -48,7 +48,7 @@ struct PaletteAndCardSection: View {
 
 struct PaletteAndCardIcon: View {
     
-    let viewModel: AccountViewModel
+    let accountContext: AccountContext
     
     var body: some View {
         WithPerceptionTracking {
@@ -56,7 +56,7 @@ struct PaletteAndCardIcon: View {
                 .frame(width: 30, height: 30)
                 .overlay(alignment: .leading) {
                     Circle()
-                        .foregroundStyle(Color(viewModel.accentColor))
+                        .foregroundStyle(Color(accountContext.accentColor))
                         .frame(width: 28, height: 28)
                 }
                 .overlay {
@@ -69,7 +69,7 @@ struct PaletteAndCardIcon: View {
                 }
                 .compositingGroup()
                 .overlay {
-                    _CardMiniature(viewModel: viewModel)
+                    _CardMiniature(accountContext: accountContext)
                         .offset(x: 6)
                         .rotationEffect(.degrees(-10))
                 }
@@ -79,19 +79,19 @@ struct PaletteAndCardIcon: View {
 
 struct _CardMiniature: View {
     
-    let viewModel: AccountViewModel
+    let accountContext: AccountContext
     
     private let cardPreviewSize = CGSize(width: 22, height: 14)
     
     var body: some View {
         WithPerceptionTracking {
-            MtwCardBackground(nft: viewModel.nft, hideBorder: true)
+            MtwCardBackground(nft: accountContext.nft, hideBorder: true)
                 .clipShape(.rect(cornerRadius: 3))
                 .frame(width: 22, height: 14)
                 .overlay {
                     MtwCardMiniPlaceholders()
                         .sourceAtop {
-                            MtwCardInverseCenteredGradient(nft: viewModel.nft)
+                            MtwCardInverseCenteredGradient(nft: accountContext.nft)
                         }
                 }
         }

@@ -115,16 +115,16 @@ class IconView(
         }
 
         val subImageAnimation = if (transaction.isLocal() || transaction.isPending()) {
-            if (transaction.isIncoming) {
-                if (ThemeManager.isDark)
-                    R.raw.clock_dark_orange
-                else
-                    R.raw.clock_light_orange
-            } else {
+            if (transaction.isTrustedPending() || transaction.isStaking) {
                 if (ThemeManager.isDark)
                     R.raw.clock_dark_gray
                 else
                     R.raw.clock_light_gray
+            } else {
+                if (ThemeManager.isDark)
+                    R.raw.clock_dark_orange
+                else
+                    R.raw.clock_light_orange
             }
         } else 0
 

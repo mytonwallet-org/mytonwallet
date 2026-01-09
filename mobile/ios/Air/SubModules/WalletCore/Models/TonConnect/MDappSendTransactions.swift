@@ -81,9 +81,9 @@ extension MDappSendTransactions {
         )
     }
     
-    public func currentAccountHasSufficientBalance() -> Bool {
+    public func hasSufficientBalance(accountContext: AccountContext) -> Bool {
         let totals = combinedInfo.tokenTotals
-        let balances = BalanceStore.currentAccountBalances
+        let balances = accountContext.balances
         for (slug, amount) in totals {
             let available = balances[slug] ?? 0
             if amount > available {

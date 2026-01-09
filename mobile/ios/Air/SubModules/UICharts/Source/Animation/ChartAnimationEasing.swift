@@ -36,10 +36,8 @@ public enum ChartEasingOption: Int
     case easeInOutExpo
     case easeInCirc
     case easeOutCirc
-    case easeInOutCirc
     case easeInElastic
     case easeOutElastic
-    case easeInOutElastic
     case easeInBack
     case easeOutBack
     case easeInOutBack
@@ -96,14 +94,10 @@ internal func easingFunctionFromOption(_ easing: ChartEasingOption) -> ChartEasi
         return EasingFunctions.EaseInCirc
     case .easeOutCirc:
         return EasingFunctions.EaseOutCirc
-    case .easeInOutCirc:
-        return EasingFunctions.EaseInOutCirc
     case .easeInElastic:
         return EasingFunctions.EaseInElastic
     case .easeOutElastic:
         return EasingFunctions.EaseOutElastic
-    case .easeInOutElastic:
-        return EasingFunctions.EaseInOutElastic
     case .easeInBack:
         return EasingFunctions.EaseInBack
     case .easeOutBack:
@@ -263,16 +257,6 @@ internal struct EasingFunctions
         return Double( sqrt(1 - position * position) )
     }
     
-    internal static let EaseInOutCirc = { (elapsed: TimeInterval, duration: TimeInterval) -> Double in
-        var position: TimeInterval = elapsed / (duration / 2.0)
-        if position < 1.0
-        {
-            return Double( -0.5 * (sqrt(1.0 - position * position) - 1.0) )
-        }
-        position -= 2.0
-        return Double( 0.5 * (sqrt(1.0 - position * position) + 1.0) )
-    }
-    
     internal static let EaseInElastic = { (elapsed: TimeInterval, duration: TimeInterval) -> Double in
         if elapsed == 0.0
         {
@@ -308,33 +292,10 @@ internal struct EasingFunctions
         return Double( pow(2.0, -10.0 * position) * sin((position * duration - s) * (2.0 * Double.pi) / p) + 1.0 )
     }
     
-    internal static let EaseInOutElastic = { (elapsed: TimeInterval, duration: TimeInterval) -> Double in
-        if elapsed == 0.0
-        {
-            return 0.0
-        }
-        
-        var position: TimeInterval = elapsed / (duration / 2.0)
-        if position == 2.0
-        {
-            return 1.0
-        }
-        
-        var p = duration * (0.3 * 1.5)
-        var s = p / (2.0 * Double.pi) * asin(1.0)
-        if position < 1.0
-        {
-            position -= 1.0
-            return Double( -0.5 * (pow(2.0, 10.0 * position) * sin((position * duration - s) * (2.0 * Double.pi) / p)) )
-        }
-        position -= 1.0
-        return Double( pow(2.0, -10.0 * position) * sin((position * duration - s) * (2.0 * Double.pi) / p) * 0.5 + 1.0 )
-    }
-    
     internal static let EaseInBack = { (elapsed: TimeInterval, duration: TimeInterval) -> Double in
         let s: TimeInterval = 1.70158
         var position: TimeInterval = elapsed / duration
-        return Double( position * position * ((s + 1.0) * position - s) )
+        return position * position * ((s + 1.0) * position - s)
     }
     
     internal static let EaseOutBack = { (elapsed: TimeInterval, duration: TimeInterval) -> Double in

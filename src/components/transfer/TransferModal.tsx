@@ -90,6 +90,8 @@ function TransferModal({
   const symbol = selectedToken?.symbol || '';
   const isNftTransfer = Boolean(nfts?.length);
   const isBurning = toAddress === BURN_ADDRESS;
+  // After confirming the transaction, `toAddress` is set to empty string, so we need to use the previous value
+  const renderedToAddress = usePrevious(toAddress || undefined, true);
 
   const { renderingKey, nextKey, updateNextKey } = useModalTransitionKeys(state, isOpen);
 
@@ -195,7 +197,7 @@ function TransferModal({
             symbol={symbol}
             txId={txId}
             tokenSlug={tokenSlug}
-            toAddress={toAddress}
+            toAddress={renderedToAddress}
             comment={comment}
             onInfoClick={handleTransactionInfoClick}
             onClose={handleModalCloseWithReset}
@@ -205,7 +207,7 @@ function TransferModal({
           <TransferMultiNftProcess
             nfts={nfts!}
             sentNftsCount={sentNftsCount}
-            toAddress={toAddress}
+            toAddress={renderedToAddress}
             onClose={handleModalCloseWithReset}
           />
         );

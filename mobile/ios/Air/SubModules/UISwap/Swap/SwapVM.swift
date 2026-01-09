@@ -41,12 +41,13 @@ final class SwapVM {
     @PerceptionIgnored
     private var prevPair = ""
     
-    let accountViewModel = AccountViewModel(source: .current)
-    var account: MAccount { accountViewModel.account }
+    @PerceptionIgnored
+    @AccountContext var account: MAccount
     
-    init(delegate: SwapVMDelegate, tokensSelector: SwapSelectorsVM) {
+    init(delegate: SwapVMDelegate, tokensSelector: SwapSelectorsVM, accountContext: AccountContext) {
         self.delegate = delegate
         self.tokensSelector =  tokensSelector
+        self._account = accountContext
     }
     
     // MARK: - Swap data changed
@@ -67,7 +68,7 @@ final class SwapVM {
     /// called whenever swap data changed to receive new swap estimate data
     func swapDataChanged(changedFrom: SwapSide, selling: TokenAmount, buying: TokenAmount) async throws {
 
-        let accountId = try AccountStore.accountId.orThrow()
+        let accountId = account.id
         var selling = selling
         var buying = buying
         
@@ -122,7 +123,7 @@ final class SwapVM {
                 swapEstimate?.reverse()
             }
             if var swapEstimate {
-                swapEstimate.calculateLateInitProperties(selling: selling, swapType: swapType)
+                swapEstimate.calculateLateInitProperties(selling: selling, swapType: swapType, balances: $account.balances)
                 updateCexEstimate(swapEstimate)
             } else {
                 throw NilError()
@@ -131,13 +132,14 @@ final class SwapVM {
         } else {
             let props = ApiSwapCexEstimateResponse.calculateLateInitProperties(selling: selling,
                                                                   swapType: swapType,
+                                                                  balances: $account.balances,
                                                                   networkFee: swapEstimate?.networkFee.value,
                                                                   dieselFee: swapEstimate?.dieselFee?.value,
                                                                   ourFeePercent: swapEstimate?.ourFeePercent)
-            let fromAddress = try (AccountStore.account?.addressByChain[TON_CHAIN]).orThrow()
+            let fromAddress = try account.addressByChain[TON_CHAIN].orThrow()
             let shouldTryDiesel = props.isEnoughNative == false
-            let toncoinBalance = (BalanceStore.currentAccountBalances["toncoin"]).flatMap { MDouble.forBigInt($0, decimals: 9) }
-            let walletVersion = AccountStore.account?.version
+            let toncoinBalance = $account.balances["toncoin"].flatMap { MDouble.forBigInt($0, decimals: 9) }
+            let walletVersion = account.version
             let swapEstimateRequest = ApiSwapEstimateRequest(
                 from: from,
                 to: to,
@@ -158,6 +160,7 @@ final class SwapVM {
                 try Task.checkCancellation()
                 let lateInit = ApiSwapCexEstimateResponse.calculateLateInitProperties(selling: selling,
                                                                          swapType: swapType,
+                                                                         balances: $account.balances,
                                                                          networkFee: swapEstimate.networkFee.value,
                                                                          dieselFee: swapEstimate.dieselFee?.value,
                                                                          ourFeePercent: swapEstimate.ourFeePercent)
@@ -194,8 +197,8 @@ final class SwapVM {
         }
         var swapError: String? = nil
         let sellToken = TokenStore.tokens[tokensSelector.sellingToken.slug] ?? tokensSelector.sellingToken
-        var balanceIn = BalanceStore.currentAccountBalances[sellToken.slug] ?? 0
-        if sellToken.slug == "trx" && AccountStore.account?.isMultichain ?? false {
+        var balanceIn = $account.balances[sellToken.slug] ?? 0
+        if sellToken.slug == "trx" && account.isMultichain {
             balanceIn -= 1
         }
         if sellToken.isOnChain == true {
@@ -222,8 +225,8 @@ final class SwapVM {
         }
         var swapError: String? = nil
         let sellToken = TokenStore.tokens[tokensSelector.sellingToken.slug] ?? tokensSelector.sellingToken
-        var balanceIn = BalanceStore.currentAccountBalances[sellToken.slug] ?? 0
-        if sellToken.slug == "trx" && AccountStore.account?.isMultichain ?? false {
+        var balanceIn = $account.balances[sellToken.slug] ?? 0
+        if sellToken.slug == "trx" && account.isMultichain {
             balanceIn -= 1
         }
         if sellToken.isOnChain == true {
@@ -293,10 +296,10 @@ final class SwapVM {
     // MARK: - On-Chain swap
     private func onChainSwap(passcode: String) async throws {
         let swapEstimate = try self.swapEstimate.orThrow()
-        let fromAddress = try (AccountStore.account?.addressByChain[TON_CHAIN]).orThrow()
-        let walletVersion = AccountStore.account?.version
+        let fromAddress = try account.addressByChain[TON_CHAIN].orThrow()
+        let walletVersion = account.version
         let shouldTryDiesel = swapEstimate.networkFee.value > 0 &&
-            BalanceStore.currentAccountBalances["toncoin"] ?? 0 < BigInt((swapEstimate.networkFee.value + 0.015) * 1e9) && swapEstimate.dieselStatus == .available
+            $account.balances["toncoin"] ?? 0 < BigInt((swapEstimate.networkFee.value + 0.015) * 1e9) && swapEstimate.dieselStatus == .available
         
         let swapBuildRequest = ApiSwapBuildRequest(
             from: swapEstimate.from,
@@ -316,10 +319,9 @@ final class SwapVM {
             ourFee: swapEstimate.ourFee,
             dieselFee: swapEstimate.dieselFee
         )
-        let accountId = try AccountStore.accountId.orThrow()
-        let transferData = try await Api.swapBuildTransfer(accountId: accountId, password: passcode, request: swapBuildRequest)
+        let transferData = try await Api.swapBuildTransfer(accountId: account.id, password: passcode, request: swapBuildRequest)
         let historyItem = ApiSwapHistoryItem.makeFrom(swapBuildRequest: swapBuildRequest, swapTransferData: transferData)
-        let result = try await Api.swapSubmit(accountId: accountId, password: passcode, transfers: transferData.transfers, historyItem: historyItem, isGasless: shouldTryDiesel)
+        let result = try await Api.swapSubmit(accountId: account.id, password: passcode, transfers: transferData.transfers, historyItem: historyItem, isGasless: shouldTryDiesel)
         #if DEBUG
         log.info("\(result)")
         #endif
@@ -330,9 +332,8 @@ final class SwapVM {
         guard let swapEstimate = self.cexEstimate else {
             return
         }
-        if let account = AccountStore.account {
-            let fromAddress = account.addressByChain[sellingToken.chain]
-            let toAddress = account.addressByChain[buyingToken.chain]
+        let fromAddress = account.addressByChain[sellingToken.chain]
+        let toAddress = account.addressByChain[buyingToken.chain]
             let swapCexParams = ApiSwapCexCreateTransactionParams(
                 from: sellingToken.swapIdentifier,
                 fromAmount: swapEstimate.fromAmount,
@@ -347,7 +348,7 @@ final class SwapVM {
                     _ = try await SwapCexSupport.swapCexCreateTransaction(
                         sellingToken: sellingToken,
                         params: swapCexParams,
-                        shouldTransfer: AccountStore.account?.supports(chain: sellingToken.chain) == true,
+                        shouldTransfer: account.supports(chain: sellingToken.chain),
                         passcode: passcode
                     )
                     onTaskDone(nil, nil)
@@ -356,8 +357,6 @@ final class SwapVM {
                     onTaskDone(nil, error)
                 }
             }
-
-        }
     }
     
     // MARK: - Cross-Chain from ton swap
@@ -365,9 +364,8 @@ final class SwapVM {
         guard let swapEstimate = self.cexEstimate else {
             return
         }
-        if let account = AccountStore.account {
-            let fromAddress = account.addressByChain[sellingToken.chain]
-            let toAddress = account.addressByChain[buyingToken.chain]
+        let fromAddress = account.addressByChain[sellingToken.chain]
+        let toAddress = account.addressByChain[buyingToken.chain]
             let cexFromTonSwapParams = ApiSwapCexCreateTransactionParams(
                 from: sellingToken.swapIdentifier,
                 fromAmount: swapEstimate.fromAmount,
@@ -391,7 +389,6 @@ final class SwapVM {
                     onTaskDone(nil, error)
                 }
             }
-        }
     }
 
 }

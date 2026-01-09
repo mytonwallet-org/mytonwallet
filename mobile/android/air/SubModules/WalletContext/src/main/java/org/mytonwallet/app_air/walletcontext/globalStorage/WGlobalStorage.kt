@@ -44,7 +44,7 @@ object WGlobalStorage {
         temporaryAddedAccountIds.toList().forEach {
             removeAccount(it)
         }
-        setTemporaryAccountId(null)
+        setTemporaryAccountId(null, true)
     }
 
     fun clearCachedData() {
@@ -233,6 +233,7 @@ object WGlobalStorage {
     fun saveTemporaryAccount(accountId: String) {
         temporaryAddedAccountIds.remove(accountId)
         setActiveAccountId(accountId, false)
+        setTemporaryAccountId(null, false)
         globalStorageProvider.remove(
             "accounts.byId.$accountId.isTemporary",
             persistInstantly = IGlobalStorageProvider.PERSIST_INSTANT
@@ -271,7 +272,7 @@ object WGlobalStorage {
     }
 
     fun deleteAllWallets() {
-        setTemporaryAccountId(null)
+        setTemporaryAccountId(null, false)
         setActiveAccountId(null, false)
         cachedAccountIds = null
         globalStorageProvider.remove(
@@ -296,11 +297,11 @@ object WGlobalStorage {
         )
     }
 
-    fun setTemporaryAccountId(id: String?) {
+    fun setTemporaryAccountId(id: String?, persistInstantly: Boolean) {
         globalStorageProvider.set(
             CURRENT_TEMPORARY_VIEW_ACCOUNT_ID,
             id,
-            IGlobalStorageProvider.PERSIST_INSTANT
+            if (persistInstantly) IGlobalStorageProvider.PERSIST_INSTANT else IGlobalStorageProvider.PERSIST_NORMAL
         )
     }
 

@@ -17,25 +17,33 @@ public class ExploreTabVC: WViewController {
     private var searchBarContainerBottomConstraint: NSLayoutConstraint?
     private var searchBarBlurView: WBlurView?
     
-    public override var hideNavigationBar: Bool { true }
-    public override var prefersStatusBarHidden: Bool { exploreVC.prefersStatusBarHidden }
-    
-    public override func loadView() {
-        super.loadView()
-        setupViews()
-    }
-    
     public override func viewDidLoad() {
         super.viewDidLoad()
-        
-        // listen for keyboard
+        setupViews()
         WKeyboardObserver.observeKeyboard(delegate: self)
-        
-        TonConnect.shared.start()
     }
     
     func setupViews() {
         view.backgroundColor = WTheme.background
+        navigationItem.title = lang("Explore")
+        if #available(iOS 26, *) {
+            navigationItem.largeTitleDisplayMode = .inline
+            let p = NSMutableParagraphStyle()
+            p.firstLineHeadIndent = 8
+            let appearance = UINavigationBarAppearance()
+            appearance.configureWithDefaultBackground()
+            appearance.largeTitleTextAttributes = [
+                .paragraphStyle: p,
+            ]
+            navigationItem.standardAppearance = appearance
+            navigationItem.scrollEdgeAppearance = appearance
+        } else if #available(iOS 17, *) {
+            navigationItem.largeTitleDisplayMode = .inline
+            navigationController?.navigationBar.prefersLargeTitles = true
+        } else {
+            navigationController?.navigationBar.prefersLargeTitles = true
+            navigationItem.largeTitleDisplayMode = .always
+        }
         
         addChild(exploreVC)
         exploreVC.view.translatesAutoresizingMaskIntoConstraints = false
@@ -152,9 +160,11 @@ public class ExploreTabVC: WViewController {
     
     public override func viewSafeAreaInsetsDidChange() {
         super.viewSafeAreaInsetsDidChange()
-        UIView.animate(withDuration: 0.3) { [self] in
-            searchBarContainerBottomConstraint?.constant = -view.safeAreaInsets.bottom
-            view.layoutIfNeeded()
+        if !IOS_26_MODE_ENABLED {
+            UIView.animate(withDuration: 0.3) { [self] in
+                searchBarContainerBottomConstraint?.constant = -view.safeAreaInsets.bottom
+                view.layoutIfNeeded()
+            }
         }
     }
     
@@ -170,8 +180,9 @@ public class ExploreTabVC: WViewController {
         
         var urlString = text.trimmingCharacters(in: .whitespacesAndNewlines)
         if !urlString.contains("://") && !urlString.contains(".") {
-            let searchURL = "https://www.google.com/search?q=\(urlString.addingPercentEncoding(withAllowedCharacters: .urlQueryValueAllowed) ?? urlString)"
-            if let url = URL(string: searchURL) {
+            var components = URLComponents(string: "https://www.google.com/search")!
+            components.queryItems = [URLQueryItem(name: "q", value: urlString)]
+            if let url = components.url {
                 AppActions.openInBrowser(url)
             }
         } else {

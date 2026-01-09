@@ -539,7 +539,11 @@ class SplashVC(context: Context) : WViewController(context),
             nextDeeplink = deeplink
             return
         }
-        handleInstantDeeplinks(deeplink)
+        val isHandled = handleInstantDeeplinks(deeplink)
+        if (isHandled) {
+            nextDeeplink = null
+            return
+        }
         if (!isAppUnlocked() || window?.isPaused == true) {
             nextDeeplink = deeplink
             return
@@ -556,19 +560,19 @@ class SplashVC(context: Context) : WViewController(context),
             return window?.navigationControllers?.firstOrNull()?.viewControllers?.firstOrNull() as? TabsVC
         }
 
-    private fun handleInstantDeeplinks(deeplink: Deeplink) {
+    private fun handleInstantDeeplinks(deeplink: Deeplink): Boolean {
         when (deeplink) {
             is Deeplink.TonConnect2 -> {
                 if (deeplink.isConnectRequest &&
                     AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW
                 ) {
-                    return // Will show a dialog after unlock!
+                    return false // Will show a dialog after unlock!
                 }
                 val uri = try {
                     encodeUriParams(deeplink.requestUri).toString()
                 } catch (_: Throwable) {
                     //Logger.e(Logger.LogTag.DEEPLINK, "Encode error: ${t.toString()}")
-                    return
+                    return true
                 }
                 //Logger.d(Logger.LogTag.DEEPLINK, uri)
                 WalletCore.call(
@@ -586,11 +590,12 @@ class SplashVC(context: Context) : WViewController(context),
                     }
                     //Logger.d(Logger.LogTag.DEEPLINK, "Strategy: $returnStrategy")
                 }
-                nextDeeplink = null
+                return true
             }
 
             else -> {}
         }
+        return false
     }
 
     private fun handleWalletReadyDeeplinks(deeplink: Deeplink) {
@@ -925,7 +930,7 @@ class SplashVC(context: Context) : WViewController(context),
                     openingSingleWalletWithAddress = null
                     return@call
                 }
-                WGlobalStorage.setTemporaryAccountId(result.accountId)
+                WGlobalStorage.setTemporaryAccountId(result.accountId, false)
                 WGlobalStorage.addAccount(
                     accountId = result.accountId,
                     accountType = MAccount.AccountType.VIEW.value,

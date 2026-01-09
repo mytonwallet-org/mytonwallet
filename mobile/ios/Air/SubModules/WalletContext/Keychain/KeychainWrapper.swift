@@ -43,10 +43,7 @@ private let SecAttrSynchronizable: String = kSecAttrSynchronizable as String
 
 /// KeychainWrapper is a class to help make Keychain access in Swift more straightforward. It is designed to make accessing the Keychain services more like using NSUserDefaults, which is much more familiar to people.
 open class KeychainWrapper {
-    
-    @available(*, deprecated, message: "KeychainWrapper.defaultKeychainWrapper is deprecated since version 2.2.1, use KeychainWrapper.standard instead")
-    public static let defaultKeychainWrapper = KeychainWrapper.standard
-    
+        
     /// Default keychain wrapper access
     public static let standard = KeychainWrapper()
     
@@ -203,8 +200,18 @@ open class KeychainWrapper {
         guard let keychainData = data(forKey: key, withAccessibility: accessibility, isSynchronizable: isSynchronizable) else {
             return nil
         }
-        
-        return NSKeyedUnarchiver.unarchiveObject(with: keychainData) as? NSCoding
+
+        let allowedClasses: [AnyClass] = [
+            NSNumber.self,
+            NSString.self,
+            NSArray.self,
+            NSDictionary.self,
+            NSData.self,
+            NSDate.self,
+            NSSet.self
+        ]
+
+        return try? NSKeyedUnarchiver.unarchivedObject(ofClasses: allowedClasses, from: keychainData) as? NSCoding
     }
 
     
@@ -294,8 +301,10 @@ open class KeychainWrapper {
     /// - parameter isSynchronizable: A bool that describes if the item should be synchronizable, to be synched with the iCloud. If none is provided, will default to false
     /// - returns: True if the save was successful, false otherwise.
     @discardableResult open func set(_ value: NSCoding, forKey key: String, withAccessibility accessibility: KeychainItemAccessibility? = nil, isSynchronizable: Bool = false) -> Bool {
-        let data = NSKeyedArchiver.archivedData(withRootObject: value)
-        
+        guard let data = try? NSKeyedArchiver.archivedData(withRootObject: value, requiringSecureCoding: false) else {
+            return false
+        }
+
         return set(data, forKey: key, withAccessibility: accessibility, isSynchronizable: isSynchronizable)
     }
 

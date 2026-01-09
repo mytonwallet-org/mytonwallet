@@ -82,7 +82,7 @@ struct WordDisplayView: View {
                     Button(lang("Cancel"), role: .cancel) { }
                 },
                 message: {
-                    let normal = Text(langMd("$secret_words_warning", arg1: lang("screenshot")))
+                    let normal = Text(langMd("$screenshot_mnemonic_warning"))
                     let red = Text(lang("Other apps will be able to read your recovery phrase!")).foregroundColor(.red)
                     Text("\(normal)\n\n\(red)")
                 }
@@ -105,7 +105,7 @@ struct WordDisplayView: View {
                 Button(lang("Copy Anyway"), role: .destructive) { onCopyToClipboard() }
             },
             message: {
-                let normal = Text(langMd("$secret_words_warning", arg1: lang("clipboard")))
+                let normal = Text(langMd("$copy_mnemonic_warning"))
                 let red = Text(lang("Other apps will be able to read your recovery phrase!")).foregroundColor(.red)
                 Text("\(normal)\n\n\(red)")
                 

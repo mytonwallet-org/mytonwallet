@@ -148,7 +148,7 @@ class SendVC(
                         viewModel.onShouldEncrypt(true)
                         updateCommentTitleLabel()
                     }),
-                offset = if (LocaleController.isRTL) width - 190.dp else 20.dp,
+                xOffset = if (LocaleController.isRTL) width - 190.dp else 20.dp,
                 popupWidth = WRAP_CONTENT,
                 aboveView = false
             )
@@ -343,8 +343,6 @@ class SendVC(
         override fun afterTextChanged(s: Editable?) {}
     }
 
-    private var sentActivityId: String? = null
-
     override fun setupViews() {
         super.setupViews()
 
@@ -411,6 +409,9 @@ class SendVC(
                                 val id = viewModel.callSend(config, passcode!!).activityId
                                 sentActivityId = ActivityHelpers.getTxIdFromId(id)
                                 // Wait for Pending Activity event...
+                                receivedLocalActivities?.firstOrNull { it.getTxHash() == sentActivityId }?.let {
+                                    checkReceivedActivity(it)
+                                }
                             } catch (e: JSWebViewBridge.ApiError) {
                                 navigationController?.viewControllers[navigationController!!.viewControllers.size - 2]?.showError(
                                     e.parsed
@@ -675,18 +676,46 @@ class SendVC(
         }
     }
 
-    override fun onWalletEvent(walletEvent: WalletEvent) {
-        val sentActivityId = sentActivityId ?: return
-        when (walletEvent) {
-            is WalletEvent.ReceivedPendingActivities -> {
-                val activity = walletEvent.pendingActivities?.firstOrNull { activity ->
-                    activity is MApiTransaction.Transaction &&
-                        sentActivityId == activity.getTxHash()
-                } ?: return
+    private var sentActivityId: String? = null
+    private var receivedLocalActivities: ArrayList<MApiTransaction>? = null
+    private fun checkReceivedActivity(receivedActivity: MApiTransaction) {
+        if (sentActivityId == null) {
+            // Send in-progress, cached received local activity to process on send api callback is called
+            if (receivedActivity.isLocal()) {
+                if (receivedLocalActivities == null)
+                    receivedLocalActivities = ArrayList()
+                receivedLocalActivities?.add(receivedActivity)
+            }
+            return
+        }
 
-                this.sentActivityId = null
-                window?.dismissLastNav {
-                    WalletCore.notifyEvent(WalletEvent.OpenActivity(activity))
+        val txMatch = receivedActivity is MApiTransaction.Transaction && sentActivityId == receivedActivity.getTxHash()
+        if (!txMatch) {
+            return
+        }
+
+        sentActivityId = null
+        WalletCore.unregisterObserver(this)
+        if (window?.topNavigationController != navigationController) {
+            window?.dismissNav(navigationController)
+            return
+        }
+        window?.dismissLastNav {
+            WalletCore.notifyEvent(WalletEvent.OpenActivity(receivedActivity))
+        }
+    }
+
+    override fun onWalletEvent(walletEvent: WalletEvent) {
+        when (walletEvent) {
+            is WalletEvent.NewLocalActivities -> {
+                walletEvent.localActivities?.forEach {
+                    checkReceivedActivity(it)
+                }
+            }
+
+            is WalletEvent.ReceivedPendingActivities -> {
+                walletEvent.pendingActivities?.forEach {
+                    checkReceivedActivity(it)
                 }
             }
 

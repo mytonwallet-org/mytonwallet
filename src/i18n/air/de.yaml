@@ -56,6 +56,7 @@ You have no NFT in this wallet yet: |
   Du hast in dieser Wallet
   noch keine NFTs.
 Collapse: Einklappen
+Expand: Ausklappen
 Standalone NFT: Eigenständiges NFT
 Linked Address: Verknüpfte Adresse
 Enter Address: Adresse eingeben
@@ -221,8 +222,6 @@ Wear: Anwenden
 Your Address: Deine Adresse
 Passcodes don't match. Please try again.: Passcodes stimmen nicht überein. Bitte versuche es erneut.
 Secret phrase was copied to clipboard: Wiederherstellungsphrase wurde in die Zwischenablage kopiert
-clipboard: Zwischenablage
-screenshot: Screenshot
 Copy Anyway: Trotzdem kopieren
 12 Words: 12 Wörter
 24 Words: 24 Wörter
@@ -294,5 +293,3 @@ Receive: Empfangen
 Scan: Scannen
 Search or enter address: Adresse suchen oder eingeben
 View as Grid: Als Raster anzeigen
-$secret_words_warning: Wörter in einer digitalen Umgebung zu speichern, einschließlich **%1$d**, ist nicht sicher. Sorge dafür, dass du deine Wiederherstellungsphrase sicher verwahrst.
-

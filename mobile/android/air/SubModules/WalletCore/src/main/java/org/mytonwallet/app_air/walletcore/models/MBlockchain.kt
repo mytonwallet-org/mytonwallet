@@ -177,6 +177,22 @@ enum class MBlockchain(
         }
     }
 
+    fun idToTxHash(id: String?): String? {
+        return when (this) {
+            ton -> {
+                id?.split(":")?.firstOrNull()
+            }
+
+            tron -> {
+                id?.split("|")?.firstOrNull()
+            }
+
+            else -> {
+                null
+            }
+        }
+    }
+
     private data class DnsZone(
         val suffixes: List<String>,
         val baseFormat: Regex

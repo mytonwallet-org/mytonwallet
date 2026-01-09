@@ -22,7 +22,7 @@ public class ReceiveVC: WViewController, WSegmentedController.Delegate {
     private var segmentedController: WSegmentedController!
     private var hostingController: UIHostingController<ReceiveHeaderView>!
     
-    @AccountViewModel(source: .current) private var account: MAccount
+    @AccountContext(source: .current) private var account: MAccount
 
     public init(chain: ApiChain? = nil, title: String? = nil) {
         self.customTitle = title
@@ -133,7 +133,7 @@ public class ReceiveVC: WViewController, WSegmentedController.Delegate {
     }
     
     func makeHeader() -> ReceiveHeaderView {
-        ReceiveHeaderView(viewModel: segmentedController.model, accountViewModel: _account)
+        ReceiveHeaderView(viewModel: segmentedController.model, accountContext: _account)
     }
 }
 

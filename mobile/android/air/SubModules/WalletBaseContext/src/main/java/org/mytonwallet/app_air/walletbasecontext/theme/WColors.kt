@@ -23,6 +23,7 @@ enum class WColor {
     GroupedBackground,
     BadgeBackground,
     AttributesBackground,
+    PopupSeparator,
     Thumb,
     DIVIDER,
     Error,

@@ -68,7 +68,7 @@ public class AssetsTabVC: WViewController, WSegmentedController.Delegate, Wallet
                 SegmentedControlItem(
                     id: Tab.tokens.rawValue,
                     title: lang("Assets"),
-                    viewController: tokensVC.tokensView
+                    viewController: tokensVC
                 ),
                 SegmentedControlItem(
                     id: Tab.nfts.rawValue,

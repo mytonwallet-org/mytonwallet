@@ -14,6 +14,8 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate {
     private var tonVC: EarnVC!
     private var mycoinVC: EarnVC!
     private var ethenaVC: EarnVC!
+
+    @AccountContext(source: .current) private var account: MAccount
     
     private var segmentedController: WSegmentedController!
     
@@ -36,7 +38,7 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate {
     ]
     private var segmentedControlItems: [SegmentedControlItem] {
         var items: [SegmentedControlItem] = []
-        let stakingState = StakingStore.currentAccount
+        let stakingState = $account.stakingData
         
         items += _allSegmentedControlItems[TONCOIN_SLUG]!
         if stakingState?.mycoinState != nil {
@@ -144,7 +146,7 @@ extension EarnRootVC: WalletCoreData.EventsObserver {
         case .accountChanged:
             updateWithStakingState()
         case .stakingAccountData(let data):
-            if data.accountId == AccountStore.accountId {
+            if data.accountId == $account.accountId {
                 updateWithStakingState()
             }
         default:

@@ -30,8 +30,12 @@ final class ClaimRewardsModel {
     private var claimRewardsError: BridgeCallError?
     @PerceptionIgnored
     private var observeToken: ObserveToken?
+    @PerceptionIgnored
+    @AccountContext private var account: MAccount
+    var accountContext: AccountContext { $account }
     
-    init() {
+    init(accountContext: AccountContext) {
+        self._account = accountContext
         observeToken = observe { [weak self] in
             guard let self else { return }
             switch stakingState {
@@ -86,7 +90,7 @@ final class ClaimRewardsModel {
             guard let self else { return }
             Task {
                 do {
-                    _ = try await Api.submitStakingClaimOrUnlock(accountId: AccountStore.accountId!, password: password, state: stakingState.orThrow(), realFee: getFee(.claimJettons).real)
+                    _ = try await Api.submitStakingClaimOrUnlock(accountId: account.id, password: password, state: stakingState.orThrow(), realFee: getFee(.claimJettons).real)
                 } catch {
                     self.claimRewardsError = .customMessage("\(error)", nil)
                 }
@@ -97,10 +101,7 @@ final class ClaimRewardsModel {
     }
     
     func confirmLedger(account: MAccount, title: String, headerView: StakingConfirmHeaderView, onDone: @escaping () -> ()) async throws {
-        guard
-            let account = AccountStore.account,
-            let viewController
-        else { return }
+        guard let viewController else { return }
         
         let signModel = try await LedgerSignModel(
             accountId: account.id,

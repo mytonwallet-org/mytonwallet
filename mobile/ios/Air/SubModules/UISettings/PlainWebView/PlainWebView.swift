@@ -10,8 +10,8 @@ body {
 }
 
 .tl_article .tl_article_content,
-.tl_article .tl_article_content .ql-editor *, 
-.tl_article h1, 
+.tl_article .tl_article_content .ql-editor *,
+.tl_article h1,
 .tl_article h2 {
     color: #000;
 }
@@ -26,9 +26,9 @@ body {
         background-color: #0E0E0F;
     }
 
-    .tl_article .tl_article_content, 
-    .tl_article .tl_article_content .ql-editor *, 
-    .tl_article h1, 
+    .tl_article .tl_article_content,
+    .tl_article .tl_article_content .ql-editor *,
+    .tl_article h1,
     .tl_article h2 {
         color: #fff;
     }
@@ -48,7 +48,7 @@ document.head.appendChild(style);
 private let _backgroundColor = UIColor(light: "#fff", dark: "#0E0E0F")
 
 @MainActor
-final class PlainWebView: WViewController, UIScrollViewDelegate {
+final class PlainWebView: WViewController {
     
     private let url: URL
     
@@ -66,13 +66,7 @@ final class PlainWebView: WViewController, UIScrollViewDelegate {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        addNavigationBar(
-            title: title,
-            addBackButton: { [weak self] in self?.navigationController?.popViewController(animated: true) }
-        )
-        self.navigationBarProgressiveBlurDelta = 32
-        
+
         let injectCss = WKUserScript(source: INJECT_SCRIPT, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
         let contentController = WKUserContentController()
         contentController.addUserScript(injectCss)
@@ -83,15 +77,15 @@ final class PlainWebView: WViewController, UIScrollViewDelegate {
         webView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(webView)
         NSLayoutConstraint.activate([
-            webView.topAnchor.constraint(equalTo: self.navigationBarAnchor),
+            webView.topAnchor.constraint(equalTo: view.topAnchor),
             webView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
         ])
         webView.isOpaque = false // prevents flashing white during load
-        webView.clipsToBounds = false
-        webView.scrollView.clipsToBounds = false
-        webView.scrollView.delegate = self
+        if #available(iOS 26, *) {
+            webView.scrollView.topEdgeEffect.style = .hard
+        }
         
         bringNavigationBarToFront()
         
@@ -104,10 +98,6 @@ final class PlainWebView: WViewController, UIScrollViewDelegate {
         view.backgroundColor = _backgroundColor
         webView.backgroundColor = _backgroundColor
         webView.scrollView.backgroundColor = _backgroundColor
-    }
-    
-    func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        updateNavigationBarProgressiveBlur(scrollView.contentOffset.y)
     }
 }
 

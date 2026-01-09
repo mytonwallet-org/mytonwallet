@@ -12,9 +12,9 @@ import WalletContext
 import SwiftUI
 import Kingfisher
 
-let hideStatusBarOffset: CGFloat = 35
 let maxWidth: CGFloat = 600
 var effectiveScreenWidth: CGFloat { min(screenWidth, maxWidth) }
+var featuredItemWidth: CGFloat { effectiveScreenWidth - 20 * 2 }
 
 public class ExploreVC: WViewController {
 
@@ -31,10 +31,6 @@ public class ExploreVC: WViewController {
         return collectionView
     }
     
-    public override var prefersStatusBarHidden: Bool {
-        previousOffset > hideStatusBarOffset
-    }
-    
     enum Section: Equatable, Hashable {
         case connected
         case trending
@@ -46,7 +42,7 @@ public class ExploreVC: WViewController {
             case .connected:
                 lang("Connected")
             case .trending:
-                lang("Happening Now")
+                lang("Trending")
             case .all:
                 lang("Popular Apps")
             case .searchResults:
@@ -85,13 +81,9 @@ public class ExploreVC: WViewController {
         fatalError("init(coder:) has not been implemented")
     }
     
-    public override func loadView() {
-        super.loadView()
-        setupViews()
-    }
-    
     public override func viewDidLoad() {
         super.viewDidLoad()
+        setupViews()
         exploreVM.refresh()
     }
     
@@ -100,7 +92,6 @@ public class ExploreVC: WViewController {
     }
     
     struct Constants {
-        static let topHeader = "topHeader"
         static let trendingHeader = "trendingHeader"
         static let popularAppsHeader = "popularAppsHeader"
         static let appFolderHeader = "appFolderHeader"
@@ -108,8 +99,6 @@ public class ExploreVC: WViewController {
     }
     
     private func setupViews() {
-        title = lang("Explore")
-            
         view.translatesAutoresizingMaskIntoConstraints = false
         
         // configure collection view
@@ -123,7 +112,6 @@ public class ExploreVC: WViewController {
         collectionView.register(UICollectionViewCell.self, forCellWithReuseIdentifier: "exploreSite")
         collectionView.register(UICollectionViewCell.self, forCellWithReuseIdentifier: "expandCategory")
         
-        collectionView.register(UICollectionViewCell.self, forSupplementaryViewOfKind: Constants.topHeader, withReuseIdentifier: Constants.topHeader)
         collectionView.register(UICollectionViewCell.self, forSupplementaryViewOfKind: Constants.trendingHeader, withReuseIdentifier: Constants.trendingHeader)
         collectionView.register(UICollectionViewCell.self, forSupplementaryViewOfKind: Constants.popularAppsHeader, withReuseIdentifier: Constants.popularAppsHeader)
         collectionView.register(UICollectionViewCell.self, forSupplementaryViewOfKind: Constants.appFolderHeader, withReuseIdentifier: Constants.appFolderHeader)
@@ -133,6 +121,8 @@ public class ExploreVC: WViewController {
         collectionView.alwaysBounceVertical = true
         collectionView.keyboardDismissMode = .onDrag
         collectionView.delaysContentTouches = false
+        collectionView.showsVerticalScrollIndicator = false
+        collectionView.showsHorizontalScrollIndicator = false
         edgesForExtendedLayout = .bottom
         view.addSubview(collectionView)
         NSLayoutConstraint.activate([
@@ -190,7 +180,6 @@ public class ExploreVC: WViewController {
             cell.configurationUpdateHandler = {
                 [weak self] cell,
                 state in
-                let width = effectiveScreenWidth - 20 * 2
                 cell.contentConfiguration = UIHostingConfiguration {
                     FeaturedDappCell(
                         item: site,
@@ -198,10 +187,10 @@ public class ExploreVC: WViewController {
                         openAction: { [weak self] in self?.openDapp(id: itemIdentifier)
                         }
                     )
-                    .frame(width: width)
+                    .frame(width: featuredItemWidth)
                 }
                 .margins(.all, 0)
-                .minSize(width: width, height: nil)
+                .minSize(width: featuredItemWidth, height: nil)
             }
         }
         let dapp = UICollectionView.CellRegistration<UICollectionViewCell, String> { [weak self] cell, indexPath, itemIdentifier in
@@ -257,21 +246,21 @@ public class ExploreVC: WViewController {
             }
         }
         
-        let topHeader = UICollectionView.SupplementaryRegistration<UICollectionViewCell>(elementKind: Constants.topHeader) { cell, _, _ in
-            cell.contentConfiguration = UIHostingConfiguration {
-                TopHeader()
-            }
-            .margins(.top, 6)
-            .margins(.bottom, 9) // note: if distance to next section too large when featured app is not present, move this to connected section
-            .margins(.horizontal, 20)
-        }
-        let trendingHeader = UICollectionView.SupplementaryRegistration<UICollectionViewCell>(elementKind: Constants.trendingHeader) { cell, _, indexPath in
+        let trendingHeader = UICollectionView.SupplementaryRegistration<UICollectionViewCell>(elementKind: Constants.trendingHeader) { [weak self] cell, _, indexPath in
             if let id = dataSource.sectionIdentifier(for: indexPath.section) {
-                let title = id.localizedTitle
+                let title = if id == .trending {
+                    if let featuredTitle = self?.exploreVM.featuredTitle, !featuredTitle.isEmpty {
+                        lang(featuredTitle)
+                    } else {
+                        lang("Trending")
+                    }
+                } else {
+                    id.localizedTitle
+                }
                 cell.contentConfiguration = UIHostingConfiguration {
                     TrendingHeader(title: title)
                 }
-                .margins(.top, indexPath.section == 0 ? 32 : 28)
+                .margins(.top, indexPath.section == 0 ? 16 : 28)
                 .margins(.bottom, 4)
                 .margins(.horizontal, 4)
             }
@@ -301,8 +290,6 @@ public class ExploreVC: WViewController {
         }
         dataSource.supplementaryViewProvider = { collectionView, elementKind, indexPath in
             switch elementKind {
-            case Constants.topHeader:
-                collectionView.dequeueConfiguredReusableSupplementary(using: topHeader, for: indexPath)
             case Constants.trendingHeader:
                 collectionView.dequeueConfiguredReusableSupplementary(using: trendingHeader, for: indexPath)
             case Constants.popularAppsHeader:
@@ -343,7 +330,7 @@ public class ExploreVC: WViewController {
                 group.interItemSpacing = .fixed(interItemSpacing)
 
                 connectedSection = NSCollectionLayoutSection(group: group)
-                connectedSection.contentInsets = .init(top: 8, leading: horizontalInset, bottom: 0, trailing: horizontalInset)
+                connectedSection.contentInsets = .init(top: 16, leading: horizontalInset, bottom: 0, trailing: horizontalInset)
                 connectedSection.interGroupSpacing = 11
             } else {
                 let item = NSCollectionLayoutItem(
@@ -355,7 +342,7 @@ public class ExploreVC: WViewController {
                 )
                 connectedSection = NSCollectionLayoutSection(group: group)
                 connectedSection.orthogonalScrollingBehavior = .continuous
-                connectedSection.contentInsets = .init(top: 8, leading: horizontalInset, bottom: 8, trailing: horizontalInset)
+                connectedSection.contentInsets = .init(top: 16, leading: horizontalInset, bottom: 8, trailing: horizontalInset)
                 connectedSection.interGroupSpacing = 8
             }
         }
@@ -366,11 +353,14 @@ public class ExploreVC: WViewController {
                 layoutSize: .init(.estimated(192), .estimated(192))
             )
             let group = NSCollectionLayoutGroup.horizontal(
-                layoutSize: .init(.fractionalWidth(1), .estimated(192)),
+                layoutSize: .init(.absolute(featuredItemWidth), .estimated(192)),
                 subitems: [item]
             )
             trendingSection = NSCollectionLayoutSection(group: group)
-            trendingSection.orthogonalScrollingBehavior = .continuous
+            trendingSection.orthogonalScrollingBehavior = .continuousGroupLeadingBoundary
+            if #available(iOS 17.0, *) {
+                trendingSection.orthogonalScrollingProperties.decelerationRate = .fast
+            }
             trendingSection.contentInsets = .init(top: 8, leading: 20, bottom: 8, trailing: 20)
             trendingSection.interGroupSpacing = 12
             
@@ -454,14 +444,6 @@ public class ExploreVC: WViewController {
             return section
         }
 
-        let configuration = UICollectionViewCompositionalLayoutConfiguration()
-        let topHeader = NSCollectionLayoutBoundarySupplementaryItem(
-            layoutSize: .init(.fractionalWidth(1), .estimated(44)),
-            elementKind: Constants.topHeader,
-            alignment: .top
-        )
-        configuration.boundarySupplementaryItems = [topHeader]
-        
         let layout = UICollectionViewCompositionalLayout(sectionProvider: { [weak self] idx, env in
             if let id = self?.dataSource?.sectionIdentifier(for: idx) {
                 switch id {
@@ -476,7 +458,7 @@ public class ExploreVC: WViewController {
                 }
             }
             return nil
-        }, configuration: configuration)
+        })
         return layout
     }
     
@@ -593,25 +575,6 @@ extension ExploreVC: UICollectionViewDelegate {
             AppActions.openInBrowser(url)
         }
     }
-    
-    public func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        let y = scrollView.contentOffset.y + scrollView.adjustedContentInset.top
-        let changed = (y > hideStatusBarOffset) != (self.previousOffset > hideStatusBarOffset)
-        self.previousOffset = y
-        if changed {
-            DispatchQueue.main.async {
-                UIView.animate(withDuration: 0.15) {
-                    self.setNeedsStatusBarAppearanceUpdate()
-                }
-            }
-        }
-    }
-    
-    public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
-    }
-    
-    public func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
-    }
 }
 
 extension ExploreVC: ExploreVMDelegate {
@@ -722,14 +685,6 @@ final class CategoryDappsAnimator: NSObject, UIViewControllerAnimatedTransitioni
 
 // MARK: - Collection view supplementary views
 
-
-fileprivate struct TopHeader: View {
-    var body: some View {
-        Text(lang("Explore"))
-            .font(.system(size: 34, weight: .bold))
-            .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
 
 fileprivate struct TrendingHeader: View {
     

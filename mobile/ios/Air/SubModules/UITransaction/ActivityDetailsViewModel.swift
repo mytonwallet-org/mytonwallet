@@ -18,11 +18,11 @@ final class ActivityDetailsViewModel {
     @PerceptionIgnored
     var onDetailsExpandedChanged: () -> () = { }
     
-    let accountViewModel: AccountViewModel
+    let accountContext: AccountContext
 
     init(activity: ApiActivity, accountId: String?, detailsExpanded: Bool, scrollingDisabled: Bool) {
         self.activity = activity
-        self.accountViewModel = AccountViewModel(accountId: accountId)
+        self.accountContext = AccountContext(accountId: accountId)
         self.detailsExpanded = detailsExpanded
         self.scrollingDisabled = scrollingDisabled
     }

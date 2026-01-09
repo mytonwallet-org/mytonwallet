@@ -96,7 +96,6 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
     }
     
     @objc func continuePressed() {
-        view.endEditing(true)
         let account = model.account
         if account.isHardware {
             Task {

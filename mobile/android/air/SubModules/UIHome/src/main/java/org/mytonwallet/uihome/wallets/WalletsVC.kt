@@ -619,8 +619,8 @@ class WalletsVC(
                         }
                     })
             ),
-            offset = if (isGridMode) (-8).dp else 72.dp,
-            verticalOffset = if (isGridMode) 1 else (-20).dp,
+            xOffset = if (isGridMode) (-8).dp else 72.dp,
+            yOffset = if (isGridMode) 1 else (-20).dp,
             aboveView = false,
             centerHorizontally = true,
             onWillDismiss = {

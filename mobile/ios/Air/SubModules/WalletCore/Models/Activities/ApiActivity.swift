@@ -225,20 +225,24 @@ public enum UnusualTxType: String {
 extension ApiActivity {
     /// see: src/util/acitivities/index.ts > parseTxId
     public var parsedTxId: ParsedTxId {
-        var hash: String = ""
-        var subId: String? = nil
-        var type: UnusualTxType? = nil
-        
-        let split = id.split(separator: ":", omittingEmptySubsequences: false)
-        if split.count > 0 {
-            hash = String(split[0])
-        }
-        if split.count > 1 {
-            subId = String(split[1])
-        }
-        if split.count > 2 {
-            type = UnusualTxType(rawValue: String(split[2]))
-        }
-        return ParsedTxId(hash: hash, subId: subId, type: type)
+        getParsedTxId(id: id)
     }
+}
+
+public func getParsedTxId(id: String) -> ParsedTxId {
+    var hash: String = ""
+    var subId: String? = nil
+    var type: UnusualTxType? = nil
+    
+    let split = id.split(separator: ":", omittingEmptySubsequences: false)
+    if split.count > 0 {
+        hash = String(split[0])
+    }
+    if split.count > 1 {
+        subId = String(split[1])
+    }
+    if split.count > 2 {
+        type = UnusualTxType(rawValue: String(split[2]))
+    }
+    return ParsedTxId(hash: hash, subId: subId, type: type)
 }

@@ -7,10 +7,12 @@ import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC.Collecti
 import org.mytonwallet.app_air.uiassets.viewControllers.hiddenNFTs.HiddenNFTsVC
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.getLocationInWindow
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.Item.Config.Icon
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.utils.x
 import org.mytonwallet.app_air.walletcore.stores.NftStore
 
 object CollectionsMenuHelpers {
@@ -21,8 +23,6 @@ object CollectionsMenuHelpers {
         onRemoveTapped: ((collectionMode: CollectionMode) -> Unit),
     ) {
         val shouldShowReorder = onReorderTapped != null
-        val location = IntArray(2)
-        view.getLocationInWindow(location)
         val items = mutableListOf(
             WMenuPopup.Item(
                 WMenuPopup.Item.Config.Item(
@@ -51,7 +51,7 @@ object CollectionsMenuHelpers {
                 ) {
                     onReorderTapped.invoke()
                 })
-        WMenuPopup.Companion.present(
+        WMenuPopup.present(
             view,
             items,
             popupWidth = WRAP_CONTENT,
@@ -190,13 +190,12 @@ object CollectionsMenuHelpers {
                     onReorderTapped()
                 })
         }
-        val location = IntArray(2)
-        view.getLocationInWindow(location)
-        WMenuPopup.Companion.present(
+        val location = view.getLocationInWindow()
+        WMenuPopup.present(
             view,
             menuItems,
             popupWidth = 256.dp,
-            offset = (-location[0] + (navigationController.width / 2) - 128.dp),
+            xOffset = (-location.x + (navigationController.width / 2) - 128.dp),
             aboveView = false
         )
     }

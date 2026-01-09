@@ -97,7 +97,7 @@ private let distanceFromAnchor: CGFloat = 8
     }
     
     var showBelowSource: Bool {
-        sourceFrame.maxY < 700
+        sourceFrame.maxY < 600
     }
     
     var source: CGPoint {

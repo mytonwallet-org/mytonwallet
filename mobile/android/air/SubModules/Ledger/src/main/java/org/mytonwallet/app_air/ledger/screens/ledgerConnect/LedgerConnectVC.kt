@@ -27,7 +27,6 @@ import android.widget.ScrollView
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
-import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
@@ -294,7 +293,7 @@ class LedgerConnectVC(
                             updateConnectionTypeView()
                         }
                     ),
-                    offset = connectionTypeView.width - 116.dp,
+                    xOffset = connectionTypeView.width - 116.dp,
                     popupWidth = WRAP_CONTENT,
                     aboveView = true
                 )
@@ -585,9 +584,12 @@ class LedgerConnectVC(
                                 options = signData.transferOptions
                             )
                         ).activityId
-                        sentActivityId = ActivityHelpers.getTxIdFromId(id)
+                        signedActivityId = ActivityHelpers.getTxIdFromId(id)
                         Handler(Looper.getMainLooper()).post {
                             mode.onDone()
+                            receivedLocalActivities?.firstOrNull { it.getTxHash() == signedActivityId }?.let {
+                                checkReceivedActivity(it)
+                            }
                         }
                     } catch (e: Throwable) {
                         Handler(Looper.getMainLooper()).post {
@@ -666,7 +668,7 @@ class LedgerConnectVC(
 
                 is SignData.SignNftTransfer -> {
                     try {
-                        WalletCore.call(
+                        val result = WalletCore.call(
                             SubmitNftTransfer(
                                 accountId = signData.accountId,
                                 passcode = "",
@@ -676,8 +678,12 @@ class LedgerConnectVC(
                                 fee = signData.realFee ?: BigInteger.ZERO
                             )
                         )
+                        signedActivityId = MBlockchain.ton.idToTxHash(result.activityIds.lastOrNull())
                         Handler(Looper.getMainLooper()).post {
                             mode.onDone()
+                            receivedLocalActivities?.firstOrNull { it.getTxHash() == signedActivityId }?.let {
+                                checkReceivedActivity(it)
+                            }
                         }
                     } catch (e: Throwable) {
                         Handler(Looper.getMainLooper()).post {
@@ -688,7 +694,7 @@ class LedgerConnectVC(
 
                 is SignData.Staking -> {
                     try {
-                        if (signData.isStaking)
+                        val result = if (signData.isStaking)
                             WalletCore.submitStake(
                                 accountId = signData.accountId,
                                 passcode = "",
@@ -704,8 +710,12 @@ class LedgerConnectVC(
                                 stakingState = signData.stakingState,
                                 realFee = signData.realFee,
                             )
+                        signedActivityId = ActivityHelpers.getTxIdFromId(result.activityId)
                         Handler(Looper.getMainLooper()).post {
                             mode.onDone()
+                            receivedLocalActivities?.firstOrNull { it.getTxHash() == signedActivityId }?.let {
+                                checkReceivedActivity(it)
+                            }
                         }
                     } catch (e: Throwable) {
                         Handler(Looper.getMainLooper()).post {
@@ -963,19 +973,56 @@ class LedgerConnectVC(
         }
     }
 
-    private var sentActivityId: String? = null
-    override fun onWalletEvent(walletEvent: WalletEvent) {
-        val sentActivityId = sentActivityId ?: return
-        when (walletEvent) {
-            is WalletEvent.ReceivedPendingActivities -> {
-                val activity = walletEvent.pendingActivities?.firstOrNull { activity ->
-                    activity is MApiTransaction.Transaction &&
-                        sentActivityId == activity.getTxHash()
-                } ?: return
+    private var signedActivityId: String? = null
+    private var receivedLocalActivities: ArrayList<MApiTransaction>? = null
+    private fun checkReceivedActivity(receivedActivity: MApiTransaction) {
+        if (signedActivityId == null) {
+            // Transfer in-progress, cached received local activity to process on transfer api callback is called
+            if (receivedActivity.isLocal()) {
+                if (receivedLocalActivities == null)
+                    receivedLocalActivities = ArrayList()
+                receivedLocalActivities?.add(receivedActivity)
+            }
+            return
+        }
 
-                this.sentActivityId = null
-                window?.dismissLastNav {
-                    WalletCore.notifyEvent(WalletEvent.OpenActivity(activity))
+        val txMatch = receivedActivity is MApiTransaction.Transaction && signedActivityId == receivedActivity.getTxHash()
+        if (!txMatch) {
+            return
+        }
+
+        signedActivityId = null
+        WalletCore.unregisterObserver(this)
+        if (window?.topNavigationController != navigationController) {
+            window?.dismissNav(navigationController)
+            return
+        }
+        if ((window?.navigationControllers?.size ?: 0) > 1) {
+            window?.dismissLastNav {
+                if ((mode as? Mode.ConnectToSubmitTransfer)?.signData is SignData.Staking)
+                    return@dismissLastNav
+                WalletCore.notifyEvent(WalletEvent.OpenActivity(receivedActivity))
+            }
+        } else {
+            navigationController?.popToRoot {
+                if ((mode as? Mode.ConnectToSubmitTransfer)?.signData is SignData.Staking)
+                    return@popToRoot
+                WalletCore.notifyEvent(WalletEvent.OpenActivity(receivedActivity))
+            }
+        }
+    }
+
+    override fun onWalletEvent(walletEvent: WalletEvent) {
+        when (walletEvent) {
+            is WalletEvent.NewLocalActivities -> {
+                walletEvent.localActivities?.forEach {
+                    checkReceivedActivity(it)
+                }
+            }
+
+            is WalletEvent.ReceivedPendingActivities -> {
+                walletEvent.pendingActivities?.forEach {
+                    checkReceivedActivity(it)
                 }
             }
 

@@ -36,7 +36,7 @@ struct ConnectDappViewOrPlaceholder: View {
             return .connectDapp(ConnectDappView(viewModel: viewModel, update: update))
         } else {
             return .placeholder(TonConnectPlaceholder(
-                account: viewModel.accountViewModel.account,
+                account: viewModel.accountContext.account,
                 connectionType: .connect,
             ))
         }
@@ -100,7 +100,7 @@ private struct SelectSection: View {
             InsetSection {
                 InsetButtonCell(horizontalPadding: 12, verticalPadding: 10, action: viewModel.onSelectWallet) {
                     HStack {
-                        AccountListCell(viewModel: viewModel.accountViewModel, isReordering: false, showCurrentAccountHighlight: false)
+                        AccountListCell(accountContext: viewModel.accountContext, isReordering: false, showCurrentAccountHighlight: false)
                         InsetListChevron()
                     }
                 }

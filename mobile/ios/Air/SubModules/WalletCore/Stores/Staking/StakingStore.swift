@@ -15,12 +15,6 @@ public final class _StakingStore: WalletCoreData.EventsObserver {
     
     private var _byId: UnfairLock<[String: MStakingData]> = .init(initialState: [:])
     public func byId(_ accountId: String) -> MStakingData? { _byId.withLock { $0[accountId] } }
-    public var currentAccount: MStakingData? {
-        if let accountId = AccountStore.accountId {
-            return _byId.withLock { $0[accountId] }
-        }
-        return nil
-    }
     
     private var _db: (any DatabaseWriter)?
     private var db: any DatabaseWriter {

@@ -16,13 +16,13 @@ import Kingfisher
 
 struct CardMiniature: View {
     
-    let viewModel: AccountViewModel
+    let accountContext: AccountContext
     
     private let cardPreviewSize = CGSize(width: 22, height: 14)
     
     var body: some View {
         WithPerceptionTracking {
-            if let imageUrl = viewModel.nft?.metadata?.mtwCardBackgroundUrl {
+            if let imageUrl = accountContext.nft?.metadata?.mtwCardBackgroundUrl {
                 ZStack {
                     Color.clear
                     KFImage(source: .network(imageUrl))
@@ -36,7 +36,7 @@ struct CardMiniature: View {
                 .clipShape(RoundedRectangle(cornerRadius: 3))
                 .overlay {
                     MtwCardMiniPlaceholders()
-                        .sourceAtop { MtwCardInverseCenteredGradient(nft: viewModel.nft) }
+                        .sourceAtop { MtwCardInverseCenteredGradient(nft: accountContext.nft) }
                         .scaleEffect(0.8)
                 }
             }

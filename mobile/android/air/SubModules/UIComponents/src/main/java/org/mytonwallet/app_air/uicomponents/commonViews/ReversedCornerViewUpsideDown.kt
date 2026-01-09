@@ -64,7 +64,7 @@ class ReversedCornerViewUpsideDown(
         floatArrayOf(0f, 0f, 0f, 0f, cornerRadius, cornerRadius, cornerRadius, cornerRadius)
 
     private var showSeparator: Boolean = true
-    private var isPlaying = false
+    var isPlaying = false
     private var lastWidth = -1
     private var lastHeight = -1
 
@@ -167,7 +167,7 @@ class ReversedCornerViewUpsideDown(
     fun pauseBlurring() {
         if (!isPlaying) return
         isPlaying = false
-        blurryBackgroundView?.setBlurAutoUpdate(false)
+        blurryBackgroundView?.pauseBlurring()
         postInvalidateOnAnimation()
     }
 
@@ -180,7 +180,7 @@ class ReversedCornerViewUpsideDown(
                 addView(it, LayoutParams(MATCH_PARENT, MATCH_PARENT))
                 it.setupWith(blurRootView!!)
             }
-            it.setBlurAutoUpdate(true)
+            it.resumeBlurring()
         } ?: run {
             if (backgroundView.parent == null)
                 addView(backgroundView, LayoutParams(MATCH_PARENT, MATCH_PARENT))

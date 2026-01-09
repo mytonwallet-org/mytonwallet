@@ -75,9 +75,8 @@ struct NftDetailsActionsRow: View {
             .task {
                 wearMenu.makeConfig = {
                     
-                    @Dependency(\.accountStore.currentAccountId) var currentAccountId
                     @Dependency(\.accountSettings) var _accountSettings
-                    let accountSettings = _accountSettings.for(accountId: currentAccountId)
+                    let accountSettings = _accountSettings.for(accountId: viewModel.accountId)
                     
                     let nft = viewModel.nft
                     var items: [MenuItem] = []

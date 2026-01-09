@@ -37,8 +37,6 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.math.BigInteger
-import kotlin.math.min
-
 
 class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
     WalletCore.EventObserver {
@@ -105,16 +103,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
     val realFee: BigInteger = tonOperationFees!!.real
 
     //
-    var amountInBaseCurrency = BigInteger.valueOf(0)
     var amount = BigInteger.valueOf(0)
-    var switchedToBaseCurrencyInput = false
-    val fieldMaximumFraction: Int
-        get() {
-            return if (switchedToBaseCurrencyInput)
-                min(5, WalletCore.baseCurrency.decimalsCount)
-            else
-                (TokenStore.getToken(inputStateValue().tokenToStake?.slug)?.decimals ?: 9)
-        }
 
     // Input State
     private val _inputStateFlow =
@@ -193,8 +182,6 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
             return
         }
 
-        //
-        // val inputAmountBigInt = safelyConvertInputToBigInteger(amountInCrypto)
         val isBalanceSufficient = checkInputAmountIsBalanceSufficient(amountInCrypto)
         val isMoreThanMinRequired = isInputAmountMoreThanMinRequired(amountInCrypto)
         val isInsuffcientFeeAmount = isInsufficientFeeAmount(amountInCrypto)
@@ -228,7 +215,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
     private fun isInsufficientFeeAmount(inputAmount: BigInteger): Boolean {
         return (!isStake() || (isStake() && inputAmount >= minRequiredAmount)) &&
             (nativeBalance < networkFee || (isNativeToken && nativeBalance < amount + networkFee)) &&
-            !shouldRenderBalanceWithSmallFee
+            (tokenSlug != TONCOIN_SLUG || !shouldRenderBalanceWithSmallFee)
     }
 
     private fun calculateEstimatedEarning(amount: BigInteger, apy: Float): BigInteger {
@@ -326,14 +313,14 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
 
         viewModelScope.launch {
             try {
-                WalletCore.submitStake(
+                val result = WalletCore.submitStake(
                     accountId!!,
                     amount = inputStateValue().amountInCrypto ?: BigInteger.ZERO,
                     stakingState!!,
                     passcode = passcode,
                     realFee = realFee
                 )
-                _eventsFlow.tryEmit(VmToVcEvents.SubmitSuccess)
+                _eventsFlow.tryEmit(VmToVcEvents.SubmitSuccess(result.activityId))
             } catch (e: JSWebViewBridge.ApiError) {
                 e.printStackTrace()
                 _eventsFlow.tryEmit(VmToVcEvents.SubmitFailure(e))
@@ -349,14 +336,14 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
 
         viewModelScope.launch {
             try {
-                WalletCore.submitUnstake(
+                val result = WalletCore.submitUnstake(
                     accountId!!,
                     amount = inputStateValue().amountInCrypto ?: BigInteger.ZERO,
                     stakingState!!,
                     passcode = passcode,
                     realFee = realFee
                 )
-                _eventsFlow.tryEmit(VmToVcEvents.SubmitSuccess)
+                _eventsFlow.tryEmit(VmToVcEvents.SubmitSuccess(result.activityId))
             } catch (e: JSWebViewBridge.ApiError) {
                 e.printStackTrace()
                 _eventsFlow.tryEmit(VmToVcEvents.SubmitFailure(e))
@@ -376,10 +363,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
         val addressByChain: Map<String, String>,
         val balances: Map<String, BigInteger>,
         val assets: List<MApiSwapAsset>
-    ) {
-        val assetsMap: Map<String, MApiSwapAsset> = assets.associateBy { it.slug }
-
-    }
+    )
 
     private fun createWalletState(): WalletState? {
         val account = AccountStore.activeAccount ?: return null
@@ -398,7 +382,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
     val eventsFlow = _eventsFlow.asSharedFlow()
 
     sealed class VmToVcEvents {
-        object SubmitSuccess : VmToVcEvents()
+        data class SubmitSuccess(val activityId: String) : VmToVcEvents()
         data class SubmitFailure(val error: JSWebViewBridge.ApiError?) : VmToVcEvents()
         object InitialState : VmToVcEvents()
     }
@@ -513,41 +497,6 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) : ViewModel(),
 
         tokenBalance = availableBalance
     }
-
-    /*private fun updateFee() {
-        val stakingState = stakingState ?: return
-        val currentAmount = inputStateValue().amountInCrypto ?: BigInteger.ZERO
-        val method = when (mode) {
-            Mode.STAKE -> ApiMethod.Staking.CheckStakeDraft(
-                accountId!!,
-                currentAmount,
-                stakingState
-            )
-
-            Mode.UNSTAKE -> ApiMethod.Staking.CheckUnstakeDraft(
-                accountId!!,
-                currentAmount,
-                stakingState
-            )
-        }
-        WalletCore.call(method) { res, err ->
-            val fee = res?.realFee
-            if (fee == null)
-                return@call
-            if (currentAmount != (inputStateValue().amountInCrypto ?: BigInteger.ZERO))
-                return@call
-            _viewState.tryEmit(
-                viewStateValue().copy(
-                    currentFee = fee.toString(
-                        decimals = 9,
-                        currency = "",
-                        currencyDecimals = fee.smartDecimalsCount(9),
-                        showPositiveSign = false
-                    ),
-                )
-            )
-        }
-    }*/
 
     fun isStake() = mode == Mode.STAKE
     fun isUnstake() = mode == Mode.UNSTAKE

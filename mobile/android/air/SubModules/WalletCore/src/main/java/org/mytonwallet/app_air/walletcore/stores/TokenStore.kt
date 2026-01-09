@@ -15,6 +15,7 @@ import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
+import java.util.concurrent.ConcurrentHashMap
 
 object TokenStore : IStore {
 
@@ -59,7 +60,7 @@ object TokenStore : IStore {
     }
 
     @Volatile
-    var tokens = HashMap<String, MToken>()
+    var tokens = ConcurrentHashMap<String, MToken>()
         private set
 
     @Volatile

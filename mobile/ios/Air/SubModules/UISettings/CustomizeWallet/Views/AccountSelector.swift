@@ -6,7 +6,6 @@
 //
 
 
-
 import UIKit
 import SwiftUI
 import UIComponents
@@ -69,7 +68,7 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
         section.contentInsets = .init(top: 0, leading: inset, bottom: 0, trailing: inset)
         section.interGroupSpacing = 0
         
-        section.visibleItemsInvalidationHandler = { [unowned self] items, scrollOffset, env in
+        section.visibleItemsInvalidationHandler = { [unowned self] items, scrollOffset, _ in
             guard !items.isEmpty else { return }
             var minDistance: CGFloat = .infinity
             var minDistanceIndex = 0
@@ -105,10 +104,10 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         
         let cellRegistration = UICollectionView.CellRegistration<UICollectionViewCell, String> { cell, _, accountId in
-            let viewModel = AccountViewModel(accountId: accountId)
-            cell.configurationUpdateHandler = { cell, state in
+            let accountContext = AccountContext(accountId: accountId)
+            cell.configurationUpdateHandler = { cell, _ in
                 cell.contentConfiguration = UIHostingConfiguration {
-                    AccountSelectorCell(viewModel: viewModel)
+                    AccountSelectorCell(accountContext: accountContext)
                 }
                 .margins(.all, 0)
             }
@@ -171,14 +170,6 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
     }
     
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
-    }
-    
-    override func systemLayoutSizeFitting(_ targetSize: CGSize) -> CGSize {
-        return super.systemLayoutSizeFitting(targetSize)
-    }
-    
-    override func systemLayoutSizeFitting(_ targetSize: CGSize, withHorizontalFittingPriority horizontalFittingPriority: UILayoutPriority, verticalFittingPriority: UILayoutPriority) -> CGSize {
-        return super.systemLayoutSizeFitting(targetSize, withHorizontalFittingPriority: horizontalFittingPriority, verticalFittingPriority: verticalFittingPriority)
     }
     
     override var intrinsicContentSize: CGSize {

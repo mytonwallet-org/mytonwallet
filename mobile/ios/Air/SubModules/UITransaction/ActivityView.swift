@@ -101,10 +101,12 @@ struct ActivityView: View {
                         .font(.system(size: 24, weight: .semibold))
                     HStack(alignment: .firstTextBaseline, spacing: 0) {
                         Text((tx.isIncoming == true ? lang("Received from") :  lang("Sent to")) + " ") 
-                        TappableAddress(name: activity.addressToShow,
-                                        chain: chain.rawValue,
-                                        resolvedAddress: activity.peerAddress,
-                                        addressOrName: activity.addressToShow)
+                        TappableAddress(
+                            account: model.accountContext,
+                            name: activity.addressToShow,
+                            chain: chain.rawValue,
+                            addressOrName: activity.addressToShow
+                        )
                     }
                 }
                 .padding(.horizontal, 16)
@@ -122,7 +124,13 @@ struct ActivityView: View {
         switch activity {
         case .transaction(let tx):
             if let token {
-                TransactionActivityHeader(transaction: tx, token: token, onTokenTapped: onTokenTapped)
+                TransactionActivityHeader(
+                    account: model.accountContext,
+                    transaction: tx,
+                    token: token,
+                    amountDisplayMode: activity.amountDisplayMode,
+                    onTokenTapped: onTokenTapped
+                )
             }
         case .swap(let swap):
             if let fromAmount = swap.fromAmountInt64, let toAmount = swap.toAmountInt64, let fromToken = swap.fromToken, let toToken = swap.toToken {
@@ -259,10 +267,10 @@ struct ActivityView: View {
             } value: {
                 let amount = TokenAmount(transaction.amount, token)
                 let inToken = amount
-                    .formatted(showMinus: false)
+                    .formatted(.none, showMinus: false)
                 let curr = TokenStore.baseCurrency
                 let token = TokenStore.getToken(slug: activity.slug)
-                Text(token?.price != nil ? "\(inToken) (\(amount.convertTo(curr, exchangeRate: token!.price!).formatted(showMinus: false)))" : inToken)
+                Text(token?.price != nil ? "\(inToken) (\(amount.convertTo(curr, exchangeRate: token!.price!).formatted(.baseCurrencyEquivalent, showMinus: false)))" : inToken)
                     .sensitiveDataInPlace(cols: 10, rows: 2, cellSize: 9, theme: .adaptive, cornerRadius: 5)
             }
         }

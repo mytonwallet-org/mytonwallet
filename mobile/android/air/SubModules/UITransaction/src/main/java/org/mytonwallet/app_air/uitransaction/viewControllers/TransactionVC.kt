@@ -72,6 +72,7 @@ import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MFee
@@ -311,9 +312,10 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
                 nftHeaderView = NftHeaderView(WeakReference(this), transaction)
                 v.addView(nftHeaderView)
             } else {
-                transactionHeaderView = TransactionHeaderView(WeakReference(this), transaction) { slug ->
-                    navigateToToken(slug)
-                }
+                transactionHeaderView =
+                    TransactionHeaderView(WeakReference(this), transaction) { slug ->
+                        navigateToToken(slug)
+                    }
                 v.addView(transactionHeaderView)
             }
         }
@@ -755,6 +757,8 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
     }
 
     private fun reloadData() {
+        setNavTitle(transaction.title)
+        setNavSubtitle(transaction.dt.formatDateAndTime())
         transactionHeaderView?.apply {
             transaction = this@TransactionVC.transaction
             reloadData()
@@ -1111,15 +1115,13 @@ class TransactionVC(context: Context, var transaction: MApiTransaction) : WViewC
                 reloadData()
             }
 
-            is WalletEvent.ReceivedPendingActivities -> {
-                walletEvent.pendingActivities?.firstOrNull { this.transaction.isSame(it) }?.let {
-                    this.transaction = it
-                    reloadData()
-                }
-            }
-
             is WalletEvent.ReceivedNewActivities -> {
-                walletEvent.newActivities?.firstOrNull { this.transaction.isSame(it) }?.let {
+                walletEvent.newActivities?.firstOrNull {
+                    return@firstOrNull if (it.isLocal())
+                        ActivityHelpers.localActivityMatches(this.transaction, it)
+                    else
+                        this.transaction.isSame(it)
+                }?.let {
                     this.transaction = it
                     reloadData()
                 }

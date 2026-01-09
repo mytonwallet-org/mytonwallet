@@ -19,7 +19,7 @@ import Dependencies
 @MainActor final class ConnectViewModel {
         
     var update: ApiUpdate.DappConnect?
-    var accountViewModel: AccountViewModel
+    var accountContext: AccountContext
     @PerceptionIgnored
     var onConfirm: ((_ accountId: String, _ password: String) -> ())?
     @PerceptionIgnored
@@ -30,7 +30,7 @@ import Dependencies
     @Dependency(\.accountStore) private var accountStore
     
     init(accountId: String, update: ApiUpdate.DappConnect?, onConfirm: ((_ accountId: String, _ password: String) -> ())?, onCancel: (() -> ())?) {
-        self.accountViewModel = AccountViewModel(accountId: accountId)
+        self.accountContext = AccountContext(accountId: accountId)
         self.update = update
         self.onConfirm = onConfirm
         self.onCancel = onCancel
@@ -38,7 +38,7 @@ import Dependencies
     
     var isDisabled: Bool {
         if let update {
-            return update.proof != nil && accountViewModel.account.isView
+            return update.proof != nil && accountContext.account.isView
         }
         return true
     }
@@ -56,13 +56,13 @@ import Dependencies
     
     func onWalletSelected(accountId: String) {
         Task {
-            accountViewModel.accountId = accountId
+            accountContext.accountId = accountId
             _ = try await AccountStore.activateAccount(accountId: accountId)
         }
     }
     
     func onConnectWallet() {
-        if accountViewModel.account.isHardware {
+        if accountContext.account.isHardware {
             Task {
                 await confirmLedger()
             }
@@ -78,7 +78,7 @@ import Dependencies
                              subtitle: URL(string: update.dapp.url)?.host, onDone: { [weak self] passcode in
             guard let self, let passcode else { return }
             didConfirm = true
-            onConfirm?(accountViewModel.accountId, passcode)
+            onConfirm?(accountContext.accountId, passcode)
             topVC.dismiss(animated: true)
         }, cancellable: true)
     }
@@ -89,8 +89,8 @@ import Dependencies
         else { return }
         
         let signModel = await LedgerSignModel(
-            accountId: accountViewModel.accountId,
-            fromAddress: accountViewModel.account.firstAddress,
+            accountId: accountContext.accountId,
+            fromAddress: accountContext.account.firstAddress,
             signData: .signLedgerProof(
                 promiseId: update.promiseId,
                 proof: update.proof
@@ -104,7 +104,7 @@ import Dependencies
         vc.onDone = { [weak self] _ in
             guard let self else { return }
             self.didConfirm = true
-            onConfirm?(accountViewModel.accountId, "")
+            onConfirm?(accountContext.accountId, "")
             topViewController()?.dismiss(animated: true, completion: {
                 topViewController()?.dismiss(animated: true)
             })

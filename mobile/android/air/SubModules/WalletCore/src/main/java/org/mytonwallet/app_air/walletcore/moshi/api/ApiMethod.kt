@@ -10,6 +10,7 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.ApiNotificationAddress
 import org.mytonwallet.app_air.walletcore.moshi.ApiSubmitTransferResult
+import org.mytonwallet.app_air.walletcore.moshi.ApiSubmitTransfersResult
 import org.mytonwallet.app_air.walletcore.moshi.ApiTonConnectProof
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransferToSign
 import org.mytonwallet.app_air.walletcore.moshi.DeviceInfo
@@ -599,9 +600,9 @@ sealed class ApiMethod<T> {
             address: String,
             comment: String?,
             fee: BigInteger
-        ) : ApiMethod<Any>() {
+        ) : ApiMethod<ApiSubmitTransfersResult>() {
             override val name: String = "submitNftTransfers"
-            override val type: Type = Any::class.java
+            override val type: Type = ApiSubmitTransfersResult::class.java
             override val arguments: String = ArgumentsBuilder()
                 .string(accountId)
                 .string(passcode)

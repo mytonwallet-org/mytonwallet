@@ -1,21 +1,20 @@
 package org.mytonwallet.app_air.uicomponents.widgets.menu
 
-import android.annotation.SuppressLint
-import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
-import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.getLocationOnScreen
 import org.mytonwallet.app_air.uicomponents.extensions.unspecified
-import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
+import org.mytonwallet.app_air.uicomponents.widgets.INavigationPopup
 import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.Item.Config.Icon
 import org.mytonwallet.app_air.uicomponents.widgets.unlockView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.x
+import org.mytonwallet.app_air.walletbasecontext.utils.y
 
 class WMenuPopup {
 
@@ -234,47 +233,40 @@ class WMenuPopup {
     }
 
     companion object {
-        @SuppressLint("ClickableViewAccessibility")
         fun present(
             view: View,
             items: List<Item>,
             popupWidth: Int = WRAP_CONTENT,
-            offset: Int = 0,
-            verticalOffset: Int = 0,
+            xOffset: Int = 0,
+            yOffset: Int = 0,
             aboveView: Boolean,
             centerHorizontally: Boolean = false,
             onWillDismiss: (() -> Unit)? = null,
-        ): WPopupWindow {
+        ): INavigationPopup {
             view.lockView()
 
-            lateinit var popupWindow: WPopupWindow
+            lateinit var popupWindow: WNavigationPopup
 
-            val popupView = WMenuPopupView(
+            val initialPopupView = WMenuPopupView(
                 view.context, items,
                 onWillDismiss = onWillDismiss,
                 onDismiss = {
                     popupWindow.dismiss()
                 })
 
-            popupWindow = WPopupWindow(popupView, popupWidth).apply {
-                isOutsideTouchable = true
-                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-
+            popupWindow = WNavigationPopup(initialPopupView, popupWidth).apply {
                 setOnDismissListener {
                     view.post {
                         view.unlockView()
                     }
                 }
             }
-            popupView.popupWindow = popupWindow
 
-            val location = IntArray(2)
-            view.getLocationOnScreen(location)
-
-            val offset = offset + if (centerHorizontally) {
+            val location = view.getLocationOnScreen()
+            val offset = xOffset + if (centerHorizontally) {
                 val popupMeasuredWidth = if (popupWidth == WRAP_CONTENT) {
-                    popupView.measure(0.unspecified, 0.unspecified)
-                    popupView.measuredWidth
+                    initialPopupView.measure(0.unspecified, 0.unspecified)
+                    initialPopupView.measuredWidth
                 } else {
                     popupWidth
                 }
@@ -284,16 +276,9 @@ class WMenuPopup {
             }
 
             popupWindow.showAtLocation(
-                view,
-                Gravity.NO_GRAVITY,
-                location[0] + offset - 4.dp,
-                location[1] + verticalOffset - 8.dp + if (aboveView) 0 else (view.height + 4.dp)
+                x = location.x + offset,
+                y = location.y + yOffset + if (aboveView) 0 else (view.height + 8.dp)
             )
-
-            popupView.present(initialHeight = 0)
-
-            PopupHelpers.popupShown(popupWindow)
-
             return popupWindow
         }
     }

@@ -83,7 +83,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
     
     isolated deinit {
         if homeVM.isTrackingActiveAccount {
-            let accountId = homeVM.accountViewModel.accountId
+            let accountId = homeVM.account.id
             Task {
                 try await AccountStore.removeAccountIfTemporary(accountId: accountId)
             }
@@ -153,7 +153,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         ])
 
         // balance header view
-        let balanceHeaderView = BalanceHeaderView(headerViewModel: headerViewModel, accountId: homeVM.accountId, delegate: self)
+        let balanceHeaderView = BalanceHeaderView(headerViewModel: headerViewModel, accountId: homeVM.account.id, delegate: self)
         self.balanceHeaderView = balanceHeaderView
         balanceHeaderView.alpha = 0
         headerContainerView.addSubview(balanceHeaderView)
@@ -218,7 +218,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         ])
         actionsVC.didMove(toParent: self)
         
-        walletAssetsVC = WalletAssetsVC(accountSource: homeVM.accountSource, compactMode: true)
+        walletAssetsVC = WalletAssetsVC(accountSource: homeVM.$account.source, compactMode: true)
         addChild(walletAssetsVC)
         let assetsView = walletAssetsVC.view!
         tableView.addSubview(assetsView)
@@ -332,7 +332,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
     
     func appearedForFirstTime() {
         Task {
-            await changeAccountTo(accountId: homeVM.accountId, isNew: false)
+            await changeAccountTo(accountId: homeVM.account.id, isNew: false)
         }
         
         emptyWalletView.alpha = 0

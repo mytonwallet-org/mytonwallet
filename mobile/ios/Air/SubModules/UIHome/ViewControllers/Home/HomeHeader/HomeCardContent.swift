@@ -18,19 +18,19 @@ import Dependencies
 struct HomeCardContent: View {
     
     var headerViewModel: HomeHeaderViewModel
-    var accountViewModel: AccountViewModel
+    var accountContext: AccountContext
     
     var progress: CGFloat { headerViewModel.collapseProgress }
     
     var body: some View {
         WithPerceptionTracking {
             ZStack {
-                _CenterContent(headerViewModel: headerViewModel, viewModel: accountViewModel)
+                _CenterContent(headerViewModel: headerViewModel, accountContext: accountContext)
                     .scaleEffect(balanceScale)
                     .backportGeometryGroup()
                     .offset(y: -bottomPadding)
-                    .id(accountViewModel.accountId)
-                _AddressLine(viewModel: accountViewModel)
+                    .id(accountContext.accountId)
+                _AddressLine(accountContext: accountContext)
                     .frame(maxHeight: .infinity, alignment: .bottom)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -49,16 +49,16 @@ struct HomeCardContent: View {
 private struct _CenterContent: View {
     
     let headerViewModel: HomeHeaderViewModel
-    let viewModel: AccountViewModel
+    let accountContext: AccountContext
     
     var body: some View {
         WithPerceptionTracking {
             VStack(spacing: 5) {
-                _BalanceView(viewModel: viewModel)
+                _BalanceView(accountContext: accountContext)
                     .padding(.leading, 1)
                     .padding(.horizontal, 32)
                 
-                _BalanceChange(viewModel: viewModel)
+                _BalanceChange(accountContext: accountContext)
             }
             .offset(y: -5)
         }
@@ -67,15 +67,15 @@ private struct _CenterContent: View {
 
 private struct _BalanceView: View {
 
-    let viewModel: AccountViewModel
+    let accountContext: AccountContext
 
     var body: some View {
         WithPerceptionTracking {
             _BalanceViewContent(
-                accountId: viewModel.accountId,
-                balance: viewModel.balance,
-                nft: viewModel.nft,
-                isCurrent: viewModel.isCurrent
+                accountId: accountContext.accountId,
+                balance: accountContext.balance,
+                nft: accountContext.nft,
+                isCurrent: accountContext.isCurrent
             )
         }
     }
@@ -113,11 +113,11 @@ private struct _BalanceViewContent: View, Equatable {
 
 private struct _BalanceChange: View {
 
-    let viewModel: AccountViewModel
+    let accountContext: AccountContext
 
     var body: some View {
         WithPerceptionTracking {
-            _BalanceChangeContent(balance: viewModel.balance, balance24h: viewModel.balance24h, balanceChange: viewModel.balanceChange, nft: viewModel.nft)
+            _BalanceChangeContent(balance: accountContext.balance, balance24h: accountContext.balance24h, balanceChange: accountContext.balanceChange, nft: accountContext.nft)
         }
     }
 }
@@ -177,16 +177,16 @@ private struct _BalanceChangeContent: View {
 
 private struct _AddressLine: View {
 
-    let viewModel: AccountViewModel
+    let accountContext: AccountContext
     
     var body: some View {
         WithPerceptionTracking {
-            let account = viewModel.account
+            let account = accountContext.account
             _AddressLineContent(
                 accountId: account.id,
                 isTemporary: account.isTemporary == true,
                 addressLine: account.addressLine,
-                nft: viewModel.nft
+                nft: accountContext.nft
             )
         }
     }
@@ -221,5 +221,6 @@ private struct _AddressLineContent: View {
         }
         .padding(.horizontal, 40)
         .padding(.bottom, 9)
+        .animation(.smooth.delay(0.18), value: isTemporary)
     }
 }
