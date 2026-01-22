@@ -27,7 +27,7 @@ import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
+import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.AddressPopupHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WForegroundColorSpan
@@ -45,7 +45,6 @@ import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.Passco
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views.PasscodeScreenView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -209,12 +208,13 @@ class ConfirmNftVC(
                     this,
                     length - formattedAddress.length,
                     formattedAddress.length,
+                    AccountStore.activeAccount!!.network,
                     TONCOIN_SLUG,
                     address,
                     0,
                     showTemporaryViewOption = false
                 )
-                updateDotsTypeface()
+                styleDots()
                 setSpan(
                     WForegroundColorSpan(WColor.SecondaryText),
                     length - formattedAddress.length - 1,
@@ -248,7 +248,7 @@ class ConfirmNftVC(
 
     private val detailsSectionView = WView(context).apply {
         addView(detailsTitleLabel)
-        addView(sendToView, ViewGroup.LayoutParams(MATCH_PARENT, 56.dp))
+        addView(sendToView, ViewGroup.LayoutParams(MATCH_PARENT, 50.dp))
         when (mode) {
             is Mode.Send -> {
                 if (mode.resolvedAddress == mode.toAddress)
@@ -257,8 +257,8 @@ class ConfirmNftVC(
 
             else -> {}
         }
-        addView(recipientAddressView, ViewGroup.LayoutParams(MATCH_PARENT, 56.dp))
-        addView(feeView, ViewGroup.LayoutParams(MATCH_PARENT, 56.dp))
+        addView(recipientAddressView, ViewGroup.LayoutParams(MATCH_PARENT, 50.dp))
+        addView(feeView, ViewGroup.LayoutParams(MATCH_PARENT, 50.dp))
         setConstraints {
             toTop(detailsTitleLabel, 16f)
             toStart(detailsTitleLabel, 20f)
@@ -399,21 +399,15 @@ class ConfirmNftVC(
         super.updateTheme()
 
         view.setBackgroundColor(WColor.SecondaryBackground.color)
-        if (ThemeManager.uiMode.hasRoundedCorners) {
-            assetSectionView.setBackgroundColor(
-                WColor.Background.color,
-                ViewConstants.TOP_RADIUS.dp,
-                ViewConstants.BIG_RADIUS.dp
-            )
-            detailsSectionView.setBackgroundColor(
-                WColor.Background.color,
-                ViewConstants.BIG_RADIUS.dp
-            )
-        } else {
-            assetSectionView.background = separatorDrawable
-            detailsSectionView.background = separatorDrawable
-            separatorDrawable.invalidateSelf()
-        }
+        assetSectionView.setBackgroundColor(
+            WColor.Background.color,
+            ViewConstants.TOP_RADIUS.dp,
+            ViewConstants.BIG_RADIUS.dp
+        )
+        detailsSectionView.setBackgroundColor(
+            WColor.Background.color,
+            ViewConstants.BIG_RADIUS.dp
+        )
         titleLabel.setTextColor(WColor.PrimaryText.color)
         nftTitleLabel.setTextColor(WColor.PrimaryText.color)
         nftDescriptionLabel.setTextColor(WColor.SecondaryText.color)
@@ -501,12 +495,13 @@ class ConfirmNftVC(
                         this,
                         length - address.length,
                         address.length,
+                        displayedAccount.network,
                         TONCOIN_SLUG,
                         viewModel.resolvedAddress!!,
                         startOffset.roundToInt(),
                         showTemporaryViewOption = false
                     )
-                    updateDotsTypeface(sendingToString.length + 1)
+                    styleDots(sendingToString.length + 1)
                     setSpan(
                         WForegroundColorSpan(WColor.SecondaryText),
                         length - address.length - 1,
@@ -533,7 +528,8 @@ class ConfirmNftVC(
             return
         }
 
-        val txMatch = receivedActivity is MApiTransaction.Transaction && receivedActivity.nft?.address == sentNftAddress
+        val txMatch =
+            receivedActivity is MApiTransaction.Transaction && receivedActivity.nft?.address == sentNftAddress
         if (!txMatch) {
             return
         }
@@ -545,7 +541,12 @@ class ConfirmNftVC(
             return
         }
         window?.dismissLastNav {
-            WalletCore.notifyEvent(WalletEvent.OpenActivity(receivedActivity))
+            WalletCore.notifyEvent(
+                WalletEvent.OpenActivity(
+                    displayedAccount.accountId!!,
+                    receivedActivity
+                )
+            )
         }
     }
 

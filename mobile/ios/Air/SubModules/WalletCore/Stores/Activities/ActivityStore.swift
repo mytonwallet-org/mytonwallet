@@ -51,6 +51,12 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         byAccountId[accountId, default: .init(accountId: accountId)]
     }
     
+    private var poisoningCacheById: [String: PoisoningCache] = [:]
+    
+    func getPoisoningCache(_ accountId: String) -> PoisoningCache {
+        poisoningCacheById[accountId, default: PoisoningCache()]
+    }
+    
     private var _db: (any DatabaseWriter)?
     private var db: any DatabaseWriter {
         get throws {
@@ -93,7 +99,9 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
     
     private func handleInitialActivities(update: ApiUpdate.InitialActivities) {
         log.info("handleInitialActivities \(update.accountId, .public) mainIds=\(update.mainActivities.count)")
-        addInitialActivities(accountId: update.accountId, mainActivities: update.mainActivities, bySlug: update.bySlug);
+        addInitialActivities(accountId: update.accountId, mainActivities: update.mainActivities, bySlug: update.bySlug)
+        let allActivities = update.mainActivities + update.bySlug.values.flatMap { $0 }
+        updatePoisoningCache(accountId: update.accountId, activities: allActivities)
         if let chain = update.chain {
             setIsInitialActivitiesLoadedTrue(accountId: update.accountId, chain: chain);
         }
@@ -106,7 +114,8 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         
         let accountId = update.accountId
         let newConfirmedActivities = update.activities
-        let pendingActivities = update.pendingActivities
+        let pendingActivities = filterPendingActivities(accountId: accountId, pendingActivities: update.pendingActivities)
+        let allNewActivities = (pendingActivities ?? []) + newConfirmedActivities
         
         var prevActivities = selectLocalActivitiesSlow(accountId: accountId) ?? []
         if let chain = update.chain {
@@ -115,22 +124,27 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         
         let replacedIds = getActivityIdReplacements(
             prevActivities: prevActivities,
-            nextActivities: newConfirmedActivities + (pendingActivities ?? [])
+            nextActivities: allNewActivities
+        )
+        let adjustedPendingActivities = adjustPendingActivitiesWithTrustedStatus(
+            pendingActivities: pendingActivities,
+            replacedIds: replacedIds,
+            prevActivities: prevActivities
         )
         
         // A good TON address for testing: UQD5mxRgCuRNLxKxeOjG6r14iSroLF5FtomPnet-sgP5xI-e
-        removeActivities(accountId: update.accountId, deleteIds: Array(replacedIds.keys))
-        if let chain = update.chain,  let pendingActivities {
-            if let oldIds = getAccountState(update.accountId).pendingActivityIds?[chain.rawValue] {
+        removeActivities(accountId: accountId, deleteIds: Array(replacedIds.keys))
+        if let chain = update.chain,  let pendingActivities = adjustedPendingActivities {
+            if let oldIds = getAccountState(accountId).pendingActivityIds?[chain.rawValue] {
                 removeActivities(accountId: accountId, deleteIds: oldIds)
             }
             addNewActivities(accountId: accountId, newActivities: pendingActivities, chain: chain)
         }
         
-        addNewActivities(accountId: update.accountId, newActivities: newConfirmedActivities, chain: nil)
+        addNewActivities(accountId: accountId, newActivities: newConfirmedActivities, chain: nil)
+        updatePoisoningCache(accountId: accountId, activities: newConfirmedActivities)
         
-        // TODO: Update open ActivityVC if activity has changed
-        notifyAboutNewActivities(newActivities: newConfirmedActivities)
+        notifyAboutNewActivities(accountId: accountId, newActivities: allNewActivities)
         
         // TODO: Copy from web app: processCardMintingActivity
         // NFT polling is executed at long intervals, so it is more likely that a user will see a new transaction
@@ -139,22 +153,26 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         //        global = processCardMintingActivity(global, accountId, incomingActivities);
         
         if let chain = update.chain {
-            setIsInitialActivitiesLoadedTrue(accountId: update.accountId, chain: chain);
+            setIsInitialActivitiesLoadedTrue(accountId: accountId, chain: chain);
         }
-        WalletCoreData.notify(event: .activitiesChanged(accountId: update.accountId, updatedIds: unique((pendingActivities ?? []).map(\.id) + newConfirmedActivities.map(\.id)), replacedIds: replacedIds))
-        log.info("handleNewActivities \(update.accountId, .public) [done] mainIds=\(getAccountState(update.accountId).idsMain?.count ?? -1) inUpdate=\(update.activities.count)")
+        WalletCoreData.notify(event: .activitiesChanged(accountId: accountId, updatedIds: unique((adjustedPendingActivities ?? []).map(\.id) + newConfirmedActivities.map(\.id)), replacedIds: replacedIds))
+        log.info("handleNewActivities \(accountId, .public) [done] mainIds=\(getAccountState(accountId).idsMain?.count ?? -1) inUpdate=\(update.activities.count)")
     }
     
     private func handleNewLocalActivities(update: ApiUpdate.NewLocalActivities) {
         log.info("newLocalActivity \(update.accountId, .public)")
         let activities = hideOutdatedLocalActivities(accountId: update.accountId, localActivities: update.activities)
+        let maxDepth = activities.count + 20
+        let chainActivities = selectRecentNonLocalActivitiesSlow(accountId: update.accountId, count: maxDepth) ?? []
+        let replacedIds = getActivityIdReplacements(prevActivities: activities, nextActivities: chainActivities)
+        let updatedPendingIds = updatePendingActivitiesToTrustedByReplacements(accountId: update.accountId, localActivities: activities, replacedIds: replacedIds)
         addNewActivities(accountId: update.accountId, newActivities: activities, chain: nil)
-        WalletCoreData.notify(event: .activitiesChanged(accountId: update.accountId, updatedIds: unique(activities.map(\.id)), replacedIds: [:]))
+        WalletCoreData.notify(event: .activitiesChanged(accountId: update.accountId, updatedIds: unique(activities.map(\.id) + updatedPendingIds), replacedIds: [:]))
     }
 
     // MARK: - Fetch methods
     
-    func fetchAllTransactions(accountId: String, limit: Int, shouldLoadWithBudget: Bool) async throws {
+    func fetchAllActivities(accountId: String, limit: Int, shouldLoadWithBudget: Bool) async throws {
         
         var toTimestamp = selectLastMainTxTimestamp(accountId: accountId)
         var fetchedActivities: [ApiActivity] = []
@@ -165,14 +183,18 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
                 updateActivitiesIsHistoryEndReached(accountId: accountId, slug: nil, isReached: true)
                 break
             }
-            var filteredResult = result
-            if AppStorageHelper.hideTinyTransfers {
-                filteredResult = filteredResult.filter {
-                    !$0.isTinyOrScamTransaction
+            let poisoningCache = getPoisoningCache(accountId)
+            updatePoisoningCache(accountId: accountId, activities: result)
+            let hideTinyTransfers = AppStorageHelper.hideTinyTransfers
+            let filteredResult = result.filter {
+                guard case .transaction(let transaction) = $0 else { return true }
+                if hideTinyTransfers && $0.isTinyOrScamTransaction {
+                    return false
                 }
+                return !poisoningCache.isTransactionWithPoisoning(transaction: transaction)
             }
             fetchedActivities.append(contentsOf: result)
-            if filteredResult.count >= limit || fetchedActivities.count >= limit {
+            if filteredResult.count >= 1 && fetchedActivities.count >= limit {
                 break
             }
             toTimestamp = result.last!.timestamp
@@ -209,11 +231,11 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         
         if shouldLoadWithBudget {
             await Task.yield()
-            try await fetchAllTransactions(accountId: accountId, limit: limit, shouldLoadWithBudget: false)
+            try await fetchAllActivities(accountId: accountId, limit: limit, shouldLoadWithBudget: false)
         }
     }
     
-    func fetchTokenTransactions(accountId: String, limit: Int, token: ApiToken, shouldLoadWithBudget: Bool) async throws {
+    func fetchTokenActivities(accountId: String, limit: Int, token: ApiToken, shouldLoadWithBudget: Bool) async throws {
         var accountState = getAccountState(accountId)
         var idsBySlug = accountState.idsBySlug ?? [:]
         var byId = accountState.byId ?? [:]
@@ -221,7 +243,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         var fetchedActivities: [ApiActivity] = []
         var tokenIds = idsBySlug[token.slug] ?? []
         var toTimestamp = tokenIds
-            .last(where: { getIsIdSuitableForFetchingTimestamp($0) && byId[$0] != nil })
+            .last(where: { getIsIdSuitableForFetchingTimestamp(activity: byId[$0]) })
             .flatMap { id in byId[id]?.timestamp }
         
         while true {
@@ -230,14 +252,18 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
                 updateActivitiesIsHistoryEndReached(accountId: accountId, slug: token.slug, isReached: true)
                 break
             }
-            var filteredResult = result
-            if AppStorageHelper.hideTinyTransfers {
-                filteredResult = filteredResult.filter {
-                    !$0.isTinyOrScamTransaction
+            let poisoningCache = getPoisoningCache(accountId)
+            updatePoisoningCache(accountId: accountId, activities: result)
+            let hideTinyTransfers = AppStorageHelper.hideTinyTransfers
+            let filteredResult = result.filter {
+                guard case .transaction(let transaction) = $0 else { return true }
+                if hideTinyTransfers && $0.isTinyOrScamTransaction {
+                    return false
                 }
+                return !poisoningCache.isTransactionWithPoisoning(transaction: transaction)
             }
             fetchedActivities.append(contentsOf: result)
-            if filteredResult.count >= limit || fetchedActivities.count >= limit {
+            if filteredResult.count >= 1 && fetchedActivities.count >= limit {
                 break
             }
             toTimestamp = result.last!.timestamp
@@ -278,8 +304,21 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         
         if shouldLoadWithBudget {
             await Task.yield()
-            try await fetchTokenTransactions(accountId: accountId, limit: limit, token: token, shouldLoadWithBudget: false)
+            try await fetchTokenActivities(accountId: accountId, limit: limit, token: token, shouldLoadWithBudget: false)
         }
+    }
+    
+    // MARK: - Poisoning cache
+    
+    func updatePoisoningCache(accountId: String, activities: some Collection<ApiActivity>) {
+        var cache = self.poisoningCacheById[accountId, default: PoisoningCache()]
+        cache.update(activities: activities)
+        self.poisoningCacheById[accountId] = cache
+    }
+
+    public func isTransactionWithPoisoning(accountId: String, transaction: ApiTransactionActivity) -> Bool {
+        let cache = poisoningCacheById[accountId, default: PoisoningCache()]
+        return cache.isTransactionWithPoisoning(transaction: transaction)
     }
     
     // MARK: - Activity details
@@ -338,6 +377,9 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         self.byAccountId = newByAccountId
         for (accountId, newAccountState) in newByAccountId {
             if oldByAccountId[accountId] != newAccountState {
+                if let activities = newAccountState.byId?.values {
+                    updatePoisoningCache(accountId: accountId, activities: activities)
+                }
                 WalletCoreData.notify(event: .activitiesChanged(accountId: accountId, updatedIds: [], replacedIds: [:]))
             }
         }
@@ -347,6 +389,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         let deletedKeys = Set(byAccountId.keys).subtracting(accountIds)
         for deletedKey in deletedKeys {
             byAccountId[deletedKey] = nil
+            poisoningCacheById[deletedKey] = nil
         }
     }
     
@@ -367,6 +410,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
     
     func clean() {
         byAccountId = [:]
+        poisoningCacheById = [:]
         do {
             _ = try db.write { db in
                 try AccountState.deleteAll(db)
@@ -433,6 +477,11 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         
         var byId = currentState.byId ?? [:]
         for activity in newActivities {
+            if let existingActivity = byId[activity.id],
+               isNonPendingActivity(existingActivity),
+               getIsActivityPending(activity) {
+                log.error("activity status regression id=\(activity.id, .public) oldStatus=\(activityStatusString(existingActivity), .public) newStatus=\(activityStatusString(activity), .public) oldHash=\(activityHash(existingActivity), .public) newHash=\(activityHash(activity), .public)")
+            }
             // TODO: remove temporary workaround
             if activity.type == .callContract && byId[activity.id] != nil {
                 continue
@@ -499,10 +548,22 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
     }
     
     private func selectRecentNonLocalActivitiesSlow(accountId: String, count: Int) -> [ApiActivity]? {
-        if let state = byAccountId[accountId], let mainIds = state.idsMain?.prefix(count), let byId = state.byId {
-            return mainIds.compactMap { byId[$0] }
+        guard let state = byAccountId[accountId], let mainIds = state.idsMain, let byId = state.byId else {
+            return nil
         }
-        return nil
+        var result: [ApiActivity] = []
+        for id in mainIds {
+            if result.count >= count {
+                break
+            }
+            if getIsIdLocal(id) {
+                continue
+            }
+            if let activity = byId[id] {
+                result.append(activity)
+            }
+        }
+        return result
     }
 
     
@@ -541,6 +602,115 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
             $0.pendingActivityIds = pendingActivityIds
         }
     }
+
+    private func filterPendingActivities(accountId: String, pendingActivities: [ApiActivity]?) -> [ApiActivity]? {
+        guard let pendingActivities else { return nil }
+        if pendingActivities.isEmpty {
+            return pendingActivities
+        }
+        let byId = getAccountState(accountId).byId ?? [:]
+        if byId.isEmpty {
+            return pendingActivities
+        }
+        var nonPendingIds = Set<String>()
+        var nonPendingHashes = Set<String>()
+        for (id, activity) in byId {
+            guard isNonPendingActivity(activity) else { continue }
+            nonPendingIds.insert(id)
+            let hash = activity.externalMsgHashNorm ?? activity.parsedTxId.hash
+            nonPendingHashes.insert(hash)
+        }
+        return pendingActivities.filter { activity in
+            if activity.isConfirmedOrCompleted {
+                return true
+            }
+            if nonPendingIds.contains(activity.id) {
+                log.error("pending activity filtered due to non-pending id match id=\(activity.id, .public) status=\(activityStatusString(activity), .public) hash=\(activityHash(activity), .public)")
+                return false
+            }
+            let hash = activity.externalMsgHashNorm ?? activity.parsedTxId.hash
+            if nonPendingHashes.contains(hash) {
+                log.error("pending activity filtered due to non-pending hash match id=\(activity.id, .public) status=\(activityStatusString(activity), .public) hash=\(activityHash(activity), .public)")
+                return false
+            }
+            return true
+        }
+    }
+
+    private func isNonPendingActivity(_ activity: ApiActivity) -> Bool {
+        return !activity.isLocal && !getIsActivityPending(activity)
+    }
+
+    private func activityHash(_ activity: ApiActivity) -> String {
+        return activity.externalMsgHashNorm ?? activity.parsedTxId.hash
+    }
+
+    private func activityStatusString(_ activity: ApiActivity) -> String {
+        switch activity {
+        case .transaction(let transaction):
+            return transaction.status.rawValue
+        case .swap(let swap):
+            return swap.status.rawValue
+        }
+    }
+
+    private func updatePendingActivitiesToTrustedByReplacements(accountId: String, localActivities: [ApiActivity], replacedIds: [String: String]) -> [String] {
+        guard !localActivities.isEmpty, !replacedIds.isEmpty else { return [] }
+        var byId = getAccountState(accountId).byId ?? [:]
+        var updatedIds: [String] = []
+        for localActivity in localActivities {
+            guard localActivity.isPendingTrusted,
+                  let chainActivityId = replacedIds[localActivity.id],
+                  let chainActivity = byId[chainActivityId],
+                  let updatedActivity = makePendingTrustedActivity(chainActivity) else { continue }
+            byId[chainActivityId] = updatedActivity
+            updatedIds.append(chainActivityId)
+        }
+        if !updatedIds.isEmpty {
+            withAccountState(accountId) {
+                $0.byId = byId
+            }
+        }
+        return updatedIds
+    }
+
+    private func adjustPendingActivitiesWithTrustedStatus(
+        pendingActivities: [ApiActivity]?,
+        replacedIds: [String: String],
+        prevActivities: [ApiActivity]
+    ) -> [ApiActivity]? {
+        guard let pendingActivities else { return nil }
+        if pendingActivities.isEmpty || replacedIds.isEmpty || prevActivities.isEmpty {
+            return pendingActivities
+        }
+        var reversedReplacedIds: [String: String] = [:]
+        for (oldId, newId) in replacedIds {
+            reversedReplacedIds[newId] = oldId
+        }
+        let prevById = prevActivities.dictionaryByKey(\.id)
+        return pendingActivities.map { activity in
+            guard let oldId = reversedReplacedIds[activity.id],
+                  let oldActivity = prevById[oldId],
+                  oldActivity.isPendingTrusted,
+                  let updatedActivity = makePendingTrustedActivity(activity) else { return activity }
+            return updatedActivity
+        }
+    }
+
+    private func makePendingTrustedActivity(_ activity: ApiActivity) -> ApiActivity? {
+        var activity = activity
+        switch activity {
+        case .transaction(var transaction):
+            guard transaction.status == .pending else { return nil }
+            transaction.status = .pendingTrusted
+            activity = .transaction(transaction)
+        case .swap(var swap):
+            guard swap.status == .pending else { return nil }
+            swap.status = .pendingTrusted
+            activity = .swap(swap)
+        }
+        return activity
+    }
     
     private func hideOutdatedLocalActivities(accountId: String, localActivities: [ApiActivity]) -> [ApiActivity] {
         let maxDepth = localActivities.count + 20
@@ -564,7 +734,9 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
     
     private func selectLastMainTxTimestamp(accountId: String) -> Int64? {
         let activities = getAccountState(accountId)
-        let txId = activities.idsMain?.last(where: { getIsIdSuitableForFetchingTimestamp($0) })
+        let txId = activities.idsMain?.last { id in
+            getIsIdSuitableForFetchingTimestamp(activity: activities.byId?[id])
+        }
         if let txId {
             return activities.byId?[txId]?.timestamp
         }
@@ -583,21 +755,29 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         }
     }
     
-    private func notifyAboutNewActivities(newActivities: [ApiActivity]) {
+    private func notifyAboutNewActivities(accountId: String, newActivities: [ApiActivity]) {
         for activity in newActivities {
-            if case .transaction(let tx) = activity,
-                tx.isIncoming,
-                Date.now.timeIntervalSince(activity.timestampDate) < TX_AGE_TO_PLAY_SOUND,
-               !(AppStorageHelper.hideTinyTransfers && activity.isTinyOrScamTransaction),
-               // TODO: !getIsTransactionWithPoisoning(activity)
-               AppStorageHelper.sounds,
-               WalletContextManager.delegate?.isAppUnlocked == true,
-               !notifiedIds.contains(activity.id) {
-                log.info("notifying about tx: \(activity, .public)")
-                AudioHelpers.play(sound: .incomingTransaction)
+            if !activity.isConfirmedOrCompleted {
+                continue
+            }
+            switch activity {
+            case .transaction(let tx):
+                if tx.isIncoming,
+                   Date.now.timeIntervalSince(activity.timestampDate) < TX_AGE_TO_PLAY_SOUND,
+                   !(AppStorageHelper.hideTinyTransfers && activity.isTinyOrScamTransaction),
+                   !getPoisoningCache(accountId).isTransactionWithPoisoning(transaction: tx),
+                   AppStorageHelper.sounds,
+                   WalletContextManager.delegate?.isAppUnlocked == true,
+                   !notifiedIds.contains(activity.id)
+                {
+                    log.info("notifying about tx: \(activity.id, .public)")
+                    AudioHelpers.play(sound: .incomingTransaction)
+                    break
+                }
+            case .swap:
                 break
             }
+            notifiedIds.insert(activity.id)
         }
-        notifiedIds = notifiedIds.union(newActivities.map(\.id))
     }
 }

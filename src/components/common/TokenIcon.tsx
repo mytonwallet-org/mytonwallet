@@ -5,6 +5,7 @@ import type { UserSwapToken, UserToken } from '../../global/types';
 
 import buildClassName from '../../util/buildClassName';
 import getChainNetworkIcon from '../../util/swap/getChainNetworkIcon';
+import { getIsNativeToken } from '../../util/tokens';
 import { ASSET_LOGO_PATHS } from '../ui/helpers/assetLogos';
 
 import useFlag from '../../hooks/useFlag';
@@ -26,6 +27,7 @@ function TokenIcon({
   const { symbol, image, chain } = token;
   const logoPath = ASSET_LOGO_PATHS[symbol.toLowerCase() as keyof typeof ASSET_LOGO_PATHS] || image;
   const [isLoadingError, markLoadingError] = useFlag(false);
+  const isNativeToken = getIsNativeToken(token.slug);
 
   function renderDefaultIcon() {
     return (
@@ -48,7 +50,7 @@ function TokenIcon({
           />
         ) : renderDefaultIcon()
       }
-      {withChainIcon && chain && (
+      {withChainIcon && !isNativeToken && chain && (
         <img
           src={getChainNetworkIcon(chain)}
           alt=""

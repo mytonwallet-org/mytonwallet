@@ -158,7 +158,7 @@ class ReceiveVC(
 
     val titleLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(22F, WFont.Medium)
+        lbl.setStyle(22F, WFont.SemiBold)
         lbl.gravity = Gravity.CENTER
         lbl.text =
             LocaleController.getString("Add Crypto")
@@ -198,7 +198,6 @@ class ReceiveVC(
     private val copyAddressView: WView by lazy {
         val v = WView(context)
         v.addView(copyAddressLabel)
-        v.addView(copyAddressSeparator, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
         v.setConstraints {
             toStart(copyAddressLabel, 20f)
             toCenterY(copyAddressLabel)
@@ -251,7 +250,6 @@ class ReceiveVC(
         v.isGone = AccountStore.activeAccount?.supportsBuyWithCard != true
         if (v.isVisible) {
             v.addView(buyWithCardLabel)
-            v.addView(buyWithCardSeparator, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
             v.setConstraints {
                 toStart(buyWithCardLabel, 20f)
                 toCenterY(buyWithCardLabel)
@@ -296,7 +294,6 @@ class ReceiveVC(
         v.isGone = AccountStore.activeAccount?.supportsBuyWithCrypto != true
         if (v.isVisible) {
             v.addView(buyWithCryptoLabel)
-            v.addView(buyWithCryptoSeparator, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
             v.setConstraints {
                 toStart(buyWithCryptoLabel, 20f)
                 toCenterY(buyWithCryptoLabel)
@@ -374,9 +371,9 @@ class ReceiveVC(
             LayoutParams(WRAP_CONTENT, WNavigationBar.DEFAULT_HEIGHT.dp)
         )
         v.addView(optionsSeparatorView, LayoutParams(MATCH_PARENT, 16.dp))
-        v.addView(buyWithCardView, LayoutParams(MATCH_PARENT, 56.dp))
-        v.addView(buyWithCryptoView, LayoutParams(MATCH_PARENT, 56.dp))
-        v.addView(invoiceView, LayoutParams(MATCH_PARENT, 56.dp))
+        v.addView(buyWithCardView, LayoutParams(MATCH_PARENT, 50.dp))
+        v.addView(buyWithCryptoView, LayoutParams(MATCH_PARENT, 50.dp))
+        v.addView(invoiceView, LayoutParams(MATCH_PARENT, 50.dp))
         v.setPadding(0, 0, 0, navigationController?.getSystemBars()?.bottom ?: 0)
         v
     }

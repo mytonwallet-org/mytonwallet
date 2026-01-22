@@ -8,6 +8,7 @@ import {
   DEFAULT_SWAP_SECOND_TOKEN_SLUG,
   DEFAULT_TRANSFER_TOKEN_SLUG,
   IS_CAPACITOR,
+  IS_EXPLORER,
   IS_EXTENSION,
   IS_TELEGRAM_APP,
   TONCOIN,
@@ -16,9 +17,9 @@ import { requestMutation } from '../../../lib/fasterdom/fasterdom';
 import { parseAccountId } from '../../../util/account';
 import authApi from '../../../util/authApi';
 import { initCapacitorWithGlobal } from '../../../util/capacitor';
-import { processDeeplinkAfterSignIn } from '../../../util/deeplink';
+import { getDeeplinkFromLocation, processDeeplink, processDeeplinkAfterSignIn } from '../../../util/deeplink';
 import { omit } from '../../../util/iteratees';
-import { clearPreviousLangpacks, setLanguage } from '../../../util/langProvider';
+import { clearPreviousLangpacks, getTranslation, setLanguage } from '../../../util/langProvider';
 import { callActionInMain, callActionInNative } from '../../../util/multitab';
 import { initializeSounds } from '../../../util/notificationSound';
 import switchAnimationLevel from '../../../util/switchAnimationLevel';
@@ -100,7 +101,7 @@ addActionHandler('init', (_, actions) => {
   });
 });
 
-addActionHandler('afterInit', (global) => {
+addActionHandler('afterInit', (global, actions) => {
   const {
     theme, animationLevel, langCode, authConfig,
   } = global.settings;
@@ -121,6 +122,16 @@ addActionHandler('afterInit', (global) => {
     }
 
     document.addEventListener('click', initializeSounds, { once: true });
+  }
+
+  if (!IS_EXPLORER) return;
+
+  const deeplinkUrl = getDeeplinkFromLocation();
+
+  if (deeplinkUrl) {
+    void processDeeplink(deeplinkUrl);
+  } else {
+    actions.showToast({ message: getTranslation('$explorer_mode_warning') });
   }
 });
 

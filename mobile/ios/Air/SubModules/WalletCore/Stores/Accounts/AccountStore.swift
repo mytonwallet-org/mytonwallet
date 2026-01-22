@@ -197,6 +197,7 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
 
     @discardableResult
     public func activateAccount(accountId: String, isNew: Bool = false, updateCurrentAccountId: Bool = true) async throws -> MAccount {
+        displayLog("activateAccount \(accountId)")
         let timestamps = await ActivityStore.getNewestActivityTimestamps(accountId: accountId)
         if timestamps?.nilIfEmpty == nil {
             Log.api.info("No newestTransactionsBySlug for \(accountId, .public), loading will be slow")
@@ -514,6 +515,12 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         case .removed:
             if var account = accountsById[update.accountId], account.byChain[update.chain.rawValue]?.domain != nil {
                 account.byChain[update.chain.rawValue]?.domain = nil
+                try? await _storeAccount(account: account)
+            }
+        }
+        if let isMultisig = update.isMultisig {
+            if var account = accountsById[update.accountId], account.byChain[update.chain.rawValue]?.isMultisig != isMultisig {
+                account.byChain[update.chain.rawValue]?.isMultisig = isMultisig
                 try? await _storeAccount(account: account)
             }
         }

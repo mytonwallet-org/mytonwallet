@@ -6,6 +6,7 @@ import WalletContext
 private let log = Log("ActivitiesTableViewController")
 
 private let appearAnimationDuration = 0.4
+private let emptyWalletRowHeight: CGFloat = 300
 
 open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate, UITableViewDelegate {
 
@@ -27,8 +28,6 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
     private var skeletonDataSource: UITableViewDiffableDataSource<SkeletonSection, SkeletonRow>?
 
     public let skeletonView = SkeletonView()
-    public let emptyWalletView = EmptyWalletView()
-
     public var wasShowingSkeletons: Bool = false
     public private(set) var skeletonState: SkeletonState?
     open var isInitializingCache = true
@@ -66,7 +65,7 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
         if case .swap(let swap) = transaction, (swap.status == .pending || swap.status == .pendingTrusted), getSwapType(from: swap.from, to: swap.to, accountChains: account.supportedChains) == .crosschainToWallet, swap.cex?.status.uiStatus == .pending {
             AppActions.showCrossChainSwapVC(transaction, accountId: account.id)
         } else {
-            AppActions.showActivityDetails(accountId: account.id, activity: transaction)
+            AppActions.showActivityDetails(accountId: account.id, activity: transaction, context: .normal)
         }
     }
 
@@ -99,13 +98,13 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
         tableView.delegate = self
         tableView.showsVerticalScrollIndicator = false
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "HeaderPlaceholder")
-        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "BottomPlaceholder")
         if let firstRow {
             tableView.register(firstRow, forCellReuseIdentifier: "FirstRow")
         }
         tableView.register(ActivityCell.self, forCellReuseIdentifier: "Transaction")
         tableView.register(ActivityCell.self, forCellReuseIdentifier: "LoadingMoreSkeleton")
         tableView.register(ActivityDateCell.self, forHeaderFooterViewReuseIdentifier: "Date")
+        tableView.register(EmptyWalletCell.self, forCellReuseIdentifier: "EmptyWallet")
         tableView.estimatedRowHeight = UITableView.automaticDimension
         tableView.backgroundColor = .clear
         tableView.contentInsetAdjustmentBehavior = .never
@@ -156,12 +155,6 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
             skeletonView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
 
-        view.addSubview(emptyWalletView)
-        NSLayoutConstraint.activate([
-            emptyWalletView.leftAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leftAnchor, constant: 20),
-            emptyWalletView.rightAnchor.constraint(equalTo: view.safeAreaLayoutGuide.rightAnchor, constant: -20),
-            emptyWalletView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8).withPriority(.defaultLow),
-        ])
     }
 
     public func makeDataSource() -> UITableViewDiffableDataSource<Section, Row> {
@@ -183,7 +176,7 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
 
             case .transaction(_, let transactionId):
                 let cell = tableView.dequeueReusableCell(withIdentifier: "Transaction", for: indexPath) as! ActivityCell
-                if let activityViewModel, let showingTransaction = activityViewModel.activitiesById?[transactionId] {
+                if let activityViewModel, let showingTransaction = activityViewModel.activity(forStableId: transactionId) {
                     cell.configure(
                         with: showingTransaction,
                         accountContext: activityViewModel.accountContext,
@@ -201,9 +194,10 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
                 return cell
 
             case .emptyPlaceholder:
-                let cell = tableView.dequeueReusableCell(withIdentifier: "BottomPlaceholder", for: indexPath)
+                let cell = tableView.dequeueReusableCell(withIdentifier: "EmptyWallet", for: indexPath) as! EmptyWalletCell
                 cell.selectionStyle = .none
                 cell.backgroundColor = .clear
+                cell.set(animated: true)
                 return cell
             }
         }
@@ -280,11 +274,9 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
     // MARK: - Reload methods
 
     open func applySnapshot(_ snapshot: NSDiffableDataSourceSnapshot<Section, Row>, animated: Bool, animatingDifferences: Bool? = nil) {
-        let start = Date()
-        defer { log.info("applySnapshot(\(animated), \(animatingDifferences as Any, .public)): \(Date().timeIntervalSince(start))s")}
-        guard dataSource != nil else { return }
-        queue.async { [self] in
-            dataSource?.apply(snapshot, animatingDifferences: animatingDifferences ?? animated)
+        guard let dataSource else { return }
+        queue.async {
+            dataSource.apply(snapshot, animatingDifferences: animatingDifferences ?? animated)
         }
         if skeletonState == .loading {
             skeletonTableView.beginUpdates()
@@ -347,12 +339,10 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
     public func transactionsUpdated(accountChanged: Bool, isUpdateEvent: Bool) {
         let start = Date()
         defer { log.info("transactionsUpdated: \(Date().timeIntervalSince(start))s")}
-        updateEmptyView()
-        let wasEmpty = if let dataSource, dataSource.snapshot().numberOfSections >= 3 { false } else { true }
+        let wasEmpty = if let dataSource, dataSource.snapshot().indexOfSection(.emptyPlaceholder) == nil { false } else { true }
         let newSnapshot = self.makeSnapshot()
         applySnapshot(newSnapshot, animated: true, animatingDifferences: !accountChanged && !wasEmpty)
         self.updateSkeletonState()
-        updateEmptyView()
     }
 
     public func tokensChanged() {
@@ -392,7 +382,7 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
             case .firstRow, .transaction, .loadingMore:
                 return /*cellHeightsCache[id] ??*/ UITableView.automaticDimension
             case .emptyPlaceholder:
-                return 300
+                return emptyWalletRowHeight
             }
         } else if tableView === self.skeletonTableView, let id = skeletonDataSource?.itemIdentifier(for: indexPath) {
             switch id {
@@ -452,7 +442,7 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
         }
     }
 
-    // MARK: - Skeleton and empty view
+    // MARK: - Skeleton
 
     public func updateSkeletonState() {
         wasShowingSkeletons = skeletonState == .loading
@@ -508,14 +498,5 @@ open class ActivitiesTableViewController: WViewController, ActivityCell.Delegate
     }
 
     open func updateSkeletonViewMask() {
-    }
-
-    public func updateEmptyView() {
-        guard let account = activityViewModel?.accountContext.account else { return }
-        if activityViewModel?.isEmpty == true {
-            emptyWalletView.set(state: .empty(address: account.firstAddress), animated: true)
-        } else {
-            emptyWalletView.set(state: .hidden, animated: true)
-        }
     }
 }

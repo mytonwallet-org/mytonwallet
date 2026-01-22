@@ -1,6 +1,6 @@
 # https://github.com/nicklockwood/SwiftFormat/blob/main/Rules.md
 
---exclude  mobile/ios/App/Pods,mobile/ios/Air/SubModules/UICharts,mobile/ios/Air/SubModules/BigIntLib
+--exclude  mobile/ios/App/Pods
 
 # options
 

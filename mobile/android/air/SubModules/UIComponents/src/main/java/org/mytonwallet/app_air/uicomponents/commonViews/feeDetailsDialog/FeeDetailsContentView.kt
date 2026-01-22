@@ -38,12 +38,12 @@ class FeeDetailsContentView(
 ) : WView(context), WThemedView {
 
     private val finalFeeLabel = WLabel(context).apply {
-        setStyle(14f, WFont.Bold)
+        setStyle(14f, WFont.SemiBold)
         text = LocaleController.getString("Final Fee")
     }
 
     private val excessFeeLabel = WLabel(context).apply {
-        setStyle(14f, WFont.Bold)
+        setStyle(14f, WFont.SemiBold)
         text = LocaleController.getString("Excess")
     }
 

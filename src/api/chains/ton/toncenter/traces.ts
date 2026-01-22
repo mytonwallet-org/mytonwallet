@@ -48,7 +48,7 @@ export async function fetchTraceByIdOrHash(options: {
 }): Promise<FetchTraceResult> {
   const { network, txId } = options;
 
-  // Try trace_id first as it's more likely for user-provided transaction IDs
+  // Try `trace_id` first as it's more likely for user-provided transaction IDs
   const responseByTraceId = await callToncenterV3<TracesResponse>(
     network,
     '/traces',
@@ -66,7 +66,7 @@ export async function fetchTraceByIdOrHash(options: {
     };
   }
 
-  // Fall back to msg_hash if trace_id didn't find anything
+  // Fall back to `msg_hash` if `trace_id` didn't find anything
   const responseByMsgHash = await callToncenterV3<TracesResponse>(
     network,
     '/traces',
@@ -80,5 +80,27 @@ export async function fetchTraceByIdOrHash(options: {
     trace: responseByMsgHash.traces[0],
     addressBook: responseByMsgHash.address_book,
     metadata: responseByMsgHash.metadata,
+  };
+}
+
+export async function fetchTraceByTxHash(options: {
+  network: ApiNetwork;
+  txHash: string;
+}): Promise<FetchTraceResult> {
+  const { network, txHash } = options;
+
+  const response = await callToncenterV3<TracesResponse>(
+    network,
+    '/traces',
+    {
+      tx_hash: txHash,
+      include_actions: true,
+    },
+  );
+
+  return {
+    trace: response.traces[0],
+    addressBook: response.address_book,
+    metadata: response.metadata,
   };
 }

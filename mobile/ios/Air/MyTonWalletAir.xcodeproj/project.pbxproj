@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5803A9342F203732007E1A9C /* BigInt in Frameworks */ = {isa = PBXBuildFile; productRef = 5803A9332F203732007E1A9C /* BigInt */; };
 		580C425D2DF484CC00934F5A /* GRDBSQLite in Frameworks */ = {isa = PBXBuildFile; productRef = 580C425C2DF484CC00934F5A /* GRDBSQLite */; };
 		580C425F2DF484FB00934F5A /* GRDBSQLite in Frameworks */ = {isa = PBXBuildFile; productRef = 580C425E2DF484FB00934F5A /* GRDBSQLite */; };
 		580C42612DF4850C00934F5A /* GRDBSQLite in Frameworks */ = {isa = PBXBuildFile; productRef = 580C42602DF4850C00934F5A /* GRDBSQLite */; };
@@ -39,12 +40,10 @@
 		585C72C52EB6287700949B7A /* Perception in Frameworks */ = {isa = PBXBuildFile; productRef = 585C72C42EB6287700949B7A /* Perception */; };
 		586DE0E92EA26F180055359D /* Flow in Frameworks */ = {isa = PBXBuildFile; productRef = 586DE0E82EA26F180055359D /* Flow */; };
 		587BCB892DDB9DCA00E745A6 /* Popovers in Frameworks */ = {isa = PBXBuildFile; productRef = 587BCB882DDB9DCA00E745A6 /* Popovers */; };
-		587C28462DE32F2400503E94 /* Popovers in Frameworks */ = {isa = PBXBuildFile; productRef = 587C28452DE32F2400503E94 /* Popovers */; };
 		587EB31E2D82DAF6009F0CE2 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 587EB31D2D82DAF6009F0CE2 /* Kingfisher */; };
 		5881C6E52E1738F3004FF258 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 5881C6E42E1738F3004FF258 /* GRDB */; };
 		58A1CF812E2FCACE00E1CE2C /* Ledger.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58CC83242DA443DA00EB7DEB /* Ledger.framework */; };
 		58AA03BB2DDBA87B00C970F4 /* SwiftUIIntrospect in Frameworks */ = {isa = PBXBuildFile; productRef = 58AA03BA2DDBA87B00C970F4 /* SwiftUIIntrospect */; };
-		58B913232DDC53910048FC65 /* Popovers in Frameworks */ = {isa = PBXBuildFile; productRef = 58B913222DDC53910048FC65 /* Popovers */; };
 		58BE2C722D33D8D000A71816 /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = 58BE2C712D33D8D000A71816 /* OrderedCollections */; };
 		58CC832A2DA4452D00EB7DEB /* BleTransport in Frameworks */ = {isa = PBXBuildFile; productRef = 58CC83292DA4452D00EB7DEB /* BleTransport */; };
 		58D42FDB2D6DB4CD0070AE43 /* ColorThiefSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 58D42FDA2D6DB4CD0070AE43 /* ColorThiefSwift */; };
@@ -52,6 +51,7 @@
 		58D968F12DAD96E60018DA53 /* UIComponents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D0A4002D8456E800535360 /* UIComponents.framework */; };
 		58E092362DB014D400468889 /* Ledger.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58CC83242DA443DA00EB7DEB /* Ledger.framework */; };
 		58E0923B2DB0157400468889 /* Ledger.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58CC83242DA443DA00EB7DEB /* Ledger.framework */; };
+		58F4761D2F20289300069F0D /* DGCharts in Frameworks */ = {isa = PBXBuildFile; productRef = 58F4761C2F20289300069F0D /* DGCharts */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -61,13 +61,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = 2770D0012BD16F43005F0BA3;
 			remoteInfo = UISend;
-		};
-		272B3CED2D2AD4720024658E /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 272B3CB12D2AD4360024658E;
-			remoteInfo = BigInt;
 		};
 		273459F12BF2D05000FA7501 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -89,62 +82,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = 273459D42BF2CFEB00FA7501;
 			remoteInfo = UIQRScan;
-		};
-		273D025C2D2ADA2D008EB149 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 272B3CB12D2AD4360024658E;
-			remoteInfo = BigInt;
-		};
-		273D02612D2ADCEF008EB149 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 272B3CB12D2AD4360024658E;
-			remoteInfo = BigInt;
-		};
-		273D02662D2ADF5E008EB149 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 272B3CB12D2AD4360024658E;
-			remoteInfo = BigInt;
-		};
-		273D026B2D2AE085008EB149 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 272B3CB12D2AD4360024658E;
-			remoteInfo = BigInt;
-		};
-		273D02702D2AE0E1008EB149 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 272B3CB12D2AD4360024658E;
-			remoteInfo = BigInt;
-		};
-		273D02752D2AE0ED008EB149 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 272B3CB12D2AD4360024658E;
-			remoteInfo = BigInt;
-		};
-		273D027A2D2AE357008EB149 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 272B3CB12D2AD4360024658E;
-			remoteInfo = BigInt;
-		};
-		274130E42C34682000585B89 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 27EA17752C2C74C9002892EC;
-			remoteInfo = UISettings;
 		};
 		2744D0932C6BE2040022EFEE /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -299,13 +236,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = 27DDF6EB2BEDF85800BB1977;
 			remoteInfo = UISwap;
-		};
-		276B5E552CD54C6000235012 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 276B5DFB2CD512C700235012;
-			remoteInfo = UIToken;
 		};
 		2770D0122BD17136005F0BA3 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -517,20 +447,6 @@
 			remoteGlobalIDString = 27FC97AC2BF2057000F8F57D;
 			remoteInfo = UIEarn;
 		};
-		27B485442CD7EC5400D8ACF2 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 276B5E452CD54C2F00235012;
-			remoteInfo = UICharts;
-		};
-		27B485492CD7ECA100D8ACF2 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 276B5E452CD54C2F00235012;
-			remoteInfo = UICharts;
-		};
 		27BD61522C81C234005A4C82 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
@@ -637,20 +553,6 @@
 			remoteInfo = UIInAppBrowser;
 		};
 		27DCA8A22BA5B481004F83C8 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 27DCA87E2BA5B439004F83C8;
-			remoteInfo = WalletContext;
-		};
-		27DCA8BC2BA5B58B004F83C8 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 27DCA87E2BA5B439004F83C8;
-			remoteInfo = WalletContext;
-		};
-		27DCA9C62BA5B806004F83C8 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
 			proxyType = 1;
@@ -895,54 +797,12 @@
 			remoteGlobalIDString = 27DCA87E2BA5B439004F83C8;
 			remoteInfo = WalletContext;
 		};
-		581B5BA12D9307A600F3C4CF /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 27DCA87E2BA5B439004F83C8;
-			remoteInfo = WalletContext;
-		};
-		581B5BA62D9307AD00F3C4CF /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 27DCAAE12BA5DDA7004F83C8;
-			remoteInfo = WalletCore;
-		};
-		581B5BAB2D9307C800F3C4CF /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 27DCA8672BA5B40C004F83C8;
-			remoteInfo = UIComponents;
-		};
-		581B5BB02D9307CE00F3C4CF /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 27DCAAE12BA5DDA7004F83C8;
-			remoteInfo = WalletCore;
-		};
 		581B5BB42D93080D00F3C4CF /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 27DCAA432BA5BD86004F83C8;
 			remoteInfo = YUVConversion;
-		};
-		581B5BB92D9308AE00F3C4CF /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 27DCA87E2BA5B439004F83C8;
-			remoteInfo = WalletContext;
-		};
-		581B5BBE2D9308CF00F3C4CF /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 27DCA87E2BA5B439004F83C8;
-			remoteInfo = WalletContext;
 		};
 		582E3F5D2D5FA61100807D5C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -964,13 +824,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = 274EAD822BB4A1950025AB4C;
 			remoteInfo = WReachability;
-		};
-		58315FA72E04477D00AC5C8E /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 27DCA77B2BA5725C004F83C8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 27DCA8672BA5B40C004F83C8;
-			remoteInfo = UIComponents;
 		};
 		58375EDE2D5286A600DB78CD /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -1031,9 +884,7 @@
 		58D0A3FF2D8456E800535360 /* UIAssets.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = UIAssets.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		58D0A4002D8456E800535360 /* UIComponents.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = UIComponents.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		58D0A4012D8456E800535360 /* WalletContext.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = WalletContext.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		58D0A4022D8456E800535360 /* BigIntLib.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = BigIntLib.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		58D0A4032D8456E800535360 /* WalletCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = WalletCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		58D0A4042D8456E800535360 /* UICharts.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = UICharts.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		58D0A4052D8456E800535360 /* UIInAppBrowser.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = UIInAppBrowser.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		58D0A4062D8456E800535360 /* UIDapp.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = UIDapp.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		58D0A4072D8456E800535360 /* UIPasscode.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = UIPasscode.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1053,1190 +904,89 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		272B3CBD2D2AD4400024658E /* Exceptions for "SubModules" folder in "BigIntLib" target */ = {
+		27ABF4822CD2A1B6009DAFE6 /* Exceptions for "UIComponents" folder in "UIComponents" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				BigIntLib/Sources/Addition.swift,
-				BigIntLib/Sources/BigInt.swift,
-				BigIntLib/Sources/BigUInt.swift,
-				"BigIntLib/Sources/Bitwise Ops.swift",
-				BigIntLib/Sources/Codable.swift,
-				BigIntLib/Sources/Comparable.swift,
-				"BigIntLib/Sources/Data Conversion.swift",
-				BigIntLib/Sources/Division.swift,
-				BigIntLib/Sources/Exponentiation.swift,
-				"BigIntLib/Sources/Floating Point Conversion.swift",
-				BigIntLib/Sources/GCD.swift,
-				BigIntLib/Sources/Hashable.swift,
-				"BigIntLib/Sources/Integer Conversion.swift",
-				BigIntLib/Sources/Multiplication.swift,
-				"BigIntLib/Sources/Prime Test.swift",
-				BigIntLib/Sources/Random.swift,
-				BigIntLib/Sources/Rounded.swift,
-				BigIntLib/Sources/Shifts.swift,
-				"BigIntLib/Sources/Square Root.swift",
-				BigIntLib/Sources/Strideable.swift,
-				"BigIntLib/Sources/String Conversion.swift",
-				BigIntLib/Sources/Subtraction.swift,
-				"BigIntLib/Sources/Words and Bits.swift",
-			);
-			target = 272B3CB12D2AD4360024658E /* BigIntLib */;
-		};
-		276B5E072CD512D000235012 /* Exceptions for "SubModules" folder in "UIToken" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				UIToken/Token/Cells/TokenChartCell.swift,
-				UIToken/Token/TokenExpandableChartView.swift,
-				UIToken/Token/TokenExpandableContentView.swift,
-				UIToken/Token/TokenVC.swift,
-				UIToken/Token/TokenVM.swift,
-				UIToken/Token/WChartSegmentedControl.swift,
-			);
-			target = 276B5DFB2CD512C700235012 /* UIToken */;
-		};
-		276B5E512CD54C4000235012 /* Exceptions for "SubModules" folder in "UICharts" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				UICharts/Source/Animation/Animator.swift,
-				UICharts/Source/Animation/ChartAnimationEasing.swift,
-				UICharts/Source/Charts/BarChartView.swift,
-				UICharts/Source/Charts/BarLineChartViewBase.swift,
-				UICharts/Source/Charts/BubbleChartView.swift,
-				UICharts/Source/Charts/CandleStickChartView.swift,
-				UICharts/Source/Charts/ChartViewBase.swift,
-				UICharts/Source/Charts/CombinedChartView.swift,
-				UICharts/Source/Charts/HorizontalBarChartView.swift,
-				UICharts/Source/Charts/LineChartView.swift,
-				UICharts/Source/Charts/PieChartView.swift,
-				UICharts/Source/Charts/PieRadarChartViewBase.swift,
-				UICharts/Source/Charts/RadarChartView.swift,
-				UICharts/Source/Charts/ScatterChartView.swift,
-				UICharts/Source/Components/AxisBase.swift,
-				UICharts/Source/Components/ChartLimitLine.swift,
-				UICharts/Source/Components/ComponentBase.swift,
-				UICharts/Source/Components/Description.swift,
-				UICharts/Source/Components/Legend.swift,
-				UICharts/Source/Components/LegendEntry.swift,
-				UICharts/Source/Components/Marker.swift,
-				UICharts/Source/Components/MarkerImage.swift,
-				UICharts/Source/Components/MarkerView.swift,
-				UICharts/Source/Components/XAxis.swift,
-				UICharts/Source/Components/YAxis.swift,
-				UICharts/Source/Data/Implementations/ChartBaseDataSet.swift,
-				UICharts/Source/Data/Implementations/Standard/BarChartData.swift,
-				UICharts/Source/Data/Implementations/Standard/BarChartDataEntry.swift,
-				UICharts/Source/Data/Implementations/Standard/BarChartDataSet.swift,
-				UICharts/Source/Data/Implementations/Standard/BarLineScatterCandleBubbleChartData.swift,
-				UICharts/Source/Data/Implementations/Standard/BarLineScatterCandleBubbleChartDataSet.swift,
-				UICharts/Source/Data/Implementations/Standard/BubbleChartData.swift,
-				UICharts/Source/Data/Implementations/Standard/BubbleChartDataEntry.swift,
-				UICharts/Source/Data/Implementations/Standard/BubbleChartDataSet.swift,
-				UICharts/Source/Data/Implementations/Standard/CandleChartData.swift,
-				UICharts/Source/Data/Implementations/Standard/CandleChartDataEntry.swift,
-				UICharts/Source/Data/Implementations/Standard/CandleChartDataSet.swift,
-				UICharts/Source/Data/Implementations/Standard/ChartData.swift,
-				UICharts/Source/Data/Implementations/Standard/ChartDataEntry.swift,
-				UICharts/Source/Data/Implementations/Standard/ChartDataEntryBase.swift,
-				UICharts/Source/Data/Implementations/Standard/ChartDataSet.swift,
-				UICharts/Source/Data/Implementations/Standard/CombinedChartData.swift,
-				UICharts/Source/Data/Implementations/Standard/LineChartData.swift,
-				UICharts/Source/Data/Implementations/Standard/LineChartDataSet.swift,
-				UICharts/Source/Data/Implementations/Standard/LineRadarChartDataSet.swift,
-				UICharts/Source/Data/Implementations/Standard/LineScatterCandleRadarChartDataSet.swift,
-				UICharts/Source/Data/Implementations/Standard/PieChartData.swift,
-				UICharts/Source/Data/Implementations/Standard/PieChartDataEntry.swift,
-				UICharts/Source/Data/Implementations/Standard/PieChartDataSet.swift,
-				UICharts/Source/Data/Implementations/Standard/RadarChartData.swift,
-				UICharts/Source/Data/Implementations/Standard/RadarChartDataEntry.swift,
-				UICharts/Source/Data/Implementations/Standard/RadarChartDataSet.swift,
-				UICharts/Source/Data/Implementations/Standard/ScatterChartData.swift,
-				UICharts/Source/Data/Implementations/Standard/ScatterChartDataSet.swift,
-				UICharts/Source/Data/Interfaces/BarChartDataSetProtocol.swift,
-				UICharts/Source/Data/Interfaces/BarLineScatterCandleBubbleChartDataSetProtocol.swift,
-				UICharts/Source/Data/Interfaces/BubbleChartDataSetProtocol.swift,
-				UICharts/Source/Data/Interfaces/CandleChartDataSetProtocol.swift,
-				UICharts/Source/Data/Interfaces/ChartDataSetProtocol.swift,
-				UICharts/Source/Data/Interfaces/LineChartDataSetProtocol.swift,
-				UICharts/Source/Data/Interfaces/LineRadarChartDataSetProtocol.swift,
-				UICharts/Source/Data/Interfaces/LineScatterCandleRadarChartDataSetProtocol.swift,
-				UICharts/Source/Data/Interfaces/PieChartDataSetProtocol.swift,
-				UICharts/Source/Data/Interfaces/RadarChartDataSetProtocol.swift,
-				UICharts/Source/Data/Interfaces/ScatterChartDataSetProtocol.swift,
-				UICharts/Source/Filters/DataApproximator.swift,
-				"UICharts/Source/Filters/DataApproximator+N.swift",
-				UICharts/Source/Formatters/AxisValueFormatter.swift,
-				UICharts/Source/Formatters/DefaultAxisValueFormatter.swift,
-				UICharts/Source/Formatters/DefaultFillFormatter.swift,
-				UICharts/Source/Formatters/DefaultValueFormatter.swift,
-				UICharts/Source/Formatters/FillFormatter.swift,
-				UICharts/Source/Formatters/IndexAxisValueFormatter.swift,
-				UICharts/Source/Formatters/ValueFormatter.swift,
-				UICharts/Source/Highlight/BarHighlighter.swift,
-				UICharts/Source/Highlight/ChartHighlighter.swift,
-				UICharts/Source/Highlight/CombinedHighlighter.swift,
-				UICharts/Source/Highlight/Highlight.swift,
-				UICharts/Source/Highlight/Highlighter.swift,
-				UICharts/Source/Highlight/HorizontalBarHighlighter.swift,
-				UICharts/Source/Highlight/PieHighlighter.swift,
-				UICharts/Source/Highlight/PieRadarHighlighter.swift,
-				UICharts/Source/Highlight/RadarHighlighter.swift,
-				UICharts/Source/Highlight/Range.swift,
-				UICharts/Source/Interfaces/BarChartDataProvider.swift,
-				UICharts/Source/Interfaces/BarLineScatterCandleBubbleChartDataProvider.swift,
-				UICharts/Source/Interfaces/BubbleChartDataProvider.swift,
-				UICharts/Source/Interfaces/CandleChartDataProvider.swift,
-				UICharts/Source/Interfaces/ChartDataProvider.swift,
-				UICharts/Source/Interfaces/CombinedChartDataProvider.swift,
-				UICharts/Source/Interfaces/LineChartDataProvider.swift,
-				UICharts/Source/Interfaces/ScatterChartDataProvider.swift,
-				UICharts/Source/Jobs/AnimatedMoveViewJob.swift,
-				UICharts/Source/Jobs/AnimatedViewPortJob.swift,
-				UICharts/Source/Jobs/AnimatedZoomViewJob.swift,
-				UICharts/Source/Jobs/MoveViewJob.swift,
-				UICharts/Source/Jobs/ViewPortJob.swift,
-				UICharts/Source/Jobs/ZoomViewJob.swift,
-				UICharts/Source/Renderers/AxisRenderer.swift,
-				UICharts/Source/Renderers/BarChartRenderer.swift,
-				UICharts/Source/Renderers/BarLineScatterCandleBubbleRenderer.swift,
-				UICharts/Source/Renderers/BubbleChartRenderer.swift,
-				UICharts/Source/Renderers/CandleStickChartRenderer.swift,
-				UICharts/Source/Renderers/CombinedChartRenderer.swift,
-				UICharts/Source/Renderers/DataRenderer.swift,
-				UICharts/Source/Renderers/HorizontalBarChartRenderer.swift,
-				UICharts/Source/Renderers/LegendRenderer.swift,
-				UICharts/Source/Renderers/LineChartRenderer.swift,
-				UICharts/Source/Renderers/LineRadarRenderer.swift,
-				UICharts/Source/Renderers/LineScatterCandleRadarRenderer.swift,
-				UICharts/Source/Renderers/PieChartRenderer.swift,
-				UICharts/Source/Renderers/RadarChartRenderer.swift,
-				UICharts/Source/Renderers/Renderer.swift,
-				UICharts/Source/Renderers/Scatter/ChevronDownShapeRenderer.swift,
-				UICharts/Source/Renderers/Scatter/ChevronUpShapeRenderer.swift,
-				UICharts/Source/Renderers/Scatter/CircleShapeRenderer.swift,
-				UICharts/Source/Renderers/Scatter/CrossShapeRenderer.swift,
-				UICharts/Source/Renderers/Scatter/ShapeRenderer.swift,
-				UICharts/Source/Renderers/Scatter/SquareShapeRenderer.swift,
-				UICharts/Source/Renderers/Scatter/TriangleShapeRenderer.swift,
-				UICharts/Source/Renderers/Scatter/XShapeRenderer.swift,
-				UICharts/Source/Renderers/ScatterChartRenderer.swift,
-				UICharts/Source/Renderers/XAxisRenderer.swift,
-				UICharts/Source/Renderers/XAxisRendererHorizontalBarChart.swift,
-				UICharts/Source/Renderers/XAxisRendererRadarChart.swift,
-				UICharts/Source/Renderers/YAxisRenderer.swift,
-				UICharts/Source/Renderers/YAxisRendererHorizontalBarChart.swift,
-				UICharts/Source/Renderers/YAxisRendererRadarChart.swift,
-				UICharts/Source/Utils/ChartColorTemplates.swift,
-				UICharts/Source/Utils/ChartUtils.swift,
-				UICharts/Source/Utils/Fill.swift,
-				UICharts/Source/Utils/Indexed.swift,
-				UICharts/Source/Utils/Partition.swift,
-				UICharts/Source/Utils/Platform.swift,
-				"UICharts/Source/Utils/Platform+Accessibility.swift",
-				"UICharts/Source/Utils/Platform+Color.swift",
-				"UICharts/Source/Utils/Platform+Gestures.swift",
-				"UICharts/Source/Utils/Platform+Graphics.swift",
-				"UICharts/Source/Utils/Platform+Touch Handling.swift",
-				"UICharts/Source/Utils/Sequence+KeyPath.swift",
-				UICharts/Source/Utils/Transformer.swift,
-				UICharts/Source/Utils/TransformerHorizontalBarChart.swift,
-				UICharts/Source/Utils/ViewPortHandler.swift,
-			);
-			target = 276B5E452CD54C2F00235012 /* UICharts */;
-		};
-		27ABF4732CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "AirAsFramework" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				AirAsFramework/AirLauncher.swift,
-				AirAsFramework/AppActionsImpl.swift,
-				AirAsFramework/Deeplink/Deeplink.swift,
-				AirAsFramework/Deeplink/DeeplinkHandler.swift,
-				AirAsFramework/Deeplink/DeeplinkParser.swift,
-				AirAsFramework/Splash/SplashVC.swift,
-				AirAsFramework/Splash/SplashVM.swift,
-			);
-			target = 279104D12C89BAB20075D4B5 /* AirAsFramework */;
-		};
-		27ABF4742CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UICreateWallet" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				UICreateWallet/AccountTypePicker/AccountTypePickerVC.swift,
-				UICreateWallet/AccountTypePicker/AccountTypePickerView.swift,
-				UICreateWallet/AddViewWallet/AddViewWalletVC.swift,
-				UICreateWallet/AddViewWallet/AddViewWalletView.swift,
-				UICreateWallet/CreateBackupDisclaimer/CreateBackupDisclaimerVC.swift,
-				UICreateWallet/CreateBackupDisclaimer/CreateBackupDisclaimerView.swift,
-				UICreateWallet/ImportExistingPicker/ImportExistingPickerVC.swift,
-				UICreateWallet/ImportExistingPicker/ImportExistingPickerView.swift,
-				UICreateWallet/ImportSuccess/Confetti.swift,
-				UICreateWallet/ImportSuccess/ImportSuccessVC.swift,
-				UICreateWallet/ImportSuccess/ImportSuccessView.swift,
-				UICreateWallet/ImportWallet/ImportWalletVC.swift,
-				UICreateWallet/Intro/IntroVC.swift,
-				UICreateWallet/Intro/IntroView.swift,
-				UICreateWallet/IntroModel.swift,
-				UICreateWallet/WordCheck/WordCheckModel.swift,
-				UICreateWallet/WordCheck/WordCheckVC.swift,
-				UICreateWallet/WordCheck/WordCheckView.swift,
-				UICreateWallet/WordDisplay/WordDisplayVC.swift,
-				UICreateWallet/WordDisplay/WordDisplayView.swift,
-			);
-			target = 27DCAAAC2BA5D60D004F83C8 /* UICreateWallet */;
-		};
-		27ABF4752CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UIHome" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				UIHome/ViewControllers/Home/ActionsRow/ActionsRow.swift,
-				UIHome/ViewControllers/Home/BalanceHeaderView/BalanceHeaderView.swift,
-				"UIHome/ViewControllers/Home/BalanceHeaderView/BHV+UpdateMethods.swift",
-				"UIHome/ViewControllers/Home/Home+Constants.swift",
-				UIHome/ViewControllers/Home/HomeHeader/HomeAccountSelector.swift,
-				UIHome/ViewControllers/Home/HomeHeader/HomeCard.swift,
-				UIHome/ViewControllers/Home/HomeHeader/HomeCardBackground.swift,
-				UIHome/ViewControllers/Home/HomeHeader/HomeCardCollapsedContent.swift,
-				UIHome/ViewControllers/Home/HomeHeader/HomeCardContent.swift,
-				UIHome/ViewControllers/Home/HomeHeader/HomeCardMiniatureContent.swift,
-				UIHome/ViewControllers/Home/HomeHeader/HomeHeaderContainer.swift,
-				UIHome/ViewControllers/Home/HomeHeader/HomeHeaderViewModel.swift,
-				UIHome/ViewControllers/Home/HomeVC.swift,
-				"UIHome/ViewControllers/Home/HomeVC+BHVDelegate.swift",
-				"UIHome/ViewControllers/Home/HomeVC+TableViewDelegate.swift",
-				UIHome/ViewControllers/Home/HomeViewModel.swift,
-				UIHome/ViewControllers/Home/Menus/AddressesMenu.swift,
-				UIHome/ViewControllers/Home/Menus/BaseCurrencyMenu.swift,
-				UIHome/ViewControllers/Home/UpdateStatusView/UpdateStatusView.swift,
-				UIHome/ViewControllers/HomeTabBarController/HomeTabBarController.swift,
-				UIHome/ViewControllers/SwitchAccount/SwitchAccountVC.swift,
-			);
-			target = 27DCAABD2BA5D6B1004F83C8 /* UIHome */;
-		};
-		27ABF4762CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UIAssets" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				UIAssets/AssetsTab/AssetsTabVC.swift,
-				UIAssets/HiddenNfts/Cells/HiddenByUserCell.swift,
-				UIAssets/HiddenNfts/Cells/LikelyScamCell.swift,
-				UIAssets/HiddenNfts/HiddenNftsVC.swift,
-				UIAssets/NftDetails/Components/BackButtonChevron.swift,
-				UIAssets/NftDetails/Components/NftCollectionButton.swift,
-				UIAssets/NftDetails/CoverFlow/CoverFlowView.swift,
-				UIAssets/NftDetails/CoverFlow/CoverFlowViewModel.swift,
-				UIAssets/NftDetails/CoverFlow/NftCellStatic.swift,
-				UIAssets/NftDetails/CoverFlow/NftViewStatic.swift,
-				UIAssets/NftDetails/NftDetailsVC.swift,
-				UIAssets/NftDetails/NftDetailsViewModel.swift,
-				UIAssets/NftDetails/NftListContextProvider.swift,
-				UIAssets/NftDetails/Views/NftDetailsActionsRow.swift,
-				UIAssets/NftDetails/Views/NftDetailsActionsWithBackground.swift,
-				UIAssets/NftDetails/Views/NftDetailsDetailsView.swift,
-				UIAssets/NftDetails/Views/NftDetailsHeaderView.swift,
-				UIAssets/NftDetails/Views/NftDetailsImage.swift,
-				UIAssets/NftDetails/Views/NftDetailsView.swift,
-				UIAssets/Nfts/Cells/ActionCell.swift,
-				UIAssets/Nfts/Cells/CollectiblesEmptyView.swift,
-				UIAssets/Nfts/Cells/NftCell.swift,
-				UIAssets/Nfts/Cells/WalletCollectiblesEmptyView.swift,
-				UIAssets/Nfts/NftsVC.swift,
-				UIAssets/Nfts/ScrollingContext.swift,
-				UIAssets/Tokens/Cells/WalletSeeAllCell.swift,
-				UIAssets/Tokens/Cells/WalletTokenCell.swift,
-				UIAssets/Tokens/Helpers/BadgeContent.swift,
-				UIAssets/Tokens/WalletTokensVC.swift,
-				"UIAssets/WalletAssets/Semented control items.swift",
-				UIAssets/WalletAssets/WalletAssetsVC.swift,
-				UIAssets/WalletAssets/WalletAssetsView.swift,
-				UIAssets/WalletAssets/WalletAssetsViewModel.swift,
-			);
-			target = 27F244752BB374F800F4FADE /* UIAssets */;
-		};
-		27ABF4772CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UITransaction" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				UITransaction/ActionsRow.swift,
-				UITransaction/ActivityDetailsViewModel.swift,
-				UITransaction/ActivityNavigationHeader.swift,
-				UITransaction/ActivityVC.swift,
-				UITransaction/ActivityView.swift,
-				UITransaction/TransactionActivityHeader.swift,
-			);
-			target = 27CADC442C333A8500F06824 /* UITransaction */;
-		};
-		27ABF4782CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UIBrowser" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				UIBrowser/Explore/Cells/ConnectedDappCell.swift,
-				UIBrowser/Explore/Cells/DappCell.swift,
-				UIBrowser/Explore/Cells/FeaturedDappCell.swift,
-				UIBrowser/Explore/ExploreVC.swift,
-				UIBrowser/Explore/ExploreVM.swift,
-				UIBrowser/Explore/SearchSupport.swift,
-				UIBrowser/ExploreCategory/ExploreCategoryVC.swift,
-				UIBrowser/ExploreCategory/Row.swift,
-				UIBrowser/ExploreTab/ExploreSearch.swift,
-				UIBrowser/ExploreTab/ExploreTabVC.swift,
-			);
-			target = 27F2448E2BB375F800F4FADE /* UIBrowser */;
-		};
-		27ABF4792CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UISettings" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				UISettings/About/AboutVC.swift,
-				UISettings/About/AboutView.swift,
-				UISettings/Appearance/AppearanceSettingsVC.swift,
-				UISettings/Appearance/AppearanceSettingsView.swift,
-				UISettings/Appearance/Sections/OtherAppearanceSettingsSection.swift,
-				UISettings/Appearance/Sections/PaletteAndCardSection.swift,
-				UISettings/Appearance/Sections/ThemeSection.swift,
-				UISettings/AssetsAndActivity/AssetsAndActivityVC.swift,
-				UISettings/AssetsAndActivity/Cells/AssetsAndActivityBaseCurrencyCell.swift,
-				UISettings/AssetsAndActivity/Cells/AssetsAndActivityHideNoCostCell.swift,
-				UISettings/AssetsAndActivity/Cells/AssetsAndActivityTokenCell.swift,
-				UISettings/BaseCurrency/BaseCurrencyCell.swift,
-				UISettings/BaseCurrency/BaseCurrencyVC.swift,
-				UISettings/ConnectedAppsVC/ConnectedAppsVC.swift,
-				UISettings/CustomizeWallet/CustomizeWalletVC.swift,
-				UISettings/CustomizeWallet/CustomizeWalletView.swift,
-				UISettings/CustomizeWallet/CustomizeWalletViewModel.swift,
-				UISettings/CustomizeWallet/Views/AccountSelector.swift,
-				UISettings/CustomizeWallet/Views/AccountSelectorCell.swift,
-				UISettings/CustomizeWallet/Views/PaletteSection.swift,
-				UISettings/CustomizeWallet/Views/SelectCardSection.swift,
-				UISettings/DeleteAccount/DeleteAccount.swift,
-				UISettings/Language/LanguageCell.swift,
-				UISettings/Language/LanguageVC.swift,
-				UISettings/Notifications/NotificationsSettingsVC.swift,
-				UISettings/Notifications/NotificationsSettingsView.swift,
-				UISettings/Notifications/NotificationsSettingsViewModel.swift,
-				UISettings/PlainWebView/PlainWebView.swift,
-				UISettings/RecoveryPhrase/RecoveryPhraseVC.swift,
-				UISettings/RenameAccount/RenameAccount.swift,
-				UISettings/SavedAddresses/SaveAddress.swift,
-				UISettings/Security/SecurityVC.swift,
-				UISettings/Security/SecurityView.swift,
-				UISettings/Settings/Cells/FooterView.swift,
-				UISettings/Settings/Cells/SettingsItemCell.swift,
-				UISettings/Settings/Models/SettingsItem.swift,
-				UISettings/Settings/Models/SettingsSection.swift,
-				UISettings/Settings/SettingsVC.swift,
-				UISettings/Settings/Views/SettingsHeaderView.swift,
-				UISettings/UseResponsibly/UseResponsiblyVC.swift,
-				UISettings/UseResponsibly/UseResponsiblyView.swift,
-				UISettings/WalletSettings/Cells/WalletSettingsEmptyCell.swift,
-				UISettings/WalletSettings/Cells/WalletSettingsGridCell.swift,
-				UISettings/WalletSettings/Model/WalletFilter.swift,
-				UISettings/WalletSettings/Model/WalletListLayout.swift,
-				UISettings/WalletSettings/Model/WalletSettingsViewModel.swift,
-				UISettings/WalletSettings/WalletSettingsAddButton.swift,
-				UISettings/WalletSettings/WalletSettingsListVC.swift,
-				UISettings/WalletSettings/WalletSettingsNavigationHeader.swift,
-				UISettings/WalletSettings/WalletSettingsVC.swift,
-				UISettings/WalletVersions/WalletVersionCell.swift,
-				UISettings/WalletVersions/WalletVersionsVC.swift,
-			);
-			target = 27EA17752C2C74C9002892EC /* UISettings */;
-		};
-		27ABF47A2CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UIReceive" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				UIReceive/DepositLink/DepositLinkModel.swift,
-				UIReceive/DepositLink/DepositLinkVC.swift,
-				UIReceive/DepositLink/DepositLinkView.swift,
-				UIReceive/Receive/ReceiveCells.swift,
-				UIReceive/Receive/ReceiveHeader.swift,
-				UIReceive/Receive/ReceiveTableVC.swift,
-				UIReceive/Receive/ReceiveVC.swift,
-			);
-			target = 2761BEB42CCC05F700376556 /* UIReceive */;
-		};
-		27ABF47B2CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UISend" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				UISend/Compose/Address/AddressInputModel.swift,
-				UISend/Compose/Address/AddressSuggestions.swift,
-				UISend/Compose/Address/RecipientAddressSection.swift,
-				UISend/Compose/SendComposeVC.swift,
-				UISend/Compose/SendComposeView.swift,
-				UISend/Confirm/SendConfirmVC.swift,
-				UISend/Confirm/SendConfirmView.swift,
-				UISend/SendCurrency/CurrencyCell.swift,
-				UISend/SendCurrency/SendCurrencyVC.swift,
-				UISend/SendFlow.swift,
-				UISend/Sending/SendingHeaderView.swift,
-				UISend/SendModel.swift,
-				UISend/SendVC.swift,
-			);
-			target = 2770D0012BD16F43005F0BA3 /* UISend */;
-		};
-		27ABF47C2CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UISwap" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				UISwap/BuyWithCard/BuyWithCardHeader.swift,
-				UISwap/BuyWithCard/BuyWithCardModel.swift,
-				UISwap/BuyWithCard/BuyWithCardVC.swift,
-				UISwap/Confirm/SwapConfirmHeaderView.swift,
-				UISwap/CrossChainSwap/CrossChainSwapVC.swift,
-				UISwap/CrossChainSwap/CrossChainSwapVM.swift,
-				UISwap/CrossChainSwap/Views/CrossChainFromTonView.swift,
-				UISwap/CrossChainSwap/Views/CrossChainToTonView.swift,
-				UISwap/Swap/SwapSelectorsVM.swift,
-				UISwap/Swap/SwapVC.swift,
-				UISwap/Swap/SwapVM.swift,
-				UISwap/Swap/Views/SwapAgregatorView.swift,
-				UISwap/Swap/Views/SwapCexDetailsView.swift,
-				UISwap/Swap/Views/SwapChangellyView.swift,
-				UISwap/Swap/Views/SwapDetailsView.swift,
-				UISwap/Swap/Views/SwapSelectorsView.swift,
-				UISwap/Swap/Views/SwapView.swift,
-				UISwap/Swap/Views/SwapWarning.swift,
-				UISwap/SwapCexSupport.swift,
-			);
-			target = 27DDF6EB2BEDF85800BB1977 /* UISwap */;
-		};
-		27ABF47D2CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UIEarn" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				UIEarn/AddStake/AddStakeModel.swift,
-				UIEarn/AddStake/AddStakeVC.swift,
-				UIEarn/AddStake/AddStakeView.swift,
-				UIEarn/ClaimRewards/ClaimRewardsModel.swift,
-				UIEarn/ClaimRewards/ClaimRewardsView.swift,
-				UIEarn/ConfirmHeader/StakingConfirmHeaderView.swift,
-				UIEarn/Earn/Cells/EarnHistoryCell.swift,
-				UIEarn/Earn/EarnRootVC.swift,
-				UIEarn/Earn/EarnVC.swift,
-				UIEarn/Earn/EarnVM.swift,
-				UIEarn/Earn/Views/EarnHeaderCell.swift,
-				UIEarn/Earn/Views/EmptyEarnView.swift,
-				UIEarn/SharedUI/StakingContinueButtonConfig.swift,
-				UIEarn/StakingConfig.swift,
-				UIEarn/Unstake/UnstakeModel.swift,
-				UIEarn/Unstake/UnstakeVC.swift,
-				UIEarn/Unstake/UnstakeView.swift,
-				UIEarn/WhyIsSafe.swift,
-			);
-			target = 27FC97AC2BF2057000F8F57D /* UIEarn */;
-		};
-		27ABF47E2CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UIInAppBrowser" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				UIInAppBrowser/InAppBrowser/DappInfoProvider.swift,
-				UIInAppBrowser/InAppBrowser/InAppBrowserPageVC.swift,
-				UIInAppBrowser/InAppBrowser/InAppBrowserSupport.swift,
-				UIInAppBrowser/InAppBrowser/InAppBrowserVC.swift,
-				UIInAppBrowser/InAppBrowser/TonConnectInjectionHelpers.swift,
-				UIInAppBrowser/MinimizableSheet/MinimizedSheetView.swift,
-				UIInAppBrowser/MinimizableSheet/WMinimizableSheet.swift,
-			);
-			target = 27BD61592C81C367005A4C82 /* UIInAppBrowser */;
-		};
-		27ABF47F2CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UIDapp" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				UIDapp/Connect/ChooseWalletVC.swift,
-				UIDapp/Connect/ConnectDappVC.swift,
-				UIDapp/Connect/ConnectDappView.swift,
-				UIDapp/Connect/ConnectViewModel.swift,
-				UIDapp/Placeholder/TonConnectPlaceholder.swift,
-				UIDapp/Send/DappSendTransactionDetailVC.swift,
-				UIDapp/Send/Initial/SendDappContentView.swift,
-				UIDapp/Send/Initial/SendDappHeaderView.swift,
-				UIDapp/Send/Initial/SendDappWarningView.swift,
-				UIDapp/Send/Initial/TotalAmountRow.swift,
-				UIDapp/Send/Initial/TransferRow.swift,
-				UIDapp/Send/SendDappVC.swift,
-				UIDapp/Send/TransactionDetail/DappSendTransactionDetailView.swift,
-				UIDapp/Send/TransactionDetail/TransactionAmountRow.swift,
-				UIDapp/Send/TransactionDetail/TransactionFeeRow.swift,
-				UIDapp/SharedUI/HeaderDappIcon.swift,
-				UIDapp/SignData/SignDataHeader.swift,
-				UIDapp/SignData/SignDataVC.swift,
-				UIDapp/SignData/SignDataView.swift,
-				UIDapp/TonConnect.swift,
-				UIDapp/TonConnectOverlayView.swift,
-			);
-			target = 2744D0812C6BE18D0022EFEE /* UIDapp */;
-		};
-		27ABF4802CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UIPasscode" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				UIPasscode/CommonViews/PasscodeInputView.swift,
-				UIPasscode/CommonViews/PasscodeScreenView.swift,
-				UIPasscode/Helpers/BiometricHelper.swift,
-				UIPasscode/ViewControllers/ActivateBiometricVC/ActivateBiometricVC.swift,
-				UIPasscode/ViewControllers/ActivateBiometricVC/ActivateBiometricView.swift,
-				UIPasscode/ViewControllers/ChangePasscodeVC/ChangePasscodeVC.swift,
-				UIPasscode/ViewControllers/ConfirmPasscodeVC/ConfirmPasscodeVC.swift,
-				UIPasscode/ViewControllers/SetPasscodeVC/SetPasscodeVC.swift,
-				UIPasscode/ViewControllers/Unlock/PasswordOrLedger.swift,
-				UIPasscode/ViewControllers/Unlock/UnlockVC.swift,
-			);
-			target = 27DCAA5B2BA5C252004F83C8 /* UIPasscode */;
-		};
-		27ABF4812CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UIQRScan" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				UIQRScan/ViewControllers/Sources/Camera/Camera.swift,
-				UIQRScan/ViewControllers/Sources/Camera/CameraDevice.swift,
-				UIQRScan/ViewControllers/Sources/Camera/CameraInput.swift,
-				UIQRScan/ViewControllers/Sources/Camera/CameraOutput.swift,
-				UIQRScan/ViewControllers/Sources/Camera/CameraPreviewNode.swift,
-				UIQRScan/ViewControllers/Sources/Camera/CameraUtils.swift,
-				UIQRScan/ViewControllers/Sources/ViewControllers/QRScan/QRScanVC.swift,
-				UIQRScan/ViewControllers/Sources/ViewControllers/QRScan/Views/GlassButton.swift,
-				UIQRScan/ViewControllers/Sources/ViewControllers/QRScan/Views/NoCameraAccessView.swift,
-				UIQRScan/ViewControllers/Sources/ViewControllers/QRScan/Views/QRScanView.swift,
-			);
-			target = 273459D42BF2CFEB00FA7501 /* UIQRScan */;
-		};
-		27ABF4822CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UIComponents" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				UIComponents/Activities/ActivitiesTableView.swift,
-				UIComponents/Activities/ActivitiesTableViewController.swift,
-				UIComponents/Activities/ActivityCell.swift,
-				"UIComponents/Activities/ActivityCell+Skeleton.swift",
-				UIComponents/Activities/AssetsPlaceholderCell.swift,
-				UIComponents/Activities/BubbleView.swift,
-				UIComponents/Activities/EmptyWalletView.swift,
-				UIComponents/Activities/NftPreviewLarge.swift,
-				UIComponents/Activities/PreviewActivityCell.swift,
-				UIComponents/Activities/WalletCreatedView.swift,
-				UIComponents/ActivityIndicator/WActivityIndicator.swift,
-				UIComponents/AnimatedSticker/Sources/AnimatedStickerView.swift,
-				UIComponents/AnimatedSticker/Sources/AnimationRenderer.swift,
-				UIComponents/AnimatedSticker/Sources/GenerateImage.swift,
-				UIComponents/AnimatedSticker/Sources/SoftwareAnimationRenderer.swift,
-				UIComponents/AnimatedSticker/WAnimatedSticker.swift,
-				UIComponents/Buttons/Checkmark.swift,
-				UIComponents/Buttons/EarnGradient.swift,
-				UIComponents/Buttons/GlassActionButton.swift,
-				UIComponents/Buttons/OpenButtonStyle.swift,
-				UIComponents/Buttons/WAccentButton.swift,
-				UIComponents/Buttons/WBaseButton.swift,
-				UIComponents/Buttons/WButton.swift,
-				UIComponents/Buttons/WButtonConfig.swift,
-				UIComponents/Buttons/WScalableButton.swift,
-				UIComponents/Buttons/WUIButtonStyle.swift,
-				"UIComponents/CASpringAnimation+AnimationUtils.h",
-				"UIComponents/CASpringAnimation+AnimationUtils.m",
-				UIComponents/Cells/AccountListCell.swift,
-				UIComponents/Cells/CardMiniature.swift,
-				UIComponents/Cells/CellBackgroundHighlight.swift,
-				UIComponents/Chart/RangeChartView.swift,
-				UIComponents/Chart/WLineChartView.swift,
-				UIComponents/CommonViews/AccountTypeBadge.swift,
-				UIComponents/CommonViews/AddressActions.swift,
-				UIComponents/CommonViews/AddressTextField.swift,
-				UIComponents/CommonViews/AddViewButton.swift,
-				UIComponents/CommonViews/BadgeView.swift,
-				UIComponents/CommonViews/BalanceView.swift,
-				UIComponents/CommonViews/BottomActionsView.swift,
-				UIComponents/CommonViews/Cells/ActivityDateCell.swift,
-				UIComponents/CommonViews/FeeDetailsView.swift,
-				UIComponents/CommonViews/FeeView.swift,
-				UIComponents/CommonViews/HeaderView.swift,
-				UIComponents/CommonViews/ReversedCornerRadiusView.swift,
-				UIComponents/CommonViews/TappableAddress.swift,
-				UIComponents/CommonViews/TappableTransactionId.swift,
-				UIComponents/CommonViews/TipView.swift,
-				UIComponents/CommonViews/TokenActionsView.swift,
-				UIComponents/CommonViews/TokenAmountEntry.swift,
-				UIComponents/CommonViews/TokenPickerButton.swift,
-				UIComponents/CommonViews/UseAllButton.swift,
-				UIComponents/CommonViews/WarningView.swift,
-				UIComponents/CommonViews/WordListItemView.swift,
-				UIComponents/CommonViews/WordListView.swift,
-				UIComponents/ContextMenu/CustomTapGesture.swift,
-				"UIComponents/ContextMenu/Environment and preferences/ContainerSize.swift",
-				"UIComponents/ContextMenu/Environment and preferences/HasScrollPreference.swift",
-				"UIComponents/ContextMenu/Environment and preferences/SizePreference.swift",
-				"UIComponents/ContextMenu/Menu views/BlurredMenuBackground.swift",
-				"UIComponents/ContextMenu/Menu views/MenuClippingContainer.swift",
-				"UIComponents/ContextMenu/Menu views/MenuDrawAreaContainer.swift",
-				"UIComponents/ContextMenu/Menu views/MenuFromConfig.swift",
-				"UIComponents/ContextMenu/Menu views/MenuFullscreenContainer.swift",
-				"UIComponents/ContextMenu/Menu views/MenuStackedContent.swift",
-				"UIComponents/ContextMenu/Menu views/SelectableMenuItem.swift",
-				"UIComponents/ContextMenu/Menu views/WideSeparator.swift",
-				UIComponents/ContextMenu/MenuContext.swift,
-				UIComponents/ContextMenu/MenuLayerView.swift,
-				UIComponents/ContextMenu/MenuSource.swift,
-				UIComponents/DecimalAmount/AmountCell.swift,
-				UIComponents/DecimalAmount/AmountText.swift,
-				UIComponents/ExpandableNavigationView/ExpandableNavigationView.swift,
-				UIComponents/Gestures/HoldAndDragGesture.swift,
-				UIComponents/Gestures/LongTapGesture.swift,
-				UIComponents/HighlightView/WHighlightCell.swift,
-				UIComponents/HighlightView/WHighlightStackView.swift,
-				UIComponents/HighlightView/WHighlightView.swift,
-				UIComponents/Icons/AccountIcon.swift,
-				UIComponents/Icons/ActivityIconView.swift,
-				UIComponents/Icons/IconAccessoryView.swift,
-				UIComponents/Icons/IconStackView.swift,
-				UIComponents/Icons/IconView.swift,
-				UIComponents/Icons/WUIIconViewToken.swift,
-				UIComponents/Image/WImageView.swift,
-				UIComponents/Input/AmountInput/WAmountInput.swift,
-				UIComponents/Input/WAddressInput.swift,
-				UIComponents/Input/WordInput/WSuggestionsView.swift,
-				UIComponents/Input/WordInput/WWordInput.swift,
-				UIComponents/Input/WordInput/WWordInputField.swift,
-				UIComponents/InsetList/InsetCell.swift,
-				UIComponents/InsetList/InsetDivider.swift,
-				UIComponents/InsetList/InsetList.swift,
-				UIComponents/InsetList/InsetListChevron.swift,
-				UIComponents/InsetList/InsetSection.swift,
-				UIComponents/Label/Animated/CustomizedLTMorphingLabel/LTCharacterDiffResult.swift,
-				UIComponents/Label/Animated/CustomizedLTMorphingLabel/LTCharacterLimbo.swift,
-				UIComponents/Label/Animated/CustomizedLTMorphingLabel/LTEasing.swift,
-				UIComponents/Label/Animated/CustomizedLTMorphingLabel/LTEmitterView.swift,
-				UIComponents/Label/Animated/CustomizedLTMorphingLabel/LTMorphingEffect.swift,
-				UIComponents/Label/Animated/CustomizedLTMorphingLabel/LTMorphingLabel.swift,
-				UIComponents/Label/Animated/CustomizedLTMorphingLabel/LTStringDiffResult.swift,
-				UIComponents/Label/Animated/WAnimatedAmountLabel.swift,
-				UIComponents/Label/Animated/WAnimatedLabel.swift,
-				"UIComponents/Label/Text+address.swift",
-				UIComponents/Label/WAmountLabel.swift,
-				UIComponents/Label/WReplacableLabel.swift,
-				UIComponents/MtwCard/MtwAddressLineView.swift,
-				UIComponents/MtwCard/MtwCard.swift,
-				UIComponents/MtwCard/MtwCardBackground.swift,
-				UIComponents/MtwCard/MtwCardBalanceGradient.swift,
-				UIComponents/MtwCard/MtwCardBalanceView.swift,
-				UIComponents/MtwCard/MtwCardMiniPlaceholders.swift,
-				UIComponents/MtwCard/MtwCardSelection.swift,
-				"UIComponents/MtwCard/Styling/MtwCard+Colors.swift",
-				UIComponents/MtwCard/Styling/MtwCardBorder.swift,
-				UIComponents/MtwCard/Styling/MtwCardCenteredGradient.swift,
-				UIComponents/MtwCard/Styling/MtwCardInverseCenteredGradient.swift,
-				UIComponents/Navigation/NavigationBarBackground.swift,
-				UIComponents/Navigation/NavigationHeader.swift,
-				UIComponents/Navigation/TabItemTappedProtocol.swift,
-				UIComponents/Navigation/WNavigationBar.swift,
-				UIComponents/NFT/NftImage.swift,
-				UIComponents/NFT/NftPreviewRow.swift,
-				UIComponents/OverviewSections/NftOverviewView.swift,
-				UIComponents/OverviewSections/SwapOverviewView.swift,
-				UIComponents/OverviewSections/TransactionOverviewView.swift,
-				UIComponents/QR/QRContainerView.swift,
-				UIComponents/QR/Sources/ImageCorners.swift,
-				UIComponents/QR/Sources/QrCode.swift,
-				UIComponents/QR/Sources/TransformImageArguments.swift,
-				UIComponents/QR/Sources/TransformImageView.swift,
-				UIComponents/QR/WQrCode.swift,
-				UIComponents/ReorderingStack/DraggableView.swift,
-				UIComponents/ReorderingStack/Dragula.swift,
-				UIComponents/SearchBar/WSearchBar.swift,
-				UIComponents/SegmentController/Model/SegmentedControlItem.swift,
-				UIComponents/SegmentController/Model/SegmentedControlModel.swift,
-				UIComponents/SegmentController/Model/SegmentedControlSelection.swift,
-				UIComponents/SegmentController/Reordering.swift,
-				UIComponents/SegmentController/Views/SegmentedControl.swift,
-				UIComponents/SegmentController/Views/SegmentedControlItemView.swift,
-				UIComponents/SegmentController/Views/SegmentedControlLayer.swift,
-				UIComponents/SegmentController/Views/WSegmentedControl.swift,
-				UIComponents/SegmentController/WSegmentedController.swift,
-				UIComponents/SensitiveData/ShyMask.swift,
-				UIComponents/SensitiveData/WSensitiveData.swift,
-				UIComponents/Skeleton/SkeletonView.swift,
-				UIComponents/SwiftUIUtils/Backports.swift,
-				UIComponents/SwiftUIUtils/CollectionViewCellIgnoringSafeArea.swift,
-				UIComponents/SwiftUIUtils/DividedVStack.swift,
-				UIComponents/SwiftUIUtils/HostingView.swift,
-				UIComponents/SwiftUIUtils/UIHostingController.swift,
-				UIComponents/UIComponents.h,
-				UIComponents/UIConstants.swift,
-				UIComponents/Utils/AnimationUtils.swift,
-				UIComponents/Utils/CAAnimationUtils.swift,
-				UIComponents/Utils/Haptics.swift,
-				UIComponents/Utils/InteractivePopRecognizer.swift,
-				UIComponents/Utils/iOS26Compatibility.swift,
-				UIComponents/Utils/SkeletonState.swift,
-				UIComponents/Utils/SwiftUIUtils.swift,
-				UIComponents/Utils/TouchGesture.swift,
-				UIComponents/Utils/UICollectionViewUtils.swift,
-				UIComponents/Utils/UIFontUtils.swift,
-				UIComponents/Utils/UIImageUtils.swift,
-				UIComponents/Utils/UIKitUtils.swift,
-				UIComponents/Utils/UINavigationControllerUtils.swift,
-				UIComponents/Utils/UIScrollViewUtils.swift,
-				UIComponents/Utils/UISearchBarUtils.swift,
-				UIComponents/Utils/UIStackViewUtils.swift,
-				UIComponents/Utils/UIViewControllerUtils.swift,
-				UIComponents/Utils/UIViewUtils.swift,
-				UIComponents/Utils/WKeyboardObserver.swift,
-				UIComponents/View/BackgroundBlur.swift,
-				UIComponents/View/GradientView.swift,
-				UIComponents/View/PortalView.swift,
-				UIComponents/View/VariableBlur.swift,
-				UIComponents/View/WBlurredContentView.swift,
-				UIComponents/View/WBlurView.swift,
-				UIComponents/View/WTouchPassView.swift,
-				UIComponents/ViewControllers/TokenSelection/Cells/TokenCell.swift,
-				UIComponents/ViewControllers/TokenSelection/Cells/TokenHeaderCell.swift,
-				UIComponents/ViewControllers/TokenSelection/TokenSelectionVC.swift,
-				UIComponents/ViewControllers/WNavigationController.swift,
-				UIComponents/ViewControllers/WViewController.swift,
-				UICreateWallet/Intro/ParticleEffect.swift,
-			);
 			publicHeaders = (
-				"UIComponents/CASpringAnimation+AnimationUtils.h",
-				UIComponents/UIComponents.h,
+				"CASpringAnimation+AnimationUtils.h",
+				UIComponents.h,
 			);
 			target = 27DCA8672BA5B40C004F83C8 /* UIComponents */;
 		};
-		27ABF4832CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "WalletCore" target */ = {
+		27ABF4852CD2A1B6009DAFE6 /* Exceptions for "RLottieBinding" folder in "RLottieBinding" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				WalletCore/Api/Api.swift,
-				"WalletCore/Api/Api+Accounts.swift",
-				"WalletCore/Api/Api+Activities.swift",
-				"WalletCore/Api/Api+Auth.swift",
-				"WalletCore/Api/Api+Dapps.swift",
-				"WalletCore/Api/Api+Domains.swift",
-				"WalletCore/Api/Api+LedgerTransport.swift",
-				"WalletCore/Api/Api+Nfts.swift",
-				"WalletCore/Api/Api+Notifications.swift",
-				"WalletCore/Api/Api+Other.swift",
-				"WalletCore/Api/Api+Polling.swift",
-				"WalletCore/Api/Api+Prices.swift",
-				"WalletCore/Api/Api+Staking.swift",
-				"WalletCore/Api/Api+Swap.swift",
-				"WalletCore/Api/Api+Tokens.swift",
-				"WalletCore/Api/Api+TonConnect.swift",
-				"WalletCore/Api/Api+Transfer.swift",
-				"WalletCore/Api/Api+Wallet.swift",
-				WalletCore/Api/TonConnectApi.swift,
-				WalletCore/AppActions.swift,
-				WalletCore/Database/Database.swift,
-				"WalletCore/Database/Database+Migration.swift",
-				"WalletCore/Database/Database+SwitchFromCapacitor.swift",
-				"WalletCore/Database/Database+SwitchToCapacitor.swift",
-				WalletCore/Helpers/ExchangeRateHelpers.swift,
-				WalletCore/Helpers/ExplorerHelper.swift,
-				WalletCore/Helpers/ExternalChain.swift,
-				WalletCore/Helpers/FeeEstimationHelpers.swift,
-				WalletCore/Helpers/RecentAddressesHelper.swift,
-				WalletCore/Helpers/TransferHelpers.swift,
-				WalletCore/JSWebViewBridge/AnyEncodable.swift,
-				WalletCore/JSWebViewBridge/BridgeCallError.swift,
-				WalletCore/JSWebViewBridge/JSWebViewBridge.swift,
-				WalletCore/Models/Accounts/AccountChain.swift,
-				WalletCore/Models/Accounts/ApiAccount.swift,
-				WalletCore/Models/Accounts/ApiWallet.swift,
-				WalletCore/Models/Accounts/MAccount.swift,
-				"WalletCore/Models/Accounts/MAccount+display.swift",
-				WalletCore/Models/Activities/ApiActivity.swift,
-				"WalletCore/Models/Activities/ApiActivity+Preview.swift",
-				"WalletCore/Models/Activities/ApiActivity+Utils.swift",
-				WalletCore/Models/Activities/ApiSwapActivity.swift,
-				WalletCore/Models/Activities/ApiTransactionActivity.swift,
-				WalletCore/Models/Activities/BaseActivity.swift,
-				WalletCore/Models/ApiCurrencyRates.swift,
-				WalletCore/Models/ApiNetwork.swift,
-				WalletCore/Models/ApiPriceHistoryPeriod.swift,
-				WalletCore/Models/ApiSignedTransfer.swift,
-				WalletCore/Models/ApiSite.swift,
-				WalletCore/Models/ApiStakingHistory.swift,
-				WalletCore/Models/ApiToken.swift,
-				WalletCore/Models/ApiTonWalletVersion.swift,
-				WalletCore/Models/ApiTransferToSign.swift,
-				WalletCore/Models/Chain/ApiChain.swift,
-				WalletCore/Models/Chain/ChainConfig.swift,
-				WalletCore/Models/DecimalAmount/AdaptivePreset.swift,
-				WalletCore/Models/DecimalAmount/DecimalAmount.swift,
-				WalletCore/Models/DecimalAmount/DecimalAmountConformances.swift,
-				WalletCore/Models/DecimalAmount/DecimalAmountFormatStyle.swift,
-				WalletCore/Models/Errors.swift,
-				WalletCore/Models/GlobalStorage/AccountType.swift,
-				WalletCore/Models/GlobalStorage/AppStorageHelper.swift,
-				WalletCore/Models/GlobalStorage/PushNotifications.swift,
-				WalletCore/Models/Ledger/ApiLedgerAccountInfo.swift,
-				WalletCore/Models/Ledger/ApiLedgerDeviceModel.swift,
-				WalletCore/Models/Ledger/ApiLedgerDriver.swift,
-				WalletCore/Models/Ledger/ApiLedgerWalletInfo.swift,
-				WalletCore/Models/Ledger/ApiTonConnectProof.swift,
-				WalletCore/Models/Ledger/LedgerAppInfo.swift,
-				WalletCore/Models/Ledger/LedgerSignResult.swift,
-				WalletCore/Models/Ledger/SignData.swift,
-				WalletCore/Models/MAccountBalanceData.swift,
-				WalletCore/Models/MAsset.swift,
-				WalletCore/Models/MAssetsAndActivityData.swift,
-				WalletCore/Models/MAutolockOption.swift,
-				WalletCore/Models/MBaseCurrency.swift,
-				WalletCore/Models/MFee.swift,
-				WalletCore/Models/MinimizedSheetState.swift,
-				WalletCore/Models/Misc/ApiNftMarketplace.swift,
-				WalletCore/Models/MPayload.swift,
-				WalletCore/Models/MRecentAddress.swift,
-				WalletCore/Models/MStakingData.swift,
-				WalletCore/Models/MStakingHistoryItem.swift,
-				WalletCore/Models/MTokenBalance.swift,
-				WalletCore/Models/MWalletVersionsData.swift,
-				WalletCore/Models/Nft/ApiNft.swift,
-				WalletCore/Models/Nft/NftCollection.swift,
-				WalletCore/Models/Nft/NftCollectionFilter.swift,
-				WalletCore/Models/PrimitiveTypes/MDouble.swift,
-				WalletCore/Models/SavedAddress.swift,
-				WalletCore/Models/ScanResult.swift,
-				WalletCore/Models/SendPrefilledValues.swift,
-				WalletCore/Models/Staking/ApiStakingState.swift,
-				WalletCore/Models/Staking/Ethena.swift,
-				WalletCore/Models/Staking/Jetton.swift,
-				WalletCore/Models/Staking/Liquid.swift,
-				WalletCore/Models/Staking/Nominators.swift,
-				WalletCore/Models/Swap/ApiSwapBuildRequest.swift,
-				WalletCore/Models/Swap/ApiSwapCexCreateTransactionParams.swift,
-				WalletCore/Models/Swap/ApiSwapCexEstimateOptions.swift,
-				WalletCore/Models/Swap/ApiSwapCexEstimateResponse.swift,
-				WalletCore/Models/Swap/ApiSwapDexLabel.swift,
-				WalletCore/Models/Swap/ApiSwapEstimateRequest.swift,
-				WalletCore/Models/Swap/ApiSwapEstimateResponse.swift,
-				WalletCore/Models/Swap/ApiSwapEstimateVariant.swift,
-				WalletCore/Models/Swap/ApiSwapHistoryItem.swift,
-				WalletCore/Models/Swap/ApiSwapRoute.swift,
-				WalletCore/Models/Swap/ApiSwapTransfer.swift,
-				WalletCore/Models/SwapType.swift,
-				WalletCore/Models/TonConnect/ApiDapp.swift,
-				WalletCore/Models/TonConnect/ApiDappConnectionType.swift,
-				WalletCore/Models/TonConnect/ApiDappRequest.swift,
-				WalletCore/Models/TonConnect/ApiDappTransfer.swift,
-				WalletCore/Models/TonConnect/Emulation.swift,
-				WalletCore/Models/TonConnect/MDappSendTransactions.swift,
-				WalletCore/Models/TonConnect/MTonConnect.swift,
-				WalletCore/Models/TonConnect/SignDataPayload.swift,
-				WalletCore/Models/Transfer/AnyTransferPayload.swift,
-				WalletCore/Models/Transfer/ApiCheckTransactionDraftOptions.swift,
-				WalletCore/Models/Transfer/ApiCheckTransactionDraftResult.swift,
-				WalletCore/Models/Transfer/ApiFetchEstimateDieselResult.swift,
-				WalletCore/Models/Transfer/ApiSubmitTransferOptions.swift,
-				WalletCore/Models/Transfer/ApiSubmitTransferResult.swift,
-				WalletCore/Models/Transfer/ApiTransactionCommonOptions.swift,
-				WalletCore/Models/Util/Fee/TransferFee.swift,
-				WalletCore/Stores/Accounts/AccountContext.swift,
-				WalletCore/Stores/Accounts/AccountIdProvider.swift,
-				WalletCore/Stores/Accounts/AccountSettingsStore.swift,
-				WalletCore/Stores/Accounts/AccountSource.swift,
-				WalletCore/Stores/Accounts/AccountStore.swift,
-				WalletCore/Stores/Accounts/SavedAddressesStore.swift,
-				WalletCore/Stores/Activities/ActivityStore.swift,
-				WalletCore/Stores/Activities/ActivityUtils.swift,
-				WalletCore/Stores/Activities/ActivityViewModel.swift,
-				WalletCore/Stores/AuthSupport.swift,
-				WalletCore/Stores/AutolockStore.swift,
-				WalletCore/Stores/BalanceStore.swift,
-				WalletCore/Stores/ConfigStore.swift,
-				WalletCore/Stores/DappsStore.swift,
-				WalletCore/Stores/Nfts/AccountMtwCardStore.swift,
-				WalletCore/Stores/Nfts/NftStore.swift,
-				WalletCore/Stores/SensitiveData.swift,
-				WalletCore/Stores/Staking/StakingBadgeContent.swift,
-				WalletCore/Stores/Staking/StakingHelpers.swift,
-				WalletCore/Stores/Staking/StakingStore.swift,
-				WalletCore/Stores/Staking/TonOperationFees.swift,
-				WalletCore/Stores/Tokens/TokenProvider.swift,
-				WalletCore/Stores/Tokens/TokenStore.swift,
-				WalletCore/Updates/ApiUpdate.swift,
-				WalletCore/Updates/DappConnect.swift,
-				WalletCore/Updates/DappLoading.swift,
-				WalletCore/Updates/DappSignData.swift,
-				WalletCore/Updates/InitialActivities.swift,
-				WalletCore/Updates/NewActivities.swift,
-				WalletCore/Updates/NewLocalActivities.swift,
-				WalletCore/Updates/OpenUrl.swift,
-				WalletCore/Updates/UpdateAccount.swift,
-				WalletCore/Updates/UpdateBalances.swift,
-				WalletCore/Updates/UpdateConfig.swift,
-				WalletCore/Updates/UpdateCurrencyRates.swift,
-				WalletCore/Updates/UpdateNfts.swift,
-				WalletCore/Updates/UpdateStaking.swift,
-				WalletCore/Updates/UpdateSwapTokens.swift,
-				WalletCore/Updates/UpdateTokens.swift,
-				WalletCore/WalletCoreData.swift,
-				WalletCore/WidgetSupport/SharedCache.swift,
-				WalletCore/WidgetSupport/SharedStore.swift,
-			);
-			target = 27DCAAE12BA5DDA7004F83C8 /* WalletCore */;
-		};
-		27ABF4842CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "WalletContext" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				WalletContext/AppGroup.swift,
-				WalletContext/Config.swift,
-				WalletContext/DisplayError.swift,
-				WalletContext/GlobalStorage/GlobalStorage.swift,
-				"WalletContext/GlobalStorage/GlobalStorage+Migration.swift",
-				WalletContext/GlobalStorage/JSValue.swift,
-				WalletContext/GlobalStorage/WebViewGlobalStorageProvider.swift,
-				WalletContext/Helpers/AudioHelpers.swift,
-				WalletContext/Helpers/DNSHelpers.swift,
-				WalletContext/Helpers/PossibleWords.swift,
-				WalletContext/Helpers/SemanticVersion.swift,
-				WalletContext/Keychain/CapacitorCredentialsStorage.swift,
-				WalletContext/Keychain/KeychainHelper.swift,
-				WalletContext/Keychain/KeychainStorageProvider.swift,
-				WalletContext/Keychain/KeychainWrapper.swift,
-				"WalletContext/Keychain/KeychainWrapper+KeychainItemAccessibility.swift",
-				WalletContext/Localization/Lang.swift,
-				WalletContext/Localization/Language.swift,
-				WalletContext/Localization/LocaleManager.swift,
-				WalletContext/Localization/LocalizationSupport.swift,
-				WalletContext/Logging/Log.swift,
-				WalletContext/Resources/Animations/animation_bill.tgs,
-				WalletContext/Resources/Animations/animation_guard.tgs,
-				WalletContext/Resources/Animations/animation_happy.tgs,
-				WalletContext/Resources/Animations/animation_snitch.tgs,
-				WalletContext/Resources/Animations/Congratulations.tgs,
-				WalletContext/Resources/Animations/Copy.tgs,
-				"WalletContext/Resources/Animations/duck_no-data.tgs",
-				WalletContext/Resources/Animations/duck_wait.tgs,
-				WalletContext/Resources/Animations/Main.tgs,
-				WalletContext/Resources/Animations/NoResults.tgs,
-				WalletContext/Resources/Animations/Password.tgs,
-				"WalletContext/Resources/Animations/Recovery Phrase.tgs",
-				WalletContext/Resources/Animations/Start.tgs,
-				"WalletContext/Resources/Animations/Test Time.tgs",
-				WalletContext/Resources/Assets.xcassets,
-				"WalletContext/Resources/Fonts/Nunito-ExtraBold.ttf",
-				WalletContext/Resources/Fonts/SFCompactDisplayMedium.otf,
-				WalletContext/Resources/Fonts/SFCompactRoundedBold.otf,
-				WalletContext/Resources/Fonts/SFCompactRoundedMedium.otf,
-				WalletContext/Resources/Fonts/SFCompactRoundedSemibold.otf,
-				WalletContext/Resources/JS/index.html,
-				"WalletContext/Resources/JS/mytonwallet-sdk.js",
-				"WalletContext/Resources/Sounds/incoming-transaction.mp3",
-				WalletContext/Resources/Strings/Localizable.xcstrings,
-				WalletContext/Theme/WColors.swift,
-				WalletContext/Theme/WNightMode.swift,
-				WalletContext/Theme/WSensitiveDataProtocol.swift,
-				WalletContext/Theme/WTheme.swift,
-				WalletContext/Theme/WWindow.swift,
-				WalletContext/Utils/BigIntUtils.swift,
-				WalletContext/Utils/CodableUtils.swift,
-				WalletContext/Utils/ColorUtils.swift,
-				WalletContext/Utils/DateUtils.swift,
-				WalletContext/Utils/DeviceUtils.swift,
-				WalletContext/Utils/ImageUtils.swift,
-				WalletContext/Utils/Int64Utils.swift,
-				WalletContext/Utils/JSONSerialization.swift,
-				WalletContext/Utils/MathUtils.swift,
-				WalletContext/Utils/OptionalUtils.swift,
-				WalletContext/Utils/PreviewUtils.swift,
-				WalletContext/Utils/StringUtils.swift,
-				WalletContext/Utils/SwiftUtils.swift,
-				WalletContext/Utils/TaskUtils.swift,
-				WalletContext/Utils/UIKitUtils.swift,
-				WalletContext/Utils/UrlUtils.swift,
-				WalletContext/Utils/WalletUtils.swift,
-				WalletContext/WalletContext.swift,
-			);
-			target = 27DCA87E2BA5B439004F83C8 /* WalletContext */;
-		};
-		27ABF4852CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "RLottieBinding" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				RLottieBinding/config.h,
-				RLottieBinding/LottieInstance.mm,
-				RLottieBinding/PublicHeaders/RLottieBinding/LottieInstance.h,
-				RLottieBinding/rlottie/inc/rlottie_capi.h,
-				RLottieBinding/rlottie/inc/rlottie.h,
-				RLottieBinding/rlottie/inc/rlottiecommon.h,
-				RLottieBinding/rlottie/src/binding/c/lottieanimation_capi.cpp,
-				RLottieBinding/rlottie/src/lottie/lottieanimation.cpp,
-				RLottieBinding/rlottie/src/lottie/lottieitem.cpp,
-				RLottieBinding/rlottie/src/lottie/lottieitem.h,
-				RLottieBinding/rlottie/src/lottie/lottiekeypath.cpp,
-				RLottieBinding/rlottie/src/lottie/lottiekeypath.h,
-				RLottieBinding/rlottie/src/lottie/lottieloader.cpp,
-				RLottieBinding/rlottie/src/lottie/lottieloader.h,
-				RLottieBinding/rlottie/src/lottie/lottiemodel.cpp,
-				RLottieBinding/rlottie/src/lottie/lottiemodel.h,
-				RLottieBinding/rlottie/src/lottie/lottieparser.cpp,
-				RLottieBinding/rlottie/src/lottie/lottieparser.h,
-				RLottieBinding/rlottie/src/lottie/lottieproxymodel.cpp,
-				RLottieBinding/rlottie/src/lottie/lottieproxymodel.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/allocators.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/cursorstreamwrapper.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/document.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/encodedstream.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/encodings.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/error/en.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/error/error.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/filereadstream.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/filewritestream.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/fwd.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/internal/biginteger.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/internal/diyfp.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/internal/dtoa.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/internal/ieee754.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/internal/itoa.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/internal/meta.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/internal/pow10.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/internal/regex.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/internal/stack.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/internal/strfunc.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/internal/strtod.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/internal/swap.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/istreamwrapper.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/memorybuffer.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/memorystream.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/ostreamwrapper.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/pointer.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/prettywriter.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/rapidjson.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/reader.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/schema.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/stream.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/stringbuffer.h,
-				RLottieBinding/rlottie/src/lottie/rapidjson/writer.h,
-				RLottieBinding/rlottie/src/vector/freetype/v_ft_math.cpp,
-				RLottieBinding/rlottie/src/vector/freetype/v_ft_math.h,
-				RLottieBinding/rlottie/src/vector/freetype/v_ft_raster.cpp,
-				RLottieBinding/rlottie/src/vector/freetype/v_ft_raster.h,
-				RLottieBinding/rlottie/src/vector/freetype/v_ft_stroker.cpp,
-				RLottieBinding/rlottie/src/vector/freetype/v_ft_stroker.h,
-				RLottieBinding/rlottie/src/vector/freetype/v_ft_types.h,
-				"RLottieBinding/rlottie/src/vector/pixman/pixman-arm-neon-asm.h",
-				RLottieBinding/rlottie/src/vector/pixman/vregion.cpp,
-				RLottieBinding/rlottie/src/vector/pixman/vregion.h,
-				RLottieBinding/rlottie/src/vector/vbezier.cpp,
-				RLottieBinding/rlottie/src/vector/vbezier.h,
-				RLottieBinding/rlottie/src/vector/vbitmap.cpp,
-				RLottieBinding/rlottie/src/vector/vbitmap.h,
-				RLottieBinding/rlottie/src/vector/vbrush.cpp,
-				RLottieBinding/rlottie/src/vector/vbrush.h,
-				RLottieBinding/rlottie/src/vector/vcompositionfunctions.cpp,
-				RLottieBinding/rlottie/src/vector/vcowptr.h,
-				RLottieBinding/rlottie/src/vector/vdasher.cpp,
-				RLottieBinding/rlottie/src/vector/vdasher.h,
-				RLottieBinding/rlottie/src/vector/vdebug.cpp,
-				RLottieBinding/rlottie/src/vector/vdebug.h,
-				RLottieBinding/rlottie/src/vector/vdrawable.cpp,
-				RLottieBinding/rlottie/src/vector/vdrawable.h,
-				RLottieBinding/rlottie/src/vector/vdrawhelper_sse2.cpp,
-				RLottieBinding/rlottie/src/vector/vdrawhelper.cpp,
-				RLottieBinding/rlottie/src/vector/vdrawhelper.h,
-				RLottieBinding/rlottie/src/vector/velapsedtimer.cpp,
-				RLottieBinding/rlottie/src/vector/velapsedtimer.h,
-				RLottieBinding/rlottie/src/vector/vglobal.h,
-				RLottieBinding/rlottie/src/vector/vimageloader.cpp,
-				RLottieBinding/rlottie/src/vector/vimageloader.h,
-				RLottieBinding/rlottie/src/vector/vinterpolator.cpp,
-				RLottieBinding/rlottie/src/vector/vinterpolator.h,
-				RLottieBinding/rlottie/src/vector/vline.h,
-				RLottieBinding/rlottie/src/vector/vmatrix.cpp,
-				RLottieBinding/rlottie/src/vector/vmatrix.h,
-				RLottieBinding/rlottie/src/vector/vpainter.cpp,
-				RLottieBinding/rlottie/src/vector/vpainter.h,
-				RLottieBinding/rlottie/src/vector/vpath.cpp,
-				RLottieBinding/rlottie/src/vector/vpath.h,
-				RLottieBinding/rlottie/src/vector/vpathmesure.cpp,
-				RLottieBinding/rlottie/src/vector/vpathmesure.h,
-				RLottieBinding/rlottie/src/vector/vpoint.h,
-				RLottieBinding/rlottie/src/vector/vraster.cpp,
-				RLottieBinding/rlottie/src/vector/vraster.h,
-				RLottieBinding/rlottie/src/vector/vrect.cpp,
-				RLottieBinding/rlottie/src/vector/vrect.h,
-				RLottieBinding/rlottie/src/vector/vrle.cpp,
-				RLottieBinding/rlottie/src/vector/vrle.h,
-				RLottieBinding/rlottie/src/vector/vstackallocator.h,
-				RLottieBinding/rlottie/src/vector/vtaskqueue.h,
-				RLottieBinding/RLottieBinding.h,
-			);
 			publicHeaders = (
-				RLottieBinding/PublicHeaders/RLottieBinding/LottieInstance.h,
-				RLottieBinding/RLottieBinding.h,
+				PublicHeaders/RLottieBinding/LottieInstance.h,
+				RLottieBinding.h,
 			);
 			target = 27DCA8C62BA5B5D6004F83C8 /* RLottieBinding */;
 		};
-		27ABF4862CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "GZip" target */ = {
+		27ABF4862CD2A1B6009DAFE6 /* Exceptions for "GZip" folder in "GZip" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				GZip/GZip.h,
-				GZip/GZip.m,
-			);
 			publicHeaders = (
-				GZip/GZip.h,
+				GZip.h,
 			);
 			target = 27DCA9CD2BA5BA2B004F83C8 /* GZip */;
 		};
-		27ABF4882CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "YUVConversion" target */ = {
+		27ABF4882CD2A1B6009DAFE6 /* Exceptions for "YUVConversion" folder in "YUVConversion" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				YUVConversion/PublicHeaders/YuvConversion/YUV.h,
-				YUVConversion/Sources/YUV.m,
-				YUVConversion/YUVConversion.h,
-			);
 			publicHeaders = (
-				YUVConversion/PublicHeaders/YuvConversion/YUV.h,
-				YUVConversion/YUVConversion.h,
+				PublicHeaders/YuvConversion/YUV.h,
+				YUVConversion.h,
 			);
 			target = 27DCAA432BA5BD86004F83C8 /* YUVConversion */;
-		};
-		27ABF48A2CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "WReachability" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				WReachability/Sources/PrivacyInfo.xcprivacy,
-				WReachability/Sources/Reachability.swift,
-			);
-			target = 274EAD822BB4A1950025AB4C /* WReachability */;
-		};
-		58CC83262DA4440200EB7DEB /* Exceptions for "SubModules" folder in "Ledger" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Ledger/AddAccount/LedgerAddAccountModel.swift,
-				Ledger/AddAccount/LedgerAddAccountVC.swift,
-				Ledger/AddAccount/LedgerAddAccountView.swift,
-				Ledger/AddAccount/LedgerSelectWalletsVC.swift,
-				Ledger/AddAccount/LedgerSelectWalletsView.swift,
-				Ledger/Config.swift,
-				Ledger/LedgerConnectionManager.swift,
-				Ledger/LedgerError.swift,
-				Ledger/Shared/LedgerBaseModel.swift,
-				Ledger/Shared/LedgerStepsView.swift,
-				Ledger/Shared/LedgerViewModel.swift,
-				Ledger/Shared/ProgressBulletPoint.swift,
-				Ledger/Shared/Step.swift,
-				Ledger/Shared/StepView.swift,
-				Ledger/Sign/LedgerSignModel.swift,
-				Ledger/Sign/LedgerSignVC.swift,
-				Ledger/Sign/LedgerSignView.swift,
-			);
-			target = 58CC831C2DA443DA00EB7DEB /* Ledger */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		27ABF2552CD2A1B5009DAFE6 /* SubModules */ = {
+		0883B3B361694ECBB5AE33A1 /* WalletContext */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = WalletContext;
+			sourceTree = "<group>";
+		};
+		15DA96CFA37F4F5482F6C077 /* UIDapp */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = UIDapp;
+			sourceTree = "<group>";
+		};
+		1AEE2A0936E243C1B9A77E39 /* Ledger */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Ledger;
+			sourceTree = "<group>";
+		};
+		1BF9C637069647F0A2683814 /* WalletCore */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = WalletCore;
+			sourceTree = "<group>";
+		};
+		298FC0CBB3DF47A888517E04 /* UISwap */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = UISwap;
+			sourceTree = "<group>";
+		};
+		3A72B404911E4B92823F2985 /* UIComponents */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				27ABF4732CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "AirAsFramework" target */,
-				27ABF4762CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UIAssets" target */,
-				27ABF4782CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UIBrowser" target */,
-				276B5E512CD54C4000235012 /* Exceptions for "SubModules" folder in "UICharts" target */,
-				27ABF4822CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UIComponents" target */,
-				27ABF4742CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UICreateWallet" target */,
-				27ABF47F2CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UIDapp" target */,
-				27ABF47D2CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UIEarn" target */,
-				27ABF4752CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UIHome" target */,
-				27ABF47E2CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UIInAppBrowser" target */,
-				27ABF4802CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UIPasscode" target */,
-				276B5E072CD512D000235012 /* Exceptions for "SubModules" folder in "UIToken" target */,
-				27ABF4772CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UITransaction" target */,
-				27ABF4792CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UISettings" target */,
-				27ABF4812CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UIQRScan" target */,
-				27ABF47A2CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UIReceive" target */,
-				27ABF47B2CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UISend" target */,
-				27ABF47C2CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "UISwap" target */,
-				27ABF4832CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "WalletCore" target */,
-				27ABF4842CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "WalletContext" target */,
-				27ABF4852CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "RLottieBinding" target */,
-				27ABF4862CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "GZip" target */,
-				27ABF4882CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "YUVConversion" target */,
-				27ABF48A2CD2A1B6009DAFE6 /* Exceptions for "SubModules" folder in "WReachability" target */,
-				272B3CBD2D2AD4400024658E /* Exceptions for "SubModules" folder in "BigIntLib" target */,
-				58CC83262DA4440200EB7DEB /* Exceptions for "SubModules" folder in "Ledger" target */,
+				27ABF4822CD2A1B6009DAFE6 /* Exceptions for "UIComponents" folder in "UIComponents" target */,
 			);
-			path = SubModules;
+			path = UIComponents;
+			sourceTree = "<group>";
+		};
+		4B62A64304614D2EB436259F /* YUVConversion */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				27ABF4882CD2A1B6009DAFE6 /* Exceptions for "YUVConversion" folder in "YUVConversion" target */,
+			);
+			path = YUVConversion;
+			sourceTree = "<group>";
+		};
+		4F77788C654C432F8ECA5F21 /* UISettings */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = UISettings;
+			sourceTree = "<group>";
+		};
+		4F941719BC0A440D8FBB51A9 /* UIToken */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = UIToken;
 			sourceTree = "<group>";
 		};
 		586D24AA2E47D36200A284A4 /* scripts */ = {
@@ -2244,16 +994,90 @@
 			path = scripts;
 			sourceTree = "<group>";
 		};
+		5F7EE92220F64AFBA0A1498F /* RLottieBinding */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				27ABF4852CD2A1B6009DAFE6 /* Exceptions for "RLottieBinding" folder in "RLottieBinding" target */,
+			);
+			path = RLottieBinding;
+			sourceTree = "<group>";
+		};
+		638E92858FA8460BA2127431 /* UIInAppBrowser */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = UIInAppBrowser;
+			sourceTree = "<group>";
+		};
+		7973FBE46DCE41FBA232705A /* UIPasscode */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = UIPasscode;
+			sourceTree = "<group>";
+		};
+		882895886A6D4020807D141E /* UITransaction */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = UITransaction;
+			sourceTree = "<group>";
+		};
+		940CFF12AAD3414DB9315F3D /* GZip */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				27ABF4862CD2A1B6009DAFE6 /* Exceptions for "GZip" folder in "GZip" target */,
+			);
+			path = GZip;
+			sourceTree = "<group>";
+		};
+		A125F95234E34D7B911726E4 /* UIHome */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = UIHome;
+			sourceTree = "<group>";
+		};
+		A788CDACBBB94428BBE63F55 /* UIReceive */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = UIReceive;
+			sourceTree = "<group>";
+		};
+		AE500A395D4D444BB75E4A67 /* UIBrowser */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = UIBrowser;
+			sourceTree = "<group>";
+		};
+		B06568524FBE4D069C6118F9 /* UIQRScan */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = UIQRScan;
+			sourceTree = "<group>";
+		};
+		BECE3780F42149B48371AA2F /* UISend */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = UISend;
+			sourceTree = "<group>";
+		};
+		C0FAA7119A9640BB95C78B1D /* WReachability */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = WReachability;
+			sourceTree = "<group>";
+		};
+		D321F4E9F1714B63ABC5615D /* UICreateWallet */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = UICreateWallet;
+			sourceTree = "<group>";
+		};
+		E7D1A3162992403B85B97667 /* UIAssets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = UIAssets;
+			sourceTree = "<group>";
+		};
+		F04B69A8336C4C28BD44A767 /* AirAsFramework */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = AirAsFramework;
+			sourceTree = "<group>";
+		};
+		FD1EA2B08FB042CE967772DD /* UIEarn */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = UIEarn;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		272B3CAF2D2AD4360024658E /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		273459D22BF2CFEB00FA7501 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -2290,13 +1114,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				580C426F2DF4859800934F5A /* GRDBSQLite in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		276B5E432CD54C2F00235012 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2338,6 +1155,7 @@
 			files = (
 				581B5BB72D9308AE00F3C4CF /* WalletContext.framework in Frameworks */,
 				581B5BA42D9307AD00F3C4CF /* WalletCore.framework in Frameworks */,
+				58F4761D2F20289300069F0D /* DGCharts in Frameworks */,
 				581B5BB22D93080D00F3C4CF /* YUVConversion.framework in Frameworks */,
 				584B0F052DD390C000BDF9E7 /* Lottie in Frameworks */,
 			);
@@ -2350,15 +1168,14 @@
 				580CDB8F2DF46DA90078F79E /* GRDB in Frameworks */,
 				587EB31E2D82DAF6009F0CE2 /* Kingfisher in Frameworks */,
 				587BCB892DDB9DCA00E745A6 /* Popovers in Frameworks */,
+				5803A9342F203732007E1A9C /* BigInt in Frameworks */,
 				585C72C52EB6287700949B7A /* Perception in Frameworks */,
 				58BE2C722D33D8D000A71816 /* OrderedCollections in Frameworks */,
 				58AA03BB2DDBA87B00C970F4 /* SwiftUIIntrospect in Frameworks */,
-				58B913232DDC53910048FC65 /* Popovers in Frameworks */,
 				5831B4C92EC209E000336A91 /* UIKitNavigation in Frameworks */,
 				586DE0E92EA26F180055359D /* Flow in Frameworks */,
 				58D42FDB2D6DB4CD0070AE43 /* ColorThiefSwift in Frameworks */,
 				585C72C22EB6284A00949B7A /* Dependencies in Frameworks */,
-				587C28462DE32F2400503E94 /* Popovers in Frameworks */,
 				584B0F072DD393FD00BDF9E7 /* Lottie in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2477,6 +1294,37 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		27ABF2552CD2A1B5009DAFE6 /* SubModules */ = {
+			isa = PBXGroup;
+			children = (
+				F04B69A8336C4C28BD44A767 /* AirAsFramework */,
+				940CFF12AAD3414DB9315F3D /* GZip */,
+				1AEE2A0936E243C1B9A77E39 /* Ledger */,
+				5F7EE92220F64AFBA0A1498F /* RLottieBinding */,
+				E7D1A3162992403B85B97667 /* UIAssets */,
+				AE500A395D4D444BB75E4A67 /* UIBrowser */,
+				3A72B404911E4B92823F2985 /* UIComponents */,
+				D321F4E9F1714B63ABC5615D /* UICreateWallet */,
+				15DA96CFA37F4F5482F6C077 /* UIDapp */,
+				FD1EA2B08FB042CE967772DD /* UIEarn */,
+				A125F95234E34D7B911726E4 /* UIHome */,
+				638E92858FA8460BA2127431 /* UIInAppBrowser */,
+				7973FBE46DCE41FBA232705A /* UIPasscode */,
+				B06568524FBE4D069C6118F9 /* UIQRScan */,
+				A788CDACBBB94428BBE63F55 /* UIReceive */,
+				BECE3780F42149B48371AA2F /* UISend */,
+				4F77788C654C432F8ECA5F21 /* UISettings */,
+				298FC0CBB3DF47A888517E04 /* UISwap */,
+				4F941719BC0A440D8FBB51A9 /* UIToken */,
+				882895886A6D4020807D141E /* UITransaction */,
+				C0FAA7119A9640BB95C78B1D /* WReachability */,
+				0883B3B361694ECBB5AE33A1 /* WalletContext */,
+				1BF9C637069647F0A2683814 /* WalletCore */,
+				4B62A64304614D2EB436259F /* YUVConversion */,
+			);
+			path = SubModules;
+			sourceTree = "<group>";
+		};
 		27DCA77A2BA5725C004F83C8 = {
 			isa = PBXGroup;
 			children = (
@@ -2488,9 +1336,7 @@
 				58D0A3FF2D8456E800535360 /* UIAssets.framework */,
 				58D0A4002D8456E800535360 /* UIComponents.framework */,
 				58D0A4012D8456E800535360 /* WalletContext.framework */,
-				58D0A4022D8456E800535360 /* BigIntLib.framework */,
 				58D0A4032D8456E800535360 /* WalletCore.framework */,
-				58D0A4042D8456E800535360 /* UICharts.framework */,
 				58D0A4052D8456E800535360 /* UIInAppBrowser.framework */,
 				58D0A4062D8456E800535360 /* UIDapp.framework */,
 				58D0A4072D8456E800535360 /* UIPasscode.framework */,
@@ -2522,13 +1368,6 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
-		272B3CAD2D2AD4360024658E /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		273459D02BF2CFEB00FA7501 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -2558,13 +1397,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		276B5DF72CD512C700235012 /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		276B5E412CD54C2F00235012 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -2707,26 +1539,6 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
-		272B3CB12D2AD4360024658E /* BigIntLib */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 272B3CB72D2AD4360024658E /* Build configuration list for PBXNativeTarget "BigIntLib" */;
-			buildPhases = (
-				272B3CAD2D2AD4360024658E /* Headers */,
-				272B3CAE2D2AD4360024658E /* Sources */,
-				272B3CAF2D2AD4360024658E /* Frameworks */,
-				272B3CB02D2AD4360024658E /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = BigIntLib;
-			packageProductDependencies = (
-			);
-			productName = BigInt;
-			productReference = 58D0A4022D8456E800535360 /* BigIntLib.framework */;
-			productType = "com.apple.product-type.framework";
-		};
 		273459D42BF2CFEB00FA7501 /* UIQRScan */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 273459DF2BF2CFEB00FA7501 /* Build configuration list for PBXNativeTarget "UIQRScan" */;
@@ -2741,6 +1553,9 @@
 			dependencies = (
 				273459F22BF2D05000FA7501 /* PBXTargetDependency */,
 				273459F72BF2D05400FA7501 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				B06568524FBE4D069C6118F9 /* UIQRScan */,
 			);
 			name = UIQRScan;
 			productName = UIQRScan;
@@ -2765,6 +1580,9 @@
 				27BD619E2C822883005A4C82 /* PBXTargetDependency */,
 				58E092392DB014D400468889 /* PBXTargetDependency */,
 			);
+			fileSystemSynchronizedGroups = (
+				15DA96CFA37F4F5482F6C077 /* UIDapp */,
+			);
 			name = UIDapp;
 			productName = UIDapp;
 			productReference = 58D0A4062D8456E800535360 /* UIDapp.framework */;
@@ -2782,6 +1600,9 @@
 			buildRules = (
 			);
 			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				C0FAA7119A9640BB95C78B1D /* WReachability */,
 			);
 			name = WReachability;
 			productName = Reachability;
@@ -2804,6 +1625,9 @@
 				2761BEF92CCC134600376556 /* PBXTargetDependency */,
 				2761BEFD2CCC134600376556 /* PBXTargetDependency */,
 				2761BF012CCC134F00376556 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A788CDACBBB94428BBE63F55 /* UIReceive */,
 			);
 			name = UIReceive;
 			packageProductDependencies = (
@@ -2831,10 +1655,12 @@
 				276B5E282CD5154800235012 /* PBXTargetDependency */,
 				276B5E382CD53D4F00235012 /* PBXTargetDependency */,
 				276B5E3D2CD53DA800235012 /* PBXTargetDependency */,
-				27B4854A2CD7ECA100D8ACF2 /* PBXTargetDependency */,
 				27B031BA2CE606DB0088ED6C /* PBXTargetDependency */,
 				27B031BF2CE607920088ED6C /* PBXTargetDependency */,
 				27B031C42CE607960088ED6C /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				4F941719BC0A440D8FBB51A9 /* UIToken */,
 			);
 			name = UIToken;
 			packageProductDependencies = (
@@ -2842,26 +1668,6 @@
 			);
 			productName = UIToken;
 			productReference = 58D0A4082D8456E800535360 /* UIToken.framework */;
-			productType = "com.apple.product-type.framework";
-		};
-		276B5E452CD54C2F00235012 /* UICharts */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 276B5E4B2CD54C2F00235012 /* Build configuration list for PBXNativeTarget "UICharts" */;
-			buildPhases = (
-				276B5E412CD54C2F00235012 /* Headers */,
-				276B5E422CD54C2F00235012 /* Sources */,
-				276B5E432CD54C2F00235012 /* Frameworks */,
-				276B5E442CD54C2F00235012 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = UICharts;
-			packageProductDependencies = (
-			);
-			productName = UICharts;
-			productReference = 58D0A4042D8456E800535360 /* UICharts.framework */;
 			productType = "com.apple.product-type.framework";
 		};
 		2770D0012BD16F43005F0BA3 /* UISend */ = {
@@ -2882,7 +1688,9 @@
 				27CA8FB82BED1AFF002B375D /* PBXTargetDependency */,
 				279D8CC02BF3C115002FB415 /* PBXTargetDependency */,
 				279D4CEC2CF68A3E0085FA9E /* PBXTargetDependency */,
-				273D02712D2AE0E1008EB149 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				BECE3780F42149B48371AA2F /* UISend */,
 			);
 			name = UISend;
 			productName = UISend;
@@ -2923,8 +1731,9 @@
 				279105382C89BAD10075D4B5 /* PBXTargetDependency */,
 				2761BEE42CCC06C900376556 /* PBXTargetDependency */,
 				276B5E1B2CD5131B00235012 /* PBXTargetDependency */,
-				276B5E562CD54C6000235012 /* PBXTargetDependency */,
-				273D026C2D2AE085008EB149 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				F04B69A8336C4C28BD44A767 /* AirAsFramework */,
 			);
 			name = AirAsFramework;
 			productName = AirAsFramework;
@@ -2947,6 +1756,9 @@
 				27BD61862C81C7BA005A4C82 /* PBXTargetDependency */,
 				27BD61952C81CAD8005A4C82 /* PBXTargetDependency */,
 				27BD619A2C8219CD005A4C82 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				638E92858FA8460BA2127431 /* UIInAppBrowser */,
 			);
 			name = UIInAppBrowser;
 			productName = UIInAppBrowser;
@@ -2972,6 +1784,9 @@
 				27D0E7FA2CCAAC84007CF564 /* PBXTargetDependency */,
 				5894AF352D06FB7C005E90F8 /* PBXTargetDependency */,
 			);
+			fileSystemSynchronizedGroups = (
+				882895886A6D4020807D141E /* UITransaction */,
+			);
 			name = UITransaction;
 			productName = UITransaction;
 			productReference = 58D0A40A2D8456E800535360 /* UITransaction.framework */;
@@ -2990,16 +1805,13 @@
 			);
 			dependencies = (
 				27DCA8A32BA5B481004F83C8 /* PBXTargetDependency */,
-				27DCA8BD2BA5B58B004F83C8 /* PBXTargetDependency */,
-				27DCA9C72BA5B806004F83C8 /* PBXTargetDependency */,
 				27DCA9F02BA5BAD5004F83C8 /* PBXTargetDependency */,
 				27DCA9F42BA5BAD5004F83C8 /* PBXTargetDependency */,
 				2755A1232BB3F5F800B6EE70 /* PBXTargetDependency */,
-				27B485452CD7EC5400D8ACF2 /* PBXTargetDependency */,
-				273D025D2D2ADA2D008EB149 /* PBXTargetDependency */,
-				581B5BA72D9307AD00F3C4CF /* PBXTargetDependency */,
 				581B5BB52D93080D00F3C4CF /* PBXTargetDependency */,
-				581B5BBA2D9308AE00F3C4CF /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				3A72B404911E4B92823F2985 /* UIComponents */,
 			);
 			name = UIComponents;
 			productName = UIComponents;
@@ -3018,7 +1830,9 @@
 			buildRules = (
 			);
 			dependencies = (
-				273D027B2D2AE357008EB149 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				0883B3B361694ECBB5AE33A1 /* WalletContext */,
 			);
 			name = WalletContext;
 			productName = WalletContext;
@@ -3038,6 +1852,9 @@
 			);
 			dependencies = (
 			);
+			fileSystemSynchronizedGroups = (
+				5F7EE92220F64AFBA0A1498F /* RLottieBinding */,
+			);
 			name = RLottieBinding;
 			productName = RLottieBinding;
 			productReference = 58D0A3FD2D8456E800535360 /* RLottieBinding.framework */;
@@ -3056,6 +1873,9 @@
 			);
 			dependencies = (
 			);
+			fileSystemSynchronizedGroups = (
+				940CFF12AAD3414DB9315F3D /* GZip */,
+			);
 			name = GZip;
 			productName = GZip;
 			productReference = 58D0A3FC2D8456E800535360 /* GZip.framework */;
@@ -3073,6 +1893,9 @@
 			buildRules = (
 			);
 			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				4B62A64304614D2EB436259F /* YUVConversion */,
 			);
 			name = YUVConversion;
 			productName = YUVConversion;
@@ -3094,6 +1917,9 @@
 				27DCAA932BA5C94B004F83C8 /* PBXTargetDependency */,
 				27DCAA982BA5C957004F83C8 /* PBXTargetDependency */,
 				58A1CF842E2FCACE00E1CE2C /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				7973FBE46DCE41FBA232705A /* UIPasscode */,
 			);
 			name = UIPasscode;
 			productName = UIPasscode;
@@ -3118,6 +1944,9 @@
 				27EDAC492BAB02E3004BDADB /* PBXTargetDependency */,
 				27EDAC4E2BAB02EA004BDADB /* PBXTargetDependency */,
 				276B02112C31F9800008DF50 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D321F4E9F1714B63ABC5615D /* UICreateWallet */,
 			);
 			name = UICreateWallet;
 			productName = UICreateWallet;
@@ -3149,8 +1978,10 @@
 				27F2ED332C29FA690099FC9D /* PBXTargetDependency */,
 				27EA17962C2C75E7002892EC /* PBXTargetDependency */,
 				27CADC622C333B0400F06824 /* PBXTargetDependency */,
-				274130E52C34682000585B89 /* PBXTargetDependency */,
 				2761BEDF2CCC06C200376556 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A125F95234E34D7B911726E4 /* UIHome */,
 			);
 			name = UIHome;
 			productName = UIHome;
@@ -3169,9 +2000,10 @@
 			buildRules = (
 			);
 			dependencies = (
-				272B3CEE2D2AD4720024658E /* PBXTargetDependency */,
 				581B5B9D2D9305FC00F3C4CF /* PBXTargetDependency */,
-				581B5BA22D9307A600F3C4CF /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				1BF9C637069647F0A2683814 /* WalletCore */,
 			);
 			name = WalletCore;
 			productName = WalletCore;
@@ -3196,7 +2028,9 @@
 				27DDF7072BEDF88900BB1977 /* PBXTargetDependency */,
 				279D8CC52BF3D0D4002FB415 /* PBXTargetDependency */,
 				27A2AA572D0B9719003AC302 /* PBXTargetDependency */,
-				273D02762D2AE0ED008EB149 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				298FC0CBB3DF47A888517E04 /* UISwap */,
 			);
 			name = UISwap;
 			productName = UISwap;
@@ -3221,10 +2055,9 @@
 				276B020B2C31F8DA0008DF50 /* PBXTargetDependency */,
 				27BD61812C81C698005A4C82 /* PBXTargetDependency */,
 				2761BEEF2CCC070500376556 /* PBXTargetDependency */,
-				273D02672D2ADF5E008EB149 /* PBXTargetDependency */,
-				581B5BAC2D9307C800F3C4CF /* PBXTargetDependency */,
-				581B5BB12D9307CE00F3C4CF /* PBXTargetDependency */,
-				581B5BBF2D9308CF00F3C4CF /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				4F77788C654C432F8ECA5F21 /* UISettings */,
 			);
 			name = UISettings;
 			productName = UISettings;
@@ -3247,6 +2080,9 @@
 				27D0E7FF2CCAAD19007CF564 /* PBXTargetDependency */,
 				276B5E302CD51FE300235012 /* PBXTargetDependency */,
 				58375EDF2D5286A600DB78CD /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				E7D1A3162992403B85B97667 /* UIAssets */,
 			);
 			name = UIAssets;
 			productName = UIAssets;
@@ -3271,7 +2107,9 @@
 				27BD61532C81C234005A4C82 /* PBXTargetDependency */,
 				582E3F5E2D5FA61100807D5C /* PBXTargetDependency */,
 				58315FA32E04477400AC5C8E /* PBXTargetDependency */,
-				58315FA82E04477D00AC5C8E /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				AE500A395D4D444BB75E4A67 /* UIBrowser */,
 			);
 			name = UIBrowser;
 			productName = UIBrowser;
@@ -3294,9 +2132,11 @@
 				27FC97C72BF2395B00F8F57D /* PBXTargetDependency */,
 				27FC97E22BF2AB4500F8F57D /* PBXTargetDependency */,
 				27FC97E72BF2AB5200F8F57D /* PBXTargetDependency */,
-				273D02622D2ADCEF008EB149 /* PBXTargetDependency */,
 				58E0923E2DB0157400468889 /* PBXTargetDependency */,
 				58315F9E2E04474200AC5C8E /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				FD1EA2B08FB042CE967772DD /* UIEarn */,
 			);
 			name = UIEarn;
 			productName = UIEarn;
@@ -3318,6 +2158,9 @@
 				58D9622E2DAA766E0018DA53 /* PBXTargetDependency */,
 				58D968F42DAD96E60018DA53 /* PBXTargetDependency */,
 			);
+			fileSystemSynchronizedGroups = (
+				1AEE2A0936E243C1B9A77E39 /* Ledger */,
+			);
 			name = Ledger;
 			packageProductDependencies = (
 				58CC83292DA4452D00EB7DEB /* BleTransport */,
@@ -3336,9 +2179,6 @@
 				LastSwiftUpdateCheck = 2600;
 				LastUpgradeCheck = 2610;
 				TargetAttributes = {
-					272B3CB12D2AD4360024658E = {
-						CreatedOnToolsVersion = 16.1;
-					};
 					273459D42BF2CFEB00FA7501 = {
 						CreatedOnToolsVersion = 15.3;
 						LastSwiftMigration = 1530;
@@ -3354,9 +2194,6 @@
 						CreatedOnToolsVersion = 16.0;
 					};
 					276B5DFB2CD512C700235012 = {
-						CreatedOnToolsVersion = 16.1;
-					};
-					276B5E452CD54C2F00235012 = {
 						CreatedOnToolsVersion = 16.1;
 					};
 					2770D0012BD16F43005F0BA3 = {
@@ -3450,6 +2287,8 @@
 				585C72C02EB6284A00949B7A /* XCRemoteSwiftPackageReference "swift-dependencies" */,
 				585C72C32EB6287700949B7A /* XCRemoteSwiftPackageReference "swift-perception" */,
 				5831B4C72EC209E000336A91 /* XCRemoteSwiftPackageReference "swift-navigation" */,
+				58F4761B2F20289300069F0D /* XCRemoteSwiftPackageReference "DGCharts" */,
+				5803A9322F203732007E1A9C /* XCRemoteSwiftPackageReference "swift-bigint" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 27DCA77A2BA5725C004F83C8;
@@ -3459,7 +2298,6 @@
 				279104D12C89BAB20075D4B5 /* AirAsFramework */,
 				27F244752BB374F800F4FADE /* UIAssets */,
 				27F2448E2BB375F800F4FADE /* UIBrowser */,
-				276B5E452CD54C2F00235012 /* UICharts */,
 				27DCA8672BA5B40C004F83C8 /* UIComponents */,
 				27DCAAAC2BA5D60D004F83C8 /* UICreateWallet */,
 				2744D0812C6BE18D0022EFEE /* UIDapp */,
@@ -3480,20 +2318,12 @@
 				27DCA9CD2BA5BA2B004F83C8 /* GZip */,
 				27DCAA432BA5BD86004F83C8 /* YUVConversion */,
 				274EAD822BB4A1950025AB4C /* WReachability */,
-				272B3CB12D2AD4360024658E /* BigIntLib */,
 				58CC831C2DA443DA00EB7DEB /* Ledger */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		272B3CB02D2AD4360024658E /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		273459D32BF2CFEB00FA7501 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -3523,13 +2353,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		276B5DFA2CD512C700235012 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		276B5E442CD54C2F00235012 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -3672,13 +2495,6 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		272B3CAE2D2AD4360024658E /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		273459D12BF2CFEB00FA7501 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -3708,13 +2524,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		276B5DF82CD512C700235012 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		276B5E422CD54C2F00235012 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -3862,11 +2671,6 @@
 			target = 2770D0012BD16F43005F0BA3 /* UISend */;
 			targetProxy = 271A4F3D2BD3D9930028D336 /* PBXContainerItemProxy */;
 		};
-		272B3CEE2D2AD4720024658E /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 272B3CB12D2AD4360024658E /* BigIntLib */;
-			targetProxy = 272B3CED2D2AD4720024658E /* PBXContainerItemProxy */;
-		};
 		273459F22BF2D05000FA7501 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			platformFilter = ios;
@@ -3883,46 +2687,6 @@
 			isa = PBXTargetDependency;
 			target = 273459D42BF2CFEB00FA7501 /* UIQRScan */;
 			targetProxy = 27345A052BF2D28900FA7501 /* PBXContainerItemProxy */;
-		};
-		273D025D2D2ADA2D008EB149 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 272B3CB12D2AD4360024658E /* BigIntLib */;
-			targetProxy = 273D025C2D2ADA2D008EB149 /* PBXContainerItemProxy */;
-		};
-		273D02622D2ADCEF008EB149 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 272B3CB12D2AD4360024658E /* BigIntLib */;
-			targetProxy = 273D02612D2ADCEF008EB149 /* PBXContainerItemProxy */;
-		};
-		273D02672D2ADF5E008EB149 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 272B3CB12D2AD4360024658E /* BigIntLib */;
-			targetProxy = 273D02662D2ADF5E008EB149 /* PBXContainerItemProxy */;
-		};
-		273D026C2D2AE085008EB149 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 272B3CB12D2AD4360024658E /* BigIntLib */;
-			targetProxy = 273D026B2D2AE085008EB149 /* PBXContainerItemProxy */;
-		};
-		273D02712D2AE0E1008EB149 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 272B3CB12D2AD4360024658E /* BigIntLib */;
-			targetProxy = 273D02702D2AE0E1008EB149 /* PBXContainerItemProxy */;
-		};
-		273D02762D2AE0ED008EB149 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 272B3CB12D2AD4360024658E /* BigIntLib */;
-			targetProxy = 273D02752D2AE0ED008EB149 /* PBXContainerItemProxy */;
-		};
-		273D027B2D2AE357008EB149 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 272B3CB12D2AD4360024658E /* BigIntLib */;
-			targetProxy = 273D027A2D2AE357008EB149 /* PBXContainerItemProxy */;
-		};
-		274130E52C34682000585B89 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 27EA17752C2C74C9002892EC /* UISettings */;
-			targetProxy = 274130E42C34682000585B89 /* PBXContainerItemProxy */;
 		};
 		2744D0942C6BE2040022EFEE /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -4047,11 +2811,6 @@
 			platformFilter = ios;
 			target = 27DDF6EB2BEDF85800BB1977 /* UISwap */;
 			targetProxy = 276B5E3C2CD53DA800235012 /* PBXContainerItemProxy */;
-		};
-		276B5E562CD54C6000235012 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 276B5DFB2CD512C700235012 /* UIToken */;
-			targetProxy = 276B5E552CD54C6000235012 /* PBXContainerItemProxy */;
 		};
 		2770D0132BD17136005F0BA3 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -4229,16 +2988,6 @@
 			target = 27FC97AC2BF2057000F8F57D /* UIEarn */;
 			targetProxy = 27B031C32CE607960088ED6C /* PBXContainerItemProxy */;
 		};
-		27B485452CD7EC5400D8ACF2 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 276B5E452CD54C2F00235012 /* UICharts */;
-			targetProxy = 27B485442CD7EC5400D8ACF2 /* PBXContainerItemProxy */;
-		};
-		27B4854A2CD7ECA100D8ACF2 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 276B5E452CD54C2F00235012 /* UICharts */;
-			targetProxy = 27B485492CD7ECA100D8ACF2 /* PBXContainerItemProxy */;
-		};
 		27BD61532C81C234005A4C82 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 2744D0812C6BE18D0022EFEE /* UIDapp */;
@@ -4325,16 +3074,6 @@
 			isa = PBXTargetDependency;
 			target = 27DCA87E2BA5B439004F83C8 /* WalletContext */;
 			targetProxy = 27DCA8A22BA5B481004F83C8 /* PBXContainerItemProxy */;
-		};
-		27DCA8BD2BA5B58B004F83C8 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 27DCA87E2BA5B439004F83C8 /* WalletContext */;
-			targetProxy = 27DCA8BC2BA5B58B004F83C8 /* PBXContainerItemProxy */;
-		};
-		27DCA9C72BA5B806004F83C8 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 27DCA87E2BA5B439004F83C8 /* WalletContext */;
-			targetProxy = 27DCA9C62BA5B806004F83C8 /* PBXContainerItemProxy */;
 		};
 		27DCA9F02BA5BAD5004F83C8 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -4517,40 +3256,10 @@
 			target = 27DCA87E2BA5B439004F83C8 /* WalletContext */;
 			targetProxy = 581B5B9C2D9305FC00F3C4CF /* PBXContainerItemProxy */;
 		};
-		581B5BA22D9307A600F3C4CF /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 27DCA87E2BA5B439004F83C8 /* WalletContext */;
-			targetProxy = 581B5BA12D9307A600F3C4CF /* PBXContainerItemProxy */;
-		};
-		581B5BA72D9307AD00F3C4CF /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 27DCAAE12BA5DDA7004F83C8 /* WalletCore */;
-			targetProxy = 581B5BA62D9307AD00F3C4CF /* PBXContainerItemProxy */;
-		};
-		581B5BAC2D9307C800F3C4CF /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 27DCA8672BA5B40C004F83C8 /* UIComponents */;
-			targetProxy = 581B5BAB2D9307C800F3C4CF /* PBXContainerItemProxy */;
-		};
-		581B5BB12D9307CE00F3C4CF /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 27DCAAE12BA5DDA7004F83C8 /* WalletCore */;
-			targetProxy = 581B5BB02D9307CE00F3C4CF /* PBXContainerItemProxy */;
-		};
 		581B5BB52D93080D00F3C4CF /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 27DCAA432BA5BD86004F83C8 /* YUVConversion */;
 			targetProxy = 581B5BB42D93080D00F3C4CF /* PBXContainerItemProxy */;
-		};
-		581B5BBA2D9308AE00F3C4CF /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 27DCA87E2BA5B439004F83C8 /* WalletContext */;
-			targetProxy = 581B5BB92D9308AE00F3C4CF /* PBXContainerItemProxy */;
-		};
-		581B5BBF2D9308CF00F3C4CF /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 27DCA87E2BA5B439004F83C8 /* WalletContext */;
-			targetProxy = 581B5BBE2D9308CF00F3C4CF /* PBXContainerItemProxy */;
 		};
 		582E3F5E2D5FA61100807D5C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -4566,11 +3275,6 @@
 			isa = PBXTargetDependency;
 			target = 274EAD822BB4A1950025AB4C /* WReachability */;
 			targetProxy = 58315FA22E04477400AC5C8E /* PBXContainerItemProxy */;
-		};
-		58315FA82E04477D00AC5C8E /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 27DCA8672BA5B40C004F83C8 /* UIComponents */;
-			targetProxy = 58315FA72E04477D00AC5C8E /* PBXContainerItemProxy */;
 		};
 		58375EDF2D5286A600DB78CD /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -4610,64 +3314,6 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		272B3CB82D2AD4360024658E /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_IDENTITY = "";
-				CURRENT_PROJECT_VERSION = 1;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				DYLIB_INSTALL_NAME_BASE = "@rpath";
-				GENERATE_INFOPLIST_FILE = YES;
-				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
-				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
-				PRODUCT_BUNDLE_IDENTIFIER = "org.mytonwallet.app-air.BigInt";
-				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
-				SKIP_INSTALL = YES;
-				SWIFT_INSTALL_OBJC_HEADER = NO;
-				SWIFT_VERSION = 6.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				VERSIONING_SYSTEM = "apple-generic";
-				VERSION_INFO_PREFIX = "";
-			};
-			name = Debug;
-		};
-		272B3CB92D2AD4360024658E /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_IDENTITY = "";
-				CURRENT_PROJECT_VERSION = 1;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				DYLIB_INSTALL_NAME_BASE = "@rpath";
-				GENERATE_INFOPLIST_FILE = YES;
-				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
-				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
-				PRODUCT_BUNDLE_IDENTIFIER = "org.mytonwallet.app-air.BigInt";
-				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
-				SKIP_INSTALL = YES;
-				SWIFT_INSTALL_OBJC_HEADER = NO;
-				SWIFT_VERSION = 6.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				VERSIONING_SYSTEM = "apple-generic";
-				VERSION_INFO_PREFIX = "";
-			};
-			name = Release;
-		};
 		273459DD2BF2CFEB00FA7501 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -4954,68 +3600,6 @@
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
 				PRODUCT_BUNDLE_IDENTIFIER = "org.mytonwallet.app-air.UIToken";
-				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
-				SKIP_INSTALL = YES;
-				SWIFT_INSTALL_OBJC_HEADER = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				VERSIONING_SYSTEM = "apple-generic";
-				VERSION_INFO_PREFIX = "";
-			};
-			name = Release;
-		};
-		276B5E4C2CD54C2F00235012 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_IDENTITY = "";
-				CURRENT_PROJECT_VERSION = 1;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				DYLIB_INSTALL_NAME_BASE = "@rpath";
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				GCC_WARN_INHIBIT_ALL_WARNINGS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
-				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
-				PRODUCT_BUNDLE_IDENTIFIER = "org.mytonwallet.app-air.UICharts";
-				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
-				SKIP_INSTALL = YES;
-				SWIFT_INSTALL_OBJC_HEADER = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				VERSIONING_SYSTEM = "apple-generic";
-				VERSION_INFO_PREFIX = "";
-			};
-			name = Debug;
-		};
-		276B5E4D2CD54C2F00235012 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_IDENTITY = "";
-				CURRENT_PROJECT_VERSION = 1;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				DYLIB_INSTALL_NAME_BASE = "@rpath";
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				GCC_WARN_INHIBIT_ALL_WARNINGS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
-				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
-				PRODUCT_BUNDLE_IDENTIFIER = "org.mytonwallet.app-air.UICharts";
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
 				SWIFT_INSTALL_OBJC_HEADER = NO;
@@ -6321,15 +4905,6 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		272B3CB72D2AD4360024658E /* Build configuration list for PBXNativeTarget "BigIntLib" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				272B3CB82D2AD4360024658E /* Debug */,
-				272B3CB92D2AD4360024658E /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		273459DF2BF2CFEB00FA7501 /* Build configuration list for PBXNativeTarget "UIQRScan" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -6371,15 +4946,6 @@
 			buildConfigurations = (
 				276B5E002CD512C700235012 /* Debug */,
 				276B5E012CD512C700235012 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		276B5E4B2CD54C2F00235012 /* Build configuration list for PBXNativeTarget "UICharts" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				276B5E4C2CD54C2F00235012 /* Debug */,
-				276B5E4D2CD54C2F00235012 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -6567,6 +5133,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		5803A9322F203732007E1A9C /* XCRemoteSwiftPackageReference "swift-bigint" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mytonwallet-org/swift-bigint";
+			requirement = {
+				kind = revision;
+				revision = 53c55ff37750f0eb0631fd7b11ddc60997127694;
+			};
+		};
 		580CDB8D2DF46DA90078F79E /* XCRemoteSwiftPackageReference "GRDB" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/groue/GRDB.swift";
@@ -6679,9 +5253,22 @@
 				minimumVersion = 0.5.0;
 			};
 		};
+		58F4761B2F20289300069F0D /* XCRemoteSwiftPackageReference "DGCharts" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mytonwallet-org/DGCharts";
+			requirement = {
+				kind = revision;
+				revision = 86929ffb26280d49777e8b2c2311daa419747a49;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		5803A9332F203732007E1A9C /* BigInt */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5803A9322F203732007E1A9C /* XCRemoteSwiftPackageReference "swift-bigint" */;
+			productName = BigInt;
+		};
 		580C425C2DF484CC00934F5A /* GRDBSQLite */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 580CDB8D2DF46DA90078F79E /* XCRemoteSwiftPackageReference "GRDB" */;
@@ -6792,11 +5379,6 @@
 			package = 587BCB872DDB9DCA00E745A6 /* XCRemoteSwiftPackageReference "Popovers" */;
 			productName = Popovers;
 		};
-		587C28452DE32F2400503E94 /* Popovers */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 587C28442DE32F2400503E94 /* XCRemoteSwiftPackageReference "Popovers" */;
-			productName = Popovers;
-		};
 		587EB31D2D82DAF6009F0CE2 /* Kingfisher */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 587EB31C2D82DAF6009F0CE2 /* XCRemoteSwiftPackageReference "Kingfisher" */;
@@ -6812,10 +5394,6 @@
 			package = 58AA03B92DDBA87B00C970F4 /* XCRemoteSwiftPackageReference "swiftui-introspect" */;
 			productName = SwiftUIIntrospect;
 		};
-		58B913222DDC53910048FC65 /* Popovers */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = Popovers;
-		};
 		58BE2C712D33D8D000A71816 /* OrderedCollections */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 58B8C52B2D32702B00177499 /* XCRemoteSwiftPackageReference "swift-collections" */;
@@ -6830,6 +5408,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 58D42FD92D6DB4CD0070AE43 /* XCRemoteSwiftPackageReference "ColorThiefSwift" */;
 			productName = ColorThiefSwift;
+		};
+		58F4761C2F20289300069F0D /* DGCharts */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 58F4761B2F20289300069F0D /* XCRemoteSwiftPackageReference "DGCharts" */;
+			productName = DGCharts;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

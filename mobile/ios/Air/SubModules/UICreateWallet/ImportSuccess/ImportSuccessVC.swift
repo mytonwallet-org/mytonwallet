@@ -59,6 +59,6 @@ public class ImportSuccessVC: WViewController {
 @available(iOS 18.0, *)
 #Preview {
     LocalizationSupport.shared.setLanguageCode("ru")
-    return UINavigationController(rootViewController: ImportSuccessVC(.imported, introModel: IntroModel(password: nil)))
+    return UINavigationController(rootViewController: ImportSuccessVC(.imported, introModel: IntroModel(network: .mainnet, password: nil)))
 }
 #endif

@@ -19,12 +19,11 @@ class HeaderCell(
     startMargin: Float = 20f,
 ) : WCell(context), WThemedView {
 
-    private var titleColor: Int = WColor.PrimaryText.color
     private var topRounding: Float = 0f
 
     val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(16f, WFont.Medium)
+            setStyle(14f, WFont.DemiBold)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.END
             isSelected = true
@@ -33,13 +32,13 @@ class HeaderCell(
 
     init {
         layoutParams.apply {
-            height = 48.dp
+            height = 40.dp
         }
         addView(titleLabel, LayoutParams(0, WRAP_CONTENT))
         setConstraints {
             setHorizontalBias(titleLabel.id, 0f)
             toCenterX(titleLabel, startMargin)
-            toTop(titleLabel, 17f)
+            toTop(titleLabel, 16f)
         }
 
         updateTheme()
@@ -51,17 +50,20 @@ class HeaderCell(
             topRounding,
             0f
         )
-        titleLabel.setTextColor(titleColor)
     }
 
-    fun configure(title: String, titleColor: Int? = null, topRounding: Float = 0f) {
+    fun configure(title: String, titleColor: WColor? = null, topRounding: Float = 0f) {
         this.topRounding = topRounding
         titleLabel.text = title
         if (titleColor != null) {
-            this.titleColor = titleColor
             titleLabel.setTextColor(titleColor)
+            titleLabel.isTinted = titleColor == WColor.Tint
         }
         updateTheme()
     }
 
+    fun setTitleColor(color: Int) {
+        titleLabel.setTextColor(color = null)
+        titleLabel.setTextColor(color)
+    }
 }

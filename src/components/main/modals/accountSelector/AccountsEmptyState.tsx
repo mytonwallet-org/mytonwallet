@@ -2,11 +2,11 @@ import React, { type ElementRef, memo } from '../../../../lib/teact/teact';
 
 import { ANIMATED_STICKER_SMALL_SIZE_PX } from '../../../../config';
 import { ANIMATED_STICKERS_PATHS } from '../../../ui/helpers/animatedAssets';
+import { AccountTab } from './constants';
 
 import useLang from '../../../../hooks/useLang';
 
 import AnimatedIconWithPreview from '../../../ui/AnimatedIconWithPreview';
-import { AccountTab } from './AccountSelectorModal';
 
 import styles from './AccountSelectorModal.module.scss';
 

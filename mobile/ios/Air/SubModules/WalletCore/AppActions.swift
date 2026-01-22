@@ -9,16 +9,16 @@ import WalletContext
     static func lockApp(animated: Bool)
     static func openInBrowser(_ url: URL, title: String?, injectTonConnect: Bool)
     static func openTipsChannel()
-    static func pushTransactionSuccess(activity: ApiActivity)
     static func repeatActivity(_ activity: ApiActivity)
     static func saveTemporaryViewAccount(accountId: String)
     static func scanQR() async -> ScanResult?
     static func setSensitiveDataIsHidden(_ newValue: Bool)
     static func shareUrl(_ url: URL)
-    static func showActivityDetails(accountId: String, activity: ApiActivity)
-    static func showActivityDetailsById(chain: ApiChain, txId: String)
+    static func showActivityDetails(accountId: String, activity: ApiActivity, context: ActivityDetailsContext)
+    static func showActivityDetailsById(chain: ApiChain, txId: String, showError: Bool)
     static func showAddToken()
-    static func showAddWallet(showCreateWallet: Bool, showSwitchToOtherVersion: Bool)
+    static func showAddWallet(network: ApiNetwork, showCreateWallet: Bool, showSwitchToOtherVersion: Bool)
+    static func showAnyAccountTx(accountId: String, chain: ApiChain, txId: String, showError: Bool)
     static func showAssets(accountSource: AccountSource, selectedTab: Int, collectionsFilter: NftCollectionFilter) -> ()
     static func showBuyWithCard(chain: ApiChain?, push: Bool?)
     static func showConnectedDapps(push: Bool)
@@ -62,16 +62,16 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func lockApp(animated: Bool) { }
     static func openInBrowser(_ url: URL, title: String?, injectTonConnect: Bool) { }
     static func openTipsChannel() { }
-    static func pushTransactionSuccess(activity: ApiActivity) { }
     static func repeatActivity(_ activity: ApiActivity) { }
     static func scanQR() async -> ScanResult? { nil }
     static func saveTemporaryViewAccount(accountId: String) { }
     static func setSensitiveDataIsHidden(_ newValue: Bool) { }
     static func shareUrl(_ url: URL) { }
-    static func showActivityDetails(accountId: String, activity: ApiActivity) { }
-    static func showActivityDetailsById(chain: ApiChain, txId: String) { }
+    static func showActivityDetails(accountId: String, activity: ApiActivity, context: ActivityDetailsContext) { }
+    static func showActivityDetailsById(chain: ApiChain, txId: String, showError: Bool) { }
     static func showAddToken() { }
-    static func showAddWallet(showCreateWallet: Bool, showSwitchToOtherVersion: Bool) { }
+    static func showAddWallet(network: ApiNetwork, showCreateWallet: Bool, showSwitchToOtherVersion: Bool) { }
+    static func showAnyAccountTx(accountId: String, chain: ApiChain, txId: String, showError: Bool) { }
     static func showAssets(accountSource: AccountSource, selectedTab: Int, collectionsFilter: NftCollectionFilter) -> () { }
     static func showBuyWithCard(chain: ApiChain?, push: Bool?) { }
     static func showConnectedDapps(push: Bool) { }

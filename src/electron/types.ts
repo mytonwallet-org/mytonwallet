@@ -21,6 +21,7 @@ export enum ElectronAction {
   GET_IS_TOUCH_ID_SUPPORTED = 'get-is-touch-id-supported',
   ENCRYPT_PASSWORD = 'encrypt-password',
   DECRYPT_PASSWORD = 'decrypt-password',
+  SET_BIOMETRIC_PROMPT = 'set-biometric-prompt',
 
   SET_IS_TRAY_ICON_ENABLED = 'set-is-tray-icon-enabled',
   GET_IS_TRAY_ICON_ENABLED = 'get-is-tray-icon-enabled',
@@ -46,6 +47,7 @@ export interface ElectronApi {
   getIsTouchIdSupported: () => Promise<boolean>;
   encryptPassword: (password: string) => Promise<string>;
   decryptPassword: (encrypted: string) => Promise<string | undefined>;
+  setBiometricPrompt: (prompt: string) => Promise<void>;
 
   setIsTrayIconEnabled: (value: boolean) => Promise<void>;
   getIsTrayIconEnabled: () => Promise<boolean>;

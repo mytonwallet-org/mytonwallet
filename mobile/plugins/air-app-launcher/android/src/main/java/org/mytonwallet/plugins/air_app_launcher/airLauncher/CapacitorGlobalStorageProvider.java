@@ -120,7 +120,7 @@ public class CapacitorGlobalStorageProvider implements IGlobalStorageProvider {
 
   private void clearCache() {
     doNotSynchronize.incrementAndGet();
-    for (String accountId : Objects.requireNonNullElse(WGlobalStorage.INSTANCE.accountIds(), new String[]{})) {
+    for (String accountId : Objects.requireNonNullElse(WGlobalStorage.INSTANCE.accountIds(null), new String[]{})) {
       set("byAccountId." + accountId + ".activities.idsMain", new JSONArray(), PERSIST_NO);
       set("byAccountId." + accountId + ".activities.isMainHistoryEndReached", false, PERSIST_NO);
       setEmptyObject("byAccountId." + accountId + ".activities.idsBySlug", PERSIST_NO);
@@ -189,6 +189,11 @@ public class CapacitorGlobalStorageProvider implements IGlobalStorageProvider {
     doNotSynchronize.set(i);
     if (i == 0)
       persistChanges(PERSIST_NORMAL);
+  }
+
+  @Override
+  public boolean contains(@NonNull String key) {
+    return getValue(key) != null;
   }
 
   @Nullable

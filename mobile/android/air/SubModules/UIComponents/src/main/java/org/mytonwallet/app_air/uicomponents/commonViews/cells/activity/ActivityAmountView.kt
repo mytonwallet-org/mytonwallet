@@ -25,6 +25,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.moshi.ApiSwapStatus
@@ -39,7 +40,7 @@ class ActivityAmountView(context: Context) : WFrameLayout(context), WThemedView,
 
     private val amountLabel = WSensitiveDataContainer(
         WLabel(context).apply {
-            setStyle(16f)
+            setStyle(ApplicationContextHolder.adaptiveFontSize)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isSelected = true
@@ -78,13 +79,13 @@ class ActivityAmountView(context: Context) : WFrameLayout(context), WThemedView,
 
     fun configure(transaction: MApiTransaction.Transaction) {
         val amountCols =
-            if (transaction.isNft || transaction.type?.noAmountTransaction == true) 0 else 4 + abs(
+            if (transaction.isNft || transaction.noAmountTransaction) 0 else 4 + abs(
                 transaction.id.hashCode() % 8
             )
         amountLabel.setMaskCols(amountCols)
 
         val token = transaction.token
-        if (token == null || transaction.isNft || transaction.type?.noAmountTransaction == true) {
+        if (token == null || transaction.isNft || transaction.noAmountTransaction) {
             amountLabel.contentView.text = ""
             mainIconView.clear()
             secondIconView.clear()

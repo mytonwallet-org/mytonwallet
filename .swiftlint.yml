@@ -1,7 +1,5 @@
 excluded:
   - mobile/ios/App/Pods
-  - mobile/ios/Air/SubModules/UICharts
-  - mobile/ios/Air/SubModules/BigIntLib
 
 disabled_rules:
   - trailing_comma

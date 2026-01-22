@@ -149,20 +149,25 @@ class AirAsFrameworkApplication {
 
         fun initTheme(applicationContext: Context) {
             val selectedTheme = WGlobalStorage.getActiveTheme()
+            val uiMode = WGlobalStorage.getActiveUiMode()
+            val sideGuttersActive = WGlobalStorage.getAreSideGuttersActive()
+            val roundedCornersActive = WGlobalStorage.getAreRoundedCornersActive()
             when (selectedTheme) {
                 ThemeManager.THEME_LIGHT -> {
                     ThemeManager.init(
                         theme = ThemeManager.THEME_LIGHT,
-                        uiMode = WGlobalStorage.getActiveUiMode(),
-                        sideGuttersActive = WGlobalStorage.getAreSideGuttersActive()
+                        uiMode = uiMode,
+                        sideGuttersActive = sideGuttersActive,
+                        roundedCornersActive = roundedCornersActive
                     )
                 }
 
                 ThemeManager.THEME_DARK -> {
                     ThemeManager.init(
                         theme = ThemeManager.THEME_DARK,
-                        uiMode = WGlobalStorage.getActiveUiMode(),
-                        sideGuttersActive = WGlobalStorage.getAreSideGuttersActive()
+                        uiMode = uiMode,
+                        sideGuttersActive = sideGuttersActive,
+                        roundedCornersActive = roundedCornersActive
                     )
                 }
 
@@ -172,20 +177,23 @@ class AirAsFrameworkApplication {
                     when (nightModeFlags) {
                         Configuration.UI_MODE_NIGHT_YES -> ThemeManager.init(
                             theme = ThemeManager.THEME_DARK,
-                            uiMode = WGlobalStorage.getActiveUiMode(),
-                            sideGuttersActive = WGlobalStorage.getAreSideGuttersActive()
+                            uiMode = uiMode,
+                            sideGuttersActive = sideGuttersActive,
+                            roundedCornersActive = roundedCornersActive
                         )
 
                         Configuration.UI_MODE_NIGHT_NO -> ThemeManager.init(
                             theme = ThemeManager.THEME_LIGHT,
-                            uiMode = WGlobalStorage.getActiveUiMode(),
-                            sideGuttersActive = WGlobalStorage.getAreSideGuttersActive()
+                            uiMode = uiMode,
+                            sideGuttersActive = sideGuttersActive,
+                            roundedCornersActive = roundedCornersActive
                         )
 
                         Configuration.UI_MODE_NIGHT_UNDEFINED -> ThemeManager.init(
                             theme = ThemeManager.THEME_LIGHT,
-                            uiMode = WGlobalStorage.getActiveUiMode(),
-                            sideGuttersActive = WGlobalStorage.getAreSideGuttersActive()
+                            uiMode = uiMode,
+                            sideGuttersActive = sideGuttersActive,
+                            roundedCornersActive = roundedCornersActive
                         )
                     }
                 }

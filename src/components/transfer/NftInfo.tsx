@@ -33,14 +33,20 @@ function NftInfo({
 
   const tonExplorerTitle = useMemo(() => {
     return (lang('Open on %explorer_name%', {
-      explorer_name: getExplorerName('ton'),
+      explorer_name: getExplorerName(),
     }) as string[]
     ).join('');
   }, [lang]);
 
   const handleClickInfo = (event: React.MouseEvent) => {
     event.stopPropagation();
-    const url = getExplorerNftUrl(nft!.address, getGlobal().settings.isTestnet)!;
+    const global = getGlobal();
+    const url = getExplorerNftUrl(
+      undefined,
+      nft!.address,
+      global.settings.isTestnet,
+      global.settings.selectedExplorerIds?.ton,
+    )!;
 
     void openUrl(url);
   };

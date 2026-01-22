@@ -13,6 +13,7 @@ import {
   APP_VERSION,
   IS_CAPACITOR,
   IS_CORE_WALLET,
+  IS_EXPLORER,
   IS_EXTENSION,
   LANG_LIST,
   MTW_CARDS_WEBSITE,
@@ -580,7 +581,7 @@ function Settings({
             )}
           </div>
 
-          {(!!versions?.length || IS_LEDGER_SUPPORTED) && (
+          {!IS_EXPLORER && (!!versions?.length || IS_LEDGER_SUPPORTED) && (
             <div className={styles.block}>
               {!!versions?.length && (
                 <div className={styles.item} onClick={handleOpenWalletVersion}>
@@ -725,7 +726,7 @@ function Settings({
             </div>
           </div>
 
-          <div className={styles.version} onClick={handleMultipleClick}>
+          <div className={styles.version} onClick={IS_EXPLORER ? undefined : handleMultipleClick}>
             {APP_NAME} {APP_VERSION} {APP_ENV_MARKER}
           </div>
         </div>
@@ -885,13 +886,15 @@ function Settings({
       >
         {renderContent}
       </Transition>
-      <SettingsDeveloperOptions
-        isOpen={isDeveloperModalOpen}
-        isTestnet={isTestnet}
-        isCopyStorageEnabled={isCopyStorageEnabled}
-        onShowAllWalletVersions={handleShowAllWalletVersions}
-        onClose={handlCloseDeveloperModal}
-      />
+      {!IS_EXPLORER && (
+        <SettingsDeveloperOptions
+          isOpen={isDeveloperModalOpen}
+          isTestnet={isTestnet}
+          isCopyStorageEnabled={isCopyStorageEnabled}
+          onShowAllWalletVersions={handleShowAllWalletVersions}
+          onClose={handlCloseDeveloperModal}
+        />
+      )}
       <LogOutModal isOpen={isLogOutModalOpened} onClose={handleCloseLogOutModal} />
       {IS_BIOMETRIC_AUTH_SUPPORTED && <Biometrics isInsideModal={isInsideModal} />}
     </div>

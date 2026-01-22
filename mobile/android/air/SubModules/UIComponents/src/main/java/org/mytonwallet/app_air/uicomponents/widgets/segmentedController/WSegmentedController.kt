@@ -80,12 +80,12 @@ class WSegmentedController(
     private var isAnimatingChangeTab = false
     private var lastFullyVisible: Int = 0
     private var isUserInteracting = false
-    private var notNullTargetIndex = 0
+    private var lastTargetIndex = 0
     var targetIndex: Int? = null
         private set(value) {
             field = value
             if (value != null)
-                notNullTargetIndex = value
+                lastTargetIndex = value
         }
     private val viewPager: ViewPager2 by lazy {
         val vp = ViewPager2(context)
@@ -113,7 +113,7 @@ class WSegmentedController(
                 clearSegmentedControl.updateThumbPosition(
                     position,
                     offset = currentOffset,
-                    targetIndex = targetIndex ?: notNullTargetIndex,
+                    targetIndex = targetIndex ?: lastTargetIndex,
                     force = false,
                     isAnimatingToPosition = isAnimatingChangeTab
                 )
@@ -132,6 +132,7 @@ class WSegmentedController(
                     ViewPager2.SCROLL_STATE_DRAGGING -> {
                         targetIndex = null
                     }
+
                     ViewPager2.SCROLL_STATE_IDLE -> {
                         val blurAlpha = blurState[viewPager.currentItem] ?: 0f
                         if (blurAlpha > 0) {
@@ -150,6 +151,7 @@ class WSegmentedController(
                             isAnimatingToPosition = false
                         )
                     }
+
                     else -> {}
                 }
             }
@@ -209,7 +211,7 @@ class WSegmentedController(
         v.setConstraints {
             toTopPx(
                 clearSegmentedControl,
-                (if (isFullScreen) navigationController.getSystemBars().top + navTopPadding else 6)
+                (if (isFullScreen) navigationController.getSystemBars().top + navTopPadding else 2)
             )
             toCenterX(clearSegmentedControl)
         }
@@ -222,7 +224,7 @@ class WSegmentedController(
         applyItems()
 
         val topHeaderHeight =
-            navHeight + (if (isFullScreen) navigationController.getSystemBars().top + navTopPadding else 6)
+            navHeight + (if (isFullScreen) navigationController.getSystemBars().top + navTopPadding else (-3).dp)
         addView(viewPager, ViewGroup.LayoutParams(MATCH_PARENT, 0))
         if (isFullScreen && !isTransparent)
             addView(reversedCornerView, LayoutParams(MATCH_PARENT, 0))
@@ -232,7 +234,7 @@ class WSegmentedController(
             if (isFullScreen) {
                 toTop(viewPager)
             } else {
-                toTopPx(viewPager, topHeaderHeight - 3.dp)
+                toTopPx(viewPager, topHeaderHeight)
             }
             toCenterX(
                 viewPager,
@@ -245,16 +247,15 @@ class WSegmentedController(
             }
         }
 
-        if (!isFullScreen)
-            viewPager.setupSpringFling(onScrollingToTarget = { targetIndex ->
-                if (targetIndex - this.notNullTargetIndex > 1)
-                    this.targetIndex = this.notNullTargetIndex + 1
-                else if (this.notNullTargetIndex - targetIndex > 1)
-                    this.targetIndex = this.notNullTargetIndex - 1
-                else
-                    this.targetIndex = targetIndex
-                this.notNullTargetIndex
-            })
+        viewPager.setupSpringFling(onScrollingToTarget = { targetIndex ->
+            if (targetIndex - this.lastTargetIndex > 1)
+                this.targetIndex = this.lastTargetIndex + 1
+            else if (this.lastTargetIndex - targetIndex > 1)
+                this.targetIndex = this.lastTargetIndex - 1
+            else
+                this.targetIndex = targetIndex
+            this.lastTargetIndex
+        })
         setActiveIndex(defaultSelectedIndex)
         if (!applySideGutters)
             reversedCornerView.setHorizontalPadding(0f)
@@ -268,13 +269,13 @@ class WSegmentedController(
 
     override fun updateTheme() {
         closeButton.updateColors(WColor.SecondaryText, WColor.BackgroundRipple)
-        if (isFullScreen && ThemeManager.uiMode.hasRoundedCorners)
+        if (isFullScreen)
             clearSegmentedControl.paintColor = WColor.Background.color
         if (isTransparent)
             updateThemeTransparent()
         else {
             if (isFullScreen)
-                reversedCornerView.setBlurOverlayColor(if (ThemeManager.uiMode.hasRoundedCorners) WColor.SecondaryBackground else WColor.Background)
+                reversedCornerView.setBlurOverlayColor(WColor.SecondaryBackground.color)
             else
                 contentView.setBackgroundColor(WColor.Background.color)
         }

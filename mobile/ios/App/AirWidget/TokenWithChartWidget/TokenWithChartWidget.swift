@@ -23,7 +23,7 @@ public struct TokenWithChartWidget: Widget {
             TokenWithChartWidgetView(entry: entry)
         }
         .contentMarginsDisabled()
-        .supportedFamilies([.systemSmall, .systemMedium])
+        .supportedFamilies([.systemSmall, .systemMedium, .accessoryRectangular])
         .containerBackgroundRemovable()
         .configurationDisplayName(Text(LocalizedStringResource("Rate with Chart", bundle: LocalizationSupport.shared.bundle)))
         .description(Text(LocalizedStringResource("$rate_with_chart_description", bundle: LocalizationSupport.shared.bundle)))
@@ -38,6 +38,7 @@ struct TokenWithChartWidgetView: View {
     var isVivid: Bool { entry.chartStyle == .vivid }
     var isSmall: Bool { family == .systemSmall }
     var isMedium: Bool { family == .systemMedium }
+    var isRectangularAccessory: Bool { family == .accessoryRectangular }
     
     var body: some View {
         ZStack {
@@ -53,6 +54,10 @@ struct TokenWithChartWidgetView: View {
                 bottomSmall
             } else if isMedium {
                 bottomMedium
+            }
+            
+            if isRectangularAccessory {
+                accessoryTopLine
             }
         }
         .containerBackground(for: .widget) {
@@ -127,7 +132,7 @@ struct TokenWithChartWidgetView: View {
                         .foregroundStyle(.white.opacity(0.75))
                 }
             }
-         }
+        }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -171,6 +176,27 @@ struct TokenWithChartWidgetView: View {
             )
         }
     }
+    
+    @ViewBuilder
+    var accessoryTopLine: some View {
+        HStack(spacing: 2) {
+            changeArrow
+            Text(entry.token.symbol)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text(entry.currencyRate.formatted(.baseCurrencyPrice))
+                .fontWeight(.medium)
+        }
+        .imageScale(.small)
+        .font(.system(size: 15, weight: .bold))
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+    
+    @ViewBuilder
+    var changeArrow: some View {
+        if let change = entry.changePercent {
+            Image(systemName: change >= 0 ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill")
+        }
+    }
 }
 
 #if DEBUG
@@ -183,6 +209,16 @@ extension TokenWithChartWidgetTimelineEntry {
 }
 
 #Preview(as: .systemMedium) {
+    TokenWithChartWidget()
+} timeline: {
+    TokenWithChartWidgetTimelineEntry.sample
+}
+#Preview(as: .systemSmall) {
+    TokenWithChartWidget()
+} timeline: {
+    TokenWithChartWidgetTimelineEntry.sample
+}
+#Preview(as: .accessoryRectangular) {
     TokenWithChartWidget()
 } timeline: {
     TokenWithChartWidgetTimelineEntry.sample

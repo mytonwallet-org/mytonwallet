@@ -14,35 +14,29 @@ import SwiftUI
 import SwiftUIIntrospect
 import Perception
 import Dependencies
-import Combine
 
 class HomeAccountSelector: UIView, UICollectionViewDelegate {
     
-    let viewModel: HomeHeaderViewModel
-    var onIsScrolling: (Bool) -> ()
-    var selectedIdx = 0
+    private let viewModel: HomeHeaderViewModel
+    private var selectedAccountId: String?
     
-    enum Section: Hashable {
+    private enum Section {
         case main
     }
-    enum Item: Hashable {
-        case coverFlowItem(String)
+    private enum Item: Hashable {
+        case account(String)
     }
     
-    var collectionView: UICollectionView!
-    var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
-    
-    var scrollingUpdates = CurrentValueSubject<Bool, Never>(false)
-    var cancellables = Set<AnyCancellable>()
+    private var collectionView: _CollectionView!
+    private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
     
     override var safeAreaInsets: UIEdgeInsets {
         get { .zero }
         set { _ = newValue }
     }
     
-    init(viewModel: HomeHeaderViewModel, onIsScrolling: @escaping (Bool) -> ()) {
+    init(viewModel: HomeHeaderViewModel) {
         self.viewModel = viewModel
-        self.onIsScrolling = onIsScrolling
         super.init(frame: .zero)
         setup()
     }
@@ -65,21 +59,9 @@ class HomeAccountSelector: UIView, UICollectionViewDelegate {
         
         dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) { collectionView, indexPath, itemIdentifier in
             switch itemIdentifier {
-            case .coverFlowItem(let id):
+            case .account(let id):
                 collectionView.dequeueConfiguredReusableCell(using: cellRegistration, for: indexPath, item: id)
             }
-        }
-        
-        observe { [weak self] in
-            guard let self else { return }
-            var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
-            snapshot.appendSections([.main])
-            if let accountId = viewModel.accountId {
-                snapshot.appendItems([.coverFlowItem(accountId)])
-            } else {
-                snapshot.appendItems(viewModel.accountStore.orderedAccountIds.map(Item.coverFlowItem))
-            }
-            dataSource.apply(snapshot)
         }
         
         addSubview(collectionView)
@@ -94,29 +76,64 @@ class HomeAccountSelector: UIView, UICollectionViewDelegate {
             collectionView.leftEdgeEffect.isHidden = true
         }
         collectionView.delegate = self
+
+        setupObservers()
+    }
+    
+    private func setupObservers() {
+        observe { [weak self] in
+            guard let self else { return }
+            let accountIds = makeAccountIds()
+            var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
+            snapshot.appendSections([.main])
+            snapshot.appendItems(accountIds.map(Item.account))
+            dataSource.apply(snapshot, animatingDifferences: false)
+            syncSelection(with: accountIds)
+        }
         
-        scrollingUpdates
-            .sink { [unowned self] isScrolling in
-                if isScrolling {
-                    onIsScrolling(true)
-                }
+        if viewModel.accountSource == .current {
+            observe { [weak self] in
+                guard let self else { return }
+                updateSelection(to: viewModel.currentAccountId, animated: false)
             }
-            .store(in: &cancellables)
-        scrollingUpdates
-            .debounce(for: 0.1, scheduler: RunLoop.main)
-            .sink { [unowned self] isScrolling in
-                if !isScrolling {
-                    onIsScrolling(false)
-                }
-            }
-            .store(in: &cancellables)
+        }
+    }
+    
+    private func makeAccountIds() -> [String] {
+        switch viewModel.accountSource {
+        case .accountId(let accountId):
+            [accountId]
+        case .current:
+            Array(viewModel.accountStore.orderedAccountIds)
+        case .constant(let account):
+            [account.id]
+        }
+    }
+    
+    private func syncSelection(with accountIds: [String]) {
+        let accountId = switch viewModel.accountSource {
+        case .accountId(let accountId):
+            accountId
+        case .current:
+            viewModel.currentAccountId
+        case .constant(let account):
+            account.id
+        }
+        updateSelection(to: accountId, animated: false)
+    }
+    
+    private func updateSelection(to accountId: String, animated: Bool) {
+        guard selectedAccountId != accountId else { return }
+        guard dataSource.indexPath(for: .account(accountId)) != nil else { return }
+        selectedAccountId = accountId
+        scrollTo(accountId: accountId, animated: animated)
     }
     
     func makeLayout() -> UICollectionViewCompositionalLayout {
 
-        let item = NSCollectionLayoutItem(layoutSize: .init(widthDimension: .absolute(itemWidth), heightDimension: .absolute(itemHeight)))
+        let item = NSCollectionLayoutItem(layoutSize: .init(.absolute(itemWidth), .absolute(itemHeight)))
         
-        let group = NSCollectionLayoutGroup.vertical(layoutSize: .init(widthDimension: .absolute(itemWidth), heightDimension: .absolute(itemHeight)), subitems: [item])
+        let group = NSCollectionLayoutGroup.vertical(layoutSize: .init(.absolute(itemWidth), .absolute(itemHeight)), subitems: [item])
         
         let section = NSCollectionLayoutSection(group: group)
         section.orthogonalScrollingBehavior = .continuousGroupLeadingBoundary
@@ -143,29 +160,19 @@ class HomeAccountSelector: UIView, UICollectionViewDelegate {
             }
             
             self.updateFocusedItem(idx: minDistanceIndex)
-            scrollingUpdates.send(minDistance > 1e-3)
         }
         
         let layout = UICollectionViewCompositionalLayout(section: section)
         return layout
     }
     
-    override func didMoveToSuperview() {
-        super.didMoveToSuperview()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) { [self] in
-            self.scrollTo(viewModel.currentAccountId, animated: false)
-            observe { [weak self] in
-                guard let self else { return }
-                let accountId = viewModel.currentAccountId
-                scrollTo(accountId, animated: false)
-            }
-        }
-    }
-    
     override func layoutSubviews() {
         if collectionView.frame != self.bounds {
             collectionView.frame = self.bounds
-            collectionView.setCollectionViewLayout(makeLayout(), animated: true)
+            collectionView.setCollectionViewLayout(makeLayout(), animated: false)
+            if let selectedAccountId {
+                scrollTo(accountId: selectedAccountId, animated: false)
+            }
         }
     }
     
@@ -177,11 +184,11 @@ class HomeAccountSelector: UIView, UICollectionViewDelegate {
     }
     
     func updateFocusedItem(idx: Int) {
-        if idx != selectedIdx {
-            selectedIdx = idx
-            if case .coverFlowItem(let id) = dataSource.itemIdentifier(for: IndexPath(item: idx, section: 0)) {
-                viewModel.onSelect(id)
-            }
+        guard case .account(let id) = dataSource.itemIdentifier(for: IndexPath(item: idx, section: 0)) else { return }
+        guard selectedAccountId != id else { return }
+        selectedAccountId = id
+        if isUserScrolling {
+            viewModel.onSelect(id)
         }
     }
     
@@ -192,14 +199,16 @@ class HomeAccountSelector: UIView, UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
     }
     
-    func scrollTo(_ id: String, animated: Bool) {
-        if let indexPath = dataSource.indexPath(for: .coverFlowItem(id)), let scrollView = collectionView.subviews.compactMap({ $0 as? UIScrollView }).first {
-            if !scrollView.isTracking && !scrollView.isDecelerating {
-                let idx = CGFloat(indexPath.row)
-                let offset = CGPoint(x: -scrollView.adjustedContentInset.left + idx * itemWidthWithSpacing, y: 0)
-                scrollView.setContentOffset(offset, animated: animated)
-            }
+    func scrollTo(accountId: String, animated: Bool) {
+        guard !isUserScrolling else { return }
+        if let indexPath = dataSource.indexPath(for: .account(accountId)) {
+            collectionView.scrollToItem(at: indexPath, at: .centeredHorizontally, animated: animated)
         }
+    }
+    
+    private var isUserScrolling: Bool {
+        guard let horizontalScrollView = collectionView.horizontalScrollView else { return false }
+        return horizontalScrollView.isTracking || horizontalScrollView.isDecelerating
     }
 }
 
@@ -211,5 +220,14 @@ private final class _CollectionView: UICollectionView {
         if subview.layer.animationKeys() != nil {
             subview.layer.removeAllAnimationsRecursive()
         }
+    }
+    
+    var horizontalScrollView: UIScrollView? {
+        for subview in subviews {
+            if let scrollView = subview as? UIScrollView {
+                return scrollView
+            }
+        }
+        return nil
     }
 }

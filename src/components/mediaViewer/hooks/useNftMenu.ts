@@ -50,7 +50,7 @@ const GETGEMS_ITEM: DropdownItem<NftMenuHandler> = {
   fontIcon: 'external',
 };
 const TON_EXPLORER_ITEM: DropdownItem<NftMenuHandler> = {
-  name: getExplorerName('ton'),
+  name: getExplorerName(),
   value: 'tonExplorer',
   fontIcon: 'external',
 };
@@ -157,7 +157,7 @@ export default function useNftMenu({
     value: NftMenuHandler,
     e?: React.MouseEvent,
   ) => {
-    const { isTestnet } = getGlobal().settings;
+    const { isTestnet, selectedExplorerIds } = getGlobal().settings;
     const isExternal = e?.shiftKey || e?.ctrlKey || e?.metaKey;
 
     switch (value) {
@@ -172,7 +172,12 @@ export default function useNftMenu({
       }
 
       case 'tonExplorer': {
-        const url = getExplorerNftUrl(nft!.address, isTestnet)!;
+        const url = getExplorerNftUrl(
+          undefined,
+          nft!.address,
+          isTestnet,
+          selectedExplorerIds?.ton,
+        )!;
 
         void openUrl(url, { isExternal });
         break;

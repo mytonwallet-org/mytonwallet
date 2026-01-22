@@ -32,7 +32,6 @@ import org.mytonwallet.app_air.uicomponents.commonViews.AddressInputLayout
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.commonViews.TokenAmountInputView
 import org.mytonwallet.app_air.uicomponents.commonViews.feeDetailsDialog.FeeDetailsDialog
-import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
@@ -50,7 +49,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uicomponents.widgets.showKeyboard
 import org.mytonwallet.app_air.uisend.send.helpers.ScamDetectionHelpers
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -409,9 +407,10 @@ class SendVC(
                                 val id = viewModel.callSend(config, passcode!!).activityId
                                 sentActivityId = ActivityHelpers.getTxIdFromId(id)
                                 // Wait for Pending Activity event...
-                                receivedLocalActivities?.firstOrNull { it.getTxHash() == sentActivityId }?.let {
-                                    checkReceivedActivity(it)
-                                }
+                                receivedLocalActivities?.firstOrNull { it.getTxHash() == sentActivityId }
+                                    ?.let {
+                                        checkReceivedActivity(it)
+                                    }
                             } catch (e: JSWebViewBridge.ApiError) {
                                 navigationController?.viewControllers[navigationController!!.viewControllers.size - 2]?.showError(
                                     e.parsed
@@ -504,20 +503,12 @@ class SendVC(
             )
         }
         val dataViews = listOf(addressInputView, commentInputView, binaryMessageView, initDataView)
-        if (ThemeManager.uiMode.hasRoundedCorners) {
-            dataViews.forEach {
-                it.setBackgroundColor(
-                    WColor.Background.color,
-                    0f,
-                    ViewConstants.BIG_RADIUS.dp
-                )
-            }
-        } else {
-            dataViews.forEach {
-                it.background = SeparatorBackgroundDrawable().apply {
-                    backgroundWColor = WColor.Background
-                }
-            }
+        dataViews.forEach {
+            it.setBackgroundColor(
+                WColor.Background.color,
+                0f,
+                ViewConstants.BIG_RADIUS.dp
+            )
         }
         commentInputView.setTextColor(WColor.PrimaryText.color)
         commentInputView.setHintTextColor(WColor.SecondaryText.color)
@@ -689,7 +680,8 @@ class SendVC(
             return
         }
 
-        val txMatch = receivedActivity is MApiTransaction.Transaction && sentActivityId == receivedActivity.getTxHash()
+        val txMatch =
+            receivedActivity is MApiTransaction.Transaction && sentActivityId == receivedActivity.getTxHash()
         if (!txMatch) {
             return
         }
@@ -701,7 +693,12 @@ class SendVC(
             return
         }
         window?.dismissLastNav {
-            WalletCore.notifyEvent(WalletEvent.OpenActivity(receivedActivity))
+            WalletCore.notifyEvent(
+                WalletEvent.OpenActivity(
+                    displayedAccount.accountId!!,
+                    receivedActivity
+                )
+            )
         }
     }
 

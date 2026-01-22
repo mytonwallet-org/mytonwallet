@@ -38,6 +38,7 @@ import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.drawable.RotatableDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
@@ -64,6 +65,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -136,13 +138,8 @@ class NftVC(
         btn
     }
 
-    private val descriptionTitleLabel: WLabel by lazy {
-        WLabel(context).apply {
-            setStyle(16f, WFont.Medium)
-            setTextColor(WColor.Tint)
-            isTinted = true
-            text = LocaleController.getString("Description")
-        }
+    private val descriptionTitleLabel = HeaderCell(context).apply {
+        configure(LocaleController.getString("Description"), titleColor = WColor.Tint, ViewConstants.BIG_RADIUS.dp)
     }
     private val descriptionLabel: WLabel by lazy {
         WLabel(context).apply {
@@ -158,22 +155,17 @@ class NftVC(
                 LayoutParams(MATCH_PARENT, WRAP_CONTENT)
             )
             setConstraints {
-                toTop(descriptionTitleLabel, 16f)
-                toStart(descriptionTitleLabel, 24f)
+                toTop(descriptionTitleLabel)
+                toStart(descriptionTitleLabel)
                 toTop(descriptionLabel, 48f)
-                toCenterX(descriptionLabel, 24f)
+                toCenterX(descriptionLabel, 20f)
                 toBottom(descriptionLabel, 16f)
             }
         }
     }
 
-    private val attributesTitleLabel: WLabel by lazy {
-        WLabel(context).apply {
-            setStyle(16f, WFont.Medium)
-            setTextColor(WColor.Tint)
-            isTinted = true
-            text = LocaleController.getString("Attributes")
-        }
+    private val attributesTitleLabel = HeaderCell(context).apply {
+        configure(LocaleController.getString("Attributes"), titleColor = WColor.Tint, ViewConstants.BIG_RADIUS.dp)
     }
     private val attributesContentView = NftAttributesView(context)
     private val attributesToggleLabel by lazy {
@@ -228,10 +220,10 @@ class NftVC(
             addView(attributesContentView, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             addView(attributesToggleView, LayoutParams(MATCH_PARENT, 42.dp))
             setConstraints {
-                toTop(attributesTitleLabel, 16f)
-                toStart(attributesTitleLabel, 24f)
+                toTop(attributesTitleLabel)
+                toStart(attributesTitleLabel)
                 toCenterX(attributesContentView, 16f)
-                toTop(attributesContentView, 52f)
+                toTop(attributesContentView, 48f)
             }
         }
     }
@@ -258,7 +250,7 @@ class NftVC(
             setOnClickListener {
                 val shareIntent = Intent(Intent.ACTION_SEND)
                 shareIntent.setType("text/plain")
-                shareIntent.putExtra(Intent.EXTRA_TEXT, nft.tonscanUrl)
+                shareIntent.putExtra(Intent.EXTRA_TEXT, nft.tonscanUrl(MBlockchainNetwork.ofAccountId(showingAccountId)))
                 window?.startActivity(
                     Intent.createChooser(
                         shareIntent,
@@ -937,7 +929,7 @@ class NftVC(
                     ),
                     nft.isTonDns != true,
                 ) {
-                    openLink(nft.tonscanUrl)
+                    openLink(nft.tonscanUrl(MBlockchainNetwork.ofAccountId(showingAccountId)))
                 },
             ).apply {
                 if (nft.isOnFragment == true) {

@@ -24,7 +24,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.WTokenSymbolIconView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -237,14 +236,9 @@ class TokenAmountInputView(
     }
 
     override fun updateTheme() {
-        if (ThemeManager.uiMode.hasRoundedCorners) {
-            setBackgroundColor(
-                WColor.Background.color, ViewConstants.BIG_RADIUS.dp
-            )
-        } else {
-            background = separatorBackgroundDrawable
-            separatorBackgroundDrawable.invalidateSelf()
-        }
+        setBackgroundColor(
+            WColor.Background.color, ViewConstants.BIG_RADIUS.dp
+        )
         titleTextView.setTextColor(WColor.PrimaryText.color)
     }
 

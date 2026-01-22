@@ -6,6 +6,7 @@ import android.os.Looper
 import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.api.importWallet
@@ -41,17 +42,19 @@ class ImportWalletVM(delegate: Delegate) {
     // Add the account into logics
     fun finalizeAccount(
         window: Activity,
+        network: MBlockchainNetwork,
         words: Array<String>,
         passcode: String,
         biometricsActivated: Boolean?,
         retriesLeft: Int = 3
     ) {
-        WalletCore.importWallet(words, passcode, false) { importedAccount, error ->
+        WalletCore.importWallet(network, words, passcode, false) { importedAccount, error ->
             if (error != null) {
                 if (retriesLeft > 0) {
                     Handler(Looper.getMainLooper()).postDelayed({
                         finalizeAccount(
                             window,
+                            network,
                             words,
                             passcode,
                             biometricsActivated,

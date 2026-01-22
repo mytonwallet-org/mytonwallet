@@ -1,5 +1,5 @@
 {
-  "originHash" : "e774fc525720f62ff9fe8c221ae49224e7c69a0e1bd925bd279177ea8ff74ec1",
+  "originHash" : "617c591f5181a5d642b31d66c4cf2390e471ebef4a7abf1b1324f29834b48dde",
   "pins" : [
     {
       "identity" : "colorthiefswift",
@@ -17,6 +17,14 @@
       "state" : {
         "revision" : "fd16d76fd8b9a976d88bfb6cacc05ca8d19c91b6",
         "version" : "1.1.0"
+      }
+    },
+    {
+      "identity" : "dgcharts",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mytonwallet-org/DGCharts",
+      "state" : {
+        "revision" : "86929ffb26280d49777e8b2c2311daa419747a49"
       }
     },
     {
@@ -62,6 +70,14 @@
       "state" : {
         "branch" : "main",
         "revision" : "ca0b09f9ffdbf2a7fc5e0c572596f8770b8bcf70"
+      }
+    },
+    {
+      "identity" : "swift-bigint",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mytonwallet-org/swift-bigint",
+      "state" : {
+        "revision" : "53c55ff37750f0eb0631fd7b11ddc60997127694"
       }
     },
     {

@@ -152,6 +152,7 @@ export type ApiSwapHistoryItem = {
    * Both 'pendingTrusted' and 'pending' mean the swap is awaiting confirmation by the blockchain.
    * - 'pendingTrusted' — awaiting confirmation and trusted (initiated by our app).
    * - 'pending' — awaiting confirmation from an external/unauthenticated source.
+   * - 'confirmed' — included in a shardblock but not yet finalized in the masterchain.
    *
    * There are two backends: ToncenterApi and our backend.
    * Swaps returned by ToncenterApi have the status 'pending'.
@@ -160,7 +161,7 @@ export type ApiSwapHistoryItem = {
    *
    * TODO: Replace the status 'pending' with 'pendingTrusted' on our backend once all clients are updated.
    */
-  status: 'pending' | 'pendingTrusted' | 'completed' | 'failed' | 'expired';
+  status: 'pending' | 'pendingTrusted' | 'confirmed' | 'completed' | 'failed' | 'expired';
   hashes: string[];
   isCanceled?: boolean;
   cex?: {

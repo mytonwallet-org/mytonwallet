@@ -24,12 +24,14 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import java.lang.ref.WeakReference
 import kotlin.math.max
 
 @SuppressLint("ViewConstructor")
 class BackupVC(
     context: Context,
+    private val network: MBlockchainNetwork,
     private val words: Array<String>,
     private val isFirstPasscodeProtectedWallet: Boolean,
     // Used when adding new account (not first account!)
@@ -56,7 +58,7 @@ class BackupVC(
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
             text = LocaleController.getString("Create Backup")
-            setStyle(28f, WFont.Medium)
+            setStyle(28f, WFont.SemiBold)
             setTextColor(WColor.PrimaryText.color)
             gravity = Gravity.CENTER
         }
@@ -81,6 +83,7 @@ class BackupVC(
                 push(
                     WordDisplayVC(
                         context = context,
+                        network = network,
                         words = words,
                         isFirstWalletToAdd = true,
                         isFirstPasscodeProtectedWallet = isFirstPasscodeProtectedWallet,

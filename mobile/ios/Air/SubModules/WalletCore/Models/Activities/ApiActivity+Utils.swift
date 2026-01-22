@@ -70,8 +70,25 @@ public extension ApiActivity {
     
     var displayTitleResolved: String {
         let displayTitle = self.displayTitle
-        let isPending = isLocal || getIsActivityPending(self) || swap?.status == .expired || swap?.status == .failed || swap?.status == .pending
-        return isPending ? displayTitle.inProgress : displayTitle.complete
+        let resolved = if swap?.status == .expired || swap?.status == .failed || transaction?.status == .failed {
+            displayTitle.future
+        } else if isLocal || getIsActivityPending(self) || swap?.status == .pending || swap?.status == .pendingTrusted {
+            displayTitle.inProgress
+        } else {
+            displayTitle.complete
+        }
+        return resolved
+    }
+
+    var displayTitleResolvedOptimistic: String {
+        let displayTitle = self.displayTitle
+        let resolved = if swap?.status == .expired || swap?.status == .failed || transaction?.status == .failed {
+            displayTitle.future
+        } else {
+            displayTitle.complete
+        }
+//        return "\(abs(id.hashValue) % 1000) " + resolved + " " + (transaction?.status.rawValue ?? "")
+        return resolved
     }
 }
 
@@ -88,7 +105,7 @@ public func activityAccessoryStatus(for activity: ApiActivity) -> ActivityAccess
             return .pendingTrusted
         case .failed:
             return .failed
-        case .completed:
+        case .completed, .confirmed:
             return nil
         }
     case .swap(let swap):
@@ -111,7 +128,7 @@ public func activityAccessoryStatus(for activity: ApiActivity) -> ActivityAccess
             return .failed
         case .expired:
             return .expired
-        case .completed:
+        case .completed, .confirmed:
             return nil
         }
     }
@@ -278,9 +295,15 @@ public extension ApiActivity {
         }
         switch self {
         case .transaction(let transaction):
-            if type != nil || transaction.nft != nil {
+            if transaction.nft != nil {
                 return false
             }
+            
+            let isOutgoingBouncedSpam = type == .bounced && !transaction.isIncoming
+            if type != nil && !isOutgoingBouncedSpam {
+                return false
+            }
+            
             guard let token = TokenStore.tokens[slug] else {
                 return false
             }

@@ -39,6 +39,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
@@ -50,6 +51,7 @@ import kotlin.math.max
 @SuppressLint("ViewConstructor")
 class ImportWalletVC(
     context: Context,
+    private val network: MBlockchainNetwork,
     // Used when adding new accounts. (not first mnemonic wallet)
     private val passedPasscode: String?
 ) :
@@ -85,7 +87,7 @@ class ImportWalletVC(
     private val titleLabel: WLabel by lazy {
         val lbl = WLabel(context)
         lbl.text = LocaleController.getString("Enter Secret Words")
-        lbl.setStyle(28f, WFont.Medium)
+        lbl.setStyle(28f, WFont.SemiBold)
         lbl
     }
 
@@ -271,7 +273,7 @@ class ImportWalletVC(
                 topReversedCornerView?.pauseBlurring(false)
             }
             if (y > scrollOffsetToShowNav) {
-                setNavTitle(LocaleController.getString("Enter Secret Words"))
+                setNavTitle(LocaleController.getString("Enter Secret Words") + network.localizedIdentifier)
                 setTopBlur(true, animated = true)
             } else {
                 setNavTitle("")
@@ -355,12 +357,12 @@ class ImportWalletVC(
             continueButton.isLoading = false
             view.unlockView()
             push(SetPasscodeVC(context, true, null) { passcode, biometricsActivated ->
-                importWalletVM.finalizeAccount(window!!, words, passcode, biometricsActivated, 0)
+                importWalletVM.finalizeAccount(window!!, network, words, passcode, biometricsActivated, 0)
             }, onCompletion = {
                 navigationController?.removePrevViewControllers()
             })
         } else {
-            importWalletVM.finalizeAccount(window!!, words, passedPasscode, null, 0)
+            importWalletVM.finalizeAccount(window!!, network, words, passedPasscode, null, 0)
         }
     }
 

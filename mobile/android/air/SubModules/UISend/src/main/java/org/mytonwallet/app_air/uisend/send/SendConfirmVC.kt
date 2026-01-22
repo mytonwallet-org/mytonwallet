@@ -362,10 +362,8 @@ class SendConfirmVC(
             it.setTextColor(WColor.PrimaryText.color)
         }
 
-        val showSeparator =
-            !ThemeManager.uiMode.hasRoundedCorners && !ThemeManager.isDark
-        gap1.showSeparator = showSeparator
-        gap2.showSeparator = showSeparator
+        gap1.showSeparator = false
+        gap2.showSeparator = false
         gap1.invalidate()
         gap2.invalidate()
     }
@@ -396,6 +394,7 @@ class SendConfirmVC(
             LedgerConnectVC.Mode.ConnectToSubmitTransfer(
                 account.tonAddress!!,
                 signData = LedgerConnectVC.SignData.SignTransfer(
+                    accountId = account.accountId,
                     transferOptions = transferOptions,
                     slug = slug
                 ),
@@ -409,6 +408,7 @@ class SendConfirmVC(
                 configSendingToken(
                     config.request.token,
                     config.request.amountEquivalent.getFmt(false),
+                    account.network,
                     config.resolvedAddress
                 )
             }
@@ -430,6 +430,7 @@ class SendConfirmVC(
                         configSendingToken(
                             config.request.token,
                             config.request.amountEquivalent.getFmt(false),
+                            AccountStore.activeAccount!!.network,
                             config.resolvedAddress
                         )
                     },

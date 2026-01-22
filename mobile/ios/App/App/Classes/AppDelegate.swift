@@ -23,7 +23,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, MtwAppDelegateProtocol {
     #else
     public let canSwitchToCapacitor = false
     #endif
-
+    
+    public var isFirstLaunch: Bool = false
     
     private var isOnTheAir: Bool {
         return AirLauncher.isOnTheAir
@@ -62,7 +63,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate, MtwAppDelegateProtocol {
         if application.isProtectedDataAvailable {
             let isFirstLaunch = UserDefaults.standard.object(forKey: "firstLaunchDate") as? Date == nil
             if isFirstLaunch {
+                log.info("firstLaunchDate key not found")
                 UserDefaults.standard.set(Date(), forKey: "firstLaunchDate")
+                
+                #warning("TODO: Remove IS_DEBUG_OR_TESTFLIGHT check before public release")
+                if IS_DEBUG_OR_TESTFLIGHT, isDefinitelyNotAPreexistingInstall() {
+                    log.info("isDefinitelyNotAPreexistingInstall returned true, switching to Air")
+                    AirLauncher.isOnTheAir = true
+                    self.isFirstLaunch = true
+                }
             }
         }
         
@@ -146,6 +155,28 @@ class AppDelegate: UIResponder, UIApplicationDelegate, MtwAppDelegateProtocol {
         log.error("didFailToRegisterForRemoteNotificationsWithError \(error, .public)")
         NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
         #endif
+    }
+    
+    /// double check for app installs not opened since `firstLaunchDate` key was introduced
+    private func isDefinitelyNotAPreexistingInstall() -> Bool {
+        do {
+            func isEmpty(_ url: URL) -> Bool {
+                let contents = try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: [])
+                return (contents ?? []).isEmpty
+            }
+            if isEmpty(.documentsDirectory) && isEmpty(.cachesDirectory.appending(path: "WebKit", directoryHint: .isDirectory)) {
+                return true
+            } else {
+                log.info("isDefinitelyNotAPreexistingInstall check returned false")
+                let documents = try FileManager.default.contentsOfDirectory(at: .documentsDirectory, includingPropertiesForKeys: [])
+                let caches = try FileManager.default.contentsOfDirectory(at: .cachesDirectory, includingPropertiesForKeys: [])
+                log.info("documents=\(documents, .public)")
+                log.info("caches=\(caches, .public)")
+            }
+        } catch {
+            log.error("failed to check if pre-existing install: \(error, .public)")
+        }
+        return false
     }
 }
 

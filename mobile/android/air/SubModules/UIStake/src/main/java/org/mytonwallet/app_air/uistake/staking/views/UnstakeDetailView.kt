@@ -7,11 +7,13 @@ import android.os.Looper
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ImageSpan
+import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
 import org.mytonwallet.app_air.uicomponents.widgets.WLinearLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.moshi.StakingState
 
 @SuppressLint("ViewConstructor")
@@ -67,7 +69,7 @@ class UnstakeDetailView(
             ImageSpan(
                 context,
                 org.mytonwallet.app_air.walletcontext.R.drawable.ic_bolt,
-                ImageSpan.ALIGN_BOTTOM
+                ImageSpan.ALIGN_BASELINE
             ),
             0,
             1,

@@ -3,6 +3,8 @@ import { BottomSheet } from '@mytonwallet/native-bottom-sheet';
 import { memo, useEffect, useMemo } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
+import type { ApiChain } from '../../api/types';
+
 import { ANIMATION_LEVEL_DEFAULT } from '../../config';
 import { INAPP_BROWSER_OPTIONS } from '../../util/capacitor';
 import { listenOnce } from '../../util/domEvents';
@@ -11,9 +13,10 @@ import { useInAppBrowserBridgeProvider } from '../../util/embeddedDappBridge/pro
 import { compact } from '../../util/iteratees';
 import { logDebugError } from '../../util/logs';
 import { waitFor } from '../../util/schedulers';
-import { getHostnameFromUrl } from '../../util/url';
+import { convertExplorerUrl, getHostnameFromUrl } from '../../util/url';
 import { IS_DELEGATING_BOTTOM_SHEET, IS_IOS, IS_IOS_APP } from '../../util/windowEnvironment';
 
+import useExplorerUrl from '../../hooks/useExplorerUrl';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 
@@ -30,6 +33,17 @@ interface StateProps {
   url?: string;
   theme: string;
   animationLevel?: number;
+  shouldKeepNativeBottomSheetOpen?: boolean;
+  selectedExplorerIds?: Partial<Record<ApiChain, string>>;
+  isTestnet?: boolean;
+}
+
+interface MenuItemSelectedEvent {
+  type: 'menuitemselected';
+  payload: {
+    key: string;
+    value: string;
+  };
 }
 
 // The maximum time the in-app browser will take to close (and a little more as a safe margin)
@@ -37,27 +51,72 @@ const CLOSE_MAX_DURATION = 900;
 
 // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
 let inAppBrowser: Cordova['InAppBrowser'] | undefined;
+let shouldRestoreBottomSheet = false;
 
 function InAppBrowser({
-  title, subtitle, url, theme, animationLevel,
+  title, subtitle, url, shouldKeepNativeBottomSheetOpen, theme, animationLevel, selectedExplorerIds, isTestnet,
 }: StateProps) {
-  const { closeBrowser } = getActions();
+  const { closeBrowser, setSelectedExplorerId } = getActions();
 
   const lang = useLang();
 
-  const { setupDappBridge, cleanupDappBridge } = useInAppBrowserBridgeProvider(url);
+  const {
+    currentUrl,
+    currentExplorerId,
+    explorers,
+    explorerInfo,
+  } = useExplorerUrl({
+    url,
+    selectedExplorerIds,
+    isTestnet,
+  });
+
+  const { setupDappBridge, cleanupDappBridge } = useInAppBrowserBridgeProvider(currentUrl);
   const bridgeInjectionCode = useMemo(() => buildInAppBrowserBridgeConnectorCode(), []);
+
+  const menu = useMemo(() => {
+    if (!explorers || explorers.length <= 1 || !currentUrl) {
+      return undefined;
+    }
+
+    // Put current explorer first (native browser shows first item as title)
+    const currentExplorer = explorers.find((e) => e.id === currentExplorerId);
+    const sortedExplorers = currentExplorer
+      ? [currentExplorer, ...explorers.filter((e) => e.id !== currentExplorerId)]
+      : explorers;
+
+    return sortedExplorers.map((explorer) => ({
+      key: explorer.name,
+      value: convertExplorerUrl(currentUrl, explorer.id) || currentUrl,
+    }));
+  }, [explorers, currentUrl, currentExplorerId]);
 
   const handleError = useLastCallback((err: any) => {
     logDebugError('inAppBrowser error', err);
   });
 
+  const handleMenuItemSelected = useLastCallback((e: MenuItemSelectedEvent) => {
+    const { key } = e.payload;
+    const selectedExplorer = explorers?.find((explorer) => explorer.name === key);
+    if (selectedExplorer && explorerInfo) {
+      setSelectedExplorerId({
+        chain: explorerInfo.chain,
+        explorerId: selectedExplorer.id,
+      });
+    }
+  });
+
   const handleBrowserClose = useLastCallback(async () => {
     if (IS_DELEGATING_BOTTOM_SHEET) {
       await BottomSheet.enable();
+      if (shouldRestoreBottomSheet) {
+        await BottomSheet.show();
+        shouldRestoreBottomSheet = false;
+      }
     }
 
     inAppBrowser.removeEventListener('loaderror', handleError);
+    inAppBrowser.removeEventListener('menuitemselected', handleMenuItemSelected);
     inAppBrowser.removeEventListener('exit', handleBrowserClose);
     inAppBrowser = undefined;
     closeBrowser();
@@ -66,32 +125,64 @@ function InAppBrowser({
   });
 
   const openBrowser = useLastCallback(async () => {
-    if (IS_DELEGATING_BOTTOM_SHEET && !(await BottomSheet.isShown()).value) {
-      await BottomSheet.disable();
+    let didHideBottomSheet = false;
+    let didDisableBottomSheet = false;
+
+    try {
+      if (IS_DELEGATING_BOTTOM_SHEET) {
+        const { value: isShown } = await BottomSheet.isShown();
+
+        if (isShown && !shouldKeepNativeBottomSheetOpen) {
+          await BottomSheet.hide();
+          shouldRestoreBottomSheet = true;
+          didHideBottomSheet = true;
+        } else {
+          shouldRestoreBottomSheet = false;
+        }
+
+        if (!isShown) {
+          await BottomSheet.disable();
+          didDisableBottomSheet = true;
+        }
+      }
+
+      const browserTitle = !title && currentUrl ? getHostnameFromUrl(currentUrl) : title;
+      const browserSubtitle = subtitle === browserTitle ? undefined : subtitle;
+
+      const ADDITIONAL_INAPP_BROWSER_OPTIONS = `,${compact([
+        IS_IOS || browserTitle ? `title=${browserTitle || ''}` : undefined,
+        IS_IOS || browserSubtitle ? `subtitle=${browserSubtitle || ''}` : undefined,
+        currentUrl ? `shareurl=${encodeURIComponent(currentUrl)}` : undefined,
+        `closebuttoncaption=${IS_IOS ? lang('Close') : 'x'}`,
+        `backbuttoncaption=${lang('Back')}`,
+        `reloadcaption=${lang('Reload Page')}`,
+        `openinbrowsercaption=${lang(IS_IOS ? 'Open in Safari' : 'Open in Browser')}`,
+        `copyurlcaption=${lang('CopyURL')}`,
+        `sharecaption=${lang('Share')}`,
+        `theme=${theme}`,
+        `animated=${animationLevel ?? ANIMATION_LEVEL_DEFAULT > 0 ? 'yes' : 'no'}`,
+      ]).join(',')}`;
+      inAppBrowser = cordova.InAppBrowser.open(
+        currentUrl,
+        '_blank',
+        INAPP_BROWSER_OPTIONS + ADDITIONAL_INAPP_BROWSER_OPTIONS,
+        bridgeInjectionCode,
+        menu,
+      );
+    } catch (err) {
+      if (IS_DELEGATING_BOTTOM_SHEET) {
+        if (didHideBottomSheet && shouldRestoreBottomSheet) {
+          await BottomSheet.show();
+        }
+        if (didDisableBottomSheet) {
+          await BottomSheet.enable();
+        }
+        shouldRestoreBottomSheet = false;
+      }
+
+      logDebugError('inAppBrowser open error', err);
+      return;
     }
-
-    const browserTitle = !title && url ? getHostnameFromUrl(url) : title;
-    const browserSubtitle = subtitle === browserTitle ? undefined : subtitle;
-
-    const ADDITIONAL_INAPP_BROWSER_OPTIONS = `,${compact([
-      IS_IOS || browserTitle ? `title=${browserTitle || ''}` : undefined,
-      IS_IOS || browserSubtitle ? `subtitle=${browserSubtitle || ''}` : undefined,
-      url ? `shareurl=${encodeURIComponent(url)}` : undefined,
-      `closebuttoncaption=${IS_IOS ? lang('Close') : 'x'}`,
-      `backbuttoncaption=${lang('Back')}`,
-      `reloadcaption=${lang('Reload Page')}`,
-      `openinbrowsercaption=${lang(IS_IOS ? 'Open in Safari' : 'Open in Browser')}`,
-      `copyurlcaption=${lang('CopyURL')}`,
-      `sharecaption=${lang('Share')}`,
-      `theme=${theme}`,
-      `animated=${animationLevel ?? ANIMATION_LEVEL_DEFAULT > 0 ? 'yes' : 'no'}`,
-    ]).join(',')}`;
-    inAppBrowser = cordova.InAppBrowser.open(
-      url,
-      '_blank',
-      INAPP_BROWSER_OPTIONS + ADDITIONAL_INAPP_BROWSER_OPTIONS,
-      bridgeInjectionCode,
-    );
 
     const originalHide = inAppBrowser.hide;
     inAppBrowser.hide = () => {
@@ -108,7 +199,7 @@ function InAppBrowser({
 
     const originalShow = inAppBrowser.show;
     inAppBrowser.show = () => {
-      if (!getIsAnyNativeBottomSheetModalOpen()) {
+      if (!shouldKeepNativeBottomSheetOpen || !getIsAnyNativeBottomSheetModalOpen()) {
         originalShow?.();
       }
     };
@@ -144,17 +235,18 @@ function InAppBrowser({
     setupDappBridge(inAppBrowser);
 
     inAppBrowser.addEventListener('loaderror', handleError);
+    inAppBrowser.addEventListener('menuitemselected', handleMenuItemSelected);
     inAppBrowser.addEventListener('exit', handleBrowserClose);
     inAppBrowser.show();
   });
 
   useEffect(() => {
-    if (!url) return undefined;
+    if (!currentUrl) return undefined;
 
     void openBrowser();
 
     return () => inAppBrowser?.close();
-  }, [url]);
+  }, [currentUrl]);
 
   return undefined;
 }
@@ -168,6 +260,9 @@ export default memo(withGlobal((global): StateProps => {
     subtitle: currentBrowserOptions?.subtitle,
     theme: settings.theme,
     animationLevel: settings.animationLevel,
+    shouldKeepNativeBottomSheetOpen: currentBrowserOptions?.shouldKeepNativeBottomSheetOpen,
+    selectedExplorerIds: settings.selectedExplorerIds,
+    isTestnet: settings.isTestnet,
   };
 })(InAppBrowser));
 

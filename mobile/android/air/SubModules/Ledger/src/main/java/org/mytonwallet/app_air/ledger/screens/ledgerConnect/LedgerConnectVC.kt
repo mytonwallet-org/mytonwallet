@@ -44,7 +44,6 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
-import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -60,9 +59,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.R
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
-import org.mytonwallet.app_air.walletcore.MAIN_NETWORK
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.submitStake
@@ -101,16 +100,32 @@ class LedgerConnectVC(
     override val TAG = "LedgerConnect"
 
     sealed class Mode {
-        data object AddAccount : Mode()
+        data class AddAccount(val network: MBlockchainNetwork) : Mode()
         data class ConnectToSubmitTransfer(
             val address: String,
             val signData: SignData,
             val onDone: () -> Unit
         ) : Mode()
+
+        val accountId: String?
+            get() {
+                return when (this) {
+                    is AddAccount -> {
+                        null
+                    }
+
+                    is ConnectToSubmitTransfer -> {
+                        signData.accountId
+                    }
+                }
+            }
     }
 
     sealed class SignData {
+        abstract val accountId: String
+
         data class SignTransfer(
+            override val accountId: String,
             val transferOptions: MApiSubmitTransferOptions,
             val slug: String,
             val localActivityParams: LocalActivityParams? = null,
@@ -118,20 +133,23 @@ class LedgerConnectVC(
         ) : SignData()
 
         data class SignDappTransfers(
+            override val accountId: String,
             val update: ApiUpdate.ApiUpdateDappSendTransactions
         ) : SignData()
 
         data class SignDappData(
+            override val accountId: String,
             val update: ApiUpdate.ApiUpdateDappSignData
         ) : SignData()
 
         data class SignLedgerProof(
+            override val accountId: String,
             val promiseId: String,
             val proof: ApiTonConnectProof
         ) : SignData()
 
         data class SignNftTransfer(
-            val accountId: String,
+            override val accountId: String,
             val nft: ApiNft,
             val toAddress: String,
             val comment: String?,
@@ -140,26 +158,26 @@ class LedgerConnectVC(
 
         data class Staking(
             val isStaking: Boolean,
-            val accountId: String,
+            override val accountId: String,
             val amount: BigInteger,
             val stakingState: StakingState,
             val realFee: BigInteger,
         ) : SignData()
 
         data class ClaimRewards(
-            val accountId: String,
+            override val accountId: String,
             val stakingState: StakingState,
             val realFee: BigInteger
         ) : SignData()
 
         data class RenewNfts(
-            val accountId: String,
+            override val accountId: String,
             val nfts: List<ApiNft>,
             val realFee: BigInteger
         ) : SignData()
 
         data class LinkNftToWallet(
-            val accountId: String,
+            override val accountId: String,
             val nft: ApiNft,
             val address: String,
             val realFee: BigInteger
@@ -328,7 +346,7 @@ class LedgerConnectVC(
         LedgerManager.init(window!!.applicationContext)
 
         title = when (mode) {
-            Mode.AddAccount -> {
+            is Mode.AddAccount -> {
                 LocaleController.getString("Add Account")
             }
 
@@ -378,16 +396,11 @@ class LedgerConnectVC(
     override fun updateTheme() {
         super.updateTheme()
         view.setBackgroundColor(WColor.SecondaryBackground.color)
-        if (ThemeManager.uiMode.hasRoundedCorners)
-            headerView?.setBackgroundColor(
-                WColor.Background.color,
-                0f,
-                ViewConstants.BIG_RADIUS.dp,
-            )
-        else
-            headerView?.background = SeparatorBackgroundDrawable().apply {
-                backgroundWColor = WColor.Background
-            }
+        headerView?.setBackgroundColor(
+            WColor.Background.color,
+            0f,
+            ViewConstants.BIG_RADIUS.dp,
+        )
         informationView.setBackgroundColor(
             WColor.Background.color,
             ViewConstants.BIG_RADIUS.dp,
@@ -587,9 +600,10 @@ class LedgerConnectVC(
                         signedActivityId = ActivityHelpers.getTxIdFromId(id)
                         Handler(Looper.getMainLooper()).post {
                             mode.onDone()
-                            receivedLocalActivities?.firstOrNull { it.getTxHash() == signedActivityId }?.let {
-                                checkReceivedActivity(it)
-                            }
+                            receivedLocalActivities?.firstOrNull { it.getTxHash() == signedActivityId }
+                                ?.let {
+                                    checkReceivedActivity(it)
+                                }
                         }
                     } catch (e: Throwable) {
                         Handler(Looper.getMainLooper()).post {
@@ -678,12 +692,14 @@ class LedgerConnectVC(
                                 fee = signData.realFee ?: BigInteger.ZERO
                             )
                         )
-                        signedActivityId = MBlockchain.ton.idToTxHash(result.activityIds.lastOrNull())
+                        signedActivityId =
+                            MBlockchain.ton.idToTxHash(result.activityIds.lastOrNull())
                         Handler(Looper.getMainLooper()).post {
                             mode.onDone()
-                            receivedLocalActivities?.firstOrNull { it.getTxHash() == signedActivityId }?.let {
-                                checkReceivedActivity(it)
-                            }
+                            receivedLocalActivities?.firstOrNull { it.getTxHash() == signedActivityId }
+                                ?.let {
+                                    checkReceivedActivity(it)
+                                }
                         }
                     } catch (e: Throwable) {
                         Handler(Looper.getMainLooper()).post {
@@ -713,9 +729,10 @@ class LedgerConnectVC(
                         signedActivityId = ActivityHelpers.getTxIdFromId(result.activityId)
                         Handler(Looper.getMainLooper()).post {
                             mode.onDone()
-                            receivedLocalActivities?.firstOrNull { it.getTxHash() == signedActivityId }?.let {
-                                checkReceivedActivity(it)
-                            }
+                            receivedLocalActivities?.firstOrNull { it.getTxHash() == signedActivityId }
+                                ?.let {
+                                    checkReceivedActivity(it)
+                                }
                         }
                     } catch (e: Throwable) {
                         Handler(Looper.getMainLooper()).post {
@@ -846,13 +863,13 @@ class LedgerConnectVC(
                 connectLedgerStep.state = LedgerConnectStepStatusView.State.DONE
 
                 when (mode) {
-                    Mode.AddAccount -> {
+                    is Mode.AddAccount -> {
                         openTonAppStep.state =
                             LedgerConnectStepStatusView.State.IN_PROGRESS
                         WalletCore.call(
                             ApiMethod.Auth.GetLedgerWallets(
                                 MBlockchain.ton,
-                                MAIN_NETWORK,
+                                mode.network,
                                 0,
                                 5
                             )
@@ -860,7 +877,7 @@ class LedgerConnectVC(
                             res?.let {
                                 shouldDestroyLedgerManager = false
                                 push(
-                                    LedgerWalletsVC(context, res.toList()),
+                                    LedgerWalletsVC(context, mode.network, res.toList()),
                                     onCompletion = {
                                         navigationController?.removePrevViewControllers()
                                     })
@@ -986,7 +1003,8 @@ class LedgerConnectVC(
             return
         }
 
-        val txMatch = receivedActivity is MApiTransaction.Transaction && signedActivityId == receivedActivity.getTxHash()
+        val txMatch =
+            receivedActivity is MApiTransaction.Transaction && signedActivityId == receivedActivity.getTxHash()
         if (!txMatch) {
             return
         }
@@ -1001,13 +1019,13 @@ class LedgerConnectVC(
             window?.dismissLastNav {
                 if ((mode as? Mode.ConnectToSubmitTransfer)?.signData is SignData.Staking)
                     return@dismissLastNav
-                WalletCore.notifyEvent(WalletEvent.OpenActivity(receivedActivity))
+                WalletCore.notifyEvent(WalletEvent.OpenActivity(mode.accountId!!, receivedActivity))
             }
         } else {
             navigationController?.popToRoot {
                 if ((mode as? Mode.ConnectToSubmitTransfer)?.signData is SignData.Staking)
                     return@popToRoot
-                WalletCore.notifyEvent(WalletEvent.OpenActivity(receivedActivity))
+                WalletCore.notifyEvent(WalletEvent.OpenActivity(mode.accountId!!, receivedActivity))
             }
         }
     }

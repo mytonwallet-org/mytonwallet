@@ -67,13 +67,7 @@ public class AddStakeVC: WViewController, WalletCoreData.EventsObserver {
         guard let activity else { return }
         awaitingActivity = false
         pendingActivityId = nil
-        dismissAndShowActivity(activity, accountId: accountId)
-    }
-
-    private func dismissAndShowActivity(_ activity: ApiActivity, accountId: String) {
-        navigationController?.dismiss(animated: true) {
-            AppActions.showActivityDetails(accountId: accountId, activity: activity)
-        }
+        AppActions.showActivityDetails(accountId: accountId, activity: activity, context: .stakeConfirmation)
     }
     
     public override func viewDidLoad() {

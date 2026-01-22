@@ -28,7 +28,7 @@ class NotificationSettingsFooterCell(
     override fun setupViews() {
         super.setupViews()
 
-        addView(soundsRow, LayoutParams(MATCH_PARENT, 56.dp))
+        addView(soundsRow, LayoutParams(MATCH_PARENT, 50.dp))
         setConstraints {
             toTop(soundsRow, ViewConstants.GAP.toFloat())
             toBottom(soundsRow, ViewConstants.GAP.toFloat())

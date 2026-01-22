@@ -15,7 +15,6 @@ import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonContainer
-import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WForegroundColorSpan
@@ -63,12 +62,6 @@ class EarnHeaderView(
     private val sizeSpan = RelativeSizeSpan(28f / 36f)
     private val colorSpan = WForegroundColorSpan()
     private val fractionalColorSpan = WForegroundColorSpan()
-
-    private val separatorBackgroundDrawable: SeparatorBackgroundDrawable by lazy {
-        SeparatorBackgroundDrawable().apply {
-            backgroundWColor = WColor.Background
-        }
-    }
 
     private val amountTextView = WSensitiveDataContainer(
         WLabel(context),
@@ -193,24 +186,17 @@ class EarnHeaderView(
     }
 
     override fun updateTheme() {
-        if (ThemeManager.uiMode.hasRoundedCorners) {
-            setBackgroundColor(WColor.SecondaryBackground.color)
-        } else {
-            background = separatorBackgroundDrawable
-            separatorBackgroundDrawable.invalidateSelf()
-        }
+        setBackgroundColor(WColor.SecondaryBackground.color)
         amountTextView.contentView.setTextColor(WColor.PrimaryText.color)
         colorSpan.color = WColor.SecondaryText.color
         fractionalColorSpan.color = WColor.SecondaryText.color
         messageLabel.setTextColor(WColor.SecondaryText.color)
         amountSkeletonView.setBackgroundColor(
-            if (ThemeManager.uiMode.hasRoundedCorners) WColor.SecondaryText.color
-            else WColor.SecondaryBackground.color,
+            WColor.SecondaryText.color,
             AMOUNT_SKELETON_RADIUS
         )
         messageSkeletonView.setBackgroundColor(
-            if (ThemeManager.uiMode.hasRoundedCorners) WColor.SecondaryText.color
-            else WColor.SecondaryBackground.color,
+            WColor.SecondaryText.color,
             MESSAGE_SKELETON_RADIUS
         )
     }
@@ -228,8 +214,10 @@ class EarnHeaderView(
         unstakeButton.alpha = 0f
     }
 
-    fun showInnerViews(shouldShowStakeButton: Boolean, shouldShowUnstakeButton: Boolean,
-                       shouldShowBiggerUnstakeButton: Boolean) {
+    fun showInnerViews(
+        shouldShowStakeButton: Boolean, shouldShowUnstakeButton: Boolean,
+        shouldShowBiggerUnstakeButton: Boolean
+    ) {
         amountTextView.visibility = VISIBLE
         messageLabel.visibility = VISIBLE
         addStakeButton.visibility = VISIBLE

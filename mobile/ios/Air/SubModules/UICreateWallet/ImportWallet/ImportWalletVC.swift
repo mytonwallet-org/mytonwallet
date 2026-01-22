@@ -331,7 +331,7 @@ extension ImportWalletVC: UIScrollViewDelegate {
 #if DEBUG
 @available(iOS 18.0, *)
 #Preview {
-    let model = IntroModel(password: nil)
+    let model = IntroModel(network: .mainnet, password: nil)
     WNavigationController(rootViewController: ImportWalletVC(introModel: model))
 }
 #endif

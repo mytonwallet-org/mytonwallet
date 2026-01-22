@@ -20,6 +20,7 @@ const electronApi: ElectronApi = {
   getIsTouchIdSupported: () => ipcRenderer.invoke(ElectronAction.GET_IS_TOUCH_ID_SUPPORTED),
   encryptPassword: (password: string) => ipcRenderer.invoke(ElectronAction.ENCRYPT_PASSWORD, password),
   decryptPassword: (encrypted: string) => ipcRenderer.invoke(ElectronAction.DECRYPT_PASSWORD, encrypted),
+  setBiometricPrompt: (prompt: string) => ipcRenderer.invoke(ElectronAction.SET_BIOMETRIC_PROMPT, prompt),
 
   setIsTrayIconEnabled: (value: boolean) => ipcRenderer.invoke(ElectronAction.SET_IS_TRAY_ICON_ENABLED, value),
   getIsTrayIconEnabled: () => ipcRenderer.invoke(ElectronAction.GET_IS_TRAY_ICON_ENABLED),

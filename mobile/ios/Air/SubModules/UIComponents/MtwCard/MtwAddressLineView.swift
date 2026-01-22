@@ -139,9 +139,9 @@ public struct MtwCardAddressLine: View {
                 }
             }
             if style.showAccessories {
-                Image.airBundle("ChevronDown10")
-                    .opacity(style.textOpacity)
-                    .offset(y: 1)
+                Image.airBundle("HomeCardAddressesArrow")
+                    .opacity(style.textOpacity == 1 ? 0.9 : 0.5)
+                    .offset(x: -1, y: 0.333)
                     .padding(.vertical, -3)
                     .sourceAtop {
                         if let gradient {

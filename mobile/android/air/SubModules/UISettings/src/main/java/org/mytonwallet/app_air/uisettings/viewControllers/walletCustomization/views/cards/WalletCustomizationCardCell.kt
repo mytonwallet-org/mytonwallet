@@ -195,18 +195,12 @@ class WalletCustomizationCardCell(context: Context, val cellWidth: Int) :
             addressLabel.paint.shader = textShader
             addressLabel.invalidate()
         }
-        updateAddressLabel()
-    }
-
-    private fun updateAddressLabel() {
-        addressLabel.style = when (account?.accountType) {
+        val style = when (account?.accountType) {
             MAccount.AccountType.VIEW -> WMultichainAddressLabel.walletCustomizationViewStyle
             MAccount.AccountType.HARDWARE -> WMultichainAddressLabel.walletCustomizationHardwareStyle
             else -> WMultichainAddressLabel.walletCustomizationStyle
         }
-        addressLabel.displayAddresses(account?.byChain?.map { (key, value) ->
-            Pair(key, value)
-        } ?: emptyList())
+        addressLabel.displayAddresses(account, style)
     }
 
     private fun updateBalance() {

@@ -3,8 +3,8 @@ package org.mytonwallet.app_air.walletcore.models
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.WEquatable
-import org.mytonwallet.app_air.walletcore.ALWAYS_SHOWN_TOKENS
 import org.mytonwallet.app_air.walletcore.DEFAULT_SHOWN_TOKENS
 import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.PRICELESS_TOKEN_HASHES
@@ -14,7 +14,6 @@ import org.mytonwallet.app_air.walletcore.STAKE_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TRON_USDT_SLUG
 import org.mytonwallet.app_air.walletcore.USDE_SLUG
-import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -135,9 +134,7 @@ class MToken(json: JSONObject) : IApiToken, WEquatable<MToken> {
         if (isVisibleToken) {
             return false
         }
-        if ((ALWAYS_SHOWN_TOKENS.contains(slug) && account.addressByChain.contains(chain) == true) ||
-            (DEFAULT_SHOWN_TOKENS.contains(slug) && account.isNew == true)
-        )
+        if (DEFAULT_SHOWN_TOKENS[account.network]?.contains(slug) == true && account.isNew)
             return false
         if (PRICELESS_TOKEN_HASHES.contains(codeHash) &&
             (BalanceStore.getBalances(account.accountId)?.get(slug)
@@ -164,8 +161,7 @@ class MToken(json: JSONObject) : IApiToken, WEquatable<MToken> {
             return chain == "ton" || (chain == "tron" && AccountStore.activeAccount?.tronAddress?.isNotBlank() == true)
         }
 
-    val explorerUrl: String?
-        get() {
+    fun explorerUrl(network: MBlockchainNetwork): String? {
             if (tokenAddress.isNullOrEmpty() && cmcSlug != null)
                 return "https://coinmarketcap.com/currencies/${cmcSlug}/"
 
@@ -173,12 +169,12 @@ class MToken(json: JSONObject) : IApiToken, WEquatable<MToken> {
 
             return when (chain) {
                 MBlockchain.ton -> {
-                    val domain = ExplorerHelpers.tonScanUrl(WalletCore.activeNetwork)
+                    val domain = ExplorerHelpers.tonScanUrl(network)
                     "${domain}jetton/${tokenAddress}"
                 }
 
                 MBlockchain.tron -> {
-                    val domain = ExplorerHelpers.tronScanUrl(WalletCore.activeNetwork)
+                    val domain = ExplorerHelpers.tronScanUrl(network)
                     return "${domain}token20/${tokenAddress}"
                 }
 

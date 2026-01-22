@@ -135,15 +135,5 @@ struct SwapCexDetailsView: View {
         }
         
         // TODO: Swap fee
-//        if let displayEstimate {
-//            InsetDetailCell {
-//                Text(lang("Blockchain Fee"))
-//                    .foregroundStyle(Color(WTheme.secondaryLabel))
-//            } value: {
-//                let fee = displayEstimate.swapFee
-//                let token = sellingToken.chain == "ton" ?  "TON" : "TRX"
-//                Text("~\(formatAmountText(amount: fee, currency: token, decimalsCount: 6))")
-//            }
-//        }
     }
 }

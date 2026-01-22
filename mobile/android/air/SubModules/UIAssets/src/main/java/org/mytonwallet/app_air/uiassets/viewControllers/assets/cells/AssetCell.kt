@@ -13,7 +13,7 @@ import androidx.core.view.setPadding
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
+import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.widgets.WAnimationView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WImageView
@@ -134,7 +134,7 @@ class AssetCell(
             } ?: run {
                 titleLabel.text =
                     SpannableStringBuilder(nft.address.formatStartEndAddress()).apply {
-                        updateDotsTypeface()
+                        styleDots()
                     }
             }
             subtitleLabel.text =

@@ -1,6 +1,6 @@
 import { TronWeb } from 'tronweb';
 
-import type { ApiActivity, ApiNetwork } from '../../types';
+import type { ApiActivity, ApiFetchTransactionByIdOptions } from '../../types';
 
 import { SECOND } from '../../../util/dateFormat';
 import isEmptyObject from '../../../util/isEmptyObject';
@@ -15,10 +15,11 @@ import { getTrc20Transactions, parseRawTrc20Transaction, parseRawTrxTransaction 
  * For TRON, `txId` is a transaction hash.
  */
 export async function fetchTransactionById(
-  network: ApiNetwork,
-  walletAddress: string,
-  txId: string,
+  { network, walletAddress, ...options }: ApiFetchTransactionByIdOptions,
 ): Promise<ApiActivity[]> {
+  const isTxId = 'txId' in options;
+  const txId = isTxId ? options.txId : options.txHash;
+
   try {
     const tronWeb = getTronClient(network);
 

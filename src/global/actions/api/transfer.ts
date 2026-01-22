@@ -60,10 +60,11 @@ addActionHandler('submitTransferInitial', async (global, actions, payload) => {
     binPayload,
   } = payload;
 
-  setGlobal(updateCurrentTransferLoading(global, true));
-
   const currentAccountId = selectCurrentAccountId(global)!;
   const isNftTransfer = Boolean(nfts?.length);
+
+  setGlobal(updateCurrentTransferLoading(global, true));
+
   let result: ApiCheckTransactionDraftResult | undefined;
 
   if (isNftTransfer) {
@@ -125,14 +126,16 @@ addActionHandler('fetchTransferFee', async (global, actions, payload) => {
   setGlobal(global);
 
   const {
-    tokenSlug, toAddress, comment, shouldEncrypt, binPayload, stateInit,
+    tokenSlug, toAddress, amount, comment, shouldEncrypt, binPayload, stateInit,
   } = payload;
 
   const { tokenAddress, chain } = selectToken(global, tokenSlug);
+  const accountId = selectCurrentAccountId(global)!;
 
   const result = await callApi('checkTransactionDraft', chain, {
-    accountId: selectCurrentAccountId(global)!,
+    accountId,
     toAddress,
+    amount,
     payload: getTransferPayload(chain, binPayload, comment, shouldEncrypt),
     tokenAddress,
     stateInit,

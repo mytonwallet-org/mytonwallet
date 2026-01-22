@@ -269,7 +269,8 @@
 }
 
 .footerButtonWrapper {
-  height: 2.75rem;
+  overflow: hidden;
+  height: 3rem;
 
   :global(.Transition_slide) {
     background: var(--background-color);

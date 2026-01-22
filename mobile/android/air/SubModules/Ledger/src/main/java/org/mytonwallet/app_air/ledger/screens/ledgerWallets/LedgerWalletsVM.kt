@@ -8,7 +8,7 @@ import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcore.MAIN_NETWORK
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.TON_CHAIN
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.api.activateAccount
@@ -31,6 +31,7 @@ class LedgerWalletsVM(delegate: Delegate) {
     val delegate: WeakReference<Delegate> = WeakReference(delegate)
 
     fun finalizeImport(
+        network: MBlockchainNetwork,
         newWallets: List<MLedgerWalletInfo>
     ) {
         CoroutineScope(Dispatchers.IO).launch {
@@ -39,7 +40,7 @@ class LedgerWalletsVM(delegate: Delegate) {
                 try {
                     val result = WalletCore.call(
                         ApiMethod.Auth.ImportLedgerWallet(
-                            MAIN_NETWORK, MApiLedgerAccountInfo(
+                            network, MApiLedgerAccountInfo(
                                 byChain = mapOf(
                                     TON_CHAIN to newWallet.wallet,
                                 ),
@@ -112,14 +113,14 @@ class LedgerWalletsVM(delegate: Delegate) {
     }
 
     private var isLoadingMore = false
-    fun loadMore(index: Int) {
+    fun loadMore(network: MBlockchainNetwork, index: Int) {
         if (isLoadingMore)
             return
         isLoadingMore = true
         WalletCore.call(
             ApiMethod.Auth.GetLedgerWallets(
                 MBlockchain.ton,
-                MAIN_NETWORK,
+                network,
                 index,
                 5
             )

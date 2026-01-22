@@ -1,6 +1,6 @@
 {
   "name": "mytonwallet",
-  "version": "4.5.5",
+  "version": "4.5.6",
   "description": "The most feature-rich web wallet and browser extension for TON – with support of multi-accounts, tokens (jettons), NFT, TON DNS, TON Sites, TON Proxy, and TON Magic.",
   "main": "index.js",
   "scripts": {
@@ -39,6 +39,11 @@
     "telegram:build:dev": "cross-env APP_ENV=development npm run telegram:build",
     "telegram:build:staging": "cross-env APP_ENV=staging npm run telegram:build",
     "telegram:build:production": "npm run telegram:build",
+    "explorer:dev": "cross-env IS_EXPLORER=1 npm run dev",
+    "explorer:build": "cross-env IS_EXPLORER=1 npm run build",
+    "explorer:build:dev": "cross-env IS_EXPLORER=1 npm run build:dev",
+    "explorer:build:staging": "cross-env IS_EXPLORER=1 npm run build:staging",
+    "explorer:build:production": "cross-env IS_EXPLORER=1 npm run build:production",
     "mobile:build:sdk": "bash ./deploy/build_sdk.sh",
     "mobile:build": "npm run mobile:build:sdk && cross-env IS_CAPACITOR=1 npm run build && cap sync --deployment",
     "mobile:build:dev": "cross-env APP_ENV=development npm run mobile:build",
@@ -223,7 +228,7 @@
     "capacitor-native-settings": "7.0.1",
     "capacitor-plugin-safe-area": "4.0.2",
     "capacitor-secure-storage-plugin": "github:mytonwallet-org/capacitor-secure-storage-plugin#cd8b688d4104017133fc265d0f5cf2159ddc062a",
-    "cordova-plugin-inappbrowser": "github:mytonwalletorg/cordova-plugin-inappbrowser#daa536fbbc67807f199b5860e3e7d54f95e8bad6",
+    "cordova-plugin-inappbrowser": "github:mytonwalletorg/cordova-plugin-inappbrowser#ce838be02c8b2ba5302a2ccf08a146a6c94fd4be",
     "create-hmac": "1.1.7",
     "dexie": "4.0.11",
     "electron-conf": "1.3.0",

@@ -53,6 +53,10 @@ enum class WColor {
 }
 
 val WColor.color: Int get() = ThemeManager.getColor(this)
+fun WColor.colorForTheme(isDark: Boolean?): Int {
+    return ThemeManager.getColor(this, isDark ?: ThemeManager.isDark)
+}
+
 val WColor.colorStateList: ColorStateList
     get() {
         return ColorStateList.valueOf(this.color)
@@ -85,11 +89,6 @@ object ThemeManager : ITheme {
         COMMON("common"),
         BIG_RADIUS("bigRadius"),
         COMPOUND("compound");
-
-        val hasRoundedCorners: Boolean
-            get() {
-                return this != COMMON
-            }
 
         companion object {
             fun fromValue(value: String): UIMode? {
@@ -133,6 +132,7 @@ object ThemeManager : ITheme {
         theme: String,
         uiMode: UIMode,
         sideGuttersActive: Boolean,
+        roundedCornersActive: Boolean = true,
     ) {
         isInitialized = true
         activeTheme = theme
@@ -149,6 +149,10 @@ object ThemeManager : ITheme {
 
         this.uiMode = uiMode
         ViewConstants.HORIZONTAL_PADDINGS = if (sideGuttersActive) 10 else 0
+        if (!roundedCornersActive) {
+            ViewConstants.BIG_RADIUS = 0f
+            ViewConstants.STANDARD_ROUNDS = 0f
+        }
     }
 
     fun setNftAccentColor(nftAccentId: Int) {
@@ -166,4 +170,6 @@ object ThemeManager : ITheme {
     }
 
     override fun getColor(color: WColor): Int = this.colors[color.ordinal]
+    override fun getColor(color: WColor, isDark: Boolean): Int =
+        if (isDark) THEME_DARK_PRESET[color.ordinal] else THEME_LIGHT_PRESET[color.ordinal]
 }

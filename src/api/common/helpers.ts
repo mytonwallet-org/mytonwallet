@@ -63,15 +63,15 @@ export function updateActivityMetadata<T extends ApiActivity>(activity: T): T {
   }
 
   const {
-    normalizedAddress, comment, isIncoming, nft,
+    normalizedAddress, comment, isIncoming, type, nft, status,
   } = activity;
   let { metadata = {} } = activity;
-
-  const isNftTransfer = Boolean(nft);
   const knownAddresses = getKnownAddresses();
   const hasScamMarkers = comment ? getScamMarkers().some((sm) => sm.test(comment)) : false;
-  const shouldCheckComment = !hasScamMarkers && comment && isIncoming
-    && (isNftTransfer || comment.toLowerCase().includes('claim'));
+  const isBounced = type === 'bounced';
+  const isNft = Boolean(nft);
+  const shouldCheckComment = !hasScamMarkers && comment && (isIncoming || isBounced)
+    && (isNft || comment.toLowerCase().includes('claim') || isBounced || status === 'failed');
   const hasScamInComment = shouldCheckComment
     ? (checkHasScamLink(comment) || checkHasTelegramBotMention(comment))
     : false;

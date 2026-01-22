@@ -26,13 +26,11 @@ import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSens
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
-import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
-import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MToken
@@ -79,7 +77,7 @@ class TokenHeaderView(
                             LocaleController.getString("View on Explorer"),
                             true,
                         ) {
-                            token.explorerUrl?.let {
+                            token.explorerUrl(MBlockchainNetwork.ofAccountId(accountId))?.let {
                                 open(it)
                             }
                         } else null,
@@ -183,7 +181,6 @@ class TokenHeaderView(
 
     override fun updateTheme() {
         balanceContentView.updateTheme()
-        updateBackgroundColor()
         balanceContentView.apply {
             typeface = WFont.NunitoExtraBold.typeface
         }
@@ -232,23 +229,6 @@ class TokenHeaderView(
         equivalentLabel.scaleY = equivalentLabel.scaleX
         equivalentLabel.setMaskPivotYPercent(0f)
         equivalentLabel.setMaskScale(0.5f + (1 - collapseProgress) / 2f)
-
-        if (ThemeManager.uiMode.hasRoundedCorners)
-            return
-        val newAlpha = min(
-            1f,
-            (contentHeight - dy + 92.dp) / ViewConstants.GAP.dp.toFloat()
-        )
-        updateBackgroundColor(newAlpha)
-    }
-
-    private var backgroundAlpha = 1f
-    private fun updateBackgroundColor(newAlpha: Float? = null) {
-        backgroundAlpha = newAlpha ?: backgroundAlpha
-        if (!ThemeManager.uiMode.hasRoundedCorners && backgroundAlpha > 0)
-            setBackgroundColor(WColor.Background.color.colorWithAlpha((backgroundAlpha * 255).toInt()))
-        else
-            background = null
     }
 
     private var prevBalance: BigInteger? = null

@@ -8,6 +8,7 @@ import { areDeepEqual } from '../../../util/areDeepEqual';
 import { createCallbackManager } from '../../../util/callbacks';
 import Deferred from '../../../util/Deferred';
 import { pick } from '../../../util/iteratees';
+import { logDebug } from '../../../util/logs';
 import { throttle } from '../../../util/schedulers';
 import withCacheAsync from '../../../util/withCacheAsync';
 import { FallbackPollingScheduler } from '../../common/polling/fallbackPollingScheduler';
@@ -66,6 +67,7 @@ export class BalanceStream {
         onConnect: this.#handleSocketConnect,
         onDisconnect: this.#handleSocketDisconnect,
         onBalanceUpdate: throttleSocketBalanceUpdates(this.#handleSocketBalanceUpdate),
+        onTraceInvalidated: this.#handleTraceInvalidated,
       },
     );
 
@@ -114,7 +116,17 @@ export class BalanceStream {
     this.#fallbackPollingScheduler.onSocketDisconnect();
   };
 
+  /**
+   * Called when a trace is invalidated. Balance updates received from `confirmed` finality level
+   * may be stale, so we need to re-fetch actual balances from the network.
+   */
+  #handleTraceInvalidated = () => {
+    logDebug('toncenter: trace invalidated, forcing balance re-poll', { address: this.#address });
+    this.#fallbackPollingScheduler.forceImmediatePoll();
+  };
+
   #handleSocketBalanceUpdate: OnSocketBalancesUpdate = async (newBalances) => {
+    logDebug('toncenter: balance update from socket', { address: this.#address, updates: Object.keys(newBalances) });
     if (this.#isDestroyed) return;
     this.#fallbackPollingScheduler.onSocketMessage();
 
@@ -181,7 +193,12 @@ function throttleSocketBalanceUpdates(onUpdate: OnSocketBalancesUpdate): Balance
     onUpdate(updates);
   }, SOCKET_THROTTLE_DELAY, false);
 
-  return ({ tokenAddress, balance }) => {
+  return ({ tokenAddress, balance, finality }) => {
+    logDebug('toncenter: throttling balance update', {
+      finality,
+      tokenAddress: tokenAddress ?? TON_VIRTUAL_ADDRESS,
+      balance: balance.toString(),
+    });
     pendingUpdates[tokenAddress ?? TON_VIRTUAL_ADDRESS] = balance;
     notifyThrottled();
   };

@@ -22,11 +22,11 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setDefaultAc
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setNftAccentColor
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcontext.utils.ensureMainThread
 import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.api.requestDAppList
-import org.mytonwallet.app_air.walletcore.helpers.PoisoningCacheHelper
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MAssetsAndActivityData
 import org.mytonwallet.app_air.walletcore.moshi.MoshiBuilder
@@ -55,11 +55,10 @@ const val STAKE_SLUG = "ton-eqcqc6ehrj"
 const val STAKED_MYCOIN_SLUG = "ton-eqcbzvsfwq"
 const val STAKED_USDE_SLUG = "ton-eqdq5uuyph"
 const val TON_USDT_SLUG = "ton-eqcxe6mutq"
+const val TON_USDT_TESTNET_SLUG = "ton-kqd0gkbm8z"
 const val TRON_SLUG = "trx"
 const val TRON_USDT_SLUG = "tron-tr7nhqjekq"
 const val TRON_USDT_TESTNET_SLUG = "tron-tg3xxyexbk"
-const val MAIN_NETWORK = "mainnet"
-const val TEST_NETWORK = "testnet"
 const val BURN_ADDRESS = "UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ"
 const val TON_DNS_COLLECTION = "EQC3dNlesgVD8YbAazcauIrXBPfiVhMMr5YYk2in0Mtsz0Bz"
 const val MTW_CARDS_COLLECTION = "EQCQE2L9hfwx1V8sgmF9keraHx1rNK9VmgR1ctVvINBGykyM"
@@ -84,19 +83,19 @@ val PRICELESS_TOKEN_HASHES = setOf(
     "ddf80de336d580ab3c11d194f189c362e2ca1225cae224ea921deeaba7eca818", // tsUSDe EQDQ5UUyPHrLcQJlPAczd_fjxn8SLrlNQwolBznxCdSlfQwr
 )
 
-val ALWAYS_SHOWN_TOKENS = setOf(
-    TONCOIN_SLUG,
-    TON_USDT_SLUG,
-    TRON_SLUG,
-    TRON_USDT_TESTNET_SLUG,
-)
-
-val DEFAULT_SHOWN_TOKENS = setOf(
-    TONCOIN_SLUG,
-    TON_USDT_SLUG,
-    TRON_SLUG,
-    TRON_USDT_TESTNET_SLUG,
-    TRON_USDT_SLUG,
+val DEFAULT_SHOWN_TOKENS = mapOf(
+    MBlockchainNetwork.MAINNET to setOf(
+        TONCOIN_SLUG,
+        TON_USDT_SLUG,
+        TRON_SLUG,
+        TRON_USDT_SLUG,
+    ),
+    MBlockchainNetwork.TESTNET to setOf(
+        TONCOIN_SLUG,
+        TON_USDT_TESTNET_SLUG,
+        TRON_SLUG,
+        TRON_USDT_TESTNET_SLUG,
+    ),
 )
 
 val DEFAULT_SWAP_VERSION = 3
@@ -116,7 +115,6 @@ object WalletCore {
 
     var bridge: JSWebViewBridge? = null
         private set
-    var activeNetwork = "mainnet"
     var isMultichain = false
     var nextAccountId: String? = null
     var nextAccountIsPushedTemporary: Boolean? = null
@@ -200,11 +198,11 @@ object WalletCore {
     }
 
     fun switchingToLegacy() {
+        WGlobalStorage.setTokenInfo(TokenStore.getTokenInfo())
+        WGlobalStorage.clearPriceHistory()
         AccountStore.removeTemporaryAccounts()
         destroyBridge()
         WSecureStorage.clearCache()
-        WGlobalStorage.setTokenInfo(TokenStore.getTokenInfo())
-        WGlobalStorage.clearPriceHistory()
         /*if (WGlobalStorage.getLangCode() == "fa")
             WGlobalStorage.setLangCode("en")*/
         WCacheStorage.clean(WGlobalStorage.accountIds())

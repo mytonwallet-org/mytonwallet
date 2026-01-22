@@ -97,7 +97,7 @@ class MiniCardView(context: Context, private val containerWidth: Int) : WView(co
                 toCenterX(balanceContainerView)
                 toTop(balanceContainerView, -4f)
                 toBottom(balanceContainerView, 4f)
-                toCenterX(addressLabel)
+                toCenterX(addressLabel, 2f)
                 toBottom(addressLabel, 6f)
             }
 
@@ -189,11 +189,7 @@ class MiniCardView(context: Context, private val containerWidth: Int) : WView(co
     private fun setLabelColors(primaryColor: Int, secondaryColor: Int, drawGradient: Boolean) {
         balanceView.updateColors(primaryColor, secondaryColor, drawGradient)
         addressLabel.setTextColor(primaryColor, secondaryColor, drawGradient)
-        updateAddressLabel()
-    }
-
-    private fun updateAddressLabel() {
-        addressLabel.style = when (account?.accountType) {
+        val style = when (account?.accountType) {
             MAccount.AccountType.VIEW -> WMultichainAddressLabel.miniCardWalletViewStyle
             MAccount.AccountType.HARDWARE -> WMultichainAddressLabel.miniCardWalletHardwareStyle
             else -> if (isActive()) {
@@ -202,9 +198,7 @@ class MiniCardView(context: Context, private val containerWidth: Int) : WView(co
                 WMultichainAddressLabel.miniCardWalletStyle
             }
         }
-        addressLabel.displayAddresses(account?.byChain?.map { (key, value) ->
-            Pair(key, value)
-        } ?: emptyList())
+        addressLabel.displayAddresses(account, style)
     }
 
     override fun dispatchDraw(canvas: Canvas) {

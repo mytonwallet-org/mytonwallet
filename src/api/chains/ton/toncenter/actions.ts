@@ -8,6 +8,7 @@ import type {
   ApiSwapActivity,
   ApiSwapDexLabel,
   ApiToken,
+  ApiTransaction,
   ApiTransactionActivity,
   ApiTransactionType,
 } from '../../../types';
@@ -32,6 +33,7 @@ import type {
   NftItemMetadata,
   NftMintAction,
   NftTransferAction,
+  SocketFinality,
   StakeDepositAction,
   StakeWithdrawalAction,
   StakeWithdrawalRequestAction,
@@ -93,7 +95,22 @@ type ParseOptions = {
   metadata: MetadataMap;
   nftSuperCollectionsByCollectionAddress: Record<string, ApiNftSuperCollection>;
   isPending?: boolean;
+  finality?: SocketFinality;
 };
+
+function resolveActivityStatus(
+  isPending: boolean | undefined,
+  isSuccess: boolean,
+  finality: SocketFinality | undefined,
+): ApiTransaction['status'] {
+  if (isPending) {
+    return 'pending';
+  }
+  if (finality === 'confirmed' || finality === 'signed') {
+    return 'confirmed';
+  }
+  return isSuccess ? 'completed' : 'failed';
+}
 
 const RAW_LIQUID_POOL_ADDRESS = '0:F6FF877DD4CE1355B101572045F09D54C29309737EB52CA542CFA6C195F7CC5B';
 const RAW_NFT_CARD_COLLECTION = '0:901362FD85FC31D55F2C82617D91EADA1F1D6B34AF559A047572D56F20D046CA';
@@ -712,7 +729,7 @@ function parseJettonSwap(action: SwapAction, options: ParseOptions): ParsedActio
     networkFee: '0',
     swapFee: '0',
     ourFee: '0',
-    status: isPending ? 'pending' : isSuccess ? 'completed' : 'failed',
+    status: resolveActivityStatus(isPending, isSuccess, options.finality),
     hashes: [],
     externalMsgHashNorm: action.trace_external_hash_norm ?? action.trace_external_hash,
     shouldLoadDetails: true,
@@ -891,7 +908,7 @@ function parseCommonFields(
   amountString: string | number = 0,
 ) {
   const id = buildActionActivityId(action);
-  const { walletAddress, network, addressBook, isPending } = options;
+  const { walletAddress, network, addressBook, isPending, finality } = options;
   const fromAddress = addressBook[rawFromAddress].user_friendly;
   const toAddress = addressBook[rawToAddress].user_friendly;
   const isIncoming = toAddress === walletAddress;
@@ -909,7 +926,7 @@ function parseCommonFields(
     normalizedAddress,
     amount,
     // Pending actions from Toncenter are not trusted
-    status: isPending ? 'pending' : action.success ? 'completed' : 'failed',
+    status: resolveActivityStatus(isPending, action.success, finality),
   } satisfies Partial<ApiTransactionActivity>;
 }
 

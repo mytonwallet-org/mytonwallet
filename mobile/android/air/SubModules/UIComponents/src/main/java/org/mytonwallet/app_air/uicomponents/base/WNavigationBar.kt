@@ -63,7 +63,7 @@ class WNavigationBar(
 
     val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(22F, WFont.Medium)
+            setStyle(22F, WFont.SemiBold)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isSelected = true
@@ -177,6 +177,54 @@ class WNavigationBar(
         oldTitle = title
     }
 
+    private var oldTitleView: View? = null
+    fun setTitleView(titleView: View?, animated: Boolean) {
+        if (oldTitleView == titleView)
+            return
+
+        val showNewView = {
+            if (titleView != null) {
+                titleLabel.visibility = GONE
+                titleLinearLayout.addView(
+                    titleView,
+                    0,
+                    LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+                )
+                if (animated) {
+                    titleView.alpha = 0f
+                    titleView.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
+                }
+            } else {
+                titleLabel.visibility = VISIBLE
+                if (animated) {
+                    titleLabel.alpha = 0f
+                    titleLabel.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
+                }
+            }
+            oldTitleView = titleView
+        }
+
+        oldTitleView?.let { oldView ->
+            if (animated) {
+                oldView.fadeOut(AnimationConstants.VERY_QUICK_ANIMATION) {
+                    titleLinearLayout.removeView(oldView)
+                    showNewView()
+                }
+            } else {
+                titleLinearLayout.removeView(oldView)
+                showNewView()
+            }
+        } ?: run {
+            if (animated && titleLabel.isVisible && titleView != null) {
+                titleLabel.fadeOut(AnimationConstants.VERY_QUICK_ANIMATION) {
+                    showNewView()
+                }
+            } else {
+                showNewView()
+            }
+        }
+    }
+
     private var oldSubtitle: String? = null
     fun setSubtitle(subtitle: String?, animated: Boolean) {
         if (oldSubtitle == subtitle)
@@ -268,9 +316,9 @@ class WNavigationBar(
         subtitleLabel.gravity = gravity
         contentView.setConstraints {
             if (gravity == Gravity.CENTER) {
-                toCenterX(titleLinearLayout, if (backButton.isVisible) 64f else 20f)
+                toCenterX(titleLinearLayout, if (backButton.isVisible) 64f else 24f)
             } else {
-                toStart(titleLinearLayout, if (backButton.isVisible) 64f else 20f)
+                toStart(titleLinearLayout, if (backButton.isVisible) 64f else 24f)
                 toEnd(titleLinearLayout, 20f)
             }
         }

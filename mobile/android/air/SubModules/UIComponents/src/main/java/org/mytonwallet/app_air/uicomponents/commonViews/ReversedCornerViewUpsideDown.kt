@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.os.Build
@@ -14,7 +13,6 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -33,19 +31,9 @@ class ReversedCornerViewUpsideDown(
         }
     }
 
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = if (blurRootView != null) Color.TRANSPARENT else WColor.SecondaryBackground.color
-        style = Paint.Style.FILL
-    }
-
     private val backgroundView: View by lazy {
         View(context).apply {
-            setBackgroundColor(
-                if (ThemeManager.uiMode.hasRoundedCorners)
-                    WColor.SecondaryBackground.color
-                else
-                    WColor.Background.color
-            )
+            setBackgroundColor(WColor.SecondaryBackground.color)
         }
     }
 
@@ -74,8 +62,14 @@ class ReversedCornerViewUpsideDown(
         postInvalidateOnAnimation()
     }
 
-    fun setBlurOverlayColor(color: WColor) {
-        blurryBackgroundView?.setOverlayColor(color)
+    private var overlayColor: Int? = null
+    fun setBlurOverlayColor(color: Int?) {
+        overlayColor = color
+
+        blurryBackgroundView?.setOverlayColor(color ?: Color.TRANSPARENT) ?: run {
+            backgroundView.setBackgroundColor(color ?: WColor.SecondaryBackground.color)
+        }
+        postInvalidateOnAnimation()
     }
 
     override fun onAttachedToWindow() {
@@ -104,8 +98,6 @@ class ReversedCornerViewUpsideDown(
         }
 
         drawChildrenClipped(canvas)
-
-        canvas.drawPath(path, paint)
     }
 
     private fun updatePath(width: Float, height: Float) {
@@ -140,9 +132,12 @@ class ReversedCornerViewUpsideDown(
     }
 
     override fun updateTheme() {
-        if (blurryBackgroundView == null) {
-            backgroundView.setBackgroundColor(WColor.SecondaryBackground.color)
-        }
+        val bgColor = overlayColor
+            ?: WColor.SecondaryBackground.color
+        if (blurryBackgroundView == null)
+            backgroundView.setBackgroundColor(bgColor)
+
+        blurryBackgroundView?.updateTheme()
 
         updateRadius()
 
@@ -159,8 +154,6 @@ class ReversedCornerViewUpsideDown(
             return
         cornerRadius = ViewConstants.BAR_ROUNDS.dp
         radii = floatArrayOf(0f, 0f, 0f, 0f, cornerRadius, cornerRadius, cornerRadius, cornerRadius)
-        paint.color =
-            if (blurRootView != null) Color.TRANSPARENT else WColor.SecondaryBackground.color
         pathDirty = true
     }
 

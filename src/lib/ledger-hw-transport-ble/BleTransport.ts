@@ -44,6 +44,13 @@ import { decoratePromiseErrors, remapError } from './remapErrors';
 
 const LOG_TYPE = 'ble-verbose';
 
+const PAIRING_ERROR_MESSAGES = [
+  'notify change failed',
+  'encryption',
+  'pairing',
+  'notifications timeout', // When the user does not press the `Cancel` button for a long time
+];
+
 /**
  * This is potentially not needed anymore, to be checked if the bug is still happening.
  */
@@ -181,11 +188,11 @@ export default class BleTransport extends Transport {
     try {
       await BleClient.disconnect(id);
       onDisconnect?.();
-    } catch (error) {
+    } catch (err: any) {
       // Only log, ignore if disconnect did not work
       tracer
         .withType('ble-error')
-        .trace('Error while trying to cancel device connection', { error });
+        .trace('Error while trying to cancel device connection', { error: err });
     }
     tracer.trace(`Device ${id} disconnected`);
   };
@@ -299,9 +306,9 @@ export default class BleTransport extends Transport {
           tap((data) => {
             tracer.withType('apdu').trace(`<= ${data.toString('hex')}`);
           }),
-          catchError(async (error) => {
+          catchError(async (err: any) => {
             // Currently only 1 reason the exchange has been explicitly aborted (other than job and transport errors): a timeout
-            if (error instanceof TimeoutError) {
+            if (err instanceof TimeoutError) {
               tracer.trace(
                 'Aborting due to timeout and trying to cancel all communication write of the current exchange',
                 {
@@ -316,7 +323,7 @@ export default class BleTransport extends Transport {
               throw new TransportExchangeTimeoutError('Exchange aborted due to timeout');
             }
 
-            tracer.withType('ble-error').trace('Error while exchanging APDU', { error });
+            tracer.withType('ble-error').trace('Error while exchanging APDU', { error: err });
 
             if (this.notYetDisconnected) {
               // In such case we will always disconnect because something is bad.
@@ -324,7 +331,7 @@ export default class BleTransport extends Transport {
               await BleTransport.disconnectDevice(this.id, this.onDisconnect);
             }
 
-            const mappedError = remapError(error as IOBleErrorRemap);
+            const mappedError = remapError(err as IOBleErrorRemap);
             tracer.trace('Error while exchanging APDU, mapped and throws following error', {
               mappedError,
             });
@@ -381,12 +388,12 @@ export default class BleTransport extends Transport {
             defer(() => from(this.write(Buffer.from([0x08, 0, 0, 0, 0])))).pipe(ignoreElements()),
           ),
         );
-      } catch (error: any) {
-        this.tracer.withType('ble-error').trace('Error while inferring MTU', { mtu });
+      } catch (err: any) {
+        this.tracer.withType('ble-error').trace('Error while inferring MTU', { mtu, error: err });
 
         await BleTransport.disconnectDevice(this.id, this.onDisconnect);
 
-        const mappedError = remapError(error);
+        const mappedError = remapError(err);
         this.tracer.trace('Error while inferring APDU, mapped and throws following error', {
           mappedError,
         });
@@ -466,10 +473,10 @@ export default class BleTransport extends Transport {
         dataView,
       );
       tracer.withType('ble-frame').trace(`=> ${buffer.toString('hex')}`);
-    } catch (error: unknown) {
-      tracer.trace('Error while writing APDU', { error });
+    } catch (err: any) {
+      tracer.trace('Error while writing APDU', { error: err });
       throw new DisconnectedDeviceDuringOperation(
-        error instanceof Error ? error.message : `${String(error)}`,
+        err instanceof Error ? err.message : `${String(err)}`,
       );
     }
   };
@@ -608,10 +615,10 @@ async function open(
       }, {
         timeout: timeoutMs,
       });
-    } catch (error: any) {
-      tracer.trace('Connect error', { error });
+    } catch (err: any) {
+      tracer.trace('Connect error', { error: err });
       // eslint-disable-next-line @typescript-eslint/only-throw-error
-      throw remapError(error);
+      throw remapError(err);
     }
   }
 
@@ -710,13 +717,16 @@ async function open(
     currentDeviceService!,
     notifiableCharacteristic,
     context).pipe(
-    catchError((e) => {
+    catchError((err: any) => {
       // LL-9033 fw 2.0.2 introduced this case, we silence the inner unhandled error.
       // It will be handled when negotiating the MTU in `inferMTU` but will be ignored in other cases.
-      const msg = String(e);
-      return msg.includes('notify change failed')
-        ? of(new PairingFailed(msg))
-        : throwError(() => e);
+      // Also handle "Encryption is insufficient" error when user cancels pairing dialog.
+      const message = (err.message || String(err)).toLowerCase();
+      const isPairingError = PAIRING_ERROR_MESSAGES.some((msg) => message.includes(msg));
+
+      return isPairingError
+        ? of(new PairingFailed(message))
+        : throwError(() => err);
     }),
     tap((value) => {
       if (value instanceof PairingFailed) return;
@@ -776,29 +786,43 @@ async function open(
 
   try {
     await transport.inferMTU();
-  } finally {
-    const afterMTUTime = Date.now();
+  } catch (err: any) {
+    tracer.withType('ble-error').trace('Error during inferMTU in open, cleaning up', { error: err });
 
-    if (reconnectionConfig) {
-      // Refer to ledgerjs archived repo issue #279.
-      // All HW .v1 LNX have a bug that prevents us from communicating with the device right after pairing.
-      // When we connect for the first time we issue a disconnect and reconnect, this guarantees that we are
-      // in a good state. This is avoidable in some key scenarios ↓
-      if (afterMTUTime - beforeMTUTime < reconnectionConfig.pairingThreshold) {
-        needsReconnect = false;
-      } else if (deviceModel.id === DeviceModelId.stax) {
-        tracer.trace('Skipping "needsReconnect" strategy for Stax');
-        needsReconnect = false;
-      }
+    // Clean up resources on error
+    notif.unsubscribe();
+    delete transportsCache[transport.id];
 
-      if (needsReconnect) {
-        tracer.trace('Device needs reconnection. Triggering a disconnect');
-        await BleTransport.disconnectDevice(transport.id, transport.onDisconnect);
-        await delay(reconnectionConfig.delayAfterFirstPairing);
-      }
-    } else {
+    try {
+      await BleTransport.disconnectDevice(transport.id, transport.onDisconnect);
+    } catch (disconnectError) {
+      tracer.withType('ble-error').trace('Error while disconnecting after inferMTU failure', { disconnectError });
+    }
+
+    throw err;
+  }
+
+  const afterMTUTime = Date.now();
+
+  if (reconnectionConfig) {
+    // Refer to ledgerjs archived repo issue #279.
+    // All HW .v1 LNX have a bug that prevents us from communicating with the device right after pairing.
+    // When we connect for the first time we issue a disconnect and reconnect, this guarantees that we are
+    // in a good state. This is avoidable in some key scenarios ↓
+    if (afterMTUTime - beforeMTUTime < reconnectionConfig.pairingThreshold) {
+      needsReconnect = false;
+    } else if (deviceModel.id === DeviceModelId.stax) {
+      tracer.trace('Skipping "needsReconnect" strategy for Stax');
       needsReconnect = false;
     }
+
+    if (needsReconnect) {
+      tracer.trace('Device needs reconnection. Triggering a disconnect');
+      await BleTransport.disconnectDevice(transport.id, transport.onDisconnect);
+      await delay(reconnectionConfig.delayAfterFirstPairing);
+    }
+  } else {
+    needsReconnect = false;
   }
 
   if (needsReconnect) {

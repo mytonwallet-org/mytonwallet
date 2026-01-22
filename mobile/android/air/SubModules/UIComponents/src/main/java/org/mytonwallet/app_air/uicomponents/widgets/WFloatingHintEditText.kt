@@ -23,7 +23,6 @@ import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
-import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -152,8 +151,8 @@ open class WFloatingHintEditText @JvmOverloads constructor(
 
     private fun startViewPropertiesAnimation() {
         val primaryAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = AnimationConstants.VERY_VERY_QUICK_ANIMATION
-            interpolator = CubicBezierInterpolator.EASE_OUT
+            duration = AnimationConstants.VERY_QUICK_ANIMATION
+            interpolator = CubicBezierInterpolator.EASE_BOTH
             addUpdateListener { animation ->
                 val animatedValue = animation.animatedValue as Float
                 onViewPropertiesPrimaryAnimationProgress(animatedValue)
@@ -162,7 +161,7 @@ open class WFloatingHintEditText @JvmOverloads constructor(
         }
         val secondaryAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = AnimationConstants.SUPER_QUICK_ANIMATION
-            interpolator = CubicBezierInterpolator.EASE_OUT
+            interpolator = CubicBezierInterpolator.EASE_BOTH
             addUpdateListener { animation ->
                 val animatedValue = animation.animatedValue as Float
                 onViewPropertiesSecondaryAnimationProgress(animatedValue)
@@ -183,14 +182,12 @@ open class WFloatingHintEditText @JvmOverloads constructor(
             // focus, empty
             targetState.hasFocus && !targetState.hasText -> ViewPropertiesState(
                 hintAlpha = 1f,
-                hintTranslationX = 1f,
                 cursorAlpha = 1f
             )
 
             // non-empty
             else -> ViewPropertiesState(
                 hintAlpha = 0f,
-                hintTranslationX = 1f,
                 cursorAlpha = 1f
             )
         }
@@ -233,7 +230,7 @@ open class WFloatingHintEditText @JvmOverloads constructor(
     ) {
         val viewPropertiesState = viewPropertiesStateSet.current
         hintLayout.paint.alpha = (viewPropertiesState.hintAlpha * 255).roundToInt()
-        val hintExtraPadding = abs(paddingLeft - paddingRight)
+        val hintExtraPadding = paddingRight - paddingLeft
         val contentXOffset = -viewPropertiesState.hintTranslationX * (contextX + hintExtraPadding)
         canvas.withTranslation(hintX + contentXOffset - scrollX, hintY - scrollY) {
             hintLayout.draw(canvas)
@@ -405,7 +402,7 @@ open class WFloatingHintEditText @JvmOverloads constructor(
 
     private data class ViewPropertiesState(
         var hintAlpha: Float = 1f,
-        var hintTranslationX: Float = 0f,
+        var hintTranslationX: Float = 1f,
         var cursorAlpha: Float = 0f
     )
 

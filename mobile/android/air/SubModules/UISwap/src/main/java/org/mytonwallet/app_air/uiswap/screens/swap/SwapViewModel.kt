@@ -953,6 +953,7 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                     estimate.fee?.toBigDecimal(9)?.toDouble() ?: 0.0
                 } else 0.0
 
+                swappedEstimateConfig = estimate
                 val result = WalletCore.Swap.swapCexCreateTransaction(
                     accountId,
                     passcode,
@@ -969,7 +970,6 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
                 )
 
                 if (estimate.request.tokenToSendIsSupported) {
-                    swappedEstimateConfig = estimate
                     WalletCore.Transfer.swapCexSubmit(
                         tokenToSend.mBlockchain!!, MApiSubmitTransferOptions(
                             accountId = accountId,
@@ -1003,8 +1003,10 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
 
     private fun checkReceivedActivity(receivedActivity: MApiTransaction) {
         val isSwapDone = receivedActivity is MApiTransaction.Swap &&
-            receivedActivity.from == swappedEstimateConfig?.request?.tokenToSend?.slug &&
-            receivedActivity.to == swappedEstimateConfig?.request?.tokenToReceive?.slug
+            (receivedActivity.from == swappedEstimateConfig?.request?.tokenToSend?.slug ||
+                receivedActivity.from == swappedEstimateConfig?.request?.tokenToSend?.tokenAddress) &&
+            (receivedActivity.to == swappedEstimateConfig?.request?.tokenToReceive?.slug ||
+                receivedActivity.to == swappedEstimateConfig?.request?.tokenToReceive?.tokenAddress)
         if (!isSwapDone)
             return
         _eventsFlow.tryEmit(Event.SwapComplete(success = true, activity = receivedActivity))
@@ -1027,13 +1029,13 @@ class SwapViewModel : ViewModel(), WalletCore.EventObserver {
             }
 
             is WalletEvent.NewLocalActivities -> {
-                walletEvent.localActivities?.firstOrNull()?.let {
+                walletEvent.localActivities?.forEach {
                     checkReceivedActivity(it)
                 }
             }
 
             is WalletEvent.ReceivedPendingActivities -> {
-                walletEvent.pendingActivities?.firstOrNull()?.let {
+                walletEvent.pendingActivities?.forEach {
                     checkReceivedActivity(it)
                 }
             }

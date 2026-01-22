@@ -63,8 +63,13 @@ private class AppActionsImpl: AppActionsProtocol {
     }
     
     static func lockApp(animated: Bool) {
+        guard AuthSupport.accountsSupportAppLock else { return }
         if let tabVC {
-            tabVC._showLock(animated: animated)
+            tabVC._showLock(animated: animated, onUnlock: {
+                AirLauncher.appUnlocked = true
+                WalletContextManager.delegate?.walletIsReady(isReady: true)
+            })
+            AirLauncher.appUnlocked = false
         }
     }
     
@@ -75,20 +80,6 @@ private class AppActionsImpl: AppActionsProtocol {
     static func openTipsChannel() {
         let channel = Language.current == .ru ? MTW_TIPS_CHANNEL_NAME_RU : MTW_TIPS_CHANNEL_NAME
         UIApplication.shared.open(URL(string: "https://t.me/\(channel)")!)
-    }
-    
-    static func pushTransactionSuccess(activity: ApiActivity) {
-        let vc = ActivityVC(activity: activity, accountId: nil)
-        if let nc = topWViewController()?.navigationController {
-            nc.pushViewController(vc, animated: true, completion: {
-                nc.viewControllers = [vc]
-                if let sheet = nc.sheetPresentationController {
-                    sheet.animateChanges {
-                        sheet.selectedDetentIdentifier = .init("mid")
-                    }
-                }
-            })
-        }
     }
     
     static func repeatActivity(_ activity: ApiActivity) {
@@ -140,26 +131,74 @@ private class AppActionsImpl: AppActionsProtocol {
         topViewController()?.present(activityViewController, animated: true)
     }
     
-    static func showActivityDetails(accountId: String, activity: ApiActivity) {
+    static func showActivityDetails(accountId: String, activity: ApiActivity, context: ActivityDetailsContext) {
         Task {
             let updatedActivity = await ActivityStore.getActivity(accountId: accountId, activityId: activity.id)
-            let vc = ActivityVC(activity: updatedActivity ?? activity, accountId: accountId)
-            topViewController()?.present(WNavigationController(rootViewController: vc), animated: true)
+            let vc = ActivityVC(activity: updatedActivity ?? activity, accountSource: .accountId(accountId), context: context)
+            
+            if context.isTransactionConfirmation {
+                guard let navigationController = topViewController() as? UINavigationController else { return }
+                let coordinator = ContentReplaceAnimationCoordinator(navigationController: navigationController)
+                vc.navigationItem.hidesBackButton = true
+                coordinator.replaceTop(with: vc) {
+                    vc.animateToCollapsed()
+                }
+            } else if let listVC = topWViewController() as? ActivityDetailsListVC {
+                listVC.navigationController?.pushViewController(vc, animated: true)
+            } else {
+                topViewController()?.present(WNavigationController(rootViewController: vc), animated: true)
+            }
         }
     }
     
-    static func showActivityDetailsById(chain: ApiChain, txId: String) {
+    static func showActivityDetailsById(chain: ApiChain, txId: String, showError: Bool) {
         Task {
             do {
-                let walletAddress = AccountStore.account?.addressByChain[chain.rawValue] ?? ""
-                let activities = try await Api.fetchTransactionById(chain: chain, network: .mainnet, txHash: txId, walletAddress: walletAddress)
-                // only single activities supported right now
-                guard activities.count == 1 else { throw DisplayError(text: lang("Transaction not found")) }
-                let activity = activities[0]
-                showActivityDetails(accountId: AccountStore.currentAccountId, activity: activity)
+                guard let account = AccountStore.account else { return }
+                let walletAddress = account.addressByChain[chain.rawValue] ?? ""
+                let activities = try await Api.fetchTransactionById(chain: chain, network: account.network, txId: txId, walletAddress: walletAddress)
+                presentActivities(activities, accountId: account.id, showError: showError)
             } catch {
-                showError(error: DisplayError(text: lang("Transaction not found")))
+                if showError {
+                    AppActions.showError(error: DisplayError(text: lang("Transaction not found")))
+                }
             }
+        }
+    }
+
+    static func showAnyAccountTx(accountId: String, chain: ApiChain, txId: String, showError: Bool) {
+        Task {
+            do {
+                let account = try await AccountStore.activateAccount(accountId: accountId)
+                let normalizedTxId = normalizeNotificationTxId(txId)
+                let walletAddress = account.addressByChain[chain.rawValue] ?? ""
+                let activities = try await Api.fetchTransactionById(
+                    chain: chain,
+                    network: account.network,
+                    txHash: normalizedTxId,
+                    walletAddress: walletAddress
+                )
+                presentActivities(activities, accountId: account.id, showError: showError)
+            } catch {
+                if showError {
+                    AppActions.showError(error: DisplayError(text: lang("Transaction not found")))
+                }
+            }
+        }
+    }
+
+    private static func presentActivities(_ activities: [ApiActivity], accountId: String, showError: Bool) {
+        switch activities.count {
+        case 0:
+            if showError {
+                AppActions.showError(error: DisplayError(text: lang("Transaction not found")))
+            }
+        case 1:
+            AppActions.showActivityDetails(accountId: accountId, activity: activities[0], context: .normal)
+        default:
+            let vc = ActivityDetailsListVC(accountContext: AccountContext(source: .accountId(accountId)), activities: activities)
+            let nc = UINavigationController(rootViewController: vc)
+            topViewController()?.present(nc, animated: true)
         }
     }
     
@@ -178,8 +217,8 @@ private class AppActionsImpl: AppActionsProtocol {
         topViewController()?.present(nc, animated: true)
     }
     
-    static func showAddWallet(showCreateWallet: Bool, showSwitchToOtherVersion: Bool) {
-        let vc = AccountTypePickerVC(showCreateWallet: showCreateWallet, showSwitchToOtherVersion: showSwitchToOtherVersion)
+    static func showAddWallet(network: ApiNetwork, showCreateWallet: Bool, showSwitchToOtherVersion: Bool) {
+        let vc = AccountTypePickerVC(network: network, showCreateWallet: showCreateWallet, showSwitchToOtherVersion: showSwitchToOtherVersion)
         topViewController()?.present(vc, animated: true)
     }
     
@@ -320,8 +359,7 @@ private class AppActionsImpl: AppActionsProtocol {
                 // TODO: Show loading indicator
                 let account = try await AccountStore.importTemporaryViewAccountOrActivateFirstMatching(network: .mainnet, addressOrDomainByChain: addressOrDomainByChain)
                 tabVC?.switchToHome(popToRoot: false)
-                tabVC?.homeVC?.navigationController?.pushViewController(HomeVC(accountId: account.id), animated: true)
-                
+                tabVC?.homeVC?.navigationController?.pushViewController(HomeVC(accountSource: .accountId(account.id)), animated: true)
             } catch {
                 AppActions.showError(error: error)
             }
@@ -387,7 +425,7 @@ private class AppActionsImpl: AppActionsProtocol {
     
     static func showUpgradeCard() {
         log.info("showUpgradeCard - switchToCapacitor")
-        WalletContextManager.delegate?.switchToCapacitor()
+        AppActions.openInBrowser(URL(string:  "https://getgems.io/collection/EQCQE2L9hfwx1V8sgmF9keraHx1rNK9VmgR1ctVvINBGykyM")!, title: "MyTonWallet NFT Cards", injectTonConnect: true)
     }
     
     static func showWalletSettings() {
@@ -399,12 +437,24 @@ private class AppActionsImpl: AppActionsProtocol {
     static func transitionToNewRootViewController(_ newRootViewController: UIViewController, animationDuration: Double?) {
         if let window = topViewController()?.view.window {
             if let animationDuration {
-                UIView.transition(with: window, duration: animationDuration , options: [.transitionCrossDissolve]) {
+                UIView.transition(with: window, duration: animationDuration, options: [.transitionCrossDissolve]) {
                     window.rootViewController = newRootViewController
                 }
             } else {
                 window.rootViewController = newRootViewController
             }
+        }
+        do {
+            let targetVC = if let tabVC = newRootViewController as? HomeTabBarController, let homeVC = tabVC.homeVC {
+                homeVC
+            } else if let nc = newRootViewController as? UINavigationController, let rootVC = nc.viewControllers.first {
+                rootVC
+            } else  {
+                newRootViewController
+            }
+            try Api.bridge.moveToViewController(targetVC)
+        } catch {
+            log.fault("moveToViewController failed: bridge is nil")
         }
     }
 }

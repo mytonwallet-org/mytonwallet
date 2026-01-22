@@ -117,6 +117,7 @@ class BaseCurrencyVC(context: Context) : WViewController(context),
             HEADER_CELL -> {
                 HeaderCell(
                     context,
+                    20f
                 )
             }
 
@@ -138,7 +139,7 @@ class BaseCurrencyVC(context: Context) : WViewController(context),
             0 -> {
                 (cellHolder.cell as HeaderCell).configure(
                     title = LocaleController.getString("Base Currency"),
-                    titleColor = WColor.Tint.color
+                    titleColor = WColor.Tint
                 )
             }
 

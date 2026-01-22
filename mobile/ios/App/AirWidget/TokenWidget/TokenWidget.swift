@@ -22,7 +22,7 @@ public struct TokenWidget: Widget {
             TokenWidgetView(entry: entry)
         }
         .contentMarginsDisabled()
-        .supportedFamilies([.systemSmall])
+        .supportedFamilies([.systemSmall, .accessoryCircular, .accessoryInline, .accessoryRectangular])
         .containerBackgroundRemovable()
         .configurationDisplayName(Text(LocalizedStringResource("Rate", bundle: LocalizationSupport.shared.bundle)))
         .description(Text(LocalizedStringResource("$rate_description", bundle: LocalizationSupport.shared.bundle)))
@@ -32,11 +32,21 @@ public struct TokenWidget: Widget {
 struct TokenWidgetView: View {
 
     var entry: TokenWidgetTimelineEntry
+    @Environment(\.widgetFamily) var widgetFamily
     
     var body: some View {
         ZStack {
-            topView
-            bottomView
+            switch widgetFamily {
+            case .accessoryRectangular:
+                rectangularContent
+            case .accessoryCircular:
+                circularContent
+            case .accessoryInline:
+                inlineContent
+            default:
+                topView
+                bottomView
+            }
         }
         .containerBackground(for: .widget) {
             CardBackground(tokenSlug: entry.token.slug, tokenColor: entry.token.color)
@@ -71,6 +81,59 @@ struct TokenWidgetView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
     }
+    
+    @ViewBuilder
+    var rectangularContent: some View {
+        VStack(spacing: -2) {
+            HStack(spacing: 4) {
+                HStack(spacing: 2) {
+                    changeArrow
+                    Text(entry.token.symbol)
+                }
+                Text(entry.changeInCurrency.formatted(.baseCurrencyEquivalent, showPlus: true))
+            }
+            Text(entry.currencyRate.formatted(.baseCurrencyPrice))
+                .font(.system(size: 72))
+                .padding(.top, -2)
+                .padding(.bottom, -12)
+                .minimumScaleFactor(0.1)
+        }
+        .imageScale(.small)
+        .font(.system(size: 15, weight: .semibold))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    
+    @ViewBuilder
+    var circularContent: some View {
+        Circle().fill(.regularMaterial)
+        VStack(spacing: 0) {
+            changeArrow
+                .padding(.bottom, 1)
+                .font(.system(size: 13, weight: .medium))
+            Text(entry.token.symbol)
+                .font(.system(size: 15, weight: .semibold))
+            Text(entry.currencyRate.formatted(.baseCurrencyPrice))
+                .font(.system(size: 11, weight: .medium))
+                .minimumScaleFactor(0.1)
+        }
+        .imageScale(.small)
+    }
+    
+    @ViewBuilder
+    var inlineContent: some View {
+        changeArrow
+            .imageScale(.small)
+        let symbol = entry.token.symbol
+        let price = entry.currencyRate.formatted(.baseCurrencyPrice)
+        Text("\(symbol) \(price)")
+    }
+
+    @ViewBuilder
+    var changeArrow: some View {
+        if let change = entry.token.percentChange24h {
+            Image(systemName: change >= 0 ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill")
+        }
+    }
 }
 
 #if DEBUG
@@ -79,6 +142,21 @@ extension TokenWidgetTimelineEntry {
 }
 
 #Preview(as: .systemSmall) {
+    TokenWidget()
+} timeline: {
+    TokenWidgetTimelineEntry.sample
+}
+#Preview(as: .accessoryRectangular) {
+    TokenWidget()
+} timeline: {
+    TokenWidgetTimelineEntry.sample
+}
+#Preview(as: .accessoryCircular) {
+    TokenWidget()
+} timeline: {
+    TokenWidgetTimelineEntry.sample
+}
+#Preview(as: .accessoryInline) {
     TokenWidget()
 } timeline: {
     TokenWidgetTimelineEntry.sample

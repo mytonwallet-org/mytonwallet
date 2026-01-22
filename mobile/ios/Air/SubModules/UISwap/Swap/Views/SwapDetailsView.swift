@@ -360,7 +360,7 @@ struct SwapDetailsView: View {
                     }
             } value: {
                 HStack(spacing: 3) {
-                    Text("\(formatAmountText(amount: displayEstimate.impact, decimalsCount: 1))%")
+                    Text(formatPercent(displayEstimate.impact / 100, decimals: 1, showPlus: false, showMinus: true))
                     if model.displayImpactWarning != nil {
                         Text(Image(systemName: "exclamationmark.triangle.fill"))
                             .foregroundStyle(.red)

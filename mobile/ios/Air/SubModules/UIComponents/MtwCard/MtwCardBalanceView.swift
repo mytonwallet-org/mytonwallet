@@ -1,10 +1,3 @@
-//
-//  BalanceView.swift
-//  MyTonWalletAir
-//
-//  Created by nikstar on 18.11.2025.
-//
-
 import UIKit
 import SwiftUI
 import WalletContext
@@ -15,20 +8,26 @@ public let fontScalingFactor = max(1, homeCardWidth / (designScreenWidth - 2 * c
 public let homeCardFontSize: CGFloat = 56 * fontScalingFactor
 public let homeCollapsedFontSize: CGFloat = 40
 
-public struct MtwCardBalanceView: View, Equatable {
-    
-    public struct Style: Equatable, Identifiable {
-        public let id: String
-        public let integerFont: UIFont
-        public let fractionFont: UIFont
-        public let symbolFont: UIFont
-        public let integerColor: UIColor?
-        public let fractionColor: UIColor?
-        public let symbolColor: UIColor?
-        public let showChevron: Bool
-        public let sensitiveDataCellSize: CGFloat
-        public let sensitiveDataTheme: ShyMask.Theme
+// MARK: - MtwCardBalanceView
 
+public struct MtwCardBalanceView: View, Equatable {
+    // MARK: Lifecycle
+
+    public init(
+        balance: BaseCurrencyAmount?,
+        isNumericTranstionEnabled: Bool = true,
+        style: Style,
+        secondaryOpacity: CGFloat = 1
+    ) {
+        self.balance = balance
+        self.isNumericTranstionEnabled = isNumericTranstionEnabled
+        self.style = style
+        self.secondaryOpacity = secondaryOpacity
+    }
+
+    // MARK: Public
+
+    public struct Style: Equatable, Identifiable {
         public static let grid = Style(
             id: "grid",
             integerFont: .rounded(ofSize: 19 * fontScalingFactor, weight: .bold),
@@ -41,6 +40,7 @@ public struct MtwCardBalanceView: View, Equatable {
             sensitiveDataCellSize: 6,
             sensitiveDataTheme: .adaptive,
         )
+
         public static let homeCard = Style(
             id: "homeCard",
             integerFont: .rounded(ofSize: homeCardFontSize, weight: .bold),
@@ -53,6 +53,7 @@ public struct MtwCardBalanceView: View, Equatable {
             sensitiveDataCellSize: 16,
             sensitiveDataTheme: .light,
         )
+
         public static let homeCollaped = Style(
             id: "homeCollaped",
             integerFont: .rounded(ofSize: homeCollapsedFontSize, weight: .bold),
@@ -65,6 +66,7 @@ public struct MtwCardBalanceView: View, Equatable {
             sensitiveDataCellSize: 14,
             sensitiveDataTheme: .adaptive,
         )
+
         public static let customizeWalletCard = Style(
             id: "customizeWalletCard",
             integerFont: .rounded(ofSize: 46, weight: .bold),
@@ -77,54 +79,157 @@ public struct MtwCardBalanceView: View, Equatable {
             sensitiveDataCellSize: 18,
             sensitiveDataTheme: .light,
         )
-        
-        public static func ==(lhs: Self, rhs: Self) -> Bool {
+
+        public let id: String
+
+        public let integerFont: UIFont
+        public let fractionFont: UIFont
+        public let symbolFont: UIFont
+
+        public let integerColor: UIColor?
+        public let fractionColor: UIColor?
+        public let symbolColor: UIColor?
+
+        public let showChevron: Bool
+
+        public let sensitiveDataCellSize: CGFloat
+        public let sensitiveDataTheme: ShyMask.Theme
+
+        public static func == (lhs: Self, rhs: Self) -> Bool {
             lhs.id == rhs.id
         }
     }
-    
+
+    public var body: some View {
+        ZStack {
+            if let balance {
+                mainView(balance)
+                    .animation(.default, value: balance)
+            } else {
+                placeholderView()
+                    .animation(.smooth(duration: 0.21), value: isPlaceholder)
+            }
+        }
+        .backportGeometryGroup()
+    }
+
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.isPlaceholder == rhs.isPlaceholder &&
+            lhs.balance == rhs.balance &&
+            lhs.isNumericTranstionEnabled == rhs.isNumericTranstionEnabled &&
+            lhs.style == rhs.style &&
+            lhs.secondaryOpacity == rhs.secondaryOpacity
+    }
+
+    // MARK: Internal
+
     var balance: BaseCurrencyAmount?
     var isNumericTranstionEnabled: Bool
     var style: Style
     var secondaryOpacity: CGFloat
-    
-    public init(balance: BaseCurrencyAmount?, isNumericTranstionEnabled: Bool = true, style: Style, secondaryOpacity: CGFloat = 1) {
-        self.balance = balance
-        self.isNumericTranstionEnabled = isNumericTranstionEnabled
-        self.style = style
-        self.secondaryOpacity = secondaryOpacity
-    }
-    
-    public var body: some View {
-        if let balance {
-            HStack(spacing: 6) {
-                Text(
-                    balance.formatAttributed(
-                        format: .init(preset: .baseCurrencyEquivalent, roundUp: true),
-                        integerFont: style.integerFont,
-                        fractionFont: style.fractionFont,
-                        symbolFont: style.symbolFont,
-                        integerColor: style.integerColor ?? UIColor.label,
-                        fractionColor: (style.fractionColor ?? UIColor.label).withAlphaComponent(secondaryOpacity),
-                        symbolColor: (style.symbolColor ?? UIColor.label).withAlphaComponent(secondaryOpacity),
-                    )
+
+    // MARK: Private
+
+    private var isPlaceholder: Bool { balance == nil }
+
+    private func mainView(_ balance: BaseCurrencyAmount) -> some View {
+        HStack(spacing: 6) {
+            Text(
+                balance.formatAttributed(
+                    format: .init(preset: .baseCurrencyEquivalent, roundUp: true),
+                    integerFont: style.integerFont,
+                    fractionFont: style.fractionFont,
+                    symbolFont: style.symbolFont,
+                    integerColor: style.integerColor ?? UIColor.label,
+                    fractionColor: (style.fractionColor ?? UIColor.label)
+                        .withAlphaComponent(secondaryOpacity),
+                    symbolColor: (style.symbolColor ?? UIColor.label)
+                        .withAlphaComponent(secondaryOpacity),
                 )
-                .contentTransition(isNumericTranstionEnabled ? .numericText() : .identity)
-                .lineLimit(1)
-             
-                if style.showChevron {
-                    Image.airBundle("ChevronDown18")
-                        .offset(y: 8)
-                        .opacity(0.75)
-                }
+            )
+            .contentTransition(isNumericTranstionEnabled ? .numericText() : .identity)
+            .lineLimit(1)
+
+            if style.showChevron {
+                Image.airBundle("HomeCardBalanceArrow")
+                    .opacity(secondaryOpacity == 1 ? 0.75 : 0.5)
+                    .offset(y: -1)
+                    .padding(.vertical, -8)
             }
-            .backportGeometryGroup()
-            .minimumScaleFactor(0.1)
-            .sensitiveData(alignment: .center, cols: 14, rows: 3, cellSize: style.sensitiveDataCellSize, theme: style.sensitiveDataTheme, cornerRadius: 12)
-            .animation(.default, value: balance)
-        } else {
-            Color.clear.frame(height: 60)
         }
+        .backportGeometryGroup()
+        .minimumScaleFactor(0.1)
+        .sensitiveData(
+            alignment: .center,
+            cols: 14,
+            rows: 3,
+            cellSize: style.sensitiveDataCellSize,
+            theme: style.sensitiveDataTheme,
+            cornerRadius: 12
+        )
+    }
+
+    private func placeholderView() -> some View {
+        RoundedRectangle(cornerRadius: 12)
+            .fill(.white.opacity(0.12))
+            .frame(idealWidth: 120, maxWidth: 120, minHeight: 60, maxHeight: 60)
     }
 }
 
+// MARK: - MtwCardBalanceView_Previews
+
+struct MtwCardBalanceView_Previews: PreviewProvider {
+    // MARK: Internal
+
+    static var previews: some View {
+        withRegisteredCustomFontsForPreviewsIfNeeded {
+            Group {
+                MtwCardBalanceViewPreview(balances: [
+                    nil,
+                    .init(120000000000, .USD),
+                    .init(32000, .EUR),
+                    .init(0, .USD),
+                ])
+                .previewDisplayName("MtwCardBalanceView")
+            }
+            .previewLayout(.device)
+        }
+    }
+
+    // MARK: Private
+
+    private struct MtwCardBalanceViewPreview: View {
+        // MARK: Public
+
+        public var body: some View {
+            ZStack {
+                MtwCardBalanceView(
+                    balance: balances[index],
+                    isNumericTranstionEnabled: true,
+                    style: .homeCard,
+                    secondaryOpacity: 0.75
+                )
+            }
+            .backportGeometryGroup()
+            .frame(width: 340, height: 214)
+            .background(RoundedRectangle(cornerRadius: 20).fill(.blue))
+            .overlay(
+                RoundedRectangle(cornerRadius: 24)
+                    .stroke(.white, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 24))
+            .onTapGesture {
+                index = (index + 1) % balances.count
+            }
+        }
+
+        // MARK: Internal
+
+        var balances: [BaseCurrencyAmount?]
+
+        // MARK: Private
+
+        @State
+        private var index: Int = 0
+    }
+}

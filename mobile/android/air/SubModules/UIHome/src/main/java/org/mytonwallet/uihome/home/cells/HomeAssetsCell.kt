@@ -130,22 +130,22 @@ class HomeAssetsCell(
         addView(segmentedController, LayoutParams(MATCH_PARENT, 0))
         setConstraints {
             toBottom(segmentedController)
-            toTopPx(
-                segmentedController,
-                (if (ThemeManager.uiMode.hasRoundedCorners) 0 else ViewConstants.GAP.dp)
-            )
+            toTop(segmentedController)
         }
 
         updateHeight()
     }
 
     private var _isDarkThemeApplied: Boolean? = null
+    private var _lastBigRadius: Float? = null
     override fun updateTheme() {
         val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
+        val radiusChanged = _lastBigRadius != ViewConstants.BIG_RADIUS
         _isDarkThemeApplied = ThemeManager.isDark
+        _lastBigRadius = ViewConstants.BIG_RADIUS
         if (segmentedController.isTinted || darkModeChanged)
             segmentedController.updateTheme()
-        if (darkModeChanged)
+        if (darkModeChanged || radiusChanged)
             segmentedController.setBackgroundColor(
                 WColor.Background.color,
                 ViewConstants.BIG_RADIUS.dp,
@@ -483,9 +483,7 @@ class HomeAssetsCell(
                         0,
                         itemToRemoveIndex - 1
                     )].viewController
-                ) +
-                    56.dp +
-                    if (ThemeManager.uiMode.hasRoundedCorners) 0 else ViewConstants.GAP.dp
+                ) + 56.dp
             animateHeight(nextHeight)
         }
         val removedItem = segmentedController.removeItem(itemToRemoveIndex, onCompletion = {

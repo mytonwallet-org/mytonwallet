@@ -1,0 +1,30 @@
+import WalletContext
+
+public enum ActivityDetailsContext {
+    case normal
+    case sendConfirmation
+    case sendNftConfirmation
+    case swapConfirmation
+    case stakeConfirmation
+    case unstakeConfirmation
+    case unstakeRequestConfirmation
+    
+    public var isTransactionConfirmation: Bool {
+        switch self {
+        case .normal: false
+        case .sendConfirmation, .sendNftConfirmation, .swapConfirmation, .stakeConfirmation, .unstakeConfirmation, .unstakeRequestConfirmation: true
+        }
+    }
+    
+    public var displayTitle: String? {
+        switch self {
+        case .normal: nil
+        case .sendConfirmation: lang("Coins have been sent!")
+        case .sendNftConfirmation: lang("NFT has been sent!")
+        case .swapConfirmation: lang("Coins have been swapped!")
+        case .stakeConfirmation: lang("Coins have been staked!")
+        case .unstakeConfirmation: lang("Coins have been unstaked!")
+        case .unstakeRequestConfirmation: lang("Request for unstaking is sent!")
+        }
+    }
+}

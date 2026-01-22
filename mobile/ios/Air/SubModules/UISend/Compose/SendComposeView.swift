@@ -23,7 +23,29 @@ public struct SendComposeView: View {
                 RecipientAddressSection(model: model.addressInput)
                 if !model.addressInput.isFocused {
                     Group {
+                        if model.shouldShowDomainScamWarning {
+                            WarningView(
+                                text: lang("$domain_like_scam_warning", arg1: "[\(lang("$help_center_prepositional"))](\(model.domainScamHelpUrl.absoluteString))"),
+                                kind: .error
+                            )
+                            .padding(.horizontal, 16)
+                        }
+                        if model.shouldShowMultisigWarning {
+                            WarningView(
+                                header: lang("Multisig Wallet Detected"),
+                                text: lang("$multisig_warning_text", arg1: "[\(lang("$multisig_warning_link"))](\(model.seedPhraseScamHelpUrl.absoluteString))"),
+                                kind: .error
+                            )
+                            .padding(.horizontal, 16)
+                        }
                         AmountSection(model: self.model, focused: $amountFocused)
+                        if model.shouldShowGasWarning {
+                            WarningView(
+                                text: lang("$seed_phrase_scam_warning", arg1: "[\(lang("$help_center_prepositional"))](\(model.seedPhraseScamHelpUrl.absoluteString))"),
+                                kind: .warning
+                            )
+                            .padding(.horizontal, 16)
+                        }
                         NftSection(model: self.model)
                         CommentOrMemoSection(model: self.model, commentIsEnrypted: $model.isMessageEncrypted, commentOrMemo: $model.comment)
                     }

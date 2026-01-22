@@ -122,56 +122,88 @@ private struct _BalanceChange: View {
     }
 }
 
-private struct _BalanceChangeContent: View {
-
-    let balance: BaseCurrencyAmount?
-    let balance24h: BaseCurrencyAmount?
-    let balanceChange: Double?
+private struct _BalanceChangeContent: View, Equatable {
+    let text: String?
     let nft: ApiNft?
+    
+    init(balance: BaseCurrencyAmount?, balance24h: BaseCurrencyAmount?, balanceChange: Double?, nft: ApiNft?) {
+        self.text = Self.makeText(balance: balance, balance24h: balance24h, balanceChange: balanceChange)
+        self.nft = nft
+    }
+    
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.text == rhs.text && lhs.nft == rhs.nft
+    }
 
     var body: some View {
-        HStack {
+        ZStack {
             if let text {
-                Text(text)
-                    .font(.compactMedium(size: 17))
-                    .opacity(0.8)
-                    .padding(.horizontal, 8)
-                    .background {
-                        ZStack {
-                            BackgroundBlur(radius: 12)
-                            Capsule()
-                                .opacity(0.10)
-                        }
-                        .clipShape(.capsule)
-                        .frame(height: 26)
-                    }
-                    .sensitiveData(alignment: .center, cols: 10, rows: 2, cellSize: 13, theme: .light, cornerRadius: 13)
+                if text.isEmpty {
+                    emptyView()
+                } else {
+                    mainView(text)
+                }
             } else {
-                Color.clear
-                    .frame(width: 76, height: 26)
+                placeholderView()
             }
         }
         .foregroundStyle(getSecondaryForegrundColor(nft: nft))
         .backportGeometryGroup()
     }
     
-    var text: String? {
-        if let balance, let balance24h {
-            if balance.amount == 0 && balance24h.amount == 0 {
-                return nil
-            } else {
-                let change = BaseCurrencyAmount(balance.amount - balance24h.amount, balance.baseCurrency)
-                let string = change.formatted(.baseCurrencyEquivalent, showMinus: false)
-                let percentString = if let balanceChange {
-                    "\(formatPercent(balanceChange)) · "
-                } else {
-                    ""
+    private static func makeText(
+        balance: BaseCurrencyAmount?,
+        balance24h: BaseCurrencyAmount?,
+        balanceChange: Double?
+    ) -> String? {
+        guard let balance
+        else { return nil }
+        
+        guard let balance24h, balance.amount > 0, balance24h.amount > 0
+        else { return "" }
+        
+        let change = BaseCurrencyAmount(balance.amount - balance24h.amount, balance.baseCurrency)
+        let string = change.formatted(.baseCurrencyEquivalent, showMinus: false)
+        let percentString =
+            if let balanceChange { "\(formatPercent(balanceChange)) · " }
+            else { "" }
+        
+        return "\(percentString)\(string)"
+    }
+    
+    private func mainView(_ text: String) -> some View {
+        Text(text)
+            .font(.compactMedium(size: 17))
+            .opacity(0.8)
+            .padding(.horizontal, 8)
+            .background {
+                ZStack {
+                    BackgroundBlur(radius: 12)
+                    Capsule().opacity(0.10)
                 }
-                return "\(percentString)\(string)"
+                .clipShape(.capsule)
+                .frame(height: 26)
             }
-        } else {
-            return nil
-        }
+            .sensitiveData(
+                alignment: .center,
+                cols: 10,
+                rows: 2,
+                cellSize: 13,
+                theme: .light,
+                cornerRadius: 13
+            )
+    }
+    
+    private func placeholderView() -> some View {
+        Rectangle()
+            .fill(.white.opacity(0.12))
+            .clipShape(.capsule)
+            .frame(idealWidth: 76, maxWidth: 76, minHeight: 26, maxHeight: 26)
+    }
+    
+    private func emptyView() -> some View {
+        Color.clear
+            .frame(width: 76, height: 26)
     }
 }
 

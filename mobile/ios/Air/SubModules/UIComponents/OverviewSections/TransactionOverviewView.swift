@@ -2,7 +2,7 @@
 import SwiftUI
 import WalletContext
 import WalletCore
-
+import Perception
 
 public struct TransactionOverviewView: View {
     
@@ -23,13 +23,15 @@ public struct TransactionOverviewView: View {
     }
     
     public var body: some View {
-        VStack(spacing: 0) {
-            iconView
-                .padding(.bottom, 16)
-            amountView
-                .padding(.top, 1)
-                .padding(.bottom, 12)
-            toView
+        WithPerceptionTracking {
+            VStack(spacing: 0) {
+                iconView
+                    .padding(.bottom, 16)
+                amountView
+                    .padding(.top, 1)
+                    .padding(.bottom, 12)
+                toView
+            }
         }
     }
     

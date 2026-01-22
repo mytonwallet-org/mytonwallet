@@ -103,7 +103,7 @@ class NftAttributesView(
             }
             addView(titleLabel)
             addView(valueLabel)
-            addView(separator, LayoutParams(LayoutParams.MATCH_PARENT, ViewConstants.SEPARATOR_HEIGHT))
+            addView(separator, LayoutParams(MATCH_CONSTRAINT, 1.dp))
             addView(horizontalBarrier)
             rowViews.add(
                 RowView(
@@ -144,6 +144,8 @@ class NftAttributesView(
                 toEnd(rowView.valueLabel, 12f)
                 // Separator
                 topToTop(rowView.separator, rowView.horizontalBarrier, 10f)
+                toStart(rowView.separator)
+                toEnd(rowView.separator)
             }
             rowViews.lastOrNull()?.separator?.let { separator ->
                 separator.visibility = INVISIBLE

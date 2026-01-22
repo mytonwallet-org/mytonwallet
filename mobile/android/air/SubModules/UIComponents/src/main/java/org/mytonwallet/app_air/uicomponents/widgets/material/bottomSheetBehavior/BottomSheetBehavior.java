@@ -70,6 +70,9 @@ import androidx.core.view.accessibility.AccessibilityNodeInfoCompat.Accessibilit
 import androidx.core.view.accessibility.AccessibilityViewCommand;
 import androidx.customview.view.AbsSavedState;
 import androidx.customview.widget.ViewDragHelper;
+import androidx.dynamicanimation.animation.FloatPropertyCompat;
+import androidx.dynamicanimation.animation.SpringAnimation;
+import androidx.dynamicanimation.animation.SpringForce;
 
 import com.google.android.material.R;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
@@ -253,6 +256,8 @@ public class BottomSheetBehavior<V extends View> extends CoordinatorLayout.Behav
     private boolean expandedCornersRemoved;
     @Nullable
     private ValueAnimator interpolatorAnimator;
+    @Nullable
+    private SpringAnimation settlingSpringAnimation;
     private boolean skipCollapsed;
     private boolean draggable = true;
     private boolean draggableOnNestedScroll = true;
@@ -1972,6 +1977,15 @@ public class BottomSheetBehavior<V extends View> extends CoordinatorLayout.Behav
 
     private void startSettling(View child, @StableState int state, boolean isReleasingView) {
         int top = getTopOffsetForState(state);
+        
+        // Use SpringAnimation only for Half ↔ Full transitions (not drag releases)
+        boolean isHalfToFull = (lastStableState == STATE_HALF_EXPANDED && state == STATE_EXPANDED);
+        boolean isFullToHalf = (lastStableState == STATE_EXPANDED && state == STATE_HALF_EXPANDED);
+        if (!isReleasingView && (isHalfToFull || isFullToHalf) && viewDragHelper != null) {
+            startSpringSettling(child, state, top);
+            return;
+        }
+        
         boolean settling =
             viewDragHelper != null
                 && (isReleasingView
@@ -1985,6 +1999,43 @@ public class BottomSheetBehavior<V extends View> extends CoordinatorLayout.Behav
         } else {
             setStateInternal(state);
         }
+    }
+    
+    private void startSpringSettling(View child, @StableState int targetState, int targetTop) {
+        // Cancel any existing spring animation
+        if (settlingSpringAnimation != null) {
+            settlingSpringAnimation.cancel();
+        }
+        
+        setStateInternal(STATE_SETTLING);
+        updateDrawableForTargetState(targetState, /* animate= */ true);
+        
+        FloatPropertyCompat<View> property = new FloatPropertyCompat<View>("top") {
+            @Override
+            public float getValue(View view) {
+                return view.getTop();
+            }
+            
+            @Override
+            public void setValue(View view, float value) {
+                int newTop = (int) value;
+                ViewCompat.offsetTopAndBottom(view, newTop - view.getTop());
+                dispatchOnSlide(newTop);
+            }
+        };
+        
+        settlingSpringAnimation = new SpringAnimation(child, property, targetTop);
+        settlingSpringAnimation.getSpring().setDampingRatio(SpringForce.DAMPING_RATIO_NO_BOUNCY);
+        settlingSpringAnimation.getSpring().setStiffness(500f);
+        
+        settlingSpringAnimation.addEndListener((animation, canceled, value, velocity) -> {
+            settlingSpringAnimation = null;
+            if (!canceled) {
+                setStateInternal(targetState);
+            }
+        });
+        
+        settlingSpringAnimation.start();
     }
 
     private int getTopOffsetForState(@StableState int state) {

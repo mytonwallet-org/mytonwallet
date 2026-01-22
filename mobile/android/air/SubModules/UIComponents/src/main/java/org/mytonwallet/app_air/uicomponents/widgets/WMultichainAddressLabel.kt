@@ -11,7 +11,7 @@ import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.measureWidth
-import org.mytonwallet.app_air.uicomponents.extensions.updateDotsLetterSpacing
+import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.FontManager
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WLetterSpacingSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WSpacingSpan
@@ -19,8 +19,9 @@ import org.mytonwallet.app_air.uicomponents.helpers.textOffset
 import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
 import org.mytonwallet.app_air.walletbasecontext.utils.trimAddress
 import org.mytonwallet.app_air.walletbasecontext.utils.trimDomain
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
-import org.mytonwallet.app_air.walletcore.models.MAccount.AccountChain
+import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -33,7 +34,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
     private var currentDisplayWidth: Int = 0
     private var currentDisplayData: SpannedString = SpannedString("")
 
-    var style: Style = walletStyle
+    private var style: Style = walletStyle
 
     init {
         maxLines = 1
@@ -48,7 +49,16 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         }
     }
 
-    fun displayAddresses(addresses: List<Pair<String, AccountChain>>) {
+    fun displayAddresses(account: MAccount?, style: Style) {
+        if (account?.network == MBlockchainNetwork.TESTNET)
+            this.style = style.copy(
+                prefixIconResList = listOf(org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_testnet) + style.prefixIconResList
+            )
+        else
+            this.style = style
+        val addresses = account?.byChain?.map { (key, value) ->
+            Pair(key, value)
+        } ?: emptyList()
         val chainStyle = if (addresses.size > 1) {
             style.multipleChainStyle
         } else {
@@ -149,7 +159,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
     private fun buildDisplayData(displayDataList: List<DisplayData>): SpannedString {
         return buildSpannedString {
             // Display prefix icons
-            style.prefixIconResList.mapNotNull { loadDrawable(it) }.forEach {
+            style.prefixIconResList.mapNotNull { loadDrawable(it) }.forEachIndexed { index, it ->
                 it.setTint(currentTextColor)
                 it.setBounds(
                     0,
@@ -164,6 +174,8 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
                 ) {
                     append(" ")
                 }
+                if (index + 1 < style.prefixIconResList.size)
+                    append(" ")
             }
             // Margin between last prefix icon and first chain
             if (style.prefixIconResList.isNotEmpty() && style.prefixIconMargin > 0) {
@@ -223,11 +235,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
                         append(data.toDisplay)
                     }
 
-                    if (data.isDomain && chainStyle.domainDotsLetterSpacing != null) {
-                        updateDotsLetterSpacing(chainStyle.domainDotsLetterSpacing)
-                    } else if (!data.isDomain && chainStyle.addressDotsLetterSpacing != null) {
-                        updateDotsLetterSpacing(chainStyle.addressDotsLetterSpacing)
-                    }
+                    styleDots()
                 }
                 append(toDisplay)
 
@@ -326,13 +334,11 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
 
     data class ChainStyle(
         val displayChainIcon: Boolean,
-        val letterSpacing: Float,
+        val letterSpacing: Float = 0f,
         val iconMargin: Int,
         val addressKeepCount: Int,
         val domainKeepCount: Int,
         val domainTrimRule: DomainTrimRule,
-        val addressDotsLetterSpacing: Float? = null,
-        val domainDotsLetterSpacing: Float? = null,
         val domainLetterSpacing: Float? = null,
         val addressLetterSpacing: Float? = null
     )
@@ -342,27 +348,20 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
     }
 
     companion object {
-
         // Home screen styles
         val walletStyle: Style = Style(
             singleChainStyle = ChainStyle(
                 displayChainIcon = true,
-                letterSpacing = 0.045f,
                 iconMargin = 6.dp,
                 addressKeepCount = 12,
                 domainKeepCount = 16,
-                addressDotsLetterSpacing = -0.17f,
-                domainDotsLetterSpacing = -0.17f,
                 domainTrimRule = DomainTrimRule.KEEP_TOP_LEVEL_DOMAIN
             ),
             multipleChainStyle = ChainStyle(
                 displayChainIcon = true,
-                letterSpacing = 0.05f,
                 iconMargin = 2.dp,
                 addressKeepCount = 6,
                 domainKeepCount = 10,
-                addressDotsLetterSpacing = -0.17f,
-                domainDotsLetterSpacing = -0.17f,
                 domainTrimRule = DomainTrimRule.KEEP_TOP_LEVEL_DOMAIN
             ),
             chainIconSize = 16.dp,
@@ -382,6 +381,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         )
 
         val walletExpandStyle: Style = walletStyle.copy(
+            prefixIconMargin = 4.dp,
             postfixIconResList = listOf(R.drawable.ic_arrows_14),
             postfixIconSize = Size(7.dp, 14.dp),
             postfixIconMargin = 4.5f.dp.roundToInt()
@@ -389,12 +389,8 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
 
         // Customization screen styles
         val walletCustomizationStyle: Style = walletStyle.copy(
-            singleChainStyle = walletStyle.singleChainStyle.copy(
-                letterSpacing = 0f
-            ),
             multipleChainStyle = walletStyle.multipleChainStyle.copy(
-                addressKeepCount = 4,
-                letterSpacing = 0f
+                addressKeepCount = 4
             ),
             prefixIconMargin = 6.dp,
         )
@@ -411,21 +407,16 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         val miniCardWalletStyle: Style = Style(
             singleChainStyle = ChainStyle(
                 displayChainIcon = false,
-                letterSpacing = 0f,
                 iconMargin = 0.dp,
                 addressKeepCount = 8,
                 domainKeepCount = 12,
-                addressDotsLetterSpacing = -0.17f,
-                domainDotsLetterSpacing = -0.17f,
                 domainTrimRule = DomainTrimRule.KEEP_TOP_LEVEL_DOMAIN
             ),
             multipleChainStyle = ChainStyle(
                 displayChainIcon = true,
-                letterSpacing = 0.02f,
                 iconMargin = 1.dp,
                 addressKeepCount = 4,
                 domainKeepCount = 5,
-                domainDotsLetterSpacing = -0.17f,
                 domainTrimRule = DomainTrimRule.SYMMETRIC
             ),
             chainIconSize = 9.dp,
@@ -444,31 +435,13 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
             delimiterWidth = 2.dp
         )
 
-        val miniCardWalletSelectedStyle: Style = miniCardWalletStyle.copy(
-            multipleChainStyle = miniCardWalletStyle.multipleChainStyle.copy(
-                addressDotsLetterSpacing = -0.17f
-            )
-        )
+        val miniCardWalletSelectedStyle: Style = miniCardWalletStyle
 
         val miniCardWalletViewStyle: Style = miniCardWalletStyle.copy(
-            singleChainStyle = miniCardWalletStyle.singleChainStyle.copy(
-                letterSpacing = 0f,
-                addressDotsLetterSpacing = null
-            ),
-            multipleChainStyle = miniCardWalletStyle.multipleChainStyle.copy(
-                addressDotsLetterSpacing = -0.17f
-            ),
             prefixIconResList = listOf(org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_eye)
         )
 
         val miniCardWalletHardwareStyle: Style = miniCardWalletStyle.copy(
-            singleChainStyle = miniCardWalletStyle.singleChainStyle.copy(
-                letterSpacing = 0f,
-                addressDotsLetterSpacing = null
-            ),
-            multipleChainStyle = miniCardWalletStyle.multipleChainStyle.copy(
-                addressDotsLetterSpacing = -0.17f
-            ),
             prefixIconResList = listOf(org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_ledger)
         )
 
@@ -476,22 +449,16 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         val cardRowWalletStyle: Style = Style(
             singleChainStyle = ChainStyle(
                 displayChainIcon = false,
-                letterSpacing = 0f,
                 iconMargin = 0.dp,
                 addressKeepCount = 12,
                 domainKeepCount = 100,
-                addressDotsLetterSpacing = -0.17f,
-                domainDotsLetterSpacing = -0.17f,
                 domainTrimRule = DomainTrimRule.KEEP_TOP_LEVEL_DOMAIN
             ),
             multipleChainStyle = ChainStyle(
                 displayChainIcon = true,
-                letterSpacing = 0.02f,
                 iconMargin = 2.dp,
                 addressKeepCount = 6,
                 domainKeepCount = 10,
-                addressDotsLetterSpacing = -0.17f,
-                domainDotsLetterSpacing = -0.17f,
                 domainTrimRule = DomainTrimRule.KEEP_TOP_LEVEL_DOMAIN,
                 domainLetterSpacing = -0.002f
             ),
@@ -523,22 +490,16 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         val settingsHeaderWalletStyle: Style = Style(
             singleChainStyle = ChainStyle(
                 displayChainIcon = false,
-                letterSpacing = 0f,
                 iconMargin = 0.dp,
                 addressKeepCount = 12,
                 domainKeepCount = 100,
-                addressDotsLetterSpacing = -0.17f,
-                domainDotsLetterSpacing = -0.17f,
                 domainTrimRule = DomainTrimRule.KEEP_TOP_LEVEL_DOMAIN
             ),
             multipleChainStyle = ChainStyle(
                 displayChainIcon = true,
-                letterSpacing = 0.01f,
                 iconMargin = 1.5f.dp.roundToInt(),
                 addressKeepCount = 6,
                 domainKeepCount = 12,
-                addressDotsLetterSpacing = -0.17f,
-                domainDotsLetterSpacing = -0.17f,
                 domainTrimRule = DomainTrimRule.KEEP_TOP_LEVEL_DOMAIN,
                 domainLetterSpacing = -0.002f
             ),

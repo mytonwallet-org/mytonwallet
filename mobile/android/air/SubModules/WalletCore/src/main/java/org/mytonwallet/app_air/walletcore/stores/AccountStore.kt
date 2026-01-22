@@ -124,7 +124,10 @@ object AccountStore : IStore {
             isNextAccountPushedTemporary
         ) { done, error ->
             if (error != null || done != true) {
-                Logger.d(Logger.LogTag.ACCOUNT, "Remove account failed: $removingAccountId / error: $error")
+                Logger.d(
+                    Logger.LogTag.ACCOUNT,
+                    "Remove account failed: $removingAccountId / error: $error"
+                )
                 onCompletion?.invoke(done, error)
                 return@removeAccount
             }
@@ -178,7 +181,8 @@ object AccountStore : IStore {
         if (activeAccountId != account.accountId)
             return
         if (account.name == LocaleController.getString("Wallet")) {
-            val newName = WGlobalStorage.getSuggestedName(account.accountType.value)
+            val newName =
+                WGlobalStorage.getSuggestedName(account.network, account.accountType.value)
             renameAccount(account, newName)
         }
         activeAccount?.isTemporary = false

@@ -46,11 +46,15 @@ class CrossChainSwapVM {
     }
 
     func cexFromTonSwap(toAddress: String, passcode: String, onTaskDone: @escaping ((any Error)?) -> Void) {
+        guard let sellingTokenInfo = sellingToken.0, let buyingTokenInfo = buyingToken.0 else {
+            onTaskDone(BridgeCallError.unknown())
+            return
+        }
         let cexFromTonSwapParams = ApiSwapCexCreateTransactionParams(
-            from: sellingToken.0?.swapIdentifier ?? "",
-            fromAmount: MDouble(sellingToken.1.doubleAbsRepresentation(decimals: sellingToken.0?.decimals ?? 9)),
+            from: sellingTokenInfo.swapIdentifier,
+            fromAmount: MDouble(sellingToken.1.doubleAbsRepresentation(decimals: sellingTokenInfo.decimals)),
             fromAddress: AccountStore.account?.addressByChain[TON_CHAIN] ?? "",
-            to: buyingToken.0?.swapIdentifier ?? "",
+            to: buyingTokenInfo.swapIdentifier,
             toAddress: toAddress,
             swapFee: swapFee,
             networkFee: networkFee

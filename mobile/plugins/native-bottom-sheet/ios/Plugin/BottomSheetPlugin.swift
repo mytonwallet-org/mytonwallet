@@ -319,15 +319,17 @@ public class BottomSheetPlugin: CAPPlugin, FloatingPanelControllerDelegate {
                 return
             }
 
-            let topVc = self.bridge!.viewController!.parent!.presentingViewController as! CAPBridgeViewController
-            let topBottomSheetPlugin = topVc.bridge!.plugin(withName: "BottomSheet") as! BottomSheetPlugin
+            guard
+                let topVc = self.bridge?.viewController?.parent?.presentingViewController as? CAPBridgeViewController,
+                let topBottomSheetPlugin = topVc.bridge?.plugin(withName: "BottomSheet") as? BottomSheetPlugin
+            else { return }
 
             if !topBottomSheetPlugin.isHalfSize {
                 return
             }
 
             let isFullSize = call.getBool("isFullSize") == true
-            let layout = topBottomSheetPlugin.fpc.layout as! MyPanelLayout
+            guard let layout = topBottomSheetPlugin.fpc.layout as? MyPanelLayout else { return }
 
             if isFullSize && layout.anchors[.full] == nil {
                 layout.anchors[.full] = layout.fullAnchor

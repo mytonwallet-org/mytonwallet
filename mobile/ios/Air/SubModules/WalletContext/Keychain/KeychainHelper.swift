@@ -16,6 +16,7 @@ public struct KeychainHelper {
         let accountsCount = KeychainHelper.getAccounts()?.count ?? 0
         log.info("Detected \(accountsCount) accounts from previous install")
         if accountsCount > 0 {
+            log.info("Deleting now")
             deleteAllWallets()
         }
     }

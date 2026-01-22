@@ -5,6 +5,7 @@ import type {
   ApiAccountWithMnemonic,
   ApiActivityTimestamps,
   ApiAnyDisplayError,
+  ApiAuthImportViewAccountResult,
   ApiBip39Account,
   ApiChain,
   ApiImportAddressByChain,
@@ -286,7 +287,7 @@ export async function importViewAccount(
   network: ApiNetwork,
   addressByChain: ApiImportAddressByChain,
   isTemporary?: true,
-) {
+): Promise<{ error: ApiAnyDisplayError } | { error: string; chain: ApiChain } | ApiAuthImportViewAccountResult> {
   try {
     const account: ApiViewAccount = {
       type: 'view',

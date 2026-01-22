@@ -27,7 +27,7 @@ export function selectNetworkAccounts(global: GlobalState) {
   return selectNetworkAccountsMemoized(selectCurrentNetwork(global), global.accounts?.byId);
 }
 
-export function selectCurrentNetwork(global: GlobalState) {
+export function selectCurrentNetwork(global: GlobalState): ApiNetwork {
   return global.settings.isTestnet ? 'testnet' : 'mainnet';
 }
 

@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import BigIntLib
+import WalletContext
 
 public struct MWalletVersionsData {
     

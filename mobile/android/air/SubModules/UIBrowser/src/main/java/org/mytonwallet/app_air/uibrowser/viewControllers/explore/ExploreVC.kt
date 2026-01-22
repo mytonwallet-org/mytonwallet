@@ -25,7 +25,6 @@ import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.WEmptyIconView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.SwapSearchEditText
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
@@ -67,7 +66,6 @@ class ExploreVC(context: Context) : WViewController(context),
         const val SECTION_TRENDING = 2
         const val SECTION_ALL = 3
 
-        private const val PADDING = 4
     }
 
     override val shouldDisplayTopBar = false
@@ -151,7 +149,6 @@ class ExploreVC(context: Context) : WViewController(context),
 
         setupNavBar(true)
         setTopBlur(visible = false, animated = false)
-        navigationBar?.titleLabel?.setStyle(22f, WFont.Medium)
         navigationBar?.setTitleGravity(Gravity.START)
 
         view.addView(recyclerView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
@@ -177,7 +174,7 @@ class ExploreVC(context: Context) : WViewController(context),
             0,
             topPadding,
             0,
-            PADDING.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
+            navigationController?.getSystemBars()?.bottom ?: 0
         )
         bottomReversedCornerView?.setHorizontalPadding(ViewConstants.HORIZONTAL_PADDINGS.dp.toFloat())
         rvAdapter.reloadData()

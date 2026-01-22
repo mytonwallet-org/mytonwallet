@@ -1,7 +1,7 @@
 import React, { memo, useEffect, useMemo, useRef, useState } from '../../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../../global';
 
-import type { ApiNft } from '../../../../api/types';
+import type { ApiChain, ApiNft } from '../../../../api/types';
 import type { IAnchorPosition } from '../../../../global/types';
 import type { DropdownItem } from '../../../ui/Dropdown';
 
@@ -42,6 +42,7 @@ interface StateProps {
   isViewMode?: boolean;
   collectionTabs?: string[];
   dnsExpiration?: Record<string, number>;
+  selectedExplorerIds?: Partial<Record<ApiChain, string>>;
 }
 
 function NftCollectionHeader({
@@ -51,6 +52,7 @@ function NftCollectionHeader({
   isViewMode,
   collectionTabs,
   dnsExpiration,
+  selectedExplorerIds,
 }: StateProps) {
   const {
     closeNftCollection,
@@ -111,7 +113,7 @@ function NftCollectionHeader({
         fontIcon: 'external',
       },
       !isTelegramGifts && {
-        name: getExplorerName('ton'),
+        name: getExplorerName(),
         value: 'tonExplorer',
         fontIcon: 'external',
       },
@@ -177,7 +179,12 @@ function NftCollectionHeader({
       }
 
       case 'tonExplorer': {
-        const url = getExplorerNftCollectionUrl(currentCollectionAddress, isTestnet);
+        const url = getExplorerNftCollectionUrl(
+          undefined,
+          currentCollectionAddress,
+          isTestnet,
+          selectedExplorerIds?.ton,
+        );
         if (url) {
           void openUrl(url);
         }
@@ -310,6 +317,7 @@ export default memo(withGlobal((global): StateProps => {
     isViewMode: selectIsCurrentAccountViewMode(global),
     collectionTabs,
     dnsExpiration,
+    selectedExplorerIds: global.settings.selectedExplorerIds,
   };
 }, (global, ownProps, stickToFirst) => {
   const {

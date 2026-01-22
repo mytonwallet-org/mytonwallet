@@ -2,7 +2,7 @@ import { useMemo } from '../../../../../lib/teact/teact';
 
 import type { Account, AccountType } from '../../../../../global/types';
 
-import { AccountTab } from '../AccountSelectorModal';
+import { AccountTab } from '../constants';
 
 export function useFilteredAccounts(
   orderedAccounts: Array<[string, Account]>,

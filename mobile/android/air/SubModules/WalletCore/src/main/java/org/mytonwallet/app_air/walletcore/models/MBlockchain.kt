@@ -3,7 +3,7 @@ package org.mytonwallet.app_air.walletcore.models
 import android.graphics.Color
 import com.squareup.moshi.JsonClass
 import org.mytonwallet.app_air.icons.R
-import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 import java.math.BigDecimal
 
@@ -99,16 +99,16 @@ enum class MBlockchain(
             return this == ton
         }
 
-    fun explorerUrl(address: String): String {
+    fun explorerUrl(network: MBlockchainNetwork, address: String): String {
         val str: String
         when (this) {
             ton -> {
-                val domain = ExplorerHelpers.tonScanUrl(WalletCore.activeNetwork)
+                val domain = ExplorerHelpers.tonScanUrl(network)
                 str = "${domain}address/$address"
             }
 
             tron -> {
-                val domain = ExplorerHelpers.tronScanUrl(WalletCore.activeNetwork)
+                val domain = ExplorerHelpers.tronScanUrl(network)
                 str = "${domain}address/$address"
             }
 
@@ -179,12 +179,8 @@ enum class MBlockchain(
 
     fun idToTxHash(id: String?): String? {
         return when (this) {
-            ton -> {
+            ton, tron -> {
                 id?.split(":")?.firstOrNull()
-            }
-
-            tron -> {
-                id?.split("|")?.firstOrNull()
             }
 
             else -> {

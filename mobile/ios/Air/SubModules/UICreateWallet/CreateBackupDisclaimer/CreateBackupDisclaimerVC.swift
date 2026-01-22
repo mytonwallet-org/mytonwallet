@@ -52,5 +52,5 @@ final class CreateBackupDisclaimerVC: WViewController {
 @available(iOS 18, *)
 #Preview {
     LocalizationSupport.shared.setLanguageCode("ru")
-    return CreateBackupDisclaimerVC(introModel: IntroModel(password: nil))
+    return CreateBackupDisclaimerVC(introModel: IntroModel(network: .mainnet, password: nil))
 }

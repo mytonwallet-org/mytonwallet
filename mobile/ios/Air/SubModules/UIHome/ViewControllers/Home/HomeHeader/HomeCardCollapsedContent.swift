@@ -1,10 +1,3 @@
-//
-//  CollapsedContent.swift
-//  MyTonWalletAir
-//
-//  Created by nikstar on 19.11.2025.
-//
-
 import Foundation
 import UIKit
 import UIComponents
@@ -15,7 +8,7 @@ import SwiftUIIntrospect
 import Perception
 import Dependencies
 
-struct HomeHeaderCollapsedContent: View {
+struct HomeCardCollapsedContent: View {
     
     let headerViewModel: HomeHeaderViewModel
     let accountContext: AccountContext

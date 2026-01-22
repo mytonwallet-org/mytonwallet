@@ -57,7 +57,7 @@ class ScreenRecordProtectionView(
         val contentView = WView(context).apply {
             setPadding(32.dp)
             val titleLabel = WLabel(context).apply {
-                setStyle(17f, WFont.Bold)
+                setStyle(17f, WFont.SemiBold)
                 text = LocaleController.getString("Screen Recording Detected")
                 setTextColor(WColor.PrimaryText)
                 gravity = Gravity.CENTER

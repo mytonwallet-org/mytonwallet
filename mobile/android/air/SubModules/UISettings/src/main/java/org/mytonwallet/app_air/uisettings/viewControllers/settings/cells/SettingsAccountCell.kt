@@ -15,6 +15,7 @@ import kotlinx.coroutines.withContext
 import org.mytonwallet.app_air.uicomponents.commonViews.AccountIconView
 import org.mytonwallet.app_air.uicomponents.commonViews.CardThumbnailView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
@@ -39,7 +40,12 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
     private var account: MAccount? = null
     private var isFirst = false
     private var isLast = false
-    private var showSeparator = false
+
+    companion object {
+        fun heightForItem(isLast: Boolean): Int {
+            return (60 + if (isLast) ViewConstants.GAP else 0).dp
+        }
+    }
 
     private val iconView: AccountIconView by lazy {
         AccountIconView(context, AccountIconView.Usage.SELECTABLE_ITEM)
@@ -47,7 +53,7 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
 
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(16f)
+            setStyle(16f, WFont.DemiBold)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isSelected = true
@@ -85,12 +91,10 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
         }
     }
 
-    private val separatorView = WBaseView(context)
-
     private val contentView = WView(context).apply {
         clipChildren = false
         clipToPadding = false
-        addView(iconView, LayoutParams(51.dp, 51.dp))
+        addView(iconView, LayoutParams(43.dp, 43.dp))
         addView(
             titleLabel,
             LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
@@ -104,7 +108,6 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
             LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT)
         )
         addView(trailingContainerView)
-        addView(separatorView, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
 
         setConstraints {
             // Icon
@@ -113,7 +116,7 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
 
             // Title
             toTop(titleLabel, 11f)
-            toStart(titleLabel, 72f)
+            toStart(titleLabel, 64f)
             setHorizontalBias(titleLabel.id, 0f)
             constrainedWidth(titleLabel.id, true)
 
@@ -134,11 +137,6 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
             endToStart(addressLabel, trailingContainerView, 4f)
             setHorizontalBias(addressLabel.id, 0f)
             constrainedWidth(addressLabel.id, true)
-
-            // Separator
-            toStart(separatorView, 72f)
-            toEnd(separatorView, 16f)
-            toBottom(separatorView)
         }
     }
 
@@ -157,15 +155,13 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
         value: String?,
         isFirst: Boolean,
         isLast: Boolean,
-        showSeparator: Boolean,
         onTap: () -> Unit
     ) {
         val account = item.accounts!!.first()
         if (this.account == account &&
             titleLabel.text == account.name &&
             this.isFirst == isFirst &&
-            this.isLast == isLast &&
-            this.showSeparator == showSeparator
+            this.isLast == isLast
         ) {
             updateTheme()
             notifyBalanceChange()
@@ -175,7 +171,6 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
         this.account = account
         this.isFirst = isFirst
         this.isLast = isLast
-        this.showSeparator = showSeparator
         setOnClickListener {
             onTap()
         }
@@ -191,17 +186,8 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
                 16f + (if (cardThumbnail.isGone) 0f else 22f)
             )
         }
-        if (ThemeManager.uiMode.hasRoundedCorners) {
-            separatorView.visibility = if (isLast || showSeparator) INVISIBLE else VISIBLE
-        } else {
-            separatorView.visibility = if (isLast && ThemeManager.isDark) INVISIBLE else VISIBLE
-            contentView.setConstraints {
-                toStart(separatorView, if (isLast) 0f else 68f)
-                toEnd(separatorView, if (isLast) 0f else 16f)
-            }
-        }
 
-        ((64 + if (isLast) ViewConstants.GAP else 0).dp).let {
+        heightForItem(isLast).let {
             if (layoutParams.height != it)
                 layoutParams.height = it
         }
@@ -210,6 +196,7 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
             onTap()
         }
 
+        updateAddressLabel()
         updateTheme()
 
         valueLabel.isSensitiveData = true
@@ -218,11 +205,6 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
 
     private var _isDarkThemeApplied: Boolean? = null
     override fun updateTheme() {
-        val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
-        if (!darkModeChanged)
-            return
-        _isDarkThemeApplied = ThemeManager.isDark
-
         contentView.setBackgroundColor(
             WColor.Background.color,
             if (isFirst) ViewConstants.BIG_RADIUS.dp else 0f.dp,
@@ -233,22 +215,24 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
             if (isFirst) ViewConstants.BIG_RADIUS.dp else 0f.dp,
             if (isLast) ViewConstants.BIG_RADIUS.dp else 0f.dp
         )
+
+        val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
+        if (!darkModeChanged)
+            return
+        _isDarkThemeApplied = ThemeManager.isDark
+
         titleLabel.setTextColor(WColor.PrimaryText.color)
         addressLabel.setTextColor(WColor.SecondaryText.color)
         valueLabel.contentView.setTextColor(WColor.SecondaryText.color)
-        separatorView.setBackgroundColor(WColor.Separator.color)
-        updateAddressLabel()
     }
 
     private fun updateAddressLabel() {
-        addressLabel.style = when (account?.accountType) {
+        val style = when (account?.accountType) {
             MAccount.AccountType.VIEW -> WMultichainAddressLabel.cardRowWalletViewStyle
             MAccount.AccountType.HARDWARE -> WMultichainAddressLabel.cardRowWalletHardwareStyle
             else -> WMultichainAddressLabel.cardRowWalletStyle
         }
-        addressLabel.displayAddresses(account?.byChain?.map { (key, value) ->
-            Pair(key, value)
-        } ?: emptyList())
+        addressLabel.displayAddresses(account, style)
     }
 
     fun notifyBalanceChange() {

@@ -9,6 +9,7 @@ import android.text.StaticLayout
 import android.util.TypedValue
 import android.view.Gravity
 import androidx.appcompat.widget.AppCompatTextView
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.helpers.FontManager
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.textOffset
@@ -146,7 +147,9 @@ open class WLabel(context: Context) : AppCompatTextView(context), WThemedView {
         }
     }
 
-    fun animateTextColor(endColor: Int, duration: Long) {
+    fun animateTextColor(endColor: Int, duration: Long = AnimationConstants.VERY_QUICK_ANIMATION) {
+        if (currentTextColor == endColor)
+            return
         val colorAnimator = ValueAnimator.ofArgb(currentTextColor, endColor)
         colorAnimator.duration = duration
         colorAnimator.addUpdateListener { animator ->

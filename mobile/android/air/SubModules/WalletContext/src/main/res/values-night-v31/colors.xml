@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="launcher_background_color">#2A2A2A</color>
+    <color name="launcher_background_color">#0E0E0E</color>
     <color name="launcher_foreground_android_color">#FFFFFF</color>
 </resources>

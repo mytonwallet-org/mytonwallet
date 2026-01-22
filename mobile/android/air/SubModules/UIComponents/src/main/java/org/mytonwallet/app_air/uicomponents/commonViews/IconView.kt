@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.annotation.DrawableRes
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.toColorInt
@@ -34,7 +35,7 @@ class IconView(
 ) : WView(context) {
 
     private val activityImageView: WActivityImageView by lazy {
-        WActivityImageView(context).apply {
+        WActivityImageView(context, viewSize).apply {
             chainSize = this@IconView.chainSize
         }
     }
@@ -54,7 +55,7 @@ class IconView(
         isFocusable = false
         isClickable = false
 
-        addView(activityImageView, LayoutParams(viewSize, viewSize))
+        addView(activityImageView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
 
         setConstraints {
             toTop(activityImageView)
@@ -68,10 +69,7 @@ class IconView(
 
     fun setSize(size: Int) {
         currentSize = size
-        activityImageView.layoutParams.apply {
-            width = size
-            height = size
-        }
+        activityImageView.setSize(size)
         textPaint.textSize = AccountAvatarRenderer.getTextSizeForViewSize(size)
         requestLayout()
     }
@@ -113,20 +111,21 @@ class IconView(
         } else {
             org.mytonwallet.app_air.walletcontext.R.drawable.ic_act_sent
         }
+        val subImageAnimation =
+            if ((transaction.isLocal() && transaction.status != ApiTransactionStatus.CONFIRMED) ||
+                transaction.isPending()
+            ) {
+                when {
+                    !transaction.isIncoming ->
+                        if (ThemeManager.isDark) R.raw.clock_dark_blue else R.raw.clock_light_blue
 
-        val subImageAnimation = if (transaction.isLocal() || transaction.isPending()) {
-            if (transaction.isTrustedPending() || transaction.isStaking) {
-                if (ThemeManager.isDark)
-                    R.raw.clock_dark_gray
-                else
-                    R.raw.clock_light_gray
-            } else {
-                if (ThemeManager.isDark)
-                    R.raw.clock_dark_orange
-                else
-                    R.raw.clock_light_orange
-            }
-        } else 0
+                    transaction.isTrustedPending() || transaction.isStaking ->
+                        if (ThemeManager.isDark) R.raw.clock_dark_gray else R.raw.clock_light_gray
+
+                    else ->
+                        if (ThemeManager.isDark) R.raw.clock_dark_orange else R.raw.clock_light_orange
+                }
+            } else 0
 
         activityImageView.set(
             Content(

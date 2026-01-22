@@ -75,7 +75,7 @@ function SettingsAbout({
       ) : (
         <Header
           isActive={isActive}
-          title={`${APP_NAME} ${APP_VERSION} ${APP_ENV_MARKER}`}
+          title={`${APP_NAME} ${APP_VERSION} ${APP_ENV_MARKER || ''}`}
           topTargetRef={headerRef}
           onBackClick={handleBackClick}
         />
@@ -142,7 +142,7 @@ function SettingsAbout({
           </a>
         </div>
 
-        <p className={styles.blockTitle}>{lang('Frequency Questions and Answers')}</p>
+        <p className={styles.blockTitle}>{lang('Frequent Questions & Answers')}</p>
         <div className={buildClassName(styles.settingsBlock, styles.settingsBlock_text)}>
           {IS_EXTENSION ? (
             <>

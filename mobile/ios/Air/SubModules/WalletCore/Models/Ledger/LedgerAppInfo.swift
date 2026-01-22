@@ -1,6 +1,5 @@
 
 import Foundation
-import BigIntLib
 import WalletContext
 
 public struct LedgerAppInfo: Equatable, Hashable, Codable, Sendable {

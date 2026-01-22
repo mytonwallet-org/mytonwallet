@@ -4,36 +4,65 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.text.TextUtils
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.widget.LinearLayout
 import androidx.appcompat.widget.AppCompatImageView
+import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.content.ContextCompat
-import androidx.core.view.setPadding
+import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsItem
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import kotlin.math.roundToInt
 
 interface ISettingsItemCell {
     fun configure(
         item: SettingsItem,
-        value: String?,
+        subtitle: String?,
         isFirst: Boolean,
         isLast: Boolean,
-        showSeparator: Boolean = false,
         onTap: () -> Unit
     )
 }
 
 @SuppressLint("ViewConstructor")
-class SettingsItemCell(context: Context, textLeadingMargin: Float = 68f) : WCell(context),
+class SettingsItemCell(
+    context: Context,
+    textLeadingMargin: Float = 64f,
+    private val baseContentHeight: Float = BASE_CONTENT_HEIGHT
+) : WCell(context),
     ISettingsItemCell, WThemedView {
+
+    companion object {
+        private const val BASE_CONTENT_HEIGHT = 50f
+        const val SIMPLE_ROW_HEIGHT = 50f
+
+        fun contentHeightForItem(
+            baseContentHeight: Float = BASE_CONTENT_HEIGHT,
+            isSubtitled: Boolean,
+        ): Int {
+            return (
+                baseContentHeight +
+                    (if (isSubtitled) 10 else 0)
+                ).dp.roundToInt()
+        }
+
+        fun cellHeightForItem(
+            baseContentHeight: Float = BASE_CONTENT_HEIGHT,
+            isSubtitled: Boolean,
+            isLast: Boolean,
+        ): Int {
+            return contentHeightForItem(baseContentHeight, isSubtitled) +
+                (if (isLast) ViewConstants.GAP.dp else 0)
+        }
+    }
 
     private var isFirst = false
     private var isLast = false
@@ -41,7 +70,6 @@ class SettingsItemCell(context: Context, textLeadingMargin: Float = 68f) : WCell
     val iconView: AppCompatImageView by lazy {
         AppCompatImageView(context).apply {
             id = generateViewId()
-            setPadding(8.dp)
         }
     }
 
@@ -49,9 +77,28 @@ class SettingsItemCell(context: Context, textLeadingMargin: Float = 68f) : WCell
         WLabel(context).apply {
             setStyle(16f)
             setSingleLine()
-            ellipsize = TextUtils.TruncateAt.MARQUEE
-            isHorizontalFadingEdgeEnabled = true
-            isSelected = true
+            setTextColor(WColor.PrimaryText)
+            ellipsize = TextUtils.TruncateAt.END
+        }
+    }
+
+    private val subtitleLabel: WLabel by lazy {
+        WLabel(context).apply {
+            setStyle(13f)
+            setSingleLine()
+            setTextColor(WColor.SecondaryText)
+            ellipsize = TextUtils.TruncateAt.END
+        }
+    }
+
+    private val titleView: LinearLayout by lazy {
+        LinearLayout(context).apply {
+            id = generateViewId()
+            orientation = LinearLayout.VERTICAL
+            addView(titleLabel, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            addView(subtitleLabel, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                topMargin = 2.dp
+            })
         }
     }
 
@@ -61,34 +108,26 @@ class SettingsItemCell(context: Context, textLeadingMargin: Float = 68f) : WCell
         lbl
     }
 
-    private val separatorView = WBaseView(context)
-
     private val contentView = WView(context).apply {
-        addView(iconView, LayoutParams(40.dp, 40.dp))
-        addView(titleLabel)
+        addView(iconView, LayoutParams(28.dp, 28.dp))
+        addView(titleView, LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
         addView(valueLabel)
-        addView(separatorView, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
 
         setConstraints {
-            toStart(iconView, 16f)
+            toStart(iconView, 18f)
             toCenterY(iconView)
-            setHorizontalBias(titleLabel.id, 0f)
-            constrainedWidth(titleLabel.id, true)
-            toStart(titleLabel, textLeadingMargin)
-            toTop(titleLabel, 16f)
-            endToStart(titleLabel, valueLabel, 8f)
-            toEnd(valueLabel, 16f)
-            toTop(valueLabel, 16f)
-            toBottom(separatorView)
-            toStart(separatorView, textLeadingMargin)
-            toEnd(separatorView, 16f)
+            toStart(titleView, textLeadingMargin)
+            toCenterY(titleView, 16f)
+            endToStart(titleView, valueLabel, 8f)
+            toEnd(valueLabel, 20f)
+            toCenterY(valueLabel, 16f)
         }
     }
 
     init {
         super.setupViews()
 
-        addView(contentView, LayoutParams(MATCH_PARENT, 56.dp))
+        addView(contentView, LayoutParams(MATCH_PARENT, baseContentHeight.dp.roundToInt()))
         setConstraints {
             toTop(contentView)
             toCenterX(contentView)
@@ -99,10 +138,9 @@ class SettingsItemCell(context: Context, textLeadingMargin: Float = 68f) : WCell
 
     override fun configure(
         item: SettingsItem,
-        value: String?,
+        subtitle: String?,
         isFirst: Boolean,
         isLast: Boolean,
-        showSeparator: Boolean,
         onTap: () -> Unit
     ) {
         this.isFirst = isFirst
@@ -110,41 +148,27 @@ class SettingsItemCell(context: Context, textLeadingMargin: Float = 68f) : WCell
 
         if (item.icon != null)
             iconView.setImageDrawable(ContextCompat.getDrawable(context, item.icon)?.apply {
-                setTint(if (item.hasTintColor) WColor.Tint.color else WColor.SecondaryText.color)
+                if (item.hasTintColor)
+                    setTint(WColor.SecondaryText.color)
             })
         else {
             iconView.setImageDrawable(null)
         }
         titleLabel.text = item.title
-        valueLabel.text = value
-        titleLabel.setTextColor(if (item.hasTintColor) WColor.Tint.color else WColor.PrimaryText.color)
+        valueLabel.text = item.value
+        subtitleLabel.text = subtitle
+        subtitleLabel.isGone = subtitle.isNullOrEmpty()
 
-        if (ThemeManager.uiMode.hasRoundedCorners) {
-            separatorView.visibility = if (isLast) INVISIBLE else VISIBLE
-        } else {
-            separatorView.visibility = if (isLast && ThemeManager.isDark) INVISIBLE else VISIBLE
-            contentView.setConstraints {
-                toStart(separatorView, if (isLast) 0f else 72f)
-                toEnd(separatorView, if (isLast) 0f else 16f)
-            }
-        }
-
-        layoutParams.height = (56 + if (isLast) ViewConstants.GAP else 0).dp
+        contentView.layoutParams.height =
+            contentHeightForItem(baseContentHeight, !subtitle.isNullOrEmpty())
+        layoutParams.height =
+            cellHeightForItem(baseContentHeight, !subtitle.isNullOrEmpty(), isLast)
 
         setOnClickListener {
             onTap()
         }
 
         updateTheme()
-    }
-
-    fun setSeparator(toStart: Float? = null, toEnd: Float? = null) {
-        contentView.setConstraints {
-            if (toStart != null)
-                toStart(separatorView, toStart)
-            if (toEnd != null)
-                toEnd(separatorView, toEnd)
-        }
     }
 
     override fun updateTheme() {
@@ -160,6 +184,5 @@ class SettingsItemCell(context: Context, textLeadingMargin: Float = 68f) : WCell
         )
         titleLabel.setTextColor(WColor.PrimaryText.color)
         valueLabel.setTextColor(WColor.SecondaryText.color)
-        separatorView.setBackgroundColor(WColor.Separator.color)
     }
 }

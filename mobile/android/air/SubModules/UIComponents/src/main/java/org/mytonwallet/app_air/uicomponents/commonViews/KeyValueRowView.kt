@@ -49,22 +49,6 @@ class KeyValueRowView(
             valueLabel.isSensitiveData = value
         }
 
-    private val shouldShowSeparator: Boolean
-        get() {
-            return !isLast// || !ThemeManager.uiMode.hasRoundedCorners
-        }
-
-    private val separator = SeparatorBackgroundDrawable().apply {
-        offsetStart = 20f.dp
-        offsetEnd = 20f.dp
-        allowSeparator = shouldShowSeparator
-    }
-
-    init {
-        if (shouldShowSeparator)
-            background = separator
-    }
-
     private val keyLabel: WLabel by lazy {
         WLabel(context).apply {
             setStyle(16f)
@@ -117,15 +101,15 @@ class KeyValueRowView(
         }
 
     init {
-        minimumHeight = 56.dp
+        minimumHeight = 50.dp
         addView(keyLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(valueLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         setConstraints {
             setHorizontalBias(keyLabel.id, 0f)
             setHorizontalBias(valueLabel.id, 1f)
             constrainedWidth(valueLabel.id, true)
-            toTop(keyLabel, 18f)
-            toCenterY(valueLabel, 18f)
+            toTop(keyLabel, 15f)
+            toCenterY(valueLabel, 15f)
             toStart(keyLabel, 20f)
             startToEnd(valueLabel, keyLabel, 16f)
             toEnd(valueLabel, 20f)
@@ -272,28 +256,21 @@ class KeyValueRowView(
     }
 
     override fun setBackgroundColor(color: Int) {
-        if (shouldShowSeparator)
-            separator.backgroundColor = color
-        else
-            setBackgroundColor(WColor.Background.color, 0f, ViewConstants.BIG_RADIUS.dp)
+        setBackgroundColor(color, topRadius, if (isLast) ViewConstants.BIG_RADIUS.dp else 0f)
     }
 
-    fun hideSeparator() {
-        if (shouldShowSeparator) {
-            separator.forceSeparator = false
-            separator.allowSeparator = false
-        }
-    }
-
+    private var topRadius = 0f
     fun setTopRadius(topRadius: Float) {
-        separator.topRadius = topRadius
+        this.topRadius = topRadius
+        currentBackgroundColor?.let {
+            setBackgroundColor(it)
+        }
     }
 
     fun setLast(isLast: Boolean) {
         this.isLast = isLast
-        background = if (shouldShowSeparator)
-            separator
-        else
-            null
+        currentBackgroundColor?.let {
+            setBackgroundColor(it)
+        }
     }
 }

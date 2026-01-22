@@ -14,12 +14,12 @@ struct ReceiveHeaderView: View {
         WithPerceptionTracking {
             ZStack {
                 ZStack {
-                    Color.clear
+                    Color.blue.opacity(0.2)
                     
                     ForEach(viewModel.items) { item in
                         WithPerceptionTracking {
                             let distance = viewModel.distanceToItem(itemId: item.id)
-                            Image.airBundle("Receive.Background.\(item.id)")
+                            Image.airBundle("receive_background_\(item.id)")
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
                                 .opacity(1 - distance)
@@ -55,7 +55,7 @@ struct ReceiveHeaderItemView: View {
             let progressAbs = 1 - abs(progress)
             
             ZStack {
-                Image.airBundle("Receive.Ornament.\(chain)")
+                Image.airBundle("receive_ornament_\(chain)")
                     .blendMode(.softLight)
                     .opacity(interpolate(from: 0.25, to: 1, progress: progressAbs))
                 

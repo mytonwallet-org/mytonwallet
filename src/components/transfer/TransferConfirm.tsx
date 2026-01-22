@@ -76,6 +76,7 @@ function TransferConfirm({
     isGaslessWithStars,
     diesel,
     stateInit,
+    isOfframp,
   },
   token,
   currentAccountId,
@@ -211,14 +212,18 @@ function TransferConfirm({
     ? (Math.ceil(nfts.length / NFT_BATCH_SIZE) * BURN_CHUNK_DURATION_APPROX_SEC) / 60
     : undefined;
 
-  const submitBtnText = lang(
-    (isBurning || isNotcoinBurning)
-      ? (isNftTransfer ? 'Burn NFT' : 'Burn')
-      : isGaslessWithStars
-        ? 'Pay fee with %stars_symbol%'
-        : 'Confirm',
-    isGaslessWithStars ? { stars_symbol: STARS_SYMBOL } : undefined,
-  );
+  function getSubmitBtnText() {
+    if (isOfframp) {
+      return lang('Sell %symbol%', { symbol: token?.symbol ?? '' });
+    }
+    if (isBurning || isNotcoinBurning) {
+      return lang(isNftTransfer ? 'Burn NFT' : 'Burn');
+    }
+    if (isGaslessWithStars) {
+      return lang('Pay fee with %stars_symbol%', { stars_symbol: STARS_SYMBOL });
+    }
+    return lang('Confirm');
+  }
 
   return (
     <>
@@ -274,9 +279,11 @@ function TransferConfirm({
         )}
 
         <div className={buildClassName(modalStyles.buttons, modalStyles.buttonsInsideContentWithScroll)}>
-          <Button className={modalStyles.button} onClick={promiseId ? onClose : onBack}>
-            {promiseId ? lang('Cancel') : lang('Edit')}
-          </Button>
+          {!isOfframp && (
+            <Button className={modalStyles.button} onClick={promiseId ? onClose : onBack}>
+              {promiseId ? lang('Cancel') : lang('Edit')}
+            </Button>
+          )}
           <Button
             isPrimary
             isLoading={isLoading}
@@ -284,7 +291,7 @@ function TransferConfirm({
             className={modalStyles.button}
             onClick={handleConfirm}
           >
-            {submitBtnText}
+            {getSubmitBtnText()}
           </Button>
         </div>
       </div>

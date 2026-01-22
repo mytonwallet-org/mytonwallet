@@ -66,6 +66,12 @@ export class FallbackPollingScheduler {
     this.#schedulePolling(true);
   }
 
+  /** Forces an immediate poll, bypassing the normal schedule. Useful for error recovery. */
+  public forceImmediatePoll() {
+    if (this.#isDestroyed) return;
+    this.#poll();
+  }
+
   public destroy() {
     this.#isDestroyed = true;
     this.#cancelScheduledPoll?.();

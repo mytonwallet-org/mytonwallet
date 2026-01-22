@@ -23,4 +23,10 @@ extension AccountChain {
     public var preferredCopyString: String {
         domain ?? address
     }
+    
+    func matches(_ searchString: Regex<Substring>) -> Bool {
+        if address.contains(searchString) { return true }
+        if let domain, domain.contains(searchString) { return true }
+        return false
+    }
 }

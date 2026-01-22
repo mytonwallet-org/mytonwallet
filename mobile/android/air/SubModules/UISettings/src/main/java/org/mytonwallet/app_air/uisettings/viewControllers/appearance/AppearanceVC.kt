@@ -54,7 +54,7 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
                 title = LocaleController.getString("Switch to Legacy Version"),
                 hasTintColor = false
             ),
-            value = null,
+            subtitle = null,
             isFirst = false,
             isLast = true,
             onTap = {
@@ -106,10 +106,6 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
                     listOf(
                         FontFamily.ROBOTO,
                         FontFamily.MISANS,
-                        /*FontFamily.OPENSANS,
-                        FontFamily.NOTOSANS,
-                        FontFamily.NUNITOSANS,
-                        FontFamily.VAZIR*/
                     ).map {
                         WMenuPopup.Item(
                             null,
@@ -136,12 +132,38 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
         v
     }*/
 
+    private val roundedCornersRow = SwitchCell(
+        context,
+        title = LocaleController.getString("Rounded Corners"),
+        isChecked = WGlobalStorage.getAreRoundedCornersActive(),
+        isFirst = true,
+        onChange = { isChecked ->
+            WGlobalStorage.setAreRoundedCornersActive(isChecked)
+            if (isChecked) {
+                // Re-enable and turn on dependent settings
+                roundedToolbarsRow.isEnabled = true
+                sideGuttersRow.isEnabled = true
+                if (!roundedToolbarsRow.isChecked) roundedToolbarsRow.isChecked = true
+                if (!sideGuttersRow.isChecked) sideGuttersRow.isChecked = true
+            } else {
+                ViewConstants.BIG_RADIUS = 0f
+                ViewConstants.STANDARD_ROUNDS = 0f
+                // Turn off and disable dependent settings
+                if (roundedToolbarsRow.isChecked) roundedToolbarsRow.isChecked = false
+                roundedToolbarsRow.isEnabled = false
+                if (sideGuttersRow.isChecked) sideGuttersRow.isChecked = false
+                sideGuttersRow.isEnabled = false
+            }
+            pendingThemeChange = true
+            WalletContextManager.delegate?.themeChanged()
+        }
+    )
+
     private var radiusAnimator: ValueAnimator? = null
     private val roundedToolbarsRow = SwitchCell(
         context,
         title = LocaleController.getString("Rounded Toolbars"),
         isChecked = ThemeManager.uiMode == ThemeManager.UIMode.BIG_RADIUS,
-        isFirst = true,
         onChange = { isChecked ->
             val uiMode = if (isChecked) {
                 ThemeManager.UIMode.BIG_RADIUS
@@ -188,6 +210,7 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
         context,
         title = LocaleController.getString("Side Gutters"),
         isChecked = ViewConstants.HORIZONTAL_PADDINGS > 0,
+        isLast = true,
         onChange = { isChecked ->
             WGlobalStorage.setAreSideGuttersActive(isChecked)
             ViewConstants.HORIZONTAL_PADDINGS = if (isChecked) 10 else 0
@@ -216,6 +239,18 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
         }
     )
 
+    private val blurRow = SwitchCell(
+        context,
+        title = LocaleController.getString("Enable Blur"),
+        isChecked = WGlobalStorage.isBlurEnabled(),
+        isFirst = true,
+        onChange = { isChecked ->
+            WGlobalStorage.setBlurEnabled(isChecked)
+            pendingThemeChange = true
+            WalletContextManager.delegate?.themeChanged()
+        }
+    )
+
     private val animationsRow = SwitchCell(
         context,
         title = LocaleController.getString("Enable Animations"),
@@ -231,10 +266,17 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
         v.addView(switchToLegacyCell, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.addView(appThemeView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.addView(appPaletteView, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
-        v.addView(appFontView, ConstraintLayout.LayoutParams(0, 56.dp))
-        v.addView(roundedToolbarsRow, ConstraintLayout.LayoutParams(0, 56.dp))
-        v.addView(sideGuttersRow, ConstraintLayout.LayoutParams(0, 56.dp))
-        v.addView(animationsRow, ConstraintLayout.LayoutParams(0, 56.dp))
+        v.addView(roundedCornersRow, ConstraintLayout.LayoutParams(0, 50.dp))
+        v.addView(roundedToolbarsRow, ConstraintLayout.LayoutParams(0, 50.dp))
+        v.addView(sideGuttersRow, ConstraintLayout.LayoutParams(0, 50.dp))
+        v.addView(blurRow, ConstraintLayout.LayoutParams(0, 50.dp))
+        v.addView(animationsRow, ConstraintLayout.LayoutParams(0, 50.dp))
+        v.addView(appFontView, ConstraintLayout.LayoutParams(0, 50.dp))
+        // Set initial enabled state based on roundedCornersRow
+        if (!roundedCornersRow.isChecked) {
+            roundedToolbarsRow.isEnabled = false
+            sideGuttersRow.isEnabled = false
+        }
         v.setConstraints {
             toTop(switchToLegacyCell)
             toCenterX(switchToLegacyCell)
@@ -242,15 +284,22 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
             toCenterX(appThemeView)
             topToBottom(appPaletteView, appThemeView, ViewConstants.GAP.toFloat())
             toCenterX(appPaletteView)
-            topToBottom(appFontView, appPaletteView, ViewConstants.GAP.toFloat())
-            toCenterX(appFontView)
-            topToBottom(roundedToolbarsRow, appFontView, ViewConstants.GAP.toFloat())
+            // Group 1: Rounded Corners, Rounded Toolbars, Side Gutters
+            topToBottom(roundedCornersRow, appPaletteView, ViewConstants.GAP.toFloat())
+            toCenterX(roundedCornersRow)
+            topToBottom(roundedToolbarsRow, roundedCornersRow)
             toCenterX(roundedToolbarsRow)
             topToBottom(sideGuttersRow, roundedToolbarsRow)
             toCenterX(sideGuttersRow)
-            topToBottom(animationsRow, sideGuttersRow)
+            // Group 2: Enable Blur, Enable Animations
+            topToBottom(blurRow, sideGuttersRow, ViewConstants.GAP.toFloat())
+            toCenterX(blurRow)
+            topToBottom(animationsRow, blurRow)
             toCenterX(animationsRow)
-            toBottomPx(animationsRow, (navigationController?.getSystemBars()?.bottom ?: 0))
+            // Group 3: App Font
+            topToBottom(appFontView, animationsRow, ViewConstants.GAP.toFloat())
+            toCenterX(appFontView)
+            toBottomPx(appFontView, (navigationController?.getSystemBars()?.bottom ?: 0))
         }
         v
     }

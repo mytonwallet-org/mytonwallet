@@ -11,7 +11,7 @@ import android.view.Gravity
 import android.widget.LinearLayout
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
+import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.AddressPopupHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WForegroundColorSpan
@@ -22,6 +22,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
@@ -148,6 +149,7 @@ class PasscodeHeaderSendView(
     fun configSendingToken(
         token: ApiTokenWithPrice,
         amountString: String,
+        network: MBlockchainNetwork,
         resolvedAddress: String?
     ) {
         val amount = SpannableStringBuilder(amountString)
@@ -165,12 +167,13 @@ class PasscodeHeaderSendView(
                 this,
                 length - a.length,
                 a.length,
+                network,
                 token.slug,
                 resolvedAddress ?: "",
                 textWidth.roundToInt(),
                 showTemporaryViewOption = false
             )
-            updateDotsTypeface()
+            styleDots()
             setSpan(
                 WForegroundColorSpan(WColor.SecondaryText),
                 length - a.length - 1,

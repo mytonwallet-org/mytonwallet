@@ -22,20 +22,7 @@ public struct ApiSwapActivity: BaseActivity, Codable, Equatable, Hashable, Senda
     public let networkFee: MDouble? // FIXME: Had to add ? for comatibility
     public let swapFee: MDouble? // FIXME: Had to add ? for comatibility
     public let ourFee: MDouble?
-    /**
-       * Swap confirmation status
-       * Both 'pendingTrusted' and 'pending' mean the swap is awaiting confirmation by the blockchain.
-       * - 'pendingTrusted' — awaiting confirmation and trusted (initiated by our app).
-       * - 'pending' — awaiting confirmation from an external/unauthenticated source.
-       *
-       * There are two backends: ToncenterApi and our backend.
-       * Swaps returned by ToncenterApi have the status 'pending'.
-       * Swaps returned by our backend also have the status 'pending', but they are meant to be 'pendingTrusted'.
-       * When an activity reaches the `GlobalState`, it already has the correct status set.
-       *
-       * TODO: Replace the status 'pending' with 'pendingTrusted' on our backend once all clients are updated.
-       */
-    public let status: ApiSwapStatus
+    public var status: ApiSwapStatus
     public let hashes: [String]?
     public let isCanceled: Bool?
     public let cex: ApiSwapCexTransactionExtras?
@@ -44,6 +31,7 @@ public struct ApiSwapActivity: BaseActivity, Codable, Equatable, Hashable, Senda
 public enum ApiSwapStatus: String, Codable, Sendable {
     case pending
     case pendingTrusted
+    case confirmed
     case completed
     case failed
     case expired
@@ -69,6 +57,7 @@ public enum ApiSwapCexTransactionStatus: String, Codable, Sendable {
     case hold
     case overdue
     case expired
+    case confirmed
     
     // FIXME: added for compatibility
     case pending
@@ -82,16 +71,14 @@ public enum ApiSwapCexTransactionStatus: String, Codable, Sendable {
     }
     public var uiStatus: UIStatus {
         switch self {
-        case .new, .waiting, .confirming, .exchanging, .sending, .hold:
+        case .new, .waiting, .confirming, .exchanging, .sending, .hold, .pending:
             return .pending
         case .expired, .refunded, .overdue:
             return .expired
         case .failed:
             return .failed
-        case .finished:
+        case .finished, .confirmed:
             return .completed
-        default:
-            return .pending
         }
     }
 }
@@ -106,11 +93,13 @@ public extension ApiSwapActivity {
     }
     
     var fromAmountInt64: BigInt? {
-        doubleToBigInt(fromAmount.value, decimals: fromToken?.decimals ?? 9)
+        guard let decimals = fromToken?.decimals else { return nil }
+        return doubleToBigInt(fromAmount.value, decimals: decimals)
     }
     
     var toAmountInt64: BigInt? {
-        doubleToBigInt(toAmount.value, decimals: toToken?.decimals ?? 9)
+        guard let decimals = toToken?.decimals else { return nil }
+        return doubleToBigInt(toAmount.value, decimals: decimals)
     }
     
     var fromSymbolName: String {

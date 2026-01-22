@@ -4,6 +4,7 @@ import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Types
 import org.json.JSONArray
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.api.ArgumentsBuilder
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
@@ -78,7 +79,7 @@ sealed class ApiMethod<T> {
 
         class GetLedgerWallets(
             chain: MBlockchain,
-            network: String,
+            network: MBlockchainNetwork,
             startWalletIndex: Int,
             count: Int
         ) : ApiMethod<Array<MLedgerWalletInfo>>() {
@@ -86,34 +87,32 @@ sealed class ApiMethod<T> {
             override val type: Type = Array<MLedgerWalletInfo>::class.java
             override val arguments: String = ArgumentsBuilder()
                 .string(chain.name)
-                .string(network)
+                .string(network.value)
                 .number(startWalletIndex)
                 .number(count)
                 .build()
         }
 
         class ImportLedgerWallet(
-            network: String,
+            network: MBlockchainNetwork,
             accountInfo: MApiLedgerAccountInfo
         ) : ApiMethod<MImportedWalletResponse>() {
             override val name: String = "importLedgerAccount"
             override val type: Type = MImportedWalletResponse::class.java
             override val arguments: String = ArgumentsBuilder()
-                .string(network)
+                .string(network.value)
                 .jsObject(accountInfo, MApiLedgerAccountInfo::class.java)
-                .string(network)
-                .string(null)
                 .build()
         }
 
         class ImportViewAccount(
-            network: String,
+            network: MBlockchainNetwork,
             addressByChain: Map<MBlockchain, String>
         ) : ApiMethod<MImportedViewWalletResponse>() {
             override val name: String = "importViewAccount"
             override val type: Type = MImportedViewWalletResponse::class.java
             override val arguments: String = ArgumentsBuilder()
-                .string(network)
+                .string(network.value)
                 .jsonObject(JSONObject().apply {
                     addressByChain.forEach { (chain, address) ->
                         put(chain.name, address)
@@ -153,7 +152,7 @@ sealed class ApiMethod<T> {
 
         class FetchTransactionById(
             chain: String,
-            network: String,
+            network: MBlockchainNetwork,
             txHash: String,
             walletAddress: String,
         ) : ApiMethod<List<MApiTransaction>>() {
@@ -162,7 +161,7 @@ sealed class ApiMethod<T> {
                 Types.newParameterizedType(List::class.java, MApiTransaction::class.java)
             override val arguments: String = ArgumentsBuilder()
                 .string(chain)
-                .string(network)
+                .string(network.value)
                 .string(txHash)
                 .string(walletAddress)
                 .build()

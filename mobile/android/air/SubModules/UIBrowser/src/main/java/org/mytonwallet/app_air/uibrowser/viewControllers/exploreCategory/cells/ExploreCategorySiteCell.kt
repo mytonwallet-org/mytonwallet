@@ -91,11 +91,6 @@ class ExploreCategorySiteCell(
         }
     }
 
-    private val separator: WView by lazy {
-        val v = WView(context)
-        v
-    }
-
     override fun setupViews() {
         super.setupViews()
 
@@ -104,7 +99,6 @@ class ExploreCategorySiteCell(
         addView(img, LayoutParams(48.dp, 48.dp))
         addView(contentView, LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
         addView(openButton, LayoutParams(WRAP_CONTENT, 32.dp))
-        addView(separator, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
 
         if (site?.badgeText?.isNotBlank() == true)
             addView(badgeLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
@@ -116,9 +110,6 @@ class ExploreCategorySiteCell(
             toTop(contentView, -2f)
             toBottom(contentView)
             endToStart(contentView, openButton, 8f)
-            toBottom(separator)
-            toStart(separator, 78f)
-            toEnd(separator)
             if (site?.badgeText?.isNotBlank() == true) {
                 toTop(badgeLabel, -4f)
                 toEnd(badgeLabel, -4f)
@@ -149,7 +140,6 @@ class ExploreCategorySiteCell(
             titleLabel.isSelected = true
         }, 1000)
         subtitleLabel.text = site.description
-        separator.visibility = if (isLast) INVISIBLE else VISIBLE
         updateTheme()
     }
 
@@ -189,19 +179,14 @@ class ExploreCategorySiteCell(
             }
             border.cornerRadii = radii
             background = border
-            separator.setBackgroundColor(Color.TRANSPARENT)
-        } else {
-            separator.setBackgroundColor(WColor.Separator.color)
         }
         if (site?.badgeText?.isNotBlank() == true) {
-            val isCorneredFirstItem =
-                isFirst && ThemeManager.uiMode.hasRoundedCorners
             badgeLabel.setBackgroundColor(WColor.Tint.color, 4f.dp, true)
             badgeLabel.setTextColor(WColor.TextOnTint.color)
             badgeLabel.setPaddingLocalized(
                 4.dp,
-                if (isCorneredFirstItem) 6.dp else 4.dp,
-                if (isCorneredFirstItem) 14.dp else 6.dp,
+                if (isFirst) 6.dp else 4.dp,
+                if (isFirst) 14.dp else 6.dp,
                 0
             )
         }

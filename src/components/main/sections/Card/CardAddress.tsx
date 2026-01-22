@@ -33,6 +33,7 @@ interface StateProps {
   isTestnet?: boolean;
   isTemporary?: boolean;
   withTextGradient?: boolean;
+  selectedExplorerIds?: Partial<Record<ApiChain, string>>;
 }
 
 function CardAddress({
@@ -42,6 +43,7 @@ function CardAddress({
   withTextGradient,
   isMinimized,
   isTemporary,
+  selectedExplorerIds,
 }: StateProps & OwnProps) {
   const lang = useLang();
 
@@ -84,7 +86,7 @@ function CardAddress({
   }, [byChain, chains, lang]);
 
   const handleExplorerClick = useLastCallback((chain: ApiChain, address: string) => {
-    void openUrl(getExplorerAddressUrl(chain, address, isTestnet)!);
+    void openUrl(getExplorerAddressUrl(chain, address, isTestnet, selectedExplorerIds?.[chain])!);
     closeMenu();
   });
 
@@ -131,5 +133,6 @@ export default memo(withGlobal((global): StateProps => {
     isTestnet: global.settings.isTestnet,
     accountType,
     isTemporary,
+    selectedExplorerIds: global.settings.selectedExplorerIds,
   };
 })(CardAddress));

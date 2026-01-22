@@ -44,6 +44,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.models.MWalletSettingsViewMode
 import org.mytonwallet.app_air.walletcontext.utils.MarginImageSpan
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -204,15 +205,15 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                     val walletCategory = tabs[selectedTabIndex]
                     val vc = when (walletCategory) {
                         WalletCategory.MY, WalletCategory.ALL -> {
-                            WalletContextManager.delegate?.getAddAccountVC()
+                            WalletContextManager.delegate?.getAddAccountVC(MBlockchainNetwork.MAINNET)
                         }
 
                         WalletCategory.LEDGER -> {
-                            WalletContextManager.delegate?.getImportLedgerVC()
+                            WalletContextManager.delegate?.getImportLedgerVC(MBlockchainNetwork.MAINNET)
                         }
 
                         WalletCategory.VIEW -> {
-                            WalletContextManager.delegate?.getAddViewAccountVC()
+                            WalletContextManager.delegate?.getAddViewAccountVC(MBlockchainNetwork.MAINNET)
                         }
                     } as WViewController
                     val nav = WNavigationController(

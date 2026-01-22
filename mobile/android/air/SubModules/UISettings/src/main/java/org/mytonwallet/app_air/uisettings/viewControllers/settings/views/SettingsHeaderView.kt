@@ -13,7 +13,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.SettingsVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -38,10 +37,11 @@ class SettingsHeaderView(
 
     companion object {
         const val HEIGHT_NORMAL = 168
+        const val HEIGHT_COLLAPSED = 64
     }
 
     private val normalHeight = HEIGHT_NORMAL.dp
-    private val minHeight = 64.dp
+    private val minHeight = HEIGHT_COLLAPSED.dp
     private val px16 = 16.dp
     private val px20 = 20.dp
     private val px32 = 32.dp
@@ -59,7 +59,7 @@ class SettingsHeaderView(
 
     private val walletNameLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(22f, WFont.Medium)
+            setStyle(22f, WFont.SemiBold)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isHorizontalFadingEdgeEnabled = true
@@ -130,7 +130,7 @@ class SettingsHeaderView(
             return
 
         AccountStore.activeAccount?.let {
-            walletIcon.config(it, 30f.dp)
+            walletIcon.config(it, 28f.dp)
         }
 
         configureDescriptionLabel(updateUILayoutParamsIfRequired = false)
@@ -178,14 +178,12 @@ class SettingsHeaderView(
     }
 
     private fun updateAddressLabel(account: MAccount?) {
-        addressLabel.style = when (account?.accountType) {
+        val style = when (account?.accountType) {
             MAccount.AccountType.VIEW -> WMultichainAddressLabel.settingsHeaderWalletViewStyle
             MAccount.AccountType.HARDWARE -> WMultichainAddressLabel.settingsHeaderWalletHardwareStyle
             else -> WMultichainAddressLabel.settingsHeaderWalletStyle
         }
-        addressLabel.displayAddresses(account?.byChain?.map { (key, value) ->
-            Pair(key, value)
-        } ?: emptyList())
+        addressLabel.displayAddresses(account, style)
     }
 
 
@@ -206,7 +204,7 @@ class SettingsHeaderView(
                 1f,
                 (contentHeight - minHeight) / ViewConstants.GAP.dp.toFloat()
             )
-        if (alpha == 0f || (ThemeManager.uiMode.hasRoundedCorners && alpha == 1f)) {
+        if (alpha == 0f || alpha == 1f) {
             background = null
         } else {
             setBackgroundColor(
@@ -309,7 +307,8 @@ class SettingsHeaderView(
         // - Collapsed: 68dp = 108dp (right-side icons) − 40dp (reduced wallet icon size)
         // - Expanded: walletBalanceLabel.width + 32dp (spacing)
         // The interpolation factor is walletBalanceLabel.alpha (0 = collapsed, 1 = expanded).
-        val rightPadding = lerp(68f.dp, walletBalanceLabel.width + 32f.dp, walletBalanceLabel.alpha).roundToInt()
+        val rightPadding =
+            lerp(68f.dp, walletBalanceLabel.width + 32f.dp, walletBalanceLabel.alpha).roundToInt()
         walletNameLabel.setPadding(0, 0, rightPadding, 0)
         walletNameLabel.isSelected = expandPercentage % 1 == 0f
     }

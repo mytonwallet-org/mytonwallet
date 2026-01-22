@@ -40,6 +40,7 @@ export const IS_CAPACITOR = process.env.IS_CAPACITOR === '1';
 export const IS_ANDROID_DIRECT = process.env.IS_ANDROID_DIRECT === '1';
 export const IS_AIR_APP = process.env.IS_AIR_APP === '1';
 export const IS_TELEGRAM_APP = process.env.IS_TELEGRAM_APP === '1';
+export const IS_EXPLORER = process.env.IS_EXPLORER === '1';
 
 export const ELECTRON_HOST_URL = 'https://dumb-host';
 export const INACTIVE_MARKER = '[Inactive]';
@@ -64,6 +65,7 @@ export const DEBUG_ALERT_MSG = 'Shoot!\nSomething went wrong, please see the err
 export const PIN_LENGTH = 4;
 export const NATIVE_BIOMETRICS_USERNAME = IS_CORE_WALLET ? 'TonWallet' : 'MyTonWallet';
 export const NATIVE_BIOMETRICS_SERVER = IS_CORE_WALLET ? 'https://wallet.ton.org' : 'https://mytonwallet.app';
+export const NATIVE_BIOMETRICS_PROMPT_KEY = 'confirm an action in MyTonWallet';
 
 /** If `true`, the app supports only TON-specific mnemonics */
 export const IS_TON_MNEMONIC_ONLY = IS_CORE_WALLET;
@@ -99,7 +101,11 @@ export const WHOLE_PART_DELIMITER = ' '; // https://www.compart.com/en/unicode
 export const DEFAULT_SLIPPAGE_VALUE = 5;
 
 export const GLOBAL_STATE_CACHE_DISABLED = false;
-export const GLOBAL_STATE_CACHE_KEY = IS_CORE_WALLET ? 'tonwallet-global-state' : 'mytonwallet-global-state';
+export const GLOBAL_STATE_CACHE_KEY = IS_CORE_WALLET
+  ? 'tonwallet-global-state'
+  : IS_EXPLORER
+    ? 'explorer-global-state'
+    : 'mytonwallet-global-state';
 
 export const ANIMATION_LEVEL_MIN = 0;
 export const ANIMATION_LEVEL_MED = 1;
@@ -161,7 +167,11 @@ export const GETGEMS_BASE_TESTNET_URL = 'https://testnet.getgems.io/';
 export const EMPTY_HASH_VALUE = 'NOHASH';
 
 export const IFRAME_WHITELIST = [
-  'http://localhost:*', 'https://tonscan.org',
+  'http://localhost:*',
+  'https://tonscan.org',
+  'https://testnet.tonscan.org',
+  'https://tonviewer.com',
+  'https://testnet.tonviewer.com',
 ];
 export const SUBPROJECT_URL_MASK = 'https://*.mytonwallet.io';
 
@@ -177,8 +187,8 @@ export const PROXY_HOSTS = process.env.PROXY_HOSTS;
 
 export const TINY_TRANSFER_MAX_COST = 0.01;
 
-export const IMAGE_CACHE_NAME = 'mtw-image';
-export const LANG_CACHE_NAME = 'mtw-lang-263';
+export const IMAGE_CACHE_NAME = IS_EXPLORER ? 'explorer-image' : 'mtw-image';
+export const LANG_CACHE_NAME = 'mtw-lang-267';
 
 export const LANG_LIST: LangItem[] = [{
   langCode: 'en',
@@ -422,10 +432,18 @@ export const SWAP_DEX_LABELS: Record<ApiSwapDexLabel, string> = {
   ston: 'STON.fi',
 };
 
-export const MULTITAB_DATA_CHANNEL_NAME = IS_CORE_WALLET ? 'tw-multitab' : 'mtw-multitab';
-export const ACTIVE_TAB_STORAGE_KEY = IS_CORE_WALLET ? 'tw-active-tab' : 'mtw-active-tab';
+export const MULTITAB_DATA_CHANNEL_NAME = IS_CORE_WALLET
+  ? 'tw-multitab'
+  : IS_EXPLORER
+    ? 'explorer-multitab'
+    : 'mtw-multitab';
+export const ACTIVE_TAB_STORAGE_KEY = IS_CORE_WALLET
+  ? 'tw-active-tab'
+  : IS_EXPLORER
+    ? 'explorer-active-tab'
+    : 'mtw-active-tab';
 
-export const INDEXED_DB_NAME = 'keyval-store';
+export const INDEXED_DB_NAME = IS_EXPLORER ? 'explorer-keyval-store' : 'keyval-store';
 export const INDEXED_DB_STORE_NAME = 'keyval';
 
 export const WINDOW_PROVIDER_CHANNEL = 'windowProvider';
@@ -524,7 +542,7 @@ export const MINT_CARD_REFUND_COMMENT = 'Refund';
 // eslint-disable-next-line @stylistic/max-len
 export const RE_LINK_TEMPLATE = /((ftp|https?):\/\/)?(?<host>(www\\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z][-a-zA-Z0-9]{1,62})\b([-a-zA-Z0-9()@:%_+.,~#?&/=]*)/g;
 // eslint-disable-next-line @stylistic/max-len
-export const RE_TG_BOT_MENTION = /telegram[:\s-]*((@[a-z0-9_]+)|(https:\/\/)?(t\.me|telegram\.me|telegram\.dog)\/[a-z0-9_]+)/mig;
+export const RE_TG_BOT_MENTION = /(telegram|tg)[:\s-]*@[a-z0-9_]+|(https?:\/\/)?(t\.me|telegram\.me|telegram\.dog)\/[a-z0-9_]+/mi;
 
 export const STARS_SYMBOL = '⭐️';
 

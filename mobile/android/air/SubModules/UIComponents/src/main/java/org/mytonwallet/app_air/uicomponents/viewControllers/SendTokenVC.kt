@@ -197,7 +197,11 @@ class SendTokenVC(
                 val isFirstHeader = rvAdapter.indexPathToPosition(indexPath) == 0
                 val topRounding = if (isFirstHeader) ViewConstants.BIG_RADIUS.dp else 0f
 
-                cell.configure(sectionData.title, topRounding = topRounding)
+                cell.configure(
+                    sectionData.title,
+                    titleColor = WColor.Tint,
+                    topRounding = topRounding
+                )
             }
         }
     }

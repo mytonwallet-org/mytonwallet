@@ -25,8 +25,8 @@ public extension TokenWidgetTimelineEntry {
             date: .now,
             token: token,
             image: nil, 
-            currencyRate: BaseCurrencyAmount.fromDouble(4.2, .USD),
-            changeInCurrency: BaseCurrencyAmount.fromDouble(0.2, .USD)
+            currencyRate: BaseCurrencyAmount.fromDouble(4.21, .USD),
+            changeInCurrency: BaseCurrencyAmount.fromDouble(0.24, .USD)
         )
     }
 }   

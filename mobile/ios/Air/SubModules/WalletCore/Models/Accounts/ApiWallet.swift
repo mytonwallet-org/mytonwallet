@@ -1,6 +1,6 @@
 
 import Foundation
-import BigIntLib
+import WalletContext
 
 public protocol ApiBaseWallet {
     var address: String { get }

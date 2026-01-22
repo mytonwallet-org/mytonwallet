@@ -208,6 +208,33 @@ extension ApiActivity {
     public var isBackendSwapId: Bool {
         return id.hasSuffix(":backend-swap")
     }
+    
+    public var isCompleted: Bool {
+        switch self {
+        case .transaction(let tx):
+            tx.status == .completed
+        case .swap(let swap):
+            swap.status == .completed
+        }
+    }
+
+    public var isConfirmedOrCompleted: Bool {
+        switch self {
+        case .transaction(let tx):
+            tx.status == .completed || tx.status == .confirmed
+        case .swap(let swap):
+            swap.status == .completed || swap.status == .confirmed
+        }
+    }
+
+    public var isPendingTrusted: Bool {
+        switch self {
+        case .transaction(let transaction):
+            return transaction.status == .pendingTrusted
+        case .swap(let swap):
+            return swap.status == .pendingTrusted
+        }
+    }
 }
 
 public struct ParsedTxId {

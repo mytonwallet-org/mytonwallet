@@ -29,7 +29,7 @@ import org.mytonwallet.app_air.walletcore.moshi.IDapp
 
 @SuppressLint("ViewConstructor")
 class SearchDappCell(context: Context, private val onTap: (site: IDapp) -> Unit) :
-    WCell(context, LayoutParams(MATCH_PARENT, 64.dp)), WThemedView {
+    WCell(context, LayoutParams(MATCH_PARENT, 60.dp)), WThemedView {
 
     private val dappImageView: WCustomImageView by lazy {
         WCustomImageView(context).apply {
@@ -70,34 +70,25 @@ class SearchDappCell(context: Context, private val onTap: (site: IDapp) -> Unit)
         }
     }
 
-    private val separatorView: WBaseView by lazy {
-        val sw = WBaseView(context)
-        sw
-    }
-
     override fun setupViews() {
         super.setupViews()
         addView(dappImageView, LayoutParams(24.dp, 24.dp))
         addView(titleLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(subtitleLabel, LayoutParams(0, WRAP_CONTENT))
         addView(openButton, LayoutParams(WRAP_CONTENT, 28.dp))
-        addView(separatorView, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
         setConstraints {
             toStart(dappImageView, 18f)
             toCenterY(dappImageView)
             constrainedWidth(titleLabel.id, true)
             setHorizontalBias(titleLabel.id, 0f)
             toStart(titleLabel, 56f)
-            toTop(titleLabel, 11.5f)
+            toTop(titleLabel, 9.5f)
             endToStart(titleLabel, openButton, 10f)
             toStart(subtitleLabel, 56f)
             topToBottom(subtitleLabel, titleLabel, 1f)
             endToStart(subtitleLabel, openButton, 10f)
             toEnd(openButton, 12f)
             toCenterY(openButton)
-            toBottom(separatorView)
-            toEnd(separatorView, 0f)
-            toStart(separatorView, 56f)
         }
 
         setOnClickListener {
@@ -128,7 +119,6 @@ class SearchDappCell(context: Context, private val onTap: (site: IDapp) -> Unit)
                 ""
             }
         }
-        separatorView.isGone = isLastItem
 
         updateTheme()
     }
@@ -163,7 +153,6 @@ class SearchDappCell(context: Context, private val onTap: (site: IDapp) -> Unit)
             0f,
             if (isLastItem) ViewConstants.STANDARD_ROUNDS.dp else 0f
         )
-        separatorView.setBackgroundColor(WColor.Separator.color)
     }
 
 }

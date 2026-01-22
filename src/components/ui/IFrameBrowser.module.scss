@@ -15,5 +15,19 @@
 }
 
 .modalHeader {
+  --color-gray-3: var(--color-black);
+
   padding: 0.5rem !important;
+}
+
+.dropdownValue {
+  font-size: 1.0625rem !important;
+  font-weight: 700 !important;
+}
+
+.title {
+  --offset-x-value: 50%;
+  --translate-x: -50%;
+
+  overflow: visible !important;
 }

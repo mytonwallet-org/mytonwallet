@@ -6,7 +6,13 @@ import WalletContext
 
 public struct TipView<Content: View>: View {
     
+    public enum Kind {
+        case info
+        case warning
+    }
+    
     var title: String
+    var kind: Kind
     var wide: Bool
     var content: () -> Content
     
@@ -14,8 +20,9 @@ public struct TipView<Content: View>: View {
     @State private var dismissing = false
     @State private var dy: CGFloat = 0
     
-    public init(title: String, wide: Bool = false, @ViewBuilder content: @escaping () -> Content) {
+    public init(title: String, kind: Kind = .info, wide: Bool = false, @ViewBuilder content: @escaping () -> Content) {
         self.title = title
+        self.kind = kind
         self.wide = wide
         self.content = content
     }
@@ -69,13 +76,12 @@ public struct TipView<Content: View>: View {
         VStack(spacing: 0) {
             
             VStack(spacing: 8) {
-                Image("TipIcon", bundle: AirBundle)
-                    .foregroundStyle(Color(WTheme.tint))
-                    .padding(4)
+                icon
                 
                 Text(title)
                     .fontWeight(.semibold)
                     .font17h22()
+                    .frame(maxWidth: .infinity)
 
                 content()
                     .font13()
@@ -107,6 +113,23 @@ public struct TipView<Content: View>: View {
         .padding(.horizontal, wide ? 32 : 60)
         .offset(y: dy / 6)
         .buttonStyle(.plain)
+    }
+    
+    @ViewBuilder
+    var icon: some View {
+        switch kind {
+        case .info:
+            Image.airBundle("TipIcon")
+                .foregroundStyle(Color(WTheme.tint))
+                .padding(4)
+
+        case .warning:
+            Image(systemName: "exclamationmark.circle.fill")
+                .resizable()
+                .frame(width: 36, height: 36)
+                .foregroundStyle(.orange)
+                .padding(4)
+        }
     }
     
     func dismiss() {

@@ -199,8 +199,9 @@ class TonConnectRequestConnectVC(
             LedgerConnectVC.Mode.ConnectToSubmitTransfer(
                 account.tonAddress!!,
                 signData = LedgerConnectVC.SignData.SignLedgerProof(
-                    update.promiseId,
-                    update.proof!!
+                    accountId = update.accountId,
+                    promiseId = update.promiseId,
+                    proof = update.proof!!
                 ),
                 onDone = {
                     window!!.dismissLastNav {
@@ -325,7 +326,7 @@ class TonConnectRequestConnectVC(
     private fun updateHeaderView() {
         headerView.configure(
             LocaleController.getString("Selected Wallet"),
-            titleColor = WColor.Tint.color,
+            titleColor = WColor.Tint,
             topRounding = ViewConstants.BIG_RADIUS.dp
         )
     }
@@ -356,7 +357,6 @@ class TonConnectRequestConnectVC(
             value = balance,
             isFirst = false,
             isLast = true,
-            showSeparator = true,
             onTap = {
                 openWalletSelection()
             }

@@ -15,6 +15,23 @@ import formatTonTransferUrl from './ton/formatTransferUrl';
 import { buildCollectionByKey, compact } from './iteratees';
 import withCache from './withCache';
 
+export interface ExplorerConfig {
+  id: string;
+  name: string;
+  baseUrl: Record<ApiNetwork, string>;
+  /** Use `{base}` as the base URL placeholder and `{address}` as the wallet address placeholder */
+  address: string;
+  /** Use `{base}` as the base URL placeholder and `{address}` as the token address placeholder */
+  token: string;
+  /** Use `{base}` as the base URL placeholder and `{hash}` as the transaction hash placeholder */
+  transaction: string;
+  /** Use `{base}` as the base URL placeholder and `{address}` as the NFT address placeholder */
+  nft?: string;
+  /** Use `{base}` as the base URL placeholder and `{address}` as the NFT collection address placeholder */
+  nftCollection?: string;
+  doConvertHashFromBase64: boolean;
+}
+
 /**
  * Describes the chain features that distinguish it from other chains in the multichain-polymorphic parts of the code.
  */
@@ -63,20 +80,10 @@ export interface ChainConfig {
    */
   tokenInfo: (ApiToken & Partial<ApiTokenWithPrice>)[];
   /**
-   * Configuration of the explorer of the chain.
+   * Configuration of available explorers for the chain.
    * The configuration does not contain data for NFT addresses, they must be configured separately.
    */
-  explorer: {
-    name: string;
-    baseUrl: Record<ApiNetwork, string>;
-    /** Use `{base}` as the base URL placeholder and `{address}` as the wallet address placeholder */
-    address: string;
-    /** Use `{base}` as the base URL placeholder and `{address}` as the token address placeholder */
-    token: string;
-    /** Use `{base}` as the base URL placeholder and `{hash}` as the transaction hash placeholder */
-    transaction: string;
-    doConvertHashFromBase64: boolean;
-  };
+  explorers: ExplorerConfig[];
   /** Whether the chain supports net worth details */
   isNetWorthSupported: boolean;
   /** Builds a link to transfer assets in this chain. If not set, the chain won't have the Deposit Link modal. */
@@ -120,17 +127,36 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
       TON_USDE,
       TON_TSUSDE,
     ],
-    explorer: {
-      name: 'Tonscan',
-      baseUrl: {
-        mainnet: 'https://tonscan.org/',
-        testnet: 'https://testnet.tonscan.org/',
+    explorers: [
+      {
+        id: 'tonscan',
+        name: 'Tonscan',
+        baseUrl: {
+          mainnet: 'https://tonscan.org/',
+          testnet: 'https://testnet.tonscan.org/',
+        },
+        address: '{base}address/{address}',
+        token: '{base}jetton/{address}',
+        transaction: '{base}tx/{hash}',
+        nft: '{base}nft/{address}',
+        nftCollection: '{base}collection/{address}',
+        doConvertHashFromBase64: true,
       },
-      address: '{base}address/{address}',
-      token: '{base}jetton/{address}',
-      transaction: '{base}tx/{hash}',
-      doConvertHashFromBase64: true,
-    },
+      {
+        id: 'tonviewer',
+        name: 'Tonviewer',
+        baseUrl: {
+          mainnet: 'https://tonviewer.com/',
+          testnet: 'https://testnet.tonviewer.com/',
+        },
+        address: '{base}{address}?address',
+        token: '{base}{address}?jetton',
+        transaction: '{base}transaction/{hash}',
+        nft: '{base}{address}?nft',
+        nftCollection: '{base}{address}?collection',
+        doConvertHashFromBase64: true,
+      },
+    ],
     isNetWorthSupported: true,
     formatTransferUrl: formatTonTransferUrl,
   },
@@ -166,17 +192,20 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
       TRC20_USDT_MAINNET,
       TRC20_USDT_TESTNET,
     ],
-    explorer: {
-      name: 'Tronscan',
-      baseUrl: {
-        mainnet: 'https://tronscan.org/#/',
-        testnet: 'https://shasta.tronscan.org/#/',
+    explorers: [
+      {
+        id: 'tronscan',
+        name: 'Tronscan',
+        baseUrl: {
+          mainnet: 'https://tronscan.org/#/',
+          testnet: 'https://shasta.tronscan.org/#/',
+        },
+        address: '{base}address/{address}',
+        token: '{base}token20/{address}',
+        transaction: '{base}transaction/{hash}',
+        doConvertHashFromBase64: false,
       },
-      address: '{base}address/{address}',
-      token: '{base}token20/{address}',
-      transaction: '{base}transaction/{hash}',
-      doConvertHashFromBase64: false,
-    },
+    ],
     isNetWorthSupported: false,
   },
 };
@@ -187,6 +216,21 @@ export function getChainConfig(chain: ApiChain): ChainConfig {
 
 export function findChainConfig(chain: string | undefined): ChainConfig | undefined {
   return chain ? CHAIN_CONFIG[chain as ApiChain] : undefined;
+}
+
+export function getAvailableExplorers(chain: ApiChain): ExplorerConfig[] {
+  return getChainConfig(chain).explorers;
+}
+
+export function getExplorer(chain: ApiChain, explorerId?: string): ExplorerConfig {
+  const explorers = getAvailableExplorers(chain);
+
+  if (explorerId) {
+    const explorer = explorers.find((e) => e.id === explorerId);
+    if (explorer) return explorer;
+  }
+
+  return explorers[0];
 }
 
 export function getChainTitle(chain: ApiChain) {

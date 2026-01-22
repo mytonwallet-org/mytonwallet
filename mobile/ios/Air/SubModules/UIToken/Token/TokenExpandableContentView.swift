@@ -3,6 +3,8 @@ import UIKit
 import UIComponents
 import WalletCore
 import WalletContext
+import SwiftUI
+import Perception
 
 let actionsRowHeight: CGFloat = IOS_26_MODE_ENABLED ? 70 : 60
 
@@ -12,15 +14,17 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
     public static let requiredScrollOffset: CGFloat = 139 + 40 + 16 + actionsRowHeight // after actions section
 
     private let navHeight = CGFloat(1048)
-    private var token: ApiToken? = nil
+    private var token: ApiToken? = nil {
+        didSet {
+            actionsView.token = token
+        }
+    }
 
     // layout constants
     let iconOffset: CGFloat = 15
     let iconSize: CGFloat = 60
     let balanceExpandedOffset: CGFloat = 139
     var balanceCollapsedOffset: CGFloat { -12 + (isInModal ? 6 : 0) }
-    let equivalentExpandedSpacing: CGFloat = 8.667
-    let equivalentCollapsedSpacing: CGFloat = -13
     var belowNavbarPadding: CGFloat { (IOS_26_MODE_ENABLED ? (isInModal ? 16 : 10) : 0) }
     var actionsOffset: CGFloat { 139 + 40 + 16 }
     var expandedHeight: CGFloat { actionsOffset + actionsRowHeight + 16 }
@@ -47,39 +51,13 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
 
     // MARK: Sticky Views
 
-    var balanceContainer: WSensitiveData<UIView> = .init(cols: 12, rows: 3, cellSize: 12, cornerRadius: 10, theme: .adaptive, alignment: .center)
+    private let balanceModel = TokenHeaderBalanceModel()
 
-    private let balanceView: BalanceView = {
-        let lbl = BalanceView(config: .token)
-        lbl.translatesAutoresizingMaskIntoConstraints = false
-        return lbl
-    }()
-
-    lazy var balanceStackView: UIView = {
-        let v = UIView(frame: .zero)
-        v.translatesAutoresizingMaskIntoConstraints = false
-        v.addSubview(balanceView)
-        NSLayoutConstraint.activate([
-            balanceView.leftAnchor.constraint(equalTo: v.leftAnchor),
-            balanceView.topAnchor.constraint(equalTo: v.topAnchor),
-            balanceView.bottomAnchor.constraint(equalTo: v.bottomAnchor),
-            balanceView.rightAnchor.constraint(equalTo: v.rightAnchor),
-        ])
-        return v
-    }()
-
-    private var equivalentContainer: WSensitiveData<UIView> = .init(cols: 14, rows: 2, cellSize: 13, cornerRadius: 13, theme: .adaptive, alignment: .center)
-
-    private let equivalentLabel: UILabel = {
-        let lbl = UILabel()
-        lbl.translatesAutoresizingMaskIntoConstraints = false
-        lbl.font = .systemFont(ofSize: 17)
-        return lbl
-    }()
+    private lazy var balanceHostingView: HostingView = HostingView {
+        TokenHeaderBalanceView(model: balanceModel)
+    }
 
     private var balanceStackTopConstraint: NSLayoutConstraint!
-    private var equivalentLabelTopConstraint: NSLayoutConstraint!
-
     private var iconTopConstraint: NSLayoutConstraint? = nil
     private var actionsTopConstraint: NSLayoutConstraint? = nil
     private var chartContainerTopConstraint: NSLayoutConstraint? = nil
@@ -88,18 +66,12 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
     lazy var stickyStackView: WTouchPassView = {
         let v = WTouchPassView()
         v.translatesAutoresizingMaskIntoConstraints = false
-        balanceContainer.addContent(balanceStackView)
-        v.addSubview(balanceContainer)
-        equivalentContainer.addContent(equivalentLabel)
-        v.addSubview(equivalentContainer)
-        equivalentLabel.setContentCompressionResistancePriority(.required, for: .vertical)
-        balanceStackTopConstraint = balanceStackView.topAnchor.constraint(equalTo: v.topAnchor, constant: balanceExpandedOffset)
-        equivalentLabelTopConstraint = equivalentLabel.topAnchor.constraint(equalTo: balanceStackView.bottomAnchor, constant: equivalentExpandedSpacing)
+        v.addSubview(balanceHostingView)
+        balanceStackTopConstraint = balanceHostingView.topAnchor.constraint(equalTo: v.topAnchor, constant: balanceExpandedOffset)
         NSLayoutConstraint.activate([
-            balanceStackView.centerXAnchor.constraint(equalTo: v.centerXAnchor),
+            balanceHostingView.leadingAnchor.constraint(equalTo: v.leadingAnchor),
+            balanceHostingView.trailingAnchor.constraint(equalTo: v.trailingAnchor),
             balanceStackTopConstraint,
-            equivalentLabelTopConstraint,
-            equivalentLabel.centerXAnchor.constraint(equalTo: v.centerXAnchor),
         ])
         return v
     }()
@@ -133,10 +105,7 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
         return v
     }()
 
-    private lazy var actionsStackView: TokenActionsView = {
-        let actionsStackView = TokenActionsView(delegate: self)
-        return actionsStackView
-    }()
+    private lazy var actionsView: TokenActionsView = TokenActionsView(token: token)
 
     lazy var contentView: WTouchPassView = {
         let v = WTouchPassView()
@@ -145,9 +114,9 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
         v.addSubview(iconBlurView)
         iconBlurView.addSubview(iconView)
 
-        v.addSubview(actionsStackView)
+        v.addSubview(actionsView)
         iconTopConstraint = iconView.topAnchor.constraint(equalTo: v.safeAreaLayoutGuide.topAnchor, constant: navHeight + iconOffset)
-        actionsTopConstraint = actionsStackView.topAnchor.constraint(equalTo: v.safeAreaLayoutGuide.topAnchor, constant: navHeight + actionsOffset)
+        actionsTopConstraint = actionsView.topAnchor.constraint(equalTo: v.safeAreaLayoutGuide.topAnchor, constant: navHeight + actionsOffset)
         NSLayoutConstraint.activate([
 
             iconTopConstraint!,
@@ -159,17 +128,17 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
             iconBlurView.bottomAnchor.constraint(equalTo: iconView.bottomAnchor, constant: 50),
 
             actionsTopConstraint!,
-            actionsStackView.heightAnchor.constraint(equalToConstant: actionsRowHeight),
-            actionsStackView.bottomAnchor.constraint(equalTo: v.bottomAnchor, constant: -16),
+            actionsView.heightAnchor.constraint(equalToConstant: actionsRowHeight),
+            actionsView.bottomAnchor.constraint(equalTo: v.bottomAnchor, constant: -16),
         ])
         if IOS_26_MODE_ENABLED {
             NSLayoutConstraint.activate([
-                actionsStackView.centerXAnchor.constraint(equalTo: v.centerXAnchor),
+                actionsView.centerXAnchor.constraint(equalTo: v.centerXAnchor),
             ])
         } else {
             NSLayoutConstraint.activate([
-                actionsStackView.leftAnchor.constraint(equalTo: v.leftAnchor, constant: S.insetSectionHorizontalMargin),
-                actionsStackView.rightAnchor.constraint(equalTo: v.rightAnchor, constant: -S.insetSectionHorizontalMargin),
+                actionsView.leftAnchor.constraint(equalTo: v.leftAnchor, constant: S.insetSectionHorizontalMargin),
+                actionsView.rightAnchor.constraint(equalTo: v.rightAnchor, constant: -S.insetSectionHorizontalMargin),
             ])
         }
         return v
@@ -177,42 +146,23 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
 
     func setupViews() {
         updateTheme()
-        setupTapGestures()
-    }
-
-    func setupTapGestures() {
-        let g = UITapGestureRecognizer(target: self, action: #selector(onBalanceTap))
-        balanceContainer.addGestureRecognizer(g)
-        let g2 = UITapGestureRecognizer(target: self, action: #selector(onBalanceTap))
-        equivalentContainer.addGestureRecognizer(g2)
-    }
-
-    @objc func onBalanceTap() {
-        let isHidden = AppStorageHelper.isSensitiveDataHidden
-        AppActions.setSensitiveDataIsHidden(!isHidden)
     }
 
     func updateTheme() {
         contentView.backgroundColor = isInModal ? WTheme.sheetBackground : WTheme.groupedBackground
-        equivalentLabel.textColor = WTheme.secondaryLabel
     }
 
     func configure(token: ApiToken) {
         self.token = token
         iconView.config(with: token, isStaking: false, shouldShowChain: true)
-        actionsStackView.swapAvailable = account.supportsSwap
-        actionsStackView.earnAvailable = account.supportsEarn && token.earnAvailable
+        actionsView.swapAvailable = account.supportsSwap
+        actionsView.earnAvailable = account.supportsEarn && token.earnAvailable
         let walletTokens = $account.balanceData?.walletTokens
         let walletToken = walletTokens?.first { $0.tokenSlug == token.slug }
-        balanceView.set(
-            balance: walletToken?.balance ?? 0,
-            currency: token.symbol,
-            tokenDecimals: token.decimals,
-            decimalsCount: tokenDecimals(for: walletToken?.balance ?? 0, tokenDecimals: token.decimals),
-            animated: nil
-        )
-        let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(walletToken?.toBaseCurrency ?? 0, TokenStore.baseCurrency)
-        equivalentLabel.text = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true)
+        balanceModel.token = token
+        balanceModel.balance = walletToken?.balance ?? 0
+        let baseCurrencyValue = walletToken?.toBaseCurrency ?? 0
+        balanceModel.baseCurrencyAmount = BaseCurrencyAmount.fromDouble(baseCurrencyValue, TokenStore.baseCurrency)
     }
 
     func update(scrollOffset: CGFloat) {
@@ -228,49 +178,108 @@ class TokenExpandableContentView: NSObject, ExpandableNavigationView.ExpandableC
 
         // balance stack + equvialent
         let expansionProgress = min(1, max(0, (balanceExpandedOffset - balanceCollapsedOffset - scrollOffset * balanceScrollModifier ) / (balanceExpandedOffset - balanceCollapsedOffset)))
-        let scale = interpolate(from: 17.0 / WAnimatedAmountLabelConfig.token.primaryFont.pointSize, to: 1, progress: expansionProgress)
-        let equivalentLabelScale = interpolate(from: 13.0/17.0, to: 1, progress: expansionProgress)
-
         balanceStackTopConstraint.constant = max(balanceCollapsedOffset, balanceExpandedOffset - scrollOffset * balanceScrollModifier) // multiplier visually compensates for the  gap below collapsing views
-        balanceContainer.transform = .identity.scaledBy(x: scale, y: scale)
-
-        equivalentLabelTopConstraint.constant = expansionProgress * equivalentExpandedSpacing + (1 - expansionProgress) * equivalentCollapsedSpacing
-        equivalentContainer.transform = .identity.scaledBy(x: equivalentLabelScale, y: equivalentLabelScale)
+        balanceModel.expansionProgress = expansionProgress
 
         // actions
         let actionsTopMargin = actionsOffset - scrollOffset
         actionsTopConstraint?.constant = navHeight + max(belowNavbarPadding, actionsTopMargin)
         let actionsVisibleHeight = min(actionsRowHeight, max(0, actionsRowHeight + actionsTopMargin - belowNavbarPadding))
-        actionsStackView.set(
-            actionsVisibleHeight: actionsVisibleHeight
-        )
+        actionsView.set(actionsVisibleHeight: actionsVisibleHeight)
 
         contentView.isHidden = actionsVisibleHeight == 0
     }
+
+    func updateSensitiveData() {
+        balanceHostingView.setNeedsLayout()
+    }
 }
 
+@Perceptible
+private final class TokenHeaderBalanceModel {
+    var token: ApiToken?
+    var balance: BigInt?
+    var baseCurrencyAmount: BaseCurrencyAmount?
+    var expansionProgress: CGFloat = 1
+}
 
-extension TokenExpandableContentView: TokenActionsView.Delegate {
-    func addPressed() {
-        AppActions.showReceive(chain: token?.chainValue, title: nil)
+private let primaryFontSize: CGFloat = 40
+
+private struct TokenHeaderBalanceView: View {
+    let model: TokenHeaderBalanceModel
+
+    private var collapseProgress: CGFloat { 1 - model.expansionProgress }
+    private var balanceScale: CGFloat { interpolate(from: 1, to: 17.0 / primaryFontSize, progress: collapseProgress) }
+    private var equivalentScale: CGFloat { interpolate(from: 1, to: 13.0 / 17.0, progress: collapseProgress) }
+    private var spacing: CGFloat { interpolate(from: expandedSpacing, to: collapsedSpacing, progress: collapseProgress) }
+    private var bottomPadding: CGFloat { interpolate(from: 12, to: targetBottomPadding, progress: collapseProgress) }
+
+    private let targetBottomPadding: CGFloat = IOS_26_MODE_ENABLED ? 48 : 44
+    private let expandedSpacing: CGFloat = 5
+    private let collapsedSpacing: CGFloat = -2
+
+    var body: some View {
+        WithPerceptionTracking {
+            VStack(spacing: spacing) {
+                balanceView
+                    .minimumScaleFactor(0.1)
+                    .scaleEffect(balanceScale, anchor: .bottom)
+                equivalentView
+                    .minimumScaleFactor(0.1)
+                    .scaleEffect(equivalentScale, anchor: .top)
+            }
+            .frame(height: 74)
+            .frame(minWidth: 300, maxWidth: 300)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 24)
+            .padding(.bottom, bottomPadding)
+            .frame(maxHeight: .infinity, alignment: .bottom)
+            .contentShape(.rect)
+            .onTapGesture {
+                if AppStorageHelper.isSensitiveDataHidden {
+                    AppActions.setSensitiveDataIsHidden(false)
+                }
+            }
+        }
     }
 
-    func sendPressed() {
-        AppActions.showSend(prefilledValues: .init(
-            token: token?.slug
-        ))
+    @ViewBuilder
+    private var balanceView: some View {
+        if let token = model.token, let balance = model.balance {
+            let amount = TokenAmount(balance, token)
+            let decimalsCount = tokenDecimals(for: balance, tokenDecimals: token.decimals)
+            let fadeDecimals = integerPart(balance, tokenDecimals: token.decimals) >= 10
+            AmountText(
+                amount: amount,
+                format: .init(maxDecimals: decimalsCount, showMinus: false, roundUp: false, precision: .exact),
+                integerFont: .rounded(ofSize: 40, weight: .bold),
+                fractionFont: .rounded(ofSize: 33, weight: .bold),
+                symbolFont: .rounded(ofSize: 35, weight: .bold),
+                integerColor: WTheme.primaryLabel,
+                fractionColor: fadeDecimals ? WTheme.secondaryLabel : WTheme.primaryLabel,
+                symbolColor: WTheme.secondaryLabel
+            )
+            .contentTransition(.numericText())
+            .lineLimit(1)
+            .animation(.default, value: amount.amount)
+            .sensitiveData(alignment: .center, cols: 12, rows: 3, cellSize: 12, theme: .adaptive, cornerRadius: 10)
+        } else {
+            Color.clear
+                .frame(height: 40)
+        }
     }
 
-    func swapPressed() {
-        AppActions.showSwap(
-            defaultSellingToken: token?.slug,
-            defaultBuyingToken: token?.slug == "toncoin" ? nil : "toncoin",
-            defaultSellingAmount: nil,
-            push: nil
-        )
-    }
-
-    func earnPressed() {
-        AppActions.showEarn(tokenSlug: token?.slug)
+    @ViewBuilder
+    private var equivalentView: some View {
+        if let baseCurrencyAmount = model.baseCurrencyAmount {
+            Text(baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true))
+                .font(.system(size: 17))
+                .foregroundStyle(Color(WTheme.secondaryLabel))
+                .lineLimit(1)
+                .sensitiveData(alignment: .center, cols: 14, rows: 2, cellSize: 13, theme: .adaptive, cornerRadius: 13)
+        } else {
+            Color.clear
+                .frame(height: 17)
+        }
     }
 }

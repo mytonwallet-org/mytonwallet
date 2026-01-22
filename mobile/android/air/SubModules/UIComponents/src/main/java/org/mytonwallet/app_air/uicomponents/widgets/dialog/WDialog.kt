@@ -63,7 +63,7 @@ class WDialog(private val customView: ViewGroup, private val config: Config): IP
 
     private val titleLabel: WLabel? =
         if (config.title != null) WLabel(customView.context).apply {
-            setStyle(22f, WFont.Medium)
+            setStyle(22f, WFont.SemiBold)
             gravity = Gravity.START
             text = config.title
             setTextColor(WColor.PrimaryText)

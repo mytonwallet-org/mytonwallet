@@ -100,22 +100,21 @@ let LOGGING_FETCH = """
 
 private let log = Log("JSWebViewBridge")
 private let console = Log("console")
-private let logUpdate = Log("update")
-
 
 // The bridge to use mytonwallet js logic in Swift applications.
-class JSWebViewBridge: UIViewController {
+public class JSWebViewBridge: UIViewController {
     
     private var webView: WKWebView?
     private let start = Date()
 
     private let updateQueue = DispatchQueue(label: "onUpdate", qos: .background, attributes: [.concurrent])
 
-    override func viewDidLoad() {
+    public override func viewDidLoad() {
         super.viewDidLoad()
         
         recreateWebView()
-        view.isHidden = true
+        view.isUserInteractionEnabled = false
+        view.alpha = 0.1
 
         Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
             self?.webView?.evaluateJavaScript(";", completionHandler: nil)
@@ -146,8 +145,10 @@ class JSWebViewBridge: UIViewController {
 
         webViewConfiguration.userContentController = userContentController
         // create web view
-        webView = WKWebView(frame: CGRect(x: 0, y: 0, width: 100, height: 100),
-                            configuration: webViewConfiguration)
+        webView = WKWebView(
+            frame: CGRect(x: 0, y: 0, width: 1, height: 1),
+            configuration: webViewConfiguration
+        )
         webView?.navigationDelegate = self
         webView?.uiDelegate = self
         #if DEBUG
@@ -155,7 +156,6 @@ class JSWebViewBridge: UIViewController {
             webView?.isInspectable = true
         }
         #endif
-        webView?.isHidden = true
 
         view.addSubview(webView!)
         if isViewAppeared {
@@ -163,8 +163,19 @@ class JSWebViewBridge: UIViewController {
         }
     }
     
+    public func moveToViewController(_ parentViewController: UIViewController) {
+        guard self.parent !== parentViewController else { return }
+        willMove(toParent: nil)
+        view.removeFromSuperview()
+        removeFromParent()
+        parentViewController.addChild(self)
+        parentViewController.view.addSubview(view)
+        didMove(toParent: parentViewController)
+    }
+    
     var isViewAppeared = false
-    override func viewWillAppear(_ animated: Bool) {
+    
+    public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         if !isViewAppeared {
             loadHtml()
@@ -287,7 +298,7 @@ class JSWebViewBridge: UIViewController {
 }
 
 extension JSWebViewBridge: WKScriptMessageHandler {
-    func userContentController(_ userContentController: WKUserContentController,
+    public func userContentController(_ userContentController: WKUserContentController,
                                didReceive message: WKScriptMessage) {
         assert(Thread.isMainThread)
         let body = message.body
@@ -438,7 +449,7 @@ extension JSWebViewBridge: WKScriptMessageHandler {
                 else {
                     return
                 }
-//                logUpdate.info("\(updateType, .public)", fileOnly: updateType == "updatingStatus")
+//                log.info("\(updateType, .public)", fileOnly: updateType == "updatingStatus")
                 #if DEBUG
 //                if updateType != "updatingStatus" {
 //                    log.debug("onUpdate: \(updateType)")
@@ -459,12 +470,9 @@ extension JSWebViewBridge: WKScriptMessageHandler {
                     break
                     
                 case "initialActivities":
-                    guard let accountId = data["accountId"] as? String else {
-                        return
-                    }
-                    logUpdate.info("initialActivities - \(accountId, .public)")
                     do {
                         let update = try JSONSerialization.decode(ApiUpdate.InitialActivities.self, from: data)
+                        log.info("initialActivities - \(update.accountId, .public)")
                         WalletCoreData.notify(event: .initialActivities(update))
                     } catch {
                         log.fault("failed to decode initialActivities \(error, .public)")
@@ -474,6 +482,7 @@ extension JSWebViewBridge: WKScriptMessageHandler {
                 case "updateBalances":
                     do {
                         let update = try JSONSerialization.decode(ApiUpdate.UpdateBalances.self, from: data)
+                        log.info("updateBalances \(update.accountId, .public) \(update.chain.rawValue, .public) \(update.balances.count)")
                         WalletCoreData.notify(event: .updateBalances(update))
                     } catch {
                         log.fault("failed to decode updateBalances \(error, .public)")
@@ -687,25 +696,25 @@ extension JSWebViewBridge: WKScriptMessageHandler {
 }
 
 extension JSWebViewBridge: WKNavigationDelegate, WKUIDelegate {
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+    public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         injectIfNeeded()
     }
-    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {
+    public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {
     }
-    func webView(_ webView: WKWebView,
+    public func webView(_ webView: WKWebView,
                         didFailProvisionalNavigation navigation: WKNavigation!,
                         withError error: any Error) {
     }
     
-    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
+    public func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
         return .allow
     }
     
-    func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse) async -> WKNavigationResponsePolicy {
+    public func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse) async -> WKNavigationResponsePolicy {
         return .allow
     }
     
-    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+    public func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         log.error("WebView terminated, reloading...")
         recreateWebView {
             if let accountId = AccountStore.account?.id {

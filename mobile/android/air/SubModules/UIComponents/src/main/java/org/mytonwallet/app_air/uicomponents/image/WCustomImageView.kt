@@ -43,6 +43,8 @@ open class WCustomImageView @JvmOverloads constructor(
             field = value
             hierarchy?.setOnFadeListener(value)
         }
+    var chainOffsetX = 0f.dp
+    var chainOffsetY = 0f.dp
 
     private var chainDrawable: Drawable? = null
     private var content: Content? = null
@@ -74,8 +76,8 @@ open class WCustomImageView @JvmOverloads constructor(
             Path.Direction.CW
         )
         path.addCircle(
-            measuredWidth - chainRadius,
-            measuredHeight - chainRadius,
+            measuredWidth - chainRadius + chainOffsetX,
+            measuredHeight - chainRadius + chainOffsetY,
             chainRadius + chainSizeGap,
             Path.Direction.CCW
         )
@@ -94,10 +96,10 @@ open class WCustomImageView @JvmOverloads constructor(
             canvas.restore()
             chainDrawable?.let {
                 it.setBounds(
-                    measuredWidth - chainSize,
-                    measuredHeight - chainSize,
-                    measuredWidth,
-                    measuredHeight
+                    (measuredWidth - chainSize + chainOffsetX).toInt(),
+                    (measuredHeight - chainSize + chainOffsetY).toInt(),
+                    (measuredWidth + chainOffsetX).toInt(),
+                    (measuredHeight + chainOffsetY).toInt()
                 )
                 it.draw(canvas)
             }

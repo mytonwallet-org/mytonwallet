@@ -11,14 +11,12 @@ import WalletContext
 import WalletCore
 import Dependencies
 
-@MainActor
-
-class UpdateStatusView: UIStackView, WThemedView {
+final class UpdateStatusView: UIStackView {
     
-    var accountId: String?
+    @AccountContext var account: MAccount
     
-    init(accountId: String?) {
-        self.accountId = accountId
+    init(accountSource: AccountSource) {
+        self._account = AccountContext(source: accountSource)
         super.init(frame: .zero)
         setupViews()
     }
@@ -35,11 +33,7 @@ class UpdateStatusView: UIStackView, WThemedView {
     private var activityIndicatorContainer: UIView!
     private var statusLabel: UILabel!
     private let updatingColor = WTheme.secondaryLabel
-    private var upDownTriangle = UIImageView(image: .airBundle("UpDownTriangle"))
-    
-    @Dependency(\.accountStore) private var accountStore
-    
-    var account: MAccount { accountStore.get(accountId: accountId ?? accountStore.currentAccountId) }
+    private var arrowImage = UIImageView(image: .airBundle("HomeTitleArrow"))
     
     private func setupViews() {
         translatesAutoresizingMaskIntoConstraints = false
@@ -65,11 +59,10 @@ class UpdateStatusView: UIStackView, WThemedView {
         statusLabel.allowsDefaultTighteningForTruncation = true
         addArrangedSubview(statusLabel)
         
-        upDownTriangle.tintColor = UIColor.label
-        upDownTriangle.setContentCompressionResistancePriority(.required, for: .horizontal)
-        addArrangedSubview(upDownTriangle)
-        
-        updateTheme()
+        arrowImage.tintColor = UIColor.label
+        arrowImage.setContentCompressionResistancePriority(.required, for: .horizontal)
+        arrowImage.contentMode = .center
+        addArrangedSubview(arrowImage, margin: UIEdgeInsets(top: 0, left: 4, bottom: -1, right: 0))
         
         let g = UITapGestureRecognizer(target: self, action: #selector(onTap))
         addGestureRecognizer(g)
@@ -152,7 +145,7 @@ class UpdateStatusView: UIStackView, WThemedView {
         activityIndicatorContainer.isHidden = false
         statusLabel.font = .systemFont(ofSize: 17, weight: .semibold)
         statusLabel.textColor = updatingColor
-        upDownTriangle.isHidden = true
+        arrowImage.isHidden = true
     }
     
     private func applyUpdatedStyle() {
@@ -160,7 +153,7 @@ class UpdateStatusView: UIStackView, WThemedView {
         activityIndicatorContainer.isHidden = true
         statusLabel.font = .systemFont(ofSize: 17, weight: .semibold)
         statusLabel.textColor = WTheme.primaryLabel
-        upDownTriangle.isHidden = false
+        arrowImage.isHidden = false
     }
     
     private func setText(_ text: String, animatedWithDuration: TimeInterval?) {
@@ -174,9 +167,5 @@ class UpdateStatusView: UIStackView, WThemedView {
             alpha = 1
             transform = .identity
         })
-    }
-    
-    
-    nonisolated func updateTheme() {
     }
 }

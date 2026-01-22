@@ -8,11 +8,18 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
+import androidx.core.view.doOnPreDraw
 import androidx.core.view.isVisible
+import androidx.core.view.updateLayoutParams
+import androidx.dynamicanimation.animation.FloatValueHolder
+import androidx.dynamicanimation.animation.SpringAnimation
+import androidx.dynamicanimation.animation.SpringForce
 import org.mytonwallet.app_air.uicomponents.adapter.BaseListHolder
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.Item
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
+import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.helpers.SpannableHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
@@ -24,11 +31,14 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
+import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
+import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class ActivityCell(
@@ -36,18 +46,20 @@ class ActivityCell(
     val withoutTagAndComment: Boolean,
     val isFirstInDay: Boolean?
 ) :
-    WCell(parentView.context), WThemedView {
+    WCell(parentView.context, LayoutParams(MATCH_PARENT, 0)), WThemedView {
 
     companion object {
-        const val FIRST_DAY_MAIN_CONTENT_HEIGHT = 112
-        const val MAIN_CONTENT_HEIGHT = 64
+        const val FIRST_DAY_MAIN_CONTENT_HEIGHT = 100
+        const val MAIN_CONTENT_HEIGHT = 60
+        const val SPACING_BELOW_TAG_AND_COMMENT = 12
+        const val SPACING_BETWEEN_TAG_AND_COMMENT = 8
     }
 
     private val dateView = ActivityDateLabel(context)
     private val mainContentView = ActivityMainContentView(context)
     private val commentLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(16f)
+            setStyle(ApplicationContextHolder.adaptiveFontSize)
             setTextColor(Color.WHITE)
             maxLines = 5
             isSingleLine = false
@@ -56,29 +68,19 @@ class ActivityCell(
     }
     private var commentView: FrameLayout? = null
     private var singleTagView: ActivitySingleTagView? = null
-    private val separator = View(context).apply { id = generateViewId() }
 
     private val recyclerWidth by lazy { parentView.width }
-    private val bigRadius by lazy { ViewConstants.BIG_RADIUS.dp }
+    private val bigRadius get() = ViewConstants.BIG_RADIUS.dp
 
     var onTap: ((MApiTransaction) -> Unit)? = null
     private var transaction: MApiTransaction? = null
-    private var isFirst = false
-    private var isLast = false
-    private var isLastInDay = false
+    private var positioning: Positioning? = null
     private var baseCurrency: MBaseCurrency? = null
     private var baseCurrencyRate: Double? = null
+    private var heightSpringAnimation: SpringAnimation? = null
 
     override fun setupViews() {
         super.setupViews()
-
-        val cellHeight = cellHeight
-        layoutParams = layoutParams.apply {
-            height = if (cellHeight > 0)
-                cellHeight
-            else
-                WRAP_CONTENT
-        }
 
         addView(dateView, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         addView(
@@ -88,16 +90,12 @@ class ActivityCell(
                 if (withoutTagAndComment) MAIN_CONTENT_HEIGHT.dp else WRAP_CONTENT
             )
         )
-        addView(separator, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
 
         setConstraints {
             toTop(dateView)
             setVerticalBias(mainContentView.id, 0f)
             topToBottom(mainContentView, dateView)
             toBottom(mainContentView)
-            toBottom(separator)
-            toStart(separator, 72f)
-            toEnd(separator, 16f)
         }
 
         if (withoutTagAndComment && isFirstInDay != null) {
@@ -110,21 +108,32 @@ class ActivityCell(
         setOnClickListener { onTap?.let { onTap -> transaction?.let(onTap) } }
     }
 
+    data class Positioning(
+        val isFirst: Boolean,
+        val isFirstInDay: Boolean,
+        val isLastInDay: Boolean,
+        val isLast: Boolean,
+        val isAdded: Boolean = false,
+        val isAddedAsNewDay: Boolean = false,
+    ) {
+        fun matches(comparing: Positioning): Boolean {
+            return this.isFirst == comparing.isFirst &&
+                this.isFirstInDay == comparing.isFirstInDay &&
+                this.isLast == comparing.isLast &&
+                this.isLastInDay == comparing.isLastInDay
+        }
+    }
+
     fun configure(
         transaction: MApiTransaction,
         accountId: String,
-        isFirst: Boolean,
-        isFirstInDay: Boolean,
-        isLastInDay: Boolean,
-        isLast: Boolean
+        positioning: Positioning
     ) {
         if (this.transaction?.isSame(transaction) == true &&
             this.transaction?.isChanged(transaction) == false &&
             WalletCore.baseCurrency == baseCurrency &&
             TokenStore.baseCurrencyRate == baseCurrencyRate &&
-            this.isFirst == isFirst &&
-            this.isLast == isLast &&
-            this.isLastInDay == isLastInDay
+            this.positioning?.matches(positioning) == true
         ) {
             // Nothing changed, just update theme
             updateTheme()
@@ -136,14 +145,12 @@ class ActivityCell(
         this.transaction = transaction
         this.baseCurrency = WalletCore.baseCurrency
         this.baseCurrencyRate = TokenStore.baseCurrencyRate
-        val firstChanged = this.isFirst != isFirst
-        val lastChanged = this.isLast != isLast
-        this.isFirst = isFirst
-        this.isLast = isLast
-        this.isLastInDay = isLastInDay
+        val firstChanged = this.positioning?.isFirst != positioning.isFirst
+        val lastChanged = this.positioning?.isLast != positioning.isLast
+        this.positioning = positioning
 
-        dateView.visibility = if (isFirstInDay) VISIBLE else GONE
-        if (isFirstInDay) dateView.configure(transaction.dt, isFirst)
+        dateView.visibility = if (positioning.isFirstInDay) VISIBLE else GONE
+        if (positioning.isFirstInDay) dateView.configure(transaction.dt, positioning.isFirst)
 
         mainContentView.configure(transaction, accountId)
 
@@ -152,8 +159,127 @@ class ActivityCell(
             configureComment(transaction)
         }
 
-        separator.visibility = if (isLastInDay) INVISIBLE else VISIBLE
         updateTheme(forceUpdate = firstChanged || lastChanged)
+
+        if (positioning.isAdded) {
+            val startHeight = if (positioning.isFirstInDay && !positioning.isAddedAsNewDay) {
+                (FIRST_DAY_MAIN_CONTENT_HEIGHT - MAIN_CONTENT_HEIGHT).dp
+            } else {
+                bigRadius.roundToInt()
+            }
+
+            updateLayoutParams {
+                height = startHeight
+            }
+            mainContentView.alpha = 0f
+            if (positioning.isAddedAsNewDay) {
+                dateView.alpha = 0f
+            }
+            doOnPreDraw {
+                requestLayout()
+                startInsertAnimation()
+            }
+        } else if (heightSpringAnimation?.isRunning == true) {
+            heightSpringAnimation?.cancel()
+            updateLayoutParams {
+                height = if (cellHeight > 0) cellHeight else WRAP_CONTENT
+            }
+        }
+    }
+
+    private fun startInsertAnimation() {
+        val positioning = positioning ?: return
+        val widthSpec = parentView.width.exactly
+        val heightSpec = 0.unspecified
+        mainContentView.measure(widthSpec, heightSpec)
+        var targetHeight = mainContentView.measuredHeight
+        if (positioning.isFirstInDay) {
+            dateView.measure(widthSpec, heightSpec)
+            targetHeight += dateView.measuredHeight
+        }
+        val mainContentViewBottom = targetHeight
+        var tagViewBottom = 0
+        if (!withoutTagAndComment) {
+            if (singleTagView?.isVisible == true) {
+                singleTagView?.measure(widthSpec, heightSpec)
+                targetHeight += singleTagView?.measuredHeight ?: 0
+            }
+            tagViewBottom = targetHeight
+            if (singleTagView?.isVisible == true && commentView?.isVisible == true) {
+                targetHeight += SPACING_BETWEEN_TAG_AND_COMMENT.dp
+            }
+            if (commentView?.isVisible == true) {
+                commentView?.measure(widthSpec, heightSpec)
+                targetHeight += commentView?.measuredHeight ?: 0
+            }
+            if (singleTagView?.isVisible == true || commentView?.isVisible == true)
+                targetHeight += SPACING_BELOW_TAG_AND_COMMENT.dp
+        }
+
+        val startHeight = if (positioning.isFirstInDay && !positioning.isAddedAsNewDay) {
+            (FIRST_DAY_MAIN_CONTENT_HEIGHT - MAIN_CONTENT_HEIGHT).dp
+        } else {
+            bigRadius.roundToInt()
+        }
+
+        heightSpringAnimation = SpringAnimation(FloatValueHolder()).apply {
+            setStartValue(startHeight.toFloat())
+            spring = SpringForce(targetHeight.toFloat()).apply {
+                stiffness = 500f
+                dampingRatio = SpringForce.DAMPING_RATIO_NO_BOUNCY
+            }
+
+            addUpdateListener { _, value, _ ->
+                updateLayoutParams {
+                    height = value.toInt()
+                }
+                val appearanceStartHeight = 0.7f * mainContentViewBottom
+                val fraction =
+                    ((value - appearanceStartHeight) / (targetHeight - appearanceStartHeight)).coerceIn(
+                        0f,
+                        1f
+                    )
+                mainContentView.alpha = lerp(0f, 1f, fraction)
+                mainContentView.scaleX = lerp(0.95f, 1f, mainContentView.alpha)
+                mainContentView.scaleY = mainContentView.scaleX
+                if (positioning.isAddedAsNewDay) {
+                    dateView.alpha = mainContentView.alpha
+                    dateView.scaleX = mainContentView.scaleX
+                    dateView.scaleY = mainContentView.scaleY
+                }
+                if (!withoutTagAndComment) {
+                    singleTagView?.let { singleTagView ->
+                        val fraction =
+                            ((value - mainContentViewBottom) / (targetHeight - mainContentViewBottom)).coerceIn(
+                                0.7f,
+                                1f
+                            )
+                        singleTagView.alpha = lerp(0f, 1f, (fraction - 0.7f) * 10 / 3)
+                        singleTagView.scaleX = lerp(0.95f, 1f, singleTagView.alpha)
+                        singleTagView.scaleY = singleTagView.scaleX
+                    }
+                    commentView?.let { commentView ->
+                        val fraction =
+                            ((value - tagViewBottom) / (targetHeight - tagViewBottom)).coerceIn(
+                                0.7f,
+                                1f
+                            )
+                        commentView.alpha = lerp(0f, 1f, (fraction - 0.7f) * 10 / 3)
+                        commentView.scaleX = lerp(0.95f, 1f, commentView.alpha)
+                        commentView.scaleY = commentView.scaleX
+                    }
+                }
+            }
+
+            addEndListener { _, _, _, _ ->
+                val newHeight = if (cellHeight > 0) cellHeight else WRAP_CONTENT
+                if (layoutParams.height != newHeight)
+                    updateLayoutParams {
+                        height = newHeight
+                    }
+            }
+        }
+        heightSpringAnimation?.start()
     }
 
     private fun configureTags(transaction: MApiTransaction) {
@@ -182,10 +308,10 @@ class ActivityCell(
             constrainedWidth(tagView.id, true)
             setVerticalBias(tagView.id, 0f)
             setHorizontalBias(tagView.id, 0f)
-            topToTop(tagView, mainContentView, 60f)
+            topToTop(tagView, mainContentView, MAIN_CONTENT_HEIGHT.toFloat())
             toStart(tagView, 76f)
             toEnd(tagView, 10f)
-            toBottom(tagView, 12f)
+            toBottom(tagView, SPACING_BELOW_TAG_AND_COMMENT.toFloat())
         }
 
         return tagView
@@ -208,7 +334,7 @@ class ActivityCell(
         if (txn.isIncoming) {
             commentContainer.background = IncomingCommentDrawable()
             commentLabel.setPaddingDpLocalized(18, 6, 12, 6)
-            commentLabel.maxWidth = recyclerWidth - 178.dp
+            commentLabel.maxWidth = recyclerWidth - 172.dp
         } else {
             commentContainer.background = OutgoingCommentDrawable().apply {
                 if (transaction.status == ApiTransactionStatus.FAILED)
@@ -265,25 +391,27 @@ class ActivityCell(
     }
 
     private var _isDarkThemeApplied: Boolean? = null
+    private var _lastBigRadius: Float? = null
     private fun updateTheme(forceUpdate: Boolean) {
+        dateView.updateTheme()
         if (!forceUpdate) {
             val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
-            if (!darkModeChanged)
+            val radiusChanged = _lastBigRadius != ViewConstants.BIG_RADIUS
+            if (!darkModeChanged && !radiusChanged)
                 return
         }
         _isDarkThemeApplied = ThemeManager.isDark
-        separator.setBackgroundColor(WColor.Separator.color)
+        _lastBigRadius = ViewConstants.BIG_RADIUS
         setBackgroundColor(
             WColor.Background.color,
-            if (isFirst) bigRadius else 0f,
-            if (isLast) bigRadius else 0f
+            if (positioning?.isFirst == true) bigRadius else 0f,
+            if (positioning?.isLast == true) bigRadius else 0f
         )
         addRippleEffect(
             WColor.SecondaryBackground.color,
             0f,
-            if (isLast) bigRadius else 0f
+            if (positioning?.isLast == true) bigRadius else 0f
         )
-        dateView.updateTheme()
         mainContentView.updateTheme()
         if (!withoutTagAndComment) {
             singleTagView?.updateTheme()
@@ -291,14 +419,13 @@ class ActivityCell(
     }
 
     private val cellHeight: Int
-        get() {
-            return if (withoutTagAndComment) {
-                val height = if (dateView.isVisible) 112.dp else MAIN_CONTENT_HEIGHT.dp
-                height
-            } else {
-                0
-            }
+    get() {
+        return if (withoutTagAndComment) {
+            if (dateView.isVisible) FIRST_DAY_MAIN_CONTENT_HEIGHT.dp else MAIN_CONTENT_HEIGHT.dp
+        } else {
+            0
         }
+    }
 
     // Used in recycler-views not using custom rvAdapter
     class Holder(parentView: View) :
@@ -318,10 +445,12 @@ class ActivityCell(
             view.configure(
                 transaction = item.activity,
                 accountId = item.accountId,
-                isFirst = item.isFirst,
-                isFirstInDay = false,
-                isLastInDay = item.isLast,
-                isLast = item.isLast
+                positioning = Positioning(
+                    isFirst = item.isFirst,
+                    isFirstInDay = false,
+                    isLastInDay = item.isLast,
+                    isLast = item.isLast,
+                ),
             )
         }
     }

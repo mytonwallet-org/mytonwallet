@@ -290,7 +290,7 @@ class WalletCustomizationVC(context: Context, defaultSelectedAccountId: String) 
                     leftMargin = ViewConstants.HORIZONTAL_PADDINGS.dp + 16.dp
                     rightMargin = ViewConstants.HORIZONTAL_PADDINGS.dp + 16.dp
                 })
-            addView(getMoreCardsButton, LinearLayout.LayoutParams(MATCH_PARENT, 56.dp).apply {
+            addView(getMoreCardsButton, LinearLayout.LayoutParams(MATCH_PARENT, 50.dp).apply {
                 topMargin = ViewConstants.GAP.dp
                 leftMargin = ViewConstants.HORIZONTAL_PADDINGS.dp
                 rightMargin = ViewConstants.HORIZONTAL_PADDINGS.dp

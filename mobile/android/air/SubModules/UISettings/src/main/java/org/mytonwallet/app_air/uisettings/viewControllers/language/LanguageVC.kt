@@ -127,6 +127,7 @@ class LanguageVC(context: Context) : WViewController(context),
             HEADER_CELL -> {
                 HeaderCell(
                     context,
+                    20f
                 )
             }
 
@@ -148,7 +149,7 @@ class LanguageVC(context: Context) : WViewController(context),
             0 -> {
                 (cellHolder.cell as HeaderCell).configure(
                     title = LocaleController.getString("Language"),
-                    titleColor = WColor.Tint.color
+                    titleColor = WColor.Tint
                 )
             }
 
