@@ -126,7 +126,7 @@ public class HomeTabBarController: UITabBarController, WThemedView {
         }
     }
     
-    public func _showLock(animated: Bool) {
+    public func _showLock(animated: Bool, onUnlock: @escaping () -> ()) {
         log.info("_showLock animated=\(animated)")
         guard AuthSupport.accountsSupportAppLock else { return }
         if unlockVC == nil {
@@ -136,6 +136,7 @@ public class HomeTabBarController: UITabBarController, WThemedView {
                                     dissmissWhenAuthorized: true,
                                     shouldBeThemedLikeHeader: true) { _ in
                 self.unlockVC = nil
+                onUnlock()
             }
             unlockVC.modalPresentationStyle = .overFullScreen
             unlockVC.modalTransitionStyle = .crossDissolve
@@ -144,7 +145,7 @@ public class HomeTabBarController: UITabBarController, WThemedView {
             if topVC is UIActivityViewController {
                 let presenting = topVC.presentingViewController!
                 presenting.dismiss(animated: false) {
-                    self._showLock(animated: animated)
+                    self._showLock(animated: animated, onUnlock: onUnlock)
                 }
             } else {
                 topVC.present(unlockVC, animated: animated, completion: {
@@ -176,8 +177,8 @@ public class HomeTabBarController: UITabBarController, WThemedView {
     }
     
     open override func dismiss(animated flag: Bool, completion: (() -> Void)? = nil) {
-        super.dismiss(animated: flag, completion: { [self] in
-            WalletCoreData.notify(event: .sheetDismissed(self))
+        super.dismiss(animated: flag, completion: {
+            WalletCoreData.notify(event: .sheetDismissed)
             completion?()
         })
     }

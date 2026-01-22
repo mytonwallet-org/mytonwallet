@@ -11,9 +11,8 @@ import org.mytonwallet.app_air.walletbasecontext.utils.toJSONString
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcore.MAIN_NETWORK
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.POPULAR_WALLET_VERSIONS
-import org.mytonwallet.app_air.walletcore.TEST_NETWORK
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.PoisoningCacheHelper
@@ -23,6 +22,7 @@ import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 
 fun WalletCore.importWallet(
+    network: MBlockchainNetwork,
     words: Array<String>,
     passcode: String,
     isNew: Boolean,
@@ -30,7 +30,7 @@ fun WalletCore.importWallet(
 ) {
     // Safely quote network and passcode to prevent injection
     val quotedNetwork = JSONArray().apply {
-        put(activeNetwork)
+        put(network.value)
     }.toString()
     val quotedPasscode = JSONObject.quote(passcode)
 
@@ -147,8 +147,6 @@ fun WalletCore.activateAccount(
             if (account == null || err != null) {
                 callback(null, err)
             } else {
-                activeNetwork =
-                    if (accountId.split("-")[1] == MAIN_NETWORK) MAIN_NETWORK else TEST_NETWORK
                 isMultichain = account.isMultichain
                 AccountStore.isPushedTemporary = isPushedTemporary
                 notifyAccountChanged(account, fromHome)

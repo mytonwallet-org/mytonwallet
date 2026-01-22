@@ -9,15 +9,16 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import java.util.Date
 
 class ActivityDateLabel(context: Context) : WLabel(context) {
 
     init {
         id = generateViewId()
-        setStyle(16f, WFont.Medium)
+        setStyle(14f, WFont.DemiBold)
         setOnClickListener { }
-        setPadding(16.dp, 16.dp, 16.dp, 0)
+        setPadding(20.dp, 16.dp, 20.dp, 0)
     }
 
     private var isFirst = false
@@ -29,7 +30,7 @@ class ActivityDateLabel(context: Context) : WLabel(context) {
     override fun updateTheme() {
         super.updateTheme()
 
-        setTextColor(WColor.PrimaryText.color)
+        setTextColor(WColor.Tint.color)
 
         setBackgroundColor(
             WColor.Background.color,
@@ -39,7 +40,7 @@ class ActivityDateLabel(context: Context) : WLabel(context) {
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        super.onMeasure(widthMeasureSpec, 48.dp.exactly)
+        super.onMeasure(widthMeasureSpec, 40.dp.exactly)
     }
 
 }

@@ -151,6 +151,17 @@ export enum AuthState {
   ready,
 }
 
+export enum AccountSelectorState {
+  Cards,
+  List,
+  Reorder,
+  AddAccountInitial,
+  AddAccountPassword,
+  AddAccountConnectHardware,
+  AddAccountSelectHardware,
+  AddAccountViewMode,
+}
+
 export enum BiometricsState {
   None,
   TurnOnPasswordConfirmation,
@@ -541,7 +552,7 @@ export type GlobalState = {
     isImportModalOpen?: boolean;
     accounts?: AuthAccount[];
     forceAddingTonOnlyAccount?: boolean;
-    initialState?: number; // Initial rendering state for the `AddAccountModal` component
+    initialAddAccountState?: AccountSelectorState; // Initial rendering state for the `AddAccountModal` component
   };
 
   biometrics: {
@@ -608,6 +619,7 @@ export type GlobalState = {
     // due to NBS specifics. Undefined means closed.
     scamWarningType?: ScamWarningType;
     isTransferReadonly?: boolean;
+    isOfframp?: boolean;
   };
 
   currentSwap: {
@@ -808,6 +820,7 @@ export type GlobalState = {
     isAutoConfirmEnabled?: boolean;
     isSensitiveDataHidden?: true;
     orderedAccountIds?: string[];
+    selectedExplorerIds?: Partial<Record<ApiChain, string>>;
   };
 
   dialogs: DialogType[];
@@ -817,7 +830,6 @@ export type GlobalState = {
   isAccountSelectorOpen?: boolean;
   accountSelectorActiveTab?: number;
   accountSelectorViewMode?: 'cards' | 'list';
-  isAddAccountModalOpen?: boolean;
   isBackupWalletModalOpen?: boolean;
   isHardwareModalOpen?: boolean;
   isStakingInfoModalOpen?: boolean;
@@ -843,7 +855,7 @@ export type GlobalState = {
     url: string;
     title?: string;
     subtitle?: string;
-    keepNBSOpen?: boolean;
+    shouldKeepNativeBottomSheetOpen?: boolean;
   };
 
   currentMintCard?: {
@@ -930,6 +942,7 @@ export interface ActionPayloads {
   createPin: { pin: string; isImporting: boolean };
   confirmPin: { isImporting: boolean };
   cancelConfirmPin: { isImporting: boolean };
+  cancelCheckPassword: undefined;
   startImportingWallet: undefined;
   afterImportMnemonic: { mnemonic: string[] };
   startImportingHardwareWallet: { driver: ApiLedgerDriver };
@@ -986,11 +999,13 @@ export interface ActionPayloads {
     binPayload?: string;
     stateInit?: string;
     isTransferReadonly?: boolean;
+    isOfframp?: boolean;
   } | undefined;
   changeTransferToken: { tokenSlug: string; withResetAmount?: boolean };
   fetchTransferFee: {
     tokenSlug: string;
     toAddress: string;
+    amount?: bigint;
     comment?: string;
     shouldEncrypt?: boolean;
     binPayload?: string;
@@ -1044,14 +1059,13 @@ export interface ActionPayloads {
 
   fetchPastActivities: { slug?: string; shouldLoadWithBudget?: boolean };
   showActivityInfo: { id: string };
-  showAnyAccountTx: { txId: string; accountId: string; network: ApiNetwork };
-  showAnyAccountTokenActivity: { slug: string; accountId: string; network: ApiNetwork };
+  showAnyAccountTx: { txId: string; accountId: string; network: ApiNetwork; chain: ApiChain };
   showTokenActivity: { slug: string };
   closeActivityInfo: { id: string };
   fetchActivityDetails: { id: string };
 
   // External transaction info (deeplink)
-  openTransactionInfo: { txId: string; chain: ApiChain };
+  openTransactionInfo: { txId: string; chain: ApiChain } | { txHash: string; chain: ApiChain };
   closeTransactionInfo: undefined;
   selectTransactionInfoActivity: { index: number };
   fetchNftsFromCollection: { collectionAddress: string };
@@ -1153,6 +1167,7 @@ export interface ActionPayloads {
   startChangingNetwork: { network: ApiNetwork };
   changeNetwork: { network: ApiNetwork };
   changeLanguage: { langCode: LangCode };
+  setSelectedExplorerId: { chain: ApiChain; explorerId: string };
   closeSecurityWarning: undefined;
   toggleTokensWithNoCost: { isEnabled: boolean };
   toggleSortByValue: { isEnabled: boolean };
@@ -1232,7 +1247,7 @@ export interface ActionPayloads {
 
   addSiteToBrowserHistory: { url: string };
   removeSiteFromBrowserHistory: { url: string };
-  openBrowser: { url: string; title?: string; subtitle?: string; keepNBSOpen?: boolean };
+  openBrowser: { url: string; title?: string; subtitle?: string; shouldKeepNativeBottomSheetOpen?: boolean };
   closeBrowser: undefined;
   openSiteCategory: { id: number };
   closeSiteCategory: undefined;

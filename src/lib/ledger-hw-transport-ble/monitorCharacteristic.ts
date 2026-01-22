@@ -18,7 +18,7 @@ export const monitorCharacteristic = (
     characteristicUuid: characteristic.uuid,
   });
 
-  void BleClient.startNotifications(
+  BleClient.startNotifications(
     deviceId,
     serviceId,
     characteristic.uuid,
@@ -27,7 +27,10 @@ export const monitorCharacteristic = (
       const buffer = Buffer.from(uint8Array);
       o.next(buffer);
     },
-  );
+  ).catch((error) => {
+    tracer.trace('Error starting BLE notifications', { error });
+    o.error(error);
+  });
 
   return () => {
     void BleClient.stopEnabledNotifications();

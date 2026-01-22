@@ -17,7 +17,7 @@ struct ChangeView: View {
     
     var body: some View {
         if let change = changePercent, let changeInCurrency = changeInCurrency {
-            let percent = "\(formatAmountText(amount: change, negativeSign: false, positiveSign: true, decimalsCount: 2))%"
+            let percent = formatPercent(change / 100, decimals: 2, showPlus: true, showMinus: false)
             let curr = changeInCurrency.formatted(.baseCurrencyPrice, showPlus: false, showMinus: false)
             ViewThatFits(in: .horizontal) {
                 Text("\(percent) · \(curr)")
@@ -40,4 +40,3 @@ struct ChangeView: View {
         }
     }
 }
-

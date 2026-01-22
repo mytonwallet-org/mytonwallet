@@ -10,9 +10,9 @@ import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.commonViews.CardThumbnailView
+import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -31,11 +31,8 @@ class AppearancePaletteAndCardView(
 ) : WView(context), WThemedView {
     var onCustomizePressed: (() -> Unit)? = null
 
-    private val titleLabel: WLabel by lazy {
-        val lbl = WLabel(context)
-        lbl.text = LocaleController.getString("Palette and Card")
-        lbl.setStyle(16f, WFont.Medium)
-        lbl
+    private val titleLabel = HeaderCell(context).apply {
+        configure(LocaleController.getString("Palette and Card"), titleColor = WColor.Tint, ViewConstants.BIG_RADIUS.dp)
     }
 
     private val cardThumbnailView = CardThumbnailView(context).apply {
@@ -81,11 +78,11 @@ class AppearancePaletteAndCardView(
         WFrameLayout(context).apply {
             background = rippleBackground
             addView(customizeIconView, FrameLayout.LayoutParams(40.dp, 35.dp).apply {
-                marginStart = 18.dp
+                marginStart = 20.dp
                 gravity = Gravity.START or Gravity.CENTER_VERTICAL
             })
             addView(customizeLabel, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-                marginStart = 72.dp
+                marginStart = 64.dp
                 gravity = Gravity.START or Gravity.CENTER_VERTICAL
             })
             setOnClickListener {
@@ -100,12 +97,12 @@ class AppearancePaletteAndCardView(
         clipChildren = false
         clipToPadding = false
         addView(titleLabel)
-        addView(customizeButton, LayoutParams(MATCH_PARENT, 56.dp))
+        addView(customizeButton, LayoutParams(MATCH_PARENT, 50.dp))
 
         setConstraints {
-            toTop(titleLabel, 16f)
-            toStart(titleLabel, 20f)
-            topToBottom(customizeButton, titleLabel, 9f)
+            toTop(titleLabel)
+            toCenterX(titleLabel)
+            topToBottom(customizeButton, titleLabel)
             toCenterX(customizeButton)
             toBottom(customizeButton)
         }
@@ -122,7 +119,6 @@ class AppearancePaletteAndCardView(
             WColor.Background.color,
             ViewConstants.BIG_RADIUS.dp
         )
-        titleLabel.setTextColor(WColor.Tint.color)
         circleDrawable?.setTint(WColor.Tint.color)
         rippleBackground.rippleColor = WColor.BackgroundRipple.color
     }

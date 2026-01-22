@@ -446,7 +446,7 @@ Use Password: Użyj hasła
 Biometrics Disabled: Biometria wyłączona
 Biometrics Enabled: Biometria włączona
 A request is already pending: Żądanie jest już oczekujące
-Please confirm operation using biometrics: Proszę potwierdzić operację za pomocą biometrii
+Please confirm action using biometrics: Proszę potwierdzić działanie za pomocą biometrii
 Scan QR Code: Zeskanuj kod QR
 Permission denied. Please grant camera permission to use the QR code scanner.: Odmowa uprawnień. Proszę udzielić uprawnień kamery, aby użyć skanera kodów QR.
 This QR Code is not supported: Ten kod QR nie jest obsługiwany
@@ -946,7 +946,7 @@ use the wallet responsibly: używać portfela odpowiedzialnie
 Watch Video about Features: Obejrzyj film o funkcjach
 Enjoy Monthly Updates in Blog: Ciesz się comiesięcznymi aktualizacjami na blogu
 Learn New Things in Help Center: Ucz się nowych rzeczy w centrum pomocy
-Frequency Questions and Answers: Częste pytania i odpowiedzi
+Frequent Questions & Answers: Częste pytania i odpowiedzi
 Paste from Clipboard: Wklej ze schowka
 Use biometric authentication or create a password to protect it.: Użyj uwierzytelniania biometrycznego lub utwórz hasło, aby je chronić.
 Go to Words: Przejdź do Słów
@@ -1029,6 +1029,7 @@ $missing_offramp_deposit_address: Brak adresu depozytowego dla off-ramp.
 Buy: Kup
 Sell: Sprzedaj
 Sell on Card: Sprzedaj na kartę
+Sell %symbol%: Sprzedaj %symbol%
 $connect_dapp_description: Połączone aplikacje mogą jedynie zobaczyć adres Twojego portfela i nie mogą przenosić Twoich aktywów bez Twojej zgody.
 $connect_dapp_title: Połączyć z %name%?
 Choose Wallet: Wybierz portfel
@@ -1036,4 +1037,19 @@ Wallet to use on %host%: Portfel dla %host%
 Selected Wallet: Wybrany portfel
 Connect Wallet: Połącz portfel
 Insufficient Fee: Niewystarczająca opłata
+Waiting for a View deeplink to display a wallet address.: Oczekiwanie na deeplink View do wyświetlenia adresu portfela.
+Adding wallets is not available in explorer mode: Dodawanie portfeli jest niedostępne w trybie eksplorera
+$explorer_mode_warning: "Tryb eksplorera: oczekiwanie na deeplink View do otwarcia adresu"
+This command is not supported in explorer mode: To polecenie nie jest obsługiwane w trybie eksplorera
 $saved_addresses_header: Zapisane
+confirm an action in MyTonWallet: potwierdź działanie w MyTonWallet
+$connected_apps:
+  otherValue: "%1$d połączonych"
+Night Mode, Palette, Card: Tryb nocny, Paleta, Karta
+Back Up, Passcode, Auto-Lock: Kopia zapasowa, Hasło, Automatyczna blokada
+Base Currency, Token Order, Hidden NFTs: Waluta bazowa, Kolejność tokenów, Ukryte NFT
+Your assets on other contracts: Twoje aktywa na innych kontraktach
+Wallets, Sounds: Portfele, Dźwięki
+Help: Pomoc
+About: O aplikacji
+Wallets: Portfele

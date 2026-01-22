@@ -315,10 +315,15 @@ private struct DappCellContent: View {
                     .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(Color.air.primaryLabel)
                     .lineLimit(1)
-                Text(dapp.url)
-                    .font(.system(size: 14))
-                    .foregroundStyle(Color.air.secondaryLabel)
-                    .lineLimit(1)
+                HStack(spacing: 4) {
+                    if dapp.isUrlEnsured != true {
+                        DappOriginWarning()
+                    }
+                    Text(dapp.displayUrl)
+                        .foregroundStyle(Color.air.secondaryLabel)
+                        .lineLimit(1)
+                }
+                .font(.system(size: 14))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }

@@ -4,6 +4,7 @@ import { getActions, withGlobal } from '../../../../global';
 import type {
   ApiActivity,
   ApiBaseCurrency,
+  ApiChain,
   ApiCurrencyRates,
   ApiNft,
   ApiStakingState,
@@ -66,6 +67,7 @@ interface StateProps {
   isTestnet?: boolean;
   isHardwareAccount: boolean;
   isViewMode: boolean;
+  selectedExplorerIds?: Partial<Record<ApiChain, string>>;
 }
 
 const enum SLIDES {
@@ -94,6 +96,7 @@ function TransactionInfoModal({
   isTestnet,
   isHardwareAccount,
   isViewMode,
+  selectedExplorerIds,
 }: StateProps) {
   const {
     closeTransactionInfo,
@@ -298,6 +301,7 @@ function TransactionInfoModal({
             activity={activity}
             tokensBySlug={swapTokensBySlug}
             isSensitiveDataHidden={isSensitiveDataHidden}
+            selectedExplorerIds={selectedExplorerIds}
           />
         </div>
       </>
@@ -384,5 +388,6 @@ export default memo(withGlobal((global): StateProps => {
     isTestnet: global.settings.isTestnet,
     isHardwareAccount: selectIsHardwareAccount(global),
     isViewMode: selectIsCurrentAccountViewMode(global),
+    selectedExplorerIds: global.settings.selectedExplorerIds,
   };
 })(TransactionInfoModal));

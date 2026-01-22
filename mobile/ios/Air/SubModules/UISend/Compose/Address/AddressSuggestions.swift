@@ -17,14 +17,16 @@ struct AddressSuggestions: View {
     }
     var addresses: [SavedAddress] { model.$account.savedAddresses.getMatching(searchString) }
     var matchingAccountIds: OrderedSet<String> {
-        let searchString = self.searchString
+        let isEmpty = searchString.isEmpty
+        let regex = Regex<Substring>(verbatim: searchString).ignoresCase()
+        let network = model.account.network
         let otherAccountIds = accountStore.orderedAccountIds
             .filter { $0 != model.account.id }
-            
-        return searchString.isEmpty ? otherAccountIds : otherAccountIds
+        let accountsById = accountStore.accountsById
+        return otherAccountIds
             .filter {
-                let account = accountStore.get(accountId: $0)
-                return account.displayName.lowercased().contains(searchString) || account.firstAddress.lowercased().contains(searchString)
+                guard let account = accountsById[$0] else { return false }
+                return account.network == network && (isEmpty || account.matches(regex))
             }
     }
     

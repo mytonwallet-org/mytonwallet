@@ -6,6 +6,7 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TON_USDT_SLUG
+import org.mytonwallet.app_air.walletcore.TON_USDT_TESTNET_SLUG
 import org.mytonwallet.app_air.walletcore.USDE_SLUG
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
@@ -19,6 +20,10 @@ data class MAssetsAndActivityData(
     var deletedTokens: ArrayList<String> = ArrayList(),
     var addedTokens: ArrayList<String> = ArrayList(),
 ) {
+    companion object {
+        val NOT_REMOVABLE_TOKENS = setOf(TON_USDT_SLUG, TON_USDT_TESTNET_SLUG)
+    }
+
     constructor(accountId: String) : this() {
         this.accountId = accountId
         val jsonObject = WGlobalStorage.getAssetsAndActivityData(accountId) ?: return
@@ -129,6 +134,6 @@ data class MAssetsAndActivityData(
     fun isTokenRemovable(slug: String): Boolean {
         return addedTokens.contains(slug) &&
             BalanceStore.getBalances(accountId)?.contains(slug) != true &&
-            slug != TON_USDT_SLUG
+            !NOT_REMOVABLE_TOKENS.contains(slug)
     }
 }

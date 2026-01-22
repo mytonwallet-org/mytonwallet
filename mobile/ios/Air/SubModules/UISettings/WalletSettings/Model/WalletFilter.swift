@@ -43,11 +43,11 @@ extension WalletFilter {
     @MainActor func performAddAction() {
         switch self {
         case .all, .my:
-            AppActions.showAddWallet(showCreateWallet: true, showSwitchToOtherVersion: true)
+            AppActions.showAddWallet(network: .mainnet, showCreateWallet: true, showSwitchToOtherVersion: true)
         case .ledger:
-            AppActions.showAddWallet(showCreateWallet: true, showSwitchToOtherVersion: true)
+            AppActions.showAddWallet(network: .mainnet, showCreateWallet: true, showSwitchToOtherVersion: true)
         case .view:
-            AppActions.showAddWallet(showCreateWallet: true, showSwitchToOtherVersion: true)
+            AppActions.showAddWallet(network: .mainnet, showCreateWallet: true, showSwitchToOtherVersion: true)
         }
     }
     

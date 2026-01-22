@@ -30,7 +30,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcore.MAIN_NETWORK
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
@@ -40,7 +40,11 @@ import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 import java.lang.ref.WeakReference
 
-class ImportViewWalletVC(context: Context, private val isOnIntro: Boolean) :
+class ImportViewWalletVC(
+    context: Context,
+    private val network: MBlockchainNetwork,
+    private val isOnIntro: Boolean
+) :
     WViewController(context) {
     override val TAG = "ImportViewWallet"
 
@@ -55,8 +59,8 @@ class ImportViewWalletVC(context: Context, private val isOnIntro: Boolean) :
     }
 
     val titleLabel = WLabel(context).apply {
-        setStyle(28f, WFont.Medium)
-        text = LocaleController.getString("View Any Address")
+        setStyle(28f, WFont.SemiBold)
+        text = LocaleController.getString("View Any Address") + network.localizedIdentifier
         gravity = Gravity.CENTER
         setTextColor(WColor.PrimaryText)
     }
@@ -190,7 +194,7 @@ class ImportViewWalletVC(context: Context, private val isOnIntro: Boolean) :
         view.lockView()
         continueButton.isLoading = true
         WalletCore.call(
-            ApiMethod.Auth.ImportViewAccount(MAIN_NETWORK, addressByChain),
+            ApiMethod.Auth.ImportViewAccount(network, addressByChain),
             callback = { result, error ->
                 if (result == null || error != null) {
                     view.unlockView()

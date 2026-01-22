@@ -8,7 +8,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.recyclerview.widget.RecyclerView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
+import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
@@ -32,15 +32,10 @@ import org.mytonwallet.app_air.walletcore.stores.NftStore
 class HiddenNFTsItemCell(
     recyclerView: RecyclerView,
     private val onSelect: ((nft: ApiNft) -> Unit)
-) : WCell(recyclerView.context, LayoutParams(MATCH_PARENT, 64.dp)),
+) : WCell(recyclerView.context, LayoutParams(MATCH_PARENT, 60.dp)),
     WThemedView {
 
     private lateinit var nft: ApiNft
-
-    private val separatorView: WBaseView by lazy {
-        val sw = WBaseView(context)
-        sw
-    }
 
     private val imageView: WCustomImageView by lazy {
         val img = WCustomImageView(context)
@@ -83,23 +78,19 @@ class HiddenNFTsItemCell(
     override fun setupViews() {
         super.setupViews()
 
-        addView(separatorView, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
         addView(imageView, ViewGroup.LayoutParams(48.dp, 48.dp))
         addView(titleLabel, LayoutParams(0, WRAP_CONTENT))
         addView(subtitleLabel, LayoutParams(0, WRAP_CONTENT))
         addView(rightView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         setConstraints {
-            toBottom(separatorView)
-            toEnd(separatorView, 16f)
-            toStart(separatorView, 76f)
             toCenterY(imageView)
             toStart(imageView, 16f)
             toCenterY(rightView)
             toEnd(rightView, 20f)
-            toTop(titleLabel, 10f)
+            toTop(titleLabel, 8f)
             toStart(titleLabel, 76f)
             endToStart(titleLabel, rightView, 8f)
-            toBottom(subtitleLabel, 10f)
+            toBottom(subtitleLabel, 8f)
             toStart(subtitleLabel, 76f)
             endToStart(subtitleLabel, rightView, 8f)
         }
@@ -126,7 +117,6 @@ class HiddenNFTsItemCell(
         }
         titleLabel.setTextColor(WColor.PrimaryText.color)
         subtitleLabel.setTextColor(WColor.SecondaryText.color)
-        separatorView.setBackgroundColor(WColor.Separator.color)
     }
 
     private var isLast = false
@@ -147,7 +137,7 @@ class HiddenNFTsItemCell(
         } ?: run {
             titleLabel.text =
                 SpannableStringBuilder(nft.address.formatStartEndAddress()).apply {
-                    updateDotsTypeface()
+                    styleDots()
                 }
         }
         subtitleLabel.text =
@@ -165,7 +155,6 @@ class HiddenNFTsItemCell(
             }
             updateHideButtonText()
         }
-        separatorView.visibility = if (showSeparator) VISIBLE else INVISIBLE
 
         updateTheme()
     }

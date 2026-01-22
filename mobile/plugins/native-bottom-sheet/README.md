@@ -271,6 +271,6 @@ addListener(eventName: 'openInMain', handler: (options: { key: BottomSheetKeys; 
 
 #### BottomSheetKeys
 
-<code>'initial' | 'receive' | 'invoice' | 'transfer' | 'swap' | 'stake' | 'unstake' | 'staking-info' | 'staking-claim' | 'vesting-info' | 'vesting-confirm' | 'transaction' | 'transaction-info' | 'swap-activity' | 'backup' | 'add-account' | 'import-account' | 'settings' | 'qr-scanner' | 'dapp-connect' | 'dapp-transfer' | 'dapp-sign-data' | 'disclaimer' | 'backup-warning' | 'onramp-widget' | 'offramp-widget' | 'mint-card' | 'renew-domain' | 'link-domain' | 'account-selector' | 'customize-wallet'</code>
+<code>'initial' | 'receive' | 'invoice' | 'transfer' | 'swap' | 'stake' | 'unstake' | 'staking-info' | 'staking-claim' | 'vesting-info' | 'vesting-confirm' | 'transaction' | 'transaction-info' | 'swap-activity' | 'backup' | 'import-account' | 'settings' | 'qr-scanner' | 'dapp-connect' | 'dapp-transfer' | 'dapp-sign-data' | 'disclaimer' | 'backup-warning' | 'onramp-widget' | 'offramp-widget' | 'mint-card' | 'renew-domain' | 'link-domain' | 'account-selector' | 'customize-wallet'</code>
 
 </docgen-api>

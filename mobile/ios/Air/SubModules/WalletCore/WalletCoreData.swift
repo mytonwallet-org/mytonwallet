@@ -11,6 +11,8 @@ import UIKit
 import GRDB
 import Dependencies
 
+private let log = Log("WalletCoreData")
+
 public struct WalletCoreData {
     public enum Event: @unchecked Sendable {
         case balanceChanged(accountId: String, isFirstUpdate: Bool)
@@ -69,7 +71,7 @@ public struct WalletCoreData {
         case getLedgerDeviceModel(callback: @Sendable (ApiLedgerDeviceModel?) async -> ())
         
         case minimizedSheetChanged(_ state: MinimizedSheetState)
-        case sheetDismissed(UIViewController)
+        case sheetDismissed
     }
     
     public protocol EventsObserver: AnyObject {
@@ -133,10 +135,22 @@ public struct WalletCoreData {
 
     public static func start(db: any DatabaseWriter) async {
         _ = LogStore.shared
-        Log.shared.info("**** WalletCoreData.start() **** \(Date().formatted(.iso8601), .public)")
+        log.info("**** WalletCoreData.start() **** \(Date().formatted(.iso8601), .public)")
         await ActivityStore.use(db: db)
         AccountStore.use(db: db)
         let accountIds = Set(AccountStore.accountsById.keys)
+        log.info("AcountStore loaded \(accountIds.count) accounts")
+        
+        // Detect if this is new install and delete old keychain storage if needed
+        let isFirstLaunch = await (UIApplication.shared.delegate as? MtwAppDelegateProtocol)?.isFirstLaunch == true
+        if isFirstLaunch {
+            log.info("First launch detected. Will check if accounts from previous install should can be deleted.")
+        }
+        if isFirstLaunch && accountIds.isEmpty && GlobalStorage.keysIn(key: "accounts")?.isEmpty != false {
+            log.info("Deleting accounts from previous install")
+            KeychainHelper.deleteAccountsFromPreviousInstall()
+        }
+        
         TokenStore.loadFromCache()
         StakingStore.use(db: db)
         BalanceStore.loadFromCache(accountIds: accountIds)

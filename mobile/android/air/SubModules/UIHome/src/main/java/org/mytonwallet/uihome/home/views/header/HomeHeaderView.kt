@@ -175,7 +175,7 @@ open class HomeHeaderView(
     }
 
     private val walletNameLabel = WLabel(context).apply {
-        setStyle(16f, WFont.Regular)
+        setStyle(16f, WFont.DemiBold)
         setSingleLine()
         isHorizontalFadingEdgeEnabled = true
         ellipsize = TextUtils.TruncateAt.MARQUEE
@@ -188,9 +188,6 @@ open class HomeHeaderView(
         visibility = GONE
     }
 
-    /*private val separatorView = WBaseView(context).apply {
-        alpha = 0f
-    }*/
     ////////////////////////////////////////////////////////////////////////////////////////////////
 
     // Helpers /////////////////////////////////////////////////////////////////////////////////////
@@ -636,6 +633,8 @@ open class HomeHeaderView(
         updateSkeletonViewColors()
 
         post {
+            if (!isShowingSkeletons)
+                return@post
             updateSkeletonMasks()
             skeletonView.startAnimating()
         }
@@ -700,8 +699,6 @@ open class HomeHeaderView(
         layoutParams?.height = collapsedMinHeight + max(0, collapsedHeight - scrollY)
         val isFullyCollapsed = collapsedHeight - scrollY <= 0
         isClickable = isFullyCollapsed
-        /*separatorView.alpha =
-            1 - ((((layoutParams?.height ?: 0) - collapsedMinHeight) / 10f).coerceIn(0f, 1f))*/
         balanceLabel.visibility = if (expandProgress == 1f) INVISIBLE else VISIBLE
     }
 

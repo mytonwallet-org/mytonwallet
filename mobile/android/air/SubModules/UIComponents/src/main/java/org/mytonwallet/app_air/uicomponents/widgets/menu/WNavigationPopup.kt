@@ -35,9 +35,8 @@ class WNavigationPopup(
     private val roundRadius: Float = 20f.dp
     private val transitionXOffset: Float = 48f.dp
 
-    private val isBlurSupported: Boolean by lazy {
-        DevicePerformanceClassifier.isHighClass
-    }
+    private val isBlurSupported: Boolean
+        get() = DevicePerformanceClassifier.isHighClass && WGlobalStorage.isBlurEnabled()
 
     private val contentContainerLayout = object : WFrameLayout(
         initialPopupView.context

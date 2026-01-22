@@ -78,6 +78,11 @@ open class WViewController: UIViewController, WThemedView {
         }
     }
     
+    open override func dismiss(animated flag: Bool, completion: (() -> Void)? = nil) {
+        super.dismiss(animated: flag, completion: completion)
+        WalletCoreData.notify(event: .sheetDismissed)
+    }
+    
     // MARK: - Navigation bar
     
     public func addNavigationBar(navHeight: CGFloat? = nil, topOffset: CGFloat = 0, centerYOffset: CGFloat = 0, title: String? = nil, subtitle: String? = nil, leadingItem: WNavigationBarButton? = nil, trailingItem: WNavigationBarButton? = nil, tintColor: UIColor? = nil, titleColor: UIColor? = nil, closeIcon: Bool = false, addBackButton: (() -> Void)? = nil, prefersHardEdge: Bool = false) {
@@ -410,8 +415,8 @@ open class WViewController: UIViewController, WThemedView {
     
     // MARK: - Tip
     
-    public func showTip<Content: View>(title: String, wide: Bool = false, @ViewBuilder content: @escaping () -> Content) {
-        let vc = UIHostingController(rootView: TipView(title: title, wide: wide, content: content))
+    public func showTip<Content: View>(title: String, kind: TipView<Content>.Kind = .info, wide: Bool = false, @ViewBuilder content: @escaping () -> Content) {
+        let vc = UIHostingController(rootView: TipView(title: title, kind: kind, wide: wide, content: content))
         vc.modalPresentationStyle = .overFullScreen
         vc.view.backgroundColor = .clear
         present(vc, animated: false)

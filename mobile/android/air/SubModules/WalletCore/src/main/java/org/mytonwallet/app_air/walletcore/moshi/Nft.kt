@@ -6,6 +6,7 @@ import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.WEquatable
 import org.mytonwallet.app_air.walletcore.TON_DNS_COLLECTION
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -244,10 +245,10 @@ data class ApiNft(
                 )
             }"
         }
-    val tonscanUrl: String
-        get() {
-            return "${ExplorerHelpers.tonScanUrl(WalletCore.activeNetwork)}nft/${address}"
-        }
+
+    fun tonscanUrl(network: MBlockchainNetwork): String {
+        return "${ExplorerHelpers.tonScanUrl(network)}nft/${address}"
+    }
 
     val collectionUrl: String
         get() {

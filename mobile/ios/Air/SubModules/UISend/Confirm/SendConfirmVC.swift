@@ -23,7 +23,8 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
         switch event {
         case .newLocalActivity(let update):
             if let activity = update.activities.first {
-                AppActions.pushTransactionSuccess(activity: activity)
+                Haptics.play(.success)
+                AppActions.showActivityDetails(accountId: model.account.id, activity: activity, context: model.nftSendMode != nil ? .sendNftConfirmation : .sendConfirmation)
             }
         default:
             break
@@ -108,6 +109,7 @@ class SendConfirmVC: WViewController, WalletCoreData.EventsObserver {
         } else {
             sendMnemonic()
         }
+        Haptics.prepare(.success)
     }
     
     func sendMnemonic() {

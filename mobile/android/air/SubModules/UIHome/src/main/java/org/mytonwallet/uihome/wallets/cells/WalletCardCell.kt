@@ -39,7 +39,7 @@ class WalletCardCell(
     private val miniCardView = MiniCardView(context, cellWidth)
 
     private val walletName = WLabel(context).apply {
-        setStyle(13f, WFont.SemiBold)
+        setStyle(13f, WFont.DemiBold)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 17f)
         setSingleLine()
         ellipsize = TextUtils.TruncateAt.END

@@ -31,7 +31,7 @@ class SeparatorBackgroundDrawable : Drawable() {
     // Force separator even in Common ui-mode and dark theme
     var forceSeparator: Boolean = false
 
-    var allowSeparator: Boolean = true
+    var allowSeparator: Boolean = false
     var offsetStart = 0f
     var offsetEnd = 0f
     var topRadius = 0f

@@ -272,7 +272,7 @@ class DeeplinkParser {
 
                     if (pathParts.size > 1) {
                         val chain = pathParts[0]
-                        val txId = pathParts[1]
+                        val txId = pathParts.drop(1).joinToString("/")
                         return Deeplink.Transaction(null, chain, txId, isPushNotification = false)
                     } else {
                         return null

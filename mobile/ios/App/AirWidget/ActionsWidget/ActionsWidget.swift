@@ -170,7 +170,7 @@ struct ActionButtonStyle: ButtonStyle {
             return AnyShape(shape)
         } else {
             if #available(iOS 26.0, *) {
-                let shape = ConcentricRectangle(corners: .concentric())
+                let shape = ConcentricRectangle(corners: .concentric(minimum: 12))
                 return AnyShape(shape)
             } else {
                 let shape = RoundedRectangle(cornerRadius: 16)

@@ -54,7 +54,11 @@ public let MTW_TIPS_CHANNEL_NAME_RU = "MyTonWalletTipsRu"
 
 public let HELP_CENTER_URL = "https://help.mytonwallet.io"
 public let HELP_CENTER_URL_RU = "https://help.mytonwallet.io/ru"
-
+public let HELP_CENTER_DOMAIN_SCAM_URL = "https://help.mytonwallet.io/intro/scams/.ton-domain-scams"
+public let HELP_CENTER_DOMAIN_SCAM_URL_RU = "https://help.mytonwallet.io/ru/baza-znanii/moshennichestvo-i-skamy/moshennichestvo-s-ispolzovaniem-domenov-.ton"
+public let HELP_CENTER_SEED_SCAM_URL = "https://help.mytonwallet.io/intro/scams/leaked-seed-phrases"
+public let HELP_CENTER_SEED_SCAM_URL_RU = "https://help.mytonwallet.io/ru/baza-znanii/moshennichestvo-i-skamy/slitye-sid-frazy"
+public let DOMAIN_SCAM_REGEX = /^[-\w]{26,}\./
 public let MTW_CARDS_COLLECTION = "EQCQE2L9hfwx1V8sgmF9keraHx1rNK9VmgR1ctVvINBGykyM"
 
 public let CARD_RATIO: CGFloat = 208/358
@@ -75,4 +79,3 @@ public var IS_DEBUG_OR_TESTFLIGHT: Bool {
 public let SELF_PROTOCOL = "mtw://"
 public let SHORT_UNIVERSAL_URL = "https://my.tt/"
 public let SELF_UNIVERSAL_URLS = [SHORT_UNIVERSAL_URL,  "https://go.mytonwallet.org/"]
-

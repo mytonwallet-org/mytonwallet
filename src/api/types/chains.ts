@@ -2,7 +2,12 @@
  * This file is meant to describe the interface of the chains exported from `src/api/chains`.
  */
 
-import type { ApiActivity, ApiDecryptCommentOptions, ApiFetchActivitySliceOptions } from './activities';
+import type {
+  ApiActivity,
+  ApiDecryptCommentOptions,
+  ApiFetchActivitySliceOptions,
+  ApiFetchTransactionByIdOptions,
+} from './activities';
 import type { ApiAnyDisplayError } from './errors';
 import type { ApiActivityTimestamps, ApiChain, ApiNetwork, ApiToken, OnUpdatingStatusChange } from './misc';
 import type { ApiAccountWithChain, ApiWalletByChain } from './storage';
@@ -164,5 +169,5 @@ export interface ChainSdk<T extends ApiChain> {
    * `walletAddress` is only used for determining the isIncoming perspective.
    * For TON, `txId` can be either a trace_id or msg_hash. For TRON, `txId` is a transaction hash.
    */
-  fetchTransactionById(network: ApiNetwork, walletAddress: string, txId: string): Promise<ApiActivity[]>;
+  fetchTransactionById(options: ApiFetchTransactionByIdOptions): Promise<ApiActivity[]>;
 }

@@ -76,8 +76,6 @@ class ActionsStyleView(
         v
     }
 
-    private val separatorView = WBaseView(context)
-
     var selectedStyle = ActionsWidget.Config.Style.VIVID
 
     override fun setupViews() {
@@ -85,7 +83,6 @@ class ActionsStyleView(
 
         addView(titleLabel)
         addView(themeView, LayoutParams(0, LayoutParams.WRAP_CONTENT))
-        addView(separatorView, LayoutParams(LayoutParams.MATCH_PARENT, ViewConstants.SEPARATOR_HEIGHT))
 
         setConstraints {
             toTop(titleLabel, 16f)
@@ -93,7 +90,6 @@ class ActionsStyleView(
             topToBottom(themeView, titleLabel, 24f)
             toCenterX(themeView)
             toBottom(themeView, 20f)
-            toBottom(separatorView)
         }
 
         arrayOf(vividView, neutralView).forEach {

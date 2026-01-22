@@ -4,6 +4,7 @@ import { getActions, withGlobal } from '../../global';
 import type { GlobalState, Theme } from '../../global/types';
 import { AuthState } from '../../global/types';
 
+import { selectIsBiometricAuthEnabled } from '../../global/selectors';
 import { pick } from '../../util/iteratees';
 import { IS_ANDROID } from '../../util/windowEnvironment';
 
@@ -35,7 +36,7 @@ import styles from './Auth.module.scss';
 type StateProps = Pick<GlobalState['auth'], (
   'state' | 'biometricsStep' | 'error' | 'mnemonic' | 'mnemonicCheckIndexes' | 'isLoading' | 'method'
   | 'hardwareSelectedIndices'
-)> & { theme: Theme };
+)> & { theme: Theme; isBiometricAuthEnabled?: boolean };
 
 const RENDER_COUNT = Object.keys(AuthState).length / 2;
 
@@ -49,6 +50,7 @@ const Auth = ({
   hardwareSelectedIndices,
   method,
   theme,
+  isBiometricAuthEnabled,
 }: StateProps) => {
   const {
     closeAbout,
@@ -83,6 +85,7 @@ const Auth = ({
             isActive={isActive}
             isLoading={isLoading}
             method="createAccount"
+            isBiometricAuthEnabled={isBiometricAuthEnabled}
             error={error}
           />
         );
@@ -123,6 +126,7 @@ const Auth = ({
             isActive={isActive}
             isLoading={isLoading}
             method="importMnemonic"
+            isBiometricAuthEnabled={isBiometricAuthEnabled}
             error={error}
           />
         );
@@ -210,8 +214,10 @@ export default memo(withGlobal((global): StateProps => {
     'state', 'biometricsStep', 'error', 'mnemonic', 'mnemonicCheckIndexes', 'isLoading', 'method',
     'hardwareSelectedIndices',
   ]);
+  const isBiometricAuthEnabled = selectIsBiometricAuthEnabled(global);
   return {
     ...authProps,
     theme: global.settings.theme,
+    isBiometricAuthEnabled,
   };
 })(Auth));

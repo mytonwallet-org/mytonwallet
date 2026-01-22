@@ -22,7 +22,7 @@ class EmptyCell(context: Context) : WCell(context), WThemedView {
         addView(emptyView, LayoutParams(WRAP_CONTENT, 120.dp))
         setConstraints {
             toTop(emptyView)
-            toCenterX(emptyView)
+            toCenterX(emptyView, 8f)
         }
 
         updateTheme()

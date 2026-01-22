@@ -57,6 +57,12 @@ public class ActivityCell: WHighlightCell {
     
     let detailsLabel: UILabel = .init()
     
+    private let rightChevron: UIImageView = {
+        let imageView = UIImageView(image: .airBundle("RightArrowIcon"))
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        return imageView
+    }()
+    
     var amountContainer: WSensitiveData<UILabel> = .init(cols: 12, rows: 2, cellSize: 9, cornerRadius: 5, theme: .adaptive, alignment: .trailing)
     var amountLabel: UILabel!
     var amountIcon1 = IconView(size: 18, borderWidth: 1, borderColor: WTheme.groupedItem)
@@ -73,6 +79,8 @@ public class ActivityCell: WHighlightCell {
     var commentViewConstraints: [NSLayoutConstraint] = []
     var commentViewLeadingConstraint: NSLayoutConstraint!
     var commentViewTrailingConstraint: NSLayoutConstraint!
+    private var firstTwoRowsTrailingConstraint: NSLayoutConstraint!
+    private var firstTwoRowsTrailingToChevronConstraint: NSLayoutConstraint!
 
     var nftAndCommentConstraint: NSLayoutConstraint!
     
@@ -96,6 +104,7 @@ public class ActivityCell: WHighlightCell {
     public override func prepareForReuse() {
         super.prepareForReuse()
         contentView.alpha = 1
+        setShowsRightChevron(false)
     }
     
     @objc private func itemSelected() {
@@ -134,11 +143,20 @@ public class ActivityCell: WHighlightCell {
         firstTwoRows.accessibilityIdentifier = "firstTwoRows"
         firstTwoRows.translatesAutoresizingMaskIntoConstraints = false
         mainView.addSubview(firstTwoRows)
+        mainView.addSubview(rightChevron)
+        rightChevron.isHidden = true
+        
+        firstTwoRowsTrailingConstraint = firstTwoRows.trailingAnchor.constraint(equalTo: mainView.trailingAnchor)
+        firstTwoRowsTrailingToChevronConstraint = firstTwoRows.trailingAnchor.constraint(equalTo: rightChevron.leadingAnchor, constant: -10)
+        firstTwoRowsTrailingToChevronConstraint.isActive = false
         NSLayoutConstraint.activate([
             firstTwoRows.topAnchor.constraint(equalTo: mainView.topAnchor),
             firstTwoRows.bottomAnchor.constraint(equalTo: mainView.bottomAnchor).withPriority(.init(500)),
-            firstTwoRows.trailingAnchor.constraint(equalTo: mainView.trailingAnchor),
+            firstTwoRowsTrailingConstraint,
             firstTwoRows.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 10),
+            
+            rightChevron.trailingAnchor.constraint(equalTo: mainView.trailingAnchor),
+            rightChevron.centerYAnchor.constraint(equalTo: firstTwoRows.centerYAnchor),
         ])
 
         // MARK: address
@@ -266,11 +284,17 @@ public class ActivityCell: WHighlightCell {
         detailsLabel.textColor = WTheme.secondaryLabel
         amount2Label.textColor = WTheme.secondaryLabel
     }
+    
+    private func setShowsRightChevron(_ shows: Bool) {
+        rightChevron.isHidden = !shows
+        firstTwoRowsTrailingConstraint.isActive = !shows
+        firstTwoRowsTrailingToChevronConstraint.isActive = shows
+    }
 
     
     // MARK: - Configure
     
-    public func configure(with activity: ApiActivity, accountContext: AccountContext, delegate: Delegate, shouldFadeOutSkeleton: Bool) {
+    public func configure(with activity: ApiActivity, accountContext: AccountContext, delegate: Delegate, shouldFadeOutSkeleton: Bool, showsRightChevron: Bool = false) {
         
         if shouldFadeOutSkeleton {
             skeletonView?.layer.maskedCorners = contentView.layer.maskedCorners
@@ -281,13 +305,14 @@ public class ActivityCell: WHighlightCell {
         }
         self.activity = activity
         self.delegate = delegate
+        setShowsRightChevron(showsRightChevron)
 
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        
         self.configureViewModel(accountId: accountContext.accountId, activity: activity)
         
         iconView.config(with: activity)
+        
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
         
         configureTitle(activity: activity)
         configureDetails(activity: activity, accountContext: accountContext)
@@ -341,7 +366,7 @@ public class ActivityCell: WHighlightCell {
         if isEmulation {
             titleLabel.text = activity.displayTitle.future
         } else {
-            titleLabel.text = activity.displayTitleResolved
+            titleLabel.text = activity.displayTitleResolvedOptimistic
         }
         
         if activity.isScamTransaction {
@@ -414,7 +439,7 @@ public class ActivityCell: WHighlightCell {
                         status = lang("In Progress")
                     }
                 }
-            case .completed:
+            case .completed, .confirmed:
                 break
             case .failed:
                 status = lang("Failed swap")
@@ -472,7 +497,7 @@ public class ActivityCell: WHighlightCell {
                 let toAmount = swap.toAmount.value
                 let swapFailed = swap.status == .failed || swap.status == .expired
                 let swapInProgress = swap.status == .pending
-                let swapDone = swap.status == .completed
+                let swapDone = swap.status == .completed || swap.status == .confirmed
                 
                 let attr = NSMutableAttributedString()
                 

@@ -7,6 +7,7 @@
 
 import UIKit
 import UIComponents
+import WalletCore
 import WalletContext
 
 private let log = Log("BalanceHeaderView")
@@ -21,7 +22,7 @@ private let log = Log("BalanceHeaderView")
 final class BalanceHeaderView: WTouchPassView, WThemedView, Sendable {
     
     let headerViewModel: HomeHeaderViewModel
-    var accountId: String?
+    let accountSource: AccountSource
     
     // MARK: View height
     
@@ -29,6 +30,8 @@ final class BalanceHeaderView: WTouchPassView, WThemedView, Sendable {
     static let minHeight = CGFloat(43.33)
     
     var prevWalletCardViewState: HomeHeaderState = .expanded
+    
+    var lastStateChange: Date = .distantPast
     
     var calculatedHeight: CGFloat {
         if headerViewModel.state == .expanded {
@@ -47,9 +50,9 @@ final class BalanceHeaderView: WTouchPassView, WThemedView, Sendable {
     var updateStatusView: UpdateStatusView!
     var updateStatusViewContainerTopConstraint: NSLayoutConstraint!
     
-    init(headerViewModel: HomeHeaderViewModel, accountId: String?, delegate: BalanceHeaderViewDelegate?) {
+    init(headerViewModel: HomeHeaderViewModel, accountSource: AccountSource, delegate: BalanceHeaderViewDelegate?) {
         self.headerViewModel = headerViewModel
-        self.accountId = accountId
+        self.accountSource = accountSource
         self.delegate = delegate
         super.init(frame: .zero)
         setupViews()
@@ -94,7 +97,7 @@ final class BalanceHeaderView: WTouchPassView, WThemedView, Sendable {
         updateStatusViewContainer.translatesAutoresizingMaskIntoConstraints = false
         addSubview(updateStatusViewContainer)
 
-        updateStatusView = UpdateStatusView(accountId: accountId)
+        updateStatusView = UpdateStatusView(accountSource: accountSource)
         updateStatusViewContainer.addSubview(updateStatusView)
 
         updateStatusViewContainerTopConstraint = updateStatusViewContainer.topAnchor.constraint(equalTo: topAnchor)

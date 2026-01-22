@@ -442,7 +442,7 @@ Use Password: Usar contraseña
 Biometrics Disabled: Biometría deshabilitada
 Biometrics Enabled: Biometría habilitada
 A request is already pending: Ya hay una solicitud pendiente
-Please confirm operation using biometrics: Confirme la operación mediante datos biométricos
+Please confirm action using biometrics: Por favor, confirma la acción usando biometría
 Scan QR Code: Escanear código QR
 Permission denied. Please grant camera permission to use the QR code scanner.: Permiso denegado. Otorgue permiso a la cámara para usar el escáner QR.
 This QR Code is not supported: Este código QR no es compatible
@@ -934,7 +934,7 @@ use the wallet responsibly: usar la billetera responsablemente
 Watch Video about Features: Ver video sobre características
 Enjoy Monthly Updates in Blog: Disfruta actualizaciones mensuales en el blog
 Learn New Things in Help Center: Aprende cosas nuevas en el centro de ayuda
-Frequency Questions and Answers: Preguntas y respuestas frecuentes
+Frequent Questions & Answers: Preguntas y respuestas frecuentes
 Paste from Clipboard: Pegar desde el portapapeles
 Use biometric authentication or create a password to protect it.: Usa autenticación biométrica o crea una contraseña para protegerla.
 Go to Words: Ir a Palabras
@@ -1015,6 +1015,7 @@ $missing_offramp_deposit_address: Falta la dirección de depósito para off-ramp
 Buy: Comprar
 Sell: Vender
 Sell on Card: Vender con tarjeta
+Sell %symbol%: Vender %symbol%
 $connect_dapp_description: Las aplicaciones conectadas solo pueden ver la dirección de tu billetera y no podrán mover tus activos sin tu permiso.
 $connect_dapp_title: ¿Conectar con %name%?
 Choose Wallet: Elegir billetera
@@ -1022,4 +1023,19 @@ Wallet to use on %host%: Billetera para %host%
 Selected Wallet: Billetera seleccionada
 Connect Wallet: Conectar billetera
 Insufficient Fee: Comisión insuficiente
+Waiting for a View deeplink to display a wallet address.: Esperando un enlace profundo de View para mostrar una dirección de billetera.
+Adding wallets is not available in explorer mode: Agregar billeteras no está disponible en modo explorador
+$explorer_mode_warning: "Modo explorador: esperando un enlace profundo de View para abrir una dirección"
+This command is not supported in explorer mode: Este comando no es compatible en modo explorador
 $saved_addresses_header: Guardado
+confirm an action in MyTonWallet: confirmar una acción en MyTonWallet
+$connected_apps:
+  otherValue: "%1$d conectadas"
+Night Mode, Palette, Card: Modo nocturno, Paleta, Tarjeta
+Back Up, Passcode, Auto-Lock: Copia de seguridad, Código, Bloqueo automático
+Base Currency, Token Order, Hidden NFTs: Moneda base, Orden de tokens, NFTs ocultos
+Your assets on other contracts: Tus activos en otros contratos
+Wallets, Sounds: Billeteras, Sonidos
+Help: Ayuda
+About: Acerca de
+Wallets: Billeteras

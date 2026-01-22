@@ -211,8 +211,6 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         if (!darkModeChanged)
             return
         _isDarkThemeApplied = ThemeManager.isDark
-        forceStatusBarLight = null
-        forceBottomBarLight = null
         updateStatusBarColors()
         updateBottomBarColors()
     }

@@ -26,7 +26,7 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.extensions.animateTintColor
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
-import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
+import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
@@ -662,7 +662,7 @@ open class NftHeaderView(
     private fun updateTitleLabel() {
         titleLabel.text =
             nft.name ?: SpannableStringBuilder(nft.address.formatStartEndAddress()).apply {
-                updateDotsTypeface()
+                styleDots()
             }
         centerTitle()
     }

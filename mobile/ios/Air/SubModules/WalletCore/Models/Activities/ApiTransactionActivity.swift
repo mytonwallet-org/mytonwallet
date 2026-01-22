@@ -39,7 +39,7 @@ public struct ApiTransactionActivity: BaseActivity, Codable, Equatable, Hashable
      * - 'pendingTrusted' — awaiting confirmation and trusted (initiated by our app)
      * - 'pending' — awaiting confirmation from an external/unauthenticated source, like TonConnect emulation
      */
-    public let status: ApiTransactionStatus
+    public var status: ApiTransactionStatus
     
     public init(id: String, kind: String, shouldHide: Bool? = nil, externalMsgHashNorm: String?, shouldReload: Bool? = nil, shouldLoadDetails: Bool? = nil, extra: BaseActivityExtra? = nil, timestamp: Int64, amount: BigInt, fromAddress: String, toAddress: String?, comment: String?, encryptedComment: String?, fee: BigInt, slug: String, isIncoming: Bool, normalizedAddress: String?, type: ApiTransactionType?, metadata: ApiAddressInfo?, nft: ApiNft?, status: ApiTransactionStatus) {
         self.id = id
@@ -75,6 +75,7 @@ public struct ApiTransactionActivity: BaseActivity, Codable, Equatable, Hashable
 public enum ApiTransactionStatus: String, Equatable, Codable, Hashable, Sendable {
     case pending
     case pendingTrusted
+    case confirmed
     case completed
     case failed
 }

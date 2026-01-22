@@ -18,6 +18,14 @@ public extension MAccount {
         return displayName
         #endif
     }
+    
+    func matches(_ searchString: Regex<Substring>) -> Bool {
+        if displayName.contains(searchString) { return true }
+        for (_, chainInfo) in byChain {
+            if chainInfo.matches(searchString) { return true }
+        }
+        return false
+    }
         
     var avatarContent: AvatarContent {
         if let walletName = self.title?.nilIfEmpty, let initial = walletName.first {

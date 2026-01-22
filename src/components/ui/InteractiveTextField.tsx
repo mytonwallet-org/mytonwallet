@@ -9,6 +9,7 @@ import type { IAnchorPosition, SavedAddress } from '../../global/types';
 import type { Layout } from '../../hooks/useMenuPosition';
 import type { DropdownItem } from './Dropdown';
 
+import { IS_EXPLORER } from '../../config';
 import { closeAllOverlays } from '../../global/helpers/misc';
 import {
   selectCurrentAccountId,
@@ -72,6 +73,7 @@ interface StateProps {
   savedAddresses?: SavedAddress[];
   isMultichainAccount?: boolean;
   isTestnet?: boolean;
+  selectedExplorerIds?: Partial<Record<ApiChain, string>>;
 }
 
 type MenuHandler = 'copy' | 'share' | 'addressBook' | 'explorer' | 'viewInApp';
@@ -103,6 +105,7 @@ function InteractiveTextField({
   isMultichainAccount,
   noDimming,
   withShareInMenu,
+  selectedExplorerIds,
 }: OwnProps & StateProps) {
   const { showToast, addSavedAddress, openTemporaryViewAccount } = getActions();
 
@@ -120,12 +123,15 @@ function InteractiveTextField({
     }));
   }, [address, chain, savedAddresses]);
 
-  addressUrl = addressUrl ?? (chain ? getExplorerAddressUrl(chain, address, isTestnet) : undefined);
+  const selectedExplorerId = chain ? selectedExplorerIds?.[chain] : undefined;
+  const resolvedAddressUrl = addressUrl ?? (chain
+    ? getExplorerAddressUrl(chain, address, isTestnet, selectedExplorerId)
+    : undefined);
   const saveAddressTitle = lang(isAddressAlreadySaved ? 'Remove from Saved' : 'Save Address');
   const explorerTitle = lang('View on Explorer');
   const withSavedAddresses = Boolean(!isScam && !noSavedAddress && address);
-  const withExplorer = Boolean(!noExplorer && addressUrl);
-  const isAddressCanBeViewed = Boolean(withSavedAddresses && !isAddressAlreadySaved);
+  const withExplorer = Boolean(!noExplorer && resolvedAddressUrl);
+  const isAddressCanBeViewed = Boolean(!IS_EXPLORER && withSavedAddresses && !isAddressAlreadySaved);
 
   useEffect(() => {
     if (isSaveAddressModalOpen) {
@@ -158,11 +164,21 @@ function InteractiveTextField({
   });
 
   const handleShare = useLastCallback(() => {
-    void shareUrl(addressUrl!, chain ? getExplorerName(chain) : undefined);
+    void shareUrl(resolvedAddressUrl!, chain ? getExplorerName(chain, selectedExplorerId) : undefined);
   });
 
-  const handleTonExplorerOpen = useLastCallback(() => {
-    void openUrl(addressUrl!, { title: getExplorerName(chain!), subtitle: getHostnameFromUrl(addressUrl!) });
+  const handleExplorerOpen = useLastCallback(() => {
+    if (!chain) return;
+
+    void openUrl(resolvedAddressUrl!, {
+      title: getExplorerName(chain, selectedExplorerId),
+      subtitle: getHostnameFromUrl(resolvedAddressUrl!),
+      shouldSkipOverlayClose: true,
+    });
+  });
+
+  const handleExplorerUrlClick = useLastCallback((event: React.MouseEvent<HTMLAnchorElement, MouseEvent>) => {
+    handleUrlClick(event, { shouldSkipOverlayClose: true });
   });
 
   const handleViewInApp = useLastCallback(async () => {
@@ -187,7 +203,7 @@ function InteractiveTextField({
     copy: handleCopy,
     share: handleShare,
     addressBook: isAddressAlreadySaved ? openDeletedSavedAddressModal : openSaveAddressModal,
-    explorer: handleTonExplorerOpen,
+    explorer: handleExplorerOpen,
     viewInApp: handleViewInApp,
   }, {
     isAddressAlreadySaved,
@@ -367,17 +383,16 @@ function InteractiveTextField({
           </span>
         )}
         {withExplorer && (
-          <a
-            href={addressUrl}
+          <span
             className={styles.button}
             title={explorerTitle}
             aria-label={explorerTitle}
-            target="_blank"
-            rel="noreferrer noopener"
-            onClick={handleUrlClick}
+            tabIndex={0}
+            role="button"
+            onClick={handleExplorerUrlClick}
           >
             <i className={buildClassName(styles.icon, 'icon-tonexplorer-small')} aria-hidden />
-          </a>
+          </span>
         )}
       </>
     );
@@ -460,6 +475,7 @@ export default memo(withGlobal<OwnProps>(
       savedAddresses: accountState?.savedAddresses,
       isMultichainAccount: accountId ? selectIsMultichainAccount(global, accountId) : false,
       isTestnet: global.settings.isTestnet,
+      selectedExplorerIds: global.settings.selectedExplorerIds,
     };
   },
 )(InteractiveTextField));

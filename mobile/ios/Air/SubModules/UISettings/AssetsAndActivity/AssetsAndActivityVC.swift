@@ -59,7 +59,7 @@ public class AssetsAndActivityVC: WViewController {
         let balanceTokens = $account.balances.keys
         tokens.formUnion(balanceTokens)
 
-        tokens.formUnion(DEFAULT_SLUGS)
+        tokens.formUnion(account.network == .testnet ? DEFAULT_TESTNET_SLUGS : DEFAULT_SLUGS)
 
         tokens = tokens.filter { slug in
             if let chain = TokenStore.tokens[slug]?.chain {

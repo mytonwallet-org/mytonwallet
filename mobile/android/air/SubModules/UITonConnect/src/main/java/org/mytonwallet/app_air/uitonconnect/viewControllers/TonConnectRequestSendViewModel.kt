@@ -23,7 +23,7 @@ import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.uicomponents.adapter.BaseListItem
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.Item
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
+import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.DappWarningPopupHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.FakeLoading
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -598,7 +598,7 @@ class TonConnectRequestSendViewModel private constructor(
             return SpannableStringBuilder(
                 LocaleController.getString("to") + " " + receivingAddress.formatStartEndAddress()
             ).apply {
-                updateDotsTypeface()
+                styleDots()
             }
         }
 
@@ -771,7 +771,6 @@ class TonConnectRequestSendViewModel private constructor(
                                 true
                             )
                         ),
-                        allowSeparator = a != update.transactions.lastIndex
                     )
                 )
             }

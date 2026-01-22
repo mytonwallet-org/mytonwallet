@@ -48,7 +48,6 @@ import ElectronHeader from './electron/ElectronHeader';
 import Explore from './explore/Explore';
 import LedgerModal from './ledger/LedgerModal';
 import Main from './main/Main';
-import AddAccountModal from './main/modals/AddAccountModal';
 import BackupModal from './main/modals/BackupModal';
 import NftAttributesModal from './main/modals/NftAttributesModal';
 import OffRampWidgetModal from './main/modals/OffRampWidgetModal';
@@ -271,7 +270,6 @@ function App({
           <DappConnectModal />
           <DappSignDataModal />
           <DappTransferModal />
-          <AddAccountModal />
           <OnRampWidgetModal />
           <OffRampWidgetModal />
           <UnhideNftModal />

@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import SwiftUI
 import Ledger
 import UICreateWallet
 import UIPasscode
@@ -27,7 +28,12 @@ class SplashVC: WViewController {
     
     // if app is loading, the deeplink will be stored here to be handle after app started.
     private var nextDeeplink: Deeplink? = nil
-
+    private var nextNotification: UNNotification? = nil
+    
+    #if DEBUG
+    @AppStorage("debug_displayLogOverlay") private var displayLogOverlayEnabled = false
+    #endif
+    
     private var _isWalletReady = false
 
     public override func loadView() {
@@ -75,6 +81,9 @@ class SplashVC: WViewController {
         if firstTime {
             firstTime = false
             splashVM.startApp()
+            #if DEBUG
+            setDisplayLogOverlayEnabled(displayLogOverlayEnabled)
+            #endif
         }
     }
 
@@ -125,7 +134,7 @@ extension SplashVC: SplashVMDelegate {
     
     func navigateToIntro() {
         afterUnlock { [weak self] in
-            self?.replaceVC(with: IntroVC(introModel: IntroModel(password: nil)), animationDuration: 0.5)
+            self?.replaceVC(with: IntroVC(introModel: IntroModel(network: .mainnet, password: nil)), animationDuration: 0.5)
         }
     }
 
@@ -151,9 +160,15 @@ extension SplashVC: WalletContextDelegate {
                     self.handle(deeplink: nextDeeplink)
                 }
             }
+            if let nextNotification {
+                DispatchQueue.main.async {
+                    self.handleNotification(nextNotification)
+                }
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
                 self?.requestPushNotificationsPermission()
             }
+            UNUserNotificationCenter.current().delegate = self
         }
     }
     
@@ -183,30 +198,6 @@ extension SplashVC: WalletContextDelegate {
         }
     }
 
-    func addAnotherAccount(wordList: [String], passedPasscode: String?) -> UIViewController {
-        let introModel = IntroModel(password: passedPasscode, words: wordList)
-        return WordDisplayVC(introModel: introModel, wordList: wordList)
-    }
-    
-    func importAnotherAccount(passedPasscode: String?, isLedger: Bool) async -> UIViewController {
-        if isLedger {
-            let introModel = IntroModel(password: passedPasscode)
-            let model = await LedgerAddAccountModel()
-            let vc = LedgerAddAccountVC(model: model, showBackButton: false)
-            vc.onDone = { _ in
-                introModel.onDone(successKind: .imported)
-            }
-            return vc
-        } else {
-            let introModel = IntroModel(password: passedPasscode)
-            return ImportWalletVC(introModel: introModel)
-        }
-    }
-    
-    func viewAnyAddress() -> UIViewController {
-        AddViewWalletVC(introModel: IntroModel(password: nil))
-    }
-    
     func handleDeeplink(url: URL) -> Bool {
         return AirLauncher.deeplinkHandler?.handle(url) ?? false
     }
@@ -223,7 +214,7 @@ extension SplashVC: WalletContextDelegate {
 // MARK: - Navigate to deeplink target screens
 extension SplashVC: DeeplinkNavigator {
     func handle(deeplink: Deeplink) {
-        if isWalletReady {
+        if isWalletReady, isAppUnlocked {
             guard AccountStore.account != nil else {
                 // we ignore depplinks when wallet is not ready yet, wallet gets ready when home page appears
                 nextDeeplink = nil
@@ -283,7 +274,7 @@ extension SplashVC: DeeplinkNavigator {
                 AppActions.showTokenByAddress(chain: chain, tokenAddress: tokenAddress)
                 
             case .transaction(let chain, let txId):
-                AppActions.showActivityDetailsById(chain: chain, txId: txId)
+                AppActions.showActivityDetailsById(chain: chain, txId: txId, showError: true)
                 
             case .view(let addressOrDomainByChain):
                 AppActions.showTemporaryViewAccount(addressOrDomainByChain: addressOrDomainByChain)
@@ -293,9 +284,66 @@ extension SplashVC: DeeplinkNavigator {
             nextDeeplink = deeplink
         }
     }
+    
+    func handleNotification(_ notification: UNNotification) {
+        guard isWalletReady, isAppUnlocked else {
+            self.nextNotification = notification
+            return
+        }
+        self.nextNotification = nil
+        guard AccountStore.account != nil else { return }
+        Task {
+            try await _handleNotification(notification)
+        }
+    }
+    
+    @MainActor private func _handleNotification(_ notification: UNNotification) async throws {
+        let userInfo = notification.request.content.userInfo
+        let action = userInfo["action"] as? String
+        let address = userInfo["address"] as? String ?? ""
+        let chain = ApiChain(rawValue: userInfo["chain"] as? String ?? "") ?? FALLBACK_CHAIN
+        let accountId = AccountStore.orderedAccounts.first(where: { $0.addressByChain[chain.rawValue] == address })?.id
+        if action == "openUrl" {
+            if let urlString = userInfo["url"] as? String, let url = URL(string: urlString) {
+                if userInfo["isExternal"] as? Bool == true {
+                    await UIApplication.shared.open(url)
+                } else {
+                    AppActions.openInBrowser(url, title: userInfo["title"] as? String, injectTonConnect: true)
+                }
+            }
+            return
+        }
+        
+        guard let accountId else { return }
+        switch action {
+        case "nativeTx", "swap":
+            if let txId = userInfo["txId"] as? String {
+                AppActions.showAnyAccountTx(accountId: accountId, chain: chain, txId: txId, showError: false)
+            }
+        case "jettonTx":
+            if let txId = userInfo["txId"] as? String {
+                AppActions.showAnyAccountTx(accountId: accountId, chain: chain, txId: txId, showError: false)
+            } else if let slug = userInfo["slug"] as? String {
+                try await AccountStore.activateAccount(accountId: accountId)
+                AppActions.showTokenBySlug(slug)
+            }
+        case "staking":
+            if let stakingId = userInfo["stakingId"] as? String {
+                try await AccountStore.activateAccount(accountId: accountId)
+                AppActions.showEarn(tokenSlug: stakingId)
+            }
+        case "expiringDns":
+            try await AccountStore.activateAccount(accountId: accountId)
+            let domainAddress = userInfo["domainAddress"] as? String
+            _ = domainAddress
+            // TODO: openDomainRenewalModal
+        default:
+            break
+        }
+    }
 }
 
-extension SplashVC {
+extension SplashVC: UNUserNotificationCenterDelegate {
     private func requestPushNotificationsPermission() {
         UNUserNotificationCenter.current().getNotificationSettings { settings in
             switch settings.authorizationStatus {
@@ -320,6 +368,10 @@ extension SplashVC {
                 break
             }
         }
+    }
+    
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+        handleNotification(response.notification)
     }
 }
 

@@ -10,6 +10,7 @@ import {
   DEFAULT_SWAP_SECOND_TOKEN_SLUG,
   GIVEAWAY_CHECKIN_URL,
   IS_CAPACITOR,
+  IS_EXPLORER,
   TONCOIN,
   TRC20_USDT_MAINNET,
   TRX,
@@ -110,6 +111,13 @@ export function processDeeplink(url: string, isFromInAppBrowser = false): Promis
   }
 
   return processTonDeeplink(url);
+}
+
+export function getDeeplinkFromLocation(): string | undefined {
+  const { pathname, search } = window.location;
+  const deeplinkPart = pathname !== '/' ? pathname + search : search;
+
+  return deeplinkPart ? `${SELF_PROTOCOL}${deeplinkPart}` : undefined;
 }
 
 export function isTonDeeplink(url: string) {
@@ -415,6 +423,12 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
 
     logDebug('Processing deeplink', deeplink);
 
+    // In explorer mode, only allow `View` command
+    if (IS_EXPLORER && command !== DeeplinkCommand.View) {
+      actions.showError({ error: 'This command is not supported in explorer mode' });
+      return false;
+    }
+
     switch (command) {
       case DeeplinkCommand.Air: {
         if (!IS_CAPACITOR) return false;
@@ -518,6 +532,12 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
           }
         }
 
+        actions.addSavedAddress({
+          address: depositWalletAddress,
+          name: 'MoonPay Off-Ramp',
+          chain: mapping.chain,
+        });
+
         actions.startTransfer({
           isPortrait: getIsPortrait(),
           tokenSlug: mapping.tokenSlug,
@@ -525,6 +545,7 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
           comment: depositWalletAddressTag ?? undefined,
           amount,
           isTransferReadonly: true,
+          isOfframp: true,
         });
 
         if (getIsLandscape()) {

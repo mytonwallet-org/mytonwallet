@@ -5,6 +5,7 @@ import { getActions, getGlobal, withGlobal } from '../../../../global';
 
 import type {
   ApiBaseCurrency,
+  ApiChain,
   ApiCurrencyRates,
   ApiNft,
   ApiStakingState,
@@ -75,6 +76,7 @@ type StateProps = {
   currentAccountId: string;
   baseCurrency: ApiBaseCurrency;
   currencyRates: ApiCurrencyRates;
+  selectedExplorerIds?: Partial<Record<ApiChain, string>>;
 };
 
 const enum SLIDES {
@@ -99,6 +101,7 @@ function TransactionModal({
   currentAccountId,
   baseCurrency,
   currencyRates,
+  selectedExplorerIds,
 }: StateProps) {
   const {
     fetchActivityDetails,
@@ -161,7 +164,14 @@ function TransactionModal({
   const endOfStakingCycle = stakingState?.end;
 
   const transactionHash = token?.chain && id ? parseTxId(id).hash : undefined;
-  const transactionUrl = token?.chain ? getExplorerTransactionUrl(token.chain, transactionHash, isTestnet) : undefined;
+  const transactionUrl = token?.chain
+    ? getExplorerTransactionUrl(
+      token.chain,
+      transactionHash,
+      isTestnet,
+      selectedExplorerIds?.[token.chain],
+    )
+    : undefined;
   const isActivityWithHash = renderedTransaction && getIsActivityWithHash(renderedTransaction);
 
   const {
@@ -302,6 +312,7 @@ function TransactionModal({
               onStartStakingClick={handleStartStakingClick}
               onUnstakeMoreClick={handleUnstakeMoreClick}
               onTokenClick={handleTokenClick}
+              selectedExplorerIds={selectedExplorerIds}
             />
           </>
         );
@@ -380,6 +391,7 @@ export default memo(
       currentAccountId: accountId,
       baseCurrency: global.settings.baseCurrency,
       currencyRates: global.currencyRates,
+      selectedExplorerIds: global.settings.selectedExplorerIds,
     };
   })(TransactionModal),
 );

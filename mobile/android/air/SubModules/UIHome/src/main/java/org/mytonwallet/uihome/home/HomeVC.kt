@@ -36,9 +36,8 @@ import org.mytonwallet.app_air.uistake.earn.EarnViewModelFactory
 import org.mytonwallet.app_air.uiswap.screens.cex.SwapSendAddressOutputVC
 import org.mytonwallet.app_air.uiswap.screens.swap.SwapVC
 import org.mytonwallet.app_air.uitonconnect.TonConnectController
-import org.mytonwallet.app_air.uitransaction.viewControllers.TransactionVC
+import org.mytonwallet.app_air.uitransaction.viewControllers.transaction.TransactionVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -268,10 +267,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                 updateActionsAlpha()
             })
         v.apply {
-            if (!ThemeManager.uiMode.hasRoundedCorners)
-                setBackgroundColor(WColor.Background.color)
-            else
-                background = null
+            background = null
         }
     }
 
@@ -395,8 +391,6 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
     private val topBlurReversedCornerView = ReversedCornerView(
         context, ReversedCornerView.Config(blurRootView = activityListViewsContainer)
     ).apply {
-        if (!ThemeManager.uiMode.hasRoundedCorners)
-            alpha = 0f
         isGone = true
     }
 
@@ -442,6 +436,11 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             tonConnectController.onCreate()
 
         updateTheme()
+    }
+
+    override fun viewWillAppear() {
+        super.viewWillAppear()
+        topBlurReversedCornerView.resumeBlurring()
     }
 
     override fun viewWillDisappear() {
@@ -645,7 +644,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
     override fun updateTheme() {
         super.updateTheme()
         topBlurReversedCornerView.alpha = 1f
-        view.setBackgroundColor(WColor.SecondaryBackground.color)
+        activityListViewsContainer.setBackgroundColor(WColor.SecondaryBackground.color)
         allActivityListViews.forEach {
             it.updateTheme()
         }
@@ -736,7 +735,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         actionsView.insetsUpdated()
     }
 
-    override fun onTransactionTap(transaction: MApiTransaction) {
+    override fun onTransactionTap(accountId: String, transaction: MApiTransaction) {
         window?.let { window ->
             val isWaitingToPaySwap = (transaction is MApiTransaction.Swap) &&
                 transaction.status == ApiSwapStatus.PENDING &&
@@ -766,7 +765,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                         isBottomSheet = true
                     )
                 )
-                transactionNav.setRoot(TransactionVC(context, transaction))
+                transactionNav.setRoot(TransactionVC(context, accountId, transaction))
             }
             window.present(transactionNav)
         }

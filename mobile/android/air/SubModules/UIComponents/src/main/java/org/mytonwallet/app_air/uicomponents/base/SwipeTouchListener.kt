@@ -160,7 +160,7 @@ class SwipeTouchListener
                     )
                     it.visibility = VISIBLE
                     it.alpha = 1f
-                    (it.parent as? View)?.setBackgroundColor(if (ThemeManager.uiMode.hasRoundedCorners) WColor.SecondaryBackground.color else WColor.Background.color)
+                    (it.parent as? View)?.setBackgroundColor(WColor.SecondaryBackground.color)
                 }
             }
         }

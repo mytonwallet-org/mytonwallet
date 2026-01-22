@@ -60,6 +60,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.boldSubstring
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
+import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import java.math.BigInteger
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -73,6 +74,9 @@ class SwapVC(
 ) :
     WViewControllerWithModelStore(context) {
     override val TAG = "Swap"
+
+    override val displayedAccount =
+        DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
 
     private val swapViewModel by lazy { ViewModelProvider(this)[SwapViewModel::class.java] }
 
@@ -497,7 +501,12 @@ class SwapVC(
                     }
                     window?.dismissLastNav {
                         event.activity?.let { activity ->
-                            WalletCore.notifyEvent(WalletEvent.OpenActivity(activity))
+                            WalletCore.notifyEvent(
+                                WalletEvent.OpenActivity(
+                                    displayedAccount?.accountId!!,
+                                    activity
+                                )
+                            )
                         }
                     }
                 } else {

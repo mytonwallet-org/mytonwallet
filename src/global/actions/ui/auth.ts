@@ -3,14 +3,14 @@ import { AuthState } from '../../types';
 import { callActionInMain } from '../../../util/multitab';
 import { IS_DELEGATED_BOTTOM_SHEET } from '../../../util/windowEnvironment';
 import { addActionHandler, setGlobal } from '../../index';
-import { resetHardware, updateAuth } from '../../reducers';
+import { resetAuthToStartScreen, resetHardware, updateAuth } from '../../reducers';
 
 addActionHandler('openAbout', (global) => {
   setGlobal(updateAuth(global, { state: AuthState.about, error: undefined }));
 });
 
 addActionHandler('closeAbout', (global) => {
-  setGlobal(updateAuth(global, { state: AuthState.none, error: undefined }));
+  return resetAuthToStartScreen(global);
 });
 
 addActionHandler('openDisclaimer', (global) => {
@@ -18,7 +18,7 @@ addActionHandler('openDisclaimer', (global) => {
 });
 
 addActionHandler('closeDisclaimer', (global) => {
-  setGlobal(updateAuth(global, { state: AuthState.none, error: undefined }));
+  return resetAuthToStartScreen(global);
 });
 
 addActionHandler('startImportViewAccount', (global) => {
@@ -26,7 +26,11 @@ addActionHandler('startImportViewAccount', (global) => {
 });
 
 addActionHandler('closeImportViewAccount', (global) => {
-  setGlobal(updateAuth(global, { state: AuthState.none, error: undefined }));
+  return resetAuthToStartScreen(global);
+});
+
+addActionHandler('cancelCheckPassword', (global) => {
+  return resetAuthToStartScreen(global);
 });
 
 addActionHandler('openAuthImportWalletModal', (global) => {

@@ -42,6 +42,8 @@ final class SceneDelegate: UIResponder, UISceneDelegate {
             handleUrl(url)
         } else if let urlContext = connectionOptions.urlContexts.first {
             handleUrl(urlContext.url)
+        } else if let notificationResponse = connectionOptions.notificationResponse {
+            handleNotification(notificationResponse)
         }
         
         WidgetCenter.shared.reloadAllTimelines()
@@ -72,6 +74,12 @@ final class SceneDelegate: UIResponder, UISceneDelegate {
             #if canImport(Capacitor)
             _ = ApplicationDelegateProxy.shared.application(UIApplication.shared, open: url)
             #endif
+        }
+    }
+    
+    private func handleNotification(_ notificationResponse: UNNotificationResponse) {
+        if isOnTheAir {
+            AirLauncher.handle(notification: notificationResponse.notification)
         }
     }
     

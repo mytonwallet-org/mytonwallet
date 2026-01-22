@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uiinappbrowser
 
 import android.Manifest
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
@@ -13,6 +14,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -20,7 +22,9 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.animation.doOnEnd
 import androidx.core.content.ContextCompat.checkSelfPermission
+import androidx.core.graphics.toColorInt
 import androidx.core.net.toUri
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
@@ -37,6 +41,7 @@ import org.mytonwallet.app_air.uiinappbrowser.views.InAppBrowserTopBarView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.isBrightColor
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
@@ -51,6 +56,67 @@ import java.net.URL
 import java.net.URLEncoder
 import java.util.regex.Pattern
 
+const val FETCH_FAV_ICON_URL_JS = """
+(function() {
+    function absoluteUrl(url) {
+        try { return new URL(url, document.baseURI).href; }
+        catch (e) { return url; }
+    }
+
+    var links = Array.from(document.querySelectorAll(
+        'link[rel*="icon"], link[rel="mask-icon"], link[rel="apple-touch-icon"]'
+    ));
+    if (links.length === 0) {
+        return absoluteUrl('/favicon.ico');
+    }
+
+    var best = links.map(link => {
+        let sizes = link.getAttribute('sizes');
+        let size = 0;
+        if (sizes && /\d+x\d+/.test(sizes)) {
+            size = parseInt(sizes.split('x')[0]);
+        } else if (link.rel.includes('apple-touch-icon')) {
+            size = 180;
+        } else {
+            size = 16;
+        }
+        return { href: absoluteUrl(link.href), size };
+    }).sort((a, b) => b.size - a.size)[0];
+    return best ? best.href : null;
+})();
+"""
+
+private const val FETCH_HEADER_COLOR_JS = """
+(function () {
+  function rgbToHex(color) {
+    if (!color) return null;
+
+    if (color.startsWith('#')) {
+      return color.toLowerCase();
+    }
+
+    const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+    if (!match) return null;
+
+    const r = parseInt(match[1]).toString(16).padStart(2, '0');
+    const g = parseInt(match[2]).toString(16).padStart(2, '0');
+    const b = parseInt(match[3]).toString(16).padStart(2, '0');
+
+    return '#' + r + g + b;
+  }
+
+  const theme = document.querySelector('meta[name="theme-color"]')?.content;
+  if (theme) return rgbToHex(theme);
+
+  const nav = document.querySelector('header, nav, .navbar, body, html');
+  if (nav) {
+    const bg = getComputedStyle(nav).backgroundColor;
+    return rgbToHex(bg);
+  }
+
+  return null;
+})();
+"""
 
 @SuppressLint("ViewConstructor")
 class InAppBrowserVC(
@@ -73,6 +139,7 @@ class InAppBrowserVC(
     private val topBar: InAppBrowserTopBarView by lazy {
         InAppBrowserTopBarView(
             this, tabBarController, minimizeStarted = {
+                updateSystemBarColors()
                 webViewScreenShot.setImageBitmap(webViewContainer.asImage())
                 webViewScreenShot.visibility = View.VISIBLE
                 webView.visibility = View.GONE
@@ -80,6 +147,7 @@ class InAppBrowserVC(
             options = config.options,
             selectedOption = config.selectedOption,
             maximizeFinished = {
+                updateSystemBarColors()
                 view.post {
                     webView.visibility = View.VISIBLE
                     webView.post {
@@ -149,6 +217,7 @@ class InAppBrowserVC(
                     savedInExploreVisitedHistory = true
                     saveInExploreVisitedHistory()
                 }
+                setBarColorBasedOnContent()
             }
 
             private fun shouldOverride(url: String): Boolean {
@@ -326,10 +395,12 @@ class InAppBrowserVC(
         webView.post {
             webViewScreenShot.visibility = View.GONE
         }
+        updateSystemBarColors()
     }
 
     override fun viewWillDisappear() {
         super.viewWillDisappear()
+        updateSystemBarColors()
         webViewScreenShot.setImageBitmap(webViewContainer.asImage())
         webViewScreenShot.visibility = View.VISIBLE
         webView.visibility = View.GONE
@@ -386,37 +457,7 @@ class InAppBrowserVC(
     }
 
     private fun saveInExploreVisitedHistory() {
-        val fetchFavIconUrl = """
-    (function() {
-        function absoluteUrl(url) {
-            try { return new URL(url, document.baseURI).href; }
-            catch (e) { return url; }
-        }
-
-        var links = Array.from(document.querySelectorAll(
-            'link[rel*="icon"], link[rel="mask-icon"], link[rel="apple-touch-icon"]'
-        ));
-        if (links.length === 0) {
-            return absoluteUrl('/favicon.ico');
-        }
-
-        var best = links.map(link => {
-            let sizes = link.getAttribute('sizes');
-            let size = 0;
-            if (sizes && /\d+x\d+/.test(sizes)) {
-                size = parseInt(sizes.split('x')[0]);
-            } else if (link.rel.includes('apple-touch-icon')) {
-                size = 180;
-            } else {
-                size = 16;
-            }
-            return { href: absoluteUrl(link.href), size };
-        }).sort((a, b) => b.size - a.size)[0];
-        return best ? best.href : null;
-    })();
-    """
-
-        webView.evaluateJavascript(fetchFavIconUrl) { result ->
+        webView.evaluateJavascript(FETCH_FAV_ICON_URL_JS) { result ->
             val faviconUrl = result?.trim('"')?.takeIf { it.isNotEmpty() && it != "null" }
             if (!isDisappeared && faviconUrl != null) {
                 ExploreHistoryStore.saveSiteVisit(
@@ -428,6 +469,70 @@ class InAppBrowserVC(
                     )
                 )
             }
+        }
+    }
+
+    private fun updateSystemBarColors() {
+        if (isDisappeared || topBar.isMinimizing || topBar.isMinimized) {
+            window?.forceStatusBarLight = null
+            window?.forceBottomBarLight = null
+            return
+        }
+        topBar.overrideThemeIsDark?.let { overrideThemeIsDark ->
+            window?.forceStatusBarLight = overrideThemeIsDark
+            window?.forceBottomBarLight = overrideThemeIsDark
+        }
+    }
+
+    private fun setBarColorBasedOnContent() {
+        webView.evaluateJavascript(FETCH_HEADER_COLOR_JS) { result ->
+            val cssColor = result?.trim('"')
+
+            if (!cssColor.isNullOrEmpty() && cssColor != "null") {
+                try {
+                    val parsedColor = cssColor.toColorInt()
+                    animateBarBackground(parsedColor)
+                } catch (_: IllegalArgumentException) {
+                    animateBarBackground(null)
+                }
+            } else {
+                animateBarBackground(null)
+            }
+        }
+    }
+
+    private var topBackgroundColor: Int? = null
+    private fun animateBarBackground(newColor: Int?) {
+        val isMinimized = topBar.isMinimizing || topBar.isMinimized
+        newColor?.let { newColor ->
+            val isDark = !newColor.isBrightColor()
+            topBar.overrideThemeIsDark = isDark
+        } ?: run {
+            topBar.overrideThemeIsDark = null
+        }
+        updateSystemBarColors()
+        if (isMinimized) {
+            topBackgroundColor = newColor
+            topReversedCornerView?.setBlurOverlayColor(topBackgroundColor)
+            bottomReversedCornerView?.setBlurOverlayColor(topBackgroundColor)
+            return
+        }
+        ValueAnimator.ofArgb(
+            topBackgroundColor ?: WColor.SecondaryBackground.color,
+            newColor ?: WColor.SecondaryBackground.color
+        ).apply {
+            duration = AnimationConstants.VERY_QUICK_ANIMATION
+            interpolator = AccelerateDecelerateInterpolator()
+            addUpdateListener { animator ->
+                topBackgroundColor = animator.animatedValue as Int
+                topReversedCornerView?.setBlurOverlayColor(topBackgroundColor!!)
+                bottomReversedCornerView?.setBlurOverlayColor(topBackgroundColor!!)
+            }
+            doOnEnd {
+                topReversedCornerView?.setBlurOverlayColor(newColor)
+                bottomReversedCornerView?.setBlurOverlayColor(newColor)
+            }
+            start()
         }
     }
 

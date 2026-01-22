@@ -54,6 +54,7 @@ class AppearanceAppThemeItemView(
 
     private val nameLabel: WLabel by lazy {
         val lbl = WLabel(context)
+        lbl.setStyle(14f, WFont.DemiBold)
         lbl.text = when (identifier) {
             ThemeManager.THEME_SYSTEM -> {
                 LocaleController.getString("System")
@@ -95,6 +96,7 @@ class AppearanceAppThemeItemView(
         updateTheme()
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         val borderPadding = if (isActive) 3 else 1
         imageView.setBackgroundColor(
@@ -103,7 +105,6 @@ class AppearanceAppThemeItemView(
         )
         imageView.setPadding(borderPadding)
         nameLabel.setTextColor((if (isActive) WColor.Tint else WColor.SecondaryText).color)
-        nameLabel.setStyle(16f, if (isActive) WFont.Medium else WFont.Regular)
     }
 
 }

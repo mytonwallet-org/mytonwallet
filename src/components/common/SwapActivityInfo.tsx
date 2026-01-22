@@ -1,11 +1,12 @@
 import React, { memo, useMemo } from '../../lib/teact/teact';
 
-import type { ApiSwapActivity, ApiSwapAsset } from '../../api/types';
+import type { ApiChain, ApiSwapActivity, ApiSwapAsset } from '../../api/types';
 
 import { TONCOIN } from '../../config';
 import { Big } from '../../lib/big.js';
 import { resolveSwapAsset } from '../../global/helpers';
 import { getIsActivityPendingForUser, parseTxId } from '../../util/activities';
+import { getIsSupportedChain } from '../../util/chain';
 import { getExplorerTransactionUrl } from '../../util/url';
 
 import useLang from '../../hooks/useLang';
@@ -20,6 +21,7 @@ interface OwnProps {
   activity: ApiSwapActivity;
   tokensBySlug?: Record<string, ApiSwapAsset>;
   isSensitiveDataHidden?: boolean;
+  selectedExplorerIds?: Partial<Record<ApiChain, string>>;
 }
 
 const ONCHAIN_ERROR_STATUSES = new Set(['expired', 'failed']);
@@ -28,6 +30,7 @@ function SwapActivityInfo({
   activity,
   tokensBySlug,
   isSensitiveDataHidden,
+  selectedExplorerIds,
 }: OwnProps) {
   const lang = useLang();
 
@@ -60,8 +63,11 @@ function SwapActivityInfo({
   const isPending = getIsActivityPendingForUser(activity);
   const isError = ONCHAIN_ERROR_STATUSES.has(status) || (cex && status === 'failed');
 
+  const fromChain = fromToken?.chain && getIsSupportedChain(fromToken.chain) ? fromToken.chain : undefined;
   const transactionHash = id ? (isCex ? hashes?.[0] : parseTxId(id).hash) : undefined;
-  const transactionUrl = transactionHash ? getExplorerTransactionUrl('ton', transactionHash) : undefined;
+  const transactionUrl = transactionHash && fromChain
+    ? getExplorerTransactionUrl(fromChain, transactionHash, undefined, selectedExplorerIds?.[fromChain])
+    : undefined;
 
   function renderFee() {
     if (!(Number(networkFee) || shouldLoadDetails) || !fromToken) {
@@ -95,7 +101,7 @@ function SwapActivityInfo({
         </span>
         <InteractiveTextField
           noSavedAddress
-          chain="ton"
+          chain={fromChain}
           address={transactionHash}
           addressUrl={transactionUrl}
           isTransaction

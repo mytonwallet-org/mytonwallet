@@ -3,7 +3,7 @@ import { getActions, withGlobal } from '../../global';
 
 import { type Theme } from '../../global/types';
 
-import { APP_NAME, IS_CORE_WALLET } from '../../config';
+import { APP_NAME, IS_CORE_WALLET, IS_EXPLORER } from '../../config';
 import renderText from '../../global/helpers/renderText';
 import { selectCurrentAccountId } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
@@ -179,60 +179,68 @@ function AuthStart({
       </div>
 
       <div className={buildClassName(styles.appName, 'rounded-font')}>{APP_NAME}</div>
-      <div className={styles.info}>
-        {renderText(lang('$auth_intro'))}
-      </div>
+      {IS_EXPLORER ? (
+        <div className={styles.info}>
+          {lang('Waiting for a View deeplink to display a wallet address.')}
+        </div>
+      ) : (
+        <>
+          <div className={styles.info}>
+            {renderText(lang('$auth_intro'))}
+          </div>
 
-      {!IS_CORE_WALLET && (
-        <Button
-          isText
-          className={buildClassName(styles.btn, styles.btn_about)}
-          onClick={openAbout}
-        >
-          {lang('More about %app_name%', { app_name: APP_NAME })}{' '}›
-        </Button>
-      )}
-      <div className={buildClassName(styles.buttons, IS_CORE_WALLET && styles.coreWalletButtons)}>
-        <Checkbox
-          checked={isAccepted}
-          onChange={setIsAccepted}
-          className={IS_CORE_WALLET ? styles.responsibilityCheckboxSimple : styles.responsibilityCheckbox}
-          contentClassName={styles.responsibilityCheckboxContent}
-        >
-          {lang('$accept_terms_with_link', {
-            link: (
-              <a
-                href="#"
-                target="_blank"
-                rel="noreferrer"
-                className={styles.responsibilityCheckboxLink}
-                onClick={handleDisclaimerClick}
-              >
-                {lang('use the wallet responsibly')}
-              </a>
-            ) },
+          {!IS_CORE_WALLET && (
+            <Button
+              isText
+              className={buildClassName(styles.btn, styles.btn_about)}
+              onClick={openAbout}
+            >
+              {lang('More about %app_name%', { app_name: APP_NAME })}{' '}›
+            </Button>
           )}
-        </Checkbox>
-        <Button
-          isPrimary
-          isDisabled={!isAccepted}
-          className={styles.btn}
-          isLoading={isLoading}
-          onClick={!isLoading ? startCreatingWallet : undefined}
-        >
-          {lang('Create New Wallet')}
-        </Button>
-        {IS_CORE_WALLET ? renderSimpleImportForm() : (
-          <Button
-            isText
-            isDisabled={!isAccepted}
-            className={buildClassName(styles.btn, styles.btn_text)}
-            onClick={!isLoading ? openAuthImportWalletModal : undefined}
-          >
-            {lang('Import Existing Wallet')}
-          </Button>
-        )}
-      </div>
+          <div className={buildClassName(styles.buttons, IS_CORE_WALLET && styles.coreWalletButtons)}>
+            <Checkbox
+              checked={isAccepted}
+              onChange={setIsAccepted}
+              className={IS_CORE_WALLET ? styles.responsibilityCheckboxSimple : styles.responsibilityCheckbox}
+              contentClassName={styles.responsibilityCheckboxContent}
+            >
+              {lang('$accept_terms_with_link', {
+                link: (
+                  <a
+                    href="#"
+                    target="_blank"
+                    rel="noreferrer"
+                    className={styles.responsibilityCheckboxLink}
+                    onClick={handleDisclaimerClick}
+                  >
+                    {lang('use the wallet responsibly')}
+                  </a>
+                ) },
+              )}
+            </Checkbox>
+            <Button
+              isPrimary
+              isDisabled={!isAccepted}
+              className={styles.btn}
+              isLoading={isLoading}
+              onClick={!isLoading ? startCreatingWallet : undefined}
+            >
+              {lang('Create New Wallet')}
+            </Button>
+            {IS_CORE_WALLET ? renderSimpleImportForm() : (
+              <Button
+                isText
+                isDisabled={!isAccepted}
+                className={buildClassName(styles.btn, styles.btn_text)}
+                onClick={!isLoading ? openAuthImportWalletModal : undefined}
+              >
+                {lang('Import Existing Wallet')}
+              </Button>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

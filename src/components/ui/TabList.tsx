@@ -15,8 +15,8 @@ import Tab from './Tab';
 
 import styles from './TabList.module.scss';
 
-export type TabWithProperties = {
-  id: number;
+export type TabWithProperties<T extends number = number> = {
+  id: T;
   icon?: string;
   title: string;
   className?: string;

@@ -18,7 +18,4 @@ object ViewConstants {
 
     // The paddings on the left and right, when Side Gutters are on
     var HORIZONTAL_PADDINGS = 10
-
-    // Height of separator lines between list items (in pixels)
-    const val SEPARATOR_HEIGHT = 2
 }

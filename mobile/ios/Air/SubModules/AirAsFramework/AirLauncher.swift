@@ -49,11 +49,16 @@ public class AirLauncher {
         didSet {
             if let pendingDeeplinkURL {
                 _ = deeplinkHandler?.handle(pendingDeeplinkURL)
-                AirLauncher.pendingDeeplinkURL = nil
+                self.pendingDeeplinkURL = nil
+            }
+            if let pendingNotification {
+                deeplinkHandler?.handleNotification(pendingNotification)
+                self.pendingNotification = nil
             }
         }
     }
     static var pendingDeeplinkURL: URL? = nil
+    static var pendingNotification: UNNotification? = nil
     static var appUnlocked = false
     
     public static func set(window: WWindow) {
@@ -84,9 +89,6 @@ public class AirLauncher {
         WalletCore.db = db
         
         try! await switchStorageFromCapacitorIfNeeded(global: GlobalStorage, db: db)
-        
-        // TODO: Detect if this is new install and delete old keychain storage if needed
-        // if database has no accounts but keychain does, these accounts come from previous install and must be deleted
         
         configureAppActions()
         // Prepare storage
@@ -157,6 +159,15 @@ public class AirLauncher {
             _ = deeplinkHandler.handle(url)
         } else {
             pendingDeeplinkURL = url
+        }
+    }
+    
+    public static func handle(notification: UNNotification) {
+        guard isOnTheAir else { return }
+        if let deeplinkHandler {
+            deeplinkHandler.handleNotification(notification)
+        } else {
+            pendingNotification = notification
         }
     }
 }

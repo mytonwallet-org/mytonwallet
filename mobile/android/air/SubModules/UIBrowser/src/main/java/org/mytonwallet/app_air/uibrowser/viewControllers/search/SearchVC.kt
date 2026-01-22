@@ -271,7 +271,7 @@ class SearchVC(context: Context) : WViewController(context),
 
             RECENT_SEARCH_TITLE_CELL -> {
                 HeaderCell(context).apply {
-                    titleLabel.setStyle(16f, WFont.SemiBold)
+                    titleLabel.setStyle(14f, WFont.DemiBold)
                     val clearAllButton = object : WLabel(context) {
                         override fun updateTheme() {
                             super.updateTheme()
@@ -279,7 +279,7 @@ class SearchVC(context: Context) : WViewController(context),
                         }
                     }.apply {
                         text = LocaleController.getString("Clear All")
-                        setStyle(16f, WFont.Regular)
+                        setStyle(14f, WFont.Regular)
                         setTextColor(WColor.Tint)
                         setPadding(12.dp, 4.dp, 12.dp, 4.dp)
                         setOnClickListener {
@@ -298,9 +298,7 @@ class SearchVC(context: Context) : WViewController(context),
             }
 
             SEARCH_TITLE_CELL -> {
-                HeaderCell(context).apply {
-                    titleLabel.setStyle(16f, WFont.SemiBold)
-                }
+                HeaderCell(context)
             }
 
             SEARCH_SEARCHED_CELL -> {
@@ -372,7 +370,7 @@ class SearchVC(context: Context) : WViewController(context),
                             searchResult?.noResultsFound == true
                     }.configure(
                         LocaleController.getString(if (searchResult?.noResultsFound == true) "Search in Google" else "Recent Searches"),
-                        titleColor = WColor.Tint.color,
+                        titleColor = WColor.Tint,
                         topRounding = if (rvAdapter.indexPathToPosition(indexPath) == 0) ViewConstants.TOP_RADIUS.dp else ViewConstants.BIG_RADIUS.dp
                     )
                 } else {
@@ -387,7 +385,7 @@ class SearchVC(context: Context) : WViewController(context),
                 if (indexPath.row == 0) {
                     (cellHolder.cell as HeaderCell).configure(
                         LocaleController.getString("Suggestions"),
-                        titleColor = WColor.Tint.color,
+                        titleColor = WColor.Tint,
                         topRounding = if (rvAdapter.indexPathToPosition(indexPath) == 0) ViewConstants.TOP_RADIUS.dp else ViewConstants.BIG_RADIUS.dp
                     )
                 } else {
@@ -413,7 +411,7 @@ class SearchVC(context: Context) : WViewController(context),
                 if (indexPath.row == 0) {
                     (cellHolder.cell as HeaderCell).configure(
                         LocaleController.getString("Popular and connected apps"),
-                        titleColor = WColor.Tint.color,
+                        titleColor = WColor.Tint,
                         topRounding = if (rvAdapter.indexPathToPosition(indexPath) == 0) ViewConstants.TOP_RADIUS.dp else ViewConstants.BIG_RADIUS.dp
                     )
                 } else {
@@ -428,7 +426,7 @@ class SearchVC(context: Context) : WViewController(context),
                 if (indexPath.row == 0) {
                     (cellHolder.cell as HeaderCell).configure(
                         LocaleController.getString("History"),
-                        titleColor = WColor.Tint.color,
+                        titleColor = WColor.Tint,
                         topRounding = if (rvAdapter.indexPathToPosition(indexPath) == 0) ViewConstants.TOP_RADIUS.dp else ViewConstants.BIG_RADIUS.dp
                     )
                 } else {

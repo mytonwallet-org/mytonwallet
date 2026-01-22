@@ -1,7 +1,23 @@
 import type { ActivitiesUpdate, NewActivitiesCallback } from './socket';
+import type { SocketFinality } from './types';
 
 import { setCancellableTimeout } from '../../../../util/schedulers';
 import { isActivityUpdateFinal } from './socket';
+
+const FINALITY_ORDER: Record<SocketFinality, number> = {
+  pending: 0,
+  confirmed: 1,
+  signed: 2,
+  finalized: 3,
+};
+
+/**
+ * Compares two finality levels. Returns true if `a` is at least as final as `b`.
+ * This prevents race conditions where an older pending update could overwrite a newer confirmed one.
+ */
+function isFinalityAtLeast(a: SocketFinality, b: SocketFinality) {
+  return FINALITY_ORDER[a] >= FINALITY_ORDER[b];
+}
 
 /**
  * The Toncenter websocket sends too many updates of pending actions. For example, sends a pending activity right before
@@ -40,8 +56,12 @@ export function throttleToncenterSocketActions(
       onUpdates([update]);
       scheduleReport(hash);
     } else {
-      // Otherwise, throttle the update
-      updatesByHash[hash].toReport = update;
+      // Throttle the update, but only if it doesn't regress finality.
+      // This prevents race conditions where an older 'pending' update arriving late could overwrite a 'confirmed' one.
+      const { toReport } = updatesByHash[hash];
+      if (!toReport || isFinalityAtLeast(update.finality, toReport.finality)) {
+        updatesByHash[hash].toReport = update;
+      }
       scheduleReport(hash);
     }
   };

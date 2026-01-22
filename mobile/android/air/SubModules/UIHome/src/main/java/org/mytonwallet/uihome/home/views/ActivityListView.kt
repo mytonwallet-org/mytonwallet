@@ -30,9 +30,11 @@ import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.utils.isSameDayAs
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.helpers.ActivityLoader
 import org.mytonwallet.app_air.walletcore.helpers.IActivityLoader
@@ -43,6 +45,7 @@ import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.uihome.home.cells.HomeAssetsCell
 import org.mytonwallet.uihome.home.views.header.HomeHeaderView
 import java.lang.ref.WeakReference
+import java.util.Date
 
 @SuppressLint("ViewConstructor")
 class ActivityListView<T>(
@@ -100,22 +103,26 @@ class ActivityListView<T>(
         fun headerModeChanged()
         fun startSorting()
         fun endSorting()
-        fun onTransactionTap(transaction: MApiTransaction)
+        fun onTransactionTap(accountId: String, transaction: MApiTransaction)
         fun pauseBlurViews()
         fun resumeBottomBlurViews()
     }
 
     // PUBLIC //////////////////////////////////////////////////////////////////////////////////////
     var expandingProgrammatically = false
+    var loadingCachedActivities = false
 
     fun configure(accountId: String?, shouldLoadNewWallets: Boolean) {
         if (showingAccountId == accountId)
             return
         assetsShown = false
+        isMainnetAccount =
+            accountId != null && MBlockchainNetwork.ofAccountId(accountId) == MBlockchainNetwork.MAINNET
         this.showingAccountId = if (shouldLoadNewWallets) accountId else null
         activityLoaderHelper?.clean()
         activityLoaderHelper = null
         if (showingAccountId != null) {
+            loadingCachedActivities = WGlobalStorage.hasCachedActivities(showingAccountId!!, null)
             activityLoaderHelper =
                 ActivityLoader(context, showingAccountId!!, null, WeakReference(this))
             activityLoaderHelper?.askForActivities()
@@ -183,6 +190,7 @@ class ActivityListView<T>(
 
     // PRIVATE VARIABLES ///////////////////////////////////////////////////////////////////////////
     private var assetsShown = false
+    private var isMainnetAccount = false
     private var skeletonAlphaFromLoadValue = 0f
     var showingAccountId: String? = null
         private set
@@ -192,8 +200,11 @@ class ActivityListView<T>(
             return TokenStore.swapAssets != null &&
                 TokenStore.loadedAllTokens &&
                 !BalanceStore.getBalances(showingAccountId).isNullOrEmpty() &&
-                (StakingStore.getStakingState(showingAccountId ?: "") != null ||
-                    WGlobalStorage.getAccountTonAddress(showingAccountId ?: "") == null)
+                (
+                    !isMainnetAccount ||
+                        StakingStore.getStakingState(showingAccountId ?: "") != null ||
+                        WGlobalStorage.getAccountTonAddress(showingAccountId ?: "") == null
+                    )
         }
 
     val showingTransactions: List<MApiTransaction>?
@@ -479,13 +490,25 @@ class ActivityListView<T>(
 
     private fun updateSkeletonState() {
         if (skeletonAlphaFromLoadValue > 0 &&
-            showingTransactions != null &&
             isGeneralDataAvailable &&
-            assetsShown &&
-            ((showingTransactions?.size ?: 0) > 0 ||
-                activityLoaderHelper?.loadedAll == true)
+            assetsShown
         ) {
             hideSkeletons()
+            val areActivitiesAvailable = showingTransactions != null &&
+                ((showingTransactions?.size ?: 0) > 0 ||
+                    activityLoaderHelper?.loadedAll == true)
+            recyclerView.animate().cancel()
+            if (loadingCachedActivities && areActivitiesAvailable) {
+                loadingCachedActivities = false
+                if (alpha < 0.1) {
+                    recyclerView.alpha = 1f
+                } else {
+                    recyclerView.alpha = 0f
+                    recyclerView.fadeIn()
+                }
+            } else {
+                recyclerView.alpha = 1f
+            }
         } else if (!skeletonVisible && (showingTransactions == null || !isGeneralDataAvailable)) {
             showSkeletons()
         }
@@ -648,13 +671,28 @@ class ActivityListView<T>(
         return false
     }
 
+    private var oldTransactions: Set<String>? = null
+    private var oldTransactionsFirstDt: Date? = null
+    private var isApplyingUpdate = false
     fun transactionsUpdated(isUpdateEvent: Boolean) {
         updateSkeletonState()
         val shouldReloadAssetsCellHeight = homeAssetsCell?.isDraggingCollectible != true
+        isApplyingUpdate = isUpdateEvent && oldTransactions != null
         if (shouldReloadAssetsCellHeight)
             rvAdapter.reloadData()
         else
             reloadTransactions()
+        post {
+            isApplyingUpdate = false
+            activityLoaderHelper?.showingTransactions?.let { showingTransactions ->
+                oldTransactions =
+                    showingTransactions.map { it.getStableId() }.toSet()
+                oldTransactionsFirstDt = showingTransactions.firstOrNull()?.dt
+            } ?: run {
+                oldTransactions = null
+                oldTransactionsFirstDt = null
+            }
+        }
     }
 
     private fun reloadTransactions() {
@@ -843,7 +881,7 @@ class ActivityListView<T>(
                             isFirstInDay = null
                         )
                         cell.onTap = { transaction ->
-                            delegate?.onTransactionTap(transaction)
+                            delegate?.onTransactionTap(showingAccountId!!, transaction)
                         }
                         cell
                     }
@@ -855,7 +893,7 @@ class ActivityListView<T>(
                             isFirstInDay = false
                         )
                         cell.onTap = { transaction ->
-                            delegate?.onTransactionTap(transaction)
+                            delegate?.onTransactionTap(showingAccountId!!, transaction)
                         }
                         cell
                     }
@@ -867,7 +905,7 @@ class ActivityListView<T>(
                             isFirstInDay = true
                         )
                         cell.onTap = { transaction ->
-                            delegate?.onTransactionTap(transaction)
+                            delegate?.onTransactionTap(showingAccountId!!, transaction)
                         }
                         cell
                     }
@@ -956,17 +994,27 @@ class ActivityListView<T>(
                         if (indexPath.row < showingTransactions!!.size) {
                             val transactionCell = cellHolder.cell as ActivityCell
                             val transaction = showingTransactions!![indexPath.row]
+                            val isFirstInDay = indexPath.row == 0 || !transaction.dt.isSameDayAs(
+                                showingTransactions!![indexPath.row - 1].dt
+                            )
                             transactionCell.configure(
                                 transaction,
                                 showingAccountId!!,
-                                indexPath.row == 0,
-                                indexPath.row == 0 || !transaction.dt.isSameDayAs(
-                                    showingTransactions!![indexPath.row - 1].dt
-                                ),
-                                (indexPath.row == showingTransactions!!.size - 1) || !transaction.dt.isSameDayAs(
-                                    showingTransactions!![indexPath.row + 1].dt
-                                ),
-                                indexPath.row == showingTransactions!!.size - 1 && activityLoaderHelper?.loadedAll != false
+                                ActivityCell.Positioning(
+                                    isFirst = indexPath.row == 0,
+                                    isFirstInDay = isFirstInDay,
+                                    isLastInDay = (indexPath.row == showingTransactions!!.size - 1) || !transaction.dt.isSameDayAs(
+                                        showingTransactions!![indexPath.row + 1].dt
+                                    ),
+                                    isLast = indexPath.row == showingTransactions!!.size - 1 && activityLoaderHelper?.loadedAll != false,
+                                    isAdded = isApplyingUpdate &&
+                                        oldTransactions?.contains(
+                                            transaction.getStableId()
+                                        ) == false,
+                                    isAddedAsNewDay = isFirstInDay && (oldTransactionsFirstDt == null || !transaction.dt.isSameDayAs(
+                                        oldTransactionsFirstDt!!
+                                    ))
+                                )
                             )
                         } else {
                             val layoutParams = cellHolder.cell.layoutParams
@@ -986,7 +1034,7 @@ class ActivityListView<T>(
                                         (dataSource?.navigationController?.getSystemBars()?.bottom
                                             ?: 0) +
                                         75.dp + // TabBar
-                                        HomeHeaderView.Companion.navDefaultHeight +
+                                        HomeHeaderView.navDefaultHeight +
                                         ViewConstants.GAP.dp +
                                         (homeAssetsCell?.height ?: 0)
                                     )
@@ -1043,9 +1091,9 @@ class ActivityListView<T>(
                     }
 
                     TRANSACTION_SECTION -> {
-                        if (indexPath.row < (showingTransactions?.size ?: 0))
-                            showingTransactions!![indexPath.row].id
-                        else
+                        if (indexPath.row < (showingTransactions?.size ?: 0)) {
+                            return showingTransactions!![indexPath.row].getStableId()
+                        } else
                             null
                     }
 

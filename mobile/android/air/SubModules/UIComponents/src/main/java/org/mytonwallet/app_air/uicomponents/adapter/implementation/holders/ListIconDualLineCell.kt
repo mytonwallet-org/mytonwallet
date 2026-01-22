@@ -71,7 +71,7 @@ class ListIconDualLineCell(context: Context) : FrameLayout(context), WThemedView
     )
 
     init {
-        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, 64.dp)
+        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, 60.dp)
         background = ripple
 
         addView(tokenImage)
@@ -85,7 +85,7 @@ class ListIconDualLineCell(context: Context) : FrameLayout(context), WThemedView
                 topMargin = 26.dp
             })
 
-        setPaddingDp(12, 8, 16, 8)
+        setPaddingDp(12, 6, 16, 6)
         updateTheme()
     }
 

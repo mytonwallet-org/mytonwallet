@@ -13,13 +13,15 @@ import UIComponents
 
 public final class AccountTypePickerVC: WViewController {
     
+    var network: ApiNetwork
     var showCreateWallet: Bool
     var showSwitchToOtherVersion: Bool
     
     var hostingController: UIHostingController<AccountTypePickerView>?
     private let navHeight: CGFloat = 60
 
-    public init(showCreateWallet: Bool, showSwitchToOtherVersion: Bool) {
+    public init(network: ApiNetwork, showCreateWallet: Bool, showSwitchToOtherVersion: Bool) {
+        self.network = network
         self.showCreateWallet = showCreateWallet
         self.showSwitchToOtherVersion = showSwitchToOtherVersion
         super.init(nibName: nil, bundle: nil)
@@ -45,6 +47,7 @@ public final class AccountTypePickerVC: WViewController {
     
     func makeView() -> AccountTypePickerView {
         AccountTypePickerView(
+            network: network,
             showCreateWallet: showCreateWallet,
             showSwitchToOtherVersionIfAvailable: showSwitchToOtherVersion,
             onHeightChange: { [weak self] height in self?.onHeightChange(height) }
@@ -71,6 +74,7 @@ private extension UISheetPresentationController.Detent.Identifier {
 @available(iOS 18, *)
 #Preview {
     AccountTypePickerVC(
+        network: .mainnet,
         showCreateWallet: true,
         showSwitchToOtherVersion: true
     )

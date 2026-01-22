@@ -28,17 +28,23 @@ class ImagePaletteHelpers {
             val dataSource: DataSource<CloseableReference<CloseableImage>> =
                 Fresco.getImagePipeline().fetchDecodedImage(imageRequest, null)
 
-            val result: CloseableReference<CloseableImage>? =
-                DataSources.waitForFinalResult(dataSource)
+            return try {
+                val result: CloseableReference<CloseableImage>? =
+                    DataSources.waitForFinalResult(dataSource)
 
-            val bitmap = result?.get()?.let { image ->
-                if (image is CloseableBitmap) image.underlyingBitmap else null
+                val bitmap = result?.get()?.let { image ->
+                    if (image is CloseableBitmap) image.underlyingBitmap else null
+                }
+
+                CloseableReference.closeSafely(result)
+                dataSource.close()
+
+                bitmap
+            } catch (_: Exception) {
+                null
+            } finally {
+                dataSource.close()
             }
-
-            CloseableReference.closeSafely(result)
-            dataSource.close()
-
-            return bitmap
         }
 
         private fun findClosestColorIndex(color: Int): Int {
@@ -61,14 +67,16 @@ class ImagePaletteHelpers {
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         private fun extractPaletteFromImage(imageUrl: String, onPaletteExtracted: (Int?) -> Unit) {
             scope.launch {
-                val bitmap = getBitmapFromUri(imageUrl)
-                bitmap?.let {
-                    val dominantColor = BitmapPaletteExtractHelpers.extractAccentColorIndex(bitmap)
-                    val closestColorIndex = findClosestColorIndex(dominantColor)
-                    withContext(Dispatchers.Main) {
-                        onPaletteExtracted(closestColorIndex)
-                    }
-                } ?: onPaletteExtracted(null)
+                val closestColorIndex = runCatching {
+                    val bitmap = getBitmapFromUri(imageUrl) ?: return@runCatching null
+                    val dominantColor =
+                        BitmapPaletteExtractHelpers.extractAccentColorIndex(bitmap)
+                    findClosestColorIndex(dominantColor)
+                }.getOrNull()
+
+                withContext(Dispatchers.Main) {
+                    onPaletteExtracted(closestColorIndex)
+                }
             }
         }
 

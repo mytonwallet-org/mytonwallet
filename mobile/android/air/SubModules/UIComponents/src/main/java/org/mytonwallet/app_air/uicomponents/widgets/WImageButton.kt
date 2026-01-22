@@ -7,7 +7,7 @@ import androidx.appcompat.widget.AppCompatImageButton
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
-class WImageButton(context: Context) : AppCompatImageButton(context), WThemedView {
+open class WImageButton(context: Context) : AppCompatImageButton(context), WThemedView {
 
     private var rippleColor = WColor.SecondaryBackground
     private var tintColors = listOf(

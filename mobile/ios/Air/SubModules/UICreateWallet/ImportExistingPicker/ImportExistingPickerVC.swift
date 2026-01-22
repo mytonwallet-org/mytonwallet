@@ -68,6 +68,7 @@ private extension UISheetPresentationController.Detent.Identifier {
 @available(iOS 18, *)
 #Preview {
     AccountTypePickerVC(
+        network: .mainnet, 
         showCreateWallet: true,
         showSwitchToOtherVersion: true
     )

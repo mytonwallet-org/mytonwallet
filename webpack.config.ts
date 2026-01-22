@@ -27,6 +27,7 @@ import {
   IPFS_GATEWAY_BASE_URL,
   IS_CAPACITOR,
   IS_CORE_WALLET,
+  IS_EXPLORER,
   IS_EXTENSION,
   IS_FIREFOX_EXTENSION,
   IS_OPERA_EXTENSION,
@@ -158,6 +159,9 @@ export default function createConfig(
       host: '0.0.0.0',
       allowedHosts: 'all',
       hot: false,
+      // When using the History API, the index.html page will likely have to be served in place of any 404 responses
+      // https://webpack.js.org/configuration/dev-server/#devserverhistoryapifallback
+      historyApiFallback: IS_EXPLORER,
       static: [
         {
           directory: path.resolve(__dirname, 'public'),
@@ -376,6 +380,7 @@ export default function createConfig(
         IS_AIR_APP: 'false',
         IS_CORE_WALLET: 'false',
         IS_TELEGRAM_APP: 'false',
+        IS_EXPLORER: 'false',
         SWAP_FEE_ADDRESS: '',
         DIESEL_ADDRESS: '',
         GIVEAWAY_CHECKIN_URL: '',

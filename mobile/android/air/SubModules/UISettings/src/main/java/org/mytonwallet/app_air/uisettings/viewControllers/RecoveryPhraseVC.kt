@@ -40,12 +40,17 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.helpers.WordCheckMode
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import java.lang.ref.WeakReference
 import kotlin.random.Random
 
 @SuppressLint("ViewConstructor")
-open class RecoveryPhraseVC(context: Context, private val words: Array<String>) :
+open class RecoveryPhraseVC(
+    context: Context,
+    private val network: MBlockchainNetwork,
+    private val words: Array<String>
+) :
     WViewController(context) {
     override val TAG = "RecoveryPhrase"
 
@@ -69,7 +74,7 @@ open class RecoveryPhraseVC(context: Context, private val words: Array<String>) 
     }
 
     private val subtitleLabel = WLabel(context).apply {
-        setStyle(17f, WFont.SemiBold)
+        setStyle(17f, WFont.Regular)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 26f)
         text =
             LocaleController.getString("\$mnemonic_list_description")
@@ -79,7 +84,7 @@ open class RecoveryPhraseVC(context: Context, private val words: Array<String>) 
     }
 
     private val warningLabel = WLabel(context).apply {
-        setStyle(17f, WFont.SemiBold)
+        setStyle(17f, WFont.Medium)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 26f)
         text =
             LocaleController.getString("\$mnemonic_warning").trim()
@@ -185,7 +190,7 @@ open class RecoveryPhraseVC(context: Context, private val words: Array<String>) 
             topToBottom(subtitleLabel, animationView, 37f)
             toCenterX(subtitleLabel, 44f)
             topToBottom(warningLabel, subtitleLabel, 23f)
-            toCenterX(warningLabel, 48f)
+            toCenterX(warningLabel, 24f)
             topToBottom(copyToClipboardButton, warningLabel, 34f)
             toCenterX(copyToClipboardButton, 48f)
             topToBottom(wordsView, copyToClipboardButton, 46f)
@@ -222,7 +227,7 @@ open class RecoveryPhraseVC(context: Context, private val words: Array<String>) 
             LocaleController.getPluralOrFormat(
                 "%1\$d Secret Words",
                 wordsCount,
-            )
+            ) + network.localizedIdentifier
         )
         setupNavBar(true)
         setTopBlur(visible = false, animated = false)
@@ -258,6 +263,7 @@ open class RecoveryPhraseVC(context: Context, private val words: Array<String>) 
 
         push(
             WalletContextManager.delegate?.getWordCheckVC(
+                network,
                 words,
                 randomNumbers.sorted(),
                 checkMode

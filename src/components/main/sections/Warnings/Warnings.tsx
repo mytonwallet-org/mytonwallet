@@ -1,7 +1,7 @@
 import React, { memo } from '../../../../lib/teact/teact';
 import { withGlobal } from '../../../../global';
 
-import { IS_CORE_WALLET, IS_EXTENSION, IS_TELEGRAM_APP } from '../../../../config';
+import { IS_CORE_WALLET, IS_EXPLORER, IS_EXTENSION, IS_TELEGRAM_APP } from '../../../../config';
 import {
   selectCurrentAccountId,
   selectCurrentAccountState,
@@ -55,7 +55,7 @@ function Warnings({
           <ScamWalletWarning />
         </>
       )}
-      {IS_UNSAFE_WEB && <SecurityWarning />}
+      {IS_UNSAFE_WEB && !IS_EXPLORER && <SecurityWarning />}
     </>
   );
 }

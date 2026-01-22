@@ -11,6 +11,7 @@ export type OpenUrlOptions = {
   isExternal?: boolean;
   title?: string;
   subtitle?: string;
+  shouldSkipOverlayClose?: boolean;
 };
 
 export async function openUrl(url: string, options?: OpenUrlOptions) {
@@ -24,11 +25,15 @@ export async function openUrl(url: string, options?: OpenUrlOptions) {
     && (IS_CAPACITOR || isSubproject(url) || isInIframeWhitelist(url))
     && !isTelegramUrl(url)
   ) {
-    await closeAllOverlays();
+    if (!options?.shouldSkipOverlayClose) {
+      await closeAllOverlays();
+    }
+
     getActions().openBrowser({
       url,
       title: options?.title,
       subtitle: options?.subtitle,
+      shouldKeepNativeBottomSheetOpen: options?.shouldSkipOverlayClose ? false : undefined,
     });
   } else {
     const couldOpenApp = IS_CAPACITOR && await openAppSafe(url);
@@ -49,9 +54,11 @@ function isInIframeWhitelist(url: string) {
 
 export function handleUrlClick(
   e: React.MouseEvent<HTMLAnchorElement, MouseEvent>,
+  options?: OpenUrlOptions,
 ) {
   e.preventDefault();
   void openUrl(e.currentTarget.href, {
+    ...options,
     isExternal: e.shiftKey || e.ctrlKey || e.metaKey,
   });
 }

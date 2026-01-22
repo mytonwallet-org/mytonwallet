@@ -175,6 +175,7 @@ public final class _BalanceStore {
         var walletTokens: [MTokenBalance] = balances.map { (slug, amount) in
             MTokenBalance(tokenSlug: slug, balance: amount, isStaking: false)
         }
+        let account = AccountStore.get(accountId: accountId)
         var allTokensFound = true
         var totalBalance: Double = 0
         var totalBalanceYesterday: Double = 0
@@ -207,23 +208,24 @@ public final class _BalanceStore {
         let prefs = AccountStore.assetsAndActivityData[accountId] ?? MAssetsAndActivityData.defaultData
         for t in prefs.alwaysShownSlugs {
             if !walletTokens.contains(where: { $0.tokenSlug == t }) {
-                if AccountStore.accountsById[accountId]?.supports(chain: TokenStore.tokens[t]?.chain) == true {
+                if account.supports(chain: TokenStore.tokens[t]?.chain) {
                     walletTokens.append(MTokenBalance(tokenSlug: t, balance: 0, isStaking: false))
                 }
             }
         }
         for t in prefs.importedSlugs {
             if !walletTokens.contains(where: { $0.tokenSlug == t }) {
-                if AccountStore.accountsById[accountId]?.supports(chain: TokenStore.tokens[t]?.chain) == true {
+                if account.supports(chain: TokenStore.tokens[t]?.chain) {
                     walletTokens.append(MTokenBalance(tokenSlug: t, balance: 0, isStaking: false))
                 }
             }
         }
         if totalBalance == 0 || totalBalanceUsd < TINY_TRANSFER_MAX_COST {
-            for t in DEFAULT_SLUGS {
-                if !walletTokens.contains(where: { $0.tokenSlug == t }) {
-                    if AccountStore.accountsById[accountId]?.supports(chain: TokenStore.tokens[t]?.chain) == true {
-                        walletTokens.append(MTokenBalance(tokenSlug: t, balance: 0, isStaking: false))
+            let defaultSlugs = account.network == .testnet ? DEFAULT_TESTNET_SLUGS : DEFAULT_SLUGS
+            for slug in defaultSlugs {
+                if !walletTokens.contains(where: { $0.tokenSlug == slug }) {
+                    if account.supports(chain: TokenStore.tokens[slug]?.chain) {
+                        walletTokens.append(MTokenBalance(tokenSlug: slug, balance: 0, isStaking: false))
                     }
                 }
             }
@@ -282,6 +284,7 @@ public final class _BalanceStore {
                 $0[accountId] = balanceData
             }
         }
+        log.info("recalculateAccountData \(accountId, .public) balances \(balances.count) staked \(staked.count)")
         WalletCoreData.notify(event: .balanceChanged(accountId: accountId, isFirstUpdate: false))
     }
     
@@ -333,6 +336,7 @@ extension _BalanceStore: WalletCoreData.EventsObserver {
 
         case .updateBalances(let update):
             Task.detached {
+                log.info("updateBalances \(update.accountId, .public) \(update.chain.rawValue, .public) \(update.balances.count)")
                 let accountId = update.accountId
                 let firstUpdate = self.balancesEventCalledOnce[accountId] != true
                 if firstUpdate {

@@ -88,5 +88,5 @@ enum SegmentedControlConstants {
     static let spacing: CGFloat = 8
     static let height: CGFloat = 24
     static let innerPadding: CGFloat = 10
-    static let accessoryWidth: CGFloat = 14
+    static let accessoryWidth: CGFloat = 9.333
 }

@@ -7,7 +7,7 @@
 
 import UIKit
 import UIComponents
-import UICharts
+import DGCharts
 import WalletCore
 import WalletContext
 

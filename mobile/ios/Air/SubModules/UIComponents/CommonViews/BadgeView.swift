@@ -65,7 +65,7 @@ public final class BadgeView: UIView {
         backgroundColor = .white
         label.textColor = UIColor.white
         
-        label.text = "\(yieldType.rawValue) \(apy.formatted(.number.precision(.fractionLength(2)).locale(.forNumberFormatters)))%"
+        label.text = "\(apy.formatted(.number.precision(.fractionLength(2)).locale(.forNumberFormatters)))%"
         
         backgroundGradient.colors = [
             UIColor.airBundle("EarnGradientColorLeft").cgColor,

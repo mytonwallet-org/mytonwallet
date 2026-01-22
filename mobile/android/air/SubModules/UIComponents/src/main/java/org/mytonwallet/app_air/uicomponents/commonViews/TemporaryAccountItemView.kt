@@ -15,7 +15,7 @@ import androidx.core.text.buildSpannedString
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
+import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -23,6 +23,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import kotlin.math.roundToInt
 
@@ -31,6 +32,7 @@ class TemporaryAccountItemView(
     context: Context,
     title: CharSequence?,
     blockchain: MBlockchain,
+    network: MBlockchainNetwork,
     address: String,
     private val hasSeparator: Boolean,
 ) : FrameLayout(context), WThemedView {
@@ -93,7 +95,7 @@ class TemporaryAccountItemView(
             label.text = title
             subtitleLabel.text = buildSpannedString {
                 append(address.formatStartEndAddress())
-                updateDotsTypeface()
+                styleDots()
             }
         } ?: run {
             addView(label, LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
@@ -104,13 +106,14 @@ class TemporaryAccountItemView(
             })
             label.text = buildSpannedString {
                 append(address.formatStartEndAddress(6, 6))
-                updateDotsTypeface()
+                styleDots()
             }
         }
         iconView.config(title, address)
         updateTheme()
         setOnClickListener {
             WalletContextManager.delegate?.openASingleWallet(
+                network,
                 mapOf(blockchain.name to address),
                 title?.toString()
             )

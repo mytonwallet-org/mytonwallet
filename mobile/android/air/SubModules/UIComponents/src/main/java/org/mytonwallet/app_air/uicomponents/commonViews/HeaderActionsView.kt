@@ -32,6 +32,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import kotlin.math.roundToInt
 
@@ -46,6 +47,7 @@ class HeaderActionsView(
     var tabsLocalized = if (LocaleController.isRTL) tabs.asReversed() else tabs
 
     private var itemViews = ArrayList<WView>()
+    private var account: MAccount? = null
 
     init {
         layoutParams = LayoutParams(MATCH_PARENT, HEIGHT.dp).apply {
@@ -158,6 +160,9 @@ class HeaderActionsView(
 
         insetsUpdated()
         updateTheme()
+        this.account?.let { account ->
+            updateActions(account)
+        }
     }
 
     data class Item(
@@ -200,7 +205,7 @@ class HeaderActionsView(
     override val isTinted = true
     override fun updateTheme() {
         val iconBackgroundColor =
-            if (ThemeManager.isDark) "#2A2A2E".toColorInt() else "#FCFCFD".toColorInt()
+            if (ThemeManager.isDark) "#1F1F1F".toColorInt() else "#FCFCFD".toColorInt()
         val shadowColor =
             if (ThemeManager.isDark) "#40000000".toColorInt() else "#0F003C5D".toColorInt()
         val accentColor = WColor.Tint.color
@@ -312,7 +317,8 @@ class HeaderActionsView(
     }
 
     fun updateActions(account: MAccount?) {
-        val isMainNet = account?.isMainnet == true
+        this.account = account
+        val isMainNet = account?.network == MBlockchainNetwork.MAINNET
         setSendVisibility(account?.accountType != MAccount.AccountType.VIEW)
         setEarnVisibility(isMainNet)
         setSwapVisibility(isMainNet && account.accountType == MAccount.AccountType.MNEMONIC)

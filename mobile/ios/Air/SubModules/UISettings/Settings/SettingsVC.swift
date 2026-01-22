@@ -223,7 +223,7 @@ public class SettingsVC: WViewController, Sendable, WalletCoreData.EventsObserve
         case .walletSettings:
             AppActions.showWalletSettings()
         case .addAccount:
-            AppActions.showAddWallet(showCreateWallet: true, showSwitchToOtherVersion: true)
+            AppActions.showAddWallet(network: .mainnet, showCreateWallet: true, showSwitchToOtherVersion: true)
         case .notifications:
             navigationController?.pushViewController(NotificationsSettingsVC(), animated: true)
         case .appearance:

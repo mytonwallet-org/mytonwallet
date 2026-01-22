@@ -74,7 +74,10 @@ struct IntroView: View {
                 .foregroundStyle(Color.air.secondaryLabel)
                 .fontWeight(.regular)
         }
-        .buttonStyle(.airClearBackground)
+        .padding(16)
+        .contentShape(.capsule)
+        .buttonStyle(.borderless)
+        .padding(-16)
     }
     
     @ViewBuilder

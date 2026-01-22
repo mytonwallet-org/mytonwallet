@@ -40,6 +40,7 @@ extension HomeVC: BalanceHeaderViewDelegate, WalletAssetsDelegate {
         UIView.animate(withDuration: 0.2) { [weak self] in
             guard let self else {return}
             tableView.contentOffset = .init(x: 0, y: -expansionOffset)
+            tableView.contentInset.top = expansionInset
         } completion: { [weak self] _ in
             guard let self else {return}
             isExpandingProgrammatically = false

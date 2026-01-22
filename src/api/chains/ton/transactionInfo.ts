@@ -1,10 +1,10 @@
-import type { ApiActivity, ApiNetwork, ApiSwapActivity } from '../../types';
+import type { ApiActivity, ApiFetchTransactionByIdOptions, ApiSwapActivity } from '../../types';
 
 import { omit } from '../../../util/iteratees';
 import { logDebugError } from '../../../util/logs';
 import { getNftSuperCollectionsByCollectionAddress } from '../../common/addresses';
 import { parseActionsToActivities } from './toncenter/actions';
-import { fetchTraceByIdOrHash } from './toncenter/traces';
+import { fetchTraceByIdOrHash, fetchTraceByTxHash } from './toncenter/traces';
 import { fillActivityDetails } from './activities';
 import { parseTrace } from './traces';
 
@@ -15,12 +15,14 @@ import { parseTrace } from './traces';
  * For TON, `txId` can be either a trace_id or msg_hash.
  */
 export async function fetchTransactionById(
-  network: ApiNetwork,
-  walletAddress: string,
-  txId: string,
+  { network, walletAddress, ...options }: ApiFetchTransactionByIdOptions,
 ): Promise<ApiActivity[]> {
+  const isTxId = 'txId' in options;
+
   try {
-    const { trace, addressBook, metadata } = await fetchTraceByIdOrHash({ network, txId });
+    const { trace, addressBook, metadata } = isTxId
+      ? await fetchTraceByIdOrHash({ network, txId: options.txId })
+      : await fetchTraceByTxHash({ network, txHash: options.txHash });
 
     if (!trace || !trace.actions?.length) {
       return [];

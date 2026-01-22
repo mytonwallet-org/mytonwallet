@@ -31,7 +31,7 @@ class LedgerLoadMoreCell(
 
     init {
         layoutParams.apply {
-            height = 56.dp
+            height = 50.dp
         }
         addView(imageView)
         addView(loadMoreLabel)

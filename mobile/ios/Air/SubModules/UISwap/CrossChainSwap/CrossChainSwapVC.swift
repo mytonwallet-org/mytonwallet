@@ -174,7 +174,7 @@ public class CrossChainSwapVC: WViewController, WalletCoreData.EventsObserver {
         case .crosschainToWallet:
             let toTonVC = UIHostingController(rootView: CrossChainToTonView(
                 sellingToken: crossChainSwapVM.sellingToken.0!,
-                amount: crossChainSwapVM.sellingToken.1.doubleAbsRepresentation(decimals: crossChainSwapVM.sellingToken.0?.decimals),
+                amount: crossChainSwapVM.sellingToken.1.doubleAbsRepresentation(decimals: crossChainSwapVM.sellingToken.0!.decimals),
                 address: crossChainSwapVM.payinAddress ?? "",
                 dt: crossChainSwapVM.dt ?? Date(),
                 exchangerTxId: crossChainSwapVM.exchangerTxId ?? ""
@@ -269,13 +269,7 @@ extension CrossChainSwapVC {
             return false
         }) ?? activities.first else { return }
         awaitingActivity = false
-        dismissAndShowActivity(activity, accountId: updateAccountId)
-    }
-
-    private func dismissAndShowActivity(_ activity: ApiActivity, accountId: String) {
-        navigationController?.dismiss(animated: true) {
-            AppActions.showActivityDetails(accountId: accountId, activity: activity)
-        }
+        AppActions.showActivityDetails(accountId: updateAccountId, activity: activity, context: .swapConfirmation)
     }
 }
 

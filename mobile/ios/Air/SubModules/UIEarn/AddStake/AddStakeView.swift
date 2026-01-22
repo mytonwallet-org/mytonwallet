@@ -126,8 +126,7 @@ fileprivate struct StakeInfoSection: View {
     
     @ViewBuilder
     var apyBadge: some View {
-        let v = formatAmountText(amount: model.apy)
-        Text("\(v)%")
+        Text(formatPercent(model.apy / 100, showPlus: false))
             .fontWeight(.medium)
             .font(.callout)
             .lineSpacing(3)

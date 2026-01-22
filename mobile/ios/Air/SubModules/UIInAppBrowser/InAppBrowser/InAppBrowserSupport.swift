@@ -44,8 +44,10 @@ public final class InAppBrowserSupport: WalletCoreData.EventsObserver, WMinimiza
             if accountId == AccountStore.accountId, let browser, origin == browser.currentPage?.config.url.origin, sheet?.isExpanded != true {
                 browser.reload()
             }
-        case .sheetDismissed(let rootVC):
-            restoreMinimizedBrowserIfNeeded(rootVC)
+        case .sheetDismissed:
+            if let rootVC = UIApplication.shared.sceneKeyWindow?.rootViewController {
+                restoreMinimizedBrowserIfNeeded(rootVC)
+            }
         default:
             break
         }
@@ -83,7 +85,7 @@ public final class InAppBrowserSupport: WalletCoreData.EventsObserver, WMinimiza
     }
     
     private func restoreMinimizedBrowserIfNeeded(_ rootVC: UIViewController) {
-        if rootVC.presentedViewController == nil, let browser {
+        if rootVC.presentedViewController == nil || rootVC.presentedViewController?.isBeingDismissed == true, let browser {
             let sheet = WMinimizableSheet(browser: browser, startMinimized: true)
             sheet.delegate = self
             self.sheet = sheet

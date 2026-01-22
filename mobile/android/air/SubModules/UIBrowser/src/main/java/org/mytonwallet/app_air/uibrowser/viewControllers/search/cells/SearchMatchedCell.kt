@@ -27,7 +27,7 @@ class SearchMatchedCell(
     context: Context,
     private val onTap: (site: MExploreHistory.VisitedSite) -> Unit
 ) :
-    WCell(context, LayoutParams(MATCH_PARENT, 64.dp)), WThemedView {
+    WCell(context, LayoutParams(MATCH_PARENT, 60.dp)), WThemedView {
 
     private val logoImageView: WCustomImageView by lazy {
         WCustomImageView(context).apply {
@@ -64,7 +64,7 @@ class SearchMatchedCell(
             toStart(logoImageView, 18f)
             toCenterY(logoImageView)
             toStart(titleLabel, 56f)
-            toTop(titleLabel, 11.5f)
+            toTop(titleLabel, 9.5f)
             toEnd(titleLabel, 12f)
             toStart(subtitleLabel, 56f)
             topToBottom(subtitleLabel, titleLabel, 1f)

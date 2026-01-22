@@ -379,10 +379,11 @@ export function updatePendingActivitiesWithTrustedStatus(
   const prevById = buildCollectionByKey(prevActivitiesForReplacement, 'id');
 
   // For pending activities, we need to check the status of the corresponding local activity
+  // Only convert 'pending' status to 'pendingTrusted', not 'confirmed' status
   const adjustedPendingActivities = pendingActivities.map((a) => {
     const oldId = reversedReplacedIds[a.id];
     const oldActivity = oldId ? prevById[oldId] : undefined;
-    if (oldActivity && oldActivity.status === 'pendingTrusted') {
+    if (oldActivity && oldActivity.status === 'pendingTrusted' && a.status === 'pending') {
       return { ...a, status: 'pendingTrusted' } as ApiActivity;
     }
 

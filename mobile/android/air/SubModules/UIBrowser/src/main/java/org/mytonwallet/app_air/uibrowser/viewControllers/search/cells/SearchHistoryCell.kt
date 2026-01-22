@@ -27,7 +27,7 @@ import java.util.Date
 
 @SuppressLint("ViewConstructor")
 class SearchHistoryCell(context: Context) :
-    WCell(context, LayoutParams(MATCH_PARENT, 64.dp)), WThemedView {
+    WCell(context, LayoutParams(MATCH_PARENT, 60.dp)), WThemedView {
 
     private val historyDrawable: Drawable? = AppCompatResources.getDrawable(
         context,
@@ -58,29 +58,20 @@ class SearchHistoryCell(context: Context) :
         }
     }
 
-    private val separatorView: WBaseView by lazy {
-        val sw = WBaseView(context)
-        sw
-    }
-
     override fun setupViews() {
         super.setupViews()
         addView(historyImageView, LayoutParams(24.dp, 24.dp))
         addView(titleLabel, LayoutParams(0, WRAP_CONTENT))
         addView(subtitleLabel, LayoutParams(0, WRAP_CONTENT))
-        addView(separatorView, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
         setConstraints {
             toStart(historyImageView, 18f)
             toCenterY(historyImageView)
             toStart(titleLabel, 56f)
-            toTop(titleLabel, 11.5f)
+            toTop(titleLabel, 9.5f)
             toEnd(titleLabel, 12f)
             toStart(subtitleLabel, 56f)
             topToBottom(subtitleLabel, titleLabel, 1f)
             toEnd(subtitleLabel, 12f)
-            toBottom(separatorView)
-            toEnd(separatorView, 0f)
-            toStart(separatorView, 56f)
         }
     }
 
@@ -99,7 +90,6 @@ class SearchHistoryCell(context: Context) :
         titleLabel.text = site.title
         subtitleLabel.text =
             "${site.url.toUri().host} · ${Date(site.visitDate).timeAgo("\$visited_ago")}"
-        separatorView.isGone = isLastItem
 
         updateTheme()
     }
@@ -116,7 +106,6 @@ class SearchHistoryCell(context: Context) :
         titleLabel.setStyle(16f, WFont.Regular)
         titleLabel.text = site.title
         subtitleLabel.text = site.visitDate?.let { visitDate -> Date(visitDate).timeAgo() }
-        separatorView.isGone = isLastItem
 
         updateTheme()
     }
@@ -133,7 +122,6 @@ class SearchHistoryCell(context: Context) :
             if (isLastItem) ViewConstants.STANDARD_ROUNDS.dp else 0f
         )
         historyDrawable?.setTint(WColor.SecondaryText.color)
-        separatorView.setBackgroundColor(WColor.Separator.color)
     }
 
 }

@@ -165,7 +165,10 @@ public class WalletTokenCell: WHighlightCell {
                           isMultichain: Bool,
                           onSelect: @escaping () -> Void
     ) {
-        let tokenChanged = self.walletToken?.tokenSlug != walletToken.tokenSlug
+        let previousTokenSlug = self.walletToken?.tokenSlug
+        let previousBalance = self.walletToken?.balance
+        let previousBaseCurrencyAmount = self.walletToken?.toBaseCurrency
+        let tokenChanged = previousTokenSlug != walletToken.tokenSlug
         self.walletToken = walletToken
         self.onSelect = onSelect
 
@@ -175,7 +178,7 @@ public class WalletTokenCell: WHighlightCell {
         // configure icon view
         if tokenChanged || self.tokenImage != token?.image?.nilIfEmpty {
             self.tokenImage = token?.image?.nilIfEmpty
-            iconView.config(with: token, isStaking: walletToken.isStaking, isWalletView: true, shouldShowChain: isMultichain || token?.chainValue.usdtSlug[network] == walletToken.tokenSlug)
+            iconView.config(with: token, isStaking: walletToken.isStaking, isWalletView: true, shouldShowChain: isMultichain)
         }
 
         // label
@@ -187,36 +190,52 @@ public class WalletTokenCell: WHighlightCell {
         // price
         if let price = token?.price {
             let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(price, TokenStore.baseCurrency)
-            let attr = NSMutableAttributedString(string: baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true), attributes: [
-                .font: regular14Font,
-                .foregroundColor: WTheme.secondaryLabel
-            ])
+            let attr = NSMutableAttributedString(
+                string: baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true),
+                attributes: [
+                    .font: regular14Font,
+                    .foregroundColor: WTheme.secondaryLabel
+                ]
+            )
             if let percentChange24h = token?.percentChange24h, let percentChange24hRounded = token?.percentChange24hRounded {
                 let color = abs(percentChange24h) < 0.005 ? WTheme.secondaryLabel : percentChange24h > 0 ? WTheme.positiveAmount : WTheme.negativeAmount
                 if percentChange24hRounded != 0 {
-                    attr.append(NSAttributedString(string: " \(percentChange24hRounded < 0 ? "-\(signSpace)" : "+\(signSpace)")\(abs(percentChange24hRounded))%",
-                                                   attributes: [
-                                                    .font: regular14Font,
-                                                    .foregroundColor: color
-                                                   ]))
+                    attr.append(
+                        NSAttributedString(
+                            string: " \(formatPercent(percentChange24hRounded / 100))",
+                            attributes: [
+                                .font: regular14Font,
+                                .foregroundColor: color
+                            ]
+                        )
+                    )
                 }
             }
             tokenPriceLabel.attributedText = attr
         } else {
             tokenPriceLabel.text = " "
         }
+        let amountText: String?
         if let token {
             let amount = TokenAmount(walletToken.balance, token)
-            amountLabel.text = amount.formatted(.defaultAdaptive, roundUp: false)
+            amountText = amount.formatted(.defaultAdaptive, roundUp: false)
+        } else {
+            amountText = nil
         }
 
         let amount = walletToken.toBaseCurrency
+        let baseCurrencyText: String?
         if let amount {
             let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(amount, TokenStore.baseCurrency)
-            baseCurrencyAmountLabel.text = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true)
+            baseCurrencyText = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundUp: true)
         } else {
-            baseCurrencyAmountLabel.text = " "
+            baseCurrencyText = " "
         }
+        let shouldAnimateAmounts = animated && !tokenChanged
+        let amountChanged = previousBalance != walletToken.balance
+        let baseAmountChanged = previousBaseCurrencyAmount != walletToken.toBaseCurrency
+        setAmountText(amountText, animated: shouldAnimateAmounts && amountChanged, label: amountLabel)
+        setAmountText(baseCurrencyText, animated: shouldAnimateAmounts && baseAmountChanged, label: baseCurrencyAmountLabel)
         
         let amountCols = 4 + abs((token?.name).hashValue % 8)
         let fiatAmountCols = 5 + (amountCols % 6)
@@ -243,6 +262,20 @@ public class WalletTokenCell: WHighlightCell {
         } else {
             badge.configureHidden()
             badge.alpha = 0
+        }
+    }
+
+    private func setAmountText(_ text: String?, animated: Bool, label: UILabel) {
+        guard animated else {
+            label.text = text
+            return
+        }
+        UIView.transition(
+            with: label,
+            duration: 0.2,
+            options: [.transitionCrossDissolve, .allowUserInteraction, .beginFromCurrentState]
+        ) {
+            label.text = text
         }
     }
 

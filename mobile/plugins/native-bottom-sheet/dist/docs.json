@@ -373,10 +373,6 @@
           "complexTypes": []
         },
         {
-          "text": "'add-account'",
-          "complexTypes": []
-        },
-        {
           "text": "'import-account'",
           "complexTypes": []
         },

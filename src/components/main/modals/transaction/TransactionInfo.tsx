@@ -3,6 +3,7 @@ import React, { memo, useMemo } from '../../../../lib/teact/teact';
 
 import type {
   ApiBaseCurrency,
+  ApiChain,
   ApiCurrencyRates,
   ApiNft,
   ApiStakingState,
@@ -76,6 +77,7 @@ interface OwnProps {
   onStartStakingClick?: NoneToVoidFunction;
   onUnstakeMoreClick?: NoneToVoidFunction;
   onTokenClick?: (slug: string) => void;
+  selectedExplorerIds?: Partial<Record<ApiChain, string>>;
 }
 
 function TransactionInfo({
@@ -109,6 +111,7 @@ function TransactionInfo({
   onStartStakingClick,
   onUnstakeMoreClick,
   onTokenClick,
+  selectedExplorerIds,
 }: OwnProps) {
   const lang = useLang();
   const appTheme = useAppTheme(theme);
@@ -140,6 +143,7 @@ function TransactionInfo({
     savedAddresses,
     currentAccountId,
     isTestnet,
+    selectedExplorerIds,
   });
 
   const senderAddressName = useMemo(() => {

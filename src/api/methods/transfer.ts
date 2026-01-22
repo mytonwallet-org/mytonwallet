@@ -2,30 +2,129 @@ import type {
   ApiActivity,
   ApiChain,
   ApiCheckTransactionDraftOptions,
+  ApiCheckTransactionDraftResult,
   ApiLocalTransactionParams,
   ApiSubmitGasfullTransferResult,
   ApiSubmitGaslessTransferResult,
   ApiSubmitTransferOptions,
+  ApiTransferPayload,
   OnApiUpdate,
 } from '../types';
 
 import { parseAccountId } from '../../util/account';
 import { buildLocalTxId } from '../../util/activities';
+import { SECOND } from '../../util/dateFormat';
 import { getNativeToken } from '../../util/tokens';
 import chains from '../chains';
 import { fetchStoredAddress } from '../common/accounts';
 import { buildLocalTransaction } from '../common/helpers';
+import { bytesToBase64 } from '../common/utils';
 import { FAKE_TX_ID } from '../constants';
 import { buildTokenSlug } from './tokens';
 
 let onUpdate: OnApiUpdate;
 
+const DRAFT_CACHE_TTL = 5 * SECOND;
+
+type DraftCacheEntry = {
+  value?: ApiCheckTransactionDraftResult;
+  expiresAt: number;
+  inFlight?: Promise<ApiCheckTransactionDraftResult>;
+};
+
+const draftCache = new Map<string, DraftCacheEntry>();
+
+function buildDraftCacheKey(chain: ApiChain, options: ApiCheckTransactionDraftOptions) {
+  const {
+    accountId,
+    toAddress,
+    tokenAddress,
+    amount,
+    payload,
+    stateInit,
+    allowGasless,
+  } = options;
+
+  return JSON.stringify({
+    chain,
+    accountId,
+    toAddress,
+    tokenAddress,
+    amount: amount?.toString(),
+    payload: normalizePayloadForKey(payload),
+    stateInit,
+    allowGasless,
+  });
+}
+
+function normalizePayloadForKey(payload?: ApiTransferPayload) {
+  if (!payload) return undefined;
+
+  if (payload.type === 'comment') {
+    return {
+      type: payload.type,
+      text: payload.text,
+      shouldEncrypt: payload.shouldEncrypt ?? false,
+    };
+  }
+
+  if (payload.type === 'base64') {
+    return {
+      type: payload.type,
+      data: payload.data,
+    };
+  }
+
+  return {
+    type: payload.type,
+    data: bytesToBase64(payload.data),
+  };
+}
+
 export function initTransfer(_onUpdate: OnApiUpdate) {
   onUpdate = _onUpdate;
 }
 
-export function checkTransactionDraft(chain: ApiChain, options: ApiCheckTransactionDraftOptions) {
-  return chains[chain].checkTransactionDraft(options);
+export async function checkTransactionDraft(chain: ApiChain, options: ApiCheckTransactionDraftOptions) {
+  const cacheKey = buildDraftCacheKey(chain, options);
+  const now = Date.now();
+  const cached = draftCache.get(cacheKey);
+
+  if (cached) {
+    if (cached.value && cached.expiresAt > now) {
+      return cached.value;
+    }
+    if (cached.inFlight) {
+      return cached.inFlight;
+    }
+    draftCache.delete(cacheKey);
+  }
+
+  const inFlight = chains[chain].checkTransactionDraft(options)
+    .then((result) => {
+      const entry = draftCache.get(cacheKey);
+      if (entry) {
+        entry.inFlight = undefined;
+        if (!('error' in result)) {
+          entry.value = result;
+          entry.expiresAt = Date.now() + DRAFT_CACHE_TTL;
+        } else {
+          draftCache.delete(cacheKey);
+        }
+      }
+      return result;
+    })
+    .catch((err) => {
+      draftCache.delete(cacheKey);
+      throw err;
+    });
+
+  draftCache.set(cacheKey, {
+    inFlight,
+    expiresAt: now + DRAFT_CACHE_TTL,
+  });
+
+  return inFlight;
 }
 
 export async function submitTransfer(

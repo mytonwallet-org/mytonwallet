@@ -12,6 +12,7 @@ interface IGlobalStorageProvider {
 
     var doNotSynchronize: Int
 
+    fun contains(key: String): Boolean
     fun getInt(key: String): Int?
     fun getString(key: String): String?
     fun getBool(key: String): Boolean?

@@ -218,7 +218,7 @@ class AnimatedKeyValueRowView @JvmOverloads constructor(
 
     init {
         background = rippleDrawable
-        layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 56.dp)
+        layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 50.dp)
         setPaddingDp(20, 0, 20, 0)
 
         updateTheme()

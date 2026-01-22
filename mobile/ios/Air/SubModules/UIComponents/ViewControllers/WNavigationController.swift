@@ -7,6 +7,7 @@
 
 import UIKit
 import WalletContext
+import WalletCore
 
 class SlowedPanGestureRecognizer: UIPanGestureRecognizer {
     override func velocity(in view: UIView?) -> CGPoint {
@@ -55,6 +56,11 @@ open class WNavigationController: UINavigationController {
             return nil
         }
         return super.popViewController(animated: animated)
+    }
+    
+    open override func dismiss(animated flag: Bool, completion: (() -> Void)? = nil) {
+        super.dismiss(animated: flag, completion: completion)
+        WalletCoreData.notify(event: .sheetDismissed)
     }
 }
 

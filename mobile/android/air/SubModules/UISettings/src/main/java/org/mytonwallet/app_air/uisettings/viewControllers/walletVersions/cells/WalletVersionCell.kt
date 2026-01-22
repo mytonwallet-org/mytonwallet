@@ -4,7 +4,7 @@ import android.content.Context
 import android.text.SpannableStringBuilder
 import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
+import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -47,11 +47,6 @@ class WalletVersionCell(
         lbl
     }
 
-    private val separator: WView by lazy {
-        val v = WView(context)
-        v
-    }
-
     init {
         layoutParams.apply {
             height = 72.dp
@@ -59,7 +54,6 @@ class WalletVersionCell(
         addView(topLeftLabel)
         addView(bottomLeftLabel)
         addView(rightLabel)
-        addView(separator, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
         setConstraints {
             toTop(topLeftLabel, 14f)
             toStart(topLeftLabel, 20f)
@@ -68,8 +62,6 @@ class WalletVersionCell(
             toBottom(bottomLeftLabel, 14f)
             toCenterY(rightLabel)
             toEnd(rightLabel, 20f)
-            toBottom(separator)
-            toCenterX(separator, 20f)
         }
 
         setOnClickListener {
@@ -89,7 +81,6 @@ class WalletVersionCell(
         topLeftLabel.setTextColor(WColor.PrimaryText.color)
         bottomLeftLabel.setTextColor(WColor.SecondaryText.color)
         rightLabel.setTextColor(WColor.SecondaryText.color)
-        separator.setBackgroundColor(WColor.Separator.color)
     }
 
     private var isLast = false
@@ -102,9 +93,8 @@ class WalletVersionCell(
         topLeftLabel.text = walletVersion.version
         bottomLeftLabel.text =
             SpannableStringBuilder(walletVersion.address.formatStartEndAddress()).apply {
-                updateDotsTypeface()
+                styleDots()
             }
-        separator.isGone = isLast
         val toncoin = TokenStore.getToken(TONCOIN_SLUG)
         toncoin?.price?.let { price ->
             rightLabel.text =

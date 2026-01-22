@@ -1,33 +1,31 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.theme
 
 import android.content.Context
-import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.widget.ConstraintSet
+import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
-import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
 class AppearanceAppThemeView(
     context: Context,
 ) : WView(context), WThemedView {
 
-    private val titleLabel: WLabel by lazy {
-        val lbl = WLabel(context)
-        lbl.text = LocaleController.getString("Theme")
-        lbl.setStyle(16f, WFont.Medium)
-        lbl
+    private val titleLabel = HeaderCell(context).apply {
+        configure(
+            LocaleController.getString("Theme"),
+            titleColor = WColor.Tint,
+            ViewConstants.BIG_RADIUS.dp
+        )
     }
 
     private val separatorBackgroundDrawable: SeparatorBackgroundDrawable by lazy {
@@ -72,27 +70,24 @@ class AppearanceAppThemeView(
         v
     }
 
-    private val separatorView = WBaseView(context)
-
     override fun setupViews() {
         super.setupViews()
 
         addView(titleLabel)
         addView(themeView, LayoutParams(0, WRAP_CONTENT))
-        addView(separatorView, LayoutParams(MATCH_PARENT, ViewConstants.SEPARATOR_HEIGHT))
 
         setConstraints {
-            toTop(titleLabel, 16f)
-            toStart(titleLabel, 20f)
-            topToBottom(themeView, titleLabel, 24f)
+            toTop(titleLabel)
+            toStart(titleLabel)
+            topToBottom(themeView, titleLabel, 8f)
             toCenterX(themeView)
             toBottom(themeView, 20f)
-            toBottom(separatorView)
         }
 
         updateTheme()
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         when (ThemeManager.uiMode) {
             ThemeManager.UIMode.COMMON -> {
@@ -107,7 +102,6 @@ class AppearanceAppThemeView(
                 )
             }
         }
-        titleLabel.setTextColor(WColor.Tint.color)
         val theme = WGlobalStorage.getActiveTheme()
         arrayOf(systemView, lightView, darkView).forEach {
             it.isActive = theme == it.identifier

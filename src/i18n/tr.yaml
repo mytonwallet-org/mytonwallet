@@ -439,7 +439,7 @@ Use Password: Parola Kullanın
 Biometrics Disabled: Biyometrik koruma devre dışı
 Biometrics Enabled: Biyometrik koruma etkin
 A request is already pending: Bir istek zaten beklemede
-Please confirm operation using biometrics: Lütfen biyometri kullanarak işlemi onaylayın
+Please confirm action using biometrics: Lütfen biyometri kullanarak işlemi onaylayın
 Scan QR Code: QR kodunu tarayın
 Permission denied. Please grant camera permission to use the QR code scanner.: İzin reddedildi. Lütfen kameraya QR kod tarayıcısını kullanma izni verin.
 This QR Code is not supported: Bu QR kodu desteklenmiyor
@@ -932,7 +932,7 @@ use the wallet responsibly: Cüzdanı sorumlu bir şekilde kullanmak
 Watch Video about Features: Özellikler hakkında video izleyin
 Enjoy Monthly Updates in Blog: Blog'daki aylık güncellemelerin keyfini çıkarın
 Learn New Things in Help Center: Yardım Merkezi'nde yeni şeyler öğrenin
-Frequency Questions and Answers: Sık Sorulan Sorular ve Cevaplar
+Frequent Questions & Answers: Sık Sorulan Sorular ve Cevaplar
 Paste from Clipboard: Panodan Yapıştır
 Use biometric authentication or create a password to protect it.: Koruma için biyometrik kimlik doğrulama kullanın veya bir şifre oluşturun.
 Go to Words: Kelimelere Git
@@ -1013,6 +1013,7 @@ $missing_offramp_deposit_address: Off-ramp için para yatırma adresi eksik.
 Buy: Satın al
 Sell: Sat
 Sell on Card: Karta sat
+Sell %symbol%: "%symbol% sat"
 $connect_dapp_description: Bağlı uygulamalar yalnızca cüzdan adresinizi görebilir ve izniniz olmadan varlıklarınızı taşıyamaz.
 $connect_dapp_title: '%name% ile bağlanılsın mı?'
 Choose Wallet: Cüzdan seç
@@ -1020,4 +1021,19 @@ Wallet to use on %host%: '%host% için cüzdan'
 Selected Wallet: Seçili cüzdan
 Connect Wallet: Cüzdanı bağla
 Insufficient Fee: Yetersiz ücret
+Waiting for a View deeplink to display a wallet address.: Bir cüzdan adresi görüntülemek için bir View deeplink'i bekleniyor.
+Adding wallets is not available in explorer mode: Cüzdan eklemek, kaşif modunda kullanılamaz
+$explorer_mode_warning: "Kaşif modu: bir adres açmak için View deeplink'i bekleniyor"
+This command is not supported in explorer mode: Bu komut kaşif modunda desteklenmiyor
 $saved_addresses_header: Kaydedildi
+confirm an action in MyTonWallet: MyTonWallet'da bir işlemi onaylayın
+$connected_apps:
+  otherValue: "%1$d bağlı"
+Night Mode, Palette, Card: Gece Modu, Palet, Kart
+Back Up, Passcode, Auto-Lock: Yedekleme, Şifre, Otomatik Kilit
+Base Currency, Token Order, Hidden NFTs: Temel Para Birimi, Token Sırası, Gizli NFT'ler
+Your assets on other contracts: Diğer sözleşmelerdeki varlıklarınız
+Wallets, Sounds: Cüzdanlar, Sesler
+Help: Yardım
+About: Hakkında
+Wallets: Cüzdanlar

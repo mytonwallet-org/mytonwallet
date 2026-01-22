@@ -5,11 +5,10 @@ import android.content.Context
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.helper.widget.Flow
+import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
-import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.palette.ImagePaletteHelpers
-import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
@@ -38,11 +37,12 @@ class AppearancePaletteView(
 
     var overrideTintColor: Int? = null
 
-    private val titleLabel: WLabel by lazy {
-        val lbl = WLabel(context)
-        lbl.text = LocaleController.getString("Palette")
-        lbl.setStyle(16f, WFont.Medium)
-        lbl
+    private val titleLabel = HeaderCell(context).apply {
+        configure(
+            LocaleController.getString("Palette"),
+            titleColor = WColor.Tint,
+            ViewConstants.BIG_RADIUS.dp
+        )
     }
 
     private val smallWidthOffset = 8
@@ -81,8 +81,6 @@ class AppearancePaletteView(
         flowHelper.referencedIds = viewIds
     }
 
-    private val separatorView = WBaseView(context)
-
     private val unlockButton = WLabel(context).apply {
         setPaddingDp(20, 16, 20, 16)
         setStyle(16f)
@@ -98,19 +96,15 @@ class AppearancePaletteView(
         addView(titleLabel)
         addView(palettesView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         if (showUnlockButton) {
-            addView(separatorView, LayoutParams(MATCH_PARENT, ViewConstants.SEPARATOR_HEIGHT))
-            addView(unlockButton, LayoutParams(MATCH_PARENT, 56.dp))
+            addView(unlockButton, LayoutParams(MATCH_PARENT, 50.dp))
         }
 
         setConstraints {
-            toTop(titleLabel, 16f)
-            toStart(titleLabel, 20f)
-            topToBottom(palettesView, titleLabel, 17f)
+            toTop(titleLabel)
+            toStart(titleLabel)
+            topToBottom(palettesView, titleLabel, 9f)
             toCenterX(palettesView)
             if (showUnlockButton) {
-                topToBottom(separatorView, palettesView, 16f)
-                toCenterX(separatorView, 20f)
-                topToBottom(unlockButton, separatorView)
                 toBottom(unlockButton)
             } else {
                 toBottom(palettesView, 16f)
@@ -120,15 +114,15 @@ class AppearancePaletteView(
         updateTheme()
     }
 
+    override val isTinted = true
     override fun updateTheme() {
         setBackgroundColor(
             WColor.Background.color,
             ViewConstants.BIG_RADIUS.dp
         )
-        titleLabel.setTextColor(overrideTintColor ?: WColor.Tint.color)
+        titleLabel.setTitleColor(overrideTintColor ?: WColor.Tint.color)
         if (showUnlockButton) {
             unlockButton.setTextColor(overrideTintColor ?: WColor.Tint.color)
-            separatorView.setBackgroundColor(WColor.Separator.color)
         }
     }
 

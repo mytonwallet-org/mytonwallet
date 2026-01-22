@@ -10,9 +10,11 @@ import WalletContext
 import WalletCore
 import UIComponents
 import UIPasscode
+import Ledger
 
 struct AccountTypePickerView: View {
     
+    var network: ApiNetwork
     var showCreateWallet: Bool
     var showSwitchToOtherVersionIfAvailable: Bool
     var onHeightChange: (CGFloat) -> ()
@@ -21,6 +23,13 @@ struct AccountTypePickerView: View {
     
     var body: some View {
         VStack(spacing: 24) {
+            if network == .testnet {
+                Text("Testnet")
+                    .font(.system(size: 17, weight: .bold))
+                    .frame(maxWidth: .infinity)
+                    .offset(y: -4)
+            }
+            
             if showCreateWallet {
                 InsetSection(dividersInset: 50) {
                     Item(icon: "CreateWalletIcon30", text: lang("Create New Wallet"), additionalPadding: true, onTap: onCreate)
@@ -37,7 +46,9 @@ struct AccountTypePickerView: View {
 
             InsetSection(dividersInset: 50) {
                 Item(icon: "KeyIcon30", text: lang("12/24 Secret Words"), onTap: onImport)
-                Item(icon: "LedgerIcon30", text: "Ledger", onTap: onLedger)
+                if network == .mainnet {
+                    Item(icon: "LedgerIcon30", text: "Ledger", onTap: onLedger)
+                }
             }
 
             InsetSection(dividersInset: 50) {
@@ -80,10 +91,8 @@ struct AccountTypePickerView: View {
                 Task { @MainActor in
                     do {
                         let words = try await Api.generateMnemonic()
-                        guard let addAccountVC = WalletContextManager.delegate?.addAnotherAccount(wordList: words,
-                                                                                                     passedPasscode: passcode) else {
-                            return
-                        }
+                        let introModel = IntroModel(network: network, password: passcode, words: words)
+                        let addAccountVC = WordDisplayVC(introModel: introModel, wordList: words)
                         let navVC = WNavigationController(rootViewController: addAccountVC)
                         topViewController()?.present(navVC, animated: true)
                     } catch {
@@ -98,9 +107,8 @@ struct AccountTypePickerView: View {
         if let vc = topViewController() {
             UnlockVC.presentAuth(on: vc, onDone: { passcode in
                 Task { @MainActor in
-                    guard let importWalletVC = await WalletContextManager.delegate?.importAnotherAccount(passedPasscode: passcode, isLedger: false) else {
-                        return
-                    }
+                    let introModel = IntroModel(network: network, password: passcode)
+                    let importWalletVC = ImportWalletVC(introModel: introModel)
                     let navVC = WNavigationController(rootViewController: importWalletVC)
                     topViewController()?.present(navVC, animated: true)
                 }
@@ -112,8 +120,11 @@ struct AccountTypePickerView: View {
         if let vc = topViewController() {
             UnlockVC.presentAuth(on: vc, onDone: { passcode in
                 Task { @MainActor in
-                    guard let importWalletVC = await WalletContextManager.delegate?.importAnotherAccount(passedPasscode: passcode, isLedger: true) else {
-                        return
+                    let introModel = IntroModel(network: network, password: passcode)
+                    let model = await LedgerAddAccountModel()
+                    let importWalletVC = LedgerAddAccountVC(model: model, showBackButton: false)
+                    importWalletVC.onDone = { _ in
+                        introModel.onDone(successKind: .imported)
                     }
                     let navVC = WNavigationController(rootViewController: importWalletVC)
                     topViewController()?.present(navVC, animated: true)
@@ -123,17 +134,9 @@ struct AccountTypePickerView: View {
     }
     func onView() {
         dismiss()
-        if let vc = topViewController() {
-            UnlockVC.presentAuth(on: vc, onDone: { passcode in
-                Task { @MainActor in
-                    guard let vc = WalletContextManager.delegate?.viewAnyAddress() else {
-                        return
-                    }
-                    let navVC = WNavigationController(rootViewController: vc)
-                    topViewController()?.present(navVC, animated: true)
-                }
-            }, cancellable: true)
-        }
+        let vc = AddViewWalletVC(introModel: IntroModel(network: network, password: nil))
+        let navVC = WNavigationController(rootViewController: vc)
+        topViewController()?.present(navVC, animated: true)
     }
     
     func onWalletVersion() {

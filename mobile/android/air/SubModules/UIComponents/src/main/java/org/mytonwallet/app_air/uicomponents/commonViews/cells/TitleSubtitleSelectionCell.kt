@@ -39,18 +39,12 @@ class TitleSubtitleSelectionCell(
         lbl
     }
 
-    private val separatorView: WBaseView by lazy {
-        val v = WBaseView(context)
-        v
-    }
-
     override fun setupViews() {
         super.setupViews()
 
         addView(selectionImageView, LayoutParams(40.dp, 40.dp))
         addView(titleLabel)
         addView(subtitleLabel)
-        addView(separatorView, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
         setConstraints {
             toCenterY(selectionImageView)
             toStart(selectionImageView, 12f)
@@ -58,9 +52,6 @@ class TitleSubtitleSelectionCell(
             toStart(titleLabel, 64f)
             toTop(subtitleLabel, 37.75f)
             toStart(subtitleLabel, 64f)
-            toStart(separatorView, 64f)
-            toBottom(separatorView)
-            toEnd(separatorView)
         }
 
         setOnClickListener {
@@ -85,7 +76,6 @@ class TitleSubtitleSelectionCell(
         )
         titleLabel.setTextColor(WColor.PrimaryText.color)
         subtitleLabel.setTextColor(WColor.SecondaryText.color)
-        separatorView.setBackgroundColor(WColor.Separator.color)
     }
 
     private var isSelected = true
@@ -107,7 +97,6 @@ class TitleSubtitleSelectionCell(
         updateTheme()
         titleLabel.text = title
         subtitleLabel.text = subtitle
-        separatorView.visibility = if (isLast) INVISIBLE else VISIBLE
         this.onClick = onClick
     }
 

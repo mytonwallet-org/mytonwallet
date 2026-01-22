@@ -10,6 +10,29 @@ object ApplicationContextHolder {
     var density = 1f
         private set
 
+    private const val SMALL_SCREEN_WIDTH_DP = 360
+
+    val isSmallScreen: Boolean by lazy {
+        val widthDp = applicationContext.resources.displayMetrics.widthPixels / density
+        widthDp <= SMALL_SCREEN_WIDTH_DP
+    }
+
+    /** Font size that adapts to screen width. 15sp on small screens, 16sp otherwise. */
+    val adaptiveFontSize: Float
+        get() = if (isSmallScreen) 15f else 16f
+
+    /** Icon size that adapts to screen width. 40dp on small screens, 44dp otherwise. */
+    val adaptiveIconSize: Int
+        get() = if (isSmallScreen) 40 else 44
+
+    /** Content start position after icon. 12 (start) + iconSize + 12 (gap) */
+    val adaptiveContentStart: Float
+        get() = 12f + adaptiveIconSize + 12f
+
+    /** Icon top margin to keep it vertically centered. 10dp on small screens, 8dp otherwise. */
+    val adaptiveIconTopMargin: Float
+        get() = if (isSmallScreen) 10f else 8f
+
     fun update(applicationContext: Context) {
         ApplicationContextHolder.applicationContext = applicationContext
         density = applicationContext.density()

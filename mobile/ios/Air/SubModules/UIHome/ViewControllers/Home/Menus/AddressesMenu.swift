@@ -40,8 +40,7 @@ nonisolated func makeAddressesMenuConfig(accountId: String) -> () -> MenuConfig 
             action: {
                 MainActor.assumeIsolated {
                     UIPasteboard.general.url = account.shareLink
-                    AppActions.showToast(animationName: "Copy", message: lang("Link was copied!"))
-                    Haptics.play(.lightTap)
+                    AppActions.shareUrl(account.shareLink)
                 }
             },
         )

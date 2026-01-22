@@ -64,8 +64,8 @@ function SentTabs({ isInsideModal, isOffRampAllowed }: OwnProps & StateProps) {
     fontIcon: 'menu-multisend',
   }), [lang]);
 
-  const tabs: TabWithProperties[] = useMemo(() => {
-    return compact<TabWithProperties | undefined>([
+  const tabs: TabWithProperties<TabContent>[] = useMemo(() => {
+    return compact<TabWithProperties<TabContent> | undefined>([
       {
         id: TabContent.Send,
         title: lang('Send'),

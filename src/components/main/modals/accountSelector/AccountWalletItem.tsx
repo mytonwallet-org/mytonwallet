@@ -5,10 +5,11 @@ import type { Account, AccountType } from '../../../../global/types';
 import type { Layout } from '../../../../hooks/useMenuPosition';
 
 import buildClassName from '../../../../util/buildClassName';
+import { OPEN_CONTEXT_MENU_CLASS_NAME } from './constants';
 
 import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
 import useLastCallback from '../../../../hooks/useLastCallback';
-import useAccountContextMenu, { OPEN_CONTEXT_MENU_CLASS_NAME } from './hooks/useAccountContextMenu';
+import useAccountContextMenu from './hooks/useAccountContextMenu';
 
 import AccountRowInner from '../../../common/AccountRowInner';
 import Draggable from '../../../ui/Draggable';

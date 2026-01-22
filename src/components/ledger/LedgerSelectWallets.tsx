@@ -30,6 +30,7 @@ import styles from './LedgerModal.module.scss';
 type OwnProps = {
   isActive?: boolean;
   isStatic?: boolean;
+  withCloseButton?: boolean;
   onBackButtonClick?: NoneToVoidFunction;
   onCancel?: NoneToVoidFunction;
   onClose: NoneToVoidFunction;
@@ -52,6 +53,7 @@ function LedgerSelectWallets({
   hardwareWallets,
   accounts,
   isLoading,
+  withCloseButton,
   onBackButtonClick,
   onCancel,
   onClose,
@@ -197,7 +199,7 @@ function LedgerSelectWallets({
         <ModalHeader
           title={title}
           onBackButtonClick={onBackButtonClick}
-          onClose={!onBackButtonClick ? onClose : undefined}
+          onClose={!onBackButtonClick || withCloseButton ? onClose : undefined}
         />
       ) : (
         <div className={settingsStyles.header}>
@@ -216,6 +218,7 @@ function LedgerSelectWallets({
         <div className={buildClassName(
           styles.actionBlock,
           shouldUseVerticalButtons ? styles.actionBlockVertical : styles.actionBlockHorizontal,
+          isStatic && styles.actionBlockStatic,
         )}
         >
           <Button

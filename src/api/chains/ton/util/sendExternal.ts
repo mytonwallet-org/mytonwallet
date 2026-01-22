@@ -13,6 +13,7 @@ export async function sendExternal(
   wallet: TonWallet,
   message: Cell,
   gaslessType?: GaslessType,
+  isWalletInitialized?: boolean,
 ) {
   const {
     address,
@@ -20,8 +21,14 @@ export async function sendExternal(
   } = wallet;
 
   let neededInit: { data: Cell; code: Cell } | undefined;
-  if (init && !await client.isContractDeployed(address)) {
-    neededInit = init;
+  if (init) {
+    if (isWalletInitialized === true) {
+      neededInit = undefined;
+    } else if (isWalletInitialized === false) {
+      neededInit = init;
+    } else if (!await client.isContractDeployed(address)) {
+      neededInit = init;
+    }
   }
 
   const ext = external({
