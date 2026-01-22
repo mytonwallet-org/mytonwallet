@@ -1,25 +1,22 @@
 default_platform(:ios)
 
 $package_json_path = '../../../../package.json'
-$workspace_path    = 'App.xcworkspace'
-$project_path      = '../App.xcodeproj/project.pbxproj'
-$plist_path        = '../../App/App/Info.plist'
+$workspace_path = 'App.xcworkspace'
+$project_path = '../App.xcodeproj/project.pbxproj'
+$plist_path = '../../App/App/Info.plist'
 
 $is_air = ENV['IS_AIR_APP'] == '1'
-
-$team_id        = CredentialsManager::AppfileConfig.try_fetch_value(:team_id)
+$team_id = CredentialsManager::AppfileConfig.try_fetch_value(:team_id)
 $app_identifier = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
-
 $profile_name = 'MyTonWallet Production profile'
-$scheme       = 'MyTonWallet'
-
+$scheme = 'MyTonWallet'
 $app_identifier_widget = "#{$app_identifier}.AirWidget"
-$profile_name_widget   = 'MyTonWallet Production profile - Widget'
-$scheme_widget         = 'AirWidgetExtension'
+$profile_name_widget = 'MyTonWallet Production profile - Widget'
+$scheme_widget = 'AirWidgetExtension'
 
 if $is_air
   $profile_name = 'MyTonWallet Air 4'
-  $scheme       = 'MyTonWalletAir'
+  $scheme = 'MyTonWalletAir'
 end
 
 puts "$is_air: #{$is_air}"
@@ -31,164 +28,47 @@ puts "$profile_name_widget: #{$profile_name_widget}"
 puts "$scheme_widget: #{$scheme_widget}"
 
 $project_data = nil
-$plist_data   = nil
+$plist_data = nil
 
 def read_files
   $project_data = File.read($project_path)
-  $plist_data   = File.read($plist_path)
+  $plist_data = File.read($plist_path)
 end
 
 def restore_files
-  File.write($project_path, $project_data) if $project_data
-  File.write($plist_path, $plist_data) if $plist_data
-end
-
-def asc_api_key!
-  app_store_connect_api_key(
-    key_id: "TL49GJ73DP",
-    issuer_id: "519080b4-bc5f-4d06-a889-a69254108348",
-    key_filepath: "./AuthKey.p8",
-    duration: 1200,
-    in_house: false
-  )
-end
-
-def target_version
-  JSON.parse(File.read($package_json_path))["version"]
+  File.write($project_path, $project_data)
+  File.write($plist_path, $plist_data)
 end
 
 def update_version_and_build_number
-  version = target_version
-
-  # Prefer CI-provided build number (monotonic & unique per workflow run)
-  ci_build_number = nil
-  if ENV["GITHUB_RUN_NUMBER"].to_s.strip != ""
-    ci_build_number = ENV["GITHUB_RUN_NUMBER"].to_i
-  end
-
+  version = JSON.parse(File.read($package_json_path))["version"]
   production_build_number = 0
-  production_err = nil
   begin
-    production_build_number = app_store_build_number(
-      version: version,
-      initial_build_number: 0,
-      live: true
-    ).to_i
-  rescue => e
-    production_build_number = 0
-    production_err = e
+    production_build_number = app_store_build_number(version: version, initial_build_number: 0, live: true).to_i
+  rescue
   end
-
-  beta_build_number = 0
-  beta_err = nil
-  begin
-    beta_build_number = latest_testflight_build_number(
-      version: version,
-      initial_build_number: 0
-    ).to_i
-  rescue => e
-    beta_build_number = 0
-    beta_err = e
-  end
-
-  legacy_next = [production_build_number, beta_build_number].max + 1
-
-  # Choose build number
-  chosen_build_number =
-    if ci_build_number && ci_build_number > 0
-      # Safety: never go backwards vs what ASC/TestFlight reports for this version
-      [ci_build_number, legacy_next].max
-    else
-      legacy_next
-    end
-
-  UI.message("iOS version/build selection:")
-  UI.message(" - version (package.json): #{version}")
-  UI.message(" - ci_build_number (GITHUB_RUN_NUMBER): #{ci_build_number || 'n/a'}")
-  UI.message(" - production_build_number (app_store_build_number live:true): #{production_build_number}#{production_err ? " (error: #{production_err.class}: #{production_err.message})" : ""}")
-  UI.message(" - beta_build_number (latest_testflight_build_number): #{beta_build_number}#{beta_err ? " (error: #{beta_err.class}: #{beta_err.message})" : ""}")
-  UI.message(" - legacy_next: #{legacy_next}")
-  UI.message(" - chosen_build_number: #{chosen_build_number}")
+  beta_build_number = latest_testflight_build_number(version: version, initial_build_number: 0)
+  build_number = [production_build_number, beta_build_number].max() + 1
 
   increment_version_number(version_number: version)
-  increment_build_number(skip_info_plist: true, build_number: chosen_build_number)
+  increment_build_number(skip_info_plist: true, build_number: build_number)
 
-  return version, chosen_build_number
-end
-
-def release_gate_check!(mode:)
-  asc_api_key!
-  
-  ver = target_version
-  UI.message("Release gate (#{mode}): target package.json version = #{ver}")
-
-  app = Spaceship::ConnectAPI::App.find($app_identifier)
-  UI.user_error!("App not found in App Store Connect for '#{$app_identifier}'") unless app
-
-  versions = app.get_app_store_versions(
-    filter: { platform: "IOS" },
-    limit: 200
-  )
-
-  skip_log_states = %w[
-    READY_FOR_SALE
-    REPLACED_WITH_NEW_VERSION
-  ]
-
-  if versions.empty?
-    UI.message("Release gate: ASC returned 0 appStoreVersions for '#{$app_identifier}'.")
-  else
-    UI.message("Release gate: ASC appStoreVersions for '#{$app_identifier}':")
-
-    versions.each do |v|
-      v_str = (v.respond_to?(:version_string) ? v.version_string : "unknown")
-      st    = (v.respond_to?(:app_store_state) ? v.app_store_state : nil)
-
-      next if skip_log_states.include?(st.to_s)
-
-      UI.message(" - #{v_str} : #{st}")
-    end
-  end
-
-  # States that indicate an app version is "in the pipeline" and should block creating another release train.
-  blocking_states = %w[
-    WAITING_FOR_REVIEW
-    IN_REVIEW
-    PENDING_DEVELOPER_RELEASE
-    PENDING_APPLE_RELEASE
-    PROCESSING_FOR_APP_STORE
-    PROCESSING_FOR_DISTRIBUTION
-    PENDING_CONTRACT
-  ]
-
-  blocked = versions.select do |v|
-    st = (v.respond_to?(:app_store_state) ? v.app_store_state : nil)
-    blocking_states.include?(st.to_s)
-  end
-
-  if blocked.any?
-    details = blocked.map do |v|
-      v_str = (v.respond_to?(:version_string) ? v.version_string : "unknown")
-      st    = (v.respond_to?(:app_store_state) ? v.app_store_state : "unknown")
-      "#{v_str}:#{st}"
-    end.join(", ")
-
-    UI.user_error!("Abort #{mode}: App Store Connect has blocking version(s): #{details}")
-  end
-
-  UI.message("Release gate passed: no blocking App Store Connect versions.")
+  return version, build_number
 end
 
 platform :ios do
+  desc "Push a new beta build to TestFlight"
+
   before_all do |lane|
     read_files
-    asc_api_key!
 
-    # Keep gate lightweight: no signing / Xcode required.
-    if lane.to_s == "release_gate"
-      UI.message("Skip code signing setup for #{lane}")
-      next
-    end
+    app_store_connect_api_key(
+      key_id: "TL49GJ73DP",
+      issuer_id: "519080b4-bc5f-4d06-a889-a69254108348",
+      key_filepath: "./AuthKey.p8",
+      duration: 1200,
+      in_house: false
+    )
 
     update_code_signing_settings(
       path: "App.xcodeproj",
@@ -211,11 +91,7 @@ platform :ios do
     )
   end
 
-  lane :release_gate do
-    release_gate_check!(mode: "gate")
-  end
-
-  lane :beta do   
+  lane :beta do
     update_version_and_build_number
 
     build_app(
@@ -240,13 +116,13 @@ platform :ios do
   end
 
   lane :release do
-    # always call gate first
-    release_gate_check!(mode: "release")
-
     version, build_number = update_version_and_build_number
 
-    changelog_path = "../../../../changelogs/#{version}.txt"
-    UI.user_error!("There is no changelog for version #{version}") unless File.exist?(changelog_path)
+    changelog_path = "../../../../changelogs/" + version + ".txt"
+    if !File.exist?(changelog_path)
+      raise "There is no changelog for version " + version
+    end
+
     changelog = File.read(changelog_path)
 
     build_app(
@@ -263,9 +139,6 @@ platform :ios do
     )
 
     upload_to_app_store(
-      app_version: version,
-      build_number: build_number.to_s,
-
       skip_screenshots: true,
       skip_metadata: false,
       precheck_include_in_app_purchases: false,
@@ -288,4 +161,5 @@ platform :ios do
   error do |lane, exception|
     restore_files
   end
+
 end
