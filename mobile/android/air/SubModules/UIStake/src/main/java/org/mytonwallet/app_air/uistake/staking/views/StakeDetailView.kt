@@ -32,7 +32,7 @@ class StakeDetailView(
             context,
             layoutParams = ConstraintLayout.LayoutParams(
                 ConstraintLayout.LayoutParams.MATCH_PARENT,
-                56.dp
+                50.dp
             )
         )
 
@@ -60,7 +60,7 @@ class StakeDetailView(
         val wView = WView(
             context, layoutParams = ConstraintLayout.LayoutParams(
                 ConstraintLayout.LayoutParams.MATCH_PARENT,
-                56.dp
+                50.dp
             )
         )
         wView
@@ -103,7 +103,7 @@ class StakeDetailView(
         val wView = WView(
             context, layoutParams = ConstraintLayout.LayoutParams(
                 ConstraintLayout.LayoutParams.MATCH_PARENT,
-                56.dp
+                50.dp
             )
         )
         wView.addRippleEffect(WColor.SecondaryBackground.color)
@@ -117,20 +117,6 @@ class StakeDetailView(
         setLineHeight(24f)
         setTextColor(WColor.Tint.color)
         setPadding(0, 5.dp, 0, 1.dp)
-    }
-
-    private val separatorView1 = WBaseView(context).apply {
-        setBackgroundColor(WColor.Separator.color)
-        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, ViewConstants.SEPARATOR_HEIGHT).apply {
-            marginStart = 20.dp
-        }
-    }
-
-    private val separatorView2 = WBaseView(context).apply {
-        setBackgroundColor(WColor.Separator.color)
-        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, ViewConstants.SEPARATOR_HEIGHT).apply {
-            marginStart = 20.dp
-        }
     }
 
     init {
@@ -167,9 +153,7 @@ class StakeDetailView(
         }
 
         addView(apyRow)
-        addView(separatorView1)
         addView(earningRow)
-        addView(separatorView2)
         addView(whySafeRow)
     }
 
@@ -182,8 +166,6 @@ class StakeDetailView(
     }
 
     override fun updateTheme() {
-        separatorView1.setBackgroundColor(WColor.Separator.color)
-        separatorView2.setBackgroundColor(WColor.Separator.color)
         apyStartLabel.setTextColor(WColor.Tint.color)
         earningStartLabel.setTextColor(WColor.Tint.color)
         whySafeStartLabel.setTextColor(WColor.Tint.color)

@@ -281,6 +281,7 @@ public class UnlockVC: WViewController {
                     self?.navigationController?.popViewController(animated: true)
                 }
             )
+            navigationItem.hidesBackButton = true
         }
         
         passcodeScreenView = PasscodeScreenView(
@@ -427,6 +428,8 @@ extension UnlockVC: PasscodeScreenViewDelegate {
     }
 
     func onAuthenticated(taskDone: Bool, passcode: String) {
+        navigationItem.setHidesBackButton(true, animated: true)
+        Haptics.prepare(.success)
         if taskDone == false && (isBeingDismissed || view.superview == nil || viewStartedDismissing)  {
             return
         }

@@ -31,8 +31,8 @@ import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.getLocationInWindow
 import org.mytonwallet.app_air.uicomponents.extensions.getLocationOnScreen
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
-import org.mytonwallet.app_air.uicomponents.extensions.updateDotsLetterSpacing
-import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
+import org.mytonwallet.app_air.uicomponents.extensions.styleDots
+import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.FontManager
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
@@ -77,16 +77,18 @@ import org.mytonwallet.app_air.walletbasecontext.utils.x
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 import org.mytonwallet.app_air.walletcontext.helpers.ShareHelpers
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
-import org.mytonwallet.app_air.walletcore.MTW_CARDS_COLLECTION
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.setBaseCurrency
+import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MAccount.AccountChain
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
+import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.uihome.home.views.UpdateStatusView
 import java.math.BigInteger
@@ -299,8 +301,9 @@ class WalletCardView(
         id = generateViewId()
         scaleType = ImageView.ScaleType.CENTER
         setOnClickListener {
-            val url =
-                "https://getgems.io/collection/$MTW_CARDS_COLLECTION"
+            val url = ExplorerHelpers.getMtwCardsUrl(
+                AccountStore.activeAccount?.network ?: MBlockchainNetwork.MAINNET
+            )
             WalletCore.notifyEvent(WalletEvent.OpenUrl(url))
         }
         background = mintIconRipple
@@ -642,11 +645,7 @@ class WalletCardView(
     }
 
     fun updateAddressLabel() {
-        val displayDataList = account?.byChain?.map { (key, value) ->
-            Pair(key, value)
-        } ?: emptyList()
-        addressLabel.style = WMultichainAddressLabel.walletExpandStyle
-        addressLabel.displayAddresses(displayDataList)
+        addressLabel.displayAddresses(account, WMultichainAddressLabel.walletExpandStyle)
     }
 
     var headerMode = HomeHeaderView.DEFAULT_MODE
@@ -933,7 +932,7 @@ class WalletCardView(
                             inSpans(WSpacingSpan(2.dp)) { append(" ") }
                         }
                     }
-                    updateDotsTypeface()
+                    styleDots()
                 }
                 val subtitle: CharSequence = if (domain != null) {
                     buildSpannedString {
@@ -942,7 +941,7 @@ class WalletCardView(
                             append(" · ")
                             append(chain.name.uppercase())
                         }
-                        updateDotsLetterSpacing(-0.08f)
+                        styleDots()
                     }
                 } else {
                     buildSpannedString {
@@ -967,9 +966,10 @@ class WalletCardView(
                             init {
                                 updateTheme()
                                 setOnClickListener {
+                                    val account = account ?: return@setOnClickListener
                                     val walletEvent =
                                         WalletEvent.OpenUrl(
-                                            chain.explorerUrl(fullAddress)
+                                            chain.explorerUrl(account.network, fullAddress)
                                         )
                                     WalletCore.notifyEvent(walletEvent)
                                     popup.dismiss()

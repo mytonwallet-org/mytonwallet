@@ -10,9 +10,9 @@ import WalletContext
 
 public class WalletCreatedView: WTouchPassView {
 
-    public init(address: String) {
+    public init() {
         super.init(frame: CGRect.zero)
-        setupView(address: address)
+        setupView()
     }
 
     override public init(frame: CGRect) {
@@ -26,7 +26,7 @@ public class WalletCreatedView: WTouchPassView {
     var titleLabel: UILabel!
     var subtitleLabel: UILabel!
 
-    private func setupView(address: String) {
+    private func setupView() {
         translatesAutoresizingMaskIntoConstraints = false
 
         titleLabel = UILabel()
@@ -53,22 +53,21 @@ public class WalletCreatedView: WTouchPassView {
             subtitleLabel.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
         
-        updateTheme()
+        titleLabel.attributedText = NSAttributedString(
+            string: lang("No Activity"),
+            attributes: [
+                .kern: -0.26,
+                .font: titleLabel.font!,
+                .foregroundColor: WTheme.primaryLabel
+            ]
+        )
+        subtitleLabel.attributedText = NSAttributedString(
+            string: lang("There is no activity history for this wallet yet."),
+            attributes: [
+                .kern: -0.09,
+                .font: subtitleLabel.font!,
+                .foregroundColor: WTheme.secondaryLabel
+            ]
+        )
     }
-
-    func updateTheme() {
-        titleLabel.attributedText = NSAttributedString(string: lang("No Activity"),
-                                                       attributes: [
-                                                        .kern: -0.26,
-                                                        .font: titleLabel.font!,
-                                                        .foregroundColor: WTheme.primaryLabel
-                                                       ])
-        subtitleLabel.attributedText = NSAttributedString(string: lang("There is no activity history for this wallet yet."),
-                                                          attributes: [
-                                                            .kern: -0.09,
-                                                            .font: subtitleLabel.font!,
-                                                            .foregroundColor: WTheme.secondaryLabel
-                                                          ])
-    }
-
 }

@@ -24,14 +24,11 @@ This directory hosts every Swift module that composes the Air app. Use the list 
 - `UIDapp` – TonConnect connection approvals, DApp send confirmations, and session management UIs.
 - `UISettings` – Root settings navigation plus appearance, security, assets & activity, language, wallet versions, and related screens.
 - `UIComponents` – Shared components (buttons, lists, navigation wrappers, toasts, context menus, etc.) used across all feature modules.
-- `UICharts` – Reusable chart views and data sources embedded in token, asset, and analytics screens.
 
 ## Platform Services & Libraries
 - `Ledger` – Discovers, connects to, and exchanges APDUs with Ledger hardware wallets.
-- `BigIntLib` – Arbitrary-precision math utilities backing wallet calculations.
 - `GZip` – Compression/decompression helpers for payloads and cached assets.
 - `RLottieBinding` – Bridging layer to render Telegram’s RLottie animations inside SwiftUI/UIKit.
-- `SwiftSignalKit` – Signal/Promise primitives (Telegram fork) used for reactive flows.
 - `WReachability` – Network reachability monitoring and status notifications.
 - `YUVConversion` – Accelerated YUV↔RGB conversion routines backing animation and camera surfaces.
 

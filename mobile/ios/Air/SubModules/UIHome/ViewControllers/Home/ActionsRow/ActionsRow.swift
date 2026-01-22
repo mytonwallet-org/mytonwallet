@@ -8,13 +8,21 @@ private let log = Log("Home-Actions")
 
 let actionsRowHeight: CGFloat = IOS_26_MODE_ENABLED ? 70 : 60
 
-@MainActor final class ActionsVC: WViewController, WalletCoreData.EventsObserver {
+final class ActionsVC: WViewController, WalletCoreData.EventsObserver {
     
     var actionsContainerView: ActionsContainerView { view as! ActionsContainerView }
     var actionsView: ActionsView { actionsContainerView.actionsView }
     
-    private var accountId: String = ""
-    private var account: MAccount { AccountStore.get(accountId: accountId) }
+    @AccountContext var account: MAccount
+    
+    init(accountSource: AccountSource) {
+        self._account = AccountContext(source: accountSource)
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    @MainActor required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     
     override func loadView() {
         view = ActionsContainerView()
@@ -26,7 +34,7 @@ let actionsRowHeight: CGFloat = IOS_26_MODE_ENABLED ? 70 : 60
     }
     
     func setAccountId(accountId: String, animated: Bool)  {
-        self.accountId = accountId
+        self.$account.accountId = accountId
         hideUnsupportedActions()
     }
     
@@ -36,8 +44,11 @@ let actionsRowHeight: CGFloat = IOS_26_MODE_ENABLED ? 70 : 60
         } else {
             view.alpha = 1
             actionsView.sendButton.isHidden = !account.supportsSend
-            actionsView.swapButton.isHidden = !account.supportsSwap 
+            actionsView.swapButton.isHidden = !account.supportsSwap
             actionsView.earnButton.isHidden = !account.supportsEarn
+            actionsView.sendButton.alpha = account.supportsSend ? 1 : 0
+            actionsView.swapButton.alpha = account.supportsSwap ? 1 : 0
+            actionsView.earnButton.alpha = account.supportsEarn ? 1 : 0
             actionsView.updateSpacing()
         }
     }
@@ -59,7 +70,7 @@ let actionsRowHeight: CGFloat = IOS_26_MODE_ENABLED ? 70 : 60
 }
 
 
-@MainActor final class ActionsContainerView: UIView {
+final class ActionsContainerView: UIView {
     
     let actionsView = ActionsView()
     
@@ -91,7 +102,7 @@ let actionsRowHeight: CGFloat = IOS_26_MODE_ENABLED ? 70 : 60
 }
 
 
-@MainActor final class ActionsView: WTouchPassStackView, WThemedView {
+final class ActionsView: WTouchPassStackView, WThemedView {
     
     var addButton: WScalableButton!
     var sendButton: WScalableButton!

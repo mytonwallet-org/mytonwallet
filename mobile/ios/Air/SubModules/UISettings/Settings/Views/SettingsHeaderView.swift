@@ -10,9 +10,9 @@ import UIComponents
 import WalletContext
 import WalletCore
 
-let defaultHeight = 210.0
-let avatarFromTop = 17.0
-let walletInfoTop = 86.0
+let defaultHeight: CGFloat = 210.0
+let avatarFromTop: CGFloat = 17.0
+let walletInfoTop: CGFloat = 86.0
 
 class SettingsHeaderView: WTouchPassView, WThemedView {
     
@@ -245,15 +245,14 @@ class SettingsHeaderView: WTouchPassView, WThemedView {
     }
     
     func update(scrollOffset: CGFloat) {
-        let scrollMultiplier = scrollOffset > 0 ? 0.85 : 1
+        let scrollMultiplier: CGFloat = scrollOffset > 0 ? 0.85 : 1
         avatarTopConstraint.constant = avatarFromTop - scrollOffset * scrollMultiplier
 
-        let blurProgress = 1 - min(1, max(0, (155 - scrollOffset * scrollMultiplier) / 155))
+        let blurProgress: CGFloat = 1.0 - min(1.0, max(0.0, (155.0 - scrollOffset * scrollMultiplier) / 155.0))
         avatarBlurView.blurRadius = blurProgress * 30
-        avatarImageView.alpha =  min(1, max(0, (190 - scrollOffset * scrollMultiplier) / 40))
+        avatarImageView.alpha = min(1.0, max(0.0, (190.0 - scrollOffset * scrollMultiplier) / 40.0))
         
-        let blurAlpha = min(1, max(0, (scrollOffset - 130) / 30))
-        blurView.alpha = blurAlpha
+        blurView.alpha = min(1.0, max(0.0, (scrollOffset - 130.0) / 30.0))
 
         if scrollOffset < 0 {
             walletInfoViewTopConstraint.constant = walletInfoTop - scrollOffset
@@ -267,11 +266,11 @@ class SettingsHeaderView: WTouchPassView, WThemedView {
             descriptionStackView.alpha = 1
             descriptionStackView.transform = .identity
         } else {
-            let collapseProgress = min(1, scrollOffset / (defaultHeight - 50))
+            let collapseProgress: CGFloat = min(1, scrollOffset / (defaultHeight - 50))
             walletInfoViewTopConstraint.constant = interpolate(from: walletInfoTop, to: S.walletInfoTopCollapsedConstant, progress: collapseProgress)
             walletNameLabel.font = .systemFont(ofSize: interpolate(from: 28, to: 17, progress: collapseProgress), weight: .semibold)
             descriptionStackView.alpha = 1 - collapseProgress
-            let scale = 0.75 + 0.25 * (1 - collapseProgress)
+            let scale: CGFloat = 0.75 + 0.25 * (1 - collapseProgress)
             descriptionStackView.transform = .identity
                 .scaledBy(x: scale, y: scale)
                 .translatedBy(x: 0, y: -7 * collapseProgress)

@@ -7,6 +7,7 @@ import type { Layout } from '../../../../hooks/useMenuPosition';
 import buildClassName from '../../../../util/buildClassName';
 import buildStyle from '../../../../util/buildStyle';
 import { formatAccountAddresses } from '../../../../util/formatAccountAddress';
+import { OPEN_CONTEXT_MENU_CLASS_NAME } from './constants';
 
 import { useCachedImage } from '../../../../hooks/useCachedImage';
 import useCardCustomization from '../../../../hooks/useCardCustomization';
@@ -15,7 +16,7 @@ import useFontScale from '../../../../hooks/useFontScale';
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
 import useWindowSize from '../../../../hooks/useWindowSize';
-import useAccountContextMenu, { OPEN_CONTEXT_MENU_CLASS_NAME } from './hooks/useAccountContextMenu';
+import useAccountContextMenu from './hooks/useAccountContextMenu';
 
 import DropdownMenu from '../../../ui/DropdownMenu';
 import MenuBackdrop from '../../../ui/MenuBackdrop';

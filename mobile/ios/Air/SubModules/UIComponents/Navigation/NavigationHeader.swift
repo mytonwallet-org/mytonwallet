@@ -22,7 +22,7 @@ public struct NavigationHeader<Title: View, Subtitle: View>: View {
             _title
             _subtitle
         }
-        .frame(minWidth: 200, idealWidth: 200)
+        .frame(minWidth: 240, idealWidth: 240)
     }
     
     var _title: some View {
@@ -38,5 +38,12 @@ public struct NavigationHeader<Title: View, Subtitle: View>: View {
             .allowsTightening(true)
             .lineLimit(1)
             .offset(y: 1)
+    }
+}
+
+extension NavigationHeader where Subtitle == EmptyView {
+    public init(@ViewBuilder title: () -> Title) {
+        self.title = title()
+        self.subtitle = EmptyView()
     }
 }

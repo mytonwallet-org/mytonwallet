@@ -55,7 +55,7 @@ public class WordDisplayVC: WViewController {
 #Preview {
     LocalizationSupport.shared.setLanguageCode("ru")
     return WordDisplayVC(
-        introModel: IntroModel(password: nil),
+        introModel: IntroModel(network: .mainnet, password: nil),
         wordList: [
             "word 1", "word 2", "word 3", "word 4",
             "word 5", "word 6", "word 7", "word 8",

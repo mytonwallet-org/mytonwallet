@@ -30,6 +30,7 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
     public let token: ApiToken?
 
     @MainActor public var activitiesById: [String: ApiActivity]?
+    @MainActor private var activityIdAliasesSnapshot: [String: String] = [:]
     @MainActor public var idsByDate: OrderedDictionary<Date, [String]>?
     @MainActor public var isEndReached: Bool?
     @MainActor public var isEmpty: Bool?
@@ -38,6 +39,7 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
     public weak var delegate: ActivityViewModelDelegate?
 
     private var activitiesStore: _ActivityStore = .shared
+    private var activityIdAliases: [String: String] = [:]
 
     public private(set) var loadMoreTask: Task<Void, Never>?
 
@@ -45,15 +47,17 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
         self.accountContext = AccountContext(accountId: accountId)
         self.accountId = accountId
         self.token = token
-        await getState(updatedIds: [])
+        await getState(updatedIds: [], replacedIds: [:])
         WalletCoreData.add(eventObserver: self)
         self.delegate = delegate // set delegate after getState so that it doesn't get notified on the initial load
     }
 
-    private func getState(updatedIds: [String]) async {
+    private func getState(updatedIds: [String], replacedIds: [String: String]) async {
         let accountState = await activitiesStore.getAccountState(accountId)
 
         let activitiesById = accountState.byId
+        
+        let poisoningCache = await activitiesStore.getPoisoningCache(accountId)
 
         var ids = if let slug = token?.slug {
             accountState.idsBySlug?[slug]
@@ -64,44 +68,64 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
         let alwaysShownSlugs = AccountStore.assetsAndActivityData[accountId]?.alwaysShownSlugs
         ids = ids?.filter {
             if let activity = activitiesById?[$0] {
-                if activity.kind == .swap {
+                switch activity {
+                case .transaction(let transaction):
+                    if activity.shouldHide == true {
+                        return false
+                    }
+                    if transaction.isIncoming && poisoningCache.isTransactionWithPoisoning(transaction: transaction) {
+                        return false
+                    }
+                    if hideTinyTransfers {
+                        let tokenPriceUsd = TokenStore.tokens[activity.slug]?.priceUsd
+                        if self.token != nil && tokenPriceUsd == 0 { // do not hide zero value tokens on token page
+                            return true
+                        }
+                        if !activity.isTinyOrScamTransaction {
+                            return true
+                        }
+                        if alwaysShownSlugs?.contains(activity.slug) == true {
+                            return true
+                        }
+                        return false
+                    } else {
+                        return true
+                    }
+                case .swap:
                     return true
                 }
-                if activity.shouldHide == true {
-                    return false
-                }
-                if !hideTinyTransfers {
-                    return true
-                }
-                let tokenPriceUsd = TokenStore.tokens[activity.slug]?.priceUsd
-                if self.token != nil && tokenPriceUsd == 0 {
-                    return true
-                }
-                if !activity.isTinyOrScamTransaction {
-                    return true
-                }
-                if alwaysShownSlugs?.contains(activity.slug) == true {
-                    return true
-                }
+            } else {
+                return false
             }
-            return false
         }
 
         log.info("[inf] getState activitiesById: \(activitiesById?.count ?? -1)")
 
         let idsByDate: OrderedDictionary<Date, [String]>?
+        let updatedStableIds: [String]
         if let ids {
+            let stableIdByCurrent = updateActivityIdAliases(replacedIds: replacedIds, nextIds: ids)
             let grouped = OrderedDictionary(grouping: ids) { id in
-                if let activity = activitiesById?[id] {
+                let stableId = stableIdByCurrent[id] ?? id
+                let resolvedId = activityIdAliases[stableId] ?? stableId
+                if let activity = activitiesById?[resolvedId] {
                     return Calendar.current.startOfDay(for: activity.timestampDate)
                 }
                 assertionFailure("logic error")
                 return Date.distantPast
             }
+            idsByDate = OrderedDictionary(uniqueKeysWithValues: zip(grouped.keys, grouped.values.map { group in
+                group.map { stableIdByCurrent[$0] ?? $0 }
+            }))
             log.info("getState \(token?.slug ?? "main", .public): datesCount: \(grouped.count) idsCount: \(ids.count)")
-            idsByDate = grouped
+            var updatedSet = Set(updatedIds.map { stableIdByCurrent[$0] ?? $0 })
+            for (_, newId) in replacedIds {
+                updatedSet.insert(stableIdByCurrent[newId] ?? newId)
+            }
+            updatedStableIds = Array(updatedSet)
         } else {
             idsByDate = nil
+            updatedStableIds = []
         }
 
         let isEndReached = if let slug = token?.slug {
@@ -113,10 +137,12 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
         let snapshot = await makeSnapshot(idsByDate: idsByDate,
                                           showFirstRow: token != nil,
                                           isEndReached: isEndReached,
-                                          updatedIds: updatedIds)
+                                          updatedIds: updatedStableIds)
 
+        let activityIdAliasesSnapshot = activityIdAliases
         await MainActor.run {
             self.activitiesById = activitiesById
+            self.activityIdAliasesSnapshot = activityIdAliasesSnapshot
             self.idsByDate = idsByDate
             self.isEndReached = isEndReached
             self.isEmpty = isEndReached == true && idsByDate?.isEmpty != false
@@ -174,12 +200,12 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
 
     private func handleEvent(_ event: WalletCoreData.Event) async {
         switch event {
-        case .activitiesChanged(let accountId, let updatedIds, _):
+        case .activitiesChanged(let accountId, let updatedIds, let replacedIds):
             if accountId == self.accountId {
-                await getState(updatedIds: updatedIds)
+                await getState(updatedIds: updatedIds, replacedIds: replacedIds)
             }
         case .hideTinyTransfersChanged:
-            await getState(updatedIds: [])
+            await getState(updatedIds: [], replacedIds: [:])
         default:
             break
         }
@@ -190,14 +216,48 @@ public actor ActivityViewModel: WalletCoreData.EventsObserver {
         loadMoreTask = Task {
             do {
                 if let token {
-                    try await activitiesStore.fetchTokenTransactions(accountId: accountId, limit: 60, token: token, shouldLoadWithBudget: true)
+                    try await activitiesStore.fetchTokenActivities(accountId: accountId, limit: 60, token: token, shouldLoadWithBudget: true)
                 } else {
-                    try await activitiesStore.fetchAllTransactions(accountId: accountId, limit: 60, shouldLoadWithBudget: true)
+                    try await activitiesStore.fetchAllActivities(accountId: accountId, limit: 60, shouldLoadWithBudget: true)
                 }
             } catch {
-                log.info("requestMoreIfNeeded: \(error)")
+                log.error("requestMoreIfNeeded: \(error)")
             }
             self.loadMoreTask = nil
         }
+    }
+
+    private func updateActivityIdAliases(replacedIds: [String: String], nextIds: [String]) -> [String: String] {
+        if !replacedIds.isEmpty {
+            for (oldId, newId) in replacedIds {
+                if let stableId = activityIdAliases.first(where: { $0.value == oldId })?.key {
+                    activityIdAliases = activityIdAliases.filter { key, value in
+                        value != newId || key == stableId
+                    }
+                    activityIdAliases[stableId] = newId
+                } else {
+                    activityIdAliases = activityIdAliases.filter { key, value in
+                        value != newId || key == oldId
+                    }
+                    activityIdAliases[oldId] = newId
+                }
+            }
+        }
+        if !activityIdAliases.isEmpty {
+            let nextIdSet = Set(nextIds)
+            activityIdAliases = activityIdAliases.filter { _, currentId in
+                nextIdSet.contains(currentId)
+            }
+        }
+        var stableIdByCurrent: [String: String] = [:]
+        for (stableId, currentId) in activityIdAliases {
+            stableIdByCurrent[currentId] = stableId
+        }
+        return stableIdByCurrent
+    }
+
+    @MainActor public func activity(forStableId stableId: String) -> ApiActivity? {
+        let resolvedId = activityIdAliasesSnapshot[stableId] ?? stableId
+        return activitiesById?[resolvedId]
     }
 }

@@ -75,6 +75,15 @@ class WReplaceableLabel(context: Context) : WFrameLayout(context), WThemedView {
         val font: WFont,
     )
 
+    fun setGravity(newGravity: Int) {
+        prevLabel.layoutParams = (prevLabel.layoutParams as LayoutParams).apply {
+            gravity = newGravity
+        }
+        currentLabel.layoutParams = (currentLabel.layoutParams as LayoutParams).apply {
+            gravity = newGravity
+        }
+    }
+
     fun setText(config: Config, animated: Boolean = true) {
         if (!animated || configs.isEmpty()) {
             configs.clear()
@@ -144,7 +153,7 @@ class WReplaceableLabel(context: Context) : WFrameLayout(context), WThemedView {
                 invalidate()
             }
             doOnEnd {
-                if (configs.isNotEmpty()) configs.removeAt(0)
+                if (configs.size > 1) configs.removeAt(0)
                 animationProgress = 0f
                 if (configs.size > 1) {
                     startNextAnimation()

@@ -35,15 +35,15 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uipasscode.commonViews.PasscodeInputView
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.NftAccentColors
-import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
+import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -364,17 +364,11 @@ class PasscodeScreenView(
 
     override fun updateTheme() {
         if (passcodeViewState !is PasscodeViewState.Default) {
-            if (ThemeManager.uiMode.hasRoundedCorners) {
-                topLinearLayout.setBackgroundColor(
-                    WColor.Background.color,
-                    ViewConstants.TOP_RADIUS.dp,
-                    ViewConstants.BIG_RADIUS.dp,
-                )
-            } else {
-                topLinearLayout.background = SeparatorBackgroundDrawable().apply {
-                    backgroundWColor = WColor.Background
-                }
-            }
+            topLinearLayout.setBackgroundColor(
+                WColor.Background.color,
+                ViewConstants.TOP_RADIUS.dp,
+                ViewConstants.BIG_RADIUS.dp,
+            )
             bottomLayout.setBackgroundColor(
                 WColor.Background.color,
                 ViewConstants.BIG_RADIUS.dp,

@@ -170,7 +170,7 @@ class TokensVC(
         view.setConstraints {
             allEdges(recyclerView)
             if (mode == Mode.HOME) {
-                toTop(showAllView, 320f)
+                toTop(showAllView, 300f)
                 toCenterX(showAllView)
             }
         }
@@ -246,7 +246,7 @@ class TokensVC(
 
     val calculatedHeight: Int
         get() {
-            return (64 * walletTokens.size).dp + (if (thereAreMoreToShow) 56 else 0).dp
+            return (60 * walletTokens.size).dp + (if (thereAreMoreToShow) 56 else 0).dp
         }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {

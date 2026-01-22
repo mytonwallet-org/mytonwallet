@@ -397,6 +397,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                                 pendingTransactions.add(transaction)
                             }
                         }
+                        transactions.removeAll { it.isPending() }
                         if (pendingTransactions.isNotEmpty()) {
                             Handler(Looper.getMainLooper()).post {
                                 WalletCore.notifyEvent(

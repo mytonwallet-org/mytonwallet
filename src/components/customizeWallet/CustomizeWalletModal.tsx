@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useMemo, useState } from '../../lib/teact/teact';
+import React, { memo, useMemo, useState } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import type { ApiBaseCurrency, ApiCurrencyRates, ApiNft } from '../../api/types';
@@ -17,6 +17,7 @@ import { openUrl } from '../../util/openUrl';
 import { IS_DELEGATED_BOTTOM_SHEET } from '../../util/windowEnvironment';
 import { DEFAULT_CARD_ADDRESS } from './constants';
 
+import useEffectWithPrevDeps from '../../hooks/useEffectWithPrevDeps';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useScrolledState from '../../hooks/useScrolledState';
@@ -92,21 +93,26 @@ function CustomizeWalletModal({
     isScrolled,
   } = useScrolledState();
 
-  useEffect(() => {
+  useEffectWithPrevDeps(([prevIsOpen]) => {
     if (isOpen && accountId) {
       fetchNftsFromCollection({ collectionAddress: MTW_CARDS_COLLECTION });
     }
+
     return () => {
-      clearNftCollectionLoading({ collectionAddress: MTW_CARDS_COLLECTION });
+      if (prevIsOpen && !isOpen) {
+        clearNftCollectionLoading({ collectionAddress: MTW_CARDS_COLLECTION });
+      }
     };
   }, [isOpen, accountId]);
 
-  useEffect(() => {
+  useEffectWithPrevDeps(([prevIsOpen]) => {
     if (isOpen && accountId) {
       setSelectedCardAddress(currentCardNft?.address ?? DEFAULT_CARD_ADDRESS); // Update selected card address to the current card when switching wallets
     }
     return () => {
-      setSelectedCardAddress(DEFAULT_CARD_ADDRESS);
+      if (prevIsOpen && !isOpen) {
+        setSelectedCardAddress(DEFAULT_CARD_ADDRESS);
+      }
     };
   }, [isOpen, accountId, currentCardNft?.address]);
 

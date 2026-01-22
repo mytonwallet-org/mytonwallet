@@ -125,6 +125,10 @@ public final class SendModel: Sendable {
             self.addressInput.textFieldInput = BURN_ADDRESS
         }
         
+        addressInput.onScanResult = { [weak self] in
+            self?.onScanResult($0)
+        }
+        
         setupObservers()
 
         updateAccountBalance()
@@ -263,7 +267,56 @@ public final class SendModel: Sendable {
         !insufficientFunds &&
         resolvedAddress != nil &&
         !(isCommentRequired && comment.isEmpty) &&
-        (amount ?? 0 > 0 || nfts?.count ?? 0 > 0)
+        (amount ?? 0 > 0 || nfts?.count ?? 0 > 0) &&
+        !shouldShowMultisigWarning &&
+        !shouldShowGasWarning &&
+        !shouldShowDomainScamWarning
+    }
+    
+    var shouldShowMultisigWarning: Bool {
+        if account.byChain[token.chain]?.isMultisig == true {
+            return true
+        }
+        return false
+    }
+
+    var shouldShowGasWarning: Bool {
+        let chain = token.chainValue
+        if !chain.shouldShowScamWarningIfNotEnoughGas {
+            return false
+        }
+        guard draftData.transactionDraft?.error == .insufficientBalance else { return false }
+        
+        // Check if account has that chain tokens (like USDT)
+        let usdtSlug = chain.usdtSlug[account.network]
+        for (slug, balance) in $account.balances {
+            guard balance > 0 else { continue }
+            if slug == usdtSlug {
+                return true
+            }
+            if let token = TokenStore.tokens[slug], token.chainValue == chain, token.isNative == false {
+                return true
+            }
+        }
+        return false
+    }
+    
+    var shouldShowDomainScamWarning: Bool {
+        guard draftData.transactionDraft?.error != .domainNotResolved else { return false }
+        guard case .constant(let input) = addressInput.source else { return false }
+        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        return trimmed.firstMatch(of: DOMAIN_SCAM_REGEX) != nil
+    }
+    
+    var seedPhraseScamHelpUrl: URL {
+        let urlString = Language.current == .ru ? HELP_CENTER_SEED_SCAM_URL_RU : HELP_CENTER_SEED_SCAM_URL
+        return URL(string: urlString)!
+    }
+    
+    var domainScamHelpUrl: URL {
+        let urlString = Language.current == .ru ? HELP_CENTER_DOMAIN_SCAM_URL_RU : HELP_CENTER_DOMAIN_SCAM_URL
+        return URL(string: urlString)!
     }
     
     var dieselStatus: DieselStatus? {

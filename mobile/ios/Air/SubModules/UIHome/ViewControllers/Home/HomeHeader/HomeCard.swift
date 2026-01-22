@@ -179,7 +179,7 @@ private struct CollapsedContentContainer: View {
     var body: some View {
         WithPerceptionTracking {
             if let headerViewModel = container.headerViewModel, let accountContext = container.accountContext {
-                HomeHeaderCollapsedContent(headerViewModel: headerViewModel, accountContext: accountContext)
+                HomeCardCollapsedContent(headerViewModel: headerViewModel, accountContext: accountContext)
             }
         }
     }
@@ -225,8 +225,9 @@ private struct CardMiniatureContainer: View {
 #if DEBUG
 @available(iOS 26, *)
 #Preview(traits: .sizeThatFitsLayout) {
-    let headerViewModel = HomeHeaderViewModel(accountId: "0-mainnet")
-    let accountContext = AccountContext(accountId: "0-mainnet")
+    let accountSource = AccountSource("0-mainnet")
+    let headerViewModel = HomeHeaderViewModel(accountSource: accountSource)
+    let accountContext = AccountContext(source: accountSource)
     let cell = HomeCard()
 //    let _ = cell.contentView.layer.borderColor = UIColor.red.cgColor
     let _ = cell.contentView.layer.borderWidth = 1

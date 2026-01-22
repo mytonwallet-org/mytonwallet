@@ -6,9 +6,11 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.localization.WLanguage
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.UIMode
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.models.MAutoLockOption
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.models.MWalletSettingsViewMode
 
 object WGlobalStorage {
@@ -70,8 +72,11 @@ object WGlobalStorage {
     private const val ACTIVE_THEME = "settings.theme"
     private const val ACTIVE_FONT = "settings.font"
     private const val ACTIVE_UI_MODE = "settings.uiMode"
+    private const val IS_TESTNET = "settings.isTestnet"
     private const val ARE_ANIMATIONS_ACTIVE = "settings.animationLevel"
     private const val ARE_SIDE_GUTTERS_ACTIVE = "settings.sideGutters"
+    private const val ARE_ROUNDED_CORNERS_ACTIVE = "settings.roundedCorners"
+    private const val IS_BLUR_ENABLED = "settings.blurEnabled"
     private const val ARE_SOUNDS_ACTIVE = "settings.canPlaySounds"
     private const val HIDE_TINY_TRANSFERS = "settings.areTinyTransfersHidden"
     private const val HIDE_NO_COST_TOKENS = "settings.areTokensWithNoCostHidden"
@@ -134,12 +139,13 @@ object WGlobalStorage {
         )
     }
 
-    fun accountIds(): Array<String> {
+    fun accountIds(network: MBlockchainNetwork? = null): Array<String> {
         cachedAccountIds?.let {
             return it
         }
         val allIds = globalStorageProvider.keysIn("accounts.byId").filter {
-            !temporaryAddedAccountIds.contains(it)
+            !temporaryAddedAccountIds.contains(it) &&
+                (network == null || MBlockchainNetwork.ofAccountId(it) == network)
         }.toTypedArray()
         val orderedIds = globalStorageProvider.getArray(ORDERED_ACCOUNT_IDS)
             ?.let { array ->
@@ -167,7 +173,7 @@ object WGlobalStorage {
     ) {
         val suggestedName = name ?: when {
             isTemporary -> LocaleController.getString("Wallet")
-            else -> getSuggestedName(accountType)
+            else -> getSuggestedName(MBlockchainNetwork.ofAccountId(accountId), accountType)
         }
         save(accountId = accountId, accountName = suggestedName, persist = false)
 
@@ -290,6 +296,9 @@ object WGlobalStorage {
     }
 
     fun setActiveAccountId(id: String?, persistInstantly: Boolean) {
+        setIsTestnet(
+            id?.let { MBlockchainNetwork.ofAccountId(id) != MBlockchainNetwork.MAINNET } ?: false
+        )
         globalStorageProvider.set(
             CURRENT_ACCOUNT_ID,
             id,
@@ -367,6 +376,14 @@ object WGlobalStorage {
         } ?: UIMode.BIG_RADIUS
     }
 
+    private fun setIsTestnet(isTestnet: Boolean) {
+        globalStorageProvider.set(
+            IS_TESTNET,
+            isTestnet,
+            IGlobalStorageProvider.PERSIST_NO
+        )
+    }
+
     fun getAreAnimationsActive(): Boolean {
         return (globalStorageProvider.getInt(ARE_ANIMATIONS_ACTIVE) ?: 2) > 0
     }
@@ -380,13 +397,38 @@ object WGlobalStorage {
     }
 
     fun getAreSideGuttersActive(): Boolean {
-        return globalStorageProvider.getBool(ARE_SIDE_GUTTERS_ACTIVE) != false
+        return globalStorageProvider.getBool(ARE_SIDE_GUTTERS_ACTIVE)
+            ?: !ApplicationContextHolder.isSmallScreen
     }
 
     fun setAreSideGuttersActive(active: Boolean) {
         globalStorageProvider.set(
             ARE_SIDE_GUTTERS_ACTIVE,
             active,
+            IGlobalStorageProvider.PERSIST_INSTANT
+        )
+    }
+
+    fun getAreRoundedCornersActive(): Boolean {
+        return globalStorageProvider.getBool(ARE_ROUNDED_CORNERS_ACTIVE) ?: true
+    }
+
+    fun setAreRoundedCornersActive(active: Boolean) {
+        globalStorageProvider.set(
+            ARE_ROUNDED_CORNERS_ACTIVE,
+            active,
+            IGlobalStorageProvider.PERSIST_INSTANT
+        )
+    }
+
+    fun isBlurEnabled(): Boolean {
+        return globalStorageProvider.getBool(IS_BLUR_ENABLED) ?: true
+    }
+
+    fun setBlurEnabled(enabled: Boolean) {
+        globalStorageProvider.set(
+            IS_BLUR_ENABLED,
+            enabled,
             IGlobalStorageProvider.PERSIST_INSTANT
         )
     }
@@ -439,13 +481,20 @@ object WGlobalStorage {
         )
     }
 
-    fun getActivityIds(accountId: String, slug: String?): Array<String>? {
-        val key = if (slug == null) {
+    private fun cachedActivitiesKey(accountId: String, slug: String?): String {
+        return if (slug == null) {
             "byAccountId.$accountId.activities.idsMain"
         } else {
             "byAccountId.$accountId.activities.idsBySlug.$slug"
         }
-        val ids = globalStorageProvider.getArray(key)
+    }
+
+    fun hasCachedActivities(accountId: String, slug: String?): Boolean {
+        return globalStorageProvider.contains(cachedActivitiesKey(accountId, slug))
+    }
+
+    fun getActivityIds(accountId: String, slug: String?): Array<String>? {
+        val ids = globalStorageProvider.getArray(cachedActivitiesKey(accountId, slug))
         return ids?.let {
             return Array(it.length()) { index -> it.getString(index) }
         }
@@ -940,7 +989,7 @@ object WGlobalStorage {
         }
 
         if (currentState < 47) {
-            val accountIds = accountIds()
+            val accountIds = accountIds(network = null)
             for (accountId in accountIds) {
                 val account = getAccount(accountId) ?: continue
                 if (account.optString("type") != "hardware")
@@ -980,23 +1029,28 @@ object WGlobalStorage {
         }
     }
 
-    fun getSuggestedName(type: String): String {
+    fun getSuggestedName(network: MBlockchainNetwork, type: String): String {
         val baseNameKey = when (type) {
             "mnemonic" -> "My Wallet"
             "hardware" -> "Ledger"
             else -> "Wallet"
         }
-        return getSuggestedAccountName(type, baseNameKey)
+        return getSuggestedAccountName(network = network, type = type, baseNameKey = baseNameKey)
     }
 
-    private fun getSuggestedAccountName(type: String, baseNameKey: String): String {
-        if (accountIds().isEmpty()) {
-            return LocaleController.getString("MyTonWallet")
+    private fun getSuggestedAccountName(
+        network: MBlockchainNetwork,
+        type: String,
+        baseNameKey: String
+    ): String {
+        val prefix = if (network == MBlockchainNetwork.MAINNET) "" else "Testnet "
+        if (accountIds(network = network).isEmpty()) {
+            return "$prefix${LocaleController.getString("MyTonWallet")}"
         }
-        val count = countAccountsByType(type)
-        return "${LocaleController.getString(baseNameKey)} ${count + 1}"
+        val count = countAccountsByType(network = network, type = type)
+        return "$prefix$baseNameKey ${count + 1}"
     }
 
-    private fun countAccountsByType(type: String): Int =
-        accountIds().count { accountId -> getAccount(accountId)?.optString("type") == type }
+    private fun countAccountsByType(network: MBlockchainNetwork, type: String): Int =
+        accountIds(network = network).count { accountId -> getAccount(accountId)?.optString("type") == type }
 }

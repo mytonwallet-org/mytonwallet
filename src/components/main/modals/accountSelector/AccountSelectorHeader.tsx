@@ -2,6 +2,7 @@ import React, { memo, useMemo } from '../../../../lib/teact/teact';
 import { getActions } from '../../../../global';
 
 import type { DropdownItem } from '../../../ui/Dropdown';
+import { AccountSelectorState } from '../../../../global/types';
 
 import buildClassName from '../../../../util/buildClassName';
 import { vibrate } from '../../../../util/haptics';
@@ -19,33 +20,27 @@ import Transition from '../../../ui/Transition';
 import modalStyles from '../../../ui/Modal.module.scss';
 import styles from './AccountSelectorHeader.module.scss';
 
-export enum RenderingState {
-  Cards,
-  List,
-  Reorder,
-}
-
 type MenuHandler = 'cards' | 'list' | 'reorder';
 
 interface OwnProps {
   walletsCount: number;
   totalBalance?: string;
-  renderingState: RenderingState;
+  renderingState: AccountSelectorState;
   isSensitiveDataHidden?: true;
-  onViewModeChange: (state: RenderingState) => void;
+  onViewModeChange: (state: AccountSelectorState) => void;
   onReorderClick: NoneToVoidFunction;
 }
 
-const MENU_HANDLER_TO_RENDERING_STATE: Record<MenuHandler, RenderingState> = {
-  cards: RenderingState.Cards,
-  list: RenderingState.List,
-  reorder: RenderingState.Reorder,
+const MENU_HANDLER_TO_RENDERING_STATE: Record<MenuHandler, AccountSelectorState> = {
+  cards: AccountSelectorState.Cards,
+  list: AccountSelectorState.List,
+  reorder: AccountSelectorState.Reorder,
 };
 
-const RENDERING_STATE_TO_MENU_HANDLER: Record<RenderingState, MenuHandler> = {
-  [RenderingState.Cards]: 'cards',
-  [RenderingState.List]: 'list',
-  [RenderingState.Reorder]: 'reorder',
+const RENDERING_STATE_TO_MENU_HANDLER: Partial<Record<AccountSelectorState, MenuHandler>> = {
+  [AccountSelectorState.Cards]: 'cards',
+  [AccountSelectorState.List]: 'list',
+  [AccountSelectorState.Reorder]: 'reorder',
 };
 
 const ALL_MENU_ITEMS: DropdownItem<MenuHandler>[] = [{
@@ -92,7 +87,7 @@ const AccountSelectorHeader = ({
     void vibrate();
     const state = MENU_HANDLER_TO_RENDERING_STATE[handler];
 
-    if (state === RenderingState.Reorder) {
+    if (state === AccountSelectorState.Reorder) {
       onReorderClick();
     } else {
       onViewModeChange(state);

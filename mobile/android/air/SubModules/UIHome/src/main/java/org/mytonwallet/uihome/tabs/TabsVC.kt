@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.Rect
+import android.graphics.drawable.ShapeDrawable
 import android.os.Build
 import android.text.Spannable
 import android.text.SpannableString
@@ -44,9 +46,12 @@ import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.SwapSearchEditText
+import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
@@ -58,12 +63,15 @@ import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.SettingsVC
-import org.mytonwallet.app_air.uitransaction.viewControllers.TransactionVC
+import org.mytonwallet.app_air.uitransaction.viewControllers.transaction.TransactionVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
+import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
@@ -76,7 +84,6 @@ import org.mytonwallet.app_air.walletcore.stores.ExploreHistoryStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.uihome.R
 import org.mytonwallet.uihome.home.HomeVC
-import kotlin.math.max
 import kotlin.math.roundToInt
 
 class TabsVC(context: Context) : WViewController(context), WThemedView, WProtectedView,
@@ -89,13 +96,14 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         const val ID_EXPLORE = 2
         const val ID_SETTINGS = 3
 
-        const val SEARCH_HEIGHT = 48
-        const val SEARCH_TOP_MARGIN = 8
+        const val SEARCH_HEIGHT = 44
+        const val SEARCH_TOP_MARGIN = 4
+        const val SEARCH_BOTTOM_MARGIN = 12
 
         const val BOTTOM_TABS_LAYOUT_HEIGHT = 75
         const val BOTTOM_TABS_PADDING_OFFSET = -2
         const val BOTTOM_TABS_BOTTOM_MARGIN = -5
-        const val BOTTOM_TABS_TOP_MARGIN = -8
+        const val BOTTOM_TABS_TOP_MARGIN = -6
         const val BOTTOM_TABS_BOTTOM_TO_NAV_DIFF = 2
 
         const val ELEVATION_COLOR = 0x44000000
@@ -110,7 +118,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
 
     private val bottomCornerView: ReversedCornerViewUpsideDown by lazy {
         ReversedCornerViewUpsideDown(context, contentView).apply {
-            setBlurOverlayColor(WColor.SecondaryBackground)
+            setBlurOverlayColor(WColor.SecondaryBackground.color)
         }
     }
 
@@ -149,6 +157,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         bottomNavigationView.labelVisibilityMode = NavigationBarView.LABEL_VISIBILITY_LABELED
 
         // Set the item selected listener
+        var isSwitchingTabs = false
         bottomNavigationView.setOnItemSelectedListener { item ->
             if (bottomNavigationView.selectedItemId == item.itemId) {
                 stackNavigationControllers[item.itemId]?.apply {
@@ -159,23 +168,96 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
                 }
                 return@setOnItemSelectedListener true
             }
+            if (isSwitchingTabs) {
+                return@setOnItemSelectedListener false
+            }
+
             bottomNavigationView.post {
                 hideTooltips()
             }
-            (contentView[0] as? WNavigationController)?.viewWillDisappear()
 
-            val nav = getNavigationStack(item.itemId)
-            searchVisible.animatedValue = item.itemId == ID_EXPLORE
-            if (searchView.hasFocus() && !searchVisible.animatedValue)
+            val oldNav = contentView[0] as? WNavigationController
+            oldNav?.viewWillDisappear()
+
+            val newNav = getNavigationStack(item.itemId)
+            val searchVisible = item.itemId == ID_EXPLORE
+            if (searchView.hasFocus() && !searchVisible)
                 searchView.clearFocus()
 
-            contentView.removeAllViews()
-            contentView.addView(
-                nav,
-                ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
-            )
-            nav.viewWillAppear()
-            nav.viewDidAppear()
+            val animationsEnabled = WGlobalStorage.getAreAnimationsActive()
+
+            if (animationsEnabled) {
+                if (searchVisible) {
+                    searchView.visibility = View.VISIBLE
+                }
+                searchView.animate()
+                    .alpha(if (searchVisible) 1f else 0f)
+                    .setDuration(AnimationConstants.VERY_VERY_QUICK_ANIMATION)
+                    .setInterpolator(CubicBezierInterpolator.EASE_OUT)
+                    .withEndAction {
+                        if (!searchVisible) {
+                            searchView.visibility = View.INVISIBLE
+                        }
+                    }
+                    .start()
+
+                newNav.alpha = 0f
+                newNav.scaleX = 0.98f
+                newNav.scaleY = 0.98f
+
+                contentView.addView(
+                    newNav,
+                    0,
+                    ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+                )
+
+                newNav.viewWillAppear()
+
+                isSwitchingTabs = true
+
+                oldNav?.animate()
+                    ?.alpha(0f)
+                    ?.scaleX(0.98f)
+                    ?.scaleY(0.98f)
+                    ?.setDuration(AnimationConstants.VERY_VERY_QUICK_ANIMATION)
+                    ?.setInterpolator(CubicBezierInterpolator.EASE_OUT)
+                    ?.withEndAction {
+                        contentView.removeView(oldNav)
+                        isSwitchingTabs = false
+                        oldNav.alpha = 1f
+                        oldNav.scaleX = 1f
+                        oldNav.scaleY = 1f
+                    }
+
+                newNav.animate()
+                    .alpha(1f)
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .setDuration(AnimationConstants.VERY_VERY_QUICK_ANIMATION)
+                    .setInterpolator(CubicBezierInterpolator.EASE_OUT)
+                    .withEndAction {
+                        newNav.viewDidAppear()
+                        bottomNavigationView.post {
+                            onUpdateAdditionalHeight()
+                        }
+                    }
+                    .start()
+            } else {
+                searchView.alpha = if (searchVisible) 1f else 0f
+                searchView.visibility = if (searchVisible) View.VISIBLE else View.INVISIBLE
+
+                oldNav?.let { contentView.removeView(it) }
+                contentView.addView(
+                    newNav,
+                    ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+                )
+                newNav.viewWillAppear()
+                newNav.viewDidAppear()
+                bottomNavigationView.post {
+                    onUpdateAdditionalHeight()
+                }
+            }
+
             true
         }
         bottomNavigationView.background = null
@@ -183,8 +265,22 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
     }
 
     var isProcessingSearchKeyword = false
-    private val searchView by lazy {
+    private val searchBlurryBackgroundView =
+        if (DevicePerformanceClassifier.isHighClass)
+            WBlurryBackgroundView(context, fadeSide = null)
+        else
+            null
+    private val searchEditText by lazy {
         object : SwapSearchEditText(context) {
+            override fun onFocusChanged(
+                focused: Boolean,
+                direction: Int,
+                previouslyFocusedRect: Rect?
+            ) {
+                super.onFocusChanged(focused, direction, previouslyFocusedRect)
+                searchFocused.animatedValue = focused
+            }
+
             override fun onSelectionChanged(selStart: Int, selEnd: Int) {
                 super.onSelectionChanged(selStart, selEnd)
                 if (isProcessingSearchKeyword || searchMatchedSite == null)
@@ -198,8 +294,6 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         }.apply {
             hint =
                 LocaleController.getString("Search app or enter address")
-            isVisible = false
-            isEnabled = false
             doOnTextChanged { text, start, before, count ->
                 if (text != null && text == searchKeyword)
                     return@doOnTextChanged
@@ -270,6 +364,31 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             }
         }
     }
+    private val searchView by lazy {
+        WFrameLayout(context).apply {
+            alpha = 0f
+            visibility = View.INVISIBLE
+            elevation = 2f
+            translationY = -SEARCH_BOTTOM_MARGIN.dp.toFloat()
+            searchBlurryBackgroundView?.let {
+                addView(
+                    searchBlurryBackgroundView,
+                    FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+                )
+                setBackgroundColor(Color.TRANSPARENT, 24f.dp, clipToBounds = true)
+            } ?: run {
+                setBackgroundColor(WColor.SecondaryBackground.color, 24f.dp, clipToBounds = true)
+            }
+            addView(searchEditText, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        }
+    }
+
+    val searchWidth by lazy {
+        val hintWidth = searchEditText.paint.measureText(
+            LocaleController.getString("Search app or enter address")
+        ).ceilToInt()
+        (62.dp + hintWidth).coerceAtMost(320.dp)
+    }
 
     private val bottomNavigationFrameLayout = WFrameLayout(context)
 
@@ -277,45 +396,56 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         render()
     }
 
-    private val searchVisible =
-        BoolAnimator(220L, AnimatorUtils.DECELERATE_INTERPOLATOR, false) { state, value, _, _ ->
-            searchView.isVisible = state != BoolAnimator.State.FALSE
-            searchView.isEnabled = state == BoolAnimator.State.TRUE
-            searchView.alpha = max(0f, value - 0.5f) * 2
-            render()
+    private var searchFocused =
+        BoolAnimator(
+            AnimationConstants.VERY_QUICK_ANIMATION,
+            CubicBezierInterpolator.EASE_BOTH,
+            false
+        ) { _, _, _, _ ->
+            updateSearchWidth()
         }
 
     private fun render() {
-        val keyboard = if (keyboardVisible.value > 0) keyboardVisible.value else 0f
-        val minimizedNavHeight = if (minimizedNavHeight != null) minimizedNavHeight!! else 0f
-        val searchAdditionalTopMargin = 4.dp
-        val additionalHeight =
-            ((56f.dp + searchAdditionalTopMargin) * searchVisible.floatValue + keyboard + minimizedNavHeight).roundToInt()
-        val contentHeight = BOTTOM_TABS_LAYOUT_HEIGHT.dp +
-            BOTTOM_TABS_BOTTOM_MARGIN.dp +
-            BOTTOM_TABS_TOP_MARGIN.dp +
-            additionalHeight
+        val keyboardHeight = keyboardVisible.value.coerceAtLeast(0f)
+        val minimizedNavHeightPx = minimizedNavHeight ?: 0f
+
+        val tabsHeight =
+            BOTTOM_TABS_LAYOUT_HEIGHT.dp +
+                BOTTOM_TABS_TOP_MARGIN.dp +
+                BOTTOM_TABS_BOTTOM_MARGIN.dp
+
+        val contentHeight = tabsHeight + keyboardHeight + minimizedNavHeightPx
+
+        val hiddenTranslationY = (1f - visibilityFraction) * contentHeight
+
+        // Alpha
         bottomNavigationFrameLayout.alpha = visibilityFraction
         minimizedNav?.alpha = visibilityFraction
-        val bottomNavigationLayoutLayoutParams = bottomNavigationFrameLayout.layoutParams
-        if (bottomNavigationLayoutLayoutParams != null) {
+
+        // Bottom navigation height
+        bottomNavigationFrameLayout.layoutParams?.let { params ->
+            val systemInset = navigationController?.getSystemBars()?.bottom ?: 0
             val newHeight =
-                ((navigationController?.getSystemBars()?.bottom ?: 0) +
-                    (visibilityFraction * contentHeight).roundToInt())
-            if (bottomNavigationLayoutLayoutParams.height != newHeight) {
-                bottomNavigationLayoutLayoutParams.height = newHeight
-                bottomNavigationFrameLayout.layoutParams = bottomNavigationLayoutLayoutParams
+                systemInset + (visibilityFraction * contentHeight).roundToInt()
+
+            if (params.height != newHeight) {
+                params.height = newHeight
+                bottomNavigationFrameLayout.layoutParams = params
             }
             updateBottomBlurHeight()
         }
-        searchView.translationY =
-            (SEARCH_HEIGHT + SEARCH_TOP_MARGIN).dp - BOTTOM_TABS_LAYOUT_HEIGHT.dp - BOTTOM_TABS_BOTTOM_MARGIN.dp - BOTTOM_TABS_TOP_MARGIN.dp / 2 - (additionalHeight - searchAdditionalTopMargin).toFloat()
-        val visibilityTranslationY = (1 - visibilityFraction) * contentHeight
-        searchView.translationY += visibilityTranslationY
+
+        // Bottom navigation translation
         bottomNavigationView.y =
-            contentHeight - (BOTTOM_TABS_LAYOUT_HEIGHT.dp + BOTTOM_TABS_BOTTOM_MARGIN.dp + minimizedNavHeight) + BOTTOM_TABS_BOTTOM_TO_NAV_DIFF.dp * visibilityFraction
+            contentHeight -
+                (BOTTOM_TABS_LAYOUT_HEIGHT.dp +
+                    BOTTOM_TABS_BOTTOM_MARGIN.dp +
+                    minimizedNavHeightPx) +
+                BOTTOM_TABS_BOTTOM_TO_NAV_DIFF.dp * visibilityFraction
+
+        // Minimized nav animation
         if (activeVisibilityValueAnimator?.isRunning == true) {
-            minimizedNav?.y = minimizedNavY!! + visibilityTranslationY
+            minimizedNav?.y = minimizedNavY!! + hiddenTranslationY
         }
         onUpdateAdditionalHeight()
     }
@@ -334,13 +464,30 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         activeNavigationController?.insetsUpdated()
     }
 
-    private var initialBottomSafeArea = 0
+    private fun updateSearchWidth() {
+        if (searchView.layoutParams != null)
+            searchView.layoutParams = searchView.layoutParams.apply {
+                width = lerp(
+                    searchWidth.toFloat(),
+                    view.width - 2 * ViewConstants.HORIZONTAL_PADDINGS.dp - 20f.dp,
+                    searchFocused.floatValue
+                ).roundToInt()
+            }
+        searchEditText.setPaddingDp(
+            lerp(21f, 16f, searchFocused.floatValue).ceilToInt(),
+            0,
+            lerp(0f, 48f, searchFocused.floatValue).ceilToInt(),
+            0
+        )
+    }
 
     private fun hideTooltips() {
         for (i in 0..<bottomNavigationView.menu.size) {
             val item = bottomNavigationView.menu[i]
             val itemView = bottomNavigationView.findViewById<View?>(item.itemId)
-            TooltipCompat.setTooltipText(itemView, null)
+            itemView?.let {
+                TooltipCompat.setTooltipText(itemView, null)
+            }
         }
     }
 
@@ -358,12 +505,6 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
                     topMargin = BOTTOM_TABS_TOP_MARGIN.dp
                 }
         )
-        bottomNavigationFrameLayout.addView(
-            searchView,
-            FrameLayout.LayoutParams(MATCH_PARENT, SEARCH_HEIGHT.dp, Gravity.BOTTOM).apply {
-                leftMargin = 10.dp
-                rightMargin = 10.dp
-            })
 
         view.addView(contentView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         view.addView(
@@ -371,7 +512,13 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
         )
         view.addView(bottomNavigationFrameLayout, ViewGroup.LayoutParams(MATCH_PARENT, 0))
+        view.addView(
+            searchView,
+            FrameLayout.LayoutParams(searchWidth, SEARCH_HEIGHT.dp, Gravity.BOTTOM)
+        )
         view.setConstraints {
+            toCenterX(searchView)
+            bottomToTop(searchView, bottomNavigationFrameLayout)
             toBottom(bottomNavigationFrameLayout)
             toCenterX(bottomNavigationFrameLayout)
             toBottom(bottomCornerView)
@@ -381,7 +528,6 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             getNavigationStack(ID_HOME),
             ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
         )
-        initialBottomSafeArea = (navigationController?.getSystemBars()?.bottom ?: 0)
         view.post {
             render()
             activeNavigationController?.insetsUpdated()
@@ -447,8 +593,14 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         updateFloatingButtonBackground?.apply {
             backgroundColor = tintColor
         }
+        bottomCornerView.setBlurOverlayColor(WColor.SecondaryBackground.color)
+        bottomReversedCornerView?.setBlurOverlayColor(WColor.SecondaryBackground.color)
+        searchBlurryBackgroundView?.setOverlayColor(WColor.SecondaryBackground) ?: run {
+            (searchView.background as? ShapeDrawable)?.paint?.color =
+                WColor.SecondaryBackground.color
+        }
 
-        searchView.highlightColor = tintColor.colorWithAlpha(51)
+        searchEditText.highlightColor = tintColor.colorWithAlpha(51)
         checkForMatchingUrl(searchKeyword)
     }
 
@@ -489,11 +641,12 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
                 applyFonts(child)
             }
         } else if (view is TextView) {
+            view.letterSpacing = 0f
             view.typeface =
                 if (view.id == com.google.android.material.R.id.navigation_bar_item_large_label_view)
                     WFont.SemiBold.typeface
                 else
-                    WFont.Medium.typeface
+                    WFont.DemiBold.typeface
         }
     }
 
@@ -504,8 +657,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
                     (window?.imeInsets?.bottom ?: 0) -
                         (window?.systemBars?.bottom ?: 0) -
                         BOTTOM_TABS_LAYOUT_HEIGHT.dp -
-                        BOTTOM_TABS_BOTTOM_MARGIN.dp +
-                        (if (bottomNavigationView.selectedItemId == ID_EXPLORE) SEARCH_TOP_MARGIN.dp else 0) -
+                        BOTTOM_TABS_BOTTOM_MARGIN.dp -
                         (if (minimizedNav != null) 56.dp else 0)
                     ).toFloat(), 0f
             )
@@ -525,10 +677,14 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         onUpdateAdditionalHeight()
         bottomCornerView.setHorizontalPadding(ViewConstants.HORIZONTAL_PADDINGS.dp.toFloat())
 
+        if (!isKeyboardOpen && searchEditText.hasFocus()) {
+            searchEditText.clearFocus()
+        }
         if (searchMatchedSite != null && !isKeyboardOpen) {
             clearSearchAutoComplete()
         }
         updateBottomBlurHeight()
+        updateSearchWidth()
     }
 
     fun switchToExplore() {
@@ -538,6 +694,12 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
     }
 
     private var cachedExploreVC: ExploreVC? = null
+        set(value) {
+            field = value
+            value?.view?.let {
+                searchBlurryBackgroundView?.setupWith(it)
+            }
+        }
 
     private fun getNavigationStack(id: Int): WNavigationController {
         if (stackNavigationControllers.containsKey(id))
@@ -675,8 +837,8 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
                 txt.length,
                 Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
             )
-            searchView.setText(spannable)
-            searchView.setSelection(keyword.length, txt.length)
+            searchEditText.setText(spannable)
+            searchEditText.setSelection(keyword.length, txt.length)
             searchView.post {
                 searchView.scrollTo(0, 0)
             }
@@ -684,7 +846,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
     }
 
     private fun clearSearchAutoComplete() {
-        searchView.setText(searchKeyword)
+        searchEditText.setText(searchKeyword)
         checkForMatchingUrl(searchKeyword)
     }
 
@@ -730,7 +892,7 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
                             isBottomSheet = true
                         )
                     )
-                    val transactionVC = TransactionVC(context, activity)
+                    val transactionVC = TransactionVC(context, walletEvent.accountId, activity)
                     nav.setRoot(transactionVC)
                     window?.present(nav)
                 }
@@ -798,8 +960,8 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         val keyboard = keyboardHeight
         val minimizedNavHeight = minimizedNavHeight ?: 0f
         val additionalHeight =
-            ((if (bottomNavigationView.selectedItemId == ID_EXPLORE) 56f.dp else 0f) + keyboard + minimizedNavHeight).roundToInt()
-        return BOTTOM_TABS_LAYOUT_HEIGHT.dp + BOTTOM_TABS_BOTTOM_MARGIN.dp + BOTTOM_TABS_TOP_MARGIN.dp + additionalHeight +
+            ((if (bottomNavigationView.selectedItemId == ID_EXPLORE) (SEARCH_BOTTOM_MARGIN + SEARCH_HEIGHT + SEARCH_TOP_MARGIN).dp else 0) + keyboard + minimizedNavHeight).roundToInt()
+        return BOTTOM_TABS_LAYOUT_HEIGHT.dp + additionalHeight +
             (navigationController?.getSystemBars()?.bottom ?: 0)
     }
 
@@ -971,16 +1133,18 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         }
 
     override fun pauseBlurring() {
+        searchBlurryBackgroundView?.pauseBlurring()
         bottomCornerView.pauseBlurring()
     }
 
     override fun resumeBlurring() {
+        searchBlurryBackgroundView?.resumeBlurring()
         bottomCornerView.resumeBlurring()
     }
 
     override fun setSearchText(text: String) {
         searchView.requestFocus()
-        searchView.setText(text)
+        searchEditText.setText(text)
     }
 
     override fun onDestroy() {

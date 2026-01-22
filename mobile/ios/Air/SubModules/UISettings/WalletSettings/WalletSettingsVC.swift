@@ -70,7 +70,9 @@ public final class WalletSettingsVC: WViewController, WSegmentedController.Deleg
             primaryAction: UIAction { [weak self] _ in self?.dismiss(animated: true) }
         )
         if let sheet = sheetPresentationController {
-            sheet.prefersGrabberVisible = true
+            if IOS_26_MODE_ENABLED {
+                sheet.prefersGrabberVisible = true
+            }
             sheet.detents = [
                 .custom(identifier: .init("twoThirds")) { $0.maximumDetentValue * 0.667 },
                 .large(),

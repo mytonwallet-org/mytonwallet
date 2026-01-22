@@ -47,7 +47,7 @@ interface OwnProps {
   isActive: boolean;
   isStatic?: boolean;
   className?: string;
-  onConnected: () => void;
+  onConnected: NoneToVoidFunction;
   onBackButtonClick?: NoneToVoidFunction;
   onCancel?: NoneToVoidFunction;
   onClose: NoneToVoidFunction;
@@ -205,6 +205,7 @@ function LedgerConnect({
       <div className={buildClassName(
         styles.actionBlock,
         noCancelButton ? styles.actionBlockVertical : styles.actionBlockHorizontal,
+        isStatic && styles.actionBlockStatic,
       )}
       >
         <Button
@@ -256,7 +257,7 @@ function LedgerConnect({
           <ModalHeader
             title={title}
             onBackButtonClick={onBackButtonClick}
-            onClose={!onBackButtonClick ? handleClose : undefined}
+            onClose={handleClose}
           />
         ) : (
           <div className={settingsStyles.header}>

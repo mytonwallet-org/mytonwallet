@@ -16,7 +16,7 @@ addActionHandler('startTransfer', (global, actions, payload) => {
     return;
   }
 
-  const { isPortrait, ...rest } = payload ?? {};
+  const { isPortrait, isOfframp, ...rest } = payload ?? {};
 
   const nftTokenSlug = Symbol('nft');
   const previousFeeTokenSlug = global.currentTransfer.nfts?.length ? nftTokenSlug : global.currentTransfer.tokenSlug;
@@ -28,10 +28,21 @@ addActionHandler('startTransfer', (global, actions, payload) => {
     error: undefined,
     ...(shouldClearFee ? { fee: undefined, realFee: undefined, diesel: undefined } : {}),
     ...rest,
+    isOfframp,
   }));
 
   if (!isPortrait) {
     actions.setLandscapeActionsActiveTabIndex({ index: ActiveTab.Transfer });
+  }
+
+  // For offramp mode, automatically submit to calculate fee and go to Confirm screen
+  if (isOfframp && payload?.tokenSlug && payload?.amount && payload?.toAddress) {
+    actions.submitTransferInitial({
+      tokenSlug: payload.tokenSlug,
+      amount: payload.amount,
+      toAddress: payload.toAddress,
+      comment: payload.comment,
+    });
   }
 });
 

@@ -35,7 +35,7 @@ class AccountIconView(context: Context, val usage: Usage) : View(context) {
 
     private val textPaint = AccountAvatarRenderer.createTextPaint(
         when (usage) {
-            Usage.SELECTABLE_ITEM -> 18f.dp
+            Usage.SELECTABLE_ITEM -> 16f.dp
             Usage.VIEW_ITEM -> 14f.dp
             else -> 11f.dp
         }

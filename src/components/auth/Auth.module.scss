@@ -496,6 +496,10 @@ $footerPaddingBottomMin: 1rem;
       padding: 0 3rem;
     }
   }
+
+  &InModal {
+    padding: 0;
+  }
 }
 
 .coreWalletButtons {

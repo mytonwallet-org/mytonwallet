@@ -40,13 +40,11 @@ import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
-import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uireceive.ReceiveVC
 import org.mytonwallet.app_air.uisend.send.SendVC
 import org.mytonwallet.app_air.uistake.earn.EarnRootVC
 import org.mytonwallet.app_air.uiswap.screens.swap.SwapVC
-import org.mytonwallet.app_air.uitransaction.viewControllers.TransactionVC
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.uitransaction.viewControllers.transaction.TransactionVC
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -60,6 +58,7 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.lang.ref.WeakReference
+import java.util.Date
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -684,15 +683,6 @@ class TokenVC(context: Context, private var account: MAccount, var token: MToken
                     }
 
                     1 -> {
-                        if (ThemeManager.uiMode.hasRoundedCorners)
-                            return
-                        val cell = cellHolder.cell as HeaderActionsView
-                        cell.setBackgroundColor(
-                            WColor.Background.color,
-                            0f,
-                            ViewConstants.BIG_RADIUS.dp
-                        )
-                        cell.updateTheme()
                     }
 
                     2 -> {
@@ -707,15 +697,23 @@ class TokenVC(context: Context, private var account: MAccount, var token: MToken
                 if (indexPath.row < (showingTransactions?.size ?: 0)) {
                     val homeTransactionCell = cellHolder.cell as ActivityCell
                     val transaction = showingTransactions!![indexPath.row]
+                    val isFirstInDay = (indexPath.row == showingTransactions!!.size - 1) || !transaction.dt.isSameDayAs(
+                        showingTransactions!![indexPath.row + 1].dt
+                    ) && tokenVM.activityLoader?.loadedAll != false
                     homeTransactionCell.configure(
                         transaction,
                         account.accountId,
-                        indexPath.row == 0,
-                        indexPath.row == 0 || !transaction.dt.isSameDayAs(showingTransactions!![indexPath.row - 1].dt),
-                        (indexPath.row == showingTransactions!!.size - 1) || !transaction.dt.isSameDayAs(
-                            showingTransactions!![indexPath.row + 1].dt
-                        ) && tokenVM.activityLoader?.loadedAll != false,
-                        indexPath.row == showingTransactions!!.size - 1 && tokenVM.activityLoader?.loadedAll != false
+                        ActivityCell.Positioning(
+                            isFirst = indexPath.row == 0,
+                            isFirstInDay = indexPath.row == 0 || !transaction.dt.isSameDayAs(
+                                showingTransactions!![indexPath.row - 1].dt
+                            ),
+                            isLastInDay = isFirstInDay,
+                            isLast = indexPath.row == showingTransactions!!.size - 1 && tokenVM.activityLoader?.loadedAll != false,
+                            isAdded = isApplyingUpdate &&
+                                 oldTransactions?.contains(transaction.getStableId()) == false,
+                            isAddedAsNewDay = isFirstInDay && (oldTransactionsFirstDt == null || !transaction.dt.isSameDayAs(oldTransactionsFirstDt!!))
+                        )
                     )
                 } else {
                     val layoutParams: ViewGroup.LayoutParams = cellHolder.cell.layoutParams
@@ -753,8 +751,7 @@ class TokenVC(context: Context, private var account: MAccount, var token: MToken
         when (indexPath.section) {
             TRANSACTION_SECTION -> {
                 if (indexPath.row < (showingTransactions?.size ?: 0)) {
-                    val transaction = showingTransactions!![indexPath.row]
-                    return transaction.id
+                    return showingTransactions!![indexPath.row].getStableId()
                 }
             }
         }
@@ -763,7 +760,7 @@ class TokenVC(context: Context, private var account: MAccount, var token: MToken
 
     override fun updateTheme() {
         super.updateTheme()
-        view.setBackgroundColor(WColor.SecondaryBackground.color)
+        recyclerView.setBackgroundColor(WColor.SecondaryBackground.color)
         updateSkeletonState()
         headerView.updateTheme()
         rvAdapter.reloadData()
@@ -801,21 +798,36 @@ class TokenVC(context: Context, private var account: MAccount, var token: MToken
                     isBottomSheet = true
                 )
             )
-            transactionNav.setRoot(TransactionVC(context, transaction))
+            transactionNav.setRoot(TransactionVC(context, account.accountId, transaction))
             window.present(transactionNav)
         }
     }
 
     private var emptyView: WEmptyView? = null
+    private var oldTransactions: Set<String>? = null
+    private var oldTransactionsFirstDt: Date? = null
+    private var isApplyingUpdate = false
 
     override fun dataUpdated(isUpdateEvent: Boolean) {
         showingTransactions = tokenVM.activityLoader?.showingTransactions
         updateSkeletonState()
+        isApplyingUpdate = isUpdateEvent && oldTransactions != null
         rvAdapter.reloadData()
+        view.post {
+            isApplyingUpdate = false
+            showingTransactions?.let { showingTransactions ->
+                oldTransactions =
+                    showingTransactions.map { it.getStableId() }.toSet()
+                oldTransactionsFirstDt = showingTransactions.firstOrNull()?.dt
+            } ?: run {
+                oldTransactions = null
+                oldTransactionsFirstDt = null
+            }
+        }
     }
 
     override fun loadedAll() {
-        rvAdapter.reloadData()
+        dataUpdated(isUpdateEvent = false)
     }
 
     override fun priceDataUpdated() {

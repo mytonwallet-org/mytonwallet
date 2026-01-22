@@ -54,7 +54,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
     var windowSafeAreaGuide = UILayoutGuide()
     var windowSafeAreaGuideContraint: NSLayoutConstraint!
 
-    let actionsVC = ActionsVC()
+    let actionsVC: ActionsVC
     var actionsTopConstraint: NSLayoutConstraint!
     var walletAssetsVC: WalletAssetsVC!
     var assetsHeightConstraint: NSLayoutConstraint!
@@ -68,10 +68,11 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
 
     private var appearedOneTime = false
     
-    public init(accountId: String? = nil) {
+    public init(accountSource: AccountSource = .current) {
+        self.actionsVC = ActionsVC(accountSource: accountSource)
         super.init(nibName: nil, bundle: nil)
-        self.homeVM = HomeViewModel(accountId: accountId, delegate: self)
-        self.headerViewModel = HomeHeaderViewModel(accountId: accountId)
+        self.homeVM = HomeViewModel(accountSource: accountSource, delegate: self)
+        self.headerViewModel = HomeHeaderViewModel(accountSource: accountSource)
     }
 
     public override var hideNavigationBar: Bool { false }
@@ -153,7 +154,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         ])
 
         // balance header view
-        let balanceHeaderView = BalanceHeaderView(headerViewModel: headerViewModel, accountId: homeVM.account.id, delegate: self)
+        let balanceHeaderView = BalanceHeaderView(headerViewModel: headerViewModel, accountSource: homeVM.$account.source, delegate: self)
         self.balanceHeaderView = balanceHeaderView
         balanceHeaderView.alpha = 0
         headerContainerView.addSubview(balanceHeaderView)
@@ -241,18 +242,11 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         ])
         balanceHeaderView.updateStatusView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
-        // show `loading` or `wallet created` view if needed, based on situation
-        emptyWalletView.set(state: .hidden, animated: false)
-
         addBottomBarBlur()
         
         // fix gesture recognizer over BHV
         tableView.superview?.addGestureRecognizer(tableView.panGestureRecognizer)
 
-        NSLayoutConstraint.activate([
-            emptyWalletView.topAnchor.constraint(equalTo: walletAssetsVC.view.bottomAnchor, constant: 8)
-        ])
-        
         isInitializingCache = false
         applySnapshot(makeSnapshot(), animated: false)
         applySkeletonSnapshot(makeSkeletonSnapshot(), animated: false)
@@ -275,7 +269,7 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
 //            headerContainer.bottomAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.topAnchor, constant: 200),
         ])
         
-        let accountSelector = HomeAccountSelector(viewModel: headerViewModel, onIsScrolling: { _ in })
+        let accountSelector = HomeAccountSelector(viewModel: headerViewModel)
         headerContainer.addSubview(accountSelector)
         accountSelector.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
@@ -335,11 +329,9 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
             await changeAccountTo(accountId: homeVM.account.id, isNew: false)
         }
         
-        emptyWalletView.alpha = 0
         balanceHeaderView?.alpha = 0
         tableView.alpha = 0
         UIView.animate(withDuration: 0.3) {
-            self.emptyWalletView.alpha = 1
             self.balanceHeaderView?.alpha = 1
             self.tableView.alpha = 1
         }
@@ -573,7 +565,6 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
     func changeAccountTo(accountId: String, isNew: Bool) async {
         _activityViewModel = await ActivityViewModel(accountId: accountId, token: nil, delegate: self)
         transactionsUpdated(accountChanged: true, isUpdateEvent: false)
-        emptyWalletView.hide(animated: false)
         actionsVC.setAccountId(accountId: accountId, animated: true)
         if isNew {
             expandHeader()
@@ -584,6 +575,8 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
         navigationItem.trailingItemGroups = [
             UIBarButtonItemGroup(barButtonItems: canLock ? [lockItem, hideItem] : [hideItem], representativeItem: nil)
         ]
+        
+        animateTableViewOpacity(1)
     }
     
     private var activateAccountTask: Task<Void, any Error>?
@@ -595,7 +588,14 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
                 
         walletAssetsVC.interactivelySwitchAccountTo(accountId: accountId)
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) { [self] in
+        switchActivitiesTask?.cancel()
+        switchActivitiesTask = Task {
+            self.forceAnimation = true
+            
+            animateTableViewOpacity(0)
+            
+            try await Task.sleep(for: .seconds(0.03))
+            
             UIView.animate(withDuration: 0.30) { [self] in
                 actionsVC.setAccountId(accountId: accountId, animated: true)
                 headerHeightChanged(animated: true)
@@ -606,39 +606,36 @@ public class HomeVC: ActivitiesTableViewController, WSensitiveDataProtocol, Home
                 UIApplication.shared.sceneWindows.forEach { $0.updateTheme() }
             }
             if let balanceHeaderView {
-                balanceHeaderView.updateStatusView.accountId = accountId
+                balanceHeaderView.updateStatusView.$account.accountId = accountId
                 balanceHeaderView.updateStatusView.setState(newState: balanceHeaderView.updateStatusView.state, animatedWithDuration: 0.2)
             }
-        }
-        
-        switchActivitiesTask?.cancel()
-        switchActivitiesTask = Task {
+
+            try await Task.sleep(for: .seconds(0.12))
             
-            self.forceAnimation = true
-            
-            UIView.animate(withDuration: 0.25) { [self] in
-                for (_, subview) in tableView.subviews.enumerated() {
-                    if let cell = subview as? ActivityDateCell {
-                        cell.contentView.alpha = 0
-                    }
-                }
-                for cell in tableView.visibleCells {
-                    if let cell = cell as? ActivityCell {
-                        cell.contentView.alpha = 0
-                    }
-                }
-            }
-            
-            try await Task.sleep(for: .seconds(0.15))
             _activityViewModel = await ActivityViewModel(accountId: accountId, token: nil, delegate: self)
             transactionsUpdated(accountChanged: false, isUpdateEvent: false)
 
-            try await Task.sleep(for: .seconds(0.008))
-            
             try await Task.sleep(for: .seconds(0.3))
             try await AccountStore.activateAccount(accountId: accountId)
             
+            animateTableViewOpacity(1)
+            
             self.forceAnimation = false
+        }
+    }
+    
+    func animateTableViewOpacity(_ alpha: CGFloat) {
+        UIView.animate(withDuration: 0.25) { [self] in
+            for (_, subview) in tableView.subviews.enumerated() {
+                if let cell = subview as? ActivityDateCell {
+                    cell.contentView.alpha = alpha
+                }
+            }
+            for cell in tableView.visibleCells {
+                if let cell = cell as? ActivityCell {
+                    cell.contentView.alpha = alpha
+                }
+            }
         }
     }
     

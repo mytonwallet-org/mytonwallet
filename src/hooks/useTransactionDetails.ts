@@ -1,6 +1,6 @@
 import { useMemo } from '../lib/teact/teact';
 
-import type { ApiNft, ApiTokenWithPrice, ApiTransactionActivity } from '../api/types';
+import type { ApiChain, ApiNft, ApiTokenWithPrice, ApiTransactionActivity } from '../api/types';
 import type { Account, SavedAddress } from '../global/types';
 
 import { getIsActivityWithHash, getTransactionAmountDisplayMode, parseTxId } from '../util/activities';
@@ -16,6 +16,7 @@ interface UseTransactionDetailsOptions {
   savedAddresses?: SavedAddress[];
   currentAccountId: string;
   isTestnet?: boolean;
+  selectedExplorerIds?: Partial<Record<ApiChain, string>>;
 }
 
 export default function useTransactionDetails({
@@ -26,6 +27,7 @@ export default function useTransactionDetails({
   savedAddresses,
   currentAccountId,
   isTestnet,
+  selectedExplorerIds,
 }: UseTransactionDetailsOptions) {
   const {
     fromAddress,
@@ -62,7 +64,9 @@ export default function useTransactionDetails({
   }, [accounts, address, chain, currentAccountId, savedAddresses]);
 
   const addressName = localAddressName || transaction?.metadata?.name;
-  const transactionUrl = chain ? getExplorerTransactionUrl(chain, transactionHash, isTestnet) : undefined;
+  const transactionUrl = chain
+    ? getExplorerTransactionUrl(chain, transactionHash, isTestnet, selectedExplorerIds?.[chain])
+    : undefined;
 
   return {
     fromAddress,

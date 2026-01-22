@@ -29,6 +29,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
@@ -49,6 +50,7 @@ class AddressPopupHelpers {
             spannedString: SpannableStringBuilder,
             startIndex: Int,
             length: Int,
+            network: MBlockchainNetwork,
             addressTokenSlug: String,
             address: String,
             popupXOffset: Int,
@@ -78,6 +80,7 @@ class AddressPopupHelpers {
                                 widget,
                                 title,
                                 blockchain,
+                                network,
                                 address,
                                 popupXOffset,
                                 showTemporaryViewOption
@@ -101,6 +104,7 @@ class AddressPopupHelpers {
             view: View,
             title: CharSequence?,
             blockchain: MBlockchain,
+            network: MBlockchainNetwork,
             address: String,
             xOffset: Int,
             showTemporaryViewOption: Boolean,
@@ -112,7 +116,14 @@ class AddressPopupHelpers {
                     if (showTemporaryViewOption)
                         WMenuPopup.Item(
                             config = WMenuPopup.Item.Config.CustomView(
-                                TemporaryAccountItemView(context, title, blockchain, address, true)
+                                TemporaryAccountItemView(
+                                    context,
+                                    title,
+                                    blockchain,
+                                    network,
+                                    address,
+                                    true
+                                )
                             ),
                             hasSeparator = true
                         ) {
@@ -161,7 +172,7 @@ class AddressPopupHelpers {
                         LocaleController.getString("View on Explorer"),
                     ) {
                         val walletEvent =
-                            WalletEvent.OpenUrl(blockchain.explorerUrl(address))
+                            WalletEvent.OpenUrl(blockchain.explorerUrl(network, address))
                         WalletCore.notifyEvent(walletEvent)
                     }),
                 popupWidth = WRAP_CONTENT,

@@ -41,6 +41,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
@@ -82,7 +83,13 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
     open val protectFromScreenRecord = false
 
     // App will switch to displayed account id whenever screen is appeared
-    data class DisplayedAccount(val accountId: String?, val isPushedTemporary: Boolean)
+    data class DisplayedAccount(val accountId: String?, val isPushedTemporary: Boolean) {
+        val network: MBlockchainNetwork
+            get() {
+                return accountId?.let { MBlockchainNetwork.ofAccountId(it) }
+                    ?: MBlockchainNetwork.MAINNET
+            }
+    }
 
     open val displayedAccount: DisplayedAccount? = null
     //////////////////////////////////////////////////
@@ -369,6 +376,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
         if (pendingThemeChange)
             notifyThemeChanged()
         insetsUpdated()
+        topReversedCornerView?.resumeBlurring()
         bottomReversedCornerView?.resumeBlurring()
         isViewAppearanceAnimationInProgress = true
     }
@@ -650,20 +658,21 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
     open fun onModalSlide(expandOffset: Int, expandProgress: Float) {
         modalExpandOffset = expandOffset
         modalExpandProgress = expandProgress
-        val topBarAlpha = expandProgress
-        navigationBar?.expansionValue = topBarAlpha
+        navigationBar?.expansionValue = expandProgress
         topReversedCornerView?.translationZ = navigationBar?.translationZ ?: 0f
         if (expandProgress < 1) {
+            // Use fixed radius when Rounded Corners is off, otherwise use BIG_RADIUS
+            val halfExpandedRadius = if (ViewConstants.BIG_RADIUS == 0f) 24f.dp else ViewConstants.BIG_RADIUS.dp
             topReversedCornerView?.setBackgroundColor(
                 Color.TRANSPARENT,
-                min(1f, ((1 - expandProgress) * 5)) * ViewConstants.BIG_RADIUS.dp,
+                min(1f, ((1 - expandProgress) * 5)) * halfExpandedRadius,
                 0f,
                 true
             )
         } else {
             topReversedCornerView?.background = null
         }
-        val contentTranslationY = ((1 - topBarAlpha) * (navigationBar?.height ?: 0))
+        val contentTranslationY = ((1 - expandProgress) * (navigationBar?.height ?: 0))
         contentTranslationY.let {
             view.apply {
                 clipChildren = false

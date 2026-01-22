@@ -186,7 +186,7 @@ class WalletSelectionVC(
 
                 cell.configure(
                     headerText,
-                    titleColor = WColor.Tint.color,
+                    titleColor = WColor.Tint,
                     topRounding = topRounding
                 )
             }

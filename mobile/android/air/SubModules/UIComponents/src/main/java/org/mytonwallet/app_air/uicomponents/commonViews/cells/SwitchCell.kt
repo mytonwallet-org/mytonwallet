@@ -10,7 +10,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WSwitch
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -48,6 +47,18 @@ class SwitchCell(
         }
     }
 
+    var isChecked: Boolean
+        get() = switchView.isChecked
+        set(value) {
+            switchView.isChecked = value
+        }
+
+    override fun setEnabled(enabled: Boolean) {
+        super.setEnabled(enabled)
+        switchView.isEnabled = enabled
+        alpha = if (enabled) 1f else 0.5f
+    }
+
     override fun setupViews() {
         super.setupViews()
 
@@ -68,22 +79,12 @@ class SwitchCell(
     }
 
     override fun updateTheme() {
-        if (ThemeManager.uiMode.hasRoundedCorners) {
-            setBackgroundColor(
-                WColor.Background.color,
-                if (isFirst) ViewConstants.BIG_RADIUS.dp else 0f,
-                if (isLast) ViewConstants.BIG_RADIUS.dp else 0f
-            )
-        } else {
-            separatorBackgroundDrawable.offsetStart = if (isLast) 0f else 16f.dp
-            separatorBackgroundDrawable.offsetEnd = separatorBackgroundDrawable.offsetStart
-            background = separatorBackgroundDrawable
-        }
+        setBackgroundColor(
+            WColor.Background.color,
+            if (isFirst) ViewConstants.BIG_RADIUS.dp else 0f,
+            if (isLast) ViewConstants.BIG_RADIUS.dp else 0f
+        )
         addRippleEffect(WColor.SecondaryBackground.color)
         titleLabel.setTextColor(WColor.PrimaryText.color)
-    }
-
-    fun setChecked(isChecked: Boolean) {
-        switchView.isChecked = isChecked
     }
 }

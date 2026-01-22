@@ -6,6 +6,7 @@ import WalletContext
 public final class IconAccessoryView: UIView {
     private let imageView = WImageView()
     private let overlayView = GradientView()
+    private let clockView = AccessoryClockView()
     private var sizeConstraints: [NSLayoutConstraint] = []
     private var positionConstraints: [NSLayoutConstraint] = []
     private var imageSize: CGFloat = 0
@@ -20,6 +21,10 @@ public final class IconAccessoryView: UIView {
         imageView.contentMode = .scaleToFill
         imageView.layer.masksToBounds = true
         addSubview(imageView)
+
+        clockView.translatesAutoresizingMaskIntoConstraints = false
+        clockView.isHidden = true
+        imageView.addSubview(clockView)
 
         overlayView.translatesAutoresizingMaskIntoConstraints = false
         overlayView.isUserInteractionEnabled = false
@@ -40,6 +45,12 @@ public final class IconAccessoryView: UIView {
         ])
         imageView.addSubview(overlayView)
         NSLayoutConstraint.activate([
+            clockView.centerXAnchor.constraint(equalTo: imageView.centerXAnchor),
+            clockView.centerYAnchor.constraint(equalTo: imageView.centerYAnchor),
+            clockView.widthAnchor.constraint(equalTo: imageView.widthAnchor),
+            clockView.heightAnchor.constraint(equalTo: imageView.heightAnchor)
+        ])
+        NSLayoutConstraint.activate([
             overlayView.leadingAnchor.constraint(equalTo: imageView.leadingAnchor),
             overlayView.trailingAnchor.constraint(equalTo: imageView.trailingAnchor),
             overlayView.topAnchor.constraint(equalTo: imageView.topAnchor),
@@ -56,6 +67,7 @@ public final class IconAccessoryView: UIView {
     }
 
     public func configureChain(_ chain: String) {
+        setClockVisible(false)
         imageView.contentMode = .scaleToFill
         imageView.image = UIImage(named: "chain_\(chain)", in: AirBundle, compatibleWith: nil)
         imageView.tintColor = nil
@@ -68,22 +80,19 @@ public final class IconAccessoryView: UIView {
     }
 
     public func configurePending() {
+        setClockVisible(true, backgroundColor: .airBundle("AccessoryOrange"))
         imageView.contentMode = .scaleToFill
-        imageView.image = .airBundle("AccessoryPending")
-        imageView.tintColor = nil
-        imageView.backgroundColor = .clear
-        setShowsSoftLightOverlay(false)
+        setShowsSoftLightOverlay(true)
     }
 
     public func configurePendingTrusted() {
+        setClockVisible(true, backgroundColor: .airBundle("AccessoryGray"))
         imageView.contentMode = .scaleToFill
-        imageView.image = .airBundle("AccessoryPendingTrusted")
-        imageView.tintColor = nil
-        imageView.backgroundColor = .clear
-        setShowsSoftLightOverlay(false)
+        setShowsSoftLightOverlay(true)
     }
 
     public func configureError() {
+        setClockVisible(false)
         imageView.contentMode = .scaleToFill
         imageView.image = .airBundle("AccessoryError")
         imageView.tintColor = nil
@@ -92,16 +101,19 @@ public final class IconAccessoryView: UIView {
     }
 
     public func configureHold() {
+        setClockVisible(false)
         configureSymbol(name: "pause.fill", backgroundColor: .systemOrange)
         setShowsSoftLightOverlay(true)
     }
 
     public func configureExpired() {
+        setClockVisible(false)
         configureSymbol(name: "stop.fill", backgroundColor: .systemRed)
         setShowsSoftLightOverlay(true)
     }
 
     public func configurePercentBadge(backgroundColor: UIColor = WTheme.positiveAmount) {
+        setClockVisible(false)
         imageView.contentMode = .scaleToFill
         imageView.image = .airBundle("Percent")
         imageView.tintColor = .white
@@ -114,6 +126,7 @@ public final class IconAccessoryView: UIView {
         imageView.image = nil
         imageView.tintColor = nil
         imageView.backgroundColor = nil
+        setClockVisible(false)
         setShowsSoftLightOverlay(false)
     }
 
@@ -150,5 +163,96 @@ public final class IconAccessoryView: UIView {
         imageView.tintColor = .white
         imageView.backgroundColor = backgroundColor
         imageView.layer.cornerRadius = imageSize / 2
+    }
+
+    private func setClockVisible(_ isVisible: Bool, backgroundColor: UIColor? = nil) {
+        clockView.isHidden = !isVisible
+        if isVisible {
+            imageView.image = nil
+            imageView.tintColor = nil
+            imageView.backgroundColor = backgroundColor
+            clockView.startAnimating()
+        } else {
+            clockView.stopAnimating()
+        }
+    }
+}
+
+private final class AccessoryClockView: UIView {
+    let fastHand = CAShapeLayer()
+    let slowHand = CAShapeLayer()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isUserInteractionEnabled = false
+        backgroundColor = .clear
+
+        [slowHand, fastHand].forEach { hand in
+            hand.fillColor = nil
+            hand.strokeColor = UIColor.white.cgColor
+            hand.lineCap = .round
+            hand.lineJoin = .round
+            layer.addSublayer(hand)
+        }
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError()
+    }
+
+    func startAnimating() {
+        let now = CACurrentMediaTime()
+        if fastHand.animation(forKey: "spin") == nil {
+            fastHand.add(spinAnimation(duration: 1, time: now), forKey: "spin")
+        }
+        if slowHand.animation(forKey: "spin") == nil {
+            slowHand.add(spinAnimation(duration: 6, time: now), forKey: "spin")
+        }
+    }
+
+    func stopAnimating() {
+        fastHand.removeAllAnimations()
+        slowHand.removeAllAnimations()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let size = min(bounds.width, bounds.height)
+        guard size > 0 else { return }
+
+        let lineWidth = max(1, size * 0.1)
+        fastHand.lineWidth = lineWidth
+        slowHand.lineWidth = lineWidth
+        fastHand.frame = bounds
+        slowHand.frame = bounds
+
+        let radius = size / 2
+        let fastLength = radius * 0.5
+        let slowLength = radius * 0.33
+
+        fastHand.path = handPath(length: fastLength)
+        slowHand.path = handPath(length: slowLength)
+    }
+
+    func handPath(length: CGFloat) -> CGPath {
+        let center = CGPoint(x: bounds.midX, y: bounds.midY)
+        let tip = CGPoint(x: center.x, y: center.y - length)
+
+        let path = UIBezierPath()
+        path.move(to: center)
+        path.addLine(to: tip)
+        return path.cgPath
+    }
+
+    func spinAnimation(duration: Double, time: CFTimeInterval) -> CABasicAnimation {
+        let progress = time.truncatingRemainder(dividingBy: duration) / duration
+        let phase = Double.pi * 2 * progress
+        let animation = CABasicAnimation(keyPath: "transform.rotation.z")
+        animation.fromValue = phase
+        animation.toValue = phase + Double.pi * 2
+        animation.duration = duration
+        animation.repeatCount = .infinity
+        animation.timingFunction = CAMediaTimingFunction(name: .linear)
+        return animation
     }
 }

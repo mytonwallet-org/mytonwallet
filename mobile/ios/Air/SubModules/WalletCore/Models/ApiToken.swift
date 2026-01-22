@@ -297,6 +297,7 @@ extension ApiToken {
 
 
 public let DEFAULT_SLUGS = [TONCOIN_SLUG, TON_USDT_SLUG, TRX_SLUG, TRON_USDT_SLUG]
+public let DEFAULT_TESTNET_SLUGS = [TONCOIN_SLUG, TRX_SLUG, TRON_USDT_TESTNET_SLUG]
 
 extension ApiToken {
     

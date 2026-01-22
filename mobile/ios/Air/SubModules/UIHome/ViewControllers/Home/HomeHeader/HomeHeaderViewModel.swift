@@ -11,10 +11,9 @@ import UIComponents
 import WalletCore
 import WalletContext
 import SwiftUI
-import SwiftUIIntrospect
 import Perception
 import Dependencies
-import UIKitNavigation
+import SwiftNavigation
 
 private let log = Log("HomeCard")
 
@@ -24,9 +23,9 @@ enum HomeHeaderState {
 }
 
 @Perceptible
-class HomeHeaderViewModel {
+final class HomeHeaderViewModel {
     
-    let accountId: String?
+    let accountSource: AccountSource
     
     var height: CGFloat = 0
     var state: HomeHeaderState = .expanded
@@ -46,8 +45,8 @@ class HomeHeaderViewModel {
     @PerceptionIgnored
     @Dependency(\.accountStore) var accountStore
     
-    init(accountId: String?) {
-        self.accountId = accountId
+    init(accountSource: AccountSource) {
+        self.accountSource = accountSource
     }
     
     func scrollOffsetChanged(to y: CGFloat) {

@@ -4,6 +4,7 @@ import android.os.Handler
 import android.os.Looper
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.requestDAppList
@@ -69,7 +70,8 @@ class HomeVM(
             return TokenStore.swapAssets != null &&
                 TokenStore.loadedAllTokens &&
                 !BalanceStore.getBalances(showingAccountId).isNullOrEmpty() &&
-                (StakingStore.getStakingState(showingAccountId ?: "") != null ||
+                (showingAccount?.network != MBlockchainNetwork.MAINNET ||
+                    StakingStore.getStakingState(showingAccountId ?: "") != null ||
                     WGlobalStorage.getAccountTonAddress(showingAccountId ?: "") == null)
         }
 

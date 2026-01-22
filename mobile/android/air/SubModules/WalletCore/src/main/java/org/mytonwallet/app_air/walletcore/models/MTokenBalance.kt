@@ -4,6 +4,7 @@ import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TON_USDT_SLUG
+import org.mytonwallet.app_air.walletcore.TON_USDT_TESTNET_SLUG
 import org.mytonwallet.app_air.walletcore.TRON_SLUG
 import java.math.BigInteger
 
@@ -20,7 +21,7 @@ data class MTokenBalance(
         get() {
             return when (token) {
                 TONCOIN_SLUG -> 1
-                TON_USDT_SLUG -> 1
+                TON_USDT_SLUG, TON_USDT_TESTNET_SLUG -> 1
                 TRON_SLUG -> 1
                 else -> 0
             }
@@ -30,7 +31,7 @@ data class MTokenBalance(
         get() {
             return when (token) {
                 TONCOIN_SLUG -> 3
-                TON_USDT_SLUG -> 2
+                TON_USDT_SLUG, TON_USDT_TESTNET_SLUG -> 2
                 TRON_SLUG -> 1
                 else -> 0
             }

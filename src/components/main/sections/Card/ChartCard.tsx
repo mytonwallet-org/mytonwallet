@@ -3,7 +3,7 @@ import { useEffect, useRef } from '../../../../lib/teact/teact';
 import React, { memo, useMemo, useState } from '../../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../../global';
 
-import type { ApiBaseCurrency, ApiStakingState } from '../../../../api/types';
+import type { ApiBaseCurrency, ApiChain, ApiStakingState } from '../../../../api/types';
 import type {
   IAnchorPosition,
   PriceHistoryPeriods,
@@ -69,6 +69,7 @@ interface StateProps {
   isTestnet?: boolean;
   stakingStates?: ApiStakingState[];
   isSensitiveDataHidden?: true;
+  selectedExplorerIds?: Partial<Record<ApiChain, string>>;
 }
 
 const OFFLINE_TIMEOUT = 120000; // 2 minutes
@@ -93,6 +94,7 @@ function ChartCard({
   isSensitiveDataHidden,
   onYieldClick,
   tokenChartMode,
+  selectedExplorerIds,
 }: OwnProps & StateProps) {
   const { loadPriceHistory, loadTokenNetWorthHistory } = getActions();
 
@@ -104,6 +106,7 @@ function ChartCard({
 
   const shouldUseDefaultCurrency = baseCurrency === token?.symbol;
   const chartCurrency = shouldUseDefaultCurrency ? DEFAULT_PRICE_CURRENCY : baseCurrency;
+  const selectedExplorerId = token ? selectedExplorerIds?.[token.chain] : undefined;
 
   const currencySymbol = getShortCurrencySymbol(chartCurrency);
 
@@ -228,12 +231,18 @@ function ChartCard({
   function renderExplorerLink() {
     if (!token) return undefined;
 
-    const url = getExplorerTokenUrl(token.chain, token.cmcSlug, tokenAddress, isTestnet);
+    const url = getExplorerTokenUrl(
+      token.chain,
+      token.cmcSlug,
+      tokenAddress,
+      isTestnet,
+      selectedExplorerId,
+    );
     if (!url) return undefined;
 
     const title = (lang(
       'Open on %explorer_name%',
-      { explorer_name: getExplorerName(token.chain) },
+      { explorer_name: getExplorerName(token.chain, selectedExplorerId) },
     ) as string[]).join('');
 
     return (
@@ -413,6 +422,7 @@ export default memo(
       tokenAddress,
       stakingStates,
       isSensitiveDataHidden: global.settings.isSensitiveDataHidden,
+      selectedExplorerIds: global.settings.selectedExplorerIds,
     };
   })(ChartCard),
 );

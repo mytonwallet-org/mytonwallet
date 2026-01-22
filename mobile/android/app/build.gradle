@@ -17,6 +17,17 @@ android {
       ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
     }
   }
+  signingConfigs {
+    named("debug") {
+      storeFile = rootProject.file(
+        project.findProperty("DEBUG_STORE_FILE") as String
+      )
+      storePassword = project.findProperty("DEBUG_STORE_PASSWORD") as String
+      keyAlias = project.findProperty("DEBUG_KEY_ALIAS") as String
+      keyPassword = project.findProperty("DEBUG_KEY_PASSWORD") as String
+    }
+  }
+
   buildTypes {
     release {
       minifyEnabled true

@@ -7,7 +7,7 @@
 
 import UIKit
 import WalletContext
-import UICharts
+import DGCharts
 
 public class WLineChartView: LineChartView {
     
@@ -103,7 +103,7 @@ class ChartMarker: Marker {
     func offsetForDrawing(atPoint: CGPoint) -> CGPoint {
         .zero
     }
-    func refreshContent(entry: UICharts.ChartDataEntry, highlight: UICharts.Highlight) {
+    func refreshContent(entry: DGCharts.ChartDataEntry, highlight: DGCharts.Highlight) {
     }
 
     func draw(context: CGContext, point: CGPoint) {

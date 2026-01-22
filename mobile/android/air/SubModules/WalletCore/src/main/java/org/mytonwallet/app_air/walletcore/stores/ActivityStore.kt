@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.walletcore.stores
 
 import android.content.Context
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import org.json.JSONObject
@@ -17,8 +18,8 @@ import org.mytonwallet.app_air.walletcore.api.fetchTokenActivitySlice
 import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers
 import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers.Companion.isSuitableToGetTimestamp
 import org.mytonwallet.app_air.walletcore.helpers.PoisoningCacheHelper
-import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
+import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 
@@ -33,6 +34,13 @@ object ActivityStore : IStore {
     fun getLocalTransactions(): Map<String, List<MApiTransaction>> {
         return _localTransactions.toMap()
     }
+
+    private val notifiedIds: MutableSet<String> =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            ConcurrentHashMap.newKeySet()
+        } else {
+            Collections.synchronizedSet(mutableSetOf())
+        }
 
     private const val DEFAULT_LIMIT = 60
     private const val MAX_ITEMS_TO_CACHE_IN_LIST = 200
@@ -197,8 +205,8 @@ object ActivityStore : IStore {
             loadedAll = newActs.isEmpty()
         )
         beginTransaction()
-        val newestActivitiesBySlug = mutableMapOf<String, JSONObject?>()
         backgroundQueue.execute {
+            val newestActivitiesBySlug = mutableMapOf<String, JSONObject?>()
             for ((slug, activities) in bySlug) {
                 setListTransactions(
                     accountId = accountId,
@@ -222,8 +230,8 @@ object ActivityStore : IStore {
                 newestActivitiesBySlug,
                 IGlobalStorageProvider.PERSIST_NO
             )
+            endTransaction()
         }
-        endTransaction()
     }
 
     fun newActivities(
@@ -289,8 +297,8 @@ object ActivityStore : IStore {
                 activitiesToSave = newActivities,
                 insertBeforeExistingItems = newActivities.size < 10
             )
+            endTransaction()
         }
-        endTransaction()
     }
 
     // Read a list from cache
@@ -468,28 +476,22 @@ object ActivityStore : IStore {
     }
 
     private fun getCachedTransactions(): HashMap<String, HashMap<String, MApiTransaction>> {
-        synchronized(this) {
-            return HashMap(_cachedTransactions)
-        }
+        return HashMap(_cachedTransactions)
     }
 
     fun updateCachedTransaction(accountId: String, transaction: MApiTransaction) {
-        synchronized(this) {
-            if (_cachedTransactions[accountId] == null)
-                _cachedTransactions[accountId] = HashMap()
-            _cachedTransactions[accountId]?.set(transaction.id, transaction)
-            PoisoningCacheHelper.updatePoisoningCache(accountId, transaction)
-        }
+        if (_cachedTransactions[accountId] == null)
+            _cachedTransactions[accountId] = HashMap()
+        _cachedTransactions[accountId]?.set(transaction.id, transaction)
+        PoisoningCacheHelper.updatePoisoningCache(accountId, transaction)
     }
 
     private fun addCachedTransactions(accountId: String, transactions: Array<MApiTransaction>) {
-        synchronized(this) {
-            if (_cachedTransactions[accountId] == null)
-                _cachedTransactions[accountId] = HashMap()
-            for (transaction in transactions) {
-                _cachedTransactions[accountId]?.set(transaction.id, transaction)
-                PoisoningCacheHelper.updatePoisoningCache(accountId, transaction)
-            }
+        if (_cachedTransactions[accountId] == null)
+            _cachedTransactions[accountId] = HashMap()
+        for (transaction in transactions) {
+            _cachedTransactions[accountId]?.set(transaction.id, transaction)
+            PoisoningCacheHelper.updatePoisoningCache(accountId, transaction)
         }
     }
 
@@ -497,21 +499,17 @@ object ActivityStore : IStore {
         accountId: String,
         transactions: HashMap<String, MApiTransaction>
     ) {
-        synchronized(this) {
-            _cachedTransactions[accountId] = transactions
-            transactions.values.forEach {
-                PoisoningCacheHelper.updatePoisoningCache(accountId, it)
-            }
+        _cachedTransactions[accountId] = transactions
+        transactions.values.forEach {
+            PoisoningCacheHelper.updatePoisoningCache(accountId, it)
         }
     }
 
     private fun updateLocalTransactions(accountId: String, transactions: List<MApiTransaction>?) {
-        synchronized(this) {
-            transactions?.let {
-                _localTransactions[accountId] = transactions
-            } ?: run {
-                _localTransactions.remove(accountId)
-            }
+        transactions?.let {
+            _localTransactions[accountId] = transactions
+        } ?: run {
+            _localTransactions.remove(accountId)
         }
     }
 
@@ -520,12 +518,10 @@ object ActivityStore : IStore {
     }
 
     private fun updatePendingTransactions(accountId: String, transactions: List<MApiTransaction>?) {
-        synchronized(this) {
-            transactions?.let {
-                _pendingTransactions[accountId] = transactions
-            } ?: run {
-                _pendingTransactions.remove(accountId)
-            }
+        transactions?.let {
+            _pendingTransactions[accountId] = transactions
+        } ?: run {
+            _pendingTransactions.remove(accountId)
         }
     }
 
@@ -562,19 +558,21 @@ object ActivityStore : IStore {
         }
     }
 
-    private fun lastTxIds(accountId: String, after: Long): Map<String, String> {
-        val all = getTransactionList(accountId, slug = null, beforeId = null, limit = null)
-            .filter { it.timestamp >= after }
+    private fun processReplacedStableIds(
+        accountId: String,
+        pendingAndNewActivities: List<MApiTransaction>
+    ) {
+        val existingTemporaryActivities =
+            _pendingTransactions[accountId].orEmpty() +
+                _localTransactions[accountId].orEmpty()
 
-        val idsBySlug = mutableMapOf<String, String>()
-        for (transaction in all) {
-            if (transaction.id.contains("|") || transaction.id.contains("swap")) {
-                continue
-            }
-            idsBySlug[transaction.getTxSlug()] = transaction.id
+        existingTemporaryActivities.forEach { tempActivity ->
+            pendingAndNewActivities
+                .firstOrNull { newActivity -> tempActivity.isSame(newActivity) }
+                ?.let { newActivity ->
+                    newActivity.replacedStableId = tempActivity.getStableId()
+                }
         }
-
-        return idsBySlug
     }
 
     // Process newly received list from service or bridge event
@@ -586,85 +584,93 @@ object ActivityStore : IStore {
         isUpdateEvent: Boolean,
         loadedAll: Boolean?
     ) {
-        pendingActivities?.let {
-            updatePendingTransactions(accountId, pendingActivities)
-        }
-
-        val newActivities = ActivityHelpers.filter(
-            accountId,
-            newActivities,
-            false,
-            null
-        )!!
-
-        val accountCachedTransactionsDict = getCachedTransactions()[accountId]
-
         beginTransaction()
-        val localTransactions = getLocalTransactions()[accountId] ?: emptyList()
 
-        if (localTransactions.isNotEmpty())
-            ((pendingActivities ?: emptyList()) + newActivities).forEach { pendingActivity ->
-                localTransactions.firstOrNull {
-                    ActivityHelpers.localActivityMatches(it, pendingActivity)
-                }?.let { localTransaction ->
-                    removeAccountLocalTransaction(accountId, localTransaction.id)
-                }
+        backgroundQueue.execute {
+            val pendingAndNewActivities =
+                pendingActivities.orEmpty() + newActivities
+
+            processReplacedStableIds(accountId, pendingAndNewActivities)
+
+            pendingActivities?.let {
+                updatePendingTransactions(accountId, pendingActivities)
             }
-        if ((accountCachedTransactionsDict?.keys?.size ?: 0) > 0) {
-            val addedActivities = mutableMapOf<String, MApiTransaction>()
-            for (newActivity in newActivities) {
-                accountCachedTransactionsDict?.get(newActivity.id)?.let { prevTransaction ->
-                    if (newActivity.isChanged(prevTransaction)) {
-                        updateCachedTransaction(accountId, newActivity)
-                    }/* else if (newActivity.nft != null && newActivity.nft != prevTransaction.nft) {
+
+            val newActivities = ActivityHelpers.filter(
+                accountId,
+                newActivities,
+                false,
+                null
+            )!!
+
+            val accountCachedTransactionsDict = getCachedTransactions()[accountId]
+            val localTransactions = getLocalTransactions()[accountId] ?: emptyList()
+
+            if (localTransactions.isNotEmpty())
+                pendingAndNewActivities.forEach { pendingActivity ->
+                    localTransactions.firstOrNull {
+                        ActivityHelpers.localActivityMatches(it, pendingActivity)
+                    }?.let { localTransaction ->
+                        removeAccountLocalTransaction(accountId, localTransaction.id)
+                    }
+                }
+            if ((accountCachedTransactionsDict?.keys?.size ?: 0) > 0) {
+                val addedActivities = mutableMapOf<String, MApiTransaction>()
+                for (newActivity in newActivities) {
+                    accountCachedTransactionsDict?.get(newActivity.id)?.let { prevTransaction ->
+                        if (newActivity.isChanged(prevTransaction)) {
+                            updateCachedTransaction(accountId, newActivity)
+                        }/* else if (newActivity.nft != null && newActivity.nft != prevTransaction.nft) {
                         updateCachedTransaction(accountId, newActivity)
                     }*/
-                } ?: run {
-                    addedActivities[newActivity.id] = newActivity
+                    } ?: run {
+                        addedActivities[newActivity.id] = newActivity
+                    }
+                }
+                addCachedTransactions(accountId, addedActivities.values.toTypedArray())
+            } else {
+                val newCachedTransactions = HashMap(newActivities.associateBy { it.id })
+                setCachedTransactions(accountId, newCachedTransactions)
+            }
+
+            if (accountId == AccountStore.activeAccountId) {
+                // Play sound for new incoming transactions within this batch
+                if (isUpdateEvent &&
+                    WGlobalStorage.getAreSoundsActive() &&
+                    WalletContextManager.delegate?.isAppUnlocked() == true &&
+                    pendingAndNewActivities.any { act ->
+                        val isNew = System.currentTimeMillis() / 1000 - act.timestamp / 1000 < 60
+                        act is MApiTransaction.Transaction &&
+                            act.isIncoming &&
+                            !act.isPending() &&
+                            !notifiedIds.contains(act.id) &&
+                            isNew &&
+                            !act.isPoisoning(accountId) &&
+                            (!WGlobalStorage.getAreTinyTransfersHidden() || !act.isTinyOrScam)
+                    }
+                ) {
+                    AudioHelpers.play(
+                        context,
+                        AudioHelpers.Sound.IncomingTransaction
+                    )
+                }
+                notifiedIds.addAll(pendingAndNewActivities.map { it.id })
+            }
+
+            if (isUpdateEvent) {
+                // Make sure all inner processes are already done
+                backgroundQueue.execute {
+                    val walletEvent = WalletEvent.ReceivedNewActivities(
+                        accountId,
+                        pendingAndNewActivities,
+                        isUpdateEvent,
+                        loadedAll
+                    )
+                    WalletCore.notifyEvent(walletEvent)
                 }
             }
-            addCachedTransactions(accountId, addedActivities.values.toTypedArray())
-        } else {
-            val newCachedTransactions = HashMap(newActivities.associateBy { it.id })
-            setCachedTransactions(accountId, newCachedTransactions)
+            endTransaction()
         }
-
-        if (accountId == AccountStore.activeAccountId) {
-            // Play sound for new incoming transactions within this batch
-            if (isUpdateEvent &&
-                WGlobalStorage.getAreSoundsActive() &&
-                WalletContextManager.delegate?.isAppUnlocked() == true &&
-                newActivities.any { act ->
-                    val isNew = System.currentTimeMillis() / 1000 - act.timestamp / 1000 < 60
-                    act is MApiTransaction.Transaction &&
-                        act.isIncoming &&
-                        act.status == ApiTransactionStatus.COMPLETED &&
-                        isNew &&
-                        !act.isPoisoning(accountId) &&
-                        (!WGlobalStorage.getAreTinyTransfersHidden() || !act.isTinyOrScam)
-                }
-            ) {
-                AudioHelpers.play(
-                    context,
-                    AudioHelpers.Sound.IncomingTransaction
-                )
-            }
-        }
-
-        if (isUpdateEvent) {
-            // Make sure all inner processes are already done
-            backgroundQueue.execute {
-                val walletEvent = WalletEvent.ReceivedNewActivities(
-                    accountId,
-                    newActivities,
-                    isUpdateEvent,
-                    loadedAll
-                )
-                WalletCore.notifyEvent(walletEvent)
-            }
-        }
-
-        endTransaction()
     }
 
     private fun addAccountLocalTransactions(
@@ -699,11 +705,9 @@ object ActivityStore : IStore {
 
     fun removeAccount(removingAccountId: String) {
         backgroundQueue.execute {
-            synchronized(this) {
-                _cachedTransactions.remove(removingAccountId)
-                _localTransactions.remove(removingAccountId)
-                _pendingTransactions.remove(removingAccountId)
-            }
+            _cachedTransactions.remove(removingAccountId)
+            _localTransactions.remove(removingAccountId)
+            _pendingTransactions.remove(removingAccountId)
         }
     }
 

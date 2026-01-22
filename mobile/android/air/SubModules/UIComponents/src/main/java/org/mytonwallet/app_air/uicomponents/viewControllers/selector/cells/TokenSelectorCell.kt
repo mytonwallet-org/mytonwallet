@@ -27,7 +27,7 @@ import kotlin.math.abs
 class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
 
     private val iconView: IconView by lazy {
-        val iv = IconView(context)
+        val iv = IconView(context, 44.dp)
         iv
     }
 
@@ -64,43 +64,34 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
         }
     }
 
-    private val separator: WView by lazy {
-        val v = WView(context)
-        v
-    }
-
     var onTap: ((tokenBalance: MTokenBalance) -> Unit)? = null
 
     init {
         layoutParams.apply {
-            height = 64.dp
+            height = 60.dp
         }
-        addView(iconView, LayoutParams(53.dp, 48.dp))
+        addView(iconView, LayoutParams(46.dp, 46.dp))
         addView(topLeftLabel, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
         addView(topRightLabel)
         addView(bottomLeftLabel)
         addView(bottomRightLabel)
-        addView(separator, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
         setConstraints {
             toTop(iconView, 8f)
             toBottom(iconView, 8f)
             toStart(iconView, 12f)
             toTop(topLeftLabel, 11f)
-            startToEnd(topLeftLabel, iconView, 7f)
+            toStart(topLeftLabel, 68f)
             endToStart(topLeftLabel, topRightLabel, 4f)
             toTop(topRightLabel, 11f)
             toEnd(topRightLabel, 16f)
             constrainedWidth(topLeftLabel.id, true)
             setHorizontalBias(topLeftLabel.id, 0f)
             toBottom(bottomLeftLabel, 12f)
-            startToEnd(bottomLeftLabel, iconView, 7f)
+            toStart(bottomLeftLabel, 68f)
             endToStart(bottomLeftLabel, bottomRightLabel, 4f)
             setHorizontalBias(bottomLeftLabel.id, 0f)
             toBottom(bottomRightLabel, 12f)
             toEnd(bottomRightLabel, 16f)
-            toBottom(separator)
-            toStart(separator, 72f)
-            toEnd(separator, 16f)
         }
         setOnClickListener {
             tokenBalance?.let {
@@ -124,7 +115,6 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
         topRightLabel.contentView.setTextColor(WColor.PrimaryText.color)
         bottomLeftLabel.setTextColor(WColor.SecondaryText.color)
         bottomRightLabel.setTextColor(WColor.SecondaryText.color)
-        separator.setBackgroundColor(WColor.Separator.color)
     }
 
     private var tokenBalance: MTokenBalance? = null
@@ -175,7 +165,5 @@ class TokenSelectorCell(context: Context) : WCell(context), WThemedView {
                 smartDecimals = true
             )
         }
-
-        separator.visibility = if (hideSeparator) INVISIBLE else VISIBLE
     }
 }

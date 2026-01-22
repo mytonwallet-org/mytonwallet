@@ -18,6 +18,7 @@ import org.mytonwallet.app_air.sqscan.screen.QrScannerDialog
 import org.mytonwallet.app_air.uiassets.viewControllers.token.TokenVC
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
+import org.mytonwallet.app_air.uicomponents.base.WNavigationController.PresentationConfig
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.base.executeWithLowPriority
@@ -41,7 +42,8 @@ import org.mytonwallet.app_air.uiswap.screens.swap.SwapVC
 import org.mytonwallet.app_air.uitonconnect.TonConnectController
 import org.mytonwallet.app_air.uitonconnect.viewControllers.connect.TonConnectRequestConnectVC
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.requestSend.TonConnectRequestSendVC
-import org.mytonwallet.app_air.uitransaction.viewControllers.TransactionVC
+import org.mytonwallet.app_air.uitransaction.viewControllers.transaction.TransactionVC
+import org.mytonwallet.app_air.uitransaction.viewControllers.transactionList.TransactionListVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
@@ -56,11 +58,10 @@ import org.mytonwallet.app_air.walletcontext.helpers.AutoLockHelper
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
 import org.mytonwallet.app_air.walletcontext.helpers.LaunchConfig
 import org.mytonwallet.app_air.walletcontext.helpers.WordCheckMode
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.models.MWalletSettingsViewMode
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
-import org.mytonwallet.app_air.walletcore.MAIN_NETWORK
-import org.mytonwallet.app_air.walletcore.TEST_NETWORK
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
@@ -143,7 +144,7 @@ class SplashVC(context: Context) : WViewController(context),
                     WCacheStorage.InitialScreen.INTRO -> {
                         if (WGlobalStorage.accountIds().isNotEmpty())
                             return@post
-                        presentIntro()
+                        presentIntro(network = MBlockchainNetwork.MAINNET)
                         preloadedScreen = WCacheStorage.InitialScreen.INTRO
                     }
 
@@ -242,11 +243,11 @@ class SplashVC(context: Context) : WViewController(context),
         }
     }
 
-    private fun presentIntro() {
+    private fun presentIntro(network: MBlockchainNetwork) {
         if (preloadedScreen == WCacheStorage.InitialScreen.INTRO)
             return
         val navigationController = WNavigationController(window!!)
-        navigationController.setRoot(IntroVC(context))
+        navigationController.setRoot(IntroVC(context, network))
         window!!.replace(navigationController, false)
         Logger.i(Logger.LogTag.AIR_APPLICATION, "Presented Intro")
     }
@@ -270,7 +271,7 @@ class SplashVC(context: Context) : WViewController(context),
             WGlobalStorage.deleteAllWallets()
             WSecureStorage.deleteAllWalletValues()
             appIsUnlocked = true
-            presentIntro()
+            presentIntro(MBlockchainNetwork.MAINNET)
         }
     }
 
@@ -293,8 +294,8 @@ class SplashVC(context: Context) : WViewController(context),
         (window as? MainWindow)?.restartBridge(forcedRecreation = true)
     }
 
-    override fun getAddAccountVC(): WViewController {
-        return AddAccountOptionsVC(context, isOnIntro = false)
+    override fun getAddAccountVC(network: MBlockchainNetwork): WViewController {
+        return AddAccountOptionsVC(context, network = network, isOnIntro = false)
     }
 
     override fun getWalletAddedVC(isNew: Boolean): Any {
@@ -302,19 +303,20 @@ class SplashVC(context: Context) : WViewController(context),
     }
 
     override fun getWordCheckVC(
+        network: MBlockchainNetwork,
         words: Array<String>,
         initialWordIndices: List<Int>,
         mode: WordCheckMode
     ): Any {
-        return WordCheckVC(context, words, initialWordIndices, mode)
+        return WordCheckVC(context, network, words, initialWordIndices, mode)
     }
 
-    override fun getImportLedgerVC(): Any {
-        return LedgerConnectVC(context, LedgerConnectVC.Mode.AddAccount)
+    override fun getImportLedgerVC(network: MBlockchainNetwork): Any {
+        return LedgerConnectVC(context, LedgerConnectVC.Mode.AddAccount(network))
     }
 
-    override fun getAddViewAccountVC(): Any {
-        return ImportViewWalletVC(context, false)
+    override fun getAddViewAccountVC(network: MBlockchainNetwork): Any {
+        return ImportViewWalletVC(context, network, false)
     }
 
     override fun getWalletsTabsVC(viewMode: MWalletSettingsViewMode): Any {
@@ -403,7 +405,11 @@ class SplashVC(context: Context) : WViewController(context),
         return isAValidDeeplink
     }
 
-    override fun openASingleWallet(addressByChainString: Map<String, String>, name: String?) {
+    override fun openASingleWallet(
+        network: MBlockchainNetwork,
+        addressByChainString: Map<String, String>,
+        name: String?
+    ) {
         if (addressByChainString.isEmpty()) {
             showAlertOverTopVC(
                 LocaleController.getString("Error"),
@@ -465,7 +471,7 @@ class SplashVC(context: Context) : WViewController(context),
                 return
             }
         }
-        importTemporaryAccount(addressByChain, name)
+        importTemporaryAccount(network = network, addressByChain, name)
     }
 
     override fun walletIsReady() {
@@ -737,7 +743,7 @@ class SplashVC(context: Context) : WViewController(context),
                 if (!account.supportsSwap) {
                     showAlertOverTopVC(
                         null,
-                        if (WalletCore.activeNetwork == TEST_NETWORK)
+                        if (account.network != MBlockchainNetwork.MAINNET)
                             LocaleController.getString("Swap is not supported in Testnet.")
                         else if (AccountStore.activeAccount?.isHardware == true)
                             LocaleController.getString("Swap is not yet supported by Ledger.")
@@ -781,7 +787,7 @@ class SplashVC(context: Context) : WViewController(context),
             }
 
             is Deeplink.Stake -> {
-                if (WalletCore.activeNetwork != MAIN_NETWORK) {
+                if (AccountStore.activeAccount?.network != MBlockchainNetwork.MAINNET) {
                     showAlertOverTopVC(
                         null,
                         LocaleController.getString("Staking is not supported in Testnet.")
@@ -847,15 +853,15 @@ class SplashVC(context: Context) : WViewController(context),
                 }
                 val address =
                     deeplink.accountAddress ?: AccountStore.activeAccount?.addressByChain[chain]
-                if (address == null) {
+                val accountId = AccountStore.activeAccountId
+                if (address == null || accountId == null) {
                     nextDeeplink = null
                     return
                 }
-                val accountId = AccountStore.activeAccountId
                 WalletCore.call(
                     ApiMethod.WalletData.FetchTransactionById(
                         chain,
-                        WalletCore.activeNetwork,
+                        MBlockchainNetwork.ofAccountId(accountId),
                         deeplink.txId,
                         address
                     )
@@ -869,23 +875,37 @@ class SplashVC(context: Context) : WViewController(context),
                             )
                         return@call
                     }
-                    if (activities.size > 1)
-                        return@call // Not handled yet
                     if (AccountStore.activeAccountId != accountId)
                         return@call // Account changed
+                    val isSingleTransaction = activities.size == 1
                     val transactionNav = WNavigationController(
-                        window!!, WNavigationController.PresentationConfig(
+                        window!!, if (isSingleTransaction) PresentationConfig(
                             overFullScreen = false,
                             isBottomSheet = true
-                        )
+                        ) else PresentationConfig()
                     )
-                    transactionNav.setRoot(TransactionVC(context, activities.first()))
+                    if (isSingleTransaction)
+                        transactionNav.setRoot(
+                            TransactionVC(
+                                context,
+                                accountId,
+                                activities.first()
+                            )
+                        )
+                    else
+                        transactionNav.setRoot(
+                            TransactionListVC(
+                                context,
+                                accountId = accountId,
+                                activities
+                            )
+                        )
                     window!!.present(transactionNav)
                 }
             }
 
             is Deeplink.View -> {
-                openASingleWallet(deeplink.addressByChain, name = null)
+                openASingleWallet(MBlockchainNetwork.MAINNET, deeplink.addressByChain, name = null)
             }
 
             is Deeplink.SwitchToLegacy -> {
@@ -916,9 +936,13 @@ class SplashVC(context: Context) : WViewController(context),
         return builder.build()
     }
 
-    private fun importTemporaryAccount(addressByChain: Map<MBlockchain, String>, name: String?) {
+    private fun importTemporaryAccount(
+        network: MBlockchainNetwork,
+        addressByChain: Map<MBlockchain, String>,
+        name: String?
+    ) {
         WalletCore.call(
-            ApiMethod.Auth.ImportViewAccount(MAIN_NETWORK, addressByChain),
+            ApiMethod.Auth.ImportViewAccount(network, addressByChain),
             callback = { result, error ->
                 if (result == null || error != null) {
                     error?.parsed?.toLocalized?.let {

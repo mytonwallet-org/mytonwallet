@@ -1,5 +1,5 @@
 import type { ApiSwapDexLabel, ApiSwapHistoryItem } from './backend';
-import type { ApiNftMarketplace, ApiTransaction } from './misc';
+import type { ApiNetwork, ApiNftMarketplace, ApiTransaction } from './misc';
 
 type BaseActivity = {
   id: string;
@@ -44,4 +44,14 @@ export type ApiDecryptCommentOptions = {
   accountId: string;
   activity: ApiTransactionActivity & Required<Pick<ApiTransactionActivity, 'encryptedComment'>>;
   password?: string;
+};
+
+export type ApiFetchTransactionByIdOptions = {
+  network: ApiNetwork;
+  walletAddress: string;
+  txId: string;
+} | {
+  network: ApiNetwork;
+  walletAddress: string;
+  txHash: string;
 };

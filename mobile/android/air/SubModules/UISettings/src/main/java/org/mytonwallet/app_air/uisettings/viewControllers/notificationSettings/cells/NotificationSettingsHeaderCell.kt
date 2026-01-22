@@ -48,14 +48,14 @@ class NotificationSettingsHeaderCell(
         setSingleLine()
         ellipsize = TextUtils.TruncateAt.END
         setTextColor(WColor.Tint)
-        setStyle(16f, WFont.Medium)
-        setPaddingDp(20, 17, 20, 17)
+        setStyle(14f, WFont.DemiBold)
+        setPaddingDp(20, 17, 20, 9)
     }
 
     override fun setupViews() {
         super.setupViews()
 
-        addView(pushNotificationsRow, LayoutParams(MATCH_PARENT, 56.dp))
+        addView(pushNotificationsRow, LayoutParams(MATCH_PARENT, 50.dp))
         addView(hintLabel, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         setConstraints {
             toTop(pushNotificationsRow, 0f)
@@ -72,7 +72,7 @@ class NotificationSettingsHeaderCell(
 
     fun configure(isPushNotificationsChecked: Boolean, showHint: Boolean) {
         pushNotificationsChecked = isPushNotificationsChecked
-        pushNotificationsRow.setChecked(isPushNotificationsChecked)
+        pushNotificationsRow.isChecked = isPushNotificationsChecked
         hintLabel.isGone = !showHint
         updateTheme()
     }

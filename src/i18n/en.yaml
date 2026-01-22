@@ -435,7 +435,7 @@ Use Password: Use Password
 Biometrics Disabled: Biometrics Disabled
 Biometrics Enabled: Biometrics Enabled
 A request is already pending: A request is already pending
-Please confirm operation using biometrics: Please confirm operation using biometrics
+Please confirm action using biometrics: Please confirm action using biometrics
 Scan QR Code: Scan QR Code
 Permission denied. Please grant camera permission to use the QR code scanner.: Permission denied. Please grant camera permission to use the QR code scanner.
 This QR Code is not supported: This QR Code is not supported
@@ -923,7 +923,7 @@ use the wallet responsibly: use the wallet responsibly
 Watch Video about Features: Watch Video About Features
 Enjoy Monthly Updates in Blog: Enjoy Monthly Updates in Blog
 Learn New Things in Help Center: Learn New Things in Help Center
-Frequency Questions and Answers: Frequency Questions and Answers
+Frequent Questions & Answers: Frequent Questions & Answers
 Paste from Clipboard: Paste from Clipboard
 Use biometric authentication or create a password to protect it.: Use biometric authentication or create a password to protect it.
 Go to Words: Go to Words
@@ -1004,6 +1004,7 @@ $missing_offramp_deposit_address: Missing deposit address for off-ramp.
 Buy: Buy
 Sell: Sell
 Sell on Card: Sell on Card
+Sell %symbol%: Sell %symbol%
 $connect_dapp_description: Connected apps can only see your wallet address and will not be able to move your assets without permission.
 $connect_dapp_title: Connect to %name%?
 Choose Wallet: Choose Wallet
@@ -1011,4 +1012,19 @@ Wallet to use on %host%: Wallet to use on %host%
 Selected Wallet: Selected Wallet
 Connect Wallet: Connect Wallet
 Insufficient Fee: Insufficient Fee
+Waiting for a View deeplink to display a wallet address.: Waiting for a View deeplink to display a wallet address.
+Adding wallets is not available in explorer mode: Adding wallets is not available in explorer mode
+$explorer_mode_warning: "Explorer mode: waiting for a View deeplink to open an address"
+This command is not supported in explorer mode: This command is not supported in explorer mode
 $saved_addresses_header: Saved
+confirm an action in MyTonWallet: confirm an action in MyTonWallet
+$connected_apps:
+  otherValue: "%1$d connected"
+Night Mode, Palette, Card: Night Mode, Palette, Card
+Back Up, Passcode, Auto-Lock: Back Up, Passcode, Auto-Lock
+Base Currency, Token Order, Hidden NFTs: Base Currency, Token Order, Hidden NFTs
+Your assets on other contracts: Your assets on other contracts
+Wallets, Sounds: Wallets, Sounds
+Help: Help
+About: About
+Wallets: Wallets

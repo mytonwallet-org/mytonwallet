@@ -74,6 +74,7 @@ sealed class WalletEvent {
     ) : WalletEvent()
 
     data class OpenActivity(
+        val accountId: String,
         val activity: MApiTransaction
     ) : WalletEvent()
 

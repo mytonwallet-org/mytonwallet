@@ -12,10 +12,12 @@ export function useIFrameBridgeProvider(pageUrl?: string) {
   const setupDappBridge = useLastCallback((e) => {
     cleanupRef.current?.();
 
+    if (!pageUrl) return;
+
     const iframe = e.target as HTMLIFrameElement;
     cleanupRef.current = createReverseIFrameInterface(
-      buildBridgeApi(pageUrl!),
-      new URL(pageUrl!).origin,
+      buildBridgeApi(pageUrl),
+      new URL(pageUrl).origin,
       iframe.contentWindow!,
       EMBEDDED_DAPP_BRIDGE_CHANNEL,
     );

@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
-import android.graphics.drawable.ShapeDrawable
 import android.os.Build
 import android.util.TypedValue
 import android.view.Gravity
@@ -12,10 +11,8 @@ import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.graphics.withSave
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
-import org.mytonwallet.app_air.uicomponents.helpers.ViewHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
@@ -28,8 +25,6 @@ open class SwapSearchEditText @JvmOverloads constructor(
 ) : WFloatingHintEditText(context, delegate, multilinePaste), WThemedView {
 
     private var viewPropertiesStateSet: ViewPropertiesStateSet = ViewPropertiesStateSet()
-    private val backgroundDrawable: ShapeDrawable =
-        ViewHelpers.roundedShapeDrawable(0, 24f.dp)
     private val searchDrawable: Drawable? =
         AppCompatResources.getDrawable(
             context,
@@ -56,17 +51,15 @@ open class SwapSearchEditText @JvmOverloads constructor(
     init {
         setPaddingDp(16, 0, 48, 0)
 
-        background = backgroundDrawable
         typeface = WFont.Regular.typeface
         isSingleLine = true
         isHorizontalFadingEdgeEnabled = true
 
-        hint = LocaleController.getString("Search...")
         floatingHintGravity = Gravity.CENTER_HORIZONTAL or Gravity.CENTER_VERTICAL
 
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            setLineHeight(TypedValue.COMPLEX_UNIT_SP, 22f)
+            setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
         }
 
         setOnTouchListener { _, event ->
@@ -140,7 +133,6 @@ open class SwapSearchEditText @JvmOverloads constructor(
     override fun updateTheme() {
         setHintTextColor(WColor.SecondaryText.color)
         setTextColor(WColor.PrimaryText.color)
-        backgroundDrawable.paint.color = WColor.SearchFieldBackground.color
     }
 
     fun setTextKeepCursor(newText: String) {

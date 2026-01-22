@@ -55,10 +55,10 @@ struct _SegmentedControlItemAccessory: View {
     var distanceToItem: CGFloat
     
     var body: some View {
-            Image(systemName: "ellipsis.circle.fill")
-                .imageScale(.small)
-                .offset(x: 3)
-                .scaleEffect(1 - distanceToItem)
-                .frame(width: SegmentedControlConstants.accessoryWidth * (1 - distanceToItem), alignment: .leading)
+        Image.airBundle("SegmentedControlArrow")
+            .opacity(0.5)
+            .offset(x: 4)
+            .scaleEffect(1 - distanceToItem)
+            .frame(width: SegmentedControlConstants.accessoryWidth * (1 - distanceToItem), alignment: .leading)
     }
 }

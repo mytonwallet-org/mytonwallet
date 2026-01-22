@@ -4,20 +4,22 @@ import android.content.Context
 import android.content.Intent
 import android.view.View
 import org.mytonwallet.app_air.walletcontext.helpers.WordCheckMode
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.models.MWalletSettingsViewMode
 
 interface WalletContextManagerDelegate {
     fun restartApp()
-    fun getAddAccountVC(): Any
+    fun getAddAccountVC(network: MBlockchainNetwork): Any
     fun getWalletAddedVC(isNew: Boolean): Any
     fun getWordCheckVC(
+        network: MBlockchainNetwork,
         words: Array<String>,
         initialWordIndices: List<Int>,
         mode: WordCheckMode
     ): Any
 
-    fun getImportLedgerVC(): Any
-    fun getAddViewAccountVC(): Any
+    fun getImportLedgerVC(network: MBlockchainNetwork): Any
+    fun getAddViewAccountVC(network: MBlockchainNetwork): Any
 
     fun getWalletsTabsVC(viewMode: MWalletSettingsViewMode): Any
 
@@ -26,7 +28,12 @@ interface WalletContextManagerDelegate {
     fun lockScreen()
     fun isAppUnlocked(): Boolean
     fun handleDeeplink(deeplink: String): Boolean
-    fun openASingleWallet(addressByChainString: Map<String, String>, name: String?)
+    fun openASingleWallet(
+        network: MBlockchainNetwork,
+        addressByChainString: Map<String, String>,
+        name: String?
+    )
+
     fun walletIsReady()
     fun isWalletReady(): Boolean
     fun appResumed()

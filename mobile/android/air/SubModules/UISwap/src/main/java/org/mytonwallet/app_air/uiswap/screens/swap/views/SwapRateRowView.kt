@@ -51,7 +51,7 @@ class SwapRateRowView(
     }
 
     private val bestRateLabel = WLinearGradientLabel(context).apply {
-        setStyle(12f, WFont.Bold)
+        setStyle(12f, WFont.SemiBold)
         setGradientColor(
             intArrayOf(
                 WColor.EarnGradientLeft.color,
@@ -111,7 +111,7 @@ class SwapRateRowView(
     }
 
     init {
-        layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, 56.dp)
+        layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, 50.dp)
     }
 
     @SuppressLint("SetTextI18n")
@@ -168,7 +168,7 @@ class SwapRateRowView(
                         dexView.visibility = GONE
                 }
             }
-            animateHeight(if (dex == null) 56.dp else 80.dp)
+            animateHeight(if (dex == null) 50.dp else 80.dp)
         }
     }
 
@@ -182,6 +182,6 @@ class SwapRateRowView(
             if (dexVisibility == GONE)
                 dexView.visibility = GONE
         }
-        animateHeight(56.dp)
+        animateHeight(50.dp)
     }
 }

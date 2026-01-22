@@ -12,7 +12,7 @@ import { FallbackPollingScheduler } from '../../../common/polling/fallbackPollin
 import { periodToMs } from '../../../common/polling/utils';
 import { FIRST_TRANSACTIONS_LIMIT } from '../../../constants';
 import { fetchActions, fetchPendingActions } from './actions';
-import { getToncenterSocket, isActivityUpdateFinal } from './socket';
+import { getToncenterSocket } from './socket';
 import { throttleToncenterSocketActions } from './throttleSocketActions';
 
 const SOCKET_THROTTLE_DELAY = 250;
@@ -21,10 +21,22 @@ const FINISHED_HASH_MEMORY_SIZE = 100;
 /**
  * The activities are sorted by timestamp descending.
  * The updates may arrive not in the order of activity time and may duplicate.
- * `allPendingActivities` doesn't contain activities with the hashes of the current or past confirmed activities.
+ *
+ * Terminology note: In this file, "finalized" refers to activities that are immutable and will never change
+ * (status='completed'/'failed'). This is different from `finality: 'confirmed'` from the socket, which means
+ * the activity is in a shard block but not yet in masterchain and can still be invalidated.
+ *
+ * - `newFinalizedActivities`: Newly finalized activities (status='completed'/'failed') that are immutable
+ * - `allPendingActivities`: All non-finalized activities including:
+ *   - status='pending'/'pendingTrusted': Show clock animation, can be updated/invalidated
+ *   - status='confirmed': Don't show clock (looks final to user), but can still be invalidated
+ *
+ * Activities are removed from `allPendingActivities` when:
+ * - They become finalized (appear in `newFinalizedActivities`)
+ * - They are invalidated (are not committed into the masterchain)
  */
 export type OnActivityUpdate = (
-  newConfirmedActivities: ApiActivity[],
+  newFinalizedActivities: ApiActivity[],
   allPendingActivities: readonly ApiActivity[],
 ) => void;
 
@@ -126,20 +138,18 @@ export class ActivityStream {
     if (this.#isDestroyed) return;
     this.#fallbackPollingScheduler.onSocketMessage();
 
-    const pendingUpdates = updates.filter((update) => update.arePending);
-    const confirmedActivities = sortActivities(
-      updates
-        .filter((update) => !update.arePending)
-        .flatMap((update) => update.activities),
-    );
+    // Split updates into two streams:
+    // - finalizedActivities: finality='finalized' with actual activities - these are immutable
+    // - pendingUpdates: everything else (pending/confirmed finality, or invalidations with empty activities)
+    const { pendingUpdates, finalizedActivities } = splitSocketUpdates(updates);
 
-    const instantConfirmedActivities = this.#doesNeedToRestoreHistory ? [] : confirmedActivities;
-    const stashedConfirmedActivities = this.#doesNeedToRestoreHistory ? confirmedActivities : [];
+    const instantFinalizedActivities = this.#doesNeedToRestoreHistory ? [] : finalizedActivities;
+    const stashedFinalizedActivities = this.#doesNeedToRestoreHistory ? finalizedActivities : [];
 
     // One of the goals here is preventing the stashed activities from removing pending activities (switching an activity
-    // from pending to confirmed must be seamless). Another goal is delivering the pending activities with no delay.
-    this.#socketConfirmedActionsStash.unshift(...stashedConfirmedActivities);
-    this.#handleNewActivities(instantConfirmedActivities, undefined, pendingUpdates);
+    // from pending to finalized must be seamless). Another goal is delivering the pending activities with no delay.
+    this.#socketConfirmedActionsStash.unshift(...stashedFinalizedActivities);
+    this.#handleNewActivities(instantFinalizedActivities, undefined, pendingUpdates);
   };
 
   /** Fetches the activities when the socket is not connected or has just connected */
@@ -147,16 +157,16 @@ export class ActivityStream {
     try {
       this.#loadingListeners.runCallbacks(true);
 
-      const [pendingActivities, newConfirmedActivities] = await Promise.all([
+      const [pendingActivities, newFinalizedActivities] = await Promise.all([
         loadPendingActivities(this.#network, this.#address),
-        this.#loadNewConfirmedActivities(),
+        this.#loadNewFinalizedActivities(),
       ]);
 
       if (this.#isDestroyed) return;
 
       this.#handleNewActivities(
         mergeSortedActivities(
-          newConfirmedActivities,
+          newFinalizedActivities,
           this.#socketConfirmedActionsStash.splice(0),
         ),
         pendingActivities,
@@ -170,7 +180,7 @@ export class ActivityStream {
     }
   };
 
-  async #loadNewConfirmedActivities() {
+  async #loadNewFinalizedActivities() {
     while (!this.#isDestroyed) {
       try {
         return await fetchActions({
@@ -181,7 +191,7 @@ export class ActivityStream {
           limit: FIRST_TRANSACTIONS_LIMIT,
         });
       } catch (err) {
-        logDebugError('loadNewConfirmedActivities', err);
+        logDebugError('loadNewFinalizedActivities', err);
 
         if (this.#isDestroyed || !this.#doesNeedToRestoreHistory) {
           break;
@@ -196,20 +206,21 @@ export class ActivityStream {
 
   /** The method expected one of `allPendingActivities` and `pendingUpdates`, not both at the same time */
   #handleNewActivities(
-    confirmedActivities: ApiActivity[],
+    finalizedActivities: ApiActivity[],
     allPendingActivities?: ApiActivity[],
     pendingUpdates?: ActivitiesUpdate[],
   ) {
     // If nothing new, do nothing
-    if (!confirmedActivities.length && !(allPendingActivities || pendingUpdates?.length)) {
+    if (!finalizedActivities.length && !(allPendingActivities || pendingUpdates?.length)) {
       return;
     }
 
-    if (confirmedActivities.length) {
-      this.#newestConfirmedActivityTimestamp = confirmedActivities[0].timestamp;
+    if (finalizedActivities.length) {
+      // Track the newest finalized activity timestamp to know where to resume loading from
+      this.#newestConfirmedActivityTimestamp = finalizedActivities[0].timestamp;
     }
-    this.#pendingActivities.update(confirmedActivities, allPendingActivities, pendingUpdates);
-    this.#updateListeners.runCallbacks(confirmedActivities, this.#pendingActivities.all);
+    this.#pendingActivities.update(finalizedActivities, allPendingActivities, pendingUpdates);
+    this.#updateListeners.runCallbacks(finalizedActivities, this.#pendingActivities.all);
   }
 }
 
@@ -223,6 +234,28 @@ async function loadPendingActivities(network: ApiNetwork, address: string) {
 }
 
 /**
+ * Splits socket updates into two streams:
+ * - finalizedActivities: activities with finality='finalized' that have actual content (immutable, won't change)
+ * - pendingUpdates: all other updates including:
+ *   - finality='pending'/'confirmed'/'signed' (can be updated or invalidated)
+ *   - finality='finalized' with empty activities (invalidations that need to clear pending list)
+ */
+function splitSocketUpdates(updates: ActivitiesUpdate[]) {
+  const pendingUpdates: ActivitiesUpdate[] = [];
+  const finalizedActivities: ApiActivity[] = [];
+
+  for (const update of updates) {
+    if (update.finality === 'finalized' && update.activities.length) {
+      finalizedActivities.push(...update.activities);
+    } else {
+      pendingUpdates.push(update);
+    }
+  }
+
+  return { pendingUpdates, finalizedActivities: sortActivities(finalizedActivities) };
+}
+
+/**
  * Keeps the list of all current pending activities by merging the incoming updates.
  */
 function managePendingActivities() {
@@ -230,23 +263,22 @@ function managePendingActivities() {
   let pendingActivities: readonly ApiActivity[] = [];
 
   /**
-   * External message hash normalized of the recently confirmed activities and invalidated pending activities.
+   * External message hash normalized of the recently finalized activities.
    * Helps to avoid excessive pendings occurring because of race conditions that cause pendings to arrive after the
-   * corresponding confirmed activities. The race conditions can occur because of the socket and polling working together.
+   * corresponding finalized activities. The race conditions can occur because of the socket and polling working together.
    *
    * There still can be situations where an older pending activity version replaces a newer one, but it is not a problem.
    */
   const finishedHashes = new Set<string>();
 
   function update(
-    confirmedActivities: ApiActivity[],
+    finalizedActivities: ApiActivity[],
     allPendingActivities?: readonly ApiActivity[],
     pendingUpdates?: ActivitiesUpdate[],
   ) {
-    rememberFinishedHashes(extractKey(confirmedActivities, 'externalMsgHashNorm'));
-    if (pendingUpdates) {
-      rememberFinishedHashes(extractKey(pendingUpdates.filter(isActivityUpdateFinal), 'messageHashNormalized'));
-    }
+    // All finalizedActivities have status='completed'/'failed' (set by resolveActivityStatus when finality='finalized'),
+    // so we add all their hashes to finishedHashes to filter them out from pending list.
+    rememberFinishedHashes(extractKey(finalizedActivities, 'externalMsgHashNorm'));
 
     if (allPendingActivities) {
       pendingActivities = sortActivities(allPendingActivities);
@@ -254,9 +286,9 @@ function managePendingActivities() {
       pendingActivities = mergePendingActivities(pendingActivities, pendingUpdates);
     }
 
+    // Remove pending activities whose traces have been finalized
     pendingActivities = pendingActivities.filter(({ externalMsgHashNorm }) => !(
-      externalMsgHashNorm
-      && finishedHashes.has(externalMsgHashNorm)
+      externalMsgHashNorm && finishedHashes.has(externalMsgHashNorm)
     ));
   }
 
@@ -308,7 +340,7 @@ function mergePendingActivities(
       (activity) => !hashesToRemove.has(activity.externalMsgHashNorm),
     ),
     sortActivities(
-      socketUpdates.flatMap((update) => update.arePending ? update.activities : []),
+      socketUpdates.flatMap((update) => update.finality !== 'finalized' ? update.activities : []),
     ),
   );
 }

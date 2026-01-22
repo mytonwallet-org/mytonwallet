@@ -22,6 +22,9 @@ import android.widget.TextView
 import androidx.core.animation.doOnEnd
 import androidx.core.graphics.withClip
 import androidx.core.graphics.withSave
+import androidx.dynamicanimation.animation.FloatValueHolder
+import androidx.dynamicanimation.animation.SpringAnimation
+import androidx.dynamicanimation.animation.SpringForce
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -71,7 +74,7 @@ class WClearSegmentedControl(
         private const val ANIMATION_DURATION = 200L
         private const val CORNER_RADIUS = 16f
         private const val THUMB_HEIGHT = 32f
-        private const val ITEM_SPACING = 8
+        private const val ITEM_SPACING = 6
         private const val DRAG_ELEVATION = 8f
     }
 
@@ -122,9 +125,14 @@ class WClearSegmentedControl(
     private val fullPath = Path()
     private val rvAdapter = WRecyclerViewAdapter(WeakReference(this), arrayOf(ITEM_CELL))
 
-    private val animator = ValueAnimator().apply {
-        addUpdateListener { animation ->
-            currentPosition = animation.animatedValue as Float
+    private val positionHolder = FloatValueHolder(0f)
+    private val springAnimation = SpringAnimation(positionHolder).apply {
+        spring = SpringForce().apply {
+            dampingRatio = SpringForce.DAMPING_RATIO_NO_BOUNCY
+            stiffness = 500f
+        }
+        addUpdateListener { _, value, _ ->
+            currentPosition = value
             updateThumbPositionInternal(
                 currentPosition,
                 ensureVisibleThumb = false,
@@ -405,7 +413,7 @@ class WClearSegmentedControl(
         setLayoutManager(layoutManager)
         addItemDecoration(SpacesItemDecoration(ITEM_SPACING.dp, 0))
         addOnItemTouchListener(recyclerViewTouchListener)
-        setPaddingDp(11, 4, 11, 4)
+        setPaddingDp(11, 0, 11, 0)
         clipToPadding = false
         overScrollMode = OVER_SCROLL_NEVER
 
@@ -724,7 +732,7 @@ class WClearSegmentedControl(
         val clampedPosition = position.coerceIn(0f, (items.size - 1).toFloat())
         if (clampedPosition == lastPosition && !animated && !force) return
 
-        animator.cancel()
+        springAnimation.cancel()
 
         if (animated) {
             this.targetPosition = targetPosition?.toFloat()
@@ -741,12 +749,8 @@ class WClearSegmentedControl(
     }
 
     private fun startAnimation() {
-        animator.apply {
-            setFloatValues(currentPosition, targetPosition ?: 0f)
-            duration = ANIMATION_DURATION
-            interpolator = AccelerateDecelerateInterpolator()
-            start()
-        }
+        positionHolder.value = currentPosition
+        springAnimation.animateToFinalPosition(targetPosition ?: 0f)
     }
 
     private fun updateThumbPositionInternal(

@@ -129,7 +129,7 @@ class SwapEstimatedInfo(
         estMinimumReceived.visibility = visibility
         estAggregatorFee.visibility = visibility
         slippageRowView.visibility = visibility
-        estBlockchainFee.separator.allowSeparator = !isCex
+        estBlockchainFee.separator.allowSeparator = false
     }
 
     var est: SwapEstimateResponse? = null

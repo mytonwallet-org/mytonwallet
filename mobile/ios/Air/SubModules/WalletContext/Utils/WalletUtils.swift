@@ -15,6 +15,7 @@ public let TONCOIN_SLUG = "toncoin"
 public let TON_USDT_SLUG = "ton-eqcxe6mutq"
 public let TRX_SLUG = "trx"
 public let TRON_USDT_SLUG = "tron-tr7nhqjekq"
+public let TRON_USDT_TESTNET_SLUG = "tron-tg3xxyexbk"
 public let MYCOIN_SLUG = "ton-eqcfvnlrbn"
 public let STAKED_TON_SLUG = "ton-eqcqc6ehrj"
 public let STAKED_MYCOIN_SLUG = "ton-eqcbzvsfwq"
@@ -97,7 +98,7 @@ public func formatAddressAttributed(
 
     } else {
 
-        let primaryFont = primaryFont ?? UIFont.systemFont(ofSize: 16, weight: .regular)
+        let primaryFont = primaryFont ?? UIFont.systemFont(ofSize: 17, weight: .regular)
         let secondaryFont = secondaryFont ?? primaryFont
         let primaryColor = primaryColor ?? WTheme.primaryLabel
         let secondaryColor = secondaryColor ?? WTheme.secondaryLabel
@@ -182,7 +183,7 @@ public func formatBigIntText(_ value: BigInt,
                             forceCurrencyToRight: Bool = false,
                             roundUp: Bool = true) -> String {
     let rounded: BigInt = if let decimalsCount {
-        value.rounded(digitsToRound: tokenDecimals - decimalsCount, roundUp: roundUp)
+        value.rounded(digitsToRound: tokenDecimals - decimalsCount, roundHalfUp: roundUp)
     } else {
         value
     }
@@ -213,44 +214,6 @@ public func formatBigIntText(_ value: BigInt,
         result.insert(contentsOf: "+\(signSpace)", at: result.startIndex)
     }
 
-    return result
-}
-
-public func formatAmountText(amount: Double,
-                             currency: String? = nil,
-                             negativeSign: Bool = true,
-                             positiveSign: Bool = false,
-                             decimalsCount: Int? = nil,
-                             forceCurrencyToRight: Bool = false) -> String {
-    let numberFormatter = NumberFormatter()
-    numberFormatter.numberStyle = .decimal
-    numberFormatter.groupingSeparator = String(thousandSpace)
-    numberFormatter.decimalSeparator = decimalSeparator
-    numberFormatter.maximumFractionDigits = decimalsCount ?? 9
-    numberFormatter.roundingMode = .halfUp
-    let amountString = numberFormatter.string(from: NSNumber(value: amount))!
-    let parts = amountString.components(separatedBy: decimalSeparator)
-    let integerPart = parts[0]
-    var result = ""
-    result = "\(integerPart)\(result)"
-    if parts.count > 1 {
-        let afterDecimals = decimalsCount != nil ? String(parts[1].prefix(decimalsCount!)) : parts[1]
-        result = "\(result)\(decimalSeparator)\(afterDecimals)"
-    }
-
-    if amount < 0, negativeSign {
-        result.insert(contentsOf: "-\(signSpace)", at: result.startIndex)
-    } else if amount >= 0, positiveSign {
-        result.insert(contentsOf: "+\(signSpace)", at: result.startIndex)
-    }
-
-    if let currency, currency.count > 0 {
-        if currency.count > 1 || forceCurrencyToRight || currency == "₽" {
-            return "\(result) \(currency)"
-        } else {
-            return "\(currency)\(result)"
-        }
-    }
     return result
 }
 

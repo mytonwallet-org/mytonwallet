@@ -25,6 +25,7 @@ struct DebugView: View {
     @AppStorage("debug_hideSegmentedControls") private var hideSegmentedControls = false
     @AppStorage("debug_glassOpacity") var glassOpacity: Double = 1
     @AppStorage("debug_gradientIsHidden") var gradientIsHidden: Bool = true
+    @AppStorage("debug_displayLogOverlay") private var displayLogOverlayEnabled = false
 
     @Environment(\.dismiss) private var dismiss
     
@@ -37,6 +38,17 @@ struct DebugView: View {
                         log.info("Share logs requested")
                         Task { await onLogExport() }
                     }
+                } header: {
+                    Text("Logs")
+                }
+                
+                Section {
+                    Button("Add Testnet account") {
+                        dismiss()
+                        AppActions.showAddWallet(network: .testnet, showCreateWallet: true, showSwitchToOtherVersion: false)
+                    }
+                } header: {
+                    Text("Testnet")
                 }
                 
                 Section {
@@ -85,6 +97,13 @@ struct DebugView: View {
                         .foregroundStyle(.orange)
                 }
                 
+                Section {
+                    Toggle("Display log overlay", isOn: $displayLogOverlayEnabled)
+                }
+                .onChange(of: displayLogOverlayEnabled) { isEnabled in
+                    setDisplayLogOverlayEnabled(isEnabled)
+                }
+
                 Section {
                     Button("Reactivate current account") {
                         Task {

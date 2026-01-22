@@ -12,6 +12,8 @@ import WalletContext
 
 private let log = Log("BalanceHeaderView+update")
 
+private let throttleDuration = 0.03
+
 @MainActor extension BalanceHeaderView {
     
     func updateHeight(scrollOffset: CGFloat, isExpandingProgrammatically: Bool) {
@@ -21,11 +23,19 @@ private let log = Log("BalanceHeaderView+update")
             if (!isExpandingProgrammatically && delegate?.isTracking == false) {
                 return
             }
-            headerViewModel.state = .expanded
-            Haptics.play(.transition)
+            let now = Date()
+            if now.timeIntervalSince(lastStateChange) > throttleDuration {
+                lastStateChange = now
+                headerViewModel.state = .expanded
+                Haptics.play(.transition)
+            }
         } else if headerViewModel.state == .expanded, scrollOffset >= collapseOffset {
-            headerViewModel.state = .collapsed
-            Haptics.play(.transition)
+            let now = Date()
+            if now.timeIntervalSince(lastStateChange) > throttleDuration {
+                lastStateChange = now
+                headerViewModel.state = .collapsed
+                Haptics.play(.transition)
+            }
         }
 
         var newHeight = calculatedHeight - (isExpandingProgrammatically ? 0 : scrollOffset)

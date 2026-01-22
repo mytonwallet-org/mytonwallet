@@ -418,7 +418,7 @@ extension SwapVC: WalletCoreData.EventsObserver {
         case .newLocalActivity(let update):
             handleNewActivities(accountId: update.accountId, activities: update.activities)
         case .newActivities(let update):
-            handleNewActivities(accountId: update.accountId, activities: update.activities)
+            handleNewActivities(accountId: update.accountId, activities: (update.pendingActivities ?? []) + update.activities)
         default:
             break
         }
@@ -431,15 +431,9 @@ extension SwapVC: WalletCoreData.EventsObserver {
                 return true
             }
             return false
-        }) ?? activities.first else { return }
+        }) else { return }
         awaitingActivity = false
-        dismissAndShowActivity(activity, accountId: accountId)
-    }
-
-    private func dismissAndShowActivity(_ activity: ApiActivity, accountId: String) {
-        navigationController?.dismiss(animated: true) {
-            AppActions.showActivityDetails(accountId: accountId, activity: activity)
-        }
+        AppActions.showActivityDetails(accountId: accountId, activity: activity, context: .swapConfirmation)
     }
 }
 

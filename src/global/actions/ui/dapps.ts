@@ -64,16 +64,16 @@ addActionHandler('clearDappTransferError', (global) => {
 });
 
 addActionHandler('openBrowser', (global, actions, {
-  url, title, subtitle,
+  url, title, subtitle, shouldKeepNativeBottomSheetOpen,
 }) => {
   // `openUrl` can be called from already closed NBS, therefore updates are not sent to main
   if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('openBrowser', { url, title, subtitle });
+    callActionInMain('openBrowser', { url, title, subtitle, shouldKeepNativeBottomSheetOpen });
   }
   global = {
     ...global,
     currentBrowserOptions: {
-      url, title, subtitle,
+      url, title, subtitle, shouldKeepNativeBottomSheetOpen,
     },
   };
   setGlobal(global);

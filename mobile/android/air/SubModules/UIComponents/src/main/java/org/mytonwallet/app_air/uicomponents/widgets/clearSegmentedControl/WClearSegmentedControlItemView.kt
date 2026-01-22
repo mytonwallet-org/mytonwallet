@@ -24,6 +24,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.clearSegmentedControl.WClear
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import java.lang.Float.max
 import kotlin.math.roundToInt
@@ -58,7 +59,7 @@ open class WClearSegmentedControlItemView(context: Context) :
                 LayoutParams.WRAP_CONTENT,
                 LayoutParams.WRAP_CONTENT
             ).apply {
-                setStyle(16f, WFont.Medium)
+                setStyle(ApplicationContextHolder.adaptiveFontSize, WFont.Medium)
                 setPadding(16.dp, 5.dp, 16.dp, 5.dp)
                 setSingleLine()
             }

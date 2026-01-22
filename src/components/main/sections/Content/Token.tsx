@@ -172,7 +172,7 @@ function Token({
 
     return (
       <span ref={yieldRef} className={labelClassName}>
-        {yieldType} {round(annualYield ?? 0, 2)}%
+        {stakingStatus ? '' : `${yieldType} `}{round(annualYield ?? 0, 2)}%
       </span>
     );
   }

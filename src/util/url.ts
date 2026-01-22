@@ -1,9 +1,15 @@
 import type { ApiChain, ApiNft } from '../api/types';
 import type { LangCode } from '../global/types';
 
-import { EMPTY_HASH_VALUE, MTW_CARDS_BASE_URL, MYTONWALLET_BLOG, SELF_UNIVERSAL_HOST_URL } from '../config';
+import {
+  DEFAULT_CHAIN,
+  EMPTY_HASH_VALUE,
+  MTW_CARDS_BASE_URL,
+  MYTONWALLET_BLOG,
+  SELF_UNIVERSAL_HOST_URL,
+} from '../config';
 import { base64ToHex } from './base64toHex';
-import { getChainConfig } from './chain';
+import { getAvailableExplorers, getExplorer, getSupportedChains } from './chain';
 import { logDebugError } from './logs';
 
 const VALID_PROTOCOLS = new Set(['http:', 'https:']);
@@ -66,57 +72,89 @@ export function getHostnameFromUrl(url: string) {
   }
 }
 
-export function getExplorerName(chain: ApiChain) {
-  return getChainConfig(chain).explorer.name;
+export function getExplorerName(chain: ApiChain = DEFAULT_CHAIN, explorerId?: string) {
+  return getExplorer(chain, explorerId).name;
 }
 
-function getExplorerBaseUrl(chain: ApiChain, isTestnet = false) {
-  return getChainConfig(chain).explorer.baseUrl[isTestnet ? 'testnet' : 'mainnet'];
+export function getExplorerBaseUrl(chain: ApiChain = DEFAULT_CHAIN, isTestnet = false, explorerId?: string) {
+  return getExplorer(chain, explorerId).baseUrl[isTestnet ? 'testnet' : 'mainnet'];
 }
 
-function getTokenExplorerBaseUrl(chain: ApiChain, isTestnet = false) {
-  return getChainConfig(chain).explorer.token.replace('{base}', getExplorerBaseUrl(chain, isTestnet));
+function getTokenExplorerBaseUrl(chain: ApiChain = DEFAULT_CHAIN, isTestnet = false, explorerId?: string) {
+  return getExplorer(chain, explorerId).token.replace('{base}', getExplorerBaseUrl(chain, isTestnet, explorerId));
 }
 
 export function getExplorerTransactionUrl(
-  chain: ApiChain,
+  chain: ApiChain = DEFAULT_CHAIN,
   transactionHash: string | undefined,
   isTestnet?: boolean,
+  explorerId?: string,
 ) {
   if (!transactionHash || transactionHash === EMPTY_HASH_VALUE) return undefined;
 
-  const config = getChainConfig(chain).explorer;
+  const explorer = getExplorer(chain, explorerId);
 
-  return config.transaction
-    .replace('{base}', getExplorerBaseUrl(chain, isTestnet))
-    .replace('{hash}', config.doConvertHashFromBase64 ? base64ToHex(transactionHash) : transactionHash);
+  return explorer.transaction
+    .replace('{base}', getExplorerBaseUrl(chain, isTestnet, explorerId))
+    .replace('{hash}', explorer.doConvertHashFromBase64 ? base64ToHex(transactionHash) : transactionHash);
 }
 
-export function getExplorerAddressUrl(chain: ApiChain, address?: string, isTestnet?: boolean) {
+export function getExplorerAddressUrl(
+  chain: ApiChain = DEFAULT_CHAIN,
+  address?: string,
+  isTestnet?: boolean,
+  explorerId?: string,
+) {
   if (!address) return undefined;
 
-  return getChainConfig(chain).explorer.address
-    .replace('{base}', getExplorerBaseUrl(chain, isTestnet))
+  return getExplorer(chain, explorerId).address
+    .replace('{base}', getExplorerBaseUrl(chain, isTestnet, explorerId))
     .replace('{address}', address);
 }
 
-export function getExplorerNftCollectionUrl(nftCollectionAddress?: string, isTestnet?: boolean) {
+export function getExplorerNftCollectionUrl(
+  chain: ApiChain = DEFAULT_CHAIN,
+  nftCollectionAddress?: string,
+  isTestnet?: boolean,
+  explorerId?: string,
+) {
   if (!nftCollectionAddress) return undefined;
 
-  return `${getExplorerBaseUrl('ton', isTestnet)}nft/${nftCollectionAddress}`;
+  const explorer = getExplorer(chain, explorerId);
+  if (!explorer.nftCollection) return undefined;
+
+  return explorer.nftCollection
+    .replace('{base}', getExplorerBaseUrl(chain, isTestnet, explorerId))
+    .replace('{address}', nftCollectionAddress);
 }
 
-export function getExplorerNftUrl(nftAddress?: string, isTestnet?: boolean) {
+export function getExplorerNftUrl(
+  chain: ApiChain = DEFAULT_CHAIN,
+  nftAddress?: string,
+  isTestnet?: boolean,
+  explorerId?: string,
+) {
   if (!nftAddress) return undefined;
 
-  return `${getExplorerBaseUrl('ton', isTestnet)}nft/${nftAddress}`;
+  const explorer = getExplorer(chain, explorerId);
+  if (!explorer.nft) return undefined;
+
+  return explorer.nft
+    .replace('{base}', getExplorerBaseUrl(chain, isTestnet, explorerId))
+    .replace('{address}', nftAddress);
 }
 
-export function getExplorerTokenUrl(chain: ApiChain, slug?: string, address?: string, isTestnet?: boolean) {
+export function getExplorerTokenUrl(
+  chain: ApiChain = DEFAULT_CHAIN,
+  slug?: string,
+  address?: string,
+  isTestnet?: boolean,
+  explorerId?: string,
+) {
   if (!slug && !address) return undefined;
 
   return address
-    ? getTokenExplorerBaseUrl(chain, isTestnet).replace('{address}', address)
+    ? getTokenExplorerBaseUrl(chain, isTestnet, explorerId).replace('{address}', address)
     : `https://coinmarketcap.com/currencies/${slug}/`;
 }
 
@@ -139,4 +177,99 @@ export function getViewAccountUrl(addressByChain: Partial<Record<ApiChain, strin
   });
 
   return `${SELF_UNIVERSAL_HOST_URL}/view?${params.toString()}`;
+}
+
+export function getExplorerByUrl(url: string): { chain: ApiChain; explorerId: string } | undefined {
+  const hostname = getHostnameFromUrl(url);
+
+  for (const chain of getSupportedChains()) {
+    const explorers = getAvailableExplorers(chain);
+
+    for (const explorer of explorers) {
+      const mainnetHost = getHostnameFromUrl(explorer.baseUrl.mainnet);
+      const testnetHost = getHostnameFromUrl(explorer.baseUrl.testnet);
+
+      if (hostname === mainnetHost || hostname === testnetHost) {
+        return { chain, explorerId: explorer.id };
+      }
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Converts an explorer URL from one explorer to another (e.g., Tonscan → Tonviewer),
+ * preserving the page type (address/transaction/nft) and identifier.
+ * Returns the converted URL, or `undefined` if the source URL is not a known explorer.
+ */
+export function convertExplorerUrl(url: string, toExplorerId: string): string | undefined {
+  const explorerInfo = getExplorerByUrl(url);
+  if (!explorerInfo) return undefined;
+
+  const { chain, explorerId: fromExplorerId } = explorerInfo;
+
+  if (fromExplorerId === toExplorerId) return url;
+
+  const explorers = getAvailableExplorers(chain);
+  const fromExplorer = explorers.find((e) => e.id === fromExplorerId);
+  const toExplorer = explorers.find((e) => e.id === toExplorerId);
+
+  if (!fromExplorer || !toExplorer) return undefined;
+
+  // Determine network by checking which base URL the input starts with
+  const isTestnet = url.startsWith(fromExplorer.baseUrl.testnet);
+  const fromBaseUrl = fromExplorer.baseUrl[isTestnet ? 'testnet' : 'mainnet'];
+  const toBaseUrl = toExplorer.baseUrl[isTestnet ? 'testnet' : 'mainnet'];
+
+  // Extract path after base URL (e.g., "address/EQAbc..." or "EQAbc...?address")
+  const pathAfterBase = url.slice(fromBaseUrl.length);
+
+  // Try each pattern type, ordered from most specific to least
+  const patterns: Array<{ from: string | undefined; to: string | undefined }> = [
+    { from: fromExplorer.nftCollection, to: toExplorer.nftCollection },
+    { from: fromExplorer.nft, to: toExplorer.nft },
+    { from: fromExplorer.transaction, to: toExplorer.transaction },
+    { from: fromExplorer.token, to: toExplorer.token },
+    { from: fromExplorer.address, to: toExplorer.address },
+  ];
+
+  for (const { from, to } of patterns) {
+    if (!from || !to) continue;
+
+    const identifier = extractIdentifier(pathAfterBase, from);
+    if (identifier) {
+      return buildExplorerUrl(to, toBaseUrl, identifier);
+    }
+  }
+
+  // Simple base URL replacement as fallback solution
+  return toBaseUrl + pathAfterBase;
+}
+
+// Extracts the identifier ({address} or {hash}) from a path using an explorer pattern.
+// Pattern example: "{base}address/{address}" or "{base}{address}?address"
+function extractIdentifier(path: string, pattern: string): string | undefined {
+  // Remove {base} placeholder and build regex from the remaining pattern
+  const patternPath = pattern.replace('{base}', '');
+
+  // Build regex: escape special chars, then replace placeholders with capture groups.
+  // Use non-greedy match that stops at query string, hash, or end of path segment.
+  const regexStr = patternPath
+    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&') // Escape regex special chars (including {} and ?)
+    .replace(/\\\{address\\\}/g, '([^?#/]+)') // Capture address (stop at ? # or /)
+    .replace(/\\\{hash\\\}/g, '([^?#/]+)'); // Capture hash
+
+  const regex = new RegExp(`^${regexStr}`);
+  const match = path.match(regex);
+
+  return match?.[1];
+}
+
+// Builds an explorer URL from base URL, pattern, and identifier
+function buildExplorerUrl(pattern: string, baseUrl: string, identifier: string): string {
+  return pattern
+    .replace('{base}', baseUrl)
+    .replace('{address}', identifier)
+    .replace('{hash}', identifier);
 }

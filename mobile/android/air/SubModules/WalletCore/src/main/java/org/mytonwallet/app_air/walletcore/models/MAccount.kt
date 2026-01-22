@@ -4,9 +4,8 @@ import com.squareup.moshi.JsonClass
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.DEFAULT_SHOWN_TOKENS
-import org.mytonwallet.app_air.walletcore.MAIN_NETWORK
-import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
@@ -61,6 +60,8 @@ class MAccount(
             json.optInt("index")
         )
     }
+
+    val network: MBlockchainNetwork = MBlockchainNetwork.ofAccountId(accountId)
 
     init {
         if (name.isEmpty()) {
@@ -144,12 +145,12 @@ class MAccount(
 
     val supportsSwap: Boolean
         get() {
-            return WalletCore.activeNetwork == MAIN_NETWORK && accountType == AccountType.MNEMONIC
+            return network == MBlockchainNetwork.MAINNET && accountType == AccountType.MNEMONIC
         }
 
     val supportsBuyWithCard: Boolean
         get() {
-            return WalletCore.activeNetwork == MAIN_NETWORK && accountType != AccountType.VIEW
+            return network == MBlockchainNetwork.MAINNET && accountType != AccountType.VIEW
         }
 
     val supportsBuyWithCrypto: Boolean
@@ -165,16 +166,11 @@ class MAccount(
     val isNew: Boolean
         get() {
             val balances = BalanceStore.getBalances(accountId) ?: return false
-            return balances.size <= DEFAULT_SHOWN_TOKENS.size && balances.filter {
+            return balances.size <= (DEFAULT_SHOWN_TOKENS[network]?.size ?: 0) && balances.filter {
                 val token = TokenStore.getToken(it.key) ?: return@filter false
                 return@filter token.priceUsd *
                     it.value.doubleAbsRepresentation(token.decimals) >= 0.01
             }.isEmpty()
-        }
-
-    val isMainnet: Boolean
-        get() {
-            return accountId.endsWith("mainnet")
         }
 
     val firstChain: MBlockchain?

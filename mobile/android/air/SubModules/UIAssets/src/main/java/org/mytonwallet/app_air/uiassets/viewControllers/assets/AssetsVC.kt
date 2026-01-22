@@ -56,9 +56,11 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 import org.mytonwallet.app_air.walletcore.models.NftCollection
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -494,7 +496,8 @@ class AssetsVC(
                     ) {
                         val url = when (collectionMode) {
                             is SingleCollection -> {
-                                "https://getgems.io/collection/${collectionMode.collection.address}"
+                                val getGemsUrl = ExplorerHelpers.getgemsUrl(network = MBlockchainNetwork.ofAccountId(assetsVM.showingAccountId))
+                                "${getGemsUrl}collection/${collectionMode.collection.address}"
                             }
 
                             TelegramGifts -> {
@@ -573,6 +576,7 @@ class AssetsVC(
         if (mode == Mode.THUMB) {
             view.addView(showAllView, LayoutParams(MATCH_PARENT, 56.dp))
         }
+        emptyView?.bringToFront()
         view.setConstraints {
             if (mode == Mode.THUMB) {
                 toCenterX(showAllView)
@@ -588,6 +592,8 @@ class AssetsVC(
 
         if (onReorderingRequested != null) {
             itemTouchHelper.setBeforeLongPressListener {
+                if (isShowingEmptyView)
+                    return@setBeforeLongPressListener
                 assetsVM.isInDragMode = true
                 onReorderingRequested.invoke()
                 rvAdapter.updateVisibleCells()
@@ -699,6 +705,8 @@ class AssetsVC(
     }
 
     private fun onNftTap(nft: ApiNft) {
+        if (assetsVM.isInDragMode)
+            return
         val assetVC = NftVC(
             context,
             assetsVM.showingAccountId,

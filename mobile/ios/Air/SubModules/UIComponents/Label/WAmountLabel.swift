@@ -70,11 +70,17 @@ public class WAmountLabel: UILabel {
                     currency: String = "",
                     hidePositiveSign: Bool = false,
                     forcePositiveColor: UIColor? = nil) {
-        self.amount = doubleToBigInt(doubleAmount, decimals: tokenDecimals ?? 9)
-        self.currency = currency
-        if let tokenDecimals {
-            self.tokenDecimals = tokenDecimals
+        guard let tokenDecimals else {
+            self.amount = 0
+            self.currency = currency
+            self.tokenDecimals = nil
+            self.decimalsCount = decimalsCount
+            attributedText = nil
+            return
         }
+        self.amount = doubleToBigInt(doubleAmount, decimals: tokenDecimals)
+        self.currency = currency
+        self.tokenDecimals = tokenDecimals
         if let decimalsCount {
             self.decimalsCount = decimalsCount
         }
@@ -82,10 +88,14 @@ public class WAmountLabel: UILabel {
     }
 
     func updateTheme(hidePositiveSign: Bool = false, forcePositiveColor: UIColor? = nil) {
+        guard let tokenDecimals else {
+            attributedText = nil
+            return
+        }
         // reset text color
         let components = formatBigIntText(amount,
                                          negativeSign: showNegativeSign,
-                                         tokenDecimals: tokenDecimals ?? 9,
+                                         tokenDecimals: tokenDecimals,
                                          decimalsCount: decimalsCount)
             .components(separatedBy: ".")
         let attr = NSMutableAttributedString(string: "\(amount > 0 && !hidePositiveSign ? "+\(signSpace)" : "")\(components[0])", attributes: [

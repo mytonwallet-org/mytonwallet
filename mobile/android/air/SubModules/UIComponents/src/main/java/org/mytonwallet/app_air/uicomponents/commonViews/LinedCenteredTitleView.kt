@@ -37,10 +37,10 @@ class LinedCenteredTitleView(context: Context) :
         }
 
     init {
-        addView(leftLineView, LayoutParams(64.dp, 1.dp).apply {
+        addView(leftLineView, LayoutParams(60.dp, 1.dp).apply {
             rightMargin = 12.dp
         })
-        addView(rightLineView, LayoutParams(64.dp, 1.dp).apply {
+        addView(rightLineView, LayoutParams(60.dp, 1.dp).apply {
             leftMargin = 12.dp
         })
         addView(titleLabel, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))

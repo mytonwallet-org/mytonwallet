@@ -19,12 +19,14 @@ private let log = Log("IntroActions")
 
 @MainActor public final class IntroModel {
     
+    public let network: ApiNetwork
     private var password: String?
     private var words: [String]?
     
     let allowOpenWithoutChecking: Bool = IS_DEBUG_OR_TESTFLIGHT
     
-    public init(password: String?, words: [String]? = nil) {
+    public init(network: ApiNetwork, password: String?, words: [String]? = nil) {
+        self.network = network
         self.password = password
         self.words = words
     }
@@ -141,10 +143,8 @@ private let log = Log("IntroActions")
 
     }
     
-    func onAddViewWalletContinue(address: String) {
-        Task {
-            await _addViewWallet(address: address)
-        }
+    func onAddViewWalletContinue(address: String) async throws {
+        try await _addViewWallet(address: address)
     }
     
     func onOpenWallet() {
@@ -164,7 +164,7 @@ private let log = Log("IntroActions")
     private func _createWallet(passcode: String, biometricsEnabled: Bool?) {
         Task { @MainActor in
             do {
-                _ = try await AccountStore.importMnemonic(network: .mainnet, words: words.orThrow(), passcode: passcode, version: nil)
+                _ = try await AccountStore.importMnemonic(network: network, words: words.orThrow(), passcode: passcode, version: nil)
                 KeychainHelper.save(biometricPasscode: passcode)
                 if let biometricsEnabled { // nil if not first wallet
                     AppStorageHelper.save(isBiometricActivated: biometricsEnabled)
@@ -179,7 +179,7 @@ private let log = Log("IntroActions")
     private func _importWallet(words: [String], passcode: String, biometricsEnabled: Bool?) {
         Task { @MainActor in
             do {
-                _ = try await AccountStore.importMnemonic(network: .mainnet, words: words, passcode: passcode, version: nil)
+                _ = try await AccountStore.importMnemonic(network: network, words: words, passcode: passcode, version: nil)
                 KeychainHelper.save(biometricPasscode: passcode)
                 if let biometricsEnabled { // nil if not first wallet
                     AppStorageHelper.save(isBiometricActivated: biometricsEnabled)
@@ -191,19 +191,15 @@ private let log = Log("IntroActions")
         }
     }
     
-    private func _addViewWallet(address: String) async {
-        do {
-            var addressByChain: [String: String] = [:]
-            for chain in ApiChain.allCases {
-                if chain.isValidAddressOrDomain(address) {
-                    addressByChain[chain.rawValue] = address
-                }
+    private func _addViewWallet(address: String) async throws {
+        var addressByChain: [String: String] = [:]
+        for chain in ApiChain.allCases {
+            if chain.isValidAddressOrDomain(address) {
+                addressByChain[chain.rawValue] = address
             }
-            _ = try await AccountStore.importViewWallet(network: .mainnet, addressByChain: addressByChain)
-            self.onDone(successKind: .importedView)
-        } catch {
-            topWViewController()?.showAlert(error: error)
         }
+        _ = try await AccountStore.importViewWallet(network: network, addressByChain: addressByChain)
+        self.onDone(successKind: .importedView)
     }
 }
 

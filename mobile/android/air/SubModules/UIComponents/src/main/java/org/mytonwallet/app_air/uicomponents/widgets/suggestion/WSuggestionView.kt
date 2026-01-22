@@ -81,6 +81,7 @@ class WSuggestionView(
             y = input.y - 56.dp
             (layoutParams as LayoutParams).matchConstraintMaxWidth =
                 input.width - 16.dp
+            visibility = INVISIBLE
             updateSuggestions(input.textField.text.toString())
             attachedInput?.get()?.textField?.removeTextChangedListener(textWatcher)
             attachedInput = WeakReference(input)

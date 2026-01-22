@@ -98,7 +98,7 @@ extension ApiStakingState: MBaseStakingState { // less cringey way to do this?
         }
     }
     
-    public var balance: BigIntLib.BigInt {
+    public var balance: BigInt {
         switch self {
         case .liquid(let v): v.balance
         case .nominators(let v): v.balance

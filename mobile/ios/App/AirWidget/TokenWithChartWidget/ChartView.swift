@@ -24,6 +24,7 @@ struct ChartView: View {
     
     var isSmall: Bool { family == .systemSmall }
     var isMedium: Bool { family == .systemMedium }
+    var isRectangularAccessory: Bool { family == .accessoryRectangular }
     var isVivid: Bool { chartStyle == .vivid }
 
     var body: some View {
@@ -88,8 +89,8 @@ struct ChartView: View {
         }
         
         let full: CGFloat = 164
-        let top: CGFloat = 42
-        let bottom: CGFloat = isMedium ? 58 : 68
+        let top: CGFloat = isRectangularAccessory ? 76 : 48
+        let bottom: CGFloat = isRectangularAccessory ? 12 : isMedium ? 58 : 68
         let center = full - top - bottom
         
         let topPadding = (maxValue - minValue) * (top/center)

@@ -23,7 +23,7 @@ import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpside
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
-import org.mytonwallet.app_air.uicomponents.extensions.updateDotsTypeface
+import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.AddressPopupHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WForegroundColorSpan
@@ -39,7 +39,6 @@ import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.Passco
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views.PasscodeScreenView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -230,12 +229,13 @@ class SendNftVC(
                         this,
                         length - address.length,
                         address.length,
+                        AccountStore.activeAccount!!.network,
                         TONCOIN_SLUG,
                         viewModel.resolvedAddress!!,
                         startOffset.roundToInt(),
                         showTemporaryViewOption = false
                     )
-                    updateDotsTypeface()
+                    styleDots()
                     setSpan(
                         WForegroundColorSpan(WColor.SecondaryText),
                         length - address.length - 1,
@@ -319,28 +319,21 @@ class SendNftVC(
             ViewConstants.BIG_RADIUS.dp,
             0f,
         )
-        if (ThemeManager.uiMode.hasRoundedCorners) {
-            addressInputView.setBackgroundColor(
-                WColor.Background.color,
-                0f,
-                ViewConstants.BIG_RADIUS.dp
-            )
-            nftView.setBackgroundColor(
-                WColor.Background.color,
-                0f,
-                ViewConstants.BIG_RADIUS.dp
-            )
-            commentInputView.setBackgroundColor(
-                WColor.Background.color,
-                0f,
-                ViewConstants.BIG_RADIUS.dp
-            )
-        } else {
-            addressInputView.background = separatorBackgroundDrawable
-            nftView.background = separatorBackgroundDrawable
-            commentInputView.background = separatorBackgroundDrawable
-            separatorBackgroundDrawable.invalidateSelf()
-        }
+        addressInputView.setBackgroundColor(
+            WColor.Background.color,
+            0f,
+            ViewConstants.BIG_RADIUS.dp
+        )
+        nftView.setBackgroundColor(
+            WColor.Background.color,
+            0f,
+            ViewConstants.BIG_RADIUS.dp
+        )
+        commentInputView.setBackgroundColor(
+            WColor.Background.color,
+            0f,
+            ViewConstants.BIG_RADIUS.dp
+        )
         commentInputView.setTextColor(WColor.PrimaryText.color)
         commentInputView.setHintTextColor(WColor.SecondaryText.color)
     }
@@ -393,7 +386,8 @@ class SendNftVC(
             return
         }
 
-        val txMatch = receivedActivity is MApiTransaction.Transaction && receivedActivity.nft?.address == sentNftAddress
+        val txMatch =
+            receivedActivity is MApiTransaction.Transaction && receivedActivity.nft?.address == sentNftAddress
         if (!txMatch) {
             return
         }
@@ -406,11 +400,21 @@ class SendNftVC(
         }
         if ((window?.navigationControllers?.size ?: 0) > 1) {
             window?.dismissLastNav {
-                WalletCore.notifyEvent(WalletEvent.OpenActivity(receivedActivity))
+                WalletCore.notifyEvent(
+                    WalletEvent.OpenActivity(
+                        displayedAccount.accountId!!,
+                        receivedActivity
+                    )
+                )
             }
         } else {
             navigationController?.popToRoot {
-                WalletCore.notifyEvent(WalletEvent.OpenActivity(receivedActivity))
+                WalletCore.notifyEvent(
+                    WalletEvent.OpenActivity(
+                        displayedAccount.accountId!!,
+                        receivedActivity
+                    )
+                )
             }
         }
     }

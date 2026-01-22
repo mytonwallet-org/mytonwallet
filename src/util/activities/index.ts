@@ -64,6 +64,15 @@ export function parseTxId(txId: string): {
   return { hash, type, subId };
 }
 
+export function parseNotificationTxId(txId: string): string {
+  // Format `lt:hash`
+  if (/^\d+:/u.test(txId)) {
+    return txId.split(':')[1];
+  }
+
+  return txId;
+}
+
 export function getIsTxIdLocal(txId: string) {
   return txId.endsWith(':local');
 }

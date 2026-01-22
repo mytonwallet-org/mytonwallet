@@ -112,8 +112,9 @@ export interface ApiTransaction {
    * Both 'pendingTrusted' and 'pending' mean the transaction is awaiting confirmation by the blockchain.
    * - 'pendingTrusted' — awaiting confirmation and trusted (initiated by our app)
    * - 'pending' — awaiting confirmation from an external/unauthenticated source, like TonConnect emulation
+   * - 'confirmed' — included in a shardblock but not yet finalized in the masterchain
    */
-  status: 'pending' | 'pendingTrusted' | 'completed' | 'failed';
+  status: 'pending' | 'pendingTrusted' | 'confirmed' | 'completed' | 'failed';
 }
 
 export type ApiTransactionMetadata = ApiKnownAddressInfo;
@@ -210,6 +211,7 @@ export type ApiEthenaStakingState = BaseStakingState & {
   tsUsdeWalletAddress: string;
   unstakeRequestAmount: bigint;
   unlockTime?: number;
+  isBoostAvailable?: boolean;
   annualYieldStandard?: number;
   annualYieldVerified?: number;
 };
@@ -243,6 +245,7 @@ export interface ApiBackendStakingState {
      * - false — passed the verification and not eligible for the boosted APY;
      */
     isVerified?: boolean;
+    isBoostAvailable?: boolean;
   };
   liquid?: {
     unstakeRequestAmount?: string;

@@ -32,6 +32,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.WordCheckMode
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MAccount
@@ -42,6 +43,7 @@ import kotlin.math.max
 @SuppressLint("ViewConstructor")
 class WordCheckVC(
     context: Context,
+    val network: MBlockchainNetwork,
     val words: Array<String>,
     private val initialWordIndices: List<Int>,
     private val mode: WordCheckMode
@@ -247,6 +249,7 @@ class WordCheckVC(
                         push(SetPasscodeVC(context, true, null) { passcode, biometricsActivated ->
                             walletCreationVM.finalizeAccount(
                                 window!!,
+                                network,
                                 words,
                                 passcode,
                                 biometricsActivated,
@@ -259,6 +262,7 @@ class WordCheckVC(
                         view.lockView()
                         walletCreationVM.finalizeAccount(
                             window!!,
+                            network,
                             words,
                             mode.passedPasscode ?: "",
                             null,

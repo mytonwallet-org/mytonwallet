@@ -149,10 +149,8 @@ public class IconView: UIView, WThemedView {
         }
     }
     
-    public func config(with activity: ApiActivity) {
-        let sameActivity = activity.id == self.cachedActivityId
+    public func config(with activity: ApiActivity, isTransactionConfirmation: Bool = false) {
         cachedActivityId = activity.id
-        imageView.contentMode = .scaleAspectFill
         imageView.kf.cancelDownloadTask()
         self.resolveGradientColors = { activity.iconColors.map(\.cgColor) }
         gradientLayer.colors = resolveGradientColors?()
@@ -164,7 +162,7 @@ public class IconView: UIView, WThemedView {
             imageView.contentMode = .scaleAspectFit
             imageView.image = .airBundle(image)
         }
-        if let accessoryStatus = activityAccessoryStatus(for: activity) {
+        if let accessoryStatus = activityAccessoryStatus(for: activity), !isTransactionConfirmation {
             setChainSize(18, borderWidth: 1.667, borderColor: WTheme.groupedItem, horizontalOffset: 2 + 1.667, verticalOffset: 2 + 1.667)
             switch accessoryStatus {
             case .pending:
@@ -182,13 +180,9 @@ public class IconView: UIView, WThemedView {
             chainAccessoryView.alpha = 1
             chainAccessoryView.transform = .identity
         } else {
-            if sameActivity {
-                UIView.animate(withDuration: 0.2) {
-                    self.chainAccessoryView.alpha = 0
-                    self.chainAccessoryView.transform = .identity.scaledBy(x: 0.2, y: 0.2)
-                }
-            } else {
-                chainAccessoryView.alpha = 0
+            UIView.animate(withDuration: 0.2) {
+                self.chainAccessoryView.alpha = 0
+                self.chainAccessoryView.transform = .identity.scaledBy(x: 0.2, y: 0.2)
             }
         }
     }

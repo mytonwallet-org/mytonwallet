@@ -22,6 +22,7 @@ import org.mytonwallet.app_air.uicomponents.commonViews.CardThumbnailView
 import org.mytonwallet.app_air.uicomponents.drawable.CheckboxDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -49,7 +50,7 @@ class WalletCardRowCell(
     private val onLongClick: (cell: WalletCardRowCell, view: WView, account: MAccount) -> Unit,
     private val onCheckChanged: (account: MAccount, isChecked: Boolean) -> Unit,
 ) :
-    WCell(context, LayoutParams(MATCH_PARENT, 64.dp)), WThemedView, IWalletCardCell {
+    WCell(context, LayoutParams(MATCH_PARENT, 60.dp)), WThemedView, IWalletCardCell {
 
     companion object {
         private const val REORDERING_OFFSET = 42f
@@ -83,7 +84,7 @@ class WalletCardRowCell(
 
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setStyle(16f)
+            setStyle(16f, WFont.DemiBold)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isSelected = true
@@ -126,8 +127,6 @@ class WalletCardRowCell(
             translationX = -reorderingOffset + REORDERING_OFFSET.dp
         }
     }
-
-    private val separatorView = WBaseView(context)
 
     private val contentView = object : WView(context) {
 
@@ -188,7 +187,7 @@ class WalletCardRowCell(
         clipChildren = false
         clipToPadding = false
         addView(checkboxImageView, LayoutParams(22.dp, 22.dp))
-        addView(iconView, LayoutParams(51.dp, 51.dp))
+        addView(iconView, LayoutParams(43.dp, 43.dp))
         addView(
             titleLabel,
             LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
@@ -203,7 +202,6 @@ class WalletCardRowCell(
         )
         addView(valueLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(handleButton, LayoutParams(30.dp, 30.dp))
-        addView(separatorView, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
 
         setConstraints {
             // Checkbox
@@ -215,8 +213,8 @@ class WalletCardRowCell(
             toCenterY(iconView)
 
             // Title
-            toTop(titleLabel, 11f)
-            toStart(titleLabel, 72f)
+            toTop(titleLabel, 9f)
+            toStart(titleLabel, 64f)
             setHorizontalBias(titleLabel.id, 0f)
             constrainedWidth(titleLabel.id, true)
 
@@ -241,11 +239,6 @@ class WalletCardRowCell(
             endToStart(addressLabel, valueLabel, 4f)
             setHorizontalBias(addressLabel.id, 0f)
             constrainedWidth(addressLabel.id, true)
-
-            // Separator
-            toStart(separatorView, 72f)
-            toEnd(separatorView, 16f)
-            toBottom(separatorView)
         }
 
         setOnClickListener {
@@ -298,15 +291,6 @@ class WalletCardRowCell(
                 16f + (if (cardThumbnail.isGone) 0f else 22f)
             )
         }
-        if (ThemeManager.uiMode.hasRoundedCorners) {
-            separatorView.visibility = if (isLast) INVISIBLE else VISIBLE
-        } else {
-            separatorView.visibility = if (isLast && ThemeManager.isDark) INVISIBLE else VISIBLE
-            contentView.setConstraints {
-                toStart(separatorView, if (isLast) 0f else 68f)
-                toEnd(separatorView, if (isLast) 0f else 16f)
-            }
-        }
 
         updateTheme()
 
@@ -324,19 +308,12 @@ class WalletCardRowCell(
         titleLabel.setTextColor(WColor.PrimaryText.color)
         addressLabel.setTextColor(WColor.SecondaryText.color)
         valueLabel.contentView.setTextColor(WColor.SecondaryText.color)
-        separatorView.setBackgroundColor(WColor.Separator.color)
-        updateAddressLabel()
-    }
-
-    private fun updateAddressLabel() {
-        addressLabel.style = when (account?.accountType) {
+        val style = when (account?.accountType) {
             MAccount.AccountType.VIEW -> WMultichainAddressLabel.cardRowWalletViewStyle
             MAccount.AccountType.HARDWARE -> WMultichainAddressLabel.cardRowWalletHardwareStyle
             else -> WMultichainAddressLabel.cardRowWalletStyle
         }
-        addressLabel.displayAddresses(account?.byChain?.map { (key, value) ->
-            Pair(key, value)
-        } ?: emptyList())
+        addressLabel.displayAddresses(account, style)
     }
 
     override fun notifyBalanceChange() {
@@ -368,9 +345,6 @@ class WalletCardRowCell(
         val checkboxAlpha = if (reordering) 1f else 0f
 
         val genericTx = reorderingOffset
-
-        val separatorFrom = if (reordering) 72f else 72f + REORDERING_OFFSET
-        val separatorTo = if (reordering) 72f + REORDERING_OFFSET else 72f
 
         val valueAlpha = if (reordering) 0f else 1f
         val handleTx = if (reordering) 0f else REORDERING_OFFSET.dp
@@ -417,14 +391,6 @@ class WalletCardRowCell(
                 lerp(handleStartTx, handleTx, fraction)
             handleButton.alpha =
                 lerp(handleStartAlpha, handleAlpha, fraction)
-
-            // Separator margin
-            val sep = lerp(separatorFrom, separatorTo, fraction)
-            contentView.setConstraints {
-                toStart(separatorView, sep)
-                toEnd(separatorView, 16f)
-                toBottom(separatorView)
-            }
 
             if (fraction == 1f) {
                 if (reordering)

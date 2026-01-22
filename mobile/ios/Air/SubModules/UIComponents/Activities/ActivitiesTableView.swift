@@ -1,8 +1,11 @@
 
 import UIKit
+import WalletContext
 
 public final class ActivitiesTableView: UITableView, UIGestureRecognizerDelegate {
 
+    private var isDeletingFirstRow = false
+    
     public override init(frame: CGRect, style: UITableView.Style) {
         super.init(frame: frame, style: style)
         delaysContentTouches = false
@@ -29,7 +32,8 @@ public final class ActivitiesTableView: UITableView, UIGestureRecognizerDelegate
     }
 
     public override func insertRows(at indexPaths: [IndexPath], with animation: UITableView.RowAnimation) {
-        super.insertRows(at: indexPaths, with: .fade)
+        super.insertRows(at: indexPaths, with: isDeletingFirstRow ? .none : .fade)
+        isDeletingFirstRow = false
     }
 
     public override func insertSections(_ sections: IndexSet, with animation: UITableView.RowAnimation) {
@@ -37,7 +41,8 @@ public final class ActivitiesTableView: UITableView, UIGestureRecognizerDelegate
     }
 
     public override func deleteRows(at indexPaths: [IndexPath], with animation: UITableView.RowAnimation) {
-        super.deleteRows(at: indexPaths, with: .fade)
+        isDeletingFirstRow = indexPaths.count == 1 && indexPaths[0].row == 0
+        super.deleteRows(at: indexPaths, with: isDeletingFirstRow ? .none : .fade)
     }
 
     public override func deleteSections(_ sections: IndexSet, with animation: UITableView.RowAnimation) {

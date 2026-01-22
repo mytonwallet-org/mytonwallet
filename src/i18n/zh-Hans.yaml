@@ -437,7 +437,7 @@ Use Password: 使用密码
 Biometrics Disabled: 生物识别已禁用
 Biometrics Enabled: 启用生物识别
 A request is already pending: 请求已待处理
-Please confirm operation using biometrics: 请使用生物识别确认操作
+Please confirm action using biometrics: 请使用生物识别确认操作
 Scan QR Code: 扫描二维码
 Permission denied. Please grant camera permission to use the QR code scanner.: 没有权限。 请授予相机使用 QR 扫描仪的权限。
 This QR Code is not supported: 此二维码不受支持
@@ -927,7 +927,7 @@ use the wallet responsibly: 负责任地使用钱包
 Watch Video about Features: 观看功能视频
 Enjoy Monthly Updates in Blog: 享受博客中的每月更新
 Learn New Things in Help Center: 在帮助中心学习新知识
-Frequency Questions and Answers: 常见问题与解答
+Frequent Questions & Answers: 常见问题与解答
 Paste from Clipboard: 从剪贴板粘贴
 Use biometric authentication or create a password to protect it.: 使用生物识别认证或创建密码进行保护。
 Go to Words: 转到单词
@@ -1008,6 +1008,7 @@ $missing_offramp_deposit_address: 缺少 off-ramp 的充值地址。
 Buy: 购买
 Sell: 出售
 Sell on Card: 出售到卡
+Sell %symbol%: 出售 %symbol%
 $connect_dapp_description: 已连接的应用只能看到你的钱包地址，未经你的许可无法转移你的资产。
 $connect_dapp_title: 连接到 %name%？
 Choose Wallet: 选择钱包
@@ -1015,4 +1016,19 @@ Wallet to use on %host%: 用于 %host% 的钱包
 Selected Wallet: 已选钱包
 Connect Wallet: 连接钱包
 Insufficient Fee: 手续费不足
+Waiting for a View deeplink to display a wallet address.: 正在等待查看深层链接以显示钱包地址。
+Adding wallets is not available in explorer mode: 在浏览器模式下无法添加钱包
+$explorer_mode_warning: "浏览器模式：正在等待查看深层链接以打开地址"
+This command is not supported in explorer mode: 此命令在浏览器模式下不受支持
 $saved_addresses_header: 已保存
+confirm an action in MyTonWallet: 在 MyTonWallet 中确认操作
+$connected_apps:
+  otherValue: "%1$d 已连接"
+Night Mode, Palette, Card: 夜间模式、调色板、卡片
+Back Up, Passcode, Auto-Lock: 备份、密码、自动锁定
+Base Currency, Token Order, Hidden NFTs: 基础货币、代币顺序、隐藏的 NFT
+Your assets on other contracts: 您在其他合约上的资产
+Wallets, Sounds: 钱包、声音
+Help: 帮助
+About: 关于
+Wallets: 钱包

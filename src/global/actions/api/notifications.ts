@@ -184,10 +184,10 @@ addActionHandler('createNotificationAccount', async (global, actions, { accountI
 
 addActionHandler('toggleNotifications', async (global, actions, { isEnabled }) => {
   const {
-    enabledAccounts = {}, userToken = '', platform, isAvailable,
+    enabledAccounts = {}, userToken, platform, isAvailable,
   } = global.pushNotifications;
 
-  if (!isAvailable) {
+  if (!isAvailable || !userToken || (isEnabled && !platform)) {
     return;
   }
 
@@ -212,10 +212,10 @@ addActionHandler('toggleNotifications', async (global, actions, { isEnabled }) =
     return;
   }
 
-  const props = { userToken, addresses: Object.values(notificationAccounts), platform: platform! };
+  const addresses = Object.values(notificationAccounts);
   const result = isEnabled
-    ? await abortableSubscribeNotifications(props)
-    : await abortableUnsubscribeNotifications(props);
+    ? await abortableSubscribeNotifications({ userToken, platform: platform!, addresses })
+    : await abortableUnsubscribeNotifications({ userToken, addresses });
 
   if (result && 'aborted' in result) {
     return;

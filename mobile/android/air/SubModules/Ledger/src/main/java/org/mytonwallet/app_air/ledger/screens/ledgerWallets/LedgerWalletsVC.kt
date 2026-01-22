@@ -26,6 +26,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
@@ -37,6 +38,7 @@ import java.lang.ref.WeakReference
 
 class LedgerWalletsVC(
     context: Context,
+    private val network: MBlockchainNetwork,
     discoveredWallets: List<MLedgerWalletInfo>
 ) :
     WViewController(context),
@@ -87,7 +89,7 @@ class LedgerWalletsVC(
                 lockView()
                 this@apply.isLoading = true
                 this@apply.isEnabled = true
-                ledgerWalletsVM.finalizeImport(newlySelectedItems.map { it.wallet })
+                ledgerWalletsVM.finalizeImport(network, newlySelectedItems.map { it.wallet })
             }
         }
     }
@@ -280,7 +282,7 @@ class LedgerWalletsVC(
             else -> {
                 LedgerLoadMoreCell(context).apply {
                     onTap = {
-                        ledgerWalletsVM.loadMore(items.size)
+                        ledgerWalletsVM.loadMore(network, items.size)
                     }
                 }
             }

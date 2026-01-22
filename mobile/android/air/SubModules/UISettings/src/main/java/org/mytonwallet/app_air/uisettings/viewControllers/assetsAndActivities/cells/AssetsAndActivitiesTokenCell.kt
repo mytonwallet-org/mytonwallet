@@ -39,7 +39,7 @@ import kotlin.math.abs
 @SuppressLint("ViewConstructor")
 class AssetsAndActivitiesTokenCell(
     recyclerView: RecyclerView,
-) : WCell(recyclerView.context, LayoutParams(MATCH_PARENT, 64.dp)),
+) : WCell(recyclerView.context, LayoutParams(MATCH_PARENT, 60.dp)),
     WThemedView {
 
     companion object {
@@ -65,10 +65,8 @@ class AssetsAndActivitiesTokenCell(
         rippleColor = WColor.BackgroundRipple.color
     }
 
-    private val separatorView = WBaseView(context)
-
     private val imageView: IconView by lazy {
-        val img = IconView(context)
+        val img = IconView(context, 44.dp)
         img
     }
 
@@ -123,7 +121,7 @@ class AssetsAndActivitiesTokenCell(
         }
     }
 
-    val mainView = WView(context, LayoutParams(MATCH_PARENT, 64.dp))
+    val mainView = WView(context, LayoutParams(MATCH_PARENT, 60.dp))
 
     val swipeRevealLayout = SwipeRevealLayout(context).apply {
         id = generateViewId()
@@ -196,22 +194,18 @@ class AssetsAndActivitiesTokenCell(
     override fun setupViews() {
         super.setupViews()
 
-        mainView.addView(separatorView, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
-        mainView.addView(imageView, ViewGroup.LayoutParams(48.dp, 48.dp))
+        mainView.addView(imageView, ViewGroup.LayoutParams(46.dp, 46.dp))
         mainView.addView(tokenNameLabel, LayoutParams(0, LayoutParams.WRAP_CONTENT))
         mainView.addView(amountLabel)
         mainView.addView(switchView)
         mainView.setConstraints {
-            toBottom(separatorView)
-            toEnd(separatorView, 16f)
-            toStart(separatorView, 72f)
-            toCenterY(imageView)
+            toTop(imageView, 8f)
             toStart(imageView, 12f)
-            toTop(tokenNameLabel, 10f)
-            toStart(tokenNameLabel, 72f)
+            toTop(tokenNameLabel, 8f)
+            toStart(tokenNameLabel, 68f)
             endToStart(tokenNameLabel, switchView, 8f)
-            toBottom(amountLabel, 10f)
-            toStart(amountLabel, 72f)
+            toBottom(amountLabel, 8f)
+            toStart(amountLabel, 68f)
             toCenterY(switchView)
             toEnd(switchView, 20f)
         }
@@ -263,7 +257,6 @@ class AssetsAndActivitiesTokenCell(
 
         tokenNameLabel.setTextColor(WColor.PrimaryText.color)
         amountLabel.contentView.setTextColor(WColor.SecondaryText.color)
-        separatorView.setBackgroundColor(WColor.Separator.color)
         deleteLabel.setTextColor(WColor.TextOnTint.color)
     }
 
@@ -299,7 +292,6 @@ class AssetsAndActivitiesTokenCell(
         secondaryView.setOnClickListener {
             this.onDeleteToken?.invoke()
         }
-        separatorView.isGone = isLast
 
         updateTheme()
     }

@@ -7,6 +7,7 @@ import type {
   ApiTokenWithPrice,
 } from '../../api/types';
 import type { Account, AccountChain, AccountState, AccountType, GlobalState } from '../types';
+import { AuthState } from '../types';
 
 import { POPULAR_WALLET_VERSIONS, TONCOIN } from '../../config';
 import { generateAccountTitle } from '../../util/account';
@@ -418,4 +419,8 @@ export function updateCurrentTransactionInfo(
       ...partial,
     },
   };
+}
+
+export function resetAuthToStartScreen(global: GlobalState) {
+  return updateAuth(global, { state: AuthState.none, error: undefined });
 }

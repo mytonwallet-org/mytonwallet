@@ -64,15 +64,9 @@ public class UnstakeVC: WViewController, WalletCoreData.EventsObserver {
         guard let activity else { return }
         awaitingActivity = false
         pendingActivityId = nil
-        dismissAndShowActivity(activity, accountId: accountId)
+        AppActions.showActivityDetails(accountId: accountId, activity: activity, context: .unstakeRequestConfirmation)
     }
 
-    private func dismissAndShowActivity(_ activity: ApiActivity, accountId: String) {
-        navigationController?.dismiss(animated: true) {
-            AppActions.showActivityDetails(accountId: accountId, activity: activity)
-        }
-    }
-    
     public override func viewDidLoad() {
         super.viewDidLoad()
         setupViews()

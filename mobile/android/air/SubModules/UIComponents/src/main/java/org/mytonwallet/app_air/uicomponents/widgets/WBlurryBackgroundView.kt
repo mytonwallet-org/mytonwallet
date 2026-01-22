@@ -13,8 +13,10 @@ import eightbitlab.com.blurview.BlurView
 import eightbitlab.com.blurview.BlurViewFacade
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 
 @SuppressLint("ViewConstructor")
@@ -45,41 +47,47 @@ class WBlurryBackgroundView(
     }
 
     fun setupViews() {
-        setBlurRadius(overrideBlurRadius ?: if (ThemeManager.isDark) 10f else 20f)
         updateTheme()
     }
 
     private var overrideOverlayColor: WColor? = null
         set(value) {
             field = value
-            solidBackgroundColor = value?.color
-                ?: (if (ThemeManager.uiMode.hasRoundedCorners) WColor.SecondaryBackground.color else WColor.Background.color)
+            solidBackgroundColor = value?.color ?: WColor.SecondaryBackground.color
         }
 
     private var overlayAlpha: Int? = null
 
     private var solidBackgroundColor =
-        overrideOverlayColor?.color
-            ?: (if (ThemeManager.uiMode.hasRoundedCorners) WColor.SecondaryBackground.color else WColor.Background.color)
+        overrideOverlayColor?.color ?: WColor.SecondaryBackground.color
 
     fun setOverlayColor(overlayColor: WColor, alpha: Int? = null): BlurViewFacade {
         overrideOverlayColor = overlayColor
         overlayAlpha = alpha
-        val alpha = alpha ?: if (ThemeManager.isDark) 230 else 180
+        val alpha = alpha ?: if (ThemeManager.isDark) 200 else 140
         return super.setOverlayColor(overrideOverlayColor!!.color.colorWithAlpha(alpha))
     }
 
     override fun updateTheme() {
-        setBlurRadius(if (ThemeManager.isDark) 10f else 20f)
+        val blurEnabled = WGlobalStorage.isBlurEnabled()
+        setBlurEnabled(blurEnabled)
 
         solidBackgroundColor =
-            overrideOverlayColor?.color
-                ?: (if (ThemeManager.uiMode.hasRoundedCorners) WColor.SecondaryBackground.color else WColor.Background.color)
+            overrideOverlayColor?.color ?: WColor.SecondaryBackground.color
 
-        val alpha = overlayAlpha ?: if (ThemeManager.isDark) 230 else 180
-        val color = solidBackgroundColor.colorWithAlpha(alpha)
-        setOverlayColor(color)
+        if (blurEnabled) {
+            setBlurRadius(overrideBlurRadius ?: if (ThemeManager.isDark) 14f else 16f)
+            val alpha = overlayAlpha ?: if (ThemeManager.isDark) 200 else 140
+            val color = solidBackgroundColor.colorWithAlpha(alpha)
+            setOverlayColor(color)
+            setBackgroundColor(android.graphics.Color.TRANSPARENT)
+        } else {
+            // When blur is disabled, use solid opaque background
+            setOverlayColor(android.graphics.Color.TRANSPARENT)
+            setBackgroundColor(solidBackgroundColor)
+        }
         updateLinearGradient()
+        invalidate()
     }
 
     private val fadeHeight = 10f.dp
@@ -137,6 +145,9 @@ class WBlurryBackgroundView(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+
+        // Don't draw gradient when rounded toolbars are off
+        if (ViewConstants.BAR_ROUNDS == 0f) return
 
         when (fadeSide) {
             Side.TOP -> {

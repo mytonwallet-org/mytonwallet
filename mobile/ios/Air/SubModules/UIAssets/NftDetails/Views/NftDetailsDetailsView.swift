@@ -110,18 +110,6 @@ struct NftDetailsDetailsView: View {
                             HStack(alignment: .firstTextBaseline, spacing: 4) {
                                 Text(attr.value)
                                     .lineLimit(1)
-                                
-//                                if let rarity = attr.rarity {
-//                                    Text(formatAmountText(amount: rarity * 100, decimalsCount: 1) + "%")
-//                                        .padding(.horizontal, 6)
-//                                        .padding(.vertical, 3)
-//                                        .foregroundStyle(Color(WTheme.tint))
-//                                        .background(Color(WTheme.tint).opacity(0.1), in: .capsule)
-//                                        .font(.system(size: 11))
-//                                        .offset(y: -1)
-//                                        .padding(.vertical, -5) // don't mess with vertical cell sizing
-//                                }
-                                    
                             }
                             .padding(.horizontal, 12)
                             .frame(maxWidth: .infinity, alignment: .leading)

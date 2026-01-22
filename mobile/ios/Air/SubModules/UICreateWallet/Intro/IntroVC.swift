@@ -54,6 +54,6 @@ public class IntroVC: WViewController {
 @available(iOS 18.0, *)
 #Preview {
     LocalizationSupport.shared.setLanguageCode("ru")
-    return UINavigationController(rootViewController: IntroVC(introModel: IntroModel(password: nil)))
+    return UINavigationController(rootViewController: IntroVC(introModel: IntroModel(network: .mainnet, password: nil)))
 }
 #endif

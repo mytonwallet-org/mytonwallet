@@ -20,7 +20,7 @@ private let accountRowHeight: CGFloat = accountRowContentHeight + accountRowVert
 private let actionRowIconSize: CGFloat = 30
 private let actionRowVerticalPadding: CGFloat = IOS_26_MODE_ENABLED ? 11 : 7
 private let actionRowHeight: CGFloat = actionRowIconSize + actionRowVerticalPadding * 2
-private let switchAccountMaxAccountsShown: Int = 7
+private let switchAccountMaxAccountsShown: Int = 8
 
 public class SwitchAccountVC: WViewController {
     
@@ -55,7 +55,7 @@ public class SwitchAccountVC: WViewController {
     private var collectionViewHeightConstraint: NSLayoutConstraint?
     
     private var visibleOtherAccounts: [MAccount] {
-        Array(otherAccounts.prefix(max(0, switchAccountMaxAccountsShown - 1)))
+        Array(otherAccounts.prefix(switchAccountMaxAccountsShown))
     }
 
     private var shouldShowAllWalletsRow: Bool {
@@ -458,7 +458,7 @@ public class SwitchAccountVC: WViewController {
     
     private func addAccountSelected() {
         dismiss(animated: false) {
-            AppActions.showAddWallet(showCreateWallet: true, showSwitchToOtherVersion: true)
+            AppActions.showAddWallet(network: .mainnet, showCreateWallet: true, showSwitchToOtherVersion: true)
         }
     }
 

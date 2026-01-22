@@ -21,6 +21,7 @@ import {
   IS_PRODUCTION,
   PRODUCTION_URL,
 } from '../../../config';
+import { parseNotificationTxId } from '../../../util/activities';
 import { getDoesUsePinPad } from '../../../util/biometrics';
 import { openDeeplinkOrUrl, parseDeeplinkTransferParams, processDeeplink } from '../../../util/deeplink';
 import getIsAppUpdateNeeded from '../../../util/getIsAppUpdateNeeded';
@@ -85,9 +86,9 @@ addActionHandler('showActivityInfo', (global, actions, { id }) => {
   return updateCurrentAccountState(global, { currentActivityId: id });
 });
 
-addActionHandler('showAnyAccountTx', async (global, actions, { txId, accountId, network }) => {
+addActionHandler('showAnyAccountTx', async (global, actions, { txId, accountId, network, chain }) => {
   if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('showAnyAccountTx', { txId, accountId, network });
+    callActionInMain('showAnyAccountTx', { txId, accountId, network, chain });
     return;
   }
 
@@ -96,21 +97,8 @@ addActionHandler('showAnyAccountTx', async (global, actions, { txId, accountId, 
     switchAccount(global, accountId, network),
   ]);
 
-  actions.showActivityInfo({ id: txId });
-});
-
-addActionHandler('showAnyAccountTokenActivity', async (global, actions, { slug, accountId, network }) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('showAnyAccountTokenActivity', { slug, accountId, network });
-    return;
-  }
-
-  await Promise.all([
-    closeAllOverlays(),
-    switchAccount(global, accountId, network),
-  ]);
-
-  actions.showTokenActivity({ slug });
+  const txHash = parseNotificationTxId(txId);
+  actions.openTransactionInfo({ txHash, chain });
 });
 
 addActionHandler('closeActivityInfo', (global, actions, { id }) => {
@@ -121,9 +109,13 @@ addActionHandler('closeActivityInfo', (global, actions, { id }) => {
   return updateCurrentAccountState(global, { currentActivityId: undefined });
 });
 
-addActionHandler('openTransactionInfo', async (global, actions, { txId, chain }) => {
+addActionHandler('openTransactionInfo', async (global, actions, payload) => {
+  const chain = payload.chain;
+  const isTxId = 'txId' in payload;
+  const txId = isTxId ? payload.txId : payload.txHash;
+
   if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('openTransactionInfo', { txId, chain });
+    callActionInMain('openTransactionInfo', isTxId ? { txId, chain } : { txHash: txId, chain });
     return;
   }
 
@@ -143,7 +135,8 @@ addActionHandler('openTransactionInfo', async (global, actions, { txId, chain })
 
     const network = selectCurrentNetwork(getGlobal());
 
-    const activities = await callApi('fetchTransactionById', chain, network, txId, walletAddress);
+    const options = isTxId ? { chain, network, txId, walletAddress } : { chain, network, txHash: txId, walletAddress };
+    const activities = await callApi('fetchTransactionById', options);
 
     global = getGlobal();
 
@@ -218,6 +211,9 @@ addActionHandler('selectTransactionInfoActivity', (global, actions, { index }) =
 addActionHandler('addSavedAddress', (global, actions, { address, name, chain }) => {
   const { savedAddresses = [] } = selectCurrentAccountState(global) || {};
 
+  const isAlreadySaved = savedAddresses.some((item) => item.address === address && item.chain === chain);
+  if (isAlreadySaved) return;
+
   return updateCurrentAccountState(global, {
     savedAddresses: [
       ...savedAddresses,
@@ -288,7 +284,7 @@ addActionHandler('addAccount', async (global, actions, { method, password, isAut
 
   global = getGlobal();
   if (isMnemonicImport || !isPasswordPresent) {
-    global = { ...global, isAddAccountModalOpen: undefined };
+    global = { ...global, isAccountSelectorOpen: undefined };
   } else {
     global = updateAccounts(global, { isLoading: true });
   }
@@ -348,12 +344,12 @@ addActionHandler('openAddAccountModal', (global, _, props) => {
     return;
   }
 
-  global = { ...global, isAddAccountModalOpen: true };
+  global = { ...global, isAccountSelectorOpen: true };
 
   if (forceAddingTonOnlyAccount || initialState !== undefined) {
     global = updateAuth(global, {
       forceAddingTonOnlyAccount,
-      initialState,
+      initialAddAccountState: initialState,
     });
   }
 
@@ -367,9 +363,9 @@ addActionHandler('closeAddAccountModal', (global, _, props) => {
 
   global = updateAuth(global, {
     forceAddingTonOnlyAccount: undefined,
-    initialState: undefined,
+    initialAddAccountState: undefined,
   });
-  global = { ...global, isAddAccountModalOpen: undefined };
+  global = { ...global, isAccountSelectorOpen: undefined };
 
   return global;
 });
@@ -442,6 +438,19 @@ addActionHandler('changeLanguage', (global, actions, { langCode }) => {
     settings: {
       ...global.settings,
       langCode,
+    },
+  };
+});
+
+addActionHandler('setSelectedExplorerId', (global, actions, { chain, explorerId }) => {
+  return {
+    ...global,
+    settings: {
+      ...global.settings,
+      selectedExplorerIds: {
+        ...global.settings.selectedExplorerIds,
+        [chain]: explorerId,
+      },
     },
   };
 });

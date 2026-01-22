@@ -29,7 +29,7 @@ class SkeletonCell(
     }
 
     private val circleSkeleton = WBaseView(context).apply {
-        layoutParams = LayoutParams(48.dp, 48.dp)
+        layoutParams = LayoutParams(44.dp, 44.dp)
     }
 
     private val titleSkeleton = WBaseView(context).apply {
@@ -50,18 +50,18 @@ class SkeletonCell(
     override fun setupViews() {
         super.setupViews()
 
-        layoutParams.height = 64.dp
+        layoutParams.height = 60.dp
 
         addView(circleSkeleton)
         addView(titleSkeleton)
         addView(subtitleSkeleton)
         setConstraints {
-            toTop(circleSkeleton, 8f)
+            toTop(circleSkeleton, 6f)
             toStart(circleSkeleton, 13f)
-            toTop(titleSkeleton, 14f)
-            toStart(titleSkeleton, 72f)
-            toTop(subtitleSkeleton, 36f)
-            toStart(subtitleSkeleton, 72f)
+            toTop(titleSkeleton, 12f)
+            toStart(titleSkeleton, 68f)
+            toTop(subtitleSkeleton, 34f)
+            toStart(subtitleSkeleton, 68f)
         }
 
         background = backgroundDrawable

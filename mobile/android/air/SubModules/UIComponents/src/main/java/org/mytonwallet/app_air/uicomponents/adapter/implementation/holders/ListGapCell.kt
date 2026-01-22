@@ -20,10 +20,7 @@ class ListGapCell(
     var showSeparator: Boolean = true
         set(value) {
             field = value
-            background = if (!ThemeManager.uiMode.hasRoundedCorners && showSeparator)
-                drawable
-            else
-                null
+            background = null
         }
 
     val drawable: Drawable by lazy {

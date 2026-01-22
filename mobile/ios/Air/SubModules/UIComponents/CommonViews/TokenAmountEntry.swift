@@ -173,11 +173,11 @@ public struct TokenAmountEntry: View {
         self.onTokenPickerTapped = onTokenPickerTapped
     }
 
-    private var decimals: Int {
+    private var decimals: Int? {
         if inBaseCurrency {
             TokenStore.baseCurrency.decimalsCount
         } else {
-            token?.decimals ?? 9
+            token?.decimals
         }
     }
     
@@ -199,16 +199,23 @@ public struct TokenAmountEntry: View {
         }
     }
     
+    @ViewBuilder
     var textField: some View {
-        WUIAmountInput(
-            amount: $amount,
-            maximumFractionDigits: decimals,
-            font: .systemFont(ofSize: 24, weight: .semibold),
-            fractionFont: .systemFont(ofSize: 20, weight: .semibold),
-            isFocused: $triggerFocused,
-            error: insufficientFunds
-        )
-        .id(inBaseCurrency)
+        if let decimals {
+            WUIAmountInput(
+                amount: $amount,
+                maximumFractionDigits: decimals,
+                font: .systemFont(ofSize: 24, weight: .semibold),
+                fractionFont: .systemFont(ofSize: 20, weight: .semibold),
+                isFocused: $triggerFocused,
+                error: insufficientFunds
+            )
+            .id(inBaseCurrency)
+        } else {
+            Text(" ")
+                .font(.system(size: 24, weight: .semibold))
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
     
     var tokenPicker: some View {

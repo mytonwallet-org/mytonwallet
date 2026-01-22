@@ -1,7 +1,7 @@
 import React, { memo, useEffect, useMemo } from '../../../../lib/teact/teact';
 import { getActions, getGlobal, withGlobal } from '../../../../global';
 
-import type { ApiSwapActivity, ApiSwapAsset } from '../../../../api/types';
+import type { ApiChain, ApiSwapActivity, ApiSwapAsset } from '../../../../api/types';
 import type { Account, Theme } from '../../../../global/types';
 import { SwapType } from '../../../../global/types';
 
@@ -57,6 +57,7 @@ type StateProps = {
   theme: Theme;
   isSwapDisabled?: boolean;
   isSensitiveDataHidden?: true;
+  selectedExplorerIds?: Partial<Record<ApiChain, string>>;
 };
 
 const CHANGELLY_EXPIRE_CHECK_STATUSES = new Set(['new', 'waiting']);
@@ -65,7 +66,7 @@ const CHANGELLY_ERROR_STATUSES = new Set(['failed', 'expired', 'refunded', 'over
 const ONCHAIN_ERROR_STATUSES = new Set(['failed', 'expired']);
 
 function SwapActivityModal({
-  activity, tokensBySlug, theme, accountChains, isSwapDisabled, isSensitiveDataHidden,
+  activity, tokensBySlug, theme, accountChains, isSwapDisabled, isSensitiveDataHidden, selectedExplorerIds,
 }: StateProps) {
   const {
     fetchActivityDetails,
@@ -360,7 +361,13 @@ function SwapActivityModal({
         <InteractiveTextField
           noSavedAddress
           address={hash}
-          addressUrl={getExplorerTransactionUrl(chain, hash)}
+          chain={chain}
+          addressUrl={getExplorerTransactionUrl(
+            chain,
+            hash,
+            undefined,
+            selectedExplorerIds?.[chain],
+          )}
           isTransaction
           copyNotification={lang('Transaction ID was copied!')}
         />
@@ -521,6 +528,7 @@ export default memo(
       accountChains: account?.byChain,
       isSwapDisabled: isSwapDisabled || global.settings.isTestnet || selectIsCurrentAccountViewMode(global),
       isSensitiveDataHidden,
+      selectedExplorerIds: global.settings.selectedExplorerIds,
     };
   })(SwapActivityModal),
 );

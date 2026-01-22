@@ -27,7 +27,6 @@ public class TokenVC: ActivitiesTableViewController, Sendable, WSensitiveDataPro
 
     var windowSafeAreaGuide = UILayoutGuide()
     var windowSafeAreaGuideContraint: NSLayoutConstraint!
-    var emptyWalletViewTopConstraint: NSLayoutConstraint!
 
     public init(accountSource: AccountSource, token: ApiToken, isInModal: Bool) async {
         self._account = AccountContext(source: accountSource)
@@ -61,7 +60,6 @@ public class TokenVC: ActivitiesTableViewController, Sendable, WSensitiveDataPro
 
     private func updateHeaderHeight() {
         reconfigureHeaderPlaceholder(animated: false)
-        emptyWalletViewTopConstraint.constant = firstRowPlaceholderHeight - 48
     }
 
     public override var headerPlaceholderHeight: CGFloat {
@@ -139,16 +137,12 @@ public class TokenVC: ActivitiesTableViewController, Sendable, WSensitiveDataPro
         }
 
         view.addSubview(expandableNavigationView)
-        emptyWalletViewTopConstraint = emptyWalletView.topAnchor.constraint(equalTo: expandableNavigationView.bottomAnchor,
-                                                                            constant: firstRowPlaceholderHeight - 48)
         NSLayoutConstraint.activate([
             windowSafeAreaGuideContraint,
 
             expandableNavigationView.topAnchor.constraint(equalTo: view.topAnchor),
             expandableNavigationView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             expandableNavigationView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-
-            emptyWalletViewTopConstraint
         ])
 
         if !isInModal {
@@ -179,7 +173,7 @@ public class TokenVC: ActivitiesTableViewController, Sendable, WSensitiveDataPro
     }
 
     public func updateSensitiveData() {
-        expandableContentView.balanceContainer.updateSensitiveData()
+        expandableContentView.updateSensitiveData()
     }
 
     public override func updateSkeletonViewMask() {

@@ -2,7 +2,7 @@ import type {
   ApiActivity,
   ApiChain,
   ApiFetchActivitySliceOptions,
-  ApiNetwork,
+  ApiFetchTransactionByIdOptions,
   ApiTransactionActivity,
 } from '../types';
 
@@ -87,14 +87,16 @@ export async function fetchActivityDetails(accountId: string, activity: ApiActiv
 }
 
 export async function fetchTransactionById(
-  chain: ApiChain,
-  network: ApiNetwork,
-  txHash: string,
-  walletAddress: string,
+  { chain, network, walletAddress, ...restOptions }: ApiFetchTransactionByIdOptions & { chain: ApiChain },
 ): Promise<ApiActivity[]> {
-  logDebug('fetchTransactionById', { chain, network, txHash, walletAddress });
+  const isTxId = 'txId' in restOptions;
+  const options = isTxId
+    ? { chain, network, txId: restOptions.txId, walletAddress }
+    : { chain, network, txHash: restOptions.txHash, walletAddress };
 
-  return chains[chain].fetchTransactionById(network, walletAddress, txHash);
+  logDebug('fetchTransactionById', options);
+
+  return chains[chain].fetchTransactionById(options);
 }
 
 async function fetchAndCheckActivitySlice(chain: ApiChain, options: ApiFetchActivitySliceOptions) {

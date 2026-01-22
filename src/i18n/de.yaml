@@ -443,7 +443,7 @@ Use Password: Passwort verwenden
 Biometrics Disabled: Biometrie deaktiviert
 Biometrics Enabled: Biometrie aktiviert
 A request is already pending: Es liegt bereits eine ausstehende Anfrage vor
-Please confirm operation using biometrics: Bitte bestätigen Sie die Operation mit Hilfe der Biometrie
+Please confirm action using biometrics: Bitte bestätigen Sie die Aktion mit Biometrie
 Scan QR Code: QR-Code scannen
 Permission denied. Please grant camera permission to use the QR code scanner.: Berechtigung verweigert. Bitte erteilen Sie die Kamera-Berechtigung, um den QR-Code-Scanner zu verwenden.
 This QR Code is not supported: Dieser QR-Code wird nicht unterstützt
@@ -936,7 +936,7 @@ use the wallet responsibly: die Brieftasche verantwortungsvoll zu benutzen
 Watch Video about Features: Video über Funktionen ansehen
 Enjoy Monthly Updates in Blog: Monatliche Updates im Blog genießen
 Learn New Things in Help Center: Neues im Hilfezentrum lernen
-Frequency Questions and Answers: Häufige Fragen und Antworten
+Frequent Questions & Answers: Häufige Fragen und Antworten
 Paste from Clipboard: Aus Zwischenablage einfügen
 Use biometric authentication or create a password to protect it.: Verwenden Sie die biometrische Authentifizierung oder erstellen Sie ein Passwort zum Schutz.
 Go to Words: Zu Wörtern gehen
@@ -1017,6 +1017,7 @@ $missing_offramp_deposit_address: Fehlende Einzahlungsadresse für Off-Ramp.
 Buy: Kaufen
 Sell: Verkaufen
 Sell on Card: Auf Karte verkaufen
+Sell %symbol%: "%symbol% verkaufen"
 $connect_dapp_description: Verbundene Apps können nur Ihre Wallet-Adresse sehen und können Ihre Assets ohne Ihre Zustimmung nicht bewegen.
 $connect_dapp_title: Mit %name% verbinden?
 Choose Wallet: Wallet auswählen
@@ -1024,4 +1025,19 @@ Wallet to use on %host%: Wallet für %host%
 Selected Wallet: Ausgewählte Wallet
 Connect Wallet: Wallet verbinden
 Insufficient Fee: Unzureichende Gebühr
+Waiting for a View deeplink to display a wallet address.: Warten auf einen View-Deeplink zum Anzeigen einer Wallet-Adresse.
+Adding wallets is not available in explorer mode: Das Hinzufügen von Wallets ist im Explorer-Modus nicht verfügbar
+$explorer_mode_warning: "Explorer-Modus: Warten auf einen View-Deeplink zum Öffnen einer Adresse"
+This command is not supported in explorer mode: Dieser Befehl wird im Explorer-Modus nicht unterstützt
 $saved_addresses_header: Gespeichert
+confirm an action in MyTonWallet: eine Aktion in MyTonWallet bestätigen
+$connected_apps:
+  otherValue: "%1$d verbunden"
+Night Mode, Palette, Card: Nachtmodus, Farbpalette, Karte
+Back Up, Passcode, Auto-Lock: Backup, Passcode, Automatische Sperre
+Base Currency, Token Order, Hidden NFTs: Basiswährung, Token-Reihenfolge, Versteckte NFTs
+Your assets on other contracts: Ihre Vermögenswerte auf anderen Verträgen
+Wallets, Sounds: Wallets, Töne
+Help: Hilfe
+About: Über
+Wallets: Wallets

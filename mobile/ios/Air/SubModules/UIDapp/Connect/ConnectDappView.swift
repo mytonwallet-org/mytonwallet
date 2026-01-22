@@ -78,9 +78,14 @@ private struct HeaderView: View {
                 VStack(spacing: 4) {
                     Text(lang("$connect_dapp_title", arg1: dapp.name))
                         .airFont24h32(weight: .semibold)
-                    Text(dapp.displayUrl)
-                        .font17h22()
-                        .foregroundStyle(.tint)
+                    HStack {
+                        if dapp.isUrlEnsured != true {
+                            DappOriginWarning()
+                                .offset(y: 1)
+                        }
+                        Text(dapp.displayUrl)
+                            .foregroundStyle(.tint)
+                    }
                 }
                 .padding(.horizontal, 8)
             }

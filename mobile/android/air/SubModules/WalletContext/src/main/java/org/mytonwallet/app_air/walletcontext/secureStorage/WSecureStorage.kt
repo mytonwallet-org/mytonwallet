@@ -22,6 +22,12 @@ object WSecureStorage {
         getFailedLoginAttempts()
     }
 
+    fun isFreshInstall(): Boolean {
+        val storage = secureStorage
+            ?: throw IllegalStateException("WSecureStorage not initialized.")
+        return storage.keys().size == 0
+    }
+
     private const val ACCOUNTS = "accounts"
 
     //private const val PASSCODE_LENGTH = "passcodeLength"

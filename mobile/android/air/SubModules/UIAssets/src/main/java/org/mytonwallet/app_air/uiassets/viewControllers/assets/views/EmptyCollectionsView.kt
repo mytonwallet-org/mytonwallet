@@ -19,8 +19,10 @@ import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
+import org.mytonwallet.app_air.walletcore.stores.AccountStore
 
 @SuppressLint("ViewConstructor")
 class EmptyCollectionsView(window: WWindow) : WView(window), WThemedView {
@@ -44,8 +46,8 @@ class EmptyCollectionsView(window: WWindow) : WView(window), WThemedView {
                 context,
                 null,
                 InAppBrowserConfig(
-                    "https://getgems.io/",
-                    title = "GetGems",
+                    if (AccountStore.activeAccount?.network == MBlockchainNetwork.MAINNET) "https://getgems.io/" else "https://testnet.getgems.io/",
+                    title = "Getgems",
                     injectTonConnectBridge = true
                 )
             )
@@ -78,6 +80,7 @@ class EmptyCollectionsView(window: WWindow) : WView(window), WThemedView {
         setExploreText()
         titleLabel.setTextColor(WColor.PrimaryText.color)
         exploreButton.setTextColor(WColor.Tint.color)
+        exploreButton.background = null
         exploreButton.addRippleEffect(WColor.TintRipple.color, 16f.dp)
     }
 

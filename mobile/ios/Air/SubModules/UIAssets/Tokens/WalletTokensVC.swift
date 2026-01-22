@@ -182,7 +182,7 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
     // MARK: - Data Updates
 
     private func updateWalletTokens(animated: Bool) {
-
+        animatedAmounts = animated
         if let data = $account.balanceData {
             var allTokens = data.walletStaked + data.walletTokens
             let count = allTokens.count
@@ -231,7 +231,7 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
             switch event {
             case .accountChanged:
                 if $account.source == .current {
-                    updateWalletTokens(animated: true)
+                    updateWalletTokens(animated: false)
                     reloadStakeCells(animated: false)
                 }
 
@@ -244,6 +244,7 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
                 reconfigureAllRows(animated: true)
 
             case .balanceChanged(let accountId, _):
+                log.info("balanceChanged \(accountId, .public) self.account.id=\(self.account.id, .public)")
                 if accountId == self.account.id {
                     updateWalletTokens(animated: true)
                 }

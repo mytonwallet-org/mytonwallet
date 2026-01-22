@@ -220,10 +220,6 @@ class EarnVC(
         wView.visibility = View.GONE
         wView.apply {
             addView(
-                noItemSeparator,
-                ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, 12.dp)
-            )
-            addView(
                 animationView,
                 ConstraintLayout.LayoutParams(124.dp, 124.dp)
             )
@@ -237,8 +233,6 @@ class EarnVC(
             )
 
             setConstraints {
-                toTop(noItemSeparator)
-                toCenterX(noItemSeparator)
                 toCenterX(animationView)
                 topToBottom(noItemLabel, animationView, 12f)
                 toCenterX(noItemLabel, 40f)
@@ -258,8 +252,6 @@ class EarnVC(
         }
         wView
     }
-
-    private val noItemSeparator = WView(context)
 
     private val animationView: WAnimationView by lazy {
         val v = WAnimationView(context)
@@ -647,8 +639,6 @@ class EarnVC(
         super.updateTheme()
 
         noItemView.setBackgroundColor(WColor.Background.color, ViewConstants.BIG_RADIUS.dp, 0f)
-        noItemSeparator.isVisible = !ThemeManager.uiMode.hasRoundedCorners
-        noItemSeparator.setBackgroundColor(WColor.SecondaryBackground.color)
         noItemLabel.setTextColor(WColor.PrimaryText.color)
 
         rvAdapter.reloadData()
@@ -770,9 +760,7 @@ class EarnVC(
         val cellLayoutParams = RecyclerView.LayoutParams(MATCH_PARENT, 0)
         (cellHolder.cell as EarnSpaceCell).updateTheme()
 
-        val newHeight =
-            (if (!ThemeManager.uiMode.hasRoundedCorners) ViewConstants.GAP.dp else 0) +
-                headerHeight
+        val newHeight = headerHeight
         cellLayoutParams.height = newHeight
         cellHolder.cell.layoutParams = cellLayoutParams
     }

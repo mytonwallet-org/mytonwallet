@@ -20,13 +20,6 @@ public struct ApiSwapHistoryItem: Codable {
     public let swapFee: MDouble
     public let ourFee: MDouble?
     
-    public enum Status: String, Codable {
-        case pending = "pending"
-        case pendingTrusted = "pendingTrusted"
-        case completed = "completed"
-        case failed = "failed"
-        case expired = "expired"
-    }
     /**
      * Swap confirmation status
      * Both 'pendingTrusted' and 'pending' mean the swap is awaiting confirmation by the blockchain.
@@ -37,10 +30,8 @@ public struct ApiSwapHistoryItem: Codable {
      * Swaps returned by ToncenterApi have the status 'pending'.
      * Swaps returned by our backend also have the status 'pending', but they are meant to be 'pendingTrusted'.
      * When an activity reaches the `GlobalState`, it already has the correct status set.
-     *
-     * TODO: Replace the status 'pending' with 'pendingTrusted' on our backend once all clients are updated.
      */
-    public let status: Status
+    public let status: ApiSwapStatus
     public var hashes: [String]
     public let isCanceled: Bool?
     public let cex: ApiSwapCexTransactionExtras?

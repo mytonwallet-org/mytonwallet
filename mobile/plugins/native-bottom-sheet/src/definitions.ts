@@ -16,7 +16,6 @@ export type BottomSheetKeys =
   | 'transaction-info'
   | 'swap-activity'
   | 'backup'
-  | 'add-account'
   | 'import-account'
   | 'settings'
   | 'qr-scanner'

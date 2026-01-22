@@ -52,7 +52,7 @@ func _getNewestActivitiesBySlug(
         // The `idsBySlug` arrays must be sorted from the newest to the oldest
         let ids = idsBySlug[tokenSlug] ?? [];
         let newestActivityId = ids.first { id in
-            getIsIdSuitableForFetchingTimestamp(id) && byId[id] != nil
+            getIsIdSuitableForFetchingTimestamp(activity: byId[id])
         }
         if let newestActivityId {
             newestActivitiesBySlug[tokenSlug] = byId[newestActivityId]
@@ -64,8 +64,9 @@ func _getNewestActivitiesBySlug(
     return newestActivitiesBySlug;
 }
 
-func getIsIdSuitableForFetchingTimestamp(_ id: String) -> Bool {
-    !getIsIdLocal(id) && !getIsBackendSwapId(id)
+func getIsIdSuitableForFetchingTimestamp(activity: ApiActivity?) -> Bool {
+    guard let activity else { return false }
+    return !getIsIdLocal(activity.id) && !getIsBackendSwapId(activity.id) && activity.isCompleted
 }
 
 public func getIsActivityPending(_ activity: ApiActivity) -> Bool {

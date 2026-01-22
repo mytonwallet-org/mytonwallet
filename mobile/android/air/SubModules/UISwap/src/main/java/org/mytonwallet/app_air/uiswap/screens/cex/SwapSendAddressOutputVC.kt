@@ -286,18 +286,13 @@ class SwapSendAddressOutputVC(
 
     override fun updateTheme() {
         super.updateTheme()
-        if (ThemeManager.uiMode.hasRoundedCorners) {
-            scrollView.setBackgroundColor(WColor.SecondaryBackground.color)
-            confirmView.setBackgroundColor(WColor.Background.color, 0f, ViewConstants.BIG_RADIUS.dp)
-            bottomDetails.setBackgroundColor(
-                WColor.Background.color,
-                ViewConstants.BIG_RADIUS.dp,
-                0f
-            )
-        } else {
-            scrollView.setBackgroundColor(WColor.Background.color)
-            confirmView.background = separatorDrawable
-        }
+        scrollView.setBackgroundColor(WColor.SecondaryBackground.color)
+        confirmView.setBackgroundColor(WColor.Background.color, 0f, ViewConstants.BIG_RADIUS.dp)
+        bottomDetails.setBackgroundColor(
+            WColor.Background.color,
+            ViewConstants.BIG_RADIUS.dp,
+            0f
+        )
         qrCodeView.setPadding(if (ThemeManager.isDark) 16.dp else 0)
         if (ThemeManager.isDark) {
             qrCodeView.setBackgroundColor(Color.WHITE, 16f.dp)

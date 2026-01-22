@@ -3,7 +3,7 @@ import { withGlobal } from '../../../../global';
 
 import type { TokenChartMode } from '../../../../global/types';
 
-import { IS_CORE_WALLET, IS_EXTENSION, IS_TELEGRAM_APP } from '../../../../config';
+import { IS_CORE_WALLET, IS_EXPLORER, IS_EXTENSION, IS_TELEGRAM_APP } from '../../../../config';
 import {
   selectCurrentAccountId,
   selectIsCurrentAccountViewMode,
@@ -135,8 +135,9 @@ function Header({
       areTabsStuck && styles.areTabsStuck,
       isScrolled && styles.isScrolled,
     );
+    const showBackButton = isTemporaryAccount && !IS_EXPLORER;
     const iconsAmount = IS_EXTENSION
-      ? 1 + (isTemporaryAccount ? 1 : 0) + (isAppLockEnabled ? 1 : 0)
+      ? 1 + (showBackButton ? 1 : 0) + (isAppLockEnabled ? 1 : 0)
       : 1 + (isAppLockEnabled ? 1 : 0) + (IS_TELEGRAM_APP ? 1 : 0) + (canToggleAppLayout ? 1 : 0);
 
     return (
@@ -144,14 +145,14 @@ function Header({
         <div className={styles.headerInner} style={`--icons-amount: ${iconsAmount}`}>
           {IS_EXTENSION ? (
             <div className={styles.portraitActionsLeft}>
-              {isTemporaryAccount ? <BackButton isIconOnly /> : <QrScannerButton isViewMode={isViewMode} />}
+              {showBackButton ? <BackButton isIconOnly /> : <QrScannerButton isViewMode={isViewMode} />}
               <ToggleSensitiveDataButton isSensitiveDataHidden={isSensitiveDataHidden} />
               {isAppLockEnabled && <AppLockButton />}
             </div>
           ) : (
-            isTemporaryAccount ? <BackButton /> : <QrScannerButton isViewMode={isViewMode} />
+            showBackButton ? <BackButton /> : <QrScannerButton isViewMode={isViewMode} />
           )}
-          <AccountSelector withBalance={withBalance} withAccountSelector={!IS_CORE_WALLET} />
+          <AccountSelector withBalance={withBalance} withAccountSelector={!IS_CORE_WALLET && !IS_EXPLORER} />
 
           <div className={styles.portraitActionsRight}>
             {!IS_EXTENSION && isAppLockEnabled && <AppLockButton />}
@@ -164,8 +165,9 @@ function Header({
     );
   }
 
+  const showBackButton = isTemporaryAccount && !IS_EXPLORER;
   const buttonsAmount = Math.max(
-    1 + (isTemporaryAccount ? 1 : 0) + (isAppLockEnabled ? 1 : 0) + (isQrScannerSupported ? 1 : 0),
+    1 + (showBackButton ? 1 : 0) + (isAppLockEnabled ? 1 : 0) + (isQrScannerSupported ? 1 : 0),
     1 + (canToggleAppLayout ? 1 : 0) + (IS_TELEGRAM_APP ? 1 : 0),
   );
 
@@ -178,13 +180,13 @@ function Header({
           styles.landscapeActionsStart,
         )}
         >
-          {isTemporaryAccount && <BackButton isIconOnly />}
+          {showBackButton && <BackButton isIconOnly />}
           <ToggleSensitiveDataButton isSensitiveDataHidden={isSensitiveDataHidden} />
           <QrScannerButton isViewMode={isViewMode} />
           {isAppLockEnabled && <AppLockButton />}
         </div>
 
-        <AccountSelector withBalance={withBalance} withAccountSelector={!IS_CORE_WALLET} />
+        <AccountSelector withBalance={withBalance} withAccountSelector={!IS_CORE_WALLET && !IS_EXPLORER} />
 
         <div className={buildClassName(
           styles.landscapeActions,

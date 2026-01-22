@@ -1,6 +1,6 @@
 import { NativeBiometric } from '@capgo/capacitor-native-biometric';
 
-import type { ApiChain, ApiNetwork } from '../../../api/types';
+import type { ApiNetwork } from '../../../api/types';
 import type { Account, GlobalState } from '../../types';
 import { ApiAuthError, ApiCommonError } from '../../../api/types';
 import { AppState, AuthState, BiometricsState } from '../../types';
@@ -8,6 +8,7 @@ import { AppState, AuthState, BiometricsState } from '../../types';
 import {
   APP_NAME,
   IS_CORE_WALLET,
+  IS_EXPLORER,
   IS_TELEGRAM_APP,
   IS_TON_MNEMONIC_ONLY,
   MNEMONIC_CHECK_COUNT,
@@ -38,7 +39,11 @@ import {
 } from '../../../util/windowEnvironment';
 import { callApi } from '../../../api';
 import { addActionHandler, getActions, getGlobal, setGlobal } from '../..';
-import { removeTemporaryAccount } from '../../helpers/auth';
+import {
+  handleExplorerMode,
+  handleStandardMode,
+  removeTemporaryAccount,
+} from '../../helpers/auth';
 import { isErrorTransferResult } from '../../helpers/transfer';
 import { INITIAL_STATE } from '../../initialState';
 import {
@@ -76,7 +81,8 @@ const SWITHCHING_ACCOUNT_DURATION_MS = IS_IOS ? 450 : IS_ANDROID ? 350 : 300;
 
 export async function switchAccount(global: GlobalState, accountId: string, newNetwork?: ApiNetwork) {
   const currentActiveAccountId = selectCurrentAccountId(global);
-  if (accountId === currentActiveAccountId) {
+  const currentNetwork = selectCurrentNetwork(global);
+  if (accountId === currentActiveAccountId && newNetwork === currentNetwork) {
     return;
   }
 
@@ -115,6 +121,8 @@ addActionHandler('resetAuth', (global) => {
 });
 
 addActionHandler('startCreatingWallet', async (global, actions) => {
+  if (IS_EXPLORER) return;
+
   const accounts = selectAccounts(global) ?? {};
   const isFirstAccount = isEmptyObject(accounts);
   const isPasswordPresent = selectIsPasswordPresent(global);
@@ -332,6 +340,8 @@ addActionHandler('skipCreateNativeBiometrics', (global, actions) => {
 addActionHandler('createAccount', async (global, actions, {
   password, isImporting, isPasswordNumeric,
 }) => {
+  if (IS_EXPLORER) return;
+
   setGlobal(updateAuth(global, { isLoading: true }));
 
   const mnemonic = global.auth.mnemonic!;
@@ -356,7 +366,7 @@ addActionHandler('createAccount', async (global, actions, {
   }
 
   if (!isImporting) {
-    global = { ...global, appState: AppState.Auth, isAddAccountModalOpen: undefined };
+    global = { ...global, appState: AppState.Auth, isAccountSelectorOpen: undefined };
   }
   global = updateAuth(global, {
     isLoading: undefined,
@@ -486,7 +496,9 @@ addActionHandler('skipCheckMnemonic', (global, actions) => {
   }
 });
 
-addActionHandler('startImportingWallet', (global) => {
+addActionHandler('startImportingWallet', (global, actions) => {
+  if (IS_EXPLORER) return;
+
   const isPasswordPresent = selectIsPasswordPresent(global);
   const state = isPasswordPresent && !global.auth.password
     ? AuthState.importWalletCheckPassword
@@ -1030,69 +1042,25 @@ addActionHandler('openTemporaryViewAccount', async (global, actions, { addressBy
     return;
   }
 
-  // Check if an account with these addresses already exists
   const network = selectCurrentNetwork(global);
-  const accounts = selectNetworkAccounts(global);
-  const existingAccountId = accounts ? Object.keys(accounts).find((accountId) => {
-    const account = accounts[accountId];
-    if (account.isTemporary) return false;
 
-    // Check if all requested addresses match this account
-    return (Object.keys(addressByChain) as ApiChain[]).every((chain) => {
-      return account.byChain[chain]?.address === addressByChain[chain];
-    });
-  }) : undefined;
-
-  if (global.currentTemporaryViewAccountId) {
-    await removeTemporaryAccount(global.currentTemporaryViewAccountId);
-    global = getGlobal();
-  }
-
-  if (existingAccountId) {
-    actions.switchAccount({ accountId: existingAccountId });
-    return;
-  }
-
-  global = updateAccounts(global, { isLoading: true });
-  setGlobal(global);
-
-  const result = await callApi('importViewAccount', network, addressByChain, true);
-
-  global = getGlobal();
-  global = updateAccounts(global, { isLoading: undefined });
-  setGlobal(global);
-
-  if (isErrorTransferResult(result)) {
-    actions.showError({ error: result?.error });
-    return;
-  }
-
-  global = getGlobal();
-  global = createAccount({
-    global,
-    accountId: result.accountId,
-    byChain: result.byChain,
-    type: 'view',
-    partial: {
-      title: result.title || getTranslation(TEMPORARY_ACCOUNT_NAME),
-      isTemporary: true,
-    },
-  });
-  global = { ...global, currentTemporaryViewAccountId: result.accountId };
-  setGlobal(global);
-
-  if (getGlobal().areSettingsOpen) {
-    actions.closeSettings();
-  }
-
-  if (getIsPortrait()) {
-    window.setTimeout(() => {
-      actions.switchToWallet();
-    }, SWITHCHING_ACCOUNT_DURATION_MS);
+  if (IS_EXPLORER) {
+    await handleExplorerMode(global, actions, network, addressByChain, SWITHCHING_ACCOUNT_DURATION_MS);
+  } else {
+    await handleStandardMode(
+      global,
+      actions,
+      network,
+      addressByChain,
+      SWITHCHING_ACCOUNT_DURATION_MS,
+      getIsPortrait,
+    );
   }
 });
 
 addActionHandler('saveTemporaryAccount', (global, actions) => {
+  if (IS_EXPLORER) return;
+
   if (IS_DELEGATED_BOTTOM_SHEET) {
     callActionInMain('saveTemporaryAccount');
     return;

@@ -31,11 +31,13 @@ import styles from './Auth.module.scss';
 type OwnProps = {
   isActive?: boolean;
   isLoading?: boolean;
+  isInModal?: boolean;
   onCancel: NoneToVoidFunction;
+  onClose?: NoneToVoidFunction;
 };
 
 function AuthImportViewAccount({
-  isActive, isLoading, onCancel,
+  isActive, isLoading, isInModal, onCancel, onClose,
 }: OwnProps) {
   const { importViewAccount } = getActions();
 
@@ -90,7 +92,11 @@ function AuthImportViewAccount({
 
   return (
     <div className={modalStyles.transitionContentWrapper}>
-      <ModalHeader title={lang('View Any Address')} onBackButtonClick={onCancel} />
+      <ModalHeader
+        title={lang('View Any Address')}
+        onBackButtonClick={onCancel}
+        onClose={onClose}
+      />
       <form
         action="#"
         className={buildClassName(modalStyles.transitionContent, 'custom-scroll')}
@@ -123,7 +129,7 @@ function AuthImportViewAccount({
           }))}
         </p>
 
-        <div className={styles.buttons}>
+        <div className={buildClassName(styles.buttons, isInModal && styles.buttonsInModal)}>
           <Button
             isPrimary
             isSubmit

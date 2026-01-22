@@ -60,6 +60,7 @@ interface OwnProps {
   containerClassName?: string;
   pinPadClassName?: string;
   withCloseButton?: boolean;
+  isFullWidthButton?: boolean;
   children?: TeactNode;
   noAnimatedIcon?: boolean;
   inputWrapperClassName?: string;
@@ -142,6 +143,7 @@ function PasswordForm({
   pinPadClassName,
   children,
   withCloseButton,
+  isFullWidthButton,
   noAnimatedIcon,
   inputWrapperClassName,
   forceBiometricsInMain,
@@ -337,7 +339,8 @@ function PasswordForm({
             isPrimary
             isLoading={isLoading}
             isDisabled={isSubmitDisabled}
-            className={!shouldRenderFullWidthButton ? modalStyles.buttonHalfWidth : modalStyles.buttonFullWidth}
+            className={(shouldRenderFullWidthButton || isFullWidthButton)
+              ? modalStyles.buttonFullWidth : modalStyles.buttonHalfWidth}
             onClick={!isLoading ? handleSubmit : undefined}
           >
             {submitLabel || lang('Send')}
@@ -441,7 +444,7 @@ function PasswordForm({
     return (
       <div className={styles.verify}>
         {lang(operationType === 'transfer'
-          ? 'Please confirm transaction using biometrics' : 'Please confirm operation using biometrics')}
+          ? 'Please confirm transaction using biometrics' : 'Please confirm action using biometrics')}
       </div>
     );
   }

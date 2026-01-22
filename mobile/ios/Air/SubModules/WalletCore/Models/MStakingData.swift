@@ -1,6 +1,5 @@
 
 import Foundation
-import BigIntLib
 import WalletContext
 import GRDB
 

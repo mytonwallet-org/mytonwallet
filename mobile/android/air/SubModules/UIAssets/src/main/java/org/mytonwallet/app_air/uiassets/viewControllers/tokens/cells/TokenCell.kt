@@ -22,7 +22,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WCounterLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
-import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
@@ -31,12 +30,15 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.signSpace
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcore.STAKE_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TON_USDT_SLUG
+import org.mytonwallet.app_air.walletcore.TON_USDT_TESTNET_SLUG
 import org.mytonwallet.app_air.walletcore.TRON_USDT_SLUG
+import org.mytonwallet.app_air.walletcore.TRON_USDT_TESTNET_SLUG
 import org.mytonwallet.app_air.walletcore.USDE_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MToken
@@ -51,13 +53,13 @@ import kotlin.math.roundToInt
 class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WThemedView {
 
     private val iconView: IconView by lazy {
-        val iv = IconView(context)
+        val iv = IconView(context, ApplicationContextHolder.adaptiveIconSize.dp)
         iv
     }
 
     private val topLeftLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(16f, WFont.Medium)
+        lbl.setStyle(ApplicationContextHolder.adaptiveFontSize, WFont.DemiBold)
         lbl.setSingleLine()
         lbl.ellipsize = TextUtils.TruncateAt.END
         lbl.isHorizontalFadingEdgeEnabled = true
@@ -85,7 +87,7 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
 
     private val topRightLabel: WSensitiveDataContainer<WLabel> by lazy {
         val lbl = WLabel(context)
-        lbl.setStyle(16f)
+        lbl.setStyle(ApplicationContextHolder.adaptiveFontSize)
         WSensitiveDataContainer(
             lbl,
             WSensitiveDataContainer.MaskConfig(0, 2, Gravity.END or Gravity.CENTER_VERTICAL)
@@ -102,50 +104,40 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         )
     }
 
-    private val separator: WView by lazy {
-        val v = WView(context)
-        v
-    }
-
     var onTap: ((tokenBalance: MTokenBalance) -> Unit)? = null
 
     init {
         layoutParams.apply {
-            height = 64.dp
+            height = 60.dp
         }
-        addView(iconView, LayoutParams(53.dp, 48.dp))
+        addView(iconView, LayoutParams((ApplicationContextHolder.adaptiveIconSize + 2).dp, (ApplicationContextHolder.adaptiveIconSize + 2).dp))
         addView(topLeftLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(topLeftTagLabel, LayoutParams(WRAP_CONTENT, 16.dp))
         addView(topRightLabel)
         addView(bottomLeftLabel)
         addView(bottomRightLabel)
-        addView(separator, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
         setConstraints {
             // Icon View
-            toTop(iconView, 8f)
-            toBottom(iconView, 8f)
+            toTop(iconView, ApplicationContextHolder.adaptiveIconTopMargin)
             toStart(iconView, 12f)
             // Top Row
-            toTop(topLeftLabel, 11f)
-            startToEnd(topLeftLabel, iconView, 7f)
-            startToEnd(topLeftTagLabel, topLeftLabel, 6f)
+            toTop(topLeftLabel, 9f)
+            toStart(topLeftLabel, ApplicationContextHolder.adaptiveContentStart)
+            startToEnd(topLeftTagLabel, topLeftLabel, 3f)
             centerYToCenterY(topLeftTagLabel, topLeftLabel)
             endToStart(topLeftTagLabel, topRightLabel, 4f)
-            toTop(topRightLabel, 11f)
+            toTop(topRightLabel, 9f)
             toEnd(topRightLabel, 16f)
             constrainedWidth(topLeftLabel.id, true)
             setHorizontalBias(topLeftLabel.id, 0f)
             setHorizontalBias(topLeftTagLabel.id, 0f)
             // Bottom Row
-            toBottom(bottomLeftLabel, 12f)
-            startToEnd(bottomLeftLabel, iconView, 7f)
+            toBottom(bottomLeftLabel, 10f)
+            toStart(bottomLeftLabel, ApplicationContextHolder.adaptiveContentStart)
             endToStart(bottomLeftLabel, bottomRightLabel, 4f)
             setHorizontalBias(bottomLeftLabel.id, 0f)
-            toBottom(bottomRightLabel, 12f)
+            toBottom(bottomRightLabel, 10f)
             toEnd(bottomRightLabel, 16f)
-            toBottom(separator)
-            toStart(separator, 72f)
-            toEnd(separator, 16f)
         }
         setOnClickListener {
             tokenBalance?.let {
@@ -182,7 +174,6 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
             topLeftTagLabel.setBackgroundColor(WColor.BadgeBackground.color, 8f.dp)
         topRightLabel.contentView.setTextColor(WColor.PrimaryText.color)
         bottomRightLabel.contentView.setTextColor(WColor.SecondaryText.color)
-        separator.setBackgroundColor(WColor.Separator.color)
         tokenBalance?.let {
             updateBottomLeftLabel(it, null)
         }
@@ -208,7 +199,6 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
             this.tokenBalance == tokenBalance &&
             this.baseCurrency == baseCurrency) {
             updateTheme(forceUpdate = lastChanged)
-            separator.visibility = if (isLast) INVISIBLE else VISIBLE
             return
         }
 
@@ -262,18 +252,16 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         )
 
         configureTagLabelAndSpacing(accountId, token)
-
-        separator.visibility = if (isLast) INVISIBLE else VISIBLE
     }
 
     private fun configureTagLabelAndSpacing(accountId: String, token: MToken?) {
         val shouldShowTagLabel = when (token?.slug) {
-            TRON_USDT_SLUG -> {
+            TRON_USDT_SLUG, TRON_USDT_TESTNET_SLUG -> {
                 configureStaticTag("TRC-20")
                 true
             }
 
-            TON_USDT_SLUG -> {
+            TON_USDT_SLUG, TON_USDT_TESTNET_SLUG -> {
                 configureStaticTag("TON")
                 true
             }
@@ -333,7 +321,7 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
             }
 
             topLeftTagLabel.setGradientColor(gradientColors)
-            topLeftTagLabel.setAmount("${stakingState.yieldType} $apy%")
+            topLeftTagLabel.setAmount(if (hasStakingAmount) "$apy%" else "${stakingState.yieldType} $apy%")
             topLeftTagLabel.background =
                 getTagDrawable(hasStakingAmount, 8f.dp)
         }

@@ -42,6 +42,7 @@ import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.colorForTheme
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
@@ -69,8 +70,7 @@ class InAppBrowserTopBarView(
 
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
-            setTextColor(WColor.PrimaryText)
-            setStyle(22F, WFont.Medium)
+            setStyle(22F, WFont.SemiBold)
             gravity = Gravity.CENTER_VERTICAL or
                 if (LocaleController.isRTL) Gravity.RIGHT else Gravity.LEFT
             setSingleLine()
@@ -87,7 +87,7 @@ class InAppBrowserTopBarView(
             R.drawable.ic_arrow_bottom_8
         )?.let { drawable ->
             drawable.mutate()
-            drawable.setTint(WColor.SecondaryText.color)
+            drawable.setTint(WColor.SecondaryText.colorForTheme(overrideThemeIsDark))
             val width = 8.dp
             val height = 4.dp
             drawable.setBounds(5.dp, 1.dp, width + 5.dp, (height + 0.5f.dp).roundToInt())
@@ -132,7 +132,9 @@ class InAppBrowserTopBarView(
     }
 
     private val backButton: WImageButton by lazy {
-        val btn = WImageButton(context)
+        val btn = object : WImageButton(context) {
+            override fun updateTheme() {}
+        }
         btn.setImageDrawable(backDrawable)
         btn.setOnClickListener {
             backPressed()
@@ -215,50 +217,69 @@ class InAppBrowserTopBarView(
         updateTheme()
     }
 
+    var overrideThemeIsDark: Boolean? = null
+        set(value) {
+            field = value
+            updateTheme()
+        }
+
     override fun updateTheme() {
-        if (minimized) {
+        val shouldRenderMinimized = isMinimizing || isMinimized
+        val shouldRenderAsDarkMode = if (shouldRenderMinimized) null else overrideThemeIsDark
+        if (isMinimizing || isMinimized) {
             setBackgroundColor(WColor.SearchFieldBackground.color)
             backDrawable.setColor(WColor.PrimaryText.color)
             backDrawable.setRotatedColor(WColor.PrimaryText.color)
         } else {
-            backDrawable.setColor(WColor.SecondaryText.color)
-            backDrawable.setRotatedColor(WColor.SecondaryText.color)
+            backDrawable.setColor(WColor.SecondaryText.colorForTheme(shouldRenderAsDarkMode))
+            backDrawable.setRotatedColor(WColor.SecondaryText.colorForTheme(shouldRenderAsDarkMode))
         }
+        titleLabel.animateTextColor(WColor.PrimaryText.colorForTheme(shouldRenderAsDarkMode))
         val moreDrawable =
             ContextCompat.getDrawable(
                 context,
                 R.drawable.ic_more
             )?.apply {
-                setTint(WColor.SecondaryText.color)
+                setTint(WColor.SecondaryText.colorForTheme(shouldRenderAsDarkMode))
             }
+        moreButton.background = null
         moreButton.setImageDrawable(moreDrawable)
-        moreButton.addRippleEffect(WColor.BackgroundRipple.color, 20f.dp)
+        moreButton.addRippleEffect(
+            WColor.BackgroundRipple.colorForTheme(shouldRenderAsDarkMode),
+            20f.dp
+        )
         val minimizeDrawable =
             ContextCompat.getDrawable(
                 context,
                 R.drawable.ic_arrow_up_24
             )?.apply {
-                setTint(WColor.SecondaryText.color)
+                setTint(WColor.SecondaryText.colorForTheme(shouldRenderAsDarkMode))
             }?.resize(context, 24.dp, 24.dp)
         minimizeButton.rotation = 180f
         minimizeButton.setImageDrawable(minimizeDrawable)
-        minimizeButton.addRippleEffect(WColor.BackgroundRipple.color, 20f.dp)
+        minimizeButton.background = null
+        minimizeButton.addRippleEffect(
+            WColor.BackgroundRipple.colorForTheme(shouldRenderAsDarkMode),
+            20f.dp
+        )
         if (!options.isNullOrEmpty()) {
             subtitleLabel.text =
                 textWithArrow(options.find { it.identifier == selectedOption }?.title)
         }
+        backButton.background = null
+        backButton.addRippleEffect(WColor.SecondaryBackground.colorForTheme(shouldRenderAsDarkMode), 100f)
     }
 
     fun blendColors(color1: Int, color2: Int, ratio: Float): Int {
         return ColorUtils.blendARGB(color1, color2, ratio)
     }
 
-    private var minimized = false
-    private var isMinimizing = false
+    var isMinimized = false
+    var isMinimizing = false
     private fun minimize() {
         if (isMinimizing)
             return
-        if (minimized) {
+        if (isMinimized) {
             tabBarController?.maximize()
             return
         }
@@ -267,6 +288,7 @@ class InAppBrowserTopBarView(
         viewController.view.post {
             titleLabel.pivotY = titleLabel.height / 2f
             backDrawable.setRotation(1f, true)
+            titleLabel.animateTextColor(WColor.PrimaryText.color)
             tabBarController?.minimize(viewController.navigationController!!, onProgress = {
                 val heightDiff = (viewController.navigationController?.getSystemBars()?.top ?: 0)
                 val parent = parent as ViewGroup
@@ -295,7 +317,7 @@ class InAppBrowserTopBarView(
                 titleLabel.translationX = 36f.dp * it
                 iconView.alpha = it
                 if (it == 1f) {
-                    minimized = true
+                    isMinimized = true
                     isMinimizing = false
                 }
             }, onMaximizeProgress = {
@@ -315,6 +337,7 @@ class InAppBrowserTopBarView(
                 }
                 titleLabel.scaleX = 1 - 0.23f * (1 - it)
                 titleLabel.scaleY = titleLabel.scaleX
+                titleLabel.animateTextColor(WColor.PrimaryText.colorForTheme(overrideThemeIsDark))
                 minimizeButton.rotation = it * 180
                 titleLabel.setTextColor(
                     blendColors(
@@ -336,7 +359,7 @@ class InAppBrowserTopBarView(
                 titleLabel.translationX = 36f.dp * (1 - it)
                 iconView.alpha = 1 - it
                 if (it == 1f) {
-                    minimized = false
+                    isMinimized = false
                     isMinimizing = false
                     maximizeFinished()
                 }
@@ -347,7 +370,7 @@ class InAppBrowserTopBarView(
     fun backPressed() {
         if (isMinimizing)
             return
-        if (minimized) {
+        if (isMinimized) {
             tabBarController?.dismissMinimized()
             return
         }

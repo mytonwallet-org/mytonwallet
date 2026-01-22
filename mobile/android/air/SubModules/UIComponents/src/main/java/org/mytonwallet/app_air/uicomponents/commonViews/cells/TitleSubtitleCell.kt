@@ -38,30 +38,21 @@ class TitleSubtitleCell(
         lbl
     }
 
-    private val separator: WView by lazy {
-        val v = WView(context)
-        v
-    }
-
     init {
         layoutParams.apply {
-            height = 64.dp
+            height = 60.dp
         }
-        addView(iconView, LayoutParams(53.dp, 48.dp))
+        addView(iconView, LayoutParams(50.dp, 50.dp))
         addView(topLeftLabel)
         addView(bottomLeftLabel)
-        addView(separator, LayoutParams(0, ViewConstants.SEPARATOR_HEIGHT))
         setConstraints {
-            toTop(iconView, 8f)
-            toBottom(iconView, 8f)
+            toTop(iconView, 6f)
+            toBottom(iconView, 6f)
             toStart(iconView, 12f)
-            toTop(topLeftLabel, 10f)
-            startToEnd(topLeftLabel, iconView, 7f)
-            toBottom(bottomLeftLabel, 10f)
-            startToEnd(bottomLeftLabel, iconView, 7f)
-            toBottom(separator)
-            toStart(separator, 72f)
-            toEnd(separator)
+            toTop(topLeftLabel, 8f)
+            toStart(topLeftLabel, 60f)
+            toBottom(bottomLeftLabel, 8f)
+            toStart(bottomLeftLabel, 60f)
         }
 
         setOnClickListener {
@@ -76,7 +67,6 @@ class TitleSubtitleCell(
         addRippleEffect(WColor.SecondaryBackground.color)
         topLeftLabel.setTextColor(WColor.PrimaryText.color)
         bottomLeftLabel.setTextColor(WColor.SecondaryText.color)
-        separator.setBackgroundColor(WColor.Separator.color)
     }
 
     fun configure(tokenBalance: MTokenBalance, isLast: Boolean) {
@@ -91,7 +81,6 @@ class TitleSubtitleCell(
             token?.decimals ?: 9,
             true
         )
-        separator.visibility = if (isLast) INVISIBLE else VISIBLE
     }
 
 }

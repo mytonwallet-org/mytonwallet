@@ -32,7 +32,7 @@ class EarnItemCell(context: Context) : WCell(context), WThemedView {
 
     private val historyTitleLabel: WLabel by lazy {
         val wLabel = WLabel(context)
-        wLabel.setStyle(16f, WFont.Medium)
+        wLabel.setStyle(14f, WFont.DemiBold)
         wLabel.visibility = GONE
         wLabel.text = LocaleController.getString("History")
         wLabel
@@ -40,7 +40,7 @@ class EarnItemCell(context: Context) : WCell(context), WThemedView {
 
     private val totalEarnedLabel: WSensitiveDataContainer<WLabel> by lazy {
         val wLabel = WLabel(context)
-        wLabel.setStyle(16f, WFont.Regular)
+        wLabel.setStyle(14f, WFont.Regular)
         WSensitiveDataContainer(
             wLabel,
             WSensitiveDataContainer.MaskConfig(
@@ -116,8 +116,6 @@ class EarnItemCell(context: Context) : WCell(context), WThemedView {
         )
     }
 
-    private val separatorView = WBaseView(context)
-
     init {
         super.setupViews()
 
@@ -134,8 +132,6 @@ class EarnItemCell(context: Context) : WCell(context), WThemedView {
         addView(itemDateLabel)
         addView(amountLabel)
         addView(fiatValueLabel)
-
-        addView(separatorView, LayoutParams(LayoutParams.MATCH_CONSTRAINT, ViewConstants.SEPARATOR_HEIGHT))
 
         addRippleEffect(WColor.SecondaryBackground.color)
 
@@ -178,10 +174,6 @@ class EarnItemCell(context: Context) : WCell(context), WThemedView {
             topToBottom(fiatValueLabel, amountLabel)
             endToEnd(fiatValueLabel, amountLabel)
             toBottom(fiatValueLabel, 9f)
-
-            toBottom(separatorView)
-            toEnd(separatorView, 16f)
-            toStart(separatorView, 72f)
         }
 
         updateTheme()
@@ -202,8 +194,6 @@ class EarnItemCell(context: Context) : WCell(context), WThemedView {
 
         amountLabel.contentView.setTextColor(WColor.PrimaryText.color)
         fiatValueLabel.contentView.setTextColor(WColor.SecondaryText.color)
-
-        separatorView.setBackgroundColor(WColor.Separator.color)
     }
 
     // TODO:: Header should be a separate cell!
@@ -269,8 +259,6 @@ class EarnItemCell(context: Context) : WCell(context), WThemedView {
             historyTitleLabel.visibility = GONE
             totalEarnedLabel.visibility = GONE
         }
-
-        separatorView.visibility = if (isLast) INVISIBLE else VISIBLE
 
         setOnClickListener {
             onTap()

@@ -258,6 +258,7 @@ function TransferInitial({
         fetchTransferFee({
           tokenSlug,
           toAddress,
+          amount,
           comment,
           shouldEncrypt,
           binPayload,
@@ -274,7 +275,7 @@ function TransferInitial({
     }
   }, [
     isAmountMissing, binPayload, comment, shouldEncrypt, isAddressValid, isNftTransfer, nfts, stateInit, toAddress,
-    tokenSlug,
+    tokenSlug, amount,
   ]);
 
   useEffect(() => {
