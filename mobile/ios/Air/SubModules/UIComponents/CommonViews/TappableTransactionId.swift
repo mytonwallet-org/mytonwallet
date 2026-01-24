@@ -32,7 +32,7 @@ public struct TappableTransactionId: View {
         .menuSource(menuContext: menuContext)
         .foregroundStyle(Color(WTheme.primaryLabel))
         .opacity(hover ? 0.8 : 1)
-        .task {
+        .task(id: txId) {
             menuContext.onAppear = { hover = true }
             menuContext.onDismiss = { hover = false }
             menuContext.makeConfig = {

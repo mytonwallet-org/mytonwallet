@@ -140,7 +140,7 @@ class AssetsAndActivitiesHeaderCell(
         configure(
             LocaleController.getString("Tokens on Home Screen"),
             titleColor = WColor.Tint,
-            topRounding = ViewConstants.BIG_RADIUS.dp
+            topRounding = HeaderCell.TopRounding.NORMAL
         )
     }
 

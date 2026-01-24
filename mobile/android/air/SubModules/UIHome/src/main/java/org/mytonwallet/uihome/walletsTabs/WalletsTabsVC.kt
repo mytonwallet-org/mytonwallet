@@ -94,12 +94,6 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
     val titleLabel: WScaleLabel by lazy {
         WScaleLabel(context).apply {
             setStyle(20F, WFont.SemiBold)
-            view.post {
-                updateTitleBar(animated = false)
-                post {
-                    setProgress(1f)
-                }
-            }
         }
     }
 
@@ -293,6 +287,7 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
         onTabChanged(0)
 
         view.post {
+            updateTitleBar(animated = false)
             // Workaround! Otherwise, the icon doesn't appear correctly!
             updateAddNewWalletButton(animated = false)
         }
@@ -440,14 +435,14 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                 currencyDecimals = amount.smartDecimalsCount(baseCurrency.decimalsCount),
                 false
             )
-            return " " + LocaleController.getStringWithKeyValues(
+            return LocaleController.getStringWithKeyValues(
                 "\$total_balance",
                 listOf(Pair("%balance%", amountString ?: ""))
-            ) + " "
+            )
         }
 
     private fun updateTitleBar(animated: Boolean = true) {
-        titleLabel.animateText(titleText)
+        titleLabel.animateText(titleText, animated)
         subtitleLabel.setText(
             WReplaceableLabel.Config(
                 text = subtitleText ?: "",

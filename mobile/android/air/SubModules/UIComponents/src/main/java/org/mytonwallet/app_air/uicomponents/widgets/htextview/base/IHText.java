@@ -10,7 +10,7 @@ import android.util.AttributeSet;
 public interface IHText {
     void init(HTextView hTextView, AttributeSet attrs, int defStyle);
 
-    void animateText(CharSequence text);
+    void animateText(CharSequence text, boolean animated);
 
     void onDraw(Canvas canvas);
 

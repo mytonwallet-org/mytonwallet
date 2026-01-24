@@ -155,9 +155,11 @@ struct NftDetailsActionsRow: View {
                     AppActions.showSend(prefilledValues: .init(nfts: [viewModel.nft], nftSendMode: .burn))
                 }
                 items += .wideSeparator()
-                items += .button(id: "0-getgems", title: "Getgems", trailingIcon: .air("MenuGetgems26")) {
-                    let url = ExplorerHelper.nftUrl(viewModel.nft)
-                    AppActions.openInBrowser(url)
+                if !ConfigStore.shared.shouldRestrictBuyNfts {
+                    items += .button(id: "0-getgems", title: "Getgems", trailingIcon: .air("MenuGetgems26")) {
+                        let url = ExplorerHelper.nftUrl(viewModel.nft)
+                        AppActions.openInBrowser(url)
+                    }
                 }
                 items += .button(id: "0-tonscan", title: "Tonscan", trailingIcon: .air("MenuTonscan26")) {
                     let url = ExplorerHelper.tonscanNftUrl(viewModel.nft)

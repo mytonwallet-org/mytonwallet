@@ -1,4 +1,3 @@
-import type { ApiNotificationsAccountValue } from '../../api/types';
 import type { GlobalState } from '../types';
 
 export function deleteNotificationAccount(
@@ -7,7 +6,7 @@ export function deleteNotificationAccount(
 ): GlobalState {
   const currentEnabledAccounts = global.pushNotifications.enabledAccounts;
 
-  const { [accountId]: deleted, ...newEnabledAccounts } = currentEnabledAccounts;
+  const newEnabledAccounts = currentEnabledAccounts.filter((oldAccountId) => oldAccountId !== accountId);
 
   return {
     ...global,
@@ -25,42 +24,23 @@ export function deleteAllNotificationAccounts(
     ...global,
     pushNotifications: {
       ...global.pushNotifications,
-      enabledAccounts: {},
+      enabledAccounts: [],
     },
   };
 }
 
-export function createNotificationAccount(
-  global: GlobalState,
-  accountId: string,
-  value: Partial<ApiNotificationsAccountValue> = {},
-): GlobalState {
+export function createNotificationAccount(global: GlobalState, accountId: string): GlobalState {
   const currentEnabledAccounts = global.pushNotifications.enabledAccounts;
 
-  const newEnabledAccounts = { ...currentEnabledAccounts, [accountId]: value };
+  if (currentEnabledAccounts.includes(accountId)) {
+    return global;
+  }
 
   return {
     ...global,
     pushNotifications: {
       ...global.pushNotifications,
-      enabledAccounts: newEnabledAccounts,
-    },
-  };
-}
-
-export function updateNotificationAccount(
-  global: GlobalState,
-  accountId: string,
-  value: ApiNotificationsAccountValue,
-): GlobalState {
-  const newEnabledAccounts = global.pushNotifications.enabledAccounts;
-  newEnabledAccounts[accountId] = { ...newEnabledAccounts[accountId], ...value };
-
-  return {
-    ...global,
-    pushNotifications: {
-      ...global.pushNotifications,
-      enabledAccounts: newEnabledAccounts,
+      enabledAccounts: [...currentEnabledAccounts, accountId],
     },
   };
 }

@@ -8,6 +8,7 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
+import androidx.core.view.children
 import androidx.core.view.doOnPreDraw
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
@@ -271,7 +272,15 @@ class ActivityCell(
                 }
             }
 
-            addEndListener { _, _, _, _ ->
+            addEndListener { _, canceled, _, _ ->
+                if (canceled) {
+                    children.forEach {
+                        it.scaleX = 1f
+                        it.scaleY = 1f
+                        it.alpha = 1f
+                    }
+                }
+
                 val newHeight = if (cellHeight > 0) cellHeight else WRAP_CONTENT
                 if (layoutParams.height != newHeight)
                     updateLayoutParams {

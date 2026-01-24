@@ -10,6 +10,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
@@ -19,7 +20,26 @@ class HeaderCell(
     startMargin: Float = 20f,
 ) : WCell(context), WThemedView {
 
-    private var topRounding: Float = 0f
+    enum class TopRounding {
+        FIRST_ITEM,
+        NORMAL,
+        ZERO
+    }
+    private var topRounding = TopRounding.ZERO
+    private val topRoundingValue: Float
+        get() {
+            return when (topRounding) {
+                TopRounding.FIRST_ITEM -> {
+                    ViewConstants.TOP_RADIUS.dp
+                }
+                TopRounding.NORMAL -> {
+                    ViewConstants.BIG_RADIUS.dp
+                }
+                TopRounding.ZERO -> {
+                    0f
+                }
+            }
+        }
 
     val titleLabel: WLabel by lazy {
         WLabel(context).apply {
@@ -47,12 +67,12 @@ class HeaderCell(
     override fun updateTheme() {
         setBackgroundColor(
             WColor.Background.color,
-            topRounding,
+            topRoundingValue,
             0f
         )
     }
 
-    fun configure(title: String, titleColor: WColor? = null, topRounding: Float = 0f) {
+    fun configure(title: String, titleColor: WColor? = null, topRounding: TopRounding = TopRounding.ZERO) {
         this.topRounding = topRounding
         titleLabel.text = title
         if (titleColor != null) {

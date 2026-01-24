@@ -43,7 +43,7 @@ class WNavigationPopup(
     ), WThemedView {
 
         val blurryBackground: WBlurryBackgroundView by lazy {
-            WBlurryBackgroundView(initialPopupView.context, null, 32f)
+            WBlurryBackgroundView(initialPopupView.context, null, 25f)
         }
 
         init {

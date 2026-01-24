@@ -35,6 +35,7 @@ public class ConfigStore {
     
     public var shouldRestrictSwapsAndOnRamp: Bool { config?.isLimited == true }
     public var shouldRestrictBuyNfts: Bool { config?.isLimited == true }
+    public var shouldRestrictSites: Bool { config?.isLimited == true }
     
     private func handleConfig(_ config: ApiUpdate.UpdateConfig) {
         if config.switchToClassic == true {

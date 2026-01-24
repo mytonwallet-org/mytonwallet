@@ -2,7 +2,6 @@ package org.mytonwallet.app_air.uisettings.viewControllers.security
 
 import android.content.Context
 import android.os.Build
-import android.view.Gravity
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
@@ -16,7 +15,6 @@ import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WEditableItemView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -57,7 +55,11 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
     }
 
     private val backupTitleLabel = HeaderCell(context).apply {
-        configure(LocaleController.getString("\$back_up_security"), titleColor = WColor.Tint, ViewConstants.BIG_RADIUS.dp)
+        configure(
+            LocaleController.getString("\$back_up_security"),
+            titleColor = WColor.Tint,
+            HeaderCell.TopRounding.FIRST_ITEM
+        )
     }
 
     private val backupRow = KeyValueRowView(
@@ -89,7 +91,11 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
     }
 
     private val passcodeTitleLabel = HeaderCell(context).apply {
-        configure(LocaleController.getString("Passcode"), titleColor = WColor.Tint, ViewConstants.BIG_RADIUS.dp)
+        configure(
+            LocaleController.getString("Passcode"),
+            titleColor = WColor.Tint,
+            HeaderCell.TopRounding.NORMAL
+        )
     }
 
     private val biometricLabel: WLabel by lazy {
@@ -146,7 +152,11 @@ class SecurityVC(context: Context, private var currentPasscode: String) : WViewC
     private val spacer2 = WBaseView(context)
 
     private val appLockLabel = HeaderCell(context).apply {
-        configure(LocaleController.getString("App Lock"), titleColor = WColor.Tint, ViewConstants.BIG_RADIUS.dp)
+        configure(
+            LocaleController.getString("App Lock"),
+            titleColor = WColor.Tint,
+            HeaderCell.TopRounding.NORMAL
+        )
     }
 
     private val lockTimeView = WEditableItemView(context).apply {

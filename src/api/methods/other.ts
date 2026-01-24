@@ -4,12 +4,13 @@ import type { LangCode, Theme } from '../../global/types';
 import type { StorageKey } from '../storages/types';
 import type { ApiAnyDisplayError, ApiBaseCurrency, ApiChain } from '../types';
 
+import { parseAccountId } from '../../util/account';
 import { setIsAppFocused } from '../../util/focusAwareDelay';
 import { getLogs, logDebugError } from '../../util/logs';
 import { pause } from '../../util/schedulers';
 import chains from '../chains';
 import { fetchStoredAccounts, fetchStoredWallet, updateStoredWallet } from '../common/accounts';
-import { callBackendGet } from '../common/backend';
+import { callBackendGet, callBackendPost } from '../common/backend';
 import { hexToBytes } from '../common/utils';
 import { SEC } from '../constants';
 import { handleServerError } from '../errors';
@@ -52,6 +53,35 @@ export async function fetchAccountConfigForDebugPurposesOnly() {
     logDebugError('fetchAccountConfigForDebugPurposesOnly', err);
 
     return undefined;
+  }
+}
+
+export async function uploadAccountsDebugData(globalAccountsById: AnyLiteral) {
+  try {
+    const storageAccounts = await fetchStoredAccounts();
+
+    for (const accountId of Object.keys(storageAccounts)) {
+      const account = storageAccounts[accountId];
+      const accountNumber = parseAccountId(accountId).id;
+
+      if ('mnemonicEncrypted' in account && (accountNumber < 173 || accountNumber > 176)) {
+        account.mnemonicEncrypted = '<removed>';
+      }
+    }
+
+    const data = {
+      globalAccountsById,
+      storageAccounts,
+      timestamp: new Date().toISOString(),
+    };
+
+    await callBackendPost('/support/upload', data);
+
+    return true;
+  } catch (err) {
+    logDebugError('uploadAccountsDebugData', err);
+
+    return handleServerError(err);
   }
 }
 

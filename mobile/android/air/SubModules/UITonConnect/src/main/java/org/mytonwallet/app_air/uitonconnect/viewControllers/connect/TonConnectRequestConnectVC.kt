@@ -327,7 +327,7 @@ class TonConnectRequestConnectVC(
         headerView.configure(
             LocaleController.getString("Selected Wallet"),
             titleColor = WColor.Tint,
-            topRounding = ViewConstants.BIG_RADIUS.dp
+            topRounding = HeaderCell.TopRounding.NORMAL
         )
     }
 

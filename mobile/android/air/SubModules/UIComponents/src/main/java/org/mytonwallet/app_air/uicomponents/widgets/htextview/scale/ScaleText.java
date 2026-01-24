@@ -55,7 +55,7 @@ public class ScaleText extends HText {
 
 
     @Override
-    public void animateText(final CharSequence text) {
+    public void animateText(final CharSequence text, boolean animated) {
         if (mHTextView == null || mHTextView.getLayout() == null)
             return;
 
@@ -66,7 +66,7 @@ public class ScaleText extends HText {
                     return;
                 }
                 oldStartX = mHTextView.getLayout().getLineLeft(0);
-                ScaleText.super.animateText(text);
+                ScaleText.super.animateText(text, animated);
             }
         });
     }

@@ -335,7 +335,7 @@ class NotificationSettingsVC(
                             )
                         }
                     }
-                    AirPushNotifications.register()
+                    AirPushNotifications.register(subscribePreviousAccountsIfEmpty = true)
                 } else {
                     openNotificationSettings()
                 }

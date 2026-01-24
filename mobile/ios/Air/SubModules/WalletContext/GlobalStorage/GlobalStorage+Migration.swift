@@ -1,7 +1,7 @@
 
 import Foundation
 
-public let STATE_VERSION: Int = 47
+public let STATE_VERSION: Int = 48
 
 private let log = Log("GlobalStorage+Migration")
 
@@ -83,6 +83,18 @@ extension _GlobalStorage {
             _clearActivities()
             // accounts are migrated in switchStorageToCapacitor
             self.stateVersion = 47
+        }
+
+        if let v = self.stateVersion, v == 47 {
+            update {
+                if var pushNotifications = $0["pushNotifications"] as? [String: Any] {
+                    if let enabledAccounts = pushNotifications["enabledAccounts"] as? [String: Any] {
+                        pushNotifications["enabledAccounts"] = Array(enabledAccounts.keys)
+                    }
+                    $0["pushNotifications"] = pushNotifications
+                }
+            }
+            self.stateVersion = 48
         }
         
         assert(self.stateVersion == STATE_VERSION)

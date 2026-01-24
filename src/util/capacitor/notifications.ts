@@ -8,7 +8,7 @@ import type { GlobalState } from '../../global/types';
 
 import { TONCOIN } from '../../config';
 import { selectAccountIdByAddress } from '../../global/selectors';
-import { selectNotificationTonAddressesSlow } from '../../global/selectors/notifications';
+import { selectNotificationAddressesSlow } from '../../global/selectors/notifications';
 import { callApi } from '../../api';
 import { MINUTE } from '../../api/constants';
 import { pick } from '../iteratees';
@@ -147,12 +147,12 @@ function handlePushNotificationRegistration(token: Token) {
 
   window.addEventListener('focus', async () => {
     const global = getGlobal();
-    const notificationAccounts = Object.keys(global.pushNotifications.enabledAccounts || []);
+    const notificationAccounts = global.pushNotifications.enabledAccounts;
     if (notificationAccounts.length && nextUpdatePushNotifications <= Date.now()) {
       await callApi('subscribeNotifications', {
         userToken,
         platform: getCapacitorPlatform()!,
-        addresses: Object.values(selectNotificationTonAddressesSlow(global, notificationAccounts)),
+        addresses: Object.values(selectNotificationAddressesSlow(global, notificationAccounts)).flat(),
       });
       nextUpdatePushNotifications = Date.now() + (60 * MINUTE);
     }

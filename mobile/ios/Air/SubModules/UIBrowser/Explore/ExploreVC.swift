@@ -476,7 +476,11 @@ public class ExploreVC: WViewController {
 
     func makeSnapshot() -> NSDiffableDataSourceSnapshot<Section, Item> {
         var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
-        let exploreSites = exploreVM.exploreSites
+        var exploreSites = exploreVM.exploreSites
+        let isRestricted = ConfigStore.shared.shouldRestrictSites
+        if isRestricted {
+            exploreSites = exploreSites.filter { !$1.canBeRestricted }
+        }
         let exploreCategories = exploreVM.exploreCategories
         let searchString = self.searchString.trimmingCharacters(in: .whitespacesAndNewlines)
         
@@ -500,6 +504,9 @@ public class ExploreVC: WViewController {
                 snapshot.appendSections([.all])
                 for category in exploreCategories.values {
                     let categorySites = exploreSites.values.filter { $0.categoryId == category.id }
+                    if categorySites.isEmpty {
+                        continue
+                    }
                     if categorySites.count <= 4 {
                         snapshot.appendItems(categorySites.map { .dapp($0.url) })
                     } else {

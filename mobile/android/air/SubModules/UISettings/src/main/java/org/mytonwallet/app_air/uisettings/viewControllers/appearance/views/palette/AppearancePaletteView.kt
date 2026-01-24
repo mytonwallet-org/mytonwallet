@@ -41,7 +41,7 @@ class AppearancePaletteView(
         configure(
             LocaleController.getString("Palette"),
             titleColor = WColor.Tint,
-            ViewConstants.BIG_RADIUS.dp
+            HeaderCell.TopRounding.NORMAL
         )
     }
 

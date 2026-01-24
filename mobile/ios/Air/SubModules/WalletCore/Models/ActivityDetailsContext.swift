@@ -21,7 +21,7 @@ public enum ActivityDetailsContext {
         case .normal: nil
         case .sendConfirmation: lang("Coins have been sent!")
         case .sendNftConfirmation: lang("NFT has been sent!")
-        case .swapConfirmation: lang("Coins have been swapped!")
+        case .swapConfirmation: lang("Swap Placed")
         case .stakeConfirmation: lang("Coins have been staked!")
         case .unstakeConfirmation: lang("Coins have been unstaked!")
         case .unstakeRequestConfirmation: lang("Request for unstaking is sent!")

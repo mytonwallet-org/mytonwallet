@@ -28,7 +28,7 @@ class WalletVersionsHeaderCell(context: Context) :
         configure(
             LocaleController.getString("Current Wallet Version"),
             titleColor = WColor.Tint,
-            topRounding = ViewConstants.BIG_RADIUS.dp
+            topRounding = HeaderCell.TopRounding.FIRST_ITEM
         )
     }
 
@@ -64,7 +64,7 @@ class WalletVersionsHeaderCell(context: Context) :
         configure(
             LocaleController.getString("Tokens on Other Versions"),
             titleColor = WColor.Tint,
-            topRounding = ViewConstants.BIG_RADIUS.dp
+            topRounding = HeaderCell.TopRounding.NORMAL
         )
     }
 

@@ -9,7 +9,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
@@ -22,7 +21,7 @@ import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 object AirPushNotifications {
     const val MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT = 3
 
-    fun register() {
+    fun register(subscribePreviousAccountsIfEmpty: Boolean) {
         FirebaseMessaging.getInstance().isAutoInitEnabled = true
         FirebaseMessaging
             .getInstance()
@@ -48,7 +47,7 @@ object AirPushNotifications {
                     val token = task.getResult() ?: return@OnCompleteListener
                     updateToken(token)
                     WalletCore.doOnBridgeReady {
-                        resubscribeAll()
+                        resubscribeAll(subscribePreviousAccountsIfEmpty)
                     }
                 }
             )
@@ -99,7 +98,7 @@ object AirPushNotifications {
         }
     }
 
-    private fun resubscribeAll() {
+    private fun resubscribeAll(subscribePreviousAccountsIfEmpty: Boolean) {
         notificationScope.launch {
             withQueue {
                 val token = WGlobalStorage.getPushNotificationsToken() ?: return@withQueue
@@ -108,8 +107,8 @@ object AirPushNotifications {
                 val activeAccount =
                     allAccounts.find { it.accountId == activeAccountId } ?: return@withQueue
                 val prevAccounts = WGlobalStorage.getPushNotificationsEnabledAccounts()
-                var newAccounts = emptyList<MAccount>()
-                if (prevAccounts.isNullOrEmpty()) {
+                var newAccounts: List<MAccount>
+                if (prevAccounts.isNullOrEmpty() && subscribePreviousAccountsIfEmpty) {
                     // It's first time, choose accounts
                     newAccounts =
                         allAccounts.filter { it.tonAddress != null }
@@ -123,7 +122,8 @@ object AirPushNotifications {
                 } else {
                     // Some accounts already exist, resubscribe those
                     newAccounts =
-                        prevAccounts.mapNotNull { acc -> allAccounts.find { it.accountId == acc && it.tonAddress != null } }
+                        prevAccounts?.mapNotNull { acc -> allAccounts.find { it.accountId == acc && it.tonAddress != null } }
+                            ?: emptyList()
                 }
                 try {
                     val res = WalletCore.call(
@@ -141,13 +141,11 @@ object AirPushNotifications {
                         )
                     )
                     val resAddressKeys = res.optJSONObject("addressKeys") ?: return@withQueue
-                    val enabledAccounts = JSONObject()
-                    newAccounts.forEach {
-                        val acc = resAddressKeys.optJSONObject(it.tonAddress)
-                        if (acc != null)
-                            enabledAccounts.put(it.accountId, acc)
-                    }
-                    WGlobalStorage.setPushNotificationAccounts(enabledAccounts)
+                    WGlobalStorage.setPushNotificationAccounts(newAccounts.filter {
+                        resAddressKeys.optJSONObject(
+                            it.tonAddress
+                        ) != null
+                    }.map { it.accountId })
                 } catch (err: Throwable) {
                     err.printStackTrace()
                 }
@@ -240,7 +238,7 @@ object AirPushNotifications {
         accountName: String
     ) {
         try {
-            val res = WalletCore.call(
+            WalletCore.call(
                 ApiMethod.Notifications.SubscribeNotifications(
                     ApiMethod.Notifications.SubscribeNotifications.Props(
                         token,
@@ -254,12 +252,7 @@ object AirPushNotifications {
                     )
                 )
             )
-            val resAddressKeys = res.optJSONObject("addressKeys") ?: return
-            val addressKey = resAddressKeys.optJSONObject(tonAddress) ?: return
-            WGlobalStorage.setPushNotificationAccount(
-                accountId,
-                addressKey
-            )
+            WGlobalStorage.setPushNotificationAccount(accountId)
         } catch (err: Throwable) {
             err.printStackTrace()
         }

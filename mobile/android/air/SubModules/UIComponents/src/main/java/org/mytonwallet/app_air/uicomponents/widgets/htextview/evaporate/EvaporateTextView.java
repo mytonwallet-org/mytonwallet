@@ -48,8 +48,8 @@ public class EvaporateTextView extends HTextView {
     }
 
     @Override
-    public void animateText(CharSequence text) {
-        evaporateText.animateText(text);
+    public void animateText(CharSequence text, boolean animated) {
+        evaporateText.animateText(text, animated);
     }
 
     @Override

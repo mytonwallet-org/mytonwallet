@@ -19,6 +19,6 @@ open class WScaleLabel(context: Context) : ScaleTextView(context),
 
     override fun updateTheme() {
         // To force change color on theme change
-        animateText(text)
+        animateText(text, false)
     }
 }

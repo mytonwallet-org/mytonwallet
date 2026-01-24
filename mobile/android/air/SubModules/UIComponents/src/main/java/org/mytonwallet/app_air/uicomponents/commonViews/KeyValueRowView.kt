@@ -21,12 +21,14 @@ import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
+import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
 @SuppressLint("ViewConstructor")
 class KeyValueRowView(
@@ -185,41 +187,74 @@ class KeyValueRowView(
     }
 
     private fun updateSkeletonLoadingState() {
-        if (isLoading && useSkeletonIndicatorWithWidth != null && skeletonView == null) {
+        val shouldShowSkeleton = isLoading && useSkeletonIndicatorWithWidth != null
+        if (shouldShowSkeleton && skeletonView == null) {
+            val skeletonIndicatorWidth = useSkeletonIndicatorWithWidth!!
             skeletonIndicator = WBaseView(context).apply {
                 id = generateViewId()
             }
             skeletonView = SkeletonView(context, false)
+            val skeletonIndicator = skeletonIndicator ?: return
+            val skeletonView = skeletonView ?: return
             addView(
                 skeletonIndicator,
-                ViewGroup.LayoutParams(useSkeletonIndicatorWithWidth!!, 16.dp)
+                ViewGroup.LayoutParams(skeletonIndicatorWidth, 16.dp)
             )
             addView(skeletonView, LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT))
             setConstraints {
-                toEnd(skeletonIndicator!!, 20f)
-                toCenterY(skeletonIndicator!!)
-                allEdges(skeletonView!!)
+                toEnd(skeletonIndicator, 20f)
+                toCenterY(skeletonIndicator)
+                allEdges(skeletonView)
             }
-            skeletonIndicator?.setBackgroundColor(
+            skeletonIndicator.setBackgroundColor(
                 WColor.SecondaryBackground.color,
                 SUBTITLE_SKELETON_RADIUS
             )
-            skeletonView?.bringToFront()
+            skeletonView.bringToFront()
         }
-        if (isLoading && useSkeletonIndicatorWithWidth != null) {
-            skeletonView?.visibility = VISIBLE
-            skeletonIndicator?.visibility = VISIBLE
-            skeletonView?.doOnLayout {
-                skeletonView?.applyMask(
-                    listOf(skeletonIndicator!!),
+        if (shouldShowSkeleton) {
+            val skeletonView = skeletonView ?: return
+            val skeletonIndicator = skeletonIndicator ?: return
+
+            skeletonView.animate().cancel()
+            skeletonIndicator.animate().cancel()
+            skeletonView.alpha = 1f
+            skeletonIndicator.alpha = 1f
+            skeletonView.visibility = VISIBLE
+            skeletonIndicator.visibility = VISIBLE
+            skeletonView.doOnLayout {
+                skeletonView.applyMask(
+                    listOf(skeletonIndicator),
                     hashMapOf(0 to SUBTITLE_SKELETON_RADIUS)
                 )
-                skeletonView?.startAnimating()
+                skeletonView.startAnimating()
             }
         } else {
-            skeletonView?.visibility = GONE
-            skeletonIndicator?.visibility = GONE
-            skeletonView?.stopAnimating()
+            val skeletonView = skeletonView ?: return
+            val skeletonIndicator = skeletonIndicator ?: return
+
+            if (!WGlobalStorage.getAreAnimationsActive()) {
+                skeletonView.visibility = GONE
+                skeletonIndicator.visibility = GONE
+                skeletonView.stopAnimating()
+                return
+            }
+
+            skeletonView.animate().cancel()
+            skeletonIndicator.animate().cancel()
+
+            if (skeletonView.visibility != GONE || skeletonIndicator.visibility != GONE) {
+                skeletonView.fadeOut {
+                    skeletonView.stopAnimating()
+                    skeletonView.alpha = 1f
+                }
+                skeletonIndicator.fadeOut {
+                    skeletonIndicator.visibility = GONE
+                    skeletonIndicator.alpha = 1f
+                }
+            } else {
+                skeletonView.stopAnimating()
+            }
         }
     }
 

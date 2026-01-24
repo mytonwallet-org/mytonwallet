@@ -32,7 +32,7 @@ class AppearancePaletteAndCardView(
     var onCustomizePressed: (() -> Unit)? = null
 
     private val titleLabel = HeaderCell(context).apply {
-        configure(LocaleController.getString("Palette and Card"), titleColor = WColor.Tint, ViewConstants.BIG_RADIUS.dp)
+        configure(LocaleController.getString("Palette and Card"), titleColor = WColor.Tint, HeaderCell.TopRounding.NORMAL)
     }
 
     private val cardThumbnailView = CardThumbnailView(context).apply {

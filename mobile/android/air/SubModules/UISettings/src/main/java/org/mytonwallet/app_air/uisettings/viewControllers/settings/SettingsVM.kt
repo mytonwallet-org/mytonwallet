@@ -109,7 +109,7 @@ class SettingsVM {
 
         // Determine the value based on the item's identifier
         return when (item.identifier) {
-            SettingsItem.Identifier.LANGUAGE -> LocaleController.activeLanguage.nativeName
+            SettingsItem.Identifier.LANGUAGE -> LocaleController.activeLanguage.englishName
             SettingsItem.Identifier.WALLET_VERSIONS -> AccountStore.walletVersionsData?.currentVersion
             SettingsItem.Identifier.CONNECTED_APPS -> LocaleController.getPlural(
                 DappsStore.dApps[AccountStore.activeAccountId]?.size ?: 0, "\$connected_apps"

@@ -65,14 +65,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate, MtwAppDelegateProtocol {
             if isFirstLaunch {
                 log.info("firstLaunchDate key not found")
                 UserDefaults.standard.set(Date(), forKey: "firstLaunchDate")
+                UserDefaults.standard.set(appVersion, forKey: "firstLaunchVersion")
                 
-                #warning("TODO: Remove IS_DEBUG_OR_TESTFLIGHT check before public release")
-                if IS_DEBUG_OR_TESTFLIGHT, isDefinitelyNotAPreexistingInstall() {
+                if isDefinitelyNotAPreexistingInstall() {
                     log.info("isDefinitelyNotAPreexistingInstall returned true, switching to Air")
                     AirLauncher.isOnTheAir = true
                     self.isFirstLaunch = true
                 }
             }
+            
+            UserDefaults.standard.set(Date(), forKey: "lastLaunchDate")
+            UserDefaults.standard.set(appVersion, forKey: "lastLaunchVersion")
         }
         
         #if canImport(Capacitor)
@@ -85,7 +88,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, MtwAppDelegateProtocol {
             return false
         }
         
-        congigureIOS26Compativility()
+        configureIOS26Compatibility()
 
         return true
     }
@@ -186,12 +189,15 @@ extension AppDelegate: @preconcurrency MTWAirToggleDelegate {
 #endif
 
 
-func logAppStart() {
+private func logAppStart() {
     let infoDict = Bundle.main.infoDictionary
-    let appVersion = infoDict?["CFBundleShortVersionString"] as? String ?? "unknown"
     let buildNumber = infoDict?["CFBundleVersion"] as? String ?? "unknown"
     let deviceModel = UIDevice.current.model
     let systemVersion = UIDevice.current.systemVersion
     _ = appStart
     log.info("**** APP START **** \(Date().formatted(.iso8601), .public) version=\(appVersion, .public) build=\(buildNumber, .public) device=\(deviceModel, .public) iOS=\(systemVersion, .public)")
+}
+
+private var appVersion: String {
+    Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
 }

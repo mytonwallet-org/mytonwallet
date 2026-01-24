@@ -97,7 +97,7 @@ class SettingsItemCell(
             orientation = LinearLayout.VERTICAL
             addView(titleLabel, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             addView(subtitleLabel, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
-                topMargin = 2.dp
+                topMargin = 1.dp
             })
         }
     }

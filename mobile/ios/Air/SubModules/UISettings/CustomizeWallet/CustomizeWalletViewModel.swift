@@ -40,6 +40,8 @@ struct AccountInfo {
     let palletteSettingsViewModel: PaletteSettingsViewModel
     var accountObservation: ObserveToken?
     
+    var isRestricted: Bool { ConfigStore.shared.shouldRestrictBuyNfts }
+    
     init(initialAccountId: String?) {
         @Dependency(\.accountStore) var accountStore
         let accountId = initialAccountId ?? accountStore.currentAccountId

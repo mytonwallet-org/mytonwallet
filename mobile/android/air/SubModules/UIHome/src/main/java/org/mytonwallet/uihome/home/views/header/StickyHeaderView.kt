@@ -198,12 +198,10 @@ class StickyHeaderView(
     }
 
     fun update(mode: HomeHeaderView.Mode, state: UpdateStatusView.State, handleAnimation: Boolean) {
-        if (state is UpdateStatusView.State.Updated && mode == HomeHeaderView.Mode.Collapsed) {
-            updateStatusView.setAppearance(isShowing = false, animated = handleAnimation)
-        } else {
-            updateStatusView.setAppearance(isShowing = true, animated = handleAnimation)
-            updateStatusView.setState(state, handleAnimation)
-        }
+        val isShowing =
+            state is UpdateStatusView.State.Updated && mode == HomeHeaderView.Mode.Collapsed
+        updateStatusView.setAppearance(isShowing = !isShowing, animated = handleAnimation)
+        updateStatusView.setState(state, handleAnimation)
     }
 
     fun updateActions() {

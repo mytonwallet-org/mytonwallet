@@ -60,6 +60,8 @@ export interface ChainConfig {
   canImportTokens: boolean;
   /** If `true`, the Send form UI will show a scam warning if the wallet has tokens but not enough gas to sent them */
   shouldShowScamWarningIfNotEnoughGas: boolean;
+  /** Whether our own backend supports push notifications for addresses in this chain */
+  doesSupportPushNotifications: boolean;
   /** A random but valid address for checking transfer fees */
   feeCheckAddress: string;
   /** A swap configuration used to buy the native token in this chain */
@@ -104,6 +106,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     doesBackendSocketSupport: true,
     canImportTokens: true,
     shouldShowScamWarningIfNotEnoughGas: false,
+    doesSupportPushNotifications: true,
     feeCheckAddress: 'UQBE5NzPPnfb6KAy7Rba2yQiuUnihrfcFw96T-p5JtZjAl_c',
     buySwap: {
       tokenInSlug: TRC20_USDT_MAINNET.slug,
@@ -173,6 +176,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     doesBackendSocketSupport: true,
     canImportTokens: false,
     shouldShowScamWarningIfNotEnoughGas: true,
+    doesSupportPushNotifications: false,
     feeCheckAddress: 'TW2LXSebZ7Br1zHaiA2W1zRojDkDwjGmpw',
     buySwap: {
       tokenInSlug: TONCOIN.slug,

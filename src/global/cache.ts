@@ -541,7 +541,13 @@ function migrateCache(cached: GlobalState, initialState: GlobalState) {
         delete account.ledger;
       }
     }
+
     cached.stateVersion = 47;
+  }
+
+  if (cached.stateVersion === 47) {
+    cached.pushNotifications.enabledAccounts = Object.keys(cached.pushNotifications.enabledAccounts ?? {});
+    cached.stateVersion = 48;
   }
 
   // When adding migration here, increase `STATE_VERSION`

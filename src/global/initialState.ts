@@ -33,7 +33,7 @@ import { getTokenInfo } from '../util/chain';
 import { buildCollectionByKey, mapValues } from '../util/iteratees';
 import { IS_IOS_APP, USER_AGENT_LANG_CODE } from '../util/windowEnvironment';
 
-export const STATE_VERSION = 47;
+export const STATE_VERSION = 48;
 
 export const INITIAL_STATE: GlobalState = {
   appState: AppState.Auth,
@@ -135,7 +135,7 @@ export const INITIAL_STATE: GlobalState = {
   },
 
   pushNotifications: {
-    enabledAccounts: {},
+    enabledAccounts: [],
   },
 
   currencyRates: mapValues(CURRENCIES, (currency) => currency.fallbackRate) as ApiCurrencyRates,

@@ -300,40 +300,35 @@ struct ActivityView: View {
                 return MFee(precision: .exact, terms: .init(token: nil, native: fee, stars: nil), nativeSum: nil)
             }
         case .swap(let swap):
-            let native = (swap.networkFee?.value).flatMap { doubleToBigInt($0, decimals: ApiToken.TONCOIN.decimals) } ?? 0
-            let token = TokenStore.tokens[swap.from] ?? .TONCOIN
-            let ourFee = (swap.ourFee?.value).flatMap {
-                doubleToBigInt($0, decimals: token.decimals)
-            }
-            let fromToncoin = swap.from == TONCOIN_SLUG
-            let terms: MFee.FeeTerms = .init(
-                token: fromToncoin ? nil : ourFee,
-                native: fromToncoin ? native + (ourFee ?? 0) : native,
-                stars: nil
-            )
+            if let native = (swap.networkFee?.value).flatMap({ doubleToBigInt($0, decimals: ApiToken.TONCOIN.decimals) }) {
+                let token = TokenStore.tokens[swap.from] ?? .TONCOIN
+                let ourFee = (swap.ourFee?.value).flatMap {
+                    doubleToBigInt($0, decimals: token.decimals)
+                }
+                if native <= 0, (ourFee ?? 0) <= 0 {
+                    return nil
+                }
+                let fromToncoin = swap.from == TONCOIN_SLUG
+                let terms: MFee.FeeTerms = .init(
+                    token: fromToncoin ? nil : ourFee,
+                    native: fromToncoin ? native + (ourFee ?? 0) : native,
+                    stars: nil
+                )
 
-            let fee = MFee.init(
-                precision: swap.status == .pending || swap.status == .pendingTrusted ? .approximate : .exact,
-                terms: terms,
-                nativeSum: nil
-            )
-            return fee
+                let fee = MFee(
+                    precision: swap.status == .pending || swap.status == .pendingTrusted ? .approximate : .exact,
+                    terms: terms,
+                    nativeSum: nil
+                )
+                return fee
+            }
         }
         return nil
     }
 
     @ViewBuilder
     var fee: some View {
-        if activity.shouldLoadDetails == true {
-            InsetDetailCell {
-                Text(lang("Fee"))
-                    .foregroundStyle(Color(WTheme.secondaryLabel))
-            } value: {
-                RoundedRectangle(cornerRadius: 5)
-                    .fill(Color(WTheme.secondaryFill).opacity(0.15))
-                    .frame(width: 80, height: 18)
-            }
-        } else if let token, let chain = ApiChain(rawValue: token.chain), let fee = _computeDisplayFee(nativeToken: chain.nativeToken) {
+        if let token, let chain = ApiChain(rawValue: token.chain), let fee = _computeDisplayFee(nativeToken: chain.nativeToken) {
             InsetDetailCell {
                 Text(lang("Fee"))
                     .foregroundStyle(Color(WTheme.secondaryLabel))
@@ -352,7 +347,7 @@ struct ActivityView: View {
     @ViewBuilder
     var transactionId: some View {
         let txId = activity.parsedTxId.hash
-        if !activity.isBackendSwapId {
+        if !activity.isBackendSwapId && txId.count > 20 {
             InsetDetailCell {
                 Text(lang("Transaction ID"))
                     .foregroundStyle(Color(WTheme.secondaryLabel))

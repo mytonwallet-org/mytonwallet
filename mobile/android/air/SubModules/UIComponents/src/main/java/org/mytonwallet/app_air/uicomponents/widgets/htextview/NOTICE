@@ -8,5 +8,7 @@ Modifications made by MyTonWallet team:
 - Changed Android package names
 - Removed unnecessary files
 - Modified by implementing `stopAnimator` method to make `setProgress` work even if animating
+- Modified HText to fix text width measurement & kerning issues
+- Modified to allow setting text with no animations
 
 A copy of the original Apache License, Version 2.0 is included in this distribution (see `LICENSE`).

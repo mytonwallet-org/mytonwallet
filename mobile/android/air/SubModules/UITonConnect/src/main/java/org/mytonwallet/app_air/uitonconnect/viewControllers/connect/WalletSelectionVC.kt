@@ -182,7 +182,8 @@ class WalletSelectionVC(
             is HeaderCell -> {
                 val headerText = "${LocaleController.getString("Wallet to use on")} $dappHost"
                 val isFirstHeader = rvAdapter.indexPathToPosition(indexPath) == 0
-                val topRounding = if (isFirstHeader) ViewConstants.BIG_RADIUS.dp else 0f
+                val topRounding =
+                    if (isFirstHeader) HeaderCell.TopRounding.FIRST_ITEM else HeaderCell.TopRounding.NORMAL
 
                 cell.configure(
                     headerText,

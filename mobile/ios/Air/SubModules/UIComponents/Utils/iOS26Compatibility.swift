@@ -19,7 +19,7 @@ public let IOS_26_MODE_ENABLED: Bool = {
 }()
 
 @MainActor
-public func congigureIOS26Compativility() {
+public func configureIOS26Compatibility() {
     if IOS_26_MODE_ENABLED {
         installSheetLayoutTransformReset()
     }

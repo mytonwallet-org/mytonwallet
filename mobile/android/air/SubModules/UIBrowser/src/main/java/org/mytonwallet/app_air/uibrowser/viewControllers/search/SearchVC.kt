@@ -371,7 +371,7 @@ class SearchVC(context: Context) : WViewController(context),
                     }.configure(
                         LocaleController.getString(if (searchResult?.noResultsFound == true) "Search in Google" else "Recent Searches"),
                         titleColor = WColor.Tint,
-                        topRounding = if (rvAdapter.indexPathToPosition(indexPath) == 0) ViewConstants.TOP_RADIUS.dp else ViewConstants.BIG_RADIUS.dp
+                        topRounding = if (rvAdapter.indexPathToPosition(indexPath) == 0) HeaderCell.TopRounding.FIRST_ITEM else HeaderCell.TopRounding.NORMAL
                     )
                 } else {
                     (cellHolder.cell as SearchItemCell).configure(
@@ -386,7 +386,7 @@ class SearchVC(context: Context) : WViewController(context),
                     (cellHolder.cell as HeaderCell).configure(
                         LocaleController.getString("Suggestions"),
                         titleColor = WColor.Tint,
-                        topRounding = if (rvAdapter.indexPathToPosition(indexPath) == 0) ViewConstants.TOP_RADIUS.dp else ViewConstants.BIG_RADIUS.dp
+                        topRounding = if (rvAdapter.indexPathToPosition(indexPath) == 0) HeaderCell.TopRounding.FIRST_ITEM else HeaderCell.TopRounding.NORMAL
                     )
                 } else {
                     val search = searchResult?.recentSearches!![indexPath.row - 1]
@@ -412,7 +412,7 @@ class SearchVC(context: Context) : WViewController(context),
                     (cellHolder.cell as HeaderCell).configure(
                         LocaleController.getString("Popular and connected apps"),
                         titleColor = WColor.Tint,
-                        topRounding = if (rvAdapter.indexPathToPosition(indexPath) == 0) ViewConstants.TOP_RADIUS.dp else ViewConstants.BIG_RADIUS.dp
+                        topRounding = if (rvAdapter.indexPathToPosition(indexPath) == 0) HeaderCell.TopRounding.FIRST_ITEM else HeaderCell.TopRounding.NORMAL
                     )
                 } else {
                     (cellHolder.cell as SearchDappCell).configure(
@@ -427,7 +427,7 @@ class SearchVC(context: Context) : WViewController(context),
                     (cellHolder.cell as HeaderCell).configure(
                         LocaleController.getString("History"),
                         titleColor = WColor.Tint,
-                        topRounding = if (rvAdapter.indexPathToPosition(indexPath) == 0) ViewConstants.TOP_RADIUS.dp else ViewConstants.BIG_RADIUS.dp
+                        topRounding = if (rvAdapter.indexPathToPosition(indexPath) == 0) HeaderCell.TopRounding.FIRST_ITEM else HeaderCell.TopRounding.NORMAL
                     )
                 } else {
                     val site = searchResult?.recentVisitedSites!![indexPath.row - 1]

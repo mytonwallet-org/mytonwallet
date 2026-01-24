@@ -50,7 +50,7 @@ public class ScaleTextView extends HTextView {
     }
 
     @Override
-    public void animateText(CharSequence text) {
-        scaleText.animateText(text);
+    public void animateText(CharSequence text, boolean animated) {
+        scaleText.animateText(text, animated);
     }
 }

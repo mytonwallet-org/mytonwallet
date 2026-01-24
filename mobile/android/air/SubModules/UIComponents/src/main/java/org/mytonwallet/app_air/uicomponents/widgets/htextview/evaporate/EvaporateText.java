@@ -57,7 +57,7 @@ public class EvaporateText extends HText {
     }
 
     @Override
-    public void animateText(final CharSequence text) {
+    public void animateText(final CharSequence text, boolean animated) {
         mHTextView.post(new Runnable() {
             @Override
             public void run() {
@@ -65,7 +65,7 @@ public class EvaporateText extends HText {
                     return;
                 }
                 oldStartX = mHTextView.getLayout().getLineLeft(0);
-                EvaporateText.super.animateText(text);
+                EvaporateText.super.animateText(text, animated);
             }
         });
     }

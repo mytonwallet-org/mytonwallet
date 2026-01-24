@@ -6,12 +6,12 @@ import {
   deleteAllNotificationAccounts,
 } from '../../reducers/notifications';
 import { selectAccounts } from '../../selectors';
-import { selectNotificationTonAddressesSlow } from '../../selectors/notifications';
+import { selectNotificationAddressesSlow } from '../../selectors/notifications';
 
 addActionHandler('tryAddNotificationAccount', (global, actions, { accountId }) => {
   if (
     global.pushNotifications.isAvailable
-    && Object.keys(selectAccounts(global) || {}).length <= MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT
+    && !isKeyCountGreater(selectAccounts(global) || {}, MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT)
   ) {
     actions.createNotificationAccount({ accountId });
   }
@@ -20,10 +20,7 @@ addActionHandler('tryAddNotificationAccount', (global, actions, { accountId }) =
 addActionHandler('renameNotificationAccount', (global, actions, { accountId }) => {
   const { enabledAccounts, isAvailable } = global.pushNotifications;
 
-  if (
-    isAvailable
-    && enabledAccounts?.[accountId]
-  ) {
+  if (isAvailable && enabledAccounts.includes(accountId)) {
     actions.createNotificationAccount({ accountId });
   }
 });
@@ -37,13 +34,13 @@ addActionHandler('toggleNotificationAccount', (global, actions, { accountId }) =
     return;
   }
 
-  const isExists = enabledAccounts && enabledAccounts[accountId];
+  const doesExist = enabledAccounts.includes(accountId);
 
-  if (!isExists && enabledAccounts && isKeyCountGreater(enabledAccounts, MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT - 1)) {
+  if (!doesExist && enabledAccounts.length >= MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT) {
     return;
   }
 
-  if (isExists) {
+  if (doesExist) {
     actions.deleteNotificationAccount({ accountId, withAbort: true });
   } else {
     actions.createNotificationAccount({ accountId, withAbort: true });
@@ -55,17 +52,17 @@ addActionHandler('deleteAllNotificationAccounts', async (global, actions, props)
     enabledAccounts, userToken,
   } = global.pushNotifications;
 
-  if (!enabledAccounts || !userToken) {
+  if (!userToken) {
     return;
   }
 
-  const accountIds = props?.accountIds || Object.keys(enabledAccounts);
+  const accountIds = props?.accountIds || enabledAccounts;
 
   await callApi(
     'unsubscribeNotifications',
     {
       userToken,
-      addresses: Object.values(selectNotificationTonAddressesSlow(global, accountIds)),
+      addresses: Object.values(selectNotificationAddressesSlow(global, accountIds)).flat(),
     },
   );
 

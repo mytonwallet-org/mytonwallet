@@ -396,7 +396,7 @@ open class HomeHeaderView(
     }
 
     fun update(state: UpdateStatusView.State, animated: Boolean) {
-        cardView.setStatusViewState(state, animated)
+        cardViews.forEach { it.setStatusViewState(state, animated && it == cardView) }
         balanceViewMaskWrapper.isLoading = state == UpdateStatusView.State.Updating
     }
 

@@ -227,9 +227,14 @@ class TokenSelectorVC(
 
             is HeaderCell -> {
                 val isFirstHeader = rvAdapter.indexPathToPosition(indexPath) == 0
-                val topRounding = if (isFirstHeader) ViewConstants.BIG_RADIUS.dp else 0f
+                val topRounding =
+                    if (isFirstHeader) HeaderCell.TopRounding.FIRST_ITEM else HeaderCell.TopRounding.ZERO
 
-                cell.configure(sectionData.title, titleColor = WColor.Tint, topRounding = topRounding)
+                cell.configure(
+                    sectionData.title,
+                    titleColor = WColor.Tint,
+                    topRounding = topRounding
+                )
             }
         }
 

@@ -1,10 +1,9 @@
 package org.mytonwallet.app_air.uicomponents.widgets.htextview.base;
 
-import static android.view.View.LAYOUT_DIRECTION_LTR;
-
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.os.Build;
+import android.text.Layout;
 import android.text.TextPaint;
 import android.util.AttributeSet;
 import android.view.ViewTreeObserver;
@@ -17,6 +16,7 @@ import java.util.List;
 /**
  * abstract class
  * Created by hanks on 15-12-19.
+ * Fixed text width measurement & kerning issues
  */
 public abstract class HText implements IHText {
 
@@ -62,11 +62,12 @@ public abstract class HText implements IHText {
 
                 try {
                     int layoutDirection = ViewCompat.getLayoutDirection(mHTextView);
-
-                    oldStartX = layoutDirection == LAYOUT_DIRECTION_LTR
-                        ? mHTextView.getLayout().getLineLeft(0)
-                        : mHTextView.getLayout().getLineRight(0);
-
+                    Layout layout = mHTextView.getLayout();
+                    if (layout != null) {
+                        oldStartX = layoutDirection == ViewCompat.LAYOUT_DIRECTION_LTR
+                            ? layout.getLineLeft(0)
+                            : layout.getLineRight(0);
+                    }
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -77,32 +78,52 @@ public abstract class HText implements IHText {
         prepareAnimate();
     }
 
-    private void prepareAnimate() {
-        mTextSize = mHTextView.getTextSize();
-        mPaint.setTextSize(mTextSize);
-        mPaint.setColor(mHTextView.getCurrentTextColor());
-        mPaint.setTypeface(mHTextView.getTypeface());
-        gapList.clear();
-        for (int i = 0; i < mText.length(); i++) {
-            gapList.add(mPaint.measureText(String.valueOf(mText.charAt(i))));
+    private void syncPaint(TextPaint paint) {
+        paint.setTextSize(mHTextView.getTextSize());
+        paint.setColor(mHTextView.getCurrentTextColor());
+        paint.setTypeface(mHTextView.getTypeface());
+        paint.setTextScaleX(mHTextView.getTextScaleX());
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            paint.setLetterSpacing(mHTextView.getLetterSpacing());
         }
-        mOldPaint.setTextSize(mTextSize);
-        mOldPaint.setColor(mHTextView.getCurrentTextColor());
-        mOldPaint.setTypeface(mHTextView.getTypeface());
+    }
+
+    private void prepareAnimate() {
+        syncPaint(mPaint);
+        syncPaint(mOldPaint);
+
+        gapList.clear();
         oldGapList.clear();
-        for (int i = 0; i < mOldText.length(); i++) {
-            oldGapList.add(mOldPaint.measureText(String.valueOf(mOldText.charAt(i))));
+
+        if (mText != null && mText.length() > 0) {
+            float[] widths = new float[mText.length()];
+            mPaint.getTextWidths(mText.toString(), widths);
+            for (float w : widths) {
+                gapList.add(w);
+            }
+        }
+
+        if (mOldText != null && mOldText.length() > 0) {
+            float[] oldWidths = new float[mOldText.length()];
+            mOldPaint.getTextWidths(mOldText.toString(), oldWidths);
+            for (float w : oldWidths) {
+                oldGapList.add(w);
+            }
         }
     }
 
     @Override
-    public void animateText(CharSequence text) {
+    public void animateText(CharSequence text, boolean animated) {
         mHTextView.setText(text);
         mOldText = mText;
         mText = text;
         prepareAnimate();
         animatePrepare(text);
         animateStart(text);
+        if (!animated) {
+            setProgress(1f);
+        }
     }
 
     @Override

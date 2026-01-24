@@ -28,8 +28,9 @@ struct CustomizeWalletView: View {
             })
             SelectCardSection(viewModel: viewModel)
             PaletteSection(viewModel: viewModel.palletteSettingsViewModel)
-            GetMoreCardsSection()
-                
+            if !viewModel.isRestricted {
+                GetMoreCardsSection()
+            }
         }
         .backportSafeAreaPadding(.bottom, 32)
         .scrollIndicators(.hidden)

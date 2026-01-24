@@ -42,9 +42,6 @@ class SkeletonCell(
 
     private val backgroundDrawable = SeparatorBackgroundDrawable().apply {
         backgroundWColor = WColor.Background
-        separatorWColor = WColor.SecondaryBackground
-        offsetStart = 76f.dp
-        offsetEnd = 20f.dp
     }
 
     override fun setupViews() {
@@ -100,7 +97,6 @@ class SkeletonCell(
         )
         backgroundDrawable.topRadius = if (isFirst) ViewConstants.BIG_RADIUS.dp else 0f.dp
         backgroundDrawable.bottomRadius = if (isLast) ViewConstants.BIG_RADIUS.dp else 0f.dp
-        backgroundDrawable.allowSeparator = !isLast
         backgroundDrawable.invalidateSelf()
     }
 

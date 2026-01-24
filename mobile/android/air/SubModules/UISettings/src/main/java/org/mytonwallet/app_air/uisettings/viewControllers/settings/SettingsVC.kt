@@ -667,7 +667,7 @@ class SettingsVC(context: Context) : WViewController(context),
                     return
                 if (indexPath.row == 0) {
                     val cell = cellHolder.cell as HeaderCell
-                    cell.configure(section.title, WColor.Tint, topRounding = 24f.dp)
+                    cell.configure(section.title, WColor.Tint, topRounding = HeaderCell.TopRounding.NORMAL)
                     return
                 }
                 val itemIndex = indexPath.row - 1
@@ -688,18 +688,24 @@ class SettingsVC(context: Context) : WViewController(context),
     }
 
     override fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? {
-        when (indexPath.section) {
-            0, settingsVM.settingsSections.size + 1 -> {}
+        return when (indexPath.section) {
+            0, settingsVM.settingsSections.size + 1 -> null
 
             else -> {
                 if (indexPath.row == 0)
-                    return null
+                    return settingsVM.settingsSections[indexPath.section - 1].title
                 val item =
                     settingsVM.settingsSections[indexPath.section - 1].children[indexPath.row - 1]
-                return item.accounts?.first()?.accountId
+                when (item.identifier) {
+                    SettingsItem.Identifier.ACCOUNT -> {
+                        item.accounts?.first()?.accountId
+                    }
+                    else -> {
+                        item.identifier.name
+                    }
+                }
             }
         }
-        return super.recyclerViewCellItemId(rv, indexPath)
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {

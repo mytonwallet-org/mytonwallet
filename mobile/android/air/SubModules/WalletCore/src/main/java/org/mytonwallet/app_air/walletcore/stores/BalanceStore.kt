@@ -71,6 +71,11 @@ object BalanceStore : IStore {
         return balances[accountId]
     }
 
+    fun hasTokenInBalances(accountId: String?, vararg slugs: String): Boolean {
+        val balances = getBalances(accountId) ?: return false
+        return slugs.any { balances.get(it) != null }
+    }
+
     fun setBalances(
         accountId: String,
         accountBalances: HashMap<String, BigInteger>,

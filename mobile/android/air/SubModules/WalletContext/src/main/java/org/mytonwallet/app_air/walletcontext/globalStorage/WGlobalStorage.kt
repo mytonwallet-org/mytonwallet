@@ -710,25 +710,31 @@ object WGlobalStorage {
         )
     }
 
-    fun setPushNotificationAccounts(enabledAccounts: JSONObject) {
+    fun setPushNotificationAccounts(enabledAccounts: List<String>) {
         return globalStorageProvider.set(
             PUSH_NOTIFICATIONS_ENABLED_ACCOUNTS,
-            enabledAccounts,
+            JSONArray(enabledAccounts),
             IGlobalStorageProvider.PERSIST_INSTANT
         )
     }
 
-    fun setPushNotificationAccount(accountId: String, addressKey: JSONObject) {
-        return globalStorageProvider.set(
-            "$PUSH_NOTIFICATIONS_ENABLED_ACCOUNTS.$accountId",
-            addressKey,
+    fun setPushNotificationAccount(accountId: String) {
+        val currentAccounts = getPushNotificationsEnabledAccounts()?.toMutableList() ?: mutableListOf()
+        if (!currentAccounts.contains(accountId)) {
+            currentAccounts.add(accountId)
+        }
+        globalStorageProvider.set(
+            PUSH_NOTIFICATIONS_ENABLED_ACCOUNTS,
+            JSONArray(currentAccounts),
             IGlobalStorageProvider.PERSIST_INSTANT
         )
     }
 
     fun removePushNotificationAccount(accountId: String) {
-        return globalStorageProvider.remove(
-            "$PUSH_NOTIFICATIONS_ENABLED_ACCOUNTS.$accountId",
+        val currentAccounts = getPushNotificationsEnabledAccounts() ?: return
+        globalStorageProvider.set(
+            PUSH_NOTIFICATIONS_ENABLED_ACCOUNTS,
+            JSONArray(currentAccounts.filter { it != accountId }),
             IGlobalStorageProvider.PERSIST_INSTANT
         )
     }
@@ -738,8 +744,11 @@ object WGlobalStorage {
     }
 
     fun getPushNotificationsEnabledAccounts(): List<String>? {
-        return globalStorageProvider.getDict(PUSH_NOTIFICATIONS_ENABLED_ACCOUNTS)?.keys()
-            ?.asSequence()?.toList()
+        val arr = globalStorageProvider.getArray(PUSH_NOTIFICATIONS_ENABLED_ACCOUNTS)
+            ?: return null
+        return ArrayList(List(arr.length()) { i ->
+            arr.getString(i)
+        })
     }
 
     fun getBlacklistedNftAddresses(accountId: String): ArrayList<String> {
@@ -877,7 +886,7 @@ object WGlobalStorage {
         return MWalletSettingsViewMode.fromValue(globalStorageProvider.getString("accountSelectorViewMode"))
     }
 
-    private const val LAST_STATE: Int = 47
+    private const val LAST_STATE: Int = 48
     fun migrate() {
         // Lock the storage
         incDoNotSynchronize()
@@ -1000,6 +1009,21 @@ object WGlobalStorage {
                 tonObj.put("ledgerIndex", ledgerObj.optInt("index"))
                 account.remove("ledger")
                 saveAccount(accountId, account)
+            }
+        }
+
+        if (currentState < 48) {
+            val enabledAccounts = globalStorageProvider.getDict(PUSH_NOTIFICATIONS_ENABLED_ACCOUNTS)
+            if (enabledAccounts != null) {
+                val accountIds = JSONArray()
+                enabledAccounts.keys().forEach { key ->
+                    accountIds.put(key)
+                }
+                globalStorageProvider.set(
+                    PUSH_NOTIFICATIONS_ENABLED_ACCOUNTS,
+                    accountIds,
+                    IGlobalStorageProvider.PERSIST_NO
+                )
             }
         }
 

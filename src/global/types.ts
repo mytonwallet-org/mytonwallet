@@ -25,7 +25,6 @@ import type {
   ApiMtwCardType,
   ApiNetwork,
   ApiNft,
-  ApiNotificationsAccountValue,
   ApiPriceHistoryPeriod,
   ApiSite,
   ApiSiteCategory,
@@ -907,7 +906,7 @@ export type GlobalState = {
     isAvailable?: boolean;
     userToken?: string;
     platform?: CapacitorPlatform;
-    enabledAccounts: Record<string, Partial<ApiNotificationsAccountValue>>;
+    enabledAccounts: string[]; // Values - account ids
   };
 
   isAppLockActive?: boolean;

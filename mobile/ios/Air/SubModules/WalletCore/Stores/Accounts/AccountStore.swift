@@ -530,18 +530,54 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
     // MARK: - Notifications
 
     public var notificationsEnabledAccountIds: Set<String> {
-        Set((AppStorageHelper.pushNotifications?.enabledAccounts ?? [:]).keys)
+        Set(AppStorageHelper.pushNotifications?.enabledAccounts ?? [])
     }
     
     public func didRegisterForPushNotifications(userToken: String) {
-        let info = AppStorageHelper.pushNotifications
-        if info == nil || info?.userToken != userToken {
-            AppStorageHelper.pushNotifications = GlobalPushNotifications(
-                isAvailable: true,
-                userToken: userToken,
-                platform: .ios,
-                enabledAccounts: [:]
-            )
+        let existingInfo = AppStorageHelper.pushNotifications
+        let previousToken = existingInfo?.userToken
+        if previousToken == userToken, existingInfo?.isAvailable == true, existingInfo?.platform == .ios {
+            return
+        }
+
+        let info = GlobalPushNotifications(
+            isAvailable: true,
+            userToken: userToken,
+            platform: .ios,
+            enabledAccounts: existingInfo?.enabledAccounts ?? []
+        )
+        AppStorageHelper.pushNotifications = info
+
+        let enabledAccounts = info.enabledAccounts
+        guard !enabledAccounts.isEmpty else { return }
+
+        let accounts = info.enabledAccounts.compactMap { accountsById[$0] }
+        let addresses = accounts.flatMap { notificationAddresses(for: $0) }
+        guard !addresses.isEmpty else { return }
+
+        Task {
+            do {
+                let subscribeProps = ApiSubscribeNotificationsProps(
+                    userToken: userToken,
+                    platform: .ios,
+                    addresses: addresses
+                )
+
+                if let previousToken, previousToken != userToken {
+                    async let subscribeResult = Api.subscribeNotifications(props: subscribeProps)
+                    async let _ = Api.unsubscribeNotifications(props: ApiUnsubscribeNotificationsProps(
+                        userToken: previousToken,
+                        addresses: addresses
+                    ))
+                    let result = try await subscribeResult
+                    updateEnabledNotificationAccounts(info: info, accounts: accounts, result: result)
+                } else if previousToken == nil {
+                    let result = try await Api.subscribeNotifications(props: subscribeProps)
+                    updateEnabledNotificationAccounts(info: info, accounts: accounts, result: result)
+                }
+            } catch {
+                log.info("didRegisterForPushNotifications: \(error, .public)")
+            }
         }
     }
     
@@ -554,7 +590,7 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
     @MainActor public func selectedNotificationsAccounts(accounts: [MAccount]) async {
         do {
             let toEnableAccountIds = Set(accounts.map(\.id))
-            let oldEnabledAccountIds = Set((AppStorageHelper.pushNotifications?.enabledAccounts ?? [:]).keys)
+            let oldEnabledAccountIds = Set(AppStorageHelper.pushNotifications?.enabledAccounts ?? [])
             if oldEnabledAccountIds == toEnableAccountIds {
                 return
             }
@@ -576,22 +612,28 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
     private func _subscribeNotifications(account: MAccount) async {
         do {
             if var info = AppStorageHelper.pushNotifications,
-                let userToken = info.userToken,
-                let tonAddress = account.addressByChain[TON_CHAIN]
+                let userToken = info.userToken
             {
+                if info.enabledAccounts.contains(account.id) {
+                    return
+                }
+                let addresses = notificationAddresses(for: account)
+                guard !addresses.isEmpty else {
+                    log.info("_subscribeNotifications: no supported addresses")
+                    return
+                }
                 let result = try await Api.subscribeNotifications(props: ApiSubscribeNotificationsProps(
                     userToken: userToken,
                     platform: .ios,
-                    addresses: [ApiNotificationAddress(
-                        title: account.displayName.nilIfEmpty,
-                        address: tonAddress,
-                        chain: .ton
-                    )]
+                    addresses: addresses
                 ))
-                info.enabledAccounts[account.id] = result.addressKeys.values.first
+                let enabledAddresses = Set(result.addressKeys.keys)
+                if addresses.contains(where: { enabledAddresses.contains($0.address) }) {
+                    info.enabledAccounts.append(account.id)
+                }
                 AppStorageHelper.pushNotifications = info
             } else {
-                log.info("_subscribeNotifications: no info or token or ton address")
+                log.info("_subscribeNotifications: no info or token")
             }
         } catch {
             log.info("_subscribeNotifications: \(error)")
@@ -601,26 +643,53 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
     private func _unsubscribeNotifications(account: MAccount) async {
         do {
             if var info = AppStorageHelper.pushNotifications,
-                let userToken = info.userToken,
-                let tonAddress = account.addressByChain[TON_CHAIN]
+                let userToken = info.userToken
             {
-                let result = try await Api.unsubscribeNotifications(props: ApiUnsubscribeNotificationsProps(
-                    userToken: userToken,
-                    addresses: [ApiNotificationAddress(
-                        title: account.displayName.nilIfEmpty,
-                        address: tonAddress,
-                        chain: .ton
-                    )]
-                ))
-                log.info("\(result as Any)")
-                info.enabledAccounts[account.id] = nil
+                let addresses = notificationAddresses(for: account)
+                if !addresses.isEmpty {
+                    _ = try await Api.unsubscribeNotifications(props: ApiUnsubscribeNotificationsProps(
+                        userToken: userToken,
+                        addresses: addresses
+                    ))
+                }
+                info.enabledAccounts.removeAll { $0 == account.id }
                 AppStorageHelper.pushNotifications = info
             } else {
-                log.info("_unsubscribeNotifications: no info or userToken or ton address")
+                log.info("_unsubscribeNotifications: no info or userToken")
             }
         } catch {
             log.info("\(error)")
         }
+    }
+    
+    private func notificationAddresses(for account: MAccount) -> [ApiNotificationAddress] {
+        account.orderedChains.compactMap { chain, info in
+            if chain.doesSupportPushNotifications {
+                return ApiNotificationAddress(
+                    title: account.displayName,
+                    address: info.address,
+                    chain: chain
+                )
+            }
+            return nil
+        }
+    }
+
+    private func updateEnabledNotificationAccounts(
+        info: GlobalPushNotifications,
+        accounts: [MAccount],
+        result: ApiSubscribeNotificationsResult
+    ) {
+        let enabledAddresses = Set(result.addressKeys.keys)
+        let enabledAccountIds = accounts
+            .filter { account in
+                notificationAddresses(for: account)
+                    .contains { enabledAddresses.contains($0.address) }
+            }
+            .map(\.id)
+        var updatedInfo = info
+        updatedInfo.enabledAccounts = enabledAccountIds
+        AppStorageHelper.pushNotifications = updatedInfo
     }
 
     // MARK: - Misc

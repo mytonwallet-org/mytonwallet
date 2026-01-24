@@ -24,7 +24,7 @@ class AppearanceAppThemeView(
         configure(
             LocaleController.getString("Theme"),
             titleColor = WColor.Tint,
-            ViewConstants.BIG_RADIUS.dp
+            HeaderCell.TopRounding.NORMAL
         )
     }
 

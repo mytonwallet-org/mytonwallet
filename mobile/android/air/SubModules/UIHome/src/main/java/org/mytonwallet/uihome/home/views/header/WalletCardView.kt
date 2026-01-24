@@ -801,6 +801,7 @@ class WalletCardView(
 
     private var currentAlpha = 1f
     private fun updateContentAlpha(animated: Boolean = true) {
+        contentView.animate().cancel()
         if (mode == HomeHeaderView.Mode.Collapsed) {
             // Card view may be above stateView, so hide it if required
             when (statusViewState) {

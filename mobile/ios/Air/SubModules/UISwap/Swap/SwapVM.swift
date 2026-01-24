@@ -332,7 +332,7 @@ final class SwapVM {
         guard let swapEstimate = self.cexEstimate else {
             return
         }
-        let fromAddress = account.addressByChain[sellingToken.chain]
+        let fromAddress = account.addressByChain[TON_CHAIN]
         let toAddress = account.addressByChain[buyingToken.chain]
             let swapCexParams = ApiSwapCexCreateTransactionParams(
                 from: sellingToken.swapIdentifier,

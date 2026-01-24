@@ -38,6 +38,7 @@ import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.drawable.RotatableDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -89,6 +90,10 @@ class NftVC(
     override val displayedAccount =
         DisplayedAccount(showingAccountId, AccountStore.isPushedTemporary)
 
+    override val topBarConfiguration: ReversedCornerView.Config
+        get() = super.topBarConfiguration.copy(
+            blurRootView = recyclerView
+        )
     override val shouldDisplayBottomBar = true
     override val isSwipeBackAllowed: Boolean
         get() {
@@ -139,7 +144,7 @@ class NftVC(
     }
 
     private val descriptionTitleLabel = HeaderCell(context).apply {
-        configure(LocaleController.getString("Description"), titleColor = WColor.Tint, ViewConstants.BIG_RADIUS.dp)
+        configure(LocaleController.getString("Description"), titleColor = WColor.Tint, HeaderCell.TopRounding.NORMAL)
     }
     private val descriptionLabel: WLabel by lazy {
         WLabel(context).apply {
@@ -165,7 +170,7 @@ class NftVC(
     }
 
     private val attributesTitleLabel = HeaderCell(context).apply {
-        configure(LocaleController.getString("Attributes"), titleColor = WColor.Tint, ViewConstants.BIG_RADIUS.dp)
+        configure(LocaleController.getString("Attributes"), titleColor = WColor.Tint, HeaderCell.TopRounding.NORMAL)
     }
     private val attributesContentView = NftAttributesView(context)
     private val attributesToggleLabel by lazy {
@@ -612,7 +617,7 @@ class NftVC(
     override fun updateTheme() {
         super.updateTheme()
 
-        view.setBackgroundColor(WColor.SecondaryBackground.color)
+        recyclerView.setBackgroundColor(WColor.SecondaryBackground.color)
         descriptionView.setBackgroundColor(
             WColor.Background.color,
             if (headerView.targetIsCollapsed) ViewConstants.BIG_RADIUS.dp else 0f,

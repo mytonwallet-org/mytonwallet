@@ -121,9 +121,10 @@ public extension String {
     }
 
     var base64ToHex: String {
-        let data = Data(base64Encoded: self)!
-        let hexString = data.map { String(format: "%02x", $0) }.joined()
-        return hexString
+        if let data = Data(base64Encoded: self) {
+            return data.map { String(format: "%02x", $0) }.joined()
+        }
+        return self
     }
 
     var leadingZeros: Int {

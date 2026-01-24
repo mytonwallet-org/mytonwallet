@@ -20,6 +20,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WCounterLabel
+import org.mytonwallet.app_air.uicomponents.widgets.WEvaporateLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
@@ -32,6 +33,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.signSpace
+import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcore.STAKE_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
@@ -85,8 +87,8 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         }
     }
 
-    private val topRightLabel: WSensitiveDataContainer<WLabel> by lazy {
-        val lbl = WLabel(context)
+    private val topRightLabel: WSensitiveDataContainer<WEvaporateLabel> by lazy {
+        val lbl = WEvaporateLabel(context)
         lbl.setStyle(ApplicationContextHolder.adaptiveFontSize)
         WSensitiveDataContainer(
             lbl,
@@ -94,8 +96,8 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         )
     }
 
-    private val bottomRightLabel: WSensitiveDataContainer<WLabel> by lazy {
-        val lbl = WLabel(context)
+    private val bottomRightLabel: WSensitiveDataContainer<WEvaporateLabel> by lazy {
+        val lbl = WEvaporateLabel(context)
         lbl.setStyle(13f)
         lbl.layoutDirection = LAYOUT_DIRECTION_LTR
         WSensitiveDataContainer(
@@ -110,7 +112,13 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         layoutParams.apply {
             height = 60.dp
         }
-        addView(iconView, LayoutParams((ApplicationContextHolder.adaptiveIconSize + 2).dp, (ApplicationContextHolder.adaptiveIconSize + 2).dp))
+        addView(
+            iconView,
+            LayoutParams(
+                (ApplicationContextHolder.adaptiveIconSize + 2).dp,
+                (ApplicationContextHolder.adaptiveIconSize + 2).dp
+            )
+        )
         addView(topLeftLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(topLeftTagLabel, LayoutParams(WRAP_CONTENT, 16.dp))
         addView(topRightLabel)
@@ -195,9 +203,12 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         val baseCurrency = WalletCore.baseCurrency
         this.isLast = isLast
 
-        if (this.accountId == accountId &&
+        val accountChanged = this.accountId != accountId
+        val tokenChanged = this.tokenBalance?.token != tokenBalance.token
+        if (!accountChanged &&
             this.tokenBalance == tokenBalance &&
-            this.baseCurrency == baseCurrency) {
+            this.baseCurrency == baseCurrency
+        ) {
             updateTheme(forceUpdate = lastChanged)
             return
         }
@@ -234,21 +245,28 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         } else token?.name
         if (topLeftLabel.text != tokenName)
             topLeftLabel.text = tokenName
-        topRightLabel.contentView.setAmount(
-            tokenBalance.amountValue,
-            token?.decimals ?: 9,
-            token?.symbol ?: "",
-            token?.decimals ?: 9,
-            smartDecimals = true,
-            forceCurrencyToRight = true
+        val animateTexts = !accountChanged && !tokenChanged
+        topRightLabel.contentView.animateText(
+            tokenBalance.amountValue.toString(
+                decimals = token?.decimals ?: 9,
+                currency = token?.symbol ?: "",
+                currencyDecimals = tokenBalance.amountValue.smartDecimalsCount(
+                    token?.decimals ?: 9
+                ),
+                showPositiveSign = false,
+            ),
+            animateTexts
         )
         updateBottomLeftLabel(tokenBalance, token)
-        bottomRightLabel.contentView.setAmount(
-            tokenBalance.toBaseCurrency,
-            token?.decimals ?: 9,
-            baseCurrency.sign,
-            baseCurrency.decimalsCount,
-            true
+        bottomRightLabel.contentView.animateText(
+            tokenBalance.toBaseCurrency?.toString(
+                decimals = token?.decimals ?: 9,
+                currency = baseCurrency.sign,
+                currencyDecimals = token?.decimals ?: 9,
+                smartDecimals = true,
+                showPositiveSign = false
+            ),
+            animateTexts
         )
 
         configureTagLabelAndSpacing(accountId, token)
