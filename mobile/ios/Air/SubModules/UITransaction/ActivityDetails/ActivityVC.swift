@@ -12,6 +12,8 @@ import WalletContext
 import WalletCore
 import UIPasscode
 
+private let expandedHeightCutoff: CGFloat = 650
+
 @MainActor
 public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData.EventsObserver {
     
@@ -59,6 +61,7 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
             if let navigationController, navigationController.viewControllers.count > 1 {
                 sheet.selectedDetentIdentifier = .large
                 viewModel.detailsExpanded = true
+                updateScrollingDisabled(false)
             }
         }
         
@@ -129,7 +132,7 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
         let expandedHeight = viewModel.expandedHeight + 34
         
         var detents: [UISheetPresentationController.Detent] = []
-        if viewModel.activity.transaction?.nft == nil || !viewModel.detailsExpanded {
+        if (viewModel.activity.transaction?.nft == nil || !viewModel.detailsExpanded) {
             detents.append(.custom(identifier: .detailsCollapsed) { context in
                 if collapsedHeight >= 0.95 * context.maximumDetentValue { // not worth it
                     return nil
@@ -137,7 +140,7 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
                 return collapsedHeight
             })
         }
-        if viewModel.activity.transaction?.nft == nil {
+        if viewModel.activity.transaction?.nft == nil && viewModel.expandedHeight < expandedHeightCutoff {
             detents.append(.custom(identifier: .detailsExpanded) { context in
                 if expandedHeight >= 0.95 * context.maximumDetentValue { // not worth it
                     return nil
@@ -169,9 +172,10 @@ public class ActivityVC: WViewController, WSensitiveDataProtocol, WalletCoreData
         
         if let p = sheetPresentationController {
             p.animateChanges {
-                if detailsExpanded && viewModel.activity.transaction?.nft != nil {
+                if detailsExpanded && (viewModel.activity.transaction?.nft != nil || viewModel.expandedHeight >= expandedHeightCutoff) {
                     p.selectedDetentIdentifier = .large
                 } else if detailsExpanded && (p.selectedDetentIdentifier == .detailsCollapsed || p.selectedDetentIdentifier == nil) && viewModel.activity.transaction?.nft == nil {
+                    p.detents = makeDetents()
                     p.selectedDetentIdentifier = .detailsExpanded
                 } else if !detailsExpanded && p.selectedDetentIdentifier != .detailsCollapsed {
                     if viewModel.activity.transaction?.nft != nil {

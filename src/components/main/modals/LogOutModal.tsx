@@ -14,6 +14,7 @@ import {
 } from '../../../global/selectors';
 import { getAccountTitle } from '../../../util/account';
 import buildClassName from '../../../util/buildClassName';
+import isViewAccount from '../../../util/isViewAccount';
 import { IS_IOS_APP } from '../../../util/windowEnvironment';
 
 import useLang from '../../../hooks/useLang';
@@ -41,6 +42,7 @@ interface StateProps {
   orderedAccounts: Array<[string, Account]>;
   accountStates: Record<string, AccountState>;
   isBackupRequired?: boolean;
+  isViewMode: boolean;
 }
 
 interface LinkAccount {
@@ -55,8 +57,9 @@ function LogOutModal({
   orderedAccounts,
   accountStates,
   isBackupRequired,
-  onClose,
+  isViewMode,
   isInAppLock,
+  onClose,
 }: OwnProps & StateProps) {
   const { signOut, switchAccount } = getActions();
 
@@ -167,7 +170,7 @@ function LogOutModal({
       isInAppLock={isInAppLock}
     >
       <p className={buildClassName(modalStyles.text, modalStyles.text_noExtraMargin)}>
-        {renderText(lang('$logout_warning', '12/24'))}
+        {renderText(isViewMode ? lang('$logout_view_mode_warning') : lang('$logout_warning', '12/24'))}
       </p>
       {!(IS_CORE_WALLET || !!isInAppLock) && hasManyAccounts && (
         <Checkbox
@@ -201,9 +204,11 @@ export default memo(
     const orderedAccounts = selectOrderedAccounts(global);
     const fallbackAccountId = selectCurrentAccountId(global);
     const accountId = ownProps.targetAccountId ?? fallbackAccountId!;
-    const currentAccountState = global.byAccountId[accountId];
+    const targetAccountState = global.byAccountId[accountId];
     const accountIds = Object.keys(accounts);
     const hasManyAccounts = accountIds.length > 1;
+    const targetAccount = accounts[accountId];
+    const isViewMode = targetAccount && isViewAccount(targetAccount.type);
 
     return {
       accountId,
@@ -211,7 +216,8 @@ export default memo(
       accounts,
       orderedAccounts,
       accountStates: global.byAccountId,
-      isBackupRequired: currentAccountState?.isBackupRequired,
+      isBackupRequired: targetAccountState?.isBackupRequired,
+      isViewMode,
     };
   })(LogOutModal),
 );

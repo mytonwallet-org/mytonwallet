@@ -13,10 +13,10 @@ import buildClassName from '../../../../util/buildClassName';
 import { getOrderedAccountChains } from '../../../../util/chain';
 import { copyTextToClipboard } from '../../../../util/clipboard';
 import { stopEvent } from '../../../../util/domEvents';
-import { shareUrl } from '../../../../util/share';
+import { getShareIcon, shareUrl } from '../../../../util/share';
 import { shortenDomain } from '../../../../util/shortenDomain';
 import { getViewAccountUrl } from '../../../../util/url';
-import { IS_ANDROID_APP, IS_IOS_APP, IS_TOUCH_ENV } from '../../../../util/windowEnvironment';
+import { IS_TOUCH_ENV } from '../../../../util/windowEnvironment';
 
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
@@ -137,12 +137,6 @@ export default memo(
     };
   })(AddressMenu),
 );
-
-function getShareIcon(): string {
-  if (IS_IOS_APP) return 'icon-share-ios';
-  if (IS_ANDROID_APP) return 'icon-share-android';
-  return 'icon-link';
-}
 
 function getAddressByChain(byChain: Account['byChain'] | undefined): Partial<Record<ApiChain, string>> | undefined {
   if (!byChain) return undefined;

@@ -1,7 +1,7 @@
 @font-face {
     font-family: "brilliant-icons";
-    src: url("./brilliant-icons.woff?6409541492e21b0f2732aca32a6c131e") format("woff"),
-url("./brilliant-icons.woff2?6409541492e21b0f2732aca32a6c131e") format("woff2");
+    src: url("./brilliant-icons.woff?414b788acbf7a91578ca4926edf1b9d6") format("woff"),
+url("./brilliant-icons.woff2?414b788acbf7a91578ca4926edf1b9d6") format("woff2");
     font-weight: normal;
     font-style: normal;
     font-display: block;
@@ -267,147 +267,150 @@ url("./brilliant-icons.woff2?6409541492e21b0f2732aca32a6c131e") format("woff2");
 .icon-more::before {
     content: "\f154";
 }
-.icon-params::before {
+.icon-open-external::before {
     content: "\f155";
 }
-.icon-paste::before {
+.icon-params::before {
     content: "\f156";
 }
-.icon-pen::before {
+.icon-paste::before {
     content: "\f157";
 }
-.icon-percent::before {
+.icon-pen::before {
     content: "\f158";
 }
-.icon-plus::before {
+.icon-percent::before {
     content: "\f159";
 }
-.icon-purchase::before {
+.icon-plus::before {
     content: "\f15a";
 }
-.icon-qr-scanner-alt::before {
+.icon-purchase::before {
     content: "\f15b";
 }
-.icon-qr-scanner::before {
+.icon-qr-scanner-alt::before {
     content: "\f15c";
 }
-.icon-question::before {
+.icon-qr-scanner::before {
     content: "\f15d";
 }
-.icon-receive-alt::before {
+.icon-question::before {
     content: "\f15e";
 }
-.icon-receive::before {
+.icon-receive-alt::before {
     content: "\f15f";
 }
-.icon-replace::before {
+.icon-receive::before {
     content: "\f160";
 }
-.icon-search::before {
+.icon-replace::before {
     content: "\f161";
 }
-.icon-send-alt::before {
+.icon-search::before {
     content: "\f162";
 }
-.icon-send-small::before {
+.icon-send-alt::before {
     content: "\f163";
 }
-.icon-send::before {
+.icon-send-small::before {
     content: "\f164";
 }
-.icon-settings::before {
+.icon-send::before {
     content: "\f165";
 }
-.icon-share-android::before {
+.icon-settings::before {
     content: "\f166";
 }
-.icon-share-ios::before {
+.icon-share-android::before {
     content: "\f167";
 }
-.icon-share::before {
+.icon-share-ios::before {
     content: "\f168";
 }
-.icon-snow::before {
+.icon-share::before {
     content: "\f169";
 }
-.icon-sort::before {
+.icon-snow::before {
     content: "\f16a";
 }
-.icon-spinner::before {
+.icon-sort::before {
     content: "\f16b";
 }
-.icon-star-filled::before {
+.icon-spinner::before {
     content: "\f16c";
 }
-.icon-star::before {
+.icon-star-filled::before {
     content: "\f16d";
 }
-.icon-swap::before {
+.icon-star::before {
     content: "\f16e";
 }
-.icon-switch::before {
+.icon-swap::before {
     content: "\f16f";
 }
-.icon-tag::before {
+.icon-switch::before {
     content: "\f170";
 }
-.icon-telegram-filled::before {
+.icon-tag::before {
     content: "\f171";
 }
-.icon-telegram::before {
+.icon-telegram-filled::before {
     content: "\f172";
 }
-.icon-testnet::before {
+.icon-telegram::before {
     content: "\f173";
 }
-.icon-tonexplorer-small::before {
+.icon-testnet::before {
     content: "\f174";
 }
-.icon-tonexplorer::before {
+.icon-tonexplorer-small::before {
     content: "\f175";
 }
-.icon-tooltip::before {
+.icon-tonexplorer::before {
     content: "\f176";
 }
-.icon-touch-id::before {
+.icon-tooltip::before {
     content: "\f177";
 }
-.icon-trash-small::before {
+.icon-touch-id::before {
     content: "\f178";
 }
-.icon-trash::before {
+.icon-trash-small::before {
     content: "\f179";
 }
-.icon-update::before {
+.icon-trash::before {
     content: "\f17a";
 }
-.icon-verification::before {
+.icon-update::before {
     content: "\f17b";
 }
-.icon-versions::before {
+.icon-verification::before {
     content: "\f17c";
 }
-.icon-view-landscape::before {
+.icon-versions::before {
     content: "\f17d";
 }
-.icon-view-portrait::before {
+.icon-view-landscape::before {
     content: "\f17e";
 }
-.icon-wallet-add::before {
+.icon-view-portrait::before {
     content: "\f17f";
 }
-.icon-wallet-view::before {
+.icon-wallet-add::before {
     content: "\f180";
 }
-.icon-wallet::before {
+.icon-wallet-view::before {
     content: "\f181";
 }
-.icon-windows-close::before {
+.icon-wallet::before {
     content: "\f182";
 }
-.icon-windows-maximize::before {
+.icon-windows-close::before {
     content: "\f183";
 }
-.icon-windows-minimize::before {
+.icon-windows-maximize::before {
     content: "\f184";
+}
+.icon-windows-minimize::before {
+    content: "\f185";
 }

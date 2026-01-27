@@ -10,7 +10,6 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextPaint
 import android.text.TextUtils
-import android.text.method.LinkMovementMethod
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -27,9 +26,11 @@ import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.AddressPopupHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.spans.ExtraHitLinkMovementMethod
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WForegroundColorSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
@@ -203,15 +204,16 @@ class ConfirmNftVC(
             val formattedAddress = address.formatStartEndAddress()
             val addressAttr = SpannableStringBuilder(formattedAddress).apply {
                 AddressPopupHelpers.configSpannableAddress(
-                    WeakReference(this@ConfirmNftVC),
-                    null,
-                    this,
-                    length - formattedAddress.length,
-                    formattedAddress.length,
-                    AccountStore.activeAccount!!.network,
-                    TONCOIN_SLUG,
-                    address,
-                    0,
+                    viewController = WeakReference(this@ConfirmNftVC),
+                    title = null,
+                    spannedString = this,
+                    startIndex = length - formattedAddress.length,
+                    length = formattedAddress.length,
+                    network = AccountStore.activeAccount!!.network,
+                    addressTokenSlug = TONCOIN_SLUG,
+                    address = address,
+                    popupXOffset = 0,
+                    centerHorizontally = false,
                     showTemporaryViewOption = false
                 )
                 styleDots()
@@ -223,7 +225,8 @@ class ConfirmNftVC(
                 )
             }
             text = addressAttr
-            movementMethod = LinkMovementMethod.getInstance()
+            setPaddingDp(8, 4, 8, 4)
+            movementMethod = ExtraHitLinkMovementMethod(paddingLeft, paddingTop)
             highlightColor = Color.TRANSPARENT
         }
     }
@@ -490,15 +493,16 @@ class ConfirmNftVC(
                 SpannableStringBuilder(sendingToString).apply {
                     append(" $address")
                     AddressPopupHelpers.configSpannableAddress(
-                        WeakReference(this@ConfirmNftVC),
-                        null,
-                        this,
-                        length - address.length,
-                        address.length,
-                        displayedAccount.network,
-                        TONCOIN_SLUG,
-                        viewModel.resolvedAddress!!,
-                        startOffset.roundToInt(),
+                        viewController = WeakReference(this@ConfirmNftVC),
+                        title = null,
+                        spannedString = this,
+                        startIndex = length - address.length,
+                        length = address.length,
+                        network = displayedAccount.network,
+                        addressTokenSlug = TONCOIN_SLUG,
+                        address = viewModel.resolvedAddress!!,
+                        popupXOffset = startOffset.roundToInt(),
+                        centerHorizontally = false,
                         showTemporaryViewOption = false
                     )
                     styleDots(sendingToString.length + 1)

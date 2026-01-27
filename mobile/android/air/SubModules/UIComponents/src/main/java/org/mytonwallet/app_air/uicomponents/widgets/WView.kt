@@ -4,6 +4,7 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
+import android.animation.TimeInterpolator
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.app.Activity
@@ -25,9 +26,13 @@ import android.view.ViewOutlineProvider
 import android.view.animation.TranslateAnimation
 import android.view.inputmethod.InputMethodManager
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.constraintlayout.widget.Guideline
 import androidx.core.view.children
+import androidx.core.view.isVisible
+import me.vkryl.android.AnimatorUtils
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
+import org.mytonwallet.app_air.uicomponents.extensions.animatorSet
 import org.mytonwallet.app_air.uicomponents.extensions.getLocationOnScreen
 import org.mytonwallet.app_air.uicomponents.helpers.ViewHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedController
@@ -155,6 +160,24 @@ open class WView(
         background = rippleDrawable
     }
 
+    fun addVerticalGuideline(guideline: Guideline) {
+        addView(
+            guideline,
+            LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+                orientation = LayoutParams.VERTICAL
+            }
+        )
+    }
+
+    fun addHorizontalGuideline(guideline: Guideline) {
+        addView(
+            guideline,
+            LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+                orientation = LayoutParams.HORIZONTAL
+            }
+        )
+    }
+
     open fun lockView() {
         isEnabled = false
         children.forEach {
@@ -212,6 +235,89 @@ fun View.fadeIn(
         .withEndAction {
             onCompletion?.invoke()
         }
+}
+
+fun View.fadeInAnimatorSet(
+    duration: Long = AnimationConstants.QUICK_ANIMATION,
+    interpolator: TimeInterpolator = AnimatorUtils.ACCELERATE_DECELERATE_INTERPOLATOR,
+    onCompletion: (() -> Unit)? = null
+) {
+    listOf(this).fadeIn(duration, interpolator, onCompletion)
+}
+
+fun Iterable<View>.fadeIn(
+    duration: Long = AnimationConstants.QUICK_ANIMATION,
+    interpolator: TimeInterpolator = AnimatorUtils.ACCELERATE_DECELERATE_INTERPOLATOR,
+    onCompletion: (() -> Unit)? = null
+) {
+    if (all { it.isVisible && it.alpha == 1f }) {
+        return
+    }
+    forEach {
+        it.alpha = 0f
+        it.isVisible = true
+    }
+    val onEnd = {
+        forEach { it.alpha = 1f }
+        onCompletion?.invoke()
+    }
+    if (!WGlobalStorage.getAreAnimationsActive()) {
+        onEnd()
+    }
+    animatorSet {
+        duration(duration)
+        interpolator(interpolator)
+        together {
+            forEach {
+                viewProperty(it) { alpha(1f) }
+            }
+        }
+        onEnd { onEnd() }
+    }.start()
+}
+
+fun View.fadeOutAnimatorSet(
+    duration: Long = AnimationConstants.QUICK_ANIMATION,
+    interpolator: TimeInterpolator = AnimatorUtils.ACCELERATE_DECELERATE_INTERPOLATOR,
+    finishVisibility: Int = View.INVISIBLE,
+    onCompletion: (() -> Unit)? = null
+) {
+    listOf(this).fadeOut(duration, interpolator, finishVisibility, onCompletion)
+}
+
+fun Iterable<View>.fadeOut(
+    duration: Long = AnimationConstants.QUICK_ANIMATION,
+    interpolator: TimeInterpolator = AnimatorUtils.ACCELERATE_DECELERATE_INTERPOLATOR,
+    finishVisibility: Int = View.INVISIBLE,
+    onCompletion: (() -> Unit)? = null
+) {
+    if (all { it.visibility == finishVisibility }) {
+        return
+    }
+    forEach {
+        it.alpha = 1f
+        it.isVisible = true
+    }
+    val onEnd = {
+        forEach {
+            it.alpha = 0f
+            it.visibility = finishVisibility
+        }
+        onCompletion?.invoke()
+    }
+    if (!WGlobalStorage.getAreAnimationsActive()) {
+        onEnd()
+    }
+    animatorSet {
+        duration(duration)
+        interpolator(interpolator)
+        together {
+            forEach {
+                viewProperty(it) { alpha(1f) }
+            }
+        }
+        onEnd { onEnd() }
+    }.start()
 }
 
 fun View.fadeOutObjectAnimator(): ObjectAnimator? {
@@ -479,7 +585,11 @@ fun View.unlockView() {
 fun View.animateHeight(newValue: Int) {
     if (measuredHeight == newValue)
         return
-    ValueAnimator.ofInt(measuredHeight, newValue).apply {
+    animateHeight(measuredHeight, newValue)
+}
+
+fun View.animateHeight(fromValue: Int, toValue: Int) {
+    ValueAnimator.ofInt(fromValue, toValue).apply {
         addUpdateListener { valueAnimator ->
             layoutParams = layoutParams.apply {
                 height = valueAnimator.animatedValue as Int
@@ -498,6 +608,51 @@ fun View.frameAsRectF(padding: Float): RectF {
         (location.x + width).toFloat() + padding,
         (location.y + height).toFloat() + padding
     )
+}
+
+fun View.frameAsPath(roundRadius: Float = 0f, offset: Float = 0f): Path {
+    return frameAsPath(
+        roundRadius = roundRadius,
+        horizontalOffset = offset,
+        verticalOffset = offset
+    )
+}
+
+fun View.frameAsPath(
+    roundRadius: Float = 0f,
+    horizontalOffset: Float = 0f,
+    verticalOffset: Float = 0f
+): Path {
+    return frameAsPath(
+        roundRadius = roundRadius,
+        leftOffset = horizontalOffset,
+        rightOffset = horizontalOffset,
+        topOffset = verticalOffset,
+        bottomOffset = verticalOffset
+    )
+}
+
+fun View.frameAsPath(
+    roundRadius: Float = 0f,
+    leftOffset: Float = 0f,
+    topOffset: Float = 0f,
+    rightOffset: Float = 0f,
+    bottomOffset: Float = 0f
+): Path {
+    val location = getLocationOnScreen()
+    return Path().apply {
+        addRoundRect(
+            RectF(
+                location.x.toFloat() - leftOffset,
+                location.y.toFloat() - topOffset,
+                (location.x + width).toFloat() + rightOffset,
+                (location.y + height).toFloat() + bottomOffset
+            ),
+            roundRadius,
+            roundRadius,
+            Path.Direction.CW
+        )
+    }
 }
 
 @SuppressLint("NotifyDataSetChanged")
@@ -520,3 +675,17 @@ fun updateThemeForChildren(parentView: ViewGroup, onlyTintedViews: Boolean) {
         }
     }
 }
+
+inline fun View.updateLayoutParamsIfExists(block: ViewGroup.LayoutParams.() -> Unit) {
+    updateLayoutParamsIfExists<ViewGroup.LayoutParams>(block)
+}
+
+@JvmName("updateLayoutParamsIfExistsTyped")
+inline fun <reified T : ViewGroup.LayoutParams> View.updateLayoutParamsIfExists(
+    block: T.() -> Unit
+) {
+    val params = layoutParams as? T ?: return
+    block(params)
+    layoutParams = params
+}
+

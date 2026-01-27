@@ -24,7 +24,7 @@ struct NftDetailsImage: View {
         self.viewModel = viewModel
         self._coverFlowViewModel = State(
             wrappedValue: CoverFlowViewModel<ApiNft>(
-                items: (NftStore.getAccountShownNfts(accountId: viewModel.accountId))?.values.map(\.nft) ?? [viewModel.nft],
+                items: (NftStore.getAccountShownNfts(accountId: viewModel.account.id))?.values.map(\.nft) ?? [viewModel.nft],
                 selectedItem: "",
                 onTap: { },
                 onLongTap: { }
@@ -95,7 +95,7 @@ struct NftDetailsImage: View {
             }
             .coordinateSpace(name: ns)
             .onChange(of: coverFlowViewModel.selectedItem) { nftId in
-                if let nft = NftStore.getAccountNfts(accountId: viewModel.accountId)?[nftId]?.nft {
+                if let nft = NftStore.getAccountNfts(accountId: viewModel.account.id)?[nftId]?.nft {
                     withAnimation(.smooth(duration: 0.1)) {
                         viewModel.nft = nft
                     }

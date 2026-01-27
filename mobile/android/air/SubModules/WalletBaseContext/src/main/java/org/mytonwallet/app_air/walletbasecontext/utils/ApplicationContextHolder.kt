@@ -12,8 +12,12 @@ object ApplicationContextHolder {
 
     private const val SMALL_SCREEN_WIDTH_DP = 360
 
+    val screenWidth by lazy {
+        applicationContext.resources.displayMetrics.widthPixels
+    }
+
     val isSmallScreen: Boolean by lazy {
-        val widthDp = applicationContext.resources.displayMetrics.widthPixels / density
+        val widthDp = screenWidth / density
         widthDp <= SMALL_SCREEN_WIDTH_DP
     }
 

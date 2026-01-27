@@ -101,6 +101,8 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
     
     private func setupViews() {
         
+        let count = request?.transactions.count ?? 1
+        navigationItem.title = lang("Confirm Actions", arg1: count)
         addCloseNavigationItemIfNeeded()
 
         hostingController = addHostingController(makeView(), constraints: .fill)

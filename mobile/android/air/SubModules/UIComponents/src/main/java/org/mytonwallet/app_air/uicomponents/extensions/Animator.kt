@@ -7,6 +7,7 @@ import android.animation.PropertyValuesHolder
 import android.animation.TimeInterpolator
 import android.animation.ValueAnimator
 import android.view.View
+import android.view.animation.LinearInterpolator
 import androidx.core.animation.doOnEnd
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 
@@ -19,33 +20,87 @@ private sealed interface Node {
     data class Sequential(val children: List<Node>) : Node
 }
 
+private interface IConfigurable {
+    fun duration(duration: Long)
+    fun startDelay(startDelay: Long)
+    fun interpolator(interpolator: TimeInterpolator)
+}
+
+data class Configuration(
+    val duration: Long? = null,
+    val startDelay: Long? = null,
+    val interpolator: TimeInterpolator? = null,
+) {
+
+    fun mergeFromParent(parent: Configuration): Configuration {
+        return Configuration(
+            duration = duration ?: parent.duration,
+            startDelay = startDelay ?: parent.startDelay,
+            interpolator = interpolator ?: parent.interpolator
+        )
+    }
+
+    companion object {
+
+        const val DEFAULT_DURATION: Long = AnimationConstants.QUICK_ANIMATION
+        const val DEFAULT_START_DELAY: Long = 0L
+        val DEFAULT_INTERPOLATOR: TimeInterpolator = LinearInterpolator()
+    }
+}
+
 @AnimatorDsl
-class WAnimatorSet {
+class WAnimatorSet(
+    private val inherited: Configuration = Configuration()
+) : IConfigurable {
+
+    private var configuration: Configuration = Configuration()
     private val nodes: MutableList<Node> = mutableListOf()
     private var endAction: (() -> Unit)? = null
+
+    private fun buildConfiguration(): Configuration {
+        return configuration.mergeFromParent(inherited)
+    }
+
+    override fun duration(duration: Long) {
+        configuration = configuration.copy(duration = duration)
+    }
+
+    override fun startDelay(startDelay: Long) {
+        configuration = configuration.copy(startDelay = startDelay)
+    }
+
+    override fun interpolator(interpolator: TimeInterpolator) {
+        configuration = configuration.copy(interpolator = interpolator)
+    }
 
     fun onEnd(action: () -> Unit) {
         endAction = action
     }
 
     fun viewProperty(v: View, block: ViewAnimatorDsl.() -> Unit) {
-        val animator = ViewAnimatorDsl(v).apply(block).build()
+        val animator = ViewAnimatorDsl(v, buildConfiguration()).apply(block).build()
         nodes += Node.Single(animator)
     }
 
     fun intValues(vararg values: Int, block: IntAnimatorDsl.() -> Unit) {
-        val cfg = IntAnimatorDsl().apply(block)
+        val cfg = IntAnimatorDsl(buildConfiguration()).apply(block)
         val animator = ValueAnimator.ofInt(*values).apply { cfg.applyTo(this) }
         nodes += Node.Single(animator)
     }
 
+    fun floatValues(vararg values: Float, block: FloatAnimatorDsl.() -> Unit) {
+        val cfg = FloatAnimatorDsl(buildConfiguration()).apply(block)
+        val animator = ValueAnimator.ofFloat(*values).apply { cfg.applyTo(this) }
+        nodes += Node.Single(animator)
+    }
+
     fun together(block: WAnimatorSet.() -> Unit) {
-        val child = WAnimatorSet().apply(block)
+        val child = WAnimatorSet(buildConfiguration()).apply(block)
         nodes += Node.Together(child.nodes.toList())
     }
 
     fun sequential(block: WAnimatorSet.() -> Unit) {
-        val child = WAnimatorSet().apply(block)
+        val child = WAnimatorSet(buildConfiguration()).apply(block)
         nodes += Node.Sequential(child.nodes.toList())
     }
 
@@ -76,22 +131,24 @@ class WAnimatorSet {
 }
 
 @AnimatorDsl
-class ViewAnimatorDsl(private val view: View) {
+class ViewAnimatorDsl(
+    private val view: View,
+    private val inherited: Configuration
+) : IConfigurable {
+
+    private var configuration: Configuration = Configuration()
     private val holders = mutableListOf<PropertyValuesHolder>()
-    private var duration: Long = AnimationConstants.QUICK_ANIMATION
-    private var startDelay: Long = 0L
-    private var interpolator: TimeInterpolator? = null
 
-    fun duration(duration: Long) {
-        this.duration = duration
+    override fun duration(duration: Long) {
+        configuration = configuration.copy(duration = duration)
     }
 
-    fun startDelay(startDelay: Long) {
-        this.startDelay = startDelay
+    override fun startDelay(startDelay: Long) {
+        configuration = configuration.copy(startDelay = startDelay)
     }
 
-    fun interpolator(interpolator: TimeInterpolator) {
-        this.interpolator = interpolator
+    override fun interpolator(interpolator: TimeInterpolator) {
+        configuration = configuration.copy(interpolator = interpolator)
     }
 
     fun alpha(vararg values: Float) {
@@ -119,32 +176,30 @@ class ViewAnimatorDsl(private val view: View) {
     }
 
     fun build(): ObjectAnimator {
-        val dsl = this
+        val configuration = this.configuration.mergeFromParent(inherited)
         return ObjectAnimator.ofPropertyValuesHolder(view, *holders.toTypedArray()).apply {
-            duration = dsl.duration
-            startDelay = dsl.startDelay
-            dsl.interpolator?.let { interpolator = it }
+            duration = configuration.duration ?: Configuration.DEFAULT_DURATION
+            startDelay = configuration.startDelay ?: Configuration.DEFAULT_START_DELAY
+            interpolator = configuration.interpolator ?: Configuration.DEFAULT_INTERPOLATOR
         }
     }
 }
 
 @AnimatorDsl
-class IntAnimatorDsl {
-    var duration: Long = AnimationConstants.QUICK_ANIMATION
-    var startDelay: Long = 0L
-    var interpolator: TimeInterpolator? = null
+class IntAnimatorDsl(private val inherited: Configuration) : IConfigurable {
+    private var configuration: Configuration = Configuration()
     private var updateAction: ((Int) -> Unit)? = null
 
-    fun duration(duration: Long) {
-        this.duration = duration
+    override fun duration(duration: Long) {
+        configuration = configuration.copy(duration = duration)
     }
 
-    fun startDelay(startDelay: Long) {
-        this.startDelay = startDelay
+    override fun startDelay(startDelay: Long) {
+        configuration = configuration.copy(startDelay = startDelay)
     }
 
-    fun interpolator(interpolator: TimeInterpolator) {
-        this.interpolator = interpolator
+    override fun interpolator(interpolator: TimeInterpolator) {
+        configuration = configuration.copy(interpolator = interpolator)
     }
 
     fun onUpdate(action: (Int) -> Unit) {
@@ -152,13 +207,49 @@ class IntAnimatorDsl {
     }
 
     fun applyTo(animator: ValueAnimator) {
+        val configuration = this.configuration.mergeFromParent(inherited)
         val dsl = this
         with(animator) {
-            duration = dsl.duration
-            startDelay = dsl.startDelay
-            dsl.interpolator?.let { interpolator = it }
+            duration = configuration.duration ?: Configuration.DEFAULT_DURATION
+            startDelay = configuration.startDelay ?: Configuration.DEFAULT_START_DELAY
+            interpolator = configuration.interpolator ?: Configuration.DEFAULT_INTERPOLATOR
             dsl.updateAction?.let { updateAction ->
                 addUpdateListener { updateAction(it.animatedValue as Int) }
+            }
+        }
+    }
+}
+
+@AnimatorDsl
+class FloatAnimatorDsl(private val inherited: Configuration) : IConfigurable {
+    private var configuration: Configuration = Configuration()
+    private var updateAction: ((Float) -> Unit)? = null
+
+    override fun duration(duration: Long) {
+        configuration = configuration.copy(duration = duration)
+    }
+
+    override fun startDelay(startDelay: Long) {
+        configuration = configuration.copy(startDelay = startDelay)
+    }
+
+    override fun interpolator(interpolator: TimeInterpolator) {
+        configuration = configuration.copy(interpolator = interpolator)
+    }
+
+    fun onUpdate(action: (Float) -> Unit) {
+        updateAction = action
+    }
+
+    fun applyTo(animator: ValueAnimator) {
+        val configuration = this.configuration.mergeFromParent(inherited)
+        val dsl = this
+        with(animator) {
+            duration = configuration.duration ?: Configuration.DEFAULT_DURATION
+            startDelay = configuration.startDelay ?: Configuration.DEFAULT_START_DELAY
+            interpolator = configuration.interpolator ?: Configuration.DEFAULT_INTERPOLATOR
+            dsl.updateAction?.let { updateAction ->
+                addUpdateListener { updateAction(it.animatedValue as Float) }
             }
         }
     }

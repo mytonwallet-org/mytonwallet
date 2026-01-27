@@ -193,6 +193,7 @@ MyTonWallet uses biometric authentication to unlock and authorize transactions: 
 OK: OK
 "Open Collection": "Відкрити колекцію"
 "Open in Explorer": "Відкрити в оглядачі"
+"Open in...": "Відкрити в..."
 "Passcode changed": "Код змінено"
 "Please make sure your internet connection is working and try again.": "Переконайтеся, що з’єднання з інтернетом працює, і спробуйте ще раз."
 "Please set a passcode on your device, and then try to use biometric authentication.": "Установіть код на пристрої, а потім знову спробуйте використати біометрію."

@@ -5,39 +5,31 @@ import Perception
 
 struct SwapView: View {
     
-    var swapVM: SwapVM
-    var selectorsVM: SwapSelectorsVM
-    var detailsVM: SwapDetailsVM
-    var swapType: SwapType { swapVM.swapType }
-    var swapEstimate: ApiSwapEstimateResponse? { detailsVM.swapEstimate }
+    var swapModel: SwapModel
     var isSensitiveDataHidden: Bool
     
     var body: some View {
         WithPerceptionTracking {
-            @Perception.Bindable var swapVM = swapVM
-            @Perception.Bindable var selectorsVM = selectorsVM
-            @Perception.Bindable var detailsVM = detailsVM
-            
             ScrollView {
                 VStack(spacing: 16) {
-                    SwapSelectorsView(model: selectorsVM)
+                    SwapSelectorsView(model: swapModel.input)
                         .padding(.top, 8)
                     
-                    SwapWarning(displayImpactWarning: detailsVM.displayImpactWarning)
+                    SwapWarning(displayImpactWarning: swapModel.detailsVM.displayImpactWarning)
                     
-                    if swapType == .onChain {
+                    if swapModel.swapType == .onChain {
                         SwapDetailsView(
-                            swapVM: swapVM,
-                            selectorsVM: selectorsVM,
-                            model: detailsVM
+                            inputModel: swapModel.input,
+                            model: swapModel.detailsVM
                         )
                         .transition(.opacity)
                     } else {
                         SwapChangellyView()
                             .transition(.opacity)
                         SwapCexDetailsView(
-                            swapVM: swapVM,
-                            selectorsVM: selectorsVM
+                            inputModel: swapModel.input,
+                            crosschainModel: swapModel.crosschain,
+                            swapType: swapModel.swapType
                         )
                     }
                     
@@ -45,7 +37,7 @@ struct SwapView: View {
                         .frame(height: 100)
                 }
                 .padding(.horizontal, 16)
-                .animation(.snappy, value: swapEstimate)
+                .animation(.snappy, value: swapModel.detailsVM.swapEstimate)
             }
         }
     }

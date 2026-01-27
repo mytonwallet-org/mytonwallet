@@ -5,6 +5,7 @@ import {
   DEFAULT_CHAIN,
   EMPTY_HASH_VALUE,
   MTW_CARDS_BASE_URL,
+  MTW_TIPS_CHANNEL_NAME,
   MYTONWALLET_BLOG,
   SELF_UNIVERSAL_HOST_URL,
 } from '../config';
@@ -170,13 +171,32 @@ export function getBlogUrl(lang: LangCode): string {
   return MYTONWALLET_BLOG[lang] || MYTONWALLET_BLOG.en!;
 }
 
-export function getViewAccountUrl(addressByChain: Partial<Record<ApiChain, string>>): string {
+export function getTelegramChannelUrl(lang: LangCode): string {
+  return `https://t.me/${MTW_TIPS_CHANNEL_NAME[lang] ?? MTW_TIPS_CHANNEL_NAME.en}`;
+}
+
+export function getViewTransactionUrl(chain: ApiChain, txId: string, isTestnet?: boolean): string {
+  const url = `${SELF_UNIVERSAL_HOST_URL}/tx/${chain}/${encodeURIComponent(txId)}`;
+
+  return isTestnet ? `${url}?testnet=true` : url;
+}
+
+export function getViewAccountUrl(addressByChain: Partial<Record<ApiChain, string>>, isTestnet?: boolean): string {
   const params = new URLSearchParams();
   Object.entries(addressByChain).forEach(([chain, address]) => {
     params.append(chain, address);
   });
+  if (isTestnet) {
+    params.append('testnet', 'true');
+  }
 
-  return `${SELF_UNIVERSAL_HOST_URL}/view?${params.toString()}`;
+  return `${SELF_UNIVERSAL_HOST_URL}/view/?${params.toString()}`;
+}
+
+export function getViewNftUrl(nftAddress: string, isTestnet?: boolean): string {
+  const url = `${SELF_UNIVERSAL_HOST_URL}/nft/${nftAddress}`;
+
+  return isTestnet ? `${url}?testnet=true` : url;
 }
 
 export function getExplorerByUrl(url: string): { chain: ApiChain; explorerId: string } | undefined {

@@ -188,6 +188,7 @@ MyTonWallet uses biometric authentication to unlock and authorize transactions: 
 OK: ตกลง
 "Open Collection": เปิดคอลเล็กชัน
 "Open in Explorer": เปิดในบล็อกเชนเอ็กซ์พลอเรอร์
+"Open in...": "เปิดใน..."
 "Passcode changed": เปลี่ยนรหัสผ่านแล้ว
 "Please make sure your internet connection is working and try again.": โปรดตรวจสอบให้อินเทอร์เน็ตเชื่อมต่ออยู่แล้วลองอีกครั้ง
 "Please set a passcode on your device, and then try to use biometric authentication.": โปรดตั้งรหัสผ่านในอุปกรณ์ จากนั้นลองใช้การยืนยันตัวตนด้วยชีวมิติอีกครั้ง

@@ -70,6 +70,7 @@ class WBalanceView(context: Context) : AppCompatTextView(context), WThemedView {
         val decimals: Int,
         val currency: String,
         val animated: Boolean,
+        // `setInstantly` should be true if the first frame must be rendered with no delay and block main thread
         val setInstantly: Boolean,
         val forceCurrencyToRight: Boolean
     )

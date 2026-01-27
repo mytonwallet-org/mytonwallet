@@ -5,8 +5,6 @@
 @use "../../../../styles/scssVariables" as v;
 
 $color-transition: color 300ms;
-$portraitBaseBalanceSize: 3.25rem;
-$landscapeBaseBalanceSize: 3rem;
 $signSizeDiff: 0.375rem;
 
 .containerWrapper {
@@ -275,7 +273,7 @@ $signSizeDiff: 0.375rem;
 
 .currencySymbol {
   margin-bottom: 0.5rem;
-  font-size: calc(($portraitBaseBalanceSize - $signSizeDiff) * var(--font-size-scale, 1));
+  font-size: calc((#{v.$cardPortraitBaseBalanceSize} - $signSizeDiff) * var(--font-size-scale, 1));
   color: var(--second-text);
 
   :global(.glare-text) & {
@@ -285,12 +283,12 @@ $signSizeDiff: 0.375rem;
   @include mixins.transition($color-transition);
 
   @include mixins.respond-above(xs) {
-    font-size: calc(($landscapeBaseBalanceSize - $signSizeDiff) * var(--font-size-scale, 1));
+    font-size: calc((#{v.$cardLandscapeBaseBalanceSize} - $signSizeDiff) * var(--font-size-scale, 1));
   }
 }
 
 .primaryValue {
-  font-size: calc($portraitBaseBalanceSize * var(--font-size-scale, 1));
+  font-size: calc(#{v.$cardPortraitBaseBalanceSize} * var(--font-size-scale, 1));
   font-weight: 850;
   line-height: 1;
   color: var(--main-text);
@@ -299,7 +297,7 @@ $signSizeDiff: 0.375rem;
   @include mixins.transition($color-transition);
 
   @include mixins.respond-above(xs) {
-    font-size: calc($landscapeBaseBalanceSize * var(--font-size-scale, 1));
+    font-size: calc(#{v.$cardLandscapeBaseBalanceSize} * var(--font-size-scale, 1));
   }
 }
 

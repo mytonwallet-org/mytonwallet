@@ -204,6 +204,14 @@ enum class MBlockchain(
             }
         }
 
+        fun valueOfSlugOrNull(slug: String): MBlockchain? {
+            return entries.firstOrNull { it.nativeSlug == slug }
+        }
+
+        fun valueOfOrNull(name: String): MBlockchain? {
+            return entries.firstOrNull { it.name == name }
+        }
+
         // Popular token order matching the TypeScript implementation
         val POPULAR_TOKEN_ORDER = listOf(
             "TON",

@@ -170,22 +170,47 @@ public final class _NftStore: Sendable {
         WalletCoreData.notify(event: .nftsChanged(accountId: accountId))
     }
     
-    public func reorderNfts(accountId: String, changes: CollectionDifference<String>) {
+    /// Reorders visible NFTs for an account using an ordered list of NFT IDs as a hint.
+    /// - Only affects visible NFTs (`shouldHide == false`); 
+    /// - Treats `orderedIdsHint` as a local reordering hint:
+    ///   - It ignores IDs that are not currently visible.
+    ///   - It preserves the original positions of all non-hinted visible NFTs.
+    ///   - It only reorders the hinted NFTs within the set of positions they originally occupied.
+    ///     For example, if the original visible order is `[A, B, C, D, E, F]`
+    ///     and `orderedIdsHint` is `[X, F, D]`, the resulting visible order is `[A, B, C, F, E, D]`.
+    ///     So, it can be called safely for any NFT keys subset, which is necessary if a filter has been applied
+    /// - Appends hidden NFTs after the reordered visible NFTs, preserving their original relative order.
+    public func reorderNfts(accountId: String, orderedIdsHint: OrderedSet<String>) {
         let originalValues = nfts[accountId, default: [:]]
-        let maxIndex = originalValues.count(where: { $0.value.shouldHide })
-        var nfts = originalValues
-        for change in changes {
-            switch change {
-            case .remove(offset: _, element: let element, associatedWith: _):
-                nfts.removeValue(forKey: element)
-            case .insert(offset: let offset, element: let element, associatedWith: _):
-                if let value = originalValues[element] {
-                    nfts.updateValue(value, forKey: element, insertingAt: min(offset, maxIndex))
-                }
+
+        let visibleNfts = originalValues.filter { !$0.value.shouldHide }
+        let originalVisibleKeys = Array(visibleNfts.keys)        
+        let hintKeys = orderedIdsHint.filter { visibleNfts[$0] != nil }
+        
+        let originalPositionsOfHintItems = originalVisibleKeys.enumerated()
+            .filter { hintKeys.contains($0.element) }
+            .map { (key: $0.element, position: $0.offset) }
+        
+        var positionToKeyMap: [Int: String] = [:]
+        for (hintIndex, hintKey) in hintKeys.enumerated() {
+            let originalPosition = originalPositionsOfHintItems[hintIndex].position
+            positionToKeyMap[originalPosition] = hintKey
+        }
+        
+        var reorderedValues = OrderedDictionary<String, DisplayNft>()
+        for (index, originalKey) in originalVisibleKeys.enumerated() {
+            let keyToUse = positionToKeyMap[index] ?? originalKey
+            if let value = visibleNfts[keyToUse] {
+                reorderedValues[keyToUse] = value
             }
         }
-        self._nfts.withLock { [nfts] in
-            $0[accountId] = nfts
+        
+        for (key, value) in originalValues.filter({ $0.value.shouldHide }) {
+            reorderedValues[key] = value
+        }
+        
+        self._nfts.withLock { [reorderedValues] in
+            $0[accountId] = reorderedValues
         }
         _checkNftsOrder(accountId: accountId)
         saveToCache()

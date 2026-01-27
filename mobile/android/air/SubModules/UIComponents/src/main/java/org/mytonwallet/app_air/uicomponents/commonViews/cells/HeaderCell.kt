@@ -25,6 +25,7 @@ class HeaderCell(
         NORMAL,
         ZERO
     }
+
     private var topRounding = TopRounding.ZERO
     private val topRoundingValue: Float
         get() {
@@ -32,9 +33,11 @@ class HeaderCell(
                 TopRounding.FIRST_ITEM -> {
                     ViewConstants.TOP_RADIUS.dp
                 }
+
                 TopRounding.NORMAL -> {
                     ViewConstants.BIG_RADIUS.dp
                 }
+
                 TopRounding.ZERO -> {
                     0f
                 }
@@ -54,7 +57,9 @@ class HeaderCell(
         layoutParams.apply {
             height = 40.dp
         }
-        addView(titleLabel, LayoutParams(0, WRAP_CONTENT))
+        addView(titleLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+            constrainedWidth = true
+        })
         setConstraints {
             setHorizontalBias(titleLabel.id, 0f)
             toCenterX(titleLabel, startMargin)
@@ -70,9 +75,14 @@ class HeaderCell(
             topRoundingValue,
             0f
         )
+        titleLabel.updateTheme()
     }
 
-    fun configure(title: String, titleColor: WColor? = null, topRounding: TopRounding = TopRounding.ZERO) {
+    fun configure(
+        title: CharSequence,
+        titleColor: WColor? = null,
+        topRounding: TopRounding = TopRounding.ZERO
+    ) {
         this.topRounding = topRounding
         titleLabel.text = title
         if (titleColor != null) {

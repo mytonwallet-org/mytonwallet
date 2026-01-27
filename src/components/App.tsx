@@ -10,8 +10,9 @@ import {
   IS_ANDROID_DIRECT,
   IS_CAPACITOR,
   IS_CORE_WALLET,
+  IS_EXPLORER,
 } from '../config';
-import { selectCurrentAccountId, selectCurrentAccountSettings } from '../global/selectors';
+import { selectCurrentAccountId, selectCurrentAccountSettings, selectCurrentAccountState } from '../global/selectors';
 import { useAccentColor } from '../util/accentColor';
 import { setActiveTabChangeListener } from '../util/activeTabMonitor';
 import buildClassName from '../util/buildClassName';
@@ -83,6 +84,7 @@ interface StateProps {
   areSettingsOpen?: boolean;
   theme: Theme;
   accentColorIndex?: number;
+  isAppReady?: boolean;
 }
 
 const APP_STATES_WITH_BOTTOM_BAR = new Set([AppState.Main, AppState.Settings, AppState.Explore]);
@@ -106,6 +108,7 @@ function App({
   areSettingsOpen,
   theme,
   accentColorIndex,
+  isAppReady,
 }: StateProps) {
   const {
     closeBackupWalletModal,
@@ -128,7 +131,7 @@ function App({
       ? AppState.Settings
       : isExploreOpen && isPortrait
         ? AppState.Explore : appState;
-  const withBottomBar = isPortrait && APP_STATES_WITH_BOTTOM_BAR.has(renderingKey);
+  const withBottomBar = isPortrait && (!IS_EXPLORER || isAppReady) && APP_STATES_WITH_BOTTOM_BAR.has(renderingKey);
   const transitionName = withBottomBar
     ? 'semiFade'
     : isPortrait
@@ -309,5 +312,6 @@ export default memo(withGlobal((global): StateProps => {
     isFullscreen: Boolean(global.isFullscreen),
     theme: global.settings.theme,
     accentColorIndex: selectCurrentAccountSettings(global)?.accentColorIndex,
+    isAppReady: selectCurrentAccountState(global)?.isAppReady,
   };
 })(App));

@@ -31,25 +31,25 @@ describe('isValidUrl', () => {
 describe('normalizeUrl', () => {
   it('should add https:// prefix when protocol is missing', () => {
     expect(normalizeUrl('example.com')).toBe('https://example.com');
-    expect(normalizeUrl('my.tt/view?ton=123')).toBe('https://my.tt/view?ton=123');
+    expect(normalizeUrl('my.tt/view/?ton=123')).toBe('https://my.tt/view/?ton=123');
     expect(normalizeUrl('subdomain.example.com/path')).toBe('https://subdomain.example.com/path');
   });
 
   it('should convert http:// to https://', () => {
     expect(normalizeUrl('http://example.com')).toBe('https://example.com');
-    expect(normalizeUrl('http://my.tt/view?ton=123')).toBe('https://my.tt/view?ton=123');
+    expect(normalizeUrl('http://my.tt/view/?ton=123')).toBe('https://my.tt/view/?ton=123');
   });
 
   it('should not modify URLs that already have https:// protocol', () => {
     expect(normalizeUrl('https://example.com')).toBe('https://example.com');
-    expect(normalizeUrl('https://my.tt/view?ton=123&tron=456')).toBe('https://my.tt/view?ton=123&tron=456');
+    expect(normalizeUrl('https://my.tt/view/?ton=123&tron=456')).toBe('https://my.tt/view/?ton=123&tron=456');
   });
 
   it('should handle URLs with query parameters and fragments', () => {
     expect(normalizeUrl('example.com/path?query=value#fragment'))
       .toBe('https://example.com/path?query=value#fragment');
-    const deeplinkUrl = `my.tt/view?ton=${TEST_TON_ADDRESS}&tron=${TEST_TRON_ADDRESS}`;
-    const expectedUrl = `https://my.tt/view?ton=${TEST_TON_ADDRESS}&tron=${TEST_TRON_ADDRESS}`;
+    const deeplinkUrl = `my.tt/view/?ton=${TEST_TON_ADDRESS}&tron=${TEST_TRON_ADDRESS}`;
+    const expectedUrl = `https://my.tt/view/?ton=${TEST_TON_ADDRESS}&tron=${TEST_TRON_ADDRESS}`;
     expect(normalizeUrl(deeplinkUrl)).toBe(expectedUrl);
   });
 

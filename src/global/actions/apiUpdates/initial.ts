@@ -305,9 +305,16 @@ addActionHandler('apiUpdate', (global, actions, update) => {
       const accountState = selectAccountState(global, accountId);
       if (isUpdating && accountState?.[key]) break;
 
-      setGlobal(updateAccountState(global, accountId, {
+      global = updateAccountState(global, accountId, {
         [key]: isUpdating ? Date.now() : undefined,
-      }));
+      });
+
+      // Set `isAppReady` when balance loading is complete
+      if (!accountState?.isAppReady && kind === 'balance' && !isUpdating) {
+        global = updateAccountState(global, accountId, { isAppReady: true });
+      }
+
+      setGlobal(global);
       break;
     }
 

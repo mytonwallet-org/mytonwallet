@@ -6,17 +6,13 @@ import WalletContext
 
 public struct SwapOverviewView: View {
     
-    var fromAmount: BigInt
-    var fromToken: ApiToken
-    var toAmount: BigInt
-    var toToken: ApiToken
+    var fromAmount: TokenAmount
+    var toAmount: TokenAmount
     var onTokenTapped: ((ApiToken) -> Void)?
     
-    public init(fromAmount: BigInt, fromToken: ApiToken, toAmount: BigInt, toToken: ApiToken, onTokenTapped: ((ApiToken) -> Void)? = nil) {
+    public init(fromAmount: TokenAmount, toAmount: TokenAmount, onTokenTapped: ((ApiToken) -> Void)? = nil) {
         self.fromAmount = fromAmount
-        self.fromToken = fromToken
         self.toAmount = toAmount
-        self.toToken = toToken
         self.onTokenTapped = onTokenTapped
     }
     
@@ -36,6 +32,8 @@ public struct SwapOverviewView: View {
     
     @ViewBuilder
     var iconsView: some View {
+        let fromToken = fromAmount.type
+        let toToken = toAmount.type
         HStack(spacing: 0) {
             Button {
                 onTokenTapped?(fromToken)
@@ -63,10 +61,11 @@ public struct SwapOverviewView: View {
     
     @ViewBuilder
     var minusView: some View {
+        let fromToken = fromAmount.type
         Button {
             onTokenTapped?(fromToken)
         } label: {
-            let amount = DecimalAmount(-fromAmount, fromToken)
+            let amount = DecimalAmount(-fromAmount.amount, fromToken)
             AmountText(
                 amount: amount,
                 format: .init(maxDecimals: 2),
@@ -84,10 +83,11 @@ public struct SwapOverviewView: View {
     
     @ViewBuilder
     var plusView: some View {
+        let toToken = toAmount.type
         Button {
             onTokenTapped?(toToken)
         } label: {
-            let amount = DecimalAmount(toAmount, toToken)
+            let amount = DecimalAmount(toAmount.amount, toToken)
             AmountText(
                 amount: amount,
                 format: .init(maxDecimals: 2, showPlus: true),

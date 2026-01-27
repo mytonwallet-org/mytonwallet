@@ -15,7 +15,7 @@ import {
 import { INITIAL_STATE } from '../../global/initialState';
 import { getChainConfig } from '../chain';
 import { openUrl } from '../openUrl';
-import { parseTonDeeplink, processDeeplink, processSelfDeeplink } from './index';
+import { getDeeplinkFromLocation, parseTonDeeplink, processDeeplink, processSelfDeeplink } from './index';
 
 import { getIsLandscape } from '../../hooks/useDeviceScreen';
 
@@ -522,7 +522,7 @@ describe('processSelfDeeplink', () => {
 
   describe('View command', () => {
     it('should open temporary view account with single address', async () => {
-      const result = await processSelfDeeplink(`mtw://view?ton=${TEST_TON_ADDRESS}`);
+      const result = await processSelfDeeplink(`mtw://view/?ton=${TEST_TON_ADDRESS}`);
 
       expect(result).toBe(true);
       expect(mockActions.openTemporaryViewAccount).toHaveBeenCalledWith({
@@ -533,7 +533,7 @@ describe('processSelfDeeplink', () => {
     });
 
     it('should open temporary view account with multiple addresses', async () => {
-      const result = await processSelfDeeplink(`https://my.tt/view?ton=${TEST_TON_ADDRESS}&tron=${TEST_TRON_ADDRESS}`);
+      const result = await processSelfDeeplink(`https://my.tt/view/?ton=${TEST_TON_ADDRESS}&tron=${TEST_TRON_ADDRESS}`);
 
       expect(result).toBe(true);
       expect(mockActions.openTemporaryViewAccount).toHaveBeenCalled();
@@ -543,7 +543,7 @@ describe('processSelfDeeplink', () => {
     });
 
     it('should show error when no valid addresses provided', async () => {
-      const result = await processSelfDeeplink('mtw://view');
+      const result = await processSelfDeeplink('mtw://view/');
 
       expect(result).toBe(false);
       expect(mockActions.showError).toHaveBeenCalledWith({
@@ -552,7 +552,7 @@ describe('processSelfDeeplink', () => {
     });
 
     it('should show error when all provided addresses are invalid', async () => {
-      const result = await processSelfDeeplink('mtw://view?ton=invalid-address');
+      const result = await processSelfDeeplink('mtw://view/?ton=invalid-address');
 
       expect(result).toBe(false);
       expect(mockActions.showError).toHaveBeenCalledWith({
@@ -561,7 +561,7 @@ describe('processSelfDeeplink', () => {
     });
 
     it('should decode URI-encoded addresses', async () => {
-      const encodedUrl = `https://my.tt/view?ton=${encodeURIComponent(TEST_TON_ADDRESS)}`;
+      const encodedUrl = `https://my.tt/view/?ton=${encodeURIComponent(TEST_TON_ADDRESS)}`;
       const result = await processSelfDeeplink(encodedUrl);
 
       expect(result).toBe(true);
@@ -879,5 +879,201 @@ describe('processDeeplink TRON deeplinks', () => {
         }),
       );
     });
+  });
+});
+
+describe('processSelfDeeplink Transaction command', () => {
+  let mockActions: Record<string, jest.Mock>;
+  let mockGlobal: GlobalState;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    mockActions = {
+      showError: jest.fn(),
+      openTransactionInfo: jest.fn(),
+      openTemporaryViewAccount: jest.fn(),
+    };
+
+    mockGlobal = createMockGlobalState();
+
+    (getActions as jest.Mock).mockReturnValue(mockActions);
+    (getGlobal as jest.Mock).mockReturnValue(mockGlobal);
+  });
+
+  describe('TON transaction links', () => {
+    it('should open transaction info for valid TON transaction', async () => {
+      const txId = '+YqE7Rejq4CIwK+2UyEgdnSdPwyaYV23wFJd9T6cTxw=';
+      const result = await processSelfDeeplink(`mtw://tx/ton/${txId}`);
+
+      expect(result).toBe(true);
+      expect(mockActions.openTransactionInfo).toHaveBeenCalledWith({
+        txId,
+        chain: 'ton',
+      });
+    });
+
+    it('should decode URL-encoded transaction ID', async () => {
+      const txId = '+YqE7Rejq4CIwK+2UyEgdnSdPwyaYV23wFJd9T6cTxw=';
+      const encodedTxId = encodeURIComponent(txId);
+      const result = await processSelfDeeplink(`https://my.tt/tx/ton/${encodedTxId}`);
+
+      expect(result).toBe(true);
+      expect(mockActions.openTransactionInfo).toHaveBeenCalledWith({
+        txId,
+        chain: 'ton',
+      });
+    });
+
+    it('should handle transaction with special characters in ID', async () => {
+      const txId = 'CAm70iims+RRf4Xe7r7jIWJd9Jk03AzFmUOntM/aK7U=';
+      const result = await processSelfDeeplink(`mtw://tx/ton/${txId}`);
+
+      expect(result).toBe(true);
+      expect(mockActions.openTransactionInfo).toHaveBeenCalledWith({
+        txId,
+        chain: 'ton',
+      });
+    });
+  });
+
+  describe('TRON transaction links', () => {
+    it('should open transaction info for valid TRON transaction', async () => {
+      const txId = 'a73f1e0711d6b75ea547791dda39655de1264c8bd92bc57a2710fc49651a988c';
+      const result = await processSelfDeeplink(`mtw://tx/tron/${txId}`);
+
+      expect(result).toBe(true);
+      expect(mockActions.openTransactionInfo).toHaveBeenCalledWith({
+        txId,
+        chain: 'tron',
+      });
+    });
+
+    it('should handle TRON transaction with https://my.tt protocol', async () => {
+      const txId = 'e4ef5753570a58e06ee3585bb4027820cadf1e97e3b29a22871961d0c0ac6275';
+      const result = await processSelfDeeplink(`https://my.tt/tx/tron/${txId}`);
+
+      expect(result).toBe(true);
+      expect(mockActions.openTransactionInfo).toHaveBeenCalledWith({
+        txId,
+        chain: 'tron',
+      });
+    });
+  });
+
+  describe('Invalid transaction links', () => {
+    it('should return false for invalid chain and show error', async () => {
+      const result = await processSelfDeeplink('mtw://tx/banana/zzz');
+
+      expect(result).toBe(false);
+      expect(mockActions.openTransactionInfo).not.toHaveBeenCalled();
+      expect(mockActions.showError).toHaveBeenCalledWith({ error: '$unsupported_chain' });
+    });
+
+    it('should return false for missing txId', async () => {
+      const result = await processSelfDeeplink('mtw://tx/ton');
+
+      expect(result).toBe(false);
+      expect(mockActions.openTransactionInfo).not.toHaveBeenCalled();
+    });
+
+    it('should return false for missing chain', async () => {
+      const result = await processSelfDeeplink('mtw://tx');
+
+      expect(result).toBe(false);
+      expect(mockActions.openTransactionInfo).not.toHaveBeenCalled();
+    });
+
+    it('should return false for empty txId', async () => {
+      const result = await processSelfDeeplink('mtw://tx/ton/');
+
+      expect(result).toBe(false);
+      expect(mockActions.openTransactionInfo).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Protocol variations', () => {
+    it('should handle mtw:// protocol', async () => {
+      const txId = 'testTxId123';
+      const result = await processSelfDeeplink(`mtw://tx/ton/${txId}`);
+
+      expect(result).toBe(true);
+      expect(mockActions.openTransactionInfo).toHaveBeenCalledWith({
+        txId,
+        chain: 'ton',
+      });
+    });
+
+    it('should handle https://my.tt protocol', async () => {
+      const txId = 'testTxId456';
+      const result = await processSelfDeeplink(`https://my.tt/tx/ton/${txId}`);
+
+      expect(result).toBe(true);
+      expect(mockActions.openTransactionInfo).toHaveBeenCalledWith({
+        txId,
+        chain: 'ton',
+      });
+    });
+  });
+});
+
+describe('getDeeplinkFromLocation', () => {
+  const mockLocation = (pathname: string, search: string) => {
+    Object.defineProperty(window, 'location', {
+      value: { pathname, search },
+      writable: true,
+      configurable: true,
+    });
+  };
+
+  it.each([
+    {
+      name: 'return undefined for root path without search params',
+      pathname: '/',
+      search: '',
+      expected: undefined,
+    },
+    {
+      name: 'handle swap command with query params',
+      pathname: '/swap',
+      search: '?in=toncoin&out=ton-usdt&amount=100',
+      expected: 'mtw://swap?in=toncoin&out=ton-usdt&amount=100',
+    },
+    {
+      name: 'handle transfer command with address',
+      pathname: `/transfer/${TEST_TON_ADDRESS}`,
+      search: '?amount=1&text=Hello',
+      expected: `mtw://transfer/${TEST_TON_ADDRESS}?amount=1&text=Hello`,
+    },
+    {
+      name: 'handle root path with search params only',
+      pathname: '/',
+      search: '?foo=bar',
+      expected: 'mtw://?foo=bar',
+    },
+    {
+      name: 'handle tx command with chain and txId',
+      pathname: '/tx/ton/testTxId123',
+      search: '',
+      expected: 'mtw://tx/ton/testTxId123',
+    },
+    {
+      name: 'handle view command with addresses',
+      pathname: '/view/',
+      search: `?ton=${TEST_TON_ADDRESS}`,
+      expected: `mtw://view/?ton=${TEST_TON_ADDRESS}`,
+    },
+    {
+      name: 'handle receive command',
+      pathname: '/receive',
+      search: '',
+      expected: 'mtw://receive',
+    },
+  ])('should $name', ({ pathname, search, expected }) => {
+    mockLocation(pathname, search);
+
+    const result = getDeeplinkFromLocation();
+
+    expect(result).toBe(expected);
   });
 });

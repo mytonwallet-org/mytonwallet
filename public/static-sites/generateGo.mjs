@@ -13,6 +13,9 @@ const templateContent = fs.readFileSync(path.join(__dirname, 'go', 'template.htm
 const REDIRECTS = [
   ['/.well-known/*', '/-well-known/:splat', '200'],
   ['/get/*', 'https://mytonwallet.app/get/:splat', '302'],
+  ['/tx/*', 'https://mtw-explorer.netlify.app/:splat', '200'],
+  ['/view/*', 'https://mtw-explorer.netlify.app/:splat', '200'],
+  ['/nft/*', 'https://mtw-explorer.netlify.app/:splat', '200'],
 ];
 
 fs.mkdirSync(path.join(__dirname, 'go', 'generated'), { recursive: true });
@@ -22,7 +25,7 @@ for (const [key, actionData] of Object.entries(goData)) {
     .replaceAll('!{{TITLE}}', actionData.title)
     .replaceAll('!{{DESCRIPTION}}', actionData.description)
     .replaceAll('!{{ICON}}', actionData.icon);
-  
+
   REDIRECTS.push([`/${key}`, `/generated/${key}.html`, '200']);
   REDIRECTS.push([`/${key}/*`, `/generated/${key}.html`, '200']);
 

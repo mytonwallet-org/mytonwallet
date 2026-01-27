@@ -25,6 +25,7 @@ import {
   DEFAULT_TRANSFER_TOKEN_SLUG,
   INIT_SWAP_ASSETS,
   IS_CORE_WALLET,
+  IS_EXPLORER,
   SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY,
   SWAP_API_VERSION,
   THEME_DEFAULT,
@@ -33,10 +34,10 @@ import { getTokenInfo } from '../util/chain';
 import { buildCollectionByKey, mapValues } from '../util/iteratees';
 import { IS_IOS_APP, USER_AGENT_LANG_CODE } from '../util/windowEnvironment';
 
-export const STATE_VERSION = 48;
+export const STATE_VERSION = 49;
 
 export const INITIAL_STATE: GlobalState = {
-  appState: AppState.Auth,
+  appState: IS_EXPLORER ? AppState.Main : AppState.Auth,
 
   auth: {
     state: AuthState.none,

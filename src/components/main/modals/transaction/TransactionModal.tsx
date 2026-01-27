@@ -39,8 +39,10 @@ import { bigintAbs } from '../../../../util/bigint';
 import { getDoesUsePinPad } from '../../../../util/biometrics';
 import buildClassName from '../../../../util/buildClassName';
 import resolveSlideTransitionName from '../../../../util/resolveSlideTransitionName';
+import { shareUrl } from '../../../../util/share';
 import { getStakingStateStatus } from '../../../../util/staking';
-import { getExplorerTransactionUrl } from '../../../../util/url';
+import { getChainBySlug } from '../../../../util/tokens';
+import { getExplorerTransactionUrl, getViewTransactionUrl } from '../../../../util/url';
 
 import useAppTheme from '../../../../hooks/useAppTheme';
 import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
@@ -270,6 +272,13 @@ function TransactionModal({
     selectToken({ slug: tokenSlug });
   });
 
+  const transactionChain = slug ? getChainBySlug(slug) : undefined;
+
+  const handleShareClick = useLastCallback(() => {
+    const url = getViewTransactionUrl(transactionChain!, transactionHash!, isTestnet);
+    void shareUrl(url);
+  });
+
   function renderContent(isActive: boolean, isFrom: boolean, currentKey: SLIDES) {
     switch (currentKey) {
       case SLIDES.initial:
@@ -280,6 +289,7 @@ function TransactionModal({
                 transaction={renderedTransaction}
                 appTheme={appTheme}
                 isModalOpen={isModalOpen}
+                onShareClick={transactionChain && transactionHash ? handleShareClick : undefined}
                 onClose={handleClose}
               />
             )}

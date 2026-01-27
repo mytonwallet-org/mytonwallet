@@ -5,6 +5,7 @@ import type { IAnchorPosition } from '../../global/types';
 import type { DropdownItem } from './Dropdown';
 
 import buildClassName from '../../util/buildClassName';
+import { getShareIcon } from '../../util/share';
 
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
@@ -21,12 +22,13 @@ type OwnProps<T extends string> = {
   closeClassName?: string;
   menuItems?: DropdownItem<T>[];
   onClose?: NoneToVoidFunction;
-  onBackButtonClick?: () => void;
+  onBackButtonClick?: NoneToVoidFunction;
+  onShareClick?: NoneToVoidFunction;
   onMenuItemClick?: (value: T) => void;
 };
 
 function ModalHeader<T extends string>({
-  title, className, withNotch, closeClassName, menuItems, onClose, onBackButtonClick, onMenuItemClick,
+  title, className, withNotch, closeClassName, menuItems, onClose, onBackButtonClick, onShareClick, onMenuItemClick,
 }: OwnProps<T>) {
   const lang = useLang();
 
@@ -69,10 +71,21 @@ function ModalHeader<T extends string>({
           <span>{lang('Back')}</span>
         </Button>
       )}
+      {onShareClick && !onBackButtonClick && (
+        <Button
+          isSimple
+          isText
+          className={modalStyles.header_share}
+          ariaLabel={lang('Share Link')}
+          onClick={onShareClick}
+        >
+          <i className={getShareIcon()} aria-hidden />
+        </Button>
+      )}
       {title !== undefined && (
         <div className={buildClassName(
           modalStyles.title,
-          modalStyles.singleTitle,
+          typeof title === 'string' && modalStyles.singleTitle,
           !onBackButtonClick && modalStyles.titleFullWidth,
         )}
         >

@@ -20,6 +20,7 @@ import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.ActivityStore
 
 fun WalletCore.importWallet(
     network: MBlockchainNetwork,
@@ -147,7 +148,6 @@ fun WalletCore.activateAccount(
             if (account == null || err != null) {
                 callback(null, err)
             } else {
-                isMultichain = account.isMultichain
                 AccountStore.isPushedTemporary = isPushedTemporary
                 notifyAccountChanged(account, fromHome)
                 callback(account, null)
@@ -177,7 +177,7 @@ fun WalletCore.activateAccount(
     if (notifySDK) {
         scope.launch {
             val newestActivitiesTimestampBySlug =
-                WGlobalStorage.getNewestActivitiesBySlug(accountId)
+                ActivityStore.getNewestActivityTimestamps(accountId) ?: JSONObject()
             withContext(Dispatchers.Main) {
                 bridge?.callApi(
                     "activateAccount",
@@ -252,7 +252,7 @@ fun WalletCore.removeAccount(
     val quotedAccountId = JSONObject.quote(accountId)
     val quotedNextAccountId = nextAccountId?.let { JSONObject.quote(nextAccountId) }
     val newestActivitiesTimestampBySlug =
-        nextAccountId?.let { WGlobalStorage.getNewestActivitiesBySlug(nextAccountId) }
+        nextAccountId?.let { ActivityStore.getNewestActivityTimestamps(nextAccountId) ?: JSONObject() }
 
     bridge?.callApi(
         "removeAccount",

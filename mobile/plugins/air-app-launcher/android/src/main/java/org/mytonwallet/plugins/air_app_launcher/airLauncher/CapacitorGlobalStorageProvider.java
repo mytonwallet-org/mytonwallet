@@ -121,12 +121,12 @@ public class CapacitorGlobalStorageProvider implements IGlobalStorageProvider {
   private void clearCache() {
     doNotSynchronize.incrementAndGet();
     for (String accountId : Objects.requireNonNullElse(WGlobalStorage.INSTANCE.accountIds(null), new String[]{})) {
-      set("byAccountId." + accountId + ".activities.idsMain", new JSONArray(), PERSIST_NO);
+      remove("byAccountId." + accountId + ".activities.idsMain", PERSIST_NO);
       set("byAccountId." + accountId + ".activities.isMainHistoryEndReached", false, PERSIST_NO);
       setEmptyObject("byAccountId." + accountId + ".activities.idsBySlug", PERSIST_NO);
       setEmptyObject("byAccountId." + accountId + ".activities.isHistoryEndReachedBySlug", PERSIST_NO);
       setEmptyObject("byAccountId." + accountId + ".activities.byId", PERSIST_NO);
-      setEmptyObject("byAccountId." + accountId + ".activities.newestTxTimestamps", PERSIST_NO);
+      setEmptyObject("byAccountId." + accountId + ".activities.newestActivitiesBySlug", PERSIST_NO);
       setEmptyObject("tokenPriceHistory.bySlug", PERSIST_NO);
     }
     doNotSynchronize.decrementAndGet();

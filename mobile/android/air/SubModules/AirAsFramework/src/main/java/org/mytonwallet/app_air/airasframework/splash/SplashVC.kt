@@ -815,10 +815,6 @@ class SplashVC(context: Context) : WViewController(context),
                 window?.present(nav)
             }
 
-            is Deeplink.Jetton -> {
-                presentToken(deeplink.slug)
-            }
-
             is Deeplink.TokenBySlug -> {
                 presentToken(deeplink.slug)
             }
@@ -860,10 +856,13 @@ class SplashVC(context: Context) : WViewController(context),
                 }
                 WalletCore.call(
                     ApiMethod.WalletData.FetchTransactionById(
-                        chain,
-                        MBlockchainNetwork.ofAccountId(accountId),
-                        deeplink.txId,
-                        address
+                        ApiMethod.WalletData.FetchTransactionById.Options(
+                            chain = chain,
+                            network = MBlockchainNetwork.ofAccountId(accountId).value,
+                            walletAddress = address,
+                            txId = deeplink.txId,
+                            txHash = deeplink.txHash
+                        )
                     )
                 ) { activities, err ->
                     if (activities.isNullOrEmpty()) {

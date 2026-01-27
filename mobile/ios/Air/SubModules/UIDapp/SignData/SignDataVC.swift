@@ -16,11 +16,14 @@ class SignDataVC: WViewController, UISheetPresentationControllerDelegate {
     
     var hostingController: UIHostingController<SignDataViewOrPlaceholder>?
     
+    @AccountContext var account: MAccount
+    
     init(
         update: ApiUpdate.DappSignData,
         onConfirm: @escaping (String?) -> (),
         onCancel: @escaping () -> ()
     ) {
+        self._account = AccountContext(accountId: update.accountId)
         self.update = update
         self.onConfirm = onConfirm
         self.onCancel = onCancel
@@ -28,7 +31,7 @@ class SignDataVC: WViewController, UISheetPresentationControllerDelegate {
     }
     
     init(placeholderAccountId: String?) {
-        self.placeholderAccountId = placeholderAccountId
+        self._account = AccountContext(accountId: placeholderAccountId)
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -45,6 +48,7 @@ class SignDataVC: WViewController, UISheetPresentationControllerDelegate {
         self.onConfirm = onConfirm
         self.onCancel = onCancel
         withAnimation {
+            self.$account.accountId = update.accountId
             self.hostingController?.rootView = makeView()
         }
     }
@@ -55,12 +59,10 @@ class SignDataVC: WViewController, UISheetPresentationControllerDelegate {
     }
     
     private func setupViews() {
-        
-        addNavigationBar(title: nil, subtitle: nil, closeIcon: true)
+        navigationItem.title = lang("Confirm Actions", arg1: 1)
+        addCloseNavigationItemIfNeeded()
 
         hostingController = addHostingController(makeView(), constraints: .fill)
-        
-        bringNavigationBarToFront()
         
         updateTheme()
         
@@ -69,15 +71,13 @@ class SignDataVC: WViewController, UISheetPresentationControllerDelegate {
     
     private func makeView() -> SignDataViewOrPlaceholder {
         if let update {
-            let account = AccountStore.accountsById[update.accountId] ?? DUMMY_ACCOUNT
             return SignDataViewOrPlaceholder(content: .signData(SignDataView(
                 update: update,
-                account: account,
+                accountContext: _account,
                 onConfirm: { [weak self] in self?._onConfirm() },
                 onCancel: { [weak self] in self?._onCancel() },
             )))
         } else {
-            let account = placeholderAccountId.flatMap { AccountStore.accountsById[$0] }
             return SignDataViewOrPlaceholder(content: .placeholder(TonConnectPlaceholder(
                 account: account,
                 connectionType: .signData,

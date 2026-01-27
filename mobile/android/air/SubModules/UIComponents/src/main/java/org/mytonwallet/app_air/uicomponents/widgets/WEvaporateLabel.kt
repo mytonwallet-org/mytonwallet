@@ -18,6 +18,8 @@ open class WEvaporateLabel(context: Context) : EvaporateTextView(context), WThem
 
     override fun updateTheme() {
         // To force change color on theme change
-        animateText(text, false)
+        if (!text.isNullOrEmpty()) {
+            animateText(text, false)
+        }
     }
 }

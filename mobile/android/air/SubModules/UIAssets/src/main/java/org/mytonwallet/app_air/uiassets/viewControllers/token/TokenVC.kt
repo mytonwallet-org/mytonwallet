@@ -703,6 +703,7 @@ class TokenVC(context: Context, private var account: MAccount, var token: MToken
                     homeTransactionCell.configure(
                         transaction,
                         account.accountId,
+                        account.isMultichain,
                         ActivityCell.Positioning(
                             isFirst = indexPath.row == 0,
                             isFirstInDay = indexPath.row == 0 || !transaction.dt.isSameDayAs(

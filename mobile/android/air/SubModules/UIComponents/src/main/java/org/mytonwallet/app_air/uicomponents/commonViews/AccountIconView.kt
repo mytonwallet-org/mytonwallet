@@ -13,15 +13,15 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.gradientColors
 import org.mytonwallet.app_air.walletcore.models.MAccount
+import org.mytonwallet.app_air.walletcore.models.MSavedAddress
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 
 @SuppressLint("ViewConstructor")
 class AccountIconView(context: Context, val usage: Usage) : View(context) {
 
-    enum class Usage {
-        SELECTABLE_ITEM,
-        VIEW_ITEM,
-        THUMB,
+    sealed class Usage {
+        data class SelectableItem(val textSize: Float) : Usage()
+        data class ViewItem(val textSize: Float = 14f.dp) : Usage()
     }
 
     private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -35,9 +35,8 @@ class AccountIconView(context: Context, val usage: Usage) : View(context) {
 
     private val textPaint = AccountAvatarRenderer.createTextPaint(
         when (usage) {
-            Usage.SELECTABLE_ITEM -> 16f.dp
-            Usage.VIEW_ITEM -> 14f.dp
-            else -> 11f.dp
+            is Usage.SelectableItem -> usage.textSize
+            is Usage.ViewItem -> usage.textSize
         }
     )
 
@@ -55,33 +54,38 @@ class AccountIconView(context: Context, val usage: Usage) : View(context) {
 
     fun updateTheme() {
         borderPaint.color = when (usage) {
-            Usage.SELECTABLE_ITEM -> WColor.Tint.color
+            is Usage.SelectableItem -> WColor.Tint.color
             else -> WColor.Background.color
         }
         AccountAvatarRenderer.updatePaintTheme(textPaint)
         invalidate()
     }
 
-    private var account: MAccount? = null
+    private var accountId: String? = null
+
     fun config(account: MAccount) {
-        this.account = account
-        config(account.name, account.firstAddress ?: "")
+        config(account.accountId, account.name, account.firstAddress ?: "")
     }
 
-    fun config(title: CharSequence?, address: String) {
+    fun config(savedAddress: MSavedAddress) {
+        config(savedAddress.accountId, savedAddress.name, savedAddress.address)
+    }
+
+    fun config(accountId: String?, title: CharSequence?, address: String) {
+        this.accountId = accountId
         gradientColors = address.gradientColors
         abbreviationText = generateAbbreviation(title?.toString(), address)
 
         currentPadding = when (usage) {
-            Usage.SELECTABLE_ITEM -> {
-                if (account?.accountId == AccountStore.activeAccountId) {
+            is Usage.SelectableItem -> {
+                if (accountId == AccountStore.activeAccountId) {
                     3f.dp
                 } else {
                     1.5f.dp
                 }
             }
-            Usage.VIEW_ITEM -> 0f
-            else -> 1.5f.dp
+
+            is Usage.ViewItem -> 0f
         }
 
         updateTheme()
@@ -130,9 +134,8 @@ class AccountIconView(context: Context, val usage: Usage) : View(context) {
 
     private fun drawBorderIfNeeded(canvas: Canvas) {
         val shouldDrawBorder = when (usage) {
-            Usage.SELECTABLE_ITEM -> account?.accountId == AccountStore.activeAccountId
-            Usage.VIEW_ITEM -> false
-            else -> true
+            is Usage.SelectableItem -> accountId == AccountStore.activeAccountId
+            is Usage.ViewItem -> false
         }
 
         if (shouldDrawBorder) {

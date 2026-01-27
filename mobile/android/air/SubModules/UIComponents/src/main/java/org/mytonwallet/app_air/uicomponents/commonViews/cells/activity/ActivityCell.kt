@@ -75,6 +75,7 @@ class ActivityCell(
 
     var onTap: ((MApiTransaction) -> Unit)? = null
     private var transaction: MApiTransaction? = null
+    private var transactionAddressName: String? = null
     private var positioning: Positioning? = null
     private var baseCurrency: MBaseCurrency? = null
     private var baseCurrencyRate: Double? = null
@@ -128,10 +129,12 @@ class ActivityCell(
     fun configure(
         transaction: MApiTransaction,
         accountId: String,
+        isMultichain: Boolean,
         positioning: Positioning
     ) {
         if (this.transaction?.isSame(transaction) == true &&
             this.transaction?.isChanged(transaction) == false &&
+            this.transactionAddressName == transaction.addressName() &&
             WalletCore.baseCurrency == baseCurrency &&
             TokenStore.baseCurrencyRate == baseCurrencyRate &&
             this.positioning?.matches(positioning) == true
@@ -144,6 +147,7 @@ class ActivityCell(
             return
         }
         this.transaction = transaction
+        this.transactionAddressName = transaction.addressName()
         this.baseCurrency = WalletCore.baseCurrency
         this.baseCurrencyRate = TokenStore.baseCurrencyRate
         val firstChanged = this.positioning?.isFirst != positioning.isFirst
@@ -153,7 +157,7 @@ class ActivityCell(
         dateView.visibility = if (positioning.isFirstInDay) VISIBLE else GONE
         if (positioning.isFirstInDay) dateView.configure(transaction.dt, positioning.isFirst)
 
-        mainContentView.configure(transaction, accountId)
+        mainContentView.configure(transaction, accountId, isMultichain)
 
         if (!withoutTagAndComment) {
             configureTags(transaction)
@@ -454,6 +458,7 @@ class ActivityCell(
             view.configure(
                 transaction = item.activity,
                 accountId = item.accountId,
+                isMultichain = item.isMultichain,
                 positioning = Positioning(
                     isFirst = item.isFirst,
                     isFirstInDay = false,

@@ -329,6 +329,7 @@ public class BottomSheetPlugin: CAPPlugin, FloatingPanelControllerDelegate {
             }
 
             let isFullSize = call.getBool("isFullSize") == true
+            let onFocus = call.getBool("onFocus") == true
             guard let layout = topBottomSheetPlugin.fpc.layout as? MyPanelLayout else { return }
 
             if isFullSize && layout.anchors[.full] == nil {
@@ -337,7 +338,28 @@ public class BottomSheetPlugin: CAPPlugin, FloatingPanelControllerDelegate {
               layout.anchors[.full] = nil
             }
 
-            topBottomSheetPlugin.animateTo(to: isFullSize ? .full : .half)
+            if #available(iOS 26, *), isFullSize, onFocus {
+                var didAnimate = false
+                var observer: NSObjectProtocol?
+                observer = NotificationCenter.default.addObserver(forName: UIResponder.keyboardDidShowNotification, object: nil, queue: .main) { _ in
+                    guard !didAnimate else { return }
+                    didAnimate = true
+                    topBottomSheetPlugin.animateTo(to: .full)
+                    if let obs = observer {
+                        NotificationCenter.default.removeObserver(obs)
+                    }
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                    guard !didAnimate else { return }
+                    didAnimate = true
+                    topBottomSheetPlugin.animateTo(to: .full)
+                    if let obs = observer {
+                        NotificationCenter.default.removeObserver(obs)
+                    }
+                }
+            } else {
+                topBottomSheetPlugin.animateTo(to: isFullSize ? .full : .half)
+            }
         }
     }
 

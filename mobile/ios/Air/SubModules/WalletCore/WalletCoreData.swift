@@ -56,6 +56,7 @@ public struct WalletCoreData {
         case newLocalActivity(ApiUpdate.NewLocalActivities)
         case initialActivities(ApiUpdate.InitialActivities)
         case updateAccount(ApiUpdate.UpdateAccount)
+        case updateAccountDomainData(ApiUpdate.UpdateAccountDomainData)
         case updateBalances(ApiUpdate.UpdateBalances)
         case updateCurrencyRates(ApiUpdate.UpdateCurrencyRates)
         case updateStaking(ApiUpdate.UpdateStaking)
@@ -156,6 +157,7 @@ public struct WalletCoreData {
         BalanceStore.loadFromCache(accountIds: accountIds)
         NftStore.loadFromCache(accountIds: accountIds)
         _ = AccountSettingsStore.liveValue
+        _ = DomainsStore.liveValue
         _ = AutolockStore.shared
     }
 

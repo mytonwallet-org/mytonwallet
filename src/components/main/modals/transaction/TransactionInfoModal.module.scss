@@ -1,6 +1,9 @@
+@use "../../../../styles/mixins";
+
 @use "../../../../styles/scssVariables" as *;
 
 .modalDialog {
+  overflow: hidden;
   height: $transactionModalHeight;
 
   @supports (height: var(--safe-area-bottom)) {
@@ -21,6 +24,18 @@
   min-height: 20rem;
 }
 
+.scrollableContent {
+  @include mixins.adapt-padding-to-scrollbar(1rem, !important);
+}
+
+.rootTransition {
+  scrollbar-gutter: stable;
+}
+
+.explorerSlide {
+  background-color: var(--background-color);
+}
+
 .emptyState {
   display: flex;
   align-items: center;
@@ -35,6 +50,8 @@
 .activityList {
   padding: 1rem !important;
   padding-top: 0 !important;
+
+  @include mixins.adapt-padding-to-scrollbar(1rem, !important);
 }
 
 .activityListContainer {

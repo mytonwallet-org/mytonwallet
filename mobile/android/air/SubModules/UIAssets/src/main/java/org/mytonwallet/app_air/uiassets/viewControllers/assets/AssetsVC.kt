@@ -496,7 +496,9 @@ class AssetsVC(
                     ) {
                         val url = when (collectionMode) {
                             is SingleCollection -> {
-                                val getGemsUrl = ExplorerHelpers.getgemsUrl(network = MBlockchainNetwork.ofAccountId(assetsVM.showingAccountId))
+                                val getGemsUrl = ExplorerHelpers.getgemsUrl(
+                                    network = MBlockchainNetwork.ofAccountId(assetsVM.showingAccountId)
+                                )
                                 "${getGemsUrl}collection/${collectionMode.collection.address}"
                             }
 
@@ -547,7 +549,7 @@ class AssetsVC(
                     this,
                     items,
                     popupWidth = WRAP_CONTENT,
-                    aboveView = true
+                    positioning = WMenuPopup.Positioning.ALIGNED
                 )
             }
         }
@@ -610,7 +612,8 @@ class AssetsVC(
     }
 
     fun configure(accountId: String) {
-        if (assetsVM.showingAccountId == accountId) return
+        if (assetsVM.showingAccountId == accountId)
+            return
         emptyView?.isGone = true
         isShowingEmptyView = false
         assetsVM.configure(accountId)
@@ -663,6 +666,20 @@ class AssetsVC(
         pinButton.addRippleEffect(WColor.BackgroundRipple.color, 20f.dp)
     }
 
+    private fun updateShowAllPosition() {
+        if (mode == Mode.THUMB) {
+            val newShowAllViewToTop = finalHeight - 56.dp
+            if (prevShowAllViewToTop != newShowAllViewToTop) {
+                prevShowAllViewToTop = newShowAllViewToTop
+                view.setConstraints {
+                    toTopPx(showAllView, newShowAllViewToTop)
+                }
+            }
+
+            animateHeight()
+        }
+    }
+
     override fun insetsUpdated() {
         super.insetsUpdated()
         if (mode == Mode.COMPLETE) {
@@ -674,6 +691,7 @@ class AssetsVC(
                 navigationController?.getSystemBars()?.bottom ?: 0
             )
         }
+        updateShowAllPosition()
     }
 
     fun setAnimations(paused: Boolean) {
@@ -839,17 +857,7 @@ class AssetsVC(
             updateRecyclerViewPaddingForCentering()
         showAllView.visibility = if (thereAreMoreToShow) View.VISIBLE else View.GONE
 
-        if (mode == Mode.THUMB) {
-            val newShowAllViewToTop = finalHeight - 56.dp
-            if (prevShowAllViewToTop != newShowAllViewToTop) {
-                prevShowAllViewToTop = newShowAllViewToTop
-                view.setConstraints {
-                    toTopPx(showAllView, newShowAllViewToTop)
-                }
-            }
-
-            animateHeight()
-        }
+        updateShowAllPosition()
     }
 
     override fun nftsShown() {

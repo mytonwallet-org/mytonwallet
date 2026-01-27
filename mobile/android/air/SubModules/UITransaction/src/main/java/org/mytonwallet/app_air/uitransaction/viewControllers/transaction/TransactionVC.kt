@@ -8,11 +8,13 @@ import android.content.Intent
 import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
+import android.text.Layout
 import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextPaint
 import android.text.style.ClickableSpan
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -20,8 +22,11 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.content.ContextCompat
+import androidx.core.text.buildSpannedString
+import androidx.core.text.inSpans
 import androidx.core.view.isGone
 import androidx.core.widget.NestedScrollView
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
@@ -30,26 +35,34 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.HeaderActionsView
 import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
+import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.activity.IncomingCommentDrawable
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.activity.OutgoingCommentDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
+import org.mytonwallet.app_air.uicomponents.extensions.setSizeBounds
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
+import org.mytonwallet.app_air.uicomponents.extensions.unspecified
+import org.mytonwallet.app_air.uicomponents.helpers.AddressPopupHelpers.Companion.presentMenu
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.helpers.SpannableHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WReplaceableLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WView
+import org.mytonwallet.app_air.uicomponents.widgets.animateHeight
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
+import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
@@ -65,23 +78,28 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.WORD_JOIN
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletbasecontext.utils.formatDateAndTime
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
+import org.mytonwallet.app_air.walletbasecontext.utils.replaceSpacesWithNbsp
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
+import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
+import org.mytonwallet.app_air.walletcontext.utils.lerpColor
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MAccount
+import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MFee
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
@@ -225,7 +243,7 @@ class TransactionVC(
             is MApiTransaction.Swap -> {
                 transaction.toToken?.let { token ->
                     lbl.setAmount(
-                        transaction.toAmount.toDouble(),
+                        transaction.toAmount,
                         token.decimals,
                         token.symbol,
                         token.decimals,
@@ -366,7 +384,9 @@ class TransactionVC(
             addView(headerView, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         }
     }
-    private val headerView = WView(context)
+    private val headerView = WView(context).apply {
+        clipChildren = false
+    }
 
     private fun ensureCorrectHeaderView() {
         val transaction = transaction
@@ -416,7 +436,7 @@ class TransactionVC(
 
                 if (transaction.hasComment) {
                     commentView.maxWidth = window!!.windowView.width - 40.dp
-                    topToBottom(commentView, innerHeaderView, 27f)
+                    topToBottom(commentView, innerHeaderView, 23f)
                     toCenterX(commentView, 20f)
                     toBottom(commentView, 22f)
                 } else {
@@ -503,12 +523,18 @@ class TransactionVC(
     )
 
     private val transactionDetailsLabel: WLabel by lazy {
-        val lbl = WLabel(context)
-        lbl.setStyle(14f, WFont.DemiBold)
-        lbl.text = LocaleController.getString("Transaction Details")
-        lbl.setPadding(0, 0, 0, 10.dp)
-        lbl
+        WLabel(context).apply {
+            setStyle(14f, WFont.DemiBold)
+            text = LocaleController.getString("Transaction Details")
+            setPadding(0, 0, 0, 10.dp)
+        }
     }
+
+    private var transactionAddressHeader: HeaderCell? = null
+    private var transactionAddress: WView? = null
+    private var addressLabel: WLabel? = null
+    private var addressSpans: List<WTypefaceSpan> = emptyList()
+    private var addressPopupDisplayProgress: Float = 0f
 
     private var detailsRowViews = ArrayList<KeyValueRowView>()
     private val feeRow: KeyValueRowView? by lazy {
@@ -713,12 +739,28 @@ class TransactionVC(
             actionsView,
             ConstraintLayout.LayoutParams(MATCH_PARENT, HeaderActionsView.HEIGHT.dp)
         )
+        val transaction = transaction as? MApiTransaction.Transaction
+        if (transaction != null && isNeedDisplayTransactionAddress(transaction)) {
+            initTransactionAddress(transaction)
+            displayTransactionAddress(transaction)
+            updateTransactionAddressBackgroundColor()
+        }
+        val transactionAddress = this.transactionAddress
+        if (transactionAddress != null) {
+            v.addView(transactionAddress, ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        }
         v.addView(transactionDetails, ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.setConstraints {
             toTop(headerViewContainer)
             toCenterX(headerViewContainer)
             topToBottom(actionsView, headerViewContainer, 12f)
-            topToBottom(transactionDetails, actionsView, 12f)
+            if (transactionAddress != null) {
+                topToBottom(transactionAddress, actionsView, 12f)
+                topToBottom(transactionDetails, transactionAddress, 12f)
+                toCenterX(transactionAddress, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
+            } else {
+                topToBottom(transactionDetails, actionsView, 12f)
+            }
             toCenterX(transactionDetails, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
             toBottomPx(transactionDetails, navigationController?.getSystemBars()?.bottom ?: 0)
             setVerticalBias(transactionDetails.id, 0f)
@@ -746,6 +788,190 @@ class TransactionVC(
         NestedScrollView(context).apply {
             id = View.generateViewId()
             addView(scrollingContentView, ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        }
+    }
+
+    private fun isNeedDisplayTransactionAddress(transaction: MApiTransaction.Transaction): Boolean {
+        return transaction.shouldShowTransactionAddress || transaction.type == ApiTransactionType.STAKE
+    }
+
+    private fun initTransactionAddress(transaction: MApiTransaction.Transaction) {
+        val addressDetailsLabel = HeaderCell(context).apply {
+            transactionAddressHeader = this
+        }
+
+        val addressLabel = WLabel(context).apply {
+            setStyle(16f, WFont.Regular)
+            setTextColor(WColor.SecondaryText)
+            setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
+            letterSpacing = -0.015f
+            breakStrategy = Layout.BREAK_STRATEGY_SIMPLE
+            hyphenationFrequency = Layout.HYPHENATION_FREQUENCY_NONE
+            setPadding(0, 0, 0, 16.dp)
+            setOnClickListener {
+                transactionAddress?.let { onAddressClicked(it, transaction) }
+            }
+            addressLabel = this
+        }
+
+        WView(context).apply {
+            addView(addressDetailsLabel)
+            addView(
+                addressLabel, ConstraintLayout.LayoutParams(
+                    MATCH_CONSTRAINT, WRAP_CONTENT
+                )
+            )
+            setConstraints {
+                toTop(addressDetailsLabel)
+                toStart(addressDetailsLabel)
+                toStart(addressLabel, 20f)
+                toEnd(addressLabel, 20f)
+                topToBottom(addressLabel, addressDetailsLabel, 8f)
+            }
+            transactionAddress = this
+        }
+    }
+
+    private fun displayTransactionAddress(transaction: MApiTransaction.Transaction) {
+        val addressLabel = this.addressLabel ?: return
+        val headerText = if (transaction.isIncoming) {
+            LocaleController.getString("Sender")
+        } else {
+            LocaleController.getString("Recipient")
+        }
+        transactionAddressHeader?.configure(
+            title = headerText,
+            titleColor = WColor.Tint,
+            topRounding = HeaderCell.TopRounding.FIRST_ITEM
+        )
+
+        val peerAddress = transaction.peerAddress
+        val addressName = transaction.addressName()
+        val activeAccount = AccountStore.activeAccount
+        val chainIconDrawable = if (activeAccount?.isMultichain == true) {
+            when (TokenStore.getToken(transaction.getTxSlug())?.chain) {
+                MBlockchain.ton.name ->
+                    ContextCompat.getDrawable(
+                        context,
+                        org.mytonwallet.app_air.icons.R.drawable.ic_symbol_ton_15
+                    )
+
+                MBlockchain.tron.name ->
+                    ContextCompat.getDrawable(
+                        context,
+                        org.mytonwallet.app_air.icons.R.drawable.ic_symbol_tron_15
+                    )
+
+                else -> null
+            }?.mutate()
+        } else {
+            null
+        }
+
+        val addressText = buildSpannedString {
+            if (chainIconDrawable != null) {
+                with(chainIconDrawable) {
+                    setTint(WColor.SecondaryText.color)
+                    setSizeBounds(16.dp, 16.dp)
+                }
+                inSpans(
+                    VerticalImageSpan(
+                        chainIconDrawable,
+                        endPadding = 2.dp,
+                        verticalAlignment = VerticalImageSpan.VerticalAlignment.TOP_BOTTOM
+                    )
+                ) { append(" ") }
+                append(WORD_JOIN)
+            }
+            if (addressName != null) {
+                inSpans(WTypefaceSpan(WFont.Medium, WColor.PrimaryText)) {
+                    append(addressName)
+                }
+                append(" · ")
+                append(peerAddress.formatStartEndAddress(6, 6)).styleDots()
+            } else {
+                val first = peerAddress.take(6)
+                val last = peerAddress.takeLast(6)
+                val middle = peerAddress.substring(6, peerAddress.length - 6)
+                val colorSpans = mutableListOf<WTypefaceSpan>()
+                inSpans(WTypefaceSpan(WFont.Medium, WColor.PrimaryText).also {
+                    colorSpans.add(it)
+                }) {
+                    append(first)
+                }
+                append(middle)
+                inSpans(WTypefaceSpan(WFont.Medium, WColor.PrimaryText).also {
+                    colorSpans.add(it)
+                }) {
+                    append(last)
+                }
+                addressSpans = colorSpans
+            }
+            val expandDrawable = ContextCompat.getDrawable(
+                context, org.mytonwallet.app_air.icons.R.drawable.ic_arrow_bottom_from_center
+            )?.mutate()?.apply {
+                setTint(WColor.SecondaryText.color)
+                setSizeBounds(16.dp, 16.dp)
+            }
+            if (expandDrawable != null) {
+                append(WORD_JOIN)
+                inSpans(
+                    VerticalImageSpan(
+                        expandDrawable,
+                        startPadding = 2.dp,
+                        verticalAlignment = VerticalImageSpan.VerticalAlignment.TOP_BOTTOM
+                    )
+                ) { append(" ") }
+            }
+        }
+
+        addressLabel.text = addressText.replaceSpacesWithNbsp()
+        if (!WGlobalStorage.getAreAnimationsActive()) {
+            return
+        }
+        val transactionAddress = this.transactionAddress ?: return
+        if (transactionAddress.measuredHeight == 0 || transactionAddress.measuredWidth == 0) {
+            return
+        }
+        val oldHeight = transactionAddress.measuredHeight
+        transactionAddress.measure(transactionAddress.width.exactly, 0.unspecified)
+        val newHeight = transactionAddress.measuredHeight
+        transactionAddress.animateHeight(oldHeight, newHeight)
+    }
+
+    private fun onAddressClicked(
+        view: View,
+        transaction: MApiTransaction.Transaction
+    ) {
+        val account = AccountStore.activeAccount ?: return
+        val addressToShow = transaction.addressToShow(6, 6)
+        val addressText = addressToShow?.first ?: ""
+        val transactionAddress = this.transactionAddress
+        val windowBackgroundStyle = if (transactionAddress == null) {
+            BackgroundStyle.Transparent
+        } else {
+            BackgroundStyle.Cutout.fromView(view, roundRadius = ViewConstants.BIG_RADIUS.dp)
+        }
+
+        TokenStore.getToken(transaction.slug)?.mBlockchain?.let { blockchain ->
+            presentMenu(
+                viewController = WeakReference(this),
+                view = view,
+                title = if (addressToShow?.second == true) addressText else null,
+                blockchain = blockchain,
+                network = account.network,
+                address = if (transaction.isIncoming) {
+                    transaction.fromAddress
+                } else {
+                    transaction.toAddress ?: ""
+                },
+                centerHorizontally = true,
+                showTemporaryViewOption = true,
+                windowBackgroundStyle = windowBackgroundStyle
+            ) { displayProgress ->
+                addressPopupDisplayProgress = displayProgress
+                updateAddressSpans()
+            }
         }
     }
 
@@ -786,6 +1012,8 @@ class TransactionVC(
 
         updateBackground()
         reloadCommentView()
+        updateAddressSpans()
+        updateTransactionAddressBackgroundColor()
         // headerView corners are updated in updateBackground()
         transactionDetails.setBackgroundColor(
             WColor.Background.color,
@@ -806,6 +1034,7 @@ class TransactionVC(
                 secondLabel.contentView.setTextColor(WColor.Green.color)
             }
         }
+        transactionAddressHeader?.updateTheme()
         transactionDetailsLabel.setTextColor(WColor.Tint.color)
         transactionIdRow?.setValue(transactionIdValue)
         changellyIdRow?.setValue(changellyIdValue)
@@ -816,13 +1045,15 @@ class TransactionVC(
     private fun updateBackground() {
         val expandProgress = 10f / 3f * (((modalExpandProgress ?: 0f) - 0.7f).coerceIn(0f, 1f))
         // Use fixed radius when Rounded Corners is off, otherwise use BIG_RADIUS
-        val halfExpandedRadius = if (ViewConstants.BIG_RADIUS == 0f) 24f.dp else ViewConstants.BIG_RADIUS.dp
+        val halfExpandedRadius =
+            if (ViewConstants.BIG_RADIUS == 0f) 24f.dp else ViewConstants.BIG_RADIUS.dp
         val currentRadius = (1 - expandProgress) * halfExpandedRadius
         innerContentView.setBackgroundColor(
             WColor.SecondaryBackground.color,
             currentRadius,
             0f
         )
+
         // Update headerView corners when Rounded Corners is off
         if (ViewConstants.BIG_RADIUS == 0f) {
             headerView.setBackgroundColor(WColor.Background.color, currentRadius, 0f)
@@ -836,6 +1067,22 @@ class TransactionVC(
         }
     }
 
+    private fun updateAddressSpans() {
+        val addressLabel = this.addressLabel ?: return
+        if (addressSpans.isEmpty()) {
+            return
+        }
+        val dismissAddressHighlightColor = WColor.PrimaryText.color
+        val presentAddressHighlightColor = WColor.SecondaryText.color
+        val addressHighlightColor = lerpColor(
+            dismissAddressHighlightColor,
+            presentAddressHighlightColor,
+            WInterpolator.emphasized.getInterpolation(addressPopupDisplayProgress)
+        )
+        addressSpans.forEach { it.foregroundColor = addressHighlightColor }
+        addressLabel.invalidate()
+    }
+
     override fun getModalHalfExpandedHeight(): Int? {
         return innerContentView.top + actionsView.bottom + 36.dp
     }
@@ -843,7 +1090,10 @@ class TransactionVC(
     override fun onModalSlide(expandOffset: Int, expandProgress: Float) {
         super.onModalSlide(expandOffset, expandProgress)
         updateBackground()
-        transactionDetails.alpha = (expandOffset.toFloat() / ViewConstants.GAP.dp).coerceIn(0f, 1f)
+        val alpha = (expandOffset.toFloat() / ViewConstants.GAP.dp).coerceIn(0f, 1f)
+        transactionDetails.alpha = alpha
+        transactionAddress?.alpha = alpha
+        transactionHeaderView?.expandProgress = 1 - alpha
         val padding = (ViewConstants.HORIZONTAL_PADDINGS.dp * expandProgress).roundToInt()
         headerViewContainer.setPadding(padding, 0, padding, 0)
     }
@@ -918,11 +1168,20 @@ class TransactionVC(
         tagLabel.setBackgroundColor(transactionTagColor.color.colorWithAlpha(25), 4f.dp)
     }
 
+    private fun updateTransactionAddressBackgroundColor() {
+        transactionAddress?.setBackgroundColor(
+            WColor.Background.color,
+            ViewConstants.BIG_RADIUS.dp,
+            ViewConstants.BIG_RADIUS.dp
+        )
+    }
+
     private fun reloadData() {
         configureTitle(animated = true)
         setNavSubtitle(transaction.dt.formatDateAndTime())
         ensureCorrectHeaderView()
         reloadCommentView()
+        reloadTransactionAddressView()
         actionsView.resetTabs(generateActions())
         calcFee(transaction)?.let { fee ->
             feeRow?.setValue(
@@ -947,6 +1206,13 @@ class TransactionVC(
             commentLabel.setTextColor(
                 if (transaction.status == ApiTransactionStatus.FAILED) WColor.Red else WColor.White
             )
+        }
+    }
+
+    private fun reloadTransactionAddressView() {
+        val transaction = transaction as? MApiTransaction.Transaction
+        if (transaction != null && isNeedDisplayTransactionAddress(transaction)) {
+            displayTransactionAddress(transaction)
         }
     }
 
@@ -1027,11 +1293,12 @@ class TransactionVC(
             spannedString.setSpan(
                 object : ClickableSpan() {
                     override fun onClick(widget: View) {
+                        val contentView = transactionIdRow?.valueLabel?.contentView ?: return
                         WMenuPopup.present(
-                            transactionIdRow!!.valueLabel.contentView,
+                            contentView,
                             listOf(
                                 WMenuPopup.Item(
-                                    org.mytonwallet.app_air.icons.R.drawable.ic_copy,
+                                    org.mytonwallet.app_air.icons.R.drawable.ic_copy_30,
                                     LocaleController.getString("Copy Transaction ID"),
                                 ) {
                                     val clipboard =
@@ -1049,7 +1316,7 @@ class TransactionVC(
                                     ).show()
                                 },
                                 WMenuPopup.Item(
-                                    org.mytonwallet.app_air.icons.R.drawable.ic_world,
+                                    org.mytonwallet.app_air.icons.R.drawable.ic_world_30,
                                     LocaleController.getString("View on Explorer"),
                                 ) {
                                     val browserVC =
@@ -1069,8 +1336,13 @@ class TransactionVC(
                                     nav.setRoot(browserVC)
                                     window?.present(nav)
                                 }),
+                            yOffset = 0,
                             popupWidth = WRAP_CONTENT,
-                            aboveView = false
+                            positioning = WMenuPopup.Positioning.BELOW,
+                            windowBackgroundStyle = BackgroundStyle.Cutout.fromView(
+                                contentView,
+                                roundRadius = 16f.dp
+                            )
                         )
                     }
 
@@ -1107,8 +1379,9 @@ class TransactionVC(
             spannedString.setSpan(
                 object : ClickableSpan() {
                     override fun onClick(widget: View) {
+                        val contentView = changellyIdRow?.valueLabel?.contentView ?: return
                         WMenuPopup.present(
-                            changellyIdRow!!.valueLabel.contentView,
+                            contentView,
                             listOf(
                                 WMenuPopup.Item(
                                     org.mytonwallet.app_air.icons.R.drawable.ic_copy,
@@ -1146,7 +1419,11 @@ class TransactionVC(
                                     window?.present(nav)
                                 }),
                             popupWidth = WRAP_CONTENT,
-                            aboveView = false
+                            positioning = WMenuPopup.Positioning.BELOW,
+                            windowBackgroundStyle = BackgroundStyle.Cutout.fromView(
+                                contentView,
+                                roundRadius = 16f.dp
+                            )
                         )
                     }
 

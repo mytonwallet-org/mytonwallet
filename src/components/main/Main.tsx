@@ -6,7 +6,7 @@ import { getActions, withGlobal } from '../../global';
 import type { ApiStakingState, ApiTokenWithPrice } from '../../api/types';
 import { ActiveTab, ContentTab, type Theme, type TokenChartMode } from '../../global/types';
 
-import { IS_CORE_WALLET } from '../../config';
+import { IS_CORE_WALLET, IS_EXPLORER } from '../../config';
 import {
   selectAccountStakingState,
   selectCurrentAccountId,
@@ -49,12 +49,15 @@ import StakeModal from '../staking/StakeModal';
 import StakingClaimModal from '../staking/StakingClaimModal';
 import StakingInfoModal from '../staking/StakingInfoModal';
 import UnstakeModal from '../staking/UnstakeModal';
+import Transition from '../ui/Transition';
 import UpdateAvailable from '../ui/UpdateAvailable';
 import VestingModal from '../vesting/VestingModal';
 import VestingPasswordModal from '../vesting/VestingPasswordModal';
+import MainSkeleton from './MainSkeleton';
 import AccountSelectorModal from './modals/accountSelector/AccountSelectorModal';
 import PromotionModal from './modals/PromotionModal';
 import { LandscapeActions, PortraitActions } from './sections/Actions';
+import PromoteWallet from './sections/Actions/PromoteWallet';
 import Card from './sections/Card';
 import Content from './sections/Content';
 import Header, { HEADER_HEIGHT_REM } from './sections/Header/Header';
@@ -72,13 +75,14 @@ type StateProps = {
   stakingState?: ApiStakingState;
   isTestnet?: boolean;
   isLedger?: boolean;
-  isViewMode?: boolean;
+  isViewMode: boolean;
   isStakingInfoModalOpen?: boolean;
   isSwapDisabled?: boolean;
   isStakingDisabled?: boolean;
   isOnRampDisabled?: boolean;
   isOffRampAllowed?: boolean;
   isMediaViewerOpen?: boolean;
+  isAppReady?: boolean;
   theme: Theme;
   accentColorIndex?: number;
 };
@@ -99,6 +103,7 @@ function Main({
   isOnRampDisabled,
   isOffRampAllowed,
   isMediaViewerOpen,
+  isAppReady,
   theme,
   accentColorIndex,
   currentToken,
@@ -281,6 +286,10 @@ function Main({
               theme={theme}
             />
           )}
+
+          {IS_EXPLORER && (
+            <PromoteWallet />
+          )}
         </div>
         <div className={styles.main}>
           <Content onStakedTokenClick={handleEarnClick} />
@@ -289,9 +298,27 @@ function Main({
     );
   }
 
+  function renderContent() {
+    if (IS_DELEGATED_BOTTOM_SHEET) {
+      return undefined;
+    }
+
+    if (IS_EXPLORER) {
+      return (
+        <Transition name="semiFade" activeKey={isAppReady ? 1 : 0}>
+          {isAppReady
+            ? (isPortrait ? renderPortraitLayout() : renderLandscapeLayout())
+            : <MainSkeleton isViewMode={isViewMode} />}
+        </Transition>
+      );
+    }
+
+    return isPortrait ? renderPortraitLayout() : renderLandscapeLayout();
+  }
+
   return (
     <>
-      {!IS_DELEGATED_BOTTOM_SHEET && (isPortrait ? renderPortraitLayout() : renderLandscapeLayout())}
+      {renderContent()}
 
       <StakeModal />
       <StakingInfoModal isOpen={isStakingInfoModalOpen} onClose={closeStakingInfo} />
@@ -316,7 +343,7 @@ export default memo(
       const isLedger = selectIsHardwareAccount(global);
       const currentAccountId = selectCurrentAccountId(global);
       const accountState = selectCurrentAccountState(global);
-      const { currentTokenSlug } = accountState ?? {};
+      const { currentTokenSlug, isAppReady } = accountState ?? {};
       const currentToken = currentTokenSlug ? selectToken(global, currentTokenSlug) : undefined;
 
       const { isOnRampDisabled } = global.restrictions;
@@ -338,6 +365,7 @@ export default memo(
         isStakingDisabled: selectIsStakingDisabled(global),
         isOnRampDisabled,
         isOffRampAllowed: selectIsOffRampAllowed(global),
+        isAppReady,
         theme: global.settings.theme,
         accentColorIndex: selectCurrentAccountSettings(global)?.accentColorIndex,
       };

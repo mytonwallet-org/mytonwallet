@@ -23,6 +23,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.FontManager
 import org.mytonwallet.app_air.uicomponents.widgets.WEditableItemView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
+import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uisettings.R
 import org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.palette.AppearancePaletteAndCardView
@@ -121,7 +122,11 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
                         }
                     },
                     popupWidth = WRAP_CONTENT,
-                    aboveView = false
+                    positioning = WMenuPopup.Positioning.BELOW,
+                    windowBackgroundStyle = BackgroundStyle.Cutout.fromView(
+                        appFontDropdownView,
+                        roundRadius = 16f.dp
+                    )
                 )
             }
         }

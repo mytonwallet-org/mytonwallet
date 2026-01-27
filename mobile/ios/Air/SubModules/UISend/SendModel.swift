@@ -175,12 +175,15 @@ public final class SendModel: Sendable {
             maxToSend = accountBalance
             return
         }
-        let isNative = token.isNative
         let balance = accountBalance?.amount
-        let maxAmount = TransferHelpers.getMaxTransferAmount(tokenBalance: balance,
-                                                             isNativeToken: isNative,
-                                                             fullFee: explainedFee.fullFee?.terms,
-                                                             canTransferFullBalance: explainedFee.canTransferFullBalance)
+        let maxAmount = getMaxTransferAmount(
+            .init(
+                tokenBalance: balance,
+                tokenSlug: token.slug,
+                fullFee: explainedFee.fullFee?.terms,
+                canTransferFullBalance: explainedFee.canTransferFullBalance
+            )
+        )
         maxToSend = maxAmount.map { TokenAmount($0, token) }
         if let balance, amount == balance, amount ?? 0 > (maxAmount ?? 0) {
             amount = maxAmount

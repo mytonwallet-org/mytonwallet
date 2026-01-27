@@ -39,6 +39,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
@@ -294,6 +295,7 @@ class TonConnectRequestSendViewModel private constructor(
                 )
 
                 update.emulation?.activities?.let { previewActivities ->
+                    val isMultichain = WGlobalStorage.isMultichain(update.accountId)
                     val previewTitle = SpannableStringBuilder()
                     previewTitle.append(LocaleController.getString("Preview"))
                     previewTitle.append("\u00A0")
@@ -363,6 +365,7 @@ class TonConnectRequestSendViewModel private constructor(
                                 activity = activity.apply {
                                     isEmulation = true
                                 },
+                                isMultichain = isMultichain,
                                 accountId = AccountStore.activeAccountId!!,
                                 isFirst = index == 0,
                                 isLast = index == previewActivities.lastIndex

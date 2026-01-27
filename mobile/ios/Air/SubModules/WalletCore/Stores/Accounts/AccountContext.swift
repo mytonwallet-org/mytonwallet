@@ -28,6 +28,8 @@ public class AccountContext {
     @Dependency(\.stakingStore) private var stakingStore
     @PerceptionIgnored
     @Dependency(\.savedAddresses) private var savedAddressesStore
+    @PerceptionIgnored
+    @Dependency(\.domains) private var domainsStore
     
     private let accountIdProvider: AccountIdProvider
     @PerceptionIgnored
@@ -107,6 +109,9 @@ public class AccountContext {
     }
     public var savedAddresses: SavedAddresses {
         savedAddressesStore.for(accountId: accountId)
+    }
+    public var domains: Domains {
+        domainsStore.for(accountId: accountId)
     }
     public func getLocalName(chain: ApiChain, address: String) -> String? {
         let saved = savedAddresses.get(chain: chain, address: address)

@@ -166,8 +166,10 @@ class HomeAssetsCell(
     fun configure(accountId: String?) {
         updateTheme()
         val accountId = accountId ?: return
-        if (showingAccountId == accountId)
+        if (showingAccountId == accountId && areAssetsShown) {
+            onAssetsShown()
             return
+        }
         areAssetsShown = false
         showingAccountId = accountId
         segmentedController.updateProtectedView()

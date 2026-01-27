@@ -181,7 +181,9 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         if (isShowingStaticTag)
             topLeftTagLabel.setBackgroundColor(WColor.BadgeBackground.color, 8f.dp)
         topRightLabel.contentView.setTextColor(WColor.PrimaryText.color)
+        topRightLabel.contentView.updateTheme()
         bottomRightLabel.contentView.setTextColor(WColor.SecondaryText.color)
+        bottomRightLabel.contentView.updateTheme()
         tokenBalance?.let {
             updateBottomLeftLabel(it, null)
         }

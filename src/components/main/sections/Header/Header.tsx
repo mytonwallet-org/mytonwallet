@@ -3,7 +3,13 @@ import { withGlobal } from '../../../../global';
 
 import type { TokenChartMode } from '../../../../global/types';
 
-import { IS_CORE_WALLET, IS_EXPLORER, IS_EXTENSION, IS_TELEGRAM_APP } from '../../../../config';
+import {
+  IS_CORE_WALLET,
+  IS_EXPLORER,
+  IS_EXTENSION,
+  IS_TELEGRAM_APP,
+  SELF_UNIVERSAL_HOST_URL,
+} from '../../../../config';
 import {
   selectCurrentAccountId,
   selectIsCurrentAccountViewMode,
@@ -29,6 +35,8 @@ import ToggleLayoutButton from './actionButtons/ToggleLayoutButton';
 import ToggleSensitiveDataButton from './actionButtons/ToggleSensitiveDataButton';
 
 import styles from './Header.module.scss';
+
+import logoSrc from '../../../../assets/logoMonochromeWhite.svg';
 
 export const HEADER_HEIGHT_REM = 3;
 
@@ -140,6 +148,27 @@ function Header({
       ? 1 + (showBackButton ? 1 : 0) + (isAppLockEnabled ? 1 : 0)
       : 1 + (isAppLockEnabled ? 1 : 0) + (IS_TELEGRAM_APP ? 1 : 0) + (canToggleAppLayout ? 1 : 0);
 
+    if (IS_EXPLORER) {
+      return (
+        <div className={fullClassName}>
+          <div className={styles.headerInner} style="--icons-amount: 3">
+            <AccountSelector withBalance={withBalance} withAccountSelector={!IS_CORE_WALLET && !IS_EXPLORER} />
+            <div className={styles.portraitActionsRight}>
+              <a
+                href={SELF_UNIVERSAL_HOST_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.openLink}
+              >
+                <img src={logoSrc} alt="" />
+                {lang('Open')}
+              </a>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className={fullClassName}>
         <div className={styles.headerInner} style={`--icons-amount: ${iconsAmount}`}>
@@ -181,7 +210,7 @@ function Header({
         )}
         >
           {showBackButton && <BackButton isIconOnly />}
-          <ToggleSensitiveDataButton isSensitiveDataHidden={isSensitiveDataHidden} />
+          {!IS_EXPLORER && <ToggleSensitiveDataButton isSensitiveDataHidden={isSensitiveDataHidden} />}
           <QrScannerButton isViewMode={isViewMode} />
           {isAppLockEnabled && <AppLockButton />}
         </div>

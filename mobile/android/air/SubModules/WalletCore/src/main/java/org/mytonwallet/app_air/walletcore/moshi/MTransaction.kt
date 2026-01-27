@@ -523,30 +523,32 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
             })
         }
 
+    fun addressName(): String? {
+        return if (this is Transaction) {
+            AddressStore.getAddress(peerAddress)?.name ?: metadata?.name
+        } else {
+            null
+        }
+    }
+
     fun addressToShow(
         addressPrefixCount: Int = 4,
         addressSuffixCount: Int = 4
     ): Pair<String, Boolean>? {
-        return (when (this) {
+        return when (this) {
             is Transaction -> {
-                AddressStore.getAddress(peerAddress)?.name?.let { name ->
-                    Pair(name, true)
-                } ?: run {
-                    if (metadata?.name?.isNotEmpty() == true)
-                        Pair(metadata.name, true) else
-                        Pair(
-                            peerAddress.formatStartEndAddress(
-                                addressPrefixCount,
-                                addressSuffixCount
-                            ), false
-                        )
-                }
+                addressName()?.let { name -> Pair(name, true) } ?: Pair(
+                    peerAddress.formatStartEndAddress(
+                        addressPrefixCount,
+                        addressSuffixCount
+                    ), false
+                )
             }
 
             else -> {
                 null
             }
-        })
+        }
     }
 
     val isNft: Boolean

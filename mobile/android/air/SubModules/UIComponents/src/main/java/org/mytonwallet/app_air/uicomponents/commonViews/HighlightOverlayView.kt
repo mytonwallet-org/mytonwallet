@@ -22,7 +22,7 @@ import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 @SuppressLint("ViewConstructor")
 class HighlightOverlayView(
     context: Context,
-    private val holeRect: RectF,
+    private val holeRect: RectF?,
     private val cornerRadius: Float,
     private val topReversedCornerView: ReversedCornerView?,
     private val bottomReversedCornerView: ReversedCornerViewUpsideDown?,
@@ -62,6 +62,7 @@ class HighlightOverlayView(
 
     override fun onDraw(canvas: Canvas) {
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), dimPaint)
+        val holeRect = holeRect ?: return
 
         holePath.reset()
         holePath.addRoundRect(holeRect, cornerRadius, cornerRadius, Path.Direction.CW)
@@ -92,7 +93,7 @@ class HighlightOverlayView(
 
         viewRect.set(left, top, left + width, top + height)
 
-        if (!RectF.intersects(holeRect, viewRect)) return
+        if (!RectF.intersects(holeRect!!, viewRect)) return
 
         cornerCutoutPath.reset()
         cornerCutoutPath.addRect(viewRect, Path.Direction.CW)

@@ -56,7 +56,7 @@ struct ActionsRow: View {
                         let chain = ApiChain(rawValue: TokenStore.tokens[model.activity.slug]?.chain ?? "")
                         if let chain {
                             let txHash = model.activity.parsedTxId.hash
-                            let url = ExplorerHelper.txUrl(chain: chain, txHash: txHash)
+                            let url = ExplorerHelper.viewTransactionUrl(network: model.accountContext.account.network, chain: chain, txHash: txHash)
                             AppActions.shareUrl(url)
                         }
                     }
@@ -120,6 +120,7 @@ struct ActionButton_New: View {
                     .font(.system(size: 12, weight: .regular))
                     .frame(height: 13)
                     .foregroundStyle(Color(UIColor.label))
+                    .padding(.horizontal, -8)
             }
             .frame(width: 64, height: 70)
         }

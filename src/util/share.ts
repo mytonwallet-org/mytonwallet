@@ -8,7 +8,7 @@ import { getActions } from '../global';
 import { IS_CAPACITOR } from '../config';
 import { copyTextToClipboard } from './clipboard';
 import { getTranslation } from './langProvider';
-import { IS_ANDROID, IS_IOS, IS_TOUCH_ENV } from './windowEnvironment';
+import { IS_ANDROID, IS_ANDROID_APP, IS_IOS, IS_IOS_APP, IS_TOUCH_ENV } from './windowEnvironment';
 
 export async function shareUrl(url: string, title?: string) {
   // Android Share supports only http/https/file URLs in `url` field.
@@ -123,4 +123,10 @@ async function tryNavigatorShare(data: ShareData) {
 
     throw error;
   }
+}
+
+export function getShareIcon(): string {
+  if (IS_IOS_APP) return 'icon-share-ios';
+  if (IS_ANDROID_APP) return 'icon-share-android';
+  return 'icon-link';
 }

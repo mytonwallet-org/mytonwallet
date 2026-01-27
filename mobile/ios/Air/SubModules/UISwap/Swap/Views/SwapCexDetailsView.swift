@@ -1,29 +1,19 @@
-//
-//  SwapDetailsView.swift
-//  UISwap
-//
-//  Created by Sina on 5/10/24.
-//
-
 import SwiftUI
-import UIKit
 import UIComponents
 import WalletCore
 import WalletContext
-import Combine
 import Perception
-
-private let log = Log("SwapCexDetailsView")
 
 struct SwapCexDetailsView: View {
 
-    var swapVM: SwapVM
-    var selectorsVM: SwapSelectorsVM
+    var inputModel: SwapInputModel
+    var crosschainModel: CrosschainSwapModel
+    var swapType: SwapType
     
-    var sellingToken: ApiToken { selectorsVM.sellingToken }
-    var buyingToken: ApiToken { selectorsVM.buyingToken }
+    var sellingToken: ApiToken { inputModel.sellingToken }
+    var buyingToken: ApiToken { inputModel.buyingToken }
     var exchangeRate: SwapRate? { displayExchangeRate }
-    var swapEstimate: ApiSwapCexEstimateResponse? { swapVM.cexEstimate }
+    var swapEstimate: ApiSwapCexEstimateResponse? { crosschainModel.cexEstimate }
     var displayEstimate: ApiSwapCexEstimateResponse? { swapEstimate }
 
     var displayExchangeRate: SwapRate? {
@@ -38,8 +28,25 @@ struct SwapCexDetailsView: View {
         return nil
     }
 
-    @State private var fee: TransferHelpers.ExplainedTransferFee?
     @State private var isExpanded = false
+
+    var feeDetails: ExplainedTransferFee? {
+        guard let swapEstimate,
+              let nativeToken = TokenStore.tokens[sellingToken.nativeTokenSlug] else {
+            return nil
+        }
+        let explainedFee = explainSwapFee(.init(
+            swapType: swapType,
+            tokenIn: sellingToken,
+            networkFee: swapEstimate.networkFee,
+            realNetworkFee: swapEstimate.realNetworkFee,
+            ourFee: nil,
+            dieselStatus: nil,
+            dieselFee: nil,
+            nativeTokenInBalance: inputModel.$account.balances[nativeToken.slug]
+        ))
+        return explainedFee.networkFeeDetails
+    }
     
     var body: some View {
         WithPerceptionTracking {
@@ -56,25 +63,6 @@ struct SwapCexDetailsView: View {
             .frame(height: 400, alignment: .top)
             .tint(Color(WTheme.tint))
             .animation(.spring(duration: isExpanded ? 0.45 : 0.3), value: isExpanded)
-            .task(id: selectorsVM.sellingTokenAmount) {
-                await fetchEstimate()
-            }
-        }
-    }
-    
-    func fetchEstimate() async {
-        do {
-            if let amnt = selectorsVM.sellingTokenAmount, let tokenAddress = amnt.token.tokenAddress {
-                let token = amnt.token
-                let chain = token.chainValue
-                let dieselEstimate = try await Api.fetchEstimateDiesel(accountId: swapVM.account.id, chain: token.chainValue, tokenAddress: tokenAddress)
-                if let dieselEstimate {
-                    let fee = TransferHelpers.explainDieselEstimate(chain: chain.rawValue, isNativeToken: token.isNative, dieselEstimate: dieselEstimate)
-                    self.fee = fee
-                }
-            }
-        } catch {
-            log.error("\(error)")
         }
     }
     
@@ -119,16 +107,17 @@ struct SwapCexDetailsView: View {
     
     @ViewBuilder
     var blockchainFeeRow: some View {
-        if let amnt = selectorsVM.sellingTokenAmount, let fee = self.fee, let nativeToken = TokenStore.tokens[amnt.token.nativeTokenSlug] {
+        let sellingToken = inputModel.sellingToken
+        if let feeDetails, let nativeToken = TokenStore.tokens[sellingToken.nativeTokenSlug] {
             InsetDetailCell {
                 Text(lang("Blockchain Fee"))
                     .foregroundStyle(Color(WTheme.secondaryLabel))
             } value: {
                 FeeView(
-                    token: amnt.type,
+                    token: sellingToken,
                     nativeToken: nativeToken,
-                    fee: fee.realFee,
-                    explainedTransferFee: nil,
+                    fee: feeDetails.realFee ?? feeDetails.fullFee,
+                    explainedTransferFee: feeDetails,
                     includeLabel: false
                 )
             }

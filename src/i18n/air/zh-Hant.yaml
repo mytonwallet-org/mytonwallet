@@ -182,6 +182,7 @@ MyTonWallet uses biometric authentication to unlock and authorize transactions: 
 OK: 確定
 "Open Collection": 開啟收藏
 "Open in Explorer": 在區塊鏈瀏覽器開啟
+"Open in...": "在...中開啟"
 "Passcode changed": 密碼已變更
 "Please make sure your internet connection is working and try again.": 請確認網路連線正常後再試一次。
 "Please set a passcode on your device, and then try to use biometric authentication.": 請先在裝置上設定密碼，再嘗試使用生物辨識。

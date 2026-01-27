@@ -192,7 +192,7 @@ class SettingsVC(context: Context) : WViewController(context),
                     }
                 ),
                 popupWidth = WRAP_CONTENT,
-                aboveView = true
+                positioning = WMenuPopup.Positioning.ALIGNED
             )
         }
         btn
@@ -605,7 +605,9 @@ class SettingsVC(context: Context) : WViewController(context),
             else -> {
                 if (indexPath.row == 0)
                     SECTION_HEADER_CELL
-                else when (settingsVM.settingsSections[indexPath.section - 1].children[indexPath.row - 1].identifier) {
+                else when (settingsVM.settingsSections.getOrNull(indexPath.section - 1)?.children?.getOrNull(
+                    indexPath.row - 1
+                )?.identifier) {
                     SettingsItem.Identifier.ACCOUNT -> ACCOUNT_CELL
                     else -> ITEMS_CELL
                 }
@@ -662,12 +664,16 @@ class SettingsVC(context: Context) : WViewController(context),
             settingsVM.settingsSections.size + 1 -> {}
 
             else -> {
-                val section = settingsVM.settingsSections[indexPath.section - 1]
+                val section = settingsVM.settingsSections.getOrNull(indexPath.section - 1) ?: return
                 if (indexPath.row > section.children.size)
                     return
                 if (indexPath.row == 0) {
                     val cell = cellHolder.cell as HeaderCell
-                    cell.configure(section.title, WColor.Tint, topRounding = HeaderCell.TopRounding.NORMAL)
+                    cell.configure(
+                        section.title,
+                        WColor.Tint,
+                        topRounding = HeaderCell.TopRounding.NORMAL
+                    )
                     return
                 }
                 val itemIndex = indexPath.row - 1
@@ -693,15 +699,16 @@ class SettingsVC(context: Context) : WViewController(context),
 
             else -> {
                 if (indexPath.row == 0)
-                    return settingsVM.settingsSections[indexPath.section - 1].title
+                    return settingsVM.settingsSections.getOrNull(indexPath.section - 1)?.title
                 val item =
-                    settingsVM.settingsSections[indexPath.section - 1].children[indexPath.row - 1]
-                when (item.identifier) {
+                    settingsVM.settingsSections.getOrNull(indexPath.section - 1)?.children?.getOrNull(indexPath.row - 1)
+                when (item?.identifier) {
                     SettingsItem.Identifier.ACCOUNT -> {
                         item.accounts?.first()?.accountId
                     }
+
                     else -> {
-                        item.identifier.name
+                        item?.identifier?.name
                     }
                 }
             }

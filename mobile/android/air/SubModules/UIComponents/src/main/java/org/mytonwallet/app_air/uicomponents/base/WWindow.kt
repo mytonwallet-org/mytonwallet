@@ -142,6 +142,8 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
             this,
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
+                    if (PopupHelpers.onBackPressed())
+                        return
                     topViewController?.let { topVC ->
                         if (topVC.activeDialog != null) {
                             topVC.activeDialog?.dismiss()
@@ -472,6 +474,7 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
             dismissNav(it)
         }
     }
+
     fun dismissNav(index: Int) {
         if (index == navigationControllers.size - 1) {
             dismissLastNav()

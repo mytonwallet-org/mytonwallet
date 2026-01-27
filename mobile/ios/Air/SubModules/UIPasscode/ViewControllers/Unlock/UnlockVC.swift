@@ -9,7 +9,6 @@ import UIKit
 import UIComponents
 import WalletCore
 import WalletContext
-import LocalAuthentication
 
 // Used for AppUnlock and other actions that require user to unlock using passcode or biometric, first.
 public class UnlockVC: WViewController {
@@ -58,7 +57,7 @@ public class UnlockVC: WViewController {
             return
         }
         
-        func _makeUnlockVC(useBioOnPresent: Bool = false) -> UIViewController {
+        func _makeUnlockVC(useBioOnPresent: Bool) -> UIViewController {
             let unlockVC =  UnlockVC(
                 title: title,
                 replacedTitle: replacedTitle,
@@ -79,22 +78,17 @@ public class UnlockVC: WViewController {
                 return unlockVC
             }
         }
-
-        let context = LAContext()
-        var error: NSError?
-        let canUseBiometric = AppStorageHelper.isBiometricActivated() &&
-            context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
+        
+        let canUseBiometric = AppStorageHelper.isBiometricActivated() && BiometricHelper.biometryType != nil
         if onAuthTask == nil && canUseBiometric {
-            let reason = lang("MyTonWallet uses biometric authentication to unlock and authorize transactions")
-            context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) {
-                [weak vc] success, authenticationError in
-                DispatchQueue.main.async { [weak vc] in
-                    if success {
-                        onDone(KeychainHelper.biometricPasscode())
-                    } else {
-                        // error
-                        vc?.present(_makeUnlockVC(), animated: true)
-                    }
+            Task { @MainActor [weak vc] in
+                let result = await BiometricHelper.authenticate()
+                switch result {
+                case .success:
+                    onDone(KeychainHelper.biometricPasscode())
+                    
+                case .canceled, .error, .userDeniedBiometrics:
+                    vc?.present(_makeUnlockVC(useBioOnPresent: false), animated: true)
                 }
             }
         } else {
@@ -247,7 +241,6 @@ public class UnlockVC: WViewController {
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         self.viewStartedDismissing = true
-        passcodeScreenView?.cancelBiometric()
     }
     
     private func setupViews() {
@@ -289,7 +282,7 @@ public class UnlockVC: WViewController {
             replacedTitle: replacedTitle,
             subtitle: subtitle,
             compactLayout: customHeader != nil,
-            biometricPassAllowed: AppStorageHelper.isBiometricActivated(),
+            biometricPassAllowed: true,
             delegate: self,
             matchHeaderColors: shouldBeThemedLikeHeader
         )

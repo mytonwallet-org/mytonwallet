@@ -2,6 +2,9 @@
 <html lang="en" translate="no" class="notranslate">
 <head>
   <meta charset="UTF-8">
+  <% if (process.env.IS_EXPLORER === '1') { %>
+    <base href="/">
+  <% } %>
 
   <title><%= htmlWebpackPlugin.options.title %></title>
 

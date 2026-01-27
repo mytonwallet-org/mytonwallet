@@ -18,6 +18,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
@@ -34,6 +35,9 @@ class TransactionListVC(
     override val TAG = "Transaction"
 
     override val shouldDisplayBottomBar = true
+
+    // TODO:: Should this be determined based on accountId here?
+    private var isShowingAccountMultichain = WGlobalStorage.isMultichain(accountId)
 
     companion object {
         val TRANSACTION_CELL = WCell.Type(1)
@@ -184,6 +188,7 @@ class TransactionListVC(
         (cellHolder.cell as ActivityCell).configure(
             transaction = transactions[indexPath.row],
             accountId = accountId,
+            isMultichain = isShowingAccountMultichain,
             positioning = ActivityCell.Positioning(
                 isFirst = indexPath.row == 0,
                 isFirstInDay = false,

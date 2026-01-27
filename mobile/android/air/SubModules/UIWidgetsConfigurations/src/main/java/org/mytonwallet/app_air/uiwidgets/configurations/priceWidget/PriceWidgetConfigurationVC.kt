@@ -18,6 +18,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WEditableItemView
 import org.mytonwallet.app_air.uicomponents.widgets.WTokenSymbolIconView
 import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
+import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uicomponents.widgets.unlockView
 import org.mytonwallet.app_air.uiwidgets.configurations.WidgetConfigurationVC
@@ -116,7 +117,11 @@ class PriceWidgetConfigurationVC(
                         }
                     },
                     popupWidth = WRAP_CONTENT,
-                    aboveView = false
+                    positioning = WMenuPopup.Positioning.BELOW,
+                    windowBackgroundStyle = BackgroundStyle.Cutout.fromView(
+                        periodView,
+                        roundRadius = 16f.dp
+                    )
                 )
             }
         }

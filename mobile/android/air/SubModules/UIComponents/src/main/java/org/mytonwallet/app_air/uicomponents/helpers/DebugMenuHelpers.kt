@@ -5,7 +5,9 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
+import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
+import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
@@ -42,7 +44,8 @@ class DebugMenuHelpers {
                     }
                 ),
                 popupWidth = WRAP_CONTENT,
-                aboveView = false
+                positioning = WMenuPopup.Positioning.ABOVE,
+                windowBackgroundStyle = BackgroundStyle.Cutout.fromView(view, roundRadius = 16f.dp)
             )
         }
     }

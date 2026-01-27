@@ -313,7 +313,7 @@ class LedgerConnectVC(
                     ),
                     xOffset = connectionTypeView.width - 116.dp,
                     popupWidth = WRAP_CONTENT,
-                    aboveView = true
+                    positioning = WMenuPopup.Positioning.ALIGNED,
                 )
             }
         }

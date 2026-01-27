@@ -76,8 +76,9 @@ struct TransactionActivityHeader: View {
         HStack(alignment: .firstTextBaseline, spacing: 0) {
             (Text(transaction.isIncoming ? lang("Received from") :  lang("Sent to")) + Text(" "))
                 .font17h22()
-            let addressToShow = transaction.addressToShow
-            TappableAddress(account: account, name: addressToShow, chain: token.chain, addressOrName: addressToShow)
+            let addressName = transaction.metadata?.name
+            let addressToCopy = transaction.peerAddress ?? transaction.addressToShow
+            TappableAddress(account: account, name: addressName, chain: token.chain, addressOrName: addressToCopy)
         }
     }
 }

@@ -132,7 +132,7 @@ export function useDelegatedBottomSheet(
 
       preventScrollOnFocus(dialogEl);
 
-      void BottomSheet.toggleSelfFullSize({ isFullSize: true });
+      void BottomSheet.toggleSelfFullSize({ isFullSize: true, onFocus: true });
     }
 
     function onBlur(e: FocusEvent) {

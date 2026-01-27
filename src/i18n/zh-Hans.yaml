@@ -101,6 +101,7 @@ Warning!: 警告！
 $logout_without_backup_warning: 您尚未备份钱包！如果您注销，您将永远丧失您的代币和 NFT ！
 $logout_accounts_without_backup_warning: 您还没有备份此账户 %links%。 如果您注销，您将永远丧失您的代币和 NFT ！
 $logout_warning: 这将从应用中移除当前钱包。请确保已备份您的**密语**。
+$logout_view_mode_warning: 这将从应用中移除当前钱包。
 Your address was copied!: 您的地址已复制！
 Create Deposit Link: 创建存款链接
 $receive_invoice_description: 您可以指定付款金额和收款地址来节省付款方的一些时间。
@@ -560,7 +561,10 @@ $transfer_inactive_contract_error: |
   您以“EQ...”格式输入了地址，但该地址未激活，因此交易将无法完成。如果您确实要发送到该地址，请以“UQ...”格式输入该地址。
 $transfer_link_expired: 转账链接已过期
 $transfer_text_and_bin_exclusive: 不能同时使用文本和二进制数据参数
-$unsupported_deeplink_parameter: 此深度链接包含不支持的参数
+$unsupported_deeplink_parameter: 此深度链接包含不支持的参数。
+$unsupported_chain: 不支持的区块链。
+$transaction_not_found: 未找到交易。
+$could_not_determine_address: 无法从交易中确定钱包地址
 Successfully: 成功地
 Unstake More: 解除质押更多
 WrongAddress: 该 dapp 请求另一个钱包进行交易。
@@ -1022,6 +1026,7 @@ $explorer_mode_warning: "浏览器模式：正在等待查看深层链接以打�
 This command is not supported in explorer mode: 此命令在浏览器模式下不受支持
 $saved_addresses_header: 已保存
 confirm an action in MyTonWallet: 在 MyTonWallet 中确认操作
+Timed out waiting for account to be ready: 等待账户准备就绪超时
 $connected_apps:
   otherValue: "%1$d 已连接"
 Night Mode, Palette, Card: 夜间模式、调色板、卡片
@@ -1032,3 +1037,8 @@ Wallets, Sounds: 钱包、声音
 Help: 帮助
 About: 关于
 Wallets: 钱包
+Open: 打开
+Open in %app_name%: 在 %app_name% 中打开
+Blog: 博客
+Apps: 应用
+$nft_not_found: 未找到 NFT

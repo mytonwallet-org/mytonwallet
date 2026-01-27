@@ -40,6 +40,8 @@ class WMenuPopupView(
     private val itemHeights: IntArray = IntArray(items.size)
     private val itemYPositions: IntArray = IntArray(items.size)
     private var isAnimating = false
+    private var presentFromTop = true
+    private var finalTranslationY = 0f
     var finalHeight = 0
         private set
     var isDismissed = false
@@ -109,7 +111,7 @@ class WMenuPopupView(
                                 return@setOnClickListener
                             }
                         }
-                        dismiss()
+                        popupWindow?.dismiss()
                     }
                 }
             }
@@ -122,17 +124,19 @@ class WMenuPopupView(
         finalHeight = min(totalHeight, maxHeight)
     }
 
-    fun present(initialHeight: Int) {
-        val isFirstPresentation = initialHeight == 0
+    fun present(initialHeight: Int, fromTop: Boolean, updateListener: ((fraction: Float) -> Unit)? = null) {
+        presentFromTop = fromTop
         isAnimating = true
         measureChildren(MeasureSpec.UNSPECIFIED, MeasureSpec.UNSPECIFIED)
+        finalTranslationY = (parent as? ViewGroup)?.translationY ?: 0f
         post {
             contentContainer.suppressLayoutCompat(true)
         }
         ValueAnimator.ofInt(0, 1).apply {
-            duration =
-                if (isFirstPresentation) AnimationConstants.MENU_PRESENT else AnimationConstants.QUICK_ANIMATION
+            val isFirstPresentation = initialHeight == 0
+            duration = AnimationConstants.MENU_PRESENT
             addUpdateListener {
+                updateListener?.invoke(animatedFraction)
                 val easeVal = WInterpolator.easeOut(animatedFraction)
                 currentHeight =
                     if (isFirstPresentation)
@@ -163,13 +167,17 @@ class WMenuPopupView(
         }
     }
 
-    fun dismiss() {
+    fun dismiss(updateListener: ((fraction: Float) -> Unit)? = null) {
         onWillDismiss?.invoke()
         val parentLayout = parent as? FrameLayout ?: return
         parentLayout.animate().setDuration(AnimationConstants.MENU_DISMISS)
             .setInterpolator(AccelerateDecelerateInterpolator())
             .alpha(0f)
-            .translationY(parentLayout.translationY - 8f.dp)
+            .translationY(parentLayout.translationY - 8f.dp).apply {
+                setUpdateListener {
+                    updateListener?.invoke(it.animatedFraction)
+                }
+            }
             .withEndAction {
                 isDismissed = true
                 onDismiss()
@@ -177,21 +185,43 @@ class WMenuPopupView(
     }
 
     private fun onUpdate() {
+        val additionalYOffset = if (presentFromTop) 0 else finalHeight - currentFrameHeight
         if (isAnimating) {
             for (i in itemViews.indices) {
                 val itemView = itemViews[i]
                 val itemTop = itemYPositions[i]
 
                 alpha = (currentHeight * 4f / finalHeight).coerceIn(0f, 1f)
-                if (itemTop < currentHeight) {
-                    if (itemView.visibility != VISIBLE)
-                        itemView.visibility = VISIBLE
-                    val itemVisibleFraction =
-                        (currentHeight - itemTop) / (finalHeight - itemTop).toFloat()
 
-                    itemView.alpha = itemVisibleFraction
-                    if (i > 0 || items.size < 3)
-                        itemView.translationY = -(1 - itemVisibleFraction) * 10.dp
+                if (presentFromTop) {
+                    if (itemTop < currentHeight) {
+                        if (itemView.visibility != VISIBLE)
+                            itemView.visibility = VISIBLE
+                        val itemVisibleFraction =
+                            (currentHeight - itemTop) / (finalHeight - itemTop).toFloat()
+
+                        itemView.alpha = itemVisibleFraction
+                        if (i > 0 || items.size < 3)
+                            itemView.translationY =
+                                -additionalYOffset - (1 - itemVisibleFraction) * 10.dp
+                    }
+                } else {
+                    val itemBottom = itemTop + itemHeights[i]
+                    val distanceFromBottom = finalHeight - itemBottom
+                    if (currentHeight > distanceFromBottom) {
+                        if (itemView.visibility != VISIBLE)
+                            itemView.visibility = VISIBLE
+                        val itemVisibleFraction =
+                            ((currentHeight - distanceFromBottom) / itemBottom.toFloat())
+                                .coerceIn(0f, 1f)
+
+                        itemView.alpha = itemVisibleFraction
+                        if (i < items.size - 1 || items.size < 3)
+                            itemView.translationY =
+                                -additionalYOffset + (1 - itemVisibleFraction) * 10.dp
+                        else
+                            itemView.translationY = -additionalYOffset.toFloat()
+                    }
                 }
             }
         } else {
@@ -201,8 +231,12 @@ class WMenuPopupView(
                 itemView.translationY = 0f
             }
         }
-        (parent as? ViewGroup)?.updateLayoutParams {
-            height = currentFrameHeight
+        (parent as? ViewGroup)?.apply {
+            if (additionalYOffset != 0)
+                translationY = finalTranslationY + additionalYOffset
+            updateLayoutParams {
+                height = currentFrameHeight
+            }
         }
     }
 

@@ -9,13 +9,12 @@ import {
   APP_VERSION,
   IS_CORE_WALLET,
   IS_EXTENSION,
-  MTW_TIPS_CHANNEL_NAME,
 } from '../../config';
 import { getHelpCenterUrl } from '../../global/helpers/getHelpCenterUrl';
 import renderText from '../../global/helpers/renderText';
 import buildClassName from '../../util/buildClassName';
 import { handleUrlClick } from '../../util/openUrl';
-import { getBlogUrl } from '../../util/url';
+import { getBlogUrl, getTelegramChannelUrl } from '../../util/url';
 
 import useAppTheme from '../../hooks/useAppTheme';
 import useHistoryBack from '../../hooks/useHistoryBack';
@@ -105,7 +104,7 @@ function SettingsAbout({
         <p className={styles.blockTitle}>{lang('%app_name% Resources', { app_name: APP_NAME })}</p>
         <div className={styles.settingsBlock}>
           <a
-            href={`https://t.me/${MTW_TIPS_CHANNEL_NAME[lang.code!] ?? MTW_TIPS_CHANNEL_NAME.en}`}
+            href={getTelegramChannelUrl(lang.code!)}
             target="_blank"
             rel="noreferrer"
             className={styles.item}

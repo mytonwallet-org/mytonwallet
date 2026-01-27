@@ -118,7 +118,6 @@ class ActivityAmountView(context: Context) : WFrameLayout(context), WThemedView,
         borderView.visibility = GONE
 
         requestLayout()
-        updateTheme()
     }
 
     fun configure(swap: MApiTransaction.Swap) {

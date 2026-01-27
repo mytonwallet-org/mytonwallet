@@ -76,7 +76,7 @@ struct NftDetailsActionsRow: View {
                 wearMenu.makeConfig = {
                     
                     @Dependency(\.accountSettings) var _accountSettings
-                    let accountSettings = _accountSettings.for(accountId: viewModel.accountId)
+                    let accountSettings = _accountSettings.for(accountId: viewModel.account.id)
                     
                     let nft = viewModel.nft
                     var items: [MenuItem] = []
@@ -127,7 +127,7 @@ struct NftDetailsActionsRow: View {
             title: IOS_26_MODE_ENABLED ? lang("Share") : lang("Share").lowercased(),
             icon: IOS_26_MODE_ENABLED ? "ShareIconBold" : "ActionShare24"
         ) {
-            AppActions.shareUrl(ExplorerHelper.nftUrl(viewModel.nft))
+            AppActions.shareUrl(ExplorerHelper.viewNftUrl(nftAddress: viewModel.nft.address))
         }
     }
     
@@ -144,10 +144,17 @@ struct NftDetailsActionsRow: View {
         }
         .compositingGroup()
         .menuSource(menuContext: moreMenu)
-        .task(id: viewModel.accountId) {
-            let accountId = viewModel.accountId
+        .task(id: viewModel.account.id) {
+            let accountId = viewModel.account.id
             self.moreMenu.makeConfig = {
                 var items: [MenuItem] = []
+                if viewModel.nft.isTonDns && !viewModel.nft.isOnSale && viewModel.account.type == .mnemonic {
+                    let linkedAddress = viewModel.$account.domains.linkedAddressByAddress[viewModel.nft.address]?.nilIfEmpty
+                    let title = linkedAddress == nil ? lang("Link to Wallet") : lang("Change Linked Wallet")
+                    items += .button(id: "0-link", title: title, trailingIcon: .system("link")) {
+                        AppActions.showLinkDomain(accountSource: .accountId(accountId), nftAddress: viewModel.nft.address)
+                    }
+                }
                 items += .button(id: "0-hide", title: lang("Hide"), trailingIcon: .air("MenuHide26")) {
                     NftStore.setHiddenByUser(accountId: accountId, nftId: viewModel.nft.id, isHidden: true)
                 }
@@ -236,6 +243,7 @@ struct ActionButton_New: View {
                         .font(.system(size: 12, weight: .regular))
                         .frame(height: 13)
                         .foregroundStyle(viewModel.isExpanded ? .white : .primary)
+                        .padding(.horizontal, -8)
                 }
                 .opacity(isEnabled ? 1 : 0.3)
                 .frame(width: 64, height: 70)

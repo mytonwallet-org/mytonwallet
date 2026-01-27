@@ -165,12 +165,12 @@ closeSelf(options: { key: BottomSheetKeys; }) => Promise<void>
 ### toggleSelfFullSize(...)
 
 ```typescript
-toggleSelfFullSize(options: { isFullSize: boolean; }) => Promise<void>
+toggleSelfFullSize(options: { isFullSize: boolean; onFocus?: boolean; }) => Promise<void>
 ```
 
-| Param         | Type                                  |
-| ------------- | ------------------------------------- |
-| **`options`** | <code>{ isFullSize: boolean; }</code> |
+| Param         | Type                                                     |
+| ------------- | -------------------------------------------------------- |
+| **`options`** | <code>{ isFullSize: boolean; onFocus?: boolean; }</code> |
 
 --------------------
 

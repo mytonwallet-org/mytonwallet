@@ -56,6 +56,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
+import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uisend.sendNft.SendNftVC
 import org.mytonwallet.app_air.uisend.sendNft.sendNftConfirm.ConfirmNftVC
@@ -144,7 +145,11 @@ class NftVC(
     }
 
     private val descriptionTitleLabel = HeaderCell(context).apply {
-        configure(LocaleController.getString("Description"), titleColor = WColor.Tint, HeaderCell.TopRounding.NORMAL)
+        configure(
+            LocaleController.getString("Description"),
+            titleColor = WColor.Tint,
+            HeaderCell.TopRounding.NORMAL
+        )
     }
     private val descriptionLabel: WLabel by lazy {
         WLabel(context).apply {
@@ -170,7 +175,11 @@ class NftVC(
     }
 
     private val attributesTitleLabel = HeaderCell(context).apply {
-        configure(LocaleController.getString("Attributes"), titleColor = WColor.Tint, HeaderCell.TopRounding.NORMAL)
+        configure(
+            LocaleController.getString("Attributes"),
+            titleColor = WColor.Tint,
+            HeaderCell.TopRounding.NORMAL
+        )
     }
     private val attributesContentView = NftAttributesView(context)
     private val attributesToggleLabel by lazy {
@@ -255,7 +264,10 @@ class NftVC(
             setOnClickListener {
                 val shareIntent = Intent(Intent.ACTION_SEND)
                 shareIntent.setType("text/plain")
-                shareIntent.putExtra(Intent.EXTRA_TEXT, nft.tonscanUrl(MBlockchainNetwork.ofAccountId(showingAccountId)))
+                shareIntent.putExtra(
+                    Intent.EXTRA_TEXT,
+                    nft.tonscanUrl(MBlockchainNetwork.ofAccountId(showingAccountId))
+                )
                 window?.startActivity(
                     Intent.createChooser(
                         shareIntent,
@@ -1029,7 +1041,7 @@ class NftVC(
                         })
             },
             popupWidth = WRAP_CONTENT,
-            aboveView = true
+            positioning = WMenuPopup.Positioning.ALIGNED
         )
     }
 
@@ -1095,7 +1107,11 @@ class NftVC(
             ),
             yOffset = 2.dp,
             popupWidth = WRAP_CONTENT,
-            aboveView = false
+            positioning = WMenuPopup.Positioning.BELOW,
+            windowBackgroundStyle = BackgroundStyle.Cutout.fromView(
+                wearActionButton,
+                roundRadius = WEAR_ITEM_SIZE.dp.toFloat()
+            )
         )
     }
 

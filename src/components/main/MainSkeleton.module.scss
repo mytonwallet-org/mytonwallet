@@ -1,0 +1,580 @@
+@use "../../styles/mixins";
+
+@use "../../styles/scssVariables" as v;
+
+// Local variables
+$activityLeftPadding: 2.875rem;
+$activityLeftPaddingMobile: 3rem;
+$card-overlay-primary: rgba(255, 255, 255, 0.2);
+$card-overlay-secondary: rgba(255, 255, 255, 0.15);
+
+// Mixins for skeleton elements
+
+@mixin skeleton-box($width, $height, $radius: var(--border-radius-default)) {
+  width: $width;
+  height: $height;
+  border-radius: $radius;
+}
+
+@mixin skeleton-circle($size) {
+  width: $size;
+  height: $size;
+  border-radius: 50%;
+}
+
+// Placeholder for dynamic size
+%size-from-var {
+  width: calc(var(--size) * 1rem);
+  border-radius: var(--border-radius-default);
+}
+
+// Portrait Layout
+.portraitContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+
+  min-height: calc(var(--vh, 1vh) * 100);
+  padding: 3rem 0.75rem 0;
+
+  background: var(--color-background-second);
+
+  @include mixins.adapt-padding-to-scrollbar(0.75rem);
+
+  @supports (padding-top: var(--safe-area-top)) {
+    min-height: calc(var(--vh, 1vh) * 100 - var(--safe-area-top));
+    padding-top: calc(3rem + var(--safe-area-top));
+  }
+}
+
+.head,
+.assets,
+.contentInner {
+  width: 100%;
+  max-width: v.$portraitContentMaxWidth;
+  margin: 0 auto;
+}
+
+.content {
+  overflow: hidden;
+  flex: 1 1 auto;
+  border-radius: var(--border-radius-default);
+  background-color: var(--color-background-first);
+
+  @include mixins.respond-below(xs) {
+    max-width: calc(100% + 1.5rem);
+    margin: 0 -0.75rem;
+  }
+}
+
+// Landscape Layout
+.landscapeContainer {
+  --app-padding-top: 1rem;
+
+  display: grid;
+  grid-template-columns: 22.3125rem 1fr;
+
+  max-width: 61.25rem;
+  height: 100%;
+  max-height: calc(var(--vh, 1vh) * 100);
+  margin: auto;
+  padding: 0 1rem;
+
+  :global(html.is-electron) & {
+    --app-padding-top: 0;
+
+    height: calc(100vh - var(--electron-header-height));
+  }
+
+  :global(html.is-ios) & {
+    max-width: none;
+
+    @media (min-width: 1100px) and (min-height: 700px) {
+      grid-template-columns: 24.5rem 1fr;
+    }
+  }
+}
+
+.sidebar {
+  scrollbar-gutter: stable;
+
+  overflow: hidden !important;
+  display: flex;
+  flex-direction: column;
+
+  height: 100%;
+  min-height: 0;
+}
+
+.main {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+
+  height: 100%;
+  min-height: 0;
+  padding-top: var(--app-padding-top);
+  padding-bottom: max(var(--safe-area-bottom), 1rem);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 100%;
+  height: #{v.$portraitHeaderHeight};
+
+  @include mixins.respond-below(xs) {
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+
+  @include mixins.respond-above(xs) {
+    margin-bottom: 0.75rem;
+    padding: 0.75rem 0.8125rem;
+    border-radius: var(--border-radius-default);
+    background-color: var(--color-background-first);
+  }
+}
+
+.headerAccount {
+  @include skeleton-box(6rem, 1.25rem);
+}
+
+.headerActions {
+  @include skeleton-box(3rem, 1.25rem);
+}
+
+// Card Skeleton
+.card {
+  position: relative;
+
+  width: 100%;
+  min-width: 16rem;
+  height: 0;
+  margin: 0 auto;
+  padding-top: v.$cardAspectRatio;
+  border-radius: var(--border-radius-card);
+
+  background-image: url("../../assets/cards/card.jpg"), linear-gradient(125deg, #{v.$defaultCardGradient});
+  background-clip: border-box, padding-box, padding-box;
+  background-origin: border-box;
+  background-size: cover, cover;
+
+  @media (min-resolution: 1.5dppx) {
+    background-image: url("../../assets/cards/card@2x.jpg"), linear-gradient(125deg, #{v.$defaultCardGradient});
+  }
+}
+
+.cardInner {
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+
+  width: 100%;
+  height: 100%;
+  padding: max(3.75rem, 17.4927%) 1rem 0.25rem;
+
+  @media (max-width: 360px) {
+    padding: max(2rem, 14%) 1rem 0.25rem;
+  }
+}
+
+.cardBalance {
+  @include skeleton-box(12rem, #{v.$cardPortraitBaseBalanceSize}, var(--border-radius-big));
+
+  margin-bottom: 0.625rem;
+  background-color: $card-overlay-primary !important;
+
+  @include mixins.respond-above(xs) {
+    height: #{v.$cardLandscapeBaseBalanceSize};
+    margin-bottom: 0.5rem;
+  }
+}
+
+.cardBalanceSecondary {
+  @include skeleton-box(7rem, 1.75rem);
+
+  background-color: $card-overlay-secondary !important;
+}
+
+.cardAddress {
+  @include skeleton-box(15rem, 1.125rem);
+
+  margin: auto auto 0.75rem;
+  background-color: $card-overlay-secondary !important;
+}
+
+.openInWallet {
+  position: relative;
+
+  margin-top: 0.75rem;
+  padding: 1rem;
+  border-radius: var(--border-radius-default);
+
+  background-color: var(--color-background-first);
+}
+
+.openInWalletAction {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  left: 1rem;
+
+  height: 3rem;
+  border-radius: var(--border-radius-buttons);
+
+  background-color: var(--color-accent-10o);
+}
+
+.openInWalletActionInner {
+  @include skeleton-box(12rem, 1rem);
+
+  position: relative;
+  z-index: 1;
+
+  margin: 1rem auto 2.25rem;
+
+  opacity: 0.12;
+  background-color: var(--color-secondary-button-text);
+}
+
+.navigation {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.navigationLink {
+  @include skeleton-box(2.625rem, 0.75rem);
+
+  opacity: 0.12;
+  background-color: var(--color-gray-2);
+}
+
+// Tokens
+.assets {
+  @include mixins.respond-above(xs) {
+    max-width: 100% !important;
+    margin-bottom: 0.75rem;
+  }
+}
+
+.tokens {
+  width: 100%;
+  margin: 0 auto;
+  border-radius: var(--border-radius-default);
+  background: var(--color-background-first);
+
+  @include mixins.respond-below(xs) {
+    max-width: v.$portraitContentMaxWidth;
+  }
+}
+
+.token {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 100%;
+  padding: 0.75rem 0.875rem 0.75rem 0.75rem;
+
+  :global(html.is-android) &,
+  :global(html.is-ios) & {
+    padding: 0.6875rem 0.75rem 0.6875rem 0.75rem;
+  }
+}
+
+.tokenIcon {
+  @include skeleton-circle(2.625rem);
+
+  flex-shrink: 0;
+  margin: 0 0.625rem 0 0;
+
+  @include mixins.is-not-mobile() {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+  }
+}
+
+.tokenContent {
+  position: relative;
+  flex-grow: 1;
+  height: 2.0625rem;
+}
+
+.tokenTopLeft,
+.tokenTopRight,
+.tokenBottomLeft,
+.tokenBottomRight {
+  @extend %size-from-var;
+
+  position: absolute;
+}
+
+.tokenTopLeft,
+.tokenTopRight {
+  top: 0;
+  height: 1rem;
+}
+
+.tokenBottomLeft,
+.tokenBottomRight {
+  bottom: 0;
+  height: 0.75rem;
+}
+
+.tokenTopRight,
+.tokenBottomRight {
+  right: 0;
+}
+
+// Actions Skeleton
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.actionsPortrait {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  margin-top: 1rem;
+}
+
+.actionButton {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  height: 3.625rem;
+  padding: 0.5rem;
+  border-radius: var(--border-radius-default);
+
+  background: var(--color-background-first);
+
+  @include mixins.respond-above(xs) {
+    height: 3rem;
+  }
+}
+
+.actionIcon {
+  @include skeleton-circle(1.5rem);
+
+  margin-top: -0.125rem;
+  margin-bottom: 0.375rem;
+}
+
+.actionLabel {
+  @include skeleton-box(4rem, 0.625rem);
+}
+
+// Tabs
+.tabs {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: center;
+  padding: 0.625rem;
+
+  @include mixins.respond-above(xs) {
+    justify-content: flex-start;
+  }
+}
+
+.tabsPortrait {
+  padding: 0.75rem 1.5rem 0.25rem;
+}
+
+.tab {
+  @include skeleton-box(4rem, 1.75rem);
+}
+
+// Activity List
+.activityList {
+  overflow: hidden;
+  flex: 1 1 auto;
+  padding: 0 0.75rem;
+}
+
+.activityListDate {
+  @include skeleton-box(3.125rem, 1.625rem);
+
+  margin: 0.75rem auto 0.3125rem;
+
+  @include mixins.respond-above(xs) {
+    margin: 0 auto 1.125rem;
+
+    .activityRow + & {
+      margin-top: 0.75rem;
+    }
+  }
+}
+
+.activityRow {
+  --accent-color: var(--color-activity-blue-background);
+  --skeleton-background-color: rgba(var(--color-black-rgb), 0.12);
+
+  position: relative;
+  padding: 0.75rem 0 0.6875rem;
+
+  &::before {
+    content: '';
+
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: $activityLeftPadding;
+
+    height: 0.0625rem;
+
+    box-shadow: inset 0 -0.025rem 0 0 var(--color-separator);
+
+    @include mixins.is-mobile() {
+      left: $activityLeftPaddingMobile
+    }
+
+    .activityListDate + & {
+      display: none;
+    }
+  }
+
+  &.outgoing {
+    --accent-color: var(--color-activity-green-background);
+  }
+}
+
+.activityItem {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.activityIcon {
+  @include skeleton-circle(2.25rem);
+
+  flex-shrink: 0;
+  background-color: var(--accent-color);
+
+  @include mixins.is-mobile() {
+    width: 2.375rem;
+    height: 2.375rem;
+  }
+}
+
+.activityContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.activityHeader,
+.activitySubheader {
+  display: flex;
+  gap: 0.25rem;
+  justify-content: space-between;
+}
+
+.activityHeader {
+  margin-bottom: 0.375rem;
+}
+
+.activityName {
+  @include skeleton-box(5rem, 1rem);
+}
+
+.activityAmount {
+  @extend %size-from-var;
+
+  height: 1rem;
+  margin-left: auto;
+
+  .outgoing & {
+    background-color: var(--accent-color);
+  }
+}
+
+.activityToken {
+  @include skeleton-circle(1rem);
+
+  .outgoing & {
+    background-color: var(--accent-color);
+  }
+}
+
+.activityValue,
+.activityDate {
+  @extend %size-from-var;
+
+  height: 0.75rem;
+}
+
+.activityComment {
+  width: 128px;
+  height: 32px;
+  margin-top: 0.5625rem;
+  margin-left: auto;
+  border-radius: var(--border-radius-default) var(--border-radius-mini) var(--border-radius-default) var(--border-radius-default);
+
+  background-color: var(--accent-color);
+
+  .outgoing & {
+    margin-left: 2.875rem;
+    border-top-left-radius: var(--border-radius-mini);
+    border-top-right-radius: var(--border-radius-default);
+
+    @include mixins.is-mobile() {
+      margin-left: 3rem;
+    }
+  }
+}
+
+// BottomBar Skeleton (portrait only)
+.bottomBar {
+  position: fixed;
+  z-index: 2;
+  bottom: 0;
+  left: 0;
+
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+
+  width: 100%;
+  padding-bottom: max(0.25rem, var(--safe-area-bottom));
+
+  background-color: var(--color-app-background);
+  box-shadow: inset 0 0.025rem 0 0 var(--color-separator);
+
+  @supports (backdrop-filter: saturate(180%) blur(20px)) {
+    background-color: var(--color-background-tab-bar);
+    backdrop-filter: saturate(180%) blur(20px);
+  }
+}
+
+.bottomBarButton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1875rem;
+  align-items: center;
+  justify-content: center;
+
+  height: 3.125rem;
+}
+
+.bottomBarIcon {
+  @include skeleton-circle(2rem);
+}
+
+.bottomBarLabel {
+  @include skeleton-box(2.5rem, 0.625rem);
+}

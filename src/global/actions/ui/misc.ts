@@ -113,9 +113,29 @@ addActionHandler('openTransactionInfo', async (global, actions, payload) => {
   const chain = payload.chain;
   const isTxId = 'txId' in payload;
   const txId = isTxId ? payload.txId : payload.txHash;
+  const providedActivities = payload.activities;
 
   if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('openTransactionInfo', isTxId ? { txId, chain } : { txHash: txId, chain });
+    callActionInMain('openTransactionInfo', isTxId
+      ? { txId, chain, activities: providedActivities }
+      : { txHash: txId, chain, activities: providedActivities });
+    return;
+  }
+
+  // If activities are provided, use them directly
+  if (providedActivities && providedActivities.length > 0) {
+    const nextState = providedActivities.length === 1
+      ? TransactionInfoState.ActivityDetail
+      : TransactionInfoState.ActivityList;
+
+    global = getGlobal();
+    setGlobal(updateCurrentTransactionInfo(global, {
+      state: nextState,
+      txId,
+      chain,
+      activities: providedActivities,
+      selectedActivityIndex: providedActivities.length === 1 ? 0 : undefined,
+    }));
     return;
   }
 

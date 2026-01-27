@@ -621,7 +621,7 @@ class WalletsVC(
             ),
             xOffset = if (isGridMode) (-8).dp else 72.dp,
             yOffset = if (isGridMode) 1 else (-20).dp,
-            aboveView = false,
+            positioning = WMenuPopup.Positioning.BELOW,
             centerHorizontally = true,
             onWillDismiss = {
                 cell.isShowingPopup = false

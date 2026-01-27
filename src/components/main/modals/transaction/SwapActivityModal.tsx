@@ -26,10 +26,11 @@ import buildClassName from '../../../../util/buildClassName';
 import { getIsSupportedChain } from '../../../../util/chain';
 import { formatFullDay, formatTime } from '../../../../util/dateFormat';
 import { formatCurrencyExtended } from '../../../../util/formatNumber';
+import { shareUrl } from '../../../../util/share';
 import getChainNetworkName from '../../../../util/swap/getChainNetworkName';
 import { getIsInternalSwap, getSwapType } from '../../../../util/swap/getSwapType';
 import { getChainBySlug, getIsNativeToken } from '../../../../util/tokens';
-import { getExplorerTransactionUrl } from '../../../../util/url';
+import { getViewTransactionUrl } from '../../../../util/url';
 import { ANIMATED_STICKERS_PATHS } from '../../../ui/helpers/animatedAssets';
 
 import useAppTheme from '../../../../hooks/useAppTheme';
@@ -46,6 +47,7 @@ import AnimatedIconWithPreview from '../../../ui/AnimatedIconWithPreview';
 import Button from '../../../ui/Button';
 import InteractiveTextField from '../../../ui/InteractiveTextField';
 import Modal, { CLOSE_DURATION, CLOSE_DURATION_PORTRAIT } from '../../../ui/Modal';
+import ModalHeader from '../../../ui/ModalHeader';
 
 import modalStyles from '../../../ui/Modal.module.scss';
 import styles from './TransactionModal.module.scss';
@@ -195,39 +197,47 @@ function SwapActivityModal({
     selectToken({ slug: tokenSlug });
   });
 
+  const swapTransactionInfo = renderedActivity ? getTransactionHash(renderedActivity) : undefined;
+  const swapChain = swapTransactionInfo?.chain && getIsSupportedChain(swapTransactionInfo.chain)
+    ? swapTransactionInfo.chain
+    : undefined;
+
+  const handleShareClick = useLastCallback(() => {
+    const url = getViewTransactionUrl(swapChain!, swapTransactionInfo!.hash, false);
+    void shareUrl(url);
+  });
+
   useEffect(() => {
     if (id && shouldLoadDetails) fetchActivityDetails({ id });
   }, [id, shouldLoadDetails]);
 
-  function renderHeader() {
-    return (
-      <div className={styles.transactionHeader}>
-        <div className={styles.headerTitle}>
-          {title}
-          {isPending && (
-            <AnimatedIconWithPreview
-              play={isOpen}
-              size={ANIMATED_STICKER_TINY_ICON_PX}
-              nonInteractive
-              noLoop={false}
-              tgsUrl={ANIMATED_STICKERS_PATHS[appTheme].iconClock}
-              previewUrl={ANIMATED_STICKERS_PATHS[appTheme].preview.iconClock}
-            />
-          )}
-          {!!titleBadge && (
-            <span className={buildClassName(styles.headerTitle__badge, isTitleBadgeWarning && styles.warning)}>
-              {titleBadge}
-            </span>
-          )}
-        </div>
-        {!!timestamp && (
-          <div className={styles.headerDate}>
-            {formatFullDay(lang.code!, timestamp)}, {formatTime(timestamp)}
-          </div>
+  const modalTitle = useMemo(() => (
+    <div className={styles.transactionHeader}>
+      <div className={styles.headerTitle}>
+        {title}
+        {isPending && (
+          <AnimatedIconWithPreview
+            play={isOpen}
+            size={ANIMATED_STICKER_TINY_ICON_PX}
+            nonInteractive
+            noLoop={false}
+            tgsUrl={ANIMATED_STICKERS_PATHS[appTheme].iconClock}
+            previewUrl={ANIMATED_STICKERS_PATHS[appTheme].preview.iconClock}
+          />
+        )}
+        {!!titleBadge && (
+          <span className={buildClassName(styles.headerTitle__badge, isTitleBadgeWarning && styles.warning)}>
+            {titleBadge}
+          </span>
         )}
       </div>
-    );
-  }
+      {!!timestamp && (
+        <div className={styles.headerDate}>
+          {formatFullDay(lang.code!, timestamp)}, {formatTime(timestamp)}
+        </div>
+      )}
+    </div>
+  ), [appTheme, isOpen, isPending, isTitleBadgeWarning, lang.code, timestamp, title, titleBadge]);
 
   function renderFooterButton() {
     let isButtonVisible = true;
@@ -362,12 +372,6 @@ function SwapActivityModal({
           noSavedAddress
           address={hash}
           chain={chain}
-          addressUrl={getExplorerTransactionUrl(
-            chain,
-            hash,
-            undefined,
-            selectedExplorerIds?.[chain],
-          )}
           isTransaction
           copyNotification={lang('Transaction ID was copied!')}
         />
@@ -500,12 +504,16 @@ function SwapActivityModal({
   return (
     <Modal
       hasCloseButton
-      title={renderHeader()}
-      titleClassName={styles.modalTitle}
       isOpen={isOpen}
       nativeBottomSheetKey="swap-activity"
       onClose={handleClose}
     >
+      <ModalHeader
+        title={modalTitle}
+        className={styles.modalTitle}
+        onShareClick={swapChain && swapTransactionInfo?.hash ? handleShareClick : undefined}
+        onClose={handleClose}
+      />
       {renderContent()}
     </Modal>
   );

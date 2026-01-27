@@ -9,7 +9,6 @@ import type { IAnchorPosition, SavedAddress } from '../../global/types';
 import type { Layout } from '../../hooks/useMenuPosition';
 import type { DropdownItem } from './Dropdown';
 
-import { IS_EXPLORER } from '../../config';
 import { closeAllOverlays } from '../../global/helpers/misc';
 import {
   selectCurrentAccountId,
@@ -24,7 +23,7 @@ import { stopEvent } from '../../util/domEvents';
 import { handleUrlClick, openUrl } from '../../util/openUrl';
 import { shareUrl } from '../../util/share';
 import { MEANINGFUL_CHAR_LENGTH, shortenAddress } from '../../util/shortenAddress';
-import { getExplorerAddressUrl, getExplorerName, getHostnameFromUrl } from '../../util/url';
+import { getExplorerAddressUrl, getExplorerName, getHostnameFromUrl, getViewTransactionUrl } from '../../util/url';
 import { IS_IOS, IS_TOUCH_ENV, REM } from '../../util/windowEnvironment';
 import windowSize from '../../util/windowSize';
 
@@ -131,7 +130,7 @@ function InteractiveTextField({
   const explorerTitle = lang('View on Explorer');
   const withSavedAddresses = Boolean(!isScam && !noSavedAddress && address);
   const withExplorer = Boolean(!noExplorer && resolvedAddressUrl);
-  const isAddressCanBeViewed = Boolean(!IS_EXPLORER && withSavedAddresses && !isAddressAlreadySaved);
+  const isAddressCanBeViewed = Boolean(withSavedAddresses && !isAddressAlreadySaved);
 
   useEffect(() => {
     if (isSaveAddressModalOpen) {
@@ -163,8 +162,10 @@ function InteractiveTextField({
     void copyTextToClipboard(address || text);
   });
 
-  const handleShare = useLastCallback(() => {
-    void shareUrl(resolvedAddressUrl!, chain ? getExplorerName(chain, selectedExplorerId) : undefined);
+  const handleShareTransaction = useLastCallback(() => {
+    const url = getViewTransactionUrl(chain!, address!, isTestnet);
+
+    void shareUrl(url);
   });
 
   const handleExplorerOpen = useLastCallback(() => {
@@ -201,7 +202,7 @@ function InteractiveTextField({
     closeActionsMenu,
   } = useDropdownMenu({
     copy: handleCopy,
-    share: handleShare,
+    share: handleShareTransaction,
     addressBook: isAddressAlreadySaved ? openDeletedSavedAddressModal : openSaveAddressModal,
     explorer: handleExplorerOpen,
     viewInApp: handleViewInApp,
@@ -365,7 +366,7 @@ function InteractiveTextField({
             className={styles.button}
             title={lang('Share Link')}
             aria-label={lang('Share Link')}
-            onClick={handleShare}
+            onClick={handleShareTransaction}
           >
             <i className={buildClassName(styles.icon, styles.iconShare, 'icon-link')} aria-hidden />
           </span>

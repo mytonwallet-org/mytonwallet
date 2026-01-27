@@ -38,6 +38,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
+import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -125,7 +126,8 @@ class InAppBrowserTopBarView(
                             }
                         )
                     } ?: emptyList(),
-                    aboveView = false
+                    positioning = WMenuPopup.Positioning.BELOW,
+                    windowBackgroundStyle = BackgroundStyle.Cutout.fromView(subtitleLabel)
                 )
             }
         }
@@ -267,7 +269,10 @@ class InAppBrowserTopBarView(
                 textWithArrow(options.find { it.identifier == selectedOption }?.title)
         }
         backButton.background = null
-        backButton.addRippleEffect(WColor.SecondaryBackground.colorForTheme(shouldRenderAsDarkMode), 100f)
+        backButton.addRippleEffect(
+            WColor.SecondaryBackground.colorForTheme(shouldRenderAsDarkMode),
+            100f
+        )
     }
 
     fun blendColors(color1: Int, color2: Int, ratio: Float): Int {
@@ -443,7 +448,7 @@ class InAppBrowserTopBarView(
                     )
                 }),
             popupWidth = WRAP_CONTENT,
-            aboveView = true
+            positioning = WMenuPopup.Positioning.ALIGNED
         )
     }
 

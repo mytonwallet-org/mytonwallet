@@ -18,21 +18,24 @@ import androidx.core.content.ContextCompat
 import androidx.core.widget.addTextChangedListener
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
-import org.mytonwallet.app_air.uicomponents.commonViews.TemporaryAccountItemView
+import org.mytonwallet.app_air.uicomponents.commonViews.AccountItemView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WEditText
 import org.mytonwallet.app_air.uicomponents.widgets.dialog.WDialog
 import org.mytonwallet.app_air.uicomponents.widgets.dialog.WDialogButton
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
+import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MSavedAddress
 import org.mytonwallet.app_air.walletcore.stores.AddressStore
@@ -42,8 +45,6 @@ import kotlin.math.roundToInt
 
 class AddressPopupHelpers {
     companion object {
-        const val POPUP_WIDTH = 196
-
         fun configSpannableAddress(
             viewController: WeakReference<WViewController>,
             title: CharSequence?,
@@ -54,6 +55,7 @@ class AddressPopupHelpers {
             addressTokenSlug: String,
             address: String,
             popupXOffset: Int,
+            centerHorizontally: Boolean,
             color: Int? = null,
             showTemporaryViewOption: Boolean,
         ) {
@@ -76,14 +78,20 @@ class AddressPopupHelpers {
                     override fun onClick(widget: View) {
                         TokenStore.getToken(addressTokenSlug)?.mBlockchain?.let { blockchain ->
                             presentMenu(
-                                viewController,
-                                widget,
-                                title,
-                                blockchain,
-                                network,
-                                address,
-                                popupXOffset,
-                                showTemporaryViewOption
+                                viewController = viewController,
+                                view = widget,
+                                title = title,
+                                blockchain = blockchain,
+                                network = network,
+                                address = address,
+                                xOffset = popupXOffset,
+                                yOffset = 0,
+                                centerHorizontally = centerHorizontally,
+                                showTemporaryViewOption = showTemporaryViewOption,
+                                windowBackgroundStyle = BackgroundStyle.Cutout.fromView(
+                                    widget,
+                                    roundRadius = 16f.dp
+                                )
                             )
                         }
                     }
@@ -106,23 +114,44 @@ class AddressPopupHelpers {
             blockchain: MBlockchain,
             network: MBlockchainNetwork,
             address: String,
-            xOffset: Int,
+            xOffset: Int = 0,
+            yOffset: Int = 0,
+            centerHorizontally: Boolean,
             showTemporaryViewOption: Boolean,
+            windowBackgroundStyle: BackgroundStyle,
+            displayProgressListener: ((progress: Float) -> Unit)? = null,
         ) {
-            val context = viewController.get()!!.view.context
+            val context = viewController.get()?.view?.context ?: return
+            val addressSaved = AddressStore.getAddress(address) != null
             WMenuPopup.present(
                 view,
                 listOfNotNull(
                     if (showTemporaryViewOption)
                         WMenuPopup.Item(
                             config = WMenuPopup.Item.Config.CustomView(
-                                TemporaryAccountItemView(
-                                    context,
-                                    title,
-                                    blockchain,
-                                    network,
-                                    address,
-                                    true
+                                AccountItemView(
+                                    context = context,
+                                    accountData = AccountItemView.AccountData(
+                                        accountId = null,
+                                        title = title,
+                                        network = network,
+                                        byChain = mapOf(
+                                            blockchain.name to MAccount.AccountChain(
+                                                address = address
+                                            )
+                                        ),
+                                        accountType = null,
+                                    ),
+                                    showArrow = true,
+                                    isTrusted = false,
+                                    hasSeparator = true,
+                                    onSelect = {
+                                        WalletContextManager.delegate?.openASingleWallet(
+                                            network,
+                                            mapOf(blockchain.name to address),
+                                            title?.toString()
+                                        )
+                                    }
                                 )
                             ),
                             hasSeparator = true
@@ -130,7 +159,7 @@ class AddressPopupHelpers {
 
                         } else null,
                     WMenuPopup.Item(
-                        org.mytonwallet.app_air.icons.R.drawable.ic_copy,
+                        org.mytonwallet.app_air.icons.R.drawable.ic_copy_30,
                         LocaleController.getString("Copy Address"),
                     ) {
                         val clipboard =
@@ -147,13 +176,18 @@ class AddressPopupHelpers {
                             Toast.LENGTH_SHORT
                         ).show()
                     },
-                    /*WMenuPopup.Item(
-                        org.mytonwallet.app_air.uicomponents.R.drawable.ic_star, // TODO:: Update this icon
+                    WMenuPopup.Item(
+                        if (addressSaved) {
+                            org.mytonwallet.app_air.uicomponents.R.drawable.ic_star_cross_30
+                        } else {
+                            org.mytonwallet.app_air.uicomponents.R.drawable.ic_star_30
+                        },
                         LocaleController.getString(
-                            if (AddressStore.getAddress(address) == null)
+                            if (addressSaved) {
+                                "Remove From Saved"
+                            } else {
                                 "Save Address"
-                            else
-                                "Remove from Saved"
+                            }
                         ),
                     ) {
                         if (AddressStore.getAddress(address) == null) {
@@ -166,9 +200,9 @@ class AddressPopupHelpers {
                         } else {
                             removeAddressPressed(address, viewController)
                         }
-                    },*/
+                    },
                     WMenuPopup.Item(
-                        org.mytonwallet.app_air.icons.R.drawable.ic_world,
+                        org.mytonwallet.app_air.icons.R.drawable.ic_world_30,
                         LocaleController.getString("View on Explorer"),
                     ) {
                         val walletEvent =
@@ -177,7 +211,11 @@ class AddressPopupHelpers {
                     }),
                 popupWidth = WRAP_CONTENT,
                 xOffset = xOffset,
-                aboveView = false
+                yOffset = yOffset,
+                positioning = WMenuPopup.Positioning.BELOW,
+                centerHorizontally = centerHorizontally,
+                windowBackgroundStyle = windowBackgroundStyle,
+                displayProgressListener = displayProgressListener,
             )
         }
 

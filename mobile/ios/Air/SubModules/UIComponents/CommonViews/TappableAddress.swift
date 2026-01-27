@@ -70,9 +70,9 @@ public struct TappableAddressFull: View {
         AppActions.openInBrowser(url)
     }
     
-    public init(accountContext: AccountContext, chain: String, address: String) {
+    public init(accountContext: AccountContext, chain: String?, address: String) {
         self.accountContext = accountContext
-        self.chain = chain
+        self.chain = chain ?? FALLBACK_CHAIN.rawValue
         self.address = address
     }
     

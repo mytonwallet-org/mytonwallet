@@ -29,7 +29,7 @@ struct SignDataViewOrPlaceholder: View {
 struct SignDataView: View {
 
     var update: ApiUpdate.DappSignData
-    var account: MAccount
+    var accountContext: AccountContext
     var onConfirm: () -> ()
     var onCancel: () -> ()
     
@@ -37,8 +37,11 @@ struct SignDataView: View {
 
     var body: some View {
         InsetList {
-            SignDataHeader(dapp: update.dapp, account: account)
-                .padding(.bottom, 16)
+            DappHeaderView(
+                dapp: update.dapp,
+                accountContext: accountContext,
+            )
+            .padding(.bottom, 16)
             switch update.payloadToSign {
             case .text(let text):
                 makeText(payload: text)

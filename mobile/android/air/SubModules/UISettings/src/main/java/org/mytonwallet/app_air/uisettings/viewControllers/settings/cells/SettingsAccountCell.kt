@@ -48,7 +48,7 @@ class SettingsAccountCell(context: Context) : WCell(context), ISettingsItemCell,
     }
 
     private val iconView: AccountIconView by lazy {
-        AccountIconView(context, AccountIconView.Usage.SELECTABLE_ITEM)
+        AccountIconView(context, AccountIconView.Usage.SelectableItem(16f.dp))
     }
 
     private val titleLabel: WLabel by lazy {

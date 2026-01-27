@@ -15,6 +15,8 @@ import type {
 import type { Account, SavedAddress, Theme } from '../../../../global/types';
 import { TransactionInfoState } from '../../../../global/types';
 
+import { IS_EXPLORER } from '../../../../config';
+import { resolveSwapAsset } from '../../../../global/helpers';
 import {
   selectAccountStakingStatesBySlug,
   selectCurrentAccountId,
@@ -23,9 +25,14 @@ import {
   selectIsHardwareAccount,
   selectNetworkAccounts,
 } from '../../../../global/selectors';
+import { parseTxId } from '../../../../util/activities';
 import { getDoesUsePinPad } from '../../../../util/biometrics';
 import buildClassName from '../../../../util/buildClassName';
+import { getIsSupportedChain } from '../../../../util/chain';
 import resolveSlideTransitionName from '../../../../util/resolveSlideTransitionName';
+import { shareUrl } from '../../../../util/share';
+import { getChainBySlug } from '../../../../util/tokens';
+import { getViewTransactionUrl } from '../../../../util/url';
 
 import useAppTheme from '../../../../hooks/useAppTheme';
 import useEncryptedComment from '../../../../hooks/useEncryptedComment';
@@ -184,10 +191,33 @@ function TransactionInfoModal({
     selectTransactionInfoActivity({ index: -1 });
   });
 
+  const selectedShareInfo = useMemo(() => {
+    return selectedActivity
+      ? getActivityShareInfo(selectedActivity, swapTokensBySlug)
+      : undefined;
+  }, [selectedActivity, swapTokensBySlug]);
+
+  const handleDetailShareClick = useLastCallback(() => {
+    const url = getViewTransactionUrl(selectedShareInfo!.chain, selectedShareInfo!.hash, isTestnet);
+    void shareUrl(url);
+  });
+
+  const firstActivity = activities?.[0];
+  const firstActivityShareInfo = useMemo(() => {
+    return firstActivity
+      ? getActivityShareInfo(firstActivity, swapTokensBySlug)
+      : undefined;
+  }, [firstActivity, swapTokensBySlug]);
+
+  const handleListShareClick = useLastCallback(() => {
+    const url = getViewTransactionUrl(firstActivityShareInfo!.chain, firstActivityShareInfo!.hash, isTestnet);
+    void shareUrl(url);
+  });
+
   function renderLoading() {
     return (
       <>
-        <ModalHeader title={lang('Transaction Info')} onClose={handleClose} />
+        <ModalHeader className={styles.scrollableContent} title={lang('Transaction Info')} onClose={handleClose} />
         <div className={styles.loadingContainer}>
           <Spinner />
         </div>
@@ -199,7 +229,7 @@ function TransactionInfoModal({
     if (!activities?.length) {
       return (
         <>
-          <ModalHeader title={lang('Transaction Info')} onClose={handleClose} />
+          <ModalHeader className={styles.scrollableContent} title={lang('Transaction Info')} onClose={handleClose} />
           <div className={styles.emptyState}>
             {lang('No activities found')}
           </div>
@@ -209,7 +239,12 @@ function TransactionInfoModal({
 
     return (
       <>
-        <ModalHeader title={lang('Transaction Info')} onClose={handleClose} />
+        <ModalHeader
+          className={styles.scrollableContent}
+          title={lang('Transaction Info')}
+          onShareClick={firstActivityShareInfo ? handleListShareClick : undefined}
+          onClose={handleClose}
+        />
         <div className={buildClassName(modalStyles.transitionContent, styles.activityList)}>
           <div className={styles.activityListContainer}>
             {activities.map((activity, index) => (
@@ -255,10 +290,12 @@ function TransactionInfoModal({
       return (
         <>
           <TransactionHeader
+            isModalOpen={isOpen}
             transaction={selectedTransactionActivity}
             appTheme={appTheme}
-            isModalOpen={isOpen}
+            className={styles.scrollableContent}
             onBackClick={backButton}
+            onShareClick={selectedShareInfo ? handleDetailShareClick : undefined}
             onClose={handleClose}
           />
           <TransactionInfo
@@ -271,6 +308,7 @@ function TransactionInfoModal({
             baseCurrency={baseCurrency}
             currencyRates={currencyRates}
             theme={theme}
+            className={styles.scrollableContent}
             isTestnet={isTestnet}
             isOpen={isOpen}
             isSensitiveDataHidden={isSensitiveDataHidden}
@@ -293,10 +331,12 @@ function TransactionInfoModal({
       <>
         <ModalHeader
           title={lang('Swap Details')}
+          className={styles.scrollableContent}
           onBackButtonClick={backButton}
+          onShareClick={selectedShareInfo ? handleDetailShareClick : undefined}
           onClose={handleClose}
         />
-        <div className={modalStyles.transitionContent}>
+        <div className={buildClassName(modalStyles.transitionContent, styles.scrollableContent)}>
           <SwapActivityInfo
             activity={activity}
             tokensBySlug={swapTokensBySlug}
@@ -315,6 +355,7 @@ function TransactionInfoModal({
       <PasswordSlide
         isActive={isActive}
         error={passwordError}
+        childClassName={styles.scrollableContent}
         onSubmit={handlePasswordSubmit}
         onCancel={closePasswordSlide}
         onUpdate={clearPasswordError}
@@ -350,9 +391,9 @@ function TransactionInfoModal({
       onCloseAnimationEnd={closePasswordSlide}
     >
       <Transition
-        name={resolveSlideTransitionName()}
-        className={buildClassName(modalStyles.transition, 'custom-scroll')}
-        slideClassName={modalStyles.transitionSlide}
+        name={IS_EXPLORER ? 'semiFade' : resolveSlideTransitionName()}
+        className={buildClassName(modalStyles.transition, styles.rootTransition, 'custom-scroll')}
+        slideClassName={buildClassName(modalStyles.transitionSlide, IS_EXPLORER && styles.explorerSlide)}
         activeKey={activeSlide}
       >
         {renderContent}
@@ -391,3 +432,20 @@ export default memo(withGlobal((global): StateProps => {
     selectedExplorerIds: global.settings.selectedExplorerIds,
   };
 })(TransactionInfoModal));
+
+function getActivityShareInfo(
+  activity: ApiActivity,
+  swapTokensBySlug?: Record<string, ApiSwapAsset>,
+): { chain: ApiChain; hash: string } | undefined {
+  if (activity.kind === 'transaction') {
+    const chain = getChainBySlug(activity.slug);
+    const hash = parseTxId(activity.id).hash;
+    return chain && hash ? { chain, hash } : undefined;
+  }
+
+  const fromToken = swapTokensBySlug ? resolveSwapAsset(swapTokensBySlug, activity.from) : undefined;
+  const chain = fromToken?.chain && getIsSupportedChain(fromToken.chain) ? fromToken.chain : undefined;
+  const isCex = Boolean(activity.cex);
+  const hash = isCex ? activity.hashes?.[0] : parseTxId(activity.id).hash;
+  return chain && hash ? { chain, hash } : undefined;
+}

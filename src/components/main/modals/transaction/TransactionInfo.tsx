@@ -73,6 +73,7 @@ interface OwnProps {
   transactionIdRef?: ElementRef<HTMLDivElement>;
   forceShowAddress?: boolean;
   showBothAddresses?: boolean;
+  className?: string;
   onSendClick?: NoneToVoidFunction;
   onStartStakingClick?: NoneToVoidFunction;
   onUnstakeMoreClick?: NoneToVoidFunction;
@@ -107,6 +108,7 @@ function TransactionInfo({
   transactionIdRef,
   forceShowAddress,
   showBothAddresses,
+  className,
   onSendClick,
   onStartStakingClick,
   onUnstakeMoreClick,
@@ -263,7 +265,6 @@ function TransactionInfo({
           noSavedAddress
           chain={chain}
           address={transactionHash}
-          addressUrl={transactionUrl}
           isTransaction
           copyNotification={lang('Transaction ID was copied!')}
           className={styles.changellyTextField}
@@ -335,7 +336,7 @@ function TransactionInfo({
   }
 
   return (
-    <div className={modalStyles.transitionContent}>
+    <div className={buildClassName(modalStyles.transitionContent, className)}>
       {amountDisplayMode !== 'hide' && (
         <TransactionAmount
           isSensitiveDataHidden={isSensitiveDataHidden}

@@ -9,7 +9,6 @@ import UIKit
 import UIComponents
 import WalletCore
 import WalletContext
-import LocalAuthentication
 
 protocol PasscodeScreenViewDelegate: PasscodeInputViewDelegate {
     @MainActor func animateSuccess()
@@ -18,11 +17,10 @@ protocol PasscodeScreenViewDelegate: PasscodeInputViewDelegate {
 
 public class PasscodeScreenView: UIView {
     
+    /// An external config used for `effectiveBiometryType` in the work context.
     private let biometricPassAllowed: Bool
     private weak var delegate: PasscodeScreenViewDelegate? = nil
-    
-    private var context: LAContext? = nil
-    
+        
     init(
         title: String,
         replacedTitle: String? = nil,
@@ -53,6 +51,16 @@ public class PasscodeScreenView: UIView {
     }
     private var unlockScreenTintColor: UIColor {
         WTheme.unlockScreen.background != .label ? .white : WTheme.backgroundReverse
+    }
+
+    /// If not nil, indicates that authentication using the available biometry type is permitted.
+    /// This property takes into account both the `biometricPassAllowed` configuration and whether 
+    /// the user has enabled biometrics.
+    private var effectiveBiometryType: BiometryType? {
+        guard biometricPassAllowed, AppStorageHelper.isBiometricActivated() else {
+            return nil
+        }
+        return BiometricHelper.biometryType
     }
     
     private(set) var passcodeInputView: PasscodeInputView!
@@ -126,6 +134,8 @@ public class PasscodeScreenView: UIView {
             unlockView.setCustomSpacing(40, after: lockImageView)
         }
         
+        let biometryType = effectiveBiometryType
+        
         // enter passcode hint
         enterPasscodeLabel = WReplacableLabel()
         enterPasscodeLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -133,14 +143,10 @@ public class PasscodeScreenView: UIView {
         if compactLayout {
             enterPasscodeLabel.label.font = .systemFont(ofSize: 17)
             let hintText: String
-            if AppStorageHelper.isBiometricActivated() {
-                if BiometricHelper.biometricType() == .touch {
-                    hintText = lang("Enter code or use Touch ID")
-                } else {
-                    hintText = lang("Enter code or use Face ID")
-                }
-            } else {
-                hintText = lang("Enter code")
+            switch biometryType {
+            case .touch: hintText = lang("Enter code or use Touch ID")
+            case .face: hintText = lang("Enter code or use Face ID")
+            case nil: hintText = lang("Enter code")
             }
             enterPasscodeLabel.label.text = hintText
             enterPasscodeLabel.label.textColor = WTheme.secondaryLabel
@@ -250,17 +256,17 @@ public class PasscodeScreenView: UIView {
                     button.highlightBackgroundColor = .clear
                     let image: UIImage
                     if c == 1 {
-                        // touchID / faceID
-                        let biometricType = BiometricHelper.biometricType()
-                        if biometricType == .face {
-                            image = UIImage(named: "FaceIDIcon", in: AirBundle, compatibleWith: nil)!
-                        } else {
-                            image = UIImage(named: "TouchIDIcon", in: AirBundle, compatibleWith: nil)!
+                        var imageName: String
+                        switch biometryType {
+                        case .face:
+                            imageName = "FaceIDIcon"
+                        case .touch:
+                            imageName = "TouchIDIcon"
+                        case nil:
+                            imageName = "FaceIDIcon" // just a placeholder. if will be hidden
+                            hideButton(button)
                         }
-                        // check if biometric pass is allowed
-                        if !biometricPassAllowed {
-                            button.alpha = 0 // if we set isHidden, stackView will not consider it's space
-                        }
+                        image = UIImage(named: imageName, in: AirBundle, compatibleWith: nil)!
                     } else {
                         // backspace!
                         image = UIImage(named: "BackspaceIcon", in: AirBundle, compatibleWith: nil)!
@@ -338,14 +344,18 @@ public class PasscodeScreenView: UIView {
         }
     }
     
+    private func hideButton(_ button: UIView) {
+        button.alpha = 0 // if we set isHidden, stackView will not consider it's space
+    }
+    
+    private let biometricButtonTag = 10
+    
     @objc func buttonPressed(button: UIButton) {
         switch button.tag {
-        case 10:    // touchID / faceID
+        case biometricButtonTag:
             tryBiometric()
-            break
         case 11:    // 0 number
             passcodeInputView.currentPasscode += "0"
-            break
         case 12:
             passcodeInputView.deleteBackward()
         default:
@@ -354,39 +364,31 @@ public class PasscodeScreenView: UIView {
     }
 
     func tryBiometric() {
-        if !biometricPassAllowed {
+        guard effectiveBiometryType != nil else {
             return
         }
-
-        let context = LAContext()
-        self.context = context
-        var error: NSError?
-
-        if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
-            let reason = lang("MyTonWallet uses biometric authentication to unlock and authorize transactions")
-
-            context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) {
-                [weak self] success, authenticationError in
-                self?.context = nil
-                DispatchQueue.main.async { [weak self] in
-                    if success {
-                        self?.delegate?.animateSuccess()
-                        self?.delegate?.onAuthenticated(taskDone: false, passcode: KeychainHelper.biometricPasscode())
-                    } else {
-                    }
-                }
-            }
+        
+        Task { @MainActor [weak self] in
+            guard let self else { return }
             
-        } else {
-            let topVC = topViewController() as? WViewController
-            topVC?.showAlert(title: lang("Biometric authentication not available."),
-                             text: lang("Please set a passcode on your device, and then try to use biometric authentication."),
-                             button: lang("OK"))
+            let result = await BiometricHelper.authenticate()
+            switch result {
+            case .canceled:
+                break
+            case .userDeniedBiometrics:
+                guard let button = viewWithTag(biometricButtonTag) else {
+                    assertionFailure("Unable to get the biometric button")
+                    break
+                }
+                hideButton(button)
+            case .success:
+                delegate?.animateSuccess()
+                delegate?.onAuthenticated(taskDone: false, passcode: KeychainHelper.biometricPasscode())
+            case let .error(localizedDescription, title):
+                let topVC = topViewController() as? WViewController
+                topVC?.showAlert(title: title, text: localizedDescription, button: lang("OK"))
+            }
         }
-    }
-    
-    func cancelBiometric() {
-        context?.invalidate()
     }
     
     func wrongPassFeedback() {

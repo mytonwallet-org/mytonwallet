@@ -652,7 +652,12 @@ extension JSWebViewBridge: WKScriptMessageHandler {
                     break
                     
                 case "updateAccountDomainData":
-                    break
+                    do {
+                        let update = try JSONSerialization.decode(ApiUpdate.UpdateAccountDomainData.self, from: data)
+                        WalletCoreData.notify(event: .updateAccountDomainData(update))
+                    } catch {
+                        log.fault("failed to decode updateAccountDomainData \(error, .public)")
+                    }
 
                 case "showError":
                     if let error = data["error"] as? String {
