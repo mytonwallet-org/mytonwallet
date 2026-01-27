@@ -51,13 +51,9 @@ sealed class Deeplink {
     data class Transaction(
         override val accountAddress: String?,
         val chain: String?,
-        val txId: String,
+        val txId: String?,
+        val txHash: String?,
         val isPushNotification: Boolean
-    ) : Deeplink()
-
-    data class Jetton(
-        override val accountAddress: String?,
-        val slug: String
     ) : Deeplink()
 
     data class TokenBySlug(override val accountAddress: String?, val slug: String) : Deeplink()
@@ -120,19 +116,16 @@ class DeeplinkParser {
                     )
                 }
 
-                "nativeTx", "swap" -> {
+                "nativeTx", "swap", "jettonTx" -> {
                     val txId = bundle.getString("txId") ?: return null
+                    val chain = bundle.getString("chain") ?: MBlockchain.ton.name
                     return Deeplink.Transaction(
                         accountAddress = address,
-                        chain = null,
+                        chain = chain,
                         txId = txId,
+                        txHash = null,
                         isPushNotification = true
                     )
-                }
-
-                "jettonTx" -> {
-                    val slug = bundle.getString("slug") ?: return null
-                    return Deeplink.Jetton(accountAddress = address, slug = slug)
                 }
 
                 "staking" -> {
@@ -273,7 +266,13 @@ class DeeplinkParser {
                     if (pathParts.size > 1) {
                         val chain = pathParts[0]
                         val txId = pathParts.drop(1).joinToString("/")
-                        return Deeplink.Transaction(null, chain, txId, isPushNotification = false)
+                        return Deeplink.Transaction(
+                            accountAddress = null,
+                            chain = chain,
+                            txId = txId,
+                            txHash = null,
+                            isPushNotification = false,
+                        )
                     } else {
                         return null
                     }

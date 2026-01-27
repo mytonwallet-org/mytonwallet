@@ -29,7 +29,6 @@ object AccountStore : IStore {
     val activeAccountId get() = _activeAccountIdFlow.value
     val activeAccountIdFlow = _activeAccountIdFlow.asStateFlow()
     fun updateActiveAccount(accountId: String?) {
-        isAccountInitialized = false
         _activeAccountIdFlow.value = accountId
     }
 
@@ -37,7 +36,6 @@ object AccountStore : IStore {
     var activeAccount: MAccount? = null
     var updatingActivities: Boolean = false
     var updatingBalance: Boolean = false
-    var isAccountInitialized: Boolean = false
 
     // Indicates if the active account is pushed temporarily.
     //  It's set to false whenever switching to default wallet mode.

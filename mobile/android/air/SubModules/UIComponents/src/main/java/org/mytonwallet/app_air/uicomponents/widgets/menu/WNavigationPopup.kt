@@ -1,12 +1,18 @@
 package org.mytonwallet.app_air.uicomponents.widgets.menu
 
+import android.graphics.drawable.Drawable
+import android.os.Build
 import android.view.View.GONE
 import android.view.View.VISIBLE
+import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.animation.AccelerateDecelerateInterpolator
+import android.view.animation.LinearInterpolator
 import android.widget.FrameLayout
+import androidx.core.view.children
 import androidx.core.view.updateLayoutParams
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.drawable.WCutoutDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.animatorSet
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
@@ -24,10 +30,13 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
+import org.mytonwallet.app_air.walletcore.JSWebViewBridge
+import kotlin.math.roundToInt
 
 class WNavigationPopup(
     private val initialPopupView: WMenuPopupView,
     private val popupWidth: Int,
+    private val windowBackgroundStyle: WMenuPopup.BackgroundStyle
 ) : INavigationPopup {
 
     private val popupHost: WPopupHost? get() = PopupHelpers.popupHost
@@ -49,7 +58,9 @@ class WNavigationPopup(
         init {
             if (isBlurSupported) {
                 addView(blurryBackground, LayoutParams(0, 0))
-                popupHost?.windowView?.let { blurryBackground.setupWith(it) }
+                (popupHost?.windowView?.children?.firstOrNull { it is ViewGroup && it !is JSWebViewBridge } as? ViewGroup)?.let {
+                    blurryBackground.setupWith(it)
+                }
             }
             updateTheme()
         }
@@ -102,9 +113,17 @@ class WNavigationPopup(
             } else {
                 setBackgroundColor(WColor.Background.color, roundRadius, true)
             }
+            updateShadows()
+        }
+
+        fun updateShadows() {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                outlineAmbientShadowColor = WColor.PopupAmbientShadow.color
+                outlineSpotShadowColor = WColor.PopupSpotShadow.color
+            }
         }
     }.apply {
-        elevation = 4f.dp
+        updateShadows()
         val layoutWidth = if (popupWidth == WRAP_CONTENT) WRAP_CONTENT else popupWidth
         addView(initialPopupView, FrameLayout.LayoutParams(layoutWidth, WRAP_CONTENT))
         if (isBlurSupported) {
@@ -115,24 +134,35 @@ class WNavigationPopup(
         }
     }
 
+    private var windowBackgroundDrawable: Drawable? = null
+
     private val rootContainerLayout: WFrameLayout = object : WFrameLayout(
         initialPopupView.context
     ), WThemedView {
         override fun updateTheme() {
             contentContainerLayout.updateTheme()
             popupViews.forEach { it.updateTheme() }
+            (windowBackgroundDrawable as? WCutoutDrawable)?.color = WColor.PopupWindow.color
         }
     }.apply {
         val params = FrameLayout.LayoutParams(
             if (popupWidth == WRAP_CONTENT) WRAP_CONTENT else popupWidth,
             WRAP_CONTENT
         )
+        if (windowBackgroundStyle is WMenuPopup.BackgroundStyle.Cutout) {
+            background = WCutoutDrawable().apply {
+                color = WColor.PopupWindow.color
+                cutoutPath = windowBackgroundStyle.cutoutPath
+                windowBackgroundDrawable = this
+            }
+        }
         addView(contentContainerLayout, params)
         setOnClickListener { dismiss() }
     }
 
     private val popupViews = mutableListOf(initialPopupView)
     private var onDismissListener: (() -> Unit)? = null
+    private var displayProgressListener: ((progress: Float) -> Unit)? = null
     private var isDismissed = false
 
     init {
@@ -143,14 +173,28 @@ class WNavigationPopup(
         onDismissListener = listener
     }
 
-    fun showAtLocation(x: Int, y: Int, initialHeight: Int = 0) {
+    fun setDisplayProgressListener(listener: ((progress: Float) -> Unit)?) {
+        displayProgressListener = listener
+    }
+
+    fun showAtLocation(
+        x: Int, y: Int, initialHeight: Int = 0, fromTop: Boolean = true
+    ) {
         val popupHost = this.popupHost ?: return
         contentContainerLayout.apply {
             translationX = x.toFloat() - popupHost.paddingLeft
             translationY = y.toFloat() - popupHost.paddingTop
+            elevation =
+                (if (windowBackgroundStyle is WMenuPopup.BackgroundStyle.Transparent) 4f else 2f).dp
         }
         popupHost.addView(rootContainerLayout)
-        initialPopupView.present(initialHeight)
+        windowBackgroundDrawable?.alpha = 0
+        val interpolator = LinearInterpolator()
+        initialPopupView.present(initialHeight, fromTop) { animationFraction ->
+            val interpolated = interpolator.getInterpolation(animationFraction)
+            windowBackgroundDrawable?.alpha = (255 * interpolated).roundToInt()
+            displayProgressListener?.invoke(animationFraction)
+        }
         PopupHelpers.popupShown(this)
     }
 
@@ -162,7 +206,7 @@ class WNavigationPopup(
         val currentView = popupViews.last()
         currentView.lockView()
 
-        nextPopupView.present(initialHeight = currentView.height)
+        nextPopupView.present(initialHeight = currentView.height, fromTop = true)
         nextPopupView.alpha = 0f
         nextPopupView.translationX = transitionXOffset
         nextPopupView.lockView()
@@ -268,18 +312,28 @@ class WNavigationPopup(
         }
     }
 
+    override fun onBackPressed() {
+        pop(animated = true)
+    }
+
     override fun dismiss() {
         if (isDismissed) {
             return
         }
-
         popupViews.last().apply {
+            PopupHelpers.popupDismissed(this@WNavigationPopup)
             if (isDismissed) {
                 removeFromParent()
                 return
             }
             lockView()
-            dismiss()
+            val interpolator = LinearInterpolator()
+            dismiss { animationFraction ->
+                val reversed = 1 - animationFraction
+                val reversedInterpolated = interpolator.getInterpolation(reversed)
+                windowBackgroundDrawable?.alpha = (255 * reversedInterpolated).roundToInt()
+                displayProgressListener?.invoke(reversedInterpolated)
+            }
             PopupHelpers.popupDismissed(this@WNavigationPopup)
         }
     }
@@ -289,6 +343,7 @@ class WNavigationPopup(
             return
         }
         isDismissed = true
+        PopupHelpers.popupDismissed(this@WNavigationPopup)
 
         popupHost?.removeView(rootContainerLayout)
         onDismissListener?.invoke()

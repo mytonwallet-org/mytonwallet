@@ -206,25 +206,33 @@ object NftStore : IStore {
         nftData?.linkedAddressByAddress = linkedAddressByAddress
     }
 
-    fun add(nft: ApiNft) {
-        val index = nftData?.cachedNfts?.indexOfFirst { it.address == nft.address }
-        if ((index ?: -1) > -1) {
-            nftData?.cachedNfts?.set(index!!, nft)
-        } else {
-            if (nftData?.cachedNfts == null)
-                nftData?.cachedNfts = mutableListOf(nft)
-            else
-                nftData?.cachedNfts?.add(0, nft)
+    fun add(accountId: String, nft: ApiNft) {
+        cacheExecutor.execute {
+            if (nftData?.accountId != accountId)
+                return@execute
+            val index = nftData?.cachedNfts?.indexOfFirst { it.address == nft.address }
+            if ((index ?: -1) > -1) {
+                nftData?.cachedNfts?.set(index!!, nft)
+            } else {
+                if (nftData?.cachedNfts == null)
+                    nftData?.cachedNfts = mutableListOf(nft)
+                else
+                    nftData?.cachedNfts?.add(0, nft)
+            }
+            writeToCache()
+            WalletCore.notifyEvent(WalletEvent.ReceivedNewNFT)
         }
-        writeToCache()
-        WalletCore.notifyEvent(WalletEvent.ReceivedNewNFT)
     }
 
-    fun removeByAddress(nftAddress: String) {
-        nftData?.cachedNfts =
-            nftData?.cachedNfts?.filter { it.address != nftAddress }?.toMutableList()
-        writeToCache()
-        WalletCore.notifyEvent(WalletEvent.NftsUpdated)
+    fun removeByAddress(accountId: String, nftAddress: String) {
+        cacheExecutor.execute {
+            if (nftData?.accountId != accountId)
+                return@execute
+            nftData?.cachedNfts =
+                nftData?.cachedNfts?.filter { it.address != nftAddress }?.toMutableList()
+            writeToCache()
+            WalletCore.notifyEvent(WalletEvent.NftsUpdated)
+        }
     }
 
     override fun wipeData() {

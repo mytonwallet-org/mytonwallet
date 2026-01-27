@@ -1,22 +1,31 @@
 package org.mytonwallet.app_air.uicomponents.widgets.menu
 
+import android.graphics.Path
 import android.view.View
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
+import org.mytonwallet.app_air.uicomponents.extensions.atMost
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.getLocationOnScreen
 import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.widgets.INavigationPopup
+import org.mytonwallet.app_air.uicomponents.widgets.frameAsPath
 import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.Item.Config.Icon
 import org.mytonwallet.app_air.uicomponents.widgets.unlockView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.x
 import org.mytonwallet.app_air.walletbasecontext.utils.y
 
 class WMenuPopup {
+    enum class Positioning {
+        ABOVE,
+        ALIGNED,
+        BELOW
+    }
 
     data class Item(
         val config: Config,
@@ -233,15 +242,18 @@ class WMenuPopup {
     }
 
     companion object {
+
         fun present(
             view: View,
             items: List<Item>,
             popupWidth: Int = WRAP_CONTENT,
             xOffset: Int = 0,
             yOffset: Int = 0,
-            aboveView: Boolean,
+            positioning: Positioning,
             centerHorizontally: Boolean = false,
+            windowBackgroundStyle: BackgroundStyle = BackgroundStyle.Transparent,
             onWillDismiss: (() -> Unit)? = null,
+            displayProgressListener: ((progress: Float) -> Unit)? = null,
         ): INavigationPopup {
             view.lockView()
 
@@ -254,18 +266,21 @@ class WMenuPopup {
                     popupWindow.dismiss()
                 })
 
-            popupWindow = WNavigationPopup(initialPopupView, popupWidth).apply {
-                setOnDismissListener {
-                    view.post {
-                        view.unlockView()
+            popupWindow =
+                WNavigationPopup(initialPopupView, popupWidth, windowBackgroundStyle).apply {
+                    setOnDismissListener {
+                        view.post {
+                            view.unlockView()
+                        }
                     }
+                    displayProgressListener?.let { setDisplayProgressListener(it) }
                 }
-            }
 
             val location = view.getLocationOnScreen()
+            val screenWidth = ApplicationContextHolder.screenWidth
             val offset = xOffset + if (centerHorizontally) {
                 val popupMeasuredWidth = if (popupWidth == WRAP_CONTENT) {
-                    initialPopupView.measure(0.unspecified, 0.unspecified)
+                    initialPopupView.measure(screenWidth.atMost, 0.unspecified)
                     initialPopupView.measuredWidth
                 } else {
                     popupWidth
@@ -275,11 +290,65 @@ class WMenuPopup {
                 0
             }
 
+            val y = when (positioning) {
+                Positioning.ABOVE -> {
+                    initialPopupView.measure(screenWidth.atMost, 0.unspecified)
+                    location.y + yOffset - (initialPopupView.measuredHeight + 8.dp)
+                }
+
+                Positioning.ALIGNED -> {
+                    location.y + yOffset
+                }
+
+                Positioning.BELOW -> {
+                    location.y + yOffset + (view.height + 8.dp)
+                }
+            }
+
             popupWindow.showAtLocation(
                 x = location.x + offset,
-                y = location.y + yOffset + if (aboveView) 0 else (view.height + 8.dp)
+                y = y,
+                fromTop = positioning != Positioning.ABOVE
             )
             return popupWindow
+        }
+    }
+
+    sealed interface BackgroundStyle {
+        object Transparent : BackgroundStyle
+
+        class Cutout(val cutoutPath: Path) : BackgroundStyle {
+
+            companion object {
+
+                fun fromView(
+                    view: View,
+                    roundRadius: Float = 0f,
+                    offset: Int = 0
+                ): Cutout {
+                    return Cutout(
+                        view.frameAsPath(
+                            roundRadius = roundRadius,
+                            offset = offset.toFloat()
+                        )
+                    )
+                }
+
+                fun fromView(
+                    view: View,
+                    roundRadius: Float = 0f,
+                    horizontalOffset: Int = 0,
+                    verticalOffset: Int = 0
+                ): Cutout {
+                    return Cutout(
+                        view.frameAsPath(
+                            roundRadius = roundRadius,
+                            horizontalOffset = horizontalOffset.toFloat(),
+                            verticalOffset = verticalOffset.toFloat()
+                        )
+                    )
+                }
+            }
         }
     }
 }

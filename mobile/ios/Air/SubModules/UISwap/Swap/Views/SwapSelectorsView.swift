@@ -1,10 +1,3 @@
-//
-//  SwapTokenSelectorsView.swift
-//  UISwap
-//
-//  Created by Sina on 5/10/24.
-//
-
 import SwiftUI
 import UIKit
 import UIComponents
@@ -12,10 +5,9 @@ import WalletCore
 import WalletContext
 import Perception
 
-@MainActor
 struct SwapSelectorsView: View {
     
-    var model: SwapSelectorsVM
+    var model: SwapInputModel
     
     var body: some View {
         WithPerceptionTracking {
@@ -37,8 +29,6 @@ struct SwapSelectorsView: View {
     }
 }
 
-
-@MainActor
 fileprivate struct _SwapSelectorsView: View {
     
     @Binding var sellingAmount: BigInt?

@@ -8,6 +8,7 @@ public class ActivityDetailsListVC: WViewController, ActivityCell.Delegate {
     
     let activityIds: [String]
     let activitiesById: [String: ApiActivity]
+    let context: ActivityDetailsContext
     
     @AccountContext var account: MAccount
     
@@ -21,10 +22,11 @@ public class ActivityDetailsListVC: WViewController, ActivityCell.Delegate {
     var tableView: UITableView!
     private var dataSource: UITableViewDiffableDataSource<Section, Row>!
     
-    public init(accountContext: AccountContext, activities: [ApiActivity]) {
+    public init(accountContext: AccountContext, activities: [ApiActivity], context: ActivityDetailsContext) {
         self.activityIds = activities.map(\.id)
         self.activitiesById = activities.dictionaryByKey(\.id)
         self._account = accountContext
+        self.context = context
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -98,6 +100,6 @@ public class ActivityDetailsListVC: WViewController, ActivityCell.Delegate {
     }
 
     public func onSelect(transaction: ApiActivity) {
-        AppActions.showActivityDetails(accountId: account.id, activity: transaction, context: .normal)
+        AppActions.showActivityDetails(accountId: account.id, activity: transaction, context: context)
     }
 }

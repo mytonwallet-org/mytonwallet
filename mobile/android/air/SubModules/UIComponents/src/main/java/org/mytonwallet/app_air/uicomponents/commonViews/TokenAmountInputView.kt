@@ -6,10 +6,9 @@ import android.text.InputType
 import android.text.TextPaint
 import android.text.TextUtils
 import android.text.method.DigitsKeyListener
-import android.util.TypedValue
 import android.view.Gravity
-import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.content.ContextCompat
+import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.counter.Counter
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -57,15 +56,13 @@ class TokenAmountInputView(
         }
     }
 
-    private val titleTextView = AppCompatTextView(context).apply {
+    private val titleTextView = HeaderCell(context, 20f).apply {
         id = generateViewId()
-        isSingleLine = true
-        ellipsize = TextUtils.TruncateAt.END
-        text =
-            LocaleController.getString("Amount")
-        typeface = WFont.Medium.typeface
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-        setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
+        titleLabel.setStyle(14f, WFont.DemiBold)
+        configure(
+            title = LocaleController.getString("Amount"),
+            titleColor = WColor.Tint
+        )
     }
 
     private val maxBalanceButton = WTokenMaxButton(context).apply {
@@ -131,7 +128,7 @@ class TokenAmountInputView(
             tokenSelectorView,
             LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
         )
-        addView(amountEditText, LayoutParams(LayoutParams.MATCH_CONSTRAINT, 48.dp))
+        addView(amountEditText, LayoutParams(LayoutParams.MATCH_CONSTRAINT, 44.dp))
         addView(
             equivalentTextView,
             LayoutParams(LayoutParams.WRAP_CONTENT, WCounterButton.Companion.HEIGHT.dp)
@@ -145,17 +142,17 @@ class TokenAmountInputView(
             toStart(titleTextView, 20f)
             toTop(titleTextView, 16f)
             endToStart(titleTextView, maxBalanceButton, 6f)
-            toTop(maxBalanceButton, 18f)
-            toEnd(maxBalanceButton, 20f - WTokenMaxButton.Companion.PADDING_HORIZONTAL)
+            toTop(maxBalanceButton, 16f)
+            toEnd(maxBalanceButton, 20f - WTokenMaxButton.PADDING_HORIZONTAL)
 
             toStart(amountEditText, 20f)
             centerYToCenterY(amountEditText, tokenSelectorView)
             endToStart(amountEditText, tokenSelectorView)
             toEnd(tokenSelectorView, 16f)
-            toTop(tokenSelectorView, 52f)
+            toTop(tokenSelectorView, 44f)
 
             topToBottom(equivalentTextView, tokenSelectorView, 12f)
-            toStart(equivalentTextView, 20f - WCounterButton.Companion.PADDING_HORIZONTAL)
+            toStart(equivalentTextView, 20f - WCounterButton.PADDING_HORIZONTAL)
             toBottom(equivalentTextView, 16f)
 
             topToBottom(feeTextView, tokenSelectorView, 12f)
@@ -167,7 +164,7 @@ class TokenAmountInputView(
     }
 
     fun set(state: State, isFeeDetailed: Boolean) {
-        titleTextView.text = state.title
+        titleTextView.configure(state.title ?: "")
         maxBalanceButton.setAmount(state.balance)
         tokenSelectorView.setAsset(state.token)
         tokenSelectorView.setBaseCurrIndicatorEnabled(state.fiatMode)
@@ -239,7 +236,6 @@ class TokenAmountInputView(
         setBackgroundColor(
             WColor.Background.color, ViewConstants.BIG_RADIUS.dp
         )
-        titleTextView.setTextColor(WColor.PrimaryText.color)
     }
 
     override fun onCounterAppearanceChanged(counter: Counter, sizeChanged: Boolean) {

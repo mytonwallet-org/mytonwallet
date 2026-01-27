@@ -224,15 +224,16 @@ class SendNftVC(
                 SpannableStringBuilder(sendingToString).apply {
                     append(" $address")
                     AddressPopupHelpers.configSpannableAddress(
-                        WeakReference(this@SendNftVC),
-                        null,
-                        this,
-                        length - address.length,
-                        address.length,
-                        AccountStore.activeAccount!!.network,
-                        TONCOIN_SLUG,
-                        viewModel.resolvedAddress!!,
-                        startOffset.roundToInt(),
+                        viewController = WeakReference(this@SendNftVC),
+                        title = null,
+                        spannedString = this,
+                        startIndex = length - address.length,
+                        length = address.length,
+                        network = AccountStore.activeAccount!!.network,
+                        addressTokenSlug = TONCOIN_SLUG,
+                        address = viewModel.resolvedAddress!!,
+                        popupXOffset = startOffset.roundToInt(),
+                        centerHorizontally = false,
                         showTemporaryViewOption = false
                     )
                     styleDots()

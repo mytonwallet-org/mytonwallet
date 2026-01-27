@@ -1,5 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.extensions
 
+import android.annotation.SuppressLint
+import android.view.MotionEvent
 import androidx.dynamicanimation.animation.FloatPropertyCompat
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
@@ -48,7 +50,18 @@ fun ViewPager2.setupSpringFling(onScrollingToTarget: (targetIndex: Int) -> Int) 
             springAnim.spring.dampingRatio = SpringForce.DAMPING_RATIO_NO_BOUNCY
             springAnim.spring.stiffness = 500f
             springAnim.setStartVelocity(velocityX.toFloat())
+            springAnim.addEndListener { _, canceled, _, _ ->
+                if (!canceled)
+                    recyclerView.scrollToPosition(finalTargetPosition)
+            }
             springAnim.start()
+            @SuppressLint("ClickableViewAccessibility")
+            recyclerView.setOnTouchListener { _, event ->
+                if (event.action == MotionEvent.ACTION_DOWN)
+                    springAnim.cancel()
+                recyclerView.setOnTouchListener(null)
+                return@setOnTouchListener false
+            }
 
             return true
         }

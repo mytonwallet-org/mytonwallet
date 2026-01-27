@@ -3,6 +3,7 @@ import UIComponents
 import WalletContext
 import WalletCore
 import Perception
+import Dependencies
 
 private let tableBorderWidth: CGFloat = 1
 private let tableBorderColor: Color = Color(UIColor(light: "DEDDE0", dark: "2E2D20"))
@@ -37,19 +38,33 @@ struct NftDetailsDetailsView: View {
             @Perception.Bindable var viewModel = viewModel
             VStack(alignment: .leading, spacing: 24) {
                 descriptionSection
+                domainExpirationSection
                 attributesSection
                     .transition(animatedTransition)
                     .id(nft.id)
-                    
             }
             .padding(.top, viewModel.isExpanded ? 16 : 8)
-//        .sheet(isPresented: $isDebugMenuPresented) {
-//            if #available(iOS 18, *) {
-//                DebugSettingsView()
-//                    .presentationDetents([.fraction(0.67)])
-//                    .presentationBackgroundInteraction(.enabled)
-//            }
-//        }
+        }
+    }
+
+    @ViewBuilder
+    var domainExpirationSection: some View {
+        if let expirationText = domainExpirationText {
+            InsetSection {
+                InsetCell {
+                    Text(expirationText)
+                        .font17h22()
+                        .foregroundStyle(Color(WTheme.primaryLabel))
+                }
+                if viewModel.account.type == .mnemonic {
+                    InsetButtonCell(alignment: .leading, action: {
+                        AppActions.showRenewDomain(accountSource: .accountId(viewModel.account.id), nftsToRenew: [nft.address])
+                    }) {
+                        Text(lang("Renew"))
+                            .foregroundStyle(Color(WTheme.tint))
+                    }
+                }
+            }
         }
     }
     
@@ -68,9 +83,7 @@ struct NftDetailsDetailsView: View {
                             .font17h22()
                             .foregroundStyle(Color(WTheme.primaryLabel))
                             .frame(maxWidth: .infinity, alignment: .leading)
-//                            .transition(animatedTransition)
                             .contentTransition(.opacity)
-//                            .id(nft.id)
                     }
                     .padding(.bottom, -1)
                 }
@@ -137,17 +150,23 @@ struct NftDetailsDetailsView: View {
             .padding(.horizontal, 16)
         }
     }
-    
-    private var debugSettingsButton: some View {
-        Button {
-            isDebugMenuPresented = true
-        } label: {
-            Text(lang("Developer Options"))
-                .font13()
-                .textCase(.uppercase)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .foregroundStyle(Color(WTheme.tint))
+
+    private var domainExpirationText: String? {
+        guard let expirationDays = domainExpirationDays else { return nil }
+        if expirationDays < 0 {
+            return lang("Expired")
         }
-        .padding(.horizontal, 32)
+        let daysText = lang("$in_days", arg1: expirationDays)
+        return lang("$expires_in %days%", arg1: 1).replacingOccurrences(of: "1", with: daysText) // 1 is the number of domains, not days
+    }
+
+    private var domainExpirationDays: Int? {
+        guard nft.isTonDns else { return nil }
+        let domains = viewModel.$account.domains
+        guard let expirationMs = domains.expirationByAddress[nft.address] else { return nil }
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: Date())
+        let end = calendar.startOfDay(for: Date(unixMs: expirationMs))
+        return calendar.dateComponents([.day], from: start, to: end).day
     }
 }

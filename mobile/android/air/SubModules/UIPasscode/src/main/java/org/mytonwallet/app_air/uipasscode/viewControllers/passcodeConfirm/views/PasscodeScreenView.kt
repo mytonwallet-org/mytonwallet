@@ -490,6 +490,7 @@ class PasscodeScreenView(
 
     private fun checkPasscode(passcode: String) {
         if (isLoading.value) {
+            inBiometry.animatedValue = false
             return
         }
 
@@ -497,6 +498,7 @@ class PasscodeScreenView(
         delegate!!.onEnterPasscode(passcode) { correct, cooldownDate ->
             isLoading.animatedValue = false
             if (!correct) {
+                inBiometry.animatedValue = false
                 passcodeInputView.resetInput()
                 if ((passcodeViewState as? PasscodeViewState.Default)?.isUnlockScreen == true && cooldownDate != null)
                     passcodeKeyboardView.showSignOut = true

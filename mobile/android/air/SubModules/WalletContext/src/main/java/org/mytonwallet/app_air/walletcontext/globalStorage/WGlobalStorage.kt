@@ -530,34 +530,35 @@ object WGlobalStorage {
         )
     }
 
-    fun getNewestActivitiesBySlug(accountId: String): JSONObject? {
-        val newestActivitiesBySlug =
+    fun getNewestActivitiesBySlug(accountId: String): Map<String, JSONObject>? {
+        val map = mutableMapOf<String, JSONObject>()
+        val jsonObject =
             globalStorageProvider.getDict("byAccountId.$accountId.activities.newestActivitiesBySlug")
-        val newestActivitiesTimestampBySlug = JSONObject()
-        newestActivitiesBySlug?.keys()?.let { keys ->
-            for (key in keys) {
-                val ts = newestActivitiesBySlug.optJSONObject(key)?.optLong("timestamp")
-                newestActivitiesTimestampBySlug.put(key, ts)
+                ?: return null
+        val keys = jsonObject.keys()
+        while (keys.hasNext()) {
+            val key = keys.next()
+            jsonObject.optJSONObject(key)?.let { value ->
+                map[key] = value
             }
         }
-        return newestActivitiesTimestampBySlug
+        return map
     }
-
-    /*fun setNewestActivityBySlug(accountId: String, slug: String, value: JSONObject?) {
-        globalStorageProvider.set(
-            "byAccountId.$accountId.activities.newestActivitiesBySlug.$slug",
-            value,
-            IGlobalStorageProvider.PERSIST_NORMAL
-        )
-    }*/
 
     fun setNewestActivitiesBySlug(
         accountId: String,
-        activities: Map<String, JSONObject?>,
+        activities: Map<String, JSONObject?>?,
         persistInstantly: Int
     ) {
+        val activities = activities ?: run {
+            globalStorageProvider.remove(
+                "byAccountId.$accountId.activities.newestActivitiesBySlug",
+                persistInstantly
+            )
+            return
+        }
         globalStorageProvider.set(
-            activities.mapKeys { key ->
+            activities.mapKeys { (key, _) ->
                 "byAccountId.$accountId.activities.newestActivitiesBySlug.$key"
             },
             persistInstantly
@@ -719,7 +720,8 @@ object WGlobalStorage {
     }
 
     fun setPushNotificationAccount(accountId: String) {
-        val currentAccounts = getPushNotificationsEnabledAccounts()?.toMutableList() ?: mutableListOf()
+        val currentAccounts =
+            getPushNotificationsEnabledAccounts()?.toMutableList() ?: mutableListOf()
         if (!currentAccounts.contains(accountId)) {
             currentAccounts.add(accountId)
         }
@@ -886,7 +888,7 @@ object WGlobalStorage {
         return MWalletSettingsViewMode.fromValue(globalStorageProvider.getString("accountSelectorViewMode"))
     }
 
-    private const val LAST_STATE: Int = 48
+    private const val LAST_STATE: Int = 49
     fun migrate() {
         // Lock the storage
         incDoNotSynchronize()
@@ -1024,6 +1026,13 @@ object WGlobalStorage {
                     accountIds,
                     IGlobalStorageProvider.PERSIST_NO
                 )
+            }
+        }
+
+        if (currentState < 49) {
+            val accountIds = accountIds(network = null)
+            for (accountId in accountIds) {
+                setNewestActivitiesBySlug(accountId, null, IGlobalStorageProvider.PERSIST_NO)
             }
         }
 

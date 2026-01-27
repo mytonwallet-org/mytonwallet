@@ -1027,6 +1027,9 @@ addActionHandler('importViewAccount', async (global, actions, { addressByChain }
     actions.requestConfetti();
   } else {
     actions.closeAddAccountModal();
+    if (IS_DELEGATING_BOTTOM_SHEET) {
+      callActionInNative('closeAddAccountModal');
+    }
   }
   void vibrateOnSuccess();
 });

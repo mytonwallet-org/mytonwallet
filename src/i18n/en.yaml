@@ -100,6 +100,7 @@ Warning!: Warning!
 $logout_without_backup_warning: You have not backed up this wallet. If you remove it now, you will lose access to your tokens and NFTs.
 $logout_accounts_without_backup_warning: You have not backed up %links%. If you proceed, you will lose access to your tokens and NFTs.
 $logout_warning: This will remove the current wallet from the app. Make sure you have your **secret words** backed up.
+$logout_view_mode_warning: This will remove the current wallet from the app.
 Your address was copied!: Your address was copied!
 Create Deposit Link: Create Deposit Link
 $receive_invoice_description: |
@@ -558,7 +559,10 @@ $transfer_inactive_contract_error: |
   If you definitely want to send to this address, then enter the address in the "UQ..." format.
 $transfer_link_expired: Transfer link has expired
 $transfer_text_and_bin_exclusive: Cannot use both text and bin parameters together
-$unsupported_deeplink_parameter: This deeplink contains unsupported parameters
+$unsupported_deeplink_parameter: This deeplink contains unsupported parameters.
+$unsupported_chain: Unsupported blockchain.
+$transaction_not_found: Transaction not found.
+$could_not_determine_address: Could not determine wallet address from transaction
 Successfully: Successfully
 Unstake More: Unstake More
 WrongAddress: The dapp requested a transaction from another wallet.
@@ -1018,6 +1022,7 @@ $explorer_mode_warning: "Explorer mode: waiting for a View deeplink to open an a
 This command is not supported in explorer mode: This command is not supported in explorer mode
 $saved_addresses_header: Saved
 confirm an action in MyTonWallet: confirm an action in MyTonWallet
+Timed out waiting for account to be ready: Timed out waiting for account to be ready
 $connected_apps:
   otherValue: "%1$d connected"
 Night Mode, Palette, Card: Night Mode, Palette, Card
@@ -1028,3 +1033,8 @@ Wallets, Sounds: Wallets, Sounds
 Help: Help
 About: About
 Wallets: Wallets
+Open: Open
+Open in %app_name%: Open in %app_name%
+Blog: Blog
+Apps: Apps
+$nft_not_found: NFT not found

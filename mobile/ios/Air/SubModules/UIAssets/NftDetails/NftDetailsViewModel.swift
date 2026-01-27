@@ -1,20 +1,20 @@
+import Perception
 import SwiftUI
-import UIKit
 import UIComponents
+import UIKit
 import WalletContext
 import WalletCore
-import Perception
 
 @MainActor
 @Perceptible
 final class NftDetailsViewModel {
-    
+
     enum State {
         case collapsed
         case expanded
         case preview
     }
-   
+
     var isExpanded = true
     var nft: ApiNft
     var navigationBarInset: CGFloat
@@ -27,9 +27,6 @@ final class NftDetailsViewModel {
     
     var isAnimating: Bool { isAnimatingSince != nil }
     
-    @PerceptionIgnored
-    var accountId: String
-    
     let listContextProvider: NftListContextProvider
     
     var state: State {
@@ -39,16 +36,26 @@ final class NftDetailsViewModel {
     var shouldScaleOnDrag: Bool { isExpanded && !isFullscreenPreviewOpen }
     var shouldMaskAndClip: Bool { !isExpanded && !isFullscreenPreviewOpen }
     var shouldShowControls: Bool { !isFullscreenPreviewOpen }
-    
+
     @PerceptionIgnored
     weak var viewController: NftDetailsVC?
-    
-    init(accountId: String, isExpanded: Bool = true, isFullscreenPreviewOpen: Bool = false, nft: ApiNft, listContext: NftCollectionFilter, navigationBarInset: CGFloat) {
-        self.accountId = accountId
+
+    @PerceptionIgnored
+    @AccountContext var account: MAccount
+
+    init(
+        accountId: String,
+        isExpanded: Bool = true,
+        isFullscreenPreviewOpen: Bool = false,
+        nft: ApiNft,
+        listContext: NftCollectionFilter,
+        navigationBarInset: CGFloat
+    ) {
+        self._account = AccountContext(accountId: accountId)
         self.isExpanded = isExpanded
         self.isFullscreenPreviewOpen = isFullscreenPreviewOpen
         self.nft = nft
-        self.listContextProvider = NftListContextProvider(accountId: accountId,  filter: listContext)
+        self.listContextProvider = NftListContextProvider(accountId: accountId, filter: listContext)
         self.navigationBarInset = navigationBarInset
     }
     

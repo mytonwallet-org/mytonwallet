@@ -1,3 +1,4 @@
+import { Address } from '@ton/core/dist/address/Address';
 import { getActions, getGlobal } from '../../global';
 
 import type { ApiChain, ApiNetwork } from '../../api/types';
@@ -17,6 +18,7 @@ import {
 } from '../../config';
 import {
   selectAccountTokenBySlug,
+  selectCurrentAccount,
   selectCurrentAccountId,
   selectCurrentAccountNftByAddress,
   selectIsHardwareAccount,
@@ -32,6 +34,7 @@ import { omitUndefined } from '../iteratees';
 import { logDebug, logDebugError } from '../logs';
 import { openUrl } from '../openUrl';
 import { waitRender } from '../renderPromise';
+import { waitFor } from '../schedulers';
 import { isTelegramUrl } from '../url';
 import {
   CHECKIN_URL,
@@ -60,7 +63,14 @@ export const enum DeeplinkCommand {
   View = 'view',
   Token = 'token',
   Transaction = 'tx',
+  Nft = 'nft',
 }
+
+const EXPLORER_ALLOWED_COMMANDS = new Set([
+  DeeplinkCommand.View,
+  DeeplinkCommand.Transaction,
+  DeeplinkCommand.Nft,
+]);
 
 let urlAfterSignIn: string | undefined;
 
@@ -115,7 +125,9 @@ export function processDeeplink(url: string, isFromInAppBrowser = false): Promis
 
 export function getDeeplinkFromLocation(): string | undefined {
   const { pathname, search } = window.location;
-  const deeplinkPart = pathname !== '/' ? pathname + search : search;
+  // Remove leading slash from pathname to avoid double slashes in the deeplink
+  const normalizedPathname = pathname.startsWith('/') ? pathname.slice(1) : pathname;
+  const deeplinkPart = normalizedPathname + search;
 
   return deeplinkPart ? `${SELF_PROTOCOL}${deeplinkPart}` : undefined;
 }
@@ -423,8 +435,8 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
 
     logDebug('Processing deeplink', deeplink);
 
-    // In explorer mode, only allow `View` command
-    if (IS_EXPLORER && command !== DeeplinkCommand.View) {
+    // In explorer mode, only allow `View` and `Transaction` commands
+    if (IS_EXPLORER && !EXPLORER_ALLOWED_COMMANDS.has(command as DeeplinkCommand)) {
       actions.showError({ error: 'This command is not supported in explorer mode' });
       return false;
     }
@@ -616,6 +628,8 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
           return false;
         }
 
+        ensureNetwork(searchParams, isTestnet);
+
         actions.openTemporaryViewAccount({ addressByChain });
         return true;
       }
@@ -658,14 +672,87 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
         }
 
         const [, , chainPart, ...txIdParts] = pathParts;
-        const txId = txIdParts.join('/');
+        const txId = decodeURIComponent(txIdParts.join('/'));
         const chain = chainPart as ApiChain;
 
-        if (!chain || !txId || !getSupportedChains().includes(chain)) {
+        if (!chain || !txId) {
           return false;
         }
 
-        actions.openTransactionInfo({ txId, chain });
+        if (!getSupportedChains().includes(chain)) {
+          actions.showError({ error: '$unsupported_chain' });
+          return false;
+        }
+
+        if (!IS_EXPLORER) {
+          actions.openTransactionInfo({ txId, chain });
+          return true;
+        }
+
+        const { network } = ensureNetwork(searchParams, isTestnet);
+
+        const activities = await callApi('fetchTransactionById', {
+          chain,
+          network,
+          txId,
+          walletAddress: '',
+        });
+
+        if (!activities?.length) {
+          actions.showError({ error: '$transaction_not_found' });
+          return false;
+        }
+
+        // Get address from the first activity (toAddress for transactions, fromAddress for swaps)
+        const activity = activities[0];
+        const viewAddress = activity.kind === 'transaction'
+          ? activity.toAddress
+          : activity.kind === 'swap'
+            ? activity.fromAddress
+            : undefined;
+
+        if (!viewAddress) {
+          actions.showError({ error: '$could_not_determine_address' });
+          return false;
+        }
+
+        if (!await openExplorerViewAccount(chain, viewAddress)) return false;
+
+        // Pass activities to avoid duplicate API call
+        actions.openTransactionInfo({ txId, chain, activities });
+        return true;
+      }
+
+      case DeeplinkCommand.Nft: {
+        // Format: mtw://nft/{nftAddress}
+        const pathParts = pathname.split('/');
+        const nftAddress = pathParts[2];
+
+        if (!nftAddress) return false;
+
+        const { network } = ensureNetwork(searchParams, isTestnet);
+
+        const nft = await callApi('fetchNftByAddress', network, nftAddress);
+
+        if (!nft) {
+          actions.showError({ error: '$nft_not_found' });
+          return false;
+        }
+
+        if (IS_EXPLORER) {
+          const ownerAddress = nft.ownerAddress;
+
+          if (!ownerAddress) {
+            actions.showError({ error: '$could_not_determine_address' });
+            return false;
+          }
+
+          if (!await openExplorerViewAccount('ton', ownerAddress)) {
+            return false;
+          }
+        }
+
+        actions.openNftAttributesModal({ nft });
         return true;
       }
     }
@@ -674,6 +761,46 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
   }
 
   return false;
+}
+
+async function openExplorerViewAccount(
+  chain: ApiChain,
+  address: string,
+): Promise<boolean> {
+  const actions = getActions();
+
+  actions.openTemporaryViewAccount({ addressByChain: { [chain]: address } });
+
+  const normalizedAddress = chain === 'ton' ? Address.parse(address).toRawString() : address;
+
+  const isReady = await waitFor(() => {
+    const account = selectCurrentAccount(getGlobal());
+    const currentAddress = account?.byChain[chain]?.address;
+    if (!currentAddress) return false;
+
+    return chain === 'ton'
+      ? Address.parse(currentAddress).toRawString() === normalizedAddress
+      : currentAddress === normalizedAddress;
+  }, 100, 100);
+
+  if (!isReady) {
+    actions.showError({ error: 'Timed out waiting for account to be ready' });
+  }
+
+  return isReady;
+}
+
+function ensureNetwork(searchParams: URLSearchParams, isTestnet?: boolean) {
+  const isTestnetValue = searchParams.get('testnet') === 'true' || isTestnet;
+
+  if (isTestnetValue && !isTestnet) {
+    getActions().changeNetwork({ network: 'testnet' });
+  }
+
+  return {
+    isTestnet: isTestnetValue,
+    network: (isTestnetValue ? 'testnet' : 'mainnet') as ApiNetwork,
+  };
 }
 
 function getOfframpTokenMapping(

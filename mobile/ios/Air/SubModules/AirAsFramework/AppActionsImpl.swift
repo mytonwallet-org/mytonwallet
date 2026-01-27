@@ -125,6 +125,18 @@ private class AppActionsImpl: AppActionsProtocol {
         let window = UIApplication.shared.sceneKeyWindow
         window?.updateSensitiveData()
     }
+
+    static func setTokenVisibility(accountId: String, tokenSlug: String, shouldShow: Bool) {
+        guard var data = AccountStore.assetsAndActivityData[accountId] else { return }
+        if shouldShow {
+            data.alwaysHiddenSlugs.remove(tokenSlug)
+            data.alwaysShownSlugs.insert(tokenSlug)
+        } else {
+            data.alwaysShownSlugs.remove(tokenSlug)
+            data.alwaysHiddenSlugs.insert(tokenSlug)
+        }
+        AccountStore.setAssetsAndActivityData(accountId: accountId, value: data)
+    }
     
     static func shareUrl(_ url: URL) {
         let activityViewController = UIActivityViewController(activityItems: [url], applicationActivities: nil)
@@ -194,9 +206,9 @@ private class AppActionsImpl: AppActionsProtocol {
                 AppActions.showError(error: DisplayError(text: lang("Transaction not found")))
             }
         case 1:
-            AppActions.showActivityDetails(accountId: accountId, activity: activities[0], context: .normal)
+            AppActions.showActivityDetails(accountId: accountId, activity: activities[0], context: .external)
         default:
-            let vc = ActivityDetailsListVC(accountContext: AccountContext(source: .accountId(accountId)), activities: activities)
+            let vc = ActivityDetailsListVC(accountContext: AccountContext(source: .accountId(accountId)), activities: activities, context: .external)
             let nc = UINavigationController(rootViewController: vc)
             topViewController()?.present(nc, animated: true)
         }
@@ -236,6 +248,12 @@ private class AppActionsImpl: AppActionsProtocol {
             topVC?.present(nc, animated: true)
         }
     }
+
+    static func showAssetsAndActivity() {
+        let vc = AssetsAndActivityVC()
+        let nc = WNavigationController(rootViewController: vc)
+        topViewController()?.present(nc, animated: true)
+    }
     
     static func showBuyWithCard(chain: ApiChain?, push: Bool?) {
         if AccountStore.account?.network != .mainnet {
@@ -252,7 +270,7 @@ private class AppActionsImpl: AppActionsProtocol {
     
     static func showCrossChainSwapVC(_ transaction: WalletCore.ApiActivity, accountId: String?) {
         if let swap = transaction.swap {
-            let vc = CrossChainSwapVC(swap: swap, accountId: accountId)
+            let vc = CrosschainToWalletVC(swap: swap, accountId: accountId)
             topViewController()?.present(WNavigationController(rootViewController: vc), animated: true)
         }
     }
@@ -315,10 +333,20 @@ private class AppActionsImpl: AppActionsProtocol {
             settingsVC.pushViewController(WalletVersionsVC(), animated: true)
         }
     }
+
+    static func showLinkDomain(accountSource: AccountSource, nftAddress: String) {
+        let vc = LinkDomainVC(accountSource: accountSource, nftAddress: nftAddress)
+        topViewController()?.present(WNavigationController(rootViewController: vc), animated: true)
+    }
     
     static func showReceive(chain: ApiChain?, title: String?) {
         let receiveVC = ReceiveVC(chain: chain, title: title)
         topViewController()?.present(WNavigationController(rootViewController: receiveVC), animated: true)
+    }
+
+    static func showRenewDomain(accountSource: AccountSource, nftsToRenew: [String]) {
+        let vc = RenewDomainVC(accountSource: accountSource, nftsToRenew: nftsToRenew)
+        topViewController()?.present(WNavigationController(rootViewController: vc), animated: true)
     }
     
     static func showRenameAccount(accountId: String) {

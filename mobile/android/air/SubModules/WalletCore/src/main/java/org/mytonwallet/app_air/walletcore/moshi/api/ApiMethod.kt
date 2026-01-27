@@ -151,19 +151,23 @@ sealed class ApiMethod<T> {
         }
 
         class FetchTransactionById(
-            chain: String,
-            network: MBlockchainNetwork,
-            txHash: String,
-            walletAddress: String,
+            options: Options
         ) : ApiMethod<List<MApiTransaction>>() {
+
+            @JsonClass(generateAdapter = true)
+            data class Options(
+                val chain: String,
+                val network: String,
+                val walletAddress: String,
+                val txId: String? = null,
+                val txHash: String? = null
+            )
+
             override val name: String = "fetchTransactionById"
             override val type: Type =
                 Types.newParameterizedType(List::class.java, MApiTransaction::class.java)
             override val arguments: String = ArgumentsBuilder()
-                .string(chain)
-                .string(network.value)
-                .string(txHash)
-                .string(walletAddress)
+                .jsObject(options, Options::class.java)
                 .build()
         }
     }

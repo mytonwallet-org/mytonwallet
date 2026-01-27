@@ -2,6 +2,7 @@ import React, { memo } from '../../lib/teact/teact';
 
 import { IS_CAPACITOR } from '../../config';
 import { getDoesUsePinPad } from '../../util/biometrics';
+import buildClassName from '../../util/buildClassName';
 
 import useLang from '../../hooks/useLang';
 
@@ -13,6 +14,7 @@ import styles from './PasswordSlide.module.scss';
 interface OwnProps {
   isActive: boolean;
   error?: string;
+  childClassName?: string;
   onSubmit: (password: string) => void;
   onCancel: NoneToVoidFunction;
   onUpdate: NoneToVoidFunction;
@@ -22,6 +24,7 @@ interface OwnProps {
 function PasswordSlide({
   isActive,
   error,
+  childClassName,
   onSubmit,
   onCancel,
   onUpdate,
@@ -32,13 +35,16 @@ function PasswordSlide({
   return (
     <>
       {!getDoesUsePinPad() && (
-        <ModalHeader title={lang('Enter Password')} onClose={onClose} />
+        <ModalHeader className={childClassName} title={lang('Enter Password')} onClose={onClose} />
       )}
       <PasswordForm
         isActive={isActive}
         error={error}
         withCloseButton={IS_CAPACITOR}
-        containerClassName={IS_CAPACITOR ? styles.passwordFormContent : styles.passwordFormContentInModal}
+        containerClassName={buildClassName(
+          IS_CAPACITOR ? styles.passwordFormContent : styles.passwordFormContentInModal,
+          childClassName,
+        )}
         submitLabel={lang('Confirm')}
         noAutoConfirm
         onSubmit={onSubmit}

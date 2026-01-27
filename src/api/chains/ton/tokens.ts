@@ -72,7 +72,7 @@ export async function fetchJettonWallets(network: ApiNetwork, address: string, m
       metadata: newMetadata = {},
     } = await callToncenterV3<JettonWalletsResponse>(network, '/jetton/wallets', {
       owner_address: address,
-      exclude_zero_balance: true,
+      exclude_zero_balance: false,
       limit: requestLimit,
       offset,
     });

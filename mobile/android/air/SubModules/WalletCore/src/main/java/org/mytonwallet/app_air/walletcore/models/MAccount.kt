@@ -177,9 +177,4 @@ class MAccount(
         get() {
             return MBlockchain.supportedChains.firstOrNull { addressByChain.contains(it.name) }
         }
-
-    val hasDomain: Boolean
-        get() {
-            return byChain.values.firstOrNull { it.domain != null } != null
-        }
 }

@@ -1,7 +1,7 @@
 
 import Foundation
 
-public let STATE_VERSION: Int = 48
+public let STATE_VERSION: Int = 49
 
 private let log = Log("GlobalStorage+Migration")
 
@@ -97,6 +97,12 @@ extension _GlobalStorage {
             self.stateVersion = 48
         }
         
+
+        if let v = self.stateVersion, v == 48 {
+            // Android app specific migration
+            self.stateVersion = 49
+        }
+
         assert(self.stateVersion == STATE_VERSION)
         
         try await syncronize()

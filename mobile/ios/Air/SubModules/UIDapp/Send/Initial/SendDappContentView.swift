@@ -39,11 +39,9 @@ struct SendDappContentView: View {
     var body: some View {
         WithPerceptionTracking {
             InsetList {
-                SendDappHeaderView(
+                DappHeaderView(
                     dapp: request.dapp,
-                    transactionsCount: transactionsCount,
-                    account: accountContext.account,
-                    isDangerous: request.combinedInfo.isDangerous
+                    accountContext: accountContext,
                 )
                 
                 if request.combinedInfo.isDangerous {

@@ -2,24 +2,26 @@ package org.mytonwallet.app_air.uitransaction.viewControllers.transaction
 
 import android.annotation.SuppressLint
 import android.graphics.Color
-import android.graphics.Paint
 import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.text.Spanned
-import android.text.TextPaint
-import android.text.method.LinkMovementMethod
 import android.text.style.AbsoluteSizeSpan
 import android.text.style.ForegroundColorSpan
 import android.text.style.RelativeSizeSpan
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
+import android.widget.Space
+import androidx.core.view.updateLayoutParams
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.unspecified
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.AddressPopupHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.spans.ExtraHitLinkMovementMethod
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WForegroundColorSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
@@ -76,14 +78,32 @@ class TransactionHeaderView(
     private val addressLabel = WLabel(context).apply {
         setStyle(16f)
         setLineHeight(24f)
+        setPaddingDp(8, 4, 8, 4)
     }
+
+    private val addressSpace = Space(context).apply {
+        id = generateViewId()
+    }
+
+    var expandProgress: Float = 1f
+        set(value) {
+            val changed = field != value
+            field = value
+            if (changed) {
+                onExpandProgressChanged()
+            }
+        }
 
     override fun setupViews() {
         super.setupViews()
         reloadData()
 
+        addressLabel.measure(0.unspecified, 0.unspecified)
+        val addressLabelTranslation = addressLabel.measuredHeight
+        addressLabel.translationY = addressLabelTranslation.toFloat()
         addView(tokenIconView, LayoutParams(82.dp, 82.dp))
         addView(amountContainerView)
+        addView(addressSpace, LayoutParams(LayoutParams.WRAP_CONTENT, addressLabelTranslation))
         addView(addressLabel)
 
         setConstraints {
@@ -93,8 +113,9 @@ class TransactionHeaderView(
             topToBottom(amountContainerView, tokenIconView, 20f)
             toCenterX(amountContainerView, 8f)
 
-            topToBottom(addressLabel, amountContainerView, 6f)
-            toBottom(addressLabel)
+            bottomToTop(addressLabel, addressSpace)
+            topToBottom(addressSpace, amountContainerView, 2f)
+            toBottom(addressSpace)
             toCenterX(addressLabel)
         }
 
@@ -106,6 +127,7 @@ class TransactionHeaderView(
                     MotionEvent.ACTION_DOWN -> {
                         v.alpha = 0.6f
                     }
+
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                         v.alpha = 1f
                         if (event.action == MotionEvent.ACTION_UP) {
@@ -148,7 +170,7 @@ class TransactionHeaderView(
                     }
                     ssb
                 },
-                Content.of(token, showChain = WalletCore.isMultichain)
+                Content.of(token, showChain = AccountStore.activeAccount?.isMultichain == true)
             )
         } else {
             tokenIconView.setImageDrawable(null)
@@ -162,58 +184,38 @@ class TransactionHeaderView(
                 val receivedFromString =
                     "${LocaleController.getString("Received from")} "
                 val text = receivedFromString + addressText
-                val textPaintToMeasure = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-                    typeface = WFont.Regular.typeface
-                    textSize = TypedValue.applyDimension(
-                        TypedValue.COMPLEX_UNIT_SP,
-                        16f,
-                        context.resources.displayMetrics
-                    )
-                }
-                val startOffset =
-                    if (LocaleController.isRTL)
-                        textPaintToMeasure.measureText(text).roundToInt() -
-                            AddressPopupHelpers.POPUP_WIDTH.dp
-                    else
-                        textPaintToMeasure.measureText(receivedFromString).roundToInt()
                 spannedString = SpannableStringBuilder()
                 spannedString.append(text)
                 AddressPopupHelpers.configSpannableAddress(
-                    viewController,
-                    if (addressToShow?.second == true) addressText else null,
-                    spannedString,
-                    text.length - addressText.length,
-                    addressText.length,
-                    AccountStore.activeAccount!!.network,
-                    transaction.slug,
-                    transaction.fromAddress,
-                    startOffset,
+                    viewController = viewController,
+                    title = if (addressToShow?.second == true) addressText else null,
+                    spannedString = spannedString,
+                    startIndex = text.length - addressText.length,
+                    length = addressText.length,
+                    network = AccountStore.activeAccount!!.network,
+                    addressTokenSlug = transaction.slug,
+                    address = transaction.fromAddress,
+                    popupXOffset = 0,
+                    centerHorizontally = true,
                     showTemporaryViewOption = true
                 )
             } else {
                 val sentToString =
                     "${LocaleController.getString("Sent to")} "
                 val text = sentToString + addressText
-                val startOffset = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-                    typeface = WFont.Regular.typeface
-                    textSize = TypedValue.applyDimension(
-                        TypedValue.COMPLEX_UNIT_SP,
-                        16f,
-                        context.resources.displayMetrics
-                    )
-                }.measureText(sentToString)
                 spannedString = SpannableStringBuilder()
                 spannedString.append(text)
                 AddressPopupHelpers.configSpannableAddress(
-                    viewController,
-                    if (addressToShow?.second == true) addressText else null,
-                    spannedString,
-                    text.length - addressText.length,
-                    addressText.length,
-                    AccountStore.activeAccount!!.network,
-                    transaction.slug,
-                    transaction.toAddress ?: "",
-                    startOffset.roundToInt(),
+                    viewController = viewController,
+                    title = if (addressToShow?.second == true) addressText else null,
+                    spannedString = spannedString,
+                    startIndex = text.length - addressText.length,
+                    length = addressText.length,
+                    network = AccountStore.activeAccount!!.network,
+                    addressTokenSlug = transaction.slug,
+                    address = transaction.toAddress ?: "",
+                    popupXOffset = 0,
+                    centerHorizontally = true,
                     showTemporaryViewOption = true
                 )
             }
@@ -233,7 +235,8 @@ class TransactionHeaderView(
                 spannedString.styleDots()
             }
             addressLabel.text = spannedString
-            addressLabel.movementMethod = LinkMovementMethod.getInstance()
+            addressLabel.movementMethod =
+                ExtraHitLinkMovementMethod(addressLabel.paddingLeft, addressLabel.paddingTop)
             addressLabel.highlightColor = Color.TRANSPARENT
         } else if (transaction.type == ApiTransactionType.STAKE) {
             val stakingState =
@@ -276,4 +279,19 @@ class TransactionHeaderView(
         reloadData()
     }
 
+    private fun onExpandProgressChanged() {
+        addressLabel.alpha = expandProgress
+        val addressLabelHeight = addressLabel.measuredHeight
+        addressLabel.translationY =
+            addressLabelHeight - addressLabelHeight / 2 * (1 - expandProgress)
+        val spaceHeight = (addressLabelHeight * expandProgress).roundToInt()
+        addressSpace.updateLayoutParams {
+            height = spaceHeight
+        }
+        addressLabel.visibility = if (spaceHeight == 0) {
+            INVISIBLE
+        } else {
+            VISIBLE
+        }
+    }
 }

@@ -17,7 +17,6 @@ import {
   IS_EXTENSION,
   LANG_LIST,
   MTW_CARDS_WEBSITE,
-  MTW_TIPS_CHANNEL_NAME,
   PROXY_HOSTS,
   SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY,
   SUPPORT_USERNAME,
@@ -42,6 +41,7 @@ import { openUrl } from '../../util/openUrl';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 import { captureControlledSwipe } from '../../util/swipeController';
 import useTelegramMiniAppSwipeToClose from '../../util/telegram/hooks/useTelegramMiniAppSwipeToClose';
+import { getTelegramChannelUrl } from '../../util/url';
 import {
   IS_BIOMETRIC_AUTH_SUPPORTED,
   IS_DAPP_SUPPORTED,
@@ -624,7 +624,7 @@ function Settings({
               )}
               <div className={styles.block}>
                 <a
-                  href={`https://t.me/${MTW_TIPS_CHANNEL_NAME[langCode] ?? MTW_TIPS_CHANNEL_NAME.en}`}
+                  href={getTelegramChannelUrl(langCode)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={styles.item}

@@ -550,6 +550,11 @@ function migrateCache(cached: GlobalState, initialState: GlobalState) {
     cached.stateVersion = 48;
   }
 
+  if (cached.stateVersion === 48) {
+    // Android app specific migration
+    cached.stateVersion = 49;
+  }
+
   // When adding migration here, increase `STATE_VERSION`
 }
 

@@ -48,7 +48,7 @@ public enum DieselStatus: String, Codable, Sendable {
 
 extension DieselStatus {
     public var canContinue: Bool {
-        return self == .notAuthorized || self == .available
+        return self == .notAuthorized || self == .available || self == .starsFee
     }
 
     public var errorString: String? {

@@ -14,7 +14,8 @@ import {
 import { isDotTonDomainNft, isLinkableDnsNft, isRenewableDnsNft } from '../../../util/dns';
 import { compact } from '../../../util/iteratees';
 import { openUrl } from '../../../util/openUrl';
-import { getExplorerName, getExplorerNftUrl } from '../../../util/url';
+import { getShareIcon, shareUrl } from '../../../util/share';
+import { getExplorerName, getExplorerNftUrl, getViewNftUrl } from '../../../util/url';
 
 import { getIsPortrait } from '../../../hooks/useDeviceScreen';
 import useLang from '../../../hooks/useLang';
@@ -22,7 +23,7 @@ import useLastCallback from '../../../hooks/useLastCallback';
 
 export type NftMenuHandler = 'send' | 'tondns' | 'fragment' | 'getgems' | 'tonExplorer' | 'collection' | 'hide'
   | 'unhide' | 'not_scam' | 'burn' | 'select' | 'installCard' | 'resetCard' | 'installAccentColor' | 'resetAccentColor'
-  | 'renew' | 'linkDomain';
+  | 'renew' | 'linkDomain' | 'shareLink';
 
 const ON_SALE_ITEM: DropdownItem<NftMenuHandler> = {
   name: 'Cannot be sent',
@@ -108,6 +109,11 @@ const CHANGE_LINKED_ADDRESS: DropdownItem<NftMenuHandler> = {
   name: 'Change Wallet',
   value: 'linkDomain',
 };
+const SHARE_LINK_ITEM: DropdownItem<NftMenuHandler> = {
+  name: 'Share Link',
+  value: 'shareLink',
+  fontIcon: getShareIcon(),
+};
 
 export default function useNftMenu({
   nft,
@@ -118,6 +124,7 @@ export default function useNftMenu({
   isNftWhitelisted,
   isNftInstalled,
   isNftAccentColorInstalled,
+  isTestnet,
 }: {
   nft?: ApiNft;
   isViewMode: boolean;
@@ -127,6 +134,7 @@ export default function useNftMenu({
   isNftWhitelisted?: boolean;
   isNftInstalled?: boolean;
   isNftAccentColorInstalled?: boolean;
+  isTestnet?: boolean;
 }) {
   const {
     startTransfer,
@@ -286,6 +294,11 @@ export default function useNftMenu({
         openDomainLinkingModal({ address: nft!.address });
         break;
       }
+
+      case 'shareLink': {
+        void shareUrl(getViewNftUrl(nft!.address, isTestnet));
+        break;
+      }
     }
   });
 
@@ -324,6 +337,7 @@ export default function useNftMenu({
       isOnFragment && FRAGMENT_ITEM,
       GETGEMS_ITEM,
       TON_EXPLORER_ITEM,
+      SHARE_LINK_ITEM,
     ]);
   }, [
     nft, isViewMode, dnsExpireInDays, lang, linkedAddress, isNftBlacklisted,

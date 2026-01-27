@@ -2,6 +2,7 @@ import WalletContext
 
 public enum ActivityDetailsContext {
     case normal
+    case external
     case sendConfirmation
     case sendNftConfirmation
     case swapConfirmation
@@ -11,14 +12,14 @@ public enum ActivityDetailsContext {
     
     public var isTransactionConfirmation: Bool {
         switch self {
-        case .normal: false
+        case .normal, .external: false
         case .sendConfirmation, .sendNftConfirmation, .swapConfirmation, .stakeConfirmation, .unstakeConfirmation, .unstakeRequestConfirmation: true
         }
     }
     
     public var displayTitle: String? {
         switch self {
-        case .normal: nil
+        case .normal, .external: nil
         case .sendConfirmation: lang("Coins have been sent!")
         case .sendNftConfirmation: lang("NFT has been sent!")
         case .swapConfirmation: lang("Swap Placed")

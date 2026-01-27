@@ -66,6 +66,7 @@ struct ActivityView: View {
                     let y = maxY - screenHeight + 32.0
                     detailsOpacity = clamp(-y / 70, to: 0...1)
                 })
+                .padding(.bottom, -8)
                 
                 transactionDetailsSection
                 
@@ -101,11 +102,13 @@ struct ActivityView: View {
                         .font(.system(size: 24, weight: .semibold))
                     HStack(alignment: .firstTextBaseline, spacing: 0) {
                         Text((tx.isIncoming == true ? lang("Received from") :  lang("Sent to")) + " ") 
+                        let addressName = tx.metadata?.name
+                        let addressToCopy = tx.peerAddress ?? tx.addressToShow
                         TappableAddress(
                             account: model.accountContext,
-                            name: activity.addressToShow,
+                            name: addressName,
                             chain: chain.rawValue,
-                            addressOrName: activity.addressToShow
+                            addressOrName: addressToCopy
                         )
                     }
                 }
@@ -136,10 +139,8 @@ struct ActivityView: View {
         case .swap(let swap):
             if let fromAmount = swap.fromAmountInt64, let toAmount = swap.toAmountInt64, let fromToken = swap.fromToken, let toToken = swap.toToken {
                 SwapOverviewView(
-                    fromAmount: fromAmount,
-                    fromToken: fromToken,
-                    toAmount: toAmount,
-                    toToken: toToken,
+                    fromAmount: TokenAmount(fromAmount, fromToken),
+                    toAmount: TokenAmount(toAmount, toToken),
                     onTokenTapped: onTokenTapped
                 )
                 .padding(.top, 16)
@@ -190,25 +191,71 @@ struct ActivityView: View {
     
     @ViewBuilder
     var transactionDetailsSection: some View {
-        InsetSection {
-            nftCollection
-            if activity.transaction?.nft == nil {
-                amountCell
+        Group {
+            if model.context == .external {
+                senderAddress
+                recipientAddress
+            } else {
+                peerAddress
             }
-            changellyAddress
-            swapRate
-            fee
-            transactionId
-            changellyId
-        } header: {
-            Text(lang("Details"))
-                .padding(.bottom, 1)
+            InsetSection {
+                nftCollection
+                if activity.transaction?.nft == nil {
+                    amountCell
+                }
+                changellyAddress
+                swapRate
+                fee
+                transactionId
+                changellyId
+            } header: {
+                Text(lang("Details"))
+                    .padding(.bottom, 1)
+            }
+            .padding(.bottom, 5 + 16)
+            .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(.top, -8)
-        .padding(.bottom, 5 + 16)
-        .fixedSize(horizontal: false, vertical: true)
         .opacity(model.progressiveRevealEnabled && !neverUseProgressiveExpand ? detailsOpacity : model.detailsExpanded ? 1 : 0)
         .animation(.spring, value: model.detailsExpanded)
+    }
+    
+    @ViewBuilder
+    var senderAddress: some View {
+        if case .transaction(let tx) = activity {
+            InsetSection {
+                InsetCell {
+                    TappableAddressFull(accountContext: model.accountContext, chain: getChainBySlug(tx.slug)?.rawValue, address: tx.fromAddress)
+                }
+            } header: {
+                Text(lang("Sender"))
+            }
+        }
+    }
+
+    @ViewBuilder
+    var recipientAddress: some View {
+        if case .transaction(let tx) = activity, let toAddress = tx.toAddress {
+            InsetSection {
+                InsetCell {
+                    TappableAddressFull(accountContext: model.accountContext, chain: getChainBySlug(tx.slug)?.rawValue, address: toAddress)
+                }
+            } header: {
+                Text(lang("Recipient"))
+            }
+        }
+    }
+
+    @ViewBuilder
+    var peerAddress: some View {
+        if case .transaction(let tx) = activity, let peerAddress = tx.peerAddress {
+            InsetSection {
+                InsetCell {
+                    TappableAddressFull(accountContext: model.accountContext, chain: getChainBySlug(tx.slug)?.rawValue, address: peerAddress)
+                }
+            } header: {
+                Text(tx.isIncoming ? lang("Sender") : lang("Recipient"))
+            }
+        }
     }
 
     @ViewBuilder

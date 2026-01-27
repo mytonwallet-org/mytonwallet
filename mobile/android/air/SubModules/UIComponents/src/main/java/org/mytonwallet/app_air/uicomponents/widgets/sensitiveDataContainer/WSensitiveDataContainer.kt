@@ -32,6 +32,7 @@ class WSensitiveDataContainer<V : View>(
         val gravity: Int,
         val cornerRadius: Int = 8.dp,
         val cellSize: Int = 8.dp,
+        val endMargin: Int = 0,
         val skin: SensitiveDataMaskView.Skin? = null,
         // `protectContentLayoutSize` is used to hide real content size, from the view hierarchy.
         //  may cause ui glitches if the content size is not correct in the first frame,
@@ -60,6 +61,7 @@ class WSensitiveDataContainer<V : View>(
         })
         addView(maskView, LayoutParams(WRAP_CONTENT, MATCH_PARENT).apply {
             gravity = maskConfig.gravity
+            marginEnd = maskConfig.endMargin
         })
 
         maskView.visibility = GONE

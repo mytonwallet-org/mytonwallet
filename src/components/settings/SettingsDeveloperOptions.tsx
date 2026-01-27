@@ -98,16 +98,6 @@ function SettingsDeveloperOptions({
     }
   });
 
-  const handleUploadAccountsData = useLastCallback(async () => {
-    const result = await callApi('uploadAccountsDebugData', accountsById ?? {});
-
-    if (result === true) {
-      showToast({ message: lang('Data uploaded successfully'), icon: 'icon-check' });
-    } else {
-      showToast({ message: lang('Failed to upload data'), icon: 'icon-error' });
-    }
-  });
-
   return (
     <Modal
       isOpen={isOpen}
@@ -153,7 +143,7 @@ function SettingsDeveloperOptions({
         </div>
       </div>
 
-      {!isCopyStorageEnabled && (
+      {isCopyStorageEnabled && (
         <>
           <p className={styles.blockTitle}>{lang('Dangerous')}</p>
           <div className={styles.settingsBlock}>
@@ -161,11 +151,6 @@ function SettingsDeveloperOptions({
               {lang('Copy Storage Data')}
 
               <i className={buildClassName(styles.iconChevronRight, 'icon-copy')} aria-hidden />
-            </div>
-
-            <div className={buildClassName(styles.item, styles.item_small)} onClick={handleUploadAccountsData}>
-              {lang('Upload Accounts Data')}
-              <i className={buildClassName(styles.iconChevronRight, 'icon-upload')} aria-hidden />
             </div>
           </div>
         </>

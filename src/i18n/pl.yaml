@@ -103,6 +103,7 @@ Warning!: Ostrzeżenie!
 $logout_without_backup_warning: Nie utworzono kopii zapasowej tego portfela. Jeśli usuniesz go teraz, stracisz dostęp do swoich tokenów i NFT.
 $logout_accounts_without_backup_warning: Nie utworzono kopii zapasowej %links%. Kontynuowanie spowoduje utratę dostępu do tokenów i NFT.
 $logout_warning: Spowoduje to usunięcie bieżącego portfela z aplikacji. Upewnij się, że masz kopię zapasową swoich **tajnych słów**.
+$logout_view_mode_warning: Spowoduje to usunięcie bieżącego portfela z aplikacji.
 Your address was copied!: Twój adres został skopiowany!
 Create Deposit Link: Utwórz łącze do wpłaty
 $receive_invoice_description: |
@@ -571,7 +572,10 @@ $transfer_inactive_contract_error: |
   Jeśli na pewno chcesz wysłać na ten adres, wprowadź adres w formacie „UQ...”.
 $transfer_link_expired: Link do transferu wygasł
 $transfer_text_and_bin_exclusive: Nie można używać razem parametrów tekstu i danych binarnych
-$unsupported_deeplink_parameter: Ten deeplink zawiera nieobsługiwane parametry
+$unsupported_deeplink_parameter: Ten deeplink zawiera nieobsługiwane parametry.
+$unsupported_chain: Nieobsługiwany blockchain.
+$transaction_not_found: Transakcja nie znaleziona.
+$could_not_determine_address: Nie można było ustalić adresu portfela na podstawie transakcji
 Successfully: Pomyślnie
 Unstake More: Cofnij więcej
 WrongAddress: Dapp zażądał transakcji z innego portfela.
@@ -1043,6 +1047,7 @@ $explorer_mode_warning: "Tryb eksplorera: oczekiwanie na deeplink View do otwarc
 This command is not supported in explorer mode: To polecenie nie jest obsługiwane w trybie eksplorera
 $saved_addresses_header: Zapisane
 confirm an action in MyTonWallet: potwierdź działanie w MyTonWallet
+Timed out waiting for account to be ready: Przekroczono czas oczekiwania na gotowość konta
 $connected_apps:
   otherValue: "%1$d połączonych"
 Night Mode, Palette, Card: Tryb nocny, Paleta, Karta
@@ -1053,3 +1058,8 @@ Wallets, Sounds: Portfele, Dźwięki
 Help: Pomoc
 About: O aplikacji
 Wallets: Portfele
+Open: Otwórz
+Open in %app_name%: Otwórz w %app_name%
+Blog: Blog
+Apps: Aplikacje
+$nft_not_found: NFT nie znaleziono

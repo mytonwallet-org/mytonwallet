@@ -2,7 +2,10 @@ package org.mytonwallet.app_air.uicomponents.widgets
 
 import android.content.Context
 import android.graphics.drawable.Drawable
+import android.text.SpannableStringBuilder
+import android.text.Spanned
 import android.text.SpannedString
+import android.text.style.ForegroundColorSpan
 import android.util.Size
 import androidx.core.content.ContextCompat
 import androidx.core.text.buildSpannedString
@@ -16,13 +19,19 @@ import org.mytonwallet.app_air.uicomponents.helpers.FontManager
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WLetterSpacingSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WSpacingSpan
 import org.mytonwallet.app_air.uicomponents.helpers.textOffset
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.TrimResult
 import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
-import org.mytonwallet.app_air.walletbasecontext.utils.trimAddress
-import org.mytonwallet.app_air.walletbasecontext.utils.trimDomain
+import org.mytonwallet.app_air.walletbasecontext.utils.trimAddressToResult
+import org.mytonwallet.app_air.walletbasecontext.utils.trimDomainToResult
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
+import org.mytonwallet.app_air.walletcontext.utils.shift
 import org.mytonwallet.app_air.walletcore.models.MAccount
+import org.mytonwallet.app_air.walletcore.models.MAccount.AccountChain
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.MSavedAddress
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -31,6 +40,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
     private val drawableCache: MutableMap<Int, Drawable> = mutableMapOf()
 
     private var displayDataList: List<DisplayData> = emptyList()
+    private var keyword: String = ""
     private var currentDisplayWidth: Int = 0
     private var currentDisplayData: SpannedString = SpannedString("")
 
@@ -38,6 +48,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
 
     init {
         maxLines = 1
+        setHighlightColor(WColor.Tint)
     }
 
     private fun loadDrawable(resId: Int): Drawable? {
@@ -49,16 +60,46 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         }
     }
 
-    fun displayAddresses(account: MAccount?, style: Style) {
-        if (account?.network == MBlockchainNetwork.TESTNET)
-            this.style = style.copy(
+    fun displayAddresses(account: MAccount?, style: Style, keyword: String = "") {
+        if (account == null) {
+            displayAddresses(emptyList(), style, keyword)
+            return
+        }
+        displayAddresses(account.network, account.byChain, style, keyword)
+    }
+
+    fun displayAddresses(
+        network: MBlockchainNetwork,
+        byChain: Map<String, AccountChain>,
+        style: Style,
+        keyword: String = ""
+    ) {
+        val style = if (network == MBlockchainNetwork.TESTNET) {
+            style.copy(
                 prefixIconResList = listOf(org.mytonwallet.app_air.uicomponents.R.drawable.ic_wallet_testnet) + style.prefixIconResList
             )
-        else
-            this.style = style
-        val addresses = account?.byChain?.map { (key, value) ->
+        } else {
+            style
+        }
+        val addresses = byChain.map { (key, value) ->
             Pair(key, value)
+        }
+        displayAddresses(addresses, style, keyword)
+    }
+
+    fun displayAddresses(savedAddress: MSavedAddress?, style: Style, keyword: String = "") {
+        val addresses = savedAddress?.let {
+            listOf(Pair(savedAddress.chain, MAccount.AccountChain(savedAddress.address)))
         } ?: emptyList()
+        displayAddresses(addresses, style, keyword)
+    }
+
+    private fun displayAddresses(
+        addresses: List<Pair<String, AccountChain>>,
+        style: Style,
+        keyword: String
+    ) {
+        this.style = style
         val chainStyle = if (addresses.size > 1) {
             style.multipleChainStyle
         } else {
@@ -73,26 +114,27 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
             DisplayData(
                 chainName = it.first,
                 original = original,
-                toDisplay = original,
+                toDisplay = TrimResult.noTrim(original),
                 isDomain = isDomain,
                 keepCharCount = original.length,
                 canTrim = isDomain
             )
         }
+        this.keyword = keyword
         untrimDisplayDataList()
         requestLayout()
     }
 
-    private fun getDomainTrimAction(): (input: String, keepCount: Int) -> String {
+    private fun getDomainTrimAction(): (input: String, keepCount: Int) -> TrimResult {
         val chainStyle = if (displayDataList.size > 1) {
             style.multipleChainStyle
         } else {
             style.singleChainStyle
         }
         return if (chainStyle.domainTrimRule == DomainTrimRule.KEEP_TOP_LEVEL_DOMAIN) {
-            { input: String, keepCount: Int -> input.trimDomain(keepCount) }
+            { input: String, keepCount: Int -> input.trimDomainToResult(keepCount) }
         } else {
-            { input: String, keepCount: Int -> input.trimDomain(keepCount, false) }
+            { input: String, keepCount: Int -> input.trimDomainToResult(keepCount, false) }
         }
     }
 
@@ -112,7 +154,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
                 )
             } else {
                 it.copy(
-                    toDisplay = it.original.trimAddress(chainStyle.addressKeepCount),
+                    toDisplay = it.original.trimAddressToResult(chainStyle.addressKeepCount),
                     keepCharCount = chainStyle.addressKeepCount
                 )
             }
@@ -131,7 +173,7 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         val widthMode = MeasureSpec.getMode(widthMeasureSpec)
 
         var needRemeasure = true
-        var displayData = buildDisplayData(displayDataList)
+        var displayData = buildDisplayData(displayDataList, keyword)
         var displayWidth = displayData.measureWidth(paint)
         val availableWidth = widthSize - paddingSize
         // trim until fit available width
@@ -140,15 +182,13 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
                 needRemeasure = false
             } else {
                 displayDataList = trim(displayDataList)
-                displayData = buildDisplayData(displayDataList)
+                displayData = buildDisplayData(displayDataList, keyword)
                 displayWidth = displayData.measureWidth(paint)
             }
         }
         currentDisplayWidth = displayWidth.ceilToInt() + paddingSize
-        if (displayData.toString() != currentDisplayData.toString()) {
-            currentDisplayData = displayData
-            text = displayData
-        }
+        currentDisplayData = displayData
+        text = displayData
         if (widthMode == MeasureSpec.EXACTLY) {
             super.onMeasure(widthMeasureSpec, heightMeasureSpec)
         } else {
@@ -156,7 +196,11 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
         }
     }
 
-    private fun buildDisplayData(displayDataList: List<DisplayData>): SpannedString {
+    private fun buildDisplayData(
+        displayDataList: List<DisplayData>,
+        keyword: String
+    ): SpannedString {
+        val displayHighlightRanges: MutableList<IntRange> = mutableListOf()
         return buildSpannedString {
             // Display prefix icons
             style.prefixIconResList.mapNotNull { loadDrawable(it) }.forEachIndexed { index, it ->
@@ -225,18 +269,23 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
                 val toDisplay = buildSpannedString {
                     if (data.isDomain && chainStyle.domainLetterSpacing != null) {
                         inSpans(WLetterSpacingSpan(chainStyle.domainLetterSpacing)) {
-                            append(data.toDisplay)
+                            append(data.toDisplay.trimmed)
                         }
                     } else if (!data.isDomain && chainStyle.addressLetterSpacing != null) {
                         inSpans(WLetterSpacingSpan(chainStyle.addressLetterSpacing)) {
-                            append(data.toDisplay)
+                            append(data.toDisplay.trimmed)
                         }
                     } else {
-                        append(data.toDisplay)
+                        append(data.toDisplay.trimmed)
                     }
 
                     styleDots()
                 }
+                val addressHighlightRanges =
+                    getHighlightRanges(toDisplay, data.toDisplay, keyword).map {
+                        it.shift(length)
+                    }
+                displayHighlightRanges.addAll(addressHighlightRanges)
                 append(toDisplay)
 
                 // Define delimiter: symbols of specific width
@@ -274,6 +323,44 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
                     append(" ")
                 }
             }
+            highlightRanges = displayHighlightRanges
+        }
+    }
+
+    private fun getHighlightRanges(
+        base: CharSequence,
+        trimResult: TrimResult,
+        keyword: String
+    ): List<IntRange> {
+        if (keyword.isEmpty() || base.isEmpty()) {
+            return emptyList()
+        }
+        return trimResult.findMatchesInTrimmed(keyword = keyword)
+    }
+
+    private fun applyHighlight(
+        base: CharSequence,
+        trimResult: TrimResult,
+        keyword: String
+    ): CharSequence {
+        if (keyword.isEmpty() || base.isEmpty()) {
+            return base
+        }
+        val ranges = trimResult.findMatchesInTrimmed(keyword = keyword)
+        if (ranges.isEmpty()) {
+            return base
+        }
+
+        val highlightColor = WColor.Tint.color
+        return SpannableStringBuilder(base).apply {
+            ranges.forEach { range ->
+                setSpan(
+                    ForegroundColorSpan(highlightColor),
+                    range.first,
+                    range.last + 1,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
         }
     }
 
@@ -304,13 +391,13 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
     private fun trimDisplayValue(value: String, keepCount: Int, isDomain: Boolean) = if (isDomain) {
         getDomainTrimAction()(value, keepCount)
     } else {
-        value.trimAddress(keepCount)
+        value.trimAddressToResult(keepCount)
     }
 
     private data class DisplayData(
         val chainName: String,
         val original: String,
-        val toDisplay: String,
+        val toDisplay: TrimResult,
         val isDomain: Boolean,
         val keepCharCount: Int,
         val canTrim: Boolean

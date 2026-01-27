@@ -18,12 +18,9 @@ public class ConfirmPasscodeVC: WViewController, PasscodeScreenViewDelegate {
         
     }
     
-    
-    var onCompletion: (_ biometricsEnabled: Bool, _ passcode: String, _ onResult: @escaping () -> Void) -> Void
+    var onCompletion: (_ biometricsEnabled: Bool, _ passcode: String) -> Void
 
-    public init(onCompletion: @escaping (Bool, String, @escaping () -> Void) -> Void,
-                setPasscodeVC: SetPasscodeVC,
-                selectedPasscode: String) {
+    public init(onCompletion: @escaping (Bool, String) -> Void, setPasscodeVC: SetPasscodeVC, selectedPasscode: String) {
         self.onCompletion = onCompletion
         self.setPasscodeVC = setPasscodeVC
         self.selectedPasscode = selectedPasscode
@@ -42,8 +39,6 @@ public class ConfirmPasscodeVC: WViewController, PasscodeScreenViewDelegate {
     var passcodeScreenView: PasscodeScreenView!
     
     var bottomConstraint: NSLayoutConstraint!
-
-    public static let passcodeOptionsFromBottom = CGFloat(8)
 
     public override func loadView() {
         super.loadView()
@@ -122,6 +117,7 @@ extension ConfirmPasscodeVC: PasscodeInputViewDelegate {
     func passcodeChanged(passcode: String) {
         headerView.animatedSticker?.toggle(!passcode.isEmpty)
     }
+
     func passcodeSelected(passcode: String) {
         if passcode != selectedPasscode {
             // wrong passcode, return to setPasscodeVC
@@ -133,17 +129,17 @@ extension ConfirmPasscodeVC: PasscodeInputViewDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             guard let self else {return}
             view.isUserInteractionEnabled = true
-            if BiometricHelper.biometricType() == .none {
-                onCompletion(false, passcode, { [weak self] in
-                    guard let self else {return}
-                    view.isUserInteractionEnabled = false
-                    passcodeInputView.currentPasscode = ""
-                })
+            
+            // Suggest to enable a biometry protection, if available
+            // Note that all incomplete biometric configurations are ignored.
+            // So user with non-enrolled faceID will not receive a dialog
+            if let biometryType = BiometricHelper.biometryType {
+                navigationController?.pushViewController(
+                    ActivateBiometricVC(biometryType: biometryType) { [weak self] biometricsEnabled in
+                        self?.onCompletion(biometricsEnabled, passcode)
+                }, animated: true)
             } else {
-                navigationController?.pushViewController(ActivateBiometricVC(onCompletion: { [weak self] biometricsEnabled, onResult in
-                    self?.onCompletion(biometricsEnabled, passcode, onResult)
-                },
-                selectedPasscode: selectedPasscode), animated: true)
+                onCompletion(false, passcode)
             }
         }
     }
@@ -152,10 +148,10 @@ extension ConfirmPasscodeVC: PasscodeInputViewDelegate {
 #if DEBUG
 @available(iOS 18.0, *)
 #Preview {
-    let setVC = SetPasscodeVC(onCompletion: { _, _, _ in})
+    let setVC = SetPasscodeVC(onCompletion: { _, _ in})
     UINavigationController(
         rootViewController: ConfirmPasscodeVC(
-            onCompletion: { _, _, _ in },
+            onCompletion: { _, _ in },
             setPasscodeVC: setVC,
             selectedPasscode: "1111")
     )

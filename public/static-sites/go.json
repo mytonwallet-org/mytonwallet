@@ -58,10 +58,5 @@
     "title": "Receive Funds",
     "description": "View, copy, and share your wallet address.",
     "icon": "https://get.mytonwallet.io/images/logo-link-preview.webp"
-  },
-  "tx": {
-    "title": "View Transaction",
-    "description": "View transaction details in MyTonWallet",
-    "icon": "https://get.mytonwallet.io/images/logo-link-preview.webp"
   }
 }

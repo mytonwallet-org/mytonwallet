@@ -113,7 +113,7 @@ private let log = Log("IntroActions")
         if let password = password?.nilIfEmpty {
             _createWallet(passcode: password, biometricsEnabled: nil)
         } else {
-            let setPasscode = SetPasscodeVC(onCompletion: { biometricsEnabled, password, completion in
+            let setPasscode = SetPasscodeVC(onCompletion: { biometricsEnabled, password in
                 self._createWallet(passcode: password, biometricsEnabled: biometricsEnabled)
             })
             push(setPasscode)
@@ -135,7 +135,7 @@ private let log = Log("IntroActions")
         if let password = password?.nilIfEmpty {
             _importWallet(words: words, passcode: password, biometricsEnabled: nil)
         } else {
-            let setPasscode = SetPasscodeVC(onCompletion: { biometricsEnabled, password, completion in
+            let setPasscode = SetPasscodeVC(onCompletion: { biometricsEnabled, password in
                 self._importWallet(words: words, passcode: password, biometricsEnabled: biometricsEnabled)
             })
             push(setPasscode)

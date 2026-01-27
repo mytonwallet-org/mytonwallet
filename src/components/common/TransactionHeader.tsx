@@ -7,6 +7,7 @@ import { ANIMATED_STICKER_TINY_ICON_PX } from '../../config';
 import { getIsActivityPendingForUser, getTransactionTitle, isScamTransaction } from '../../util/activities';
 import buildClassName from '../../util/buildClassName';
 import { formatFullDay, formatTime } from '../../util/dateFormat';
+import { getShareIcon } from '../../util/share';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
 import useLang from '../../hooks/useLang';
@@ -20,18 +21,22 @@ import styles from './TransactionHeader.module.scss';
 import scamImg from '../../assets/scam.svg';
 
 interface OwnProps {
+  isModalOpen?: boolean;
   transaction: ApiTransactionActivity;
   appTheme: AppTheme;
-  isModalOpen?: boolean;
+  className?: string;
   onBackClick?: NoneToVoidFunction;
+  onShareClick?: NoneToVoidFunction;
   onClose: NoneToVoidFunction;
 }
 
 function TransactionHeader({
+  isModalOpen,
   transaction,
   appTheme,
-  isModalOpen,
+  className,
   onBackClick,
+  onShareClick,
   onClose,
 }: OwnProps) {
   const lang = useLang();
@@ -48,12 +53,24 @@ function TransactionHeader({
       className={buildClassName(
         modalStyles.header,
         !onBackClick && modalStyles.header_wideContent,
+        className,
       )}
     >
       {onBackClick && (
         <Button isSimple isText onClick={onBackClick} className={modalStyles.header_back}>
           <i className={buildClassName(modalStyles.header_backIcon, 'icon-chevron-left')} aria-hidden />
           <span>{lang('Back')}</span>
+        </Button>
+      )}
+      {onShareClick && !onBackClick && (
+        <Button
+          isSimple
+          isText
+          className={modalStyles.header_share}
+          ariaLabel={lang('Share Link')}
+          onClick={onShareClick}
+        >
+          <i className={getShareIcon()} aria-hidden />
         </Button>
       )}
       <div className={buildClassName(modalStyles.title, styles.modalTitle)}>

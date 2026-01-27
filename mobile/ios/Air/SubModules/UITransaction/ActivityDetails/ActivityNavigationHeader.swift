@@ -14,7 +14,7 @@ struct ActivityNavigationHeader: View {
     var body: some View {
         WithPerceptionTracking {
             switch viewModel.context {
-            case .normal:
+            case .normal, .external:
                 NavigationHeader {
                     HStack(spacing: 4) {
                         if viewModel.isScam {

@@ -22,6 +22,8 @@ public struct ApiSwapCexEstimateResponse: Equatable, Hashable, Codable, Sendable
     public var to: String
     public var toAmount: MDouble
     public let swapFee: MDouble
+    public var networkFee: MDouble? = nil
+    public var realNetworkFee: MDouble? = nil
     // additional
     public var fromMin: MDouble?
     public var fromMax: MDouble?

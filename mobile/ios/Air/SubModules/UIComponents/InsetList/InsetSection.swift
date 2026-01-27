@@ -115,6 +115,23 @@ public struct InsetSection<Content: View, Header: View, Footer: View>: View {
     }
 }
 
+extension InsetSection where Header == EmptyView {
+
+    public init(backgroundColor: UIColor? = nil,
+                addDividers: Bool = true,
+                dividersInset: CGFloat = 0,
+                horizontalPadding: CGFloat? = nil,
+                @ViewBuilder content: @escaping () -> Content,
+                @ViewBuilder footer: @escaping () -> Footer) {
+        self.backgroundColor = backgroundColor
+        self.addDividers = addDividers
+        self.dividersInset = dividersInset
+        self.horizontalPadding = horizontalPadding
+        self.content = content()
+        self.header = EmptyView()
+        self.footer = footer()
+    }
+}
 
 extension InsetSection where Footer == EmptyView {
 
@@ -133,7 +150,6 @@ extension InsetSection where Footer == EmptyView {
         self.footer = EmptyView()
     }
 }
-
 
 extension InsetSection where Header == EmptyView, Footer == EmptyView {
 

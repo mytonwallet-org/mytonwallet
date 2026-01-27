@@ -104,11 +104,25 @@ jobs:
           path: dist-electron/${{ env.APP_NAME }}-x86_64.AppImage
           if-no-files-found: error
 
-      - name: Upload Windows artifact
+      - name: Upload Windows x64 artifact (unsigned)
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.APP_NAME }}-x64-unsigned.exe
           path: dist-electron/${{ env.APP_NAME }}-x64.exe
+          if-no-files-found: error
+
+      - name: Upload Windows arm64 artifact (unsigned)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-arm64-unsigned.exe
+          path: dist-electron/${{ env.APP_NAME }}-arm64.exe
+          if-no-files-found: error
+
+      - name: Upload Windows universal artifact (unsigned)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-unsigned.exe
+          path: dist-electron/${{ env.APP_NAME }}.exe
           if-no-files-found: error
 
   electron-sign-for-windows:
@@ -133,7 +147,9 @@ jobs:
         shell: bash
         run: |
           echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-          echo "FILE_NAME=${{ env.APP_NAME }}-x64.exe" >> "$GITHUB_ENV"
+          echo "FILE_NAME_X64=${{ env.APP_NAME }}-x64.exe" >> "$GITHUB_ENV"
+          echo "FILE_NAME_ARM64=${{ env.APP_NAME }}-arm64.exe" >> "$GITHUB_ENV"
+          echo "FILE_NAME_UNIVERSAL=${{ env.APP_NAME }}.exe" >> "$GITHUB_ENV"
           echo "SM_HOST=${{ secrets.SM_HOST }}" >> "$GITHUB_ENV"
           echo "SM_API_KEY=${{ secrets.SM_API_KEY }}" >> "$GITHUB_ENV"
           echo "SM_CLIENT_CERT_FILE=D:\\Certificate_pkcs12.p12" >> "$GITHUB_ENV"
@@ -142,23 +158,54 @@ jobs:
           echo "C:\Program Files (x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools" >> $GITHUB_PATH
           echo "C:\Program Files\DigiCert\DigiCert One Signing Manager Tools" >> $GITHUB_PATH
 
-      - name: Download Windows package
-        id: download-artifact
+      - name: Download Windows x64 package
+        id: download-x64
         uses: actions/download-artifact@v4
         with:
           name: ${{ env.APP_NAME }}-x64-unsigned.exe
 
-      - name: Sign package
+      - name: Download Windows arm64 package
+        id: download-arm64
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-arm64-unsigned.exe
+
+      - name: Download Windows universal package
+        id: download-universal
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-unsigned.exe
+
+      - name: Sign Windows packages
         env:
           KEYPAIR_ALIAS: ${{ secrets.KEYPAIR_ALIAS }}
-          FILE_PATH: ${{ steps.download-artifact.outputs.download-path }}
-        shell: cmd
-        run: smctl.exe sign --keypair-alias=%KEYPAIR_ALIAS% --input "%FILE_PATH%\%FILE_NAME%"
 
-      - uses: actions/upload-artifact@v4
+          FILE_PATH_X64: ${{ steps.download-x64.outputs.download-path }}
+          FILE_PATH_ARM64: ${{ steps.download-arm64.outputs.download-path }}
+          FILE_PATH_UNIVERSAL: ${{ steps.download-universal.outputs.download-path }}
+        shell: cmd
+        run: |
+          smctl.exe sign --keypair-alias=%KEYPAIR_ALIAS% --input "%FILE_PATH_X64%\%FILE_NAME_X64%"
+          smctl.exe sign --keypair-alias=%KEYPAIR_ALIAS% --input "%FILE_PATH_ARM64%\%FILE_NAME_ARM64%"
+          smctl.exe sign --keypair-alias=%KEYPAIR_ALIAS% --input "%FILE_PATH_UNIVERSAL%\%FILE_NAME_UNIVERSAL%"
+
+      - name: Upload signed x64 artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.FILE_NAME }}
-          path: ${{ env.FILE_NAME }}
+          name: ${{ env.FILE_NAME_X64 }}
+          path: ${{ steps.download-x64.outputs.download-path }}/${{ env.FILE_NAME_X64 }}
+
+      - name: Upload signed arm64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.FILE_NAME_ARM64 }}
+          path: ${{ steps.download-arm64.outputs.download-path }}/${{ env.FILE_NAME_ARM64 }}
+
+      - name: Upload signed universal artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.FILE_NAME_UNIVERSAL }}
+          path: ${{ steps.download-universal.outputs.download-path }}/${{ env.FILE_NAME_UNIVERSAL }}
 
   extensions-package:
     name: Build and package extensions
@@ -331,7 +378,10 @@ jobs:
       - name: Calculate sha256 hashes
         run: |
           mkdir release
-          mv */*.dmg MyTonWallet-x64.exe/MyTonWallet-x64.exe */*.AppImage */*.apk release/
+          mv */*.dmg */*.AppImage */*.apk release/
+          mv ${{ env.APP_NAME }}-x64.exe/${{ env.APP_NAME }}-x64.exe release/
+          mv ${{ env.APP_NAME }}-arm64.exe/${{ env.APP_NAME }}-arm64.exe release/
+          mv ${{ env.APP_NAME }}.exe/${{ env.APP_NAME }}.exe release/
           sha256sum release/* >${{ env.HASH_FILENAME }}
 
       - name: Upload hash artifact
@@ -486,6 +536,12 @@ jobs:
           cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
           cp $PP_WIDGET_PATH ~/Library/MobileDevice/Provisioning\ Profiles
 
+          # print keychain contents
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH" || true
+          security cms -D -i "$PP_PATH" > /tmp/app_profile.plist
+          /usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' /tmp/app_profile.plist
+          /usr/libexec/PlistBuddy -c 'Print :Name' /tmp/app_profile.plist
+
       - name: "iOS: Package and publish"
         env:
           IOS_AUTH_KEY_BASE64: ${{ secrets.IOS_AUTH_KEY_BASE64 }}
@@ -522,14 +578,28 @@ jobs:
       - name: Set environment variables
         id: variables
         run: |
-          echo "WINDOWS_FILE_NAME=${{ env.APP_NAME }}-x64.exe" >> "$GITHUB_ENV"
+          echo "WINDOWS_X64_FILE_NAME=${{ env.APP_NAME }}-x64.exe" >> "$GITHUB_ENV"
+          echo "WINDOWS_ARM64_FILE_NAME=${{ env.APP_NAME }}-arm64.exe" >> "$GITHUB_ENV"
+          echo "WINDOWS_UNIVERSAL_FILE_NAME=${{ env.APP_NAME }}.exe" >> "$GITHUB_ENV"
           echo "ANDROID_FILE_NAME=${{ env.APP_NAME }}.apk" >> "$GITHUB_ENV"
 
-      - name: Download Windows package
-        id: download-windows
+      - name: Download Windows x64 package
+        id: dl_win_x64
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.WINDOWS_FILE_NAME }}
+          name: ${{ env.WINDOWS_X64_FILE_NAME }}
+
+      - name: Download Windows arm64 package
+        id: dl_win_arm64
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.WINDOWS_ARM64_FILE_NAME }}
+
+      - name: Download Windows universal package
+        id: dl_win_universal
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.WINDOWS_UNIVERSAL_FILE_NAME }}
 
       - name: Download Android package
         id: download-android
@@ -543,25 +613,40 @@ jobs:
           RELEASE_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$PUBLISH_REPO/releases?per_page=1" | jq -r '.[0].id')
           echo "release_id=$RELEASE_ID" >> $GITHUB_OUTPUT
 
-      - name: Delete existing asset
+      - name: Replace Windows assets
         env:
           RELEASE_ID: ${{ steps.release-id.outputs.release_id }}
+          FILE_PATH_X64: ${{ steps.dl_win_x64.outputs.download-path }}
+          FILE_PATH_ARM64: ${{ steps.dl_win_arm64.outputs.download-path }}
+          FILE_PATH_UNIVERSAL: ${{ steps.dl_win_universal.outputs.download-path }}
         run: |
-          PUBLISH_FILE_NAME=${WINDOWS_FILE_NAME// /-} # Consistency with electron-builder
-          ASSET_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID/assets" | jq -r --arg PUBLISH_FILE_NAME "$PUBLISH_FILE_NAME" '.[] | select(.name == $PUBLISH_FILE_NAME) | .id')
-          curl -X DELETE -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$PUBLISH_REPO/releases/assets/$ASSET_ID"
+          set -e
 
-      - name: Push new Windows asset
-        env:
-          FILE_PATH: ${{ steps.download-windows.outputs.download-path }}
-          RELEASE_ID: ${{ steps.release-id.outputs.release_id }}
-        run: |
-          FILE_NAME=$WINDOWS_FILE_NAME
-          PUBLISH_FILE_NAME=${WINDOWS_FILE_NAME// /-} # Consistency with electron-builder
-          curl -X POST -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Content-Type: application/octet-stream" \
-            --data-binary "@$FILE_PATH/$FILE_NAME" \
-            "https://uploads.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID/assets?name=$PUBLISH_FILE_NAME"
+          upload () {
+            local FILE_PATH="$1"
+            local FILE_NAME="$2"
+            local PUBLISH_FILE_NAME="${FILE_NAME// /-}"
+
+            ASSET_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+              "https://api.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID/assets" \
+              | jq -r --arg PUBLISH_FILE_NAME "$PUBLISH_FILE_NAME" '.[] | select(.name == $PUBLISH_FILE_NAME) | .id')
+
+            if [ "$ASSET_ID" != "null" ] && [ -n "$ASSET_ID" ]; then
+              curl -X DELETE -H "Authorization: Bearer $GH_TOKEN" \
+                "https://api.github.com/repos/$PUBLISH_REPO/releases/assets/$ASSET_ID"
+            fi
+
+            curl -X POST -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary "@$FILE_PATH/$FILE_NAME" \
+              "https://uploads.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID/assets?name=$PUBLISH_FILE_NAME"
+
+            echo "Uploaded $FILE_NAME"
+          }
+
+          upload "$FILE_PATH_X64" "$WINDOWS_X64_FILE_NAME"
+          upload "$FILE_PATH_ARM64" "$WINDOWS_ARM64_FILE_NAME"
+          upload "$FILE_PATH_UNIVERSAL" "$WINDOWS_UNIVERSAL_FILE_NAME"
 
       - name: Push new Android asset
         env:

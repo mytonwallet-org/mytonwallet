@@ -101,6 +101,7 @@ Warning!: Achtung!
 $logout_without_backup_warning: Sie haben diese Wallet nicht gesichert. Wenn Sie sie jetzt entfernen, verlieren Sie den Zugriff auf Ihre Token und NFTs.
 $logout_accounts_without_backup_warning: Sie haben %links% nicht gesichert. Wenn Sie fortfahren, verlieren Sie den Zugriff auf Ihre Token und NFTs.
 $logout_warning: Dies wird das aktuelle Wallet aus der App entfernen. Stellen Sie sicher, dass Sie Ihre **Geheimwörter** gesichert haben.
+$logout_view_mode_warning: Dies wird das aktuelle Wallet aus der App entfernen.
 Your address was copied!: Ihre Adresse wurde kopiert!
 Create Deposit Link: Einzahlungslink erstellen
 $receive_invoice_description: |
@@ -568,7 +569,10 @@ $transfer_inactive_contract_error: |
   Wenn Sie unbedingt an diese Adresse senden möchten, dann geben Sie die Adresse im Format „UQ...“ ein.
 $transfer_link_expired: Transfer-Link ist abgelaufen
 $transfer_text_and_bin_exclusive: Text- und Binärdaten-Parameter können nicht zusammen verwendet werden
-$unsupported_deeplink_parameter: Dieser Deeplink enthält nicht unterstützte Parameter
+$unsupported_deeplink_parameter: Dieser Deeplink enthält nicht unterstützte Parameter.
+$unsupported_chain: Nicht unterstützte Blockchain.
+$transaction_not_found: Transaktion nicht gefunden.
+$could_not_determine_address: Wallet-Adresse konnte aus der Transaktion nicht ermittelt werden
 Successfully: Erfolgreich
 Unstake More: Mehr abstecken
 WrongAddress: Der Dapp hat eine Transaktion von einer anderen Wallet angefordert.
@@ -1031,6 +1035,7 @@ $explorer_mode_warning: "Explorer-Modus: Warten auf einen View-Deeplink zum Öff
 This command is not supported in explorer mode: Dieser Befehl wird im Explorer-Modus nicht unterstützt
 $saved_addresses_header: Gespeichert
 confirm an action in MyTonWallet: eine Aktion in MyTonWallet bestätigen
+Timed out waiting for account to be ready: Timeout beim Warten auf die Bereitschaft des Kontos
 $connected_apps:
   otherValue: "%1$d verbunden"
 Night Mode, Palette, Card: Nachtmodus, Farbpalette, Karte
@@ -1041,3 +1046,8 @@ Wallets, Sounds: Wallets, Töne
 Help: Hilfe
 About: Über
 Wallets: Wallets
+Open: Öffnen
+Open in %app_name%: In %app_name% öffnen
+Blog: Blog
+Apps: Apps
+$nft_not_found: NFT nicht gefunden

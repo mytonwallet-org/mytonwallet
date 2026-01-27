@@ -7,7 +7,19 @@ public final class ExplorerHelper {
     
     private init() {}
     
-    
+    public static func viewTransactionUrl(network: ApiNetwork, chain: ApiChain, txHash: String) -> URL {
+        var url = URL(string: SHORT_UNIVERSAL_URL)!.appending(components: "tx", chain.rawValue, txHash)
+        if network == .testnet {
+            url.append(queryItems: [URLQueryItem(name: "testnet", value: "true")])
+        }
+        return url
+    }
+
+    public static func viewNftUrl(nftAddress: String) -> URL {
+        let url = URL(string: SHORT_UNIVERSAL_URL)!.appending(components: "nft", nftAddress)
+        return url
+    }
+
     public static func addressUrl(chain: ApiChain, address: String) -> URL {
         let network = AccountStore.activeNetwork
         let str = chain.explorer.address

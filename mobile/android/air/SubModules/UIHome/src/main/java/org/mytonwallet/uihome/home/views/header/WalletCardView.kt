@@ -30,8 +30,6 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.getLocationInWindow
 import org.mytonwallet.app_air.uicomponents.extensions.getLocationOnScreen
-import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
-import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.FontManager
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
@@ -59,6 +57,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.balance.WBalanceView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
+import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.Item.Config.Icon
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.SensitiveDataMaskView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
@@ -221,6 +220,8 @@ class WalletCardView(
             rightMargin = 2.dp
         })
         linearLayout.setOnClickListener {
+            if (mode == HomeHeaderView.Mode.Collapsed)
+                return@setOnClickListener
             balanceViewContainerTapped()
         }
         WSensitiveDataContainer(
@@ -270,7 +271,7 @@ class WalletCardView(
     private val addressLabel: WMultichainAddressLabel by lazy {
         WMultichainAddressLabel(context).apply {
             setStyle(16f, WFont.Medium)
-            setPaddingDpLocalized(3, 0, 3, 0)
+            setPadding(5.dp, 1.5f.dp.roundToInt(), 5.dp, 2.dp)
             containerWidth = cardFullWidth
             background = WRippleDrawable.create(20f.dp).apply {
                 rippleColor = Color.WHITE.colorWithAlpha(25)
@@ -289,7 +290,8 @@ class WalletCardView(
             }
         }
         addView(walletTypeView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-            marginEnd = 3.dp
+            marginStart = 2.dp
+            marginEnd = 1.dp
         })
         addView(addressLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
     }
@@ -301,6 +303,8 @@ class WalletCardView(
         id = generateViewId()
         scaleType = ImageView.ScaleType.CENTER
         setOnClickListener {
+            if (mode == HomeHeaderView.Mode.Collapsed)
+                return@setOnClickListener
             val url = ExplorerHelpers.getMtwCardsUrl(
                 AccountStore.activeAccount?.network ?: MBlockchainNetwork.MAINNET
             )
@@ -359,7 +363,7 @@ class WalletCardView(
             toTop(balanceChangeLabel)
             toCenterX(balanceChangeLabel)
             toCenterX(bottomViewContainer)
-            toBottom(bottomViewContainer, 16f)
+            toBottom(bottomViewContainer, 14f)
             topToTop(balanceSkeletonView, balanceViewContainer)
             centerXToCenterX(balanceSkeletonView, balanceViewContainer)
             edgeToEdge(balanceChangeSkeletonView, balanceChangeLabel)
@@ -395,6 +399,8 @@ class WalletCardView(
             )
         }
         addressLabel.setOnClickListener {
+            if (mode == HomeHeaderView.Mode.Collapsed)
+                return@setOnClickListener
             addressLabelTapped()
         }
     }
@@ -536,8 +542,7 @@ class WalletCardView(
 
     fun animateBalance(animateConfig: WBalanceView.AnimateConfig) {
         if (balanceAmount == null && animateConfig.amount != null) {
-            if (animateConfig.animated)
-                fadeInBalanceContainer()
+            fadeInBalanceContainer()
             showBalanceArrow(animateConfig.animated)
             hideSkeletons()
         } else if (animateConfig.amount == null) {
@@ -551,6 +556,7 @@ class WalletCardView(
         if (isShowingSkeletons)
             return
         isShowingSkeletons = true
+        balanceViewContainer.visibility = INVISIBLE
         balanceSkeletonView.visibility = VISIBLE
         balanceSkeletonView.alpha = 1f
         val showBalanceChangePlace = account?.isNew != true && balanceAmount != BigInteger.ZERO
@@ -564,6 +570,7 @@ class WalletCardView(
         if (!isShowingSkeletons)
             return
         isShowingSkeletons = false
+        balanceViewContainer.visibility = VISIBLE
         balanceSkeletonView.fadeOut(onCompletion = {
             if (!isShowingSkeletons) {
                 balanceSkeletonView.visibility = GONE
@@ -871,9 +878,14 @@ class WalletCardView(
                 }
             },
             xOffset = (-location.x + (window.navigationControllers.last().width / 2) - 112.5f.dp).toInt(),
-            yOffset = (-8).dp,
+            yOffset = (-6).dp,
             popupWidth = 225.dp,
-            aboveView = false
+            positioning = WMenuPopup.Positioning.BELOW,
+            windowBackgroundStyle = BackgroundStyle.Cutout.fromView(
+                this@WalletCardView,
+                roundRadius = EXPANDED_RADIUS.dp.toFloat(),
+                verticalOffset = (-0.5f).dp.roundToInt()
+            )
         )
     }
 
@@ -1035,8 +1047,12 @@ class WalletCardView(
             items,
             popupWidth = menuWidth,
             xOffset = -location.x + ((parent as View).width / 2) - menuWidth / 2,
-            yOffset = (-6).dp,
-            aboveView = false
+            yOffset = 0,
+            positioning = WMenuPopup.Positioning.BELOW,
+            windowBackgroundStyle = BackgroundStyle.Cutout.fromView(
+                addressLabel,
+                roundRadius = 16f.dp
+            )
         )
     }
 

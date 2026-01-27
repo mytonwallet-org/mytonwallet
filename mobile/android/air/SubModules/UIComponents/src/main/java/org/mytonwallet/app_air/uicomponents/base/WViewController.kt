@@ -629,15 +629,13 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
         val topOffset =
             if (computedOffset >= 0) computedOffset else computedOffset + scrollView.paddingTop
         val isOnTop = topOffset <= 0
-        if (scrollView.canScrollVertically(1) &&
-            !isOnTop
-        ) {
+        if (!isOnTop) {
             topReversedCornerView?.resumeBlurring()
             topReversedCornerView?.setBlurAlpha((topOffset / 20f.dp).coerceIn(0f, 1f))
             bottomReversedCornerView?.resumeBlurring()
             navigationController?.tabBarController?.resumeBlurring()
         } else {
-            topReversedCornerView?.pauseBlurring(!isOnTop)
+            topReversedCornerView?.pauseBlurring(false)
             bottomReversedCornerView?.pauseBlurring()
             navigationController?.tabBarController?.pauseBlurring()
         }

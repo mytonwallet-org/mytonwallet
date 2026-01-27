@@ -41,14 +41,10 @@ public struct NftPreviewRow: View {
         if let thumbnail = nft.thumbnail {
             KFImage(URL(string: thumbnail))
                 .resizable()
-                .placeholder {
-                    ProgressView()
-                }
                 .loadDiskFileSynchronously(false)
                 .aspectRatio(1, contentMode: .fit)
                 .cornerRadius(8)
-                .frame(width: 40, height: 40)
-                .padding(.vertical, -4)
+                .frame(width: 64, height: 64)
         }
     }
 }

@@ -115,7 +115,6 @@ object WalletCore {
 
     var bridge: JSWebViewBridge? = null
         private set
-    var isMultichain = false
     var nextAccountId: String? = null
     var nextAccountIsPushedTemporary: Boolean? = null
 
@@ -426,9 +425,11 @@ object WalletCore {
             }
 
             is ApiUpdate.ApiUpdateInitialActivities -> {
+                if (AccountStore.activeAccountId != update.accountId)
+                    return
                 ActivityStore.initialActivities(
-                    context = bridge!!.context,
                     accountId = update.accountId,
+                    chain = update.chain,
                     mainActivities = update.mainActivities,
                     bySlug = update.bySlug
                 )

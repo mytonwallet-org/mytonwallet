@@ -48,15 +48,17 @@ public extension ApiDapp {
 
 #if DEBUG
 public extension ApiDapp {
-    static let sample = ApiDapp(
-        url: "https://static.mytonwallet.org",
-        name: "Sample name",
-        iconUrl: "https://static.mytonwallet.org/explore-icons/mtwcards.webp",
-        manifestUrl: "https://static.mytonwallet.org/explore-icons/mtwcards.webp",
-        connectedAt: nil,
-        isUrlEnsured: nil,
-        sse: nil,
-    )
+    static var sample: ApiDapp {
+        ApiDapp(
+            url: "https://static.mytonwallet.org",
+            name: "Sample name",
+            iconUrl: "https://static.mytonwallet.org/explore-icons/mtwcards.webp",
+            manifestUrl: "https://static.mytonwallet.org/explore-icons/mtwcards.webp",
+            connectedAt: nil,
+            isUrlEnsured: nil,
+            sse: nil,
+        )
+    }
     
     static let sampleList: [ApiDapp] = []
 //    static let sampleList: [ApiDapp] = [

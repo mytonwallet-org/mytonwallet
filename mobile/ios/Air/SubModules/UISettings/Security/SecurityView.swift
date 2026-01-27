@@ -66,7 +66,9 @@ struct SecurityView: View {
     @ViewBuilder
     var passcodeSection: some View {
         InsetSection {
-            enableBiometrics
+            if let biometryType = BiometricHelper.biometryType {
+                enableBiometrics(biometryType: biometryType)
+            }
             changePasscode
         } header: {
             Text(lang("Passcode"))
@@ -75,13 +77,18 @@ struct SecurityView: View {
         }
     }
     
-    @ViewBuilder
-    var enableBiometrics: some View {
-        InsetDetailCell(verticalPadding: 0) {
-            Text(lang("Face ID"))
+    func enableBiometrics(biometryType: BiometryType) -> some View {
+        let biometricName: String
+        switch biometryType {
+        case .face: biometricName = lang("Face ID")
+        case .touch: biometricName = lang("Touch ID")
+        }
+        
+        return InsetDetailCell(verticalPadding: 0) {
+            Text(biometricName)
                 .frame(height: 44)
         } value: {
-            Toggle(lang("Face ID"), isOn: $biometrics)
+            Toggle(biometricName, isOn: $biometrics)
                 .toggleStyle(.switch)
                 .labelsHidden()
         }

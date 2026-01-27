@@ -42,6 +42,7 @@ public class NftsVC: WViewController, WSegmentedControllerContent, WalletAssetsV
     
     @Dependency(\.accountStore) private var accountStore
     @Dependency(\.accountSettings) var _accountSettings
+    @Dependency(\.domains) private var domainsStore
     
     private let accountIdProvider: AccountIdProvider
     
@@ -192,9 +193,12 @@ public class NftsVC: WViewController, WSegmentedControllerContent, WalletAssetsV
         }
         dataSource.reorderingHandlers.didReorder = { [weak self] transaction in
             guard let self else { return }
-            let accountId = self.accountId
-            let changes = transaction.difference.toNftIds()
-            NftStore.reorderNfts(accountId: accountId, changes: changes)
+            let orderedNftIds = OrderedSet(transaction.finalSnapshot.itemIdentifiers(inSection: .main)
+                .compactMap { row in
+                    if case let .nft(id) = row { return id }
+                    return nil
+                })
+            NftStore.reorderNfts(accountId: self.accountId, orderedIdsHint: orderedNftIds)
         }
         
         if !compactMode, filter != .none {
@@ -512,68 +516,132 @@ extension NftsVC: UICollectionViewDelegate {
     }
     
     private func makeMenu(accountId: String, nft: ApiNft) -> UIMenu {
-
+        
         let accountSettings = _accountSettings.for(accountId: accountId)
-        
-        
-        let detailsAction = UIAction(title: lang("Details"), image: UIImage(systemName: "info.circle")) { [filter] _ in
-            let assetVC = NftDetailsVC(accountId: accountId, nft: nft, listContext: filter)
-            self.navigationController?.pushViewController(assetVC, animated: true)
-        }
-        let sendAction = UIAction(title: lang("Send"), image: UIImage(systemName: "paperplane")) { _ in
-            AppActions.showSend(prefilledValues: .init(nfts: [nft], nftSendMode: .send))
-        }
-        var section1Items = [detailsAction, sendAction]
-        if let collection = nft.collection {
-            let collectionAction = UIAction(title: lang("Open Collection"), image: nil) { [weak self] _ in
-                guard let self else { return }
-                AppActions.showAssets(accountSource: accountSource, selectedTab: 1, collectionsFilter: .collection(collection))
+        let account = accountStore.get(accountId: accountId)
+        let domains = domainsStore.for(accountId: accountId)
+
+        let detailsSection: UIMenu
+        do {
+            var items: [UIMenuElement] = []
+            items += UIAction(title: lang("Details"), image: UIImage(systemName: "info.circle")) { [filter] _ in
+                let assetVC = NftDetailsVC(accountId: accountId, nft: nft, listContext: filter)
+                self.navigationController?.pushViewController(assetVC, animated: true)
             }
-            section1Items.append(collectionAction)
+            detailsSection = UIMenu(title: "", options: .displayInline, children: items)
         }
-        let section1 = UIMenu(title: "", options: .displayInline, children: section1Items)
-        
-        var section2Items: [UIAction] = []
-        if let mtwCardId = nft.metadata?.mtwCardId {
-            let isCurrent = mtwCardId == accountSettings.backgroundNft?.metadata?.mtwCardId
-            if isCurrent {
-                section2Items.append(UIAction(title: lang("Reset Card"), image: UIImage(systemName: "xmark.rectangle")) { _ in
-                    accountSettings.setBackgroundNft(nil)
-                })
-            } else {
-                section2Items.append(UIAction(title: lang("Install Card"), image: UIImage(systemName: "checkmark.rectangle")) { _ in
-                    accountSettings.setBackgroundNft(nft)
-                    accountSettings.setAccentColorNft(nft)
-                })
-            }
             
-            let isCurrentAccent = mtwCardId == accountSettings.accentColorNft?.metadata?.mtwCardId
-            if isCurrentAccent {
-                section2Items.append(UIAction(title: lang("Reset Palette"), image: .airBundle("custom.paintbrush.badge.xmark")) { _ in
-                    accountSettings.setAccentColorNft(nil)
-                })
-            } else {
-                section2Items.append(UIAction(title: lang("Apply Palette"), image: .airBundle("custom.paintbrush.badge.checkmark")) { _ in
-                    accountSettings.setAccentColorNft(nft)
-                })
+        let installSection: UIMenu
+        do {
+            var items: [UIMenuElement] = []
+            if let mtwCardId = nft.metadata?.mtwCardId {
+                let isCurrent = mtwCardId == accountSettings.backgroundNft?.metadata?.mtwCardId
+                if isCurrent {
+                    items += UIAction(title: lang("Reset Card"), image: UIImage(systemName: "xmark.rectangle")) { _ in
+                        accountSettings.setBackgroundNft(nil)
+                    }
+                } else {
+                    items += UIAction(title: lang("Install Card"), image: .airBundle("MenuInstallCard26")) { _ in
+                        accountSettings.setBackgroundNft(nft)
+                        accountSettings.setAccentColorNft(nft)
+                    }
+                }
+                let isCurrentAccent = mtwCardId == accountSettings.accentColorNft?.metadata?.mtwCardId
+                if isCurrentAccent {
+                    items += UIAction(title: lang("Reset Palette"), image: .airBundle("custom.paintbrush.badge.xmark")) { _ in
+                        accountSettings.setAccentColorNft(nil)
+                    }
+                } else {
+                    items += UIAction(title: lang("Apply Palette"), image: .airBundle("MenuBrush26")) { _ in
+                        accountSettings.setAccentColorNft(nft)
+                    }
+                }
             }
+            installSection = UIMenu(title: "", options: .displayInline, children: items)
         }
-        if nft.isOnFragment == true, let string = nft.metadata?.fragmentUrl?.nilIfEmpty, let url = URL(string: string) {
-            section2Items.append(UIAction(title: "Fragment", image: UIImage(systemName: "globe")) { _ in
+        
+        let actionsSection: UIMenu
+        do {
+            var items: [UIMenuElement] = []
+            if account.supportsSend {
+                items += UIAction(title: lang("Send"), image: .airBundle("MenuSend26")) { _ in
+                    AppActions.showSend(prefilledValues: .init(nfts: [nft], nftSendMode: .send))
+                }
+            }
+            items += UIAction(title: lang("Share"), image: .airBundle("MenuShare26")) { _ in
+                AppActions.shareUrl(ExplorerHelper.nftUrl(nft))
+            }
+            if account.type == .mnemonic, nft.isTonDns {
+                if domains.expirationByAddress[nft.address] != nil {
+                    items += UIAction(title: lang("Renew"), image: .airBundle("MenuRenew26")) { _ in
+                        AppActions.showRenewDomain(accountSource: .accountId(accountId), nftsToRenew: [nft.address])
+                    }
+                }
+                if !nft.isOnSale {
+                    let linkedAddress = domains.linkedAddressByAddress[nft.address]?.nilIfEmpty
+                    let title = linkedAddress == nil
+                        ? lang("Link to Wallet")
+                        : lang("Change Linked Wallet")
+                    items += UIAction(title: title, image: .airBundle("MenuLinkToWallet26")) { _ in
+                        AppActions.showLinkDomain(accountSource: .accountId(accountId), nftAddress: nft.address)
+                    }
+                }
+            }
+            items += UIAction(title: lang("Hide"), image: .airBundle("MenuHide26")) { _ in
+                NftStore.setHiddenByUser(accountId: accountId, nftId: nft.id, isHidden: true)
+            }
+            if account.supportsBurn {
+                items += UIAction(title: lang("Burn"), image: .airBundle("MenuBurn26"), attributes: .destructive) { _ in
+                    AppActions.showSend(prefilledValues: .init(nfts: [nft], nftSendMode: .burn))
+                }
+            }
+            actionsSection = UIMenu(title: "", options: .displayInline, children: items)
+        }
+        
+        // Open-In section (currently nested into otherSection)
+        let openInSection: UIMenu
+        do {
+            var items: [UIMenuElement] = []
+            if nft.isOnFragment == true, let string = nft.metadata?.fragmentUrl?.nilIfEmpty, let url = URL(string: string) {
+                items += UIAction(title: "Fragment", image: .airBundle("MenuFragment26")) { _ in
+                    AppActions.openInBrowser(url)
+                }
+            }
+            if !ConfigStore.shared.shouldRestrictBuyNfts {
+                items += UIAction(title: "Getgems", image: .airBundle("MenuGetgems26")) { _ in
+                    let url = ExplorerHelper.nftUrl(nft)
+                    AppActions.openInBrowser(url)
+                }
+            }
+            items += UIAction(title: "Tonscan", image: .airBundle("MenuTonscan26")) { _ in
+                let url = ExplorerHelper.tonscanNftUrl(nft)
                 AppActions.openInBrowser(url)
-            })
+            }
+            if let url = ExplorerHelper.tonDnsManagementUrl(nft) {
+                items += UIAction(title: "TON Domains", image: .airBundle("MenuTonDomains26")) { _ in
+                    AppActions.openInBrowser(url)
+                }
+            }
+            openInSection = UIMenu(title: lang("Open in..."), image: UIImage(systemName: "globe"), children: items)
         }
-        let section2 = UIMenu(title: "", options: .displayInline, children: section2Items)
-        
-        let hideAction = UIAction(title: lang("Hide"), image: UIImage(systemName: "eye.slash")) { _ in
-            NftStore.setHiddenByUser(accountId: accountId, nftId: nft.id, isHidden: true)
+                
+        let otherSection: UIMenu
+        do {
+            var items: [UIMenuElement] = []
+            if let collection = nft.collection {
+                let collectionAction = UIAction(title: lang("Collection"), image: .airBundle("MenuCollection26")) { [weak self] _ in
+                    guard let self else { return }
+                    AppActions.showAssets(accountSource: accountSource, selectedTab: 1, collectionsFilter: .collection(collection))
+                }
+                items.append(collectionAction)
+            }
+            if !openInSection.children.isEmpty {
+                items.append(openInSection)
+            }
+            otherSection = UIMenu(title: "", options: .displayInline, children: items)
         }
-        let burnAction = UIAction(title: lang("Burn"), image: UIImage(systemName: "trash"), attributes: .destructive) { _ in
-            AppActions.showSend(prefilledValues: .init(nfts: [nft], nftSendMode: .burn))
-        }
-        let section3 = UIMenu(title: "", options: .displayInline, children: [hideAction, burnAction])
-        
-        let sections = section2Items.isEmpty ? [section1, section3] : [section1, section2, section3]
+                    
+        let sections = [detailsSection, installSection, actionsSection, otherSection].filter { !$0.children.isEmpty }
         return UIMenu(title: "", children: sections)
     }
     
@@ -702,17 +770,3 @@ extension NftsVC: WalletCoreData.EventsObserver {
 }
 
 
-extension CollectionDifference<NftsVC.Row> {
-    func toNftIds() -> CollectionDifference<String> {
-        var changes: [CollectionDifference<String>.Change] = []
-        for rowChange in self {
-            switch rowChange {
-            case .remove(offset: let offset, element: let element, associatedWith: let associatedWith):
-                changes.append(.remove(offset: offset, element: element.stringValue, associatedWith: associatedWith))
-            case .insert(offset: let offset, element: let element, associatedWith: let associatedWith):
-                changes.append(.insert(offset: offset, element: element.stringValue, associatedWith: associatedWith))
-            }
-        }
-        return CollectionDifference<String>(changes)!
-    }
-}

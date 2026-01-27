@@ -59,11 +59,13 @@ fileprivate struct Image: View {
     @State private var isTouching: Bool = false
     
     var body: some View {
-        NftDetailsImage(viewModel: viewModel)
+        WithPerceptionTracking {
+            NftDetailsImage(viewModel: viewModel)
+        }
     }
 }
 
-fileprivate struct Labels: View {
+private struct Labels: View {
     
     var viewModel: NftDetailsViewModel
     
@@ -72,8 +74,6 @@ fileprivate struct Labels: View {
     
     @Environment(\.colorScheme) private var colorScheme
     
-    @AppStorage("cf_animateTitleChange") var animateTitleChange: Bool = false
-        
     var body: some View {
         WithPerceptionTracking {
             VStackLayout(alignment: isExpanded ? .leading : .center, spacing: 1) {
@@ -81,7 +81,7 @@ fileprivate struct Labels: View {
                     .font(.system(size: viewModel.isExpanded ? 22 : 29, weight: .medium))
                 if let collection = nft.collection {
                     NftCollectionButton(name: collection.name, onTap: {
-                        AppActions.showAssets(accountSource: .accountId(viewModel.accountId), selectedTab: 1, collectionsFilter: .collection(collection))
+                        AppActions.showAssets(accountSource: .accountId(viewModel.account.id), selectedTab: 1, collectionsFilter: .collection(collection))
                     })
                 } else {
                     Text(lang("Standalone NFT"))
@@ -97,7 +97,6 @@ fileprivate struct Labels: View {
             .multilineTextAlignment(.center)
             .frame(maxWidth: 350)
             .transition(.opacity)
-            //        .id(animateTitleChange ? "titleLabels" : nft.id)
         }
     }
 }

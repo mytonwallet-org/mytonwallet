@@ -37,7 +37,7 @@ class HomeVM(
         fun loadStakingData()
         fun stakingDataUpdated()
 
-        fun configureAccountViews(shouldLoadNewWallets: Boolean)
+        fun configureAccountViews(shouldLoadNewWallets: Boolean, skipSkeletonOnCache: Boolean)
         fun reloadTabs()
         fun accountNameChanged(accountName: String, animated: Boolean)
         fun accountConfigChanged()
@@ -261,7 +261,7 @@ class HomeVM(
         }
 
         // update actions view
-        delegate.get()?.configureAccountViews(shouldLoadNewWallets = !fromHome)
+        delegate.get()?.configureAccountViews(shouldLoadNewWallets = !fromHome, skipSkeletonOnCache = fromHome)
         delegate.get()?.updateBalance(accountChangedFromOtherScreens = !fromHome)
     }
 
@@ -372,7 +372,7 @@ class HomeVM(
 
             WalletEvent.AccountsReordered -> {
                 delegate.get()?.updateHeaderCards(false)
-                delegate.get()?.configureAccountViews(shouldLoadNewWallets = true)
+                delegate.get()?.configureAccountViews(shouldLoadNewWallets = true, skipSkeletonOnCache = false)
             }
 
             else -> {}

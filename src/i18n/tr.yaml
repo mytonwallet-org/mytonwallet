@@ -101,6 +101,7 @@ Warning!: Uyarı!
 $logout_without_backup_warning: Bu cüzdanı yedeklemediniz. Cüzdanı kaldırırsanız tokenlarınıza ve NFT'lerinize erişiminizi kaybedersiniz.
 $logout_accounts_without_backup_warning: "%links% için yedekleme yapmadınız. Devam ederseniz tokenlarınıza ve NFT'lerinize erişiminizi kaybedersiniz."
 $logout_warning: Bu, mevcut cüzdanı uygulamadan kaldıracaktır. **Gizli kelimelerinizi** yedeklediğinizden emin olun.
+$logout_view_mode_warning: Bu, mevcut cüzdanı uygulamadan kaldıracaktır.
 Your address was copied!: Adresiniz kopyalandı!
 Create Deposit Link: Para Yatırma Bağlantısı Oluşturun
 $receive_invoice_description: |
@@ -564,7 +565,10 @@ $transfer_inactive_contract_error: |
   Eğer mutlaka bu adrese gönderim yapmak istiyorsanız adresi "UQ..." formatında giriniz.
 $transfer_link_expired: Transfer bağlantısının süresi doldu
 $transfer_text_and_bin_exclusive: Metin ve ikili veri parametreleri birlikte kullanılamaz
-$unsupported_deeplink_parameter: Bu derin bağlantı desteklenmeyen parametreler içeriyor
+$unsupported_deeplink_parameter: Bu derin bağlantı desteklenmeyen parametreler içeriyor.
+$unsupported_chain: Desteklenmeyen blok zinciri.
+$transaction_not_found: İşlem bulunamadı.
+$could_not_determine_address: İşlemden cüzdan adresi belirlenemedi
 Successfully: Başarıyla
 Unstake More: Unstake daha fazla
 WrongAddress: Dapp başka bir cüzdandan bir işlem talep etti.
@@ -1027,6 +1031,7 @@ $explorer_mode_warning: "Kaşif modu: bir adres açmak için View deeplink'i bek
 This command is not supported in explorer mode: Bu komut kaşif modunda desteklenmiyor
 $saved_addresses_header: Kaydedildi
 confirm an action in MyTonWallet: MyTonWallet'da bir işlemi onaylayın
+Timed out waiting for account to be ready: Hesabın hazır olması beklenirken zaman aşımı
 $connected_apps:
   otherValue: "%1$d bağlı"
 Night Mode, Palette, Card: Gece Modu, Palet, Kart
@@ -1037,3 +1042,8 @@ Wallets, Sounds: Cüzdanlar, Sesler
 Help: Yardım
 About: Hakkında
 Wallets: Cüzdanlar
+Open: Aç
+Open in %app_name%: "%app_name%'da aç"
+Blog: Blog
+Apps: Uygulamalar
+$nft_not_found: NFT bulunamadı

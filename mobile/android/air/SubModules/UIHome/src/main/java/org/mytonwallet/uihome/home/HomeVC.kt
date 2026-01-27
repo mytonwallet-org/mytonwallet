@@ -237,7 +237,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                 if (progress == 0f) {
                     actionsView.translationY = 0f
                     view.post {
-                        configureActivityLists(shouldLoadNewWallets = true)
+                        configureActivityLists(shouldLoadNewWallets = true, skipSkeletonOnCache = true)
                         moveActionsViewToCell()
                     }
                 } else {
@@ -428,7 +428,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             homeVM.setupObservers()
             updateHeaderCards(false)
             updateBalance(false)
-            configureAccountViews(shouldLoadNewWallets = true)
+            configureAccountViews(shouldLoadNewWallets = true, skipSkeletonOnCache = false)
             WalletCore.requestDAppList()
         }
 
@@ -658,7 +658,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
 
     // Configure lists
     var renderedAccounts = ""
-    private fun configureActivityLists(shouldLoadNewWallets: Boolean) {
+    private fun configureActivityLists(shouldLoadNewWallets: Boolean, skipSkeletonOnCache: Boolean) {
         val activeAccount = headerView.centerAccount ?: homeVM.showingAccount ?: return
         homeVM.loadedAccountId = activeAccount.accountId
         val accountIds = WGlobalStorage.accountIds()
@@ -696,7 +696,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
 
         prevActivityListView =
             (prevView ?: activityListViewsCopy.removeFirstOrNull()!!.apply {
-                configure(prevAccountId, shouldLoadNewWallets)
+                configure(prevAccountId, shouldLoadNewWallets, skipSkeletonOnCache = skipSkeletonOnCache)
             }).apply {
                 if (swipeItemsOffset == 0)
                     isInvisible = true
@@ -704,7 +704,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             }
         currentActivityListView =
             (currentView ?: activityListViewsCopy.removeFirstOrNull()!!.apply {
-                configure(activeAccount.accountId, shouldLoadNewWallets)
+                configure(activeAccount.accountId, shouldLoadNewWallets, skipSkeletonOnCache = skipSkeletonOnCache)
             }).apply {
                 isInvisible = false
                 instantScrollToTop(shouldLoadNewWallets)
@@ -712,7 +712,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                     alpha = 1f
             }
         nextActivityListView = (nextView ?: activityListViewsCopy.removeFirstOrNull()!!.apply {
-            configure(nextAccountId, shouldLoadNewWallets)
+            configure(nextAccountId, shouldLoadNewWallets, skipSkeletonOnCache = skipSkeletonOnCache)
         }).apply {
             if (swipeItemsOffset == 0)
                 isInvisible = true
@@ -850,12 +850,12 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             )
     }
 
-    override fun configureAccountViews(shouldLoadNewWallets: Boolean) {
+    override fun configureAccountViews(shouldLoadNewWallets: Boolean, skipSkeletonOnCache: Boolean) {
         stickyHeaderView.updateActions()
         accountConfigChanged()
         actionsView.updateActions(headerView.centerAccount ?: homeVM.showingAccount)
         updateActionsAlpha()
-        configureActivityLists(shouldLoadNewWallets)
+        configureActivityLists(shouldLoadNewWallets, skipSkeletonOnCache)
         if (shouldLoadNewWallets) {
             accountNameChanged(
                 (headerView.centerAccount ?: homeVM.showingAccount)?.name ?: "",
@@ -893,7 +893,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
     }
 
     override fun accountWillChange(fromHome: Boolean) {
-        configureAccountViews(shouldLoadNewWallets = !fromHome)
+        configureAccountViews(shouldLoadNewWallets = !fromHome, skipSkeletonOnCache = fromHome)
         if (fromHome) {
             accountNameChanged(headerView.centerAccount?.name ?: "", true)
         } else {

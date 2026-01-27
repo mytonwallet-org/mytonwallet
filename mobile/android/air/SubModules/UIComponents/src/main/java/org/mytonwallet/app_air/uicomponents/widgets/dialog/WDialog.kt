@@ -36,7 +36,7 @@ import java.lang.ref.WeakReference
 import kotlin.math.max
 import kotlin.math.min
 
-class WDialog(private val customView: ViewGroup, private val config: Config): IPopup {
+class WDialog(private val customView: ViewGroup, private val config: Config) : IPopup {
 
     data class Config(
         val title: String? = null,
@@ -248,6 +248,10 @@ class WDialog(private val customView: ViewGroup, private val config: Config): IP
                 .setInterpolator(DecelerateInterpolator())
                 .start()
         }
+    }
+
+    override fun onBackPressed() {
+        dismiss()
     }
 
     override fun dismiss() {

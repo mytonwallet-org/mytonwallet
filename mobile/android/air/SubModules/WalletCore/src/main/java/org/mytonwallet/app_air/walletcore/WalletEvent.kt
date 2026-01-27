@@ -17,9 +17,14 @@ sealed class WalletEvent {
     data class ReceivedNewActivities(
         val accountId: String? = null,
         val newActivities: List<MApiTransaction>? = null,
-        val isUpdateEvent: Boolean? = null,
-        val loadedAll: Boolean?
-    ) : WalletEvent()
+        val eventType: EventType = EventType.UPDATE,
+    ) : WalletEvent() {
+        enum class EventType {
+            ACCOUNT_INITIALIZE,
+            UPDATE,
+            PAGINATE
+        }
+    }
 
     data class NewLocalActivities(
         val accountId: String? = null,
@@ -64,10 +69,6 @@ sealed class WalletEvent {
     data object HideTinyTransfersChanged : WalletEvent()
     data object NetworkConnected : WalletEvent()
     data object NetworkDisconnected : WalletEvent()
-    data class InvalidateCache(
-        val accountId: String? = null,
-        val tokenSlug: String? = null
-    ) : WalletEvent()
 
     data class OpenUrl(
         val url: String

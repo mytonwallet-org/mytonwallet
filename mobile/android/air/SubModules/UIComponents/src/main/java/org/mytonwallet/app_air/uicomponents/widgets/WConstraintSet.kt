@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.uicomponents.widgets
 import android.view.View
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintSet
+import androidx.constraintlayout.widget.Guideline
 import androidx.transition.ChangeBounds
 import androidx.transition.TransitionManager
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
@@ -306,5 +307,25 @@ class WConstraintSet(private val constraintView: ConstraintLayout) : ConstraintS
             v2.id,
             BASELINE
         )
+    }
+
+    fun guidelineBegin(guideline: Guideline, margin: Float = 0F) {
+        guidelineBeginPx(guideline, margin.dp.roundToInt())
+    }
+
+    fun guidelineBeginPx(guideline: Guideline, margin: Int) {
+        setGuidelineBegin(guideline.id, margin)
+    }
+
+    fun guidelineEnd(guideline: Guideline, margin: Float = 0F) {
+        guidelineEndPx(guideline, margin.dp.roundToInt())
+    }
+
+    fun guidelineEndPx(guideline: Guideline, margin: Int) {
+        setGuidelineEnd(guideline.id, margin)
+    }
+
+    fun guidelinePercent(guideline: Guideline, ratio: Float = 0F) {
+        setGuidelinePercent(guideline.id, ratio)
     }
 }

@@ -13,13 +13,15 @@ import WalletContext
     static func saveTemporaryViewAccount(accountId: String)
     static func scanQR() async -> ScanResult?
     static func setSensitiveDataIsHidden(_ newValue: Bool)
+    static func setTokenVisibility(accountId: String, tokenSlug: String, shouldShow: Bool)
     static func shareUrl(_ url: URL)
     static func showActivityDetails(accountId: String, activity: ApiActivity, context: ActivityDetailsContext)
     static func showActivityDetailsById(chain: ApiChain, txId: String, showError: Bool)
     static func showAddToken()
     static func showAddWallet(network: ApiNetwork, showCreateWallet: Bool, showSwitchToOtherVersion: Bool)
     static func showAnyAccountTx(accountId: String, chain: ApiChain, txId: String, showError: Bool)
-    static func showAssets(accountSource: AccountSource, selectedTab: Int, collectionsFilter: NftCollectionFilter) -> ()
+    static func showAssets(accountSource: AccountSource, selectedTab: Int, collectionsFilter: NftCollectionFilter)
+    static func showAssetsAndActivity()
     static func showBuyWithCard(chain: ApiChain?, push: Bool?)
     static func showConnectedDapps(push: Bool)
     static func showCrossChainSwapVC(_ transaction: ApiActivity, accountId: String?)
@@ -31,7 +33,9 @@ import WalletContext
     static func showHiddenNfts(accountSource: AccountSource) -> ()
     static func showHome(popToRoot: Bool)
     static func showImportWalletVersion() -> ()
+    static func showLinkDomain(accountSource: AccountSource, nftAddress: String)
     static func showReceive(chain: ApiChain?, title: String?)
+    static func showRenewDomain(accountSource: AccountSource, nftsToRenew: [String])
     static func showRenameAccount(accountId: String)
     static func showSaveAddressDialog(accountContext: AccountContext, chain: ApiChain, address: String)
     static func showSend(prefilledValues: SendPrefilledValues?)
@@ -66,13 +70,15 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func scanQR() async -> ScanResult? { nil }
     static func saveTemporaryViewAccount(accountId: String) { }
     static func setSensitiveDataIsHidden(_ newValue: Bool) { }
+    static func setTokenVisibility(accountId: String, tokenSlug: String, shouldShow: Bool) { }
     static func shareUrl(_ url: URL) { }
     static func showActivityDetails(accountId: String, activity: ApiActivity, context: ActivityDetailsContext) { }
     static func showActivityDetailsById(chain: ApiChain, txId: String, showError: Bool) { }
     static func showAddToken() { }
     static func showAddWallet(network: ApiNetwork, showCreateWallet: Bool, showSwitchToOtherVersion: Bool) { }
     static func showAnyAccountTx(accountId: String, chain: ApiChain, txId: String, showError: Bool) { }
-    static func showAssets(accountSource: AccountSource, selectedTab: Int, collectionsFilter: NftCollectionFilter) -> () { }
+    static func showAssets(accountSource: AccountSource, selectedTab: Int, collectionsFilter: NftCollectionFilter) { }
+    static func showAssetsAndActivity() { }
     static func showBuyWithCard(chain: ApiChain?, push: Bool?) { }
     static func showConnectedDapps(push: Bool) { }
     static func showCrossChainSwapVC(_ transaction: ApiActivity, accountId: String?) { }
@@ -84,7 +90,9 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showHiddenNfts(accountSource: AccountSource) -> () { }
     static func showHome(popToRoot: Bool) { }
     static func showImportWalletVersion() -> () { }
+    static func showLinkDomain(accountSource: AccountSource, nftAddress: String) { }
     static func showReceive(chain: ApiChain?, title: String?) { }
+    static func showRenewDomain(accountSource: AccountSource, nftsToRenew: [String]) { }
     static func showRenameAccount(accountId: String) { }
     static func showSaveAddressDialog(accountContext: AccountContext, chain: ApiChain, address: String) { }
     static func showSend(prefilledValues: SendPrefilledValues?) { }

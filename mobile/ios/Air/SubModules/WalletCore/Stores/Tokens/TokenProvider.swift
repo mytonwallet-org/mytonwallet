@@ -11,24 +11,35 @@ import SwiftNavigation
 public final class TokenProvider {
     
     public var slug: String
-    public private(set) var token: ApiToken!
+    public var token: ApiToken {
+        get {
+            _token
+        }
+        set {
+            slug = newValue.slug
+            _token = newValue
+        }
+    }
     
-    @PerceptionIgnored
-    @Dependency(\.tokenStore) private var tokenStore
+    private var _token: ApiToken!
+    
+    private let tokenStore: _TokenStore
     
     @PerceptionIgnored
     private var observeToken: ObserveToken?
     
-    /// Providing accountId == nil will track currentAccountId
     public init(tokenSlug: String) {
         
+        @Dependency(\.tokenStore) var tokenStore
+        self.tokenStore = tokenStore
+
         self.slug = tokenSlug
         
         observeToken = observe { [weak self] in
             guard let self else { return }
             if let token = tokenStore[slug] {
                 self.token = token
-            } else {
+            } else if self._token == nil {
                 let chain = getChainBySlug(slug) ?? FALLBACK_CHAIN
                 let nativeToken = chain.nativeToken
                 self.slug = nativeToken.slug
@@ -37,6 +48,9 @@ public final class TokenProvider {
         }
     }
     
-    public var wrappedValue: ApiToken { token }
+    public var wrappedValue: ApiToken {
+        get { token }
+        set { token = newValue }
+    }
     public var projectedValue: TokenProvider { self }
 }

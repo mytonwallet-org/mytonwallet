@@ -12,7 +12,9 @@ import { createAccount, updateAccounts } from '../reducers';
 import { selectNetworkAccounts } from '../selectors';
 
 export async function removeTemporaryAccount(accountId: string) {
-  const { currentAccountId: nextAccountId } = getGlobal();
+  const { currentAccountId } = getGlobal();
+  // Don't pass the same accountId as nextAccountId - it will be deleted and can't be activated
+  const nextAccountId = currentAccountId !== accountId ? currentAccountId : undefined;
 
   await callApi('removeAccount', accountId, nextAccountId);
 
@@ -22,7 +24,7 @@ export async function removeTemporaryAccount(accountId: string) {
 }
 
 function cleanupTemporaryAccountState(global: GlobalState, accountId: string): GlobalState {
-  const { accounts, byAccountId, settings } = global;
+  const { accounts, byAccountId, settings, currentAccountId } = global;
 
   const newAccountsById = accounts ? omit(accounts.byId, [accountId]) : undefined;
   const newByAccountId = omit(byAccountId, [accountId]);
@@ -32,6 +34,8 @@ function cleanupTemporaryAccountState(global: GlobalState, accountId: string): G
   return {
     ...global,
     currentTemporaryViewAccountId: undefined,
+    // Clear currentAccountId if it points to the removed account
+    currentAccountId: currentAccountId === accountId ? undefined : currentAccountId,
     accounts: accounts && newAccountsById ? { ...accounts, byId: newAccountsById } : accounts,
     byAccountId: newByAccountId,
     settings: {

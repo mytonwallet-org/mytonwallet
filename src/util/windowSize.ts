@@ -97,11 +97,10 @@ export function onVirtualKeyboardOpen(cb: NoneToVoidFunction) {
 function patchVh() {
   if (!(IS_IOS || IS_ANDROID) || IS_CAPACITOR || (IS_IOS && IS_TELEGRAM_APP)) return;
 
-  const height = IS_IOS ? window.visualViewport!.height + window.visualViewport!.pageTop : window.innerHeight;
+  const height = window.innerHeight;
 
   requestMutation(() => {
-    const vh = height * 0.01;
-    document.documentElement.style.setProperty('--vh', `${vh}px`);
+    document.documentElement.style.setProperty('--vh', IS_IOS ? '1dvh' : `${height * 0.01}px`);
   });
 }
 

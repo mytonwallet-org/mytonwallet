@@ -9,6 +9,7 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.getLocationInWindow
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
+import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.Item.Config.Icon
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -55,8 +56,9 @@ object CollectionsMenuHelpers {
             view,
             items,
             popupWidth = WRAP_CONTENT,
-            aboveView = false,
-            centerHorizontally = true
+            positioning = WMenuPopup.Positioning.BELOW,
+            centerHorizontally = true,
+            windowBackgroundStyle = BackgroundStyle.Cutout.fromView(view, roundRadius = 16f.dp)
         )
     }
 
@@ -196,7 +198,8 @@ object CollectionsMenuHelpers {
             menuItems,
             popupWidth = 256.dp,
             xOffset = (-location.x + (navigationController.width / 2) - 128.dp),
-            aboveView = false
+            positioning = WMenuPopup.Positioning.BELOW,
+            windowBackgroundStyle = BackgroundStyle.Cutout.fromView(view, roundRadius = 40f.dp)
         )
     }
 

@@ -1,8 +1,12 @@
 $landscapeAuthContentMaxWidth: 31.4375rem;
 $portraitContentMaxWidth: 27rem;
 $portraitHeaderHeight: 3rem;
-$cardAspectRatio: 58.203%;
 $defaultCardGradient: #479DE2 0, #367CCC 100%;
+
+// Card
+$cardAspectRatio: 58.203%;
+$cardPortraitBaseBalanceSize: 3.25rem;
+$cardLandscapeBaseBalanceSize: 3rem;
 
 // Transaction modal heights
 $transactionModalHeight: 38.5rem;

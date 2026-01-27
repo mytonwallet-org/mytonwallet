@@ -495,6 +495,7 @@ export interface AccountState {
   currentSiteCategoryId?: number;
 
   config?: ApiAccountConfig;
+  isAppReady?: boolean;
 }
 
 export interface AccountSettings {
@@ -1064,7 +1065,9 @@ export interface ActionPayloads {
   fetchActivityDetails: { id: string };
 
   // External transaction info (deeplink)
-  openTransactionInfo: { txId: string; chain: ApiChain } | { txHash: string; chain: ApiChain };
+  openTransactionInfo:
+    | { txId: string; chain: ApiChain; activities?: ApiActivity[] }
+    | { txHash: string; chain: ApiChain; activities?: ApiActivity[] };
   closeTransactionInfo: undefined;
   selectTransactionInfoActivity: { index: number };
   fetchNftsFromCollection: { collectionAddress: string };

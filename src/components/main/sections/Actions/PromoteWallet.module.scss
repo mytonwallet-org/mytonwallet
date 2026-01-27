@@ -1,0 +1,56 @@
+@use "../../../../styles/mixins";
+
+.root {
+  margin-top: 0.75rem;
+  padding: 1rem;
+  border-radius: var(--border-radius-default);
+  background-color: var(--color-background-first);
+}
+
+.button {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: center;
+
+  width: 100%;
+  height: 3rem;
+  border-radius: var(--border-radius-buttons);
+
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 3rem;
+  color: var(--color-accent);
+  text-decoration: none !important;
+
+  background-color: var(--color-accent-10o);
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  justify-content: center;
+
+  margin: 1.25rem 0 0.25rem;
+  padding: 0;
+}
+
+.wrapper {
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1rem;
+  list-style: none;
+}
+
+.link {
+  --color-accent: var(--color-gray-2);
+
+  &:hover,
+  &:focus-visible {
+    --color-accent: var(--color-gray-3);
+  }
+
+  @include mixins.transition('color 200ms');
+}

@@ -476,7 +476,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                         if (AccountStore.activeAccount?.accountId != accountId) {
                             return@post
                         }
-                        NftStore.add(ApiNft.fromJson(objectJSONObject.optJSONObject("nft")!!)!!)
+                        NftStore.add(accountId, ApiNft.fromJson(objectJSONObject.optJSONObject("nft")!!)!!)
                     }
                 }
 
@@ -487,7 +487,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                         if (AccountStore.activeAccount?.accountId != accountId) {
                             return@post
                         }
-                        NftStore.removeByAddress(objectJSONObject.optString("nftAddress"))
+                        NftStore.removeByAddress(accountId, objectJSONObject.optString("nftAddress"))
                     }
                 }
 

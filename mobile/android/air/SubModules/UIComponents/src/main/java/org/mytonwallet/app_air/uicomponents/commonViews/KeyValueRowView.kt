@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.text.TextUtils
-import android.text.method.LinkMovementMethod
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -14,8 +13,9 @@ import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONS
 import androidx.core.view.doOnLayout
 import com.google.android.material.progressindicator.CircularProgressIndicator
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonCell.Companion.SUBTITLE_SKELETON_RADIUS
-import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.helpers.spans.ExtraHitLinkMovementMethod
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -62,7 +62,7 @@ class KeyValueRowView(
         val lbl = WLabel(context).apply {
             setStyle(16f)
             text = value
-            movementMethod = LinkMovementMethod.getInstance()
+            movementMethod = ExtraHitLinkMovementMethod(8.dp, 4.dp)
             highlightColor = Color.TRANSPARENT
             setSingleLine(true)
             ellipsize = TextUtils.TruncateAt.MARQUEE
@@ -70,6 +70,7 @@ class KeyValueRowView(
             isSelected = true
             if (LocaleController.isRTL)
                 gravity = Gravity.LEFT
+            setPaddingDp(8, 4, 8, 4)
         }
         WSensitiveDataContainer(
             lbl,
@@ -77,6 +78,7 @@ class KeyValueRowView(
                 6,
                 2,
                 Gravity.END or Gravity.CENTER_VERTICAL,
+                endMargin = 8.dp,
                 protectContentLayoutSize = false
             )
         ).apply {
@@ -114,7 +116,7 @@ class KeyValueRowView(
             toCenterY(valueLabel, 15f)
             toStart(keyLabel, 20f)
             startToEnd(valueLabel, keyLabel, 16f)
-            toEnd(valueLabel, 20f)
+            toEnd(valueLabel, 12f)
             if (valView is WLabel) {
                 startToEnd(valView!!, keyLabel, 16f)
             }
@@ -264,16 +266,18 @@ class KeyValueRowView(
             valueView,
             LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
         )
+        var endMarginOffset = 0
         (valueView as? WLabel)?.apply {
             setSingleLine(true)
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isHorizontalFadingEdgeEnabled = true
             isSelected = true
+            endMarginOffset = paddingEnd
         }
         setConstraints {
             constrainedWidth(valueView.id, true)
             setHorizontalBias(valueView.id, 1f)
-            toEnd(valueView, 20f)
+            toEndPx(valueView, 20.dp - endMarginOffset)
             toCenterY(valueView)
             if (valueView is WLabel) {
                 startToEnd(valueView, keyLabel, 16f)

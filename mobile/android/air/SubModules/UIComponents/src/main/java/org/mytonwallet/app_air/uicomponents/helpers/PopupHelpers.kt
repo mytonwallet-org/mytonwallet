@@ -29,4 +29,11 @@ object PopupHelpers {
             it.get()?.dismiss()
         }
     }
+
+    fun onBackPressed(): Boolean {
+        if (popups.isEmpty())
+            return false
+        popups.lastOrNull()?.get()?.onBackPressed() ?: return false
+        return true
+    }
 }

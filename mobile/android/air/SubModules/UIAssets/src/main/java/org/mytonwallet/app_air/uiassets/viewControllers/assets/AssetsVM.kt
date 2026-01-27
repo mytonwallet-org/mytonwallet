@@ -36,7 +36,8 @@ class AssetsVM(
     internal var nfts: MutableList<ApiNft>? = null
     var isInDragMode = false
     var cachedNftsToSave: MutableList<ApiNft>? = null
-    private var nftsShown = false
+    var nftsShown = false
+        private set
 
     fun configure(accountId: String) {
         scope.coroutineContext.cancelChildren()
@@ -76,14 +77,15 @@ class AssetsVM(
         onFinished: (() -> Unit)? = null
     ) {
         scope.launch {
+            val nftData = NftStore.nftData
             val cachedNfts =
-                if (NftStore.nftData?.accountId == showingAccountId)
-                    NftStore.nftData?.cachedNfts
+                if (nftData?.accountId == showingAccountId && nftData.cachedNfts != null)
+                    nftData.cachedNfts
                 else
                     NftStore.fetchCachedNfts(showingAccountId)
+            applyCachedNfts(cachedNfts, keepOrder)
 
             withContext(Dispatchers.Main) {
-                applyCachedNfts(cachedNfts, keepOrder)
                 onFinished?.invoke()
                 if (!nftsShown) {
                     nftsShown = true

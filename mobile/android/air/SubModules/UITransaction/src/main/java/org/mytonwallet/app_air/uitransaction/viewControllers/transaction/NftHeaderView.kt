@@ -7,15 +7,17 @@ import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.text.TextPaint
 import android.text.TextUtils
-import android.text.method.LinkMovementMethod
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.appcompat.widget.AppCompatTextView
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.AddressPopupHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.spans.ExtraHitLinkMovementMethod
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WForegroundColorSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
@@ -62,7 +64,8 @@ class NftHeaderView(
         setStyle(16f)
         setLineHeight(24f)
         gravity = Gravity.START
-        layoutParams = LayoutParams(LayoutParams.MATCH_CONSTRAINT, lineHeight)
+        layoutParams = LayoutParams(WRAP_CONTENT, lineHeight + 8.dp)
+        setPaddingDp(8, 4, 8, 4)
     }
 
     init {
@@ -80,8 +83,10 @@ class NftHeaderView(
             startToEnd(nameTextView, imageView, 16f)
             toEnd(nameTextView, 20f)
 
-            bottomToBottom(addressLabel, imageView, 7.5f)
-            startToEnd(addressLabel, imageView, 16f)
+            setHorizontalBias(addressLabel.id, 0f)
+            constrainedWidth(addressLabel.id, true)
+            bottomToBottom(addressLabel, imageView, 3.5f)
+            startToEnd(addressLabel, imageView, 8f)
             toEnd(addressLabel, 20f)
         }
 
@@ -111,15 +116,16 @@ class NftHeaderView(
             prefixString + formattedAddress
         ).apply {
             AddressPopupHelpers.configSpannableAddress(
-                viewController,
-                if (addressToShow?.second == true) formattedAddress else null,
-                this,
-                length - formattedAddress.length,
-                formattedAddress.length,
-                AccountStore.activeAccount!!.network,
-                TONCOIN_SLUG,
-                address,
-                startOffset.roundToInt(),
+                viewController = viewController,
+                title = if (addressToShow?.second == true) formattedAddress else null,
+                spannedString = this,
+                startIndex = length - formattedAddress.length,
+                length = formattedAddress.length,
+                network = AccountStore.activeAccount!!.network,
+                addressTokenSlug = TONCOIN_SLUG,
+                address = address,
+                popupXOffset = startOffset.roundToInt(),
+                centerHorizontally = false,
                 showTemporaryViewOption = true
             )
             setSpan(
@@ -139,7 +145,7 @@ class NftHeaderView(
             }
         }
         addressLabel.text = addressAttr
-        addressLabel.movementMethod = LinkMovementMethod.getInstance()
+        addressLabel.movementMethod = ExtraHitLinkMovementMethod(addressLabel.paddingLeft, addressLabel.paddingTop)
         addressLabel.highlightColor = Color.TRANSPARENT
     }
 

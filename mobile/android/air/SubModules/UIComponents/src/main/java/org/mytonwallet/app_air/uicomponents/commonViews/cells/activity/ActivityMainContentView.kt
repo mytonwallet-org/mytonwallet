@@ -25,8 +25,8 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
-import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletbasecontext.utils.formatTime
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
@@ -90,7 +90,13 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
     override fun setupViews() {
         super.setupViews()
 
-        addView(iconView, LayoutParams((ApplicationContextHolder.adaptiveIconSize + 2).dp, (ApplicationContextHolder.adaptiveIconSize + 2).dp))
+        addView(
+            iconView,
+            LayoutParams(
+                (ApplicationContextHolder.adaptiveIconSize + 2).dp,
+                (ApplicationContextHolder.adaptiveIconSize + 2).dp
+            )
+        )
         addView(topLeftLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(bottomLeftLabel)
         addView(topRightView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
@@ -134,11 +140,11 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
     }
 
     private var transaction: MApiTransaction? = null
-    fun configure(transaction: MApiTransaction, accountId: String) {
+    fun configure(transaction: MApiTransaction, accountId: String, isMultichain: Boolean) {
         this.transaction = transaction
         when (transaction) {
             is MApiTransaction.Transaction -> {
-                configureTransaction(accountId)
+                configureTransaction(accountId, isMultichain)
             }
 
             is MApiTransaction.Swap -> {
@@ -153,6 +159,7 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
 
     fun updateTheme() {
         topLeftLabel.setTextColor(WColor.PrimaryText.color)
+        topRightView.updateTheme()
         bottomRightLabel.contentView.setTextColor(WColor.PrimaryLightText.color)
     }
 
@@ -160,13 +167,13 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
         bottomRightLabel.updateProtectedView()
     }
 
-    private fun configureTransaction(accountId: String) {
+    private fun configureTransaction(accountId: String, isMultichain: Boolean) {
         val transaction = transaction as MApiTransaction.Transaction
         iconView.config(transaction)
         topLeftLabel.text = transaction.title
         configureScamLabel()
         topRightView.configure(transaction)
-        configureTransactionSubtitle(accountId)
+        configureTransactionSubtitle(accountId, isMultichain)
         configureTransactionEquivalentAmount()
     }
 
@@ -235,7 +242,7 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
         }
     }
 
-    private fun configureTransactionSubtitle(accountId: String) {
+    private fun configureTransactionSubtitle(accountId: String, isMultichain: Boolean) {
         val transaction = transaction as MApiTransaction.Transaction
         val token = transaction.token
         val timeStr = transaction.dt.formatTime()
@@ -255,7 +262,7 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
                 ).lowercase()
             )
             builder.append(" ")
-            if (WalletCore.isMultichain) {
+            if (isMultichain) {
                 token?.mBlockchain?.symbolIcon?.let {
                     val drawable = ContextCompat.getDrawable(context, it)!!
                     drawable.mutate()
@@ -288,7 +295,8 @@ class ActivityMainContentView(context: Context) : WView(context), WProtectedView
             stakingState?.let { stakingState ->
                 val annualYield = LocaleController.getString("at %annual_yield%")
                 val addressStart = builder.length + annualYield.indexOf("%")
-                val yieldString = stakingState.yieldType.toString() + " " + stakingState.annualYield + "%"
+                val yieldString =
+                    stakingState.yieldType.toString() + " " + stakingState.annualYield + "%"
                 builder.append(
                     annualYield.replace(
                         "%annual_yield%",

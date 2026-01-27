@@ -6,6 +6,8 @@ import android.content.Context
 import android.view.MotionEvent
 import android.view.View
 import android.view.animation.DecelerateInterpolator
+import androidx.core.animation.doOnCancel
+import androidx.core.animation.doOnEnd
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
@@ -30,7 +32,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
-import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.utils.isSameDayAs
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
@@ -110,26 +111,38 @@ class ActivityListView<T>(
 
     // PUBLIC //////////////////////////////////////////////////////////////////////////////////////
     var expandingProgrammatically = false
-    var loadingCachedActivities = false
+    var isInstantSwitchingAccount = false
 
-    fun configure(accountId: String?, shouldLoadNewWallets: Boolean) {
+    fun configure(accountId: String?, shouldLoadNewWallets: Boolean, skipSkeletonOnCache: Boolean) {
         if (showingAccountId == accountId)
             return
         assetsShown = false
         isMainnetAccount =
             accountId != null && MBlockchainNetwork.ofAccountId(accountId) == MBlockchainNetwork.MAINNET
         this.showingAccountId = if (shouldLoadNewWallets) accountId else null
-        activityLoaderHelper?.clean()
-        activityLoaderHelper = null
+
+        childrenFadeAnimator?.cancel()
+        childrenFadeAnimator = null
+        isShowingRecyclerView = false
+        setChildrenAlpha(0f)
+
+        activityLoader?.clean()
+        activityLoader = null
+        val showingAccountId = showingAccountId
         if (showingAccountId != null) {
-            loadingCachedActivities = WGlobalStorage.hasCachedActivities(showingAccountId!!, null)
-            activityLoaderHelper =
-                ActivityLoader(context, showingAccountId!!, null, WeakReference(this))
-            activityLoaderHelper?.askForActivities()
+            isInstantSwitchingAccount =
+                skipSkeletonOnCache &&
+                    isGeneralDataAvailable &&
+                    WGlobalStorage.hasCachedActivities(showingAccountId, null)
+            isShowingAccountMultichain = WGlobalStorage.isMultichain(showingAccountId)
+            activityLoader =
+                ActivityLoader(context, showingAccountId, null, WeakReference(this))
+            activityLoader?.askForActivities()
             homeAssetsCell?.configure(showingAccountId)
+            updateSkeletonState(animated = false)
         }
+        showActions = dataSource?.activityListReserveActionsCell() == true
         rvAdapter.reloadData()
-        updateSkeletonState()
     }
 
     // Called to update reserved header space when user scrolls on header cells
@@ -158,8 +171,8 @@ class ActivityListView<T>(
     }
 
     fun onDestroy() {
-        activityLoaderHelper?.clean()
-        activityLoaderHelper = null
+        activityLoader?.clean()
+        activityLoader = null
         recyclerView.setOnOverScrollListener(null)
         recyclerView.removeOnScrollListener(scrollListener)
         recyclerView.layoutManager = null
@@ -192,8 +205,52 @@ class ActivityListView<T>(
     private var assetsShown = false
     private var isMainnetAccount = false
     private var skeletonAlphaFromLoadValue = 0f
+    private var childrenAlpha = 1f
+    private var headerReservedActionsCell: Boolean? = null
     var showingAccountId: String? = null
         private set
+    private var isShowingAccountMultichain = false
+
+    /**
+     * Set alpha on recyclerView children for sections other than header and actions.
+     * This allows header and actions to remain visible while transactions fade.
+     */
+    private fun setChildrenAlpha(alpha: Float) {
+        val newHeaderReservedActionsCell = dataSource?.activityListReserveActionsCell()
+        if (childrenAlpha == alpha && headerReservedActionsCell == newHeaderReservedActionsCell) return
+        headerReservedActionsCell = newHeaderReservedActionsCell
+        childrenAlpha = alpha
+        applyChildrenAlpha()
+    }
+
+    private fun applyChildrenAlpha() {
+        val layoutManager = recyclerView.layoutManager as? LinearLayoutManager ?: return
+        var itemCursor = layoutManager.findFirstVisibleItemPosition()
+        if (itemCursor == RecyclerView.NO_POSITION) return
+        while (true) {
+            val child = layoutManager.findViewByPosition(itemCursor++) ?: break
+            child.alpha = if (stickyCells.contains(child)) 1f else childrenAlpha
+        }
+    }
+
+    private var childrenFadeAnimator: ValueAnimator? = null
+    private fun fadeInChildren() {
+        childrenFadeAnimator?.cancel()
+        childrenFadeAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = AnimationConstants.QUICK_ANIMATION
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { animation ->
+                setChildrenAlpha(animation.animatedValue as Float)
+            }
+            doOnCancel {
+                headerReservedActionsCell = dataSource?.activityListReserveActionsCell()
+            }
+            doOnEnd {
+                headerReservedActionsCell = dataSource?.activityListReserveActionsCell()
+            }
+            start()
+        }
+    }
 
     val isGeneralDataAvailable: Boolean
         get() {
@@ -209,10 +266,10 @@ class ActivityListView<T>(
 
     val showingTransactions: List<MApiTransaction>?
         get() {
-            return activityLoaderHelper?.showingTransactions
+            return activityLoader?.showingTransactions
         }
 
-    internal var activityLoaderHelper: IActivityLoader? = null
+    internal var activityLoader: IActivityLoader? = null
 
     private val skeletonRecyclerView: WRecyclerView by lazy {
         object : WRecyclerView(dataSource!!) {
@@ -314,6 +371,7 @@ class ActivityListView<T>(
         }
     }
 
+    private var isShowingRecyclerView = false
     val recyclerView: WRecyclerView by lazy {
         WRecyclerView(context).apply {
             clipChildren = false
@@ -411,10 +469,9 @@ class ActivityListView<T>(
     private val skeletonView = SkeletonView(context)
 
     private var skeletonEmptyHeaderCell: WCell? = null
-    var headerCell = HeaderSpaceCell(context)
-        private set
-    var actionsCell = WCell(context)
-        private set
+    val headerCell = HeaderSpaceCell(context)
+    val actionsCell = WCell(context)
+    val stickyCells = setOf(headerCell, actionsCell)
     var homeAssetsCell: HomeAssetsCell? = null
 
     init {
@@ -480,7 +537,7 @@ class ActivityListView<T>(
         val dataSource = dataSource ?: return
         val newHeight = dataSource.activityListViewHeaderHeight() +
             dataSource.swipeItemsOffset() +
-            (if (dataSource.activityListReserveActionsCell()) HeaderActionsView.Companion.HEIGHT.dp else 0)
+            (if (dataSource.activityListReserveActionsCell()) HeaderActionsView.HEIGHT.dp else 0)
         if (newHeight == skeletonEmptyHeaderCell?.layoutParams?.height)
             return
         skeletonEmptyHeaderCell?.layoutParams = skeletonEmptyHeaderCell?.layoutParams?.apply {
@@ -488,29 +545,33 @@ class ActivityListView<T>(
         }
     }
 
-    private fun updateSkeletonState() {
-        if (skeletonAlphaFromLoadValue > 0 &&
-            isGeneralDataAvailable &&
-            assetsShown
-        ) {
-            hideSkeletons()
-            val areActivitiesAvailable = showingTransactions != null &&
-                ((showingTransactions?.size ?: 0) > 0 ||
-                    activityLoaderHelper?.loadedAll == true)
-            recyclerView.animate().cancel()
-            if (loadingCachedActivities && areActivitiesAvailable) {
-                loadingCachedActivities = false
-                if (alpha < 0.1) {
-                    recyclerView.alpha = 1f
-                } else {
-                    recyclerView.alpha = 0f
-                    recyclerView.fadeIn()
-                }
+    private fun updateSkeletonState(animated: Boolean) {
+        if (isShowingRecyclerView)
+            return // Already shown, no skeleton processes necessary.
+
+        val areActivitiesAvailable =
+            !showingTransactions.isNullOrEmpty() || activityLoader?.loadedAll == true
+        val shouldShowRecyclerView = isGeneralDataAvailable && areActivitiesAvailable && assetsShown
+        val shouldFadeInRecyclerView =
+            isInstantSwitchingAccount && shouldShowRecyclerView && !skeletonVisible
+
+        val shouldHideSkeleton =
+            skeletonAlphaFromLoadValue > 0 && (isInstantSwitchingAccount || shouldShowRecyclerView)
+        val shouldShowSkeleton =
+            !isInstantSwitchingAccount && !shouldShowRecyclerView
+
+        when {
+            shouldHideSkeleton -> hideSkeletons(animated)
+            shouldShowSkeleton -> showSkeletons()
+        }
+
+        if (shouldShowRecyclerView) {
+            isShowingRecyclerView = true
+            if (animated && shouldFadeInRecyclerView && alpha >= 0.1) {
+                fadeInChildren()
             } else {
-                recyclerView.alpha = 1f
+                setChildrenAlpha(1f)
             }
-        } else if (!skeletonVisible && (showingTransactions == null || !isGeneralDataAvailable)) {
-            showSkeletons()
         }
     }
 
@@ -557,10 +618,11 @@ class ActivityListView<T>(
     }
 
     private var hideSkeletonAnimation: ValueAnimator? = null
-    private fun hideSkeletons() {
-        if (skeletonAlphaFromLoadValue == 0f || hideSkeletonAnimation?.isRunning == true)
+    private fun hideSkeletons(animated: Boolean) {
+        if (skeletonAlphaFromLoadValue == 0f || (animated && hideSkeletonAnimation?.isRunning == true))
             return
-        if (!isVisible || alpha < 0.1) {
+        if (!isVisible || !animated || alpha < 0.1) {
+            hideSkeletonAnimation?.cancel()
             skeletonAlphaFromLoadValue = 0f
             applySkeletonAlpha()
         } else {
@@ -675,7 +737,9 @@ class ActivityListView<T>(
     private var oldTransactionsFirstDt: Date? = null
     private var isApplyingUpdate = false
     fun transactionsUpdated(isUpdateEvent: Boolean) {
-        updateSkeletonState()
+        if (showingAccountId == null)
+            return
+        updateSkeletonState(animated = true)
         val shouldReloadAssetsCellHeight = homeAssetsCell?.isDraggingCollectible != true
         isApplyingUpdate = isUpdateEvent && oldTransactions != null
         if (shouldReloadAssetsCellHeight)
@@ -684,7 +748,7 @@ class ActivityListView<T>(
             reloadTransactions()
         post {
             isApplyingUpdate = false
-            activityLoaderHelper?.showingTransactions?.let { showingTransactions ->
+            activityLoader?.showingTransactions?.let { showingTransactions ->
                 oldTransactions =
                     showingTransactions.map { it.getStableId() }.toSet()
                 oldTransactionsFirstDt = showingTransactions.firstOrNull()?.dt
@@ -861,8 +925,10 @@ class ActivityListView<T>(
                                     delegate?.resumeBottomBlurViews()
                                 },
                                 onAssetsShown = {
+                                    if (showingAccountId == null)
+                                        return@HomeAssetsCell
                                     assetsShown = true
-                                    updateSkeletonState()
+                                    updateSkeletonState(animated = true)
                                 },
                                 onReorderingRequested = {
                                     delegate?.startSorting()
@@ -957,7 +1023,7 @@ class ActivityListView<T>(
                 if (indexPath.section == TRANSACTION_SECTION &&
                     indexPath.row >= (showingTransactions?.size ?: 0) - 20
                 ) {
-                    activityLoaderHelper?.useBudgetTransactions()
+                    activityLoader?.useBudgetTransactions()
                 }
 
                 when (indexPath.section) {
@@ -998,15 +1064,16 @@ class ActivityListView<T>(
                                 showingTransactions!![indexPath.row - 1].dt
                             )
                             transactionCell.configure(
-                                transaction,
-                                showingAccountId!!,
-                                ActivityCell.Positioning(
+                                transaction = transaction,
+                                accountId = showingAccountId!!,
+                                isMultichain = isShowingAccountMultichain,
+                                positioning = ActivityCell.Positioning(
                                     isFirst = indexPath.row == 0,
                                     isFirstInDay = isFirstInDay,
                                     isLastInDay = (indexPath.row == showingTransactions!!.size - 1) || !transaction.dt.isSameDayAs(
                                         showingTransactions!![indexPath.row + 1].dt
                                     ),
-                                    isLast = indexPath.row == showingTransactions!!.size - 1 && activityLoaderHelper?.loadedAll != false,
+                                    isLast = indexPath.row == showingTransactions!!.size - 1 && activityLoader?.loadedAll != false,
                                     isAdded = isApplyingUpdate &&
                                         oldTransactions?.contains(
                                             transaction.getStableId()
@@ -1019,7 +1086,7 @@ class ActivityListView<T>(
                         } else {
                             val layoutParams = cellHolder.cell.layoutParams
                             layoutParams.height =
-                                if (activityLoaderHelper?.loadedAll != false) ViewConstants.GAP.dp else 0
+                                if (activityLoader?.loadedAll != false) ViewConstants.GAP.dp else 0
                             cellHolder.cell.layoutParams = layoutParams
                         }
                     }
@@ -1047,12 +1114,15 @@ class ActivityListView<T>(
                             configure(indexPath.row, false, isLast = true)
                             updateTheme()
                             visibility =
-                                if (activityLoaderHelper?.showingTransactions == null ||
-                                    activityLoaderHelper?.loadedAll == true
+                                if (activityLoader?.showingTransactions == null ||
+                                    activityLoader?.loadedAll == true
                                 ) INVISIBLE else VISIBLE
                         }
                     }
                 }
+
+                // Apply alpha to children outside header section
+                cellHolder.cell.alpha = childrenAlpha
             }
 
             skeletonRecyclerView -> {
@@ -1113,7 +1183,7 @@ class ActivityListView<T>(
     }
 
     override fun activityLoaderCacheNotFound() {
-        updateSkeletonState()
+        updateSkeletonState(animated = true)
     }
 
     override fun activityLoaderLoadedAll() {

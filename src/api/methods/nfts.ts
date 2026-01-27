@@ -1,10 +1,13 @@
-import type { ApiNft, OnApiUpdate } from '../types';
+import type { ApiNetwork, ApiNft, OnApiUpdate } from '../types';
 
 import { TONCOIN } from '../../config';
 import { bigintDivideToNumber } from '../../util/bigint';
 import { extractKey } from '../../util/iteratees';
 import * as ton from '../chains/ton';
+import { parseTonapiioNft } from '../chains/ton/util/metadata';
+import { fetchNftByAddress as fetchRawNftByAddress } from '../chains/ton/util/tonapiio';
 import { fetchStoredAccount, fetchStoredWallet } from '../common/accounts';
+import { getNftSuperCollectionsByCollectionAddress } from '../common/addresses';
 import { createLocalTransactions } from './transfer';
 
 let onUpdate: OnApiUpdate;
@@ -67,6 +70,12 @@ export async function submitNftTransfers(
   return {
     activityIds: extractKey(localActivities, 'id'),
   };
+}
+
+export async function fetchNftByAddress(network: ApiNetwork, nftAddress: string): Promise<ApiNft | undefined> {
+  const rawNft = await fetchRawNftByAddress(network, nftAddress);
+  const nftSuperCollectionsByCollectionAddress = await getNftSuperCollectionsByCollectionAddress();
+  return parseTonapiioNft(network, rawNft, nftSuperCollectionsByCollectionAddress);
 }
 
 export async function checkNftOwnership(accountId: string, nftAddress: string) {

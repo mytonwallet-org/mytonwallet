@@ -101,6 +101,7 @@ Warning!: ¡Advertencia!
 $logout_without_backup_warning: No ha realizado copia de seguridad de este monedero. Si cierra sesión, perderá el acceso a sus activos.
 $logout_accounts_without_backup_warning: No ha realizado copia de seguridad de %links%. Si cierra sesión, perderá el acceso a sus activos.
 $logout_warning: Esto desconectará el monedero de esta aplicación. Podrá restaurar su monedero usando la frase semilla...
+$logout_view_mode_warning: Esto desconectará el monedero de esta aplicación.
 Your address was copied!: ¡Su dirección fue copiada!
 Create Deposit Link: Crear enlace de depósito
 $receive_invoice_description: |
@@ -566,7 +567,10 @@ $transfer_inactive_contract_error: |
   Si definitivamente desea enviar a esta dirección, ingrese la dirección en el formato "UQ...".
 $transfer_link_expired: El enlace de transferencia ha expirado
 $transfer_text_and_bin_exclusive: No se pueden usar juntos los parámetros de texto y datos binarios
-$unsupported_deeplink_parameter: Este enlace profundo contiene parámetros no compatibles
+$unsupported_deeplink_parameter: Este enlace profundo contiene parámetros no compatibles.
+$unsupported_chain: Blockchain no compatible.
+$transaction_not_found: Transacción no encontrada.
+$could_not_determine_address: No se pudo determinar la dirección de la billetera a partir de la transacción
 Successfully: Exitosamente
 Unstake More: Retirar más
 WrongAddress: El dapp solicitó una transacción desde otra billetera.
@@ -1029,6 +1033,7 @@ $explorer_mode_warning: "Modo explorador: esperando un enlace profundo de View p
 This command is not supported in explorer mode: Este comando no es compatible en modo explorador
 $saved_addresses_header: Guardado
 confirm an action in MyTonWallet: confirmar una acción en MyTonWallet
+Timed out waiting for account to be ready: Tiempo de espera agotado para la preparación de la cuenta
 $connected_apps:
   otherValue: "%1$d conectadas"
 Night Mode, Palette, Card: Modo nocturno, Paleta, Tarjeta
@@ -1039,3 +1044,8 @@ Wallets, Sounds: Billeteras, Sonidos
 Help: Ayuda
 About: Acerca de
 Wallets: Billeteras
+Open: Abrir
+Open in %app_name%: Abrir en %app_name%
+Blog: Blog
+Apps: Aplicaciones
+$nft_not_found: NFT no encontrado

@@ -18,10 +18,9 @@ public class SetPasscodeVC: WViewController, PasscodeScreenViewDelegate {
         
     }
     
-    
-    var onCompletion: (_ biometricsEnabled: Bool, _ passcode: String, _ onResult: @escaping () -> Void) -> Void
+    var onCompletion: (_ biometricsEnabled: Bool, _ passcode: String) -> Void
 
-    public init(onCompletion: @escaping (Bool, String, @escaping () -> Void) -> Void) {
+    public init(onCompletion: @escaping (Bool, String) -> Void) {
         self.onCompletion = onCompletion
         super.init(nibName: nil, bundle: nil)
     }
@@ -36,7 +35,7 @@ public class SetPasscodeVC: WViewController, PasscodeScreenViewDelegate {
     var passcodeScreenView: PasscodeScreenView!
     var bottomConstraint: NSLayoutConstraint!
 
-    public static let passcodeOptionsFromBottom = CGFloat(8)
+    private static let passcodeOptionsFromBottom = CGFloat(8)
     
     public override func loadView() {
         super.loadView()
@@ -156,6 +155,6 @@ extension SetPasscodeVC: WKeyboardObserverDelegate {
 #if DEBUG
 @available(iOS 18.0, *)
 #Preview {
-    UINavigationController(rootViewController: SetPasscodeVC(onCompletion: { _, _, _ in }))
+    UINavigationController(rootViewController: SetPasscodeVC(onCompletion: { _, _ in }))
 }
 #endif

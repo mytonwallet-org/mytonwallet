@@ -6,19 +6,20 @@
 //
 
 import UIKit
+import SwiftUI
 import UIComponents
+import Perception
 import WalletContext
-import LocalAuthentication
 
 public class ActivateBiometricVC: WViewController {
-    
-    var onCompletion: (Bool, @escaping () -> Void) -> Void
-    var selectedPasscode: String
 
-    public init(onCompletion: @escaping (Bool, @escaping () -> Void) -> Void,
-                selectedPasscode: String) {
+    private let viewModel: ActivateBiometricViewModel
+
+    private var onCompletion: (Bool) -> Void
+        
+    public init(biometryType: BiometryType, onCompletion: @escaping (Bool) -> Void) {
+        self.viewModel = ActivateBiometricViewModel(biometryType: biometryType)
         self.onCompletion = onCompletion
-        self.selectedPasscode = selectedPasscode
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -26,67 +27,57 @@ public class ActivateBiometricVC: WViewController {
         fatalError("init(coder:) has not been implemented")
     }
 
-    var headerView: HeaderView!
-    var passcodeInputView: PasscodeInputView?
-    var bottomConstraint: NSLayoutConstraint?
-    var bottomActionsView: BottomActionsView?
-    
-    public static let passcodeOptionsFromBottom = CGFloat(8)
-    
     public override func loadView() {
         super.loadView()
         setupViews()
     }
     
-    func setupViews() {
+    private func setupViews() {
         navigationItem.hidesBackButton = true
 
         _ = addHostingController(makeView(), constraints: .fill)
     }
-    
-    func makeView() -> ActivateBiometricView {
+        
+    private func makeView() -> ActivateBiometricView {
         ActivateBiometricView(
+            viewModel: viewModel,
             onEnable: { [weak self] in
-                self?.activateBiometricPressed()
+                self?.activateBiometric()
             },
-            onSkip: { [ self] in
-                self.finalizeFlow(biometricActivated: false)
+            onSkip: { [weak self] in
+                self?.skip()
             }
         )
     }
     
-    func activateBiometricPressed() {
-        let context = LAContext()
-            var error: NSError?
-
-            if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
-                let reason = lang("MyTonWallet uses biometric authentication to unlock and authorize transactions")
-
-                context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) {
-                    [weak self] success, authenticationError in
-
-                    DispatchQueue.main.async { [weak self] in
-                        if success {
-                            self?.bottomActionsView?.primaryButton.showLoading = true
-                            self?.finalizeFlow(biometricActivated: true)
-                        } else {
-                            // error
-                        }
-                    }
-                }
-            } else {
-                showAlert(title: lang("Biometric authentication not available."),
-                          text: lang("Please set a passcode on your device, and then try to use biometric authentication."),
-                          button: lang("OK"))
+    private func activateBiometric() {
+        viewModel.state = .authenticating
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            
+            let result = await BiometricHelper.authenticate()
+            switch result {
+            case .success:
+                finalizeFlow(biometricActivated: true)
+            case .canceled:
+                viewModel.state = .idle
+            case .userDeniedBiometrics:
+                skip()
+            case let .error(localizedDescription, title):
+                viewModel.state = .idle
+                showAlert(title: title, text: localizedDescription, button: lang("OK"))
             }
+        }
     }
     
-    func finalizeFlow(biometricActivated: Bool) {
+    private func skip() {
+        viewModel.state = .skipping
+        finalizeFlow(biometricActivated: false)
+    }
+    
+    private func finalizeFlow(biometricActivated: Bool) {
         view.isUserInteractionEnabled = false
-        onCompletion(biometricActivated, { [weak self] in
-            guard let self else {return}
-            view.isUserInteractionEnabled = true
-        })
+        onCompletion(biometricActivated)
     }
 }
 
@@ -94,6 +85,6 @@ public class ActivateBiometricVC: WViewController {
 #if DEBUG
 @available(iOS 18.0, *)
 #Preview {
-    UINavigationController(rootViewController: ActivateBiometricVC(onCompletion: { _, _ in }, selectedPasscode: ""))
+    UINavigationController(rootViewController: ActivateBiometricVC(biometryType: .face, onCompletion: { _ in }))
 }
 #endif

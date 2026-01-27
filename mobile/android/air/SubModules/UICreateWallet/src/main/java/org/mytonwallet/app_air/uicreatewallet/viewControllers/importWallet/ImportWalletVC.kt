@@ -37,6 +37,7 @@ import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
@@ -205,7 +206,7 @@ class ImportWalletVC(
             toCenterX(pasteButton)
 
             val containerWidth = (navigationController?.width?.takeIf { it > 0 }
-                ?: context.resources.displayMetrics.widthPixels)
+                ?: ApplicationContextHolder.screenWidth)
             val wordInputWidth = (containerWidth - 64.dp - 16.dp) / 2
 
             var prevLeftWordInput: WWordInput? = null

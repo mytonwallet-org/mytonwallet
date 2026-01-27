@@ -119,6 +119,15 @@ extension View {
             .scaleEffect(isHighlighted && isEnabled ? scale : 1)
             .animation(isHighlighted ? .smooth(duration: 0.3) : .smooth(duration: 0.25), value: isHighlighted)
     }
+    
+    @ViewBuilder
+    public func `if`<Content: View>(_ condition: Bool, transform: (Self) -> Content) -> some View {
+        if condition {
+            transform(self)
+        } else {
+            self
+        }
+    }
 }
 
 
@@ -147,8 +156,7 @@ public extension View {
                     .allowsHitTesting(false)
             }
             .compositingGroup()
-        
-    }
+            }
     
     func scaleEffectIgnoredByLayout(_ scale: CGFloat) -> some View {
         self.modifier(_ScaleEffect(scale: CGSize(width: scale, height: scale)).ignoredByLayout())

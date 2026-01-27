@@ -29,6 +29,7 @@ export interface BottomSheetPlugin {
     }): Promise<void>;
     toggleSelfFullSize(options: {
         isFullSize: boolean;
+        onFocus?: boolean;
     }): Promise<void>;
     openInMain(options: {
         key: BottomSheetKeys;

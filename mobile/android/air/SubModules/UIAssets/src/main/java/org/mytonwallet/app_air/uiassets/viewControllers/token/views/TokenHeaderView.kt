@@ -111,7 +111,7 @@ class TokenHeaderView(
                     ) {
                         open("https://dexscreener.com/search?q=${token.name.lowercase()}")
                     }),
-                aboveView = true
+                positioning = WMenuPopup.Positioning.ALIGNED
             )
         }
         btn

@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uisettings.viewControllers.settings.cells
 
 import android.content.pm.PackageManager
+import android.view.Gravity
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
@@ -31,6 +32,8 @@ class SettingsVersionCell(private val window: WWindow) : WCell(window), WThemedV
 
     private val lbl = WLabel(context).apply {
         setStyle(14f)
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(8.dp, 0, 8.dp, 0)
         text = try {
             val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
             val versionName = packageInfo.versionName ?: ""

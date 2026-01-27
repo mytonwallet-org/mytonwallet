@@ -70,3 +70,7 @@ fun Drawable.withGradient(colors: IntArray): Drawable {
 
     return bitmap.toDrawable(Resources.getSystem())
 }
+
+fun Drawable.setSizeBounds(widthPx: Int, heightPx: Int) {
+    setBounds(0, 0, widthPx, heightPx)
+}

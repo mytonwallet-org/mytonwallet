@@ -40,6 +40,7 @@ interface OwnProps {
 
 interface StateProps {
   isViewMode: boolean;
+  isTestnet?: boolean;
   blacklistedNftAddresses?: string[];
   whitelistedNftAddresses?: string[];
   cardBackgroundNft?: ApiNft;
@@ -51,6 +52,7 @@ const CONTEXT_MENU_VERTICAL_SHIFT_PX = 4;
 
 function NftMenu({
   isViewMode,
+  isTestnet,
   isContextMenuMode,
   nft,
   ref,
@@ -88,6 +90,7 @@ function NftMenu({
     isNftWhitelisted,
     isNftInstalled,
     isNftAccentColorInstalled,
+    isTestnet,
   });
   let buttonRef = useRef<HTMLButtonElement>();
   const menuRef = useRef<HTMLDivElement>();
@@ -165,6 +168,7 @@ export default memo(withGlobal<OwnProps>((global, { nft }): StateProps => {
     cardBackgroundNft,
     accentColorNft,
     isViewMode: selectIsCurrentAccountViewMode(global),
+    isTestnet: global.settings.isTestnet,
     linkedAddress,
   };
 })(NftMenu));

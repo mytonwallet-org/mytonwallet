@@ -41,8 +41,11 @@ import me.vkryl.android.animatorx.FloatAnimator
 import org.mytonwallet.app_air.uiassets.viewControllers.token.TokenVC
 import org.mytonwallet.app_air.uibrowser.viewControllers.explore.ExploreVC
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
+import org.mytonwallet.app_air.uicomponents.base.WNavigationController.PresentationConfig
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.commonViews.AccountItemView
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -50,6 +53,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
+import org.mytonwallet.app_air.uicomponents.widgets.IPopup
 import org.mytonwallet.app_air.uicomponents.widgets.SwapSearchEditText
 import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
@@ -60,6 +64,8 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
+import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
+import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.SettingsVC
@@ -69,12 +75,16 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
+import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
+import org.mytonwallet.app_air.walletcontext.models.MWalletSettingsViewMode
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MExploreHistory
 import org.mytonwallet.app_air.walletcore.models.MScreenMode
@@ -539,9 +549,144 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         applyFonts(bottomNavigationView)
         bottomNavigationView.post {
             hideTooltips()
+            setupWalletSwitcherPopup()
         }
         checkForUpdate()
         updateTheme()
+    }
+
+    private fun setupWalletSwitcherPopup() {
+        val settingsItemView = bottomNavigationView.findViewById<View>(ID_SETTINGS) ?: return
+        settingsItemView.setOnLongClickListener { settingsItemView ->
+            val accounts = WalletCore.getAllAccounts()
+            val addAccountItem = WMenuPopup.Item(
+                config = WMenuPopup.Item.Config.Item(
+                    icon = WMenuPopup.Item.Config.Icon(
+                        icon = org.mytonwallet.app_air.uisettings.R.drawable.ic_add,
+                        tintColor = WColor.SubtitleText,
+                        iconSize = 28.dp,
+                        iconMargin = 17.dp
+                    ),
+                    title = LocaleController.getString("Add Wallet")
+                ),
+                hasSeparator = true,
+                onTap = {
+                    val nav = WNavigationController(
+                        window!!,
+                        PresentationConfig(
+                            overFullScreen = false,
+                            isBottomSheet = true,
+                            aboveKeyboard = true
+                        )
+                    )
+                    nav.setRoot(
+                        WalletContextManager.delegate?.getAddAccountVC(MBlockchainNetwork.MAINNET) as WViewController
+                    )
+                    window?.present(nav)
+                }
+            )
+            val freeSpaceToShowAccounts = view.height -
+                (navigationController?.getSystemBars()?.top ?: 0) -
+                WNavigationBar.DEFAULT_HEIGHT.dp -
+                bottomNavigationFrameLayout.height -
+                55.dp
+
+            val numberOfAccountsCapacity = freeSpaceToShowAccounts / 56.dp
+
+            val numberOfAccountsToShow = when {
+                numberOfAccountsCapacity < 1 -> return@setOnLongClickListener false
+                accounts.size <= numberOfAccountsCapacity -> accounts.size.coerceAtMost(10)
+                else -> (numberOfAccountsCapacity - 1).coerceAtMost(10)
+            }
+
+            val allAccountsShown = accounts.size <= numberOfAccountsToShow
+
+            val showAllItem = if (allAccountsShown) null else WMenuPopup.Item(
+                config = WMenuPopup.Item.Config.Item(
+                    icon = WMenuPopup.Item.Config.Icon(
+                        icon = org.mytonwallet.app_air.uisettings.R.drawable.ic_show_all,
+                        tintColor = WColor.SubtitleText,
+                        iconSize = 28.dp,
+                        iconMargin = 17.dp
+                    ),
+                    title = LocaleController.getString("Show All Wallets")
+                ),
+                hasSeparator = false,
+                onTap = {
+                    val navVC = WNavigationController(
+                        window!!, PresentationConfig(
+                            overFullScreen = false,
+                            isBottomSheet = true
+                        )
+                    )
+                    navVC.setRoot(
+                        WalletContextManager.delegate?.getWalletsTabsVC(
+                            MWalletSettingsViewMode.LIST
+                        ) as WViewController
+                    )
+                    window?.present(navVC)
+                }
+            )
+
+            lateinit var popup: IPopup
+            val menuItems =
+                listOf(addAccountItem) +
+                    accounts.take(numberOfAccountsToShow).mapIndexed { i, account ->
+                        val hasSeparator = !allAccountsShown && i == numberOfAccountsToShow - 1
+                        WMenuPopup.Item(
+                            config = WMenuPopup.Item.Config.CustomView(
+                                AccountItemView(
+                                    context = context,
+                                    accountData = AccountItemView.AccountData(
+                                        accountId = account.accountId,
+                                        title = account.name,
+                                        network = account.network,
+                                        byChain = account.byChain,
+                                        accountType = account.accountType,
+                                    ),
+                                    showArrow = false,
+                                    isTrusted = true,
+                                    hasSeparator = hasSeparator,
+                                    onSelect = {
+                                        popup.dismiss()
+                                        val isActive =
+                                            account.accountId == AccountStore.activeAccountId
+                                        if (isActive)
+                                            return@AccountItemView
+                                        WalletCore.activateAccount(
+                                            account.accountId,
+                                            notifySDK = true
+                                        ) { res, _ ->
+                                            if (res != null) {
+                                                WalletCore.notifyEvent(
+                                                    WalletEvent.AccountChangedInApp(
+                                                        persistedAccountsModified = false
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    })
+                            ),
+                            hasSeparator = hasSeparator
+                        )
+                    } +
+                    listOfNotNull(showAllItem)
+
+            popup = WMenuPopup.present(
+                view = settingsItemView,
+                items = menuItems,
+                yOffset = 3.dp,
+                positioning = WMenuPopup.Positioning.ABOVE,
+                centerHorizontally = true,
+                windowBackgroundStyle = BackgroundStyle.Cutout.fromView(
+                    settingsItemView,
+                    roundRadius = 100f.dp,
+                    horizontalOffset = 6.dp,
+                    verticalOffset = (-8).dp
+                )
+            )
+            true
+        }
     }
 
     override fun notifyThemeChanged() {

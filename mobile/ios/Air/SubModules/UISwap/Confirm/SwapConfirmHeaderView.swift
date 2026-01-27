@@ -13,13 +13,11 @@ import WalletContext
 
 struct SwapConfirmHeaderView: View {
     
-    var fromAmount: BigInt
-    var fromToken: ApiToken
-    var toAmount: BigInt
-    var toToken: ApiToken
+    var fromAmount: TokenAmount
+    var toAmount: TokenAmount
     
     var body: some View {
-        SwapOverviewView(fromAmount: fromAmount, fromToken: fromToken, toAmount: toAmount, toToken: toToken)
+        SwapOverviewView(fromAmount: fromAmount, toAmount: toAmount)
             .padding(.bottom, 12)
     }
 }

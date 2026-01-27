@@ -104,7 +104,7 @@ const CSP = `
   img-src 'self' data: blob: https: ${cspImageSrcHosts};
   media-src 'self' data: https://static.mytonwallet.org/;
   object-src 'none';
-  base-uri 'none';
+  base-uri ${IS_EXPLORER ? '\'self\'' : '\'none\''};
   font-src 'self' https://fonts.gstatic.com/;
   form-action 'none';
   frame-src 'self' https: ${cspFrameSrcExtra};`
@@ -185,6 +185,7 @@ export default function createConfig(
       chunkFilename: '[id].[chunkhash].js',
       assetModuleFilename: '[name].[contenthash][ext]',
       path: destinationDir,
+      publicPath: IS_EXPLORER ? '/' : undefined,
       clean: true,
     },
 

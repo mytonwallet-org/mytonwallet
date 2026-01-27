@@ -81,6 +81,10 @@ extension MAccount {
         !isView
     }
     
+    public var supportsBurn: Bool {
+        !isView
+    }
+    
     public var supportsSwap: Bool {
         network == .mainnet && !isHardware && !isView && !ConfigStore.shared.shouldRestrictSwapsAndOnRamp
     }
@@ -110,6 +114,9 @@ extension MAccount {
         var components = URLComponents(string: SHORT_UNIVERSAL_URL + "view")!
         components.queryItems = orderedChains.map { (chain, info) in
             URLQueryItem(name: chain.rawValue, value: info.preferredCopyString)
+        }
+        if network == .testnet {
+            components.queryItems?.append(URLQueryItem(name: "testnet", value: "true"))
         }
         return components.url!
     }

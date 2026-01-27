@@ -28,7 +28,7 @@ public class FeeEstimationHelpers {
                 value = doubleToBigInt(networkFee, decimals: decimals)
             } else if (swapType == SwapType.onChain) {
                 value = chainConfigIn?.maxSwap ?? 0
-            } else if (swapType == SwapType.crosschainFromWallet) {
+            } else if (swapType == SwapType.crosschainFromWallet || swapType == SwapType.crosschainInsideWallet) {
                 value = (isNativeIn == true ? chainConfigIn?.maxTransfer : chainConfigIn?.maxTransferToken) ?? 0
             }
             
