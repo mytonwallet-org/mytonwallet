@@ -458,7 +458,6 @@ class AddressInputLayout(
         this.autocompleteResult = autocompleteResult
         textField.setText(autocompleteResult.address(activeChain.name))
         updateOverlayText()
-        hideKeyboard()
         showOverlayViews()
     }
 

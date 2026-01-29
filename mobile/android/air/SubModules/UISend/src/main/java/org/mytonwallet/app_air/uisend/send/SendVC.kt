@@ -145,9 +145,8 @@ class SendVC(
                 type = AddressInputLayout.AutoCompleteConfig.Type.EXTERNAL
             ),
             onTextEntered = { keyword ->
-                amountInputView.amountEditText.requestFocus()
-                amountInputView.amountEditText.showKeyboard()
                 hideSuggestions()
+                focusAmount()
                 suggestionsBoxView.search(keyword, true)
             }).apply {
             id = generateViewId()
@@ -179,11 +178,13 @@ class SendVC(
                     account != null -> {
                         addressInputView.setAccount(account)
                         hideSuggestions()
+                        focusAmount()
                     }
 
                     savedAddress != null -> {
                         addressInputView.setAddress(savedAddress)
                         hideSuggestions()
+                        focusAmount()
                     }
                 }
             }
@@ -452,6 +453,11 @@ class SendVC(
         }
 
         override fun afterTextChanged(s: Editable?) {}
+    }
+
+    private fun focusAmount() {
+        amountInputView.amountEditText.requestFocus()
+        amountInputView.amountEditText.showKeyboard()
     }
 
     override fun onBackPressed(): Boolean {
