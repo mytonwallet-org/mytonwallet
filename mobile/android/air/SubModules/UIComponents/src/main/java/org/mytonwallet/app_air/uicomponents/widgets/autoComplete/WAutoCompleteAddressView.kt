@@ -14,6 +14,7 @@ import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.AddressInputLayout
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.getLocationOnScreen
 import org.mytonwallet.app_air.uicomponents.helpers.AddressPopupHelpers.Companion.presentMenu
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
@@ -21,9 +22,11 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.frameAsPath
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
+import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.Positioning
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
+import org.mytonwallet.app_air.walletbasecontext.utils.y
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -82,8 +85,10 @@ class WAutoCompleteAddressView(
         rvAdapter.reloadData()
     }
 
-    fun search(query: String) {
-        updateSuggestions(query)
+    fun search(query: String, autoselect: Boolean = false) {
+        if (isEnabled) {
+            updateSuggestions(query, autoselect)
+        }
     }
 
 
@@ -96,7 +101,7 @@ class WAutoCompleteAddressView(
         coroutineScope.coroutineContext.cancelChildren()
     }
 
-    private fun updateSuggestions(keyword: String) {
+    private fun updateSuggestions(keyword: String, autoSelect: Boolean = false) {
         cancelSearch()
 
         coroutineScope.launch {
@@ -126,6 +131,33 @@ class WAutoCompleteAddressView(
             sections[1].children = buildAccountItems(keyword, network, accounts)
 
             rvAdapter.reloadData()
+
+            if (!autoSelect) {
+                return@launch
+            }
+            if (savedAddresses.size == 1) {
+                val candidate = savedAddresses.first()
+                if (keyword.equals(candidate.address, true) ||
+                    keyword.equals(candidate.name, true)
+                ) {
+                    onSelected?.invoke(null, candidate)
+                    return@launch
+                }
+            }
+            if (accounts.size == 1) {
+                val candidate = accounts.first()
+                if (candidate.byChain.values.any {
+                        keyword.equals(it.address, true) ||
+                            keyword.equals(it.domain, true)
+                    } || keyword.equals(candidate.name, true)
+                ) {
+                    onSelected?.invoke(candidate, null)
+                    return@launch
+                }
+            }
+            if (savedAddresses.size + accounts.size == 1) {
+                onSelected?.invoke(accounts.firstOrNull(), savedAddresses.firstOrNull())
+            }
         }
     }
 
@@ -271,21 +303,35 @@ class WAutoCompleteAddressView(
         network: MBlockchainNetwork,
         savedAddress: MSavedAddress
     ) {
-        val viewController = this.viewController ?: return
+        val viewControllerRef = this.viewController ?: return
+        val viewController = viewControllerRef.get() ?: return
+
         val blockchain = MBlockchain.valueOfOrNull(savedAddress.chain) ?: return
         val addressText = savedAddress.name
         val windowBackgroundStyle =
             WMenuPopup.BackgroundStyle.Cutout(view.frameAsPath(ViewConstants.BIG_RADIUS.dp))
 
+        val keyboardHeight = viewController.window?.imeInsets?.bottom ?: 0
+        val windowHeight = viewController.navigationController?.height ?: 0
+        val availableHeight = windowHeight - keyboardHeight
+        val viewLocation = view.getLocationOnScreen()
+        val positioning =
+            if (keyboardHeight > 0 && viewLocation.y - view.height / 2 > availableHeight / 2) {
+                Positioning.ABOVE
+            } else {
+                Positioning.BELOW
+            }
+
         presentMenu(
-            viewController,
+            viewControllerRef,
             view,
             addressText,
             blockchain,
             network,
             savedAddress.address,
             xOffset = 0,
-            yOffset = (-16).dp,
+            yOffset = 0,
+            positioning = positioning,
             centerHorizontally = true,
             showTemporaryViewOption = true,
             windowBackgroundStyle = windowBackgroundStyle

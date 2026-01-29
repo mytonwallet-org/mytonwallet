@@ -9,6 +9,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.widget.Space
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.view.doOnLayout
 import com.google.android.material.progressindicator.CircularProgressIndicator
@@ -50,6 +51,12 @@ class KeyValueRowView(
             field = value
             valueLabel.isSensitiveData = value
         }
+
+    private val minHeightSpace: Space by lazy {
+        Space(context).apply {
+            id = generateViewId()
+        }
+    }
 
     private val keyLabel: WLabel by lazy {
         WLabel(context).apply {
@@ -105,15 +112,17 @@ class KeyValueRowView(
         }
 
     init {
-        minimumHeight = 50.dp
+        // workaround instead of minimumHeight property to manage cases inside another ConstraintLayout
+        addView(minHeightSpace, LayoutParams(WRAP_CONTENT, 50.dp))
         addView(keyLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(valueLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         setConstraints {
+            allEdges(minHeightSpace)
             setHorizontalBias(keyLabel.id, 0f)
             setHorizontalBias(valueLabel.id, 1f)
             constrainedWidth(valueLabel.id, true)
-            toTop(keyLabel, 15f)
-            toCenterY(valueLabel, 15f)
+            toTop(keyLabel, 14f)
+            toCenterY(valueLabel, 0f)
             toStart(keyLabel, 20f)
             startToEnd(valueLabel, keyLabel, 16f)
             toEnd(valueLabel, 12f)

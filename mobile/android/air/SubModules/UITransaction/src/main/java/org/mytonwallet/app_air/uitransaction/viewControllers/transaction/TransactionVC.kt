@@ -644,7 +644,7 @@ class TransactionVC(
                     KeyValueRowView(
                         context,
                         LocaleController.getString("Sent"),
-                        transaction.fromAmount.toDouble().toString(
+                        transaction.fromAmount.toString(
                             fromToken?.decimals ?: 9,
                             fromToken?.symbol ?: "",
                             fromToken?.decimals ?: 9,
@@ -660,7 +660,7 @@ class TransactionVC(
                     KeyValueRowView(
                         context,
                         LocaleController.getString("Received"),
-                        transaction.toAmount.toDouble().toString(
+                        transaction.toAmount.toString(
                             toToken?.decimals ?: 9,
                             toToken?.symbol ?: "",
                             toToken?.decimals ?: 9,
@@ -679,7 +679,7 @@ class TransactionVC(
                     KeyValueRowView(
                         context,
                         "${LocaleController.getString("Price per")} 1 ${toToken?.symbol ?: ""}",
-                        (transaction.fromAmount.toDouble() / transaction.toAmount.toDouble()).toString(
+                        (transaction.fromAmount / transaction.toAmount).toString(
                             fromToken?.decimals ?: 9,
                             fromToken?.symbol ?: "",
                             fromToken?.decimals ?: 9,
@@ -742,7 +742,7 @@ class TransactionVC(
             ConstraintLayout.LayoutParams(MATCH_PARENT, HeaderActionsView.HEIGHT.dp)
         )
         val transaction = transaction as? MApiTransaction.Transaction
-        if (transaction != null && isNeedDisplayTransactionAddress(transaction)) {
+        if (transaction != null && shouldShowTransactionAddress(transaction)) {
             initTransactionAddress(transaction)
             displayTransactionAddress(transaction)
             updateTransactionAddressBackgroundColor()
@@ -793,7 +793,7 @@ class TransactionVC(
         }
     }
 
-    private fun isNeedDisplayTransactionAddress(transaction: MApiTransaction.Transaction): Boolean {
+    private fun shouldShowTransactionAddress(transaction: MApiTransaction.Transaction): Boolean {
         return transaction.shouldShowTransactionAddress || transaction.type == ApiTransactionType.STAKE
     }
 
@@ -955,25 +955,24 @@ class TransactionVC(
             BackgroundStyle.Cutout.fromView(view, roundRadius = ViewConstants.BIG_RADIUS.dp)
         }
 
-        TokenStore.getToken(transaction.slug)?.mBlockchain?.let { blockchain ->
-            presentMenu(
-                viewController = WeakReference(this),
-                view = view,
-                title = if (addressToShow?.second == true) addressText else null,
-                blockchain = blockchain,
-                network = account.network,
-                address = if (transaction.isIncoming) {
-                    transaction.fromAddress
-                } else {
-                    transaction.toAddress ?: ""
-                },
-                centerHorizontally = true,
-                showTemporaryViewOption = true,
-                windowBackgroundStyle = windowBackgroundStyle
-            ) { displayProgress ->
-                addressPopupDisplayProgress = displayProgress
-                updateAddressSpans()
-            }
+        val blockchain = TokenStore.getToken(transaction.slug)?.mBlockchain ?: return
+        presentMenu(
+            viewController = WeakReference(this),
+            view = view,
+            title = if (addressToShow?.second == true) addressText else null,
+            blockchain = blockchain,
+            network = account.network,
+            address = if (transaction.isIncoming) {
+                transaction.fromAddress
+            } else {
+                transaction.toAddress ?: ""
+            },
+            centerHorizontally = true,
+            showTemporaryViewOption = true,
+            windowBackgroundStyle = windowBackgroundStyle
+        ) { displayProgress ->
+            addressPopupDisplayProgress = displayProgress
+            updateAddressSpans()
         }
     }
 
@@ -1213,7 +1212,7 @@ class TransactionVC(
 
     private fun reloadTransactionAddressView() {
         val transaction = transaction as? MApiTransaction.Transaction
-        if (transaction != null && isNeedDisplayTransactionAddress(transaction)) {
+        if (transaction != null && shouldShowTransactionAddress(transaction)) {
             displayTransactionAddress(transaction)
         }
     }

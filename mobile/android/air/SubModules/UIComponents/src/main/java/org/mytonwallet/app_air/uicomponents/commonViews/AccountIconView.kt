@@ -20,8 +20,11 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 class AccountIconView(context: Context, val usage: Usage) : View(context) {
 
     sealed class Usage {
-        data class SelectableItem(val textSize: Float) : Usage()
-        data class ViewItem(val textSize: Float = 14f.dp) : Usage()
+
+        abstract val textSize: Float
+
+        data class SelectableItem(override val textSize: Float) : Usage()
+        data class ViewItem(override val textSize: Float = 14f.dp) : Usage()
     }
 
     private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -33,12 +36,7 @@ class AccountIconView(context: Context, val usage: Usage) : View(context) {
         style = Paint.Style.FILL
     }
 
-    private val textPaint = AccountAvatarRenderer.createTextPaint(
-        when (usage) {
-            is Usage.SelectableItem -> usage.textSize
-            is Usage.ViewItem -> usage.textSize
-        }
-    )
+    private val textPaint = AccountAvatarRenderer.createTextPaint(usage.textSize)
 
     private var gradientColors: IntArray? = null
     private var abbreviationText: String = ""

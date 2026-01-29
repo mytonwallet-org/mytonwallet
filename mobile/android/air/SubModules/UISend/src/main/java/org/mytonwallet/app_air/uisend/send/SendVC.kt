@@ -144,9 +144,11 @@ class SendVC(
             AddressInputLayout.AutoCompleteConfig(
                 type = AddressInputLayout.AutoCompleteConfig.Type.EXTERNAL
             ),
-            onTextEntered = {
+            onTextEntered = { keyword ->
                 amountInputView.amountEditText.requestFocus()
                 amountInputView.amountEditText.showKeyboard()
+                hideSuggestions()
+                suggestionsBoxView.search(keyword, true)
             }).apply {
             id = generateViewId()
             showCloseOnTextEditing = true
@@ -466,6 +468,9 @@ class SendVC(
     }
 
     private fun showSuggestions() {
+        if (!suggestionsBoxView.isEnabled) {
+            return
+        }
         if (primaryContent.isGone && suggestionsBoxView.isVisible) {
             return
         }
@@ -565,6 +570,9 @@ class SendVC(
     }
 
     private fun hideSuggestions() {
+        if (!suggestionsBoxView.isEnabled) {
+            return
+        }
         if (primaryContent.isVisible && suggestionsBoxView.isInvisible) {
             return
         }
@@ -797,6 +805,7 @@ class SendVC(
             if (it.uiButton.status == SendViewModel.ButtonStatus.NotEnoughNativeToken) {
                 showScamWarningIfRequired()
             }
+            suggestionsBoxView.isEnabled = it.uiAddressSearch.enabled
         }
 
         collectFlow(viewModel.uiEventFlow) { event ->

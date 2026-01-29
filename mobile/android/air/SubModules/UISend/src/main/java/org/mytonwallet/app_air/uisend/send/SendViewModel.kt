@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.onStart
 import org.mytonwallet.app_air.uicomponents.commonViews.TokenAmountInputView
 import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
@@ -26,9 +28,11 @@ import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.TokenEquivalent
+import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.MFee
+import org.mytonwallet.app_air.walletcore.models.MSavedAddress
 import org.mytonwallet.app_air.walletcore.models.explainedFee.ExplainedTransferFee
 import org.mytonwallet.app_air.walletcore.moshi.ApiSubmitTransferResult
 import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
@@ -40,6 +44,7 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferOptions
 import org.mytonwallet.app_air.walletcore.moshi.MDieselStatus
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.AddressStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import java.math.BigDecimal
@@ -64,6 +69,15 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
         )
     }.distinctUntilChanged()
 
+    private val otherAccountsFlow: Flow<List<MAccount>> =
+        AccountStore.activeAccountIdFlow.mapNotNull { accountId ->
+            WalletCore.getAllAccounts().filter { account -> account.accountId != accountId }
+        }
+
+    private val savedAddressesFlow: Flow<List<MSavedAddress>> =
+        AccountStore.activeAccountIdFlow.mapNotNull {
+            AddressStore.addressData?.savedAddresses
+        }
 
     /* Input Raw */
 
@@ -527,15 +541,31 @@ class SendViewModel : ViewModel(), WalletCore.EventObserver {
         val title: String = ""
     )
 
+    data class AddressSearchState(
+        val enabled: Boolean
+    )
+
     data class UiState(
         internal val inputState: InputStateFull,
         internal val draft: DraftResult?,
+        val uiAddressSearch: AddressSearchState
     ) {
-        val uiInput = buildUiInputState(inputState, draft)
-        val uiButton = buildUiButtonState(inputState, draft)
+        val uiInput: TokenAmountInputView.State = buildUiInputState(inputState, draft)
+        val uiButton: ButtonState = buildUiButtonState(inputState, draft)
     }
 
-    val uiStateFlow = combine(inputFlow, draftFlow) { input, draft -> UiState(input, draft) }
+    val uiStateFlow = combine(
+        inputFlow,
+        draftFlow,
+        otherAccountsFlow,
+        savedAddressesFlow
+    ) { input, draft, otherAccounts, savedAddresses ->
+        UiState(
+            input,
+            draft,
+            AddressSearchState(otherAccounts.isNotEmpty() || savedAddresses.isNotEmpty())
+        )
+    }
 
 
     /* * */

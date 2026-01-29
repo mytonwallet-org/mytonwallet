@@ -26,6 +26,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.dialog.WDialogButton
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
+import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.Positioning
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -118,6 +119,7 @@ class AddressPopupHelpers {
             address: String,
             xOffset: Int = 0,
             yOffset: Int = 0,
+            positioning: Positioning = Positioning.BELOW,
             centerHorizontally: Boolean,
             showTemporaryViewOption: Boolean,
             windowBackgroundStyle: BackgroundStyle,
@@ -215,7 +217,7 @@ class AddressPopupHelpers {
                 popupWidth = WRAP_CONTENT,
                 xOffset = xOffset,
                 yOffset = yOffset,
-                positioning = WMenuPopup.Positioning.BELOW,
+                positioning = positioning,
                 centerHorizontally = centerHorizontally,
                 windowBackgroundStyle = windowBackgroundStyle,
                 displayProgressListener = displayProgressListener,
