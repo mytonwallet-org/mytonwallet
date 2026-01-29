@@ -47,6 +47,7 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.TonConnectHelper
 import org.mytonwallet.app_air.walletcore.helpers.TonConnectInjectedInterface
+import org.mytonwallet.app_air.walletcore.models.IInAppBrowser
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MExploreHistory
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -123,7 +124,7 @@ class InAppBrowserVC(
     context: Context,
     private val tabBarController: WNavigationController.ITabBarController?,
     val config: InAppBrowserConfig
-) : WViewController(context), WalletCore.EventObserver {
+) : WViewController(context), IInAppBrowser, WalletCore.EventObserver {
     override val TAG = "InAppBrowser"
 
     private var lastTitle: String = config.title ?: URL(config.url).host
@@ -135,17 +136,20 @@ class InAppBrowserVC(
         get() = topBar
 
     private var savedInExploreVisitedHistory = false
+    private var shouldClearHistoryOnLoad = false
 
     private val topBar: InAppBrowserTopBarView by lazy {
         InAppBrowserTopBarView(
-            this, tabBarController, minimizeStarted = {
+            this, tabBarController,
+            options = config.options,
+            selectedOption = config.selectedOption,
+            optionsOnTitle = config.optionsOnTitle,
+            minimizeStarted = {
                 updateSystemBarColors()
                 webViewScreenShot.setImageBitmap(webViewContainer.asImage())
                 webViewScreenShot.visibility = View.VISIBLE
                 webView.visibility = View.GONE
             },
-            options = config.options,
-            selectedOption = config.selectedOption,
             maximizeFinished = {
                 updateSystemBarColors()
                 view.post {
@@ -208,6 +212,10 @@ class InAppBrowserVC(
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
+                if (shouldClearHistoryOnLoad) {
+                    shouldClearHistoryOnLoad = false
+                    webView.clearHistory()
+                }
                 topBar.updateBackButton(true)
                 // Prev method call may not work sometimes, so let's reset dark mode styles.
                 if (config.injectDarkModeStyles)
@@ -307,7 +315,7 @@ class InAppBrowserVC(
 
             override fun onReceivedTitle(view: WebView?, title: String?) {
                 super.onReceivedTitle(view, title)
-                if (config.title != null || title == lastTitle)
+                if (config.title != null || title == lastTitle || config.options != null)
                     return
                 lastTitle = title ?: URL(config.url).host
                 topBar.updateTitle(lastTitle, animated = true)
@@ -372,9 +380,9 @@ class InAppBrowserVC(
         WalletCore.registerObserver(this)
     }
 
-    fun navigate(url: String) {
+    override fun navigate(url: String) {
+        shouldClearHistoryOnLoad = true
         webView.loadUrl(url)
-        webView.clearHistory()
     }
 
     private var isFirstAppearance = true

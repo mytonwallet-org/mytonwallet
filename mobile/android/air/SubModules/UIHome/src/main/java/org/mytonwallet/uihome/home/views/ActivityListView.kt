@@ -141,8 +141,7 @@ class ActivityListView<T>(
             homeAssetsCell?.configure(showingAccountId)
             updateSkeletonState(animated = false)
         }
-        showActions = dataSource?.activityListReserveActionsCell() == true
-        rvAdapter.reloadData()
+        reloadData()
     }
 
     // Called to update reserved header space when user scrolls on header cells
@@ -526,8 +525,7 @@ class ActivityListView<T>(
         val dataSource = dataSource ?: return false
         val shouldShowActions = dataSource.activityListReserveActionsCell()
         if (showActions != shouldShowActions) {
-            showActions = shouldShowActions
-            rvAdapter.reloadData()
+            reloadData()
             return true
         }
         return false
@@ -741,9 +739,10 @@ class ActivityListView<T>(
             return
         updateSkeletonState(animated = true)
         val shouldReloadAssetsCellHeight = homeAssetsCell?.isDraggingCollectible != true
+        val shouldShowActions = dataSource?.activityListReserveActionsCell()
         isApplyingUpdate = isUpdateEvent && oldTransactions != null
-        if (shouldReloadAssetsCellHeight)
-            rvAdapter.reloadData()
+        if (shouldReloadAssetsCellHeight || showActions != shouldShowActions)
+            reloadData()
         else
             reloadTransactions()
         post {
@@ -757,6 +756,11 @@ class ActivityListView<T>(
                 oldTransactionsFirstDt = null
             }
         }
+    }
+
+    private fun reloadData() {
+        showActions = dataSource?.activityListReserveActionsCell() == true
+        rvAdapter.reloadData()
     }
 
     private fun reloadTransactions() {
@@ -796,7 +800,7 @@ class ActivityListView<T>(
             recyclerView -> {
                 return when (section) {
                     HEADER_SECTION -> {
-                        if (dataSource?.activityListReserveActionsCell() == true) 2 else 1
+                        if (showActions) 2 else 1
                     }
 
                     ASSETS_SECTION -> 2
@@ -1187,7 +1191,7 @@ class ActivityListView<T>(
     }
 
     override fun activityLoaderLoadedAll() {
-        rvAdapter.reloadData()
+        reloadData()
     }
 
 }

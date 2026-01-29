@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.walletcore
 
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
@@ -72,6 +73,10 @@ sealed class WalletEvent {
 
     data class OpenUrl(
         val url: String
+    ) : WalletEvent()
+
+    data class OpenUrlWithConfig(
+        val config: InAppBrowserConfig? = null
     ) : WalletEvent()
 
     data class OpenActivity(

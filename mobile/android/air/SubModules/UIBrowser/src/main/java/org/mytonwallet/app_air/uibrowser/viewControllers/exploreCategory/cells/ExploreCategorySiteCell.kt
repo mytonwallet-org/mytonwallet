@@ -190,7 +190,7 @@ class ExploreCategorySiteCell(
                 0
             )
         }
-        openButton.setBackgroundColor(WColor.SecondaryBackground.color, 16f.dp)
+        openButton.setBackgroundColor(WColor.TrinaryBackground.color, 16f.dp)
         openButton.addRippleEffect(WColor.BackgroundRipple.color, 16f.dp)
 
         if (site?.isTelegram == true) {

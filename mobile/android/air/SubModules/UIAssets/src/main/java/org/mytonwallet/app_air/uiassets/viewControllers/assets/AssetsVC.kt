@@ -174,7 +174,7 @@ class AssetsVC(
                 val rows = if ((assetsVM.nfts?.size ?: 0) > 3) 2 else 1
                 rows * (recyclerView.width - 32.dp) / 3 +
                     4.dp +
-                    (if (thereAreMoreToShow) 56 else 8).dp
+                    (if (thereAreMoreToShow) 64 else 8).dp
             }
         }
 

@@ -13,7 +13,8 @@ const templateContent = fs.readFileSync(path.join(__dirname, 'go', 'template.htm
 const REDIRECTS = [
   ['/.well-known/*', '/-well-known/:splat', '200'],
   ['/get/*', 'https://mytonwallet.app/get/:splat', '302'],
-  ['/tx/*', 'https://mtw-explorer.netlify.app/:splat', '200'],
+  ['/tx/ton/*', 'https://mtw-explorer.netlify.app/:splat', '200'],
+  ['/tx/tron/*', 'https://mtw-explorer.netlify.app/:splat', '200'],
   ['/view/*', 'https://mtw-explorer.netlify.app/:splat', '200'],
   ['/nft/*', 'https://mtw-explorer.netlify.app/:splat', '200'],
 ];

@@ -56,6 +56,7 @@ class InAppBrowserTopBarView(
     private val tabBarController: WNavigationController.ITabBarController?,
     private val options: List<InAppBrowserConfig.Option>?,
     private var selectedOption: String?,
+    private val optionsOnTitle: Boolean,
     private val minimizeStarted: () -> Unit,
     private val maximizeFinished: () -> Unit,
 ) : WView(viewController.context), WThemedView {
@@ -78,24 +79,70 @@ class InAppBrowserTopBarView(
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isHorizontalFadingEdgeEnabled = true
             pivotX = 0f
+            if (optionsOnTitle && !options.isNullOrEmpty()) {
+                text = textWithArrow(options.find { it.identifier == selectedOption }?.title, true)
+                setOnClickListener {
+                    showOptionsMenu(this)
+                }
+            }
         }
     }
 
-    fun textWithArrow(txt: String?): SpannableStringBuilder {
+    fun textWithArrow(txt: String?, isTitle: Boolean): SpannableStringBuilder? {
+        val txt = txt ?: return null
         val ss = SpannableStringBuilder(txt)
         ContextCompat.getDrawable(
             context,
-            R.drawable.ic_arrow_bottom_8
+            R.drawable.ic_arrows_14
         )?.let { drawable ->
             drawable.mutate()
-            drawable.setTint(WColor.SecondaryText.colorForTheme(overrideThemeIsDark))
-            val width = 8.dp
-            val height = 4.dp
-            drawable.setBounds(5.dp, 1.dp, width + 5.dp, (height + 0.5f.dp).roundToInt())
+            drawable.setTint(
+                (if (isTitle) WColor.PrimaryText else WColor.SecondaryText).colorForTheme(
+                    overrideThemeIsDark
+                )
+            )
+            val arrowScale = if (isTitle) 1f else 0.8f
+            val width = 7.dp * arrowScale
+            val height = 14.dp * arrowScale
+            val yOffset = (if (isTitle) 1f else 0.5f).dp.roundToInt()
+            drawable.setBounds(5.dp, yOffset, width.roundToInt() + 5.dp, height.roundToInt() + yOffset)
             val imageSpan = VerticalImageSpan(drawable)
             ss.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
         return ss
+    }
+
+    private fun showOptionsMenu(anchorView: WLabel) {
+        WMenuPopup.present(
+            anchorView,
+            options?.map { option ->
+                WMenuPopup.Item(
+                    WMenuPopup.Item.Config.SelectableItem(
+                        option.title,
+                        null,
+                        selectedOption == option.identifier
+                    ),
+                    onTap = {
+                        selectedOption = option.identifier
+                        if (optionsOnTitle) {
+                            titleLabel.text = textWithArrow(option.title, true)
+                            subtitleLabel.text = option.subtitle
+                        } else {
+                            subtitleLabel.text = textWithArrow(option.title, false)
+                        }
+                        option.onClick(WeakReference(viewController))
+                    }
+                )
+            } ?: emptyList(),
+            positioning = WMenuPopup.Positioning.BELOW,
+            windowBackgroundStyle = BackgroundStyle.Cutout.fromView(
+                view = anchorView,
+                roundRadius = 8f.dp,
+                horizontalOffset = 8.dp,
+                verticalOffset = 0
+            ),
+            xOffset = (-8).dp
+        )
     }
 
     private val subtitleLabel: WLabel by lazy {
@@ -108,27 +155,14 @@ class InAppBrowserTopBarView(
             ellipsize = TextUtils.TruncateAt.MARQUEE
             isHorizontalFadingEdgeEnabled = true
             pivotX = 0f
-            text = textWithArrow(options?.find { it.identifier == selectedOption }?.title)
-            setOnClickListener {
-                WMenuPopup.present(
-                    subtitleLabel,
-                    options?.map { option ->
-                        WMenuPopup.Item(
-                            WMenuPopup.Item.Config.SelectableItem(
-                                option.title,
-                                null,
-                                selectedOption == option.identifier
-                            ),
-                            onTap = {
-                                selectedOption = option.identifier
-                                subtitleLabel.text = textWithArrow(option.title)
-                                option.onClick(WeakReference(viewController))
-                            }
-                        )
-                    } ?: emptyList(),
-                    positioning = WMenuPopup.Positioning.BELOW,
-                    windowBackgroundStyle = BackgroundStyle.Cutout.fromView(subtitleLabel)
-                )
+            if (optionsOnTitle) {
+                text = options?.find { it.identifier == selectedOption }?.subtitle
+            } else {
+                text =
+                    textWithArrow(options?.find { it.identifier == selectedOption }?.title, false)
+                setOnClickListener {
+                    showOptionsMenu(this)
+                }
             }
         }
     }
@@ -166,7 +200,7 @@ class InAppBrowserTopBarView(
             (if (options.isNullOrEmpty()) WNavigationBar.DEFAULT_HEIGHT_TINY else WNavigationBar.DEFAULT_HEIGHT).dp +
                 (viewController.navigationController?.getSystemBars()?.top ?: 0)
         maxHeight = minHeight
-        addView(titleLabel, LayoutParams(0, WRAP_CONTENT))
+        addView(titleLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         if (!options.isNullOrEmpty())
             addView(subtitleLabel, LayoutParams(0, WRAP_CONTENT))
         addView(backButton, ViewGroup.LayoutParams(40.dp, 40.dp))
@@ -183,6 +217,8 @@ class InAppBrowserTopBarView(
         addView(iconView, LayoutParams(24.dp, 24.dp))
 
         setConstraints {
+            setHorizontalBias(titleLabel.id, 0f)
+            constrainedWidth(titleLabel.id, true)
             startToEnd(titleLabel, backButton, 8f)
             endToStart(titleLabel, if (tabBarController != null) minimizeButton else moreButton, 8f)
             if (options.isNullOrEmpty()) {
@@ -265,8 +301,13 @@ class InAppBrowserTopBarView(
             20f.dp
         )
         if (!options.isNullOrEmpty()) {
-            subtitleLabel.text =
-                textWithArrow(options.find { it.identifier == selectedOption }?.title)
+            if (optionsOnTitle) {
+                titleLabel.text =
+                    textWithArrow(options.find { it.identifier == selectedOption }?.title, true)
+            } else {
+                subtitleLabel.text =
+                    textWithArrow(options.find { it.identifier == selectedOption }?.title, false)
+            }
         }
         backButton.background = null
         backButton.addRippleEffect(

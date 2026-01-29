@@ -176,7 +176,9 @@ class HiddenNFTsVC(context: Context, private val showingAccountId: String) :
         when (cellHolder.cell) {
             is HeaderCell -> {
                 (cellHolder.cell as HeaderCell).configure(
-                    LocaleController.getString(if (indexPath.section == 0) "Hidden By Me" else "Probably Scam")
+                    LocaleController.getString(if (indexPath.section == 0) "Hidden By Me" else "Probably Scam"),
+                    WColor.Tint,
+                    topRounding = if (rvAdapter.indexPathToPosition(indexPath) == 0) HeaderCell.TopRounding.FIRST_ITEM else HeaderCell.TopRounding.NORMAL
                 )
             }
 

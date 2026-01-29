@@ -431,6 +431,7 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
     const actions = getActions();
     const global = getGlobal();
     const { isTestnet } = global.settings;
+    const currentNetwork: ApiNetwork = isTestnet ? 'testnet' : 'mainnet';
     const isLedger = selectIsHardwareAccount(global);
 
     logDebug('Processing deeplink', deeplink);
@@ -628,7 +629,7 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
           return false;
         }
 
-        ensureNetwork(searchParams, isTestnet);
+        ensureNetwork(searchParams, currentNetwork);
 
         actions.openTemporaryViewAccount({ addressByChain });
         return true;
@@ -684,12 +685,8 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
           return false;
         }
 
-        if (!IS_EXPLORER) {
-          actions.openTransactionInfo({ txId, chain });
-          return true;
-        }
-
-        const { network } = ensureNetwork(searchParams, isTestnet);
+        const { network } = ensureNetwork(searchParams, currentNetwork);
+        const shouldOpenViewAccount = IS_EXPLORER || network !== currentNetwork;
 
         const activities = await callApi('fetchTransactionById', {
           chain,
@@ -716,7 +713,7 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
           return false;
         }
 
-        if (!await openExplorerViewAccount(chain, viewAddress)) return false;
+        if (shouldOpenViewAccount && !await openViewAccount(chain, viewAddress)) return false;
 
         // Pass activities to avoid duplicate API call
         actions.openTransactionInfo({ txId, chain, activities });
@@ -730,7 +727,8 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
 
         if (!nftAddress) return false;
 
-        const { network } = ensureNetwork(searchParams, isTestnet);
+        const { network } = ensureNetwork(searchParams, currentNetwork);
+        const shouldOpenViewAccount = IS_EXPLORER || network !== currentNetwork;
 
         const nft = await callApi('fetchNftByAddress', network, nftAddress);
 
@@ -739,7 +737,7 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
           return false;
         }
 
-        if (IS_EXPLORER) {
+        if (shouldOpenViewAccount) {
           const ownerAddress = nft.ownerAddress;
 
           if (!ownerAddress) {
@@ -747,7 +745,7 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
             return false;
           }
 
-          if (!await openExplorerViewAccount('ton', ownerAddress)) {
+          if (!await openViewAccount('ton', ownerAddress)) {
             return false;
           }
         }
@@ -763,15 +761,29 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
   return false;
 }
 
-async function openExplorerViewAccount(
+async function openViewAccount(
   chain: ApiChain,
   address: string,
 ): Promise<boolean> {
   const actions = getActions();
+  let normalizedAddress: string | undefined;
+  try {
+    if (chain === 'ton') {
+      const parsedAddress = Address.parse(address);
+      if (parsedAddress) {
+        normalizedAddress = parsedAddress.toRawString();
+      }
+    } else {
+      normalizedAddress = address;
+    }
+  } catch (err: any) {
+    actions.showError({ error: err.message || 'Unable to parse address' });
+    logDebugError('openViewAccount', err);
 
-  actions.openTemporaryViewAccount({ addressByChain: { [chain]: address } });
+    return false;
+  }
 
-  const normalizedAddress = chain === 'ton' ? Address.parse(address).toRawString() : address;
+  actions.openTemporaryViewAccount({ addressByChain: { [chain]: normalizedAddress } });
 
   const isReady = await waitFor(() => {
     const account = selectCurrentAccount(getGlobal());
@@ -790,16 +802,15 @@ async function openExplorerViewAccount(
   return isReady;
 }
 
-function ensureNetwork(searchParams: URLSearchParams, isTestnet?: boolean) {
-  const isTestnetValue = searchParams.get('testnet') === 'true' || isTestnet;
-
-  if (isTestnetValue && !isTestnet) {
-    getActions().changeNetwork({ network: 'testnet' });
+function ensureNetwork(searchParams: URLSearchParams, currentNetwork: ApiNetwork) {
+  const newNetwork: ApiNetwork = searchParams.get('testnet') === 'true' ? 'testnet' : 'mainnet';
+  if (currentNetwork !== newNetwork) {
+    getActions().changeNetwork({ network: newNetwork });
   }
 
   return {
-    isTestnet: isTestnetValue,
-    network: (isTestnetValue ? 'testnet' : 'mainnet') as ApiNetwork,
+    isTestnet: newNetwork === 'testnet',
+    network: newNetwork,
   };
 }
 

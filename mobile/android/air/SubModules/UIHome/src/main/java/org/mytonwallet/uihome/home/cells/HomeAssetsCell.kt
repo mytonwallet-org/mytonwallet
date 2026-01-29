@@ -442,7 +442,7 @@ class HomeAssetsCell(
             newHeight = if (firstHeight > 0) {
                 val interpolatedHeight =
                     firstHeight + (offset - currentIndex) * (secondHeight - firstHeight)
-                (56.dp + interpolatedHeight).roundToInt()
+                (53.dp + interpolatedHeight).roundToInt()
             } else
                 0
         }

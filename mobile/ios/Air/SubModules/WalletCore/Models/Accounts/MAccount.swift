@@ -111,7 +111,7 @@ extension MAccount {
     }
     
     public var shareLink: URL {
-        var components = URLComponents(string: SHORT_UNIVERSAL_URL + "view")!
+        var components = URLComponents(string: SHORT_UNIVERSAL_URL + "view/")!
         components.queryItems = orderedChains.map { (chain, info) in
             URLQueryItem(name: chain.rawValue, value: info.preferredCopyString)
         }

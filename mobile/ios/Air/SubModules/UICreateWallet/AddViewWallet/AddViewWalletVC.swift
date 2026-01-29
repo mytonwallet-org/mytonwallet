@@ -34,15 +34,18 @@ public class AddViewWalletVC: WViewController {
     func setupViews() {
         addCloseNavigationItemIfNeeded()
 
+        let isCompactScreen = UIScreen.main.bounds.height < 700 // Urgent hotfix. Will be refactored later
+
         headerView = HeaderView(
             animationName: "animation_bill",
             animationPlaybackMode: .loop,
             title: lang("View Any Address"),
             description: lang("$import_view_account_note", arg1: langJoin(ApiChain.allCases.map(\.title), .or)),
-            animationSize: 160
+            animationSize: isCompactScreen ? 120 : 160
         )
         view.addSubview(headerView)
         headerView.translatesAutoresizingMaskIntoConstraints = false
+        headerView.setContentCompressionResistancePriority(.required, for: .vertical)
         
         addressContainer = UIView()
         addressContainer.translatesAutoresizingMaskIntoConstraints = false
@@ -104,14 +107,14 @@ public class AddViewWalletVC: WViewController {
         continueButton.addTarget(self, action: #selector(onContinue), for: .touchUpInside)
         continueButton.isEnabled = false
         bottomButtonConstraint?.priority = .defaultHigh
-
+        
         NSLayoutConstraint.activate([
             headerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 0).withPriority(.defaultLow),
             headerView.topAnchor.constraint(greaterThanOrEqualTo: view.topAnchor, constant: 8),
             headerView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 32),
             headerView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -32),
 
-            addressContainer.topAnchor.constraint(equalTo: headerView.bottomAnchor, constant: 32),
+            addressContainer.topAnchor.constraint(equalTo: headerView.bottomAnchor, constant: isCompactScreen ? 16 : 32),
             addressContainer.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
             addressContainer.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
             

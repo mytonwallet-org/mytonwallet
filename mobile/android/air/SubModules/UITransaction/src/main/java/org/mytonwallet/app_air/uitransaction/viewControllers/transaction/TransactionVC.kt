@@ -97,6 +97,7 @@ import org.mytonwallet.app_air.walletcontext.utils.lerpColor
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers
+import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
@@ -105,6 +106,7 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
+import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction.Swap
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ActivityStore
@@ -1319,19 +1321,17 @@ class TransactionVC(
                                     org.mytonwallet.app_air.icons.R.drawable.ic_world_30,
                                     LocaleController.getString("View on Explorer"),
                                 ) {
-                                    val browserVC =
-                                        InAppBrowserVC(
-                                            context,
-                                            null,
-                                            InAppBrowserConfig(
-                                                transaction.explorerUrl(
-                                                    MBlockchainNetwork.ofAccountId(
-                                                        showingAccountId
-                                                    )
-                                                ) ?: "",
-                                                injectTonConnectBridge = true
-                                            )
-                                        )
+                                    val network = MBlockchainNetwork.ofAccountId(showingAccountId)
+                                    val token = TokenStore.getToken(transaction.getTxSlug())
+                                    val chain =
+                                        if (token?.chain != null) MBlockchain.valueOf(token.chain)
+                                        else if (transaction is Swap) MBlockchain.ton
+                                        else return@Item
+                                    val txHash = transaction.getTxHash() ?: return@Item
+                                    val config = ExplorerHelpers.createTransactionExplorerConfig(
+                                        chain, network, txHash
+                                    ) ?: return@Item
+                                    val browserVC = InAppBrowserVC(context, null, config)
                                     val nav = WNavigationController(window!!)
                                     nav.setRoot(browserVC)
                                     window?.present(nav)

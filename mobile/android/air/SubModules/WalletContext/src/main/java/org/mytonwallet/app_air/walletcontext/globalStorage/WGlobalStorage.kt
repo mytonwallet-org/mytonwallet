@@ -92,6 +92,7 @@ object WGlobalStorage {
     private const val PUSH_NOTIFICATIONS_TOKEN = "pushNotifications.userToken"
     private const val PUSH_NOTIFICATIONS_ENABLED_ACCOUNTS = "pushNotifications.enabledAccounts"
     private const val ORDERED_ACCOUNT_IDS = "settings.orderedAccountIds"
+    private const val EXPLORER = "settings.selectedExplorerIds"
 
     fun save(accountId: String, accountName: String?, persist: Boolean = true) {
         // Save null names as empty string in the cache to return it without accessing storage
@@ -886,6 +887,18 @@ object WGlobalStorage {
 
     fun getAccountSelectorViewMode(): MWalletSettingsViewMode? {
         return MWalletSettingsViewMode.fromValue(globalStorageProvider.getString("accountSelectorViewMode"))
+    }
+
+    fun getPreferredExplorer(chain: String): String? {
+        return globalStorageProvider.getString("$EXPLORER.$chain")
+    }
+
+    fun setPreferredExplorer(chain: String, explorerIdentifier: String) {
+        globalStorageProvider.set(
+            "$EXPLORER.$chain",
+            explorerIdentifier,
+            IGlobalStorageProvider.PERSIST_NORMAL
+        )
     }
 
     private const val LAST_STATE: Int = 49

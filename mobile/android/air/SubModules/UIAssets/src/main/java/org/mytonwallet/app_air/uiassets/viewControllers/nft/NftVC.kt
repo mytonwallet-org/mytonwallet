@@ -266,7 +266,7 @@ class NftVC(
                 shareIntent.setType("text/plain")
                 shareIntent.putExtra(
                     Intent.EXTRA_TEXT,
-                    nft.tonscanUrl(MBlockchainNetwork.ofAccountId(showingAccountId))
+                    nft.scanUrl(MBlockchainNetwork.ofAccountId(showingAccountId))
                 )
                 window?.startActivity(
                     Intent.createChooser(
@@ -946,7 +946,7 @@ class NftVC(
                     ),
                     nft.isTonDns != true,
                 ) {
-                    openLink(nft.tonscanUrl(MBlockchainNetwork.ofAccountId(showingAccountId)))
+                    openLink(nft.scanUrl(MBlockchainNetwork.ofAccountId(showingAccountId)))
                 },
             ).apply {
                 if (nft.isOnFragment == true) {

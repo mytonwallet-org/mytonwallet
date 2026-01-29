@@ -3,6 +3,7 @@ import React, { memo, useMemo } from '../../lib/teact/teact';
 import type { ApiTokenWithPrice } from '../../api/types';
 
 import getChainNetworkIcon from '../../util/swap/getChainNetworkIcon';
+import { getIsNativeToken } from '../../util/tokens';
 import { ASSET_LOGO_PATHS } from './helpers/assetLogos';
 
 import useLang from '../../hooks/useLang';
@@ -106,7 +107,7 @@ export function tokenToDropdownItem(token: TokenWithId, isMultichainAccount?: bo
     value: getTokenId(token),
     icon: ASSET_LOGO_PATHS[token.symbol.toLowerCase() as keyof typeof ASSET_LOGO_PATHS]
       || token.image,
-    overlayIcon: isMultichainAccount ? getChainNetworkIcon(token.chain) : undefined,
+    overlayIcon: isMultichainAccount && !getIsNativeToken(token.slug) ? getChainNetworkIcon(token.chain) : undefined,
     name: token.symbol,
   };
 }

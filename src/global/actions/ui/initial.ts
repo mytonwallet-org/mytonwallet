@@ -126,6 +126,8 @@ addActionHandler('afterInit', (global, actions) => {
 
   if (!IS_EXPLORER) return;
 
+  void callApi('clearStorageForExplorerMode');
+
   const deeplinkUrl = getDeeplinkFromLocation();
 
   if (deeplinkUrl) {

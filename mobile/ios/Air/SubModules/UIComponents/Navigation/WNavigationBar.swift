@@ -8,53 +8,6 @@
 import UIKit
 import WalletContext
 
-public class WNavigationBarButton {
-
-    public let view: UIView
-    public var onPress: (() -> Void)?
-
-    public init(text: String? = nil, icon: UIImage? = nil, tintColor: UIColor? = nil, onPress: (() -> Void)? = nil, menu: UIMenu? = nil, showsMenuAsPrimaryAction: Bool = false) {
-        let btn = {
-            let btn = WButton(style: .clearBackground)
-            btn.setImage(icon, for: .normal)
-            btn.setTitle(text, for: .normal)
-            btn.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
-            if let tintColor {
-                btn.tintColor = tintColor
-            }
-            if icon != nil, text != nil {
-                btn.configuration?.imagePadding = 8
-            }
-            btn.translatesAutoresizingMaskIntoConstraints = false
-            return btn
-        }()
-        if let menu {
-            btn.menu = menu
-            btn.showsMenuAsPrimaryAction = showsMenuAsPrimaryAction
-        }
-        self.view = btn
-        self.onPress = onPress
-
-        if !showsMenuAsPrimaryAction {
-            btn.addTarget(self, action: #selector(itemPressed), for: .touchUpInside)
-        }
-    }
-
-    public init(view: UIView, onPress: (() -> Void)? = nil) {
-        self.view = view
-        self.onPress = onPress
-        view.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(itemPressed)))
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    @objc private func itemPressed() {
-        onPress?()
-    }
-}
-
 public class WNavigationBar: WTouchPassView, WThemedView {
 
     private var _shouldPassTouches: Bool = false
@@ -76,6 +29,7 @@ public class WNavigationBar: WTouchPassView, WThemedView {
     public let separatorView: UIView = UIView()
     public var contentView: UIView!
     public let titleStackView = UIStackView()
+    private let titleButton = UIButton(type: .system)
     public var titleStackViewCenterYAnchor: NSLayoutConstraint!
     public var titleLabel: UILabel? = nil
     public var subtitleLabel: UILabel? = nil
@@ -90,6 +44,12 @@ public class WNavigationBar: WTouchPassView, WThemedView {
     private let closeIconFillColor: UIColor?
     private(set) public var backButton: UIButton? = nil
     public let onBackPressed: (() -> Void)?
+    public var titleTapGesture: UITapGestureRecognizer?
+    public var titleMenu: UIMenu? {
+        didSet {
+            updateTitleMenu()
+        }
+    }
 
     public init(navHeight: CGFloat = 56,
                 constraintToTopSafeArea: Bool = true,
@@ -173,6 +133,7 @@ public class WNavigationBar: WTouchPassView, WThemedView {
         titleStackView.axis = .vertical
         titleStackView.alignment = .center
         titleStackView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        titleStackView.isUserInteractionEnabled = false
         if navHeight >= 60 {
             titleStackView.spacing = 2
         }
@@ -196,12 +157,21 @@ public class WNavigationBar: WTouchPassView, WThemedView {
             titleStackView.addArrangedSubview(subtitleLabel)
         }
 
-        contentView.addSubview(titleStackView)
+        titleButton.translatesAutoresizingMaskIntoConstraints = false
+        titleButton.backgroundColor = .clear
+        titleButton.showsMenuAsPrimaryAction = true
+        titleButton.isUserInteractionEnabled = false
+        titleButton.addSubview(titleStackView)
+        contentView.addSubview(titleButton)
 
-        titleStackViewCenterYAnchor = titleStackView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor, constant: centerYOffset)
+        titleStackViewCenterYAnchor = titleButton.centerYAnchor.constraint(equalTo: contentView.centerYAnchor, constant: centerYOffset)
         NSLayoutConstraint.activate([
-            titleStackView.centerXAnchor.constraint(equalTo: centerXAnchor),
-            titleStackViewCenterYAnchor
+            titleButton.centerXAnchor.constraint(equalTo: centerXAnchor),
+            titleStackViewCenterYAnchor,
+            titleStackView.leadingAnchor.constraint(equalTo: titleButton.leadingAnchor),
+            titleStackView.trailingAnchor.constraint(equalTo: titleButton.trailingAnchor),
+            titleStackView.topAnchor.constraint(equalTo: titleButton.topAnchor),
+            titleStackView.bottomAnchor.constraint(equalTo: titleButton.bottomAnchor)
         ])
 
         if let leadingItem {
@@ -288,6 +258,7 @@ public class WNavigationBar: WTouchPassView, WThemedView {
         }
 
         updateTheme()
+        updateTitleMenu()
     }
 
     @objc func closeButtonPressed() {
@@ -302,6 +273,10 @@ public class WNavigationBar: WTouchPassView, WThemedView {
         UIView.animate(withDuration: 0.3) {
             self.backButton?.tintColor = WTheme.tint
         }
+    }
+
+    public func setTitleMenu(_ menu: UIMenu?) {
+        titleMenu = menu
     }
 
     public var showSeparator: Bool = false {
@@ -366,5 +341,11 @@ public class WNavigationBar: WTouchPassView, WThemedView {
             searchBar.trailingAnchor.constraint(equalTo: trailingAnchor),
             searchBar.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
+    }
+
+    private func updateTitleMenu() {
+        titleButton.menu = titleMenu
+        titleButton.showsMenuAsPrimaryAction = titleMenu != nil
+        titleButton.isUserInteractionEnabled = titleMenu != nil
     }
 }
