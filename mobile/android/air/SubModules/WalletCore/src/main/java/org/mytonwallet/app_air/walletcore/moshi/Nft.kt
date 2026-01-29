@@ -246,8 +246,11 @@ data class ApiNft(
             }"
         }
 
-    fun tonscanUrl(network: MBlockchainNetwork): String {
-        return "${ExplorerHelpers.tonScanUrl(network)}nft/${address}"
+    fun scanUrl(network: MBlockchainNetwork): String {
+        val urlBuilder = Uri.Builder()
+            .appendPath("nft")
+            .appendPath(address)
+        return ExplorerHelpers.mtwScanUrl(network, urlBuilder)
     }
 
     val collectionUrl: String

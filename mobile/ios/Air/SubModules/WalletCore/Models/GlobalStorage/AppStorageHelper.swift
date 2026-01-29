@@ -109,6 +109,17 @@ public struct AppStorageHelper {
         return GlobalStorage["selectedCurrencyKey"] as? String ?? "USD"
     }
 
+    private static let selectedExplorerIdsKey = "settings.selectedExplorerIds"
+    public static func selectedExplorerId(for chain: ApiChain) -> String? {
+        guard let dict = GlobalStorage.getDict(key: selectedExplorerIdsKey) else { return nil }
+        return dict[chain.rawValue] as? String
+    }
+    public static func save(selectedExplorerId: String, for chain: ApiChain) {
+        var dict = GlobalStorage.getDict(key: selectedExplorerIdsKey) ?? [:]
+        dict[chain.rawValue] = selectedExplorerId
+        GlobalStorage.set(key: selectedExplorerIdsKey, value: dict, persistInstantly: true)
+    }
+
     // MARK: - Current Token Time Period
     public static func save(currentTokenPeriod: String) {
         guard let activeAccountId = AccountStore.accountId else {

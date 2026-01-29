@@ -185,7 +185,6 @@ export default function createConfig(
       chunkFilename: '[id].[chunkhash].js',
       assetModuleFilename: '[name].[contenthash][ext]',
       path: destinationDir,
-      publicPath: IS_EXPLORER ? '/' : undefined,
       clean: true,
     },
 

@@ -68,7 +68,7 @@ import java.lang.ref.WeakReference
 class AddressInputLayout(
     val viewController: WeakReference<WViewController>,
     val autoCompleteConfig: AutoCompleteConfig = AutoCompleteConfig(),
-    onTextEntered: () -> Unit
+    onTextEntered: (text: String) -> Unit
 ) : FrameLayout(viewController.get()!!.context), WThemedView {
 
     var focusCallback: ((hasFocus: Boolean) -> Unit)? = null
@@ -101,20 +101,33 @@ class AddressInputLayout(
     }
 
     data class AutoCompleteConfig(
-        val type: Type = Type.BUILD_IN,
+        val type: Type = Type.BUILT_IN,
         val accountAddresses: Boolean = true
     ) {
         val isEnabled: Boolean
             get() {
                 return when (type) {
-                    Type.BUILD_IN -> IS_BUILD_IN_AUTOCOMPLETE_ENABLED
+                    Type.BUILT_IN -> IS_BUILD_IN_AUTOCOMPLETE_ENABLED
                     Type.EXTERNAL -> true
                     else -> false
                 }
             }
 
         enum class Type {
-            NONE, BUILD_IN, EXTERNAL
+            /**
+             * No auto-completion functionality.
+             */
+            NONE,
+
+            /**
+             * Built-in popup-style auto-completion functionality.
+             */
+            BUILT_IN,
+
+            /**
+             * Any external auto-completion functionality.
+             */
+            EXTERNAL
         }
     }
 
@@ -123,6 +136,17 @@ class AddressInputLayout(
             val ic = super.onCreateInputConnection(outAttrs) ?: return null
             return object : InputConnectionWrapper(ic, true) {
                 override fun commitText(txt: CharSequence?, newCursorPosition: Int): Boolean {
+                    val appliedText = txt?.toString()
+                    if (appliedText != null && appliedText.contains("\n")) {
+                        val cleaned = appliedText.replace("\n", "")
+                        val committed = if (cleaned.isNotEmpty()) {
+                            super.commitText(cleaned, newCursorPosition)
+                        } else true
+
+                        post { onTextEntered(getKeyword()) }
+                        return committed
+                    }
+
                     val oldText = text?.toString() ?: ""
                     val result = super.commitText(txt, newCursorPosition)
 
@@ -130,7 +154,7 @@ class AddressInputLayout(
                         val newText = text?.toString() ?: ""
                         if (MBlockchain.isValidAddressOnAnyChain(newText)) {
                             if (newText.length > oldText.length + 1) {
-                                post { onTextEntered() }
+                                post { onTextEntered(getKeyword()) }
                             }
                         }
                     }
@@ -143,7 +167,7 @@ class AddressInputLayout(
             if (id == R.id.paste || id == R.id.pasteAsPlainText) {
                 val result = super.onTextContextMenuItem(id)
                 if (result && MBlockchain.isValidAddressOnAnyChain(text.toString())) {
-                    post { onTextEntered() }
+                    post { onTextEntered(getKeyword()) }
                 }
                 return result
             }
@@ -157,7 +181,7 @@ class AddressInputLayout(
         maxLines = 3
         setOnKeyListener { _, keyCode, event ->
             if (keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN) {
-                onTextEntered()
+                onTextEntered(getKeyword())
                 return@setOnKeyListener true
             }
             false
@@ -168,7 +192,7 @@ class AddressInputLayout(
         }
         onFocusChangeListener = OnFocusChangeListener { v, hasFocus ->
             focusCallback?.invoke(hasFocus)
-            if (autoCompleteConfig.type != AutoCompleteConfig.Type.BUILD_IN || !autoCompleteConfig.isEnabled)
+            if (autoCompleteConfig.type != AutoCompleteConfig.Type.BUILT_IN || !autoCompleteConfig.isEnabled)
                 return@OnFocusChangeListener
             if (hasFocus) {
                 hideOverlayViews()
@@ -315,7 +339,7 @@ class AddressInputLayout(
         pasteTextView.setOnClickListener {
             context.getTextFromClipboard()?.let {
                 textField.setTextIfDiffer(it, selectionToEnd = true)
-                onTextEntered()
+                onTextEntered(getKeyword())
             }
         }
 
@@ -353,7 +377,7 @@ class AddressInputLayout(
     }
 
     fun insetsUpdated() {
-        if (autoCompleteConfig.type != AutoCompleteConfig.Type.BUILD_IN || !autoCompleteConfig.isEnabled)
+        if (autoCompleteConfig.type != AutoCompleteConfig.Type.BUILT_IN || !autoCompleteConfig.isEnabled)
             return
         val viewController = viewController.get() ?: return
         val keyboardHeight = viewController.window?.imeInsets?.bottom ?: return
@@ -434,7 +458,6 @@ class AddressInputLayout(
         this.autocompleteResult = autocompleteResult
         textField.setText(autocompleteResult.address(activeChain.name))
         updateOverlayText()
-        hideKeyboard()
         showOverlayViews()
     }
 

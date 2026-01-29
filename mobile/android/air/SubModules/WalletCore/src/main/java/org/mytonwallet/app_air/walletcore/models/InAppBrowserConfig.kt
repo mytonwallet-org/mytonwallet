@@ -12,10 +12,12 @@ data class InAppBrowserConfig(
     val saveInVisitedHistory: Boolean = false,
     val options: List<Option>? = null,
     val selectedOption: String? = null,
+    val optionsOnTitle: Boolean = false,
 ) {
     data class Option(
         val identifier: String,
         val title: String,
+        val subtitle: String? = null,
         val onClick: (browserVC: WeakReference<*>) -> Unit
     )
 }

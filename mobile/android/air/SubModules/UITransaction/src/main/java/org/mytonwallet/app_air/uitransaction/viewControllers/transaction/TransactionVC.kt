@@ -97,6 +97,7 @@ import org.mytonwallet.app_air.walletcontext.utils.lerpColor
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers
+import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
@@ -105,6 +106,7 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
+import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction.Swap
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ActivityStore
@@ -642,7 +644,7 @@ class TransactionVC(
                     KeyValueRowView(
                         context,
                         LocaleController.getString("Sent"),
-                        transaction.fromAmount.toDouble().toString(
+                        transaction.fromAmount.toString(
                             fromToken?.decimals ?: 9,
                             fromToken?.symbol ?: "",
                             fromToken?.decimals ?: 9,
@@ -658,7 +660,7 @@ class TransactionVC(
                     KeyValueRowView(
                         context,
                         LocaleController.getString("Received"),
-                        transaction.toAmount.toDouble().toString(
+                        transaction.toAmount.toString(
                             toToken?.decimals ?: 9,
                             toToken?.symbol ?: "",
                             toToken?.decimals ?: 9,
@@ -677,7 +679,7 @@ class TransactionVC(
                     KeyValueRowView(
                         context,
                         "${LocaleController.getString("Price per")} 1 ${toToken?.symbol ?: ""}",
-                        (transaction.fromAmount.toDouble() / transaction.toAmount.toDouble()).toString(
+                        (transaction.fromAmount / transaction.toAmount).toString(
                             fromToken?.decimals ?: 9,
                             fromToken?.symbol ?: "",
                             fromToken?.decimals ?: 9,
@@ -740,7 +742,7 @@ class TransactionVC(
             ConstraintLayout.LayoutParams(MATCH_PARENT, HeaderActionsView.HEIGHT.dp)
         )
         val transaction = transaction as? MApiTransaction.Transaction
-        if (transaction != null && isNeedDisplayTransactionAddress(transaction)) {
+        if (transaction != null && shouldShowTransactionAddress(transaction)) {
             initTransactionAddress(transaction)
             displayTransactionAddress(transaction)
             updateTransactionAddressBackgroundColor()
@@ -791,7 +793,7 @@ class TransactionVC(
         }
     }
 
-    private fun isNeedDisplayTransactionAddress(transaction: MApiTransaction.Transaction): Boolean {
+    private fun shouldShowTransactionAddress(transaction: MApiTransaction.Transaction): Boolean {
         return transaction.shouldShowTransactionAddress || transaction.type == ApiTransactionType.STAKE
     }
 
@@ -953,25 +955,24 @@ class TransactionVC(
             BackgroundStyle.Cutout.fromView(view, roundRadius = ViewConstants.BIG_RADIUS.dp)
         }
 
-        TokenStore.getToken(transaction.slug)?.mBlockchain?.let { blockchain ->
-            presentMenu(
-                viewController = WeakReference(this),
-                view = view,
-                title = if (addressToShow?.second == true) addressText else null,
-                blockchain = blockchain,
-                network = account.network,
-                address = if (transaction.isIncoming) {
-                    transaction.fromAddress
-                } else {
-                    transaction.toAddress ?: ""
-                },
-                centerHorizontally = true,
-                showTemporaryViewOption = true,
-                windowBackgroundStyle = windowBackgroundStyle
-            ) { displayProgress ->
-                addressPopupDisplayProgress = displayProgress
-                updateAddressSpans()
-            }
+        val blockchain = TokenStore.getToken(transaction.slug)?.mBlockchain ?: return
+        presentMenu(
+            viewController = WeakReference(this),
+            view = view,
+            title = if (addressToShow?.second == true) addressText else null,
+            blockchain = blockchain,
+            network = account.network,
+            address = if (transaction.isIncoming) {
+                transaction.fromAddress
+            } else {
+                transaction.toAddress ?: ""
+            },
+            centerHorizontally = true,
+            showTemporaryViewOption = true,
+            windowBackgroundStyle = windowBackgroundStyle
+        ) { displayProgress ->
+            addressPopupDisplayProgress = displayProgress
+            updateAddressSpans()
         }
     }
 
@@ -1211,7 +1212,7 @@ class TransactionVC(
 
     private fun reloadTransactionAddressView() {
         val transaction = transaction as? MApiTransaction.Transaction
-        if (transaction != null && isNeedDisplayTransactionAddress(transaction)) {
+        if (transaction != null && shouldShowTransactionAddress(transaction)) {
             displayTransactionAddress(transaction)
         }
     }
@@ -1319,19 +1320,17 @@ class TransactionVC(
                                     org.mytonwallet.app_air.icons.R.drawable.ic_world_30,
                                     LocaleController.getString("View on Explorer"),
                                 ) {
-                                    val browserVC =
-                                        InAppBrowserVC(
-                                            context,
-                                            null,
-                                            InAppBrowserConfig(
-                                                transaction.explorerUrl(
-                                                    MBlockchainNetwork.ofAccountId(
-                                                        showingAccountId
-                                                    )
-                                                ) ?: "",
-                                                injectTonConnectBridge = true
-                                            )
-                                        )
+                                    val network = MBlockchainNetwork.ofAccountId(showingAccountId)
+                                    val token = TokenStore.getToken(transaction.getTxSlug())
+                                    val chain =
+                                        if (token?.chain != null) MBlockchain.valueOf(token.chain)
+                                        else if (transaction is Swap) MBlockchain.ton
+                                        else return@Item
+                                    val txHash = transaction.getTxHash() ?: return@Item
+                                    val config = ExplorerHelpers.createTransactionExplorerConfig(
+                                        chain, network, txHash
+                                    ) ?: return@Item
+                                    val browserVC = InAppBrowserVC(context, null, config)
                                     val nav = WNavigationController(window!!)
                                     nav.setRoot(browserVC)
                                     window?.present(nav)

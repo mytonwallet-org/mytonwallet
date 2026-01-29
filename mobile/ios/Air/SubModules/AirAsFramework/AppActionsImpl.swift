@@ -240,9 +240,14 @@ private class AppActionsImpl: AppActionsProtocol {
         if collectionsFilter != .none, let nc = topVC as? WNavigationController, (nc.visibleViewController is AssetsTabVC || nc.visibleViewController is NftDetailsVC) {
             nc.pushViewController(NftsVC(accountSource: accountSource, compactMode: false, filter: collectionsFilter), animated: true)
         } else if collectionsFilter != .none {
-            let nc = WNavigationController()
-            nc.viewControllers = [assetsVC, NftsVC(accountSource: accountSource, compactMode: false, filter: collectionsFilter)]
+            let nc = WNavigationController(rootViewController: assetsVC)
+            nc.pushViewController(NftsVC(accountSource: accountSource, compactMode: false, filter: collectionsFilter), animated: false)
             topVC?.present(nc, animated: true)
+            // This ensures the navigation header for the root controller is set up correctly. 
+            // iOS 18 issue (iOS26 does not have this issue)
+            // Called after presenting the navigation controller, because addCloseNavigationItemIfNeeded only adds
+            // the close button when the controller is already presented modally.
+            assetsVC.view.layoutIfNeeded()
         } else {
             let nc = WNavigationController(rootViewController: assetsVC)
             topVC?.present(nc, animated: true)

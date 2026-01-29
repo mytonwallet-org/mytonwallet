@@ -14,7 +14,6 @@ import org.mytonwallet.app_air.walletcore.STAKE_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TRON_USDT_SLUG
 import org.mytonwallet.app_air.walletcore.USDE_SLUG
-import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
@@ -162,27 +161,12 @@ class MToken(json: JSONObject) : IApiToken, WEquatable<MToken> {
         }
 
     fun explorerUrl(network: MBlockchainNetwork): String? {
-            if (tokenAddress.isNullOrEmpty() && cmcSlug != null)
-                return "https://coinmarketcap.com/currencies/${cmcSlug}/"
+        if (tokenAddress.isNullOrEmpty() && cmcSlug != null)
+            return "https://coinmarketcap.com/currencies/${cmcSlug}/"
 
-            val chain = MBlockchain.valueOf(chain)
-
-            return when (chain) {
-                MBlockchain.ton -> {
-                    val domain = ExplorerHelpers.tonScanUrl(network)
-                    "${domain}jetton/${tokenAddress}"
-                }
-
-                MBlockchain.tron -> {
-                    val domain = ExplorerHelpers.tronScanUrl(network)
-                    return "${domain}token20/${tokenAddress}"
-                }
-
-                else -> {
-                    return null
-                }
-            }
-        }
+        val tokenAddress = tokenAddress ?: return null
+        return MBlockchain.valueOf(chain).tokenExplorer()?.tokenUrl(network, tokenAddress)
+    }
 
     val isEarnAvailable: Boolean
         get() {

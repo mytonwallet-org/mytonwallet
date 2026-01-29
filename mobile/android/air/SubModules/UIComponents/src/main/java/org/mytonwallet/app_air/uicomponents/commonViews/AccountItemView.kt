@@ -54,6 +54,7 @@ class AccountItemView(
 
     private val label = WLabel(context).apply {
         setStyle(16f, WFont.Medium)
+        setTextColor(WColor.PrimaryText)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 24f)
         setSingleLine()
         ellipsize = TextUtils.TruncateAt.END
@@ -151,8 +152,6 @@ class AccountItemView(
     }
 
     override fun updateTheme() {
-        label.setTextColor(WColor.PrimaryText)
-        subtitleLabel.setTextColor(WColor.SecondaryText)
         backgroundDrawable.rippleColor = WColor.BackgroundRipple.color
         val drawable =
             ContextCompat.getDrawable(context, R.drawable.ic_menu_arrow_right)?.apply {

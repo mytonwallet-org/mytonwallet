@@ -63,6 +63,7 @@ public class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
             self?.goBack()
         }, prefersHardEdge: true)
         if let navigationBar {
+            navigationBar.setTitleMenu(makeTitleMenu(for: currentPage?.config.url))
             navigationBar.showSeparator = true
             if let title = navigationBar.titleLabel, let backButton = navigationBar.backButton, let leading = navigationBar.leadingItem?.view {
                 NSLayoutConstraint.activate([
@@ -94,11 +95,12 @@ public class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
     var currentPage: InAppBrowserPageVC? { pages.first }
     
     var displayTitle: String? {
-        navigationBar?.titleLabel?.text
+        displayTitleText
     }
     var dappInfo: DappInfo? {
         iconProvider.getDappInfo(for: currentPage?.config.url)
     }
+    private var displayTitleText: String?
 
     internal func openPage(config: InAppBrowserPageVC.Config) {
         if currentPage?.config.url == config.url {
@@ -131,7 +133,11 @@ public class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
     
     func updateNavigationBar(delayTitleChangeToNil: Bool = true) {
         if let navigationBar, let page = currentPage {
-            let title: String? = page.webView?.title ?? page.config.title
+            navigationBar.setTitleMenu(makeTitleMenu(for: page.config.url))
+            let pageTitle: String? = page.webView?.title ?? page.config.title
+            let explorerTitle = explorerTitleText(for: page.config.url)
+            let title = explorerTitle ?? pageTitle
+            displayTitleText = title
             let titleIsNil = title?.nilIfEmpty == nil
             
             UIView.animate(withDuration: 0.15) { [self] in
@@ -141,7 +147,7 @@ public class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
                         self?.updateNavigationBar(delayTitleChangeToNil: false)
                     }
                 } else {
-                    navigationBar.titleLabel?.text = title
+                    applyTitle(navigationBar: navigationBar, title: title, explorerTitle: explorerTitle)
                     navigationBar.titleLabel?.isHidden = titleIsNil
                     navigationBar.titleLabel?.alpha = titleIsNil ? 0 : 1
                     navigationBar.titleLabel?.transform = titleIsNil ? .identity.scaledBy(x: 0.4, y: 0.4) : .identity
@@ -198,6 +204,73 @@ public class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
         }
         let menu = UIMenu(title: "", children: [reloadAction, openInSafariAction, copyAction, shareAction])
         return menu
+    }
+
+    private func makeTitleMenu(for url: URL?) -> UIMenu? {
+        guard let url,
+              let tonscanUrl = ExplorerHelper.convertExplorerUrl(url, toExplorerId: "tonscan"),
+              let tonviewerUrl = ExplorerHelper.convertExplorerUrl(url, toExplorerId: "tonviewer") else {
+            return nil
+        }
+        let isTonscan = tonscanUrl == url
+        let isTonviewer = tonviewerUrl == url
+        let tonscanAction = UIAction(title: "Tonscan", state: isTonscan ? .on : .off) { [weak self] _ in
+            guard let self, !isTonscan else { return }
+            ExplorerHelper.setSelectedExplorerId("tonscan", for: .ton)
+            self.navigate(to: tonscanUrl)
+        }
+        let tonviewerAction = UIAction(title: "Tonviewer", state: isTonviewer ? .on : .off) { [weak self] _ in
+            guard let self, !isTonviewer else { return }
+            ExplorerHelper.setSelectedExplorerId("tonviewer", for: .ton)
+            self.navigate(to: tonviewerUrl)
+        }
+        return UIMenu(title: "", children: [tonscanAction, tonviewerAction])
+    }
+
+    private func explorerTitleText(for url: URL?) -> String? {
+        guard let url,
+              let tonscanUrl = ExplorerHelper.convertExplorerUrl(url, toExplorerId: "tonscan"),
+              let tonviewerUrl = ExplorerHelper.convertExplorerUrl(url, toExplorerId: "tonviewer") else {
+            return nil
+        }
+        if tonscanUrl == url {
+            return "Tonscan"
+        }
+        if tonviewerUrl == url {
+            return "Tonviewer"
+        }
+        return nil
+    }
+
+    private func applyTitle(navigationBar: WNavigationBar, title: String?, explorerTitle: String?) {
+        guard let titleLabel = navigationBar.titleLabel else { return }
+        if let explorerTitle {
+            titleLabel.attributedText = makeExplorerTitleText(explorerTitle, label: titleLabel)
+        } else {
+            titleLabel.attributedText = nil
+            titleLabel.text = title
+        }
+    }
+
+    private func makeExplorerTitleText(_ title: String, label: UILabel) -> NSAttributedString {
+        let font = label.font ?? .systemFont(ofSize: 17, weight: .semibold)
+        let color = label.textColor ?? WTheme.primaryLabel
+        let attr = NSMutableAttributedString(string: title, attributes: [
+            .font: font,
+            .foregroundColor: color,
+        ])
+        attr.append(NSAttributedString(string: " "))
+        let attachment = NSTextAttachment()
+        let image = UIImage.airBundle("HomeTitleArrow").withTintColor(color, renderingMode: .alwaysOriginal)
+        attachment.image = image
+        let size = image.size
+        attachment.bounds = CGRect(x: 0, y: -1, width: size.width, height: size.height)
+        attr.append(NSAttributedString(attachment: attachment))
+        return attr
+    }
+
+    private func navigate(to url: URL) {
+        currentPage?.webView?.load(URLRequest(url: url))
     }
     
     public override func goBack() {

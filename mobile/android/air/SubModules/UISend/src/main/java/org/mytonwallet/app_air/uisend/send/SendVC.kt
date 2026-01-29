@@ -144,9 +144,10 @@ class SendVC(
             AddressInputLayout.AutoCompleteConfig(
                 type = AddressInputLayout.AutoCompleteConfig.Type.EXTERNAL
             ),
-            onTextEntered = {
-                amountInputView.amountEditText.requestFocus()
-                amountInputView.amountEditText.showKeyboard()
+            onTextEntered = { keyword ->
+                hideSuggestions()
+                focusAmount()
+                suggestionsBoxView.search(keyword, true)
             }).apply {
             id = generateViewId()
             showCloseOnTextEditing = true
@@ -177,11 +178,13 @@ class SendVC(
                     account != null -> {
                         addressInputView.setAccount(account)
                         hideSuggestions()
+                        focusAmount()
                     }
 
                     savedAddress != null -> {
                         addressInputView.setAddress(savedAddress)
                         hideSuggestions()
+                        focusAmount()
                     }
                 }
             }
@@ -452,6 +455,11 @@ class SendVC(
         override fun afterTextChanged(s: Editable?) {}
     }
 
+    private fun focusAmount() {
+        amountInputView.amountEditText.requestFocus()
+        amountInputView.amountEditText.showKeyboard()
+    }
+
     override fun onBackPressed(): Boolean {
         if (addressInputView.inputFieldHasFocus()) {
             addressInputView.resetInputFieldFocus()
@@ -466,6 +474,9 @@ class SendVC(
     }
 
     private fun showSuggestions() {
+        if (!suggestionsBoxView.isEnabled) {
+            return
+        }
         if (primaryContent.isGone && suggestionsBoxView.isVisible) {
             return
         }
@@ -565,6 +576,9 @@ class SendVC(
     }
 
     private fun hideSuggestions() {
+        if (!suggestionsBoxView.isEnabled) {
+            return
+        }
         if (primaryContent.isVisible && suggestionsBoxView.isInvisible) {
             return
         }
@@ -797,6 +811,7 @@ class SendVC(
             if (it.uiButton.status == SendViewModel.ButtonStatus.NotEnoughNativeToken) {
                 showScamWarningIfRequired()
             }
+            suggestionsBoxView.isEnabled = it.uiAddressSearch.enabled
         }
 
         collectFlow(viewModel.uiEventFlow) { event ->

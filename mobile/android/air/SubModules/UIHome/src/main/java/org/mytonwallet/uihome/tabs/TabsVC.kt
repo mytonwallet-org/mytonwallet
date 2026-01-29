@@ -995,6 +995,18 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
         checkForMatchingUrl(searchKeyword)
     }
 
+    private fun openUrl(config: InAppBrowserConfig) {
+        val browserVC =
+            InAppBrowserVC(
+                context,
+                window?.navigationControllers?.last()?.viewControllers?.last() as? TabsVC,
+                config
+            )
+        val nav = WNavigationController(window!!)
+        nav.setRoot(browserVC)
+        window?.present(nav)
+    }
+
     override fun onWalletEvent(walletEvent: WalletEvent) {
         when (walletEvent) {
             is WalletEvent.AccountChanged -> {
@@ -1013,19 +1025,12 @@ class TabsVC(context: Context) : WViewController(context), WThemedView, WProtect
             }
 
             is WalletEvent.OpenUrl -> {
-                walletEvent.url.let { url ->
-                    val browserVC =
-                        InAppBrowserVC(
-                            context,
-                            window?.navigationControllers?.last()?.viewControllers?.last() as? TabsVC,
-                            InAppBrowserConfig(
-                                url,
-                                injectTonConnectBridge = true
-                            )
-                        )
-                    val nav = WNavigationController(window!!)
-                    nav.setRoot(browserVC)
-                    window?.present(nav)
+                openUrl(InAppBrowserConfig(walletEvent.url, injectTonConnectBridge = true))
+            }
+
+            is WalletEvent.OpenUrlWithConfig -> {
+                walletEvent.config?.let { config ->
+                    openUrl(config)
                 }
             }
 

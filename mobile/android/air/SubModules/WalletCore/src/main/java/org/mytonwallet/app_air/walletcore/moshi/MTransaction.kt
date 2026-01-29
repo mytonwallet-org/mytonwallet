@@ -1,5 +1,6 @@
 package org.mytonwallet.app_air.walletcore.moshi
 
+import android.net.Uri
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import org.json.JSONObject
@@ -566,19 +567,11 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
                 token.chain
             ) else if (this is Swap) MBlockchain.ton else return null
 
-        return when (chain) {
-            MBlockchain.ton -> {
-                "${ExplorerHelpers.tonScanUrl(network)}tx/$txHash"
-            }
-
-            MBlockchain.tron -> {
-                "${ExplorerHelpers.tronScanUrl(network)}transaction/$txHash"
-            }
-
-            else -> {
-                null
-            }
-        }
+        val urlBuilder = Uri.Builder()
+            .appendPath("tx")
+            .appendPath(chain.name)
+            .appendPath(txHash)
+        return ExplorerHelpers.mtwScanUrl(network, urlBuilder)
     }
 
     val tagText: String?

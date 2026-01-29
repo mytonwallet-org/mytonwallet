@@ -1,0 +1,13 @@
+• Multichain Web Explorer • Share wallet and transfer links that open in brand new web interface or in the app.
+
+• New iOS Lock Screen Widgets • Four new sleek widgets to track token prices at a glance.
+
+• Blockchain Explorer Switch • Choose between Tonscan and Tonviewer when viewing transfer details.
+
+• MyTonWallet Air by default • New users start with a faster, native app experience.
+
+• New Features in MyTonWallet Air • Manage saved addresses and open/copy wallet or transfer links easily.
+
+• TON Testnet Speed Breakthrough • Integrated support for record-breaking transfer speeds developed together with TON Core.
+
+• Improved security, simplified TON Connect integration, and optimized performance.

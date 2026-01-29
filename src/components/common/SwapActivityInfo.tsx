@@ -7,6 +7,7 @@ import { Big } from '../../lib/big.js';
 import { resolveSwapAsset } from '../../global/helpers';
 import { getIsActivityPendingForUser, parseTxId } from '../../util/activities';
 import { getIsSupportedChain } from '../../util/chain';
+import { getExplorerTransactionUrl } from '../../util/url';
 
 import useLang from '../../hooks/useLang';
 
@@ -64,6 +65,9 @@ function SwapActivityInfo({
 
   const fromChain = fromToken?.chain && getIsSupportedChain(fromToken.chain) ? fromToken.chain : undefined;
   const transactionHash = id ? (isCex ? hashes?.[0] : parseTxId(id).hash) : undefined;
+  const transactionUrl = transactionHash && fromChain
+    ? getExplorerTransactionUrl(fromChain, transactionHash, undefined, selectedExplorerIds?.[fromChain])
+    : undefined;
 
   function renderFee() {
     if (!(Number(networkFee) || shouldLoadDetails) || !fromToken) {
@@ -99,6 +103,7 @@ function SwapActivityInfo({
           noSavedAddress
           chain={fromChain}
           address={transactionHash}
+          addressUrl={transactionUrl}
           isTransaction
           copyNotification={lang('Transaction ID was copied!')}
         />

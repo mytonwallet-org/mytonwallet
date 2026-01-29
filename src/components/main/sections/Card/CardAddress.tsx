@@ -109,6 +109,7 @@ function CardAddress({
           anchor={menuAnchor}
           items={menuItems}
           menuRef={menuRef}
+          isTestnet={isTestnet}
           onClose={closeMenu}
           onExplorerClick={handleExplorerClick}
           onMouseEnter={handleMouseEnter}

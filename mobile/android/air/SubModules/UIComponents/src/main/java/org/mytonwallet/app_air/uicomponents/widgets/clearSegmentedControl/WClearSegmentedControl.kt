@@ -34,6 +34,8 @@ import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.SpacesItemDecoration
+import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -364,6 +366,7 @@ class WClearSegmentedControl(
 
             val textView = itemView.textView
             textView.setTextColor(if (isDrawThumb) primaryTextColor else secondaryTextColor)
+            textView.paint.typeface = if (isDrawThumb) WFont.DemiBold.typeface else WFont.Medium.typeface
             val frameResult = super.drawChild(canvas, itemView, drawingTime)
 
             drawChildText(canvas, itemView, textView)

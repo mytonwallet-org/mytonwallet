@@ -87,7 +87,8 @@
 .portraitContainer {
   min-height: calc(var(--vh, 1vh) * 100 - var(--safe-area-top) - #{v.$portraitHeaderHeight});
 
-  &:not(.portraitContainerIsStuck) {
+  /* For preventing z-index issues. Other components (like PortrainActions or Card) may overlap over inner backdrop */
+  :global(html:not(.with-menu-backdrop)) &:not(.portraitContainerIsStuck) {
     z-index: var(--z-container);
   }
 

@@ -613,8 +613,8 @@ extension NftsVC: UICollectionViewDelegate {
                     AppActions.openInBrowser(url)
                 }
             }
-            items += UIAction(title: "Tonscan", image: .airBundle("MenuTonscan26")) { _ in
-                let url = ExplorerHelper.tonscanNftUrl(nft)
+            items += UIAction(title: ExplorerHelper.selectedExplorerName(for: .ton), image: .airBundle(ExplorerHelper.selectedExplorerMenuIconName(for: .ton))) { _ in
+                let url = ExplorerHelper.explorerNftUrl(nft)
                 AppActions.openInBrowser(url)
             }
             if let url = ExplorerHelper.tonDnsManagementUrl(nft) {
@@ -768,5 +768,4 @@ extension NftsVC: WalletCoreData.EventsObserver {
         }
     }
 }
-
 

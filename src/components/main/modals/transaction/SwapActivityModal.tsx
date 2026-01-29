@@ -30,7 +30,7 @@ import { shareUrl } from '../../../../util/share';
 import getChainNetworkName from '../../../../util/swap/getChainNetworkName';
 import { getIsInternalSwap, getSwapType } from '../../../../util/swap/getSwapType';
 import { getChainBySlug, getIsNativeToken } from '../../../../util/tokens';
-import { getViewTransactionUrl } from '../../../../util/url';
+import { getExplorerTransactionUrl, getViewTransactionUrl } from '../../../../util/url';
 import { ANIMATED_STICKERS_PATHS } from '../../../ui/helpers/animatedAssets';
 
 import useAppTheme from '../../../../hooks/useAppTheme';
@@ -59,6 +59,7 @@ type StateProps = {
   theme: Theme;
   isSwapDisabled?: boolean;
   isSensitiveDataHidden?: true;
+  isTestnet?: boolean;
   selectedExplorerIds?: Partial<Record<ApiChain, string>>;
 };
 
@@ -68,7 +69,7 @@ const CHANGELLY_ERROR_STATUSES = new Set(['failed', 'expired', 'refunded', 'over
 const ONCHAIN_ERROR_STATUSES = new Set(['failed', 'expired']);
 
 function SwapActivityModal({
-  activity, tokensBySlug, theme, accountChains, isSwapDisabled, isSensitiveDataHidden, selectedExplorerIds,
+  activity, tokensBySlug, theme, accountChains, isSwapDisabled, isSensitiveDataHidden, isTestnet, selectedExplorerIds,
 }: StateProps) {
   const {
     fetchActivityDetails,
@@ -203,7 +204,7 @@ function SwapActivityModal({
     : undefined;
 
   const handleShareClick = useLastCallback(() => {
-    const url = getViewTransactionUrl(swapChain!, swapTransactionInfo!.hash, false);
+    const url = getViewTransactionUrl(swapChain!, swapTransactionInfo!.hash, isTestnet);
     void shareUrl(url);
   });
 
@@ -362,6 +363,7 @@ function SwapActivityModal({
     const transactionHash = renderedActivity && getTransactionHash(renderedActivity);
     if (!transactionHash) return undefined;
     const { hash, chain } = transactionHash;
+    const transactionUrl = getExplorerTransactionUrl(chain, hash, isTestnet, selectedExplorerIds?.[chain]);
 
     return (
       <div className={styles.textFieldWrapper}>
@@ -371,6 +373,7 @@ function SwapActivityModal({
         <InteractiveTextField
           noSavedAddress
           address={hash}
+          addressUrl={transactionUrl}
           chain={chain}
           isTransaction
           copyNotification={lang('Transaction ID was copied!')}
@@ -524,7 +527,7 @@ export default memo(
     const accountState = selectCurrentAccountState(global);
     const account = selectCurrentAccount(global);
     const { isSwapDisabled } = global.restrictions;
-    const { theme, isSensitiveDataHidden } = global.settings;
+    const { theme, isSensitiveDataHidden, isTestnet } = global.settings;
 
     const id = accountState?.currentActivityId;
     const activity = id ? accountState?.activities?.byId[id] : undefined;
@@ -534,8 +537,9 @@ export default memo(
       tokensBySlug: global.swapTokenInfo?.bySlug,
       theme,
       accountChains: account?.byChain,
-      isSwapDisabled: isSwapDisabled || global.settings.isTestnet || selectIsCurrentAccountViewMode(global),
+      isSwapDisabled: isSwapDisabled || isTestnet || selectIsCurrentAccountViewMode(global),
       isSensitiveDataHidden,
+      isTestnet,
       selectedExplorerIds: global.settings.selectedExplorerIds,
     };
   })(SwapActivityModal),

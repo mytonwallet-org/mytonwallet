@@ -58,8 +58,15 @@ class WNavigationPopup(
         init {
             if (isBlurSupported) {
                 addView(blurryBackground, LayoutParams(0, 0))
-                (popupHost?.windowView?.children?.firstOrNull { it is ViewGroup && it !is JSWebViewBridge } as? ViewGroup)?.let {
-                    blurryBackground.setupWith(it)
+                val blurRootView = popupHost?.windowView?.children
+                    ?.lastOrNull { child ->
+                        child is ViewGroup &&
+                            child !is JSWebViewBridge &&
+                            child !is WPopupHost
+                    } as? ViewGroup
+
+                blurRootView?.let { viewGroup ->
+                    blurryBackground.setupWith(viewGroup)
                 }
             }
             updateTheme()

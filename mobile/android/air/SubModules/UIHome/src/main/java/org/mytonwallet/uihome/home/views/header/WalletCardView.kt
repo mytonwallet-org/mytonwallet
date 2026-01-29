@@ -15,6 +15,7 @@ import android.widget.Toast
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.core.text.buildSpannedString
 import androidx.core.text.inSpans
 import androidx.core.view.isGone
@@ -83,6 +84,8 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.setBaseCurrency
 import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
+import org.mytonwallet.app_air.walletcore.models.IInAppBrowser
+import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MAccount.AccountChain
 import org.mytonwallet.app_air.walletcore.models.MBlockchain
@@ -373,7 +376,7 @@ class WalletCardView(
         v.post {
             val topOffset = (((parent as View).width - 32.dp) * RATIO - 40.dp).roundToInt()
             v.setConstraints {
-                toTopPx(mintIcon, topOffset - 8)
+                toBottom(mintIcon, 5f)
                 constrainMaxWidth(balanceViewContainer.id, (parent as View).width - 34.dp)
             }
         }
@@ -979,12 +982,11 @@ class WalletCardView(
                             init {
                                 updateTheme()
                                 setOnClickListener {
-                                    val account = account ?: return@setOnClickListener
-                                    val walletEvent =
-                                        WalletEvent.OpenUrl(
-                                            chain.explorerUrl(account.network, fullAddress)
-                                        )
-                                    WalletCore.notifyEvent(walletEvent)
+                                    val network = account?.network ?: return@setOnClickListener
+                                    val config = ExplorerHelpers.createAddressExplorerConfig(
+                                        chain, network, fullAddress
+                                    ) ?: return@setOnClickListener
+                                    WalletCore.notifyEvent(WalletEvent.OpenUrlWithConfig(config))
                                     popup.dismiss()
                                 }
                                 translationX = 4f.dp
@@ -1012,7 +1014,7 @@ class WalletCardView(
                 }
             }.toMutableList()
         val shareText = account?.byChain?.entries?.joinToString(
-            prefix = "https://my.tt/view?",
+            prefix = "https://my.tt/view/?",
             separator = "&"
         ) { (chain, chainAccount) ->
             "$chain=${chainAccount.address}"

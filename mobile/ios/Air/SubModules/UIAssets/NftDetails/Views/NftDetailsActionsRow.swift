@@ -127,7 +127,7 @@ struct NftDetailsActionsRow: View {
             title: IOS_26_MODE_ENABLED ? lang("Share") : lang("Share").lowercased(),
             icon: IOS_26_MODE_ENABLED ? "ShareIconBold" : "ActionShare24"
         ) {
-            AppActions.shareUrl(ExplorerHelper.viewNftUrl(nftAddress: viewModel.nft.address))
+            AppActions.shareUrl(ExplorerHelper.viewNftUrl(network: viewModel.account.network, nftAddress: viewModel.nft.address))
         }
     }
     
@@ -168,8 +168,8 @@ struct NftDetailsActionsRow: View {
                         AppActions.openInBrowser(url)
                     }
                 }
-                items += .button(id: "0-tonscan", title: "Tonscan", trailingIcon: .air("MenuTonscan26")) {
-                    let url = ExplorerHelper.tonscanNftUrl(viewModel.nft)
+                items += .button(id: "0-tonscan", title: ExplorerHelper.selectedExplorerName(for: .ton), trailingIcon: .air(ExplorerHelper.selectedExplorerMenuIconName(for: .ton))) {
+                    let url = ExplorerHelper.explorerNftUrl(viewModel.nft)
                     AppActions.openInBrowser(url)
                 }
                 return MenuConfig(menuItems: items)

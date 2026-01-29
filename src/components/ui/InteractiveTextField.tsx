@@ -20,7 +20,7 @@ import captureKeyboardListeners from '../../util/captureKeyboardListeners';
 import { getChainTitle } from '../../util/chain';
 import { copyTextToClipboard } from '../../util/clipboard';
 import { stopEvent } from '../../util/domEvents';
-import { handleUrlClick, openUrl } from '../../util/openUrl';
+import { openUrl } from '../../util/openUrl';
 import { shareUrl } from '../../util/share';
 import { MEANINGFUL_CHAR_LENGTH, shortenAddress } from '../../util/shortenAddress';
 import { getExplorerAddressUrl, getExplorerName, getHostnameFromUrl, getViewTransactionUrl } from '../../util/url';
@@ -176,10 +176,6 @@ function InteractiveTextField({
       subtitle: getHostnameFromUrl(resolvedAddressUrl!),
       shouldSkipOverlayClose: true,
     });
-  });
-
-  const handleExplorerUrlClick = useLastCallback((event: React.MouseEvent<HTMLAnchorElement, MouseEvent>) => {
-    handleUrlClick(event, { shouldSkipOverlayClose: true });
   });
 
   const handleViewInApp = useLastCallback(async () => {
@@ -390,7 +386,7 @@ function InteractiveTextField({
             aria-label={explorerTitle}
             tabIndex={0}
             role="button"
-            onClick={handleExplorerUrlClick}
+            onClick={handleExplorerOpen}
           >
             <i className={buildClassName(styles.icon, 'icon-tonexplorer-small')} aria-hidden />
           </span>

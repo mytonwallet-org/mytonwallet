@@ -3,8 +3,6 @@ package org.mytonwallet.app_air.walletcore.models
 import android.graphics.Color
 import com.squareup.moshi.JsonClass
 import org.mytonwallet.app_air.icons.R
-import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
-import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 import java.math.BigDecimal
 
 @JsonClass(generateAdapter = false)
@@ -99,26 +97,6 @@ enum class MBlockchain(
             return this == ton
         }
 
-    fun explorerUrl(network: MBlockchainNetwork, address: String): String {
-        val str: String
-        when (this) {
-            ton -> {
-                val domain = ExplorerHelpers.tonScanUrl(network)
-                str = "${domain}address/$address"
-            }
-
-            tron -> {
-                val domain = ExplorerHelpers.tronScanUrl(network)
-                str = "${domain}address/$address"
-            }
-
-            else -> {
-                str = ""
-            }
-        }
-        return str
-    }
-
     fun isValidAddress(address: String): Boolean {
         return when (this) {
             ton -> Regex("""^([-\w_]{48}|0:[\da-fA-F]{64})$""").matches(address)
@@ -186,6 +164,30 @@ enum class MBlockchain(
             else -> {
                 null
             }
+        }
+    }
+
+    fun transactionExplorers(): List<MBlockchainExplorer> {
+        return when (this) {
+            ton -> listOf(MBlockchainExplorer.TONSCAN, MBlockchainExplorer.TONVIEWER)
+            tron -> listOf(MBlockchainExplorer.TRONSCAN)
+            else -> emptyList()
+        }
+    }
+
+    fun addressExplorers(): List<MBlockchainExplorer> {
+        return when (this) {
+            ton -> listOf(MBlockchainExplorer.TONSCAN, MBlockchainExplorer.TONVIEWER)
+            tron -> listOf(MBlockchainExplorer.TRONSCAN)
+            else -> emptyList()
+        }
+    }
+
+    fun tokenExplorer(): MBlockchainExplorer? {
+        return when (this) {
+            ton -> MBlockchainExplorer.TONSCAN
+            tron -> MBlockchainExplorer.TRONSCAN
+            else -> null
         }
     }
 

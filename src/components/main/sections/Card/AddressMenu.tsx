@@ -41,6 +41,7 @@ interface OwnProps {
   anchor?: IAnchorPosition;
   items: MenuItem[];
   menuRef: ElementRef<HTMLDivElement>;
+  isTestnet?: boolean;
   onClose: NoneToVoidFunction;
   onExplorerClick: (chain: ApiChain, address: string) => void;
   onMouseEnter?: NoneToVoidFunction;
@@ -62,6 +63,7 @@ function AddressMenu({
   anchor,
   items,
   menuRef,
+  isTestnet,
   onClose,
   onExplorerClick,
   onMouseEnter,
@@ -91,7 +93,7 @@ function AddressMenu({
     const addressByChain = getAddressByChain(byChain);
     if (!addressByChain) return;
 
-    void shareUrl(getViewAccountUrl(addressByChain));
+    void shareUrl(getViewAccountUrl(addressByChain, isTestnet));
     onClose();
   });
 
