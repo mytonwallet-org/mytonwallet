@@ -13,35 +13,38 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import java.lang.ref.WeakReference
 import java.math.BigInteger
 
-class ConfirmNftVM(delegate: Delegate) {
+class ConfirmNftVM(mode: Mode, delegate: Delegate) {
     interface Delegate {
         fun showError(error: MBridgeError?)
-        fun feeUpdated(result: MApiCheckTransactionDraftResult?, err: MBridgeError?)
+        fun feeUpdated(fee: BigInteger?, err: MBridgeError?)
     }
 
+    var toAddress: String
     var resolvedAddress: String? = null
     private var feeValue: BigInteger? = null
-    val delegate: WeakReference<Delegate> = WeakReference(delegate)
 
-    fun toAddress(mode: Mode): String {
-        return when (mode) {
-            is Mode.Burn -> {
-                BURN_ADDRESS
+    init {
+        when (mode) {
+            Mode.Burn -> {
+                toAddress = BURN_ADDRESS
             }
-
             is Mode.Send -> {
-                mode.toAddress
+                toAddress = mode.toAddress
+                resolvedAddress = mode.resolvedAddress
+                feeValue = mode.fee
             }
         }
     }
 
-    fun requestFee(nft: ApiNft, mode: Mode, comment: String?) {
+    val delegate: WeakReference<Delegate> = WeakReference(delegate)
+
+    fun requestFee(nft: ApiNft, comment: String?) {
         WalletCore.call(
             ApiMethod.Nft.CheckNftTransferDraft(
                 MApiCheckNftDraftOptions(
                     AccountStore.activeAccountId!!,
                     arrayOf(nft.toDictionary()),
-                    toAddress(mode),
+                    toAddress,
                     comment
                 )
             ),
@@ -49,7 +52,7 @@ class ConfirmNftVM(delegate: Delegate) {
                 resolvedAddress = res?.resolvedAddress
                 feeValue = res?.fee
                 delegate.get()?.feeUpdated(
-                    res ?: err?.parsedResult as? MApiCheckTransactionDraftResult,
+                    (res ?: err?.parsedResult as? MApiCheckTransactionDraftResult)?.fee,
                     err?.parsed
                 )
             }

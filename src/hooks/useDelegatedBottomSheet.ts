@@ -11,6 +11,12 @@ import type { GlobalState } from '../global/types';
 
 import { bigintReviver } from '../util/bigint';
 import cssColorToHex from '../util/cssColorToHex';
+import {
+  markDelegatedGlobalReady,
+  notifyNativeReady,
+  resetDelegatedGlobalReady,
+  setDelegatedBottomSheetKey,
+} from '../util/multitab';
 import { setStatusBarStyle } from '../util/switchTheme';
 import { IS_DELEGATED_BOTTOM_SHEET } from '../util/windowEnvironment';
 import { useDeviceScreen } from './useDeviceScreen';
@@ -33,17 +39,21 @@ const safeAreaPromise = SafeArea.getSafeAreaInsets().then(({ insets }) => {
 });
 
 let currentKey: BottomSheetKeys | undefined;
+let delegationVersion = 0;
 
 if (IS_DELEGATED_BOTTOM_SHEET) {
   void BottomSheet.addListener('delegate', ({ key, globalJson }: { key: BottomSheetKeys; globalJson: string }) => {
     currentKey = key;
-    controlledByMain.get(key)?.();
-
+    delegationVersion += 1;
     const incomingGlobal = sanitizeGlobalForBottomSheet(globalJson);
     setGlobal(
       incomingGlobal,
       { forceOutdated: true, forceSyncOnIOs: true },
     );
+    setDelegatedBottomSheetKey(key);
+    markDelegatedGlobalReady();
+    notifyNativeReady();
+    controlledByMain.get(key)?.();
   });
 
   void BottomSheet.addListener('move', () => {
@@ -69,6 +79,7 @@ export function useDelegatedBottomSheet(
     if (!IS_DELEGATED_BOTTOM_SHEET || !key || key !== currentKey) return;
 
     if (isOpen) {
+      const openVersion = delegationVersion;
       const dialogEl = dialogRef.current!;
 
       void BottomSheet.openSelf({
@@ -78,6 +89,10 @@ export function useDelegatedBottomSheet(
       }).then(() => {
         forceOnHeavyAnimationOnce();
         onClose();
+        if (openVersion === delegationVersion) {
+          // No newer delegations, can reset the readiness flag
+          resetDelegatedGlobalReady();
+        }
       });
     } else if (prevIsOpen) {
       void BottomSheet.closeSelf({ key });

@@ -1,14 +1,10 @@
 
 import SwiftUI
-import UIKit
-import UIComponents
 import WalletContext
 import WalletCore
-import Kingfisher
 import Perception
 
 let mirrorStretchFactor: CGFloat = 2
-let maxBlurRadius: CGFloat = 20
 let blurHeight: CGFloat = 176
 let mirrorHeight: CGFloat = 92
 let collapsedImageSize: CGFloat = 144
@@ -52,11 +48,6 @@ fileprivate struct Image: View {
     
     var viewModel: NftDetailsViewModel
     var ns: Namespace.ID
-    
-    var nft: ApiNft { viewModel.nft }
-    var isExpanded: Bool { viewModel.isExpanded }
-    
-    @State private var isTouching: Bool = false
     
     var body: some View {
         WithPerceptionTracking {
@@ -105,7 +96,7 @@ private struct Labels: View {
 #if DEBUG
 @available(iOS 18, *)
 #Preview {
-    @Previewable var viewModel = NftDetailsViewModel(accountId: "0-mainnet", isExpanded: true, isFullscreenPreviewOpen: true, nft: .sampleMtwCard, listContext: .none, navigationBarInset: 0)
+    @Previewable var viewModel = NftDetailsViewModel(accountId: "0-mainnet", isExpanded: true, isFullscreenPreviewOpen: true, nft: .sampleMtwCard, listContext: .none)
     @Previewable @Namespace var ns
     NftDetailsHeaderView(viewModel: viewModel, ns: ns)
         .background(Color.blue.opacity(0.2))

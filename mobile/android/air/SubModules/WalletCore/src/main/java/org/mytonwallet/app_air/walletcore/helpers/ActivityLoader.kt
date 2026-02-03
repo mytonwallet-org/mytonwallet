@@ -110,7 +110,7 @@ class ActivityLoader(
     // Public API //////////////////////////////////////////////////////////////////////////////////
     // Request the first page of activities
     override fun askForActivities() {
-        Logger.i(Logger.LogTag.ACTIVITY_LOADER, "askForActivities accountId=$accountId slug=$selectedSlug")
+        Logger.d(Logger.LogTag.ACTIVITY_LOADER, "askForActivities: accountId=$accountId slug=$selectedSlug")
         ActivityStore.fetchTransactions(
             context = context,
             accountId = accountId,
@@ -138,9 +138,9 @@ class ActivityLoader(
     private fun handleFirstPageResult(result: ActivityStore.FetchResult) {
         val (transactions, isFromCache, resultLoadedAll) = result
 
-        Logger.i(
+        Logger.d(
             Logger.LogTag.ACTIVITY_LOADER,
-            "handleFirstPageResult slug=$selectedSlug isFromCache=$isFromCache count=${transactions.size} loadedAll=$resultLoadedAll"
+            "handleFirstPageResult: slug=$selectedSlug isFromCache=$isFromCache count=${transactions.size} loadedAll=$resultLoadedAll"
         )
 
         // Notify UI if cache is empty (so it can show loading state)
@@ -192,9 +192,9 @@ class ActivityLoader(
 
         budgetState = BudgetState.Preparing
 
-        Logger.i(
+        Logger.d(
             Logger.LogTag.ACTIVITY_LOADER,
-            "prepareBudgetActivities accountId=$accountId slug=$selectedSlug beforeBudgetSize=${budgetIds.size} before=${paginationActivity?.dt ?: lastActivity.dt}"
+            "prepareBudgetActivities: accountId=$accountId slug=$selectedSlug budgetSize=${budgetIds.size} before=${paginationActivity?.dt ?: lastActivity.dt}"
         )
 
         ActivityStore.fetchTransactions(
@@ -224,18 +224,18 @@ class ActivityLoader(
             // Validate that the list hasn't changed during fetch (may happen with real-time updates)
             val currentLastActivity = findLastPaginationActivity()
             if (lastActivityBeforeFetch.id != currentLastActivity?.id) {
-                Logger.i(
+                Logger.d(
                     Logger.LogTag.ACTIVITY_LOADER,
-                    "handleBudgetFetchResult Budget invalidated accountId=$accountId slug=$selectedSlug"
+                    "handleBudgetFetchResult: Budget invalidated accountId=$accountId slug=$selectedSlug"
                 )
                 budgetState = BudgetState.Idle
                 prepareBudgetActivities()
                 return@execute
             }
 
-            Logger.i(
+            Logger.d(
                 Logger.LogTag.ACTIVITY_LOADER,
-                "handleBudgetFetchResult accountId=$accountId slug=$selectedSlug isFromCache=${result.isFromCache} loaded=${result.transactions.size} LoadedAll=${result.loadedAll}"
+                "handleBudgetFetchResult: accountId=$accountId slug=$selectedSlug isFromCache=${result.isFromCache} loaded=${result.transactions.size} loadedAll=${result.loadedAll}"
             )
 
             // Update pagination cursor
@@ -286,9 +286,9 @@ class ActivityLoader(
         budgetRequestPending = false
 
         if (budgetIds.isNotEmpty()) {
-            Logger.i(
+            Logger.d(
                 Logger.LogTag.ACTIVITY_LOADER,
-                "consumeBudgetTransactionsInternal accountId=$accountId slug=$selectedSlug budget=${budgetIds.size}"
+                "consumeBudgetTransactionsInternal: accountId=$accountId slug=$selectedSlug budgetSize=${budgetIds.size}"
             )
 
             // Transfer budget IDs to showing list
@@ -471,11 +471,6 @@ class ActivityLoader(
      * and delegates to ActivityStore for actual persistence.
      */
     private fun persistTransactionList() {
-        Logger.i(
-            Logger.LogTag.ACTIVITY_LOADER,
-            "persistTransactionList accountId=$accountId slug=$selectedSlug"
-        )
-
         // Get all transactions from ActivityStore plus budget
         val storeTransactions =
             allTransactionIds.mapNotNull { ActivityStore.getTransaction(accountId, it) }
@@ -484,6 +479,11 @@ class ActivityLoader(
         val allActivities = (storeTransactions + budgetTransactions)
             .distinctBy { it.id }
             .sortedWith(ActivityHelpers::sorter)
+
+        Logger.d(
+            Logger.LogTag.ACTIVITY_LOADER,
+            "persistTransactionList: accountId=$accountId slug=$selectedSlug count=${allActivities.size}"
+        )
 
         ActivityStore.setListTransactions(
             accountId = accountId,
@@ -533,9 +533,9 @@ class ActivityLoader(
     private fun handleReceivedNewActivities(event: WalletEvent.ReceivedNewActivities) {
         if (event.accountId != accountId) return
 
-        Logger.i(
+        Logger.d(
             Logger.LogTag.ACTIVITY_LOADER,
-            "handleReceivedNewActivities accountId=$accountId slug=$selectedSlug newActivities=${event.newActivities?.size}"
+            "handleReceivedNewActivities: accountId=$accountId slug=$selectedSlug count=${event.newActivities?.size}"
         )
 
         processReceivedActivities(

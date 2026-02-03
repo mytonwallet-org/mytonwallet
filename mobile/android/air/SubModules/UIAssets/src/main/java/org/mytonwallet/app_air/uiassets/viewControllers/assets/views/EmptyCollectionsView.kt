@@ -9,12 +9,12 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
-import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -27,6 +27,8 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 @SuppressLint("ViewConstructor")
 class EmptyCollectionsView(window: WWindow) : WView(window), WThemedView {
 
+    private val exploreButtonRipple = WRippleDrawable.create(16f.dp)
+
     private val titleLabel: WLabel by lazy {
         val lbl = WLabel(context)
         lbl.text = LocaleController.getString("No NFTs yet")
@@ -36,6 +38,7 @@ class EmptyCollectionsView(window: WWindow) : WView(window), WThemedView {
 
     private val exploreButton: WLabel by lazy {
         val btn = WLabel(context)
+        btn.background = exploreButtonRipple
         btn.textAlignment = TEXT_ALIGNMENT_CENTER
         btn.setStyle(14f)
         btn.setPadding(16.dp, 0, 16.dp, 0)
@@ -80,8 +83,7 @@ class EmptyCollectionsView(window: WWindow) : WView(window), WThemedView {
         setExploreText()
         titleLabel.setTextColor(WColor.PrimaryText.color)
         exploreButton.setTextColor(WColor.Tint.color)
-        exploreButton.background = null
-        exploreButton.addRippleEffect(WColor.TintRipple.color, 16f.dp)
+        exploreButtonRipple.rippleColor = WColor.TintRipple.color
     }
 
     private fun setExploreText() {

@@ -61,6 +61,7 @@ import org.mytonwallet.app_air.uistake.staking.StakingVC
 import org.mytonwallet.app_air.uistake.staking.StakingViewModel
 import org.mytonwallet.app_air.uistake.util.getTonStakingFees
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -638,6 +639,8 @@ class EarnVC(
     override fun updateTheme() {
         super.updateTheme()
 
+        recyclerView.setBackgroundColor(WColor.SecondaryBackground.color)
+
         noItemView.setBackgroundColor(WColor.Background.color, ViewConstants.BIG_RADIUS.dp, 0f)
         noItemLabel.setTextColor(WColor.PrimaryText.color)
 
@@ -907,6 +910,7 @@ class EarnVC(
     }
 
     private fun claimRewardsPressed() {
+        Logger.d(Logger.LogTag.STAKING, "claimRewardsPressed: tokenSlug=$tokenSlug")
         if (AccountStore.activeAccount?.isHardware == true) {
             claimRewardsHardware()
         } else {
@@ -944,6 +948,11 @@ class EarnVC(
             ),
             task = { passcode ->
                 earnViewModel.requestClaimRewards(passcode) { err ->
+                    if (err != null) {
+                        Logger.d(Logger.LogTag.STAKING, "requestClaimRewards: Failed error=${err.parsed}")
+                    } else {
+                        Logger.d(Logger.LogTag.STAKING, "requestClaimRewards: Success tokenSlug=$tokenSlug")
+                    }
                     if (AccountStore.stakingData?.stakingState(tokenSlug) is StakingState.Ethena) {
                         window?.dismissLastNav {
                             window?.dismissLastNav()

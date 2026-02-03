@@ -485,7 +485,6 @@ async function migrateCoreWallet(onUpdate: OnApiUpdate) {
     words,
     publicKey,
     isTonProxyEnabled,
-    isTonMagicEnabled,
   ] = await Promise.all([
     currentStorage.getItem('walletVersion' as StorageKey),
     currentStorage.getItem('isTestnet' as StorageKey),
@@ -493,7 +492,6 @@ async function migrateCoreWallet(onUpdate: OnApiUpdate) {
     currentStorage.getItem('words' as StorageKey),
     currentStorage.getItem('publicKey' as StorageKey),
     currentStorage.getItem('proxy' as StorageKey),
-    currentStorage.getItem('magic' as StorageKey),
   ]);
 
   if (isTestnet) {
@@ -550,12 +548,11 @@ async function migrateCoreWallet(onUpdate: OnApiUpdate) {
       secondAccountId,
       secondAddress,
       isTonProxyEnabled,
-      isTonMagicEnabled,
     });
 
     // Clean up storage after migrate the app from Core Wallet
     [
-      'walletVersion', 'isTestnet', 'words', 'address', 'publicKey', 'magic', 'proxy', 'isLedger',
+      'walletVersion', 'isTestnet', 'words', 'address', 'publicKey', 'proxy', 'isLedger',
       'ledgerTransportType', '__time', 'isDebug',
     ].forEach((key) => {
       void currentStorage.removeItem(key as StorageKey);

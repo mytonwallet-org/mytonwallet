@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.airasframework
 import android.animation.ValueAnimator
 import android.content.Context
 import android.content.res.Configuration
+import android.os.Build
 import android.view.ViewGroup
 import com.facebook.drawee.backends.pipeline.Fresco
 import org.mytonwallet.app_air.uicomponents.helpers.FontManager
@@ -14,6 +15,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setNftAccent
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.IGlobalStorageProvider
+import org.mytonwallet.app_air.walletcontext.helpers.LaunchConfig
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
@@ -22,6 +24,7 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ActivityStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
+import java.util.Date
 
 class AirAsFrameworkApplication {
 
@@ -33,7 +36,16 @@ class AirAsFrameworkApplication {
         ) {
             Logger.initialize(applicationContext)
 
-            Logger.i(Logger.LogTag.AIR_APPLICATION, "Initializing basic required objects")
+            Logger.i(
+                Logger.LogTag.AIR_APPLICATION,
+                "**** APP START **** ${Date()} " +
+                    "version=${LaunchConfig.getVersionName(applicationContext)} " +
+                    "build=${LaunchConfig.getBuildNumber(applicationContext)} " +
+                    "device=${Build.MODEL} " +
+                    "Android=${Build.VERSION.RELEASE}"
+            )
+
+            Logger.i(Logger.LogTag.AIR_APPLICATION, "onCreate: Initializing basic required objects")
             val start = System.currentTimeMillis()
 
             var t = System.currentTimeMillis()
@@ -139,11 +151,11 @@ class AirAsFrameworkApplication {
             )
 
             val end = System.currentTimeMillis()
-            Logger.i(Logger.LogTag.AIR_APPLICATION, "Total initialization time: ${end - start}ms")
+            Logger.i(Logger.LogTag.AIR_APPLICATION, "onCreate: Total initialization time=${end - start}ms")
 
-            Logger.i(Logger.LogTag.AIR_APPLICATION, "Setup Bridge")
+            Logger.i(Logger.LogTag.AIR_APPLICATION, "onCreate: Setting up bridge")
             WalletCore.setupBridge(applicationContext, bridgeHostView, forcedRecreation = true) {
-                Logger.i(Logger.LogTag.AIR_APPLICATION, "Bridge Ready")
+                Logger.i(Logger.LogTag.AIR_APPLICATION, "onCreate: Bridge ready")
             }
         }
 

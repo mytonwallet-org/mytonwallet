@@ -327,7 +327,6 @@ addActionHandler('apiUpdate', (global, actions, update) => {
         secondAddress,
         secondAccountId,
         isTonProxyEnabled,
-        isTonMagicEnabled,
       } = update;
 
       global = updateSettings(global, { isTestnet });
@@ -352,9 +351,6 @@ addActionHandler('apiUpdate', (global, actions, update) => {
         actions.switchAccount({ accountId, newNetwork: isTestnet ? 'testnet' : 'mainnet' });
         actions.afterSignIn();
 
-        if (isTonMagicEnabled) {
-          actions.toggleTonMagic({ isEnabled: true });
-        }
         if (isTonProxyEnabled) {
           actions.toggleTonProxy({ isEnabled: true });
         }

@@ -58,9 +58,6 @@ Search...: Buscar...
 Main menu: Menú principal
 TON Proxy: TON Proxy
 Toggle TON Proxy: Alternar TON Proxy
-TON Magic: TON Magic
-Toggle TON Magic: Alternar TON Magic
-Open Telegram Web: Abrir Telegram Web
 Back Up Secret Words: Copia de seguridad
 Settings: Configuración
 About %app_name%: Acerca de %app_name%
@@ -74,10 +71,7 @@ $about_description2: Un monedero **sin custodia y seguro**. Los desarrolladores 
 What is TON Proxy?: ¿Qué es el TON Proxy?
 $about_extension_description1: TON Proxy abre un camino al **Internet descentralizado** al permitir acceder anónimamente a TON Sites.
 More info and demo.: Más información y demo.
-$about_extension_description2: TON Magic proporciona **integración nativa con Telegram** parcheando la aplicación web oficial de Telegram.
-$about_extension_description3: Actívalo para enviar y recibir Toncoins de cualquier usuario de Telegram.
-$about_proxy_magic_title: ¿Qué pasa con %ninja% TON Proxy y %unicorn% TON Magic?
-$about_proxy_magic_description: Para disfrutar de **Internet descentralizado**, acceder a **TON Sites**, y aprovechar la **integración nativa de Telegram**, no dude en instalar la %extension_link%.
+$about_proxy_magic_description: Para disfrutar de **Internet descentralizado** y acceder a **TON Sites**, no dude en instalar la %extension_link%.
 $about_extension_link_text: "**extensión %app_name%**"
 Is it open source?: ¿Es de código abierto?
 $about_wallet_github: Sí. Siéntase libre de explorar nuestro %github_link%.

@@ -45,7 +45,6 @@ addActionHandler('resetApiSettings', (global, actions, params) => {
   const isDefaultEnabled = !params?.areAllDisabled;
 
   if (IS_EXTENSION) {
-    actions.toggleTonMagic({ isEnabled: false });
     actions.toggleTonProxy({ isEnabled: false });
   }
   if (IS_EXTENSION || IS_ELECTRON) {

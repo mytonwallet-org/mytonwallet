@@ -33,6 +33,10 @@ object Logger {
         SCREEN("Screen"),
         SECURE_STORAGE("SecStore"),
         SHIDDevice("SHID"),
+        SEND("Send"),
+        SWAP("Swap"),
+        STAKING("Staking"),
+        SETTINGS("Settings"),
     }
 
     enum class LogLevel(val str: String) {
@@ -56,7 +60,7 @@ object Logger {
     }
 
     private const val MAX_BUFFER = 1_000_000
-    private const val MAX_LOG_FILE = 3_000_000
+    private const val MAX_LOG_FILE = 5_000_000
 
     private val appStartTime = System.currentTimeMillis()
     private val buffer = ByteArrayOutputStream()

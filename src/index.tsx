@@ -74,7 +74,7 @@ void (async () => {
     logDebug('API was not initialized because it was connected from a detached tab');
   }
 
-  if (IS_CAPACITOR) {
+  if (IS_CAPACITOR && !IS_DELEGATED_BOTTOM_SHEET) {
     await processCapacitorLaunchDeeplink();
   }
 

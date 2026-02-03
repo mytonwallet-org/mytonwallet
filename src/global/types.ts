@@ -597,10 +597,6 @@ export type GlobalState = {
     realFee?: bigint;
     comment?: string;
     binPayload?: string;
-    /**
-     * This is the legacy dapp transaction sending mechanism. The transaction originates in the `sendTransaction`
-     * function of the `src/api/extensionMethods/legacy.ts` file.
-     */
     promiseId?: string;
     txId?: string;
     rawPayload?: string;
@@ -801,7 +797,6 @@ export type GlobalState = {
     canPlaySounds?: boolean;
     isInvestorViewEnabled?: boolean;
     isTonProxyEnabled?: boolean;
-    isTonMagicEnabled?: boolean;
     isDeeplinkHookEnabled?: boolean;
     isPasswordNumeric?: boolean; // Backwards compatibility for non-numeric passwords from older versions
     isTestnet?: boolean;
@@ -1164,7 +1159,6 @@ export interface ActionPayloads {
   toggleInvestorView: { isEnabled?: boolean } | undefined;
   toggleCanPlaySounds: { isEnabled?: boolean } | undefined;
   toggleTonProxy: { isEnabled: boolean };
-  toggleTonMagic: { isEnabled: boolean };
   toggleDeeplinkHook: { isEnabled: boolean };
   startChangingNetwork: { network: ApiNetwork };
   changeNetwork: { network: ApiNetwork };

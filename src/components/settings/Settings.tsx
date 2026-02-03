@@ -20,7 +20,6 @@ import {
   PROXY_HOSTS,
   SHOULD_SHOW_ALL_ASSETS_AND_ACTIVITY,
   SUPPORT_USERNAME,
-  TELEGRAM_WEB_URL,
   TONCOIN,
 } from '../../config';
 import { getHelpCenterUrl } from '../../global/helpers/getHelpCenterUrl';
@@ -62,7 +61,6 @@ import useLastCallback from '../../hooks/useLastCallback';
 import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
 import usePrevious2 from '../../hooks/usePrevious2';
 import useScrolledState from '../../hooks/useScrolledState';
-import useShowTransition from '../../hooks/useShowTransition';
 import { useStateRef } from '../../hooks/useStateRef';
 
 import LedgerConnect from '../ledger/LedgerConnect';
@@ -107,10 +105,8 @@ import upgradeImg from '../../assets/settings/settings_mytonwallet.svg';
 import notifications from '../../assets/settings/settings_notifications.svg';
 import securityImg from '../../assets/settings/settings_security.svg';
 import supportImg from '../../assets/settings/settings_support.svg';
-import telegramImg from '../../assets/settings/settings_telegram-menu.svg';
 import tipsImg from '../../assets/settings/settings_tips.svg';
 import tonLinksImg from '../../assets/settings/settings_ton-links.svg';
-import tonMagicImg from '../../assets/settings/settings_ton-magic.svg';
 import tonProxyImg from '../../assets/settings/settings_ton-proxy.svg';
 import walletVersionImg from '../../assets/settings/settings_wallet-version.svg';
 
@@ -145,7 +141,6 @@ function Settings({
     isTestnet,
     langCode,
     isTonProxyEnabled,
-    isTonMagicEnabled,
     isDeeplinkHookEnabled,
     baseCurrency,
   },
@@ -169,7 +164,6 @@ function Settings({
     closeSettings,
     toggleDeeplinkHook,
     toggleTonProxy,
-    toggleTonMagic,
     getDapps,
     clearIsPinAccepted,
   } = getActions();
@@ -217,14 +211,6 @@ function Settings({
         } satisfies Wallet;
       }) ?? [];
   }, [shortBaseSymbol, tonToken, versions, withAllWalletVersions]);
-
-  const {
-    shouldRender: isTelegramLinkRendered,
-    ref: telegramLinkRef,
-  } = useShowTransition({
-    isOpen: isTonMagicEnabled,
-    withShouldRender: true,
-  });
 
   const {
     handleScroll: handleContentScroll,
@@ -317,10 +303,6 @@ function Settings({
 
   const handleTonProxyToggle = useLastCallback(() => {
     toggleTonProxy({ isEnabled: !isTonProxyEnabled });
-  });
-
-  const handleTonMagicToggle = useLastCallback(() => {
-    toggleTonMagic({ isEnabled: !isTonMagicEnabled });
   });
 
   function handleClickInstallApp() {
@@ -496,24 +478,6 @@ function Settings({
                     label={lang('Toggle TON Proxy')}
                     checked={isTonProxyEnabled}
                   />
-                </div>
-              )}
-              <div className={styles.item} onClick={handleTonMagicToggle}>
-                <img className={styles.menuIcon} src={tonMagicImg} alt={lang('TON Magic')} />
-                {lang('TON Magic')}
-
-                <Switcher
-                  className={styles.menuSwitcher}
-                  label={lang('Toggle TON Magic')}
-                  checked={isTonMagicEnabled}
-                />
-              </div>
-              {isTelegramLinkRendered && (
-                <div ref={telegramLinkRef} className={styles.item} onClick={handleOpenTelegramWeb}>
-                  <img className={styles.menuIcon} src={telegramImg} alt={lang('Open Telegram Web')} />
-                  {lang('Open Telegram Web')}
-
-                  <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
                 </div>
               )}
               {renderHandleDeeplinkButton()}
@@ -925,7 +889,3 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     isViewMode: selectIsCurrentAccountViewMode(global),
   };
 })(Settings));
-
-function handleOpenTelegramWeb() {
-  window.open(TELEGRAM_WEB_URL, '_blank', 'noopener');
-}

@@ -306,7 +306,6 @@ export type ApiMigrateCoreApplication = {
   secondAccountId: string;
   secondAddress: string;
   isTonProxyEnabled?: boolean;
-  isTonMagicEnabled?: boolean;
 };
 
 export type ApiUpdateAccountConfig = {

@@ -70,6 +70,7 @@ $footerPaddingBottomMin: 1rem;
   }
 
   &_scrollable {
+    scroll-padding-top: calc(#{v.$portraitHeaderHeight} + var(--safe-area-top));
     scroll-padding-bottom: calc($footerButtonHeight + $footerPaddingTop + max($footerPaddingBottomMin, var(--safe-area-bottom)));
     justify-content: unset !important;
   }

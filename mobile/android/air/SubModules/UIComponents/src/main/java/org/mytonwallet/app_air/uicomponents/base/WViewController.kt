@@ -276,7 +276,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
                     if (frameDropRate > 2.0f) {
                         Logger.w(
                             Logger.LogTag.FPS_PERFORMANCE,
-                            "Poor session performance: ${frameDropRate}% drops"
+                            "onPerformanceSummary: Poor performance dropRate=${frameDropRate}%"
                         )
                     }
                 }
@@ -296,7 +296,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
         if (isSevere) {
             Logger.w(
                 Logger.LogTag.FPS_PERFORMANCE,
-                "Serious performance issue detected!"
+                "onFramePerformanceIssue: Serious performance issue detected!"
             )
         }
     }
@@ -369,7 +369,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
     }
 
     open fun viewWillAppear() {
-        Logger.i(Logger.LogTag.SCREEN, "VCWillAppear: $TAG ${hashCode()}")
+        Logger.d(Logger.LogTag.SCREEN, "VCWillAppear: $TAG hash=${hashCode()}")
         if (!isDisappeared)
             return
         isDisappeared = false
@@ -383,7 +383,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
 
     // Called when view-controller appears (NOT called when overlay navigation controller dismissed)
     open fun viewDidAppear() {
-        Logger.i(Logger.LogTag.SCREEN, "VCDidAppear: $TAG ${hashCode()}")
+        Logger.d(Logger.LogTag.SCREEN, "VCDidAppear: $TAG hash=${hashCode()}")
         isViewAppearanceAnimationInProgress = false
         frameMonitor?.startMonitoring()
         viewDidEnterForeground()
@@ -718,7 +718,7 @@ abstract class WViewController(val context: Context) : WThemedView, WProtectedVi
             pop()
             return
         }
-        Logger.d(Logger.LogTag.ACCOUNT, "Activating displayed account: $displayedAccountId")
+        Logger.d(Logger.LogTag.ACCOUNT, "switchToDisplayedAccountId: account=$displayedAccountId")
         WalletCore.activateAccount(
             displayedAccountId,
             notifySDK = true,

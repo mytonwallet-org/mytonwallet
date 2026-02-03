@@ -13,10 +13,10 @@ import org.mytonwallet.app_air.uicomponents.extensions.atMost
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
-import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -25,6 +25,12 @@ import kotlin.math.roundToInt
 @SuppressLint("ViewConstructor")
 class WMenuPopupViewItem(context: Context, val item: WMenuPopup.Item) : WFrameLayout(context),
     WThemedView {
+
+    private val ripple = WRippleDrawable.create(0f)
+
+    init {
+        background = ripple
+    }
 
     private val hasSubtitle = !item.getSubTitle().isNullOrEmpty()
 
@@ -138,7 +144,7 @@ class WMenuPopupViewItem(context: Context, val item: WMenuPopup.Item) : WFrameLa
     }
 
     override fun updateTheme() {
-        addRippleEffect(WColor.TrinaryBackground.color, 0f)
+        ripple.rippleColor = WColor.TrinaryBackground.color
         val icon = item.getIcon()
         if (icon != null) {
             val drawable = ContextCompat.getDrawable(context, icon)?.apply {

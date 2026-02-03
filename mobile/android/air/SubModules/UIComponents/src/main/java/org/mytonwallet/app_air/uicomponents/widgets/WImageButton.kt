@@ -4,12 +4,15 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
 import androidx.appcompat.widget.AppCompatImageButton
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
+import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 open class WImageButton(context: Context) : AppCompatImageButton(context), WThemedView {
 
-    private var rippleColor = WColor.SecondaryBackground
+    private val ripple = WRippleDrawable.create(100f.dp)
+    private var rippleWColor = WColor.SecondaryBackground
     private var tintColors = listOf(
         WColor.PrimaryText,
         WColor.SecondaryText
@@ -17,14 +20,14 @@ open class WImageButton(context: Context) : AppCompatImageButton(context), WThem
 
     init {
         id = generateViewId()
-        setBackgroundColor(Color.TRANSPARENT)
+        background = ripple
         updateTheme()
     }
 
     override val isTinted = true
     fun updateColors(tint: WColor, rippleColor: WColor? = null) {
         rippleColor?.let {
-            this.rippleColor = rippleColor
+            this.rippleWColor = rippleColor
         }
         this.tintColors = listOf(tint, tint)
         updateTheme()
@@ -40,8 +43,8 @@ open class WImageButton(context: Context) : AppCompatImageButton(context), WThem
         }.toIntArray()
         val colorStateList = ColorStateList(states, colors)
         imageTintList = colorStateList
-        background = null
-        addRippleEffect(rippleColor.color, 100f)
+        ripple.backgroundColor = Color.TRANSPARENT
+        ripple.rippleColor = rippleWColor.color
     }
 
 }

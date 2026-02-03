@@ -58,9 +58,6 @@ Search...: Ara...
 Main menu: Ana menü
 TON Proxy: TON Proxy
 Toggle TON Proxy: TON Proxy'yi Aç/Kapat
-TON Magic: TON Magic
-Toggle TON Magic: TON Magic'i Aç/Kapat
-Open Telegram Web: Telegram Web'i aç
 Back Up Secret Words: Gizli Kelimeleri Yedekleyin
 Settings: Ayarlar
 About %app_name%: "%app_name% Hakkında"
@@ -74,10 +71,7 @@ $about_description2: Cüzdan **non-custodial ve güvenli** bir cüzdandır. Geli
 What is TON Proxy?: TON Proxy nedir?
 $about_extension_description1: TON Proxy, TON Sitelerine anonim şekilde erişmeolanağı sağlayarak **merkeziyetsizleştirilmiş internetin** yolunu açar.
 More info and demo.: Daha fazla bilgi ve demo.
-$about_extension_description2: TON Magic, resmi Telegram Web uygulaması için sunduğu yamayla **Telegram entegrasyonu** sağlar.
-$about_extension_description3: Herhangi bir Telegram kullanıcısına TON göndermek ve almak için bu özelliği etkinleştirin.
-$about_proxy_magic_title: Peki ya %ninja% TON Proxy ve %unicorn% TON Magic nedir?
-$about_proxy_magic_description: "**Merkeziyetsiz internetin** keyfini çıkarmak, **TON Sitelerine** erişmek ve **Telegram ile entegrasyonun** faydalarından yararlanmak için %extension_link%'nı yükleyebilirsiniz."
+$about_proxy_magic_description: "**Merkeziyetsiz internetin** keyfini çıkarmak ve **TON Sitelerine** erişmek için %extension_link%'nı yükleyebilirsiniz."
 $about_extension_link_text: "**%app_name% uzantısı**"
 Is it open source?: Açık kaynak kodlu mudur?
 $about_wallet_github: Evet, öyledir. %github_link% sayfamızı inceleyebilirsiniz.

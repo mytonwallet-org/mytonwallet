@@ -58,9 +58,6 @@ Search...: 搜尋...
 Main menu: 主選單
 TON Proxy: TON Proxy
 Toggle TON Proxy: 切換 TON Proxy
-TON Magic: TON Magic
-Toggle TON Magic: 切換 TON Magic
-Open Telegram Web: 開啟 Telegram Web
 Back Up Secret Words: 備份註記詞
 Settings: 設定
 About %app_name%: 關於 %app_name%
@@ -74,10 +71,7 @@ $about_description2: 錢包是**非託管且安全的**。開發人員無權使�
 What is TON Proxy?: 什麼是 TON Proxy?
 $about_extension_description1: TON Proxy 支援匿名訪問 TON Site ，這開啟了通往**去中心化網路**的新篇章
 More info and demo.: 更多資訊和範例.
-$about_extension_description2: TON Magic 透過修補官方 Telegram Web 應用程序來整合原生 Telegram。
-$about_extension_description3: 打開它，將可以從任何 Telegram 用戶發送和接收 Toncoins.
-$about_proxy_magic_title: What about %ninja% TON Proxy and %unicorn% TON Magic?
-$about_proxy_magic_description: 要享受去中心化網路、瀏覽 TON Site並使用 Telegram Web，請安裝 %extension_link% 擴展程序
+$about_proxy_magic_description: 要享受去中心化網路和瀏覽 TON Site，請安裝 %extension_link% 擴展程序
 $about_extension_link_text: "**%app_name% 擴展程序**"
 Is it open source?: 它是開源的嗎？
 $about_wallet_github: 是的，歡迎查看我們的 %github_link%

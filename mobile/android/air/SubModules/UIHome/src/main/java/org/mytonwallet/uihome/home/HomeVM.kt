@@ -96,7 +96,7 @@ class HomeVM(
             WGlobalStorage.temporaryAddedAccountIds.contains(removingAccountId)
         if (!shouldRemoveCurrentAccount)
             return
-        Logger.d(Logger.LogTag.ACCOUNT, "Removing temporary account $removingAccountId")
+        Logger.d(Logger.LogTag.ACCOUNT, "removeTemporaryAccount: accountId=$removingAccountId")
         AccountStore.removeAccount(removingAccountId, null, null) { _, _ ->
             WGlobalStorage.temporaryAddedAccountIds.remove(removingAccountId)
         }
@@ -173,13 +173,13 @@ class HomeVM(
     private fun dataUpdated(updateBalance: Boolean = true) {
         // make sure balances are loaded
         if (!balancesLoaded) {
-            Logger.i(Logger.LogTag.HomeVM, "Balances not loaded yet")
+            Logger.d(Logger.LogTag.HomeVM, "dataUpdated: Balances not loaded yet")
             return
         }
 
         // make sure tokens are loaded
         if (!TokenStore.loadedAllTokens) {
-            Logger.i(Logger.LogTag.HomeVM, "tokens not loaded yet")
+            Logger.d(Logger.LogTag.HomeVM, "dataUpdated: Tokens not loaded yet")
             return
         }
 
@@ -198,13 +198,13 @@ class HomeVM(
         } ?: false
 
         if (missingNativeTokens) {
-            Logger.i(Logger.LogTag.HomeVM, "Native token balances not loaded yet for all chains")
+            Logger.d(Logger.LogTag.HomeVM, "dataUpdated: Native token balances not loaded yet for all chains")
             return
         }
 
         // make sure assets are loaded
         if (TokenStore.swapAssets == null) {
-            Logger.i(Logger.LogTag.HomeVM, "swap assets are not loaded yet")
+            Logger.d(Logger.LogTag.HomeVM, "dataUpdated: Swap assets not loaded yet")
             Handler(Looper.getMainLooper()).postDelayed({
                 if (TokenStore.swapAssets == null) {
                     WalletCore.swapGetAssets(true) { assets, err ->

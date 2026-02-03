@@ -153,7 +153,10 @@ class TokensVC(
 
     private val showAllView: ShowAllView by lazy {
         val v = ShowAllView(context)
-        v.titleLabel.text = LocaleController.getString("Show All Assets")
+        v.configure(
+            icon = org.mytonwallet.app_air.uiassets.R.drawable.ic_show_assets,
+            text = LocaleController.getString("Show All Assets")
+        )
         v.onTap = {
             val window = this.window!!
             val navVC = WNavigationController(window)
@@ -216,6 +219,7 @@ class TokensVC(
             return
         scope.coroutineContext.cancelChildren()
         walletTokens = emptyArray()
+        rvAdapter.reloadData()
         prevSize = -1
         showingAccountId = accountId
         isShowingAccountMultichain = WGlobalStorage.isMultichain(accountId)
@@ -332,7 +336,8 @@ class TokensVC(
             showingAccountId,
             isShowingAccountMultichain,
             walletTokens[indexPath.row],
-            isLast = indexPath.row == walletTokens.size - 1
+            isFirst = mode == Mode.ALL && indexPath.row == 0,
+            isLast = indexPath.row == walletTokens.size - 1 && !thereAreMoreToShow
         )
     }
 

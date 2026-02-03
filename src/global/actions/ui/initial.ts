@@ -17,7 +17,12 @@ import { requestMutation } from '../../../lib/fasterdom/fasterdom';
 import { parseAccountId } from '../../../util/account';
 import authApi from '../../../util/authApi';
 import { initCapacitorWithGlobal } from '../../../util/capacitor';
-import { getDeeplinkFromLocation, processDeeplink, processDeeplinkAfterSignIn } from '../../../util/deeplink';
+import {
+  getDeeplinkFromLocation,
+  processDeeplink,
+  processDeeplinkAfterInit,
+  processDeeplinkAfterSignIn,
+} from '../../../util/deeplink';
 import { omit } from '../../../util/iteratees';
 import { clearPreviousLangpacks, getTranslation, setLanguage } from '../../../util/langProvider';
 import { callActionInMain, callActionInNative } from '../../../util/multitab';
@@ -113,6 +118,7 @@ addActionHandler('afterInit', (global, actions) => {
   });
   void setLanguage(langCode);
   clearPreviousLangpacks();
+  processDeeplinkAfterInit();
 
   if (IS_CAPACITOR) {
     void initCapacitorWithGlobal(authConfig);
@@ -289,18 +295,6 @@ addActionHandler('toggleTonProxy', (global, actions, { isEnabled }) => {
     settings: {
       ...global.settings,
       isTonProxyEnabled: isEnabled,
-    },
-  };
-});
-
-addActionHandler('toggleTonMagic', (global, actions, { isEnabled }) => {
-  void callApi('doMagic', isEnabled);
-
-  return {
-    ...global,
-    settings: {
-      ...global.settings,
-      isTonMagicEnabled: isEnabled,
     },
   };
 });

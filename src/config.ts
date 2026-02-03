@@ -159,7 +159,6 @@ export const MYTONWALLET_BLOG: Partial<Record<LangCode, string>> = {
 };
 export const MYTONWALLET_TERMS_OF_USE_URL = 'https://mytonwallet.io/terms-of-use';
 export const MYTONWALLET_PRIVACY_POLICY_URL = 'https://mytonwallet.io/privacy-policy';
-export const TELEGRAM_WEB_URL = 'https://web.telegram.org/a/';
 export const NFT_MARKETPLACE_URL = 'https://getgems.io/';
 export const NFT_MARKETPLACE_TITLE = NFT_MARKETPLACE_TITLES.getgems;
 export const GETGEMS_BASE_MAINNET_URL = 'https://getgems.io/';

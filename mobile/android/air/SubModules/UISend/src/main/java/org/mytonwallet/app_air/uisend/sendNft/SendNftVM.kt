@@ -3,7 +3,6 @@ package org.mytonwallet.app_air.uisend.sendNft
 import android.annotation.SuppressLint
 import android.os.Handler
 import android.os.Looper
-import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
@@ -19,19 +18,23 @@ import java.math.BigInteger
 class SendNftVM(delegate: Delegate, val nft: ApiNft) {
     interface Delegate {
         fun showError(error: MBridgeError?)
-        fun feeUpdated(result: MApiCheckTransactionDraftResult?, err: MBridgeError?)
+        fun feeUpdated(fee: BigInteger?, err: MBridgeError?)
     }
 
     // Input values
-    private var inputAddress: String = ""
-    private var inputComment: String = ""
+    var inputAddress: String = ""
+        private set
+    var inputComment: String = ""
+        private set
 
     // Estimate response
     private val handler = Handler(Looper.getMainLooper())
     private val feeRequestRunnable = Runnable { requestFee() }
 
     var resolvedAddress: String? = null
-    private var feeValue: BigInteger? = null
+        private set
+    var feeValue: BigInteger? = null
+        private set
     val delegate: WeakReference<Delegate> = WeakReference(delegate)
 
     fun inputChanged(address: String? = null, comment: String? = null) {
@@ -64,41 +67,10 @@ class SendNftVM(delegate: Delegate, val nft: ApiNft) {
                     err?.parsed?.customMessage =
                         LocaleController.getString("Invalid address")
                 delegate.get()?.feeUpdated(
-                    res ?: err?.parsedResult as? MApiCheckTransactionDraftResult,
+                    (res ?: err?.parsedResult as? MApiCheckTransactionDraftResult)?.fee,
                     err?.parsed
                 )
             }
-        )
-    }
-
-    fun submitTransferNft(nft: ApiNft, passcode: String, onSent: () -> Unit) {
-        if (resolvedAddress == null)
-            return
-        WalletCore.call(
-            ApiMethod.Nft.SubmitNftTransfer(
-                AccountStore.activeAccountId!!,
-                passcode,
-                nft,
-                resolvedAddress!!,
-                inputComment,
-                feeValue ?: BigInteger.ZERO
-            )
-        ) { _, err ->
-            if (err != null) {
-                delegate.get()?.showError(err.parsed)
-            } else {
-                onSent()
-            }
-        }
-    }
-
-    fun signNftTransferData(): LedgerConnectVC.SignData.SignNftTransfer {
-        return LedgerConnectVC.SignData.SignNftTransfer(
-            accountId = AccountStore.activeAccountId!!,
-            nft = nft,
-            toAddress = resolvedAddress!!,
-            comment = inputComment,
-            realFee = feeValue
         )
     }
 }
