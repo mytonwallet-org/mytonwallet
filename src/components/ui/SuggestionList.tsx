@@ -14,7 +14,7 @@ interface OwnProps {
   position?: 'top' | 'bottom';
   suggestions: string[];
   activeIndex?: number;
-  isInModal?: boolean;
+  isHidden?: boolean;
   onSelect: (suggest: string) => void;
 }
 
@@ -23,10 +23,16 @@ function SuggestionList({
   position = 'bottom',
   suggestions,
   activeIndex,
-  isInModal,
+  isHidden,
   onSelect,
 }: OwnProps) {
   const lang = useLang();
+
+  const fullClassName = buildClassName(
+    styles.suggestions,
+    styles[position],
+    isHidden && styles.hidden,
+  );
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -39,7 +45,8 @@ function SuggestionList({
     <div
       ref={listRef}
       role="listbox"
-      className={buildClassName(styles.suggestions, styles[position], isInModal && styles.embedded)}
+      aria-hidden={isHidden}
+      className={fullClassName}
     >
       {suggestions.map((suggestion, index) => {
         const isActive = index === activeIndex;

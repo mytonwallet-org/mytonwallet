@@ -45,7 +45,7 @@ class WidgetConfigurationWindow : WWindow() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        Logger.i(Logger.LogTag.AIR_APPLICATION, "WidgetConfigurationWindow Created")
+        Logger.d(Logger.LogTag.AIR_APPLICATION, "onCreate: WidgetConfigurationWindow created")
         super.onCreate(savedInstanceState)
 
         if (!WGlobalStorage.isInitialized) {

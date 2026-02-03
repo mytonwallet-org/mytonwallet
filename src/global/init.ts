@@ -1,3 +1,5 @@
+import type { GlobalState } from './types';
+
 import { cloneDeep } from '../util/iteratees';
 import { IS_DELEGATED_BOTTOM_SHEET, IS_LEDGER_EXTENSION_TAB } from '../util/windowEnvironment';
 import { initCache, loadCache } from './cache';
@@ -9,8 +11,13 @@ if (!IS_DELEGATED_BOTTOM_SHEET) {
   initCache();
 }
 
-addActionHandler('init', (_, actions) => {
+addActionHandler('init', (currentGlobal, actions) => {
   const initial = cloneDeep(INITIAL_STATE);
+
+  // Do not do anything if we have already received initialized global state from main
+  if (IS_DELEGATED_BOTTOM_SHEET && (currentGlobal as AnyLiteral).isInited !== false) {
+    return currentGlobal;
+  }
 
   const global = loadCache(initial);
 
@@ -21,7 +28,8 @@ addActionHandler('init', (_, actions) => {
         ...initial.settings,
         theme: global.settings.theme,
       },
-    };
+      isInited: false,
+    } as GlobalState & { isInited?: false };
   }
 
   if (IS_LEDGER_EXTENSION_TAB) {

@@ -514,7 +514,7 @@ class WalletsVC(
                     Logger.LogTag.ACCOUNT,
                     LogMessage.Builder()
                         .append(
-                            "Activation failed in wallet settings: $err",
+                            "activateAccount: Failed on switch account err=$err",
                             LogMessage.MessagePartPrivacy.PUBLIC
                         ).build()
                 )

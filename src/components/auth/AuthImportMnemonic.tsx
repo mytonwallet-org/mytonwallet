@@ -16,7 +16,6 @@ import { callApi } from '../../api';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
 import useClipboardPaste from '../../hooks/useClipboardPaste';
-import { useDeviceScreen } from '../../hooks/useDeviceScreen';
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
@@ -58,7 +57,6 @@ const AuthImportMnemonic = ({ isActive, isLoading, error }: OwnProps & StateProp
   const headerRef = useRef<HTMLDivElement>();
   const [shouldRenderPasteButton, setShouldRenderPasteButton] = useState(IS_CLIPBOARDS_SUPPORTED);
   const [mnemonic, setMnemonic] = useState<Record<number, string>>({});
-  const { isPortrait } = useDeviceScreen();
 
   const {
     isAtEnd: noButtonsSeparator,
@@ -220,7 +218,6 @@ const AuthImportMnemonic = ({ isActive, isLoading, error }: OwnProps & StateProp
               nextId={id + 1 < MNEMONIC_COUNT ? `import-mnemonic-${id + 1}` : undefined}
               labelText={label}
               value={mnemonic[id]}
-              suggestionsPosition={getSuggestPosition(id, isPortrait)}
               inputArg={id}
               onInput={handleSetWord}
               onEnter={i === MNEMONIC_COUNT - 1 ? handleSubmit : undefined}
@@ -266,12 +263,4 @@ function parsePastedText(str = '') {
     .toLowerCase()
     .split(' ')
     .map((w) => w.slice(0, MAX_LENGTH));
-}
-
-function getSuggestPosition(id: number, isPortrait: boolean = false) {
-  if (isPortrait) {
-    return 'top';
-  }
-
-  return ((id > 5 && id < 8) || (id > 13 && id < 16) || id > 21) ? 'top' : undefined;
 }

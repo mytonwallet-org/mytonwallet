@@ -8,7 +8,6 @@
 import UIKit
 import Kingfisher
 import WalletCore
-import WalletContext
 
 class NftCellStatic: UICollectionViewCell {
     

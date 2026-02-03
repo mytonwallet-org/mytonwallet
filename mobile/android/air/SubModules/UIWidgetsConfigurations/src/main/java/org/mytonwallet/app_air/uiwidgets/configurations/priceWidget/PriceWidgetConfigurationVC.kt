@@ -16,6 +16,7 @@ import org.mytonwallet.app_air.uicomponents.viewControllers.selector.TokenSelect
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WEditableItemView
 import org.mytonwallet.app_air.uicomponents.widgets.WTokenSymbolIconView
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
@@ -48,6 +49,8 @@ class PriceWidgetConfigurationVC(
 ) :
     WidgetConfigurationVC(context), WalletCore.EventObserver {
     override val TAG = "PriceWidgetConfiguration"
+
+    private val periodViewRowRipple = WRippleDrawable.create(0f, 0f, ViewConstants.BIG_RADIUS.dp, ViewConstants.BIG_RADIUS.dp)
 
     override val shouldDisplayTopBar = false
 
@@ -214,8 +217,9 @@ class PriceWidgetConfigurationVC(
         )
         tokenRow.setTopRadius(ViewConstants.BIG_RADIUS.dp)
         tokenRow.setBackgroundColor(WColor.Background.color)
-        periodViewRow.setBackgroundColor(WColor.Background.color, 0f, ViewConstants.BIG_RADIUS.dp)
-        periodViewRow.addRippleEffect(WColor.SecondaryBackground.color)
+        periodViewRow.background = periodViewRowRipple
+        periodViewRowRipple.backgroundColor = WColor.Background.color
+        periodViewRowRipple.rippleColor = WColor.SecondaryBackground.color
     }
 
     override fun insetsUpdated() {

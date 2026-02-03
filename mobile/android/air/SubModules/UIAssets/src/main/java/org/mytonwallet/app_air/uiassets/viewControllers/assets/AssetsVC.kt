@@ -16,6 +16,7 @@ import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
 import androidx.core.content.ContextCompat
 import androidx.core.view.isGone
 import androidx.core.view.setPadding
+import androidx.core.view.updateLayoutParams
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -34,6 +35,7 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
+import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerView
 import org.mytonwallet.app_air.uicomponents.commonViews.WEmptyIconView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.ShowAllView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -68,6 +70,7 @@ import java.lang.ref.WeakReference
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class AssetsVC(
@@ -155,6 +158,17 @@ class AssetsVC(
     override val isSwipeBackAllowed = isShowingSingleCollection
 
     override val shouldDisplayTopBar = isShowingSingleCollection
+
+    val underSegmentedControlReversedCornerView: ReversedCornerView? by lazy {
+        if (mode == Mode.COMPLETE && !isShowingSingleCollection) ReversedCornerView(
+            context,
+            ReversedCornerView.Config(
+                shouldBlur = false,
+            )
+        ).apply {
+            setHorizontalPadding(0f)
+        } else null
+    }
 
     private val assetsVM by lazy {
         AssetsVM(collectionMode, defaultAccountId, this)
@@ -300,6 +314,8 @@ class AssetsVC(
             if (dx == 0 && dy == 0)
                 return
             updateBlurViews(recyclerView)
+            underSegmentedControlReversedCornerView?.translationY =
+                -recyclerView.computeVerticalScrollOffset().toFloat()
             onScroll?.invoke(recyclerView)
         }
 
@@ -408,7 +424,7 @@ class AssetsVC(
             itemTouchHelper.attachToRecyclerView(rv)
         }
 
-        if (mode == Mode.COMPLETE && collectionMode == null)
+        if (mode == Mode.COMPLETE && !isShowingSingleCollection)
             rv.disallowInterceptOnOverscroll()
 
         rv
@@ -416,8 +432,10 @@ class AssetsVC(
 
     private val showAllView: ShowAllView by lazy {
         val v = ShowAllView(context)
-        v.titleLabel.text =
-            LocaleController.getString("Show All Collectibles")
+        v.configure(
+            icon = org.mytonwallet.app_air.uiassets.R.drawable.ic_show_collectibles,
+            text = LocaleController.getFormattedString("Show All %1$@", listOf(title ?: ""))
+        )
         v.onTap = {
             val window = injectedWindow ?: this.window!!
             val navVC = WNavigationController(window)
@@ -578,6 +596,17 @@ class AssetsVC(
         if (mode == Mode.THUMB) {
             view.addView(showAllView, LayoutParams(MATCH_PARENT, 56.dp))
         }
+        underSegmentedControlReversedCornerView?.let { underSegmentedControlReversedCornerView ->
+            view.addView(
+                underSegmentedControlReversedCornerView,
+                LayoutParams(
+                    MATCH_PARENT,
+                    WNavigationBar.DEFAULT_HEIGHT.dp +
+                        (navigationController?.getSystemBars()?.top ?: 0) +
+                        underSegmentedControlReversedCornerView.cornerRadius.roundToInt()
+                )
+            )
+        }
         emptyView?.bringToFront()
         view.setConstraints {
             if (mode == Mode.THUMB) {
@@ -588,6 +617,9 @@ class AssetsVC(
                     recyclerView,
                     ViewConstants.HORIZONTAL_PADDINGS.toFloat()
                 )
+            underSegmentedControlReversedCornerView?.let {
+                toTop(it)
+            }
         }
 
         assetsVM.delegateIsReady()
@@ -926,10 +958,22 @@ class AssetsVC(
 
     override fun onFullyVisible() {
         setAnimations(paused = false)
+        setReversedCornerViewRadius(null)
     }
 
     override fun onPartiallyVisible() {
         setAnimations(paused = true)
+        setReversedCornerViewRadius(0f)
+    }
+
+    private fun setReversedCornerViewRadius(radius: Float?) {
+        underSegmentedControlReversedCornerView?.setRadius(radius)
+        if (underSegmentedControlReversedCornerView?.layoutParams != null)
+            underSegmentedControlReversedCornerView?.updateLayoutParams {
+                height = WNavigationBar.DEFAULT_HEIGHT.dp +
+                    (navigationController?.getSystemBars()?.top ?: 0) +
+                    underSegmentedControlReversedCornerView!!.cornerRadius.roundToInt()
+            }
     }
 
     private fun openLink(url: String) {

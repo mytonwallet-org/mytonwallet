@@ -3,11 +3,11 @@ package org.mytonwallet.app_air.ledger.screens.ledgerWallets.cells
 import android.content.Context
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.content.ContextCompat
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
-import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -18,6 +18,8 @@ class LedgerLoadMoreCell(
 ) : WCell(context), WThemedView {
 
     var onTap: (() -> Unit)? = null
+
+    private val ripple = WRippleDrawable.create(ViewConstants.BIG_RADIUS.dp)
 
     private val imageView = AppCompatImageView(context).apply {
         id = generateViewId()
@@ -30,6 +32,7 @@ class LedgerLoadMoreCell(
     }
 
     init {
+        background = ripple
         layoutParams.apply {
             height = 50.dp
         }
@@ -50,12 +53,8 @@ class LedgerLoadMoreCell(
     }
 
     override fun updateTheme() {
-        setBackgroundColor(
-            WColor.Background.color,
-            0f,
-            ViewConstants.BIG_RADIUS.dp
-        )
-        addRippleEffect(WColor.SecondaryBackground.color)
+        ripple.backgroundColor = WColor.Background.color
+        ripple.rippleColor = WColor.SecondaryBackground.color
         imageView.setImageDrawable(
             ContextCompat.getDrawable(
                 context,

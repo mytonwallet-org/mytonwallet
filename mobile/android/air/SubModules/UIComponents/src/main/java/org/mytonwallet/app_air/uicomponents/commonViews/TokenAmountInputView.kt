@@ -1,5 +1,6 @@
 package org.mytonwallet.app_air.uicomponents.commonViews
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Paint
 import android.text.InputType
@@ -28,8 +29,10 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 
+@SuppressLint("ViewConstructor")
 class TokenAmountInputView(
     context: Context,
+    private val isFirstItem: Boolean,
 ) : WView(context), Counter.Callback, WThemedView {
 
     data class State(
@@ -61,7 +64,8 @@ class TokenAmountInputView(
         titleLabel.setStyle(14f, WFont.DemiBold)
         configure(
             title = LocaleController.getString("Amount"),
-            titleColor = WColor.Tint
+            titleColor = WColor.Tint,
+            topRounding = HeaderCell.TopRounding.NORMAL
         )
     }
 
@@ -139,8 +143,8 @@ class TokenAmountInputView(
         )
 
         setConstraints {
-            toStart(titleTextView, 20f)
-            toTop(titleTextView, 16f)
+            toStart(titleTextView)
+            toTop(titleTextView)
             endToStart(titleTextView, maxBalanceButton, 6f)
             toTop(maxBalanceButton, 16f)
             toEnd(maxBalanceButton, 20f - WTokenMaxButton.PADDING_HORIZONTAL)
@@ -164,7 +168,7 @@ class TokenAmountInputView(
     }
 
     fun set(state: State, isFeeDetailed: Boolean) {
-        titleTextView.configure(state.title ?: "")
+        titleTextView.setTitle(state.title ?: "")
         maxBalanceButton.setAmount(state.balance)
         tokenSelectorView.setAsset(state.token)
         tokenSelectorView.setBaseCurrIndicatorEnabled(state.fiatMode)
@@ -234,7 +238,9 @@ class TokenAmountInputView(
 
     override fun updateTheme() {
         setBackgroundColor(
-            WColor.Background.color, ViewConstants.BIG_RADIUS.dp
+            WColor.Background.color,
+            (if (isFirstItem) ViewConstants.TOP_RADIUS else ViewConstants.BIG_RADIUS).dp,
+            ViewConstants.BIG_RADIUS.dp
         )
     }
 

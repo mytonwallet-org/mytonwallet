@@ -7,11 +7,11 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.appcompat.widget.AppCompatImageView
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.drawable.CheckboxDrawable
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
-import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -19,6 +19,8 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 @SuppressLint("ViewConstructor")
 class CheckboxItemView(context: Context, val isEnabledInitially: Boolean) : WView(context),
     WThemedView {
+
+    private val ripple = WRippleDrawable.create(ViewConstants.BIG_RADIUS.dp)
 
     companion object {
         const val DISABLED_ALPHA_VALUE = 0.4f
@@ -43,6 +45,7 @@ class CheckboxItemView(context: Context, val isEnabledInitially: Boolean) : WVie
         id = generateViewId()
         alpha = if (isEnabledInitially) 1f else DISABLED_ALPHA_VALUE
         isEnabled = isEnabledInitially
+        background = ripple
     }
 
     override fun setupViews() {
@@ -62,8 +65,8 @@ class CheckboxItemView(context: Context, val isEnabledInitially: Boolean) : WVie
     }
 
     override fun updateTheme() {
-        setBackgroundColor(WColor.Background.color, ViewConstants.BIG_RADIUS.dp)
-        addRippleEffect(WColor.BackgroundRipple.color, ViewConstants.BIG_RADIUS.dp)
+        ripple.backgroundColor = WColor.Background.color
+        ripple.rippleColor = WColor.BackgroundRipple.color
 
         checkboxDrawable.checkedColor = WColor.Tint.color
         checkboxDrawable.uncheckedColor = WColor.SecondaryText.color

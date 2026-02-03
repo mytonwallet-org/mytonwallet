@@ -54,15 +54,15 @@ class LedgerWalletsVM(delegate: Delegate) {
                         Logger.LogTag.ACCOUNT,
                         LogMessage.Builder()
                             .append(
-                                result.accountId,
+                                "finalizeImport: accountId=${result.accountId}",
                                 LogMessage.MessagePartPrivacy.PUBLIC
                             )
                             .append(
-                                "Connected",
+                                " address=",
                                 LogMessage.MessagePartPrivacy.PUBLIC
                             )
                             .append(
-                                "Address: ${result.byChain}",
+                                "${result.byChain}",
                                 LogMessage.MessagePartPrivacy.REDACTED
                             ).build()
                     )
@@ -96,7 +96,7 @@ class LedgerWalletsVM(delegate: Delegate) {
                                 Logger.LogTag.ACCOUNT,
                                 LogMessage.Builder()
                                     .append(
-                                        "Activation failed on ledger connect: $err",
+                                        "activateAccount: Failed on ledger connect err=$err",
                                         LogMessage.MessagePartPrivacy.PUBLIC
                                     ).build()
                             )

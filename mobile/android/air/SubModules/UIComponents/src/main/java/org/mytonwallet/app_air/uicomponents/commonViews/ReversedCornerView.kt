@@ -35,6 +35,7 @@ class ReversedCornerView(
 ) : BaseReversedCornerView(context), WThemedView {
 
     data class Config(
+        val shouldBlur: Boolean = true,
         val blurRootView: ViewGroup? = null,
         val forceSeparator: Boolean = false,
         val showSeparator: Boolean = true,
@@ -55,7 +56,7 @@ class ReversedCornerView(
     }
 
     private val blurryBackgroundView =
-        if (DevicePerformanceClassifier.isHighClass) initialConfig.blurRootView?.let {
+        if (DevicePerformanceClassifier.isHighClass && initialConfig.shouldBlur) initialConfig.blurRootView?.let {
             WBlurryBackgroundView(context, WBlurryBackgroundView.Side.BOTTOM).apply {
                 setupWith(it)
                 setBackgroundVisible(visible = true, animated = false)
@@ -69,6 +70,7 @@ class ReversedCornerView(
     private var lastWidth = -1
     private var lastHeight = -1
 
+    var overrideRadius: Float? = null
     var cornerRadius: Float = ViewConstants.BAR_ROUNDS.dp
         private set
 
@@ -215,10 +217,15 @@ class ReversedCornerView(
         }
     }
 
+    fun setRadius(radius: Float?) {
+        overrideRadius = radius
+        updateRadius()
+    }
+
     private fun updateRadius() {
-        if (cornerRadius == ViewConstants.BAR_ROUNDS.dp)
+        if (cornerRadius == (overrideRadius ?: ViewConstants.BAR_ROUNDS.dp))
             return
-        cornerRadius = ViewConstants.BAR_ROUNDS.dp
+        cornerRadius = overrideRadius ?: ViewConstants.BAR_ROUNDS.dp
         radii = floatArrayOf(cornerRadius, cornerRadius, cornerRadius, cornerRadius, 0f, 0f, 0f, 0f)
         pathDirty = true
     }

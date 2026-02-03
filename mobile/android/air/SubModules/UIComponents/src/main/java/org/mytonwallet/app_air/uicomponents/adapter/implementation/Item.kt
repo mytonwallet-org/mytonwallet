@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.uicomponents.adapter.implementation
 import android.graphics.RectF
 import android.graphics.Typeface
 import org.mytonwallet.app_air.uicomponents.adapter.BaseListItem
+import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell.TopRounding
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
@@ -16,6 +17,7 @@ open class Item(
         LIST_TITLE,
         LIST_TITLE_VALUE,
         ICON_DUAL_LINE,
+        TEXT,
         COPYABLE_TEXT,
         ACTIVITY,
         ALERT,
@@ -38,17 +40,24 @@ open class Item(
 
     data class ListTitle(
         val title: CharSequence,
-        val paddingDp: RectF = RectF(20f, 16f, 20f, 8f),
-        val gravity: Int? = null,
-        val font: Typeface? = null,
-        val textColor: WColor? = null,
-        val textSize: Float? = null
+        val titleColor: WColor = WColor.Tint,
+        val topRounding: TopRounding,
+        val startMargin: Float = 20f,
     ) : Item(Type.LIST_TITLE.value, title.toString())
 
     data class ListTitleValue(
         val title: CharSequence,
         val value: CharSequence?
     ) : Item(Type.LIST_TITLE_VALUE.value, "${title}_$value")
+
+    data class ListText(
+        val title: String,
+        val paddingDp: RectF = RectF(20f, 16f, 20f, 8f),
+        val gravity: Int? = null,
+        val font: Typeface? = null,
+        val textColor: WColor? = null,
+        val textSize: Float? = null
+    ) : Item(Type.TEXT.value, title)
 
     data class ExpandableText(
         val text: String

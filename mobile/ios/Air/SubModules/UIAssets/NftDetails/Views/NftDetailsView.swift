@@ -1,21 +1,13 @@
 
 import SwiftUI
-import UIKit
 import UIComponents
-import WalletContext
-import WalletCore
-import SwiftUIIntrospect
 import Perception
 
 struct NftDetailsView: View {
 
     var viewModel: NftDetailsViewModel
     
-    var nft: ApiNft { viewModel.nft }
-    var navigationBarInset: CGFloat { viewModel.navigationBarInset }
-    
     @Namespace private var ns
-    @State private var reloadCard: Int = 0
     
     var body: some View {
         WithPerceptionTracking {
@@ -67,11 +59,9 @@ struct NftDetailsView: View {
     @ViewBuilder
     var fullscreenViewerTarget: some View {
         let screenSize = screenSize
-        GeometryReader { geom in
+        GeometryReader { _ in
             WithPerceptionTracking {
-                Color.red
-                    .opacity(0.2)
-                    .opacity(0)
+                Color.clear
                     .matchedGeometryEffect(id: "fullScreenTarget", in: ns, anchor: .top, isSource: true)
                     .frame(width: screenSize.width, height: screenSize.width)
                     .offset(y: (screenSize.height - screenSize.width)/2)

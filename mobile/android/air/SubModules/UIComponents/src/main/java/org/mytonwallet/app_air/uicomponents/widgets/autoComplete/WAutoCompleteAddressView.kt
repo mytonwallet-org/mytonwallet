@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.uicomponents.widgets.autoComplete
 import android.content.Context
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import androidx.core.view.children
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.CoroutineScope
@@ -27,6 +28,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletbasecontext.utils.y
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -54,7 +56,10 @@ class WAutoCompleteAddressView(
     private val rvAdapter = WRecyclerViewAdapter(
         WeakReference(this),
         arrayOf(HEADER_CELL, ACCOUNT_CELL)
-    )
+    ).apply {
+        setHasStableIds(true)
+    }
+
     private val coroutineScope = CoroutineScope(Dispatchers.Main)
     var autoCompleteConfig: AddressInputLayout.AutoCompleteConfig? = null
 
@@ -67,8 +72,11 @@ class WAutoCompleteAddressView(
                 isSmoothScrollbarEnabled = true
             }
             overScrollMode = OVER_SCROLL_NEVER
+            itemAnimator = null
         }
     }
+
+    private var lastKeyword: String = ""
 
     override fun setupViews() {
         super.setupViews()
@@ -105,16 +113,20 @@ class WAutoCompleteAddressView(
         cancelSearch()
 
         coroutineScope.launch {
+            pendingSections = null
+
             val network = AccountStore.activeAccount?.network ?: return@launch
             val accounts: List<MAccount> = if (autoCompleteConfig?.accountAddresses == true) {
                 withContext(Dispatchers.IO) {
-                    WalletCore.getAllAccounts().filter { account ->
-                        account.name.contains(keyword, ignoreCase = true) ||
-                            account.byChain.values.any {
-                                it.address.contains(keyword, ignoreCase = true) ||
-                                    it.domain?.contains(keyword, ignoreCase = true) == true
-                            }
-                    }.sortedBy { it.name }
+                    WalletCore.getAllAccounts()
+                        .filter { it.accountId != AccountStore.activeAccountId }
+                        .filter { account ->
+                            account.name.contains(keyword, ignoreCase = true) ||
+                                account.byChain.values.any {
+                                    it.address.contains(keyword, ignoreCase = true) ||
+                                        it.domain?.contains(keyword, ignoreCase = true) == true
+                                }
+                        }.sortedBy { it.name }
                 }
             } else {
                 emptyList()
@@ -127,37 +139,89 @@ class WAutoCompleteAddressView(
                 }.sortedBy { it.name }
             }
 
-            sections[0].children = buildSavedAddressItems(keyword, network, savedAddresses)
-            sections[1].children = buildAccountItems(keyword, network, accounts)
+            val newSections = createSections(
+                buildSavedAddressItems(keyword, network, savedAddresses),
+                buildAccountItems(keyword, network, accounts)
+            )
+
+            sections = checkAndPrepareForDisappearAnimation(keyword, newSections)
+            lastKeyword = keyword
 
             rvAdapter.reloadData()
 
-            if (!autoSelect) {
-                return@launch
+            if (autoSelect) {
+                autoSelectIfOnlyOne(keyword, savedAddresses, accounts)
             }
-            if (savedAddresses.size == 1) {
-                val candidate = savedAddresses.first()
-                if (keyword.equals(candidate.address, true) ||
-                    keyword.equals(candidate.name, true)
-                ) {
-                    onSelected?.invoke(null, candidate)
-                    return@launch
+        }
+    }
+
+    private fun checkAndPrepareForDisappearAnimation(
+        keyword: String,
+        newSections: List<AutoCompleteAddressSection>
+    ): List<AutoCompleteAddressSection> {
+        if (!WGlobalStorage.getAreAnimationsActive()) {
+            return newSections
+        }
+        val savedAddressItems = newSections[0].children
+        val accountItems = newSections[1].children
+        val prevSavedAddressItems = sections[0].children
+        // If keyword the same but saved addresses count is changed -> user remove them
+        if (keyword != lastKeyword || prevSavedAddressItems.isEmpty() || prevSavedAddressItems.size == savedAddressItems.size) {
+            return newSections
+        }
+
+        // mark no more exists as DISAPPEARING to animate them
+        val newIds = savedAddressItems.map { it.listId }.toSet()
+        val animatedSavedAddressItems = prevSavedAddressItems.map {
+            it.copy(
+                animationState = if (!newIds.contains(it.listId)) {
+                    AutoCompleteAddressItem.AnimationState.DISAPPEARING
+                } else {
+                    AutoCompleteAddressItem.AnimationState.IDLE
                 }
+            )
+        }.toMutableList()
+        // if we remove last element -> we need to animate rounding
+        if (animatedSavedAddressItems.last().animationState == AutoCompleteAddressItem.AnimationState.DISAPPEARING) {
+            val lastIdleIndex =
+                animatedSavedAddressItems.indexOfLast { it.animationState == AutoCompleteAddressItem.AnimationState.IDLE }
+            if (lastIdleIndex != -1) {
+                animatedSavedAddressItems[lastIdleIndex] =
+                    animatedSavedAddressItems[lastIdleIndex].copy(animationState = AutoCompleteAddressItem.AnimationState.CORNER_ROUNDING)
             }
-            if (accounts.size == 1) {
-                val candidate = accounts.first()
-                if (candidate.byChain.values.any {
-                        keyword.equals(it.address, true) ||
-                            keyword.equals(it.domain, true)
-                    } || keyword.equals(candidate.name, true)
-                ) {
-                    onSelected?.invoke(candidate, null)
-                    return@launch
-                }
+        }
+        // before commit actual data, need to wait remove animation is finished
+        pendingSections = newSections
+        return createSections(animatedSavedAddressItems, accountItems)
+    }
+
+    private fun autoSelectIfOnlyOne(
+        keyword: String,
+        savedAddresses: List<MSavedAddress>,
+        accounts: List<MAccount>
+    ) {
+        if (savedAddresses.size == 1) {
+            val candidate = savedAddresses.first()
+            if (keyword.equals(candidate.address, true) ||
+                keyword.equals(candidate.name, true)
+            ) {
+                onSelected?.invoke(null, candidate)
+                return
             }
-            if (savedAddresses.size + accounts.size == 1) {
-                onSelected?.invoke(accounts.firstOrNull(), savedAddresses.firstOrNull())
+        }
+        if (accounts.size == 1) {
+            val candidate = accounts.first()
+            if (candidate.byChain.values.any {
+                    keyword.equals(it.address, true) ||
+                        keyword.equals(it.domain, true)
+                } || keyword.equals(candidate.name, true)
+            ) {
+                onSelected?.invoke(candidate, null)
+                return
             }
+        }
+        if (savedAddresses.size + accounts.size == 1) {
+            onSelected?.invoke(accounts.firstOrNull(), savedAddresses.firstOrNull())
         }
     }
 
@@ -167,21 +231,23 @@ class WAutoCompleteAddressView(
         addresses: List<MSavedAddress>
     ): List<AutoCompleteAddressItem> {
         val items = mutableListOf<AutoCompleteAddressItem>()
-        addresses.forEach { address ->
+        addresses.forEachIndexed { index, address ->
             items.add(
                 AutoCompleteAddressItem(
-                    identifier = AutoCompleteAddressItem.Identifier.ACCOUNT,
+                    listId = address.address,
                     title = address.name,
                     network = network,
                     savedAddress = address,
-                    keyword = keyword
+                    keyword = keyword,
+                    isFirst = index == 0,
+                    isLast = index == addresses.size - 1
                 )
             )
         }
         if (items.isNotEmpty()) {
             items.add(
                 0, AutoCompleteAddressItem(
-                    identifier = AutoCompleteAddressItem.Identifier.HEADER,
+                    listId = "savedAddressesHeader",
                     title = LocaleController.getString("Saved Wallets"),
                     network = network
                 )
@@ -196,9 +262,7 @@ class WAutoCompleteAddressView(
         accounts: List<MAccount>
     ): List<AutoCompleteAddressItem> {
         val items = mutableListOf<AutoCompleteAddressItem>()
-        for (account in accounts) {
-            if (account.accountId == AccountStore.activeAccountId) continue
-
+        accounts.forEachIndexed { index, account ->
             val balanceAmount = BalanceStore.totalBalanceInBaseCurrency(account.accountId)
             val balance = balanceAmount?.toString(
                 WalletCore.baseCurrency.decimalsCount,
@@ -209,19 +273,21 @@ class WAutoCompleteAddressView(
 
             items.add(
                 AutoCompleteAddressItem(
-                    identifier = AutoCompleteAddressItem.Identifier.ACCOUNT,
+                    listId = account.accountId,
                     title = account.name,
                     network = network,
                     account = account,
                     value = balance,
-                    keyword = keyword
+                    keyword = keyword,
+                    isFirst = index == 0,
+                    isLast = index == accounts.size - 1
                 )
             )
         }
         if (items.isNotEmpty()) {
             items.add(
                 0, AutoCompleteAddressItem(
-                    identifier = AutoCompleteAddressItem.Identifier.HEADER,
+                    listId = "walletsHeader",
                     title = LocaleController.getString("My Wallets"),
                     network = network
                 )
@@ -231,14 +297,21 @@ class WAutoCompleteAddressView(
         return items
     }
 
-    val sections = listOf(
+    private var sections: List<AutoCompleteAddressSection> =
+        createSections(emptyList(), emptyList())
+    private var pendingSections: List<AutoCompleteAddressSection>? = null
+
+    private fun createSections(
+        savedItems: List<AutoCompleteAddressItem>,
+        addedItems: List<AutoCompleteAddressItem>
+    ): List<AutoCompleteAddressSection> = listOf(
         AutoCompleteAddressSection(
             section = AutoCompleteAddressSection.Section.SAVED,
-            children = emptyList()
+            children = savedItems
         ),
         AutoCompleteAddressSection(
             section = AutoCompleteAddressSection.Section.ADDED,
-            children = emptyList()
+            children = addedItems
         )
     )
 
@@ -290,12 +363,38 @@ class WAutoCompleteAddressView(
         }
         cell.configure(
             item,
-            indexPath.row == children.size - 1,
             onTap = {
                 onSelected?.invoke(item.account, item.savedAddress)
             },
+            changeAnimationFinishListener = ::onChangeAnimationFinis,
             onLongClick = onLongClick
         )
+    }
+
+    private fun onChangeAnimationFinis() {
+        val pendingSections = this.pendingSections ?: return
+        if (!hasActiveAnimation()) {
+            sections = pendingSections
+            this.pendingSections = null
+            rvAdapter.reloadData()
+            return
+        }
+    }
+
+    private fun hasActiveAnimation(): Boolean {
+        return recyclerView.children
+            .map { recyclerView.getChildViewHolder(it) }
+            .filterIsInstance(WCell.Holder::class.java)
+            .map { it.cell }
+            .filterIsInstance(IAutoCompleteAddressItemCell::class.java)
+            .any { it.hasActiveAnimation() }
+    }
+
+    override fun recyclerViewCellItemId(
+        rv: RecyclerView,
+        indexPath: IndexPath
+    ): String {
+        return sections[indexPath.section].children[indexPath.row].listId
     }
 
     private fun onAddressClicked(
