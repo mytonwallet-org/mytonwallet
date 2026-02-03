@@ -70,15 +70,15 @@ class ImportWalletVM(delegate: Delegate) {
                     Logger.LogTag.ACCOUNT,
                     LogMessage.Builder()
                         .append(
-                            importedAccountId,
+                            "finalizeAccount: accountId=$importedAccountId",
                             LogMessage.MessagePartPrivacy.PUBLIC
                         )
                         .append(
-                            "Imported",
+                            " address=",
                             LogMessage.MessagePartPrivacy.PUBLIC
                         )
                         .append(
-                            "Address: ${importedAccount.tonAddress}",
+                            "${importedAccount.tonAddress}",
                             LogMessage.MessagePartPrivacy.REDACTED
                         ).build()
                 )

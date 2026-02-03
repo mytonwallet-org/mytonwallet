@@ -14,10 +14,10 @@ import android.widget.LinearLayout
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
-import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListTitleCell
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.AddressInputLayout
+import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.activity.ActivitySingleTagView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -75,18 +75,25 @@ class LinkToWalletVC(
         setTextColor(WColor.SecondaryText)
     }
 
-    private val titleLabel = ListTitleCell(context).apply {
-        id = View.generateViewId()
-        text = LocaleController.getString("Linked Address")
+    private val titleLabel = HeaderCell(context, startMargin = 20f).apply {
+        configure(
+            LocaleController.getString("Linked Address"),
+            WColor.Tint,
+            HeaderCell.TopRounding.NORMAL
+        )
     }
 
     private val addressInputView by lazy {
         AddressInputLayout(
             WeakReference(this),
+            AddressInputLayout.AutoCompleteConfig(
+                type = AddressInputLayout.AutoCompleteConfig.Type.EXTERNAL
+            ),
             onTextEntered = {
                 view.hideKeyboard()
             }).apply {
             id = View.generateViewId()
+            showCloseOnTextEditing = true
             setHint(LocaleController.getString("Enter Address"))
         }
     }
@@ -187,7 +194,7 @@ class LinkToWalletVC(
         view.setBackgroundColor(WColor.SecondaryBackground.color, ViewConstants.BIG_RADIUS.dp, 0f)
         nftTagView.setBackgroundColor(
             WColor.Background.color,
-            12f
+            12f.dp
         )
         linkedWalletView.setBackgroundColor(
             WColor.Background.color,
@@ -197,23 +204,23 @@ class LinkToWalletVC(
 
     @SuppressLint("SetTextI18n")
     private fun calculateFee(address: String) {
+        val accountId = displayedAccount.accountId ?: return
         linkButton.isLoading = true
         WalletCore.call(
             ApiMethod.Domains.CheckDnsChangeWalletDraft(
-                AccountStore.activeAccountId!!,
+                accountId,
                 nft,
                 address
             ), callback = { res, err ->
-                if (this.address != address)
+                if (this.address != address || isDestroyed)
                     return@call
                 this.realFee = res?.realFee ?: BigInteger.ZERO
-                if (err != null || realFee == null || isDisappeared) {
+                if (err != null || realFee == null) {
                     Handler(Looper.getMainLooper()).postDelayed({
                         calculateFee(address)
                     }, 5000)
                     return@call
                 }
-                val accountId = AccountStore.activeAccountId ?: return@call
                 if ((BalanceStore.getBalances(accountId)
                         ?.get(TONCOIN_SLUG) ?: BigInteger.ZERO) >= realFee
                 ) {

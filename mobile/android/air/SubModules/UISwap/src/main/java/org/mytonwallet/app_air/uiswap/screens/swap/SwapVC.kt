@@ -53,6 +53,7 @@ import org.mytonwallet.app_air.uiswap.screens.swap.views.SwapSwapAssetsButton
 import org.mytonwallet.app_air.uiswap.screens.swap.views.dexAggregatorDialog.DexAggregatorDialog
 import org.mytonwallet.app_air.uiswap.views.SwapConfirmView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -491,6 +492,7 @@ class SwapVC(
 
             is SwapViewModel.Event.SwapComplete -> {
                 val success = event.success
+                Logger.d(Logger.LogTag.SWAP, "onEvent: SwapComplete success=$success")
                 if (success) {
                     if (isSwapDone)
                         return
@@ -548,6 +550,7 @@ class SwapVC(
 
     private fun showConfirm(event: SwapViewModel.Event.ShowConfirm) {
         val request = event.request
+        Logger.d(Logger.LogTag.SWAP, "showConfirm: fromToken=${request.request.tokenToSend.symbol} toToken=${request.request.tokenToReceive.symbol}")
         view.hideKeyboard()
         val confirmActionVC = PasscodeConfirmVC(
             context,

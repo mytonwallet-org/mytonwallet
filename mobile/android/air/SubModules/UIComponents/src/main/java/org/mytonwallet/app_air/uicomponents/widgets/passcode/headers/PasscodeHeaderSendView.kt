@@ -158,7 +158,7 @@ class PasscodeHeaderSendView(
         CoinUtils.setSpanToFractionalPart(amount, RelativeSizeSpan(28f / 36f))
 
         val a = resolvedAddress?.formatStartEndAddress() ?: ""
-        val sendingToText = LocaleController.getString("Sending To")
+        val sendingToText = LocaleController.getString("Send to")
         val address = SpannableStringBuilder(sendingToText).apply {
             append(" $a")
             AddressPopupHelpers.configSpannableAddress(

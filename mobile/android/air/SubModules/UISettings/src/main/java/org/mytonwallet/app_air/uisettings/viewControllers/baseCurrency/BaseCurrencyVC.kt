@@ -122,10 +122,7 @@ class BaseCurrencyVC(context: Context) : WViewController(context),
             }
 
             else -> {
-                TitleSubtitleSelectionCell(
-                    context,
-                    ConstraintLayout.LayoutParams(MATCH_PARENT, 72.dp)
-                )
+                TitleSubtitleSelectionCell(context)
             }
         }
     }

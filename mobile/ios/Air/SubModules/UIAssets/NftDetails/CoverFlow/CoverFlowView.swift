@@ -192,17 +192,6 @@ class _CoverFlowView: UIView, UICollectionViewDelegate {
         collectionView.frame = self.bounds.insetBy(dx: negativeHorizontalInset, dy: 0)
     }
     
-    func scrollViewDidScroll(_ scrollView: UIScrollView) {
-    }
-    
-    override func systemLayoutSizeFitting(_ targetSize: CGSize) -> CGSize {
-        return super.systemLayoutSizeFitting(targetSize)
-    }
-    
-    override func systemLayoutSizeFitting(_ targetSize: CGSize, withHorizontalFittingPriority horizontalFittingPriority: UILayoutPriority, verticalFittingPriority: UILayoutPriority) -> CGSize {
-        return super.systemLayoutSizeFitting(targetSize, withHorizontalFittingPriority: horizontalFittingPriority, verticalFittingPriority: verticalFittingPriority)
-    }
-    
     override var intrinsicContentSize: CGSize {
         return CGSize(width: UIView.noIntrinsicMetric, height: itemSize)
     }
@@ -218,13 +207,6 @@ class _CoverFlowView: UIView, UICollectionViewDelegate {
                 onSelect(id)
             }
         }
-    }
-    
-    func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
-        true
-    }
-    
-    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
     }
     
     func scrollTo(_ id: String, animated: Bool) {

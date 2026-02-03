@@ -36,6 +36,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uipasscode.commonViews.PasscodeInputView
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.NftAccentColors
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
@@ -57,6 +58,7 @@ class PasscodeScreenView(
 
     companion object {
         const val TOP_HEADER_MAX_HEIGHT_RATIO = 0.25f
+        const val ANIMATE_PINPAD = false
     }
 
     val allowBiometry =
@@ -200,10 +202,12 @@ class PasscodeScreenView(
         addView(gapView2, LayoutParams(WRAP_CONTENT, 0))
 
         if (showAnimation) {
-            passcodeKeyboardView.apply {
-                alpha = 0f
-                scaleX = 0f
-                scaleY = 0f
+            if (ANIMATE_PINPAD) {
+                passcodeKeyboardView.apply {
+                    alpha = 0f
+                    scaleX = 0f
+                    scaleY = 0f
+                }
             }
             passcodeInputView.apply {
                 scaleX = 0f
@@ -455,12 +459,15 @@ class PasscodeScreenView(
         AnimatorUtils.DECELERATE_INTERPOLATOR,
         initialValue = showAnimation
     ) { _, value, _, _ ->
-        passcodeKeyboardView.alpha = 1f - value
-        passcodeKeyboardView.scaleX = 1f - value * 0.25f
-        passcodeKeyboardView.scaleY = 1f - value * 0.25f
+        if (ANIMATE_PINPAD) {
+            passcodeKeyboardView.alpha = 1f - value
+            passcodeKeyboardView.scaleX = 1f - value * 0.25f
+            passcodeKeyboardView.scaleY = 1f - value * 0.25f
+        }
     }
 
     fun tryBiometrics() {
+        Logger.d(Logger.LogTag.PASSCODE_CONFIRM, "tryBiometrics: Attempting biometric authentication")
         inBiometry.animatedValue = true
 
         BiometricHelpers.authenticate(
@@ -470,10 +477,12 @@ class PasscodeScreenView(
             null,
             LocaleController.getString("Use PIN"),
             onSuccess = {
+                Logger.d(Logger.LogTag.PASSCODE_CONFIRM, "tryBiometrics: Biometric success")
                 passcodeInputView.passcode = "----" // To fill passcode input view
                 checkPasscode(WSecureStorage.getBiometricPasscode(containerVC.window!!) ?: "")
             },
             onCanceled = {
+                Logger.d(Logger.LogTag.PASSCODE_CONFIRM, "tryBiometrics: Biometric canceled")
                 inBiometry.animatedValue = false
             }
         )
@@ -494,10 +503,14 @@ class PasscodeScreenView(
             return
         }
 
+        Logger.d(Logger.LogTag.PASSCODE_CONFIRM, "checkPasscode: Verifying passcode")
         isLoading.animatedValue = true
         delegate!!.onEnterPasscode(passcode) { correct, cooldownDate ->
             isLoading.animatedValue = false
-            if (!correct) {
+            if (correct) {
+                Logger.d(Logger.LogTag.PASSCODE_CONFIRM, "checkPasscode: Passcode correct")
+            } else {
+                Logger.d(Logger.LogTag.PASSCODE_CONFIRM, "checkPasscode: Passcode incorrect hasCooldown=${cooldownDate != null}")
                 inBiometry.animatedValue = false
                 passcodeInputView.resetInput()
                 if ((passcodeViewState as? PasscodeViewState.Default)?.isUnlockScreen == true && cooldownDate != null)
@@ -529,6 +542,7 @@ class PasscodeScreenView(
         val remainingMillis = cooldownEndTime?.let { it - System.currentTimeMillis() } ?: 0
 
         if (remainingMillis > 0) {
+            Logger.d(Logger.LogTag.PASSCODE_CONFIRM, "setupCooldown: Cooldown active remainingMs=$remainingMillis")
             passcodeKeyboardView.lockKeypad()
             startCooldownTimer(cooldownEndTime!!)
         } else {

@@ -2,13 +2,12 @@ package org.mytonwallet.app_air.uicomponents.commonViews.cells
 
 import android.content.Context
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
-import org.mytonwallet.app_air.uicomponents.widgets.WView
-import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
@@ -17,6 +16,8 @@ import org.mytonwallet.app_air.walletcore.stores.TokenStore
 class TitleSubtitleCell(
     context: Context,
 ) : WCell(context), WThemedView {
+
+    private val ripple = WRippleDrawable.create(0f)
 
     private var identifier: String = ""
     var onTap: ((identifier: String) -> Unit)? = null
@@ -39,6 +40,7 @@ class TitleSubtitleCell(
     }
 
     init {
+        background = ripple
         layoutParams.apply {
             height = 60.dp
         }
@@ -63,8 +65,8 @@ class TitleSubtitleCell(
     }
 
     override fun updateTheme() {
-        setBackgroundColor(WColor.Background.color)
-        addRippleEffect(WColor.SecondaryBackground.color)
+        ripple.backgroundColor = WColor.Background.color
+        ripple.rippleColor = WColor.SecondaryBackground.color
         topLeftLabel.setTextColor(WColor.PrimaryText.color)
         bottomLeftLabel.setTextColor(WColor.SecondaryText.color)
     }

@@ -9,25 +9,18 @@ import SwiftNavigation
 @MainActor
 public class NftDetailsVC: WViewController, UIScrollViewDelegate {
     
-    private let nft: ApiNft
-    
     let scrollView = UIScrollView(frame: .zero)
     
     var viewModel: NftDetailsViewModel
     
     var hostingController: UIHostingController<NftDetailsView>? = nil
-    private var hostingControllerHeightConstraint: NSLayoutConstraint?
     private var scrollContentHeightConstraint: NSLayoutConstraint?
-    private var fullscreenPreviewConstraint: NSLayoutConstraint?
     private var reportedHeight: CGFloat?
     private var isOpenObserver: ObserveToken?
     private var contentHeightObserver: ObserveToken?
     
-    var backButton: HostingView? = nil
-    
     public init(accountId: String, nft: ApiNft, listContext: NftCollectionFilter) {
-        self.nft = nft
-        self.viewModel = NftDetailsViewModel(accountId: accountId, isExpanded: false, nft: nft, listContext: listContext, navigationBarInset: 0)
+        self.viewModel = NftDetailsViewModel(accountId: accountId, isExpanded: false, nft: nft, listContext: listContext)
         super.init(nibName: nil, bundle: nil)
         viewModel.viewController = self
     }
@@ -44,30 +37,14 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
     private func setupViews() {
         
         if let sheet = self.sheetPresentationController {
-            sheet.setValue(true, forKey: "wantsFullScreen")
-            sheet.setValue(false, forKey: "allowsInteractiveDismissWhenFullScreen")
+            sheet.configureFullScreen(true)
+            sheet.configureAllowsInteractiveDismiss(false)
         }
 
-        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-            addCloseNavigationItemIfNeeded()
-            configureNavigationItemWithTransparentBackground()
-        } else {
-            let navigationBar = WNavigationBar(
-                title: nft.name ?? "",
-                closeIcon: isPresentationModal,
-                addBackButton: { [weak self] in self?.goBack() }
-            )
-            navigationBar.shouldPassTouches = true
-            navigationBar.titleLabel?.alpha = 0
-            view.addSubview(navigationBar)
-            NSLayoutConstraint.activate([
-                navigationBar.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor).withPriority(.defaultHigh),
-                navigationBar.leftAnchor.constraint(equalTo: view.leftAnchor),
-                navigationBar.rightAnchor.constraint(equalTo: view.rightAnchor)
-            ])
-            self.navigationBar = navigationBar
-            navigationBarProgressiveBlurMinY = 150
-            navigationBarProgressiveBlurDelta = 48
+        addCloseNavigationItemIfNeeded()
+        configureNavigationItemWithTransparentBackground()
+        if !IOS_26_MODE_ENABLED {
+            navigationController?.viewControllers.dropLast().last?.navigationItem.backButtonDisplayMode = .minimal
         }
         
         scrollView.delegate = self
@@ -93,7 +70,6 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
         hostingController.view.translatesAutoresizingMaskIntoConstraints = false
         
         let hostingControllerHeightConstraint = hostingController.view.heightAnchor.constraint(equalToConstant: 2000)
-        self.hostingControllerHeightConstraint = hostingControllerHeightConstraint
         let scrollContentHeightContstraint = scrollView.contentLayoutGuide.heightAnchor.constraint(equalToConstant: 2000)
         self.scrollContentHeightConstraint = scrollContentHeightContstraint
         NSLayoutConstraint.activate([
@@ -108,20 +84,6 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
             scrollContentHeightContstraint,
         ])
         self.hostingController = hostingController
-        
-        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-        } else {
-            let backButton = HostingView {
-                BackButtonChevron(action: { [weak self] in self?.goBack() })
-            }
-            backButton.translatesAutoresizingMaskIntoConstraints = false
-            view.addSubview(backButton)
-            NSLayoutConstraint.activate([
-                backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 6/*-12*/),
-                backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 14)
-            ])
-            self.backButton = backButton
-        }
         
         UIView.performWithoutAnimation {
             updateIsExpanded(viewModel.isExpanded)
@@ -156,7 +118,7 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
     public override func viewWillAppear(_ animated: Bool) {
 
         if let sheet = self.sheetPresentationController {
-            sheet.setValue(false, forKey: "allowsInteractiveDismissWhenFullScreen")
+            sheet.configureAllowsInteractiveDismiss(false)
         }
         
         Haptics.prepare(.transition)
@@ -195,7 +157,7 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
         super.viewDidDisappear(animated)
         
         if let sheet = self.sheetPresentationController {
-            sheet.setValue(true, forKey: "allowsInteractiveDismissWhenFullScreen")
+            sheet.configureAllowsInteractiveDismiss(true)
         }
     }
     
@@ -314,7 +276,6 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
         UIView.animate(withDuration: 0.3) {
             //            self.setNeedsStatusBarAppearanceUpdate()
             self.navigationBar?.alpha = isExpanded ? 0 : 1
-            self.backButton?.alpha = isExpanded ? 1 : 0
         }
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(0.3))
@@ -334,12 +295,6 @@ public class NftDetailsVC: WViewController, UIScrollViewDelegate {
         }
         UIView.animate(withDuration: 0.25) {
             self.updateTheme()
-        }
-        Task { @MainActor [isOpen] in
-            try? await Task.sleep(for: .seconds(0.5))
-            if viewModel.isFullscreenPreviewOpen == isOpen {
-                fullscreenPreviewConstraint?.isActive = isOpen
-            }
         }
     }
     

@@ -34,6 +34,7 @@ import org.mytonwallet.app_air.uistake.staking.views.StakeDetailView
 import org.mytonwallet.app_air.uistake.staking.views.StakeInputView
 import org.mytonwallet.app_air.uistake.staking.views.UnstakeDetailView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -413,12 +414,14 @@ class StakingVC(
     private fun handleViewModelEvent(event: StakingViewModel.VmToVcEvents) {
         when (event) {
             is StakingViewModel.VmToVcEvents.SubmitSuccess -> {
+                Logger.d(Logger.LogTag.STAKING, "handleViewModelEvent: SubmitSuccess activityId=${event.activityId}")
                 MBlockchain.ton.idToTxHash(event.activityId)?.let {
                     onDone(it)
                 }
             }
 
             is StakingViewModel.VmToVcEvents.SubmitFailure -> {
+                Logger.d(Logger.LogTag.STAKING, "handleViewModelEvent: SubmitFailure error=${event.error?.parsed}")
                 pop()
                 showError(event.error?.parsed)
             }
@@ -428,6 +431,8 @@ class StakingVC(
     }
 
     private fun pushConfirmView() {
+        val mode = if (stakingViewModel.isStake()) "stake" else "unstake"
+        Logger.d(Logger.LogTag.STAKING, "pushConfirmView: mode=$mode tokenSlug=${stakingViewModel.tokenSlug}")
         view.hideKeyboard()
         val passcodeConfirmVC = PasscodeConfirmVC(
             context = context,
@@ -511,6 +516,8 @@ class StakingVC(
     }
 
     private fun confirmHardware() {
+        val mode = if (stakingViewModel.isStake()) "stake" else "unstake"
+        Logger.d(Logger.LogTag.STAKING, "confirmHardware: mode=$mode tokenSlug=${stakingViewModel.tokenSlug}")
         view.lockView()
         val account = AccountStore.activeAccount!!
         val ledgerConnectVC = LedgerConnectVC(

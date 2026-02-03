@@ -66,7 +66,7 @@ class HIDDevice(manager: UsbManager, device: UsbDevice) {
                     HID_BUFFER_SIZE
                 )
                 if (debug) {
-                    Logger.d(Logger.LogTag.SHIDDevice, "=> " + toHex(command))
+                    Logger.d(Logger.LogTag.SHIDDevice, "exchange: command=" + toHex(command))
                 }
 
                 var request = UsbRequest()
@@ -110,7 +110,7 @@ class HIDDevice(manager: UsbManager, device: UsbDevice) {
                 }
 
                 if (debug) {
-                    Logger.d(Logger.LogTag.SHIDDevice, "<= " + toHex(responseData!!))
+                    Logger.d(Logger.LogTag.SHIDDevice, "exchange: response=" + toHex(responseData!!))
                 }
 
                 request.close()

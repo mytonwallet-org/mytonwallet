@@ -4,6 +4,7 @@ import { useEffect } from '../lib/teact/teact';
 import { forceOnHeavyAnimationOnce } from '../lib/teact/teactn';
 import { getGlobal } from '../global';
 
+import { clearDelegatingBottomSheetKey, setDelegatingBottomSheetKey } from '../util/multitab';
 import { pause } from '../util/schedulers';
 import { IS_DELEGATING_BOTTOM_SHEET } from '../util/windowEnvironment';
 import useEffectWithPrevDeps from './useEffectWithPrevDeps';
@@ -12,10 +13,9 @@ const RACE_TIMEOUT = 1000;
 const CLOSING_DURATION = 100;
 
 const controlledByNative = new Map<BottomSheetKeys, NoneToVoidFunction>();
+const preparePromise = IS_DELEGATING_BOTTOM_SHEET ? BottomSheet.prepare() : Promise.resolve();
 
 if (IS_DELEGATING_BOTTOM_SHEET) {
-  void BottomSheet.prepare();
-
   void BottomSheet.addListener(
     'openInMain',
     ({ key }: { key: BottomSheetKeys }) => {
@@ -54,7 +54,9 @@ export function useDelegatingBottomSheet(
         lastOpenCall,
         pause(RACE_TIMEOUT), // Sometimes the last open call is stuck for some unknown reason
       ])
+        .then(() => preparePromise)
         .then(() => {
+          setDelegatingBottomSheetKey(key);
           return BottomSheet.delegate({
             key,
             globalJson: JSON.stringify(getGlobal()),
@@ -68,6 +70,7 @@ export function useDelegatingBottomSheet(
         })
         .then(() => pause(CLOSING_DURATION));
     } else if (prevShouldOpen) {
+      clearDelegatingBottomSheetKey(key);
       void BottomSheet.release({ key });
     }
   }, [shouldOpen, isDelegating, key, onClose]);

@@ -9,9 +9,10 @@ import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListA
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListExpandableTextCell
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListGapCell
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListIconDualLineCell
+import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListTextCell
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListTextCellHolder
-import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListTitleCell
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListTitleValueCell
+import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.activity.ActivityCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
@@ -46,9 +47,10 @@ open class CustomListAdapter : BaseListAdapter() {
 
     override fun createHolder(parent: ViewGroup, viewType: Int): BaseListHolder<out BaseListItem> {
         return when (viewType) {
-            Item.Type.LIST_TITLE.value -> ListTitleCell.Holder(parent)
+            Item.Type.LIST_TITLE.value -> HeaderCell.Holder(parent.context)
             Item.Type.LIST_TITLE_VALUE.value -> ListTitleValueCell.Holder(parent)
             Item.Type.ICON_DUAL_LINE.value -> ListIconDualLineCell.Holder(parent)
+            Item.Type.TEXT.value -> ListTextCell.Holder(parent)
             Item.Type.COPYABLE_TEXT.value -> ListTextCellHolder(parent)
             Item.Type.EXPANDABLE_TEXT.value -> ListExpandableTextCell.Holder(parent)
             Item.Type.GAP.value -> ListGapCell.Holder(parent)

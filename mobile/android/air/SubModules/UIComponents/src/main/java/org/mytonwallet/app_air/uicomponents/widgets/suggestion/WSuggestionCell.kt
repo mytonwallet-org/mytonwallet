@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Color
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -13,6 +14,8 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 class WSuggestionCell(context: Context) : WCell(context, LayoutParams(WRAP_CONTENT, MATCH_PARENT)),
     WThemedView {
+
+    private val ripple = WRippleDrawable.create(6f.dp)
 
     var onTap: ((text: String) -> Unit)? = null
 
@@ -24,6 +27,7 @@ class WSuggestionCell(context: Context) : WCell(context, LayoutParams(WRAP_CONTE
     }
 
     init {
+        background = ripple
         setPadding(16.dp, 12.dp, 16.dp, 12.dp)
 
         addView(titleLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
@@ -40,8 +44,8 @@ class WSuggestionCell(context: Context) : WCell(context, LayoutParams(WRAP_CONTE
     }
 
     override fun updateTheme() {
-        setBackgroundColor(Color.TRANSPARENT)
-        addRippleEffect(WColor.SecondaryBackground.color, 6f.dp)
+        ripple.backgroundColor = Color.TRANSPARENT
+        ripple.rippleColor = WColor.SecondaryBackground.color
         titleLabel.setTextColor(WColor.PrimaryText.color)
     }
 

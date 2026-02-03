@@ -17,7 +17,6 @@ final class NftDetailsViewModel {
 
     var isExpanded = true
     var nft: ApiNft
-    var navigationBarInset: CGFloat
     var safeAreaInsets: UIEdgeInsets = .zero
     var y: CGFloat = 0
     var isFullscreenPreviewOpen = false
@@ -48,22 +47,18 @@ final class NftDetailsViewModel {
         isExpanded: Bool = true,
         isFullscreenPreviewOpen: Bool = false,
         nft: ApiNft,
-        listContext: NftCollectionFilter,
-        navigationBarInset: CGFloat
+        listContext: NftCollectionFilter
     ) {
         self._account = AccountContext(accountId: accountId)
         self.isExpanded = isExpanded
         self.isFullscreenPreviewOpen = isFullscreenPreviewOpen
         self.nft = nft
         self.listContextProvider = NftListContextProvider(accountId: accountId, filter: listContext)
-        self.navigationBarInset = navigationBarInset
     }
     
     var collapsedTopInset: CGFloat {
-        44 + safeAreaInsets.top + (IOS_26_MODE_ENABLED ? -52 : 0)
+        safeAreaInsets.top - 8
     }
-    
-    var onHeightChange: (CGFloat) -> () = { _ in }
     
     func onImageTap() {
         switch state {

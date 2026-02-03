@@ -108,7 +108,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
             ""
         }
 
-        Logger.d(Logger.LogTag.JS_WEBVIEW_BRIDGE, "WebView version: $webViewVersion")
+        Logger.d(Logger.LogTag.JS_WEBVIEW_BRIDGE, "setupBridge: WebViewVersion=$webViewVersion")
 
         loadUrl("file:///android_asset/js/index.html")
 

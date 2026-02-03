@@ -1281,13 +1281,14 @@ class TransactionVC(
             spannedString.styleDots()
             ContextCompat.getDrawable(
                 context,
-                org.mytonwallet.app_air.icons.R.drawable.ic_arrow_bottom_24
+                org.mytonwallet.app_air.icons.R.drawable.ic_arrows_14
             )?.let { drawable ->
                 drawable.mutate()
                 drawable.setTint(WColor.SecondaryText.color)
-                val width = 20.dp
-                val height = 20.dp
-                drawable.setBounds(0, 0, width, height)
+                val width = 7.dp
+                val height = 14.dp
+                val leftPadding = 3.5f.dp.roundToInt()
+                drawable.setBounds(leftPadding, 0, leftPadding + width, height)
                 val imageSpan = VerticalImageSpan(drawable)
                 spannedString.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
@@ -1365,13 +1366,14 @@ class TransactionVC(
             spannedString.styleDots()
             ContextCompat.getDrawable(
                 context,
-                org.mytonwallet.app_air.icons.R.drawable.ic_arrow_bottom_24
+                org.mytonwallet.app_air.icons.R.drawable.ic_arrows_14
             )?.let { drawable ->
                 drawable.mutate()
                 drawable.setTint(WColor.SecondaryText.color)
-                val width = 20.dp
-                val height = 20.dp
-                drawable.setBounds(0, 0, width, height)
+                val width = 7.dp
+                val height = 14.dp
+                val leftPadding = 3.5f.dp.roundToInt()
+                drawable.setBounds(leftPadding, 0, leftPadding + width, height)
                 val imageSpan = VerticalImageSpan(drawable)
                 spannedString.append(" ", imageSpan, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }

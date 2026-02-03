@@ -10,11 +10,11 @@ import android.text.Spanned
 import android.text.TextWatcher
 import android.util.TypedValue
 import android.view.Gravity
-import android.view.View
 import android.view.View.generateViewId
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Space
@@ -134,7 +134,7 @@ class SendVC(
     private val gap1 by lazy { Space(context) }
 
     private val amountInputView by lazy {
-        TokenAmountInputView(context).apply {
+        TokenAmountInputView(context, isFirstItem = false).apply {
             id = generateViewId()
         }
     }
@@ -171,7 +171,7 @@ class SendVC(
                 type = AddressInputLayout.AutoCompleteConfig.Type.EXTERNAL
             )
             search("")
-            visibility = View.INVISIBLE
+            isGone = true
             setRoundedOutline(ViewConstants.BIG_RADIUS.dp)
             onSelected = { account, savedAddress ->
                 when {
@@ -398,9 +398,12 @@ class SendVC(
                 ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
             )
             id = generateViewId()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                setOnScrollChangeListener { _, _, scrollY, _, _ ->
-                    updateBlurViews(scrollView = this, computedOffset = scrollY)
+            setOnScrollChangeListener { _, _, scrollY, _, _ ->
+                updateBlurViews(scrollView = this, computedOffset = scrollY)
+                if (scrollY > 0) {
+                    bottomReversedCornerViewUpsideDown.resumeBlurring()
+                } else {
+                    bottomReversedCornerViewUpsideDown.pauseBlurring()
                 }
             }
             overScrollMode = ScrollView.OVER_SCROLL_ALWAYS
@@ -420,11 +423,13 @@ class SendVC(
         }
     }
 
-    private val bottomReversedCornerViewUpsideDown: ReversedCornerViewUpsideDown =
-        ReversedCornerViewUpsideDown(context, view).apply {
-            if (ignoreSideGuttering)
+    private val bottomReversedCornerViewUpsideDown: ReversedCornerViewUpsideDown by lazy {
+        ReversedCornerViewUpsideDown(context, scrollView).apply {
+            if (ignoreSideGuttering) {
                 setHorizontalPadding(0f)
+            }
         }
+    }
 
     private val onInputCommentTextWatcher = object : TextWatcher {
         override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -501,9 +506,7 @@ class SendVC(
         continueButtonSpace.updateLayoutParams {
             height = continueButtonSpaceHeightPx
         }
-        bottomReversedCornerViewUpsideDown.updateLayoutParams {
-            height = getBottomReversedCornerViewUpsideDownHeight(true)
-        }
+        updateBottomOffsets(true)
         val onEnd = {
             with(primaryContent) {
                 isGone = true
@@ -522,9 +525,7 @@ class SendVC(
             continueButtonSpace.updateLayoutParams {
                 height = 1
             }
-            bottomReversedCornerViewUpsideDown.updateLayoutParams {
-                height = getBottomReversedCornerViewUpsideDownHeight(false)
-            }
+            updateBottomOffsets(false)
             scrollView.scrollTo(0, 0)
             showSuggestionAnimatorInProgress = false
             insetsUpdated()
@@ -563,12 +564,7 @@ class SendVC(
                     }
                 }
                 intValues(cornerViewDiff, 0) {
-                    onUpdate { animatedValue ->
-                        bottomReversedCornerViewUpsideDown.updateLayoutParams {
-                            height =
-                                getBottomReversedCornerViewUpsideDownHeight(false) + animatedValue
-                        }
-                    }
+                    onUpdate { animatedValue -> updateBottomOffsets(false, animatedValue) }
                 }
             }
             onEnd { onEnd() }
@@ -603,9 +599,7 @@ class SendVC(
         continueButtonSpace.updateLayoutParams {
             height = 1
         }
-        bottomReversedCornerViewUpsideDown.updateLayoutParams {
-            height = getBottomReversedCornerViewUpsideDownHeight(false)
-        }
+        updateBottomOffsets(false)
         val onEnd = {
             with(primaryContent) {
                 alpha = 1f
@@ -623,9 +617,7 @@ class SendVC(
             continueButtonSpace.updateLayoutParams {
                 height = continueButtonSpaceHeightPx
             }
-            bottomReversedCornerViewUpsideDown.updateLayoutParams {
-                height = getBottomReversedCornerViewUpsideDownHeight(true)
-            }
+            updateBottomOffsets(true)
             continueButton.translationY = 0f
         }
         if (!WGlobalStorage.getAreAnimationsActive()) {
@@ -656,12 +648,7 @@ class SendVC(
                     }
                 }
                 intValues(0, cornerViewDiff) {
-                    onUpdate { animatedValue ->
-                        bottomReversedCornerViewUpsideDown.updateLayoutParams {
-                            height =
-                                getBottomReversedCornerViewUpsideDownHeight(false) + animatedValue
-                        }
-                    }
+                    onUpdate { animatedValue -> updateBottomOffsets(false, animatedValue) }
                 }
             }
             onEnd { onEnd() }
@@ -680,33 +667,35 @@ class SendVC(
 
         view.addHorizontalGuideline(bottomGuideline)
         view.addView(scrollView, ViewGroup.LayoutParams(MATCH_PARENT, 0))
+        view.addView(
+            bottomReversedCornerViewUpsideDown,
+            FrameLayout.LayoutParams(
+                MATCH_PARENT,
+                getBottomReversedCornerViewUpsideDownHeight()
+            ).apply {
+                gravity = Gravity.BOTTOM
+            }
+        )
         scrollView.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-            val suggestionsBoxHeight = scrollView.height - headerContentContainer.height
+            val suggestionsBoxHeight =
+                (scrollView.height - linearLayout.paddingBottom) - headerContentContainer.height
             if (suggestionsBoxView.layoutParams.height != suggestionsBoxHeight) {
                 suggestionsBoxView.updateLayoutParams { height = suggestionsBoxHeight }
             }
         }
         view.addView(
-            bottomReversedCornerViewUpsideDown,
-            ConstraintLayout.LayoutParams(
-                MATCH_PARENT,
-                getBottomReversedCornerViewUpsideDownHeight()
-            )
-        )
-        view.addView(
             continueButtonSpace, ViewGroup.LayoutParams(MATCH_PARENT, continueButtonSpaceHeightPx)
         )
         view.addView(continueButton, ViewGroup.LayoutParams(MATCH_PARENT, continueButtonHeightPx))
         view.setConstraints {
-            toCenterX(scrollView)
-            toTop(scrollView)
+            allEdges(scrollView)
+            toCenterX(bottomReversedCornerViewUpsideDown)
+            toBottom(bottomReversedCornerViewUpsideDown)
             bottomToTop(continueButtonSpace, bottomGuideline)
             toCenterX(continueButtonSpace)
-            bottomToTopPx(scrollView, continueButtonSpace)
             toCenterX(continueButton, 20f)
             bottomToTopPx(continueButton, bottomGuideline, continueButtonVerticalMarginPx)
             guidelineEndPx(bottomGuideline, getSystemBottomOffset())
-            toBottom(bottomReversedCornerViewUpsideDown)
         }
 
         initialTokenSlug?.let {
@@ -924,6 +913,16 @@ class SendVC(
         )
     }
 
+    private fun getScrollViewBottomMargin(buttonVisible: Boolean = true): Int {
+        val system = getSystemBottomOffset()
+        val button = if (buttonVisible) {
+            continueButtonSpaceHeightPx
+        } else {
+            0
+        }
+        return system + button
+    }
+
     private fun getBottomReversedCornerViewUpsideDownHeight(buttonVisible: Boolean = true): Int {
         val system = getSystemBottomOffset()
         val button = if (buttonVisible) {
@@ -943,7 +942,7 @@ class SendVC(
             ViewConstants.HORIZONTAL_PADDINGS.dp,
             0
         )
-        topGap.updateLayoutParams {
+        topGap.updateLayoutParamsIfExists {
             height = (navigationController?.getSystemBars()?.top ?: 0) +
                 WNavigationBar.DEFAULT_HEIGHT.dp
         }
@@ -951,12 +950,17 @@ class SendVC(
         if (showSuggestionAnimatorInProgress) {
             return
         }
-        bottomReversedCornerViewUpsideDown.updateLayoutParamsIfExists {
-            height = getBottomReversedCornerViewUpsideDownHeight(continueButton.isVisible)
-        }
+        updateBottomOffsets(continueButton.isVisible)
         view.setConstraints {
             guidelineEndPx(bottomGuideline, getSystemBottomOffset())
         }
+    }
+
+    private fun updateBottomOffsets(buttonVisible: Boolean, extraSize: Int = 0) {
+        bottomReversedCornerViewUpsideDown.updateLayoutParamsIfExists {
+            height = getBottomReversedCornerViewUpsideDownHeight(buttonVisible) + extraSize
+        }
+        linearLayout.setPadding(0, 0, 0, getScrollViewBottomMargin(buttonVisible) + extraSize)
     }
 
     private fun updateCommentViews() {

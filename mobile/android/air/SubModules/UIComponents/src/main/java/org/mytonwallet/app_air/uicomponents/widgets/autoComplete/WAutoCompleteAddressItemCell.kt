@@ -8,31 +8,34 @@ interface IAutoCompleteAddressItemCell {
 
     fun configure(
         item: AutoCompleteAddressItem,
-        isLast: Boolean,
         onTap: () -> Unit,
+        changeAnimationFinishListener: (() -> Unit),
         onLongClick: (() -> Unit)?
     )
+
+    fun hasActiveAnimation(): Boolean
 }
 
 data class AutoCompleteAddressItem(
-    val identifier: Identifier,
+    val listId: String,
     val title: String,
     val network: MBlockchainNetwork,
     val account: MAccount? = null,
     val savedAddress: MSavedAddress? = null,
     val value: String? = null,
-    val keyword: String = ""
+    val keyword: String = "",
+    val isFirst: Boolean = false,
+    val isLast: Boolean = false,
+    val animationState: AnimationState = AnimationState.IDLE
 ) {
-
-    enum class Identifier {
-        ACCOUNT,
-        HEADER
+    enum class AnimationState {
+        IDLE, DISAPPEARING, CORNER_ROUNDING
     }
 }
 
 data class AutoCompleteAddressSection(
     val section: Section,
-    var children: List<AutoCompleteAddressItem>
+    val children: List<AutoCompleteAddressItem>
 ) {
     enum class Section {
         SAVED,

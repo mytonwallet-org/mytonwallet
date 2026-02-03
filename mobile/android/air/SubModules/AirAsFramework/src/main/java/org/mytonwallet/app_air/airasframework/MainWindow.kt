@@ -32,7 +32,7 @@ class MainWindow : WWindow() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        Logger.i(Logger.LogTag.AIR_APPLICATION, "MainWindow Created")
+        Logger.d(Logger.LogTag.AIR_APPLICATION, "MainWindow Created")
         super.onCreate(savedInstanceState)
 
         if (!WGlobalStorage.isInitialized) {

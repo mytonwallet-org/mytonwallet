@@ -13,6 +13,7 @@ import {
   TRX,
 } from '../../config';
 import { INITIAL_STATE } from '../../global/initialState';
+import { callApi } from '../../api';
 import { getChainConfig } from '../chain';
 import { openUrl } from '../openUrl';
 import { getDeeplinkFromLocation, parseTonDeeplink, processDeeplink, processSelfDeeplink } from './index';
@@ -885,6 +886,7 @@ describe('processDeeplink TRON deeplinks', () => {
 describe('processSelfDeeplink Transaction command', () => {
   let mockActions: Record<string, jest.Mock>;
   let mockGlobal: GlobalState;
+  let mockActivities: any[];
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -896,9 +898,20 @@ describe('processSelfDeeplink Transaction command', () => {
     };
 
     mockGlobal = createMockGlobalState();
+    mockActivities = [{
+      kind: 'transaction',
+      toAddress: 'EQAIsixsrb93f9kDyplo_bK5OdgW5r0WCcIJZdGOUG1B282S',
+      txId: 'mock-tx-id',
+    }];
 
     (getActions as jest.Mock).mockReturnValue(mockActions);
     (getGlobal as jest.Mock).mockReturnValue(mockGlobal);
+    (callApi as jest.Mock).mockImplementation((method: string) => {
+      if (method === 'fetchTransactionById') {
+        return Promise.resolve(mockActivities);
+      }
+      return undefined;
+    });
   });
 
   describe('TON transaction links', () => {
@@ -910,6 +923,7 @@ describe('processSelfDeeplink Transaction command', () => {
       expect(mockActions.openTransactionInfo).toHaveBeenCalledWith({
         txId,
         chain: 'ton',
+        activities: mockActivities,
       });
     });
 
@@ -922,6 +936,7 @@ describe('processSelfDeeplink Transaction command', () => {
       expect(mockActions.openTransactionInfo).toHaveBeenCalledWith({
         txId,
         chain: 'ton',
+        activities: mockActivities,
       });
     });
 
@@ -933,7 +948,23 @@ describe('processSelfDeeplink Transaction command', () => {
       expect(mockActions.openTransactionInfo).toHaveBeenCalledWith({
         txId,
         chain: 'ton',
+        activities: mockActivities,
       });
+    });
+
+    it('should return true and show error when transaction is not found', async () => {
+      (callApi as jest.Mock).mockImplementation((method: string) => {
+        if (method === 'fetchTransactionById') {
+          return Promise.resolve([]);
+        }
+        return undefined;
+      });
+
+      const result = await processSelfDeeplink('mtw://tx/ton/nonexistent-tx-id');
+
+      expect(result).toBe(true);
+      expect(mockActions.showError).toHaveBeenCalledWith({ error: '$transaction_not_found' });
+      expect(mockActions.openTransactionInfo).not.toHaveBeenCalled();
     });
   });
 
@@ -946,6 +977,7 @@ describe('processSelfDeeplink Transaction command', () => {
       expect(mockActions.openTransactionInfo).toHaveBeenCalledWith({
         txId,
         chain: 'tron',
+        activities: mockActivities,
       });
     });
 
@@ -957,6 +989,7 @@ describe('processSelfDeeplink Transaction command', () => {
       expect(mockActions.openTransactionInfo).toHaveBeenCalledWith({
         txId,
         chain: 'tron',
+        activities: mockActivities,
       });
     });
   });
@@ -1001,6 +1034,7 @@ describe('processSelfDeeplink Transaction command', () => {
       expect(mockActions.openTransactionInfo).toHaveBeenCalledWith({
         txId,
         chain: 'ton',
+        activities: mockActivities,
       });
     });
 
@@ -1012,6 +1046,7 @@ describe('processSelfDeeplink Transaction command', () => {
       expect(mockActions.openTransactionInfo).toHaveBeenCalledWith({
         txId,
         chain: 'ton',
+        activities: mockActivities,
       });
     });
   });

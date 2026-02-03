@@ -73,7 +73,7 @@ object LocaleController {
                 .use { it.readText() }
             jsonObject = JSONObject(jsonString)
         } catch (_: IOException) {
-            Logger.e(Logger.LogTag.LOCALIZATION, "Could not $langCode.json, skipping.")
+            Logger.e(Logger.LogTag.LOCALIZATION, "init: Failed to load file=$langCode.json")
             jsonObject = JSONObject()
         }
 
@@ -86,7 +86,7 @@ object LocaleController {
                 jsonObject.put(key, jsonObjectAir.get(key))
             }
         } catch (_: IOException) {
-            Logger.e(Logger.LogTag.LOCALIZATION, "Could not load air_$langCode.json, skipping.")
+            Logger.e(Logger.LogTag.LOCALIZATION, "init: Failed to load file=air_$langCode.json")
         }
 
         dictionary = jsonObject.toHashMapStringNested()

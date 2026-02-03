@@ -119,9 +119,8 @@ class WSegmentedController(
                 val blur1 = abs(blurState[position] ?: 0f)
                 val blur2 = abs(blurState[position + 1] ?: 0f)
                 val currentBlur = blur1 * (1 - (positionOffset)) + blur2 * positionOffset
-                if (currentBlur > 0) {
+                if (currentBlur > 0 || positionOffset != 0f) {
                     reversedCornerView.resumeBlurring()
-                    reversedCornerView.setBlurAlpha(currentBlur)
                 }
             }
 
@@ -136,9 +135,8 @@ class WSegmentedController(
                         val blurAlpha = blurState[viewPager.currentItem] ?: 0f
                         if (blurAlpha > 0) {
                             reversedCornerView.resumeBlurring()
-                            reversedCornerView.setBlurAlpha(blurAlpha.coerceIn(0f, 1f))
                         } else {
-                            reversedCornerView.pauseBlurring(blurAlpha < 0)
+                            reversedCornerView.pauseBlurring(true)
                         }
                         reversedCornerView.alpha = 1f
                         isAnimatingChangeTab = false
@@ -426,16 +424,12 @@ class WSegmentedController(
         val topOffset =
             if (computedOffset >= 0) computedOffset else computedOffset + scrollView.paddingTop
         val isOnTop = topOffset <= 0
-        if (scrollView.canScrollVertically(1) &&
-            !isOnTop
-        ) {
+        if (!isOnTop) {
             reversedCornerView.resumeBlurring()
-            val blurAlpha = (topOffset / 20f.dp).coerceIn(0f, 1f)
-            reversedCornerView.setBlurAlpha(blurAlpha)
-            blurState[viewPager.currentItem] = blurAlpha
+            blurState[viewPager.currentItem] = 1f
         } else {
-            reversedCornerView.pauseBlurring(!isOnTop)
-            blurState[viewPager.currentItem] = if (isOnTop) 0f else -1f
+            reversedCornerView.pauseBlurring(true)
+            blurState[viewPager.currentItem] = 0f
         }
     }
 

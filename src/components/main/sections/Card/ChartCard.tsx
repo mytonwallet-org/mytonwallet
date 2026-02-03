@@ -22,7 +22,7 @@ import {
 import { isNetWorthChartAvailable } from '../../../../util/assets/netWorth';
 import buildClassName from '../../../../util/buildClassName';
 import { calcBigChangeValue } from '../../../../util/calcChangeValue';
-import { formatShortDay, SECOND } from '../../../../util/dateFormat';
+import { formatChartDate, formatShortDay, SECOND } from '../../../../util/dateFormat';
 import { toBig, toDecimal } from '../../../../util/decimals';
 import { formatCurrency, getShortCurrencySymbol } from '../../../../util/formatNumber';
 import { vibrate } from '../../../../util/haptics';
@@ -197,7 +197,7 @@ function ChartCard({
   const tokenChangePrice = isSensitiveDataHidden ? lastPrice : price;
   const isLoading = !token || !tokenLastUpdatedAt || (Date.now() - tokenLastUpdatedAt > OFFLINE_TIMEOUT);
   const dateStr = selectedHistoryPoint
-    ? formatShortDay(lang.code!, selectedHistoryPoint[0] * 1000, true, true)
+    ? formatChartDate(lang.code!, selectedHistoryPoint[0] * 1000)
     : (isLoading && tokenLastUpdatedAt ? formatShortDay(lang.code!, tokenLastUpdatedAt, true, false) : lang('Now'));
 
   useTimeout(forceUpdate, isLoading ? undefined : OFFLINE_TIMEOUT, [tokenLastUpdatedAt]);

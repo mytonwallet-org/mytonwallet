@@ -304,9 +304,9 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         animated: Boolean,
         onCompletion: (() -> Unit)? = null
     ) {
-        Logger.i(
+        Logger.d(
             Logger.LogTag.SCREEN,
-            "ReplaceNav with RootVC: ${navigationController.viewControllers.firstOrNull()?.TAG} ${hashCode()}"
+            "replaceNav: rootVC=${navigationController.viewControllers.firstOrNull()?.TAG} navHash=${navigationController.hashCode()}"
         )
         window.decorView.setBackgroundColor(WColor.Background.color)
         val navigationControllersExist = navigationControllers.isNotEmpty()
@@ -379,9 +379,9 @@ abstract class WWindow : AppCompatActivity(), WThemedView, WProtectedView {
         animated: Boolean = true,
         onCompletion: (() -> Unit)? = null
     ) {
-        Logger.i(
+        Logger.d(
             Logger.LogTag.SCREEN,
-            "PresentNav with RootVC: ${navigationController.viewControllers.firstOrNull()?.TAG}"
+            "presentNav: rootVC=${navigationController.viewControllers.firstOrNull()?.TAG} navHash=${navigationController.hashCode()}"
         )
         // Overlay for previous views
         val overlayView: WBaseView?
