@@ -68,9 +68,4 @@ Copy the udev rules from the [official repository](https://github.com/LedgerHQ/u
 ```bash
 git clone https://github.com/LedgerHQ/udev-rules
 cd udev-rules
-sudo bash ./add_udev_rules.sh
-```
-
-## Support Us
-
-If you like what we do, feel free to contribute by creating a pull request, or just support us using this TON wallet: `EQAIsixsrb93f9kDyplo_bK5OdgW5r0WCcIJZdGOUG1B282S`. We appreciate it a lot!
+sudo bash !
