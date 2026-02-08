@@ -168,12 +168,12 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         cachedNotStakingTagDrawable = null
         setBackgroundColor(
             if (mode == TokensVC.Mode.HOME) Color.TRANSPARENT else WColor.Background.color,
-            if (isFirst) ViewConstants.TOP_RADIUS.dp else 0f,
+            0f,
             if (isLast) ViewConstants.BIG_RADIUS.dp else 0f
         )
         addRippleEffect(
             WColor.SecondaryBackground.color,
-            if (isFirst) ViewConstants.TOP_RADIUS.dp else 0f,
+            0f,
             if (isLast) ViewConstants.BIG_RADIUS.dp else 0f
         )
         topLeftLabel.setTextColor(WColor.PrimaryText.color)
@@ -192,7 +192,6 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
     private var accountId: String? = null
     private var tokenBalance: MTokenBalance? = null
     private var baseCurrency: MBaseCurrency? = null
-    private var isFirst = false
     private var isLast = false
     private var isShowingStaticTag = false
 
@@ -200,13 +199,10 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
         accountId: String,
         isMultichain: Boolean,
         tokenBalance: MTokenBalance,
-        isFirst: Boolean,
         isLast: Boolean
     ) {
-        val firstChanged = this.isFirst != isFirst
         val lastChanged = this.isLast != isLast
         val baseCurrency = WalletCore.baseCurrency
-        this.isFirst = isFirst
         this.isLast = isLast
 
         val accountChanged = this.accountId != accountId
@@ -215,14 +211,14 @@ class TokenCell(context: Context, val mode: TokensVC.Mode) : WCell(context), WTh
             this.tokenBalance == tokenBalance &&
             this.baseCurrency == baseCurrency
         ) {
-            updateTheme(forceUpdate = firstChanged || lastChanged)
+            updateTheme(forceUpdate = lastChanged)
             return
         }
 
         this.accountId = accountId
         this.tokenBalance = tokenBalance
         this.baseCurrency = baseCurrency
-        updateTheme(forceUpdate = firstChanged || lastChanged)
+        updateTheme(forceUpdate = lastChanged)
 
         val amountCols = 4 + abs(tokenBalance.token.hashCode() % 8)
         topRightLabel.setMaskCols(amountCols)

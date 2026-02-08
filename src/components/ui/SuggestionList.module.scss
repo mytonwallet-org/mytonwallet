@@ -32,10 +32,6 @@
     bottom: calc(100% + 0.5rem);
   }
 
-  &.hidden {
-    visibility: hidden;
-  }
-
   &::-webkit-scrollbar {
     display: none !important;
   }

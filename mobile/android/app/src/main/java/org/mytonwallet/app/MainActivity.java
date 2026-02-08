@@ -34,7 +34,6 @@ public class MainActivity extends BaseActivity {
     Log.i("MTWAirApplication", "Main Activity Created");
     super.onCreate(savedInstanceState);
 
-    LaunchConfig.recordAppOpened(this);
     Activity activity = this;
     boolean shouldStartOnAir = LaunchConfig.shouldStartOnAir(activity);
 

@@ -32,7 +32,6 @@ import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.Setting
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.models.SettingsItem
 import org.mytonwallet.app_air.uisettings.viewControllers.walletCustomization.WalletCustomizationVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -115,7 +114,6 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
                             false
                         ) {
                             if (FontManager.activeFont != it) {
-                                Logger.d(Logger.LogTag.SETTINGS, "appFontView: fontChanged=${it.displayName}")
                                 FontManager.setActiveFont(context, it)
                                 appFontDropdownView.setText(it.displayName)
                                 // Font changes require app restart to refresh all cached typefaces
@@ -145,7 +143,6 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
         isChecked = WGlobalStorage.getAreRoundedCornersActive(),
         isFirst = true,
         onChange = { isChecked ->
-            Logger.d(Logger.LogTag.SETTINGS, "roundedCornersRow: isChecked=$isChecked")
             WGlobalStorage.setAreRoundedCornersActive(isChecked)
             if (isChecked) {
                 // Re-enable and turn on dependent settings
@@ -173,7 +170,6 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
         title = LocaleController.getString("Rounded Toolbars"),
         isChecked = ThemeManager.uiMode == ThemeManager.UIMode.BIG_RADIUS,
         onChange = { isChecked ->
-            Logger.d(Logger.LogTag.SETTINGS, "roundedToolbarsRow: isChecked=$isChecked")
             val uiMode = if (isChecked) {
                 ThemeManager.UIMode.BIG_RADIUS
             } else {
@@ -221,7 +217,6 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
         isChecked = ViewConstants.HORIZONTAL_PADDINGS > 0,
         isLast = true,
         onChange = { isChecked ->
-            Logger.d(Logger.LogTag.SETTINGS, "sideGuttersRow: isChecked=$isChecked")
             WGlobalStorage.setAreSideGuttersActive(isChecked)
             ViewConstants.HORIZONTAL_PADDINGS = if (isChecked) 10 else 0
             sideGuttersAnimator?.cancel()
@@ -255,7 +250,6 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
         isChecked = WGlobalStorage.isBlurEnabled(),
         isFirst = true,
         onChange = { isChecked ->
-            Logger.d(Logger.LogTag.SETTINGS, "blurRow: isChecked=$isChecked")
             WGlobalStorage.setBlurEnabled(isChecked)
             pendingThemeChange = true
             WalletContextManager.delegate?.themeChanged()
@@ -268,7 +262,6 @@ class AppearanceVC(context: Context) : WViewController(context), WalletCore.Even
         isChecked = WGlobalStorage.getAreAnimationsActive(),
         isLast = true,
         onChange = { isChecked ->
-            Logger.d(Logger.LogTag.SETTINGS, "animationsRow: isChecked=$isChecked")
             WGlobalStorage.setAreAnimationsActive(isChecked)
         }
     )

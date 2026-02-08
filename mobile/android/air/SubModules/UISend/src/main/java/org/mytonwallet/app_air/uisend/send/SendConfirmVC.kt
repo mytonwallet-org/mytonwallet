@@ -42,7 +42,6 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
-import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferOptions
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import java.lang.ref.WeakReference
@@ -407,7 +406,6 @@ class SendConfirmVC(
     }
 
     private fun confirmHardware(transferOptions: MApiSubmitTransferOptions) {
-        Logger.d(Logger.LogTag.SEND, "confirmHardware: Confirming send with hardware wallet slug=$slug")
         confirmButton.lockView()
         val account = AccountStore.activeAccount!!
         val ledgerConnectVC = LedgerConnectVC(
@@ -440,7 +438,6 @@ class SendConfirmVC(
     }
 
     private fun confirmWithPassword() {
-        Logger.d(Logger.LogTag.SEND, "confirmWithPassword: Confirming send with passcode slug=$slug")
         push(
             PasscodeConfirmVC(
                 context,

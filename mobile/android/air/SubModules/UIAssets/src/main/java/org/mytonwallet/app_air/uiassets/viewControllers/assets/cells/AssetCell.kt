@@ -12,7 +12,6 @@ import android.view.animation.LinearInterpolator
 import androidx.core.view.setPadding
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
-import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.widgets.WAnimationView
@@ -36,8 +35,6 @@ class AssetCell(
 ) : WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
     WThemedView {
 
-    private val ripple = WRippleDrawable.create(16f.dp)
-
     var onTap: ((transaction: ApiNft) -> Unit)? = null
 
     private val imageView: WImageView by lazy {
@@ -57,7 +54,6 @@ class AssetCell(
             setStyle(16f)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.END
-            setTextColor(WColor.PrimaryText)
         }
     }
 
@@ -66,12 +62,10 @@ class AssetCell(
             setStyle(14f)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.END
-            setTextColor(WColor.SecondaryText)
         }
     }
 
     init {
-        background = ripple
         setPadding((if (mode == AssetsVC.Mode.COMPLETE) 8 else 4).dp)
 
         addView(imageView, LayoutParams(0, 0))
@@ -113,9 +107,9 @@ class AssetCell(
         if (!darkModeChanged)
             return
         _isDarkThemeApplied = ThemeManager.isDark
-        ripple.rippleColor = WColor.SecondaryBackground.color
-        titleLabel.updateTheme()
-        subtitleLabel.updateTheme()
+        addRippleEffect(WColor.SecondaryBackground.color, 16f.dp)
+        titleLabel.setTextColor(WColor.PrimaryText.color)
+        subtitleLabel.setTextColor(WColor.SecondaryText.color)
     }
 
     private var nft: ApiNft? = null

@@ -178,7 +178,7 @@ class PasscodeConfirmVC(
         fun onPasscodeVerified() {
             view.lockView()
             isDoingTask = true
-            Logger.d(Logger.LogTag.PASSCODE_CONFIRM, "onPasscodeVerified: Running task")
+            Logger.i(Logger.LogTag.PASSCODE_CONFIRM, "Running the task")
             task(passcode)
             if (isTaskAsync && passcodeViewState !is PasscodeViewState.Default) {
                 navigationBar?.fadeOutActions()
@@ -230,7 +230,7 @@ class PasscodeConfirmVC(
                         view.unlockView()
                         showError(err)
                     }
-                    Logger.d(Logger.LogTag.ACCOUNT, "signOutPressed: Resetting accounts")
+                    Logger.d(Logger.LogTag.ACCOUNT, "Reset accounts from lock screen")
                     WGlobalStorage.deleteAllWallets()
                     WSecureStorage.deleteAllWalletValues()
                     WalletContextManager.delegate?.restartApp()

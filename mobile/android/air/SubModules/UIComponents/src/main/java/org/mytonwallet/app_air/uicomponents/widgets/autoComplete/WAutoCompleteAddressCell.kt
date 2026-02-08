@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.uicomponents.widgets.autoComplete
 
-import android.animation.Animator
 import android.content.Context
 import android.text.TextUtils
 import android.view.Gravity
@@ -10,18 +9,13 @@ import android.widget.FrameLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
-import androidx.core.view.updateLayoutParams
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.commonViews.AccountIconView
 import org.mytonwallet.app_air.uicomponents.commonViews.CardThumbnailView
-import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
-import org.mytonwallet.app_air.uicomponents.extensions.animatorSet
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
@@ -45,19 +39,10 @@ import kotlin.math.abs
 class WAutoCompleteAddressCell(context: Context) : WCell(
     context, LayoutParams(MATCH_PARENT, 60.dp)
 ), IAutoCompleteAddressItemCell, WThemedView {
-
-    private val animationDuration = AnimationConstants.QUICK_ANIMATION
-    private var animator: Animator? = null
-
     private var account: MAccount? = null
     private var address: MSavedAddress? = null
     private var keyword: String = ""
-    private var isFirst: Boolean = false
     private var isLast: Boolean = false
-    private var animationState: AutoCompleteAddressItem.AnimationState =
-        AutoCompleteAddressItem.AnimationState.IDLE
-
-    private val contentHeight = 60.dp
 
     private val iconView: AccountIconView by lazy {
         AccountIconView(context, AccountIconView.Usage.ViewItem(16f.dp))
@@ -107,6 +92,8 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
     }
 
     val contentView = WView(context).apply {
+        clipChildren = false
+        clipToPadding = false
         addView(iconView, LayoutParams(44.dp, 44.dp))
         addView(
             titleLabel,
@@ -153,25 +140,21 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
         }
     }
 
-    private val backgroundContainer: FrameLayout = WFrameLayout(context).apply {
-        addView(contentView, LayoutParams(MATCH_PARENT, contentHeight))
-    }
-
     init {
         super.setupViews()
 
-        addView(backgroundContainer, LayoutParams(MATCH_PARENT, contentHeight))
+        addView(contentView, LayoutParams(MATCH_PARENT, 60.dp))
         setConstraints {
-            toTop(backgroundContainer)
-            toCenterX(backgroundContainer)
+            toTop(contentView)
+            toCenterX(contentView)
         }
     }
 
     override fun configure(
         item: AutoCompleteAddressItem,
+        isLast: Boolean,
         onTap: () -> Unit,
-        changeAnimationFinishListener: (() -> Unit),
-        onLongClick: (() -> Unit)?,
+        onLongClick: (() -> Unit)?
     ) {
         val account = item.account
         if (account == null) {
@@ -181,30 +164,14 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
         if (address == null) {
             this.address = null
         }
-        if (!configureAccount(
-                account = account,
-                balance = item.value ?: "",
-                keyword = item.keyword,
-                isFirst = item.isFirst,
-                isLast = item.isLast,
-                animationState = item.animationState
-            ) && !configureAddress(
-                address = address,
-                keyword = item.keyword,
-                isFirst = item.isFirst,
-                isLast = item.isLast,
-                animationState = item.animationState
-            )
+        if (!configureAccount(account, item.value ?: "", item.keyword, isLast) &&
+            !configureAddress(address, item.keyword, isLast)
         ) {
             return
         }
 
-        val stateChanged = this.animationState != item.animationState
-
-        this.isFirst = item.isFirst
-        this.isLast = item.isLast
+        this.isLast = isLast
         this.keyword = item.keyword
-        this.animationState = item.animationState
 
         contentView.setConstraints {
             endToStart(
@@ -213,23 +180,23 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
                 16f + (if (cardThumbnail.isGone) 0f else 22f)
             )
         }
-        val itemGap = if (item.isLast) ViewConstants.GAP.dp else 0
-        val totalItemHeight = contentHeight + itemGap
-        if (layoutParams.height != totalItemHeight) {
-            updateLayoutParams { height = totalItemHeight }
-            setPadding(0, 0, 0, itemGap)
+        ((60 + if (isLast) ViewConstants.GAP else 0).dp).let {
+            if (layoutParams.height != it) {
+                layoutParams.height = it
+                requestLayout()
+            }
         }
 
-        backgroundContainer.setOnClickListener {
+        setOnClickListener {
             onTap()
         }
         if (onLongClick != null) {
-            backgroundContainer.setOnLongClickListener {
+            setOnLongClickListener {
                 onLongClick()
                 true
             }
         } else {
-            backgroundContainer.setOnLongClickListener(null)
+            setOnLongClickListener(null)
         }
 
         updateTheme()
@@ -243,82 +210,13 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
         } else {
             valueLabel.isVisible = false
         }
-
-        if (!stateChanged) {
-            return
-        }
-        when (animationState) {
-            AutoCompleteAddressItem.AnimationState.IDLE -> {
-                animator?.cancel()
-                animator = null
-                resetCollapseProgress()
-            }
-
-            AutoCompleteAddressItem.AnimationState.DISAPPEARING -> animateCollapse(
-                if (isFirst) 0 else itemGap,
-                changeAnimationFinishListener
-            )
-
-            AutoCompleteAddressItem.AnimationState.CORNER_ROUNDING -> animateRounding(
-                changeAnimationFinishListener
-            )
-        }
-    }
-
-    private fun resetCollapseProgress() {
-        backgroundContainer.translationY = 0f
-        contentView.alpha = 1f
-        contentView.scaleX = 1f
-        contentView.scaleY = 1f
-    }
-
-    override fun hasActiveAnimation(): Boolean {
-        return animator?.isRunning == true
-    }
-
-    private fun animateCollapse(targetHeight: Int, finishListener: () -> Unit) {
-        animator = animatorSet {
-            duration(animationDuration)
-            interpolator(CubicBezierInterpolator.EASE_OUT)
-            together {
-                intValues(height, targetHeight) {
-                    onUpdate { h -> updateLayoutParams { height = h } }
-                }
-                viewProperty(backgroundContainer) {
-                    translationY(-contentHeight.toFloat())
-                }
-                viewProperty(contentView) {
-                    duration(animationDuration / 4)
-                    alpha(0f)
-                    scaleX(0.95f)
-                    scaleY(0.8f)
-                }
-            }
-            onEnd { finishListener() }
-        }.also { it.start() }
-    }
-
-    private fun animateRounding(finishListener: () -> Unit) {
-        animator = animatorSet {
-            startDelay((animationDuration * ((contentHeight - ViewConstants.BIG_RADIUS.dp) / contentHeight)).toLong())
-            duration((animationDuration * 0.8).toLong())
-            interpolator(CubicBezierInterpolator.EASE_OUT)
-            together {
-                floatValues(0f, ViewConstants.BIG_RADIUS.dp) {
-                    onUpdate { r -> updateBottomRadius(r) }
-                }
-            }
-            onEnd { finishListener() }
-        }.also { it.start() }
     }
 
     private fun configureAccount(
         account: MAccount?,
         balance: String,
         keyword: String,
-        isFirst: Boolean,
-        isLast: Boolean,
-        animationState: AutoCompleteAddressItem.AnimationState,
+        isLast: Boolean
     ): Boolean {
         if (account == null) {
             this.account = null
@@ -328,9 +226,7 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
             titleLabel.text == account.name &&
             valueLabel.contentView.text == balance &&
             this.keyword == keyword &&
-            this.isFirst == isFirst &&
-            this.isLast == isLast &&
-            this.animationState == animationState
+            this.isLast == isLast
         ) {
             updateTheme()
             notifyBalanceChange()
@@ -356,9 +252,7 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
     private fun configureAddress(
         address: MSavedAddress?,
         keyword: String,
-        isFirst: Boolean,
-        isLast: Boolean,
-        animationState: AutoCompleteAddressItem.AnimationState
+        isLast: Boolean
     ): Boolean {
         if (address == null) {
             this.address = null
@@ -367,9 +261,7 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
         if (this.address == address &&
             titleLabel.text == address.name &&
             this.keyword == keyword &&
-            this.isFirst == isFirst &&
-            this.isLast == isLast &&
-            this.animationState == animationState
+            this.isLast == isLast
         ) {
             updateTheme()
             notifyBalanceChange()
@@ -406,15 +298,9 @@ class WAutoCompleteAddressCell(context: Context) : WCell(
     }
 
     private fun updateRadius() {
-        updateBottomRadius(if (isLast) ViewConstants.BIG_RADIUS.dp else 0f.dp)
-    }
-
-    private fun updateBottomRadius(radius: Float) {
-        backgroundContainer.setBackgroundColor(WColor.Background.color, 0f.dp, radius)
-        backgroundContainer.background = WRippleDrawable.create(0f, 0f, radius, radius).apply {
-            backgroundColor = WColor.Background.color
-            rippleColor = WColor.SecondaryBackground.color
-        }
+        val bottomRadius = if (isLast) ViewConstants.BIG_RADIUS.dp else 0f.dp
+        contentView.setBackgroundColor(WColor.Background.color, 0f.dp, bottomRadius)
+        contentView.addRippleEffect(WColor.SecondaryBackground.color, 0f.dp, bottomRadius)
     }
 
     private fun updateAddressLabel() {

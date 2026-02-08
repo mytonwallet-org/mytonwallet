@@ -378,7 +378,7 @@ class ImportWalletVC(
                     Logger.LogTag.ACCOUNT,
                     LogMessage.Builder()
                         .append(
-                            "activateAccount: Failed on import finalization err=$err",
+                            "Activation failed on import finalization: $err",
                             LogMessage.MessagePartPrivacy.PUBLIC
                         ).build()
                 )

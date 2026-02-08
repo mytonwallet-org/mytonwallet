@@ -10,6 +10,7 @@ import org.mytonwallet.app_air.uicomponents.adapter.implementation.Item
 import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
@@ -18,28 +19,23 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import java.math.BigInteger
 import kotlin.math.abs
-import kotlin.math.roundToInt
 
 class ListIconDualLineCell(context: Context) : FrameLayout(context), WThemedView {
-    companion object {
-        const val HEIGHT = 60
+    private val separatorDrawable = SeparatorBackgroundDrawable().apply {
+        offsetStart = 72f.dp
+        offsetEnd = 16f.dp
     }
-
-    private val separatorDrawable = SeparatorBackgroundDrawable()
     private val ripple = WRippleDrawable.create(separatorDrawable)
 
     private val tokenImage = WCustomImageView(context).apply {
         layoutParams = LayoutParams(
-            ApplicationContextHolder.adaptiveIconSize.dp,
-            ApplicationContextHolder.adaptiveIconSize.dp,
+            48.dp,
+            48.dp,
             Gravity.START or Gravity.CENTER_VERTICAL
-        ).apply {
-            marginStart = 12.dp
-        }
+        )
     }
 
     private val tokenTitle = WLabel(context).apply {
@@ -47,13 +43,14 @@ class ListIconDualLineCell(context: Context) : FrameLayout(context), WThemedView
             LayoutParams.WRAP_CONTENT,
             LayoutParams.WRAP_CONTENT
         ).apply {
-            marginStart = ApplicationContextHolder.adaptiveContentStart.dp.roundToInt()
-            topMargin = 9.dp
+            marginStart = 56.dp
+            topMargin = 2.dp
         }
         ellipsize = TextUtils.TruncateAt.END
         isSingleLine = true
 
-        setStyle(ApplicationContextHolder.adaptiveFontSize, WFont.DemiBold)
+        setStyle(16f, WFont.Medium)
+        setLineHeight(24f)
         setTextColor(WColor.PrimaryText)
     }
 
@@ -63,6 +60,7 @@ class ListIconDualLineCell(context: Context) : FrameLayout(context), WThemedView
             isSingleLine = true
 
             setStyle(13f, WFont.Regular)
+            setLineHeight(20f)
             setTextColor(WColor.SecondaryText)
         },
         WSensitiveDataContainer.MaskConfig(
@@ -73,7 +71,7 @@ class ListIconDualLineCell(context: Context) : FrameLayout(context), WThemedView
     )
 
     init {
-        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, HEIGHT.dp)
+        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, 60.dp)
         background = ripple
 
         addView(tokenImage)
@@ -83,11 +81,11 @@ class ListIconDualLineCell(context: Context) : FrameLayout(context), WThemedView
                 LayoutParams.WRAP_CONTENT,
                 LayoutParams.WRAP_CONTENT
             ).apply {
-                gravity = Gravity.START or Gravity.BOTTOM
-                marginStart = ApplicationContextHolder.adaptiveContentStart.dp.roundToInt()
-                bottomMargin = 10.dp
+                marginStart = 56.dp
+                topMargin = 26.dp
             })
 
+        setPaddingDp(12, 6, 16, 6)
         updateTheme()
     }
 
@@ -107,8 +105,7 @@ class ListIconDualLineCell(context: Context) : FrameLayout(context), WThemedView
             tokenImage.clear()
         }
 
-        val margin =
-            (if (image != null) ApplicationContextHolder.adaptiveContentStart else 12f).dp.roundToInt()
+        val margin = if (image != null) 56.dp else 10.dp
         listOf(tokenTitle, tokenSubtitle).forEach { view ->
             (view.layoutParams as? MarginLayoutParams)?.apply {
                 marginStart = margin

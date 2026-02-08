@@ -73,7 +73,6 @@ const EXPLORER_ALLOWED_COMMANDS = new Set([
 ]);
 
 let urlAfterSignIn: string | undefined;
-let urlAfterInit: string | undefined;
 
 export function processDeeplinkAfterSignIn() {
   if (!urlAfterSignIn) return;
@@ -81,15 +80,6 @@ export function processDeeplinkAfterSignIn() {
   void processDeeplink(urlAfterSignIn);
 
   urlAfterSignIn = undefined;
-}
-
-export function processDeeplinkAfterInit() {
-  if (!urlAfterInit) return;
-
-  const url = urlAfterInit;
-  urlAfterInit = undefined;
-
-  void processDeeplink(url);
 }
 
 export async function openDeeplinkOrUrl(
@@ -110,14 +100,7 @@ export async function openDeeplinkOrUrl(
 
 // Returns `true` if the link has been processed, ideally resulting to a UI action
 export function processDeeplink(url: string, isFromInAppBrowser = false): Promise<boolean> {
-  const global = getGlobal();
-
-  if ((global as AnyLiteral).isInited === false) {
-    urlAfterInit = url;
-    return Promise.resolve(true);
-  }
-
-  if (!global.currentAccountId) {
+  if (!getGlobal().currentAccountId) {
     urlAfterSignIn = url;
   }
 
@@ -714,7 +697,7 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
 
         if (!activities?.length) {
           actions.showError({ error: '$transaction_not_found' });
-          return true;
+          return false;
         }
 
         // Get address from the first activity (toAddress for transactions, fromAddress for swaps)
@@ -727,7 +710,7 @@ export async function processSelfDeeplink(deeplink: string): Promise<boolean> {
 
         if (!viewAddress) {
           actions.showError({ error: '$could_not_determine_address' });
-          return true;
+          return false;
         }
 
         if (shouldOpenViewAccount && !await openViewAccount(chain, viewAddress)) return false;

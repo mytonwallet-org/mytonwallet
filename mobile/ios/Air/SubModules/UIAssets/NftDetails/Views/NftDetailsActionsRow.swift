@@ -1,14 +1,18 @@
 
 import SwiftUI
+import UIKit
 import UIComponents
 import WalletContext
 import WalletCore
+import Kingfisher
 import Dependencies
 import Perception
 
 struct NftDetailsActionsRow: View {
     
     var viewModel: NftDetailsViewModel
+    
+    @Environment(\.colorScheme) private var colorScheme
     
     @State private var wearMenu: MenuContext = MenuContext()
     @State private var moreMenu: MenuContext = MenuContext()
@@ -51,7 +55,6 @@ struct NftDetailsActionsRow: View {
                     viewModel.selectedSubmenu = nil
                 }
             }
-            .fixedSize(horizontal: IOS_26_MODE_ENABLED, vertical: false)
         }
     }
     
@@ -343,7 +346,7 @@ struct ActionButtonStyle: PrimitiveButtonStyle {
 #if DEBUG
 @available(iOS 18, *)
 #Preview {
-    @Previewable var viewModel = NftDetailsViewModel(accountId: "0-mainnet", nft: .sampleMtwCard, listContext: .none)
+    @Previewable var viewModel = NftDetailsViewModel(accountId: "0-mainnet", nft: .sampleMtwCard, listContext: .none, navigationBarInset: 0)
     VStack {
         NftDetailsActionsRow(viewModel: viewModel)
         Button("Toggle isExplanded") {

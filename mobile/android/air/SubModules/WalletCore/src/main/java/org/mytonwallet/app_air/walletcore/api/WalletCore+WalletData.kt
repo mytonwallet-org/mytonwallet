@@ -20,7 +20,7 @@ fun WalletCore.fetchAllActivitySlice(
 ) {
     Logger.d(
         Logger.LogTag.ACTIVITY_STORE,
-        "fetchAllActivitySlice: account=$accountId limit=$limit toTimestamp=$toTimestamp"
+        "fetchAllActivitySlice, Account: $accountId - limit: $limit - toTimestamp: $toTimestamp"
     )
     bridge?.callApi(
         "fetchPastActivities",
@@ -60,7 +60,7 @@ fun WalletCore.fetchTokenActivitySlice(
 ) {
     Logger.d(
         Logger.LogTag.ACTIVITY_STORE,
-        "fetchTokenActivitySlice: account=$accountId slug=$slug"
+        "fetchTokenActivitySlice, Account: $accountId - Slug: $slug"
     )
     bridge?.callApi(
         "fetchPastActivities",

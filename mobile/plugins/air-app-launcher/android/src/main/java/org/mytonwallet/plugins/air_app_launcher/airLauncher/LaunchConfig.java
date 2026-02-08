@@ -11,8 +11,4 @@ public class LaunchConfig {
   public static void setShouldStartOnAir(Context context, boolean newValue) {
     org.mytonwallet.app_air.walletcontext.helpers.LaunchConfig.setShouldStartOnAir(context, newValue);
   }
-
-  public static void recordAppOpened(Context context) {
-    org.mytonwallet.app_air.walletcontext.helpers.LaunchConfig.recordAppOpened(context);
-  }
 }

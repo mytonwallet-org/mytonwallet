@@ -57,10 +57,7 @@ class AssetsTabVC(
     override val isSwipeBackAllowed = false
 
     private val tokensVC: TokensVC by lazy {
-        TokensVC(context, showingAccountId, TokensVC.Mode.ALL, onScroll = { recyclerView ->
-            segmentedController.updateBlurViews(recyclerView)
-            updateBlurViews(recyclerView)
-        })
+        TokensVC(context, showingAccountId, TokensVC.Mode.ALL)
     }
 
     private val collectiblesVC: AssetsVC by lazy {
@@ -69,11 +66,7 @@ class AssetsTabVC(
             showingAccountId,
             AssetsVC.Mode.COMPLETE,
             injectedWindow = window,
-            isShowingSingleCollection = false,
-            onScroll = { recyclerView ->
-                segmentedController.updateBlurViews(recyclerView)
-                updateBlurViews(recyclerView)
-            }
+            isShowingSingleCollection = false
         )
     }
 
@@ -150,11 +143,7 @@ class AssetsTabVC(
                                     AssetsVC.Mode.COMPLETE,
                                     injectedWindow = window,
                                     collectionMode = collectionMode,
-                                    isShowingSingleCollection = false,
-                                    onScroll = { recyclerView ->
-                                        segmentedController.updateBlurViews(recyclerView)
-                                        updateBlurViews(recyclerView)
-                                    }
+                                    isShowingSingleCollection = false
                                 )
                                 WSegmentedControllerItem(
                                     viewController = vc,
@@ -213,9 +202,6 @@ class AssetsTabVC(
             navigationController!!,
             segmentItems,
             defaultSelectedIndex.coerceAtLeast(0),
-            onOffsetChange = { _, _ ->
-                bottomReversedCornerView?.resumeBlurring()
-            }
         )
         sc
     }

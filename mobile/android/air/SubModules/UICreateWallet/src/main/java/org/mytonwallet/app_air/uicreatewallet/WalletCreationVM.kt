@@ -45,15 +45,15 @@ class WalletCreationVM(delegate: Delegate) {
                     Logger.LogTag.ACCOUNT,
                     LogMessage.Builder()
                         .append(
-                            "finalizeAccount: accountId=$createdAccountId",
+                            createdAccountId,
                             LogMessage.MessagePartPrivacy.PUBLIC
                         )
                         .append(
-                            " address=",
+                            "Created",
                             LogMessage.MessagePartPrivacy.PUBLIC
                         )
                         .append(
-                            "${account.tonAddress}",
+                            "Address: ${account.tonAddress}",
                             LogMessage.MessagePartPrivacy.REDACTED
                         ).build()
                 )
@@ -81,7 +81,7 @@ class WalletCreationVM(delegate: Delegate) {
                             Logger.LogTag.ACCOUNT,
                             LogMessage.Builder()
                                 .append(
-                                    "activateAccount: Failed after wallet creation err=$err",
+                                    "Activation failed after wallet creation: $err",
                                     LogMessage.MessagePartPrivacy.PUBLIC
                                 ).build()
                         )

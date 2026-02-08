@@ -2,11 +2,11 @@ package org.mytonwallet.app_air.uicomponents.commonViews.cells
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -17,8 +17,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 @SuppressLint("ViewConstructor")
 class TitleSubtitleSelectionCell(
-    context: Context
-) : WCell(context, LayoutParams(MATCH_PARENT, 60.dp)), WThemedView {
+    context: Context,
+    layoutParams: LayoutParams
+) : WCell(context, layoutParams), WThemedView {
 
     private val selectionImageView: AppCompatImageView by lazy {
         val img = AppCompatImageView(context)
@@ -47,9 +48,9 @@ class TitleSubtitleSelectionCell(
         setConstraints {
             toCenterY(selectionImageView)
             toStart(selectionImageView, 12f)
-            toTop(titleLabel, 7.75f)
+            toTop(titleLabel, 13.75f)
             toStart(titleLabel, 64f)
-            toTop(subtitleLabel, 31.75f)
+            toTop(subtitleLabel, 37.75f)
             toStart(subtitleLabel, 64f)
         }
 

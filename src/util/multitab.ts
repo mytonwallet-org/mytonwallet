@@ -1,4 +1,3 @@
-import type { BottomSheetKeys } from '@mytonwallet/native-bottom-sheet';
 import { addCallback as onGlobalChange } from '../lib/teact/teactn';
 import { getActions, getGlobal, setGlobal } from '../global';
 
@@ -17,9 +16,6 @@ import { IS_DELEGATED_BOTTOM_SHEET, IS_DELEGATING_BOTTOM_SHEET, IS_MULTITAB_SUPP
 import { isBackgroundModeActive } from '../hooks/useBackgroundMode';
 
 type Recipient = 'main' | 'native';
-type ActionMeta = {
-  sheetKey?: BottomSheetKeys;
-};
 
 interface BroadcastChannelGlobalDiff {
   type: 'globalDiffUpdate';
@@ -31,7 +27,6 @@ interface BroadcastChannelCallAction<K extends keyof ActionPayloads> {
   recipient: Recipient;
   name: K;
   options?: ActionPayloads[K];
-  sheetKey?: BottomSheetKeys;
 }
 
 interface BroadcastChannelCallApiRequest<K extends keyof AllMethods> {
@@ -57,17 +52,12 @@ interface BroadcastChannelNativeLogsResponse {
   logs: Log[];
 }
 
-interface BroadcastChannelNativeReady {
-  type: 'nativeReady';
-}
-
 type BroadcastChannelMessage = BroadcastChannelGlobalDiff
   | BroadcastChannelCallAction<keyof ActionPayloads>
   | BroadcastChannelCallApiRequest<keyof AllMethods>
   | BroadcastChannelCallApiResponse<keyof AllMethods>
   | BroadcastChannelNativeLogsRequest
-  | BroadcastChannelNativeLogsResponse
-  | BroadcastChannelNativeReady;
+  | BroadcastChannelNativeLogsResponse;
 type EventListener = (type: 'message', listener: (event: { data: BroadcastChannelMessage }) => void) => void;
 
 export type TypedBroadcastChannel = {
@@ -82,60 +72,6 @@ const channel = IS_MULTITAB_SUPPORTED
 
 let currentGlobal = getGlobal();
 let messageIndex = 0;
-/** In main is always `true`, in NBS is `false` until the global state is initialized */
-let isDelegatedGlobalReady = !IS_DELEGATED_BOTTOM_SHEET;
-/** Non-empty only in NBS. Stores action payloads requested from main to be executed on NBS */
-const pendingNativeActions: Array<BroadcastChannelCallAction<keyof ActionPayloads>> = [];
-/** In NBS is always `true`, in main is `false` until NBS is ready */
-let isNativeReady = !IS_DELEGATING_BOTTOM_SHEET;
-/** Non-empty only in main. Stores action requests to be executed on NBS. If we send send before NBS reports it's ready, they will be dropped, so we need to store them and send later. */
-const pendingCallsToNative: Array<BroadcastChannelCallAction<keyof ActionPayloads>> = [];
-let delegatingBottomSheetKey: string | undefined;
-let delegatedBottomSheetKey: BottomSheetKeys | undefined;
-
-export function markDelegatedGlobalReady() {
-  if (!IS_DELEGATED_BOTTOM_SHEET || isDelegatedGlobalReady) {
-    return;
-  }
-
-  const global = getGlobal();
-  const omitted: GlobalState = omit(global as GlobalState & { isInited?: false }, ['isInited' as const]);
-  setGlobal(omitted);
-
-  isDelegatedGlobalReady = true;
-  flushPendingNativeActions();
-}
-
-export function resetDelegatedGlobalReady() {
-  if (!IS_DELEGATED_BOTTOM_SHEET || !isDelegatedGlobalReady) {
-    return;
-  }
-
-  isDelegatedGlobalReady = false;
-}
-
-export function notifyNativeReady() {
-  if (!IS_DELEGATED_BOTTOM_SHEET || !channel) {
-    return;
-  }
-
-  // Send to main that NBS is ready
-  channel.postMessage({ type: 'nativeReady' });
-}
-
-function runAction(payload: BroadcastChannelCallAction<keyof ActionPayloads>) {
-  if (!IS_DELEGATED_BOTTOM_SHEET) {
-    getActions()[payload.name](payload.options as never);
-    return;
-  }
-
-  if (!shouldRunActionNow(payload)) {
-    pendingNativeActions.push(payload);
-    return;
-  }
-
-  getActions()[payload.name](payload.options as never);
-}
 
 export function initMultitab({ noPubGlobal }: { noPubGlobal?: boolean } = {}) {
   if (!channel) return;
@@ -190,11 +126,11 @@ async function handleMultitabMessage({ data }: { data: BroadcastChannelMessage }
     }
 
     case 'callAction': {
-      const { recipient } = data;
+      const { recipient, name, options } = data;
 
       if (!doesMessageRecipientMatch(recipient)) return;
 
-      runAction(data);
+      getActions()[name](options as never);
       break;
     }
 
@@ -214,16 +150,6 @@ async function handleMultitabMessage({ data }: { data: BroadcastChannelMessage }
       channel!.postMessage({ type: 'logsFromNative', logs: getLogs() });
       break;
     }
-
-    case 'nativeReady': {
-      if (!IS_DELEGATING_BOTTOM_SHEET || isNativeReady) return;
-
-      isNativeReady = true;
-      pendingCallsToNative.splice(0).forEach((message) => {
-        channel!.postMessage(message);
-      });
-      break;
-    }
   }
 }
 
@@ -241,73 +167,13 @@ export function callActionInMain<K extends keyof ActionPayloads>(name: K, option
   });
 }
 
-export function callActionInNative<K extends keyof ActionPayloads>(
-  name: K,
-  options?: ActionPayloads[K],
-  meta?: ActionMeta,
-) {
-  const message: BroadcastChannelCallAction<K> = {
+export function callActionInNative<K extends keyof ActionPayloads>(name: K, options?: ActionPayloads[K]) {
+  channel!.postMessage({
     type: 'callAction',
     recipient: 'native',
     name,
     options,
-    sheetKey: meta?.sheetKey,
-  };
-
-  if (IS_DELEGATING_BOTTOM_SHEET && !isNativeReady) {
-    pendingCallsToNative.push(message as BroadcastChannelCallAction<keyof ActionPayloads>);
-    return;
-  }
-
-  channel!.postMessage(message);
-}
-
-export function setDelegatingBottomSheetKey(key?: string) {
-  delegatingBottomSheetKey = key;
-}
-
-export function getDelegatingBottomSheetKey() {
-  return delegatingBottomSheetKey;
-}
-
-export function clearDelegatingBottomSheetKey(key?: string) {
-  if (!key || delegatingBottomSheetKey !== key) {
-    return;
-  }
-
-  delegatingBottomSheetKey = undefined;
-}
-
-export function setDelegatedBottomSheetKey(key?: BottomSheetKeys) {
-  delegatedBottomSheetKey = key;
-}
-
-function shouldRunActionNow(payload: BroadcastChannelCallAction<keyof ActionPayloads>) {
-  if (!isDelegatedGlobalReady) {
-    return false;
-  }
-
-  return !payload.sheetKey || payload.sheetKey === delegatedBottomSheetKey;
-}
-
-function flushPendingNativeActions() {
-  if (!pendingNativeActions.length) {
-    return;
-  }
-
-  const remaining: typeof pendingNativeActions = [];
-  pendingNativeActions.splice(0).forEach((payload) => {
-    if (!shouldRunActionNow(payload)) {
-      remaining.push(payload);
-      return;
-    }
-
-    getActions()[payload.name](payload.options as never);
   });
-
-  if (remaining.length) {
-    pendingNativeActions.push(...remaining);
-  }
 }
 
 export function callApiInMain<T extends keyof AllMethods>(name: T, ...args: AllMethodArgs<T>) {

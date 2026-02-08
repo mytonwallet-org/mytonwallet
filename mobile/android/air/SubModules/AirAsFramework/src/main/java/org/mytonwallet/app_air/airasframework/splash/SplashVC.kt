@@ -164,7 +164,7 @@ class SplashVC(context: Context) : WViewController(context),
     }
 
     fun bridgeIsReady() {
-        Logger.i(Logger.LogTag.AIR_APPLICATION, "bridgeIsReady: Activating account")
+        Logger.i(Logger.LogTag.AIR_APPLICATION, "Bridge Ready, Activating account")
         val accountIds = WGlobalStorage.accountIds()
         if (accountIds.isEmpty()) {
             // Reset and make sure nothing is cached (to handle corrupted global storage conditions)
@@ -214,7 +214,7 @@ class SplashVC(context: Context) : WViewController(context),
                     val nextTryAccountId = nextTryAccountIds.first()
                     Logger.d(
                         Logger.LogTag.ACCOUNT,
-                        "activateAccount: Failed to load accountId=$activatingAccountId, trying nextAccountId=$nextTryAccountId"
+                        "Failed to load $activatingAccountId account on splash, trying $nextTryAccountId"
                     )
                     AccountStore.removeAccount(
                         activatingAccountId,
@@ -229,7 +229,7 @@ class SplashVC(context: Context) : WViewController(context),
                         })
                 } else {
                     // No more accounts left, let's reset
-                    Logger.d(Logger.LogTag.ACCOUNT, "activateAccount: Reset accounts on splash error")
+                    Logger.d(Logger.LogTag.ACCOUNT, "Reset accounts on splash error")
                     StakingStore.wipeData()
                     resetToIntro()
                 }
@@ -249,7 +249,7 @@ class SplashVC(context: Context) : WViewController(context),
         val navigationController = WNavigationController(window!!)
         navigationController.setRoot(IntroVC(context, network))
         window!!.replace(navigationController, false)
-        Logger.i(Logger.LogTag.AIR_APPLICATION, "presentIntro: Done")
+        Logger.i(Logger.LogTag.AIR_APPLICATION, "Presented Intro")
     }
 
     private fun presentTabsAndLockScreen(presentLockScreen: Boolean) {
@@ -258,7 +258,7 @@ class SplashVC(context: Context) : WViewController(context),
         if (!presentLockScreen)
             appIsUnlocked = true
         window!!.replace(tabsNav, false, onCompletion = {
-            Logger.i(Logger.LogTag.AIR_APPLICATION, "presentTabsAndLockScreen: Done")
+            Logger.i(Logger.LogTag.AIR_APPLICATION, "Presented tabsNav")
             if (presentLockScreen) {
                 if (!appIsUnlocked)
                     presentLockScreen()
@@ -639,7 +639,7 @@ class SplashVC(context: Context) : WViewController(context),
                                         Logger.LogTag.ACCOUNT,
                                         LogMessage.Builder()
                                             .append(
-                                                "activateAccount: Failed to switch to deeplink account",
+                                                "Switch to deeplink account failed",
                                                 LogMessage.MessagePartPrivacy.PUBLIC
                                             ).build()
                                     )

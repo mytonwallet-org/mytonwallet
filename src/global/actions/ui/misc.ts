@@ -23,16 +23,11 @@ import {
 } from '../../../config';
 import { parseNotificationTxId } from '../../../util/activities';
 import { getDoesUsePinPad } from '../../../util/biometrics';
-import {
-  openDeeplinkOrUrl,
-  parseDeeplinkTransferParams,
-  processDeeplink,
-} from '../../../util/deeplink';
+import { openDeeplinkOrUrl, parseDeeplinkTransferParams, processDeeplink } from '../../../util/deeplink';
 import getIsAppUpdateNeeded from '../../../util/getIsAppUpdateNeeded';
 import { vibrate, vibrateOnSuccess } from '../../../util/haptics';
 import { omit } from '../../../util/iteratees';
 import { getTranslation } from '../../../util/langProvider';
-import { logDebugError } from '../../../util/logs';
 import { callActionInMain, callActionInNative } from '../../../util/multitab';
 import { openUrl } from '../../../util/openUrl';
 import { getTelegramApp } from '../../../util/telegram';
@@ -118,75 +113,86 @@ addActionHandler('openTransactionInfo', async (global, actions, payload) => {
   const chain = payload.chain;
   const isTxId = 'txId' in payload;
   const txId = isTxId ? payload.txId : payload.txHash;
-  let activities = payload.activities;
+  const providedActivities = payload.activities;
 
-  const account = selectCurrentAccount(getGlobal());
-  if (!account) {
-    const isTooEarly = (getGlobal() as AnyLiteral).isInited === false;
-    logDebugError('openTransactionInfo', 'Account not found', isTooEarly);
-    setGlobal(updateCurrentTransactionInfo(getGlobal(), {
-      state: TransactionInfoState.None,
-      error: 'Unexpected error',
-    }));
-    actions.showError({ error: 'Unexpected error' });
+  if (IS_DELEGATED_BOTTOM_SHEET) {
+    callActionInMain('openTransactionInfo', isTxId
+      ? { txId, chain, activities: providedActivities }
+      : { txHash: txId, chain, activities: providedActivities });
     return;
   }
 
-  const chainAccount = account.byChain[chain];
-  const walletAddress = chainAccount?.address ?? '';
+  // If activities are provided, use them directly
+  if (providedActivities && providedActivities.length > 0) {
+    const nextState = providedActivities.length === 1
+      ? TransactionInfoState.ActivityDetail
+      : TransactionInfoState.ActivityList;
 
-  const network = selectCurrentNetwork(getGlobal());
-
-  const options = isTxId ? { chain, network, txId, walletAddress } : { chain, network, txHash: txId, walletAddress };
-
-  if (!activities) {
-    // This should be called on main to trigger NBS opening
-    setGlobal(updateCurrentTransactionInfo(getGlobal(), {
-      state: TransactionInfoState.Loading,
+    global = getGlobal();
+    setGlobal(updateCurrentTransactionInfo(global, {
+      state: nextState,
       txId,
       chain,
+      activities: providedActivities,
+      selectedActivityIndex: providedActivities.length === 1 ? 0 : undefined,
     }));
+    return;
+  }
 
-    if (IS_DELEGATING_BOTTOM_SHEET) {
-      callActionInNative(
-        'openTransactionInfo',
-        payload,
-        { sheetKey: 'transaction-info' },
-      );
+  // Set loading state
+  global = getGlobal();
+  setGlobal(updateCurrentTransactionInfo(global, {
+    state: TransactionInfoState.Loading,
+    txId,
+    chain,
+  }));
+
+  try {
+    const account = selectCurrentAccount(getGlobal());
+    if (!account) return;
+    const chainAccount = account.byChain[chain];
+    const walletAddress = chainAccount?.address ?? '';
+
+    const network = selectCurrentNetwork(getGlobal());
+
+    const options = isTxId ? { chain, network, txId, walletAddress } : { chain, network, txHash: txId, walletAddress };
+    const activities = await callApi('fetchTransactionById', options);
+
+    global = getGlobal();
+
+    if (!activities || activities.length === 0) {
+      setGlobal(updateCurrentTransactionInfo(global, {
+        state: TransactionInfoState.None,
+        error: 'Transaction not found',
+      }));
+      actions.showError({ error: 'Transaction not found' });
       return;
     }
 
-    activities = await callApi('fetchTransactionById', options);
-  }
+    // If single activity, show detail directly; otherwise show list
+    const nextState = activities.length === 1
+      ? TransactionInfoState.ActivityDetail
+      : TransactionInfoState.ActivityList;
 
-  if (!activities || activities.length === 0) {
-    setGlobal(updateCurrentTransactionInfo(getGlobal(), {
-      state: TransactionInfoState.None,
-      error: '$transaction_not_found',
+    global = getGlobal();
+    setGlobal(updateCurrentTransactionInfo(global, {
+      state: nextState,
+      txId,
+      chain,
+      activities,
+      selectedActivityIndex: activities.length === 1 ? 0 : undefined,
     }));
-    actions.showError({ error: '$transaction_not_found' });
-    return;
+  } catch (err) {
+    global = getGlobal();
+    setGlobal(updateCurrentTransactionInfo(global, {
+      state: TransactionInfoState.None,
+      error: 'Failed to fetch transaction',
+    }));
+    actions.showError({ error: 'Failed to fetch transaction' });
   }
-
-  // If single activity, show detail directly; otherwise show list
-  const nextState = activities.length === 1
-    ? TransactionInfoState.ActivityDetail
-    : TransactionInfoState.ActivityList;
-
-  setGlobal(updateCurrentTransactionInfo(getGlobal(), {
-    state: nextState,
-    txId,
-    chain,
-    activities,
-    selectedActivityIndex: activities.length === 1 ? 0 : undefined,
-  }));
 });
 
 addActionHandler('closeTransactionInfo', (global) => {
-  if (IS_DELEGATED_BOTTOM_SHEET) {
-    callActionInMain('closeTransactionInfo');
-  }
-
   return {
     ...global,
     currentTransactionInfo: {

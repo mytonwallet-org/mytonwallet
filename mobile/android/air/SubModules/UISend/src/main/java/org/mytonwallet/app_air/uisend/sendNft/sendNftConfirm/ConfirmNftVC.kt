@@ -9,6 +9,7 @@ import android.text.SpannableString
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextPaint
+import android.text.TextUtils
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -16,14 +17,14 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.content.ContextCompat
+import androidx.core.view.isGone
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.commonViews.AnimatedKeyValueRowView
 import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
-import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListIconDualLineCell
-import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
+import org.mytonwallet.app_air.uicomponents.drawable.SeparatorBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
@@ -34,6 +35,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.spans.WForegroundColorSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.image.Content
+import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
@@ -48,7 +50,6 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
-import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
@@ -77,7 +78,6 @@ class ConfirmNftVC(
 
     override val displayedAccount =
         DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
-    val account = AccountStore.activeAccount
 
     sealed class Mode {
         data class Send(
@@ -89,7 +89,7 @@ class ConfirmNftVC(
         data object Burn : Mode()
     }
 
-    private val viewModel = ConfirmNftVM(mode, this)
+    private val viewModel = ConfirmNftVM(this)
 
     override var title: String?
         get() = LocaleController.getString(
@@ -100,35 +100,66 @@ class ConfirmNftVC(
         )
         set(_) {}
 
-    private val titleLabel = HeaderCell(context).apply {
-        configure(
-            title = LocaleController.getString("Asset"),
-            titleColor = WColor.Tint,
-            topRounding = HeaderCell.TopRounding.FIRST_ITEM
-        )
-    }
-
-    private val nftView = ListIconDualLineCell(context).apply {
-        id = View.generateViewId()
-        configure(Content.ofUrl(nft.image ?: ""), nft.name, nft.collectionName, false, 12f.dp)
-        allowSeparator(false)
-    }
-
-    private val assetSectionView = WView(context).apply {
-        addView(titleLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        addView(nftView, ViewGroup.LayoutParams(MATCH_PARENT, ListIconDualLineCell.HEIGHT.dp))
-        setConstraints {
-            toTop(titleLabel)
-            topToBottom(nftView, titleLabel)
+    private val separatorDrawable: Drawable by lazy {
+        SeparatorBackgroundDrawable().apply {
+            backgroundWColor = WColor.Background
         }
     }
 
-    private val detailsTitleLabel = HeaderCell(context).apply {
-        configure(
-            title = LocaleController.getString("Details"),
-            titleColor = WColor.Tint,
-            topRounding = HeaderCell.TopRounding.NORMAL
-        )
+    private val titleLabel = WLabel(context).apply {
+        setStyle(16f, WFont.Medium)
+        text = LocaleController.getString("Asset")
+    }
+
+    private val nftImageView = WCustomImageView(context).apply {
+        defaultRounding = Content.Rounding.Radius(12f.dp)
+        set(Content.ofUrl(nft.image ?: ""))
+    }
+
+    private val nftTitleLabel = WLabel(context).apply {
+        setStyle(16f, WFont.Medium)
+        text = nft.name
+        setSingleLine()
+        ellipsize = TextUtils.TruncateAt.END
+    }
+
+    private val nftDescriptionLabel = WLabel(context).apply {
+        setStyle(14f)
+        text = nft.collectionName
+        setSingleLine()
+        ellipsize = TextUtils.TruncateAt.END
+    }
+
+    private val nftInformationView = WView(context).apply {
+        addView(nftTitleLabel)
+        addView(nftDescriptionLabel)
+        setConstraints {
+            toTop(nftTitleLabel)
+            topToBottom(nftDescriptionLabel, nftTitleLabel)
+            toBottom(nftDescriptionLabel)
+            toStart(nftTitleLabel)
+            toStart(nftDescriptionLabel)
+        }
+    }
+
+    private val assetSectionView = WView(context).apply {
+        addView(titleLabel)
+        addView(nftImageView, ViewGroup.LayoutParams(48.dp, 48.dp))
+        addView(nftInformationView, ViewGroup.LayoutParams(0, WRAP_CONTENT))
+        setConstraints {
+            toTop(titleLabel, 16f)
+            toStart(titleLabel, 20f)
+            toTop(nftImageView, 48f)
+            toStart(nftImageView, 20f)
+            startToEnd(nftInformationView, nftImageView, 12f)
+            centerYToCenterY(nftInformationView, nftImageView)
+            toBottom(nftImageView, 16f)
+        }
+    }
+
+    private val detailsTitleLabel = WLabel(context).apply {
+        setStyle(16f, WFont.Medium)
+        text = LocaleController.getString("Details")
     }
 
     private val sendToView: KeyValueRowView by lazy {
@@ -169,7 +200,7 @@ class ConfirmNftVC(
 
     private val toAddressLabel: WLabel by lazy {
         WLabel(context).apply {
-            val address = viewModel.resolvedAddress ?: viewModel.toAddress
+            val address = viewModel.toAddress(mode)
             val formattedAddress = address.formatStartEndAddress()
             val addressAttr = SpannableStringBuilder(formattedAddress).apply {
                 AddressPopupHelpers.configSpannableAddress(
@@ -219,7 +250,7 @@ class ConfirmNftVC(
     }
 
     private val detailsSectionView = WView(context).apply {
-        addView(detailsTitleLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        addView(detailsTitleLabel)
         addView(sendToView, ViewGroup.LayoutParams(MATCH_PARENT, 50.dp))
         when (mode) {
             is Mode.Send -> {
@@ -232,9 +263,14 @@ class ConfirmNftVC(
         addView(recipientAddressView, ViewGroup.LayoutParams(MATCH_PARENT, 50.dp))
         addView(feeView, ViewGroup.LayoutParams(MATCH_PARENT, 50.dp))
         setConstraints {
-            toTop(detailsTitleLabel)
-            topToBottom(sendToView, detailsTitleLabel)
-            topToBottom(recipientAddressView, sendToView)
+            toTop(detailsTitleLabel, 16f)
+            toStart(detailsTitleLabel, 20f)
+            toTop(sendToView, 48f)
+            topToBottom(
+                recipientAddressView,
+                sendToView,
+                if (sendToView.isGone) 48f else 0f
+            )
             topToBottom(feeView, recipientAddressView)
         }
     }
@@ -345,18 +381,15 @@ class ConfirmNftVC(
 
         updateTheme()
 
-        when (mode) {
-            Mode.Burn -> {
-                confirmButton.isLoading = true
-                viewModel.requestFee(
-                    nft,
-                    comment
-                )
-            }
-            is Mode.Send -> {
-                confirmButton.isLoading = false
-                feeUpdated(mode.fee, null)
-            }
+        if (mode == Mode.Burn) {
+            confirmButton.isLoading = true
+            viewModel.requestFee(
+                nft,
+                mode,
+                comment
+            )
+        } else {
+            confirmButton.isLoading = false
         }
     }
 
@@ -371,13 +404,17 @@ class ConfirmNftVC(
         view.setBackgroundColor(WColor.SecondaryBackground.color)
         assetSectionView.setBackgroundColor(
             WColor.Background.color,
-            0f,
+            ViewConstants.TOP_RADIUS.dp,
             ViewConstants.BIG_RADIUS.dp
         )
         detailsSectionView.setBackgroundColor(
             WColor.Background.color,
             ViewConstants.BIG_RADIUS.dp
         )
+        titleLabel.setTextColor(WColor.PrimaryText.color)
+        nftTitleLabel.setTextColor(WColor.PrimaryText.color)
+        nftDescriptionLabel.setTextColor(WColor.SecondaryText.color)
+        detailsTitleLabel.setTextColor(WColor.PrimaryText.color)
     }
 
     override fun showError(error: MBridgeError?) {
@@ -385,16 +422,16 @@ class ConfirmNftVC(
         sentNftAddress = null
     }
 
-    override fun feeUpdated(fee: BigInteger?, err: MBridgeError?) {
+    override fun feeUpdated(result: MApiCheckTransactionDraftResult?, err: MBridgeError?) {
         val ton = TokenStore.getToken(TONCOIN_SLUG)
         ton?.let {
-            fee?.let { fee ->
+            result?.fee?.let { fee ->
                 feeView.setTitleAndValue(
                     LocaleController.getString("Fee"),
                     fee.toString(
                         decimals = ton.decimals,
                         currency = ton.symbol,
-                        currencyDecimals = fee.smartDecimalsCount(ton.decimals),
+                        currencyDecimals = ton.decimals,
                         showPositiveSign = false
                     )
                 )
@@ -406,7 +443,8 @@ class ConfirmNftVC(
     }
 
     private fun confirmSend() {
-        if (account?.isHardware == true) {
+        if (AccountStore.activeAccount?.isHardware == true) {
+            val account = AccountStore.activeAccount!!
             sentNftAddress = nft.address
             push(
                 LedgerConnectVC(
@@ -446,7 +484,7 @@ class ConfirmNftVC(
     private val headerView: View
         get() {
             val address = viewModel.resolvedAddress?.formatStartEndAddress() ?: ""
-            val sendingToString = LocaleController.getString("Sending to")
+            val sendingToString = LocaleController.getString("Sending To")
             val startOffset = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
                 typeface = WFont.Regular.typeface
                 textSize = 16f.dp
@@ -506,24 +544,13 @@ class ConfirmNftVC(
             window?.dismissNav(navigationController)
             return
         }
-        if ((window?.navigationControllers?.size ?: 0) > 1) {
-            window?.dismissLastNav {
-                WalletCore.notifyEvent(
-                    WalletEvent.OpenActivity(
-                        displayedAccount.accountId!!,
-                        receivedActivity
-                    )
+        window?.dismissLastNav {
+            WalletCore.notifyEvent(
+                WalletEvent.OpenActivity(
+                    displayedAccount.accountId!!,
+                    receivedActivity
                 )
-            }
-        } else {
-            navigationController?.popToRoot {
-                WalletCore.notifyEvent(
-                    WalletEvent.OpenActivity(
-                        displayedAccount.accountId!!,
-                        receivedActivity
-                    )
-                )
-            }
+            )
         }
     }
 

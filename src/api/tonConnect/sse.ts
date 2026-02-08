@@ -2,7 +2,6 @@ import type {
   AppRequest,
   ConnectRequest,
   DisconnectEvent,
-  RpcMethod,
   RpcRequests,
 } from '@tonconnect/protocol';
 import nacl, { randomBytes } from 'tweetnacl';
@@ -36,7 +35,6 @@ const TTL_SEC = 300;
 const NONCE_SIZE = 24;
 const MAX_CONFIRM_DURATION = 60 * 1000;
 const SHOULD_SHOW_LOADER_ON_SSE_START = IS_CAPACITOR;
-const ALLOWED_SSE_METHODS = new Set<RpcMethod>(['sendTransaction', 'disconnect', 'signData']);
 
 let sseEventSource: EventSource | undefined;
 let sseDapps: SseDapp[] = [];
@@ -221,15 +219,8 @@ export async function resetupSseConnection() {
       lastOutputId,
     };
 
-    if (!ALLOWED_SSE_METHODS.has(message.method)) {
-      logDebug(`Unsupported SSE method: ${message.method}`);
-      return;
-    }
-
-    const handler = tonConnect[message.method] as (
-      request: ApiDappRequest, message: AppRequest<keyof RpcRequests>,
-    ) => Promise<AnyLiteral>;
-    const result = await handler({ url, accountId, sseOptions }, message);
+    // @ts-ignore
+    const result = await tonConnect[message.method]({ url, accountId, sseOptions }, message);
 
     await sendMessage(result, secretKey, clientId, appClientId);
 

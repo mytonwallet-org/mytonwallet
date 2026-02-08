@@ -51,11 +51,9 @@ public class AssetsTabVC: WViewController, WSegmentedController.Delegate, Wallet
     func setupViews() {
         
         if let sheet = self.sheetPresentationController {
-            sheet.configureFullScreen(true)
-            sheet.configureAllowsInteractiveDismiss(true)
-            if IOS_26_MODE_ENABLED {
-                sheet.prefersGrabberVisible = true
-            }
+            sheet.setValue(true, forKey: "wantsFullScreen")
+            sheet.setValue(true, forKey: "allowsInteractiveDismissWhenFullScreen")
+            sheet.prefersGrabberVisible = true
         }
                 
         let tokensVC = WalletTokensVC(accountSource: accountIdProvider.source, compactMode: false)
@@ -111,7 +109,7 @@ public class AssetsTabVC: WViewController, WSegmentedController.Delegate, Wallet
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         if let sheet = self.sheetPresentationController {
-            sheet.configureAllowsInteractiveDismiss(true)
+            sheet.setValue(true, forKey: "allowsInteractiveDismissWhenFullScreen")
         }
     }
     

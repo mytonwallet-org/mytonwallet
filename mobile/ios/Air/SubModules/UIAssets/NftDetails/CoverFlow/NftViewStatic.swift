@@ -8,6 +8,7 @@
 import UIKit
 import Kingfisher
 import WalletCore
+import WalletContext
 
 
 final class NftViewStatic: UIImageView {
@@ -54,3 +55,4 @@ final class NftViewStatic: UIImageView {
     view
 }
 #endif
+

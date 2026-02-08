@@ -13,11 +13,11 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
-import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
+import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -38,24 +38,17 @@ class ExploreCategoryCell(
 
     private val imagesPadding = 4
 
-    private val img1Ripple = WRippleDrawable.create(18f.dp)
-    private val img2Ripple = WRippleDrawable.create(18f.dp)
-    private val img3Ripple = WRippleDrawable.create(18f.dp)
-
     private val img1 = WCustomImageView(context).apply {
         defaultRounding = Content.Rounding.Radius(18f.dp)
         setPadding(imagesPadding.dp)
-        background = img1Ripple
     }
     private val img2 = WCustomImageView(context).apply {
         defaultRounding = Content.Rounding.Radius(18f.dp)
         setPadding(imagesPadding.dp)
-        background = img2Ripple
     }
     private val img3 = WCustomImageView(context).apply {
         defaultRounding = Content.Rounding.Radius(18f.dp)
         setPadding(imagesPadding.dp)
-        background = img3Ripple
     }
     private val otherImg1 = WCustomImageView(context).apply {
         defaultRounding = Content.Rounding.Radius(7f.dp)
@@ -227,9 +220,9 @@ class ExploreCategoryCell(
     }
 
     override fun updateTheme() {
-        arrayOf(img1Ripple, img2Ripple, img3Ripple).forEach {
-            it.backgroundColor = WColor.SecondaryBackground.color
-            it.rippleColor = WColor.BackgroundRipple.color
+        arrayOf(img1, img2, img3).forEach {
+            it.setBackgroundColor(WColor.SecondaryBackground.color)
+            it.addRippleEffect(WColor.BackgroundRipple.color, 18f.dp)
         }
         containerView.setBackgroundColor(
             WColor.SecondaryBackground.color,

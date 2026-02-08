@@ -97,11 +97,6 @@ export function formatShortDay(langCode: LangCode, datetime: string | number | D
   return formatDayToStringWithCache(langCode, targetAt, noYear, !noDate && 'short', noDate, withTime);
 }
 
-export function formatChartDate(langCode: LangCode, datetime: string | number | Date) {
-  const isCurrentYear = new Date(datetime).getFullYear() === new Date().getFullYear();
-  return formatShortDay(langCode, datetime, isCurrentYear, isCurrentYear);
-}
-
 export function formatTime(datetime: string | number) {
   const date = new Date(datetime);
 

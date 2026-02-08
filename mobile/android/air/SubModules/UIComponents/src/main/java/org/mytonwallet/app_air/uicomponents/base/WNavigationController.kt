@@ -182,7 +182,7 @@ class WNavigationController(
         private set
 
     fun viewWillAppear() {
-        Logger.d(Logger.LogTag.SCREEN, "NavWillAppear: hash=${hashCode()}")
+        Logger.i(Logger.LogTag.SCREEN, "NavWillAppear: ${hashCode()}")
         if (isDisappeared) {
             isDisappeared = false
             unblockTouches()
@@ -191,7 +191,7 @@ class WNavigationController(
     }
 
     fun viewWillDisappear() {
-        Logger.d(Logger.LogTag.SCREEN, "NavWillDisappear: hash=${hashCode()}")
+        Logger.i(Logger.LogTag.SCREEN, "NavWillDisappear: ${hashCode()}")
         isDisappeared = true
         viewControllers.last().viewWillDisappear()
     }

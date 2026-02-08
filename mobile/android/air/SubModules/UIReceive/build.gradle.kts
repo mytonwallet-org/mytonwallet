@@ -49,8 +49,6 @@ dependencies {
     implementation(project("$airSubModulePath:UISwap"))
     implementation(project("$airSubModulePath:UIInAppBrowser"))
     implementation(project("$airSubModulePath:Icons"))
-    implementation(project("$airSubModulePath:vkryl:core"))
-    implementation(project("$airSubModulePath:vkryl:android"))
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

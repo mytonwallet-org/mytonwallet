@@ -34,7 +34,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
-import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
+import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
@@ -60,10 +60,6 @@ class InAppBrowserTopBarView(
     private val minimizeStarted: () -> Unit,
     private val maximizeFinished: () -> Unit,
 ) : WView(viewController.context), WThemedView {
-
-    private val moreButtonRipple = WRippleDrawable.create(20f.dp)
-    private val minimizeButtonRipple = WRippleDrawable.create(20f.dp)
-    private val backButtonRipple = WRippleDrawable.create(100f.dp)
 
     private val backDrawable = BackDrawable(context, false).apply {
         setRotation(1f, false)
@@ -284,10 +280,12 @@ class InAppBrowserTopBarView(
             )?.apply {
                 setTint(WColor.SecondaryText.colorForTheme(shouldRenderAsDarkMode))
             }
+        moreButton.background = null
         moreButton.setImageDrawable(moreDrawable)
-        moreButton.background = moreButtonRipple
-        moreButtonRipple.backgroundColor = Color.TRANSPARENT
-        moreButtonRipple.rippleColor = WColor.BackgroundRipple.colorForTheme(shouldRenderAsDarkMode)
+        moreButton.addRippleEffect(
+            WColor.BackgroundRipple.colorForTheme(shouldRenderAsDarkMode),
+            20f.dp
+        )
         val minimizeDrawable =
             ContextCompat.getDrawable(
                 context,
@@ -297,9 +295,11 @@ class InAppBrowserTopBarView(
             }?.resize(context, 24.dp, 24.dp)
         minimizeButton.rotation = 180f
         minimizeButton.setImageDrawable(minimizeDrawable)
-        minimizeButton.background = minimizeButtonRipple
-        minimizeButtonRipple.backgroundColor = Color.TRANSPARENT
-        minimizeButtonRipple.rippleColor = WColor.BackgroundRipple.colorForTheme(shouldRenderAsDarkMode)
+        minimizeButton.background = null
+        minimizeButton.addRippleEffect(
+            WColor.BackgroundRipple.colorForTheme(shouldRenderAsDarkMode),
+            20f.dp
+        )
         if (!options.isNullOrEmpty()) {
             if (optionsOnTitle) {
                 titleLabel.text =
@@ -309,9 +309,11 @@ class InAppBrowserTopBarView(
                     textWithArrow(options.find { it.identifier == selectedOption }?.title, false)
             }
         }
-        backButton.background = backButtonRipple
-        backButtonRipple.backgroundColor = Color.TRANSPARENT
-        backButtonRipple.rippleColor = WColor.SecondaryBackground.colorForTheme(shouldRenderAsDarkMode)
+        backButton.background = null
+        backButton.addRippleEffect(
+            WColor.SecondaryBackground.colorForTheme(shouldRenderAsDarkMode),
+            100f
+        )
     }
 
     fun blendColors(color1: Int, color2: Int, ratio: Float): Int {

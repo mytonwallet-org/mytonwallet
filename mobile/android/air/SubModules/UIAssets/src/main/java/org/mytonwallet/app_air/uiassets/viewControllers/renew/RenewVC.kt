@@ -122,16 +122,13 @@ class RenewVC(context: Context, val nft: ApiNft) : WViewController(context) {
 
     @SuppressLint("SetTextI18n")
     private fun calculateFee() {
-        val accountId = displayedAccount.accountId ?: return
         WalletCore.call(
             ApiMethod.Domains.CheckDnsRenewalDraft(
-                accountId,
+                AccountStore.activeAccountId!!,
                 listOf(nft)
             ), callback = { res, err ->
-                if (isDestroyed)
-                    return@call
                 this.realFee = res?.realFee ?: BigInteger.ZERO
-                if (err != null || realFee == null) {
+                if (err != null || realFee == null || isDisappeared) {
                     Handler(Looper.getMainLooper()).postDelayed({
                         calculateFee()
                     }, 5000)
