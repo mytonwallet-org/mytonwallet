@@ -132,7 +132,10 @@ class LanguageVC(context: Context) : WViewController(context),
             }
 
             else -> {
-                TitleSubtitleSelectionCell(context)
+                TitleSubtitleSelectionCell(
+                    context,
+                    ConstraintLayout.LayoutParams(MATCH_PARENT, 72.dp)
+                )
             }
         }
     }

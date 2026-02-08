@@ -6,9 +6,10 @@ import android.graphics.Color
 import android.view.Gravity
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
+import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
@@ -31,14 +32,11 @@ class WDialogButton(
         }
     }
 
-    private val ripple = WRippleDrawable.create(20f.dp)
-
     init {
         setStyle(16f, WFont.Medium)
         setPadding(12.dp, 0, 12.dp, 0)
         text = config.title
         gravity = Gravity.CENTER
-        background = ripple
         updateTheme()
     }
 
@@ -47,26 +45,24 @@ class WDialogButton(
         when (config.style) {
             Config.Style.TINT -> {
                 setTextColor(WColor.Tint.color)
-                ripple.backgroundColor = Color.TRANSPARENT
-                ripple.rippleColor = WColor.TintRipple.color
+                addRippleEffect(WColor.TintRipple.color, 20f.dp)
             }
 
             Config.Style.PREFERRED -> {
+                setBackgroundColor(WColor.Tint.color, 20f.dp)
                 setTextColor(WColor.TextOnTint.color)
-                ripple.backgroundColor = WColor.Tint.color
-                ripple.rippleColor = WColor.TintRipple.color
+                addRippleEffect(WColor.TintRipple.color, 20f.dp)
             }
 
             Config.Style.DANGER -> {
                 setTextColor(WColor.White.color)
-                ripple.backgroundColor = WColor.Red.color
-                ripple.rippleColor = Color.BLACK.colorWithAlpha(25)
+                setBackgroundColor(WColor.Red.color, 20f.dp)
+                addRippleEffect(Color.BLACK.colorWithAlpha(25), 20f.dp)
             }
 
             Config.Style.NORMAL -> {
                 setTextColor(WColor.PrimaryText.color)
-                ripple.backgroundColor = Color.TRANSPARENT
-                ripple.rippleColor = WColor.SecondaryBackground.color
+                addRippleEffect(WColor.SecondaryBackground.color, 20f.dp)
             }
         }
     }

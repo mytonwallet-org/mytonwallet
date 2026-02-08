@@ -6,7 +6,20 @@
 //
 
 import SwiftUI
+import UIKit
+import UIComponents
+import WalletContext
+import SwiftUIIntrospect
 import Perception
+
+public enum CoverFlowDefaults {
+    static let itemSpacing: Double = -60
+    static let rotationSensitivity: Double = 2.7
+    static let rotationAngle: Double = -15
+    static let offsetSensitivity: Double = 1
+    static let offsetMultiplier: Double = 4
+    static let offsetMultiplier2: Double = -50
+}
 
 @Perceptible
 final class CoverFlowViewModel<Item: Identifiable> {
@@ -33,3 +46,4 @@ enum CoverFlowIsScrollingPreference: PreferenceKey {
         value = value || nextValue()
     }
 }
+

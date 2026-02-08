@@ -478,7 +478,7 @@ object WalletCore {
                     Logger.LogTag.ACCOUNT,
                     LogMessage.Builder()
                         .append(
-                            "activateAccount: Failed err=$err",
+                            "Activation failed: $err",
                             LogMessage.MessagePartPrivacy.PUBLIC
                         ).build()
                 )

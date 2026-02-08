@@ -25,7 +25,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
-import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
+import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
@@ -76,8 +76,6 @@ class SettingsVC(context: Context) : WViewController(context),
     WalletCore.EventObserver, WalletCore.UpdatesObserver,
     WProtectedView {
     override val TAG = "Settings"
-
-    private val moreButtonRipple = WRippleDrawable.create(20f.dp)
 
     companion object {
         val TIP_URLS = mapOf(
@@ -171,7 +169,6 @@ class SettingsVC(context: Context) : WViewController(context),
 
     private val moreButton: WImageButton by lazy {
         val btn = WImageButton(context)
-        btn.background = moreButtonRipple
         btn.setPadding(8.dp)
         btn.setOnClickListener {
             WMenuPopup.present(
@@ -295,7 +292,7 @@ class SettingsVC(context: Context) : WViewController(context),
             }
 
         moreButton.setImageDrawable(moreDrawable)
-        moreButtonRipple.rippleColor = WColor.BackgroundRipple.color
+        moreButton.addRippleEffect(WColor.BackgroundRipple.color, 20f.dp)
 
         val qrDrawable =
             ContextCompat.getDrawable(
@@ -414,7 +411,7 @@ class SettingsVC(context: Context) : WViewController(context),
                             Logger.LogTag.ACCOUNT,
                             Builder()
                                 .append(
-                                    "activateAccount: Failed in settings err=$err",
+                                    "Activation failed in settings: $err",
                                     LogMessage.MessagePartPrivacy.PUBLIC
                                 ).build()
                         )

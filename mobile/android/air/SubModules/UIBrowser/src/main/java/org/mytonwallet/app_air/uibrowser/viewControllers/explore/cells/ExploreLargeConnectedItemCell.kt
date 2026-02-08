@@ -13,7 +13,6 @@ import org.mytonwallet.app_air.uicomponents.extensions.resize
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
-import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -31,12 +30,6 @@ class ExploreLargeConnectedItemCell(
 ) :
     WCell(context, LayoutParams(cellWidth, WRAP_CONTENT)),
     WThemedView {
-
-    private val ripple = WRippleDrawable.create(16f.dp)
-
-    init {
-        background = ripple
-    }
 
     private val imagePadding = 4
 
@@ -98,8 +91,8 @@ class ExploreLargeConnectedItemCell(
     }
 
     override fun updateTheme() {
-        ripple.backgroundColor = Color.TRANSPARENT
-        ripple.rippleColor = WColor.BackgroundRipple.color
+        setBackgroundColor(Color.TRANSPARENT)
+        addRippleEffect(WColor.BackgroundRipple.color, 16f.dp)
         titleLabel.setTextColor(WColor.PrimaryText.color)
     }
 }

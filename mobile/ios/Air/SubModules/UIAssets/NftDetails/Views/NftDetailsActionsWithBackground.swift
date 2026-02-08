@@ -1,7 +1,9 @@
 
 import SwiftUI
+import UIKit
 import UIComponents
 import WalletContext
+import WalletCore
 import Kingfisher
 import Perception
 
@@ -13,6 +15,7 @@ struct ActionsWithBackground: View {
         WithPerceptionTracking {
             @Perception.Bindable var viewModel = viewModel
             NftDetailsActionsRow(viewModel: viewModel)
+                .fixedSize(horizontal: IOS_26_MODE_ENABLED, vertical: false)
                 .frame(maxWidth: .infinity)
                 .offset(y: viewModel.isFullscreenPreviewOpen ? 100 : 0)
                 .background(alignment: .bottom) {
@@ -86,7 +89,7 @@ struct ActionsWithBackground: View {
 #if DEBUG
 @available(iOS 18, *)
 #Preview {
-    @Previewable var viewModel = NftDetailsViewModel(accountId: "0-mainnet", nft: .sampleMtwCard, listContext: .none)
+    @Previewable var viewModel = NftDetailsViewModel(accountId: "0-mainnet", nft: .sampleMtwCard, listContext: .none, navigationBarInset: 0)
     @Previewable @Namespace var ns
     ZStack {
         Color.blue.opacity(0.2)

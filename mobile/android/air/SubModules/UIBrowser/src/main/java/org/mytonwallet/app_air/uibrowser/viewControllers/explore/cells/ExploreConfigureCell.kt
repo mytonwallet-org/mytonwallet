@@ -5,9 +5,9 @@ import android.content.Context
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
@@ -19,12 +19,6 @@ class ExploreConfigureCell(
 ) :
     WCell(context, LayoutParams(36.dp, 36.dp)),
     WThemedView {
-
-    private val ripple = WRippleDrawable.create(10f.dp)
-
-    init {
-        background = ripple
-    }
 
     private val imageView = AppCompatImageView(context).apply {
         id = generateViewId()
@@ -56,8 +50,8 @@ class ExploreConfigureCell(
     }
 
     override fun updateTheme() {
-        ripple.backgroundColor = WColor.Background.color
-        ripple.rippleColor = WColor.BackgroundRipple.color
+        setBackgroundColor(WColor.Background.color, 10f.dp)
+        addRippleEffect(WColor.BackgroundRipple.color, 10f.dp)
     }
 
     fun configure() {

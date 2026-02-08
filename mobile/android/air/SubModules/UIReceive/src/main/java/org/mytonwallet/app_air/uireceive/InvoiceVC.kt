@@ -23,9 +23,9 @@ import android.widget.Toast
 import androidx.appcompat.widget.AppCompatEditText
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
+import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListTitleCell
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
-import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.commonViews.TokenAmountInputView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
@@ -67,14 +67,14 @@ class InvoiceVC(context: Context) : WViewController(context) {
     }
 
     private val amountInputView by lazy {
-        TokenAmountInputView(context, isFirstItem = true).apply {
+        TokenAmountInputView(context).apply {
             id = View.generateViewId()
         }
     }
 
-    private val title2 = HeaderCell(context).apply {
+    private val title2 = ListTitleCell(context).apply {
         id = View.generateViewId()
-        configure(LocaleController.getString("Comment"), titleColor = WColor.Tint, topRounding = HeaderCell.TopRounding.NORMAL)
+        text = LocaleController.getString("Comment")
     }
 
     private val commentInputView by lazy {
@@ -93,9 +93,8 @@ class InvoiceVC(context: Context) : WViewController(context) {
         }
     }
 
-    private val title3 = HeaderCell(context).apply {
+    private val title3 = ListTitleCell(context).apply {
         id = View.generateViewId()
-        configure("", titleColor = WColor.Tint, topRounding = HeaderCell.TopRounding.NORMAL)
     }
 
     private val linkLabel by lazy {
@@ -249,6 +248,12 @@ class InvoiceVC(context: Context) : WViewController(context) {
         super.updateTheme()
         view.setBackgroundColor(WColor.SecondaryBackground.color)
         topGapView.setBackgroundColor(WColor.Background.color)
+        title2.setBackgroundColor(
+            WColor.Background.color,
+            ViewConstants.BIG_RADIUS.dp,
+            0f,
+        )
+        title2.setTextColor(WColor.PrimaryText.color)
         commentInputView.setBackgroundColor(
             WColor.Background.color,
             0f,
@@ -256,6 +261,12 @@ class InvoiceVC(context: Context) : WViewController(context) {
         )
         commentInputView.setTextColor(WColor.PrimaryText.color)
         commentInputView.setHintTextColor(WColor.SecondaryText.color)
+        title3.setBackgroundColor(
+            WColor.Background.color,
+            ViewConstants.BIG_RADIUS.dp,
+            0f,
+        )
+        title3.setTextColor(WColor.PrimaryText.color)
         linkLabel.setBackgroundColor(
             WColor.Background.color,
             0f,
@@ -321,10 +332,9 @@ class InvoiceVC(context: Context) : WViewController(context) {
     }
 
     private fun updateLink() {
-        title3.setTitle(
+        title3.text =
             LocaleController.getString("Share this URL to receive %token%")
                 .replace("%token%", token?.name ?: "")
-        )
         val shareLink = AddressHelpers.walletInvoiceUrl(
             AccountStore.activeAccount!!.tonAddress!!,
             commentInputView.text.toString(),

@@ -8,6 +8,7 @@
 import SwiftUI
 import UIComponents
 import WalletCore
+import WalletContext
 import Perception
 
 struct NftDetailsImage: View {

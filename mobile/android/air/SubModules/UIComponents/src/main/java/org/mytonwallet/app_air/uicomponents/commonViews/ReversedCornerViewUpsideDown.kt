@@ -16,7 +16,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 
 @SuppressLint("ViewConstructor")
 class ReversedCornerViewUpsideDown(
@@ -38,7 +38,7 @@ class ReversedCornerViewUpsideDown(
     }
 
     private val blurryBackgroundView =
-        if (WGlobalStorage.isBlurEnabled()) blurRootView?.let {
+        if (DevicePerformanceClassifier.isHighClass) blurRootView?.let {
             WBlurryBackgroundView(context, fadeSide = WBlurryBackgroundView.Side.TOP)
         } else null
 

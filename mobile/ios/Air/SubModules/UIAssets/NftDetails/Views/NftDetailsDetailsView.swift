@@ -3,6 +3,7 @@ import UIComponents
 import WalletContext
 import WalletCore
 import Perception
+import Dependencies
 
 private let tableBorderWidth: CGFloat = 1
 private let tableBorderColor: Color = Color(UIColor(light: "DEDDE0", dark: "2E2D20"))
@@ -28,6 +29,7 @@ let animatedTransition: AnyTransition = .asymmetric(
 struct NftDetailsDetailsView: View {
     
     var viewModel: NftDetailsViewModel
+    @State private var isDebugMenuPresented = false
     
     var nft: ApiNft { viewModel.nft }
     

@@ -108,6 +108,7 @@ export async function initCapacitor() {
 
 export async function processCapacitorLaunchDeeplink() {
   const launchUrl = (await App.getLaunchUrl())?.url;
+
   if (launchUrl) {
     void processDeeplink(launchUrl);
   }

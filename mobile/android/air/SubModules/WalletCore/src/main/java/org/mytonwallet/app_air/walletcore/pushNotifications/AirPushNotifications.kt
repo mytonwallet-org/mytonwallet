@@ -33,7 +33,7 @@ object AirPushNotifications {
                             Logger.LogTag.AIR_APPLICATION,
                             LogMessage.Builder()
                                 .append(
-                                    "register: Failed to fetch FCM token",
+                                    "Fetching FCM registration token failed",
                                     LogMessage.MessagePartPrivacy.PUBLIC
                                 )
                                 .append(

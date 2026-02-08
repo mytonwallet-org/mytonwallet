@@ -123,6 +123,7 @@ class EarnRootVC(context: Context, private val tokenSlug: String = TONCOIN_SLUG)
 
     override fun updateTheme() {
         super.updateTheme()
+        view.setBackgroundColor(WColor.SecondaryBackground.color)
         titleLabel.setTextColor(WColor.PrimaryText.color)
     }
 

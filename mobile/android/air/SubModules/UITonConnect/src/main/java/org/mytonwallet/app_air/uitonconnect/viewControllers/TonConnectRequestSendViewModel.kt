@@ -22,7 +22,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.uicomponents.adapter.BaseListItem
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.Item
-import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
 import org.mytonwallet.app_air.uicomponents.helpers.DappWarningPopupHelpers
@@ -377,7 +376,7 @@ class TonConnectRequestSendViewModel private constructor(
 
                 if (update.emulation?.activities.isNullOrEmpty()) {
                     uiItems.add(
-                        Item.ListText(
+                        Item.ListTitle(
                             title = LocaleController.getString("Preview is currently unavailable."),
                             paddingDp = RectF(16f, 24f, 16f, 24f),
                             Gravity.CENTER,
@@ -397,8 +396,7 @@ class TonConnectRequestSendViewModel private constructor(
                                 Item.ListTitle(
                                     LocaleController.getString(
                                         "Binary Data"
-                                    ),
-                                    topRounding = HeaderCell.TopRounding.NORMAL
+                                    )
                                 ),
                                 Item.CopyableText(
                                     ((update.payloadToSign as MSignDataPayload.SignDataPayloadBinary).bytes),
@@ -417,8 +415,7 @@ class TonConnectRequestSendViewModel private constructor(
                                 Item.ListTitle(
                                     LocaleController.getString(
                                         "Cell Schema"
-                                    ),
-                                    topRounding = HeaderCell.TopRounding.NORMAL
+                                    )
                                 ),
                                 Item.CopyableText(
                                     (update.payloadToSign as MSignDataPayload.SignDataPayloadCell).schema,
@@ -429,8 +426,7 @@ class TonConnectRequestSendViewModel private constructor(
                                 Item.ListTitle(
                                     LocaleController.getString(
                                         "Cell Data"
-                                    ),
-                                    topRounding = HeaderCell.TopRounding.NORMAL
+                                    )
                                 ),
                                 Item.CopyableText(
                                     (update.payloadToSign as MSignDataPayload.SignDataPayloadCell).cell,
@@ -449,8 +445,7 @@ class TonConnectRequestSendViewModel private constructor(
                                 Item.ListTitle(
                                     LocaleController.getString(
                                         "Message"
-                                    ),
-                                    topRounding = HeaderCell.TopRounding.NORMAL
+                                    )
                                 ),
                                 Item.CopyableText(
                                     ((update.payloadToSign as MSignDataPayload.SignDataPayloadText).text),
@@ -717,8 +712,7 @@ class TonConnectRequestSendViewModel private constructor(
             val uiItems = mutableListOf<BaseListItem>()
             uiItems.add(
                 Item.ListTitle(
-                    LocaleController.getPlural(update.transactions.size, "transfer"),
-                    topRounding = HeaderCell.TopRounding.NORMAL
+                    LocaleController.getPlural(update.transactions.size, "transfer")
                 )
             )
 
@@ -804,8 +798,7 @@ class TonConnectRequestSendViewModel private constructor(
                         LocaleController.getFormattedString(
                             "Total Amount",
                             listOf(tokens.currency.currencySymbol)
-                        ),
-                        topRounding = HeaderCell.TopRounding.NORMAL
+                        )
                     ),
                     TonConnectItem.CurrencyAmount(
                         formatCurrencyAmount(
@@ -843,10 +836,7 @@ class TonConnectRequestSendViewModel private constructor(
 
             uiItems.addAll(
                 listOf(
-                    Item.ListTitle(
-                        LocaleController.getString("Receiving Address"),
-                        topRounding = HeaderCell.TopRounding.NORMAL
-                    ),
+                    Item.ListTitle(LocaleController.getString("Receiving Address")),
                     Item.CopyableText(
                         receivingAddress,
                         "Address",
@@ -859,10 +849,7 @@ class TonConnectRequestSendViewModel private constructor(
             if (payload?.payloadIsNft == true) {
                 uiItems.addAll(
                     listOf(
-                        Item.ListTitle(
-                            LocaleController.getString("NFT"),
-                            topRounding = HeaderCell.TopRounding.NORMAL
-                        ),
+                        Item.ListTitle(LocaleController.getString("NFT")),
                         Item.IconDualLine(
                             title = transaction.payload?.payloadNft?.name,
                             subtitle = DappFeeHelpers.Companion.calculateDappTransferFee(
@@ -881,10 +868,7 @@ class TonConnectRequestSendViewModel private constructor(
             } else {
                 uiItems.addAll(
                     listOfNotNull(
-                        Item.ListTitle(
-                            LocaleController.getString("Amount"),
-                            topRounding = HeaderCell.TopRounding.NORMAL
-                        ),
+                        Item.ListTitle(LocaleController.getString("Amount")),
                         Item.IconDualLine(
                             title = formatTransactionAmountString(
                                 transaction,
@@ -904,10 +888,7 @@ class TonConnectRequestSendViewModel private constructor(
                 if (isDetailView) {
                     uiItems.addAll(
                         listOf(
-                            Item.ListTitle(
-                                LocaleController.getString("Fee"),
-                                topRounding = HeaderCell.TopRounding.NORMAL
-                            ),
+                            Item.ListTitle(LocaleController.getString("Fee")),
                             Item.IconDualLine(
                                 title = nativeToken?.let {
                                     CoinUtils.setSpanToSymbolPart(
@@ -958,10 +939,7 @@ class TonConnectRequestSendViewModel private constructor(
                 uiItems.addAll(
                     listOf(
                         Item.Gap,
-                        Item.ListTitle(
-                            LocaleController.getString("Comment"),
-                            topRounding = HeaderCell.TopRounding.NORMAL
-                        ),
+                        Item.ListTitle(LocaleController.getString("Comment")),
                         Item.CopyableText(
                             text,
                             "Comment",
@@ -976,10 +954,7 @@ class TonConnectRequestSendViewModel private constructor(
                     uiItems.addAll(
                         listOf(
                             Item.Gap,
-                            Item.ListTitle(
-                                LocaleController.getString("Payload"),
-                                topRounding = HeaderCell.TopRounding.NORMAL
-                            ),
+                            Item.ListTitle(LocaleController.getString("Payload")),
                             Item.ExpandableText(base64),
                         )
                     )

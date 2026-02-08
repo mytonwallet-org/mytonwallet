@@ -16,7 +16,6 @@ import org.mytonwallet.app_air.uisettings.R
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -90,7 +89,6 @@ class AppearanceAppThemeItemView(
         }
 
         setOnClickListener {
-            Logger.d(Logger.LogTag.SETTINGS, "themeChanged: theme=$identifier")
             WGlobalStorage.setActiveTheme(identifier)
             WalletContextManager.delegate?.themeChanged()
         }

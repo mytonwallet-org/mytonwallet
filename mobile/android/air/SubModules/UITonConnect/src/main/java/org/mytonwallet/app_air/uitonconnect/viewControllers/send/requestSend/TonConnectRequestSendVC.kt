@@ -433,8 +433,8 @@ class TonConnectRequestSendVC(
 
     private val ledgerSignDataObject: LedgerConnectVC.SignData
         get() {
+            val accountId = displayedAccount?.accountId ?: throw Exception()
             val updateValue = update ?: throw Exception("Update is null")
-            val accountId = updateValue.accountId
             return when (updateValue) {
                 is ApiUpdate.ApiUpdateDappSendTransactions -> {
                     LedgerConnectVC.SignData.SignDappTransfers(accountId, updateValue)

@@ -25,7 +25,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
-import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
+import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
@@ -273,13 +273,9 @@ class SearchVC(context: Context) : WViewController(context),
                 HeaderCell(context).apply {
                     titleLabel.setStyle(14f, WFont.DemiBold)
                     val clearAllButton = object : WLabel(context) {
-                        private val ripple = WRippleDrawable.create(20f.dp)
-                        init {
-                            background = ripple
-                        }
                         override fun updateTheme() {
                             super.updateTheme()
-                            ripple.rippleColor = WColor.TintRipple.color
+                            addRippleEffect(WColor.TintRipple.color, 20f.dp)
                         }
                     }.apply {
                         text = LocaleController.getString("Clear All")

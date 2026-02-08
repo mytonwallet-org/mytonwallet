@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useRef, useState } from '../../lib/teact/teact';
+import React, { memo, useEffect, useState } from '../../lib/teact/teact';
 
 import { PRIVATE_KEY_HEX_LENGTH } from '../../config';
 import { requestMeasure } from '../../lib/fasterdom/fasterdom';
@@ -9,7 +9,6 @@ import { callApi } from '../../api';
 import useFlag from '../../hooks/useFlag';
 import useKeyboardListNavigation from '../../hooks/useKeyboardListNavigation';
 import useLastCallback from '../../hooks/useLastCallback';
-import useSuggestionsPosition from '../ui/hooks/useSuggestionsPosition';
 
 import SuggestionList, { SUGGESTION_ITEM_CLASS_NAME } from '../ui/SuggestionList';
 
@@ -21,18 +20,18 @@ type OwnProps = {
   labelText?: string;
   className?: string;
   value?: string;
+  isInModal?: boolean;
+  suggestionsPosition?: 'top' | 'bottom';
   inputArg?: any;
   onInput: (value: string, inputArg?: any) => void;
   onEnter?: NoneToVoidFunction;
 };
 
-const SUGGESTION_WORDS_COUNT = 5;
+const SUGGESTION_WORDS_COUNT = 7;
 
 function InputMnemonic({
-  id, nextId, labelText, className, value = '', inputArg, onInput, onEnter,
+  id, nextId, labelText, className, value = '', isInModal, suggestionsPosition, inputArg, onInput, onEnter,
 }: OwnProps) {
-  const wrapperRef = useRef<HTMLDivElement>();
-
   const [hasFocus, markFocus, unmarkFocus] = useFlag();
   const [hasError, setHasError] = useState<boolean>(false);
   const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
@@ -72,13 +71,6 @@ function InputMnemonic({
     shouldRenderSuggestions,
     handleSelectWithEnter,
     `.${SUGGESTION_ITEM_CLASS_NAME}`,
-  );
-
-  const { position: suggestionsPosition, isPositionReady } = useSuggestionsPosition(
-    wrapperRef,
-    suggestionsRef,
-    filteredSuggestions.length,
-    shouldRenderSuggestions,
   );
 
   useEffect(() => {
@@ -177,14 +169,12 @@ function InputMnemonic({
   };
 
   return (
-    <div
-      ref={wrapperRef}
-      className={buildClassName(
-        styles.wrapper,
-        className,
-        hasFocus && styles.wrapper_focus,
-        hasError && styles.wrapper_error,
-      )}
+    <div className={buildClassName(
+      styles.wrapper,
+      className,
+      hasFocus && styles.wrapper_focus,
+      hasError && styles.wrapper_error,
+    )}
     >
       {shouldRenderSuggestions && (
         <SuggestionList
@@ -192,7 +182,7 @@ function InputMnemonic({
           suggestions={filteredSuggestions}
           activeIndex={activeIndex}
           position={suggestionsPosition}
-          isHidden={!isPositionReady}
+          isInModal={isInModal}
           onSelect={handleClick}
         />
       )}

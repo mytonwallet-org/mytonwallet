@@ -14,7 +14,6 @@ import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONS
 import androidx.core.view.doOnLayout
 import com.google.android.material.progressindicator.CircularProgressIndicator
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonCell.Companion.SUBTITLE_SKELETON_RADIUS
-import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.spans.ExtraHitLinkMovementMethod
@@ -40,8 +39,6 @@ class KeyValueRowView(
     val mode: Mode,
     private var isLast: Boolean,
 ) : WView(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)), WThemedView {
-
-    private val ripple = WRippleDrawable.create(0f)
 
     enum class Mode {
         PRIMARY,
@@ -115,7 +112,6 @@ class KeyValueRowView(
         }
 
     init {
-        background = ripple
         // workaround instead of minimumHeight property to manage cases inside another ConstraintLayout
         addView(minHeightSpace, LayoutParams(WRAP_CONTENT, 50.dp))
         addView(keyLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
@@ -155,7 +151,7 @@ class KeyValueRowView(
                 }
             }
         )
-        ripple.rippleColor = WColor.SecondaryBackground.color
+        addRippleEffect(WColor.SecondaryBackground.color)
         valueLabel.contentView.setTextColor(WColor.PrimaryText.color)
         progressIndicator?.setIndicatorColor(WColor.SecondaryText.color)
         skeletonIndicator?.setBackgroundColor(

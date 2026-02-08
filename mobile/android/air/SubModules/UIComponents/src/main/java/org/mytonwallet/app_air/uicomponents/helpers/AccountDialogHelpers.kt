@@ -191,7 +191,7 @@ class AccountDialogHelpers {
                     view.unlockView()
                     vc.showError(err)
                 }
-                Logger.d(Logger.LogTag.ACCOUNT, "removeAllWallets: Resetting accounts")
+                Logger.d(Logger.LogTag.ACCOUNT, "Reset accounts from settings")
                 WGlobalStorage.deleteAllWallets()
                 WSecureStorage.deleteAllWalletValues()
                 WalletContextManager.delegate?.restartApp()

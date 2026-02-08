@@ -3,11 +3,7 @@ package org.mytonwallet.app_air.uicomponents.commonViews.cells
 import android.annotation.SuppressLint
 import android.content.Context
 import android.text.TextUtils
-import android.view.ViewGroup
-import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import org.mytonwallet.app_air.uicomponents.adapter.BaseListHolder
-import org.mytonwallet.app_air.uicomponents.adapter.implementation.Item
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -21,7 +17,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 @SuppressLint("ViewConstructor")
 class HeaderCell(
     context: Context,
-    private val startMargin: Float = 20f,
+    startMargin: Float = 20f,
 ) : WCell(context), WThemedView {
 
     enum class TopRounding {
@@ -57,9 +53,7 @@ class HeaderCell(
         }
     }
 
-    override fun setupViews() {
-        super.setupViews()
-
+    init {
         layoutParams.apply {
             height = 40.dp
         }
@@ -101,29 +95,5 @@ class HeaderCell(
     fun setTitleColor(color: Int) {
         titleLabel.setTextColor(color = null)
         titleLabel.setTextColor(color)
-    }
-
-    fun setTitle(title: CharSequence) {
-        titleLabel.text = title
-    }
-
-    // Used in recycler-views not using custom rvAdapter
-    class Holder(context: Context) :
-        BaseListHolder<Item.ListTitle>(
-            HeaderCell(context).apply {
-                layoutParams = ViewGroup.LayoutParams(
-                    MATCH_PARENT,
-                    WRAP_CONTENT
-                )
-            }) {
-        private val view: HeaderCell = itemView as HeaderCell
-        override fun onBind(item: Item.ListTitle) {
-            view.configure(
-                item.title, item.titleColor, item.topRounding,
-            )
-            view.setConstraints {
-                toCenterX(view.titleLabel, item.startMargin)
-            }
-        }
     }
 }

@@ -15,7 +15,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 
-class ListTextCell(context: Context) : AppCompatTextView(context), WThemedView {
+class ListTitleCell(context: Context) : AppCompatTextView(context), WThemedView {
     init {
         layoutParams = ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -41,9 +41,9 @@ class ListTextCell(context: Context) : AppCompatTextView(context), WThemedView {
     }
 
     class Holder(parent: ViewGroup) :
-        BaseListHolder<Item.ListText>(ListTextCell(parent.context)) {
-        private val view = itemView as ListTextCell
-        override fun onBind(item: Item.ListText) {
+        BaseListHolder<Item.ListTitle>(ListTitleCell(parent.context)) {
+        private val view = itemView as ListTitleCell
+        override fun onBind(item: Item.ListTitle) {
             view.text = item.title
             val paddingDp = item.paddingDp
             view.setPaddingDp(paddingDp.left, paddingDp.top, paddingDp.right, paddingDp.bottom)

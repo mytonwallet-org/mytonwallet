@@ -202,11 +202,10 @@ class WalletCardView(
     }
     private lateinit var balanceViewMaskWrapper: WGradientMaskView
     private val arrowDownDrawable = ContextCompat.getDrawable(
-        context, R.drawable.ic_arrows_14
+        context, R.drawable.ic_arrow_bottom_rounded
     )
     private var arrowImageView = AppCompatImageView(context).apply {
         setImageDrawable(arrowDownDrawable)
-        alpha = 0.5f
     }
     private val balanceViewContainer: WSensitiveDataContainer<AutoScaleContainerView> by lazy {
         val linearLayout = LinearLayout(context).apply {
@@ -218,9 +217,9 @@ class WalletCardView(
         }
         balanceViewMaskWrapper = WGradientMaskView(balanceView)
         linearLayout.addView(balanceViewMaskWrapper, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
-        linearLayout.addView(arrowImageView, LayoutParams(18.dp, 24.dp).apply {
+        linearLayout.addView(arrowImageView, LayoutParams(18.dp, 18.dp).apply {
             leftMargin = 2.dp
-            topMargin = 3.dp
+            topMargin = 5.dp
             rightMargin = 2.dp
         })
         linearLayout.setOnClickListener {

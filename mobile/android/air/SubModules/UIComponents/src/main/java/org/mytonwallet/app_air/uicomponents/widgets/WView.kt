@@ -670,7 +670,6 @@ fun updateThemeForChildren(parentView: ViewGroup, onlyTintedViews: Boolean) {
         }
         if (child is WSegmentedController) {
             child.items.forEach {
-                it.viewController.updateTheme()
                 updateThemeForChildren(it.viewController.view, onlyTintedViews)
             }
         }

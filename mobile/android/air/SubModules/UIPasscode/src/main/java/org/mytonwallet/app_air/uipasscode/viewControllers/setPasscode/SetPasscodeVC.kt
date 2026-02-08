@@ -17,7 +17,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.shakeView
 import org.mytonwallet.app_air.uipasscode.commonViews.PasscodeInputView
 import org.mytonwallet.app_air.uipasscode.viewControllers.activateBiometric.ActivateBiometricVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
@@ -191,10 +190,8 @@ class SetPasscodeVC(
         } else {
             if (passcode == confirmingPasscode) {
                 confirmedPasscode = true
-                Logger.d(Logger.LogTag.PASSCODE_CONFIRM, "didEnterPasscode: Passcode confirmed successfully")
                 passcodeInputView.showIndicator(true)
                 fun finalize(isBiometricsActivated: Boolean) {
-                    Logger.d(Logger.LogTag.PASSCODE_CONFIRM, "finalize: isBiometricsActivated=$isBiometricsActivated")
                     view.lockView()
                     view.hideKeyboard()
                     onCompletion(confirmingPasscode, isBiometricsActivated)
